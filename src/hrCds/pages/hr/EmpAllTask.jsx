@@ -13,7 +13,8 @@ import {
   FiAlertTriangle, FiActivity, FiTrendingDown, FiTrendingUp as FiTrendUp,
   FiChevronDown, FiChevronUp, FiStar, FiAward, FiBarChart,
   FiEdit3, FiExternalLink, FiMoreVertical, FiShare2, FiInfo, FiHash,
-  FiPlay, FiPause, FiStopCircle, FiUserCheck, FiUserX, FiClock as FiTime
+  FiPlay, FiPause, FiStopCircle, FiUserCheck, FiUserX, FiClock as FiTime,
+  FiPaperclip, FiMic, FiFileText
 } from "react-icons/fi";
 
 // Status Options
@@ -30,12 +31,49 @@ const STATUS_OPTIONS = [
   { value: 'cancelled', label: 'Cancelled', color: '#6c757d', icon: FiX, bgColor: '#f8f9fa' },
 ];
 
+// API URL from config
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+
+// Helper function to get correct image URL
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return '';
+
+  console.log('🔍 Original image path:', imagePath);
+
+  // अगर already full URL है
+  if (imagePath.startsWith('http')) {
+    return imagePath;
+  }
+
+  const baseUrl = API_URL || 'http://localhost:3000';
+  const baseUrlWithoutApi = baseUrl.replace(/\/api$/, ''); // Remove /api if present
+
+  // Clean the path - replace backslashes and remove leading slashes
+  let cleanPath = imagePath.replace(/\\/g, '/').replace(/^\/+/, '');
+  
+  // Check if the path already has the correct structure
+  if (cleanPath.startsWith('uploads/')) {
+    // Path already has uploads/ prefix
+    return `${baseUrlWithoutApi}/${cleanPath}`;
+  }
+  
+  if (cleanPath.startsWith('remarks/')) {
+    // Path starts with remarks/ - need to add uploads/
+    return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
+  }
+  
+  // If it's just a filename, assume it's in uploads/remarks/
+  const filename = cleanPath.split('/').pop();
+  return `${baseUrlWithoutApi}/uploads/remarks/${filename}`;
+};
+
 const TaskDetails = () => {
   // Refs to prevent multiple API calls
   const isMounted = useRef(true);
   const hasFetchedUsers = useRef(false);
   const fetchUsersTimeoutRef = useRef(null);
   const fetchingTasksForUser = useRef(null);
+  const snackbarTimerRef = useRef(null);
 
   // State declarations
   const [users, setUsers] = useState([]);
@@ -45,10 +83,10 @@ const TaskDetails = () => {
   const [loading, setLoading] = useState(false);
   const [usersLoading, setUsersLoading] = useState(false);
   const [error, setError] = useState("");
-  
+
   // Department mapping state
   const [departmentMap, setDepartmentMap] = useState({});
-  
+
   // Activity Log states
   const [activityLogs, setActivityLogs] = useState([]);
   const [allTaskLogs, setAllTaskLogs] = useState({});
@@ -56,11 +94,16 @@ const TaskDetails = () => {
   const [showActivityLog, setShowActivityLog] = useState(false);
   const [selectedTaskForActivity, setSelectedTaskForActivity] = useState(null);
 
+  // Remarks states - UPDATED: Only for viewing, no adding
+  const [remarksDialog, setRemarksDialog] = useState({ open: false, taskId: null, remarks: [] });
+  const [zoomImage, setZoomImage] = useState(null);
+  const [loadingRemarks, setLoadingRemarks] = useState(false);
+
   // Time Tracking states
   const [taskTimeTracking, setTaskTimeTracking] = useState({});
-  const [todayTotalTime, setTodayTotalTime] = useState({ 
-    totalSeconds: 0, 
-    displayText: '0s' 
+  const [todayTotalTime, setTodayTotalTime] = useState({
+    totalSeconds: 0,
+    displayText: '0s'
   });
 
   // User states
@@ -77,21 +120,42 @@ const TaskDetails = () => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   const today = new Date();
 
   // ==================== CLEANUP ON UNMOUNT ====================
   useEffect(() => {
     isMounted.current = true;
-    
+
     // Cleanup function
     return () => {
       isMounted.current = false;
       if (fetchUsersTimeoutRef.current) {
         clearTimeout(fetchUsersTimeoutRef.current);
       }
+      if (snackbarTimerRef.current) {
+        clearTimeout(snackbarTimerRef.current);
+      }
     };
   }, []);
+
+  // ==================== SNACKBAR UTILITY ====================
+  const showSnackbar = (message, severity = 'info') => {
+    if (snackbarTimerRef.current) {
+      clearTimeout(snackbarTimerRef.current);
+    }
+
+    setSnackbar({
+      open: true,
+      message,
+      severity
+    });
+
+    snackbarTimerRef.current = setTimeout(() => {
+      setSnackbar(prev => ({ ...prev, open: false }));
+    }, 3000);
+  };
 
   // ==================== HELPER FUNCTIONS ====================
 
@@ -109,23 +173,23 @@ const TaskDetails = () => {
 
   const getDepartmentName = (department) => {
     if (!department) return 'N/A';
-    
+
     // If department is an object with name property
     if (typeof department === 'object') {
       return department.name || department.departmentName || department._id || 'N/A';
     }
-    
+
     // If department is a string (ID), try to get from departmentMap
     if (typeof department === 'string') {
       // Check if we have this department in our map
       if (departmentMap[department]) {
         return departmentMap[department];
       }
-      
+
       // Return a formatted version of the ID as fallback
       return `Dept-${department.substring(0, 6)}`;
     }
-    
+
     return String(department);
   };
 
@@ -143,7 +207,7 @@ const TaskDetails = () => {
       };
 
       const response = await axios.get('/departments', config);
-      
+
       if (response.data && response.data.departments) {
         const map = {};
         response.data.departments.forEach(dept => {
@@ -171,9 +235,12 @@ const TaskDetails = () => {
     const now = new Date();
     const start = new Date(now);
     start.setDate(now.getDate() - now.getDay());
+    start.setHours(0, 0, 0, 0);
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
-    return new Date(date) >= start && new Date(date) <= end;
+    end.setHours(23, 59, 59, 999);
+    const checkDate = new Date(date);
+    return checkDate >= start && checkDate <= end;
   };
 
   // ==================== TIME TRACKING FUNCTIONS ====================
@@ -193,15 +260,15 @@ const TaskDetails = () => {
   };
 
   const calculateTaskActiveTime = useCallback((logs) => {
-    if (!logs || logs.length === 0) return { 
-      totalSeconds: 0, 
+    if (!logs || logs.length === 0) return {
+      totalSeconds: 0,
       displayText: '0s',
       currentStatus: 'pending',
-      statusHistory: [] 
+      statusHistory: []
     };
 
     const sortedLogs = [...logs].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-    
+
     let totalActiveSeconds = 0;
     let lastStartTime = null;
     let currentStatus = 'pending';
@@ -209,10 +276,10 @@ const TaskDetails = () => {
 
     sortedLogs.forEach((log) => {
       const logTime = new Date(log.createdAt);
-      
+
       if (log.action === 'status_updated') {
         let newStatus = null;
-        
+
         if (log.newValues?.status) {
           newStatus = log.newValues.status;
         } else if (log.description) {
@@ -232,7 +299,7 @@ const TaskDetails = () => {
 
           if (newStatus === 'in-progress' && currentStatus !== 'in-progress') {
             lastStartTime = logTime;
-          } 
+          }
           else if (currentStatus === 'in-progress' && (newStatus === 'onhold' || newStatus === 'completed' || newStatus === 'pending')) {
             if (lastStartTime) {
               const activeSeconds = Math.floor((logTime - lastStartTime) / 1000);
@@ -240,7 +307,7 @@ const TaskDetails = () => {
               lastStartTime = null;
             }
           }
-          
+
           currentStatus = newStatus;
         }
       }
@@ -263,14 +330,14 @@ const TaskDetails = () => {
   const calculateTodayTotalTime = useCallback((tasksList, logsMap) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     let totalTodaySeconds = 0;
     let todayTasksCount = 0;
-    
+
     tasksList.forEach(task => {
       const taskDate = new Date(task.createdAt);
       taskDate.setHours(0, 0, 0, 0);
-      
+
       if (taskDate.getTime() === today.getTime()) {
         todayTasksCount++;
         const taskLogs = logsMap[task._id] || [];
@@ -288,10 +355,10 @@ const TaskDetails = () => {
 
   const fetchAllTaskLogs = useCallback(async (tasksList) => {
     if (!tasksList || tasksList.length === 0) return;
-    
+
     const logsMap = { ...allTaskLogs };
     const tasksNeedingLogs = tasksList.filter(task => !logsMap[task._id]);
-    
+
     if (tasksNeedingLogs.length === 0) return;
 
     for (const task of tasksNeedingLogs) {
@@ -307,15 +374,15 @@ const TaskDetails = () => {
         }
       }
     }
-    
+
     if (isMounted.current) {
       setAllTaskLogs(prevLogs => {
         const newLogs = { ...prevLogs, ...logsMap };
-        
+
         // Update today's total time
         const todayTotal = calculateTodayTotalTime(tasksList, newLogs);
         setTodayTotalTime(todayTotal);
-        
+
         return newLogs;
       });
     }
@@ -334,6 +401,20 @@ const TaskDetails = () => {
     onhold: 0,
     reopen: 0,
     cancelled: 0
+  });
+
+  // UPDATED: Add state for filtered stats
+  const [filteredTaskStats, setFilteredTaskStats] = useState({
+    total: 0,
+    pending: { count: 0, percentage: 0 },
+    inProgress: { count: 0, percentage: 0 },
+    completed: { count: 0, percentage: 0 },
+    approved: { count: 0, percentage: 0 },
+    rejected: { count: 0, percentage: 0 },
+    overdue: { count: 0, percentage: 0 },
+    onhold: { count: 0, percentage: 0 },
+    reopen: { count: 0, percentage: 0 },
+    cancelled: { count: 0, percentage: 0 }
   });
 
   const [userTaskStats, setUserTaskStats] = useState({
@@ -431,14 +512,14 @@ const TaskDetails = () => {
 
         const user = JSON.parse(userStr);
         console.log("👤 Current user data:", user);
-        
+
         let foundUser = null;
         let userRole = 'user';
         let companyRole = 'employee';
         let userName = '';
         let userCompany = null;
         let userDepartment = null;
-        
+
         if (user.id && typeof user.id === 'string') {
           foundUser = user;
           userRole = user.role || 'user';
@@ -463,7 +544,7 @@ const TaskDetails = () => {
           userCompany = user.company || null;
           userDepartment = user.department || null;
         }
-        
+
         if (!userName && user.email) {
           userName = user.email.split('@')[0];
         }
@@ -481,7 +562,7 @@ const TaskDetails = () => {
           company: userCompany,
           department: userDepartment
         });
-        
+
       } catch (error) {
         console.error("Error parsing user data:", error);
         setError("Error loading user data");
@@ -505,7 +586,7 @@ const TaskDetails = () => {
 
       setUsersLoading(true);
       setError("");
-      
+
       try {
         console.log("📤 Fetching users with role-based access...");
 
@@ -528,7 +609,7 @@ const TaskDetails = () => {
 
         if (currentUser) {
           let apiUrl = '';
-          
+
           if (isOwner()) {
             const companyId = currentUser?.company?._id || currentUser?.company;
             if (companyId) {
@@ -723,12 +804,14 @@ const TaskDetails = () => {
     });
   }, [overallStats]);
 
+  // FIXED: Improved filteredTasks with better date handling
   const filteredTasks = useMemo(() => {
     if (!Array.isArray(tasks)) return [];
 
     let filtered = [...tasks];
     const now = new Date();
 
+    // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(task =>
@@ -738,6 +821,7 @@ const TaskDetails = () => {
       );
     }
 
+    // Status filter
     if (!activeStatusFilters.includes("all")) {
       filtered = filtered.filter(task => {
         const status = task.userStatus || task.status || task.overallStatus;
@@ -745,52 +829,66 @@ const TaskDetails = () => {
       });
     }
 
+    // Date filter - FIXED
     filtered = filtered.filter(task => {
-      const rawDate = task.dueDateTime || task.createdAt;
-      if (!rawDate) return false;
+      const taskDate = task.dueDateTime || task.createdAt;
+      if (!taskDate) return true;
 
-      const taskTime = new Date(rawDate).setHours(0, 0, 0, 0);
+      const taskDateTime = new Date(taskDate).getTime();
 
+      // Custom date range
       if (fromDate || toDate) {
-        const fromTime = fromDate
-          ? new Date(fromDate).setHours(0, 0, 0, 0)
-          : null;
+        const fromDateTime = fromDate ? new Date(fromDate).setHours(0, 0, 0, 0) : null;
+        const toDateTime = toDate ? new Date(toDate).setHours(23, 59, 59, 999) : null;
 
-        const toTime = toDate
-          ? new Date(toDate).setHours(23, 59, 59, 999)
-          : null;
-
-        if (fromTime && taskTime < fromTime) return false;
-        if (toTime && taskTime > toTime) return false;
-
+        if (fromDateTime && taskDateTime < fromDateTime) return false;
+        if (toDateTime && taskDateTime > toDateTime) return false;
         return true;
       }
 
-      if (dateFilter === "today") {
-        return isSameDay(rawDate, now);
+      // Predefined date filters
+      switch (dateFilter) {
+        case "today": {
+          const todayStart = new Date(now);
+          todayStart.setHours(0, 0, 0, 0);
+          const todayEnd = new Date(now);
+          todayEnd.setHours(23, 59, 59, 999);
+          return taskDateTime >= todayStart.getTime() && taskDateTime <= todayEnd.getTime();
+        }
+        case "tomorrow": {
+          const tomorrow = new Date(now);
+          tomorrow.setDate(now.getDate() + 1);
+          tomorrow.setHours(0, 0, 0, 0);
+          const tomorrowEnd = new Date(tomorrow);
+          tomorrowEnd.setHours(23, 59, 59, 999);
+          return taskDateTime >= tomorrow.getTime() && taskDateTime <= tomorrowEnd.getTime();
+        }
+        case "week": {
+          const startOfWeek = new Date(now);
+          startOfWeek.setDate(now.getDate() - now.getDay());
+          startOfWeek.setHours(0, 0, 0, 0);
+          const endOfWeek = new Date(startOfWeek);
+          endOfWeek.setDate(startOfWeek.getDate() + 6);
+          endOfWeek.setHours(23, 59, 59, 999);
+          return taskDateTime >= startOfWeek.getTime() && taskDateTime <= endOfWeek.getTime();
+        }
+        case "overdue": {
+          const nowTime = now.getTime();
+          return taskDateTime < nowTime &&
+            (task.userStatus || task.status || task.overallStatus) !== 'completed' &&
+            (task.userStatus || task.status || task.overallStatus) !== 'approved';
+        }
+        default:
+          return true;
       }
-
-      if (dateFilter === "tomorrow") {
-        const tomorrow = new Date(now);
-        tomorrow.setDate(now.getDate() + 1);
-        return isSameDay(rawDate, tomorrow);
-      }
-
-      if (dateFilter === "week") {
-        return isThisWeek(rawDate);
-      }
-
-      if (dateFilter === "overdue") {
-        return new Date(rawDate) < now;
-      }
-
-      return true;
     });
 
+    // Priority filter
     if (priorityFilter !== "all") {
       filtered = filtered.filter(task => task.priority === priorityFilter);
     }
 
+    // Sort tasks
     filtered.sort((a, b) => {
       const aDate = a.dueDateTime || a.createdAt;
       const bDate = b.dueDateTime || b.createdAt;
@@ -815,6 +913,94 @@ const TaskDetails = () => {
     priorityFilter
   ]);
 
+  // UPDATED: Calculate stats based on filtered tasks
+  useEffect(() => {
+    if (!filteredTasks || filteredTasks.length === 0) {
+      setFilteredTaskStats({
+        total: 0,
+        pending: { count: 0, percentage: 0 },
+        inProgress: { count: 0, percentage: 0 },
+        completed: { count: 0, percentage: 0 },
+        approved: { count: 0, percentage: 0 },
+        rejected: { count: 0, percentage: 0 },
+        overdue: { count: 0, percentage: 0 },
+        onhold: { count: 0, percentage: 0 },
+        reopen: { count: 0, percentage: 0 },
+        cancelled: { count: 0, percentage: 0 }
+      });
+      return;
+    }
+
+    const now = new Date();
+    const statusCounts = {
+      pending: 0,
+      'in-progress': 0,
+      completed: 0,
+      approved: 0,
+      rejected: 0,
+      overdue: 0,
+      onhold: 0,
+      reopen: 0,
+      cancelled: 0
+    };
+
+    filteredTasks.forEach(task => {
+      let status = task.userStatus || task.status || task.overallStatus;
+
+      // Check for overdue
+      const dueDate = task.dueDateTime;
+      if (dueDate && new Date(dueDate) < now &&
+        status !== 'completed' && status !== 'approved' && status !== 'cancelled') {
+        status = 'overdue';
+      }
+
+      if (status && statusCounts[status] !== undefined) {
+        statusCounts[status]++;
+      }
+    });
+
+    const total = filteredTasks.length;
+    setFilteredTaskStats({
+      total,
+      pending: {
+        count: statusCounts.pending,
+        percentage: total > 0 ? Math.round((statusCounts.pending / total) * 100) : 0
+      },
+      inProgress: {
+        count: statusCounts['in-progress'],
+        percentage: total > 0 ? Math.round((statusCounts['in-progress'] / total) * 100) : 0
+      },
+      completed: {
+        count: statusCounts.completed,
+        percentage: total > 0 ? Math.round((statusCounts.completed / total) * 100) : 0
+      },
+      approved: {
+        count: statusCounts.approved,
+        percentage: total > 0 ? Math.round((statusCounts.approved / total) * 100) : 0
+      },
+      rejected: {
+        count: statusCounts.rejected,
+        percentage: total > 0 ? Math.round((statusCounts.rejected / total) * 100) : 0
+      },
+      overdue: {
+        count: statusCounts.overdue,
+        percentage: total > 0 ? Math.round((statusCounts.overdue / total) * 100) : 0
+      },
+      onhold: {
+        count: statusCounts.onhold,
+        percentage: total > 0 ? Math.round((statusCounts.onhold / total) * 100) : 0
+      },
+      reopen: {
+        count: statusCounts.reopen,
+        percentage: total > 0 ? Math.round((statusCounts.reopen / total) * 100) : 0
+      },
+      cancelled: {
+        count: statusCounts.cancelled,
+        percentage: total > 0 ? Math.round((statusCounts.cancelled / total) * 100) : 0
+      }
+    });
+  }, [filteredTasks]);
+
   useEffect(() => {
     if (fromDate || toDate) setDateFilter("all");
   }, [fromDate, toDate]);
@@ -827,7 +1013,7 @@ const TaskDetails = () => {
         console.error("❌ No userId provided to fetchTaskStatusCounts");
         return;
       }
-      
+
       const response = await axios.get(`/task/user/${userId}/stats`);
 
       if (response.data.success && response.data.statusCounts && isMounted.current) {
@@ -854,6 +1040,7 @@ const TaskDetails = () => {
     }
   }, []);
 
+  // FIXED: calculateStatsFromTasks to include overdue
   const calculateStatsFromTasks = useCallback(() => {
     if (!tasks || tasks.length === 0) {
       setUserTaskStats({
@@ -871,6 +1058,7 @@ const TaskDetails = () => {
       return;
     }
 
+    const now = new Date();
     const statusCounts = {
       pending: 0,
       'in-progress': 0,
@@ -884,7 +1072,15 @@ const TaskDetails = () => {
     };
 
     tasks.forEach(task => {
-      const status = task.userStatus || task.status || task.overallStatus;
+      let status = task.userStatus || task.status || task.overallStatus;
+
+      // Check for overdue
+      const dueDate = task.dueDateTime;
+      if (dueDate && new Date(dueDate) < now &&
+        status !== 'completed' && status !== 'approved' && status !== 'cancelled') {
+        status = 'overdue';
+      }
+
       if (status && statusCounts[status] !== undefined) {
         statusCounts[status]++;
       }
@@ -949,6 +1145,7 @@ const TaskDetails = () => {
     });
   };
 
+  // UPDATED: fetchUserTasks function with improved loading
   const fetchUserTasks = useCallback(async (userId) => {
     // Prevent fetching if already loading or same user
     if (loading || fetchingTasksForUser.current === userId) {
@@ -961,23 +1158,27 @@ const TaskDetails = () => {
     }
 
     fetchingTasksForUser.current = userId;
-    setLoading(true);
+
+    // Find and set the user first
+    const user = users.find((x) => x._id === userId || x.id === userId);
+    if (!user) {
+      setError("User not found");
+      setLoading(false);
+      fetchingTasksForUser.current = null;
+      return;
+    }
+
+    if (isMounted.current) {
+      setSelectedUser(user);
+      setSelectedUserId(userId);
+      setOpenDialog(true); // Open modal immediately
+      setTasks([]); // Clear previous tasks
+    }
+
+    setLoading(true); // Set loading after modal opens
     setError("");
-    
+
     try {
-      const user = users.find((x) => x._id === userId || x.id === userId);
-      if (!user) {
-        setError("User not found");
-        setLoading(false);
-        fetchingTasksForUser.current = null;
-        return;
-      }
-
-      if (isMounted.current) {
-        setSelectedUser(user);
-        setSelectedUserId(userId);
-      }
-
       const params = new URLSearchParams();
       if (searchQuery) {
         params.append('search', searchQuery);
@@ -985,19 +1186,18 @@ const TaskDetails = () => {
 
       const queryString = params.toString();
       const url = `/task/user/${userId}/tasks${queryString ? `?${queryString}` : ''}`;
-      
+
       console.log("📤 Fetching tasks for user:", userId);
-      
+
       const res = await axios.get(url);
 
       if (res.data.success && isMounted.current) {
         const tasksData = res.data.tasks || [];
         setTasks(tasksData);
-        
+
         // Fetch logs for all tasks
         await fetchAllTaskLogs(tasksData);
         await fetchTaskStatusCounts(userId);
-        setOpenDialog(true);
       } else {
         setError(res.data.message || "Failed to fetch user tasks");
       }
@@ -1022,15 +1222,15 @@ const TaskDetails = () => {
 
   const fetchActivityLogs = async (taskId) => {
     if (!taskId) return;
-    
+
     setLoadingActivity(true);
     try {
       console.log("📤 Fetching activity logs for task:", taskId);
       const response = await axios.get(`/task/${taskId}/activity-logs`);
-      
+
       if (response.data.success && isMounted.current) {
         setActivityLogs(response.data.logs || []);
-        
+
         setAllTaskLogs(prev => ({
           ...prev,
           [taskId]: response.data.logs || []
@@ -1048,6 +1248,48 @@ const TaskDetails = () => {
     }
   };
 
+  // ==================== REMARKS FUNCTIONS - UPDATED (Only View) ====================
+  const fetchTaskRemarks = async (taskId) => {
+    if (!taskId) return;
+
+    setLoadingRemarks(true);
+    try {
+      console.log("📤 Fetching remarks for task:", taskId);
+      const res = await axios.get(`/task/${taskId}/remarks`);
+      console.log('📥 Remarks data:', res.data);
+      
+      // Check image paths
+      if (res.data.remarks) {
+        res.data.remarks.forEach((remark, index) => {
+          if (remark.image) {
+            console.log(`📸 Remark ${index} image path:`, remark.image);
+            console.log(`🔗 Full URL:`, getImageUrl(remark.image));
+          }
+        });
+      }
+      
+      setRemarksDialog({ 
+        open: true, 
+        taskId, 
+        remarks: res.data.remarks || [] 
+      });
+    } catch (error) {
+      console.error('Error fetching remarks:', error);
+      showSnackbar('Failed to load remarks', 'error');
+    } finally {
+      setLoadingRemarks(false);
+    }
+  };
+
+  const handleViewRemarks = (task, e) => {
+    e.stopPropagation();
+    fetchTaskRemarks(task._id);
+  };
+
+  const handleCloseRemarksDialog = useCallback(() => {
+    setRemarksDialog({ open: false, taskId: null, remarks: [] });
+  }, []);
+
   const handleViewActivityLogs = (task, e) => {
     e.stopPropagation();
     setSelectedTaskForActivity(task);
@@ -1055,20 +1297,68 @@ const TaskDetails = () => {
     setShowActivityLog(true);
   };
 
-  const handleCloseActivityLog = () => {
+  const handleCloseActivityLog = useCallback(() => {
     setShowActivityLog(false);
     setSelectedTaskForActivity(null);
     setActivityLogs([]);
-  };
+  }, []);
 
-  const resetFilters = () => {
+  // UPDATED: Comprehensive reset filters function
+  const resetFilters = useCallback(() => {
     setSearchQuery('');
     setActiveStatusFilters(['all']);
     setDateFilter('all');
     setPriorityFilter('all');
     setFromDate('');
     setToDate('');
-  };
+    setShowStatusFilters(true);
+  }, []);
+
+  // UPDATED: Internal refresh function
+  const refreshContent = useCallback(() => {
+    // Reset all modal-related states
+    setSelectedUserId(null);
+    setSelectedUser(null);
+    setTasks([]);
+    setAllTaskLogs({});
+    setTodayTotalTime({ totalSeconds: 0, displayText: '0s' });
+    setSelectedTaskForActivity(null);
+    setShowActivityLog(false);
+    setActivityLogs([]);
+    setRemarksDialog({ open: false, taskId: null, remarks: [] });
+    
+    // Reset filters
+    resetFilters();
+    
+    // Reset status filters visibility
+    setShowStatusFilters(true);
+    
+    // Refetch users data if needed
+    if (currentUser) {
+      hasFetchedUsers.current = false;
+      fetchUsersWithTasks();
+    }
+  }, [resetFilters, currentUser, fetchUsersWithTasks]);
+
+  // UPDATED: Handle modal close with internal refresh
+  const handleCloseDialog = useCallback(() => {
+    setOpenDialog(false);
+    refreshContent();
+  }, [refreshContent]);
+
+  // Cleanup effect when modal closes
+  useEffect(() => {
+    if (!openDialog) {
+      // Clear task-related data when modal is closed
+      setTasks([]);
+      setAllTaskLogs({});
+      setTodayTotalTime({ totalSeconds: 0, displayText: '0s' });
+      setSelectedTaskForActivity(null);
+      setShowActivityLog(false);
+      setActivityLogs([]);
+      setRemarksDialog({ open: false, taskId: null, remarks: [] });
+    }
+  }, [openDialog]);
 
   // ==================== FORMATTING FUNCTIONS ====================
 
@@ -1096,11 +1386,11 @@ const TaskDetails = () => {
     if (!dateStr) return "N/A";
     try {
       const date = new Date(dateStr);
-      return date.toLocaleString('en-US', { 
-        day: 'numeric', 
-        month: 'short', 
+      return date.toLocaleString('en-US', {
+        day: 'numeric',
+        month: 'short',
         year: 'numeric',
-        hour: '2-digit', 
+        hour: '2-digit',
         minute: '2-digit',
         second: '2-digit'
       });
@@ -1109,18 +1399,19 @@ const TaskDetails = () => {
     }
   };
 
+  // UPDATED: getStatusCount now uses filteredTaskStats
   const getStatusCount = (status) => {
     switch (status) {
-      case 'total': return userTaskStats.total || 0;
-      case 'pending': return userTaskStats.pending?.count || 0;
-      case 'in-progress': return userTaskStats.inProgress?.count || 0;
-      case 'completed': return userTaskStats.completed?.count || 0;
-      case 'approved': return userTaskStats.approved?.count || 0;
-      case 'rejected': return userTaskStats.rejected?.count || 0;
-      case 'overdue': return userTaskStats.overdue?.count || 0;
-      case 'onhold': return userTaskStats.onhold?.count || 0;
-      case 'reopen': return userTaskStats.reopen?.count || 0;
-      case 'cancelled': return userTaskStats.cancelled?.count || 0;
+      case 'total': return filteredTaskStats.total || 0;
+      case 'pending': return filteredTaskStats.pending?.count || 0;
+      case 'in-progress': return filteredTaskStats.inProgress?.count || 0;
+      case 'completed': return filteredTaskStats.completed?.count || 0;
+      case 'approved': return filteredTaskStats.approved?.count || 0;
+      case 'rejected': return filteredTaskStats.rejected?.count || 0;
+      case 'overdue': return filteredTaskStats.overdue?.count || 0;
+      case 'onhold': return filteredTaskStats.onhold?.count || 0;
+      case 'reopen': return filteredTaskStats.reopen?.count || 0;
+      case 'cancelled': return filteredTaskStats.cancelled?.count || 0;
       default: return 0;
     }
   };
@@ -1262,9 +1553,6 @@ const TaskDetails = () => {
                     </div>
                     <div
                       className="TaskDetails-overall-stat-number"
-                      style={{
-                        background: getStatusGradient(status.value)
-                      }}
                     >
                       {overallStats[status.value]}
                     </div>
@@ -1280,6 +1568,7 @@ const TaskDetails = () => {
     );
   };
 
+  // UPDATED: renderStatusCards - Now shows all statuses including zeros based on filtered tasks
   const renderStatusCards = () => {
     const statusGradients = {
       'pending': 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
@@ -1293,10 +1582,8 @@ const TaskDetails = () => {
       'all': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
     };
 
-    const nonZeroStatuses = STATUS_OPTIONS.filter(status => {
-      if (status.value === 'all') return true;
-      return getStatusCount(status.value) > 0;
-    });
+    // Show ALL status options, regardless of count
+    const allStatuses = STATUS_OPTIONS;
 
     return (
       <div className="TaskDetails-status-cards">
@@ -1309,6 +1596,7 @@ const TaskDetails = () => {
               <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Task Status Distribution</h4>
               <p style={{ margin: 0, fontSize: '0.7rem', color: '#6b7280' }}>
                 {selectedUser ? `${selectedUser.name}'s tasks` : 'All tasks'}
+                {dateFilter !== 'all' && ` • Filtered by ${dateFilter === 'today' ? 'Today' : dateFilter === 'week' ? 'This Week' : dateFilter === 'overdue' ? 'Overdue' : 'Custom Range'}`}
               </p>
             </div>
           </div>
@@ -1334,27 +1622,34 @@ const TaskDetails = () => {
 
         {showStatusFilters && (
           <div className="TaskDetails-status-grid">
-            {nonZeroStatuses.map((status) => {
-              const count = status.value === 'all' ? userTaskStats.total : getStatusCount(status.value);
+            {allStatuses.map((status) => {
+              const count = status.value === 'all' ? filteredTaskStats.total : getStatusCount(status.value);
               const isActive = activeStatusFilters.includes(status.value);
-              const percentage = status.value !== 'all' ? userTaskStats[status.value]?.percentage || 0 : 0;
+              const percentage = status.value !== 'all' ? filteredTaskStats[status.value]?.percentage || 0 : 0;
               const gradient = statusGradients[status.value] || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+
+              // Determine opacity for zero count cards
+              const isZeroCount = count === 0;
+              const cardOpacity = isZeroCount ? 0.5 : 1;
 
               return (
                 <div
                   key={status.value}
-                  className={`TaskDetails-status-card ${isActive ? 'TaskDetails-status-card-active' : ''}`}
+                  className={`TaskDetails-status-card ${isActive ? 'TaskDetails-status-card-active' : ''} ${isZeroCount ? 'TaskDetails-status-card-zero' : ''}`}
                   onClick={() => handleStatusFilterToggle(status.value)}
                   style={{
                     borderColor: isActive ? status.color : 'rgba(102, 126, 234, 0.15)',
-                    background: isActive ? `${status.color}15` : 'rgba(255, 255, 255, 0.7)'
+                    background: isActive ? `${status.color}15` : 'rgba(255, 255, 255, 0.7)',
+                    opacity: cardOpacity,
+                    cursor: isZeroCount && !isActive ? 'not-allowed' : 'pointer'
                   }}
                 >
                   <div className="TaskDetails-status-content">
                     <div
                       className="TaskDetails-status-card-icon"
                       style={{
-                        background: gradient
+                        background: gradient,
+                        opacity: isZeroCount ? 0.5 : 1
                       }}
                     >
                       {React.createElement(status.icon, {
@@ -1366,7 +1661,8 @@ const TaskDetails = () => {
                       style={{
                         background: gradient,
                         WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent'
+                        WebkitTextFillColor: isZeroCount ? '#999' : 'transparent',
+                        color: isZeroCount ? '#999' : 'inherit'
                       }}
                     >
                       {count}
@@ -1387,7 +1683,8 @@ const TaskDetails = () => {
                             fontWeight: 700,
                             background: gradient,
                             WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent'
+                            WebkitTextFillColor: isZeroCount ? '#999' : 'transparent',
+                            color: isZeroCount ? '#999' : 'inherit'
                           }}>
                             {percentage}%
                           </span>
@@ -1403,7 +1700,8 @@ const TaskDetails = () => {
                             width: `${percentage}%`,
                             height: '100%',
                             borderRadius: 2,
-                            background: gradient
+                            background: gradient,
+                            opacity: isZeroCount ? 0.3 : 1
                           }} />
                         </div>
                       </div>
@@ -1426,6 +1724,19 @@ const TaskDetails = () => {
                         </span>
                       </div>
                     )}
+
+                    {isZeroCount && !isActive && (
+                      <div style={{
+                        marginTop: '0.25rem',
+                        padding: '0.125rem 0.5rem',
+                        borderRadius: '0.25rem',
+                        backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                        fontSize: '0.6rem',
+                        color: '#999'
+                      }}>
+                        No tasks
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -1436,8 +1747,10 @@ const TaskDetails = () => {
     );
   };
 
+  // UPDATED: renderEnhancedUserCard with loading state
   const renderEnhancedUserCard = (user) => {
     const isSelected = selectedUserId === (user._id || user.id);
+    const isLoading = loading && fetchingTasksForUser.current === (user._id || user.id);
     const userStats = getUserTaskStats(user);
     const completionRate = userStats.completionRate || 0;
     const badgeClass = completionRate >= 80 ? 'TaskDetails-user-avatar-badge-high' :
@@ -1451,9 +1764,9 @@ const TaskDetails = () => {
 
     return (
       <div
-        className={`TaskDetails-user-card ${isSelected ? 'TaskDetails-user-card-selected' : ''}`}
+        className={`TaskDetails-user-card ${isSelected ? 'TaskDetails-user-card-selected' : ''} ${isLoading ? 'TaskDetails-user-card-loading' : ''}`}
         onClick={() => {
-          if (userId) {
+          if (userId && !isLoading) {
             setSelectedUserId(userId);
             fetchUserTasks(userId);
           }
@@ -1477,14 +1790,13 @@ const TaskDetails = () => {
                 {user.email || "No Email"}
               </div>
               {user.department && (
-                <div className="TaskDetails-user-department" style={{ fontSize: '0.7rem', color: '#6b7280', marginTop: '0.2rem',display:'flex' , gap:'4px' }}>
+                <div className="TaskDetails-user-department" style={{ fontSize: '0.7rem', color: '#6b7280', marginTop: '0.2rem', display: 'flex', gap: '4px' }}>
                   <FiUsers size={10} /> Dept: {getDepartmentName(user.department)}
                 </div>
               )}
             </div>
           </div>
 
-          {/* FIXED: Stats Box - This was not showing */}
           <div className="TaskDetails-stats-box">
             <div className="TaskDetails-stats-row">
               <div className="TaskDetails-stat-item">
@@ -1531,14 +1843,24 @@ const TaskDetails = () => {
             className={`TaskDetails-action-button ${isSelected ? 'TaskDetails-action-button-primary' : 'TaskDetails-action-button-outlined'}`}
             onClick={(e) => {
               e.stopPropagation();
-              if (userId) {
+              if (userId && !isLoading) {
                 setSelectedUserId(userId);
                 fetchUserTasks(userId);
               }
             }}
+            disabled={isLoading}
           >
-            View Tasks
-            <FiArrowRight size={14} />
+            {isLoading ? (
+              <>
+                <span className="TaskDetails-button-spinner" />
+                Loading...
+              </>
+            ) : (
+              <>
+                View Tasks
+                <FiArrowRight size={14} />
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -1549,47 +1871,7 @@ const TaskDetails = () => {
     if (todayTotalTime.taskCount === 0) return null;
 
     return (
-      <div style={{
-        marginTop: '1rem',
-        marginBottom: '1rem',
-        padding: '1rem 1.5rem',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        borderRadius: '0.75rem',
-        color: 'white',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '1rem',
-        boxShadow: '0 4px 6px rgba(102, 126, 234, 0.25)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '50%',
-            background: 'rgba(255,255,255,0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <FiClock size={24} color="white" />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>Today's Total Active Time</div>
-            <div style={{ fontSize: '1.8rem', fontWeight: 700, lineHeight: 1.2 }}>
-              {todayTotalTime.displayText}
-            </div>
-          </div>
-        </div>
-        <div style={{
-          background: 'rgba(255,255,255,0.15)',
-          padding: '0.5rem 1rem',
-          borderRadius: '2rem',
-          fontSize: '0.9rem'
-        }}>
-          {todayTotalTime.taskCount} {todayTotalTime.taskCount === 1 ? 'task' : 'tasks'} today
-        </div>
+      <div >
       </div>
     );
   };
@@ -1598,7 +1880,7 @@ const TaskDetails = () => {
     if (!showActivityLog || !selectedTaskForActivity) return null;
 
     const timeData = calculateTaskActiveTime(activityLogs);
-    
+
     const getStatusIcon = () => {
       switch (timeData.currentStatus) {
         case 'in-progress': return <FiPlay size={16} color="#10b981" />;
@@ -1620,7 +1902,7 @@ const TaskDetails = () => {
                 <div>
                   <h3>Activity Log</h3>
                   <p className="TaskDetails-activity-modal-task-title">
-                    {selectedTaskForActivity.title || 'Untitled Task'} 
+                    {selectedTaskForActivity.title || 'Untitled Task'}
                     {selectedTaskForActivity.serialNo && ` (#${selectedTaskForActivity.serialNo})`}
                   </p>
                 </div>
@@ -1667,25 +1949,25 @@ const TaskDetails = () => {
                     width: '4px',
                     height: '100%',
                     background: timeData.currentStatus === 'completed' ? '#10b981' :
-                                timeData.currentStatus === 'in-progress' ? '#3b82f6' :
-                                timeData.currentStatus === 'onhold' ? '#f59e0b' : '#6b7280'
+                      timeData.currentStatus === 'in-progress' ? '#3b82f6' :
+                        timeData.currentStatus === 'onhold' ? '#f59e0b' : '#6b7280'
                   }} />
-                  
+
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                     <div style={{
                       width: '48px',
                       height: '48px',
                       borderRadius: '50%',
                       background: timeData.currentStatus === 'completed' ? '#10b98115' :
-                                  timeData.currentStatus === 'in-progress' ? '#3b82f615' :
-                                  timeData.currentStatus === 'onhold' ? '#f59e0b15' : '#6b728015',
+                        timeData.currentStatus === 'in-progress' ? '#3b82f615' :
+                          timeData.currentStatus === 'onhold' ? '#f59e0b15' : '#6b728015',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center'
                     }}>
                       {getStatusIcon()}
                     </div>
-                    
+
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
                         <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
@@ -1694,18 +1976,18 @@ const TaskDetails = () => {
                         <span style={{
                           padding: '0.2rem 0.6rem',
                           background: timeData.currentStatus === 'completed' ? '#10b98115' :
-                                      timeData.currentStatus === 'in-progress' ? '#3b82f615' :
-                                      timeData.currentStatus === 'onhold' ? '#f59e0b15' : '#6b728015',
+                            timeData.currentStatus === 'in-progress' ? '#3b82f615' :
+                              timeData.currentStatus === 'onhold' ? '#f59e0b15' : '#6b728015',
                           color: timeData.currentStatus === 'completed' ? '#10b981' :
-                                 timeData.currentStatus === 'in-progress' ? '#3b82f6' :
-                                 timeData.currentStatus === 'onhold' ? '#f59e0b' : '#6b7280',
+                            timeData.currentStatus === 'in-progress' ? '#3b82f6' :
+                              timeData.currentStatus === 'onhold' ? '#f59e0b' : '#6b7280',
                           borderRadius: '1rem',
                           fontSize: '0.7rem',
                           fontWeight: 600
                         }}>
                           {timeData.currentStatus === 'completed' ? '✅ Completed' :
-                           timeData.currentStatus === 'in-progress' ? '▶️ In Progress' :
-                           timeData.currentStatus === 'onhold' ? '⏸️ On Hold' : '⏳ Pending'}
+                            timeData.currentStatus === 'in-progress' ? '▶️ In Progress' :
+                              timeData.currentStatus === 'onhold' ? '⏸️ On Hold' : '⏳ Pending'}
                         </span>
                       </div>
 
@@ -1732,19 +2014,19 @@ const TaskDetails = () => {
                                 borderRadius: '0.4rem',
                                 flexWrap: 'wrap'
                               }}>
-                                <span style={{ 
+                                <span style={{
                                   width: '70px',
                                   color: status.from === 'in-progress' ? '#3b82f6' :
-                                         status.from === 'onhold' ? '#f59e0b' : '#6b7280'
+                                    status.from === 'onhold' ? '#f59e0b' : '#6b7280'
                                 }}>
                                   {status.from}
                                 </span>
                                 <FiArrowRight size={12} color="#94a3b8" />
-                                <span style={{ 
+                                <span style={{
                                   width: '70px',
                                   color: status.to === 'in-progress' ? '#3b82f6' :
-                                         status.to === 'onhold' ? '#f59e0b' :
-                                         status.to === 'completed' ? '#10b981' : '#6b7280'
+                                    status.to === 'onhold' ? '#f59e0b' :
+                                      status.to === 'completed' ? '#10b981' : '#6b7280'
                                 }}>
                                   {status.to}
                                 </span>
@@ -1764,7 +2046,7 @@ const TaskDetails = () => {
                   {activityLogs.map((log, index) => (
                     <div key={log._id || index} className="TaskDetails-activity-item">
                       <div className="TaskDetails-activity-timeline-line">
-                        <div 
+                        <div
                           className="TaskDetails-activity-dot"
                           style={{ backgroundColor: getActivityColor(log.action) }}
                         >
@@ -1776,7 +2058,7 @@ const TaskDetails = () => {
                       </div>
                       <div className="TaskDetails-activity-content">
                         <div className="TaskDetails-activity-header">
-                          <span 
+                          <span
                             className="TaskDetails-activity-action"
                             style={{ color: getActivityColor(log.action) }}
                           >
@@ -1819,11 +2101,247 @@ const TaskDetails = () => {
     );
   };
 
+  // UPDATED: Render remarks dialog - Only viewing, no adding
+  const renderRemarksDialog = () => {
+    if (!remarksDialog.open) return null;
+
+    return (
+      <div className="TaskDetails-activity-modal-overlay" onClick={handleCloseRemarksDialog}>
+        <div className="TaskDetails-activity-modal" style={{ maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
+          <div className="TaskDetails-activity-modal-header">
+            <div className="TaskDetails-activity-modal-header-content">
+              <div className="TaskDetails-activity-modal-title">
+                <div className="TaskDetails-activity-modal-icon">
+                  <FiMessageSquare size={20} />
+                </div>
+                <div>
+                  <h3>Task Remarks</h3>
+                  <p className="TaskDetails-activity-modal-task-title">
+                    {selectedUser?.name || 'User'}'s Task
+                  </p>
+                </div>
+              </div>
+              <button
+                className="TaskDetails-activity-modal-close"
+                onClick={handleCloseRemarksDialog}
+              >
+                <FiX size={20} />
+              </button>
+            </div>
+          </div>
+
+          <div className="TaskDetails-activity-modal-body">
+            {loadingRemarks ? (
+              <div className="TaskDetails-activity-loading">
+                <div className="TaskDetails-activity-spinner" />
+                <p>Loading remarks...</p>
+              </div>
+            ) : remarksDialog.remarks.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                {remarksDialog.remarks.map((remark, index) => (
+                  <div key={index} style={{
+                    padding: '15px',
+                    backgroundColor: '#f8fafc',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                      <div style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
+                        backgroundColor: '#667eea',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontWeight: 600
+                      }}>
+                        {remark.user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{remark.user?.name || 'Unknown User'}</div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>
+                          {formatDateTime(remark.createdAt)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {remark.text && (
+                      <p style={{ marginLeft: '42px', color: '#333' }}>{remark.text}</p>
+                    )}
+
+                    {remark.image && (
+                      <div style={{ marginTop: '10px', marginLeft: '42px' }}>
+                        <img
+                          src={getImageUrl(remark.image)}
+                          alt="Remark attachment"
+                          style={{
+                            maxWidth: '200px',
+                            maxHeight: '200px',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => setZoomImage(getImageUrl(remark.image))}
+                          onError={(e) => {
+                            console.error('❌ Image failed to load:', e.target.src);
+                            
+                            // Get the base URL without /api
+                            const baseUrl = (API_URL || 'http://localhost:3000').replace(/\/api$/, '');
+                            
+                            // Get the filename from the original path
+                            const originalPath = remark.image;
+                            const filename = originalPath.split(/[\\/]/).pop();
+                            
+                            // Try different path combinations
+                            const pathsToTry = [
+                              `${baseUrl}/uploads/remarks/${filename}`,
+                              `${baseUrl}/uploads/${filename}`,
+                              `${baseUrl}/remarks/${filename}`,
+                              `${baseUrl}/api/uploads/remarks/${filename}`,
+                              `${baseUrl}/api/uploads/${filename}`,
+                              `${baseUrl}/api/remarks/${filename}`,
+                              `${baseUrl}/${originalPath.replace(/\\/g, '/')}`,
+                              `${baseUrl}/uploads/${originalPath.replace(/\\/g, '/')}`,
+                            ];
+                            
+                            // Remove duplicates
+                            const uniquePaths = [...new Set(pathsToTry)];
+                            
+                            console.log('🔄 Trying alternative paths:', uniquePaths);
+                            
+                            let triedIndex = 0;
+                            const tryNextPath = () => {
+                              if (triedIndex < uniquePaths.length) {
+                                console.log(`🔄 Trying path ${triedIndex + 1}:`, uniquePaths[triedIndex]);
+                                e.target.src = uniquePaths[triedIndex];
+                                triedIndex++;
+                              } else {
+                                // Show fallback if all paths fail
+                                e.target.style.display = 'none';
+                                const parent = e.target.parentElement;
+                                
+                                // Create fallback UI
+                                const fallback = document.createElement('div');
+                                fallback.style.cssText = `
+                                  padding: 20px;
+                                  background: #fff3f3;
+                                  border: 1px solid #ffcdd2;
+                                  border-radius: 8px;
+                                  text-align: center;
+                                  color: #d32f2f;
+                                  font-size: 14px;
+                                `;
+                                fallback.innerHTML = 'Image not available';
+                                parent.appendChild(fallback);
+                              }
+                            };
+                            
+                            e.target.onerror = tryNextPath;
+                            tryNextPath();
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                <FiMessageSquare size={32} color="#ccc" />
+                <p style={{ marginTop: '10px' }}>No remarks yet</p>
+              </div>
+            )}
+          </div>
+
+          <div className="TaskDetails-activity-modal-footer">
+            <button
+              className="TaskDetails-activity-modal-close-btn"
+              onClick={handleCloseRemarksDialog}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // NEW: Render image zoom modal
+  const renderImageZoomModal = () => {
+    if (!zoomImage) return null;
+
+    return (
+      <div className="TaskDetails-activity-modal-overlay" onClick={() => setZoomImage(null)}>
+        <div style={{ 
+          position: 'relative',
+          maxWidth: '90vw',
+          maxHeight: '90vh',
+        }} onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => setZoomImage(null)}
+            style={{
+              position: 'absolute',
+              top: '16px',
+              right: '16px',
+              backgroundColor: 'rgba(0,0,0,0.6)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '50%',
+              width: '36px',
+              height: '36px',
+              cursor: 'pointer',
+              zIndex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <FiX size={20} />
+          </button>
+          <img
+            src={zoomImage}
+            alt="Zoomed view"
+            style={{
+              width: '100%',
+              height: 'auto',
+              maxHeight: '85vh',
+              objectFit: 'contain',
+              borderRadius: '8px'
+            }}
+          />
+        </div>
+      </div>
+    );
+  };
+
+  // NEW: Render snackbar
+  const renderSnackbar = () => {
+    if (!snackbar.open) return null;
+
+    return (
+      <div className="user-create-task-snackbar-top" style={{ zIndex: 9999 }}>
+        <div className={`user-create-task-snackbar-content user-create-task-snackbar-${snackbar.severity}`}>
+          <div className="user-create-task-snackbar-message">
+            {snackbar.message}
+          </div>
+          <button
+            className="user-create-task-snackbar-close"
+            onClick={() => setSnackbar({ ...snackbar, open: false })}
+          >
+            <FiX size={18} />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // UPDATED: renderEnhancedDialog - Added Remarks button
   const renderEnhancedDialog = () => {
     if (!openDialog) return null;
 
     return (
-      <div className="TaskDetails-modal-overlay" onClick={() => setOpenDialog(false)}>
+      <div className="TaskDetails-modal-overlay" onClick={handleCloseDialog}>
         <div className="TaskDetails-modal" onClick={(e) => e.stopPropagation()}>
           <div className="TaskDetails-modal-header">
             <div className="TaskDetails-modal-header-content">
@@ -1832,9 +2350,8 @@ const TaskDetails = () => {
                   <div className="TaskDetails-modal-avatar">
                     {getInitials(selectedUser?.name)}
                   </div>
-                  <div className={`TaskDetails-modal-status-badge ${
-                    selectedUser?.isActive ? 'active' : 'inactive'
-                  }`} />
+                  <div className={`TaskDetails-modal-status-badge ${selectedUser?.isActive ? 'active' : 'inactive'
+                    }`} />
                 </div>
                 <div className="TaskDetails-modal-user-details">
                   <h2 className="TaskDetails-modal-user-name">
@@ -1860,25 +2377,25 @@ const TaskDetails = () => {
               </div>
               <button
                 className="TaskDetails-modal-close-btn"
-                onClick={() => setOpenDialog(false)}
+                onClick={handleCloseDialog}
                 aria-label="Close modal"
               >
                 <FiX size={20} />
               </button>
             </div>
-            
+
             <div className="TaskDetails-modal-quick-stats">
               <div className="TaskDetails-modal-stat-pill">
                 <FiList size={14} />
-                <span>Total: {userTaskStats.total}</span>
+                <span>Total: {filteredTaskStats.total}</span>
               </div>
               <div className="TaskDetails-modal-stat-pill">
                 <FiCheckCircle size={14} />
-                <span>Completed: {userTaskStats.completed?.count || 0}</span>
+                <span>Completed: {filteredTaskStats.completed?.count || 0}</span>
               </div>
               <div className="TaskDetails-modal-stat-pill">
                 <FiClock size={14} />
-                <span>Pending: {userTaskStats.pending?.count || 0}</span>
+                <span>Pending: {filteredTaskStats.pending?.count || 0}</span>
               </div>
             </div>
           </div>
@@ -1905,21 +2422,24 @@ const TaskDetails = () => {
                 <div className="TaskDetails-modal-status-grid">
                   {STATUS_OPTIONS.filter(s => s.value !== 'all').map((status) => {
                     const count = getStatusCount(status.value);
-                    if (count === 0) return null;
-                    
+                    // Show all statuses based on filtered tasks
+
                     const isActive = activeStatusFilters.includes(status.value);
-                    const percentage = userTaskStats[status.value]?.percentage || 0;
+                    const percentage = filteredTaskStats[status.value]?.percentage || 0;
+                    const isZeroCount = count === 0;
 
                     return (
                       <button
                         key={status.value}
-                        className={`TaskDetails-modal-status-chip ${
-                          isActive ? 'active' : ''
-                        }`}
-                        onClick={() => handleStatusFilterToggle(status.value)}
+                        className={`TaskDetails-modal-status-chip ${isActive ? 'active' : ''
+                          } ${isZeroCount ? 'zero' : ''}`}
+                        onClick={() => !isZeroCount && handleStatusFilterToggle(status.value)}
+                        disabled={isZeroCount && !isActive}
                         style={{
                           '--status-color': status.color,
-                          '--status-bg': status.bgColor
+                          '--status-bg': status.bgColor,
+                          opacity: isZeroCount && !isActive ? 0.5 : 1,
+                          cursor: isZeroCount && !isActive ? 'not-allowed' : 'pointer'
                         }}
                       >
                         <div className="TaskDetails-modal-status-chip-content">
@@ -1935,15 +2455,23 @@ const TaskDetails = () => {
                             </span>
                           </div>
                           <div className="TaskDetails-modal-status-chip-progress">
-                            <div 
+                            <div
                               className="TaskDetails-modal-status-chip-progress-bar"
-                              style={{ width: `${percentage}%` }}
+                              style={{
+                                width: `${percentage}%`,
+                                opacity: isZeroCount ? 0.3 : 1
+                              }}
                             />
                           </div>
                         </div>
                         {isActive && (
                           <div className="TaskDetails-modal-status-chip-check">
                             <FiCheckCircle size={12} />
+                          </div>
+                        )}
+                        {isZeroCount && !isActive && (
+                          <div className="TaskDetails-modal-status-chip-zero-label">
+                            No tasks
                           </div>
                         )}
                       </button>
@@ -2101,20 +2629,28 @@ const TaskDetails = () => {
               ) : (
                 <div className="TaskDetails-modal-tasks-list">
                   {filteredTasks.map((task) => {
-                    const status = task.userStatus || task.status || task.overallStatus;
+                    let status = task.userStatus || task.status || task.overallStatus;
+
+                    // Check for overdue
+                    const dueDate = task.dueDateTime;
+                    if (dueDate && new Date(dueDate) < today &&
+                      status !== 'completed' && status !== 'approved' && status !== 'cancelled') {
+                      status = 'overdue';
+                    }
+
                     const statusOption = STATUS_OPTIONS.find(s => s.value === status) || STATUS_OPTIONS[0];
                     const isToday = isSameDay(task.dueDateTime || task.createdAt, today);
-                    const isOverdue = task.dueDateTime && new Date(task.dueDateTime) < today;
-                    
+                    const isOverdue = task.dueDateTime && new Date(task.dueDateTime) < today &&
+                      status !== 'completed' && status !== 'approved' && status !== 'cancelled';
+
                     const taskLogs = allTaskLogs[task._id] || [];
                     const timeData = calculateTaskActiveTime(taskLogs);
 
                     return (
                       <div
                         key={task._id}
-                        className={`TaskDetails-modal-task-card ${
-                          isToday ? 'today' : ''
-                        } ${isOverdue ? 'overdue' : ''}`}
+                        className={`TaskDetails-modal-task-card ${isToday ? 'today' : ''
+                          } ${isOverdue ? 'overdue' : ''}`}
                         style={{ '--status-color': statusOption.color }}
                       >
                         <div className="TaskDetails-modal-task-card-header">
@@ -2122,9 +2658,9 @@ const TaskDetails = () => {
                             <h4 className="TaskDetails-modal-task-title">
                               {task.title || 'Untitled Task'}
                             </h4>
-                            <span 
+                            <span
                               className="TaskDetails-modal-task-status"
-                              style={{ 
+                              style={{
                                 backgroundColor: `${statusOption.color}15`,
                                 color: statusOption.color
                               }}
@@ -2151,7 +2687,7 @@ const TaskDetails = () => {
                               {formatDateTime(task.createdAt)}
                             </span>
                           </div>
-                          
+
                           <div className="TaskDetails-modal-task-time-item">
                             {timeData.currentStatus === 'in-progress' ? (
                               <FiPlay size={12} color="#10b981" />
@@ -2163,7 +2699,7 @@ const TaskDetails = () => {
                             <span className="TaskDetails-modal-task-time-label">Active:</span>
                             <span className="TaskDetails-modal-task-time-value" style={{
                               color: timeData.currentStatus === 'in-progress' ? '#10b981' :
-                                     timeData.currentStatus === 'onhold' ? '#f59e0b' : '#6b7280',
+                                timeData.currentStatus === 'onhold' ? '#f59e0b' : '#6b7280',
                               fontWeight: 600
                             }}>
                               {timeData.displayText}
@@ -2193,6 +2729,16 @@ const TaskDetails = () => {
                         </div>
 
                         <div className="TaskDetails-modal-task-actions">
+                          {/* NEW: Remarks Button */}
+                          <button
+                            className="TaskDetails-modal-task-activity-btn"
+                            onClick={(e) => handleViewRemarks(task, e)}
+                            style={{ marginRight: '8px' }}
+                          >
+                            <FiMessageSquare size={14} />
+                            <span>View Remarks</span>
+                          </button>
+
                           <button
                             className="TaskDetails-modal-task-activity-btn"
                             onClick={(e) => handleViewActivityLogs(task, e)}
@@ -2213,7 +2759,7 @@ const TaskDetails = () => {
             <div className="TaskDetails-modal-footer-stats">
               <span>Total: {filteredTasks.length} tasks</span>
               <span>•</span>
-              <span>Completed: {filteredTasks.filter(t => 
+              <span>Completed: {filteredTasks.filter(t =>
                 (t.userStatus || t.status) === 'completed'
               ).length}</span>
               <span>•</span>
@@ -2223,7 +2769,7 @@ const TaskDetails = () => {
             </div>
             <button
               className="TaskDetails-modal-close-footer-btn"
-              onClick={() => setOpenDialog(false)}
+              onClick={handleCloseDialog}
             >
               Close
             </button>
@@ -2274,6 +2820,7 @@ const TaskDetails = () => {
 
   return (
     <div className="TaskDetails-section">
+      {renderSnackbar()}
       {renderError()}
 
       <div className="TaskDetails-header">
@@ -2286,8 +2833,8 @@ const TaskDetails = () => {
               </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
                 <p style={{ fontSize: '0.9rem', color: '#6b7280' }}>
-                  Logged in as: {currentUser?.name} 
-                  <span style={{ 
+                  Logged in as: {currentUser?.name}
+                  <span style={{
                     marginLeft: '0.5rem',
                     padding: '0.2rem 0.5rem',
                     borderRadius: '0.25rem',
@@ -2300,7 +2847,7 @@ const TaskDetails = () => {
                   </span>
                 </p>
                 {!isOwner() && currentUser?.department && (
-                  <p style={{ fontSize: '0.9rem', color: '#6b7280',display:'flex',gap:'3px' }}>
+                  <p style={{ fontSize: '0.9rem', color: '#6b7280', display: 'flex', gap: '3px' }}>
                     <FiUsers size={14} /> Department: {getDepartmentName(currentUser.department)}
                   </p>
                 )}
@@ -2336,8 +2883,8 @@ const TaskDetails = () => {
                 </h3>
                 <p className="TaskDetails-card-subtitle">
                   <FiInfo size={14} />
-                  {isOwner() 
-                    ? 'Viewing all employees across the company' 
+                  {isOwner()
+                    ? 'Viewing all employees across the company'
                     : `Viewing employees in your department only`}
                 </p>
               </div>
@@ -2424,8 +2971,8 @@ const TaskDetails = () => {
               </div>
               <h3>No Employees Found</h3>
               <p>
-                {isOwner() 
-                  ? 'No employees found in your company' 
+                {isOwner()
+                  ? 'No employees found in your company'
                   : 'No employees found in your department'}
               </p>
               <button
@@ -2446,6 +2993,8 @@ const TaskDetails = () => {
 
       {renderEnhancedDialog()}
       {renderActivityLogModal()}
+      {renderRemarksDialog()}
+      {renderImageZoomModal()}
     </div>
   );
 };

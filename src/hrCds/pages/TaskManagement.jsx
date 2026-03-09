@@ -1511,7 +1511,7 @@ const UserCreateTask = () => {
                 </div>
               ) : (
                 <div className="user-create-task-paper" style={{ textAlign: 'center', padding: isMobile ? '24px' : '32px' }}>
-                  <FiMessageSquare size={isMobile ? 32 : 48} color="#666" />
+                  
                   <div style={{ marginTop: isMobile ? '12px' : '16px', color: '#666', fontWeight: 600 }}>
                     No remarks yet
                   </div>
@@ -1558,7 +1558,7 @@ const UserCreateTask = () => {
               {isUploadingRemark ? (
                 "Uploading..."
               ) : pendingStatusChange.status ? (
-                isMobile ? "Save & Update" : "Save Remark & Update Status"
+                isMobile ? "Save & Update" : "Save Remark "
               ) : (
                 <>
                   <FiMessageSquare />

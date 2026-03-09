@@ -13,7 +13,41 @@ import {
 
 import "../Css/TaskManagement.css";
 import API_URL from '../../config';
-import CIISLoader from '../../Loader/CIISLoader'; // ✅ Import CIISLoader
+import CIISLoader from '../../Loader/CIISLoader';
+
+
+// Helper function to get correct image URL - COMPLETELY FIXED VERSION
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return '';
+
+  console.log('🔍 Original image path:', imagePath);
+
+  // अगर already full URL है
+  if (imagePath.startsWith('http')) {
+    return imagePath;
+  }
+
+  const baseUrl = API_URL || 'http://localhost:3000';
+  const baseUrlWithoutApi = baseUrl.replace(/\/api$/, ''); // Remove /api if present
+
+  // Clean the path - replace backslashes and remove leading slashes
+  let cleanPath = imagePath.replace(/\\/g, '/').replace(/^\/+/, '');
+  
+  // Check if the path already has the correct structure
+  if (cleanPath.startsWith('uploads/')) {
+    // Path already has uploads/ prefix
+    return `${baseUrlWithoutApi}/${cleanPath}`;
+  }
+  
+  if (cleanPath.startsWith('remarks/')) {
+    // Path starts with remarks/ - need to add uploads/
+    return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
+  }
+  
+  // If it's just a filename, assume it's in uploads/remarks/
+  const filename = cleanPath.split('/').pop();
+  return `${baseUrlWithoutApi}/uploads/remarks/${filename}`;
+};
 
 const StatCard = ({ color = 'primary', clickable = true, active = false, children, onClick }) => {
   return (
@@ -80,7 +114,7 @@ const UserCreateTask = () => {
   const [userId, setUserId] = useState('');
   const [userName, setUserName] = useState('');
   const [authError, setAuthError] = useState(false);
-  const [pageLoading, setPageLoading] = useState(true); // ✅ Page loading state
+  const [pageLoading, setPageLoading] = useState(true);
   const [loading, setLoading] = useState(false);
 
   const [myTasksGrouped, setMyTasksGrouped] = useState({});
@@ -143,6 +177,18 @@ const UserCreateTask = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
 
+  // Refs for filter values to prevent infinite loops
+  const statusFilterRef = useRef(statusFilter);
+  const searchTermRef = useRef(searchTerm);
+  const timeFilterRef = useRef(timeFilter);
+
+  // Update refs when filter values change
+  useEffect(() => {
+    statusFilterRef.current = statusFilter;
+    searchTermRef.current = searchTerm;
+    timeFilterRef.current = timeFilter;
+  }, [statusFilter, searchTerm, timeFilter]);
+
   // Responsive handler
   useEffect(() => {
     const handleResize = () => {
@@ -153,46 +199,6 @@ const UserCreateTask = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  // Fetch user data
- const fetchUserData = useCallback(() => {
-  try {
-    const userStr = localStorage.getItem('user');
-    if (!userStr) {
-      setAuthError(true);
-      showSnackbar('Please log in to access tasks', 'error');
-      setLoading(false);
-      return;
-    }
-
-    const user = JSON.parse(userStr);
-    
-    // ✅ FIX: 'role' की जगह 'jobRole' check करें
-    // और 'id' की जगह '_id' भी check करें
-    const userId = user.id || user._id;
-    const userRole = user.role || user.jobRole;  // दोनों check करें
-    const userName = user.name;
-    
-    if (!userId || !userRole || !userName) {
-      setAuthError(true);
-      showSnackbar('Invalid user data. Please log in again.', 'error');
-      setLoading(false);
-      return;
-    }
-
-    // ✅ State set करें
-    setUserRole(userRole);
-    setUserId(userId);
-    setUserName(userName);
-    setAuthError(false);
-    
-  } catch (error) {
-    console.error('Error parsing user data:', error);
-    setAuthError(true);
-    showSnackbar('Error loading user data. Please log in again.', 'error');
-    setLoading(false);
-  }
-}, []);
 
   // Snackbar utility
   const showSnackbar = (message, severity = 'info') => {
@@ -210,6 +216,43 @@ const UserCreateTask = () => {
       setSnackbar(prev => ({ ...prev, open: false }));
     }, 3000);
   };
+
+  // Fetch user data
+  const fetchUserData = useCallback(() => {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) {
+        setAuthError(true);
+        showSnackbar('Please log in to access tasks', 'error');
+        setLoading(false);
+        return;
+      }
+
+      const user = JSON.parse(userStr);
+      
+      const userId = user.id || user._id;
+      const userRole = user.role || user.jobRole;
+      const userName = user.name;
+      
+      if (!userId || !userRole || !userName) {
+        setAuthError(true);
+        showSnackbar('Invalid user data. Please log in again.', 'error');
+        setLoading(false);
+        return;
+      }
+
+      setUserRole(userRole);
+      setUserId(userId);
+      setUserName(userName);
+      setAuthError(false);
+      
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      setAuthError(true);
+      showSnackbar('Error loading user data. Please log in again.', 'error');
+      setLoading(false);
+    }
+  }, []);
 
   // Get user status for a task
   const getUserStatusForTask = useCallback((task, userId) => {
@@ -230,115 +273,109 @@ const UserCreateTask = () => {
   }, []);
 
   // Check if task is overdue
-// 🔴 REPLACE the isOverdue function with this:
-const isOverdue = useCallback((dueDateTime, status) => {
-  if (!dueDateTime) return false;
-  
-  // If status is already marked as overdue
-  if (status === 'overdue') return true;
-  
-  const now = new Date();
-  const dueDate = new Date(dueDateTime);
-  
-  // Check if due date has passed
-  const isPastDue = dueDate < now;
-  
-  // Statuses that can be considered for overdue
-  const canBeOverdue = ['pending', 'in-progress', 'reopen', 'onhold'];
-  
-  return isPastDue && canBeOverdue.includes(status);
-}, []);
+  const isOverdue = useCallback((dueDateTime, status) => {
+    if (!dueDateTime) return false;
+    
+    if (status === 'overdue') return true;
+    
+    const now = new Date();
+    const dueDate = new Date(dueDateTime);
+    
+    const isPastDue = dueDate < now;
+    const canBeOverdue = ['pending', 'in-progress', 'reopen', 'onhold'];
+    
+    return isPastDue && canBeOverdue.includes(status);
+  }, []);
 
-// 🔴 REPLACE the getOverdueCount function with this:
-const getOverdueCount = () => {
-  let count = 0;
-  Object.values(myTasksGrouped).forEach(tasks => {
-    tasks.forEach(task => {
-      const myStatus = getUserStatusForTask(task, userId);
-      const taskIsOverdue = isOverdue(task.dueDateTime, myStatus);
-      
-      if (taskIsOverdue || myStatus === 'overdue') {
-        count++;
-      }
+  // Get overdue count - Memoized
+  const getOverdueCount = useMemo(() => {
+    let count = 0;
+    Object.values(myTasksGrouped).forEach(tasks => {
+      tasks.forEach(task => {
+        const myStatus = getUserStatusForTask(task, userId);
+        const taskIsOverdue = isOverdue(task.dueDateTime, myStatus);
+        
+        if (taskIsOverdue || myStatus === 'overdue') {
+          count++;
+        }
+      });
     });
-  });
-  return count;
-};
+    return count;
+  }, [myTasksGrouped, userId, getUserStatusForTask, isOverdue]);
 
-// 🔴 REPLACE the calculateStatsFromTasks function with this:
-const calculateStatsFromTasks = useCallback((tasks) => {
-  if (!tasks || Object.keys(tasks).length === 0) {
+  // Calculate stats from tasks
+  const calculateStatsFromTasks = useCallback((tasks) => {
+    if (!tasks || Object.keys(tasks).length === 0) {
+      setTaskStats({
+        total: 0,
+        pending: { count: 0, percentage: 0 },
+        inProgress: { count: 0, percentage: 0 },
+        completed: { count: 0, percentage: 0 },
+        rejected: { count: 0, percentage: 0 },
+        onHold: { count: 0, percentage: 0 },
+        reopen: { count: 0, percentage: 0 },
+        cancelled: { count: 0, percentage: 0 },
+        overdue: { count: 0, percentage: 0 }
+      });
+      return;
+    }
+    
+    let total = 0;
+    const statusCounts = {
+      pending: 0,
+      'in-progress': 0,
+      completed: 0,
+      rejected: 0,
+      onhold: 0,
+      reopen: 0,
+      cancelled: 0,
+      overdue: 0
+    };
+
+    Object.values(tasks).forEach(dateTasks => {
+      dateTasks.forEach(task => {
+        total++;
+        const myStatus = getUserStatusForTask(task, userId);
+
+        if (statusCounts[myStatus] !== undefined) {
+          statusCounts[myStatus]++;
+        }
+
+        if (isOverdue(task.dueDateTime, myStatus) && myStatus !== 'overdue') {
+          statusCounts.overdue++;
+        }
+      });
+    });
+
+    const calculatePercentage = (count) => total > 0 ? Math.round((count / total) * 100) : 0;
+
     setTaskStats({
-      total: 0,
-      pending: { count: 0, percentage: 0 },
-      inProgress: { count: 0, percentage: 0 },
-      completed: { count: 0, percentage: 0 },
-      rejected: { count: 0, percentage: 0 },
-      onHold: { count: 0, percentage: 0 },
-      reopen: { count: 0, percentage: 0 },
-      cancelled: { count: 0, percentage: 0 },
-      overdue: { count: 0, percentage: 0 }
+      total,
+      pending: { count: statusCounts.pending, percentage: calculatePercentage(statusCounts.pending) },
+      inProgress: { count: statusCounts['in-progress'], percentage: calculatePercentage(statusCounts['in-progress']) },
+      completed: { count: statusCounts.completed, percentage: calculatePercentage(statusCounts.completed) },
+      rejected: { count: statusCounts.rejected, percentage: calculatePercentage(statusCounts.rejected) },
+      onHold: { count: statusCounts.onhold, percentage: calculatePercentage(statusCounts.onhold) },
+      reopen: { count: statusCounts.reopen, percentage: calculatePercentage(statusCounts.reopen) },
+      cancelled: { count: statusCounts.cancelled, percentage: calculatePercentage(statusCounts.cancelled) },
+      overdue: { count: statusCounts.overdue, percentage: calculatePercentage(statusCounts.overdue) }
     });
-    return;
-  }
-  
-  let total = 0;
-  const statusCounts = {
-    pending: 0,
-    'in-progress': 0,
-    completed: 0,
-    rejected: 0,
-    onhold: 0,
-    reopen: 0,
-    cancelled: 0,
-    overdue: 0
+  }, [userId, getUserStatusForTask, isOverdue]);
+
+  // Manual overdue check
+  const manualCheckOverdue = async () => {
+    try {
+      const res = await axios.get('/task/check-overdue');
+      showSnackbar(res.data.message, 'success');
+      fetchMyTasks();
+      fetchOverdueTasks();
+    } catch (error) {
+      console.error('Error checking overdue tasks:', error);
+      showSnackbar('Failed to check overdue tasks', 'error');
+    }
   };
 
-  Object.values(tasks).forEach(dateTasks => {
-    dateTasks.forEach(task => {
-      total++;
-      const myStatus = getUserStatusForTask(task, userId);
-
-      if (statusCounts[myStatus] !== undefined) {
-        statusCounts[myStatus]++;
-      }
-
-      // Check if task is overdue
-      if (isOverdue(task.dueDateTime, myStatus) && myStatus !== 'overdue') {
-        statusCounts.overdue++;
-      }
-    });
-  });
-
-  const calculatePercentage = (count) => total > 0 ? Math.round((count / total) * 100) : 0;
-
-  setTaskStats({
-    total,
-    pending: { count: statusCounts.pending, percentage: calculatePercentage(statusCounts.pending) },
-    inProgress: { count: statusCounts['in-progress'], percentage: calculatePercentage(statusCounts['in-progress']) },
-    completed: { count: statusCounts.completed, percentage: calculatePercentage(statusCounts.completed) },
-    rejected: { count: statusCounts.rejected, percentage: calculatePercentage(statusCounts.rejected) },
-    onHold: { count: statusCounts.onhold, percentage: calculatePercentage(statusCounts.onhold) },
-    reopen: { count: statusCounts.reopen, percentage: calculatePercentage(statusCounts.reopen) },
-    cancelled: { count: statusCounts.cancelled, percentage: calculatePercentage(statusCounts.cancelled) },
-    overdue: { count: statusCounts.overdue, percentage: calculatePercentage(statusCounts.overdue) }
-  });
-}, [userId, getUserStatusForTask, isOverdue]);
-
-// 🔴 ADD this new function for manual overdue check:
-const manualCheckOverdue = async () => {
-  try {
-    const res = await axios.get('/task/check-overdue');
-    showSnackbar(res.data.message, 'success');
-    fetchMyTasks();
-    fetchOverdueTasks();
-  } catch (error) {
-    console.error('Error checking overdue tasks:', error);
-    showSnackbar('Failed to check overdue tasks', 'error');
-  }
-};
-
-  // Fetch user's tasks
+  // Fetch user's tasks - FIXED: Using refs for filter values
   const fetchMyTasks = useCallback(async () => {
     if (authError || !userId) {
       setLoading(false);
@@ -349,9 +386,9 @@ const manualCheckOverdue = async () => {
     try {
       const params = new URLSearchParams();
       
-      if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
-      if (searchTerm) params.append('search', searchTerm);
-      if (timeFilter && timeFilter !== 'all') params.append('period', timeFilter);
+      if (statusFilterRef.current && statusFilterRef.current !== 'all') params.append('status', statusFilterRef.current);
+      if (searchTermRef.current) params.append('search', searchTermRef.current);
+      if (timeFilterRef.current && timeFilterRef.current !== 'all') params.append('period', timeFilterRef.current);
 
       const url = `/task/my?${params.toString()}`;
       const res = await axios.get(url);
@@ -371,7 +408,7 @@ const manualCheckOverdue = async () => {
     } finally {
       setLoading(false);
     }
-  }, [authError, userId, statusFilter, searchTerm, timeFilter, calculateStatsFromTasks]);
+  }, [authError, userId, calculateStatsFromTasks]);
 
   // Fetch overdue tasks
   const fetchOverdueTasks = useCallback(async () => {
@@ -425,6 +462,18 @@ const manualCheckOverdue = async () => {
   const fetchTaskRemarks = async (taskId) => {
     try {
       const res = await axios.get(`/task/${taskId}/remarks`);
+      console.log('📥 Remarks data:', res.data);
+      
+      // Check image paths
+      if (res.data.remarks) {
+        res.data.remarks.forEach((remark, index) => {
+          if (remark.image) {
+            console.log(`📸 Remark ${index} image path:`, remark.image);
+            console.log(`🔗 Full URL:`, getImageUrl(remark.image));
+          }
+        });
+      }
+      
       setRemarksDialog({ 
         open: true, 
         taskId, 
@@ -446,6 +495,9 @@ const manualCheckOverdue = async () => {
       return;
     }
 
+    // Clean up previous previews
+    remarkImages.forEach(image => URL.revokeObjectURL(image.preview));
+
     const newImage = {
       file: imageFiles[0],
       preview: URL.createObjectURL(imageFiles[0]),
@@ -453,7 +505,6 @@ const manualCheckOverdue = async () => {
       size: imageFiles[0].size
     };
 
-    remarkImages.forEach(image => URL.revokeObjectURL(image.preview));
     setRemarkImages([newImage]);
   };
 
@@ -500,23 +551,36 @@ const manualCheckOverdue = async () => {
       formData.append('text', newRemark.trim());
 
       remarkImages.forEach((image) => {
+        console.log('📤 Uploading image:', image.file.name);
         formData.append('image', image.file);
       });
 
-      await axios.post(`/task/${taskId}/remarks`, formData, {
+      const response = await axios.post(`/task/${taskId}/remarks`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         }
       });
 
-      setNewRemark('');
-      setRemarkImages([]);
+      console.log('✅ Remark added response:', response.data);
       
+      // Check response for image path
+      if (response.data.remark && response.data.remark.image) {
+        console.log('📸 Image saved at path:', response.data.remark.image);
+      }
+
+      setNewRemark('');
+      
+      // Clean up previews
+      remarkImages.forEach(image => URL.revokeObjectURL(image.preview));
+      setRemarkImages([]);
       
       showSnackbar(
         `Remark added successfully${remarkImages.length > 0 ? ' with image' : ''}`, 
         'success'
       );
+
+      // Refresh remarks after adding
+      await fetchTaskRemarks(taskId);
 
     } catch (error) {
       console.error('Error adding remark:', error);
@@ -525,8 +589,6 @@ const manualCheckOverdue = async () => {
       setIsUploadingRemark(false);
     }
   };
-
-
 
   // Fetch activity logs
   const fetchActivityLogs = async (taskId) => {
@@ -626,7 +688,6 @@ const manualCheckOverdue = async () => {
 
       fetchMyTasks();
       fetchOverdueTasks();
-    
       
       showSnackbar('Status updated successfully', 'success');
 
@@ -655,7 +716,6 @@ const manualCheckOverdue = async () => {
 
       fetchMyTasks();
       fetchOverdueTasks();
-     
       
       showSnackbar('Task marked as overdue', 'warning');
 
@@ -686,6 +746,9 @@ const manualCheckOverdue = async () => {
 
         const file = new File([blob], "voice-note.webm", { type: "audio/webm" });
         setNewTask({ ...newTask, voiceNote: file });
+        
+        // Stop all tracks to release microphone
+        stream.getTracks().forEach(track => track.stop());
       };
 
       mediaRecorderRef.current.start();
@@ -704,159 +767,123 @@ const manualCheckOverdue = async () => {
     }
   };
 
-const handleCreateTask = async () => {
-  if (authError || !userId) {
-    showSnackbar('Please log in to create tasks', 'error');
-    return;
-  }
+  const handleCreateTask = async () => {
+    if (authError || !userId) {
+      showSnackbar('Please log in to create tasks', 'error');
+      return;
+    }
 
-  if (!newTask.title || !newTask.description || !newTask.dueDateTime) {
-    showSnackbar('Please fill all required fields (Title, Description, Due Date)', 'error');
-    return;
-  }
+    if (!newTask.title || !newTask.description || !newTask.dueDateTime) {
+      showSnackbar('Please fill all required fields (Title, Description, Due Date)', 'error');
+      return;
+    }
 
-  setIsCreatingTask(true);
+    setIsCreatingTask(true);
 
-  try {
-    let dueDate;
-    
-    // Handle date parsing
-    if (newTask.dueDateTime instanceof Date) {
-      dueDate = newTask.dueDateTime;
-    } else if (typeof newTask.dueDateTime === 'string') {
-      // Parse the datetime-local input (format: YYYY-MM-DDTHH:mm)
-      if (newTask.dueDateTime.includes('T')) {
-        // Add seconds if missing
-        const dateStr = newTask.dueDateTime.includes(':') && newTask.dueDateTime.split(':').length === 2 
-          ? `${newTask.dueDateTime}:00` 
-          : newTask.dueDateTime;
-        
-        dueDate = new Date(dateStr);
+    try {
+      let dueDate;
+      
+      if (newTask.dueDateTime instanceof Date) {
+        dueDate = newTask.dueDateTime;
+      } else if (typeof newTask.dueDateTime === 'string') {
+        if (newTask.dueDateTime.includes('T')) {
+          const dateStr = newTask.dueDateTime.includes(':') && newTask.dueDateTime.split(':').length === 2 
+            ? `${newTask.dueDateTime}:00` 
+            : newTask.dueDateTime;
+          
+          dueDate = new Date(dateStr);
+        } else {
+          dueDate = new Date(newTask.dueDateTime);
+        }
       } else {
-        dueDate = new Date(newTask.dueDateTime);
+        showSnackbar('Invalid date format', 'error');
+        setIsCreatingTask(false);
+        return;
       }
-    } else {
-      showSnackbar('Invalid date format', 'error');
-      setIsCreatingTask(false);
-      return;
-    }
 
-    // Check if date is valid
-    if (isNaN(dueDate.getTime())) {
-      console.error('Invalid date:', newTask.dueDateTime);
-      showSnackbar('Invalid date format. Please select a valid date and time.', 'error');
-      setIsCreatingTask(false);
-      return;
-    }
-
-    // Check if dueDateTime is in the past (with 5 minutes buffer for timezone)
-    const now = new Date();
-    const buffer = 5 * 60 * 1000; // 5 minutes buffer
-    
-    if (dueDate < new Date(now.getTime() - buffer)) {
-      showSnackbar('Due date cannot be in the past. Please select a future date and time.', 'error');
-      setIsCreatingTask(false);
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('title', newTask.title);
-    formData.append('description', newTask.description);
-    
-    // Send as ISO string
-    formData.append('dueDateTime', dueDate.toISOString());
-
-    formData.append('priorityDays', newTask.priorityDays || '1');
-    formData.append('priority', newTask.priority);
-
-    if (newTask.files) {
-      for (let i = 0; i < newTask.files.length; i++) {
-        formData.append('files', newTask.files[i]);
+      if (isNaN(dueDate.getTime())) {
+        console.error('Invalid date:', newTask.dueDateTime);
+        showSnackbar('Invalid date format. Please select a valid date and time.', 'error');
+        setIsCreatingTask(false);
+        return;
       }
-    }
 
-    if (newTask.voiceNote) {
-      formData.append('voiceNote', newTask.voiceNote);
-    }
-
-    console.log('📤 Creating task with data:', {
-      title: newTask.title,
-      description: newTask.description,
-      dueDateTime: dueDate.toISOString(),
-      dueDateTimeLocal: newTask.dueDateTime,
-      priority: newTask.priority,
-      priorityDays: newTask.priorityDays
-    });
-
-    const response = await axios.post('/task/create-self', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
+      const now = new Date();
+      const buffer = 5 * 60 * 1000;
+      
+      if (dueDate < new Date(now.getTime() - buffer)) {
+        showSnackbar('Due date cannot be in the past. Please select a future date and time.', 'error');
+        setIsCreatingTask(false);
+        return;
       }
-    });
 
-    console.log('✅ Task created successfully:', response.data);
+      const formData = new FormData();
+      formData.append('title', newTask.title);
+      formData.append('description', newTask.description);
+      formData.append('dueDateTime', dueDate.toISOString());
+      formData.append('priorityDays', newTask.priorityDays || '1');
+      formData.append('priority', newTask.priority);
 
-    setOpenDialog(false);
-    showSnackbar('Task created successfully', 'success');
-    
-    // Reset form
-    setNewTask({
-      title: '', 
-      description: '', 
-      dueDateTime: '',
-      priority: 'medium', 
-      priorityDays: '1', 
-      files: null, 
-      voiceNote: null,
-    });
+      if (newTask.files) {
+        for (let i = 0; i < newTask.files.length; i++) {
+          formData.append('files', newTask.files[i]);
+        }
+      }
 
-    // Refresh tasks
-    fetchMyTasks();
+      if (newTask.voiceNote) {
+        formData.append('voiceNote', newTask.voiceNote);
+      }
 
+      console.log('📤 Creating task with data:', {
+        title: newTask.title,
+        description: newTask.description,
+        dueDateTime: dueDate.toISOString(),
+        dueDateTimeLocal: newTask.dueDateTime,
+        priority: newTask.priority,
+        priorityDays: newTask.priorityDays
+      });
 
-  } catch (err) {
-    console.error('❌ Full error creating task:', err);
-    console.error('❌ Error response:', err.response?.data);
-    
-    if (err.response?.status === 401) {
-      setAuthError(true);
-      showSnackbar('Session expired. Please log in again.', 'error');
-    } else if (err.response?.status === 400) {
-      const errorMsg = err.response?.data?.error || 'Invalid input. Please check your data.';
-      showSnackbar(errorMsg, 'error');
-    } else {
-      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Task creation failed';
-      showSnackbar(errorMsg, 'error');
+      const response = await axios.post('/task/create-self', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        }
+      });
+
+      console.log('✅ Task created successfully:', response.data);
+
+      setOpenDialog(false);
+      showSnackbar('Task created successfully', 'success');
+      
+      setNewTask({
+        title: '', 
+        description: '', 
+        dueDateTime: '',
+        priority: 'medium', 
+        priorityDays: '1', 
+        files: null, 
+        voiceNote: null,
+      });
+
+      fetchMyTasks();
+
+    } catch (err) {
+      console.error('❌ Full error creating task:', err);
+      console.error('❌ Error response:', err.response?.data);
+      
+      if (err.response?.status === 401) {
+        setAuthError(true);
+        showSnackbar('Session expired. Please log in again.', 'error');
+      } else if (err.response?.status === 400) {
+        const errorMsg = err.response?.data?.error || 'Invalid input. Please check your data.';
+        showSnackbar(errorMsg, 'error');
+      } else {
+        const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Task creation failed';
+        showSnackbar(errorMsg, 'error');
+      }
+    } finally {
+      setIsCreatingTask(false);
     }
-  } finally {
-    setIsCreatingTask(false);
-  }
-};
-
-// Helper function to format date to required backend format
-// You can add this as a standalone function or use useCallback
-const formatDateForBackend = (dateTimeString) => {
-  if (!dateTimeString) return '';
-  
-  const date = new Date(dateTimeString);
-  
-  // Format: DD/MM/YYYY
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  
-  // Format: HH:MM AM/PM
-  let hours = date.getHours();
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  
-  hours = hours % 12;
-  hours = hours ? hours : 12; // the hour '0' should be '12'
-  const formattedHours = String(hours).padStart(2, '0');
-  
-  // Return format: DD/MM/YYYY, HH:MM AM/PM
-  return `${day}/${month}/${year}, ${formattedHours}:${minutes} ${ampm}`;
-};
+  };
 
   // Logout
   const handleLogout = () => {
@@ -865,7 +892,7 @@ const formatDateForBackend = (dateTimeString) => {
     navigate('/login');
   };
 
-  // ✅ Load initial data with page loader
+  // Load initial data with page loader - Run once on mount
   useEffect(() => {
     const loadData = async () => {
       setPageLoading(true);
@@ -874,12 +901,10 @@ const formatDateForBackend = (dateTimeString) => {
         if (!authError && userId) {
           await fetchMyTasks();
           await fetchOverdueTasks();
-          
         }
       } catch (error) {
         console.error('Error loading task data:', error);
       } finally {
-        // Minimum 500ms loader show karega
         setTimeout(() => {
           setPageLoading(false);
         }, 500);
@@ -887,26 +912,38 @@ const formatDateForBackend = (dateTimeString) => {
     };
     
     loadData();
-  }, []);
+  }, []); // Empty dependency array - run only once
 
-  // Fetch tasks on filter change
+  // FIXED: Single useEffect for filter changes
   useEffect(() => {
-    fetchMyTasks();
-  }, [statusFilter, searchTerm, timeFilter, fetchMyTasks]);
+    if (!authError && userId) {
+      fetchMyTasks();
+    }
+  }, [statusFilter, searchTerm, timeFilter, authError, userId]);
 
-  // Fetch user data on mount
-  useEffect(() => {
-    fetchUserData();
-  }, [fetchUserData]);
-
-  // Fetch data when user is authenticated
+  // FIXED: Single useEffect for user authentication
   useEffect(() => {
     if (!authError && userId) {
       fetchMyTasks();
       fetchOverdueTasks();
-     
     }
-  }, [authError, userId, fetchMyTasks, fetchOverdueTasks]);
+  }, [authError, userId]);
+
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      if (snackbarTimerRef.current) {
+        clearTimeout(snackbarTimerRef.current);
+      }
+      
+      // Clean up any object URLs
+      remarkImages.forEach(image => {
+        if (image.preview) {
+          URL.revokeObjectURL(image.preview);
+        }
+      });
+    };
+  }, [remarkImages]);
 
   const renderStatisticsCards = () => {
     const statsData = [
@@ -1150,8 +1187,7 @@ const formatDateForBackend = (dateTimeString) => {
         {task.files?.length > 0 && (
           <a
             className="user-create-task-action-button"
-            // eslint-disable-next-line no-undef
-            href={`${API_URL || 'http://localhost:3000'||'https://backendcds.ciisnetwork.in'}/${task.files[0].path || task.files[0]}`}
+            href={getImageUrl(task.files[0].path || task.files[0])}
             target="_blank"
             rel="noopener noreferrer"
             title="Download Files"
@@ -1200,7 +1236,7 @@ const formatDateForBackend = (dateTimeString) => {
     );
   };
 
-  // Render remarks dialog
+  // Render remarks dialog - FIXED VERSION with improved image error handling
   const renderRemarksDialog = () => (
     <div className="user-create-task-dialog-overlay" style={{ display: remarksDialog.open ? 'flex' : 'none' }}>
       <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ maxWidth: isMobile ? '95%' : isTablet ? '700px' : '800px', width: isMobile ? '95%' : 'auto' }}>
@@ -1317,8 +1353,6 @@ const formatDateForBackend = (dateTimeString) => {
                     </div>
                   )}
                 </div>
-
-                {/* Submit Button - This is now moved to dialog-actions */}
               </div>
             </div>
 
@@ -1370,22 +1404,106 @@ const formatDateForBackend = (dateTimeString) => {
                             </div>
                           )}
 
+                          {/* FIXED: Image display section with proper error handling */}
                           {remark.image && (
                             <div style={{ marginTop: isMobile ? '6px' : '8px' }}>
                               <div style={{ fontSize: isMobile ? '11px' : '12px', marginBottom: '4px' }}>
                                 Attached Image:
                               </div>
                               <div 
-                                onClick={() => setZoomImage(`${API_URL || 'http://localhost:3000'||'https://backendcds.ciisnetwork.in'}/${remark.image}`)}
+                                onClick={() => setZoomImage(getImageUrl(remark.image))}
                                 style={{ cursor: 'pointer' }}
                               >
                                 <img
-                                  src={`${API_URL || 'http://localhost:3000'||'https://backendcds.ciisnetwork.in'}/${remark.image}`}
+                                  src={getImageUrl(remark.image)}
                                   alt="Remark attachment"
                                   style={{
                                     width: '100%',
                                     height: 'auto',
                                     borderRadius: '4px',
+                                    maxHeight: '300px',
+                                    objectFit: 'contain',
+                                    border: '1px solid #eee'
+                                  }}
+                                  onError={(e) => {
+                                    console.error('❌ Image failed to load:', e.target.src);
+                                    
+                                    // Get the base URL without /api
+                                    const baseUrl = (API_URL || 'http://localhost:3000').replace(/\/api$/, '');
+                                    
+                                    // Get the filename from the original path
+                                    const originalPath = remark.image;
+                                    const filename = originalPath.split(/[\\/]/).pop();
+                                    
+                                    // Try different path combinations
+                                    const pathsToTry = [
+                                      // Most likely correct paths
+                                      `${baseUrl}/uploads/remarks/${filename}`,
+                                      `${baseUrl}/uploads/${filename}`,
+                                      `${baseUrl}/remarks/${filename}`,
+                                      
+                                      // With /api prefix
+                                      `${baseUrl}/api/uploads/remarks/${filename}`,
+                                      `${baseUrl}/api/uploads/${filename}`,
+                                      `${baseUrl}/api/remarks/${filename}`,
+                                      
+                                      // With original path structure
+                                      `${baseUrl}/${originalPath.replace(/\\/g, '/')}`,
+                                      `${baseUrl}/uploads/${originalPath.replace(/\\/g, '/')}`,
+                                    ];
+                                    
+                                    // Remove duplicates
+                                    const uniquePaths = [...new Set(pathsToTry)];
+                                    
+                                    console.log('🔄 Trying alternative paths:', uniquePaths);
+                                    
+                                    let triedIndex = 0;
+                                    const tryNextPath = () => {
+                                      if (triedIndex < uniquePaths.length) {
+                                        console.log(`🔄 Trying path ${triedIndex + 1}:`, uniquePaths[triedIndex]);
+                                        e.target.src = uniquePaths[triedIndex];
+                                        triedIndex++;
+                                      } else {
+                                        // Show fallback if all paths fail
+                                        e.target.style.display = 'none';
+                                        const parent = e.target.parentElement;
+                                        
+                                        // Remove any existing fallback
+                                        const existingFallback = parent.querySelector('.image-error-fallback');
+                                        if (existingFallback) {
+                                          existingFallback.remove();
+                                        }
+                                        
+                                        // Create fallback UI
+                                        const fallback = document.createElement('div');
+                                        fallback.className = 'image-error-fallback';
+                                        fallback.style.cssText = `
+                                          padding: 20px;
+                                          background: #fff3f3;
+                                          border: 1px solid #ffcdd2;
+                                          border-radius: 8px;
+                                          text-align: center;
+                                          color: #d32f2f;
+                                          font-size: 14px;
+                                          display: flex;
+                                          flex-direction: column;
+                                          align-items: center;
+                                          gap: 8px;
+                                        `;
+                                        fallback.innerHTML = `
+                                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="10"></circle>
+                                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                          </svg>
+                                          <span>Image not available</span>
+                                        `;
+                                        parent.appendChild(fallback);
+                                      }
+                                    };
+                                    
+                                    e.target.onerror = tryNextPath;
+                                    tryNextPath();
                                   }}
                                 />
                               </div>
@@ -1408,10 +1526,9 @@ const formatDateForBackend = (dateTimeString) => {
           </div>
         </div>
         
-        {/* Updated Dialog Actions - Save button on LEFT, Close button on RIGHT */}
+        {/* Dialog Actions */}
         <div className="user-create-task-dialog-actions">
           <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center" style={{ width: '100%' }}>
-            {/* Save/Add Remark Button - Left side */}
             <button
               className="user-create-task-button user-create-task-button-contained"
               onClick={async () => {
@@ -1427,9 +1544,9 @@ const formatDateForBackend = (dateTimeString) => {
                     setPendingStatusChange({ taskId: null, status: "" });
                   }
 
-                  setRemarksDialog({ open: false, taskId: null, remarks: [] });
+                  // Refresh remarks after adding
+                  await fetchTaskRemarks(remarksDialog.taskId);
                   setNewRemark("");
-                  setRemarkImages([]);
                   fetchMyTasks();
 
                 } catch (error) {
@@ -1440,7 +1557,7 @@ const formatDateForBackend = (dateTimeString) => {
               style={{ 
                 padding: isMobile ? '8px 12px' : '10px 16px',
                 minWidth: isMobile ? '120px' : '160px',
-                marginRight: 'auto' /* Ensures it stays on left */
+                marginRight: 'auto'
               }}
             >
               {isUploadingRemark ? (
@@ -1455,7 +1572,6 @@ const formatDateForBackend = (dateTimeString) => {
               )}
             </button>
 
-            {/* Close Button - Right side */}
             <button
               className="user-create-task-button user-create-task-button-outlined"
               onClick={() => {
@@ -1465,7 +1581,7 @@ const formatDateForBackend = (dateTimeString) => {
               }}
               style={{ 
                 padding: isMobile ? '8px 12px' : '10px 16px',
-                marginLeft: 'auto' /* Ensures it stays on right */
+                marginLeft: 'auto'
               }}
             >
               Close
@@ -1510,6 +1626,9 @@ const formatDateForBackend = (dateTimeString) => {
             height: 'auto',
             maxHeight: '90vh',
             objectFit: 'contain',
+          }}
+          onError={(e) => {
+            console.error('Zoom image failed to load:', e.target.src);
           }}
         />
       </div>
@@ -1613,7 +1732,7 @@ const formatDateForBackend = (dateTimeString) => {
                       {task.files?.length > 0 && (
                         <a
                           className="user-create-task-action-button"
-                          href={`${API_URL || 'http://localhost:3000'||'https://backendcds.ciisnetwork.in'}/${task.files[0].path || task.files[0]}`}
+                          href={getImageUrl(task.files[0].path || task.files[0])}
                           target="_blank"
                           rel="noopener noreferrer"
                           title={`${task.files.length} file(s)`}
@@ -1728,7 +1847,6 @@ const formatDateForBackend = (dateTimeString) => {
 
   // Render grouped tasks
   const renderGroupedTasks = () => {
-    // If showing overdue only, filter tasks
     let tasksToRender = showOverdueOnly 
       ? Object.entries(myTasksGrouped).reduce((acc, [dateKey, tasks]) => {
           const overdueTasks = tasks.filter(task => {
@@ -1742,7 +1860,6 @@ const formatDateForBackend = (dateTimeString) => {
         }, {})
       : myTasksGrouped;
 
-    // Apply date filter
     tasksToRender = applyDateFilter(tasksToRender);
     
     if (Object.keys(tasksToRender).length === 0) {
@@ -1772,7 +1889,7 @@ const formatDateForBackend = (dateTimeString) => {
 
   // Render overdue tasks section
   const renderOverdueTasksSection = () => {
-    if (getOverdueCount() === 0) return null;
+    if (getOverdueCount === 0) return null;
 
     return (
       <div className="user-create-task-paper" style={{ 
@@ -1787,7 +1904,7 @@ const formatDateForBackend = (dateTimeString) => {
           <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1.5">
             <FiAlertTriangle size={isMobile ? 18 : 20} color="#f44336" />
             <div style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: 700, color: '#f44336' }}>
-              ⚠️ Overdue Tasks ({getOverdueCount()})
+              ⚠️ Overdue Tasks ({getOverdueCount})
             </div>
           </div>
           <div style={{ fontSize: isMobile ? '13px' : '14px', color: '#d32f2f', marginTop: '4px' }}>
@@ -1883,95 +2000,6 @@ const formatDateForBackend = (dateTimeString) => {
       </div>
     );
   };
-
-  // Render notifications panel
-  // const renderNotificationsPanel = () => (
-  //   <div className="user-create-task-dialog-overlay" style={{ display: notificationsOpen ? 'flex' : 'none' }}>
-  //     <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
-  //       width: isMobile ? '90%' : isTablet ? '400px' : '400px',
-  //       maxHeight: isMobile ? '80vh' : '70vh'
-  //     }}>
-  //       {/* <div style={{ 
-  //         padding: isMobile ? '12px 16px' : '16px 20px', 
-  //         borderBottom: '1px solid #e0e0e0' 
-  //       }}>
-  //         <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center">
-  //           <div style={{ fontWeight: 600, fontSize: isMobile ? '16px' : '18px' }}>Notifications</div>
-  //           <button 
-  //             className="user-create-task-button user-create-task-button-text"
-  //             onClick={markAllNotificationsAsRead} 
-  //             disabled={unreadNotificationCount === 0}
-  //             style={{ padding: isMobile ? '6px 8px' : '8px 12px' }}
-  //           >
-  //             {isMobile ? 'Mark All' : 'Mark all as read'}
-  //           </button>
-  //         </div>
-  //       </div> */}
-  //       <div style={{ 
-  //         maxHeight: isMobile ? 'calc(80vh - 120px)' : 'calc(70vh - 120px)', 
-  //         overflow: 'auto', 
-  //         padding: isMobile ? '8px' : '12px' 
-  //       }}>
-  //         {notifications.length > 0 ? (
-  //           <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-1">
-  //             {notifications.map((notification) => (
-  //               <div 
-  //                 key={notification._id} 
-  //                 className="user-create-task-paper"
-  //                 style={{ 
-  //                   backgroundColor: notification.isRead ? '#fafafa' : '#f5f5f5',
-  //                   padding: isMobile ? '12px' : '16px'
-  //                 }}
-  //               >
-  //                 <div className="user-create-task-paper-content">
-  //                   <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-1">
-  //                     <div style={{ fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>
-  //                       {notification.title}
-  //                     </div>
-  //                     <div style={{ fontSize: isMobile ? '13px' : '14px' }}>
-  //                       {notification.message}
-  //                     </div>
-  //                     <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center">
-  //                       <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#666' }}>
-  //                         {new Date(notification.createdAt).toLocaleDateString()}
-  //                       </div>
-  //                       {/* {!notification.isRead && (
-  //                         <button 
-  //                           className="user-create-task-button user-create-task-button-text"
-  //                           onClick={() => markNotificationAsRead(notification._id)}
-  //                           style={{ padding: isMobile ? '4px 6px' : '6px 8px' }}
-  //                         >
-  //                           {isMobile ? 'Read' : 'Mark read'}
-  //                         </button>
-  //                       )} */}
-  //                     </div>
-  //                   </div>
-  //                 </div>
-  //               </div>
-  //             ))}
-  //           </div>
-  //         ) : (
-  //           <div style={{ textAlign: 'center', padding: isMobile ? '24px' : '32px' }}>
-  //             <FiBell size={isMobile ? 24 : 32} color="#666" />
-  //             <div style={{ marginTop: isMobile ? '8px' : '12px', color: '#666', fontSize: isMobile ? '14px' : '16px' }}>
-  //               No notifications
-  //             </div>
-  //           </div>
-  //         )}
-  //       </div>
-        
-  //       <div className="user-create-task-dialog-actions">
-  //         <button
-  //           className="user-create-task-button user-create-task-button-outlined"
-  //           onClick={() => setNotificationsOpen(false)}
-  //           style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-  //         >
-  //           Close
-  //         </button>
-  //       </div>
-  //     </div>
-  //   </div>
-  // );
 
   // Render activity logs dialog
   const renderActivityLogsDialog = () => (
@@ -2230,25 +2258,23 @@ const formatDateForBackend = (dateTimeString) => {
               <div className="user-create-task-form-control" style={{ flex: 1 }}>
                 <label>Due Date & Time *</label>
                 
-<input
-  type="datetime-local"
-  className="user-create-task-input"
-  value={newTask.dueDateTime || ''}
-  onChange={(e) => {
-    const value = e.target.value;
-    console.log('📅 Selected datetime-local value:', value);
-    
-    // Ensure proper format
-    let formattedValue = value;
-    if (value && value.includes('T') && value.split(':').length === 2) {
-      // Add seconds if missing
-      formattedValue = `${value}:00`;
-    }
-    
-    setNewTask({ ...newTask, dueDateTime: formattedValue });
-  }}
-  min={new Date().toISOString().slice(0, 16)}
-/>
+                <input
+                  type="datetime-local"
+                  className="user-create-task-input"
+                  value={newTask.dueDateTime || ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    console.log('📅 Selected datetime-local value:', value);
+                    
+                    let formattedValue = value;
+                    if (value && value.includes('T') && value.split(':').length === 2) {
+                      formattedValue = `${value}:00`;
+                    }
+                    
+                    setNewTask({ ...newTask, dueDateTime: formattedValue });
+                  }}
+                  min={new Date().toISOString().slice(0, 16)}
+                />
               </div>
 
               <div className="user-create-task-form-control" style={{ flex: 1 }}>
@@ -2343,34 +2369,6 @@ const formatDateForBackend = (dateTimeString) => {
     </div>
   );
 
-  // Cleanup effect
-  useEffect(() => {
-    return () => {
-      if (snackbarTimerRef.current) {
-        clearTimeout(snackbarTimerRef.current);
-      }
-    };
-  }, []);
-
-  // Fetch tasks on filter change
-  useEffect(() => {
-    fetchMyTasks();
-  }, [statusFilter, searchTerm, timeFilter, fetchMyTasks]);
-
-  // Fetch user data on mount
-  useEffect(() => {
-    fetchUserData();
-  }, [fetchUserData]);
-
-  // Fetch data when user is authenticated
-  useEffect(() => {
-    if (!authError && userId) {
-      fetchMyTasks();
-      fetchOverdueTasks();
-      
-    }
-  }, [authError, userId, fetchMyTasks, fetchOverdueTasks]);
-
   // Auth error screen
   if (authError) {
     return (
@@ -2396,7 +2394,6 @@ const formatDateForBackend = (dateTimeString) => {
     );
   }
 
-  // ✅ Show CIISLoader while page is loading
   if (pageLoading) {
     return <CIISLoader />;
   }
@@ -2459,21 +2456,8 @@ const formatDateForBackend = (dateTimeString) => {
             </div>
           </div>
 
-          {/* RIGHT: Notification + Create Task */}
+          {/* RIGHT: Create Task */}
           <div className={`user-create-task-header-actions ${isMobile ? 'user-create-task-flex-row user-create-task-justify-between' : ''}`}>
-            {/* <button
-              className="user-create-task-action-button"
-              onClick={() => setNotificationsOpen(true)}
-              style={{ position: 'relative' }}
-            >
-              <FiBell size={isMobile ? 18 : 20} />
-              {unreadNotificationCount > 0 && (
-                <span className="user-create-task-notification-badge">
-                  {unreadNotificationCount}
-                </span>
-              )}
-            </button> */}
-
             <button
               className="user-create-task-button user-create-task-button-contained"
               onClick={() => setOpenDialog(true)}
@@ -2561,7 +2545,7 @@ const formatDateForBackend = (dateTimeString) => {
               <div style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: 700 }}>
                 My Tasks
               </div>
-              {getOverdueCount() > 0 && (
+              {getOverdueCount > 0 && (
                 <div style={{
                   backgroundColor: '#f44336',
                   color: 'white',
@@ -2570,7 +2554,7 @@ const formatDateForBackend = (dateTimeString) => {
                   fontSize: '12px',
                   fontWeight: '600'
                 }}>
-                  {getOverdueCount()} Overdue
+                  {getOverdueCount} Overdue
                 </div>
               )}
             </div>
@@ -2648,7 +2632,6 @@ const formatDateForBackend = (dateTimeString) => {
       {/* DIALOGS */}
       {renderCreateTaskDialog()}
       {renderCalendarFilterDialog()}
-     
       {renderRemarksDialog()}
       {renderActivityLogsDialog()}
       {renderImageZoomModal()}

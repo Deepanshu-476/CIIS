@@ -1282,11 +1282,6 @@ const UserCreateTask = () => {
                     }}
                   >
                     <div className="user-create-task-flex user-create-task-flex-column user-create-task-align-center user-create-task-gap-1">
-                      <FiImage size={isMobile ? 24 : 32} color="#1976d2" />
-                      <div style={{ fontSize: isMobile ? '14px' : '16px' }}>Click to upload or drag & drop</div>
-                      <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#666' }}>
-                        Supports JPG, PNG, GIF
-                      </div>
                       <button
                         className="user-create-task-button user-create-task-button-outlined"
                         style={{ marginTop: '8px', padding: isMobile ? '8px 12px' : '10px 16px' }}
@@ -1601,31 +1596,35 @@ const UserCreateTask = () => {
         maxHeight: '90vh',
       }}>
         <button
-          onClick={() => setZoomImage(null)}
-          style={{
-            position: 'absolute',
-            top: '16px',
-            right: '16px',
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '50%',
-            width: isMobile ? '32px' : '36px',
-            height: isMobile ? '32px' : '36px',
-            cursor: 'pointer',
-            zIndex: 1,
-          }}
-        >
-          <FiX size={isMobile ? 16 : 20} />
-        </button>
+        onClick={() => setZoomImage(null)}
+        style={{
+          position: 'absolute',
+          top: '16px',
+          right: '13px',
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          color: 'white',
+          border: 'none',
+          borderRadius: '50%',
+          width: isMobile ? '32px' : '36px',
+          height: isMobile ? '32px' : '36px',
+          cursor: 'pointer',
+          zIndex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+      >
+     <FiX size={isMobile ? 16 : 20} />
+    </button>
         <img
           src={zoomImage}
           alt="Zoomed view"
           style={{
             width: '100%',
             height: 'auto',
-            maxHeight: '90vh',
+            maxHeight: '77vh',
             objectFit: 'contain',
+            
           }}
           onError={(e) => {
             console.error('Zoom image failed to load:', e.target.src);

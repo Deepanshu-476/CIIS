@@ -2374,14 +2374,14 @@
 /* Enhanced System Info Grid */
 .AllCompany-system-info-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 20px;
   margin-top: 8px;
 }
 
 @media (max-width: 768px) {
   .AllCompany-system-info-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 12px;
   }
 }
@@ -2611,13 +2611,13 @@
 /* System Info Grid */
 .AllCompany-system-info-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
 }
 
 @media (max-width: 768px) {
   .AllCompany-system-info-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 12px;
   }
 }

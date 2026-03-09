@@ -44,6 +44,7 @@ import EmployeeProject from "./hrCds/pages/EmployeeProject";
 import ClientMeeting from "./hrCds/pages/ClientMeeting";
 import Text from "../src/Pages/text.jsx";
 import CreateAlerts from "./hrCds/pages/CreateAlerts.jsx";
+import UserProfile from './page/UserProfile.jsx';
 
 // Website Pages
 import Home from "./Pages/Home";
@@ -149,6 +150,8 @@ function App() {
           <Route path="client-meeting" element={<ClientMeeting />} />
           <Route path="test" element={<Text />} />
           <Route path="create-alert" element={<CreateAlerts />} />
+          <Route path="user-profile" element={<UserProfile/>} />
+       
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

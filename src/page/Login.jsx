@@ -13,12 +13,20 @@ const Login = () => {
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
   const [companyLoading, setCompanyLoading] = useState(true);
   const [errors, setErrors] = useState({});
   const [companyDetails, setCompanyDetails] = useState(null);
   const [companyIdentifier, setCompanyIdentifier] = useState('');
-  const [twoFactorRequired, setTwoFactorRequired] = useState(false);
-  const [twoFactorCode, setTwoFactorCode] = useState('');
+  
+  // OTP Popup states
+  const [showOtpPopup, setShowOtpPopup] = useState(false);
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [tempToken, setTempToken] = useState('');
+  const [otpEmail, setOtpEmail] = useState('');
+  const [otpTimer, setOtpTimer] = useState(60);
+  const [canResend, setCanResend] = useState(false);
+  const [otpError, setOtpError] = useState('');
   
   // Forget password states
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -66,7 +74,18 @@ const Login = () => {
     }
   }, []);
 
-  // Countdown timer for OTP resend
+  // OTP Timer
+  useEffect(() => {
+    let timer;
+    if (showOtpPopup && otpTimer > 0) {
+      timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
+    } else if (otpTimer === 0) {
+      setCanResend(true);
+    }
+    return () => clearTimeout(timer);
+  }, [showOtpPopup, otpTimer]);
+
+  // Countdown timer for OTP resend (forgot password)
   useEffect(() => {
     let timer;
     if (countdown > 0) {
@@ -129,10 +148,6 @@ const Login = () => {
       newErrors.password = 'Password must be at least 6 characters';
     }
 
-    if (twoFactorRequired && !twoFactorCode) {
-      newErrors.twoFactor = 'Two-factor code is required';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -159,18 +174,25 @@ const Login = () => {
 
       const res = await axios.post('/auth/login', loginData);
 
-      if (res.data.requiresTwoFactor) {
-        setTwoFactorRequired(true);
-        toast.info('Two-factor authentication required');
+      // ✅ Check if OTP verification is required
+      if (res.data.requiresOTP) {
+        // Show OTP popup
+        setOtpEmail(res.data.email);
+        setTempToken(res.data.tempToken);
+        setShowOtpPopup(true);
+        setOtpTimer(60);
+        setCanResend(false);
+        setOtp(['', '', '', '', '', '']);
+        
+        toast.info('OTP sent to your email. Please verify to continue.');
         return;
       }
 
-      // Save token
+      // Direct login without OTP (legacy flow - if any)
       if (res.data.token) {
         localStorage.setItem('token', res.data.token);
       }
 
-      // Save user data
       if (res.data.user) {
         const userData = res.data.user;
         localStorage.setItem('user', JSON.stringify(userData));
@@ -178,7 +200,6 @@ const Login = () => {
         setIsAuthenticated(true);
       }
 
-      // Save company info
       if (companyIdentifier) {
         localStorage.setItem('companyIdentifier', companyIdentifier);
         localStorage.setItem('companyCode', companyIdentifier);
@@ -190,7 +211,6 @@ const Login = () => {
 
       toast.success("Login successful!");
 
-      // Check for redirect path in response or use default
       let redirectPath = '/ciisUser/user-dashboard';
       
       if (res.data.redirectTo) {
@@ -216,51 +236,29 @@ const Login = () => {
       });
 
       let errorMsg = 'Login failed. Please try again.';
-      let shouldRetry = false;
 
       if (err.response?.data) {
-        const { errorCode, message, remainingAttempts } = err.response.data;
+        const { errorCode, message } = err.response.data;
 
-        // Use server message if available
         if (message) errorMsg = message;
 
         switch (errorCode) {
           case 'ACCOUNT_LOCKED':
-            const retryAfter = err.response.data.retryAfter;
-            const lockTime = new Date(retryAfter).toLocaleTimeString();
-            errorMsg = `Account locked until ${lockTime}. Please try again later.`;
+            errorMsg = 'Account locked. Please try again later.';
             break;
-
           case 'ACCOUNT_DEACTIVATED':
             errorMsg = 'Your account has been deactivated. Contact your administrator.';
             break;
-
           case 'SUBSCRIPTION_EXPIRED':
             errorMsg = 'Company subscription has expired. Contact your company admin.';
             break;
-
           case 'INVALID_CREDENTIALS':
             errorMsg = 'Invalid email or password.';
-            if (remainingAttempts !== undefined) {
-              errorMsg += ` ${remainingAttempts} attempts remaining.`;
-              shouldRetry = remainingAttempts > 0;
-            }
             break;
-
           case 'COMPANY_NOT_FOUND':
             errorMsg = 'Company not found. Please check your URL.';
             break;
-
-          case 'USER_NOT_FOUND':
-            errorMsg = 'No account found with this email.';
-            break;
-
-          case 'INVALID_COMPANY_CODE':
-            errorMsg = 'Invalid company code. Please check the URL.';
-            break;
-
           default:
-            // For generic 401 error
             if (err.response.status === 401) {
               errorMsg = 'Invalid credentials. Please check your email and password.';
             }
@@ -271,45 +269,132 @@ const Login = () => {
       }
 
       toast.error(errorMsg);
-      setErrors((prev) => ({ 
-        ...prev, 
-        general: errorMsg, 
-        shouldRetry 
-      }));
+      setErrors((prev) => ({ ...prev, general: errorMsg }));
       
     } finally {
       setLoading(false);
     }
   };
 
-  const handleTwoFactorSubmit = async () => {
-    if (!twoFactorCode.trim()) {
-      setErrors((prev) => ({ ...prev, twoFactor: 'Two-factor code is required' }));
+  // Handle OTP input change
+  const handleOtpChange = (index, value) => {
+    if (value.length > 1) return;
+    
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+    setOtpError('');
+
+    // Auto-focus next input
+    if (value && index < 5) {
+      document.getElementById(`otp-${index + 1}`)?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      document.getElementById(`otp-${index - 1}`)?.focus();
+    }
+  };
+
+  // Handle OTP verification
+  const handleVerifyOtp = async () => {
+    const otpString = otp.join('');
+    
+    if (otpString.length !== 6) {
+      setOtpError('Please enter complete 6-digit OTP');
       return;
     }
 
-    setLoading(true);
+    setOtpLoading(true);
+    setOtpError('');
 
     try {
-      const res = await axios.post('/auth/verify-2fa', {
-        email: form.email,
-        code: twoFactorCode
+      const response = await axios.post('/auth/verify-login-otp', {
+        email: otpEmail,
+        otp: otpString,
+        tempToken: tempToken
       });
 
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('user', JSON.stringify(res.data.user));
+      if (response.data.success) {
+        // Save tokens and user data
+        if (response.data.token) {
+          localStorage.setItem('token', response.data.token);
+        }
 
-      setUser(res.data.user);
-      setIsAuthenticated(true);
+        if (response.data.user) {
+          const userData = response.data.user;
+          localStorage.setItem('user', JSON.stringify(userData));
+          setUser(userData);
+          setIsAuthenticated(true);
+        }
 
-      toast.success("Two-factor authentication successful!");
-      navigate('/ciisUser/user-dashboard');
-    } catch (err) {
-      toast.error('Invalid two-factor code. Please try again.');
-      setTwoFactorCode('');
+        // Save company info
+        if (companyIdentifier) {
+          localStorage.setItem('companyIdentifier', companyIdentifier);
+          localStorage.setItem('companyCode', companyIdentifier);
+        }
+
+        if (response.data.companyDetails) {
+          localStorage.setItem('companyDetails', JSON.stringify(response.data.companyDetails));
+        } else if (companyDetails) {
+          localStorage.setItem('companyDetails', JSON.stringify(companyDetails));
+        }
+
+        // Close popup
+        setShowOtpPopup(false);
+        
+        toast.success('Login successful!');
+
+        // Redirect based on role
+        let redirectPath = '/ciisUser/user-dashboard';
+        if (response.data.user?.role === 'admin') {
+          redirectPath = '/admin/dashboard';
+        }
+        
+        navigate(redirectPath);
+      }
+    } catch (error) {
+      console.error('OTP verification error:', error);
+      setOtpError(error.response?.data?.message || 'Invalid OTP. Please try again.');
+      setOtp(['', '', '', '', '', '']);
+      document.getElementById('otp-0')?.focus();
     } finally {
-      setLoading(false);
+      setOtpLoading(false);
     }
+  };
+
+  // Handle resend OTP
+  const handleResendOtp = async () => {
+    setOtpLoading(true);
+    
+    try {
+      const response = await axios.post('/auth/resend-login-otp', {
+        email: otpEmail
+      });
+
+      if (response.data.success) {
+        setTempToken(response.data.tempToken);
+        setOtpTimer(60);
+        setCanResend(false);
+        setOtp(['', '', '', '', '', '']);
+        setOtpError('');
+        toast.success('OTP resent successfully');
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to resend OTP');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  // Close OTP popup
+  const handleCloseOtpPopup = () => {
+    setShowOtpPopup(false);
+    setOtp(['', '', '', '', '', '']);
+    setOtpError('');
+    setOtpTimer(60);
+    setCanResend(false);
   };
 
   // Forget Password Handlers
@@ -328,7 +413,7 @@ const Login = () => {
 
       if (response.data.success) {
         toast.success('OTP sent to your email!');
-        setForgotPasswordStep('reset'); // direct reset step
+        setForgotPasswordStep('reset');
       }
 
     } catch (error) {
@@ -426,6 +511,12 @@ const Login = () => {
   const ArrowBackIcon = () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
       <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+    </svg>
+  );
+
+  const CloseIcon = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
     </svg>
   );
 
@@ -656,17 +747,15 @@ const Login = () => {
               // Forget Password Forms
               renderForgotPasswordForm()
             ) : (
-              // Login or 2FA Form
+              // Login Form
               <>
                 {/* Form Header */}
                 <div className="form-header">
                   <h2 className="form-title">
-                    {twoFactorRequired ? 'Two-Factor Authentication' : 'Welcome Back'}
+                    Welcome Back
                   </h2>
                   <p className="form-subtitle">
-                    {twoFactorRequired
-                      ? 'Enter the code from your authenticator app'
-                      : `Sign in to your account`}
+                    Sign in to your account
                   </p>
                 </div>
 
@@ -682,144 +771,87 @@ const Login = () => {
                   </div>
                 )}
 
-                {/* Login Form */}
-                {!twoFactorRequired ? (
-                  <form onSubmit={handleSubmit}>
-                    {/* Email Input */}
-                    <div className="input-group">
-                      <label className="input-label">Email Address</label>
-                      <div className="input-container">
-                        <div className="input-icon">
-                          <EmailIcon />
-                        </div>
-                        <input
-                          type="email"
-                          name="email"
-                          value={form.email}
-                          onChange={handleChange}
-                          disabled={loading}
-                          autoComplete="email"
-                          className={`login-input ${errors.email ? 'input-error' : ''}`}
-                          placeholder="Enter your email"
-                        />
+                <form onSubmit={handleSubmit}>
+                  {/* Email Input */}
+                  <div className="input-group">
+                    <label className="input-label">Email Address</label>
+                    <div className="input-container">
+                      <div className="input-icon">
+                        <EmailIcon />
                       </div>
-                      {errors.email && <span className="error-text">{errors.email}</span>}
-                    </div>
-
-                    {/* Password Input */}
-                    <div className="input-group">
-                      <label className="input-label">Password</label>
-                      <div className="input-container">
-                        <div className="input-icon">
-                          <LockIcon />
-                        </div>
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          name="password"
-                          value={form.password}
-                          onChange={handleChange}
-                          disabled={loading}
-                          autoComplete="current-password"
-                          className={`login-input ${errors.password ? 'input-error' : ''}`}
-                          placeholder="Enter your password"
-                        />
-                        <div 
-                          className="input-adornment"
-                          onClick={() => setShowPassword(!showPassword)}
-                        >
-                          {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                        </div>
-                      </div>
-                      {errors.password && <span className="error-text">{errors.password}</span>}
-                    </div>
-
-                    {/* Forgot Password Link */}
-                    <div className="forgot-password-link">
-                      <span
-                        onClick={() => setShowForgotPassword(true)}
-                      >
-                        Forgot Password?
-                      </span>
-                    </div>
-
-                    {/* Sign In Button */}
-                    <button
-                      type="submit"
-                      className="login-button"
-                      disabled={loading}
-                    >
-                      {loading ? (
-                        <>
-                          <div className="button-icon">
-                            <div className="spinner small"></div>
-                          </div>
-                          Signing in...
-                        </>
-                      ) : (
-                        <>
-                          <div className="button-icon">
-                            <LoginIcon />
-                          </div>
-                          Sign In
-                        </>
-                      )}
-                    </button>
-                  </form>
-                ) : (
-                  /* Two-Factor Authentication Form */
-                  <div className="two-factor-form">
-                    <div className="input-group">
-                      <label className="input-label">Enter 6-digit code</label>
-                      <div className="input-container">
-                        <div className="input-icon">
-                          <LockIcon />
-                        </div>
-                        <input
-                          type="text"
-                          value={twoFactorCode}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                            setTwoFactorCode(value);
-                            if (errors.twoFactor) {
-                              setErrors((prev) => ({ ...prev, twoFactor: '' }));
-                            }
-                          }}
-                          disabled={loading}
-                          className={`login-input ${errors.twoFactor ? 'input-error' : ''}`}
-                          placeholder="Enter authentication code"
-                        />
-                      </div>
-                      {errors.twoFactor && <span className="error-text">{errors.twoFactor}</span>}
-                    </div>
-
-                    <div className="two-factor-buttons">
-                      <button
-                        className="secondary-button"
-                        onClick={() => setTwoFactorRequired(false)}
+                      <input
+                        type="email"
+                        name="email"
+                        value={form.email}
+                        onChange={handleChange}
                         disabled={loading}
-                      >
-                        Back
-                      </button>
-
-                      <button
-                        className="primary-button"
-                        onClick={handleTwoFactorSubmit}
-                        disabled={loading || twoFactorCode.length !== 6}
-                      >
-                        {loading ? 'Verifying...' : 'Verify'}
-                      </button>
+                        autoComplete="email"
+                        className={`login-input ${errors.email ? 'input-error' : ''}`}
+                        placeholder="Enter your email"
+                      />
                     </div>
-
-                    <div className="resend-link">
-                      <small>
-                        Having trouble?{' '}
-                        <a href="#" className="resend-link-text">
-                          Resend code
-                        </a>
-                      </small>
-                    </div>
+                    {errors.email && <span className="error-text">{errors.email}</span>}
                   </div>
-                )}
+
+                  {/* Password Input */}
+                  <div className="input-group">
+                    <label className="input-label">Password</label>
+                    <div className="input-container">
+                      <div className="input-icon">
+                        <LockIcon />
+                      </div>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        name="password"
+                        value={form.password}
+                        onChange={handleChange}
+                        disabled={loading}
+                        autoComplete="current-password"
+                        className={`login-input ${errors.password ? 'input-error' : ''}`}
+                        placeholder="Enter your password"
+                      />
+                      <div 
+                        className="input-adornment"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                      </div>
+                    </div>
+                    {errors.password && <span className="error-text">{errors.password}</span>}
+                  </div>
+
+                  {/* Forgot Password Link */}
+                  <div className="forgot-password-link">
+                    <span
+                      onClick={() => setShowForgotPassword(true)}
+                    >
+                      Forgot Password?
+                    </span>
+                  </div>
+
+                  {/* Sign In Button */}
+                  <button
+                    type="submit"
+                    className="login-button"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <div className="button-icon">
+                          <div className="spinner small"></div>
+                        </div>
+                        Signing in...
+                      </>
+                    ) : (
+                      <>
+                        <div className="button-icon">
+                          <LoginIcon />
+                        </div>
+                        Sign In
+                      </>
+                    )}
+                  </button>
+                </form>
               </>
             )}
 
@@ -834,6 +866,73 @@ const Login = () => {
           </div>
         </div>
       </div>
+
+      {/* OTP Verification Popup */}
+      {showOtpPopup && (
+        <div className="otp-popup-overlay">
+          <div className="otp-popup-container">
+            <button className="otp-popup-close" onClick={handleCloseOtpPopup}>
+              <CloseIcon />
+            </button>
+            
+            <div className="otp-popup-header">
+              <div className="otp-popup-icon">
+                <LockIcon />
+              </div>
+              <h2>Verify OTP</h2>
+              <p>Enter the 6-digit code sent to</p>
+              <p className="otp-popup-email">{otpEmail}</p>
+            </div>
+
+            <div className="otp-popup-inputs">
+              {otp.map((digit, index) => (
+                <input
+                  key={index}
+                  id={`otp-${index}`}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength="1"
+                  value={digit}
+                  onChange={(e) => handleOtpChange(index, e.target.value)}
+                  onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                  className="otp-popup-input"
+                  disabled={otpLoading}
+                  autoFocus={index === 0}
+                />
+              ))}
+            </div>
+
+            {otpError && (
+              <div className="otp-popup-error">{otpError}</div>
+            )}
+
+            <button
+              onClick={handleVerifyOtp}
+              className="otp-popup-verify-btn"
+              disabled={otpLoading || otp.join('').length !== 6}
+            >
+              {otpLoading ? 'Verifying...' : 'Verify OTP'}
+            </button>
+
+            <div className="otp-popup-resend">
+              {canResend ? (
+                <button
+                  onClick={handleResendOtp}
+                  className="otp-popup-resend-btn"
+                  disabled={otpLoading}
+                >
+                  Resend OTP
+                </button>
+              ) : (
+                <p className="otp-popup-timer">
+                  Resend OTP in {otpTimer} seconds
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

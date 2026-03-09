@@ -1,11 +1,10 @@
-/* UserDashboard.css */
+/* UserDashboard.css - Complete Updated Code with Holiday Colors */
 
 /* Base Styles */
 .dashboard-container {
     min-height: 55vh;
     max-width: 1500px !important;
     margin: 0 auto;
-    /* padding: 2rem 2rem; */
     width: 100%;
     border-radius: 10px;
 }
@@ -125,6 +124,12 @@
   border: 1px solid #ddd6fe;
 }
 
+.dashboard-tag-company {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+}
+
 .dashboard-date-info {
   display: flex;
   align-items: center;
@@ -141,131 +146,66 @@
   left: 0;
   right: 0;
   bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: 1000;
   animation: fadeIn 0.3s ease-out;
-  backdrop-filter: blur(12px) saturate(180%);
 }
 
 .confirmation-popup {
-  background: linear-gradient(145deg, 
-    rgba(255, 255, 255, 0.98), 
-    rgba(250, 250, 250, 0.95));
-  border-radius: 24px;
-  padding: 32px;
-  width: 100%;
-  max-width: 420px;
-  box-shadow: 
-    0 32px 64px -12px rgba(0, 0, 0, 0.3),
-    0 16px 32px -16px rgba(0, 0, 0, 0.2),
-    0 0 0 1px rgba(255, 255, 255, 0.15),
-    inset 0 2px 0 rgba(255, 255, 255, 0.9),
-    0 0 40px rgba(79, 70, 229, 0.1);
+  background: white;
+  border-radius: 16px;
+  padding: 30px;
+  width: 90%;
+  max-width: 400px;
   position: relative;
-  animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  overflow: hidden;
-  transform-origin: center center;
-}
-
-.confirmation-popup::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, 
-    #4f46e5, 
-    #7c3aed, 
-    #ec4899, 
-    #4f46e5);
-  background-size: 300% 100%;
-  animation: shimmer 3s infinite linear;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
 .confirmation-close-btn {
   position: absolute;
-  top: 24px;
-  right: 24px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  color: #64748b;
+  top: 15px;
+  right: 15px;
+  background: none;
+  border: none;
+  color: #666;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  font-size: 20px;
-  font-weight: 300;
-  backdrop-filter: blur(10px);
-  z-index: 10;
-  box-shadow: 
-    0 4px 12px rgba(0, 0, 0, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-}
-
-.confirmation-close-btn:hover {
-  background: rgba(255, 255, 255, 1);
-  border-color: #cbd5e1;
-  color: #475569;
-  transform: scale(1.1) rotate(90deg);
-  box-shadow: 
-    0 8px 24px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-}
-
-.confirmation-close-btn:active {
-  transform: scale(0.95) rotate(90deg);
-  transition: transform 0.1s ease;
-}
-
-.confirmation-close-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  transform: none !important;
+  padding: 5px;
 }
 
 .confirmation-title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 600;
-  color: #1e293b;
-  margin-bottom: 12px;
-  text-align: center;
+  margin-bottom: 15px;
+  color: #333;
 }
 
 .confirmation-message {
-  color: #475569;
-  line-height: 1.6;
+  font-size: 14px;
+  color: #666;
   margin-bottom: 20px;
-  text-align: center;
+  line-height: 1.5;
 }
 
 .confirmation-warning {
-  display: block;
-  color: #dc2626;
+  color: #ff6b6b;
   font-weight: 500;
-  margin-top: 8px;
-  font-size: 14px;
+  display: block;
+  margin-top: 5px;
 }
 
 .confirmation-timer {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 8px;
-  background: #f8fafc;
+  background: #f8f9fa;
   padding: 12px;
-  border-radius: 12px;
-  margin-bottom: 24px;
+  border-radius: 8px;
+  margin-bottom: 25px;
   font-size: 14px;
-  font-weight: 500;
-  color: #475569;
+  color: #555;
 }
 
 .confirmation-buttons {
@@ -276,30 +216,30 @@
 .confirmation-btn {
   flex: 1;
   padding: 12px 20px;
+  border-radius: 8px;
   border: none;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
 }
 
 .confirmation-btn-cancel {
-  background: #f1f5f9;
-  color: #475569;
+  background: #f8f9fa;
+  color: #666;
 }
 
 .confirmation-btn-cancel:hover:not(:disabled) {
-  background: #e2e8f0;
+  background: #e9ecef;
 }
 
 .confirmation-btn-confirm {
-  background: #dc2626;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
   color: white;
 }
 
 .confirmation-btn-confirm:hover:not(:disabled) {
-  background: #b91c1c;
+  background: linear-gradient(135deg, #ff5252 0%, #e74c3c 100%);
+  transform: translateY(-1px);
 }
 
 .confirmation-btn:disabled {
@@ -461,6 +401,11 @@
   border-left: 4px solid #10b981;
 }
 
+.stat-card-late {
+  border-left: 4px solid #ff9800;
+  background: linear-gradient(135deg, #fff3e0 0%, #ffecb3 100%);
+}
+
 .stat-card-halfday {
   border-left: 4px solid #f59e0b;
 }
@@ -497,6 +442,11 @@
   color: #059669;
 }
 
+.icon-late {
+  background-color: #ff9800;
+  color: white;
+}
+
 .icon-halfday .stat-icon {
   color: #d97706;
 }
@@ -519,6 +469,11 @@
 .stat-card-present .stat-current-month {
   color: #059669;
   background: #d1fae5;
+}
+
+.stat-card-late .stat-current-month {
+  color: #e65100;
+  background: #ffecb3;
 }
 
 .stat-card-halfday .stat-current-month {
@@ -544,11 +499,19 @@
   line-height: 1;
 }
 
+.stat-card-late .stat-value {
+  color: #e65100;
+}
+
 .stat-label {
   font-size: 14px;
   color: #64748b;
   font-weight: 500;
   margin-bottom: 16px;
+}
+
+.stat-card-late .stat-label {
+  color: #ff9800;
 }
 
 .stat-footer {
@@ -565,6 +528,10 @@
 
 .stat-card-present .stat-trend-icon {
   color: #10b981;
+}
+
+.stat-card-late .stat-trend-icon {
+  color: #ff9800;
 }
 
 .stat-card-halfday .stat-trend-icon {
@@ -691,6 +658,19 @@
   box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
 }
 
+.calendar-before-join-message {
+  background: #f1f5f9;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 14px;
+  border: 1px solid #e2e8f0;
+}
+
 /* Calendar Body */
 .calendar-body {
   margin-bottom: 24px;
@@ -749,6 +729,7 @@
 
 .calendar-day:hover {
   transform: scale(1.05);
+  z-index: 5;
 }
 
 .calendar-day.empty {
@@ -759,6 +740,18 @@
   background: linear-gradient(135deg, #10b981, #059669);
   color: white !important;
   box-shadow: 0 4px 8px rgba(16, 185, 129, 0.2);
+}
+
+.calendar-day.late {
+  background: #fff3e0;
+  border: 2px solid #ff9800;
+  color: #e65100;
+}
+
+.calendar-day.late.day-today {
+  background: #ffecb3;
+  border: 2px solid #ff9800;
+  color: #e65100;
 }
 
 .calendar-day.halfday {
@@ -784,20 +777,88 @@
   color: white !important;
 }
 
+/* ✅ HOLIDAY COLOR - PURPLE THEME */
+.calendar-day.holiday {
+  background: linear-gradient(135deg, #9c27b0, #ba68c8);
+  color: white !important;
+  border: 2px solid #7b1fa2;
+  position: relative;
+  font-weight: 600;
+  box-shadow: 0 4px 8px rgba(156, 39, 176, 0.3);
+}
+
+.calendar-day.holiday .day-number {
+  font-weight: 700;
+}
+
+.day-status-icon.holiday-icon {
+  font-size: 12px;
+  margin-left: 2px;
+  animation: bounce 1s ease infinite;
+}
+
+/* ✅ HOLIDAY TOOLTIP */
+.calendar-day.holiday:hover::after {
+  content: attr(data-holiday-title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 1000;
+  margin-bottom: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.calendar-day.holiday:hover::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: #333 transparent transparent transparent;
+  margin-bottom: -4px;
+  z-index: 1000;
+}
+
+/* Before Join Date */
+.calendar-day.before-join {
+  background: #e0e0e0;
+  color: #9e9e9e;
+  border: 1px dashed #bdbdbd;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.calendar-day.before-join:hover {
+  transform: none;
+}
+
 .day-today {
-  border-color: #4f46e5;
+  border-color: #4f46e5 !important;
   box-shadow: 0 0 0 2px #4f46e5;
 }
 
 .day-number {
   font-size: 14px;
   font-weight: 600;
+  line-height: 1;
 }
 
 .day-status-icon {
   font-size: 10px;
   margin-top: 2px;
   opacity: 0.9;
+  line-height: 1;
 }
 
 .today-indicator {
@@ -809,6 +870,7 @@
   background: #4f46e5;
   border-radius: 50%;
   animation: pulse 2s infinite;
+  border: 2px solid white;
 }
 
 .calendar-empty-day {
@@ -845,6 +907,10 @@
   background: linear-gradient(135deg, #10b981, #059669);
 }
 
+.color-late {
+  background-color: #ff9800;
+}
+
 .color-halfday {
   background: linear-gradient(135deg, #f59e0b, #d97706);
 }
@@ -859,6 +925,17 @@
 
 .color-weekend {
   background: linear-gradient(135deg, #94a3b8, #64748b);
+}
+
+/* ✅ HOLIDAY LEGEND COLOR - PURPLE */
+.color-holiday {
+  background: linear-gradient(135deg, #9c27b0, #ba68c8);
+  border: 2px solid #7b1fa2;
+}
+
+.color-before-join {
+  background: #e0e0e0;
+  border: 1px dashed #bdbdbd;
 }
 
 /* Activity Card */
@@ -949,6 +1026,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  position: relative;
 }
 
 .activity-item {
@@ -990,6 +1068,12 @@
   border-color: #10b981;
 }
 
+.status-late {
+  color: #ff9800 !important;
+  background-color: rgba(255, 152, 0, 0.1) !important;
+  border-color: #ff9800 !important;
+}
+
 .status-halfday {
   background: linear-gradient(135deg, #fef3c7, #fde68a);
   border-color: #f59e0b;
@@ -1011,6 +1095,10 @@
 
 .status-present .status-icon {
   color: #059669;
+}
+
+.status-late .status-icon {
+  color: #f57c00;
 }
 
 .status-halfday .status-icon {
@@ -1071,6 +1159,12 @@
   border-color: #10b981;
 }
 
+.status-late.activity-status {
+  color: #f57c00;
+  background: #fff3e0;
+  border-color: #ff9800;
+}
+
 .status-halfday.activity-status {
   color: #d97706;
   background: #fef3c7;
@@ -1124,53 +1218,6 @@
   margin: 0;
 }
 
-.activity-loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-}
-
-.loading-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid #e2e8f0;
-  border-top: 3px solid #4f46e5;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 12px;
-}
-
-.loading-text {
-  font-size: 14px;
-  color: #64748b;
-}
-
-/* Activity Footer */
-.activity-footer {
-  padding-top: 20px;
-  border-top: 1px solid #e2e8f0;
-  margin-top: 16px;
-}
-
-.activity-view-all {
-  width: 100%;
-  padding: 12px;
-  background: transparent;
-  border: none;
-  font-size: 14px;
-  font-weight: 600;
-  color: #4f46e5;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border-radius: 8px;
-}
-
-.activity-view-all:hover {
-  background: #e0e7ff;
-}
-
 /* Month Info */
 .dashboard-month-info {
   background: linear-gradient(135deg, #4f46e5, #7c3aed);
@@ -1180,6 +1227,7 @@
   box-shadow: 0 8px 30px rgba(79, 70, 229, 0.3);
   position: relative;
   overflow: hidden;
+  margin-top: 24px;
 }
 
 .dashboard-month-info::before {
@@ -1260,6 +1308,7 @@
 
 .month-info-right {
   text-align: center;
+  min-width: 120px;
 }
 
 .month-current-day {
@@ -1279,162 +1328,6 @@
   font-size: 12px;
   opacity: 0.7;
 }
-
-/* Animations */
-@keyframes pulse {
-  0% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes slideUp {
-  0% {
-    opacity: 0;
-    transform: translateY(30px) scale(0.95);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: 0% 0;
-  }
-  100% {
-    background-position: 300% 0;
-  }
-}
-
-/* Responsive Design */
-@media (max-width: 1200px) {
-  .dashboard-content-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 768px) {
-  .dashboard-container {
-    padding: 16px;
-  }
-  
-  .dashboard-header-content {
-    flex-direction: column;
-    text-align: center;
-  }
-  
-  .dashboard-user-info {
-    flex-direction: column;
-    text-align: center;
-  }
-  
-  .dashboard-user-tags {
-    justify-content: center;
-  }
-  
-  .dashboard-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .calendar-header,
-  .activity-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .calendar-controls {
-    justify-content: center;
-  }
-}
-
-@media (max-width: 480px) {
-  .dashboard-stats-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .dashboard-clock-buttons {
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  .dashboard-btn {
-    max-width: 200px;
-    width: 100%;
-  }
-  
-  .month-info-content {
-    flex-direction: column;
-    text-align: center;
-  }
-}
-/* Late status colors */
-.status-late {
-  color: #ff9800 !important;
-  background-color: rgba(255, 152, 0, 0.1) !important;
-  border-color: #ff9800 !important;
-}
-
-/* Calendar colors */
-.calendar-day.late {
-  background-color: #fff3e0;
-  border: 2px solid #ff9800;
-  color: #e65100;
-}
-
-.calendar-day.late.day-today {
-  background-color: #ffecb3;
-  border: 2px solid #ff9800;
-  color: #e65100;
-}
-
-/* Legend color */
-.legend-color.color-late {
-  background-color: #ff9800;
-}
-
-/* Stat card for late */
-.stat-card-late {
-  background: linear-gradient(135deg, #fff3e0 0%, #ffecb3 100%);
-  border: 1px solid #ff9800;
-}
-
-.stat-card-late .stat-icon-container.icon-late {
-  background-color: #ff9800;
-  color: white;
-}
-
-.stat-card-late .stat-value {
-  color: #e65100;
-}
-
-.stat-card-late .stat-label {
-  color: #ff9800;
-}/* UserDashboard.css - Additions */
 
 /* Access denied message */
 .access-denied-message {
@@ -1469,14 +1362,24 @@
   max-width: 600px;
 }
 
-/* Company tag in header */
-.dashboard-tag-company {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+.access-denied-message .btn-primary {
+  padding: 12px 30px;
+  background: white;
+  color: #667eea;
   border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
-/* Company info in dashboard */
+.access-denied-message .btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(255, 255, 255, 0.3);
+}
+
+/* Company info badge */
 .company-info-badge {
   display: inline-flex;
   align-items: center;
@@ -1488,126 +1391,6 @@
   color: #667eea;
   margin-top: 10px;
 }
-
-/* Disabled state for non-company users */
-.btn-disabled {
-  opacity: 0.5;
-  cursor: not-allowed !important;
-}
-
-/* Confirmation popup styles */
-.confirmation-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.confirmation-popup {
-  background: white;
-  border-radius: 16px;
-  padding: 30px;
-  width: 90%;
-  max-width: 400px;
-  position: relative;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-}
-
-.confirmation-close-btn {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-  background: none;
-  border: none;
-  color: #666;
-  cursor: pointer;
-  padding: 5px;
-}
-
-.confirmation-title {
-  font-size: 22px;
-  font-weight: 600;
-  margin-bottom: 15px;
-  color: #333;
-}
-
-.confirmation-message {
-  font-size: 14px;
-  color: #666;
-  margin-bottom: 20px;
-  line-height: 1.5;
-}
-
-.confirmation-warning {
-  color: #ff6b6b;
-  font-weight: 500;
-  display: block;
-  margin-top: 5px;
-}
-
-.confirmation-timer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #f8f9fa;
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 25px;
-  font-size: 14px;
-  color: #555;
-}
-
-.confirmation-buttons {
-  display: flex;
-  gap: 12px;
-}
-
-.confirmation-btn {
-  flex: 1;
-  padding: 12px 20px;
-  border-radius: 8px;
-  border: none;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.confirmation-btn-cancel {
-  background: #f8f9fa;
-  color: #666;
-}
-
-.confirmation-btn-cancel:hover:not(:disabled) {
-  background: #e9ecef;
-}
-
-.confirmation-btn-confirm {
-  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
-  color: white;
-}
-
-.confirmation-btn-confirm:hover:not(:disabled) {
-  background: linear-gradient(135deg, #ff5252 0%, #e74c3c 100%);
-  transform: translateY(-1px);
-}
-
-.confirmation-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-
-
-
-
-
-/* loader */
 
 /* ========== LOADER STYLES ========== */
 
@@ -1797,13 +1580,40 @@
   color: #4f46e5;
 }
 
-/* Animation Keyframes */
-@keyframes loading {
+/* Animations */
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 
-@keyframes shimmer {
+@keyframes loading {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
@@ -1817,4 +1627,318 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .dashboard-content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: 16px;
+  }
+  
+  .dashboard-header-content {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .dashboard-user-info {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .dashboard-user-tags {
+    justify-content: center;
+  }
+  
+  .dashboard-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .calendar-header,
+  .activity-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .calendar-controls {
+    justify-content: center;
+  }
+  
+  .calendar-day {
+    width: 32px;
+    height: 32px;
+    min-height: 32px;
+    font-size: 12px;
+  }
+  
+  .day-status-icon {
+    font-size: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .dashboard-clock-buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .dashboard-btn {
+    max-width: 200px;
+    width: 100%;
+  }
+  
+  .month-info-content {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .calendar-legend {
+    gap: 8px;
+  }
+  
+  .legend-item {
+    font-size: 10px;
+  }
+}
+/* Add these styles at the end of your existing UserDashboard.css */
+
+/* Holiday status color */
+.status-holiday {
+  color: #9c27b0 !important;
+  background-color: rgba(156, 39, 176, 0.1) !important;
+  border-color: #9c27b0 !important;
+}
+
+/* Holiday item in activity list */
+.activity-item.holiday-item {
+  background: linear-gradient(135deg, #f3e5f5, #e1bee7);
+  border-left: 4px solid #9c27b0;
+}
+
+.activity-item.holiday-item:hover {
+  background: linear-gradient(135deg, #e1bee7, #ce93d8);
+  border-color: #9c27b0;
+}
+
+/* Holiday badge */
+.holiday-badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  background: linear-gradient(135deg, #9c27b0, #ba68c8);
+  color: white;
+  border-radius: 10px;
+  margin-left: 8px;
+}
+
+/* Activity title for holiday */
+.activity-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4a148c;
+}
+
+/* Status icon for holiday */
+.activity-status-icon.status-holiday {
+  background: linear-gradient(135deg, #f3e5f5, #e1bee7);
+  border-color: #9c27b0;
+}
+
+.activity-status-icon.status-holiday .status-icon {
+  color: #9c27b0;
+}
+
+/* Activity status label for holiday */
+.activity-status.status-holiday {
+  color: #9c27b0;
+  background: #f3e5f5;
+  border-color: #9c27b0;
+}
+
+/* Upcoming Holidays Section */
+.upcoming-holidays-section {
+  margin-top: 24px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #f8f0ff, #f3e5f5);
+  border-radius: 16px;
+  border-left: 4px solid #9c27b0;
+  box-shadow: 0 2px 8px rgba(156, 39, 176, 0.1);
+}
+
+.upcoming-holidays-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #4a148c;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.upcoming-holidays-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.upcoming-holiday-item {
+  background: white;
+  padding: 8px 16px;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #4a148c;
+  box-shadow: 0 2px 6px rgba(156, 39, 176, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  border: 1px solid #ba68c8;
+}
+
+.upcoming-holiday-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(156, 39, 176, 0.3);
+  background: #f3e5f5;
+}
+
+.holiday-name {
+  font-weight: 600;
+}
+
+.holiday-date-badge {
+  background: #9c27b0;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+/* Add these styles at the end of your existing UserDashboard.css */
+
+/* Holiday status color */
+.status-holiday {
+  color: #9c27b0 !important;
+  background-color: rgba(156, 39, 176, 0.1) !important;
+  border-color: #9c27b0 !important;
+}
+
+/* Holiday item in activity list */
+.activity-item.holiday-item {
+  background: linear-gradient(135deg, #f3e5f5, #e1bee7);
+  border-left: 4px solid #9c27b0;
+}
+
+.activity-item.holiday-item:hover {
+  background: linear-gradient(135deg, #e1bee7, #ce93d8);
+  border-color: #9c27b0;
+}
+
+/* Holiday badge */
+.holiday-badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  background: linear-gradient(135deg, #9c27b0, #ba68c8);
+  color: white;
+  border-radius: 10px;
+  margin-left: 8px;
+}
+
+/* Activity title for holiday */
+.activity-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4a148c;
+}
+
+/* Status icon for holiday */
+.activity-status-icon.status-holiday {
+  background: linear-gradient(135deg, #f3e5f5, #e1bee7);
+  border-color: #9c27b0;
+}
+
+.activity-status-icon.status-holiday .status-icon {
+  color: #9c27b0;
+}
+
+/* Activity status label for holiday */
+.activity-status.status-holiday {
+  color: #9c27b0;
+  background: #f3e5f5;
+  border-color: #9c27b0;
+}
+
+/* Upcoming Holidays Section */
+.upcoming-holidays-section {
+  margin-top: 24px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #f8f0ff, #f3e5f5);
+  border-radius: 16px;
+  border-left: 4px solid #9c27b0;
+  box-shadow: 0 2px 8px rgba(156, 39, 176, 0.1);
+}
+
+.upcoming-holidays-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #4a148c;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.upcoming-holidays-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.upcoming-holiday-item {
+  background: white;
+  padding: 8px 16px;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #4a148c;
+  box-shadow: 0 2px 6px rgba(156, 39, 176, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  border: 1px solid #ba68c8;
+}
+
+.upcoming-holiday-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(156, 39, 176, 0.3);
+  background: #f3e5f5;
+}
+
+.holiday-name {
+  font-weight: 600;
+}
+
+.holiday-date-badge {
+  background: #9c27b0;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
 }

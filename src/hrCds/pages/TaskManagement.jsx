@@ -99,7 +99,7 @@ const UserCreateTask = () => {
     overdue: { count: 0, percentage: 0 }
   });
 
-  const [timeFilter, setTimeFilter] = useState("all");
+  const [timeFilter, setTimeFilter] = useState("today");
   const [notifications, setNotifications] = useState([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [remarksDialog, setRemarksDialog] = useState({ open: false, taskId: null, remarks: [] });
@@ -511,7 +511,7 @@ const manualCheckOverdue = async () => {
 
       setNewRemark('');
       setRemarkImages([]);
-      fetchTaskRemarks(taskId);
+      
       
       showSnackbar(
         `Remark added successfully${remarkImages.length > 0 ? ' with image' : ''}`, 
@@ -1072,13 +1072,13 @@ const formatDateForBackend = (dateTimeString) => {
             Select a timeframe to view task statistics
           </div>
         </div>
-        {timeFilter !== 'all' && (
+        {timeFilter !== 'today' && (
           <button
             className="user-create-task-button user-create-task-button-text"
             onClick={() => handleTimeFilterChange('all')}
           >
             <FiRotateCcw size={14} />
-            {!isMobile && "Reset to All Time"}
+            {!isMobile && "Reset"}
           </button>
         )}
       </div>
@@ -1318,35 +1318,7 @@ const formatDateForBackend = (dateTimeString) => {
                   )}
                 </div>
 
-                {/* Submit Button */}
-                <button
-                  className="user-create-task-button user-create-task-button-contained"
-                  onClick={async () => {
-                    await addRemark(remarksDialog.taskId);
-                    
-                    if (pendingStatusChange.status) {
-                      await handleStatusChange(
-                        pendingStatusChange.taskId, 
-                        pendingStatusChange.status, 
-                        newRemark || 'Status changed'
-                      );
-                      setPendingStatusChange({ taskId: null, status: '' });
-                    }
-                  }}
-                  disabled={isUploadingRemark || (!newRemark.trim() && remarkImages.length === 0)}
-                  style={{ width: '100%', padding: isMobile ? '10px' : '12px' }}
-                >
-                  {isUploadingRemark ? (
-                    'Uploading...'
-                  ) : pendingStatusChange.status ? (
-                    isMobile ? 'Save & Update' : 'Save Remark & Update Status'
-                  ) : (
-                    <>
-                      <FiMessageSquare />
-                      {isMobile ? 'Add Remark' : 'Add Remark'}
-                    </>
-                  )}
-                </button>
+                {/* Submit Button - This is now moved to dialog-actions */}
               </div>
             </div>
 
@@ -1436,18 +1408,69 @@ const formatDateForBackend = (dateTimeString) => {
           </div>
         </div>
         
+        {/* Updated Dialog Actions - Save button on LEFT, Close button on RIGHT */}
         <div className="user-create-task-dialog-actions">
-          <button
-            className="user-create-task-button user-create-task-button-outlined"
-            onClick={() => {
-              setRemarksDialog({ open: false, taskId: null, remarks: [] });
-              setRemarkImages([]);
-              setNewRemark('');
-            }}
-            style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-          >
-            Close
-          </button>
+          <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center" style={{ width: '100%' }}>
+            {/* Save/Add Remark Button - Left side */}
+            <button
+              className="user-create-task-button user-create-task-button-contained"
+              onClick={async () => {
+                try {
+                  await addRemark(remarksDialog.taskId);
+
+                  if (pendingStatusChange.status) {
+                    await handleStatusChange(
+                      pendingStatusChange.taskId,
+                      pendingStatusChange.status,
+                      newRemark || "Status changed"
+                    );
+                    setPendingStatusChange({ taskId: null, status: "" });
+                  }
+
+                  setRemarksDialog({ open: false, taskId: null, remarks: [] });
+                  setNewRemark("");
+                  setRemarkImages([]);
+                  fetchMyTasks();
+
+                } catch (error) {
+                  console.error("Error saving remark:", error);
+                }
+              }}
+              disabled={isUploadingRemark || (!newRemark.trim() && remarkImages.length === 0)}
+              style={{ 
+                padding: isMobile ? '8px 12px' : '10px 16px',
+                minWidth: isMobile ? '120px' : '160px',
+                marginRight: 'auto' /* Ensures it stays on left */
+              }}
+            >
+              {isUploadingRemark ? (
+                "Uploading..."
+              ) : pendingStatusChange.status ? (
+                isMobile ? "Save & Update" : "Save Remark & Update Status"
+              ) : (
+                <>
+                  <FiMessageSquare />
+                  {isMobile ? "Add Remark" : "Add Remark"}
+                </>
+              )}
+            </button>
+
+            {/* Close Button - Right side */}
+            <button
+              className="user-create-task-button user-create-task-button-outlined"
+              onClick={() => {
+                setRemarksDialog({ open: false, taskId: null, remarks: [] });
+                setRemarkImages([]);
+                setNewRemark('');
+              }}
+              style={{ 
+                padding: isMobile ? '8px 12px' : '10px 16px',
+                marginLeft: 'auto' /* Ensures it stays on right */
+              }}
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -2457,7 +2480,7 @@ const formatDateForBackend = (dateTimeString) => {
               style={{ padding: isMobile ? '10px 14px' : '12px 20px' }}
             >
               <FiPlus size={isMobile ? 16 : 18} />
-              {isMobile ? 'Create' : 'Create Task'}
+              {isMobile ? 'Create Task' : 'Create Task'}
             </button>
           </div>
 

@@ -1,4 +1,4 @@
-// UserDashboard.jsx - COMPLETE FIXED VERSION WITH ALL LOADERS
+// UserDashboard.jsx - COMPLETE FIXED VERSION WITH ALL LOADERS + HOLIDAYS
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
@@ -16,7 +16,8 @@ import {
 } from 'react-icons/fi';
 import {
   MdWork, MdOutlineCrop54, MdBeachAccess,
-  MdOutlineWatchLater, MdToday, MdAccessTime, MdOutlineAlarm
+  MdOutlineWatchLater, MdToday, MdAccessTime, MdOutlineAlarm,
+  MdCelebration
 } from 'react-icons/md';
 
 const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -108,6 +109,11 @@ const UserDashboard = () => {
 
   const [attendanceData, setAttendanceData] = useState([]);
   const [leaveData, setLeaveData] = useState([]);
+  
+  // ✅ Holidays ke liye state
+  const [holidays, setHolidays] = useState([]);
+  const [holidaysLoading, setHolidaysLoading] = useState(false);
+  
   const [loading, setLoading] = useState({
     attendance: false,
     leaves: false,
@@ -155,13 +161,15 @@ const UserDashboard = () => {
     attendance: false,
     leaves: false,
     status: false,
-    jobRoles: false
+    jobRoles: false,
+    holidays: false
   });
 
   const abortControllerRef = useRef(null);
   const attendanceTimeoutRef = useRef(null);
   const leavesTimeoutRef = useRef(null);
   const statusTimeoutRef = useRef(null);
+  const holidaysTimeoutRef = useRef(null);
   const initialLoadRef = useRef(false);
 
   // Parse user's creation date
@@ -219,7 +227,7 @@ const UserDashboard = () => {
       abortControllerRef.current = null;
     }
     
-    [attendanceTimeoutRef, leavesTimeoutRef, statusTimeoutRef].forEach(ref => {
+    [attendanceTimeoutRef, leavesTimeoutRef, statusTimeoutRef, holidaysTimeoutRef].forEach(ref => {
       if (ref.current) {
         clearTimeout(ref.current);
         ref.current = null;
@@ -270,6 +278,52 @@ const UserDashboard = () => {
     }
   }, [getCompanyId, token, isUserInCurrentCompany]);
 
+  // ✅ Holidays fetch karne ke liye
+  const fetchHolidays = useCallback(async () => {
+    if (!isUserInCurrentCompany) return;
+    if (fetchInProgress.current.holidays) return;
+    
+    if (holidaysTimeoutRef.current) {
+      clearTimeout(holidaysTimeoutRef.current);
+    }
+
+    holidaysTimeoutRef.current = setTimeout(async () => {
+      if (fetchInProgress.current.holidays) return;
+      
+      fetchInProgress.current.holidays = true;
+      setHolidaysLoading(true);
+
+      try {
+        // ✅ API route - /holidays
+        const response = await axios.get('/holidays', {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 10000
+        });
+        
+        // ✅ Response structure - { success: true, holidays: [...] }
+        if (response.data.success) {
+          let holidaysData = response.data.holidays || [];
+          
+          // Filter holidays after join date
+          if (userJoinDate) {
+            holidaysData = holidaysData.filter(holiday => 
+              !isBeforeJoinDate(new Date(holiday.date))
+            );
+          }
+          
+          setHolidays(holidaysData);
+        }
+      } catch (error) {
+        console.error('Failed to load holidays:', error);
+      } finally {
+        setHolidaysLoading(false);
+        fetchInProgress.current.holidays = false;
+        holidaysTimeoutRef.current = null;
+      }
+    }, 300);
+
+  }, [token, isUserInCurrentCompany, userJoinDate, isBeforeJoinDate]);
+
   // Fetch attendance data
   const fetchAttendanceData = useCallback(async (force = false) => {
     if (!isUserInCurrentCompany) return;
@@ -305,7 +359,9 @@ const UserDashboard = () => {
         }
         
         setAttendanceData(data);
-        setRecentActivity([...data].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5));
+        
+        // ✅ Recent activity update karo
+        updateRecentActivity(data, holidays);
         
       } catch (error) {
         if (error.name === 'AbortError' || error.code === 'ERR_CANCELED') return;
@@ -317,7 +373,7 @@ const UserDashboard = () => {
       }
     }, 300);
 
-  }, [token, isUserInCurrentCompany, userJoinDate, isBeforeJoinDate]);
+  }, [token, isUserInCurrentCompany, userJoinDate, isBeforeJoinDate, holidays]);
 
   // Fetch leave data
   const fetchLeaveData = useCallback(async () => {
@@ -408,6 +464,41 @@ const UserDashboard = () => {
 
   }, [token, isUserInCurrentCompany]);
 
+  // ✅ Function to update recent activity (HOLIDAY优先)
+  const updateRecentActivity = useCallback((attendance, holidayList) => {
+    // Pehle sab activities ko collect karo
+    const allActivities = [];
+    
+    // Attendance records add karo
+    attendance.forEach(record => {
+      allActivities.push({
+        ...record,
+        type: 'attendance',
+        date: record.date,
+        status: record.status,
+        displayDate: new Date(record.date)
+      });
+    });
+    
+    // Holidays add karo
+    holidayList.forEach(holiday => {
+      allActivities.push({
+        ...holiday,
+        type: 'holiday',
+        date: holiday.date,
+        status: 'HOLIDAY',
+        title: holiday.title,
+        displayDate: new Date(holiday.date)
+      });
+    });
+    
+    // Sort by date (latest first)
+    allActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    // Take top 5
+    setRecentActivity(allActivities.slice(0, 5));
+  }, []);
+
   // Load initial data with page loader
   useEffect(() => {
     if (initialLoadRef.current) return;
@@ -424,7 +515,8 @@ const UserDashboard = () => {
       
       try {
         await fetchJobRoles();
-        await fetchAttendanceData(true);
+        await fetchHolidays(); // ✅ Pehle holidays fetch karo
+        await fetchAttendanceData(true); // ✅ Phir attendance fetch karo
         await fetchLeaveData();
         await fetchCurrentStatus();
       } catch (error) {
@@ -441,6 +533,13 @@ const UserDashboard = () => {
     
     return () => cancelPendingRequests();
   }, []);
+
+  // ✅ Effect to update recent activity when holidays or attendance change
+  useEffect(() => {
+    if (attendanceData.length > 0 || holidays.length > 0) {
+      updateRecentActivity(attendanceData, holidays);
+    }
+  }, [attendanceData, holidays, updateRecentActivity]);
 
   // Timer effect
   useEffect(() => {
@@ -535,6 +634,25 @@ const UserDashboard = () => {
     return [...new Set(dates)];
   }, [filteredLeaveData, isBeforeJoinDate]);
 
+  // ✅ Holiday dates calculate karo
+  const holidayDates = useMemo(() => {
+    return holidays.map(holiday => {
+      const date = new Date(holiday.date);
+      return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    });
+  }, [holidays]);
+
+  // ✅ Holiday titles mapping for tooltip
+  const holidayTitles = useMemo(() => {
+    const map = {};
+    holidays.forEach(holiday => {
+      const date = new Date(holiday.date);
+      const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      map[key] = holiday.title;
+    });
+    return map;
+  }, [holidays]);
+
   const monthlyStats = useMemo(() => {
     const presentDays = filteredAttendanceData.filter(record => {
       const d = new Date(record.date);
@@ -564,6 +682,7 @@ const UserDashboard = () => {
     return { presentDays, lateDays, halfDays, absentDays, leavesTaken };
   }, [filteredAttendanceData, leaveDates, currentMonth, currentYear]);
 
+  // ✅ getDayStatus me holiday check (sabse pehle)
   const getDayStatus = useCallback((day) => {
     if (!day) return null;
     
@@ -571,6 +690,9 @@ const UserDashboard = () => {
     const key = `${calendarYear}-${calendarMonth}-${day}`;
     const dayOfWeek = dateObj.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    
+    // ✅ HOLIDAY CHECK - Pehle holiday check karo
+    if (holidayDates.includes(key)) return "holiday";
     
     if (isBeforeJoinDate(dateObj)) return "before-join";
     if (markedDates.includes(key)) return "present";
@@ -581,7 +703,7 @@ const UserDashboard = () => {
     if (isWeekend) return "weekend";
     
     return null;
-  }, [calendarYear, calendarMonth, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDates, absentDates]);
+  }, [calendarYear, calendarMonth, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDates, absentDates, holidayDates]);
 
   const isToday = useCallback((day) => {
     return day === currentDate.getDate() && 
@@ -589,9 +711,11 @@ const UserDashboard = () => {
            calendarYear === currentDate.getFullYear();
   }, [currentDate, calendarMonth, calendarYear]);
 
+  // ✅ getDayIcon me holiday icon
   const getDayIcon = useCallback((day) => {
     const status = getDayStatus(day);
     switch(status) {
+      case 'holiday': return '🎉';
       case 'present': return '✓';
       case 'late': return 'L';
       case 'halfday': return '½';
@@ -699,6 +823,7 @@ const UserDashboard = () => {
       case 'LATE': return 'status-late';
       case 'HALF DAY': return 'status-halfday';
       case 'ABSENT': return 'status-absent';
+      case 'HOLIDAY': return 'status-holiday';
       default: return 'status-default';
     }
   }, []);
@@ -899,7 +1024,7 @@ const UserDashboard = () => {
 
       <div className="dashboard-content-grid">
         {/* Calendar Section with Loader */}
-        {loading.attendance ? (
+        {loading.attendance || holidaysLoading ? (
           <CalendarLoader />
         ) : (
           <div className="dashboard-calendar-card">
@@ -942,12 +1067,21 @@ const UserDashboard = () => {
                           <div className="calendar-day-container">
                             <div
                               className={`calendar-day ${getDayStatus(day) || 'empty'} ${isToday(day) ? 'day-today' : ''}`}
-                              title={isBeforeJoinDate(new Date(calendarYear, calendarMonth, day)) 
-                                ? 'Before joining date' 
-                                : getDayStatus(day)?.charAt(0).toUpperCase() + getDayStatus(day)?.slice(1) || 'No Record'}
+                              title={
+                                getDayStatus(day) === 'holiday' 
+                                  ? `🎉 Holiday: ${holidayTitles[`${calendarYear}-${calendarMonth}-${day}`] || 'Holiday'}`
+                                  : isBeforeJoinDate(new Date(calendarYear, calendarMonth, day)) 
+                                    ? 'Before joining date' 
+                                    : getDayStatus(day)?.charAt(0).toUpperCase() + getDayStatus(day)?.slice(1) || 'No Record'
+                              }
+                              data-holiday-title={getDayStatus(day) === 'holiday' ? holidayTitles[`${calendarYear}-${calendarMonth}-${day}`] : ''}
                             >
                               <span className="day-number">{day}</span>
-                              {getDayIcon(day) && <span className="day-status-icon">{getDayIcon(day)}</span>}
+                              {getDayIcon(day) && (
+                                <span className={`day-status-icon ${getDayStatus(day) === 'holiday' ? 'holiday-icon' : ''}`}>
+                                  {getDayIcon(day)}
+                                </span>
+                              )}
                             </div>
                             {isToday(day) && <div className="today-indicator"></div>}
                           </div>
@@ -959,6 +1093,7 @@ const UserDashboard = () => {
               </div>
             </div>
 
+            {/* Legend me Holiday add kiya */}
             <div className="calendar-legend">
               <div className="legend-item"><div className="legend-color color-present"></div><span>Present</span></div>
               <div className="legend-item"><div className="legend-color color-late"></div><span>Late</span></div>
@@ -966,6 +1101,7 @@ const UserDashboard = () => {
               <div className="legend-item"><div className="legend-color color-leave"></div><span>Leave</span></div>
               <div className="legend-item"><div className="legend-color color-absent"></div><span>Absent</span></div>
               <div className="legend-item"><div className="legend-color color-weekend"></div><span>Weekend</span></div>
+              <div className="legend-item"><div className="legend-color color-holiday"></div><span>Holiday 🎉</span></div>
               <div className="legend-item"><div className="legend-color color-before-join"></div><span>Before Joining</span></div>
             </div>
           </div>
@@ -978,7 +1114,7 @@ const UserDashboard = () => {
               <div className="activity-icon-container"><MdOutlineWatchLater className="activity-icon" /></div>
               <div>
                 <h2 className="activity-title">Recent Activity</h2>
-                <p className="activity-subtitle">Latest attendance records</p>
+                <p className="activity-subtitle">Latest attendance & holidays</p>
               </div>
             </div>
             <button onClick={handleRefresh} disabled={loading.attendance} className="activity-refresh-btn">
@@ -994,18 +1130,41 @@ const UserDashboard = () => {
             {loading.attendance && !recentActivity.length && <ActivityLoader />}
             
             {/* Show actual data when not loading */}
-            {!loading.attendance && recentActivity.map((record, index) => {
-              const date = new Date(record.date);
+            {!loading.attendance && recentActivity.map((item, index) => {
+              // ✅ Agar holiday hai to alag UI dikhao (HOLIDAY优先)
+              if (item.type === 'holiday') {
+                const date = new Date(item.date);
+                return (
+                  <div key={`holiday-${index}`} className="activity-item holiday-item">
+                    <div className="activity-item-content">
+                      <div className="activity-status-icon status-holiday">
+                        <MdCelebration className="status-icon" />
+                      </div>
+                      <div className="activity-details">
+                        <div className="activity-date">
+                          {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                          <span className="holiday-badge">🎉 Holiday</span>
+                        </div>
+                        <div className="activity-title">{item.title}</div>
+                      </div>
+                    </div>
+                    <div className="activity-status status-holiday">HOLIDAY</div>
+                  </div>
+                );
+              }
+              
+              // ✅ Attendance record - Ye tabhi show hoga jab holiday nahi hai
+              const date = new Date(item.date);
               const isCurrentMonth = date.getMonth() === currentMonth && date.getFullYear() === currentYear;
               return (
                 <div key={index} className="activity-item">
                   <div className="activity-item-content">
-                    <div className={`activity-status-icon ${getStatusColor(record.status)}`}>
-                      {record.status === 'PRESENT' && <FiCheckCircle className="status-icon" />}
-                      {record.status === 'LATE' && <FiAlertTriangle className="status-icon" />}
-                      {record.status === 'HALF DAY' && <FiAlertCircle className="status-icon" />}
-                      {record.status === 'ABSENT' && <FiAlertCircle className="status-icon" />}
-                      {!['PRESENT', 'LATE', 'HALF DAY', 'ABSENT'].includes(record.status) && <FiClock className="status-icon" />}
+                    <div className={`activity-status-icon ${getStatusColor(item.status)}`}>
+                      {item.status === 'PRESENT' && <FiCheckCircle className="status-icon" />}
+                      {item.status === 'LATE' && <FiAlertTriangle className="status-icon" />}
+                      {item.status === 'HALF DAY' && <FiAlertCircle className="status-icon" />}
+                      {item.status === 'ABSENT' && <FiAlertCircle className="status-icon" />}
+                      {!['PRESENT', 'LATE', 'HALF DAY', 'ABSENT'].includes(item.status) && <FiClock className="status-icon" />}
                     </div>
                     <div className="activity-details">
                       <div className="activity-date">
@@ -1013,11 +1172,11 @@ const UserDashboard = () => {
                         {isCurrentMonth && <span className="current-month-badge">Current Month</span>}
                       </div>
                       <div className="activity-time">
-                        <MdAccessTime size={12} /> {record.totalTime || '--:--:--'}
+                        <MdAccessTime size={12} /> {item.totalTime || '--:--:--'}
                       </div>
                     </div>
                   </div>
-                  <div className={`activity-status ${getStatusColor(record.status)}`}>{record.status}</div>
+                  <div className={`activity-status ${getStatusColor(item.status)}`}>{item.status}</div>
                 </div>
               );
             })}
@@ -1026,13 +1185,13 @@ const UserDashboard = () => {
             {!loading.attendance && !recentActivity.length && (
               <div className="activity-empty-state">
                 <div className="empty-icon-container"><FiClock className="empty-icon" /></div>
-                <p className="empty-title">No attendance records found</p>
+                <p className="empty-title">No activity found</p>
                 <p className="empty-subtitle">
-                  {userJoinDate ? `You joined on ${formattedJoinDate}. Records will appear after this date.` : 'Your attendance records will appear here'}
+                  {userJoinDate ? `You joined on ${formattedJoinDate}. Records will appear after this date.` : 'Your activity will appear here'}
                 </p>
               </div>
             )}
-          </div>
+          </div>          
         </div>
       </div>
 

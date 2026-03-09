@@ -137,6 +137,7 @@ const Alerts = () => {
   const [expandedAlert, setExpandedAlert] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [userGroups, setUserGroups] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
 
   const token = localStorage.getItem("token");
   const canManage = ["admin", "hr", "manager"].includes(role?.toLowerCase());
@@ -247,6 +248,7 @@ const Alerts = () => {
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
+          setCurrentUser(parsed);
           const userRole = parsed.role || parsed.user?.role || "";
           setRole(userRole.toLowerCase());
           const userId = parsed._id || parsed.user?._id || "";
@@ -491,6 +493,7 @@ const Alerts = () => {
     });
 
   const getUserNameById = (userId) => {
+    if (!userId) return "System";
     if (typeof userId === 'object' && userId._id) {
       return userId.name || userId.email || "Unknown User";
     }
@@ -504,6 +507,21 @@ const Alerts = () => {
     }
     const group = groups.find(g => g._id === groupId);
     return group ? group.name : "Unknown Group";
+  };
+
+  const getCreatorName = (alert) => {
+    // Try different possible field names for the creator
+    const creator = alert.createdBy || alert.assignedBy || alert.author || alert.creator;
+    
+    if (!creator) return "System";
+    
+    if (typeof creator === 'object') {
+      return creator.name || creator.email || "Unknown User";
+    }
+    
+    // If it's an ID, try to find the user
+    const user = users.find(u => u._id === creator);
+    return user ? user.name || user.email : "Unknown User";
   };
 
   const isAlertUnread = (alert) => {
@@ -712,6 +730,7 @@ const Alerts = () => {
               const unread = isAlertUnread(alert);
               const expanded = expandedAlert === alert._id;
               const typeColor = getTypeColor(alert.type);
+              const creatorName = getCreatorName(alert);
               
               return (
                 <div 
@@ -759,49 +778,27 @@ const Alerts = () => {
                         )}
                         {canManage && (
                           <>
-                            <Tooltip title="Edit">
-                              <button
-                                className="Alerts-icon-button Alerts-edit-button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpen(alert);
-                                }}
-                              >
-                                <FiEdit />
-                              </button>
-                            </Tooltip>
-                            <Tooltip title="Delete">
-                              <button
-                                className="Alerts-icon-button Alerts-delete-button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDelete(alert._id);
-                                }}
-                              >
-                                <FiTrash2 />
-                              </button>
-                            </Tooltip>
+                           
+                            
                           </>
                         )}
-                        <Tooltip title={expanded ? "Collapse" : "Expand"}>
-                          <button
-                            className="Alerts-icon-button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleAlertExpansion(alert._id);
-                            }}
-                          >
-                            {expanded ? <FiChevronUp /> : <FiChevronDown />}
-                          </button>
-                        </Tooltip>
+                        
                       </div>
+                    </div>
+
+                    {/* Creator/Assigner Information */}
+                    <div className="Alerts-creator-info">
+                        <FiUserCheck />
+                      <span className="Alerts-creator-name">
+                        <strong>Created by:</strong> {creatorName}
+                      </span>
                     </div>
 
                     <p className={`Alerts-alert-message ${unread ? 'Alerts-alert-message-unread' : ''}`}>
                       {alert.message}
                     </p>
 
-                    {(expanded || assignedUsers.length > 0 || assignedGroups.length > 0) && (
+                    {/* {(expanded || assignedUsers.length > 0 || assignedGroups.length > 0) && (
                       <div className="Alerts-alert-details">
                         <div className="Alerts-divider" />
                         <div className="Alerts-assignments">
@@ -852,7 +849,7 @@ const Alerts = () => {
                           </div>
                         </div>
                       </div>
-                    )}
+                    )} */}
                   </div>
                 </div>
               );

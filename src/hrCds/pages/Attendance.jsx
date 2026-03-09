@@ -19,18 +19,21 @@ import {
   FiBarChart2,
   FiRefreshCw,
   FiAlertTriangle,
-  FiWatch
+  FiWatch,
+  FiGift
 } from "react-icons/fi";
+import { MdCelebration } from "react-icons/md";
 import '../Css/Attendance.css';
-import CIISLoader from '../../Loader/CIISLoader'; // ✅ Import CIISLoader
+import CIISLoader from '../../Loader/CIISLoader';
 
 const Attendance = () => {
   const [attendance, setAttendance] = useState([]);
+  const [holidays, setHolidays] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState(null);
   const [openModal, setOpenModal] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
-  const [pageLoading, setPageLoading] = useState(true); // ✅ Page loading state
+  const [pageLoading, setPageLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -39,6 +42,7 @@ const Attendance = () => {
   const [showMobileFilter, setShowMobileFilter] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [holidaysLoading, setHolidaysLoading] = useState(false);
   
   // User join date from createdAt
   const [userJoinDate, setUserJoinDate] = useState(null);
@@ -65,6 +69,16 @@ const Attendance = () => {
 
   const token = useMemo(() => localStorage.getItem('token'), []);
 
+  // Get company details from localStorage
+  const companyDetails = useMemo(() => {
+    try {
+      const details = localStorage.getItem('companyDetails');
+      return details ? JSON.parse(details) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
   // Parse user's creation date
   useEffect(() => {
     if (user?.createdAt) {
@@ -78,8 +92,6 @@ const Attendance = () => {
         year: 'numeric' 
       });
       setFormattedJoinDate(formatted);
-      
-      console.log('User joined on:', joinDate.toISOString());
     }
   }, [user?.createdAt]);
 
@@ -106,14 +118,40 @@ const Attendance = () => {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  // Fetch holidays
+  const fetchHolidays = useCallback(async () => {
+    setHolidaysLoading(true);
+    try {
+      const response = await axios.get('/holidays', {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000
+      });
+      
+      if (response.data?.success) {
+        let holidaysData = response.data.holidays || [];
+        
+        // Filter holidays after join date
+        if (userJoinDate) {
+          holidaysData = holidaysData.filter(holiday => 
+            !isBeforeJoinDate(new Date(holiday.date))
+          );
+        }
+        
+        setHolidays(holidaysData);
+      }
+    } catch (error) {
+      console.error('Failed to load holidays:', error);
+    } finally {
+      setHolidaysLoading(false);
+    }
+  }, [token, userJoinDate, isBeforeJoinDate]);
+
   // Fetch attendance with join date filtering
   const fetchAttendance = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
     else setLoading(true);
 
     try {
-      const token = localStorage.getItem("token");
-
       const response = await axios.get("/attendance/list", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -139,7 +177,6 @@ const Attendance = () => {
       }
 
       setAttendance(attendanceData);
-      calculateStats(attendanceData);
 
       if (showRefresh) {
         toast.success("🔄 Attendance data refreshed!");
@@ -148,45 +185,80 @@ const Attendance = () => {
       console.error("Error fetching attendance data:", error);
       toast.error("❌ Failed to load attendance records");
       setAttendance([]);
-      calculateStats([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [userJoinDate, isBeforeJoinDate]);
+  }, [token, userJoinDate, isBeforeJoinDate]);
 
-  // ✅ Load data on mount - with page loader
-  const initialLoadRef = useRef(false);
-  
-  useEffect(() => {
-    if (initialLoadRef.current) return;
-    if (!userJoinDate) return;
+  // Combined data with holidays
+  const processedAttendance = useMemo(() => {
+    // Create a map of attendance records by date
+    const attendanceMap = new Map();
+    attendance.forEach(record => {
+      const dateStr = new Date(record.date).toDateString();
+      attendanceMap.set(dateStr, record);
+    });
+
+    // Process holidays and combine with attendance
+    const combined = [];
     
-    initialLoadRef.current = true;
-    setPageLoading(true);
-    
-    const loadData = async () => {
-      try {
-        await fetchAttendance();
-      } catch (error) {
-        console.error('Error loading attendance data:', error);
-      } finally {
-        // Minimum 500ms loader show karega
-        setTimeout(() => {
-          setPageLoading(false);
-        }, 500);
+    // Add all attendance records first
+    attendance.forEach(record => {
+      combined.push({ ...record, isHoliday: false });
+    });
+
+    // Add holidays that don't have attendance records
+    holidays.forEach(holiday => {
+      const holidayDate = new Date(holiday.date);
+      const dateStr = holidayDate.toDateString();
+      const attendanceRecord = attendanceMap.get(dateStr);
+      
+      if (!attendanceRecord) {
+        // Holiday with no attendance -> pure HOLIDAY
+        combined.push({
+          _id: `holiday-${holiday._id || holidayDate.getTime()}`,
+          date: holiday.date,
+          status: 'HOLIDAY',
+          holidayTitle: holiday.title,
+          isHoliday: true,
+          inTime: null,
+          outTime: null,
+          totalTime: null,
+          lateBy: null,
+          earlyLeave: null,
+          overTime: null
+        });
+      } else {
+        // Holiday with attendance -> mark as holiday but keep attendance
+        const index = combined.findIndex(r => 
+          new Date(r.date).toDateString() === dateStr
+        );
+        if (index !== -1) {
+          combined[index] = {
+            ...attendanceRecord,
+            isHoliday: true,
+            holidayTitle: holiday.title,
+            // Keep original status but we'll display differently
+          };
+        }
       }
-    };
-    
-    loadData();
-  }, [userJoinDate, fetchAttendance]);
+    });
 
-  const calculateStats = (data) => {
-    const present = data.filter((record) => record.status === "PRESENT").length;
-    const late = data.filter((record) => record.status === "LATE").length;
-    const absent = data.filter((record) => record.status === "ABSENT").length;
-    const halfDay = data.filter((record) => record.status === "HALF DAY").length;
-    const total = data.length;
+    // Sort by date (newest first)
+    return combined.sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [attendance, holidays]);
+
+  // Calculate stats (excluding holidays from totals)
+  const calculateStats = useCallback((data) => {
+    // Only count actual attendance records (not holiday-only records)
+    const attendanceRecords = data.filter(record => !record.isHoliday || record.status !== 'HOLIDAY');
+    
+    const present = attendanceRecords.filter((record) => record.status === "PRESENT").length;
+    const late = attendanceRecords.filter((record) => record.status === "LATE").length;
+    const absent = attendanceRecords.filter((record) => record.status === "ABSENT").length;
+    const halfDay = attendanceRecords.filter((record) => record.status === "HALF DAY").length;
+    const total = attendanceRecords.length;
     
     const workingDays = present + late;
     const percentage = total > 0 ? Math.round((workingDays / total) * 100) : 0;
@@ -199,7 +271,40 @@ const Attendance = () => {
       total,
       percentage,
     });
-  };
+  }, []);
+
+  // Update stats when data changes
+  useEffect(() => {
+    calculateStats(processedAttendance);
+  }, [processedAttendance, calculateStats]);
+
+  // Load data on mount
+  const initialLoadRef = useRef(false);
+  
+  useEffect(() => {
+    if (initialLoadRef.current) return;
+    if (!userJoinDate) return;
+    
+    initialLoadRef.current = true;
+    setPageLoading(true);
+    
+    const loadData = async () => {
+      try {
+        await Promise.all([
+          fetchHolidays(),
+          fetchAttendance()
+        ]);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setTimeout(() => {
+          setPageLoading(false);
+        }, 500);
+      }
+    };
+    
+    loadData();
+  }, [userJoinDate, fetchAttendance, fetchHolidays]);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "--";
@@ -230,22 +335,44 @@ const Attendance = () => {
     }
   };
 
-  const getStatusIcon = (status) => {
+  const getStatusIcon = (record) => {
+    const status = record.status;
+    const isHoliday = record.isHoliday;
+    
+    if (isHoliday && status === 'PRESENT') {
+      return (
+        <div className="Attendance-status-icon-wrapper">
+          <MdCelebration className="Attendance-status-icon holiday-icon" />
+          <FiCheckCircle className="Attendance-status-icon present-icon" />
+        </div>
+      );
+    }
+    
+    if (isHoliday || status === 'HOLIDAY') {
+      return <MdCelebration className="Attendance-status-icon holiday-icon" />;
+    }
+    
     switch (status) {
       case "PRESENT":
-        return <FiCheckCircle className="Attendance-status-icon" />;
+        return <FiCheckCircle className="Attendance-status-icon present-icon" />;
       case "LATE":
-        return <FiAlertTriangle className="Attendance-status-icon" />;
+        return <FiAlertTriangle className="Attendance-status-icon late-icon" />;
       case "ABSENT":
-        return <FiMinusCircle className="Attendance-status-icon" />;
+        return <FiMinusCircle className="Attendance-status-icon absent-icon" />;
       case "HALF DAY":
-        return <FiAlertCircle className="Attendance-status-icon" />;
+        return <FiAlertCircle className="Attendance-status-icon halfday-icon" />;
       default:
         return <FiClock className="Attendance-status-icon" />;
     }
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (record) => {
+    const status = record.status;
+    const isHoliday = record.isHoliday;
+    
+    if (isHoliday && status === 'PRESENT') return "#9c27b0"; // Purple for holiday-present combo
+    if (isHoliday || status === 'HOLIDAY') return "#9c27b0"; // Purple for holidays
+    
     switch (status) {
       case "PRESENT":
         return "#4caf50";
@@ -260,7 +387,13 @@ const Attendance = () => {
     }
   };
 
-  const getStatusDisplayText = (status) => {
+  const getStatusDisplayText = (record) => {
+    const status = record.status;
+    const isHoliday = record.isHoliday;
+    
+    if (isHoliday && status === 'PRESENT') return "HOLIDAY + PRESENT";
+    if (isHoliday || status === 'HOLIDAY') return "HOLIDAY";
+    
     switch (status) {
       case "PRESENT":
         return "PRESENT";
@@ -275,18 +408,28 @@ const Attendance = () => {
     }
   };
 
+  const getStatusClass = (record) => {
+    const status = record.status;
+    const isHoliday = record.isHoliday;
+    
+    if (isHoliday && status === 'PRESENT') return "holiday-present";
+    if (isHoliday || status === 'HOLIDAY') return "holiday";
+    
+    return status.toLowerCase().replace(" ", "-");
+  };
+
   const filteredData = useMemo(() => {
-    return attendance.filter((record) => {
+    return processedAttendance.filter((record) => {
       const matchesSearch =
         formatDate(record.date).toLowerCase().includes(search.toLowerCase()) ||
-        (record.status && record.status.toLowerCase().includes(search.toLowerCase()));
+        (record.status && record.status.toLowerCase().includes(search.toLowerCase())) ||
+        (record.holidayTitle && record.holidayTitle.toLowerCase().includes(search.toLowerCase()));
       
+      const statusDisplay = getStatusDisplayText(record);
       const matchesStatus =
         statusFilter === "ALL" || 
-        (statusFilter === "LATE" ? record.status === "LATE" :
-         statusFilter === "PRESENT" ? record.status === "PRESENT" :
-         statusFilter === "ABSENT" ? record.status === "ABSENT" :
-         statusFilter === "HALF DAY" ? record.status === "HALF DAY" : true);
+        statusDisplay.includes(statusFilter) ||
+        (statusFilter === "HOLIDAY" && (record.isHoliday || record.status === 'HOLIDAY'));
 
       const recordDate = new Date(record.date);
       const now = new Date();
@@ -316,7 +459,7 @@ const Attendance = () => {
 
       return matchesSearch && matchesStatus && matchesTimeRange;
     });
-  }, [attendance, search, statusFilter, timeRange]);
+  }, [processedAttendance, search, statusFilter, timeRange]);
 
   const openDetailsModal = (record) => {
     setSelectedRecord(record);
@@ -344,16 +487,18 @@ const Attendance = () => {
         "Late By",
         "Early Leave",
         "Overtime",
+        "Holiday Title"
       ];
       const csvData = filteredData.map((record) => [
         formatDate(record.date),
-        formatTime(record.inTime),
-        formatTime(record.outTime),
-        getStatusDisplayText(record.status),
+        record.inTime ? formatTime(record.inTime) : "--",
+        record.outTime ? formatTime(record.outTime) : "--",
+        getStatusDisplayText(record),
         record.totalTime || "00:00:00",
         record.lateBy || "00:00:00",
         record.earlyLeave || "00:00:00",
         record.overTime || "00:00:00",
+        record.holidayTitle || "--"
       ]);
 
       const csvContent = [headers, ...csvData]
@@ -386,12 +531,15 @@ const Attendance = () => {
   };
 
   const handleRefresh = () => {
-    fetchAttendance(true);
+    Promise.all([
+      fetchHolidays(),
+      fetchAttendance(true)
+    ]);
   };
 
-  const statusOptions = ["ALL", "PRESENT", "LATE", "HALF DAY", "ABSENT"];
+  const statusOptions = ["ALL", "PRESENT", "LATE", "HALF DAY", "ABSENT", "HOLIDAY"];
 
-  // ✅ Show CIISLoader while page is loading
+  // Show CIISLoader while page is loading
   if (pageLoading) {
     return <CIISLoader />;
   }
@@ -425,7 +573,7 @@ const Attendance = () => {
               <FiSearch className="Attendance-search-icon" />
               <input
                 type="text"
-                placeholder="Search attendance..."
+                placeholder="Search attendance or holidays..."
                 className="Attendance-search-input"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -461,9 +609,9 @@ const Attendance = () => {
             <button
               className="Attendance-icon-button"
               onClick={handleRefresh}
-              disabled={refreshing}
+              disabled={refreshing || holidaysLoading}
             >
-              <FiRefreshCw className={refreshing ? "Attendance-spin" : ""} />
+              <FiRefreshCw className={refreshing || holidaysLoading ? "Attendance-spin" : ""} />
             </button>
 
             <button
@@ -510,7 +658,7 @@ const Attendance = () => {
                   setShowFilterMenu(false);
                 }}
               >
-                {status === "ALL" ? "All Status" : `${status} Only`}
+                {status === "ALL" ? "All Status" : status}
               </button>
             ))}
           </div>
@@ -571,7 +719,7 @@ const Attendance = () => {
       )}
 
       {/* Join Date Info Banner */}
-      {userJoinDate && attendance.length === 0 && !loading && (
+      {userJoinDate && processedAttendance.length === 0 && !loading && (
         <div className="Attendance-join-banner">
           <div className="Attendance-join-banner-content">
             <FiCalendar size={20} />
@@ -630,6 +778,7 @@ const Attendance = () => {
               className={`Attendance-stat-card ${
                 statusFilter === stat.key.toUpperCase() ? "Attendance-active" : ""
               }`}
+              data-key={stat.key}
               onClick={() => {
                 if (stat.key !== "total") {
                   setStatusFilter(
@@ -658,6 +807,14 @@ const Attendance = () => {
           ))}
       </div>
 
+      {/* Holiday Count Card (if any) */}
+      {holidays.length > 0 && (
+        <div className="Attendance-holiday-summary">
+          <MdCelebration className="Attendance-holiday-summary-icon" />
+          <span>{holidays.length} Holiday{holidays.length > 1 ? 's' : ''} this year</span>
+        </div>
+      )}
+
       {/* Active Filters Display */}
       {(statusFilter !== "ALL" || timeRange !== "ALL") && (
         <div className="Attendance-active-filters">
@@ -665,7 +822,7 @@ const Attendance = () => {
           <div className="Attendance-filter-chips">
             {statusFilter !== "ALL" && (
               <div className="Attendance-filter-chip">
-                <span>Status: {getStatusDisplayText(statusFilter)}</span>
+                <span>Status: {statusFilter}</span>
                 <button onClick={() => setStatusFilter("ALL")}>×</button>
               </div>
             )}
@@ -682,7 +839,7 @@ const Attendance = () => {
       {/* Results Count */}
       <div className="Attendance-results-count">
         <h3>
-          Showing {filteredData.length} of {attendance.length} records
+          Showing {filteredData.length} of {processedAttendance.length} records
         </h3>
         {stats.late > 0 && (
           <div className="Attendance-late-info">
@@ -690,7 +847,7 @@ const Attendance = () => {
             <span>{stats.late} late day(s) recorded</span>
           </div>
         )}
-        {userJoinDate && attendance.length > 0 && (
+        {userJoinDate && processedAttendance.length > 0 && (
           <div className="Attendance-range-info">
             <FiCalendar />
             <span>Since {formattedJoinDate}</span>
@@ -698,131 +855,155 @@ const Attendance = () => {
         )}
       </div>
 
-      {/* Desktop/Tablet Table */}
-      {!isMobile && (
-        <div className="Attendance-table-container">
-          <table className="Attendance-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Login</th>
-                <th>Logout</th>
-                <th>Status</th>
-                <th>Total Time</th>
-                <th>Late By</th>
-                <th>Actions</th>
+     {/* Desktop/Tablet Table */}
+{!isMobile && (
+  <div className="Attendance-table-container">
+    <table className="Attendance-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Login</th>
+          <th>Logout</th>
+          <th>Status</th>
+          <th>Total Time</th>
+          <th>Late By</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {filteredData.length > 0 ? (
+          filteredData.map((record) => {
+            const statusClass = getStatusClass(record);
+            const displayStatus = getStatusDisplayText(record);
+            return (
+              <tr
+                key={record._id}
+                className={`Attendance-table-row Attendance-status-${statusClass}`}
+                
+                style={{ cursor: 'default' }}  
+              >
+                <td>
+                  <strong>{formatDate(record.date)}</strong>
+                  {record.holidayTitle && (
+                    <div className="Attendance-holiday-title-tooltip">
+                      {record.holidayTitle}
+                    </div>
+                  )}
+                </td>
+                <td>
+                  {record.inTime ? (
+                    <div className="Attendance-time-cell">
+                      <FiClock />
+                      <span>{formatTime(record.inTime)}</span>
+                    </div>
+                  ) : (
+                    <span className="Attendance-no-time">--</span>
+                  )}
+                </td>
+                <td>
+                  {record.outTime ? (
+                    <div className="Attendance-time-cell">
+                      <FiClock />
+                      <span>{formatTime(record.outTime)}</span>
+                    </div>
+                  ) : (
+                    <span className="Attendance-no-time">--</span>
+                  )}
+                </td>
+                <td>
+                  <div className={`Attendance-status-chip Attendance-status-${statusClass}`}>
+                    {getStatusIcon(record)}
+                    <span>{displayStatus}</span>
+                  </div>
+                </td>
+                <td>
+                  <strong className="Attendance-total-time">
+                    {record.totalTime || "00:00:00"}
+                  </strong>
+                </td>
+                <td>
+                  <div className="Attendance-late-cell">
+                    {record.lateBy && record.lateBy !== "00:00:00" ? (
+                      <span className="Attendance-late-badge">
+                        {record.lateBy}
+                      </span>
+                    ) : (
+                      <span className="Attendance-no-late">--</span>
+                    )}
+                  </div>
+                </td>
+                <td>
+                  <button
+                    className="Attendance-view-details-button"
+                    onClick={() => openDetailsModal(record)}
+                    type="button"
+                  >
+                    <FiEye />
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {filteredData.length > 0 ? (
-                filteredData.map((record) => {
-                  const statusClass = record.status.toLowerCase().replace(" ", "-");
-                  return (
-                    <tr
-                      key={record._id}
-                      className={`Attendance-table-row Attendance-status-${statusClass}`}
-                      onClick={() => openDetailsModal(record)}
-                    >
-                      <td>
-                        <strong>{formatDate(record.date)}</strong>
-                      </td>
-                      <td>
-                        <div className="Attendance-time-cell">
-                          <FiClock />
-                          <span>{formatTime(record.inTime)}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="Attendance-time-cell">
-                          <FiClock />
-                          <span>{formatTime(record.outTime)}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className={`Attendance-status-chip Attendance-status-${statusClass}`}>
-                          {getStatusIcon(record.status)}
-                          <span>{getStatusDisplayText(record.status)}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <strong className="Attendance-total-time">
-                          {record.totalTime || "00:00:00"}
-                        </strong>
-                      </td>
-                      <td>
-                        <div className="Attendance-late-cell">
-                          {record.lateBy && record.lateBy !== "00:00:00" ? (
-                            <span className="Attendance-late-badge">
-                              {record.lateBy}
-                            </span>
-                          ) : (
-                            <span className="Attendance-no-late">--</span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <button
-                          className="Attendance-view-details-button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openDetailsModal(record);
-                          }}
-                        >
-                          <FiEye />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan="7" className="Attendance-no-data-cell">
-                    <FiUser className="Attendance-no-data-icon" />
-                    <h3>No attendance records found</h3>
-                    <p>
-                      {userJoinDate 
-                        ? `You joined on ${formattedJoinDate}. No records before this date.`
-                        : 'Try adjusting your filters or search terms'}
-                    </p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+            );
+          })
+        ) : (
+          <tr>
+            <td colSpan="7" className="Attendance-no-data-cell">
+              <FiUser className="Attendance-no-data-icon" />
+              <h3>No attendance records found</h3>
+              <p>
+                {userJoinDate 
+                  ? `You joined on ${formattedJoinDate}. No records before this date.`
+                  : 'Try adjusting your filters or search terms'}
+              </p>
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+)}
 
       {/* Mobile Cards */}
       {isMobile && (
         <div className="Attendance-mobile-cards">
           {filteredData.length > 0 ? (
             filteredData.map((record) => {
-              const statusClass = record.status.toLowerCase().replace(" ", "-");
+              const statusClass = getStatusClass(record);
+              const displayStatus = getStatusDisplayText(record);
               return (
                 <div
                   key={record._id}
                   className={`Attendance-mobile-card Attendance-status-${statusClass}`}
                   onClick={() => openDetailsModal(record)}
+                  title={record.holidayTitle ? `Holiday: ${record.holidayTitle}` : ''}
                 >
                   <div className="Attendance-mobile-card-content">
                     <div className="Attendance-mobile-card-header">
                       <h3>{formatDate(record.date)}</h3>
+                      {record.holidayTitle && (
+                        <span className="Attendance-mobile-holiday-badge">
+                          🎉
+                        </span>
+                      )}
                       <FiChevronRight className="Attendance-card-arrow" />
                     </div>
                     <div className="Attendance-mobile-card-times">
-                      <div className="Attendance-time-item">
-                        <FiClock />
-                        <span>In: {formatTime(record.inTime)}</span>
-                      </div>
-                      <div className="Attendance-time-item">
-                        <FiClock />
-                        <span>Out: {formatTime(record.outTime)}</span>
-                      </div>
+                      {record.inTime && (
+                        <div className="Attendance-time-item">
+                          <FiClock />
+                          <span>In: {formatTime(record.inTime)}</span>
+                        </div>
+                      )}
+                      {record.outTime && (
+                        <div className="Attendance-time-item">
+                          <FiClock />
+                          <span>Out: {formatTime(record.outTime)}</span>
+                        </div>
+                      )}
                     </div>
                     <div className="Attendance-mobile-card-footer">
                       <div className={`Attendance-mobile-status-chip Attendance-status-${statusClass}`}>
-                        {getStatusIcon(record.status)}
-                        <span>{getStatusDisplayText(record.status)}</span>
+                        {getStatusIcon(record)}
+                        <span>{displayStatus}</span>
                       </div>
                       <div className="Attendance-mobile-card-right">
                         {record.lateBy && record.lateBy !== "00:00:00" && (
@@ -831,11 +1012,18 @@ const Attendance = () => {
                             <span>{record.lateBy}</span>
                           </div>
                         )}
-                        <strong className="Attendance-mobile-total-time">
-                          {record.totalTime || "00:00:00"}
-                        </strong>
+                        {record.totalTime && (
+                          <strong className="Attendance-mobile-total-time">
+                            {record.totalTime}
+                          </strong>
+                        )}
                       </div>
                     </div>
+                    {record.holidayTitle && (
+                      <div className="Attendance-mobile-holiday-title">
+                        🎉 {record.holidayTitle}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -860,68 +1048,76 @@ const Attendance = () => {
           <div
             className="Attendance-modal-content"
             onClick={(e) => e.stopPropagation()}
-            style={{
-              background: `linear-gradient(135deg, ${getStatusColor(
-                selectedRecord.status
-              )} 0%, #667eea 100%)`,
-            }}
           >
-            <div className="Attendance-modal-header">
+            <div className="Attendance-modal-header" style={{
+              background: `linear-gradient(135deg, ${getStatusColor(
+                selectedRecord
+              )} 0%, #667eea 100%)`,
+            }}>
               <h2>Attendance Details</h2>
               <h3>{formatDate(selectedRecord.date)}</h3>
+              {selectedRecord.holidayTitle && (
+                <div className="Attendance-modal-holiday-badge">
+                  🎉 {selectedRecord.holidayTitle}
+                </div>
+              )}
             </div>
             <div className="Attendance-modal-body">
               <div className="Attendance-modal-section">
                 <h4>Status</h4>
-                <div className={`Attendance-modal-status-chip Attendance-status-${selectedRecord.status.toLowerCase().replace(" ", "-")}`}>
-                  {getStatusIcon(selectedRecord.status)}
-                  <span>{getStatusDisplayText(selectedRecord.status)}</span>
+                <div className={`Attendance-modal-status-chip Attendance-status-${getStatusClass(selectedRecord)}`}>
+                  {getStatusIcon(selectedRecord)}
+                  <span>{getStatusDisplayText(selectedRecord)}</span>
                 </div>
               </div>
               <div className="Attendance-modal-divider"></div>
               
-              <div className="Attendance-modal-grid">
-                <div className="Attendance-modal-grid-item">
-                  <h4>Login Time</h4>
-                  <p className="Attendance-modal-time">{formatTime(selectedRecord.inTime)}</p>
-                </div>
-                <div className="Attendance-modal-grid-item">
-                  <h4>Logout Time</h4>
-                  <p className="Attendance-modal-time">
-                    {formatTime(selectedRecord.outTime)}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="Attendance-modal-grid">
-                <div className="Attendance-modal-grid-item">
-                  <h4>Total Duration</h4>
-                  <p className="Attendance-modal-duration">
-                    {selectedRecord.totalTime || "00:00:00"}
-                  </p>
-                </div>
-                <div className="Attendance-modal-grid-item">
-                  <h4>Late By</h4>
-                  <p className="Attendance-modal-late">
-                    {selectedRecord.lateBy || "00:00:00"}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="Attendance-modal-grid">
-                <div className="Attendance-modal-grid-item">
-                  <h4>Early Leave</h4>
-                  <p className="Attendance-modal-early-leave">
-                    {selectedRecord.earlyLeave || "00:00:00"}
-                  </p>
-                </div>
-                <div className="Attendance-modal-grid-item">
-                  <h4>Overtime</h4>
-                  <p className="Attendance-modal-overtime">
-                    {selectedRecord.overTime || "00:00:00"}
-                  </p>
-                </div>
-              </div>
+              {selectedRecord.inTime && (
+                <>
+                  <div className="Attendance-modal-grid">
+                    <div className="Attendance-modal-grid-item">
+                      <h4>Login Time</h4>
+                      <p className="Attendance-modal-time">{formatTime(selectedRecord.inTime)}</p>
+                    </div>
+                    <div className="Attendance-modal-grid-item">
+                      <h4>Logout Time</h4>
+                      <p className="Attendance-modal-time">
+                        {selectedRecord.outTime ? formatTime(selectedRecord.outTime) : "--"}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="Attendance-modal-grid">
+                    <div className="Attendance-modal-grid-item">
+                      <h4>Total Duration</h4>
+                      <p className="Attendance-modal-duration">
+                        {selectedRecord.totalTime || "00:00:00"}
+                      </p>
+                    </div>
+                    <div className="Attendance-modal-grid-item">
+                      <h4>Late By</h4>
+                      <p className="Attendance-modal-late">
+                        {selectedRecord.lateBy || "00:00:00"}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="Attendance-modal-grid">
+                    <div className="Attendance-modal-grid-item">
+                      <h4>Early Leave</h4>
+                      <p className="Attendance-modal-early-leave">
+                        {selectedRecord.earlyLeave || "00:00:00"}
+                      </p>
+                    </div>
+                    <div className="Attendance-modal-grid-item">
+                      <h4>Overtime</h4>
+                      <p className="Attendance-modal-overtime">
+                        {selectedRecord.overTime || "00:00:00"}
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
               
               <button className="Attendance-modal-close-button" onClick={closeModal}>
                 Close Details

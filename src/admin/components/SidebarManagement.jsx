@@ -15,7 +15,6 @@ const APP_ROUTES = [
   { path: 'admin-meeting', name: 'Create Employee Meeting', icon: 'MeetingRoom', category: 'meetings' },
   { path: 'adminproject', name: 'Admin Projects', icon: 'ProjectIcon', category: 'projects' },
   { path: 'company-all-task', name: 'Company All Tasks', icon: 'ListAlt', category: 'tasks' },
-  // { path: 'department-all-task', name: 'Department All Tasks', icon: 'ListAlt', category: 'tasks' },
   { path: 'emp-client', name: 'Client Management', icon: 'ClientIcon', category: 'clients' },
   { path: 'alert', name: 'Alerts', icon: 'Notifications', category: 'communication' },
   { path: 'attendance', name: 'My Attendance', icon: 'CalendarToday', category: 'main' },
@@ -113,6 +112,9 @@ const SidebarManagement = () => {
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [departmentSearch, setDepartmentSearch] = useState('');
   const [roleSearch, setRoleSearch] = useState('');
+  
+  // ✅ Super Admin Auto-Select Flag
+  const [superAdminAutoSelected, setSuperAdminAutoSelected] = useState(false);
 
   // Handle window resize
   useEffect(() => {
@@ -127,7 +129,7 @@ const SidebarManagement = () => {
   // Get company from localStorage
   const getCompanyFromLocalStorage = () => {
     try {
-      const companyDetailsStr = localStorage.getItem('companyDetails');
+      const companyDetailsStr = localStorage.getItem('company');
       
       if (companyDetailsStr) {
         const companyData = JSON.parse(companyDetailsStr);
@@ -154,6 +156,20 @@ const SidebarManagement = () => {
       return null;
     } catch (error) {
       console.error('Error getting company from localStorage:', error);
+      return null;
+    }
+  };
+
+  // Get user from localStorage
+  const getUserFromLocalStorage = () => {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        return JSON.parse(userStr);
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting user from localStorage:', error);
       return null;
     }
   };
@@ -207,6 +223,86 @@ const SidebarManagement = () => {
       setPageLoading(false);
     }
   };
+
+  // ✅ FIXED: Super Admin Auto-Select - This will run when all data is loaded
+  useEffect(() => {
+    const checkForSuperAdmin = () => {
+      // Wait for all data to be loaded
+      if (
+        departments.length > 0 &&
+        availablePages.length > 0 &&
+        jobRoles.length > 0 &&
+        !superAdminAutoSelected &&
+        company?._id
+      ) {
+        try {
+          const userData = getUserFromLocalStorage();
+          
+          // Check if user is SUPER ADMIN with Management department
+          if (userData && 
+              userData.department === "Management" && 
+              userData.jobRole === "super_admin") {
+            
+            console.log('🎯 SUPER ADMIN DETECTED - Selecting all pages');
+            console.log('User Data:', userData);
+            console.log('Departments:', departments);
+            console.log('Available Pages:', availablePages.length);
+            
+            // Find Management department
+            const managementDept = departments.find(d => 
+              d.name === "Management" || 
+              d.name?.toLowerCase() === "management" ||
+              d.departmentName?.toLowerCase() === "management"
+            );
+            
+            if (managementDept) {
+              console.log('✅ Management department found:', managementDept);
+              
+              // SUPER ADMIN AUTO-SELECT
+              // 1. Select department
+              setSelectedDepartment(managementDept._id);
+              setDepartmentSearch("Management");
+              
+              // 2. Select ALL pages
+              const allPageIds = availablePages.map(page => page.id);
+              setSelectedItems(allPageIds);
+              
+              // 3. Set role
+              setSelectedRole("super_admin");
+              setRoleSearch("super_admin");
+              
+              // 4. Update step
+              setActiveStep(2);
+              
+              // 5. Set flag to prevent multiple auto-selects
+              setSuperAdminAutoSelected(true);
+              
+              // 6. Show notification
+              setSnackbar({
+                open: true,
+                message: '✅ Super Admin: All pages auto-selected successfully',
+                severity: 'success'
+              });
+              
+              console.log('✅ Auto-selection complete:', {
+                pagesCount: allPageIds.length,
+                department: managementDept.name,
+                role: 'super_admin'
+              });
+            } else {
+              console.log('⚠️ Management department not found in departments list');
+            }
+          } else {
+            console.log('👤 Regular user (not Super Admin):', userData);
+          }
+        } catch (error) {
+          console.error('Error in super admin check:', error);
+        }
+      }
+    };
+
+    checkForSuperAdmin();
+  }, [departments, availablePages, jobRoles, company, superAdminAutoSelected]);
 
   // Fetch departments
   const fetchDepartments = async (companyId) => {
@@ -293,7 +389,7 @@ const SidebarManagement = () => {
     }
   };
 
-  // ✅ FIXED: Fetch existing configurations with null handling
+  // Fetch existing configurations with null handling
   const fetchExistingConfigs = async (companyId) => {
     try {
       setLoading(prev => ({ ...prev, fetching: true }));
@@ -333,46 +429,39 @@ const SidebarManagement = () => {
     }
   };
 
-  // ✅ FIXED: Get department name with null check
+  // Get department name with null check
   const getDepartmentName = (departmentId) => {
     if (!departmentId) return 'No Department';
     
-    // Agar departmentId object hai
     if (typeof departmentId === 'object' && departmentId !== null) {
       return departmentId.name || departmentId.departmentName || 'Department';
     }
     
-    // Agar departmentId string hai
     const department = departments.find(d => d._id === departmentId);
     if (department) return department.name;
     
     return 'Department';
   };
 
-  // ✅ FIXED: Get role name by ID with null check
+  // Get role name by ID with null check
   const getRoleNameById = (roleId) => {
     if (!roleId) return 'No Role';
     
-    // Agar roleId object hai
     if (typeof roleId === 'object' && roleId !== null) {
       if (roleId.name) return roleId.name;
       if (roleId.roleName) return roleId.roleName;
       if (roleId.role) return roleId.role;
     }
     
-    // Pehle jobRoles mein search karo
     const jobRole = jobRoles.find(r => r._id === roleId);
     if (jobRole) return jobRole.name;
     
-    // Phir customRoles mein search karo
     const customRole = customRoles.find(r => r._id === roleId);
     if (customRole) return customRole.name;
     
-    // Agar existing configs mein roleName ho
     const config = existingConfigs.find(c => c.role === roleId);
     if (config && config.roleName) return config.roleName;
     
-    // Agar roleId string hai to use hi return karo
     if (typeof roleId === 'string') {
       return roleId;
     }
@@ -1278,7 +1367,7 @@ const SidebarManagement = () => {
             </>
           )}
 
-          {/* ✅ FIXED: Tab 2 - Existing Configurations */}
+          {/* Tab 2 - Existing Configurations */}
           {activeTab === 1 && (
             <div className="SidebarManagement-configs-card">
               <div className="SidebarManagement-configs-header">

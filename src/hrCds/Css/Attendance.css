@@ -1536,3 +1536,148 @@
     min-width: auto;
   }
 }
+/* Date Range Picker Styles */
+.Attendance-date-range-picker {
+    position: absolute;
+    top: 44%;
+    right: 296px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    padding: 20px;
+    width: 350px;
+    z-index: 1000;
+    margin-top: 10px;
+    border: 1px solid #eef2f6;
+}
+
+.Attendance-date-range-picker h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 15px 0;
+}
+
+.Attendance-date-range-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.Attendance-date-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.Attendance-date-input-group label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.Attendance-date-input-group input {
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1e293b;
+  transition: all 0.2s;
+}
+
+.Attendance-date-input-group input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.Attendance-date-input-group input:disabled {
+  background-color: #f8fafc;
+  cursor: not-allowed;
+}
+
+.Attendance-date-range-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #f8fafc;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.Attendance-date-range-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.Attendance-apply-range-btn {
+  flex: 1;
+  padding: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.Attendance-apply-range-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.Attendance-clear-range-btn {
+  padding: 12px 20px;
+  background: white;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.Attendance-clear-range-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+/* Active filter chip for date range */
+.Attendance-filter-chip.Attendance-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.Attendance-filter-chip.Attendance-primary button {
+  color: white;
+}
+
+.Attendance-filter-chip.Attendance-primary button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Active state for date range button */
+.Attendance-icon-button.Attendance-active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+     .Attendance-date-range-picker {
+        position: fixed;
+        top: 67%;
+        left: 46%;
+        transform: translate(-50%, -50%);
+        width: 62%;
+        max-width: 350px;
+        margin: 0;
+    }
+}

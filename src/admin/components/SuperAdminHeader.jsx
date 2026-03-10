@@ -192,7 +192,7 @@ const SuperAdminHeader = ({ toggleSidebar, isSidebarOpen }) => {
                                 transition: 'all 0.3s ease',
                             },
                         }}
-                        onClick={() => navigate('/user/dashboard')}
+                        onClick={() => navigate('/Ciis-network/company-details')}
                     >
                         <img
                             src={userData.logo}

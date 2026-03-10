@@ -36,9 +36,12 @@ import {
 import { FaTasks, FaProjectDiagram, FaCity } from 'react-icons/fa';
 
 const TaskDetailsModal = ({ task, open, onClose, projectManagers = [] }) => {
+  console.log('🔍 TaskDetailsModal rendered:', { taskId: task?.id, open });
+  
   if (!open) return null;
 
   const getAssigneeDetails = (assigneeName) => {
+    console.log('🔍 Getting assignee details for:', assigneeName);
     return projectManagers.find(pm => pm.name === assigneeName);
   };
 
@@ -154,6 +157,8 @@ const TaskDetailsModal = ({ task, open, onClose, projectManagers = [] }) => {
 };
 
 const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], onTaskUpdate, api }) => {
+  console.log('🔍 ServiceProgressCard mounted:', { service, clientId, clientProjectManagersCount: clientProjectManagers.length });
+  
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState({
     name: '',
@@ -167,17 +172,20 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
   const [loading, setLoading] = useState(true);
 
   const fetchTasks = async () => {
+    console.log(`🔍 Fetching tasks for client ${clientId}, service ${service}`);
     try {
       setLoading(true);
       const response = await api.get(`/client/${clientId}/service/${service}`);
+      console.log('✅ Tasks fetched successfully:', response.data);
       if (response.data.success) {
         setTasks(response.data.data || []);
       }
     } catch (error) {
-      console.error('Error fetching tasks:', error);
+      console.error('❌ Error fetching tasks:', error);
       const savedTasks = localStorage.getItem(`client_${clientId}_service_${service}_tasks`);
       if (savedTasks) {
         try {
+          console.log('📦 Loading tasks from localStorage');
           const parsedTasks = JSON.parse(savedTasks);
           setTasks(parsedTasks.map(task => ({
             ...task,
@@ -186,7 +194,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
             priority: task.priority || 'Medium'
           })));
         } catch (e) {
-          console.error('Error parsing localStorage tasks:', e);
+          console.error('❌ Error parsing localStorage tasks:', e);
         }
       }
     } finally {
@@ -195,6 +203,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
   };
 
   useEffect(() => {
+    console.log('🔍 ServiceProgressCard useEffect triggered');
     fetchTasks();
   }, [clientId, service]);
 
@@ -203,6 +212,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
   const progressPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
   const handleAddTask = async () => {
+    console.log('🔍 Adding new task:', newTask);
     if (newTask.name.trim()) {
       try {
         const response = await api.post(`/client/${clientId}/service/${service}`, {
@@ -212,6 +222,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
           priority: newTask.priority
         });
 
+        console.log('✅ Task added successfully:', response.data);
         if (response.data.success) {
           setTasks([...tasks, response.data.data]);
           setNewTask({ name: '', dueDate: '', assignee: '', priority: 'Medium' });
@@ -221,7 +232,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
           }
         }
       } catch (error) {
-        console.error('Error adding task:', error);
+        console.error('❌ Error adding task:', error);
         const newTaskObj = {
           id: Date.now(),
           name: newTask.name.trim(),
@@ -245,6 +256,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
   };
 
   const handleEditTask = async () => {
+    console.log('🔍 Editing task:', editTask);
     if (editTask && editTask.name.trim()) {
       try {
         if (editTask._id) {
@@ -255,6 +267,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
             priority: editTask.priority
           });
 
+          console.log('✅ Task updated successfully:', response.data);
           if (response.data.success) {
             const updatedTasks = tasks.map(task => 
               task._id === editTask._id ? response.data.data : task
@@ -280,12 +293,13 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
           }
         }
       } catch (error) {
-        console.error('Error updating task:', error);
+        console.error('❌ Error updating task:', error);
       }
     }
   };
 
   const toggleTaskCompletion = async (task) => {
+    console.log('🔍 Toggling task completion:', task);
     try {
       const updatedTasks = tasks.map(t => {
         if (t._id === task._id || t.id === task.id) {
@@ -301,35 +315,40 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
 
       if (task._id) {
         await api.patch(`/${task._id}/toggle`);
+        console.log('✅ Task toggle API call successful');
       } else {
         localStorage.setItem(`client_${clientId}_service_${service}_tasks`, JSON.stringify(updatedTasks));
+        console.log('📦 Task toggle saved to localStorage');
       }
       
       if (onTaskUpdate) {
         onTaskUpdate(service, updatedTasks);
       }
     } catch (error) {
-      console.error('Error toggling task:', error);
+      console.error('❌ Error toggling task:', error);
       fetchTasks();
     }
   };
 
   const deleteTask = async (task) => {
+    console.log('🔍 Deleting task:', task);
     try {
       const updatedTasks = tasks.filter(t => t._id !== task._id && t.id !== task.id);
       setTasks(updatedTasks);
 
       if (task._id) {
         await api.delete(`/${task._id}`);
+        console.log('✅ Task deleted successfully from API');
       } else {
         localStorage.setItem(`client_${clientId}_service_${service}_tasks`, JSON.stringify(updatedTasks));
+        console.log('📦 Task deleted from localStorage');
       }
       
       if (onTaskUpdate) {
         onTaskUpdate(service, updatedTasks);
       }
     } catch (error) {
-      console.error('Error deleting task:', error);
+      console.error('❌ Error deleting task:', error);
       fetchTasks();
     }
   };
@@ -393,14 +412,20 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
             </div>
             <button 
               className="action-button action-button--primary"
-              onClick={() => setShowAddTask(!showAddTask)}
+              onClick={() => {
+                console.log('🔍 Add task button clicked');
+                setShowAddTask(!showAddTask);
+              }}
               title="Add Task"
             >
               <FiPlus />
             </button>
             <button 
               className="action-button"
-              onClick={fetchTasks}
+              onClick={() => {
+                console.log('🔍 Refresh tasks button clicked');
+                fetchTasks();
+              }}
               title="Refresh Tasks"
             >
               <FiRefreshCw />
@@ -499,6 +524,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
                 <button 
                   className="btn btn--outlined"
                   onClick={() => {
+                    console.log('🔍 Cancel button clicked');
                     if (editTask) {
                       setEditTask(null);
                     } else {
@@ -574,21 +600,30 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
                   <div className="task-item__actions">
                     <button 
                       className="action-button"
-                      onClick={() => setShowTaskDetails({ open: true, task })}
+                      onClick={() => {
+                        console.log('🔍 View task details clicked:', task);
+                        setShowTaskDetails({ open: true, task });
+                      }}
                       title="View Details"
                     >
                       <FiEye />
                     </button>
                     <button 
                       className="action-button action-button--primary"
-                      onClick={() => setEditTask(task)}
+                      onClick={() => {
+                        console.log('🔍 Edit task clicked:', task);
+                        setEditTask(task);
+                      }}
                       title="Edit Task"
                     >
                       <FiEdit />
                     </button>
                     <button 
                       className="action-button action-button--error"
-                      onClick={() => deleteTask(task)}
+                      onClick={() => {
+                        console.log('🔍 Delete task clicked:', task);
+                        deleteTask(task);
+                      }}
                       title="Delete Task"
                     >
                       <FiTrash2 />
@@ -611,7 +646,10 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
         <TaskDetailsModal
           task={showTaskDetails.task}
           open={showTaskDetails.open}
-          onClose={() => setShowTaskDetails({ open: false, task: null })}
+          onClose={() => {
+            console.log('🔍 Closing task details modal');
+            setShowTaskDetails({ open: false, task: null });
+          }}
           projectManagers={clientProjectManagers}
         />
       )}
@@ -620,10 +658,13 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
 };
 
 const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService, companyCode }) => {
+  console.log('🔍 ServicesModal rendered:', { open, servicesCount: services.length, companyCode });
+  
   const [newService, setNewService] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    console.log('🔍 Adding new service:', newService);
     
     if (newService.trim()) {
       onAddService(newService.trim());
@@ -705,7 +746,10 @@ const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService,
                   <div className="service-item__actions">
                     <button
                       className="action-button action-button--error"
-                      onClick={() => onDeleteService(service._id, service.servicename)}
+                      onClick={() => {
+                        console.log('🔍 Delete service clicked:', service);
+                        onDeleteService(service._id, service.servicename);
+                      }}
                       title="Delete Service"
                     >
                       <FiTrash2 />
@@ -744,6 +788,8 @@ const AddClientModal = ({
   loading = false,
   companyCode 
 }) => {
+  console.log('🔍 AddClientModal rendered:', { open, servicesCount: services.length, projectManagersCount: projectManagers.length, companyCode, loading });
+  
   const [newClient, setNewClient] = useState({
     client: '',
     company: '',
@@ -783,6 +829,7 @@ const AddClientModal = ({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('🔍 AddClientModal handleSubmit called with data:', newClient);
     
     if (
       newClient.client &&
@@ -796,6 +843,7 @@ const AddClientModal = ({
         const selectedManagers = projectManagers.filter(pm =>
           selectedManagerIds.includes(pm._id)
         );
+        console.log('🔍 Selected managers:', selectedManagers);
 
         const formattedProjectManagers = selectedManagers.map(pm => ({
           _id: pm._id,
@@ -811,6 +859,7 @@ const AddClientModal = ({
           companyCode: companyCode
         };
 
+        console.log('🔍 Final client data to send:', clientData);
         await onAddClient(clientData);
 
         setNewClient({
@@ -828,11 +877,19 @@ const AddClientModal = ({
           notes: ''
         });
 
+        console.log('✅ Client added successfully, reloading page');
         window.location.reload();
 
       } catch (error) {
-        console.error("Error adding client:", error);
+        console.error("❌ Error adding client:", error);
       }
+    } else {
+      console.warn('⚠️ Form validation failed:', {
+        client: !!newClient.client,
+        company: !!newClient.company,
+        city: !!newClient.city,
+        projectManagers: newClient.projectManagers.length > 0
+      });
     }
   };
 
@@ -872,7 +929,10 @@ const AddClientModal = ({
                   type="text"
                   className="form-input"
                   value={newClient.client}
-                  onChange={(e) => setNewClient({...newClient, client: e.target.value})}
+                  onChange={(e) => {
+                    console.log('🔍 Client name changed:', e.target.value);
+                    setNewClient({...newClient, client: e.target.value});
+                  }}
                   required
                   disabled={loading}
                 />
@@ -883,7 +943,10 @@ const AddClientModal = ({
                   type="text"
                   className="form-input"
                   value={newClient.company}
-                  onChange={(e) => setNewClient({...newClient, company: e.target.value})}
+                  onChange={(e) => {
+                    console.log('🔍 Company changed:', e.target.value);
+                    setNewClient({...newClient, company: e.target.value});
+                  }}
                   required
                   disabled={loading}
                 />
@@ -895,7 +958,10 @@ const AddClientModal = ({
                   type="text"
                   className="form-input"
                   value={newClient.city}
-                  onChange={(e) => setNewClient({...newClient, city: e.target.value})}
+                  onChange={(e) => {
+                    console.log('🔍 City changed:', e.target.value);
+                    setNewClient({...newClient, city: e.target.value});
+                  }}
                   required
                   disabled={loading}
                 />
@@ -906,7 +972,10 @@ const AddClientModal = ({
                 <select
                   className="form-input"
                   value={newClient.status}
-                  onChange={(e) => setNewClient({...newClient, status: e.target.value})}
+                  onChange={(e) => {
+                    console.log('🔍 Status changed:', e.target.value);
+                    setNewClient({...newClient, status: e.target.value});
+                  }}
                   disabled={loading}
                 >
                   <option value="Active">Active</option>
@@ -920,7 +989,10 @@ const AddClientModal = ({
                 <div className="dropdown-wrapper">
                   <div
                     className="form-input cursor-pointer flex justify-between items-center"
-                    onClick={() => setTeamOpen(!teamOpen)}
+                    onClick={() => {
+                      console.log('🔍 Team dropdown toggled');
+                      setTeamOpen(!teamOpen);
+                    }}
                   >
                     <span>
                       {newClient.projectManagers.length === 0
@@ -940,7 +1012,10 @@ const AddClientModal = ({
                           className="form-input"
                           placeholder="Search users..."
                           value={managerSearch}
-                          onChange={(e) => setManagerSearch(e.target.value)}
+                          onChange={(e) => {
+                            console.log('🔍 Manager search changed:', e.target.value);
+                            setManagerSearch(e.target.value);
+                          }}
                           onClick={(e) => e.stopPropagation()}
                         />
                       </div>
@@ -959,6 +1034,7 @@ const AddClientModal = ({
                                 checked={newClient.projectManagers.includes(manager._id)}
                                 onChange={(e) => {
                                   const checked = e.target.checked;
+                                  console.log(`🔍 Manager ${manager.name} ${checked ? 'selected' : 'deselected'}`);
                                   setNewClient(prev => ({
                                     ...prev,
                                     projectManagers: checked
@@ -1005,6 +1081,7 @@ const AddClientModal = ({
                             type="button"
                             className="selected-item-remove"
                             onClick={() => {
+                              console.log(`🔍 Removing manager: ${manager.name}`);
                               setNewClient(prev => ({
                                 ...prev,
                                 projectManagers: prev.projectManagers.filter(id => id !== managerId)
@@ -1030,7 +1107,10 @@ const AddClientModal = ({
                 <div className="dropdown-wrapper">
                   <div 
                     className="form-input cursor-pointer flex justify-between items-center"
-                    onClick={() => setServicesOpen(!servicesOpen)}
+                    onClick={() => {
+                      console.log('🔍 Services dropdown toggled');
+                      setServicesOpen(!servicesOpen);
+                    }}
                   >
                     <span>
                       {newClient.services.length === 0
@@ -1058,6 +1138,7 @@ const AddClientModal = ({
                                 checked={newClient.services.includes(service.servicename)}
                                 onChange={(e) => {
                                   const isChecked = e.target.checked;
+                                  console.log(`🔍 Service ${service.servicename} ${isChecked ? 'selected' : 'deselected'}`);
                                   setNewClient(prev => ({
                                     ...prev,
                                     services: isChecked
@@ -1094,6 +1175,7 @@ const AddClientModal = ({
                           type="button"
                           className="selected-item-remove"
                           onClick={() => {
+                            console.log(`🔍 Removing service: ${serviceName}`);
                             setNewClient(prev => ({
                               ...prev,
                               services: prev.services.filter(s => s !== serviceName)
@@ -1114,7 +1196,10 @@ const AddClientModal = ({
                   className="form-input"
                   rows="3"
                   value={newClient.description}
-                  onChange={(e) => setNewClient({...newClient, description: e.target.value})}
+                  onChange={(e) => {
+                    console.log('🔍 Description changed');
+                    setNewClient({...newClient, description: e.target.value});
+                  }}
                   placeholder="Enter client description..."
                   disabled={loading}
                 />
@@ -1126,7 +1211,10 @@ const AddClientModal = ({
                   type="email"
                   className="form-input"
                   value={newClient.email}
-                  onChange={(e) => setNewClient({...newClient, email: e.target.value})}
+                  onChange={(e) => {
+                    console.log('🔍 Email changed:', e.target.value);
+                    setNewClient({...newClient, email: e.target.value});
+                  }}
                   disabled={loading}
                 />
               </div>
@@ -1137,7 +1225,10 @@ const AddClientModal = ({
                   type="text"
                   className="form-input"
                   value={newClient.phone}
-                  onChange={(e) => setNewClient({...newClient, phone: e.target.value})}
+                  onChange={(e) => {
+                    console.log('🔍 Phone changed:', e.target.value);
+                    setNewClient({...newClient, phone: e.target.value});
+                  }}
                   disabled={loading}
                 />
               </div>
@@ -1148,7 +1239,10 @@ const AddClientModal = ({
                   type="text"
                   className="form-input"
                   value={newClient.address}
-                  onChange={(e) => setNewClient({...newClient, address: e.target.value})}
+                  onChange={(e) => {
+                    console.log('🔍 Address changed:', e.target.value);
+                    setNewClient({...newClient, address: e.target.value});
+                  }}
                   disabled={loading}
                 />
               </div>
@@ -1159,7 +1253,10 @@ const AddClientModal = ({
                   className="form-input"
                   rows="2"
                   value={newClient.notes}
-                  onChange={(e) => setNewClient({...newClient, notes: e.target.value})}
+                  onChange={(e) => {
+                    console.log('🔍 Notes changed');
+                    setNewClient({...newClient, notes: e.target.value});
+                  }}
                   placeholder="Additional notes..."
                   disabled={loading}
                 />
@@ -1195,6 +1292,8 @@ const AddClientModal = ({
 };
 
 const ClientManagement = () => {
+  console.log('🔍 ClientManagement component mounted');
+  
   const [clients, setClients] = useState([]);
   const [services, setServices] = useState([]);
   const [projectManagers, setProjectManagers] = useState([]);
@@ -1272,22 +1371,29 @@ const ClientManagement = () => {
   useEffect(() => {
     const fetchCompanyInfo = () => {
       try {
+        console.log('🔍 Fetching company info from localStorage');
         const localStorageCompany = localStorage.getItem('company') || '';
         const localStorageCompanyDetails = localStorage.getItem('companyDetails') || '';
         
         const companyCodeFromStorage = localStorage.getItem('companyCode') || localStorageCompany;
         const companyIdentifierFromStorage = localStorage.getItem('companyIdentifier') || localStorageCompanyDetails;
         
+        console.log('🔍 Company info retrieved:', { 
+          companyCode: companyCodeFromStorage, 
+          companyIdentifier: companyIdentifierFromStorage 
+        });
+        
         setCompanyCode(companyCodeFromStorage);
         setCompanyIdentifier(companyIdentifierFromStorage);
         
         if (!companyCodeFromStorage && !companyIdentifierFromStorage) {
+          console.warn('⚠️ No company info found in localStorage');
           setError('Company information not found. Please login again.');
         } else {
           setError('');
         }
       } catch (error) {
-        console.error('Error fetching company info:', error);
+        console.error('❌ Error fetching company info:', error);
         setError('Error loading company information');
       }
     };
@@ -1595,6 +1701,7 @@ const ClientManagement = () => {
   }, []);
 
   const handleFilterChange = (key, value) => {
+    console.log(`🔍 Filter changed: ${key} = ${value}`);
     setFilters(prev => ({
       ...prev,
       [key]: value,
@@ -1621,6 +1728,7 @@ const ClientManagement = () => {
   };
 
   const fetchData = async () => {
+    console.log('🔍 Fetching data with filters:', filters);
     try {
       setLoading(true);
       
@@ -1637,6 +1745,7 @@ const ClientManagement = () => {
         companyCode: companyCode || undefined,
         companyIdentifier: companyIdentifier || undefined
       };
+      console.log('🔍 API params:', apiParams);
       
       const [clientsRes, servicesRes] = await Promise.all([
         api.get('/', { params: apiParams }),
@@ -1647,6 +1756,9 @@ const ClientManagement = () => {
           } 
         })
       ]);
+      
+      console.log('✅ Clients response:', clientsRes.data);
+      console.log('✅ Services response:', servicesRes.data);
       
       if (servicesRes.data?.success) {
         const allServices = servicesRes.data.data || [];
@@ -1687,7 +1799,7 @@ const ClientManagement = () => {
       
       setError('');
     } catch (err) {
-      console.error('Fetch error:', err);
+      console.error('❌ Fetch error:', err);
       const errorMessage = err.response?.data?.message || err.message || 'Data fetch failed';
       setError(errorMessage);
       
@@ -1699,6 +1811,7 @@ const ClientManagement = () => {
   };
 
   useEffect(() => {
+    console.log('🔍 useEffect triggered with companyCode/Identifier:', { companyCode, companyIdentifier });
     if (companyCode || companyIdentifier) {
       fetchData();
     }
@@ -1718,6 +1831,7 @@ const ClientManagement = () => {
   };
 
   const fetchClientTasks = async (clientId) => {
+    console.log(`🔍 Fetching tasks for client: ${clientId}`);
     try {
       const response = await tasksApi.get(`/client/${clientId}`);
       if (response.data?.success) {
@@ -1730,12 +1844,13 @@ const ClientManagement = () => {
       }
       return [];
     } catch (error) {
-      console.error(`Error fetching client tasks for ${clientId}:`, error);
+      console.error(`❌ Error fetching client tasks for ${clientId}:`, error);
       return [];
     }
   };
 
   const calculateTasksForAll = async () => {
+    console.log('🔍 Calculating tasks for all clients');
     const counts = {};
     let totalPending = 0;
     
@@ -1749,7 +1864,7 @@ const ClientManagement = () => {
         counts[client._id] = { total, completed, pending };
         totalPending += pending;
       } catch (error) {
-        console.error(`Error calculating tasks for client ${client._id}:`, error);
+        console.error(`❌ Error calculating tasks for client ${client._id}:`, error);
         counts[client._id] = { total: 0, completed: 0, pending: 0 };
       }
     }
@@ -1759,9 +1874,11 @@ const ClientManagement = () => {
       ...prev,
       pendingTasks: totalPending
     }));
+    console.log('✅ Task counts calculated:', counts);
   };
 
   const calculateOverdueTasks = async () => {
+    console.log('🔍 Calculating overdue tasks');
     let totalOverdue = 0;
     for (const client of clients) {
       const tasksData = await fetchClientTasks(client._id);
@@ -1773,11 +1890,13 @@ const ClientManagement = () => {
       }).length;
       totalOverdue += overdue;
     }
+    console.log('✅ Overdue tasks calculated:', totalOverdue);
     return totalOverdue;
   };
 
   useEffect(() => {
     if (clients.length > 0) {
+      console.log('🔍 Clients loaded, calculating tasks');
       calculateTasksForAll();
       
       calculateOverdueTasks().then(overdue => {
@@ -1796,6 +1915,7 @@ const ClientManagement = () => {
   }, [clients]);
 
   const handleAddService = async (serviceName) => {
+    console.log('🔍 Adding service:', serviceName);
     if (!serviceName.trim()) return;
 
     try {
@@ -1805,6 +1925,7 @@ const ClientManagement = () => {
       };
       
       const response = await api.post('/services', serviceData);
+      console.log('✅ Service added response:', response.data);
       
       if (response.data.success) {
         setSuccess('Service added successfully!');
@@ -1814,13 +1935,14 @@ const ClientManagement = () => {
         setError(response.data.message || 'Service add failed');
       }
     } catch (err) {
-      console.error('Add service error:', err);
+      console.error('❌ Add service error:', err);
       const errorMsg = err.response?.data?.message || 'Service add failed';
       setError(errorMsg);
     }
   };
 
   const handleAddClient = async (clientData) => {
+    console.log('🔍 Adding client with data:', clientData);
     try {
       setAddLoading(true);
       setError('');
@@ -1848,7 +1970,9 @@ const ClientManagement = () => {
         companyCode: clientData.companyCode 
       };
       
+      console.log('🔍 Sending to backend:', backendClientData);
       const response = await api.post('/', backendClientData);
+      console.log('✅ Client added response:', response.data);
       
       if (response.data.success) {
         const fullClientData = {
@@ -1864,7 +1988,7 @@ const ClientManagement = () => {
         setError(response.data.message || 'Client add failed');
       }
     } catch (err) {
-      console.error('Add client error:', err);
+      console.error('❌ Add client error:', err);
       const errorMessage = err.response?.data?.message || 
                          err.response?.data?.errors?.join(', ') || 
                          'Client add failed';
@@ -1875,8 +1999,10 @@ const ClientManagement = () => {
   };
 
   const handleUpdateClient = async (clientId, updateData) => {
+    console.log('🔍 Updating client:', clientId, updateData);
     try {
       const response = await api.put(`/${clientId}`, updateData);
+      console.log('✅ Client updated response:', response.data);
       
       if (response.data.success) {
         setSuccess('Client updated successfully!');
@@ -1886,16 +2012,18 @@ const ClientManagement = () => {
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.response?.data?.errors?.join(', ') || 'Client update failed';
       setError(errorMessage);
-      console.error('Update client error:', err);
+      console.error('❌ Update client error:', err);
     }
   };
 
   const handleDeleteClick = (type, id, name) => {
+    console.log(`🔍 Delete clicked: type=${type}, id=${id}, name=${name}`);
     setDeleteDialog({ open: true, type, id, name });
   };
 
   const handleDeleteConfirm = async () => {
     const { type, id } = deleteDialog;
+    console.log(`🔍 Confirm delete: type=${type}, id=${id}`);
     
     try {
       if (type === 'client') {
@@ -1907,7 +2035,7 @@ const ClientManagement = () => {
             }
           }
         } catch (taskError) {
-          console.warn('Error deleting client tasks:', taskError);
+          console.warn('⚠️ Error deleting client tasks:', taskError);
         }
         
         const response = await api.delete(`/${id}`);
@@ -1924,17 +2052,19 @@ const ClientManagement = () => {
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Delete failed');
-      console.error('Delete error:', err);
+      console.error('❌ Delete error:', err);
     }
     
     setDeleteDialog({ open: false, type: '', id: '', name: '' });
   };
 
   const handleDeleteCancel = () => {
+    console.log('🔍 Delete cancelled');
     setDeleteDialog({ open: false, type: '', id: '', name: '' });
   };
 
   const handleEditClick = (client) => {
+    console.log('🔍 Edit clicked for client:', client);
     setEditDialog({ 
       open: true, 
       client: {
@@ -1946,6 +2076,7 @@ const ClientManagement = () => {
 
   const handleEditSave = () => {
     const { client } = editDialog;
+    console.log('🔍 Saving edit for client:', client);
     
     const formattedProjectManagers = client.projectManagers.map(pm => ({
       _id: pm._id || pm.id,
@@ -1975,6 +2106,7 @@ const ClientManagement = () => {
   };
 
   const handleViewClick = (client) => {
+    console.log('🔍 View clicked for client:', client);
     setViewDialog({ open: true, client });
   };
 
@@ -2025,7 +2157,7 @@ const ClientManagement = () => {
   };
 
   const handleTaskUpdate = (serviceName, tasks) => {
-    console.log(`Tasks updated for ${serviceName}:`, tasks);
+    console.log(`🔍 Tasks updated for ${serviceName}:`, tasks);
   };
 
   const safeMapProjectManagers = (callback) => {
@@ -2055,21 +2187,30 @@ const ClientManagement = () => {
             <div className="client-header-actions">
               <button
                 className="btn btn--outlined"
-                onClick={() => setServicesModal(true)}
+                onClick={() => {
+                  console.log('🔍 Services modal button clicked');
+                  setServicesModal(true);
+                }}
                 disabled={!companyCode && !companyIdentifier}
               >
                 <FiBriefcase /> Services ({services.length})
               </button>
               <button
                 className="btn btn--primary"
-                onClick={() => setAddClientModal(true)}
+                onClick={() => {
+                  console.log('🔍 Add client modal button clicked');
+                  setAddClientModal(true);
+                }}
                 disabled={services.length === 0 || (!companyCode && !companyIdentifier)}
               >
                 <FiPlus /> Add Client
               </button>
               <button
                 className="btn btn--outlined"
-                onClick={fetchData}
+                onClick={() => {
+                  console.log('🔍 Refresh button clicked');
+                  fetchData();
+                }}
               >
                 <FiRefreshCw /> Refresh
               </button>
@@ -2146,7 +2287,10 @@ const ClientManagement = () => {
               
               <button 
                 className="refresh-button"
-                onClick={fetchData}
+                onClick={() => {
+                  console.log('🔍 Header refresh button clicked');
+                  fetchData();
+                }}
               >
                 <FiRefreshCw />
               </button>
@@ -2214,7 +2358,10 @@ const ClientManagement = () => {
             <div>
               <button
                 className="btn btn--primary w-100"
-                onClick={() => setAddClientModal(true)}
+                onClick={() => {
+                  console.log('🔍 New Client button clicked');
+                  setAddClientModal(true);
+                }}
                 disabled={services.length === 0 || (!companyCode && !companyIdentifier)}
               >
                 <FiPlus /> New Client
@@ -2234,7 +2381,10 @@ const ClientManagement = () => {
                 </p>
                 <button 
                   className="btn btn--primary"
-                  onClick={() => window.location.reload()}
+                  onClick={() => {
+                    console.log('🔍 Refresh page button clicked');
+                    window.location.reload();
+                  }}
                 >
                   Refresh Page
                 </button>
@@ -2389,7 +2539,10 @@ const ClientManagement = () => {
                     <button
                       key={page}
                       className={`pagination__item ${page === filters.page ? 'pagination__item--active' : ''}`}
-                      onClick={() => handleFilterChange('page', page)}
+                      onClick={() => {
+                        console.log(`🔍 Page changed to: ${page}`);
+                        handleFilterChange('page', page);
+                      }}
                     >
                       {page}
                     </button>
@@ -2410,7 +2563,10 @@ const ClientManagement = () => {
                 </p>
                 <button 
                   className="btn btn--primary"
-                  onClick={() => services.length === 0 ? setServicesModal(true) : setAddClientModal(true)}
+                  onClick={() => {
+                    console.log('🔍 Create first client button clicked');
+                    services.length === 0 ? setServicesModal(true) : setAddClientModal(true);
+                  }}
                   disabled={!companyCode && !companyIdentifier}
                 >
                   {services.length === 0 ? 'Add Services First' : 'Create First Client'}
@@ -2423,7 +2579,10 @@ const ClientManagement = () => {
 
       <AddClientModal
         open={addClientModal}
-        onClose={() => setAddClientModal(false)}
+        onClose={() => {
+          console.log('🔍 Add client modal closed');
+          setAddClientModal(false);
+        }}
         onAddClient={handleAddClient}
         services={services}
         projectManagers={projectManagers}
@@ -2433,7 +2592,10 @@ const ClientManagement = () => {
 
       <ServicesModal
         open={servicesModal}
-        onClose={() => setServicesModal(false)}
+        onClose={() => {
+          console.log('🔍 Services modal closed');
+          setServicesModal(false);
+        }}
         services={services}
         onAddService={handleAddService}
         onDeleteService={(id, name) => handleDeleteClick('service', id, name)}
@@ -2679,6 +2841,7 @@ const ClientManagement = () => {
                           checked={editDialog.client.projectManagers.some(pm => pm._id === manager._id || pm.id === manager._id)}
                           onChange={(e) => {
                             const isChecked = e.target.checked;
+                            console.log(`🔍 Manager ${manager.name} ${isChecked ? 'selected' : 'deselected'} for edit`);
                             setEditDialog({
                               ...editDialog,
                               client: {
@@ -2722,6 +2885,7 @@ const ClientManagement = () => {
                           checked={(editDialog.client.services || []).includes(service.servicename)}
                           onChange={(e) => {
                             const isChecked = e.target.checked;
+                            console.log(`🔍 Service ${service.servicename} ${isChecked ? 'selected' : 'deselected'} for edit`);
                             setEditDialog({
                               ...editDialog,
                               client: {
@@ -2829,7 +2993,10 @@ const ClientManagement = () => {
               </button>
               <button 
                 className="btn btn--primary"
-                onClick={handleEditSave}
+                onClick={() => {
+                  console.log('🔍 Save edit button clicked');
+                  handleEditSave();
+                }}
                 disabled={!editDialog.client?.client || !editDialog.client?.company || !editDialog.client?.city || !editDialog.client?.projectManagers?.length}
               >
                 <FiSave /> Save Changes

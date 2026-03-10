@@ -428,6 +428,8 @@
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
+    width: 200px;
+    display: flex;
 }
 
 .MyLeaves-stat-card:hover {
@@ -464,7 +466,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 16px;
+  padding: 8px;
 }
 
 .MyLeaves-stat-icon {
@@ -492,8 +494,8 @@
 }
 
 .MyLeaves-stat-header h3 {
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   color: #718096;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -501,10 +503,9 @@
 }
 
 .MyLeaves-stat-value {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   color: #1a202c;
-  margin-bottom: 8px;
   margin-left: 8px;
 }
 
@@ -1558,11 +1559,23 @@
   }
   
   .MyLeaves-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
 @media (max-width: 768px) {
+
+
+  .MyLeaves-stat-card {
+    background: white;
+    border-radius: 16px;
+    padding: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    width: 160px;
+}
   .MyLeaves-container {
     padding: 12px;
   }

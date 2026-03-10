@@ -108,6 +108,9 @@ const CompanyDetails = () => {
     toast.success("Login URL copied to clipboard!");
   };
 
+  // ✅ Consistent company default logo (same as AllCompany)
+const DEFAULT_COMPANY_LOGO = "https://cdn-icons-png.flaticon.com/512/3059/3059989.png";
+
   // Fetch departments API
   const fetchDepartments = async (companyId) => {
     if (!companyId) return;
@@ -188,319 +191,338 @@ const CompanyDetails = () => {
   };
 
   // Fetch current user company
-  const fetchCurrentUserCompany = async () => {
+const fetchCurrentUserCompany = async () => {
+  try {
+    setLoading(true);
+    
+    const token = localStorage.getItem("token");
+    
+    if (!token) {
+      toast.error("Please login to view company details");
+      navigate("/login");
+      return;
+    }
+
+    const headers = { Authorization: `Bearer ${token}` };
+
     try {
-      setLoading(true);
+      const response = await axios.get(
+        `${API_URL}/users/company-users`,
+        { headers }
+      );
       
-      const token = localStorage.getItem("token");
+      console.log("Full API Response:", response.data);
+      setApiDebug(response.data);
       
-      if (!token) {
-        toast.error("Please login to view company details");
-        navigate("/login");
+      if (response.data && response.data.success) {
+        const data = response.data.message;
+        console.log("API Response Data:", data);
+        
+        let companyId = "";
+        let companyDetails = {};
+        
+        // Extract company details
+        if (data.company?.id?._id) {
+          companyId = data.company.id._id;
+          companyDetails = data.company.id;
+        } else if (data.company?._id) {
+          companyId = data.company._id;
+          companyDetails = data.company;
+        } else if (data.company?.id) {
+          companyId = data.company.id;
+          companyDetails = data.company;
+        } else if (data.users && data.users.length > 0 && data.users[0].company) {
+          companyId = data.users[0].company._id || data.users[0].company.id;
+          companyDetails = data.users[0].company;
+        }
+        
+        if (!companyId) {
+          console.error("Company ID not found in response");
+          await fetchCompanyFromLocalStorage(headers);
+          return;
+        }
+        
+        // FIXED: Better company logo mapping - DON'T use default avatar
+        // Let the actual company logo come through first
+        let companyLogo = null;
+        
+        // Check all possible logo field names in order of preference
+        if (companyDetails.logo) {
+          companyLogo = companyDetails.logo;
+        } else if (companyDetails.logoUrl) {
+          companyLogo = companyDetails.logoUrl;
+        } else if (companyDetails.avatar) {
+          companyLogo = companyDetails.avatar;
+        } else if (data.company?.logo) {
+          companyLogo = data.company.logo;
+        } else if (data.company?.logoUrl) {
+          companyLogo = data.company.logoUrl;
+        }
+        
+        // FIXED: Use a proper company default logo (building icon instead of user avatar)
+        const defaultCompanyLogo = "https://cdn-icons-png.flaticon.com/512/3059/3059989.png"; // Building/company icon
+        
+        // Company data mapping with proper logo handling
+      // Company data mapping with consistent logo field
+const companyData = {
+  _id: companyId,
+  companyName: companyDetails.name || 
+                companyDetails.companyName || 
+                data.company?.name || 
+                "Company",
+  companyCode: companyDetails.companyCode || 
+                companyDetails.code || 
+                data.company?.companyCode || 
+                "",
+  // FIXED: Use ONLY 'logo' field to be consistent with AllCompany
+  logo: companyDetails.logo || 
+        data.company?.logo || 
+        null, // Don't set default here, handle in render
+  isActive: companyDetails.isActive ?? 
+            companyDetails.active ?? 
+            data.company?.isActive ?? 
+            true,
+  
+  companyEmail: companyDetails.email || 
+               companyDetails.companyEmail || 
+               companyDetails.contactEmail || 
+               data.company?.email || 
+               data.company?.companyEmail ||
+               "Not provided",
+  
+  companyPhone: companyDetails.phone || 
+               companyDetails.companyPhone || 
+               companyDetails.contactPhone || 
+               companyDetails.mobile || 
+               data.company?.phone || 
+               data.company?.companyPhone ||
+               "Not provided",
+  
+  companyAddress: companyDetails.address || 
+                 companyDetails.companyAddress || 
+                 companyDetails.location || 
+                 data.company?.address || 
+                 data.company?.companyAddress ||
+                 "Not provided",
+  
+  companyDomain: companyDetails.domain || 
+                companyDetails.companyDomain || 
+                data.company?.domain || 
+                data.company?.companyDomain ||
+                "gmail.com",
+  
+  ownerName: companyDetails.ownerName || 
+            companyDetails.owner || 
+            companyDetails.ownerId?.name ||
+            data.company?.ownerName || 
+            data.company?.owner ||
+            "Administrator",
+  
+  loginUrl: companyDetails.loginUrl || 
+           data.company?.loginUrl || 
+           `/company/${companyDetails.companyCode || "COMPANY"}/login`,
+  
+  dbIdentifier: companyDetails.dbIdentifier || 
+               data.company?.dbIdentifier || 
+               `company_${companyId}`,
+  
+  createdAt: companyDetails.createdAt || 
+            data.company?.createdAt || 
+            new Date().toISOString(),
+  
+  updatedAt: companyDetails.updatedAt || 
+            data.company?.updatedAt || 
+            new Date().toISOString(),
+  
+  subscriptionExpiry: companyDetails.subscriptionExpiry || 
+                     data.company?.subscriptionExpiry || 
+                     new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+};
+        
+        console.log("Mapped Company Data with Logo:", companyData.logo);
+        setCompany(companyData);
+        
+        // Initialize company edit form
+        // Initialize company edit form
+setCompanyEditFormData({
+  companyName: companyData.companyName,
+  companyCode: companyData.companyCode,
+  companyEmail: companyData.companyEmail !== "Not provided" ? companyData.companyEmail : "",
+  companyPhone: companyData.companyPhone !== "Not provided" ? companyData.companyPhone : "",
+  companyAddress: companyData.companyAddress !== "Not provided" ? companyData.companyAddress : "",
+  companyDomain: companyData.companyDomain,
+  ownerName: companyData.ownerName,
+  logo: companyData.logo || "" // Use company.logo directly
+});
+        
+        const users = data.users || [];
+        console.log("Users fetched:", users);
+        setRecentUsers(users);
+        
+        const activeUsers = users.filter(user => user.isActive).length;
+        
+        setStats(prev => ({
+          ...prev,
+          totalUsers: data.count || users.length,
+          activeUsers,
+          todayLogins: Math.floor(Math.random() * 50) + 10
+        }));
+        
+        if (data.currentUser) {
+          setUserRole(data.currentUser.name || data.currentUser.role || "user");
+        }
+        
+        // Store in localStorage
+        localStorage.setItem("company", JSON.stringify(companyData));
+        
+        if (companyData.companyCode) {
+          localStorage.setItem("companyCode", companyData.companyCode);
+        }
+        
+        // Fetch departments and job roles
+        await fetchDepartments(companyId);
+        await fetchJobRoles(companyId);
+        
         return;
       }
+    } catch (apiError) {
+      console.error("Company users API failed:", apiError);
+      await fetchCompanyFromLocalStorage(headers);
+    }
+    
+  } catch (error) {
+    console.error("Error fetching company details:", error);
+    
+    if (error.response?.status === 401) {
+      toast.error("Session expired. Please login again!");
+      localStorage.clear();
+      navigate("/login");
+      return;
+    }
+    
+    toast.error("Failed to load company details");
+  } finally {
+    setLoading(false);
+    setPageLoading(false);
+  }
+};
 
-      const headers = { Authorization: `Bearer ${token}` };
-
-      try {
-        const response = await axios.get(
-          `${API_URL}/users/company-users`,
-          { headers }
-        );
+  // Fetch company from localStorage
+// Fetch company from localStorage
+const fetchCompanyFromLocalStorage = async (headers) => {
+  try {
+    const companyData = localStorage.getItem("company");
+    
+    if (companyData) {
+      const companyInfo = JSON.parse(companyData);
+      console.log("Company from localStorage:", companyInfo);
+      
+      const fullCompanyData = {
+        ...companyInfo,
+        companyName: companyInfo.companyName || companyInfo.name || "Company",
+        companyCode: companyInfo.companyCode || companyInfo.code || "",
+        // FIXED: Use only 'logo' field
+        logo: companyInfo.logo || null,
+        companyEmail: companyInfo.companyEmail || 
+                     companyInfo.email || 
+                     "Not provided",
+        companyPhone: companyInfo.companyPhone || 
+                     companyInfo.phone || 
+                     "Not provided",
+        companyAddress: companyInfo.companyAddress || 
+                       companyInfo.address || 
+                       "Not provided",
+        companyDomain: companyInfo.companyDomain || 
+                      companyInfo.domain || 
+                      "gmail.com",
+        ownerName: companyInfo.ownerName || 
+                  companyInfo.owner || 
+                  "Administrator",
+        loginUrl: companyInfo.loginUrl || "/company/CIISNE/login",
+        dbIdentifier: companyInfo.dbIdentifier || `company_${Date.now()}`,
+        createdAt: companyInfo.createdAt || new Date().toISOString(),
+        updatedAt: companyInfo.updatedAt || new Date().toISOString(),
+        subscriptionExpiry: companyInfo.subscriptionExpiry || 
+                          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        isActive: companyInfo.isActive ?? true
+      };
+      
+      setCompany(fullCompanyData);
+      setCompanyEditFormData({
+        companyName: fullCompanyData.companyName,
+        companyCode: fullCompanyData.companyCode,
+        companyEmail: fullCompanyData.companyEmail !== "Not provided" ? fullCompanyData.companyEmail : "",
+        companyPhone: fullCompanyData.companyPhone !== "Not provided" ? fullCompanyData.companyPhone : "",
+        companyAddress: fullCompanyData.companyAddress !== "Not provided" ? fullCompanyData.companyAddress : "",
+        companyDomain: fullCompanyData.companyDomain,
+        ownerName: fullCompanyData.ownerName,
+        logo: fullCompanyData.logo
+      });
+      
+      if (fullCompanyData._id) {
+        await fetchDepartments(fullCompanyData._id);
+        await fetchJobRoles(fullCompanyData._id);
         
-        console.log("Full API Response:", response.data);
-        setApiDebug(response.data);
-        
-        if (response.data && response.data.success) {
-          const data = response.data.message;
-          console.log("API Response Data:", data);
+        try {
+          const usersRes = await axios.get(
+            `${API_URL}/superAdmin/company/${fullCompanyData._id}/users`,
+            { headers }
+          );
           
-          let companyId = "";
-          let companyDetails = {};
-          
-          // Extract company details
-          if (data.company?.id?._id) {
-            companyId = data.company.id._id;
-            companyDetails = data.company.id;
-          } else if (data.company?._id) {
-            companyId = data.company._id;
-            companyDetails = data.company;
-          } else if (data.company?.id) {
-            companyId = data.company.id;
-            companyDetails = data.company;
-          } else if (data.users && data.users.length > 0 && data.users[0].company) {
-            companyId = data.users[0].company._id || data.users[0].company.id;
-            companyDetails = data.users[0].company;
-          }
-          
-          if (!companyId) {
-            console.error("Company ID not found in response");
-            await fetchCompanyFromLocalStorage(headers);
-            return;
-          }
-          
-          // Default logo if none provided
-          const defaultLogo = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
-          
-          // Company data mapping
-          const companyData = {
-            _id: companyId,
-            companyName: companyDetails.name || 
-                        companyDetails.companyName || 
-                        data.company?.name || 
-                        "Company",
-            companyCode: companyDetails.companyCode || 
-                        companyDetails.code || 
-                        data.company?.companyCode || 
-                        "",
-            logo: companyDetails.logo || 
-                  companyDetails.logoUrl || 
-                  companyDetails.avatar || 
-                  data.company?.logo || 
-                  defaultLogo,
-            isActive: companyDetails.isActive ?? 
-                      companyDetails.active ?? 
-                      data.company?.isActive ?? 
-                      true,
-            
-            companyEmail: companyDetails.email || 
-                         companyDetails.companyEmail || 
-                         companyDetails.contactEmail || 
-                         data.company?.email || 
-                         data.company?.companyEmail ||
-                         "Not provided",
-            
-            companyPhone: companyDetails.phone || 
-                         companyDetails.companyPhone || 
-                         companyDetails.contactPhone || 
-                         companyDetails.mobile || 
-                         data.company?.phone || 
-                         data.company?.companyPhone ||
-                         "Not provided",
-            
-            companyAddress: companyDetails.address || 
-                           companyDetails.companyAddress || 
-                           companyDetails.location || 
-                           data.company?.address || 
-                           data.company?.companyAddress ||
-                           "Not provided",
-            
-            companyDomain: companyDetails.domain || 
-                          companyDetails.companyDomain || 
-                          data.company?.domain || 
-                          data.company?.companyDomain ||
-                          "gmail.com",
-            
-            ownerName: companyDetails.ownerName || 
-                      companyDetails.owner || 
-                      companyDetails.ownerId?.name ||
-                      data.company?.ownerName || 
-                      data.company?.owner ||
-                      "Administrator",
-            
-            loginUrl: companyDetails.loginUrl || 
-                     data.company?.loginUrl || 
-                     `/company/${companyDetails.companyCode || "COMPANY"}/login`,
-            
-            dbIdentifier: companyDetails.dbIdentifier || 
-                         data.company?.dbIdentifier || 
-                         `company_${companyId}`,
-            
-            createdAt: companyDetails.createdAt || 
-                      data.company?.createdAt || 
-                      new Date().toISOString(),
-            
-            updatedAt: companyDetails.updatedAt || 
-                      data.company?.updatedAt || 
-                      new Date().toISOString(),
-            
-            subscriptionExpiry: companyDetails.subscriptionExpiry || 
-                               data.company?.subscriptionExpiry || 
-                               new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-          };
-          
-          console.log("Mapped Company Data:", companyData);
-          setCompany(companyData);
-          
-          // Initialize company edit form
-          setCompanyEditFormData({
-            companyName: companyData.companyName,
-            companyCode: companyData.companyCode,
-            companyEmail: companyData.companyEmail !== "Not provided" ? companyData.companyEmail : "",
-            companyPhone: companyData.companyPhone !== "Not provided" ? companyData.companyPhone : "",
-            companyAddress: companyData.companyAddress !== "Not provided" ? companyData.companyAddress : "",
-            companyDomain: companyData.companyDomain,
-            ownerName: companyData.ownerName,
-            logo: companyData.logo
-          });
-          
-          const users = data.users || [];
-          console.log("Users fetched:", users);
-          setRecentUsers(users);
+          const users = usersRes.data || [];
+          setRecentUsers(users.slice(0, 5));
           
           const activeUsers = users.filter(user => user.isActive).length;
           
-          setStats(prev => ({
-            ...prev,
-            totalUsers: data.count || users.length,
+          setStats({
+            totalUsers: users.length,
             activeUsers,
+            departments: 0,
             todayLogins: Math.floor(Math.random() * 50) + 10
-          }));
-          
-          if (data.currentUser) {
-            setUserRole(data.currentUser.name || data.currentUser.role || "user");
-          }
-          
-          // Store in localStorage
-          localStorage.setItem("company", JSON.stringify(companyData));
-          
-          if (companyData.companyCode) {
-            localStorage.setItem("companyCode", companyData.companyCode);
-          }
-          
-          // Fetch departments and job roles
-          await fetchDepartments(companyId);
-          await fetchJobRoles(companyId);
-          
-          return;
+          });
+        } catch (usersError) {
+          console.error("Error fetching users:", usersError);
         }
-      } catch (apiError) {
-        console.error("Company users API failed:", apiError);
-        await fetchCompanyFromLocalStorage(headers);
       }
+    } else {
+      // Create default company data with proper logo
+      const defaultCompany = {
+        _id: "temp_" + Date.now(),
+        companyName: "My Company",
+        companyCode: "COMPANY",
+        companyEmail: "Not provided",
+        companyPhone: "Not provided",
+        companyAddress: "Not provided",
+        companyDomain: "gmail.com",
+        ownerName: "Administrator",
+        loginUrl: "/company/COMPANY/login",
+        dbIdentifier: `company_${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        subscriptionExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        // FIXED: Use proper company default logo
+        logo: defaultCompanyLogo,
+        isActive: true
+      };
       
-    } catch (error) {
-      console.error("Error fetching company details:", error);
+      setCompany(defaultCompany);
+      setCompanyEditFormData({
+        companyName: defaultCompany.companyName,
+        companyCode: defaultCompany.companyCode,
+        companyEmail: "",
+        companyPhone: "",
+        companyAddress: "",
+        companyDomain: defaultCompany.companyDomain,
+        ownerName: defaultCompany.ownerName,
+        logo: defaultCompany.logo
+      });
       
-      if (error.response?.status === 401) {
-        toast.error("Session expired. Please login again!");
-        localStorage.clear();
-        navigate("/login");
-        return;
-      }
-      
-      toast.error("Failed to load company details");
-    } finally {
-      setLoading(false);
-      setPageLoading(false); // ✅ Stop page loading
+      localStorage.setItem("company", JSON.stringify(defaultCompany));
     }
-  };
-
-  // Fetch company from localStorage
-  const fetchCompanyFromLocalStorage = async (headers) => {
-    try {
-      const companyData = localStorage.getItem("company");
-      const defaultLogo = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
-      
-      if (companyData) {
-        const companyInfo = JSON.parse(companyData);
-        console.log("Company from localStorage:", companyInfo);
-        
-        const fullCompanyData = {
-          ...companyInfo,
-          companyName: companyInfo.companyName || companyInfo.name || "Company",
-          companyCode: companyInfo.companyCode || companyInfo.code || "",
-          companyEmail: companyInfo.companyEmail || 
-                       companyInfo.email || 
-                       "Not provided",
-          companyPhone: companyInfo.companyPhone || 
-                       companyInfo.phone || 
-                       "Not provided",
-          companyAddress: companyInfo.companyAddress || 
-                         companyInfo.address || 
-                         "Not provided",
-          companyDomain: companyInfo.companyDomain || 
-                        companyInfo.domain || 
-                        "gmail.com",
-          ownerName: companyInfo.ownerName || 
-                    companyInfo.owner || 
-                    "Administrator",
-          loginUrl: companyInfo.loginUrl || "/company/CIISNE/login",
-          dbIdentifier: companyInfo.dbIdentifier || `company_${Date.now()}`,
-          createdAt: companyInfo.createdAt || new Date().toISOString(),
-          updatedAt: companyInfo.updatedAt || new Date().toISOString(),
-          subscriptionExpiry: companyInfo.subscriptionExpiry || 
-                            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          logo: companyInfo.logo || defaultLogo
-        };
-        
-        setCompany(fullCompanyData);
-        
-        setCompanyEditFormData({
-          companyName: fullCompanyData.companyName,
-          companyCode: fullCompanyData.companyCode,
-          companyEmail: fullCompanyData.companyEmail !== "Not provided" ? fullCompanyData.companyEmail : "",
-          companyPhone: fullCompanyData.companyPhone !== "Not provided" ? fullCompanyData.companyPhone : "",
-          companyAddress: fullCompanyData.companyAddress !== "Not provided" ? fullCompanyData.companyAddress : "",
-          companyDomain: fullCompanyData.companyDomain,
-          ownerName: fullCompanyData.ownerName,
-          logo: fullCompanyData.logo
-        });
-        
-        if (fullCompanyData._id) {
-          await fetchDepartments(fullCompanyData._id);
-          await fetchJobRoles(fullCompanyData._id);
-          
-          try {
-            const usersRes = await axios.get(
-              `${API_URL}/superAdmin/company/${fullCompanyData._id}/users`,
-              { headers }
-            );
-            
-            const users = usersRes.data || [];
-            setRecentUsers(users.slice(0, 5));
-            
-            const activeUsers = users.filter(user => user.isActive).length;
-            
-            setStats({
-              totalUsers: users.length,
-              activeUsers,
-              departments: 0,
-              todayLogins: Math.floor(Math.random() * 50) + 10
-            });
-          } catch (usersError) {
-            console.error("Error fetching users:", usersError);
-          }
-        }
-      } else {
-        // Create default company data
-        const defaultCompany = {
-          _id: "temp_" + Date.now(),
-          companyName: "My Company",
-          companyCode: "COMPANY",
-          companyEmail: "Not provided",
-          companyPhone: "Not provided",
-          companyAddress: "Not provided",
-          companyDomain: "gmail.com",
-          ownerName: "Administrator",
-          loginUrl: "/company/COMPANY/login",
-          dbIdentifier: `company_${Date.now()}`,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          subscriptionExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          logo: defaultLogo,
-          isActive: true
-        };
-        
-        setCompany(defaultCompany);
-        setCompanyEditFormData({
-          companyName: defaultCompany.companyName,
-          companyCode: defaultCompany.companyCode,
-          companyEmail: "",
-          companyPhone: "",
-          companyAddress: "",
-          companyDomain: defaultCompany.companyDomain,
-          ownerName: defaultCompany.ownerName,
-          logo: defaultCompany.logo
-        });
-        
-        localStorage.setItem("company", JSON.stringify(defaultCompany));
-      }
-    } catch (error) {
-      console.error("Error in fallback method:", error);
-    }
-  };
-
+  } catch (error) {
+    console.error("Error in fallback method:", error);
+  }
+};
   // Format date function
   const formatDate = (dateString) => {
     if (!dateString) return "Not available";
@@ -1303,21 +1325,23 @@ const CompanyDetails = () => {
             <div className="CompanyDetails-header-content">
               {/* Logo and Company Info */}
               <div className="CompanyDetails-header-left">
-                <div className="CompanyDetails-logo-wrapper">
-                  <img 
-                    src={company.logo || defaultLogo}
-                    alt={company.companyName}
-                    className="CompanyDetails-company-logo"
-                    onError={(e) => { e.target.src = defaultLogo; }}
-                  />
-                  {company.isActive && (
-                    <div className="CompanyDetails-active-badge">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                      </svg>
-                    </div>
-                  )}
-                </div>
+<div className="CompanyDetails-logo-wrapper">
+  <img 
+    src={company.logo || defaultLogo}
+    alt={company.companyName}
+    className="CompanyDetails-company-logo"
+    onError={(e) => { 
+      e.target.src = defaultLogo; 
+    }}
+  />
+  {company.isActive && (
+    <div className="CompanyDetails-active-badge">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+      </svg>
+    </div>
+  )}
+</div>
 
                 <div className="CompanyDetails-company-info">
                   <div className="CompanyDetails-company-name-wrapper">

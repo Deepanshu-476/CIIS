@@ -1582,27 +1582,8 @@ const EmployeeLeaves = () => {
   // ============================================
   // LOADING STATE
   // ============================================
-<<<<<<< HEAD
-  if (loading && leaves.length === 0) {
-    return (
-      <div className="loading-container">
-        <CIISLoader />
-        <p>Loading leave data...</p>
-        {currentUserRole && (
-          <span className="loading-role">Role: {normalizeRole(currentUserRole)}</span>
-        )}
-        {isConnected && (
-          <span className="socket-status connected">
-            <FiBell size={14} />
-            Real-time connected
-          </span>
-        )}
-      </div>
-    );
-=======
   if (loading) {
     return <CIISLoader />;
->>>>>>> 97884c94ff97b13d0657dae3f4ec1e9ff104bd72
   }
 
   // ============================================

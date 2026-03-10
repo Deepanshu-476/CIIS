@@ -26,6 +26,7 @@ import {
 } from "react-icons/fi";
 import '../Css/MyLeaves.css';
 import CIISLoader from '../../Loader/CIISLoader';
+import { margin } from "@mui/system";
 
 const MyLeaves = () => {
   const [tab, setTab] = useState(0);
@@ -798,10 +799,12 @@ const MyLeaves = () => {
           <FiClock className="MyLeaves-stat-icon" />
           <h3>Pending</h3>
         </div>
-        <div className="MyLeaves-stat-value">{stats.pending}</div>
-        <div className="MyLeaves-stat-footer">
-          <span>Awaiting approval</span>
+        <div className="MyLeaves-stat-value" style={{ marginTop: "14px" , gap: "5px" }}>
+          {stats.pending}
         </div>
+        {/* <div className="MyLeaves-stat-footer">
+          <span>Awaiting approval</span>
+        </div> */}
       </div>
     )}
     

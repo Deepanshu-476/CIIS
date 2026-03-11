@@ -414,6 +414,110 @@ const allMenuItems = [
   }
 ];
 
+// ✅ DEFAULT MENU ITEMS (for fallback when no config is available)
+const fixedDefaultItems = [
+  {
+    id: 'dashboard-default',
+    name: 'Dashboard',
+    icon: 'Dashboard',
+    path: '/ciisUser/user-dashboard',
+    category: 'main',
+    order: 1,
+    visible: true,
+    disabled: false
+  },
+  {
+    id: 'attendance-default',
+    name: 'Attendance',
+    icon: 'Calendar',
+    path: '/ciisUser/attendance',
+    category: 'main',
+    order: 2,
+    visible: true,
+    disabled: false
+  },
+  {
+    id: 'my-leaves-default',
+    name: 'My Leaves',
+    icon: 'Event',
+    path: '/ciisUser/my-leaves',
+    category: 'main',
+    order: 3,
+    visible: true,
+    disabled: false
+  },
+  {
+    id: 'my-assets-default',
+    name: 'My Assets',
+    icon: 'Computer',
+    path: '/ciisUser/my-assets',
+    category: 'main',
+    order: 4,
+    visible: true,
+    disabled: false
+  },
+  {
+    id: 'employee-details-default',
+    name: 'Employee Details',
+    icon: 'Person',
+    path: '/ciisUser/emp-details',
+    category: 'administration',
+    order: 1,
+    visible: true,
+    disabled: false
+  },
+  {
+    id: 'employee-leaves-default',
+    name: 'Employee Leaves',
+    icon: 'Event',
+    path: '/ciisUser/emp-leaves',
+    category: 'administration',
+    order: 2,
+    visible: true,
+    disabled: false
+  },
+  {
+    id: 'employee-assets-default',
+    name: 'Employee Assets',
+    icon: 'Computer',
+    path: '/ciisUser/emp-assets',
+    category: 'administration',
+    order: 3,
+    visible: true,
+    disabled: false
+  },
+  {
+    id: 'employee-attendance-default',
+    name: 'Employee Attendance',
+    icon: 'Calendar',
+    path: '/ciisUser/emp-attendance',
+    category: 'administration',
+    order: 4,
+    visible: true,
+    disabled: false
+  },
+  {
+    id: 'alerts-default',
+    name: 'Alerts',
+    icon: 'Notifications',
+    path: '/ciisUser/alert',
+    category: 'administration',
+    order: 5,
+    visible: true,
+    disabled: false
+  },
+  {
+    id: 'change-password-default',
+    name: 'Change Password',
+    icon: 'Settings',
+    path: '/ciisUser/change-password',
+    category: 'main',
+    order: 99,
+    visible: true,
+    disabled: false
+  }
+];
+
 // ✅ Path mapping helper
 const getPathFromName = (name) => {
   const pathMap = {
@@ -699,6 +803,7 @@ const Sidebar = ({ isMobile = false }) => {
       items = [...fixedDefaultItems];
     }
 
+    // Sort items by category and order
     const sortedItems = [...items].sort((a, b) => {
       const categoryOrder = ['main', 'administration', 'tasks', 'projects', 'meetings', 'communication', 'clients'];
       const categoryA = categoryOrder.indexOf(a.category) || 99;

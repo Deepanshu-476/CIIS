@@ -237,8 +237,9 @@ const getIconComponent = (iconName) => {
   return <IconComponent />;
 };
 
-// ✅ FIXED DEFAULT MENU ITEMS
-const fixedDefaultItems = [
+// ✅ COMPLETE MENU ITEMS WITH ALL PAGES
+const allMenuItems = [
+  // Main Menu
   {
     id: 'dashboard',
     name: 'Dashboard',
@@ -271,15 +272,146 @@ const fixedDefaultItems = [
     category: 'main',
     order: 4
   },
+  
+  // Administration
+  {
+    id: 'employee-details',
+    name: 'Employee Details',
+    icon: 'Person',
+    path: '/ciisUser/emp-details',
+    category: 'administration',
+    order: 1
+  },
+  {
+    id: 'employee-leaves',
+    name: 'Employee Leaves',
+    icon: 'Event',
+    path: '/ciisUser/emp-leaves',
+    category: 'administration',
+    order: 2
+  },
+  {
+    id: 'employee-assets',
+    name: 'Employee Assets',
+    icon: 'Computer',
+    path: '/ciisUser/emp-assets',
+    category: 'administration',
+    order: 3
+  },
+  {
+    id: 'employee-attendance',
+    name: 'Employee Attendance',
+    icon: 'Calendar',
+    path: '/ciisUser/emp-attendance',
+    category: 'administration',
+    order: 4
+  },
+  {
+    id: 'alerts',
+    name: 'Alerts',
+    icon: 'Notifications',
+    path: '/ciisUser/alert',
+    category: 'administration',
+    order: 5
+  },
+  
+  // Tasks
+  {
+    id: 'create-task',
+    name: 'Create Task',
+    icon: 'Task',
+    path: '/ciisUser/task-management',
+    category: 'tasks',
+    order: 1
+  },
+  {
+    id: 'admin-create-task',
+    name: 'Admin Create Task',
+    icon: 'Task',
+    path: '/ciisUser/admin-task-create',
+    category: 'tasks',
+    order: 2
+  },
+  {
+    id: 'company-all-tasks',
+    name: 'Company All Tasks',
+    icon: 'ListAlt',
+    path: '/ciisUser/company-all-task',
+    category: 'tasks',
+    order: 3
+  },
+  {
+    id: 'department-all-tasks',
+    name: 'Department All Tasks',
+    icon: 'ListAlt',
+    path: '/ciisUser/department-all-task',
+    category: 'tasks',
+    order: 4
+  },
+  
+  // Projects
+  {
+    id: 'projects',
+    name: 'Projects',
+    icon: 'Groups',
+    path: '/ciisUser/project',
+    category: 'projects',
+    order: 1
+  },
+  {
+    id: 'admin-projects',
+    name: 'Admin Projects',
+    icon: 'Groups',
+    path: '/ciisUser/adminproject',
+    category: 'projects',
+    order: 2
+  },
+  
+  // Meetings
+  {
+    id: 'employee-meeting',
+    name: 'Employee Meeting',
+    icon: 'VideoCall',
+    path: '/ciisUser/employee-meeting',
+    category: 'meetings',
+    order: 1
+  },
+  {
+    id: 'client-meeting',
+    name: 'Client Meeting',
+    icon: 'VideoCall',
+    path: '/ciisUser/client-meeting',
+    category: 'meetings',
+    order: 2
+  },
+  {
+    id: 'create-employee-meeting',
+    name: 'Create Employee Meeting',
+    icon: 'MeetingRoom',
+    path: '/ciisUser/admin-meeting',
+    category: 'meetings',
+    order: 3
+  },
+  
+  // Clients
+  {
+    id: 'client-management',
+    name: 'Client Management',
+    icon: 'Person',
+    path: '/ciisUser/emp-client',
+    category: 'clients',
+    order: 1
+  },
+  
+  // Settings
   {
     id: 'change-password',
     name: 'Change Password',
     icon: 'Settings',
     path: '/ciisUser/change-password',
     category: 'main',
-    order: 5
+    order: 99
   }
-  
 ];
 
 // ✅ Path mapping helper
@@ -353,6 +485,13 @@ const Sidebar = ({ isMobile = false }) => {
     fetchLocalData();
   }, []);
 
+  // Check if user is super_admin with Management department
+  const isSuperAdminWithManagement = useMemo(() => {
+    return userData && 
+           userData.department === "Management" && 
+           userData.jobRole === "super_admin";
+  }, [userData]);
+
   // Fetch sidebar configuration
   const fetchSidebarConfig = useCallback(async () => {
     if (!userData || !companyData) return;
@@ -366,8 +505,20 @@ const Sidebar = ({ isMobile = false }) => {
       console.log('Fetching sidebar config with:', {
         companyId: userData.company,
         departmentId: userData.department,
-        role: userData.jobRole
+        role: userData.jobRole,
+        isSuperAdminWithManagement: isSuperAdminWithManagement
       });
+
+      // If super_admin with Management, we don't need to fetch config
+      if (isSuperAdminWithManagement) {
+        console.log('Super Admin with Management - showing all pages');
+        setSidebarConfig({ 
+          useAllPages: true,
+          message: 'Super Admin with Management - showing all pages'
+        });
+        setLoading(false);
+        return;
+      }
 
       const response = await axiosInstance.get(`/sidebar/config`, {
         params: {
@@ -405,7 +556,7 @@ const Sidebar = ({ isMobile = false }) => {
     } finally {
       setLoading(false);
     }
-  }, [userData, companyData]);
+  }, [userData, companyData, isSuperAdminWithManagement]);
 
   useEffect(() => {
     if (userData && companyData) {
@@ -509,8 +660,15 @@ const Sidebar = ({ isMobile = false }) => {
     if (loading) return [];
 
     console.log('Current sidebar config:', sidebarConfig);
+    console.log('Is Super Admin with Management:', isSuperAdminWithManagement);
 
     let items = [];
+
+    // If super_admin with Management, show all pages
+    if (isSuperAdminWithManagement) {
+      console.log('Showing all pages for Super Admin with Management');
+      return [...allMenuItems];
+    }
 
     if (sidebarConfig && sidebarConfig.menuItems && Array.isArray(sidebarConfig.menuItems)) {
       console.log('Using custom config from database with', sidebarConfig.menuItems.length, 'items');
@@ -563,7 +721,7 @@ const Sidebar = ({ isMobile = false }) => {
     })));
 
     return sortedItems;
-  }, [sidebarConfig, loading]);
+  }, [sidebarConfig, loading, isSuperAdminWithManagement]);
 
   const renderMenuItem = (item, showFull) => {
     const selected = location.pathname === item.path;
@@ -764,8 +922,7 @@ const Sidebar = ({ isMobile = false }) => {
         ))}
       </Box>
 
-
-      
+      {/* Logout Button */}
       <Box sx={{ px: 2, py: 2 }}>
         {isSidebarOpen ? (
           <StyledListItemButton

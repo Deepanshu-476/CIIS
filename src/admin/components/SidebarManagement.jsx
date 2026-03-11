@@ -127,7 +127,7 @@ const SidebarManagement = () => {
   // Get company from localStorage
   const getCompanyFromLocalStorage = () => {
     try {
-      const companyDetailsStr = localStorage.getItem('companyDetails');
+      const companyDetailsStr = localStorage.getItem('company');
       
       if (companyDetailsStr) {
         const companyData = JSON.parse(companyDetailsStr);

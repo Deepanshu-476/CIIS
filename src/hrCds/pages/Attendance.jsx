@@ -20,7 +20,8 @@ import {
   FiRefreshCw,
   FiAlertTriangle,
   FiWatch,
-  FiGift
+  FiGift,
+  FiCalendar as FiCalendarRange // Add this for range icon
 } from "react-icons/fi";
 import { MdCelebration } from "react-icons/md";
 import '../Css/Attendance.css';
@@ -43,6 +44,12 @@ const Attendance = () => {
   const [showCalendar, setShowCalendar] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [holidaysLoading, setHolidaysLoading] = useState(false);
+  
+  // 🔥 NEW: Date Range Filter States
+  const [showDateRangePicker, setShowDateRangePicker] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [isDateRangeActive, setIsDateRangeActive] = useState(false);
   
   // User join date from createdAt
   const [userJoinDate, setUserJoinDate] = useState(null);
@@ -152,7 +159,17 @@ const Attendance = () => {
     else setLoading(true);
 
     try {
-      const response = await axios.get("/attendance/list", {
+      let url = "/attendance/list";
+      
+      // 🔥 FIX: Build URL based on timeRange
+      if (timeRange !== "ALL") {
+        const now = new Date();
+        const month = now.getMonth();
+        const year = now.getFullYear();
+        url = `/attendance/list?month=${month}&year=${year}`;
+      }
+
+      const response = await axios.get(url, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -189,33 +206,28 @@ const Attendance = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [token, userJoinDate, isBeforeJoinDate]);
+  }, [token, userJoinDate, isBeforeJoinDate, timeRange]);
 
   // Combined data with holidays
   const processedAttendance = useMemo(() => {
-    // Create a map of attendance records by date
     const attendanceMap = new Map();
     attendance.forEach(record => {
       const dateStr = new Date(record.date).toDateString();
       attendanceMap.set(dateStr, record);
     });
 
-    // Process holidays and combine with attendance
     const combined = [];
     
-    // Add all attendance records first
     attendance.forEach(record => {
       combined.push({ ...record, isHoliday: false });
     });
 
-    // Add holidays that don't have attendance records
     holidays.forEach(holiday => {
       const holidayDate = new Date(holiday.date);
       const dateStr = holidayDate.toDateString();
       const attendanceRecord = attendanceMap.get(dateStr);
       
       if (!attendanceRecord) {
-        // Holiday with no attendance -> pure HOLIDAY
         combined.push({
           _id: `holiday-${holiday._id || holidayDate.getTime()}`,
           date: holiday.date,
@@ -230,7 +242,6 @@ const Attendance = () => {
           overTime: null
         });
       } else {
-        // Holiday with attendance -> mark as holiday but keep attendance
         const index = combined.findIndex(r => 
           new Date(r.date).toDateString() === dateStr
         );
@@ -239,19 +250,16 @@ const Attendance = () => {
             ...attendanceRecord,
             isHoliday: true,
             holidayTitle: holiday.title,
-            // Keep original status but we'll display differently
           };
         }
       }
     });
 
-    // Sort by date (newest first)
     return combined.sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [attendance, holidays]);
 
-  // Calculate stats (excluding holidays from totals)
+  // Calculate stats
   const calculateStats = useCallback((data) => {
-    // Only count actual attendance records (not holiday-only records)
     const attendanceRecords = data.filter(record => !record.isHoliday || record.status !== 'HOLIDAY');
     
     const present = attendanceRecords.filter((record) => record.status === "PRESENT").length;
@@ -306,6 +314,13 @@ const Attendance = () => {
     loadData();
   }, [userJoinDate, fetchAttendance, fetchHolidays]);
 
+  // Refetch when timeRange changes
+  useEffect(() => {
+    if (userJoinDate) {
+      fetchAttendance();
+    }
+  }, [timeRange, userJoinDate, fetchAttendance]);
+
   const formatDate = (dateStr) => {
     if (!dateStr) return "--";
     try {
@@ -319,6 +334,12 @@ const Attendance = () => {
     } catch (error) {
       return "Invalid Date";
     }
+  };
+
+  const formatDateForInput = (date) => {
+    if (!date) return '';
+    const d = new Date(date);
+    return d.toISOString().split('T')[0];
   };
 
   const formatTime = (timeStr) => {
@@ -370,8 +391,8 @@ const Attendance = () => {
     const status = record.status;
     const isHoliday = record.isHoliday;
     
-    if (isHoliday && status === 'PRESENT') return "#9c27b0"; // Purple for holiday-present combo
-    if (isHoliday || status === 'HOLIDAY') return "#9c27b0"; // Purple for holidays
+    if (isHoliday && status === 'PRESENT') return "#9c27b0";
+    if (isHoliday || status === 'HOLIDAY') return "#9c27b0";
     
     switch (status) {
       case "PRESENT":
@@ -418,6 +439,7 @@ const Attendance = () => {
     return status.toLowerCase().replace(" ", "-");
   };
 
+  // 🔥 NEW: Apply Date Range Filter
   const filteredData = useMemo(() => {
     return processedAttendance.filter((record) => {
       const matchesSearch =
@@ -435,31 +457,89 @@ const Attendance = () => {
       const now = new Date();
       let matchesTimeRange = true;
 
-      switch (timeRange) {
-        case "TODAY":
-          matchesTimeRange = recordDate.toDateString() === now.toDateString();
-          break;
-        case "WEEK": {
-          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          matchesTimeRange = recordDate >= weekAgo;
+      // 🔥 NEW: Date Range Filter
+      if (isDateRangeActive && startDate && endDate) {
+        const recordDateStr = formatDateForInput(recordDate);
+        matchesTimeRange = recordDateStr >= startDate && recordDateStr <= endDate;
+      } 
+      // If date range is not active, use existing time range filters
+      else if (timeRange !== "ALL") {
+        switch (timeRange) {
+          case "TODAY":
+            matchesTimeRange = recordDate.toDateString() === now.toDateString();
+            break;
+          case "WEEK": {
+          const today = new Date();
+
+          const firstDayOfWeek = new Date(today);
+          const day = today.getDay(); // 0 Sunday
+
+          const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+
+          firstDayOfWeek.setDate(diff);
+          firstDayOfWeek.setHours(0,0,0,0);
+
+          matchesTimeRange =
+            recordDate >= firstDayOfWeek &&
+            recordDate <= today;
+
           break;
         }
-        case "MONTH": {
-          const monthAgo = new Date(
-            now.getFullYear(),
-            now.getMonth() - 1,
-            now.getDate()
-          );
-          matchesTimeRange = recordDate >= monthAgo;
-          break;
+          case "MONTH": {
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            const today = new Date();
+
+            matchesTimeRange =
+              recordDate >= startOfMonth &&
+              recordDate <= today;
+
+            break;
+          }
+          default:
+            matchesTimeRange = true;
         }
-        default:
-          matchesTimeRange = true;
       }
 
       return matchesSearch && matchesStatus && matchesTimeRange;
     });
-  }, [processedAttendance, search, statusFilter, timeRange]);
+  }, [processedAttendance, search, statusFilter, timeRange, isDateRangeActive, startDate, endDate]);
+
+  // 🔥 NEW: Apply Date Range function
+  const applyDateRange = () => {
+    if (!startDate || !endDate) {
+      toast.warning("Please select both start and end dates");
+      return;
+    }
+
+    if (startDate > endDate) {
+      toast.error("Start date cannot be after end date");
+      return;
+    }
+
+    // Check if dates are within join date range
+    if (userJoinDate) {
+      const joinDateStr = formatDateForInput(userJoinDate);
+      if (startDate < joinDateStr) {
+        toast.warning(`Records only available from ${formattedJoinDate}`);
+        setStartDate(joinDateStr);
+        return;
+      }
+    }
+
+    setIsDateRangeActive(true);
+    setTimeRange("ALL"); // Reset time range when using date range
+    setShowDateRangePicker(false);
+    toast.success(`Showing records from ${startDate} to ${endDate}`);
+  };
+
+  // 🔥 NEW: Clear Date Range
+  const clearDateRange = () => {
+    setIsDateRangeActive(false);
+    setStartDate('');
+    setEndDate('');
+    setTimeRange("ALL");
+    toast.info("Date range filter cleared");
+  };
 
   const openDetailsModal = (record) => {
     setSelectedRecord(record);
@@ -537,6 +617,12 @@ const Attendance = () => {
     ]);
   };
 
+  const handleTimeRangeChange = (range) => {
+    setTimeRange(range);
+    setIsDateRangeActive(false); // Disable date range when using preset ranges
+    // fetchAttendance will be called automatically by the useEffect
+  };
+
   const statusOptions = ["ALL", "PRESENT", "LATE", "HALF DAY", "ABSENT", "HOLIDAY"];
 
   // Show CIISLoader while page is loading
@@ -588,11 +674,13 @@ const Attendance = () => {
               )}
             </div>
 
+            {/* 🔥 NEW: Date Range Picker Button */}
             <button
-              className="Attendance-icon-button"
-              onClick={() => setShowCalendar(!showCalendar)}
+              className={`Attendance-icon-button ${isDateRangeActive ? 'Attendance-active' : ''}`}
+              onClick={() => setShowDateRangePicker(!showDateRangePicker)}
+              title="Date Range Filter"
             >
-              <FiCalendar />
+              <FiCalendarRange />
             </button>
 
             <button
@@ -624,6 +712,58 @@ const Attendance = () => {
             </button>
           </div>
         </div>
+
+        {/* 🔥 NEW: Date Range Picker */}
+        {showDateRangePicker && (
+          <div className="Attendance-date-range-picker">
+            <h3>Select Date Range</h3>
+            <div className="Attendance-date-range-inputs">
+              <div className="Attendance-date-input-group">
+                <label>Start Date:</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  min={userJoinDate ? formatDateForInput(userJoinDate) : undefined}
+                  max={endDate || undefined}
+                />
+              </div>
+              <div className="Attendance-date-input-group">
+                <label>End Date:</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  min={startDate || (userJoinDate ? formatDateForInput(userJoinDate) : undefined)}
+                  max={formatDateForInput(new Date())}
+                />
+              </div>
+            </div>
+            {userJoinDate && (
+              <div className="Attendance-date-range-note">
+                <FiClock size={12} />
+                <span>Available from {formattedJoinDate}</span>
+              </div>
+            )}
+            <div className="Attendance-date-range-actions">
+              <button 
+                className="Attendance-apply-range-btn"
+                onClick={applyDateRange}
+              >
+                Apply Range
+              </button>
+              <button
+                className="Attendance-clear-range-btn"
+                onClick={() => {
+                  clearDateRange();           // sab filter clear
+                  setShowDateRangePicker(false); // modal close
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Calendar Popover */}
         {showCalendar && (
@@ -669,8 +809,8 @@ const Attendance = () => {
           {["ALL", "TODAY", "WEEK", "MONTH"].map((range) => (
             <button
               key={range}
-              className={`Attendance-time-tab ${timeRange === range ? "Attendance-active" : ""}`}
-              onClick={() => setTimeRange(range)}
+              className={`Attendance-time-tab ${timeRange === range && !isDateRangeActive ? "Attendance-active" : ""}`}
+              onClick={() => handleTimeRangeChange(range)}
             >
               {range === "ALL" ? "All Time" : range}
             </button>
@@ -807,7 +947,7 @@ const Attendance = () => {
           ))}
       </div>
 
-      {/* Holiday Count Card (if any) */}
+      {/* Holiday Count Card */}
       {holidays.length > 0 && (
         <div className="Attendance-holiday-summary">
           <MdCelebration className="Attendance-holiday-summary-icon" />
@@ -816,7 +956,7 @@ const Attendance = () => {
       )}
 
       {/* Active Filters Display */}
-      {(statusFilter !== "ALL" || timeRange !== "ALL") && (
+      {(statusFilter !== "ALL" || timeRange !== "ALL" || isDateRangeActive) && (
         <div className="Attendance-active-filters">
           <h4>Active filters:</h4>
           <div className="Attendance-filter-chips">
@@ -826,10 +966,17 @@ const Attendance = () => {
                 <button onClick={() => setStatusFilter("ALL")}>×</button>
               </div>
             )}
-            {timeRange !== "ALL" && (
+            {timeRange !== "ALL" && !isDateRangeActive && (
               <div className="Attendance-filter-chip Attendance-secondary">
                 <span>Time: {timeRange}</span>
                 <button onClick={() => setTimeRange("ALL")}>×</button>
+              </div>
+            )}
+            {/* 🔥 NEW: Date Range Chip */}
+            {isDateRangeActive && startDate && endDate && (
+              <div className="Attendance-filter-chip Attendance-primary">
+                <span>From: {startDate} To: {endDate}</span>
+                <button onClick={clearDateRange}>×</button>
               </div>
             )}
           </div>
@@ -855,112 +1002,111 @@ const Attendance = () => {
         )}
       </div>
 
-     {/* Desktop/Tablet Table */}
-{!isMobile && (
-  <div className="Attendance-table-container">
-    <table className="Attendance-table">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Login</th>
-          <th>Logout</th>
-          <th>Status</th>
-          <th>Total Time</th>
-          <th>Late By</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {filteredData.length > 0 ? (
-          filteredData.map((record) => {
-            const statusClass = getStatusClass(record);
-            const displayStatus = getStatusDisplayText(record);
-            return (
-              <tr
-                key={record._id}
-                className={`Attendance-table-row Attendance-status-${statusClass}`}
-                
-                style={{ cursor: 'default' }}  
-              >
-                <td>
-                  <strong>{formatDate(record.date)}</strong>
-                  {record.holidayTitle && (
-                    <div className="Attendance-holiday-title-tooltip">
-                      {record.holidayTitle}
-                    </div>
-                  )}
-                </td>
-                <td>
-                  {record.inTime ? (
-                    <div className="Attendance-time-cell">
-                      <FiClock />
-                      <span>{formatTime(record.inTime)}</span>
-                    </div>
-                  ) : (
-                    <span className="Attendance-no-time">--</span>
-                  )}
-                </td>
-                <td>
-                  {record.outTime ? (
-                    <div className="Attendance-time-cell">
-                      <FiClock />
-                      <span>{formatTime(record.outTime)}</span>
-                    </div>
-                  ) : (
-                    <span className="Attendance-no-time">--</span>
-                  )}
-                </td>
-                <td>
-                  <div className={`Attendance-status-chip Attendance-status-${statusClass}`}>
-                    {getStatusIcon(record)}
-                    <span>{displayStatus}</span>
-                  </div>
-                </td>
-                <td>
-                  <strong className="Attendance-total-time">
-                    {record.totalTime || "00:00:00"}
-                  </strong>
-                </td>
-                <td>
-                  <div className="Attendance-late-cell">
-                    {record.lateBy && record.lateBy !== "00:00:00" ? (
-                      <span className="Attendance-late-badge">
-                        {record.lateBy}
-                      </span>
-                    ) : (
-                      <span className="Attendance-no-late">--</span>
-                    )}
-                  </div>
-                </td>
-                <td>
-                  <button
-                    className="Attendance-view-details-button"
-                    onClick={() => openDetailsModal(record)}
-                    type="button"
-                  >
-                    <FiEye />
-                  </button>
-                </td>
+      {/* Desktop/Tablet Table */}
+      {!isMobile && (
+        <div className="Attendance-table-container">
+          <table className="Attendance-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Login</th>
+                <th>Logout</th>
+                <th>Status</th>
+                <th>Total Time</th>
+                <th>Late By</th>
+                <th>Actions</th>
               </tr>
-            );
-          })
-        ) : (
-          <tr>
-            <td colSpan="7" className="Attendance-no-data-cell">
-              <FiUser className="Attendance-no-data-icon" />
-              <h3>No attendance records found</h3>
-              <p>
-                {userJoinDate 
-                  ? `You joined on ${formattedJoinDate}. No records before this date.`
-                  : 'Try adjusting your filters or search terms'}
-              </p>
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
-  </div>
-)}
+            </thead>
+            <tbody>
+              {filteredData.length > 0 ? (
+                filteredData.map((record) => {
+                  const statusClass = getStatusClass(record);
+                  const displayStatus = getStatusDisplayText(record);
+                  return (
+                    <tr
+                      key={record._id}
+                      className={`Attendance-table-row Attendance-status-${statusClass}`}
+                      style={{ cursor: 'default' }}  
+                    >
+                      <td>
+                        <strong>{formatDate(record.date)}</strong>
+                        {record.holidayTitle && (
+                          <div className="Attendance-holiday-title-tooltip">
+                            {record.holidayTitle}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        {record.inTime ? (
+                          <div className="Attendance-time-cell">
+                            <FiClock />
+                            <span>{formatTime(record.inTime)}</span>
+                          </div>
+                        ) : (
+                          <span className="Attendance-no-time">--</span>
+                        )}
+                      </td>
+                      <td>
+                        {record.outTime ? (
+                          <div className="Attendance-time-cell">
+                            <FiClock />
+                            <span>{formatTime(record.outTime)}</span>
+                          </div>
+                        ) : (
+                          <span className="Attendance-no-time">--</span>
+                        )}
+                      </td>
+                      <td>
+                        <div className={`Attendance-status-chip Attendance-status-${statusClass}`}>
+                          {getStatusIcon(record)}
+                          <span>{displayStatus}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <strong className="Attendance-total-time">
+                          {record.totalTime || "00:00:00"}
+                        </strong>
+                      </td>
+                      <td>
+                        <div className="Attendance-late-cell">
+                          {record.lateBy && record.lateBy !== "00:00:00" ? (
+                            <span className="Attendance-late-badge">
+                              {record.lateBy}
+                            </span>
+                          ) : (
+                            <span className="Attendance-no-late">--</span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <button
+                          className="Attendance-view-details-button"
+                          onClick={() => openDetailsModal(record)}
+                          type="button"
+                        >
+                          <FiEye />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan="7" className="Attendance-no-data-cell">
+                    <FiUser className="Attendance-no-data-icon" />
+                    <h3>No attendance records found</h3>
+                    <p>
+                      {userJoinDate 
+                        ? `You joined on ${formattedJoinDate}. No records before this date.`
+                        : 'Try adjusting your filters or search terms'}
+                    </p>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Mobile Cards */}
       {isMobile && (

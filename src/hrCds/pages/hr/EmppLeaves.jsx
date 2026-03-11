@@ -1585,10 +1585,6 @@ const EmployeeLeaves = () => {
   if (loading) {
     return <CIISLoader />;
   }
-
-  // ============================================
-  // MAIN RENDER
-  // ============================================
   return (
     <div className="EmppLeaves-employee-leaves">
       {/* Header */}
@@ -1663,7 +1659,7 @@ const EmployeeLeaves = () => {
       </div>
 
       {/* View Only Warning Banner */}
-      {!canApproveLeave() && (
+      {/* {!canApproveLeave() && (
         <div className="EmppLeaves-owner-warning-banner">
           <div className="EmppLeaves-warning-content">
             <FiLock size={20} />
@@ -1673,10 +1669,10 @@ const EmployeeLeaves = () => {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Department Info Banner */}
-      {!isOwner && currentUserDepartment && (
+      {/* {!isOwner && currentUserDepartment && (
         <div className="EmppLeaves-department-info-banner">
           <div className="EmppLeaves-info-content">
             <div className="EmppLeaves-info-text">
@@ -1685,7 +1681,7 @@ const EmployeeLeaves = () => {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Filter Section */}
       <div className="EmppLeaves-filter-section">

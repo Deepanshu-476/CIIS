@@ -14,6 +14,7 @@ import {
   FiChevronDown, FiChevronUp, FiStar, FiAward, FiBarChart,
   FiEdit3, FiExternalLink, FiMoreVertical, FiShare2, FiInfo, FiHash,
   FiPlay, FiPause, FiStopCircle, FiUserCheck, FiUserX, FiClock as FiTime,
+   FiClipboard,
   FiPaperclip, FiMic, FiFileText
 } from "react-icons/fi";
 

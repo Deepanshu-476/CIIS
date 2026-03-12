@@ -1,5 +1,4 @@
-/* SuperAdminLogin.css */
-
+/* ==================== MAIN CONTAINER ==================== */
 .ciis-login-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -20,6 +19,7 @@
   display: flex;
 }
 
+/* ==================== LEFT SECTION ==================== */
 .ciis-login-left {
   background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
   display: flex;
@@ -129,6 +129,7 @@
   font-size: 0.9rem;
 }
 
+/* ==================== RIGHT SECTION ==================== */
 .ciis-login-right {
   flex: 1;
   display: flex;
@@ -347,14 +348,211 @@
   vertical-align: middle;
 }
 
-/* Desktop styles */
+/* ==================== OTP POPUP STYLES ==================== */
+.otp-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+.otp-popup-container {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 400px;
+  width: 90%;
+  position: relative;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: slideUp 0.3s ease;
+}
+
+.otp-popup-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.otp-popup-close:hover {
+  background: #f3f4f6;
+  color: #333;
+}
+
+.otp-popup-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.otp-popup-icon {
+  margin-bottom: 16px;
+}
+
+.otp-popup-header h2 {
+  font-size: 1.5rem;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.otp-popup-header p {
+  color: #666;
+  margin: 4px 0;
+}
+
+.otp-popup-email {
+  font-weight: 600;
+  color: #667eea !important;
+  background: #f3f4f6;
+  padding: 4px 12px;
+  border-radius: 20px;
+  display: inline-block;
+  margin-top: 8px !important;
+}
+
+.otp-popup-inputs {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.otp-popup-input {
+  width: 48px;
+  height: 56px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 1.5rem;
+  text-align: center;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.otp-popup-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.otp-popup-input:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
+.otp-popup-error {
+  color: #f44336;
+  font-size: 0.875rem;
+  text-align: center;
+  margin-bottom: 16px;
+  padding: 8px;
+  background: #fdeded;
+  border-radius: 8px;
+}
+
+.otp-popup-verify-btn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.otp-popup-verify-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px 0 rgba(102, 126, 234, 0.4);
+}
+
+.otp-popup-verify-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.otp-popup-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.otp-popup-resend {
+  text-align: center;
+  color: #666;
+}
+
+.otp-popup-resend-btn {
+  background: none;
+  border: none;
+  color: #667eea;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 0.875rem;
+}
+
+.otp-popup-resend-btn:hover:not(:disabled) {
+  color: #5a6fd8;
+}
+
+.otp-popup-resend-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.otp-popup-timer {
+  font-weight: 600;
+  color: #667eea;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* ==================== RESPONSIVE STYLES ==================== */
 @media (min-width: 901px) {
   .ciis-login-right-mobile-logo {
     display: none;
   }
 }
 
-/* Responsive styles */
 @media (max-width: 900px) {
   .ciis-login-paper {
     flex-direction: column;
@@ -363,10 +561,7 @@
   }
 
   .ciis-login-left {
-    padding: 32px 24px;
-    flex: none;
-    min-height: auto;
-    display: none; /* Hide left section on mobile */
+    display: none;
   }
 
   .ciis-login-right {
@@ -455,6 +650,17 @@
   .ciis-login-terms {
     margin-top: 24px;
   }
+
+  .otp-popup-container {
+    padding: 24px 16px;
+    width: 95%;
+  }
+
+  .otp-popup-input {
+    width: 40px;
+    height: 48px;
+    font-size: 1.25rem;
+  }
 }
 
 @media (max-width: 360px) {
@@ -470,9 +676,14 @@
   .ciis-login-form-title {
     font-size: 1.35rem;
   }
+
+  .otp-popup-input {
+    width: 35px;
+    height: 42px;
+    font-size: 1.1rem;
+  }
 }
 
-/* Hover effects for interactive elements */
 .ciis-login-input-adornment:hover {
   color: #333;
 }
@@ -482,20 +693,24 @@
   transition: transform 0.3s ease;
 }
 
-/* Focus styles for accessibility */
 .ciis-login-button:focus-visible,
 .ciis-login-link:focus-visible,
 .ciis-login-terms-link:focus-visible,
-.ciis-login-input-adornment:focus-visible {
+.ciis-login-input-adornment:focus-visible,
+.otp-popup-close:focus-visible,
+.otp-popup-verify-btn:focus-visible,
+.otp-popup-resend-btn:focus-visible {
   outline: 2px solid #667eea;
   outline-offset: 2px;
 }
 
-/* Smooth transitions */
 .ciis-login-button,
 .ciis-login-link,
 .ciis-login-terms-link,
 .ciis-login-feature-text,
-.ciis-login-input {
+.ciis-login-input,
+.otp-popup-close,
+.otp-popup-verify-btn,
+.otp-popup-resend-btn {
   transition: all 0.3s ease;
 }

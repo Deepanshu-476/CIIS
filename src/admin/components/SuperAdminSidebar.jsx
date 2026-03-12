@@ -128,7 +128,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
-  const [companyRole, setCompanyRole] = useState('employee');
+  const [companyRole, setCompanyRole] = useState('Owner');
   
   useEffect(() => {
     try {
@@ -144,15 +144,15 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
           console.log('Company role set to:', userData.companyRole);
         } else {
           console.log('companyRole not found in user data');
-          setCompanyRole('employee');
+          setCompanyRole('Owner');
         }
       } else {
         console.log('No superAdmin data found in localStorage');
-        setCompanyRole('employee');
+        setCompanyRole('Owner');
       }
     } catch (error) {
       console.error('Error parsing superAdmin data from localStorage:', error);
-      setCompanyRole('employee');
+      setCompanyRole('Owner');
     }
   }, []);
 
@@ -162,44 +162,44 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       icon: <CompanyIcon />, 
       name: 'Company Details', 
       route: '/Ciis-network/company-details',
-      showForRoles: ['Owner','employee']
+      showForRoles: ['ADMIN','Owner']
     },
      { 
       icon: <CompanyIcon />, 
       name: 'All Company', 
       route: '/Ciis-network/all-company',
-      showForRoles: ['Owner']
+      showForRoles: ['ADMIN']
     },
     
     { 
       icon: <DepartmentIcon />, 
       name: 'Department', 
       route: '/Ciis-network/department',
-      showForRoles: ['Owner', 'employee']
+      showForRoles: ['ADMIN', 'Owner']
     },
     { 
       icon: <JobRoleIcon />, 
       name: 'Job Roles', 
       route: '/Ciis-network/JobRoleManagement',
-      showForRoles: ['Owner', 'employee']
+      showForRoles: ['ADMIN', 'Owner']
     },
     { 
       icon: <CreateUserIcon />, 
       name: 'Create User', 
       route: '/Ciis-network/create-user',
-      showForRoles: ['Owner', 'employee']
+      showForRoles: ['ADMIN', 'Owner']
     },
     { 
       icon: <AssetsIcon />, // Add Assets Management with Inventory icon
       name: 'Assets Management', 
       route: '/Ciis-network/assets',
-      showForRoles: ['Owner', 'employee']
+      showForRoles: ['ADMIN', 'Owner']
     },
     { 
       icon: <DepartmentIcon />, 
       name: 'Sidebar Management', 
       route: '/Ciis-network/SidebarManagement',
-      showForRoles: ['Owner', 'employee']
+      showForRoles: ['ADMIN', 'Owner']
     },
   ];
 

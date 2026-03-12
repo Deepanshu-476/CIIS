@@ -24,7 +24,6 @@ const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending', color: '#ffc107', icon: FiClock, bgColor: '#fff3cd' },
   { value: 'in-progress', label: 'In Progress', color: '#17a2b8', icon: FiAlertCircle, bgColor: '#d1ecf1' },
   { value: 'completed', label: 'Completed', color: '#28a745', icon: FiCheckCircle, bgColor: '#d4edda' },
-  { value: 'approved', label: 'Approved', color: '#20c997', icon: FiCheckSquare, bgColor: '#d1f2eb' },
   { value: 'rejected', label: 'Rejected', color: '#dc3545', icon: FiXCircle, bgColor: '#f8d7da' },
   { value: 'overdue', label: 'Overdue', color: '#fd7e14', icon: FiAlertTriangle, bgColor: '#ffe5d0' },
   { value: 'onhold', label: 'On Hold', color: '#6f42c1', icon: FiAlertCircle, bgColor: '#e9d8fd' },
@@ -48,7 +47,6 @@ const normalizeStatus = (status) => {
     'canceled': 'cancelled',
     'pending': 'pending',
     'completed': 'completed',
-    'approved': 'approved',
     'rejected': 'rejected',
     'overdue': 'overdue',
   };
@@ -68,7 +66,6 @@ const getStatusObject = (status) => {
     'pending': { value: 'pending', label: 'Pending', color: '#ffc107', bgColor: '#fff3cd' },
     'in-progress': { value: 'in-progress', label: 'In Progress', color: '#17a2b8', bgColor: '#d1ecf1' },
     'completed': { value: 'completed', label: 'Completed', color: '#28a745', bgColor: '#d4edda' },
-    'approved': { value: 'approved', label: 'Approved', color: '#20c997', bgColor: '#d1f2eb' },
     'rejected': { value: 'rejected', label: 'Rejected', color: '#dc3545', bgColor: '#f8d7da' },
     'overdue': { value: 'overdue', label: 'Overdue', color: '#fd7e14', bgColor: '#ffe5d0' },
     'onhold': { value: 'onhold', label: 'On Hold', color: '#6f42c1', bgColor: '#e9d8fd' },
@@ -443,7 +440,6 @@ const TaskDetails = () => {
     pending: 0,
     'in-progress': 0,
     completed: 0,
-    approved: 0,
     rejected: 0,
     overdue: 0,
     onhold: 0,
@@ -457,7 +453,6 @@ const TaskDetails = () => {
     pending: { count: 0, percentage: 0 },
     inProgress: { count: 0, percentage: 0 },
     completed: { count: 0, percentage: 0 },
-    approved: { count: 0, percentage: 0 },
     rejected: { count: 0, percentage: 0 },
     overdue: { count: 0, percentage: 0 },
     onhold: { count: 0, percentage: 0 },
@@ -470,7 +465,6 @@ const TaskDetails = () => {
     pending: { count: 0, percentage: 0 },
     inProgress: { count: 0, percentage: 0 },
     completed: { count: 0, percentage: 0 },
-    approved: { count: 0, percentage: 0 },
     rejected: { count: 0, percentage: 0 },
     overdue: { count: 0, percentage: 0 },
     onhold: { count: 0, percentage: 0 },
@@ -493,7 +487,6 @@ const TaskDetails = () => {
         pending: 0,
         'in-progress': 0,
         completed: 0,
-        approved: 0,
         rejected: 0,
         overdue: 0,
         onhold: 0,
@@ -530,7 +523,6 @@ const TaskDetails = () => {
       completed: totalCompleted,
       pending: totalPending,
       'in-progress': 0,
-      approved: 0,
       rejected: 0,
       overdue: 0,
       onhold: 0,
@@ -719,7 +711,6 @@ const TaskDetails = () => {
               completionRate: 0,
               pending: 0,
               inProgress: 0,
-              approved: 0,
               rejected: 0,
               overdue: 0,
               onhold: 0,
@@ -741,7 +732,6 @@ const TaskDetails = () => {
                   completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
                   pending: stats.pending?.count || 0,
                   inProgress: stats.inProgress?.count || 0,
-                  approved: stats.approved?.count || 0,
                   rejected: stats.rejected?.count || 0,
                   overdue: stats.overdue?.count || 0,
                   onhold: stats.onHold?.count || 0,
@@ -923,8 +913,7 @@ const TaskDetails = () => {
         case "overdue": {
           const nowTime = now.getTime();
           return taskDateTime < nowTime &&
-            (task.userStatus || task.status || task.overallStatus) !== 'completed' &&
-            (task.userStatus || task.status || task.overallStatus) !== 'approved';
+            (task.userStatus || task.status || task.overallStatus) !== 'completed';
         }
         default:
           return true;
@@ -969,7 +958,6 @@ const TaskDetails = () => {
         pending: { count: 0, percentage: 0 },
         inProgress: { count: 0, percentage: 0 },
         completed: { count: 0, percentage: 0 },
-        approved: { count: 0, percentage: 0 },
         rejected: { count: 0, percentage: 0 },
         overdue: { count: 0, percentage: 0 },
         onhold: { count: 0, percentage: 0 },
@@ -984,7 +972,6 @@ const TaskDetails = () => {
       pending: 0,
       'in-progress': 0,
       completed: 0,
-      approved: 0,
       rejected: 0,
       overdue: 0,
       onhold: 0,
@@ -998,7 +985,7 @@ const TaskDetails = () => {
       // Check for overdue
       const dueDate = task.dueDateTime;
       if (dueDate && new Date(dueDate) < now &&
-        status !== 'completed' && status !== 'approved' && status !== 'cancelled') {
+        status !== 'completed' && status !== 'cancelled') {
         status = 'overdue';
       }
 
@@ -1021,10 +1008,6 @@ const TaskDetails = () => {
       completed: {
         count: statusCounts.completed,
         percentage: total > 0 ? Math.round((statusCounts.completed / total) * 100) : 0
-      },
-      approved: {
-        count: statusCounts.approved,
-        percentage: total > 0 ? Math.round((statusCounts.approved / total) * 100) : 0
       },
       rejected: {
         count: statusCounts.rejected,
@@ -1072,7 +1055,6 @@ const TaskDetails = () => {
           pending: statusCounts.pending || { count: 0, percentage: 0 },
           inProgress: statusCounts.inProgress || { count: 0, percentage: 0 },
           completed: statusCounts.completed || { count: 0, percentage: 0 },
-          approved: statusCounts.approved || { count: 0, percentage: 0 },
           rejected: statusCounts.rejected || { count: 0, percentage: 0 },
           overdue: statusCounts.overdue || { count: 0, percentage: 0 },
           onhold: statusCounts.onHold || { count: 0, percentage: 0 },
@@ -1096,7 +1078,6 @@ const TaskDetails = () => {
         pending: { count: 0, percentage: 0 },
         inProgress: { count: 0, percentage: 0 },
         completed: { count: 0, percentage: 0 },
-        approved: { count: 0, percentage: 0 },
         rejected: { count: 0, percentage: 0 },
         overdue: { count: 0, percentage: 0 },
         onhold: { count: 0, percentage: 0 },
@@ -1111,7 +1092,6 @@ const TaskDetails = () => {
       pending: 0,
       'in-progress': 0,
       completed: 0,
-      approved: 0,
       rejected: 0,
       overdue: 0,
       onhold: 0,
@@ -1125,7 +1105,7 @@ const TaskDetails = () => {
       // Check for overdue
       const dueDate = task.dueDateTime;
       if (dueDate && new Date(dueDate) < now &&
-        status !== 'completed' && status !== 'approved' && status !== 'cancelled') {
+        status !== 'completed' && status !== 'cancelled') {
         status = 'overdue';
       }
 
@@ -1148,10 +1128,6 @@ const TaskDetails = () => {
       completed: {
         count: statusCounts.completed,
         percentage: total > 0 ? Math.round((statusCounts.completed / total) * 100) : 0
-      },
-      approved: {
-        count: statusCounts.approved,
-        percentage: total > 0 ? Math.round((statusCounts.approved / total) * 100) : 0
       },
       rejected: {
         count: statusCounts.rejected,
@@ -1454,7 +1430,6 @@ const resetFilters = useCallback(() => {
       case 'pending': return filteredTaskStats.pending?.count || 0;
       case 'in-progress': return filteredTaskStats.inProgress?.count || 0;
       case 'completed': return filteredTaskStats.completed?.count || 0;
-      case 'approved': return filteredTaskStats.approved?.count || 0;
       case 'rejected': return filteredTaskStats.rejected?.count || 0;
       case 'overdue': return filteredTaskStats.overdue?.count || 0;
       case 'onhold': return filteredTaskStats.onhold?.count || 0;
@@ -1481,7 +1456,6 @@ const resetFilters = useCallback(() => {
       completed: 0,
       completionRate: 0,
       inProgress: 0,
-      approved: 0,
       rejected: 0,
       overdue: 0,
       onhold: 0,
@@ -1500,7 +1474,6 @@ const resetFilters = useCallback(() => {
     if (actionLower.includes('progress')) return <FiPlay size={14} />;
     if (actionLower.includes('hold')) return <FiPause size={14} />;
     if (actionLower.includes('cancel')) return <FiStopCircle size={14} />;
-    if (actionLower.includes('approve')) return <FiCheckSquare size={14} />;
     if (actionLower.includes('reject')) return <FiXCircle size={14} />;
     if (actionLower.includes('assign')) return <FiUserCheck size={14} />;
     if (actionLower.includes('unassign')) return <FiUserX size={14} />;
@@ -1516,7 +1489,6 @@ const resetFilters = useCallback(() => {
     if (actionLower.includes('hold')) return '#8b5cf6';
     if (actionLower.includes('cancel')) return '#dc2626';
     if (actionLower.includes('reject')) return '#dc2626';
-    if (actionLower.includes('approve')) return '#20c997';
     return '#6b7280';
   };
 
@@ -2682,7 +2654,7 @@ const resetFilters = useCallback(() => {
                     // Check for overdue
                     const dueDate = task.dueDateTime;
                     if (dueDate && new Date(dueDate) < today &&
-                      status !== 'completed' && status !== 'approved' && status !== 'cancelled') {
+                      status !== 'completed'  && status !== 'cancelled') {
                       status = 'overdue';
                     }
 
@@ -2691,7 +2663,7 @@ const resetFilters = useCallback(() => {
                     
                     const isToday = isSameDay(task.dueDateTime || task.createdAt, today);
                     const isOverdue = task.dueDateTime && new Date(task.dueDateTime) < today &&
-                      status !== 'completed' && status !== 'approved' && status !== 'cancelled';
+                      status !== 'completed' &&  status !== 'cancelled';
 
                     const taskLogs = allTaskLogs[task._id] || [];
                     const timeData = calculateTaskActiveTime(taskLogs);

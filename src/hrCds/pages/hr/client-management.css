@@ -104,7 +104,7 @@
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .stat-card {
@@ -2150,9 +2150,7 @@ textarea.form-input {
     font-size: 11px;
   }
   
-  .stats-grid {
-    gap: 6px;
-  }
+ 
   
   .stat-card .avatar {
     width: 28px;
@@ -2200,9 +2198,7 @@ textarea.form-input {
     padding: 8px;
   }
   
-  .stats-grid {
-    grid-template-columns: 1fr !important;
-  }
+ 
   
   .card-header-right {
     display: none;

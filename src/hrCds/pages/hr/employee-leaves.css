@@ -1027,9 +1027,11 @@
 }
 
 .EmppLeaves-empty-state-icon {
-  margin-bottom: 20px;
-  color: #cbd5e0;
-  opacity: 0.5;
+    margin-bottom: 20px;
+    color: #cbd5e0;
+    opacity: 0.5;
+    display: flex;
+    justify-content: center;
 }
 
 .EmppLeaves-empty-state-title {
@@ -1951,9 +1953,10 @@
   }
 
   .EmppLeaves-leaves-subtitle {
-    font-size: 13px;
-    flex-wrap: wrap;
-    gap: 8px;
+  font-size: 13px;
+        gap: 7px;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
   }
 
   .EmppLeaves-header-actions {
@@ -2016,8 +2019,8 @@
   }
 
   .EmppLeaves-filter-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
+            grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
   }
 
   .EmppLeaves-filter-group {

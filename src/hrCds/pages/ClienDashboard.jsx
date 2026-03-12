@@ -71,7 +71,7 @@ const ClientDashboard = () => {
       console.log('🔍 Current user:', user);
 
       // Fetch client details using user's email
-      const clientResponse = await api.get(`/clients/:id`);
+      const clientResponse = await api.get(`/clients/${user.id}`);
       console.log('✅ Client response:', clientResponse.data);
 
       if (clientResponse.data.success) {
@@ -151,19 +151,19 @@ const ClientDashboard = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Active': return 'status-badge status-badge--active';
-      case 'On Hold': return 'status-badge status-badge--hold';
-      case 'Inactive': return 'status-badge status-badge--inactive';
-      default: return 'status-badge';
+      case 'Active': return 'ClientDashboard-status-badge ClientDashboard-status-badge--active';
+      case 'On Hold': return 'ClientDashboard-status-badge ClientDashboard-status-badge--hold';
+      case 'Inactive': return 'ClientDashboard-status-badge ClientDashboard-status-badge--inactive';
+      default: return 'ClientDashboard-status-badge';
     }
   };
 
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'High': return 'priority-badge priority-badge--high';
-      case 'Medium': return 'priority-badge priority-badge--medium';
-      case 'Low': return 'priority-badge priority-badge--low';
-      default: return 'priority-badge';
+      case 'High': return 'ClientDashboard-priority-badge ClientDashboard-priority-badge--high';
+      case 'Medium': return 'ClientDashboard-priority-badge ClientDashboard-priority-badge--medium';
+      case 'Low': return 'ClientDashboard-priority-badge ClientDashboard-priority-badge--low';
+      default: return 'ClientDashboard-priority-badge';
     }
   };
 
@@ -187,8 +187,8 @@ const ClientDashboard = () => {
 
   if (loading) {
     return (
-      <div className="client-dashboard-loading">
-        <div className="loading-spinner"></div>
+      <div className="ClientDashboard-client-dashboard-loading">
+        <div className="ClientDashboard-loading-spinner"></div>
         <p>Loading your dashboard...</p>
       </div>
     );
@@ -196,14 +196,14 @@ const ClientDashboard = () => {
 
   if (error) {
     return (
-      <div className="client-dashboard-error">
-        <FiAlertCircle className="error-icon" />
+      <div className="ClientDashboard-client-dashboard-error">
+        <FiAlertCircle className="ClientDashboard-error-icon" />
         <h3>Error Loading Dashboard</h3>
         <p>{error}</p>
-        <button className="btn btn--primary" onClick={fetchClientData}>
+        <button className="ClientDashboard-btn ClientDashboard-btn--primary" onClick={fetchClientData}>
           Try Again
         </button>
-        <button className="btn btn--outlined" onClick={handleLogout}>
+        <button className="ClientDashboard-btn ClientDashboard-btn--outlined" onClick={handleLogout}>
           Go to Login
         </button>
       </div>
@@ -211,26 +211,26 @@ const ClientDashboard = () => {
   }
 
   return (
-    <div className="client-dashboard">
+    <div className="ClientDashboard-client-dashboard">
       {/* Mobile Menu Button */}
-      <button className="mobile-menu-btn" onClick={() => setSidebarOpen(true)}>
+      <button className="ClientDashboard-mobile-menu-btn" onClick={() => setSidebarOpen(true)}>
         <FiMenu />
       </button>
 
       {/* Sidebar */}
-      <div className={`dashboard-sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
-        <div className="sidebar-header">
+      <div className={`ClientDashboard-dashboard-sidebar ${sidebarOpen ? 'ClientDashboard-sidebar-open' : ''}`}>
+        <div className="ClientDashboard-sidebar-header">
           <h2>CIIS NETWORK</h2>
-          <button className="sidebar-close" onClick={() => setSidebarOpen(false)}>
+          <button className="ClientDashboard-sidebar-close" onClick={() => setSidebarOpen(false)}>
             <FiX />
           </button>
         </div>
 
-        <div className="sidebar-user">
-          <div className="user-avatar">
+        <div className="ClientDashboard-sidebar-user">
+          <div className="ClientDashboard-user-avatar">
             {client?.client?.charAt(0) || 'C'}
           </div>
-          <div className="user-info">
+          <div className="ClientDashboard-user-info">
             <h4>{client?.client || 'Client'}</h4>
             <p>{client?.company || 'Company'}</p>
           </div>
@@ -239,20 +239,20 @@ const ClientDashboard = () => {
           </span>
         </div>
 
-        <nav className="sidebar-nav">
-          <a href="#" className="nav-item nav-item--active">
+        <nav className="ClientDashboard-sidebar-nav">
+          <a href="#" className="ClientDashboard-nav-item ClientDashboard-nav-item--active">
             <FiTrendingUp />
             <span>Dashboard</span>
           </a>
-          <a href="#" className="nav-item">
+          <a href="#" className="ClientDashboard-nav-item">
             <FiBriefcase />
             <span>Projects</span>
           </a>
-          <a href="#" className="nav-item">
+          <a href="#" className="ClientDashboard-nav-item">
             <FiUser />
             <span>Team</span>
           </a>
-          <button className="nav-item nav-item--logout" onClick={handleLogout}>
+          <button className="ClientDashboard-nav-item ClientDashboard-nav-item--logout" onClick={handleLogout}>
             <FiLogOut />
             <span>Logout</span>
           </button>
@@ -260,11 +260,11 @@ const ClientDashboard = () => {
       </div>
 
       {/* Main Content */}
-      <div className="dashboard-main">
+      <div className="ClientDashboard-dashboard-main">
         {/* Header */}
-        <div className="dashboard-header">
+        <div className="ClientDashboard-dashboard-header">
           <h1>Welcome, {client?.client}!</h1>
-          <div className="header-date">
+          <div className="ClientDashboard-header-date">
             {new Date().toLocaleDateString('en-US', { 
               weekday: 'long', 
               year: 'numeric', 
@@ -275,74 +275,74 @@ const ClientDashboard = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="stats-grid">
-          <div className="stat-card stat-card--primary">
-            <div className="stat-icon">
+        <div className="ClientDashboard-stats-grid">
+          <div className="ClientDashboard-stat-card ClientDashboard-stat-card--primary">
+            <div className="ClientDashboard-stat-icon">
               <FiTrendingUp />
             </div>
-            <div className="stat-content">
-              <span className="stat-label">Overall Progress</span>
-              <h2 className="stat-value">{stats.progressPercentage}%</h2>
-              <div className="progress-bar">
+            <div className="ClientDashboard-stat-content">
+              <span className="ClientDashboard-stat-label">Overall Progress</span>
+              <h2 className="ClientDashboard-stat-value">{stats.progressPercentage}%</h2>
+              <div className="ClientDashboard-progress-bar">
                 <div 
-                  className="progress-fill" 
+                  className="ClientDashboard-progress-fill" 
                   style={{ width: `${stats.progressPercentage}%` }}
                 ></div>
               </div>
             </div>
           </div>
 
-          <div className="stat-card stat-card--success">
-            <div className="stat-icon">
+          <div className="ClientDashboard-stat-card ClientDashboard-stat-card--success">
+            <div className="ClientDashboard-stat-icon">
               <FiCheckCircle />
             </div>
-            <div className="stat-content">
-              <span className="stat-label">Completed</span>
-              <h2 className="stat-value">{stats.completedTasks}</h2>
-              <span className="stat-sub">out of {stats.totalTasks}</span>
+            <div className="ClientDashboard-stat-content">
+              <span className="ClientDashboard-stat-label">Completed</span>
+              <h2 className="ClientDashboard-stat-value">{stats.completedTasks}</h2>
+              <span className="ClientDashboard-stat-sub">out of {stats.totalTasks}</span>
             </div>
           </div>
 
-          <div className="stat-card stat-card--warning">
-            <div className="stat-icon">
+          <div className="ClientDashboard-stat-card ClientDashboard-stat-card--warning">
+            <div className="ClientDashboard-stat-icon">
               <FiClock />
             </div>
-            <div className="stat-content">
-              <span className="stat-label">Pending</span>
-              <h2 className="stat-value">{stats.pendingTasks}</h2>
-              <span className="stat-sub">tasks remaining</span>
+            <div className="ClientDashboard-stat-content">
+              <span className="ClientDashboard-stat-label">Pending</span>
+              <h2 className="ClientDashboard-stat-value">{stats.pendingTasks}</h2>
+              <span className="ClientDashboard-stat-sub">tasks remaining</span>
             </div>
           </div>
 
-          <div className="stat-card stat-card--error">
-            <div className="stat-icon">
+          <div className="ClientDashboard-stat-card ClientDashboard-stat-card--error">
+            <div className="ClientDashboard-stat-icon">
               <FiAlertCircle />
             </div>
-            <div className="stat-content">
-              <span className="stat-label">Overdue</span>
-              <h2 className="stat-value">{stats.overdueTasks}</h2>
-              <span className="stat-sub">tasks overdue</span>
+            <div className="ClientDashboard-stat-content">
+              <span className="ClientDashboard-stat-label">Overdue</span>
+              <h2 className="ClientDashboard-stat-value">{stats.overdueTasks}</h2>
+              <span className="ClientDashboard-stat-sub">tasks overdue</span>
             </div>
           </div>
         </div>
 
         {/* Company Info */}
-        <div className="company-info">
+        <div className="ClientDashboard-company-info">
           <h3>Company Information</h3>
-          <div className="info-grid">
-            <div className="info-item">
+          <div className="ClientDashboard-info-grid">
+            <div className="ClientDashboard-info-item">
               <label>Company Name</label>
               <p>{client?.company}</p>
             </div>
-            <div className="info-item">
+            <div className="ClientDashboard-info-item">
               <label>City</label>
               <p>{client?.city}</p>
             </div>
-            <div className="info-item">
+            <div className="ClientDashboard-info-item">
               <label>Email</label>
               <p>{client?.email || 'Not provided'}</p>
             </div>
-            <div className="info-item">
+            <div className="ClientDashboard-info-item">
               <label>Phone</label>
               <p>{client?.phone || 'Not provided'}</p>
             </div>
@@ -350,17 +350,17 @@ const ClientDashboard = () => {
         </div>
 
         {/* Projects & Tasks */}
-        <div className="projects-section">
+        <div className="ClientDashboard-projects-section">
           <h3>Your Projects</h3>
           
           {Object.keys(tasks).length === 0 ? (
-            <div className="empty-state">
-              <FiBriefcase className="empty-icon" />
+            <div className="ClientDashboard-empty-state">
+              <FiBriefcase className="ClientDashboard-empty-icon" />
               <h4>No tasks yet</h4>
               <p>Your team hasn't assigned any tasks yet.</p>
             </div>
           ) : (
-            <div className="projects-list">
+            <div className="ClientDashboard-projects-list">
               {Object.entries(tasks).map(([serviceName, serviceTasks]) => {
                 const completed = serviceTasks.filter(t => t.completed).length;
                 const total = serviceTasks.length;
@@ -372,37 +372,37 @@ const ClientDashboard = () => {
                 return (
                   <div 
                     key={serviceName} 
-                    className={`project-card ${selectedService === serviceName ? 'project-expanded' : ''}`}
+                    className={`ClientDashboard-project-card ${selectedService === serviceName ? 'ClientDashboard-project-expanded' : ''}`}
                   >
                     <div 
-                      className="project-header"
+                      className="ClientDashboard-project-header"
                       onClick={() => setSelectedService(
                         selectedService === serviceName ? null : serviceName
                       )}
                     >
-                      <div className="project-title">
+                      <div className="ClientDashboard-project-title">
                         <h4>{serviceName}</h4>
-                        <FiChevronRight className={`project-arrow ${selectedService === serviceName ? 'arrow-rotated' : ''}`} />
+                        <FiChevronRight className={`ClientDashboard-project-arrow ${selectedService === serviceName ? 'ClientDashboard-arrow-rotated' : ''}`} />
                       </div>
                       
-                      <div className="project-stats">
-                        <span className="stat">
+                      <div className="ClientDashboard-project-stats">
+                        <span className="ClientDashboard-stat">
                           Progress: <strong>{progress}%</strong>
                         </span>
-                        <span className="stat">
+                        <span className="ClientDashboard-stat">
                           Tasks: <strong>{completed}/{total}</strong>
                         </span>
                         {overdueCount > 0 && (
-                          <span className="stat overdue">
+                          <span className="ClientDashboard-stat ClientDashboard-overdue">
                             Overdue: <strong>{overdueCount}</strong>
                           </span>
                         )}
                       </div>
 
-                      <div className="project-progress">
-                        <div className="progress-bar">
+                      <div className="ClientDashboard-project-progress">
+                        <div className="ClientDashboard-progress-bar">
                           <div 
-                            className="progress-fill"
+                            className="ClientDashboard-progress-fill"
                             style={{ width: `${progress}%` }}
                           ></div>
                         </div>
@@ -410,21 +410,21 @@ const ClientDashboard = () => {
                     </div>
 
                     {selectedService === serviceName && (
-                      <div className="project-tasks">
+                      <div className="ClientDashboard-project-tasks">
                         <h5>Tasks</h5>
-                        <div className="tasks-list">
+                        <div className="ClientDashboard-tasks-list">
                           {serviceTasks.map(task => (
-                            <div key={task._id || task.id} className="task-item">
-                              <div className="task-checkbox">
+                            <div key={task._id || task.id} className="ClientDashboard-task-item">
+                              <div className="ClientDashboard-task-checkbox">
                                 <input
                                   type="checkbox"
                                   checked={task.completed}
                                   readOnly
                                 />
                               </div>
-                              <div className="task-content">
-                                <div className="task-header">
-                                  <p className={`task-name ${task.completed ? 'task-completed' : ''}`}>
+                              <div className="ClientDashboard-task-content">
+                                <div className="ClientDashboard-task-header">
+                                  <p className={`ClientDashboard-task-name ${task.completed ? 'ClientDashboard-task-completed' : ''}`}>
                                     {task.name}
                                   </p>
                                   {task.priority && (
@@ -434,21 +434,21 @@ const ClientDashboard = () => {
                                   )}
                                 </div>
                                 
-                                <div className="task-meta">
+                                <div className="ClientDashboard-task-meta">
                                   {task.assignee && (
-                                    <span className="task-assignee">
+                                    <span className="ClientDashboard-task-assignee">
                                       <FiUser /> {task.assignee}
                                     </span>
                                   )}
                                   {task.dueDate && (
-                                    <span className={`task-due ${isOverdue(task.dueDate) && !task.completed ? 'due-overdue' : ''}`}>
+                                    <span className={`ClientDashboard-task-due ${isOverdue(task.dueDate) && !task.completed ? 'ClientDashboard-due-overdue' : ''}`}>
                                       <FiCalendar /> {formatDate(task.dueDate)}
                                     </span>
                                   )}
                                 </div>
 
                                 {task.completed && task.completedAt && (
-                                  <small className="task-completed">
+                                  <small className="ClientDashboard-task-completed">
                                     Completed: {formatDate(task.completedAt)}
                                   </small>
                                 )}
@@ -467,15 +467,15 @@ const ClientDashboard = () => {
 
         {/* Team Section */}
         {client?.projectManager && client.projectManager.length > 0 && (
-          <div className="team-section">
+          <div className="ClientDashboard-team-section">
             <h3>Your Project Team</h3>
-            <div className="team-list">
+            <div className="ClientDashboard-team-list">
               {client.projectManager.map((manager, index) => (
-                <div key={index} className="team-member">
-                  <div className="member-avatar">
+                <div key={index} className="ClientDashboard-team-member">
+                  <div className="ClientDashboard-member-avatar">
                     {manager.charAt(0)}
                   </div>
-                  <div className="member-info">
+                  <div className="ClientDashboard-member-info">
                     <h4>{manager}</h4>
                     <p>Project Manager</p>
                   </div>

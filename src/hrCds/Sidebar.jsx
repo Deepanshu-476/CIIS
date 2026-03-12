@@ -279,7 +279,170 @@ const fixedDefaultItems = [
     category: 'main',
     order: 5
   }
-  
+];
+
+// ✅ ALL PAGES MENU ITEMS (for super_admin with Management department)
+const allPagesItems = [
+  {
+    id: 'dashboard',
+    name: 'Dashboard',
+    icon: 'Dashboard',
+    path: '/ciisUser/user-dashboard',
+    category: 'main',
+    order: 1
+  },
+  {
+    id: 'attendance',
+    name: 'Attendance',
+    icon: 'Calendar',
+    path: '/ciisUser/attendance',
+    category: 'main',
+    order: 2
+  },
+  {
+    id: 'my-leaves',
+    name: 'My Leaves',
+    icon: 'Event',
+    path: '/ciisUser/my-leaves',
+    category: 'main',
+    order: 3
+  },
+  {
+    id: 'my-assets',
+    name: 'My Assets',
+    icon: 'Computer',
+    path: '/ciisUser/my-assets',
+    category: 'main',
+    order: 4
+  },
+  {
+    id: 'alerts',
+    name: 'Alerts',
+    icon: 'Notifications',
+    path: '/ciisUser/alert',
+    category: 'communication',
+    order: 5
+  },
+  {
+    id: 'projects',
+    name: 'Projects',
+    icon: 'Groups',
+    path: '/ciisUser/project',
+    category: 'projects',
+    order: 6
+  },
+  {
+    id: 'employee-details',
+    name: 'Employee Details',
+    icon: 'Person',
+    path: '/ciisUser/emp-details',
+    category: 'administration',
+    order: 7
+  },
+  {
+    id: 'employee-leaves',
+    name: 'Employee Leaves',
+    icon: 'Event',
+    path: '/ciisUser/emp-leaves',
+    category: 'administration',
+    order: 8
+  },
+  {
+    id: 'employee-assets',
+    name: 'Employee Assets',
+    icon: 'Computer',
+    path: '/ciisUser/emp-assets',
+    category: 'administration',
+    order: 9
+  },
+  {
+    id: 'employee-attendance',
+    name: 'Employee Attendance',
+    icon: 'Calendar',
+    path: '/ciisUser/emp-attendance',
+    category: 'administration',
+    order: 10
+  },
+  {
+    id: 'create-task',
+    name: 'Create Task',
+    icon: 'Task',
+    path: '/ciisUser/task-management',
+    category: 'tasks',
+    order: 11
+  },
+  {
+    id: 'admin-create-task',
+    name: 'Admin Create Task',
+    icon: 'Task',
+    path: '/ciisUser/admin-task-create',
+    category: 'tasks',
+    order: 12
+  },
+  {
+    id: 'employee-meeting',
+    name: 'Employee Meeting',
+    icon: 'VideoCall',
+    path: '/ciisUser/employee-meeting',
+    category: 'meetings',
+    order: 13
+  },
+  {
+    id: 'client-meeting',
+    name: 'Client Meeting',
+    icon: 'VideoCall',
+    path: '/ciisUser/client-meeting',
+    category: 'meetings',
+    order: 14
+  },
+  {
+    id: 'create-employee-meeting',
+    name: 'Create Employee Meeting',
+    icon: 'VideoCall',
+    path: '/ciisUser/admin-meeting',
+    category: 'meetings',
+    order: 15
+  },
+  {
+    id: 'admin-projects',
+    name: 'Admin Projects',
+    icon: 'Groups',
+    path: '/ciisUser/adminproject',
+    category: 'projects',
+    order: 16
+  },
+  {
+    id: 'company-all-tasks',
+    name: 'Company All Tasks',
+    icon: 'Task',
+    path: '/ciisUser/company-all-task',
+    category: 'tasks',
+    order: 17
+  },
+  {
+    id: 'department-all-tasks',
+    name: 'Department All Tasks',
+    icon: 'Task',
+    path: '/ciisUser/department-all-task',
+    category: 'tasks',
+    order: 18
+  },
+  {
+    id: 'client-management',
+    name: 'Client Management',
+    icon: 'Person',
+    path: '/ciisUser/emp-client',
+    category: 'clients',
+    order: 19
+  },
+  {
+    id: 'change-password',
+    name: 'Change Password',
+    icon: 'Settings',
+    path: '/ciisUser/change-password',
+    category: 'main',
+    order: 20
+  }
 ];
 
 // ✅ Path mapping helper
@@ -327,6 +490,11 @@ const Sidebar = ({ isMobile = false }) => {
 
   // Mobile par always open, Desktop par hover-based
   const isSidebarOpen = isMobile ? true : isHovered;
+
+  // Check if user is super_admin with Management department
+  const isSuperAdminWithManagement = useMemo(() => {
+    return userData?.department === "Management" && userData?.jobRole === "super_admin";
+  }, [userData]);
 
   // LocalStorage se user data aur company details fetch karo
   useEffect(() => {
@@ -504,11 +672,18 @@ const Sidebar = ({ isMobile = false }) => {
     }
   };
 
-  // ✅ Get menu items based on configuration
+  // ✅ Get menu items based on configuration OR super_admin condition
   const menuItems = useMemo(() => {
     if (loading) return [];
 
     console.log('Current sidebar config:', sidebarConfig);
+    console.log('Is super_admin with Management:', isSuperAdminWithManagement);
+
+    // If user is super_admin with Management department, show all pages
+    if (isSuperAdminWithManagement) {
+      console.log('Showing all pages for super_admin with Management department');
+      return allPagesItems;
+    }
 
     let items = [];
 
@@ -563,7 +738,7 @@ const Sidebar = ({ isMobile = false }) => {
     })));
 
     return sortedItems;
-  }, [sidebarConfig, loading]);
+  }, [sidebarConfig, loading, isSuperAdminWithManagement]);
 
   const renderMenuItem = (item, showFull) => {
     const selected = location.pathname === item.path;
@@ -673,7 +848,7 @@ const Sidebar = ({ isMobile = false }) => {
   }
 
   // Error state
-  if (error && !sidebarConfig) {
+  if (error && !sidebarConfig && !isSuperAdminWithManagement) {
     return (
       <Container
         sx={!isMobile ? {
@@ -764,8 +939,6 @@ const Sidebar = ({ isMobile = false }) => {
         ))}
       </Box>
 
-
-      
       <Box sx={{ px: 2, py: 2 }}>
         {isSidebarOpen ? (
           <StyledListItemButton

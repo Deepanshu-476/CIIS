@@ -31,6 +31,53 @@ const STATUS_OPTIONS = [
   { value: 'cancelled', label: 'Cancelled', color: '#6c757d', icon: FiX, bgColor: '#f8f9fa' },
 ];
 
+// Normalize status function
+const normalizeStatus = (status) => {
+  if (!status) return 'pending';
+  const lower = status.toLowerCase().trim();
+  const mapping = {
+    'in progress': 'in-progress',
+    'inprogress': 'in-progress',
+    'in-progress': 'in-progress',
+    'on hold': 'onhold',
+    'onhold': 'onhold',
+    're open': 'reopen',
+    're-open': 'reopen',
+    'cancelled': 'cancelled',
+    'canceled': 'cancelled',
+    'pending': 'pending',
+    'completed': 'completed',
+    'approved': 'approved',
+    'rejected': 'rejected',
+    'overdue': 'overdue',
+  };
+  return mapping[lower] || lower;
+};
+
+// Get complete status object with color and bgColor
+const getStatusObject = (status) => {
+  const normalized = normalizeStatus(status);
+  
+  // First try to find in STATUS_OPTIONS
+  const found = STATUS_OPTIONS.find(s => s.value === normalized);
+  if (found) return found;
+  
+  // Fallback - return default based on normalized status
+  const defaultStatus = {
+    'pending': { value: 'pending', label: 'Pending', color: '#ffc107', bgColor: '#fff3cd' },
+    'in-progress': { value: 'in-progress', label: 'In Progress', color: '#17a2b8', bgColor: '#d1ecf1' },
+    'completed': { value: 'completed', label: 'Completed', color: '#28a745', bgColor: '#d4edda' },
+    'approved': { value: 'approved', label: 'Approved', color: '#20c997', bgColor: '#d1f2eb' },
+    'rejected': { value: 'rejected', label: 'Rejected', color: '#dc3545', bgColor: '#f8d7da' },
+    'overdue': { value: 'overdue', label: 'Overdue', color: '#fd7e14', bgColor: '#ffe5d0' },
+    'onhold': { value: 'onhold', label: 'On Hold', color: '#6f42c1', bgColor: '#e9d8fd' },
+    'reopen': { value: 'reopen', label: 'Reopen', color: '#e83e8c', bgColor: '#fcdce8' },
+    'cancelled': { value: 'cancelled', label: 'Cancelled', color: '#6c757d', bgColor: '#f8f9fa' }
+  };
+  
+  return defaultStatus[normalized] || defaultStatus.pending;
+};
+
 // API URL from config
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
 
@@ -1304,15 +1351,15 @@ const TaskDetails = () => {
   }, []);
 
   // UPDATED: Comprehensive reset filters function
-  const resetFilters = useCallback(() => {
-    setSearchQuery('');
-    setActiveStatusFilters(['all']);
-    setDateFilter('all');
-    setPriorityFilter('all');
-    setFromDate('');
-    setToDate('');
-    setShowStatusFilters(true);
-  }, []);
+const resetFilters = useCallback(() => {
+  setSearchQuery('');
+  setActiveStatusFilters(['all']);
+  setDateFilter('today');  // ← ab today hoga
+  setPriorityFilter('all');
+  setFromDate('');
+  setToDate('');
+  setShowStatusFilters(true);
+}, []);
 
   // UPDATED: Internal refresh function
   const refreshContent = useCallback(() => {
@@ -2336,7 +2383,7 @@ const TaskDetails = () => {
     );
   };
 
-  // UPDATED: renderEnhancedDialog - Added Remarks button
+  // UPDATED: renderEnhancedDialog - FIXED with full background color
   const renderEnhancedDialog = () => {
     if (!openDialog) return null;
 
@@ -2638,7 +2685,9 @@ const TaskDetails = () => {
                       status = 'overdue';
                     }
 
-                    const statusOption = STATUS_OPTIONS.find(s => s.value === status) || STATUS_OPTIONS[0];
+                    // Get complete status object with color and bgColor
+                    const statusObject = getStatusObject(status);
+                    
                     const isToday = isSameDay(task.dueDateTime || task.createdAt, today);
                     const isOverdue = task.dueDateTime && new Date(task.dueDateTime) < today &&
                       status !== 'completed' && status !== 'approved' && status !== 'cancelled';
@@ -2651,7 +2700,11 @@ const TaskDetails = () => {
                         key={task._id}
                         className={`TaskDetails-modal-task-card ${isToday ? 'today' : ''
                           } ${isOverdue ? 'overdue' : ''}`}
-                        style={{ '--status-color': statusOption.color }}
+                        style={{ 
+                          '--status-color': statusObject.color,
+                          backgroundColor: statusObject.bgColor,
+                          borderLeft: `3px solid ${statusObject.color}`
+                        }}
                       >
                         <div className="TaskDetails-modal-task-card-header">
                           <div className="TaskDetails-modal-task-title-section">
@@ -2661,11 +2714,12 @@ const TaskDetails = () => {
                             <span
                               className="TaskDetails-modal-task-status"
                               style={{
-                                backgroundColor: `${statusOption.color}15`,
-                                color: statusOption.color
+                                backgroundColor: statusObject.bgColor,
+                                color: statusObject.color,
+                                border: `1px solid ${statusObject.color}`
                               }}
                             >
-                              {statusOption.label}
+                              {statusObject.label}
                             </span>
                           </div>
                           <span className={`TaskDetails-modal-task-priority ${task.priority || 'medium'}`}>

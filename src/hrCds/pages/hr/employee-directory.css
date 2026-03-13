@@ -383,6 +383,9 @@
   border: 1px solid var(--dir-gray-200);
   position: relative;
   overflow: hidden;
+  display: flex;
+  gap: 26px;
+  margin-top: 4px;
 }
 
 .EmployeeDirectory-stat-card::before {
@@ -443,7 +446,7 @@
   font-weight: 700;
   color: var(--dir-gray-900);
   line-height: 1;
-  margin-bottom: 4px;
+  margin-top: 5px;
 }
 
 .EmployeeDirectory-stat-label {
@@ -452,6 +455,7 @@
   color: var(--dir-gray-600);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  margin-top: 10px;
 }
 
 /* ===== RESULTS HEADER ===== */
@@ -653,6 +657,37 @@
   border: 1px solid var(--dir-gray-300);
 }
 
+/* Company Role Badges */
+.EmployeeDirectory-company-role-owner {
+  background: linear-gradient(135deg, #ffd700, #ffb700);
+  color: #000;
+  border: 1px solid #ffd700;
+}
+
+.EmployeeDirectory-company-role-admin {
+  background: linear-gradient(135deg, #ef476f, #d43f63);
+  color: white;
+  border: 1px solid #ef476f;
+}
+
+.EmployeeDirectory-company-role-manager {
+  background: linear-gradient(135deg, #ffb703, #f39c12);
+  color: white;
+  border: 1px solid #ffb703;
+}
+
+.EmployeeDirectory-company-role-hr {
+  background: linear-gradient(135deg, #118ab2, #0a5e7a);
+  color: white;
+  border: 1px solid #118ab2;
+}
+
+.EmployeeDirectory-company-role-employee {
+  background: linear-gradient(135deg, #4361ee, #3a56d4);
+  color: white;
+  border: 1px solid #4361ee;
+}
+
 .EmployeeDirectory-employee-details {
   display: flex;
   flex-direction: column;
@@ -691,6 +726,11 @@
 .EmployeeDirectory-detail-icon-warning {
   background: rgba(255, 183, 3, 0.1);
   color: var(--dir-warning);
+}
+
+.EmployeeDirectory-detail-icon-info {
+  background: rgba(17, 138, 178, 0.1);
+  color: var(--dir-info);
 }
 
 .EmployeeDirectory-detail-text {
@@ -804,6 +844,41 @@
   box-shadow: var(--dir-shadow-md);
 }
 
+.EmployeeDirectory-btn-add {
+  background: var(--dir-gray-50);
+  color: var(--dir-primary);
+  border: 2px dashed var(--dir-primary);
+  width: 100%;
+}
+
+.EmployeeDirectory-btn-add:hover {
+  background: var(--dir-primary);
+  color: white;
+  border-style: solid;
+}
+
+.EmployeeDirectory-btn-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--dir-radius-full);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--dir-transition);
+}
+
+.EmployeeDirectory-btn-danger {
+  background: var(--dir-danger);
+  color: white;
+}
+
+.EmployeeDirectory-btn-danger:hover {
+  background: var(--dir-danger-dark);
+  transform: scale(1.1);
+}
+
 .EmployeeDirectory-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -856,11 +931,11 @@
 }
 
 .EmployeeDirectory-edit-modal {
-  max-width: 900px;
+  max-width: 1000px;
 }
 
 .EmployeeDirectory-user-detail-modal {
-  max-width: 700px;
+  max-width: 800px;
 }
 
 .EmployeeDirectory-modal-header {
@@ -929,6 +1004,50 @@
   background: var(--dir-gray-50);
 }
 
+/* ===== TABS ===== */
+.EmployeeDirectory-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 0 28px;
+  background: white;
+  border-bottom: 1px solid var(--dir-gray-200);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.EmployeeDirectory-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.EmployeeDirectory-tab {
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  color: var(--dir-gray-600);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--dir-transition);
+  border-bottom: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.EmployeeDirectory-tab:hover {
+  color: var(--dir-primary);
+}
+
+.EmployeeDirectory-tab.active {
+  color: var(--dir-primary);
+  border-bottom-color: var(--dir-primary);
+}
+
+.EmployeeDirectory-tab svg {
+  font-size: 16px;
+}
+
 /* ===== USER DETAIL SECTIONS ===== */
 .EmployeeDirectory-user-detail-sections {
   display: flex;
@@ -957,6 +1076,13 @@
 
 .EmployeeDirectory-section-title svg {
   color: var(--dir-primary);
+}
+
+.EmployeeDirectory-subsection-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dir-gray-600);
+  margin: 16px 0 12px 0;
 }
 
 .EmployeeDirectory-detail-grid {
@@ -1003,6 +1129,41 @@
   color: var(--dir-danger);
 }
 
+/* Company Role Badge in Modal */
+.EmployeeDirectory-company-role-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: var(--dir-radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.EmployeeDirectory-company-role-badge.owner {
+  background: linear-gradient(135deg, #ffd700, #ffb700);
+  color: #000;
+}
+
+.EmployeeDirectory-company-role-badge.admin {
+  background: linear-gradient(135deg, #ef476f, #d43f63);
+  color: white;
+}
+
+.EmployeeDirectory-company-role-badge.manager {
+  background: linear-gradient(135deg, #ffb703, #f39c12);
+  color: white;
+}
+
+.EmployeeDirectory-company-role-badge.hr {
+  background: linear-gradient(135deg, #118ab2, #0a5e7a);
+  color: white;
+}
+
+.EmployeeDirectory-company-role-badge.employee {
+  background: linear-gradient(135deg, #4361ee, #3a56d4);
+  color: white;
+}
+
 /* ===== FORM STYLES ===== */
 .EmployeeDirectory-form-sections {
   display: flex;
@@ -1010,16 +1171,75 @@
   gap: 24px;
 }
 
+.EmployeeDirectory-scrollable-form {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.EmployeeDirectory-scrollable-form::-webkit-scrollbar {
+  width: 6px;
+}
+
+.EmployeeDirectory-scrollable-form::-webkit-scrollbar-track {
+  background: var(--dir-gray-100);
+  border-radius: var(--dir-radius-full);
+}
+
+.EmployeeDirectory-scrollable-form::-webkit-scrollbar-thumb {
+  background: var(--dir-gray-400);
+  border-radius: var(--dir-radius-full);
+}
+
+.EmployeeDirectory-scrollable-form::-webkit-scrollbar-thumb:hover {
+  background: var(--dir-gray-500);
+}
+
 .EmployeeDirectory-form-section {
   background: var(--dir-gray-50);
   border-radius: var(--dir-radius-xl);
   padding: 20px;
+  border: 1px solid var(--dir-gray-200);
 }
 
-.EmployeeDirectory-form-grid {
+/* Personal Info Grid */
+.EmployeeDirectory-personal-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
+}
+
+/* Employment Grid */
+.EmployeeDirectory-employment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+/* Bank Details Grid */
+.EmployeeDirectory-bank-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+/* Family Grid */
+.EmployeeDirectory-family-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+/* Emergency Grid */
+.EmployeeDirectory-emergency-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+/* Full width items */
+.EmployeeDirectory-form-group-full {
+  grid-column: 1 / -1;
 }
 
 .EmployeeDirectory-form-group {
@@ -1032,6 +1252,9 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--dir-gray-700);
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .EmployeeDirectory-form-input,
@@ -1059,9 +1282,253 @@
   cursor: not-allowed;
 }
 
+.EmployeeDirectory-form-input-disabled {
+  background: var(--dir-gray-100) !important;
+  color: var(--dir-gray-600) !important;
+}
+
 .EmployeeDirectory-form-textarea {
   resize: vertical;
   min-height: 80px;
+}
+
+.EmployeeDirectory-field-note {
+  font-size: 11px;
+  color: var(--dir-gray-500);
+  margin-top: 4px;
+}
+
+/* Children Section */
+.EmployeeDirectory-children-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: white;
+  border-radius: var(--dir-radius-lg);
+  border: 1px solid var(--dir-gray-200);
+}
+
+.EmployeeDirectory-child-row {
+  display: grid;
+  grid-template-columns: 1fr 80px 120px 32px;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.EmployeeDirectory-child-input {
+  width: 100%;
+}
+
+/* Documents Section */
+.EmployeeDirectory-documents-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: white;
+  border-radius: var(--dir-radius-lg);
+  border: 1px solid var(--dir-gray-200);
+}
+
+.EmployeeDirectory-document-row {
+  display: grid;
+  grid-template-columns: 1fr 120px 1fr 32px;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.EmployeeDirectory-document-input {
+  width: 100%;
+}
+
+.EmployeeDirectory-document-select {
+  width: 100%;
+}
+
+.EmployeeDirectory-document-url {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.EmployeeDirectory-document-url-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--dir-gray-500);
+}
+
+.EmployeeDirectory-document-url input {
+  padding-left: 36px;
+}
+
+/* Assets Section */
+.EmployeeDirectory-assets-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: white;
+  border-radius: var(--dir-radius-lg);
+  border: 1px solid var(--dir-gray-200);
+}
+
+.EmployeeDirectory-assets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.EmployeeDirectory-asset-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--dir-gray-50);
+  border-radius: var(--dir-radius-md);
+  border: 1px solid var(--dir-gray-200);
+  cursor: pointer;
+  transition: var(--dir-transition);
+}
+
+.EmployeeDirectory-asset-checkbox:hover {
+  background: white;
+  border-color: var(--dir-primary);
+}
+
+.EmployeeDirectory-asset-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.EmployeeDirectory-asset-label {
+  font-size: 13px;
+  color: var(--dir-gray-700);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.EmployeeDirectory-assets-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.EmployeeDirectory-current-assets {
+  margin-top: 16px;
+  padding: 12px;
+  background: var(--dir-gray-100);
+  border-radius: var(--dir-radius-md);
+}
+
+.EmployeeDirectory-assets-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.EmployeeDirectory-asset-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, var(--dir-primary), var(--dir-secondary));
+  color: white;
+  border-radius: var(--dir-radius-full);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.EmployeeDirectory-asset-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: white;
+  border-radius: var(--dir-radius-md);
+  border: 1px solid var(--dir-gray-200);
+}
+
+.EmployeeDirectory-asset-item-icon {
+  color: var(--dir-primary);
+}
+
+.EmployeeDirectory-asset-item-name {
+  font-size: 12px;
+  color: var(--dir-gray-700);
+}
+
+/* Children List in Modal */
+.EmployeeDirectory-children-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.EmployeeDirectory-child-item {
+  display: flex;
+  gap: 16px;
+  padding: 8px 12px;
+  background: white;
+  border-radius: var(--dir-radius-md);
+  border: 1px solid var(--dir-gray-200);
+  font-size: 13px;
+}
+
+/* Documents List in Modal */
+.EmployeeDirectory-documents-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.EmployeeDirectory-document-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: white;
+  border-radius: var(--dir-radius-md);
+  border: 1px solid var(--dir-gray-200);
+}
+
+.EmployeeDirectory-document-info {
+  flex: 1;
+}
+
+.EmployeeDirectory-document-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dir-gray-800);
+}
+
+.EmployeeDirectory-document-type {
+  font-size: 12px;
+  color: var(--dir-gray-500);
+  text-transform: uppercase;
+}
+
+.EmployeeDirectory-document-link {
+  padding: 6px 12px;
+  background: var(--dir-primary);
+  color: white;
+  text-decoration: none;
+  border-radius: var(--dir-radius-md);
+  font-size: 12px;
+  font-weight: 500;
+  transition: var(--dir-transition);
+}
+
+.EmployeeDirectory-document-link:hover {
+  background: var(--dir-primary-dark);
+}
+
+.EmployeeDirectory-empty-text {
+  color: var(--dir-gray-500);
+  font-style: italic;
+  text-align: center;
+  padding: 20px;
 }
 
 /* ===== CONTEXT MENU ===== */
@@ -1362,14 +1829,38 @@
     padding: 20px;
   }
 
-  .EmployeeDirectory-form-grid {
+  /* Form Grids Mobile */
+  .EmployeeDirectory-personal-grid,
+  .EmployeeDirectory-employment-grid,
+  .EmployeeDirectory-bank-details-grid,
+  .EmployeeDirectory-family-grid,
+  .EmployeeDirectory-emergency-grid {
     grid-template-columns: 1fr;
-    gap: 12px;
   }
 
   .EmployeeDirectory-detail-grid {
     grid-template-columns: 1fr;
     gap: 12px;
+  }
+
+  /* Child Row Mobile */
+  .EmployeeDirectory-child-row {
+    grid-template-columns: 1fr 80px 32px;
+    gap: 8px;
+  }
+
+  .EmployeeDirectory-child-row .EmployeeDirectory-child-input:last-of-type {
+    grid-column: span 3;
+  }
+
+  /* Document Row Mobile */
+  .EmployeeDirectory-document-row {
+    grid-template-columns: 1fr 100px 32px;
+    gap: 8px;
+  }
+
+  .EmployeeDirectory-document-row .EmployeeDirectory-document-url {
+    grid-column: span 2;
   }
 
   .EmployeeDirectory-context-menu {
@@ -1398,6 +1889,16 @@
     min-width: auto;
     width: 100%;
     padding: 14px 16px;
+    font-size: 13px;
+  }
+
+  /* Tabs Mobile */
+  .EmployeeDirectory-tabs {
+    padding: 0 16px;
+  }
+
+  .EmployeeDirectory-tab {
+    padding: 10px 12px;
     font-size: 13px;
   }
 }
@@ -1430,6 +1931,25 @@
 
   .EmployeeDirectory-modal-footer .EmployeeDirectory-btn {
     width: 100%;
+  }
+
+  /* Child Row Small Mobile */
+  .EmployeeDirectory-child-row {
+    grid-template-columns: 1fr 32px;
+  }
+
+  .EmployeeDirectory-child-row input {
+    grid-column: span 2;
+  }
+
+  /* Document Row Small Mobile */
+  .EmployeeDirectory-document-row {
+    grid-template-columns: 1fr 32px;
+  }
+
+  .EmployeeDirectory-document-row input,
+  .EmployeeDirectory-document-row select {
+    grid-column: span 2;
   }
 }
 
@@ -1506,7 +2026,12 @@
   }
 
   .EmployeeDirectory-employee-tag-active,
-  .EmployeeDirectory-employee-tag-inactive {
+  .EmployeeDirectory-employee-tag-inactive,
+  .EmployeeDirectory-company-role-owner,
+  .EmployeeDirectory-company-role-admin,
+  .EmployeeDirectory-company-role-manager,
+  .EmployeeDirectory-company-role-hr,
+  .EmployeeDirectory-company-role-employee {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -1515,4 +2040,35 @@
 /* Animation Classes */
 .EmployeeDirectory-spin {
   animation: dir-spin 1s linear infinite;
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  :root {
+    --dir-primary: #0000ff;
+    --dir-secondary: #008080;
+    --dir-success: #008000;
+    --dir-warning: #ffa500;
+    --dir-danger: #ff0000;
+    --dir-gray-200: #000000;
+    --dir-gray-300: #000000;
+  }
+
+  .EmployeeDirectory-employee-card {
+    border: 2px solid #000;
+  }
+
+  .EmployeeDirectory-btn {
+    border: 2px solid currentColor;
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .EmployeeDirectory,
+  .EmployeeDirectory * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

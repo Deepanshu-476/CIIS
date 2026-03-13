@@ -30,7 +30,7 @@ import EmpAllTask from "./hrCds/pages/hr/EmpAllTask";
 import EmpDepartmentAllTask from "./hrCds/pages/hr/EmpDepartmentAllTask.jsx";
 import AdminProject from "./hrCds/pages/AdminProject";
 import Client from "./hrCds/pages/hr/Client";
-import ClienDashboard from "./hrCds/pages/ClienDashboard";
+import ClienDashboard from "./hrCds/pages/ClientDashboard.jsx";
 // User Pages
 import Alerts from "./hrCds/pages/Alerts";
 import Attendance from "./hrCds/pages/Attendance";

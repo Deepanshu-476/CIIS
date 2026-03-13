@@ -446,8 +446,14 @@ const Sidebar = ({ isMobile = false }) => {
   const filteredMenuItems = useMemo(() => {
     if (!userData) return [];
 
+
+
     const userDepartment = userData.department;
     const userRole = userData.jobRole;
+    
+    if (userDepartment === "Management" && userRole === "super_admin") {
+      return menuItems;
+    }
 
     return menuItems.filter(item => {
       // Check if any access rule matches the user's department and role

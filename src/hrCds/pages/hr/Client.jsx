@@ -33,6 +33,7 @@ import {
 
 // Import from react-icons/fa for additional icons if needed
 import { FaTasks, FaProjectDiagram, FaCity } from 'react-icons/fa';
+import { Repeat } from 'lucide-react';
 
 const TaskDetailsModal = ({ task, open, onClose, projectManagers = [] }) => {
   console.log('🔍 TaskDetailsModal rendered:', { taskId: task?.id, open });
@@ -1050,7 +1051,6 @@ const AddClientModal = ({
                                 <div>
                                   <span className="font-medium">{manager.name || 'No Name'}</span>
                                   <div className="dropdown-item-details">
-                                    <span>{manager.role || 'User'}</span>
                                     <span>•</span>
                                     <span>{manager.email || 'No email'}</span>
                                   </div>
@@ -1149,9 +1149,7 @@ const AddClientModal = ({
                               />
                               <label htmlFor={`service-${service._id}`} className="dropdown-item-content">
                                 <div className="font-medium">{service.servicename}</div>
-                                <small className="text-muted">
-                                  Created: {new Date(service.createdAt).toLocaleDateString()}
-                                </small>
+                    
                               </label>
                             </label>
                           ))
@@ -2132,9 +2130,9 @@ const ClientManagement = () => {
           </div>
           <div>
             <p className="font-bold">{manager.name}</p>
-            <small className="text-muted">
+            {/* <small className="text-muted">
               ID: {manager._id?.slice(-8) || manager.id?.slice(-8) || 'N/A'}
-            </small>
+            </small> */}
           </div>
         </div>
         <div className="manager-details">
@@ -2144,12 +2142,12 @@ const ClientManagement = () => {
               <small>{manager.email}</small>
             </div>
           )}
-          {manager.role && (
+          {/* {manager.role && (
             <div>
               <small className="text-muted">Role:</small>
               <small>{manager.role}</small>
             </div>
-          )}
+          )} */}
         </div>
       </div>
     );
@@ -2626,143 +2624,783 @@ const ClientManagement = () => {
         </div>
       )}
 
-      {viewDialog.open && viewDialog.client && (
-        <div className="modal-overlay" onClick={() => setViewDialog({ open: false, client: null })}>
-          <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
-            <div className="modal__header">
-              <h3>Client Details & Task Management</h3>
-              <button className="action-button" onClick={() => setViewDialog({ open: false, client: null })}>
-                <FiX />
-              </button>
-            </div>
-            <div className="modal__content">
-              <div className="client-details-content">
-                <div className="client-details-section">
-                  <h4 className="section-header">
-                    <FiBriefcase /> Basic Information
-                  </h4>
-                  <div className="details-grid">
-                    <div className="detail-item">
-                      <p className="detail-label">Client Name</p>
-                      <p className="detail-value">{viewDialog.client.client}</p>
-                    </div>
-                    <div className="detail-item">
-                      <p className="detail-label">Company</p>
-                      <p className="detail-value">{viewDialog.client.company}</p>
-                    </div>
-                    <div className="detail-item">
-                      <p className="detail-label">City</p>
-                      <p className="detail-value">{viewDialog.client.city}</p>
-                    </div>
-                    <div className="detail-item">
-                      <p className="detail-label">Status</p>
-                      <div className={`status-chip status-chip--${viewDialog.client.status === 'Active' ? 'active' : viewDialog.client.status === 'On Hold' ? 'on-hold' : 'default'}`}>
-                        {viewDialog.client.status}
-                      </div>
-                    </div>
-                    {(viewDialog.client.companyCode || viewDialog.client.companyIdentifier) && (
-                      <div className="detail-item">
-                        <p className="detail-label">Company Info</p>
-                        <p className="detail-value">
-                          {viewDialog.client.companyCode && `Code: ${viewDialog.client.companyCode}`}
-                          {viewDialog.client.companyIdentifier && ` • ID: ${viewDialog.client.companyIdentifier}`}
-                        </p>
-                      </div>
+{viewDialog.open && viewDialog.client && (
+  <div 
+    className="modal-overlay" 
+    onClick={() => setViewDialog({ open: false, client: null })}
+    style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'linear-gradient(135deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.9) 100%)',
+      backdropFilter: 'blur(8px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 9999,
+      animation: 'fadeIn 0.3s ease',
+      padding: window.innerWidth <= 768 ? '10px' : '0'
+    }}
+  >
+    <div 
+      className="modal modal-lg" 
+      onClick={e => e.stopPropagation()}
+      style={{
+        background: 'linear-gradient(135deg, #ffffff 0%, #f5f7ff 100%)',
+        borderRadius: window.innerWidth <= 768 ? '20px' : '28px',
+        boxShadow: '0 30px 70px -20px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1) inset',
+        width: window.innerWidth <= 768 ? '100%' : '90%',
+        maxWidth: '1100px',
+        maxHeight: window.innerWidth <= 768 ? '98vh' : '90vh',
+        height: window.innerWidth <= 768 ? '98vh' : 'auto',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        animation: 'slideUp 0.4s ease'
+      }}
+    >
+      {/* Modal Header - Mobile Responsive */}
+      <div 
+        className="modal__header"
+        style={{
+          padding: window.innerWidth <= 768 ? '16px 20px' : '24px 30px',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          borderBottom: '1px solid rgba(255,255,255,0.2)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: window.innerWidth <= 768 ? 'wrap' : 'nowrap',
+          gap: window.innerWidth <= 768 ? '10px' : '0'
+        }}
+      >
+        <h3 style={{
+          margin: 0,
+          fontSize: window.innerWidth <= 768 ? '18px' : '24px',
+          fontWeight: 600,
+          color: 'white',
+          textShadow: '0 2px 4px rgba(0,0,0,0.2)',
+          letterSpacing: '0.5px',
+          lineHeight: 1.3,
+          flex: 1
+        }}>
+          Client Details
+        </h3>
+        <button 
+          className="action-button" 
+          onClick={() => setViewDialog({ open: false, client: null })}
+          style={{
+            background: 'rgba(255,255,255,0.2)',
+            border: 'none',
+            color: 'white',
+            width: window.innerWidth <= 768 ? '36px' : '40px',
+            height: window.innerWidth <= 768 ? '36px' : '40px',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            fontSize: window.innerWidth <= 768 ? '18px' : '20px',
+            backdropFilter: 'blur(4px)',
+            transition: 'all 0.3s ease',
+            border: '1px solid rgba(255,255,255,0.3)',
+            flexShrink: 0
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+        >
+          <FiX />
+        </button>
+      </div>
+      
+      {/* Modal Content - Mobile Responsive */}
+      <div 
+        className="modal__content"
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: window.innerWidth <= 768 ? '16px' : '30px',
+          background: '#f8fafc',
+          WebkitOverflowScrolling: 'touch'
+        }}
+      >
+        <div className="client-details-content" style={{ 
+          display: 'flex', 
+          flexDirection: 'column',
+         
+          gap: window.innerWidth <= 768 ? '16px' : '30px' 
+        }}>
+          
+          {/* Basic Information Section - Mobile Responsive */}
+          <div 
+            className="client-details-section"
+            style={{
+              background: 'white',
+              borderRadius: window.innerWidth <= 768 ? '16px' : '20px',
+              padding: window.innerWidth <= 768 ? '16px' : '25px',
+              boxShadow: '0 10px 30px -15px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.02)',
+              transition: 'transform 0.3s ease, box-shadow 0.3s ease'
+            }}
+            onMouseEnter={e => {
+              if(window.innerWidth > 768) {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 20px 40px -15px rgba(0,0,0,0.2)';
+              }
+            }}
+            onMouseLeave={e => {
+              if(window.innerWidth > 768) {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 10px 30px -15px rgba(0,0,0,0.1)';
+              }
+            }}
+          >
+            <h4 className="section-header" style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              margin: '0 0 16px 0',
+              fontSize: window.innerWidth <= 768 ? '16px' : '18px',
+              fontWeight: 600,
+              color: '#1e293b',
+              paddingBottom: '10px',
+              borderBottom: '2px solid #f1f5f9'
+            }}>
+              <FiBriefcase style={{ color: '#4158D0', fontSize: window.innerWidth <= 768 ? '18px' : '20px' }} />
+              Basic Information
+            </h4>
+            
+            <div className="details-grid" style={{
+              display: 'grid',
+        gridTemplateColumns: 'Repeat(2,1fr)',
+              gap: window.innerWidth <= 768 ? '12px' : '20px'
+            }}>
+              <div className="detail-item" style={{ padding: '8px 0' }}>
+                <p className="detail-label" style={{
+                  fontSize: window.innerWidth <= 768 ? '12px' : '13px',
+                  color: '#64748b',
+                  marginBottom: '4px',
+                  fontWeight: 500,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>Client Name</p>
+                <p className="detail-value client-name-highlight" style={{
+                  fontSize: window.innerWidth <= 768 ? '16px' : '18px',
+                  fontWeight: 600,
+                  color: '#4158D0',
+                  margin: 0,
+                  wordBreak: 'break-word'
+                }}>{viewDialog.client.client}</p>
+              </div>
+              
+              <div className="detail-item" style={{ padding: '8px 0' }}>
+                <p className="detail-label" style={{
+                  fontSize: window.innerWidth <= 768 ? '12px' : '13px',
+                  color: '#64748b',
+                  marginBottom: '4px',
+                  fontWeight: 500,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>Company</p>
+                <p className="detail-value company-badge" style={{
+                  fontSize: window.innerWidth <= 768 ? '14px' : '16px',
+                  fontWeight: 500,
+                  color: '#334155',
+                  margin: 0,
+                  background: '#f1f5f9',
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  display: 'inline-block',
+                  wordBreak: 'break-word',
+                  maxWidth: '100%'
+                }}>{viewDialog.client.company}</p>
+              </div>
+              
+              <div className="detail-item" style={{ padding: '8px 0' }}>
+                <p className="detail-label" style={{
+                  fontSize: window.innerWidth <= 768 ? '12px' : '13px',
+                  color: '#64748b',
+                  marginBottom: '4px',
+                  fontWeight: 500,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>City</p>
+                <p className="detail-value location-text" style={{
+                  fontSize: window.innerWidth <= 768 ? '14px' : '16px',
+                  color: '#334155',
+                  margin: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  flexWrap: 'wrap'
+                }}>
+                  <span style={{
+                    width: '8px',
+                    height: '8px',
+                    background: '#10b981',
+                    borderRadius: '50%',
+                    display: 'inline-block',
+                    flexShrink: 0
+                  }}></span>
+                  <span style={{ wordBreak: 'break-word' }}>{viewDialog.client.city}</span>
+                </p>
+              </div>
+              
+              <div className="detail-item" style={{ padding: '8px 0' }}>
+                <p className="detail-label" style={{
+                  fontSize: window.innerWidth <= 768 ? '12px' : '13px',
+                  color: '#64748b',
+                  marginBottom: '4px',
+                  fontWeight: 500,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>Status</p>
+                <div className={`status-chip status-chip--${viewDialog.client.status === 'Active' ? 'active' : viewDialog.client.status === 'On Hold' ? 'on-hold' : 'default'}`} style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: window.innerWidth <= 768 ? '4px 12px' : '6px 14px',
+                  borderRadius: '30px',
+                  fontSize: window.innerWidth <= 768 ? '13px' : '14px',
+                  fontWeight: 500,
+                  background: viewDialog.client.status === 'Active' ? '#d1fae5' : viewDialog.client.status === 'On Hold' ? '#fed7aa' : '#f1f5f9',
+                  color: viewDialog.client.status === 'Active' ? '#065f46' : viewDialog.client.status === 'On Hold' ? '#92400e' : '#475569',
+                  border: viewDialog.client.status === 'Active' ? '1px solid #10b981' : viewDialog.client.status === 'On Hold' ? '1px solid #f59e0b' : '1px solid #cbd5e1'
+                }}>
+                  <span style={{
+                    width: '8px',
+                    height: '8px',
+                    background: viewDialog.client.status === 'Active' ? '#10b981' : viewDialog.client.status === 'On Hold' ? '#f59e0b' : '#94a3b8',
+                    borderRadius: '50%',
+                    display: 'inline-block'
+                  }}></span>
+                  {viewDialog.client.status}
+                </div>
+              </div>
+              
+              {(viewDialog.client.companyCode || viewDialog.client.companyIdentifier) && (
+                <div className="detail-item company-info-item" style={{
+                  padding: '8px 0',
+                  gridColumn: window.innerWidth <= 768 ? 'auto' : 'span 2'
+                }}>
+                  <p className="detail-label" style={{
+                    fontSize: window.innerWidth <= 768 ? '12px' : '13px',
+                    color: '#64748b',
+                    marginBottom: '4px',
+                    fontWeight: 500,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>Company Info</p>
+                  <p className="detail-value company-codes" style={{
+                    display: 'flex',
+                    gap: '8px',
+                    flexWrap: 'wrap',
+                    margin: 0
+                  }}>
+                    {viewDialog.client.companyCode && (
+                      <span style={{
+                        background: '#e0e7ff',
+                        color: '#4f46e5',
+                        padding: '4px 10px',
+                        borderRadius: '20px',
+                        fontSize: window.innerWidth <= 768 ? '12px' : '13px',
+                        fontWeight: 500,
+                        wordBreak: 'break-word'
+                      }}>Code: {viewDialog.client.companyCode}</span>
                     )}
-                  </div>
-                </div>
-
-                <div className="client-details-section">
-                  <h4 className="section-header">
-                    <FiUsers /> Team
-                  </h4>
-                  <p className="section-description">
-                    These managers will appear in task assignment dropdowns
+                    {viewDialog.client.companyIdentifier && (
+                      <span style={{
+                        background: '#e0e7ff',
+                        color: '#7c3aed',
+                        padding: '4px 10px',
+                        borderRadius: '20px',
+                        fontSize: window.innerWidth <= 768 ? '12px' : '13px',
+                        fontWeight: 500,
+                        wordBreak: 'break-word'
+                      }}>ID: {viewDialog.client.companyIdentifier}</span>
+                    )}
                   </p>
-                  <div>
-                    {(() => {
-                      const managers = getProjectManagersDetails(viewDialog.client);
-                      return managers.length > 0 ? (
-                        managers.map((manager, idx) => (
-                          <React.Fragment key={idx}>
-                            {renderManagerInfo(manager)}
-                          </React.Fragment>
-                        ))
-                      ) : (
-                        <div className="empty-state">
-                          <p className="text-muted">No project managers assigned</p>
-                        </div>
-                      );
-                    })()}
-                  </div>
                 </div>
+              )}
+            </div>
+          </div>
 
-                {viewDialog.client.services && viewDialog.client.services.length > 0 && (
-                  <div className="client-details-section">
-                    <h4 className="section-header">
-                      <FiTrendingUp /> Services & Task Management
-                    </h4>
-                    <p className="section-description">
-                      Add tasks with due dates and assign them to project managers
-                    </p>
-                    
-                    {viewDialog.client.services.map((service, index) => {
-                      const clientProjectManagers = getProjectManagersDetails(viewDialog.client);
-                      return (
+          {/* Team Section - Mobile Responsive */}
+          <div 
+            className="client-details-section team-section"
+            style={{
+              background: 'white',
+              borderRadius: window.innerWidth <= 768 ? '16px' : '20px',
+              padding: window.innerWidth <= 768 ? '16px' : '25px',
+              boxShadow: '0 10px 30px -15px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.02)',
+              transition: 'transform 0.3s ease, box-shadow 0.3s ease'
+            }}
+            onMouseEnter={e => {
+              if(window.innerWidth > 768) {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 20px 40px -15px rgba(0,0,0,0.2)';
+              }
+            }}
+            onMouseLeave={e => {
+              if(window.innerWidth > 768) {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 10px 30px -15px rgba(0,0,0,0.1)';
+              }
+            }}
+          >
+            <h4 className="section-header" style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              margin: '0 0 16px 0',
+              fontSize: window.innerWidth <= 768 ? '16px' : '18px',
+              fontWeight: 600,
+              color: '#1e293b',
+              paddingBottom: '10px',
+              borderBottom: '2px solid #f1f5f9'
+            }}>
+              <FiUsers style={{ color: '#C850C0', fontSize: window.innerWidth <= 768 ? '18px' : '20px' }} />
+              Team
+            </h4>
+            
+            <p className="section-description" style={{
+              margin: '0 0 16px 0',
+              fontSize: window.innerWidth <= 768 ? '13px' : '14px',
+              color: '#64748b',
+              background: '#f8fafc',
+              padding: window.innerWidth <= 768 ? '10px 12px' : '12px 16px',
+              borderRadius: '12px',
+              borderLeft: '4px solid #C850C0',
+              lineHeight: 1.5
+            }}>
+              <span style={{ marginRight: '8px', fontSize: window.innerWidth <= 768 ? '14px' : '16px' }}>👥</span>
+              These managers will appear in task assignment dropdowns
+            </p>
+            
+            <div className="team-members-container">
+              {(() => {
+                const managers = getProjectManagersDetails(viewDialog.client);
+                return managers.length > 0 ? (
+                  <div className="managers-grid" style={{
+                    display: 'grid',
+                    gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))',
+                    gap: window.innerWidth <= 768 ? '10px' : '15px'
+                  }}>
+                    {managers.map((manager, idx) => (
+                      <div key={idx} className="manager-card-wrapper" style={{
+                        background: '#f8fafc',
+                        borderRadius: '14px',
+                        padding: window.innerWidth <= 768 ? '12px' : '16px',
+                        border: '1px solid #e2e8f0',
+                        transition: 'all 0.3s ease'
+                      }}
+                      onMouseEnter={e => {
+                        if(window.innerWidth > 768) {
+                          e.currentTarget.style.background = '#f1f5f9';
+                          e.currentTarget.style.borderColor = '#C850C0';
+                          e.currentTarget.style.transform = 'translateX(4px)';
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        if(window.innerWidth > 768) {
+                          e.currentTarget.style.background = '#f8fafc';
+                          e.currentTarget.style.borderColor = '#e2e8f0';
+                          e.currentTarget.style.transform = 'translateX(0)';
+                        }
+                      }}
+                      >
+                        {renderManagerInfo(manager)}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="empty-state enhanced-empty" style={{
+                    textAlign: 'center',
+                    padding: window.innerWidth <= 768 ? '30px 16px' : '40px 20px',
+                    background: '#f8fafc',
+                    borderRadius: '16px',
+                    border: '2px dashed #cbd5e1'
+                  }}>
+                    <div style={{ fontSize: window.innerWidth <= 768 ? '40px' : '48px', marginBottom: '12px', opacity: 0.5 }}>👥</div>
+                    <p className="text-muted" style={{ 
+                      color: '#94a3b8', 
+                      marginBottom: '16px',
+                      fontSize: window.innerWidth <= 768 ? '14px' : '16px'
+                    }}>No project managers assigned</p>
+                    <button style={{
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      color: 'white',
+                      border: 'none',
+                      padding: window.innerWidth <= 768 ? '8px 20px' : '10px 24px',
+                      borderRadius: '30px',
+                      fontSize: window.innerWidth <= 768 ? '13px' : '14px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 10px rgba(200,80,192,0.3)',
+                      width: window.innerWidth <= 768 ? '100%' : 'auto'
+                    }}>Assign Manager</button>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Services & Task Management Section - Mobile Responsive */}
+          {viewDialog.client.services && viewDialog.client.services.length > 0 && (
+            <div 
+              className="client-details-section services-section"
+              style={{
+                background: 'white',
+                borderRadius: window.innerWidth <= 768 ? '16px' : '20px',
+                padding: window.innerWidth <= 768 ? '16px' : '25px',
+                boxShadow: '0 10px 30px -15px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.02)',
+                transition: 'transform 0.3s ease, box-shadow 0.3s ease'
+              }}
+              onMouseEnter={e => {
+                if(window.innerWidth > 768) {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 20px 40px -15px rgba(0,0,0,0.2)';
+                }
+              }}
+              onMouseLeave={e => {
+                if(window.innerWidth > 768) {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 10px 30px -15px rgba(0,0,0,0.1)';
+                }
+              }}
+            >
+              <h4 className="section-header" style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                margin: '0 0 16px 0',
+                fontSize: window.innerWidth <= 768 ? '16px' : '18px',
+                fontWeight: 600,
+                color: '#1e293b',
+                paddingBottom: '10px',
+                borderBottom: '2px solid #f1f5f9'
+              }}>
+                <FiTrendingUp style={{ color: '#FFCC70', fontSize: window.innerWidth <= 768 ? '18px' : '20px' }} />
+                Services & Tasks
+              </h4>
+              
+              <p className="section-description" style={{
+                margin: '0 0 16px 0',
+                fontSize: window.innerWidth <= 768 ? '13px' : '14px',
+                color: '#64748b',
+                background: '#f8fafc',
+                padding: window.innerWidth <= 768 ? '10px 12px' : '12px 16px',
+                borderRadius: '12px',
+                borderLeft: '4px solid #FFCC70',
+                lineHeight: 1.5
+              }}>
+                <span style={{ marginRight: '8px', fontSize: window.innerWidth <= 768 ? '14px' : '16px' }}>📋</span>
+                Add tasks with due dates and assign them to project managers
+              </p>
+              
+              <div className="services-container" style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: window.innerWidth <= 768 ? '12px' : '20px' 
+              }}>
+                {viewDialog.client.services.map((service, index) => {
+                  const clientProjectManagers = getProjectManagersDetails(viewDialog.client);
+                  return (
+                    <div key={index} className="service-card-wrapper" style={{
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '16px',
+                      overflow: 'hidden',
+                      transition: 'all 0.3s ease',
+                    }}
+                    onMouseEnter={e => {
+                      if(window.innerWidth > 768) {
+                        e.currentTarget.style.borderColor = '#4158D0';
+                        e.currentTarget.style.boxShadow = '0 10px 25px -10px rgba(65,88,208,0.3)';
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if(window.innerWidth > 768) {
+                        e.currentTarget.style.borderColor = '#e2e8f0';
+                        e.currentTarget.style.boxShadow = 'none';
+                      }
+                    }}
+                    >
+                      <div style={{
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        padding: window.innerWidth <= 768 ? '10px 14px' : '12px 16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
+                        <span style={{ fontSize: window.innerWidth <= 768 ? '18px' : '20px' }}>📊</span>
+                        <h5 style={{ 
+                          margin: 0, 
+                          color: 'white', 
+                          fontWeight: 500,
+                          fontSize: window.innerWidth <= 768 ? '14px' : '16px',
+                          wordBreak: 'break-word'
+                        }}>{service}</h5>
+                      </div>
+                      <div style={{ padding: window.innerWidth <= 768 ? '12px' : '16px' }}>
                         <ServiceProgressCard
-                          key={index}
                           service={service}
                           clientId={viewDialog.client._id}
                           clientProjectManagers={clientProjectManagers}
                           onTaskUpdate={handleTaskUpdate}
                           api={tasksApi}
                         />
-                      );
-                    })}
-                  </div>
-                )}
-
-                <div className="client-details-section">
-                  <h4 className="section-header">
-                    <FiMapPin /> Additional Information
-                  </h4>
-                  <div className="details-grid">
-                    {viewDialog.client.phone && (
-                      <div className="detail-item">
-                        <p className="detail-label">Phone</p>
-                        <p className="detail-value">{viewDialog.client.phone}</p>
                       </div>
-                    )}
-                    {viewDialog.client.address && (
-                      <div className="detail-item">
-                        <p className="detail-label">Address</p>
-                        <p className="detail-value">{viewDialog.client.address}</p>
-                      </div>
-                    )}
-                    {viewDialog.client.description && (
-                      <div className="detail-item detail-item-full">
-                        <p className="detail-label">Description</p>
-                        <p className="detail-value">{viewDialog.client.description}</p>
-                      </div>
-                    )}
-                    {viewDialog.client.notes && (
-                      <div className="detail-item detail-item-full">
-                        <p className="detail-label">Notes</p>
-                        <p className="detail-value">{viewDialog.client.notes}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-            <div className="modal__footer">
-              <button className="btn btn--outlined" onClick={() => setViewDialog({ open: false, client: null })}>
-                Close
-              </button>
+          )}
+
+          {/* Additional Information Section - Mobile Responsive */}
+          <div 
+            className="client-details-section additional-info-section"
+            style={{
+              background: 'white',
+              borderRadius: window.innerWidth <= 768 ? '16px' : '20px',
+              padding: window.innerWidth <= 768 ? '16px' : '25px',
+              boxShadow: '0 10px 30px -15px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.02)',
+              transition: 'transform 0.3s ease, box-shadow 0.3s ease'
+            }}
+            onMouseEnter={e => {
+              if(window.innerWidth > 768) {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 20px 40px -15px rgba(0,0,0,0.2)';
+              }
+            }}
+            onMouseLeave={e => {
+              if(window.innerWidth > 768) {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 10px 30px -15px rgba(0,0,0,0.1)';
+              }
+            }}
+          >
+            <h4 className="section-header" style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              margin: '0 0 16px 0',
+              fontSize: window.innerWidth <= 768 ? '16px' : '18px',
+              fontWeight: 600,
+              color: '#1e293b',
+              paddingBottom: '10px',
+              borderBottom: '2px solid #f1f5f9'
+            }}>
+              <FiMapPin style={{ color: '#10b981', fontSize: window.innerWidth <= 768 ? '18px' : '20px' }} />
+              Additional Information
+            </h4>
+            
+            <div className="details-grid additional-grid" style={{
+              display: 'grid',
+              gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : 'repeat(auto-fit, minmax(250px, 1fr))',
+              gap: window.innerWidth <= 768 ? '12px' : '20px'
+            }}>
+              {viewDialog.client.phone && (
+                <div className="detail-item contact-item" style={{
+                  padding: window.innerWidth <= 768 ? '10px' : '12px',
+                  background: '#f8fafc',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0'
+                }}>
+                  <p className="detail-label" style={{
+                    fontSize: window.innerWidth <= 768 ? '12px' : '13px',
+                    color: '#64748b',
+                    marginBottom: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    <span style={{ fontSize: window.innerWidth <= 768 ? '14px' : '16px' }}>📞</span> Phone
+                  </p>
+                  <p className="detail-value contact-value" style={{
+                    fontSize: window.innerWidth <= 768 ? '14px' : '15px',
+                    fontWeight: 500,
+                    color: '#1e293b',
+                    margin: 0,
+                    wordBreak: 'break-word'
+                  }}>{viewDialog.client.phone}</p>
+                </div>
+              )}
+              
+              {viewDialog.client.email && (
+                <div className="detail-item contact-item" style={{
+                  padding: window.innerWidth <= 768 ? '10px' : '12px',
+                  background: '#f8fafc',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0'
+                }}>
+                  <p className="detail-label" style={{
+                    fontSize: window.innerWidth <= 768 ? '12px' : '13px',
+                    color: '#64748b',
+                    marginBottom: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    <span style={{ fontSize: window.innerWidth <= 768 ? '14px' : '16px' }}>✉️</span> Email
+                  </p>
+                  <p className="detail-value contact-value email-value" style={{
+                    fontSize: window.innerWidth <= 768 ? '13px' : '14px',
+                    color: '#4158D0',
+                    margin: 0,
+                    wordBreak: 'break-all'
+                  }}>{viewDialog.client.email}</p>
+                </div>
+              )}
+              
+              {viewDialog.client.address && (
+                <div className="detail-item address-item" style={{
+                  padding: window.innerWidth <= 768 ? '10px' : '12px',
+                  background: '#f8fafc',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  gridColumn: window.innerWidth <= 768 ? 'auto' : (viewDialog.client.phone && viewDialog.client.email ? 'span 2' : 'auto')
+                }}>
+                  <p className="detail-label" style={{
+                    fontSize: window.innerWidth <= 768 ? '12px' : '13px',
+                    color: '#64748b',
+                    marginBottom: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    <span style={{ fontSize: window.innerWidth <= 768 ? '14px' : '16px' }}>📍</span> Address
+                  </p>
+                  <p className="detail-value address-text" style={{
+                    fontSize: window.innerWidth <= 768 ? '13px' : '14px',
+                    color: '#334155',
+                    margin: 0,
+                    lineHeight: 1.5,
+                    wordBreak: 'break-word'
+                  }}>{viewDialog.client.address}</p>
+                </div>
+              )}
+              
+              {viewDialog.client.description && (
+                <div className="detail-item detail-item-full description-item" style={{
+                  padding: window.innerWidth <= 768 ? '10px' : '12px',
+                  background: '#f8fafc',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  gridColumn: '1/-1'
+                }}>
+                  <p className="detail-label" style={{
+                    fontSize: window.innerWidth <= 768 ? '12px' : '13px',
+                    color: '#64748b',
+                    marginBottom: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    <span style={{ fontSize: window.innerWidth <= 768 ? '14px' : '16px' }}>📝</span> Description
+                  </p>
+                  <p className="detail-value description-text" style={{
+                    fontSize: window.innerWidth <= 768 ? '13px' : '14px',
+                    color: '#334155',
+                    margin: 0,
+                    lineHeight: 1.6,
+                    padding: window.innerWidth <= 768 ? '10px' : '12px',
+                    background: 'white',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0',
+                    wordBreak: 'break-word'
+                  }}>{viewDialog.client.description}</p>
+                </div>
+              )}
+              
+              {viewDialog.client.notes && (
+                <div className="detail-item detail-item-full notes-item" style={{
+                  padding: window.innerWidth <= 768 ? '10px' : '12px',
+                  background: '#fff7ed',
+                  borderRadius: '12px',
+                  border: '1px solid #fed7aa',
+                  gridColumn: '1/-1'
+                }}>
+                  <p className="detail-label" style={{
+                    fontSize: window.innerWidth <= 768 ? '12px' : '13px',
+                    color: '#9a3412',
+                    marginBottom: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    <span style={{ fontSize: window.innerWidth <= 768 ? '14px' : '16px' }}>📌</span> Notes
+                  </p>
+                  <p className="detail-value notes-text" style={{
+                    fontSize: window.innerWidth <= 768 ? '13px' : '14px',
+                    color: '#7c2d12',
+                    margin: 0,
+                    lineHeight: 1.6,
+                    padding: window.innerWidth <= 768 ? '10px' : '12px',
+                    background: '#fffbeb',
+                    borderRadius: '8px',
+                    border: '1px solid #fed7aa',
+                    wordBreak: 'break-word'
+                  }}>{viewDialog.client.notes}</p>
+                </div>
+              )}
             </div>
           </div>
+
         </div>
-      )}
+      </div>
+      
+      {/* Modal Footer - Mobile Responsive */}
+      <div 
+        className="modal__footer"
+        style={{
+          padding: window.innerWidth <= 768 ? '12px 16px' : '20px 30px',
+          background: 'white',
+          borderTop: '1px solid #e2e8f0',
+          display: 'flex',
+          justifyContent: window.innerWidth <= 768 ? 'stretch' : 'flex-end'
+        }}
+      >
+        <button 
+          className="btn btn--outlined" 
+          onClick={() => setViewDialog({ open: false, client: null })}
+          style={{
+            padding: window.innerWidth <= 768 ? '10px 20px' : '12px 28px',
+            borderRadius: '30px',
+            fontSize: window.innerWidth <= 768 ? '14px' : '15px',
+            fontWeight: 500,
+            background: 'transparent',
+            border: '2px solid #e2e8f0',
+            color: '#64748b',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            transition: 'all 0.3s ease',
+            width: window.innerWidth <= 768 ? '100%' : 'auto'
+          }}
+          onMouseEnter={e => {
+            if(window.innerWidth > 768) {
+              e.currentTarget.style.background = '#f1f5f9';
+              e.currentTarget.style.borderColor = '#94a3b8';
+              e.currentTarget.style.color = '#334155';
+            }
+          }}
+          onMouseLeave={e => {
+            if(window.innerWidth > 768) {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.borderColor = '#e2e8f0';
+              e.currentTarget.style.color = '#64748b';
+            }
+          }}
+        >
+          <span style={{ fontSize: window.innerWidth <= 768 ? '16px' : '18px' }}>✕</span> Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {editDialog.open && editDialog.client && (
         <div className="modal-overlay" onClick={() => setEditDialog({ open: false, client: null })}>
@@ -2835,6 +3473,7 @@ const ClientManagement = () => {
                     {safeMapProjectManagers((manager) => (
                       <div key={manager._id} className="manager-checkbox-item">
                         <input
+                        style ={{ width: '16px', height: '14px' }}
                           type="checkbox"
                           id={`edit-manager-${manager._id}`}
                           checked={editDialog.client.projectManagers.some(pm => pm._id === manager._id || pm.id === manager._id)}
@@ -2850,7 +3489,6 @@ const ClientManagement = () => {
                                       _id: manager._id,
                                       name: manager.name,
                                       email: manager.email,
-                                      role: manager.role
                                     }]
                                   : editDialog.client.projectManagers.filter(pm => pm._id !== manager._id)
                               }
@@ -2864,7 +3502,7 @@ const ClientManagement = () => {
                           <div>
                             <p className="font-bold">{manager.name}</p>
                             <small className="text-muted">
-                              {manager.role} • {manager.email}
+                             • {manager.email}
                             </small>
                           </div>
                         </div>
@@ -2879,6 +3517,7 @@ const ClientManagement = () => {
                     {services.map((service) => (
                       <div key={service._id} className="service-checkbox-item">
                         <input
+                        style ={{ width: '16px', height: '14px' }}
                           type="checkbox"
                           id={`edit-service-${service._id}`}
                           checked={(editDialog.client.services || []).includes(service.servicename)}

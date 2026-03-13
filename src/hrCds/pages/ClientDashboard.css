@@ -1,14 +1,96 @@
 /* ClientDashboard.css */
 
+/* Base Styles */
 .ClientDashboard-client-dashboard {
   min-height: 100vh;
   background: #f5f5f5;
+  display: block;
+  padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+/* Header Styles */
+.ClientDashboard-header {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  background: white;
+  padding: 20px 24px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.ClientDashboard-header-left h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.ClientDashboard-header-subtitle {
+  font-size: 14px;
+  color: #666;
+}
+
+.ClientDashboard-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ClientDashboard-last-refresh {
+  font-size: 12px;
+  color: #999;
+  background: #f5f5f5;
+  padding: 6px 12px;
+  border-radius: 20px;
+}
+
+.ClientDashboard-refresh-header-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.ClientDashboard-refresh-header-btn:hover {
+  background: #1565c0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
+}
+
+.ClientDashboard-logout-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 8px;
+  background: #f44336;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.ClientDashboard-logout-btn:hover {
+  background: #d32f2f;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
 }
 
 /* Loading State */
-.ClientDashboard-client-dashboard-loading,
-.ClientDashboard-client-dashboard-error {
+.ClientDashboard-dashboard-loading,
+.ClientDashboard-dashboard-error {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -34,12 +116,54 @@
   to { transform: rotate(360deg); }
 }
 
+/* Loading Skeleton */
+.ClientDashboard-loading-skeleton {
+  width: 100%;
+  max-width: 1200px;
+  margin-top: 40px;
+}
+
+.ClientDashboard-skeleton-header {
+  height: 60px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  margin-bottom: 24px;
+  animation: ClientDashboard-pulse 1.5s ease-in-out infinite;
+}
+
+.ClientDashboard-skeleton-stats {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.ClientDashboard-skeleton-card {
+  height: 100px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  animation: ClientDashboard-pulse 1.5s ease-in-out infinite;
+}
+
+.ClientDashboard-skeleton-content {
+  height: 400px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  animation: ClientDashboard-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes ClientDashboard-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.3; }
+}
+
+/* Error State */
 .ClientDashboard-error-icon {
   font-size: 48px;
   margin-bottom: 16px;
 }
 
-.ClientDashboard-client-dashboard-error .ClientDashboard-btn {
+.ClientDashboard-dashboard-error .ClientDashboard-btn {
   margin: 8px;
   padding: 10px 20px;
   border: none;
@@ -50,342 +174,49 @@
   transition: all 0.3s;
 }
 
-.ClientDashboard-client-dashboard-error .ClientDashboard-btn--primary {
+.ClientDashboard-dashboard-error .ClientDashboard-btn--primary {
   background: white;
   color: #667eea;
 }
 
-.ClientDashboard-client-dashboard-error .ClientDashboard-btn--outlined {
+.ClientDashboard-dashboard-error .ClientDashboard-btn--outlined {
   background: transparent;
   border: 1px solid white;
   color: white;
 }
 
-/* Mobile Menu Button */
-.ClientDashboard-mobile-menu-btn {
-  display: none;
-  position: fixed;
-  top: 16px;
-  left: 16px;
-  z-index: 100;
-  background: white;
-  border: none;
-  border-radius: 8px;
-  padding: 10px;
-  font-size: 20px;
-  cursor: pointer;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-@media (max-width: 768px) {
-  .ClientDashboard-mobile-menu-btn {
-    display: block;
-  }
-}
-
-/* Sidebar */
-.ClientDashboard-dashboard-sidebar {
-  width: 280px;
-  background: white;
-  height: 100vh;
-  position: fixed;
-  left: 0;
-  top: 0;
-  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease;
-  z-index: 1000;
-  overflow-y: auto;
-}
-
-@media (max-width: 768px) {
-  .ClientDashboard-dashboard-sidebar {
-    transform: translateX(-100%);
-  }
-  
-  .ClientDashboard-dashboard-sidebar.ClientDashboard-sidebar-open {
-    transform: translateX(0);
-  }
-}
-
-.ClientDashboard-sidebar-header {
-  padding: 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+.ClientDashboard-error-actions {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
 }
 
-.ClientDashboard-sidebar-header h2 {
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.ClientDashboard-sidebar-close {
-  display: none;
-  background: none;
-  border: none;
-  color: white;
-  font-size: 20px;
-  cursor: pointer;
-}
-
-@media (max-width: 768px) {
-  .ClientDashboard-sidebar-close {
-    display: block;
-  }
-}
-
-.ClientDashboard-sidebar-user {
+/* Info Cards */
+.ClientDashboard-info-card {
+  background: white;
+  border-radius: 12px;
   padding: 24px;
-  text-align: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  margin-bottom: 24px;
+}
+
+.ClientDashboard-info-card h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
   border-bottom: 1px solid #e0e0e0;
 }
 
-.ClientDashboard-user-avatar {
-  width: 80px;
-  height: 80px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32px;
-  font-weight: 600;
-  color: white;
-  margin: 0 auto 16px;
-}
-
-.ClientDashboard-user-info h4 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 4px;
-}
-
-.ClientDashboard-user-info p {
-  font-size: 14px;
-  color: #666;
-  margin-bottom: 12px;
-}
-
-.ClientDashboard-sidebar-nav {
-  padding: 24px;
-}
-
-.ClientDashboard-nav-item {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  color: #666;
-  text-decoration: none;
-  border-radius: 8px;
-  transition: all 0.3s;
-  margin-bottom: 8px;
+.ClientDashboard-full-width {
   width: 100%;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 15px;
 }
 
-.ClientDashboard-nav-item svg {
-  margin-right: 12px;
-  font-size: 20px;
-}
-
-.ClientDashboard-nav-item:hover {
-  background: #f5f5f5;
-  color: #667eea;
-}
-
-.ClientDashboard-nav-item.ClientDashboard-nav-item--active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
-.ClientDashboard-nav-item.ClientDashboard-nav-item--logout {
-  margin-top: 24px;
-  border-top: 1px solid #e0e0e0;
-  padding-top: 24px;
-}
-
-.ClientDashboard-nav-item.ClientDashboard-nav-item--logout:hover {
-  background: #fee;
-  color: #f44336;
-}
-
-/* Main Content */
-.ClientDashboard-dashboard-main {
-  flex: 1;
-  margin-left: 280px;
-  padding: 24px;
-}
-
-@media (max-width: 768px) {
-  .ClientDashboard-dashboard-main {
-    margin-left: 0;
-    padding: 16px;
-    padding-top: 70px;
-  }
-}
-
-.ClientDashboard-dashboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  background: white;
-  padding: 20px 24px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-}
-
-.ClientDashboard-dashboard-header h1 {
-  font-size: 22px;
-  font-weight: 600;
-  color: #333;
-}
-
-.ClientDashboard-header-date {
-  color: #666;
-  font-size: 14px;
-  background: #f5f5f5;
-  padding: 8px 16px;
-  border-radius: 20px;
-}
-
-@media (max-width: 640px) {
-  .ClientDashboard-dashboard-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-  
-  .ClientDashboard-header-date {
-    align-self: flex-start;
-  }
-}
-
-/* Stats Grid */
-.ClientDashboard-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-  margin-bottom: 24px;
-}
-
-@media (max-width: 1024px) {
-  .ClientDashboard-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 640px) {
-  .ClientDashboard-stats-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.ClientDashboard-stat-card {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-  transition: transform 0.3s;
-}
-
-.ClientDashboard-stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-}
-
-.ClientDashboard-stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  color: white;
-}
-
-.ClientDashboard-stat-card--primary .ClientDashboard-stat-icon {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.ClientDashboard-stat-card--success .ClientDashboard-stat-icon {
-  background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
-}
-
-.ClientDashboard-stat-card--warning .ClientDashboard-stat-icon {
-  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
-}
-
-.ClientDashboard-stat-card--error .ClientDashboard-stat-icon {
-  background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
-}
-
-.ClientDashboard-stat-content {
-  flex: 1;
-}
-
-.ClientDashboard-stat-label {
-  font-size: 13px;
-  color: #666;
-  display: block;
-  margin-bottom: 4px;
-}
-
-.ClientDashboard-stat-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: #333;
-  margin-bottom: 4px;
-}
-
-.ClientDashboard-stat-sub {
-  font-size: 12px;
-  color: #999;
-}
-
-.ClientDashboard-stat-card .ClientDashboard-progress-bar {
-  height: 4px;
-  background: #f0f0f0;
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.ClientDashboard-stat-card .ClientDashboard-progress-fill {
-  height: 100%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 2px;
-  transition: width 0.3s;
-}
-
-/* Company Info */
-.ClientDashboard-company-info {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 24px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-}
-
-.ClientDashboard-company-info h3 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 16px;
-}
-
+/* Info Grid */
 .ClientDashboard-info-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
 }
 
@@ -401,192 +232,415 @@
   }
 }
 
+.ClientDashboard-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .ClientDashboard-info-item label {
-  display: block;
   font-size: 12px;
   color: #999;
-  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .ClientDashboard-info-item p {
-  font-size: 15px;
+  font-size: 16px;
   color: #333;
   font-weight: 500;
+}
+
+/* Team Grid */
+.ClientDashboard-team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.ClientDashboard-team-member {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  transition: all 0.3s;
+}
+
+.ClientDashboard-team-member:hover {
+  background: #f0f0f0;
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.ClientDashboard-member-avatar {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 600;
+  color: white;
+}
+
+.ClientDashboard-member-info h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.ClientDashboard-member-info p {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 2px;
+}
+
+.ClientDashboard-member-info small {
+  font-size: 12px;
+  color: #999;
 }
 
 /* Projects Section */
 .ClientDashboard-projects-section {
   background: white;
   border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 24px;
+  padding: 24px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
-.ClientDashboard-projects-section h3 {
+.ClientDashboard-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.ClientDashboard-section-header h3 {
   font-size: 18px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 20px;
 }
 
-.ClientDashboard-projects-list {
+.ClientDashboard-client-stats-summary {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.ClientDashboard-stat-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #666;
+  padding: 6px 12px;
+  background: #f8f9fa;
+  border-radius: 20px;
+}
+
+.ClientDashboard-stat-summary.ClientDashboard-stat-summary--success {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.ClientDashboard-stat-summary.ClientDashboard-stat-summary--warning {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.ClientDashboard-stat-summary.ClientDashboard-stat-summary--error {
+  background: #fee;
+  color: #f44336;
+}
+
+.ClientDashboard-stat-summary svg {
+  font-size: 16px;
+}
+
+/* Services List */
+.ClientDashboard-services-list {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.ClientDashboard-project-card {
+/* Service Card */
+.ClientDashboard-service-card {
   background: #f8f9fa;
   border-radius: 10px;
   overflow: hidden;
   transition: all 0.3s;
+  border: 1px solid transparent;
 }
 
-.ClientDashboard-project-card.ClientDashboard-project-expanded {
+.ClientDashboard-service-card.ClientDashboard-service-card--expanded {
   background: white;
-  border: 1px solid #667eea;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
 }
 
-.ClientDashboard-project-header {
-  padding: 16px;
+.ClientDashboard-service-card__header {
+  padding: 16px 20px;
   cursor: pointer;
   transition: background 0.3s;
-}
-
-.ClientDashboard-project-header:hover {
-  background: #f0f0f0;
-}
-
-.ClientDashboard-project-title {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
-.ClientDashboard-project-title h4 {
+.ClientDashboard-service-card__header:hover {
+  background: #f0f0f0;
+}
+
+.ClientDashboard-service-card__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ClientDashboard-service-icon {
+  font-size: 20px;
+  color: #667eea;
+}
+
+.ClientDashboard-service-card__title h4 {
   font-size: 16px;
   font-weight: 600;
   color: #333;
 }
 
-.ClientDashboard-project-arrow {
+.ClientDashboard-service-arrow {
   font-size: 18px;
   color: #999;
   transition: transform 0.3s;
 }
 
-.ClientDashboard-project-arrow.ClientDashboard-arrow-rotated {
+.ClientDashboard-service-arrow.ClientDashboard-service-arrow--rotated {
   transform: rotate(90deg);
   color: #667eea;
 }
 
-.ClientDashboard-project-stats {
+.ClientDashboard-service-card__stats {
   display: flex;
-  gap: 16px;
-  margin-bottom: 12px;
+  align-items: center;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
-.ClientDashboard-project-stats .ClientDashboard-stat {
+.ClientDashboard-stat-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: white;
+  border-radius: 30px;
   font-size: 13px;
   color: #666;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.ClientDashboard-project-stats .ClientDashboard-stat strong {
-  color: #333;
+.ClientDashboard-stat-badge.ClientDashboard-stat-badge--error {
+  background: #fee;
+  color: #f44336;
+}
+
+.ClientDashboard-stat-icon {
+  font-size: 14px;
+}
+
+.ClientDashboard-progress-circle {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ClientDashboard-progress-circle__text {
+  font-size: 12px;
   font-weight: 600;
+  color: white;
 }
 
-.ClientDashboard-project-stats .ClientDashboard-stat.ClientDashboard-overdue {
-  color: #f44336;
+/* Refresh Button */
+.ClientDashboard-refresh-btn {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  margin-left: 4px;
 }
 
-.ClientDashboard-project-stats .ClientDashboard-stat.ClientDashboard-overdue strong {
-  color: #f44336;
+.ClientDashboard-refresh-btn:hover {
+  background-color: #f0f0f0;
+  color: #1976d2;
+  transform: rotate(180deg);
 }
 
-.ClientDashboard-project-progress {
-  margin-bottom: 8px;
+/* Progress Bar */
+.ClientDashboard-service-card__progress {
+  padding: 0 20px 16px 20px;
 }
 
-.ClientDashboard-project-progress .ClientDashboard-progress-bar {
-  height: 6px;
+.ClientDashboard-service-card__progress .ClientDashboard-progress-bar {
+  height: 8px;
   background: #e0e0e0;
-  border-radius: 3px;
+  border-radius: 4px;
   overflow: hidden;
 }
 
-.ClientDashboard-project-progress .ClientDashboard-progress-fill {
+.ClientDashboard-service-card__progress .ClientDashboard-progress-bar__fill {
   height: 100%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 3px;
+  border-radius: 4px;
   transition: width 0.3s;
 }
 
-/* Tasks List */
-.ClientDashboard-project-tasks {
-  padding: 16px;
+.ClientDashboard-service-card__progress .ClientDashboard-progress-bar__fill--success {
+  background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+}
+
+.ClientDashboard-service-card__progress .ClientDashboard-progress-bar__fill--primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.ClientDashboard-service-card__progress .ClientDashboard-progress-bar__fill--warning {
+  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+}
+
+.ClientDashboard-service-card__progress .ClientDashboard-progress-bar__fill--info {
+  background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+}
+
+/* Service Card Content */
+.ClientDashboard-service-card__content {
+  padding: 20px;
   border-top: 1px solid #e0e0e0;
+  background: white;
 }
 
-.ClientDashboard-project-tasks h5 {
+.ClientDashboard-service-card__filters {
+  margin-bottom: 20px;
+}
+
+.ClientDashboard-filter-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.ClientDashboard-filter-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-radius: 30px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.ClientDashboard-filter-badge svg {
   font-size: 14px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 12px;
 }
 
+.ClientDashboard-last-updated {
+  color: #999;
+  font-size: 11px;
+  background: #f5f5f5;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+/* Loading State in Card */
+.ClientDashboard-service-card__loading {
+  padding: 40px;
+  text-align: center;
+}
+
+.ClientDashboard-service-card__loading .ClientDashboard-spinner {
+  margin: 0 auto 12px;
+}
+
+/* Tasks List */
 .ClientDashboard-tasks-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .ClientDashboard-task-item {
-  display: flex;
-  gap: 12px;
-  padding: 10px;
   background: #f8f9fa;
   border-radius: 8px;
+  transition: all 0.3s;
+  border: 1px solid transparent;
 }
 
-.ClientDashboard-task-checkbox input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  margin-top: 2px;
+.ClientDashboard-task-item:hover {
+  background: #f0f0f0;
+  border-color: #667eea;
+  transform: translateX(4px);
 }
 
-.ClientDashboard-task-content {
-  flex: 1;
+.ClientDashboard-task-item__content {
+  padding: 16px;
+  cursor: pointer;
 }
 
-.ClientDashboard-task-header {
+.ClientDashboard-task-item__header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   flex-wrap: wrap;
+  gap: 8px;
 }
 
-.ClientDashboard-task-name {
-  font-size: 14px;
+.ClientDashboard-task-item__name {
+  font-size: 15px;
   font-weight: 500;
   color: #333;
 }
 
-.ClientDashboard-task-name.ClientDashboard-task-completed {
-  text-decoration: line-through;
-  color: #999;
+.ClientDashboard-task-item__name.ClientDashboard-task-item__name--completed {
+  color: #2e7d32;
+  font-weight: 600;
 }
 
+.ClientDashboard-task-item__badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Priority Badges */
 .ClientDashboard-priority-badge {
-  font-size: 10px;
-  padding: 2px 8px;
-  border-radius: 12px;
+  font-size: 11px;
+  padding: 4px 12px;
+  border-radius: 30px;
   font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .ClientDashboard-priority-badge--high {
@@ -604,144 +658,655 @@
   color: #4caf50;
 }
 
-.ClientDashboard-task-meta {
+/* Assignee Badge */
+.ClientDashboard-assignee-badge {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 4px;
+  gap: 6px;
   font-size: 12px;
+  color: #666;
+  background: white;
+  padding: 4px 12px;
+  border-radius: 30px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.ClientDashboard-task-assignee,
-.ClientDashboard-task-due {
-  display: flex;
+.ClientDashboard-assignee-icon {
+  font-size: 12px;
+  color: #667eea;
+}
+
+/* Completed Badge */
+.ClientDashboard-completed-badge {
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: #666;
-}
-
-.ClientDashboard-task-assignee svg,
-.ClientDashboard-task-due svg {
-  font-size: 12px;
-}
-
-.ClientDashboard-task-due.ClientDashboard-due-overdue {
-  color: #f44336;
+  padding: 4px 12px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-radius: 30px;
+  font-size: 11px;
   font-weight: 500;
 }
 
-.ClientDashboard-task-completed {
-  font-size: 11px;
-  color: #4caf50;
+/* Task Meta */
+.ClientDashboard-task-item__meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12px;
+  color: #666;
+  flex-wrap: wrap;
 }
 
-/* Team Section */
-.ClientDashboard-team-section {
+.ClientDashboard-task-due {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: white;
+  border-radius: 30px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.ClientDashboard-task-due.ClientDashboard-task-due--overdue {
+  background: #fee;
+  color: #f44336;
+}
+
+.ClientDashboard-task-completed-date {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-radius: 30px;
+  font-size: 11px;
+}
+
+.ClientDashboard-meta-icon {
+  font-size: 12px;
+}
+
+/* Empty States */
+.ClientDashboard-empty-tasks {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+  font-size: 14px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.ClientDashboard-empty-tasks svg {
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.ClientDashboard-empty-subtext {
+  font-size: 12px;
+  color: #999;
+  margin-top: 8px;
+}
+
+.ClientDashboard-empty-state {
+  text-align: center;
+  padding: 60px 20px;
   background: white;
   border-radius: 12px;
-  padding: 20px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
-.ClientDashboard-team-section h3 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #333;
+.ClientDashboard-empty-icon {
+  font-size: 60px;
+  color: #ccc;
   margin-bottom: 16px;
 }
 
-.ClientDashboard-team-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
-}
-
-.ClientDashboard-team-member {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  transition: transform 0.3s;
-}
-
-.ClientDashboard-team-member:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.ClientDashboard-member-avatar {
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.ClientDashboard-empty-state h4 {
   font-size: 18px;
   font-weight: 600;
-  color: white;
-}
-
-.ClientDashboard-member-info h4 {
-  font-size: 14px;
-  font-weight: 600;
   color: #333;
-  margin-bottom: 2px;
+  margin-bottom: 8px;
 }
 
-.ClientDashboard-member-info p {
-  font-size: 12px;
+.ClientDashboard-empty-state p {
+  font-size: 14px;
   color: #666;
 }
 
 /* Status Badges */
 .ClientDashboard-status-badge {
   display: inline-block;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 30px;
+  font-size: 13px;
   font-weight: 500;
 }
 
-.ClientDashboard-status-badge--active {
+.ClientDashboard-status-badge--success {
   background: #e8f5e9;
   color: #4caf50;
 }
 
-.ClientDashboard-status-badge--hold {
+.ClientDashboard-status-badge--warning {
   background: #fff3e0;
   color: #ff9800;
 }
 
-.ClientDashboard-status-badge--inactive {
+.ClientDashboard-status-badge--error {
   background: #fee;
   color: #f44336;
 }
 
-/* Empty State */
-.ClientDashboard-empty-state {
-  text-align: center;
-  padding: 40px 20px;
+/* Modal Styles */
+.ClientDashboard-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 16px;
+}
+
+.ClientDashboard-modal {
+  background: white;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.ClientDashboard-modal.ClientDashboard-modal-md {
+  max-width: 600px;
+}
+
+.ClientDashboard-modal__header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.ClientDashboard-modal__header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: white;
+}
+
+.ClientDashboard-modal__content {
+  padding: 24px;
+}
+
+.ClientDashboard-modal__footer {
+  padding: 20px 24px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* Task Details */
+.ClientDashboard-task-details {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.ClientDashboard-detail-section {
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 20px;
+}
+
+.ClientDashboard-detail-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.ClientDashboard-detail-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #666;
+  margin-bottom: 16px;
+}
+
+.ClientDashboard-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.ClientDashboard-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ClientDashboard-detail-label {
+  font-size: 12px;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.ClientDashboard-detail-value {
+  font-size: 15px;
+  color: #333;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ClientDashboard-assignee-details {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
   background: #f8f9fa;
   border-radius: 10px;
 }
 
-.ClientDashboard-empty-icon {
-  font-size: 40px;
-  color: #999;
-  margin-bottom: 12px;
+.ClientDashboard-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 600;
+  color: white;
 }
 
-.ClientDashboard-empty-state h4 {
+.ClientDashboard-avatar.ClientDashboard-avatar--primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.ClientDashboard-assignee-name {
   font-size: 16px;
   font-weight: 600;
   color: #333;
   margin-bottom: 4px;
 }
 
-.ClientDashboard-empty-state p {
-  font-size: 14px;
+.ClientDashboard-assignee-email,
+.ClientDashboard-assignee-role {
+  font-size: 13px;
   color: #666;
+  line-height: 1.5;
+}
+
+.ClientDashboard-timeline-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ClientDashboard-timeline-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px dashed #e0e0e0;
+}
+
+.ClientDashboard-timeline-item:last-child {
+  border-bottom: none;
+}
+
+.ClientDashboard-timeline-label {
+  font-size: 13px;
+  color: #999;
+}
+
+.ClientDashboard-timeline-value {
+  font-size: 13px;
+  color: #333;
+  font-weight: 500;
+}
+
+/* Buttons */
+.ClientDashboard-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ClientDashboard-btn.ClientDashboard-btn--primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.ClientDashboard-btn.ClientDashboard-btn--primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.ClientDashboard-btn.ClientDashboard-btn--outlined {
+  background: transparent;
+  border: 1px solid #667eea;
+  color: #667eea;
+}
+
+.ClientDashboard-btn.ClientDashboard-btn--outlined:hover:not(:disabled) {
+  background: #667eea;
+  color: white;
+}
+
+.ClientDashboard-btn.ClientDashboard-btn--error {
+  background: #f44336;
+  color: white;
+}
+
+.ClientDashboard-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ClientDashboard-action-button {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.ClientDashboard-action-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+/* Spinner */
+.ClientDashboard-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #f3f3f3;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: ClientDashboard-spin 1s linear infinite;
+}
+
+/* Utilities */
+.ClientDashboard-ml-1 {
+  margin-left: 4px;
+}
+
+.ClientDashboard-ml-2 {
+  margin-left: 8px;
+}
+
+.ClientDashboard-mb-1 {
+  margin-bottom: 4px;
+}
+
+.ClientDashboard-mb-2 {
+  margin-bottom: 8px;
+}
+
+.ClientDashboard-mb-3 {
+  margin-bottom: 12px;
+}
+
+.ClientDashboard-mt-1 {
+  margin-top: 4px;
+}
+
+.ClientDashboard-mt-2 {
+  margin-top: 8px;
+}
+
+.ClientDashboard-text-error {
+  color: #f44336;
+}
+
+.ClientDashboard-text-success {
+  color: #4caf50;
+}
+
+.ClientDashboard-text-warning {
+  color: #ff9800;
+}
+
+/* Scrollbar Styling */
+.ClientDashboard-modal::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ClientDashboard-modal::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.ClientDashboard-modal::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.ClientDashboard-modal::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .ClientDashboard-client-dashboard {
+    padding: 16px;
+  }
+
+  .ClientDashboard-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 16px;
+  }
+
+  .ClientDashboard-header-right {
+    width: 100%;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ClientDashboard-last-refresh {
+    width: 100%;
+    text-align: center;
+  }
+
+  .ClientDashboard-refresh-header-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .ClientDashboard-logout-btn {
+    width: 100%;
+    height: 44px;
+  }
+
+  .ClientDashboard-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ClientDashboard-client-stats-summary {
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ClientDashboard-stat-summary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .ClientDashboard-service-card__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ClientDashboard-service-card__stats {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .ClientDashboard-filter-info {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ClientDashboard-task-item__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ClientDashboard-task-item__badges {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .ClientDashboard-task-item__meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .ClientDashboard-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Tablet Responsive */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .ClientDashboard-client-dashboard {
+    padding: 20px;
+  }
+
+  .ClientDashboard-info-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .ClientDashboard-team-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .ClientDashboard-client-dashboard {
+    background: #1a1a1a;
+  }
+  
+  .ClientDashboard-header,
+  .ClientDashboard-info-card,
+  .ClientDashboard-projects-section,
+  .ClientDashboard-modal {
+    background: #2d2d2d;
+  }
+  
+  .ClientDashboard-header-left h1,
+  .ClientDashboard-info-card h3,
+  .ClientDashboard-projects-section h3,
+  .ClientDashboard-service-card__title h4,
+  .ClientDashboard-task-item__name,
+  .ClientDashboard-modal__header h3,
+  .ClientDashboard-detail-value,
+  .ClientDashboard-assignee-name,
+  .ClientDashboard-member-info h4 {
+    color: #fff;
+  }
+  
+  .ClientDashboard-header-subtitle,
+  .ClientDashboard-info-item label,
+  .ClientDashboard-stat-summary,
+  .ClientDashboard-task-item__meta,
+  .ClientDashboard-detail-label,
+  .ClientDashboard-assignee-email,
+  .ClientDashboard-assignee-role,
+  .ClientDashboard-member-info p,
+  .ClientDashboard-member-info small,
+  .ClientDashboard-last-refresh,
+  .ClientDashboard-last-updated {
+    color: #999;
+  }
+  
+  .ClientDashboard-service-card,
+  .ClientDashboard-team-member,
+  .ClientDashboard-stat-badge,
+  .ClientDashboard-task-item,
+  .ClientDashboard-task-due,
+  .ClientDashboard-assignee-badge,
+  .ClientDashboard-filter-badge,
+  .ClientDashboard-empty-tasks {
+    background: #3d3d3d;
+  }
+  
+  .ClientDashboard-service-card__header:hover,
+  .ClientDashboard-team-member:hover,
+  .ClientDashboard-task-item:hover {
+    background: #4d4d4d;
+  }
+  
+  .ClientDashboard-progress-bar {
+    background: #4d4d4d;
+  }
+  
+  .ClientDashboard-info-item p,
+  .ClientDashboard-detail-value {
+    color: #fff;
+  }
+  
+  .ClientDashboard-modal__header {
+    background: linear-gradient(135deg, #4a5a9e 0%, #5a3a7a 100%);
+  }
+  
+  .ClientDashboard-modal__content,
+  .ClientDashboard-modal__footer {
+    background: #2d2d2d;
+    border-color: #4d4d4d;
+  }
+  
+  .ClientDashboard-detail-section {
+    border-color: #4d4d4d;
+  }
+  
+  .ClientDashboard-assignee-details {
+    background: #3d3d3d;
+  }
+  
+  .ClientDashboard-empty-state {
+    background: #2d2d2d;
+  }
+  
+  .ClientDashboard-empty-icon {
+    color: #666;
+  }
+  
+  .ClientDashboard-empty-state h4 {
+    color: #fff;
+  }
+  
+  .ClientDashboard-empty-state p {
+    color: #999;
+  }
 }

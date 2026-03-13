@@ -445,6 +445,9 @@ const allPagesItems = [
   }
 ];
 
+// ✅ CLIENT MENU ITEMS - EMPTY ARRAY (so nothing shows)
+const clientMenuItems = []; // Empty array means no menu items for clients
+
 // ✅ Path mapping helper
 const getPathFromName = (name) => {
   const pathMap = {
@@ -468,7 +471,8 @@ const getPathFromName = (name) => {
     'Company All Tasks': '/ciisUser/company-all-task',
     'Department All Tasks': '/ciisUser/department-all-task',
     'Client Management': '/ciisUser/emp-client',
-    'Change Password': '/ciisUser/change-password'
+    'Change Password': '/ciisUser/change-password',
+    'Client Dashboard': '/ciisUser/client-dashboard'
   };
   
   return pathMap[name] || '/ciisUser/user-dashboard';
@@ -490,6 +494,11 @@ const Sidebar = ({ isMobile = false }) => {
 
   // Mobile par always open, Desktop par hover-based
   const isSidebarOpen = isMobile ? true : isHovered;
+
+  // Check if user is client (companyRole: "client")
+  const isClientUser = useMemo(() => {
+    return userData?.companyRole === "client";
+  }, [userData]);
 
   // Check if user is super_admin with Management department
   const isSuperAdminWithManagement = useMemo(() => {
@@ -515,15 +524,17 @@ const Sidebar = ({ isMobile = false }) => {
       } catch (error) {
         console.error("Error parsing local storage data:", error);
         setError("Failed to load user data");
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchLocalData();
   }, []);
 
-  // Fetch sidebar configuration
+  // Fetch sidebar configuration (only for non-client users)
   const fetchSidebarConfig = useCallback(async () => {
-    if (!userData || !companyData) return;
+    if (!userData || !companyData || isClientUser) return;
 
     try {
       setLoading(true);
@@ -573,15 +584,19 @@ const Sidebar = ({ isMobile = false }) => {
     } finally {
       setLoading(false);
     }
-  }, [userData, companyData]);
+  }, [userData, companyData, isClientUser]);
 
   useEffect(() => {
     if (userData && companyData) {
-      fetchSidebarConfig();
-    } else {
-      setLoading(false);
+      if (isClientUser) {
+        // Client users don't need to fetch sidebar config
+        setLoading(false);
+        setSidebarConfig(null);
+      } else {
+        fetchSidebarConfig();
+      }
     }
-  }, [userData, companyData, fetchSidebarConfig]);
+  }, [userData, companyData, isClientUser, fetchSidebarConfig]);
 
   useEffect(() => {
     return () => {
@@ -667,17 +682,24 @@ const Sidebar = ({ isMobile = false }) => {
 
   const handleRetry = () => {
     setError(null);
-    if (userData && companyData) {
+    if (userData && companyData && !isClientUser) {
       fetchSidebarConfig();
     }
   };
 
-  // ✅ Get menu items based on configuration OR super_admin condition
+  // ✅ Get menu items based on user role and configuration
   const menuItems = useMemo(() => {
     if (loading) return [];
 
-    console.log('Current sidebar config:', sidebarConfig);
+    console.log('Current user data:', userData);
+    console.log('Is client user:', isClientUser);
     console.log('Is super_admin with Management:', isSuperAdminWithManagement);
+
+    // If user is client, show empty array (no menu items)
+    if (isClientUser) {
+      console.log('Client user detected - showing empty menu');
+      return []; // Return empty array so nothing renders
+    }
 
     // If user is super_admin with Management department, show all pages
     if (isSuperAdminWithManagement) {
@@ -738,7 +760,7 @@ const Sidebar = ({ isMobile = false }) => {
     })));
 
     return sortedItems;
-  }, [sidebarConfig, loading, isSuperAdminWithManagement]);
+  }, [sidebarConfig, loading, isSuperAdminWithManagement, isClientUser, userData]);
 
   const renderMenuItem = (item, showFull) => {
     const selected = location.pathname === item.path;
@@ -848,7 +870,7 @@ const Sidebar = ({ isMobile = false }) => {
   }
 
   // Error state
-  if (error && !sidebarConfig && !isSuperAdminWithManagement) {
+  if (error && !sidebarConfig && !isSuperAdminWithManagement && !isClientUser) {
     return (
       <Container
         sx={!isMobile ? {
@@ -869,6 +891,37 @@ const Sidebar = ({ isMobile = false }) => {
           </Alert>
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
             Using default navigation
+          </Typography>
+        </Box>
+      </Container>
+    );
+  }
+
+  // ✅ KEY CHANGE: If client user, return null (don't render sidebar at all)
+  if (isClientUser) {
+    console.log('Client user detected - hiding sidebar completely');
+    return null; // This completely removes the sidebar for client users
+  }
+
+  // If menuItems is empty and not loading, show empty state
+  if (menuItems.length === 0 && !loading) {
+    return (
+      <Container
+        sx={!isMobile ? {
+          width: isSidebarOpen ? drawerWidthOpen : drawerWidthClosed,
+        } : undefined}
+      >
+        <Box sx={{ 
+          p: 2, 
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%'
+        }}>
+          <Typography variant="body2" color="text.secondary">
+            No menu items available
           </Typography>
         </Box>
       </Container>

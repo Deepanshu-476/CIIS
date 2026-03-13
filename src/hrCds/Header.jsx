@@ -34,6 +34,8 @@ import Swal from "sweetalert2";
 
 const Header = ({ toggleSidebar, isMobile }) => {
   const { user } = useAuth();
+
+  const isClient = user?.companyRole === "client";
   const { 
     onNewNotification = () => () => {}, 
     unreadCount = 0, 
@@ -434,12 +436,12 @@ const Header = ({ toggleSidebar, isMobile }) => {
               component="img"
               src={logo}
               alt="Logo"
-              onClick={handleLogoClick}
+              onClick={!isClient ? handleLogoClick : undefined}
               sx={{
                 height: isMobile ? 35 : 50,
                 width: "auto",
                 objectFit: "contain",
-                cursor: "pointer",
+                cursor: !isClient ? "pointer" : "default",
                 "&:hover": { 
                   transform: "scale(1.05)",
                   opacity: 0.9,

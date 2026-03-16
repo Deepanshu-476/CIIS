@@ -2692,7 +2692,7 @@ const ClientManagement = () => {
           onClick={() => setViewDialog({ open: false, client: null })}
           style={{
             background: 'rgba(255,255,255,0.2)',
-            border: 'none',
+          
             color: 'white',
             width: window.innerWidth <= 768 ? '36px' : '40px',
             height: window.innerWidth <= 768 ? '36px' : '40px',

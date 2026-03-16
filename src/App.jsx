@@ -126,7 +126,7 @@ function App() {
             </ThemeContextProvider>
           }
         >
-          <Route path="ClienDashboard" element={<ClienDashboard />} />
+          <Route path="ClientDashboard" element={<ClienDashboard />} />
           <Route path="change-password" element={<ChangePassword />} />
           <Route path="emp-details" element={<EmppDetail />} />
           <Route path="emp-leaves" element={<EmppLeave />} />

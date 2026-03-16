@@ -149,7 +149,6 @@ function App() {
           <Route path="task-management" element={<TaskManagement />} />
           <Route path="employee-meeting" element={<EmployeeMeetingPage />} />
           <Route path="client-meeting" element={<ClientMeeting />} />
-       
           <Route path="create-alert" element={<CreateAlerts />} />
           <Route path="user-profile" element={<UserProfile/>} />
        

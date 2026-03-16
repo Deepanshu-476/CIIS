@@ -163,12 +163,6 @@ const ServiceProgressCard = ({ service, clientId, api }) => {
             <FiCheckCircle className="ClientDashboard-stat-icon ClientDashboard-text-success" />
             <span>{completedTasks}/{totalTasks} completed</span>
           </div>
-          {overdueTasks > 0 && (
-            <div className="ClientDashboard-stat-badge ClientDashboard-stat-badge--error">
-              <FiAlertCircle className="ClientDashboard-stat-icon" />
-              <span>{overdueTasks} overdue</span>
-            </div>
-          )}
           <div className="ClientDashboard-progress-circle">
             <span className="ClientDashboard-progress-circle__text">{progressPercentage}%</span>
           </div>

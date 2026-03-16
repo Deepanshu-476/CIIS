@@ -3,7 +3,7 @@ import axios from '../../../utils/axiosConfig';
 import { API_URL_IMG } from '../../../config';
 import { useNavigate } from 'react-router-dom';
 import './AdminTaskManagement.css';
-import CIISLoader from '../../../Loader/CIISLoader'; // Import CIISLoader
+import CIISLoader from '../../../Loader/CIISLoader';
 
 // Icons
 import {
@@ -68,7 +68,6 @@ const AdminTaskManagement = () => {
   const [openRemarksDialog, setOpenRemarksDialog] = useState(false);
   const [openActivityDialog, setOpenActivityDialog] = useState(false);
   const [openStatusDialog, setOpenStatusDialog] = useState(false);
-
   const [openUserStatusDialog, setOpenUserStatusDialog] = useState(false);
   
   // Enhanced Remarks States
@@ -145,6 +144,15 @@ const AdminTaskManagement = () => {
 
   const navigate = useNavigate();
 
+  // Snackbar helper function
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+    // Auto hide after 3 seconds
+    setTimeout(() => {
+      setSnackbar(prev => ({ ...prev, open: false }));
+    }, 3000);
+  };
+
   // Helper function to check if user is Owner
   const isOwner = () => {
     return companyRole === 'Owner' || userRole === 'Owner' || userRole === 'CAREER INFOWIS Admin';
@@ -195,10 +203,6 @@ const AdminTaskManagement = () => {
     const targetCompany = targetUser.company?._id || targetUser.company;
     
     if (currentCompany?.toString() !== targetCompany?.toString()) {
-      console.log('❌ Different company:', {
-        current: currentCompany,
-        target: targetCompany
-      });
       return false;
     }
     
@@ -207,14 +211,9 @@ const AdminTaskManagement = () => {
     const targetDept = targetUser.department?._id || targetUser.department;
     
     if (currentDept?.toString() !== targetDept?.toString()) {
-      console.log('❌ Different department:', {
-        current: currentDept,
-        target: targetDept
-      });
       return false;
     }
     
-    console.log('✅ Same company and department');
     return true;
   };
 
@@ -264,35 +263,20 @@ const AdminTaskManagement = () => {
       const userStr = localStorage.getItem('user');
       const token = localStorage.getItem('token');
       
-      console.log('🔐 Checking localStorage for auth data...');
-      console.log('🔐 User string exists:', !!userStr);
-      console.log('🔐 Token exists:', !!token);
-      
       if (!userStr || !token) {
-        console.log('❌ No user or token found in localStorage');
         setAuthError(true);
         setInitialAuthCheck(true);
-        setSnackbar({ 
-          open: true, 
-          message: 'Please login to continue', 
-          severity: 'error' 
-        });
+        showSnackbar('Please login to continue', 'error');
         return;
       }
 
       let user;
       try {
         user = JSON.parse(userStr);
-        console.log('👤 Parsed user data from localStorage:', user);
       } catch (parseError) {
-        console.error('❌ Error parsing user data:', parseError);
         setAuthError(true);
         setInitialAuthCheck(true);
-        setSnackbar({ 
-          open: true, 
-          message: 'Invalid user data format', 
-          severity: 'error' 
-        });
+        showSnackbar('Invalid user data format', 'error');
         return;
       }
       
@@ -307,21 +291,18 @@ const AdminTaskManagement = () => {
       
       // Handle different user object structures
       if (user.id && typeof user.id === 'string') {
-        // Direct user object
         foundUserId = user.id;
         userRole = user.role || 'user';
         companyRole = user.companyRole || user.role || 'employee';
         userName = user.name || 'Unknown User';
         userJobRole = user.jobRole || '';
         
-        // Store full company object if available, otherwise just the ID
         if (user.company && typeof user.company === 'object') {
           userCompany = user.company;
         } else {
           userCompany = user.company || null;
         }
         
-        // Store full department object if available, otherwise just the ID
         if (user.department && typeof user.department === 'object') {
           userDepartment = user.department;
         } else {
@@ -329,21 +310,18 @@ const AdminTaskManagement = () => {
         }
       }
       else if (user.user && user.user.id) {
-        // Nested user object
         foundUserId = user.user.id;
         userRole = user.user.role || 'user';
         companyRole = user.user.companyRole || user.user.role || 'employee';
         userName = user.user.name || 'Unknown User';
         userJobRole = user.user.jobRole || '';
         
-        // Store full company object if available
         if (user.user.company && typeof user.user.company === 'object') {
           userCompany = user.user.company;
         } else {
           userCompany = user.user.company || null;
         }
         
-        // Store full department object if available
         if (user.user.department && typeof user.user.department === 'object') {
           userDepartment = user.user.department;
         } else {
@@ -351,21 +329,18 @@ const AdminTaskManagement = () => {
         }
       }
       else if (user._id) {
-        // MongoDB _id format
         foundUserId = user._id;
         userRole = user.role || 'user';
         companyRole = user.companyRole || user.role || 'employee';
         userName = user.name || 'Unknown User';
         userJobRole = user.jobRole || '';
         
-        // Store full company object if available
         if (user.company && typeof user.company === 'object') {
           userCompany = user.company;
         } else {
           userCompany = user.company || null;
         }
         
-        // Store full department object if available
         if (user.department && typeof user.department === 'object') {
           userDepartment = user.department;
         } else {
@@ -373,21 +348,18 @@ const AdminTaskManagement = () => {
         }
       }
       else if (user.userId) {
-        // userId field
         foundUserId = user.userId;
         userRole = user.role || 'user';
         companyRole = user.companyRole || user.role || 'employee';
         userName = user.name || 'Unknown User';
         userJobRole = user.jobRole || '';
         
-        // Store full company object if available
         if (user.company && typeof user.company === 'object') {
           userCompany = user.company;
         } else {
           userCompany = user.company || null;
         }
         
-        // Store full department object if available
         if (user.department && typeof user.department === 'object') {
           userDepartment = user.department;
         } else {
@@ -401,33 +373,17 @@ const AdminTaskManagement = () => {
       }
       
       if (!foundUserId) {
-        console.warn('❌ Invalid user data: no ID field found');
         setAuthError(true);
         setInitialAuthCheck(true);
-        setSnackbar({ 
-          open: true, 
-          message: 'Invalid user data. Please login again.', 
-          severity: 'error' 
-        });
+        showSnackbar('Invalid user data. Please login again.', 'error');
         return;
       }
-
-      console.log('✅ User authenticated successfully:', { 
-        userId: foundUserId, 
-        name: userName,
-        role: userRole,
-        companyRole: companyRole,
-        jobRole: userJobRole,
-        company: userCompany,
-        department: userDepartment
-      });
 
       setUserRole(userRole);
       setCompanyRole(companyRole);
       setJobRole(userJobRole);
       setUserId(foundUserId);
       
-      // Set current user details for filtering with proper objects
       setCurrentUser({
         id: foundUserId,
         name: userName,
@@ -441,14 +397,9 @@ const AdminTaskManagement = () => {
       setInitialAuthCheck(true);
         
     } catch (error) {
-      console.error('❌ Unexpected error in fetchUserData:', error);
       setAuthError(true);
       setInitialAuthCheck(true);
-      setSnackbar({ 
-        open: true, 
-        message: 'Error loading user data', 
-        severity: 'error' 
-      });
+      showSnackbar('Error loading user data', 'error');
     }
   };
 
@@ -457,7 +408,6 @@ const AdminTaskManagement = () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        console.error('❌ No authentication token found');
         setAuthError(true);
         throw new Error('No authentication token found');
       }
@@ -496,46 +446,20 @@ const AdminTaskManagement = () => {
 
       return response.data;
     } catch (error) {
-      console.error(`❌ API Error (${method} ${url}):`, error);
-      
       if (error.response?.status === 401) {
-        console.error('🔐 Authentication failed (401)');
         setAuthError(true);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        setSnackbar({ 
-          open: true, 
-          message: 'Session expired. Please login again.', 
-          severity: 'error' 
-        });
+        showSnackbar('Session expired. Please login again.', 'error');
       } else if (error.response?.status === 403) {
-        console.error('🚫 Access denied (403)');
-        setSnackbar({ 
-          open: true, 
-          message: 'Access denied. You do not have permission to perform this action.', 
-          severity: 'error' 
-        });
+        showSnackbar('Access denied. You do not have permission to perform this action.', 'error');
       } else if (error.response?.status === 404) {
-        console.error('🔍 Resource not found (404)');
-        setSnackbar({ 
-          open: true, 
-          message: 'Resource not found.', 
-          severity: 'error' 
-        });
+        showSnackbar('Resource not found.', 'error');
       } else if (!error.response) {
-        console.error('🌐 Network error');
-        setSnackbar({ 
-          open: true, 
-          message: 'Network error. Please check your connection.', 
-          severity: 'error' 
-        });
+        showSnackbar('Network error. Please check your connection.', 'error');
       } else {
         const errorMessage = error.response?.data?.message || error.response?.data?.error || 'An error occurred';
-        setSnackbar({ 
-          open: true, 
-          message: errorMessage, 
-          severity: 'error' 
-        });
+        showSnackbar(errorMessage, 'error');
       }
       
       throw error;
@@ -576,14 +500,11 @@ const AdminTaskManagement = () => {
   // Fetch tasks with pagination, filters and date range
   const fetchTasks = async (page = 0, limit = rowsPerPage, filters = {}) => {
     if (authError || !userId) {
-      console.log('⏸️ Skipping fetchTasks due to auth error or missing userId');
       return;
     }
 
     setLoading(true);
     try {
-      console.log('📋 Fetching tasks for user:', userId);
-      
       const params = {
         page: page + 1,
         limit: limit,
@@ -602,8 +523,6 @@ const AdminTaskManagement = () => {
       if (dateRange.endDate) {
         params.endDate = new Date(dateRange.endDate).toISOString();
       }
-
-      console.log('🌐 Fetching tasks from API with params:', params);
       
       const queryString = Object.keys(params)
         .filter(key => params[key] !== undefined && params[key] !== null && params[key] !== '')
@@ -612,8 +531,6 @@ const AdminTaskManagement = () => {
       
       const url = queryString ? `/task/assigned?${queryString}` : '/task/assigned';
       const tasksResult = await apiCall('get', url);
-      
-      console.log('✅ Tasks API response:', tasksResult);
       
       let tasksArray = [];
       if (tasksResult.groupedTasks) {
@@ -626,13 +543,11 @@ const AdminTaskManagement = () => {
         tasksArray = tasksResult;
       }
       
-      console.log('📊 Processed tasks array:', tasksArray);
       setTasks(tasksArray);
       setTotalTasks(tasksResult.total || tasksResult.totalCount || tasksArray.length);
       calculateFilteredStats(tasksArray);
 
     } catch (error) {
-      console.error('❌ Error fetching tasks:', error);
       setTasks([]);
       setTotalTasks(0);
       setFilteredStats({
@@ -644,7 +559,7 @@ const AdminTaskManagement = () => {
         overdue: 0
       });
       if (error.response?.status !== 401 && error.response?.status !== 403) {
-        setSnackbar({ open: true, message: 'Failed to load tasks', severity: 'error' });
+        showSnackbar('Failed to load tasks', 'error');
       }
     } finally {
       setLoading(false);
@@ -667,20 +582,15 @@ const AdminTaskManagement = () => {
   // Fetch all supporting data (users, groups, notifications, departments)
   const fetchSupportingData = async () => {
     try {
-      console.log('📡 Fetching supporting data...');
+      const companyId = currentUser.company?._id || currentUser.company;
       
-      // First fetch departments
+      // Fetch departments
       try {
-        // Use the department filter API with company ID
-        const companyId = currentUser.company?._id || currentUser.company;
         let deptUrl = '/departments';
-        
         if (companyId) {
           deptUrl = `/departments?company=${companyId}`;
         }
-        
         const deptRes = await apiCall('get', deptUrl);
-        console.log('✅ Departments API response:', deptRes);
         
         let departmentsData = [];
         if (deptRes.data && deptRes.data.success) {
@@ -696,32 +606,24 @@ const AdminTaskManagement = () => {
         }
         setDepartments(departmentsData);
       } catch (deptErr) {
-        console.error('❌ Failed to load departments', deptErr);
+        console.error('Failed to load departments', deptErr);
       }
       
       // Fetch users based on company role
       let usersUrl;
       
       if (isOwner()) {
-        // Owner: Get all company users
-        const companyId = currentUser.company?._id || currentUser.company;
         usersUrl = `/users/company-users?companyId=${companyId}`;
-        console.log('👑 Owner: Fetching all company users from:', usersUrl);
       } else {
-        // Employee: Get department users
         const deptId = currentUser.department?._id || currentUser.department;
         if (deptId) {
           usersUrl = `/users/department-users?department=${deptId}`;
-          console.log('👤 Employee: Fetching department users from:', usersUrl);
         } else {
           usersUrl = '/users/company-users';
-          console.log('⚠️ No department ID found, falling back to company users');
         }
       }
       
       const usersResult = await apiCall('get', usersUrl);
-      
-      console.log('👥 Raw users API response:', usersResult);
       
       let usersArray = [];
       
@@ -738,8 +640,6 @@ const AdminTaskManagement = () => {
         usersArray = usersResult;
       }
       
-      console.log('👥 Total users found:', usersArray.length);
-      
       // Additional filtering to ensure only same company users
       if (currentUser.company) {
         usersArray = usersArray.filter(user => {
@@ -747,30 +647,26 @@ const AdminTaskManagement = () => {
           const sameCompany = userCompany?.toString() === (currentUser.company?._id || currentUser.company)?.toString();
           return sameCompany;
         });
-        console.log('👥 Filtered users (same company):', usersArray.length);
       }
       
       setUsers(usersArray);
 
       // Fetch groups
       const groupsResult = await apiCall('get', '/groups');
-      console.log('👥 Groups data:', groupsResult);
       setGroups(groupsResult.groups || groupsResult.data || []);
 
       // Fetch notifications
       const notificationsResult = await apiCall('get', '/task/notifications/all');
-      console.log('🔔 Notifications data:', notificationsResult);
       setNotifications(notificationsResult.notifications || []);
       setUnreadNotificationCount(notificationsResult.unreadCount || 0);
 
     } catch (error) {
-      console.error('❌ Error fetching supporting data:', error);
+      console.error('Error fetching supporting data:', error);
     }
   };
 
   // Fetch all data
   const fetchAllData = async (page = 0, limit = rowsPerPage) => {
-    console.log('🔄 Fetching all data...');
     await Promise.all([
       fetchTasks(page, limit, getCurrentFilters()),
       fetchSupportingData()
@@ -780,12 +676,12 @@ const AdminTaskManagement = () => {
   // Enhanced Task CRUD Operations
   const handleCreateTask = async () => {
     if (!newTask.title || !newTask.description || !newTask.dueDateTime) {
-      setSnackbar({ open: true, message: 'Please fill all required fields', severity: 'error' });
+      showSnackbar('Please fill all required fields', 'error');
       return;
     }
 
     if (newTask.assignedUsers.length === 0 && newTask.assignedGroups.length === 0) {
-      setSnackbar({ open: true, message: 'Please assign to at least one user or group', severity: 'error' });
+      showSnackbar('Please assign to at least one user or group', 'error');
       return;
     }
 
@@ -799,11 +695,7 @@ const AdminTaskManagement = () => {
           const userDept = assignedUser.department?._id || assignedUser.department;
           
           if (userDept?.toString() !== currentDept?.toString()) {
-            setSnackbar({ 
-              open: true, 
-              message: `Cannot assign task to ${assignedUser.name} - they are in a different department. Employees can only assign tasks within their own department.`, 
-              severity: 'error' 
-            });
+            showSnackbar(`Cannot assign task to ${assignedUser.name} - they are in a different department.`, 'error');
             return;
           }
         }
@@ -815,7 +707,7 @@ const AdminTaskManagement = () => {
       const parsedDueDateTime = parseDateTimeInput(newTask.dueDateTime);
       
       if (!parsedDueDateTime || isNaN(parsedDueDateTime.getTime())) {
-        setSnackbar({ open: true, message: 'Invalid date format. Please select a valid date and time.', severity: 'error' });
+        showSnackbar('Invalid date format. Please select a valid date and time.', 'error');
         setIsCreatingTask(false);
         return;
       }
@@ -823,7 +715,7 @@ const AdminTaskManagement = () => {
       const now = new Date();
       const buffer = 5 * 60 * 1000;
       if (parsedDueDateTime < new Date(now.getTime() - buffer)) {
-        setSnackbar({ open: true, message: 'Due date cannot be in the past. Please select a future date and time.', severity: 'error' });
+        showSnackbar('Due date cannot be in the past. Please select a future date and time.', 'error');
         setIsCreatingTask(false);
         return;
       }
@@ -838,14 +730,6 @@ const AdminTaskManagement = () => {
       formData.append('assignedUsers', JSON.stringify(newTask.assignedUsers));
       formData.append('assignedGroups', JSON.stringify(newTask.assignedGroups));
 
-      console.log('📤 Creating task with:', {
-        title: newTask.title,
-        dueDateTime: parsedDueDateTime.toISOString(),
-        dueDateTimeLocal: newTask.dueDateTime,
-        priority: newTask.priority,
-        assignedUsers: newTask.assignedUsers
-      });
-
       if (newTask.files) {
         for (let i = 0; i < newTask.files.length; i++) {
           formData.append('files', newTask.files[i]);
@@ -859,11 +743,11 @@ const AdminTaskManagement = () => {
       await apiCall('post', '/task/create-for-others', formData);
 
       setOpenCreateDialog(false);
-      setSnackbar({ open: true, message: 'Task created successfully', severity: 'success' });
+      showSnackbar('Task created successfully', 'success');
       resetNewTaskForm();
       fetchAllData(page, rowsPerPage);
     } catch (error) {
-      console.error('❌ Error creating task:', error);
+      console.error('Error creating task:', error);
     } finally {
       setIsCreatingTask(false);
     }
@@ -872,7 +756,7 @@ const AdminTaskManagement = () => {
   // Edit Task function
   const handleEditTask = async () => {
     if (!editTask.title || !editTask.description || !editTask.dueDateTime) {
-      setSnackbar({ open: true, message: 'Please fill all required fields', severity: 'error' });
+      showSnackbar('Please fill all required fields', 'error');
       return;
     }
 
@@ -881,7 +765,7 @@ const AdminTaskManagement = () => {
       const parsedDueDateTime = parseDateTimeInput(editTask.dueDateTime);
       
       if (!parsedDueDateTime || isNaN(parsedDueDateTime.getTime())) {
-        setSnackbar({ open: true, message: 'Invalid date format', severity: 'error' });
+        showSnackbar('Invalid date format', 'error');
         setIsUpdatingTask(false);
         return;
       }
@@ -896,19 +780,13 @@ const AdminTaskManagement = () => {
       formData.append('assignedUsers', JSON.stringify(editTask.assignedUsers));
       formData.append('assignedGroups', JSON.stringify(editTask.assignedGroups));
 
-      console.log('📝 Updating task:', {
-        title: editTask.title,
-        dueDateTime: parsedDueDateTime.toISOString(),
-        dueDateTimeLocal: editTask.dueDateTime
-      });
-
       await apiCall('put', `/task/${selectedTask._id}`, formData);
       
       setOpenEditDialog(false);
-      setSnackbar({ open: true, message: 'Task updated successfully', severity: 'success' });
+      showSnackbar('Task updated successfully', 'success');
       fetchAllData(page, rowsPerPage);
     } catch (error) {
-      console.error('❌ Error updating task:', error);
+      console.error('Error updating task:', error);
     } finally {
       setIsUpdatingTask(false);
     }
@@ -919,22 +797,22 @@ const AdminTaskManagement = () => {
 
     try {
       await apiCall('delete', `/task/${taskId}`);
-      setSnackbar({ open: true, message: 'Task deleted successfully', severity: 'success' });
+      showSnackbar('Task deleted successfully', 'success');
       fetchAllData(page, rowsPerPage);
     } catch (error) {
-      console.error('❌ Error deleting task:', error);
+      console.error('Error deleting task:', error);
     }
   };
 
   // Enhanced Group Management
   const handleCreateGroup = async () => {
     if (!newGroup.name || !newGroup.description) {
-      setSnackbar({ open: true, message: 'Please fill group name and description', severity: 'error' });
+      showSnackbar('Please fill group name and description', 'error');
       return;
     }
 
     if (newGroup.members.length === 0) {
-      setSnackbar({ open: true, message: 'Please select at least one member', severity: 'error' });
+      showSnackbar('Please select at least one member', 'error');
       return;
     }
 
@@ -945,11 +823,7 @@ const AdminTaskManagement = () => {
     });
 
     if (invalidMembers.length > 0) {
-      setSnackbar({ 
-        open: true, 
-        message: 'Cannot add users from different company to group', 
-        severity: 'error' 
-      });
+      showSnackbar('Cannot add users from different company to group', 'error');
       return;
     }
 
@@ -957,16 +831,16 @@ const AdminTaskManagement = () => {
     try {
       if (editingGroup) {
         await apiCall('put', `/groups/${editingGroup._id}`, newGroup);
-        setSnackbar({ open: true, message: 'Group updated successfully', severity: 'success' });
+        showSnackbar('Group updated successfully', 'success');
       } else {
         await apiCall('post', '/groups', newGroup);
-        setSnackbar({ open: true, message: 'Group created successfully', severity: 'success' });
+        showSnackbar('Group created successfully', 'success');
       }
       setOpenGroupDialog(false);
       resetGroupForm();
       fetchSupportingData();
     } catch (error) {
-      console.error('❌ Error in group operation:', error);
+      console.error('Error in group operation:', error);
     } finally {
       setIsCreatingGroup(false);
     }
@@ -977,17 +851,17 @@ const AdminTaskManagement = () => {
 
     try {
       await apiCall('delete', `/groups/${groupId}`);
-      setSnackbar({ open: true, message: 'Group deleted successfully', severity: 'success' });
+      showSnackbar('Group deleted successfully', 'success');
       fetchSupportingData();
     } catch (error) {
-      console.error('❌ Error deleting group:', error);
+      console.error('Error deleting group:', error);
     }
   };
 
   // Enhanced Status Management
   const handleStatusChange = async () => {
     if (!statusChange.status) {
-      setSnackbar({ open: true, message: 'Please select status', severity: 'error' });
+      showSnackbar('Please select status', 'error');
       return;
     }
 
@@ -999,11 +873,11 @@ const AdminTaskManagement = () => {
       });
 
       setOpenStatusDialog(false);
-      setSnackbar({ open: true, message: 'Status updated successfully', severity: 'success' });
+      showSnackbar('Status updated successfully', 'success');
       resetStatusForm();
       fetchAllData(page, rowsPerPage);
     } catch (error) {
-      console.error('❌ Error updating status:', error);
+      console.error('Error updating status:', error);
     }
   };
 
@@ -1037,8 +911,8 @@ const AdminTaskManagement = () => {
       
       setOpenUserStatusDialog(true);
     } catch (error) {
-      console.error('❌ Error fetching user statuses:', error);
-      setSnackbar({ open: true, message: 'Failed to load user statuses', severity: 'error' });
+      console.error('Error fetching user statuses:', error);
+      showSnackbar('Failed to load user statuses', 'error');
     }
   };
 
@@ -1050,8 +924,8 @@ const AdminTaskManagement = () => {
       setSelectedTask(tasks.find(task => task._id === taskId));
       setOpenRemarksDialog(true);
     } catch (error) {
-      console.error('❌ Error fetching remarks:', error);
-      setSnackbar({ open: true, message: 'Failed to load remarks', severity: 'error' });
+      console.error('Error fetching remarks:', error);
+      showSnackbar('Failed to load remarks', 'error');
     }
   };
 
@@ -1060,7 +934,7 @@ const AdminTaskManagement = () => {
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
     
     if (imageFiles.length === 0) {
-      setSnackbar({ open: true, message: 'Please select valid image files', severity: 'warning' });
+      showSnackbar('Please select valid image files', 'warning');
       return;
     }
 
@@ -1103,7 +977,7 @@ const AdminTaskManagement = () => {
 
   const addRemark = async () => {
     if (!newRemark.trim() && remarkImages.length === 0) {
-      setSnackbar({ open: true, message: 'Please enter a remark or upload an image', severity: 'warning' });
+      showSnackbar('Please enter a remark or upload an image', 'warning');
       return;
     }
     
@@ -1127,14 +1001,10 @@ const AdminTaskManagement = () => {
       setRemarkImages([]);
       fetchRemarks(selectedTask._id);
       
-      setSnackbar({ 
-        open: true, 
-        message: `Remark added successfully${remarkImages.length > 0 ? ' with image' : ''}`, 
-        severity: 'success' 
-      });
+      showSnackbar(`Remark added successfully${remarkImages.length > 0 ? ' with image' : ''}`, 'success');
 
     } catch (error) {
-      console.error('❌ Error adding remark:', error);
+      console.error('Error adding remark:', error);
     } finally {
       setIsUploadingRemark(false);
     }
@@ -1148,8 +1018,8 @@ const AdminTaskManagement = () => {
       setSelectedTask(tasks.find(task => task._id === taskId));
       setOpenActivityDialog(true);
     } catch (error) {
-      console.error('❌ Error fetching activity logs:', error);
-      setSnackbar({ open: true, message: 'Failed to load activity logs', severity: 'error' });
+      console.error('Error fetching activity logs:', error);
+      showSnackbar('Failed to load activity logs', 'error');
     }
   };
 
@@ -1158,9 +1028,9 @@ const AdminTaskManagement = () => {
     try {
       await apiCall('patch', `/task/notifications/${notificationId}/read`);
       fetchSupportingData();
-      setSnackbar({ open: true, message: 'Notification marked as read', severity: 'success' });
+      showSnackbar('Notification marked as read', 'success');
     } catch (error) {
-      console.error('❌ Error marking notification as read:', error);
+      console.error('Error marking notification as read:', error);
     }
   };
 
@@ -1168,9 +1038,9 @@ const AdminTaskManagement = () => {
     try {
       await apiCall('patch', '/task/notifications/read-all');
       fetchSupportingData();
-      setSnackbar({ open: true, message: 'All notifications marked as read', severity: 'success' });
+      showSnackbar('All notifications marked as read', 'success');
     } catch (error) {
-      console.error('❌ Error marking all notifications as read:', error);
+      console.error('Error marking all notifications as read:', error);
     }
   };
 
@@ -1257,7 +1127,6 @@ const AdminTaskManagement = () => {
 
   // Open Edit Task Dialog function
   const openEditTaskDialog = (task) => {
-    console.log('Opening edit dialog for task:', task);
     setSelectedTask(task);
     
     const formattedDueDateTime = formatDateForInput(task.dueDateTime);
@@ -1355,7 +1224,7 @@ const AdminTaskManagement = () => {
     return 'pending';
   };
 
-  // Get all assigned users with their status
+  // FIX 1: Get all assigned users with their status - SHOW ONLY 2 NAMES + MORE INDICATOR
   const getAllAssignedUsersWithStatus = (task) => {
     const assignedUsers = [];
     
@@ -1394,6 +1263,64 @@ const AdminTaskManagement = () => {
     }
     
     return assignedUsers;
+  };
+
+  // FIX 1: Component to display assigned users with limit
+  const AssignedUsersDisplay = ({ task }) => {
+    const [showAllUsers, setShowAllUsers] = useState(false);
+    const assignedUsers = getAllAssignedUsersWithStatus(task);
+    const totalCount = assignedUsers.length;
+    
+    if (totalCount === 0) {
+      return <span className="AdminTaskManagement-no-users">No users assigned</span>;
+    }
+    
+    // Show first 2 users
+    const displayUsers = showAllUsers ? assignedUsers : assignedUsers.slice(0, 2);
+    const remainingCount = totalCount - 2;
+    
+    return (
+      <div className="AdminTaskManagement-assigned-users-container">
+        <div className="AdminTaskManagement-assigned-users-list">
+          {displayUsers.map((assignedUser, index) => (
+            <div key={index} className="AdminTaskManagement-user-badge">
+              <span className="AdminTaskManagement-user-initial">
+                {assignedUser.user.name?.charAt(0)?.toUpperCase() || 'U'}
+              </span>
+              <span className="AdminTaskManagement-user-info">
+                <span className="AdminTaskManagement-user-name">{assignedUser.user.name}</span>
+                {/* <span className={`AdminTaskManagement-user-status AdminTaskManagement-user-status-${assignedUser.status}`}>
+                  {assignedUser.status}
+                </span> */}
+              </span>
+            </div>
+          ))}
+          
+          {!showAllUsers && remainingCount > 0 && (
+            <button 
+              className="AdminTaskManagement-see-more-btn"
+              // onClick={() => setShowAllUsers(true)}
+              title={`Show all ${totalCount} users`}
+            >
+              +{remainingCount} more
+            </button>
+          )}
+          
+          {showAllUsers && (
+            <button 
+              className="AdminTaskManagement-see-less-btn"
+              onClick={() => setShowAllUsers(false)}
+            >
+              Show less
+            </button>
+          )}
+        </div>
+        
+        <div className="AdminTaskManagement-assigned-count">
+          Total: {totalCount} assigned
+        </div>
+      </div>
+    );
   };
 
   // Status Chip Component
@@ -1570,19 +1497,17 @@ const AdminTaskManagement = () => {
     <div className="AdminTaskManagement-filter-section">
       <div className="AdminTaskManagement-filter-stack">
         <div className="AdminTaskManagement-search-input-container">
-            <FiSearch className="AdminTaskManagement-search-icon" />
-            <input
-              type="text"
-              className="AdminTaskManagement-search-input"
-              placeholder="Search tasks by title or description..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+          <FiSearch className="AdminTaskManagement-search-icon" />
+          <input
+            type="text"
+            className="AdminTaskManagement-search-input"
+            placeholder="Search tasks by title or description..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        
         <div className="AdminTaskManagement-filter-search-row">
-          
-          
-          
           <button className="AdminTaskManagement-btn AdminTaskManagement-btn-primary" onClick={applyFilters}>
             <FiFilter /> Apply
           </button>
@@ -1683,47 +1608,44 @@ const AdminTaskManagement = () => {
     </div>
   );
 
-  // Stats Cards with Filtered Data - SHOW ONLY CARDS WITH VALUE > 0 (TOTAL TASKS ALSO FILTERED)
-const renderFilteredStatsCards = () => {
-  // Create stats array with all cards
-  const statsCards = [
-    { label: "Total Tasks", value: filteredStats.total, color: "primary", icon: FiCalendar },
-    { label: "Pending", value: filteredStats.pending, color: "warning", icon: FiClock },
-    { label: "In Progress", value: filteredStats.inProgress, color: "info", icon: FiAlertCircle },
-    { label: "Completed", value: filteredStats.completed, color: "success", icon: FiCheckCircle },
-    { label: "Rejected", value: filteredStats.rejected, color: "error", icon: FiXCircle },
-    { label: "Overdue", value: filteredStats.overdue, color: "error", icon: FiAlertTriangle }
-  ];
+  // Stats Cards with Filtered Data - SHOW ONLY CARDS WITH VALUE > 0
+  const renderFilteredStatsCards = () => {
+    const statsCards = [
+      { label: "Total Tasks", value: filteredStats.total, color: "primary", icon: FiCalendar },
+      { label: "Pending", value: filteredStats.pending, color: "warning", icon: FiClock },
+      { label: "In Progress", value: filteredStats.inProgress, color: "info", icon: FiAlertCircle },
+      { label: "Completed", value: filteredStats.completed, color: "success", icon: FiCheckCircle },
+      { label: "Rejected", value: filteredStats.rejected, color: "error", icon: FiXCircle },
+      { label: "Overdue", value: filteredStats.overdue, color: "error", icon: FiAlertTriangle }
+    ];
 
-  // Filter out cards with value 0
-  const visibleCards = statsCards.filter(stat => stat.value > 0);
+    const visibleCards = statsCards.filter(stat => stat.value > 0);
 
-  // If no cards to show, show empty message
-  if (visibleCards.length === 0) {
+    if (visibleCards.length === 0) {
+      return (
+        <div className="AdminTaskManagement-stats-grid">
+          <div className="AdminTaskManagement-no-stats-message">
+            <FiAlertCircle size={24} />
+            <p>No task statistics available</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="AdminTaskManagement-stats-grid">
-        <div className="AdminTaskManagement-no-stats-message">
-          <FiAlertCircle size={24} />
-          <p>No task statistics available</p>
-        </div>
+        {visibleCards.map((stat, index) => (
+          <AdminTaskManagementStatCard
+            key={index}
+            label={stat.label}
+            value={stat.value}
+            color={stat.color}
+            icon={stat.icon}
+          />
+        ))}
       </div>
     );
-  }
-
-  return (
-    <div className="AdminTaskManagement-stats-grid">
-      {visibleCards.map((stat, index) => (
-        <AdminTaskManagementStatCard
-          key={index}
-          label={stat.label}
-          value={stat.value}
-          color={stat.color}
-          icon={stat.icon}
-        />
-      ))}
-    </div>
-  );
-};
+  };
 
   // Enhanced Remarks Dialog with Image Upload
   const renderRemarksDialog = () => (
@@ -1934,70 +1856,6 @@ const renderFilteredStatsCards = () => {
     </div>
   );
 
-  // Enhanced Notifications Panel
-  // const renderNotificationsPanel = () => (
-  //   <div className={`AdminTaskManagement-modal ${openNotifications ? 'AdminTaskManagement-modal-open' : ''}`}>
-  //     <div className="AdminTaskManagement-modal-content AdminTaskManagement-modal-notifications">
-  //       <div className="AdminTaskManagement-modal-header AdminTaskManagement-modal-primary">
-  //         <div className="AdminTaskManagement-modal-title-row">
-     
-      
-  //         </div>
-  //         <div className="AdminTaskManagement-modal-subtitle">
-  //           {unreadNotificationCount > 0 ? `${unreadNotificationCount} unread` : 'All caught up'}
-  //         </div>
-  //       </div>
-  //       <div className="AdminTaskManagement-modal-body AdminTaskManagement-modal-scroll">
-  //         {notifications.length > 0 ? (
-  //           <div className="AdminTaskManagement-notifications-list">
-  //             <div className="AdminTaskManagement-modal-title-row" style={{ marginBottom: '16px' }}>
-  //               <span>{notifications.length} notification(s)</span>
-  //               <button 
-  //                 className="AdminTaskManagement-btn AdminTaskManagement-btn-sm"
-  //                 onClick={markAllNotificationsAsRead} 
-  //                 disabled={unreadNotificationCount === 0}
-  //               >
-  //                 Mark all as read
-  //               </button>
-  //             </div>
-  //             {notifications.map((notification) => (
-  //               <div 
-  //                 key={notification._id} 
-  //                 className={`AdminTaskManagement-notification-item ${notification.isRead ? '' : 'AdminTaskManagement-notification-unread'}`}
-  //               >
-  //                 <div className="AdminTaskManagement-notification-content">
-  //                   <div className="AdminTaskManagement-notification-title">{notification.title}</div>
-  //                   <div className="AdminTaskManagement-notification-message">{notification.message}</div>
-  //                   <div className="AdminTaskManagement-notification-footer">
-  //                     <div className="AdminTaskManagement-notification-date">
-  //                       {new Date(notification.createdAt).toLocaleDateString()}
-  //                     </div>
-  //                     {!notification.isRead && (
-  //                       <button 
-  //                         className="AdminTaskManagement-btn AdminTaskManagement-btn-sm"
-  //                         onClick={() => markNotificationAsRead(notification._id)}
-  //                       >
-  //                         Mark read
-  //                       </button>
-  //                     )}
-  //                   </div>
-  //                 </div>
-  //               </div>
-  //             ))}
-  //           </div>
-  //         ) : (
-  //           <div className="AdminTaskManagement-text-center">
-  //             <FiBell size={32} className="AdminTaskManagement-empty-icon" />
-  //             <h5>No notifications</h5>
-  //             <p>You're all caught up!</p>
-  //           </div>
-  //         )}
-  //       </div>
- 
-  //     </div>
-  //   </div>
-  // );
-
   // Enhanced Activity Logs Dialog
   const renderActivityLogsDialog = () => (
     <div className={`AdminTaskManagement-modal ${openActivityDialog ? 'AdminTaskManagement-modal-open' : ''}`}>
@@ -2121,7 +1979,7 @@ const renderFilteredStatsCards = () => {
                                 {user?.name || userStatus.name || 'Unknown User'}
                               </div>
                               <div className="AdminTaskManagement-user-status-details">
-                                {user?.role || userStatus.role || 'N/A'} • {user?.email || userStatus.email || 'N/A'}
+                                 • {user?.email || userStatus.email || 'N/A'}
                               </div>
                             </div>
                           </div>
@@ -2231,7 +2089,6 @@ const renderFilteredStatsCards = () => {
                 value={newTask.dueDateTime || ''}
                 onChange={(e) => {
                   const value = e.target.value;
-                  console.log('📅 Selected datetime:', value);
                   setNewTask({ ...newTask, dueDateTime: value });
                 }}
                 min={new Date().toISOString().slice(0, 16)}
@@ -2518,7 +2375,6 @@ const renderFilteredStatsCards = () => {
                 value={editTask.dueDateTime || ''}
                 onChange={(e) => {
                   const value = e.target.value;
-                  console.log('📅 Edit selected datetime:', value);
                   setEditTask({ ...editTask, dueDateTime: value });
                 }}
               />
@@ -2772,9 +2628,8 @@ const renderFilteredStatsCards = () => {
   useEffect(() => {
     if (initialAuthCheck) {
       if (authError) {
-        console.log('❌ Skipping data fetch due to auth error');
+        console.log('Skipping data fetch due to auth error');
       } else if (userId) {
-        console.log('✅ User authenticated, fetching data...');
         fetchAllData(page, rowsPerPage);
       }
     }
@@ -2857,24 +2712,8 @@ const renderFilteredStatsCards = () => {
                   </div>
                 </td>
                 <td>
-                  <div className="AdminTaskManagement-assigned-users">
-                    {getAllAssignedUsersWithStatus(task).map((assignedUser, index) => (
-                      <div key={index} className="AdminTaskManagement-user-badge">
-                        <span className="AdminTaskManagement-user-initial">
-                          {assignedUser.user.name?.charAt(0)?.toUpperCase() || 'U'}
-                        </span>
-                        <span className="AdminTaskManagement-user-info">
-                          <span className="AdminTaskManagement-user-name">{assignedUser.user.name}</span>
-                          <span className={`AdminTaskManagement-user-status AdminTaskManagement-user-status-${assignedUser.status}`}>
-                            {assignedUser.status}
-                          </span>
-                        </span>
-                      </div>
-                    ))}
-                    <div className="AdminTaskManagement-assigned-count">
-                      {getAssignedUsersCount(task)} assigned
-                    </div>
-                  </div>
+                  {/* FIX 1: Use the new AssignedUsersDisplay component */}
+                  <AssignedUsersDisplay task={task} />
                 </td>
                 <td>
                   <div className="AdminTaskManagement-action-buttons">
@@ -2966,7 +2805,7 @@ const renderFilteredStatsCards = () => {
     );
   };
 
-  // Snackbar/Toast Notification
+  // FIX 2: Snackbar/Toast Notification - Now properly implemented
   const renderSnackbar = () => (
     <div className={`AdminTaskManagement-snackbar ${snackbar.open ? 'AdminTaskManagement-snackbar-open' : ''} AdminTaskManagement-snackbar-${snackbar.severity}`}>
       <div className="AdminTaskManagement-snackbar-content">
@@ -2992,30 +2831,14 @@ const renderFilteredStatsCards = () => {
             <h2>Admin Task Management</h2>
             <div className="AdminTaskManagement-header-subtitle">
               Manage and assign tasks to users and groups
-              {/* {currentUser.company && (
-                <div className="AdminTaskManagement-header-info">
-                  <span><FiBriefcase /> Company: {getCompanyName(currentUser.company)}</span>
-                  {currentUser.department && (
-                    <span><FiBriefcase /> Department: {getDepartmentName(currentUser.department)}</span>
-                  )}
-                </div>
-              )} */}
             </div>
           </div>
           <div className="AdminTaskManagement-header-actions">
             {companyRole && (
               <div className="AdminTaskManagement-user-info">
-                {/* <div className={`AdminTaskManagement-user-role-badge ${isOwner() ? 'AdminTaskManagement-role-owner' : 'AdminTaskManagement-role-employee'}`}>
-                  {companyRole}
-                </div>
-                {jobRole && (
-                  <div className="AdminTaskManagement-user-jobrole">
-                    {jobRole}
-                  </div>
-                )} */}
+                {/* User info can be displayed here if needed */}
               </div>
             )}
-   
             <button 
               className="AdminTaskManagement-btn AdminTaskManagement-btn-primary"
               onClick={() => setOpenCreateDialog(true)}
@@ -3085,6 +2908,8 @@ const renderFilteredStatsCards = () => {
       {renderActivityLogsDialog()}
       {renderUserStatusDialog()}
       {renderImageZoomModal()}
+      
+      {/* FIX 2: Snackbar is now properly rendered */}
       {renderSnackbar()}
     </div>
   );

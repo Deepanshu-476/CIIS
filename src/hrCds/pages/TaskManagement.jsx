@@ -101,7 +101,6 @@ const statusColors = {
   reopen: 'secondary',
   cancelled: 'grey',
   overdue: 'error',
-  approved: 'success'
 };
 
 const UserCreateTask = () => {
@@ -1857,23 +1856,7 @@ const UserCreateTask = () => {
               </div>
             )}
 
-            {/* Debug Info */}
-            {debugInfo && (
-              <div style={{ 
-                marginTop: '16px', 
-                padding: '12px', 
-                backgroundColor: '#f5f5f5', 
-                borderRadius: '4px',
-                fontSize: '12px',
-                maxHeight: '200px',
-                overflow: 'auto'
-              }}>
-                <strong>Debug Info:</strong>
-                <pre style={{ margin: '8px 0 0 0', whiteSpace: 'pre-wrap' }}>
-                  {JSON.stringify(debugInfo, null, 2)}
-                </pre>
-              </div>
-            )}
+    
           </div>
         </div>
 

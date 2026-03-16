@@ -409,7 +409,7 @@
 }
 
 /* Mobile Filter Drawer */
-.Attendance-mobile-filter-drawer {
+/* .Attendance-mobile-filter-drawer {
   position: fixed;
   top: 0;
   left: 0;
@@ -419,7 +419,7 @@
   z-index: 1000;
   display: flex;
   align-items: flex-end;
-}
+} */
 
 .Attendance-filter-drawer-content {
   background: white;
@@ -1476,7 +1476,7 @@
   }
 
   .Attendance-modal-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2,1fr);
     gap: 12px;
   }
 
@@ -1672,12 +1672,22 @@
 /* Responsive adjustments */
 @media (max-width: 768px) {
      .Attendance-date-range-picker {
-        position: fixed;
-        top: 67%;
-        left: 46%;
+      position: absolute;
+        top: 145%;
+        left: 51%;
         transform: translate(-50%, -50%);
-        width: 62%;
+        width: 86%;
         max-width: 350px;
         margin: 0;
     }
+
+    /* .Attendance-filter-drawer-content{
+       position: fixed;
+        top: 145%;
+        left: 51%;
+        transform: translate(-50%, -50%);
+        width: 86%;
+        max-width: 350px;
+        margin: 0;
+    } */
 }

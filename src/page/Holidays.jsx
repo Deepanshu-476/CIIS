@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './Holidays.css';
+import API_URL, { API_URL_IMG } from "../config"; // Import both if needed
 
 const Holidays = () => {
     // ==================== STATES ====================
@@ -42,8 +43,8 @@ const Holidays = () => {
             setLoading(true);
             const token = localStorage.getItem('token');
             
-            // Build URL with month filter if selected
-            let url = '/api/holidays';
+            // Build URL with query params
+            let url = `${API_URL}/holidays`; // Updated: Added API_URL
             if (selectedMonth) {
                 url += `?month=${selectedMonth}`;
             }
@@ -133,13 +134,13 @@ const Holidays = () => {
             
             if (editingId) {
                 // Update holiday
-                response = await axios.put(`/api/holidays/${editingId}`, formData, {
+                response = await axios.put(`${API_URL}/holidays/${editingId}`, formData, { // Updated: Added API_URL
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setSuccess('Holiday successfully update ho gaya!');
             } else {
                 // Add holiday
-                response = await axios.post('/api/holidays/add', formData, {
+                response = await axios.post(`${API_URL}/holidays/add`, formData, { // Updated: Added API_URL
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setSuccess('Holiday successfully add ho gaya!');
@@ -189,7 +190,7 @@ const Holidays = () => {
         
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.delete(`/api/holidays/${id}`, {
+            const response = await axios.delete(`${API_URL}/holidays/${id}`, { // Updated: Added API_URL
                 headers: { Authorization: `Bearer ${token}` }
             });
             

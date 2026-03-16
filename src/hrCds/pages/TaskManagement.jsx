@@ -101,7 +101,6 @@ const statusColors = {
   reopen: 'secondary',
   cancelled: 'grey',
   overdue: 'error',
-  approved: 'success'
 };
 
 const UserCreateTask = () => {

@@ -847,7 +847,7 @@
 }
 
 .EmppLeaves-date-range {
-  font-size: 14px;
+  font-size: 12px;
   color: #2d3748;
   font-weight: 500;
 }
@@ -899,16 +899,18 @@
 }
 
 .EmppLeaves-status-rejected {
-  background: #fff5f5;
+  background: #eb9696;
   color: #e53e3e;
   border-color: #fed7d7;
+padding: 4px;
+border-radius: 50px ;
 }
 
 /* ============================================ */
 /* APPROVED BY */
 /* ============================================ */
 .EmppLeaves-approved-by {
-  font-size: 13px;
+  font-size: 12px;
   color: #718096;
   font-weight: 500;
 }
@@ -1014,6 +1016,7 @@
 
 .EmppLeaves-view-details-button:hover {
   background: #ebf8ff;
+  color:  #4299e1;
   border-color: #4299e1;
   transform: translateY(-1px);
 }
@@ -1790,11 +1793,11 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 9px 10px;
   background: #e3f2fd;
   color: #1976d2;
   border-radius: 16px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   margin-left: 12px;
 }
@@ -1857,7 +1860,7 @@
   padding: 4px 8px;
   border-radius: 16px;
   font-size: 12px;
-  margin-left: 8px;
+  padding-left: 10px;
 }
 
 .EmppLeaves-socket-status.EmppLeaves-connected {
@@ -1953,7 +1956,7 @@
   }
 
   .EmppLeaves-leaves-subtitle {
-  font-size: 13px;
+  font-size: 9px;
         gap: 7px;
         display: grid;
         grid-template-columns: repeat(2, 1fr);
@@ -2437,7 +2440,7 @@
 
   .EmppLeaves-info-row {
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 20px;
   }
 
   .EmppLeaves-info-label {
@@ -2450,7 +2453,7 @@
   }
 
   .EmppLeaves-info-grid {
-    gap: 12px;
+    gap: 14px;
   }
 
   .EmppLeaves-reason-box,

@@ -60,7 +60,7 @@ const Holidays = () => {
             setError('');
         } catch (err) {
             console.error('Error fetching holidays:', err);
-            setError('Holidays fetch karne me problem hui');
+           setError('Error fetching holidays');
         } finally {
             setLoading(false);
         }
@@ -126,7 +126,7 @@ const Holidays = () => {
             
             // Validation
             if (!formData.title || !formData.date || !formData.month) {
-                setError('Title, date aur month dena zaroori hai');
+               setError('Title, date and month are required');
                 return;
             }
             
@@ -137,13 +137,13 @@ const Holidays = () => {
                 response = await axios.put(`${API_URL}/holidays/${editingId}`, formData, { // Updated: Added API_URL
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                setSuccess('Holiday successfully update ho gaya!');
+                setSuccess('Holiday updated successfully!');
             } else {
                 // Add holiday
                 response = await axios.post(`${API_URL}/holidays/add`, formData, { // Updated: Added API_URL
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                setSuccess('Holiday successfully add ho gaya!');
+             setSuccess('Holiday added successfully!');
             }
             
             if (response.data.success) {
@@ -158,7 +158,7 @@ const Holidays = () => {
             if (err.response?.status === 409) {
                 setError('Ye holiday already exists is company me!');
             } else {
-                setError(err.response?.data?.message || 'Kuch problem hui');
+                setError(err.response?.data?.message || 'Something went wrong');
             }
         }
     };
@@ -184,7 +184,7 @@ const Holidays = () => {
 
     // ==================== DELETE HOLIDAY ====================
     const handleDelete = async (id, title) => {
-        if (!window.confirm(`"${title}" ko delete karna chahte ho?`)) {
+        if (!window.confirm(`Do you want to delete "${title}"?`)) {
             return;
         }
         
@@ -195,7 +195,7 @@ const Holidays = () => {
             });
             
             if (response.data.success) {
-                setSuccess('Holiday successfully delete ho gaya!');
+               setSuccess('Holiday deleted successfully!');
                 fetchHolidays();
                 
                 // Auto hide success message
@@ -203,7 +203,7 @@ const Holidays = () => {
             }
         } catch (err) {
             console.error('Delete error:', err);
-            setError(err.response?.data?.message || 'Delete karne me problem hui');
+            setError(err.response?.data?.message || 'Error deleting holiday');
         }
     };
 
@@ -285,7 +285,7 @@ const Holidays = () => {
                                 name="description"
                                 value={formData.description}
                                 onChange={handleInputChange}
-                                placeholder="Holiday ke baare mein kuch details..."
+                                placeholder="Add some details about the holiday..."
                                 rows="3"
                             />
                         </div>
@@ -335,7 +335,7 @@ const Holidays = () => {
                     <div className="loading">Loading holidays...</div>
                 ) : filteredHolidays.length === 0 ? (
                     <div className="no-data">
-                        <p>😔 Koi holiday nahi mila</p>
+                        <p>😔 No holidays found</p>
                         <button onClick={() => setShowForm(true)} className="add-first-btn">
                             Add First Holiday
                         </button>
@@ -361,7 +361,7 @@ const Holidays = () => {
                                         
                                         {holiday.description && (
                                             <div className="holiday-description">
-                                                📝 {holiday.description}
+                                               Description: {holiday.description}
                                             </div>
                                         )}
                                         

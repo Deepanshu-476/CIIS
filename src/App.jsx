@@ -54,7 +54,7 @@ import RegisterCompany from "./admin/components/CompanyRegister.jsx";
 
 // Super Admin
 import SuperAdminLogin from "./page/SuperAdminLogin";
-import SuperAdminDashboard from "./page/SuperAdminDashboard.jsx";
+
 import CompanyManagement from "./page/CompanyManagement.jsx";
 import JobRoleManagement from "./admin/page/JobRoleManagement.jsx";
 import SidebarManagement from "./admin/components/SidebarManagement.jsx";
@@ -106,7 +106,7 @@ function App() {
           <Route path="company-details" element={<CompanyDetails />} />
           <Route path="department" element={<Department />} />
           <Route path="create-user" element={<CreateUser />} />
-          <Route path="SuperAdminDashboard" element={<SuperAdminDashboard />} />
+          
           <Route path="JobRoleManagement" element={<JobRoleManagement />} />
           <Route path="all-company" element={<AllCompany />} />
           <Route path="assets" element={<AssetManagement />} />

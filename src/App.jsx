@@ -60,7 +60,7 @@ import JobRoleManagement from "./admin/page/JobRoleManagement.jsx";
 import SidebarManagement from "./admin/components/SidebarManagement.jsx";
 import CompanyDetails from "./admin/components/CompanyDetails.jsx";
 import AllCompany from "./page/AllCompany.jsx";
-import CompanyAssetManagement from './page/CompanyAssetManagement';
+import AssetManagement from './page/AssetManagement.jsx'
 import Holiday from "./page/Holidays.jsx";
 
 
@@ -109,7 +109,7 @@ function App() {
           
           <Route path="JobRoleManagement" element={<JobRoleManagement />} />
           <Route path="all-company" element={<AllCompany />} />
-          <Route path="company-assets" element={<CompanyAssetManagement />} />
+          <Route path="assets" element={<AssetManagement />} />
           <Route path="CompanyManagement" element={<CompanyManagement />} />
           <Route path="SidebarManagement" element={<SidebarManagement />} />
           <Route path="holiday" element={<Holiday />} />

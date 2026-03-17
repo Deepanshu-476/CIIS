@@ -4,11 +4,11 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import API_URL from "../../config";
 import "./CompanyDetails.css";
-import CIISLoader from '../../Loader/CIISLoader'; // ✅ Import CIISLoader
+import CIISLoader from '../../Loader/CIISLoader';
 
 const CompanyDetails = () => {
   const navigate = useNavigate();
-  const [pageLoading, setPageLoading] = useState(true); // ✅ Page loading state
+  const [pageLoading, setPageLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [company, setCompany] = useState(null);
   const [stats, setStats] = useState({
@@ -78,6 +78,7 @@ const CompanyDetails = () => {
   
   // Separate states for departments and job roles
   const [departments, setDepartments] = useState([]);
+  const [departmentsMap, setDepartmentsMap] = useState({});
   const [jobRoles, setJobRoles] = useState([]);
   const [loadingDepartments, setLoadingDepartments] = useState(false);
   const [loadingJobRoles, setLoadingJobRoles] = useState(false);
@@ -88,6 +89,12 @@ const CompanyDetails = () => {
   const genderOptions = ["male", "female", "other"];
   const maritalStatusOptions = ["single", "married", "divorced", "widowed"];
   const employeeTypeOptions = ["permanent", "contract", "intern", "trainee", "consultant", "part-time", "freelance"];
+
+ 
+  // Default company logo (building icon)
+  const DEFAULT_COMPANY_LOGO = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";;
+  // Default user avatar - ORIGINAL USER ICON
+  const DEFAULT_USER_AVATAR = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";;
 
   // Handle window resize
   useEffect(() => {
@@ -108,8 +115,23 @@ const CompanyDetails = () => {
     toast.success("Login URL copied to clipboard!");
   };
 
-  // ✅ Consistent company default logo (same as AllCompany)
-const DEFAULT_COMPANY_LOGO = "https://cdn-icons-png.flaticon.com/512/3059/3059989.png";
+  // Get department name from ID
+  const getDepartmentName = (deptId) => {
+    if (!deptId) return "No Department";
+    
+    // If it's already a string (name)
+    if (typeof deptId === 'string' && !deptId.match(/^[0-9a-fA-F]{24}$/)) {
+      return deptId;
+    }
+    
+    // If it's an object with name
+    if (typeof deptId === 'object' && deptId !== null) {
+      return deptId.name || deptId._id || "Unknown";
+    }
+    
+    // Look up in departments map
+    return departmentsMap[deptId] || deptId || "Unknown";
+  };
 
   // Fetch departments API
   const fetchDepartments = async (companyId) => {
@@ -131,6 +153,7 @@ const DEFAULT_COMPANY_LOGO = "https://cdn-icons-png.flaticon.com/512/3059/305998
       if (response.data && response.data.success) {
         const departmentsData = response.data.departments || [];
         
+        // Create department options for dropdown
         const departmentOptions = departmentsData.map(dept => ({
           id: dept._id,
           name: dept.name,
@@ -139,6 +162,13 @@ const DEFAULT_COMPANY_LOGO = "https://cdn-icons-png.flaticon.com/512/3059/305998
         }));
         
         setDepartments(departmentOptions);
+        
+        // Create a map for quick department name lookup by ID
+        const deptMap = {};
+        departmentsData.forEach(dept => {
+          deptMap[dept._id] = dept.name;
+        });
+        setDepartmentsMap(deptMap);
         
         setStats(prev => ({
           ...prev,
@@ -190,339 +220,374 @@ const DEFAULT_COMPANY_LOGO = "https://cdn-icons-png.flaticon.com/512/3059/305998
     }
   };
 
+  // Process users to ensure department names are properly set
+  const processUsers = (users) => {
+    return users.map(user => {
+      const processedUser = { ...user };
+      
+      // Handle department - could be ID, object, or name
+      if (user.department) {
+        if (typeof user.department === 'object' && user.department !== null) {
+          // If it's an object, extract the name
+          processedUser.departmentName = user.department.name || user.department._id;
+          processedUser.departmentId = user.department._id;
+        } else if (typeof user.department === 'string') {
+          // If it's a string, check if it's an ID or a name
+          if (user.department.match(/^[0-9a-fA-F]{24}$/)) {
+            // It's an ID, look up the name
+            processedUser.departmentId = user.department;
+            processedUser.departmentName = departmentsMap[user.department] || user.department;
+          } else {
+            // It's a name
+            processedUser.departmentName = user.department;
+          }
+        }
+      } else {
+        processedUser.departmentName = "No Department";
+      }
+      
+      return processedUser;
+    });
+  };
+
   // Fetch current user company
-const fetchCurrentUserCompany = async () => {
-  try {
-    setLoading(true);
-    
-    const token = localStorage.getItem("token");
-    
-    if (!token) {
-      toast.error("Please login to view company details");
-      navigate("/login");
-      return;
-    }
-
-    const headers = { Authorization: `Bearer ${token}` };
-
+  const fetchCurrentUserCompany = async () => {
     try {
-      const response = await axios.get(
-        `${API_URL}/users/company-users`,
-        { headers }
-      );
+      setLoading(true);
       
-      console.log("Full API Response:", response.data);
-      setApiDebug(response.data);
+      const token = localStorage.getItem("token");
       
-      if (response.data && response.data.success) {
-        const data = response.data.message;
-        console.log("API Response Data:", data);
-        
-        let companyId = "";
-        let companyDetails = {};
-        
-        // Extract company details
-        if (data.company?.id?._id) {
-          companyId = data.company.id._id;
-          companyDetails = data.company.id;
-        } else if (data.company?._id) {
-          companyId = data.company._id;
-          companyDetails = data.company;
-        } else if (data.company?.id) {
-          companyId = data.company.id;
-          companyDetails = data.company;
-        } else if (data.users && data.users.length > 0 && data.users[0].company) {
-          companyId = data.users[0].company._id || data.users[0].company.id;
-          companyDetails = data.users[0].company;
-        }
-        
-        if (!companyId) {
-          console.error("Company ID not found in response");
-          await fetchCompanyFromLocalStorage(headers);
-          return;
-        }
-        
-        // FIXED: Better company logo mapping - DON'T use default avatar
-        // Let the actual company logo come through first
-        let companyLogo = null;
-        
-        // Check all possible logo field names in order of preference
-        if (companyDetails.logo) {
-          companyLogo = companyDetails.logo;
-        } else if (companyDetails.logoUrl) {
-          companyLogo = companyDetails.logoUrl;
-        } else if (companyDetails.avatar) {
-          companyLogo = companyDetails.avatar;
-        } else if (data.company?.logo) {
-          companyLogo = data.company.logo;
-        } else if (data.company?.logoUrl) {
-          companyLogo = data.company.logoUrl;
-        }
-        
-        // FIXED: Use a proper company default logo (building icon instead of user avatar)
-        const defaultCompanyLogo = "https://cdn-icons-png.flaticon.com/512/3059/3059989.png"; // Building/company icon
-        
-        // Company data mapping with proper logo handling
-      // Company data mapping with consistent logo field
-const companyData = {
-  _id: companyId,
-  companyName: companyDetails.name || 
-                companyDetails.companyName || 
-                data.company?.name || 
-                "Company",
-  companyCode: companyDetails.companyCode || 
-                companyDetails.code || 
-                data.company?.companyCode || 
-                "",
-  // FIXED: Use ONLY 'logo' field to be consistent with AllCompany
-  logo: companyDetails.logo || 
-        data.company?.logo || 
-        null, // Don't set default here, handle in render
-  isActive: companyDetails.isActive ?? 
-            companyDetails.active ?? 
-            data.company?.isActive ?? 
-            true,
-  
-  companyEmail: companyDetails.email || 
-               companyDetails.companyEmail || 
-               companyDetails.contactEmail || 
-               data.company?.email || 
-               data.company?.companyEmail ||
-               "Not provided",
-  
-  companyPhone: companyDetails.phone || 
-               companyDetails.companyPhone || 
-               companyDetails.contactPhone || 
-               companyDetails.mobile || 
-               data.company?.phone || 
-               data.company?.companyPhone ||
-               "Not provided",
-  
-  companyAddress: companyDetails.address || 
-                 companyDetails.companyAddress || 
-                 companyDetails.location || 
-                 data.company?.address || 
-                 data.company?.companyAddress ||
-                 "Not provided",
-  
-  companyDomain: companyDetails.domain || 
-                companyDetails.companyDomain || 
-                data.company?.domain || 
-                data.company?.companyDomain ||
-                "gmail.com",
-  
-  ownerName: companyDetails.ownerName || 
-            companyDetails.owner || 
-            companyDetails.ownerId?.name ||
-            data.company?.ownerName || 
-            data.company?.owner ||
-            "Administrator",
-  
-  loginUrl: companyDetails.loginUrl || 
-           data.company?.loginUrl || 
-           `/company/${companyDetails.companyCode || "COMPANY"}/login`,
-  
-  dbIdentifier: companyDetails.dbIdentifier || 
-               data.company?.dbIdentifier || 
-               `company_${companyId}`,
-  
-  createdAt: companyDetails.createdAt || 
-            data.company?.createdAt || 
-            new Date().toISOString(),
-  
-  updatedAt: companyDetails.updatedAt || 
-            data.company?.updatedAt || 
-            new Date().toISOString(),
-  
-  subscriptionExpiry: companyDetails.subscriptionExpiry || 
-                     data.company?.subscriptionExpiry || 
-                     new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-};
-        
-        console.log("Mapped Company Data with Logo:", companyData.logo);
-        setCompany(companyData);
-        
-        // Initialize company edit form
-        // Initialize company edit form
-setCompanyEditFormData({
-  companyName: companyData.companyName,
-  companyCode: companyData.companyCode,
-  companyEmail: companyData.companyEmail !== "Not provided" ? companyData.companyEmail : "",
-  companyPhone: companyData.companyPhone !== "Not provided" ? companyData.companyPhone : "",
-  companyAddress: companyData.companyAddress !== "Not provided" ? companyData.companyAddress : "",
-  companyDomain: companyData.companyDomain,
-  ownerName: companyData.ownerName,
-  logo: companyData.logo || "" // Use company.logo directly
-});
-        
-        const users = data.users || [];
-        console.log("Users fetched:", users);
-        setRecentUsers(users);
-        
-        const activeUsers = users.filter(user => user.isActive).length;
-        
-        setStats(prev => ({
-          ...prev,
-          totalUsers: data.count || users.length,
-          activeUsers,
-          todayLogins: Math.floor(Math.random() * 50) + 10
-        }));
-        
-        if (data.currentUser) {
-          setUserRole(data.currentUser.name || data.currentUser.role || "user");
-        }
-        
-        // Store in localStorage
-        localStorage.setItem("company", JSON.stringify(companyData));
-        
-        if (companyData.companyCode) {
-          localStorage.setItem("companyCode", companyData.companyCode);
-        }
-        
-        // Fetch departments and job roles
-        await fetchDepartments(companyId);
-        await fetchJobRoles(companyId);
-        
+      if (!token) {
+        toast.error("Please login to view company details");
+        navigate("/login");
         return;
       }
-    } catch (apiError) {
-      console.error("Company users API failed:", apiError);
-      await fetchCompanyFromLocalStorage(headers);
-    }
-    
-  } catch (error) {
-    console.error("Error fetching company details:", error);
-    
-    if (error.response?.status === 401) {
-      toast.error("Session expired. Please login again!");
-      localStorage.clear();
-      navigate("/login");
-      return;
-    }
-    
-    toast.error("Failed to load company details");
-  } finally {
-    setLoading(false);
-    setPageLoading(false);
-  }
-};
 
-  // Fetch company from localStorage
-// Fetch company from localStorage
-const fetchCompanyFromLocalStorage = async (headers) => {
-  try {
-    const companyData = localStorage.getItem("company");
-    
-    if (companyData) {
-      const companyInfo = JSON.parse(companyData);
-      console.log("Company from localStorage:", companyInfo);
-      
-      const fullCompanyData = {
-        ...companyInfo,
-        companyName: companyInfo.companyName || companyInfo.name || "Company",
-        companyCode: companyInfo.companyCode || companyInfo.code || "",
-        // FIXED: Use only 'logo' field
-        logo: companyInfo.logo || null,
-        companyEmail: companyInfo.companyEmail || 
-                     companyInfo.email || 
-                     "Not provided",
-        companyPhone: companyInfo.companyPhone || 
-                     companyInfo.phone || 
-                     "Not provided",
-        companyAddress: companyInfo.companyAddress || 
-                       companyInfo.address || 
-                       "Not provided",
-        companyDomain: companyInfo.companyDomain || 
-                      companyInfo.domain || 
-                      "gmail.com",
-        ownerName: companyInfo.ownerName || 
-                  companyInfo.owner || 
-                  "Administrator",
-        loginUrl: companyInfo.loginUrl || "/company/CIISNE/login",
-        dbIdentifier: companyInfo.dbIdentifier || `company_${Date.now()}`,
-        createdAt: companyInfo.createdAt || new Date().toISOString(),
-        updatedAt: companyInfo.updatedAt || new Date().toISOString(),
-        subscriptionExpiry: companyInfo.subscriptionExpiry || 
-                          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        isActive: companyInfo.isActive ?? true
-      };
-      
-      setCompany(fullCompanyData);
-      setCompanyEditFormData({
-        companyName: fullCompanyData.companyName,
-        companyCode: fullCompanyData.companyCode,
-        companyEmail: fullCompanyData.companyEmail !== "Not provided" ? fullCompanyData.companyEmail : "",
-        companyPhone: fullCompanyData.companyPhone !== "Not provided" ? fullCompanyData.companyPhone : "",
-        companyAddress: fullCompanyData.companyAddress !== "Not provided" ? fullCompanyData.companyAddress : "",
-        companyDomain: fullCompanyData.companyDomain,
-        ownerName: fullCompanyData.ownerName,
-        logo: fullCompanyData.logo
-      });
-      
-      if (fullCompanyData._id) {
-        await fetchDepartments(fullCompanyData._id);
-        await fetchJobRoles(fullCompanyData._id);
+      const headers = { Authorization: `Bearer ${token}` };
+
+      try {
+        const response = await axios.get(
+          `${API_URL}/users/company-users`,
+          { headers }
+        );
         
-        try {
-          const usersRes = await axios.get(
-            `${API_URL}/superAdmin/company/${fullCompanyData._id}/users`,
-            { headers }
-          );
+        console.log("Full API Response:", response.data);
+        setApiDebug(response.data);
+        
+        if (response.data && response.data.success) {
+          const data = response.data.message;
+          console.log("API Response Data:", data);
           
-          const users = usersRes.data || [];
-          setRecentUsers(users.slice(0, 5));
+          let companyId = "";
+          let companyDetails = {};
+          
+          // Extract company details
+          if (data.company?.id?._id) {
+            companyId = data.company.id._id;
+            companyDetails = data.company.id;
+          } else if (data.company?._id) {
+            companyId = data.company._id;
+            companyDetails = data.company;
+          } else if (data.company?.id) {
+            companyId = data.company.id;
+            companyDetails = data.company;
+          } else if (data.users && data.users.length > 0 && data.users[0].company) {
+            companyId = data.users[0].company._id || data.users[0].company.id;
+            companyDetails = data.users[0].company;
+          }
+          
+          if (!companyId) {
+            console.error("Company ID not found in response");
+            await fetchCompanyFromLocalStorage(headers);
+            return;
+          }
+          
+          // Company logo mapping
+          let companyLogo = null;
+          
+          if (companyDetails.logo) {
+            companyLogo = companyDetails.logo;
+          } else if (companyDetails.logoUrl) {
+            companyLogo = companyDetails.logoUrl;
+          } else if (companyDetails.avatar) {
+            companyLogo = companyDetails.avatar;
+          } else if (data.company?.logo) {
+            companyLogo = data.company.logo;
+          } else if (data.company?.logoUrl) {
+            companyLogo = data.company.logoUrl;
+          }
+          
+          // Company data mapping
+          const companyData = {
+            _id: companyId,
+            companyName: companyDetails.name || 
+                          companyDetails.companyName || 
+                          data.company?.name || 
+                          "Company",
+            companyCode: companyDetails.companyCode || 
+                          companyDetails.code || 
+                          data.company?.companyCode || 
+                          "",
+            logo: companyLogo || null,
+            isActive: companyDetails.isActive ?? 
+                      companyDetails.active ?? 
+                      data.company?.isActive ?? 
+                      true,
+            
+            companyEmail: companyDetails.email || 
+                         companyDetails.companyEmail || 
+                         companyDetails.contactEmail || 
+                         data.company?.email || 
+                         data.company?.companyEmail ||
+                         "Not provided",
+            
+            companyPhone: companyDetails.phone || 
+                         companyDetails.companyPhone || 
+                         companyDetails.contactPhone || 
+                         companyDetails.mobile || 
+                         data.company?.phone || 
+                         data.company?.companyPhone ||
+                         "Not provided",
+            
+            companyAddress: companyDetails.address || 
+                           companyDetails.companyAddress || 
+                           companyDetails.location || 
+                           data.company?.address || 
+                           data.company?.companyAddress ||
+                           "Not provided",
+            
+            companyDomain: companyDetails.domain || 
+                          companyDetails.companyDomain || 
+                          data.company?.domain || 
+                          data.company?.companyDomain ||
+                          "gmail.com",
+            
+            ownerName: companyDetails.ownerName || 
+                      companyDetails.owner || 
+                      companyDetails.ownerId?.name ||
+                      data.company?.ownerName || 
+                      data.company?.owner ||
+                      "Administrator",
+            
+            loginUrl: companyDetails.loginUrl || 
+                     data.company?.loginUrl || 
+                     `/company/${companyDetails.companyCode || "COMPANY"}/login`,
+            
+            dbIdentifier: companyDetails.dbIdentifier || 
+                         data.company?.dbIdentifier || 
+                         `company_${companyId}`,
+            
+            createdAt: companyDetails.createdAt || 
+                      data.company?.createdAt || 
+                      new Date().toISOString(),
+            
+            updatedAt: companyDetails.updatedAt || 
+                      data.company?.updatedAt || 
+                      new Date().toISOString(),
+            
+            subscriptionExpiry: companyDetails.subscriptionExpiry || 
+                               data.company?.subscriptionExpiry || 
+                               new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+          };
+          
+          console.log("Mapped Company Data:", companyData);
+          setCompany(companyData);
+          
+          // Initialize company edit form
+          setCompanyEditFormData({
+            companyName: companyData.companyName,
+            companyCode: companyData.companyCode,
+            companyEmail: companyData.companyEmail !== "Not provided" ? companyData.companyEmail : "",
+            companyPhone: companyData.companyPhone !== "Not provided" ? companyData.companyPhone : "",
+            companyAddress: companyData.companyAddress !== "Not provided" ? companyData.companyAddress : "",
+            companyDomain: companyData.companyDomain,
+            ownerName: companyData.ownerName,
+            logo: companyData.logo || ""
+          });
+          
+          const users = data.users || [];
+          console.log("Users fetched:", users);
+          
+          // First set users, then process them after departments are loaded
+          setRecentUsers(users);
           
           const activeUsers = users.filter(user => user.isActive).length;
           
-          setStats({
-            totalUsers: users.length,
+          setStats(prev => ({
+            ...prev,
+            totalUsers: data.count || users.length,
             activeUsers,
-            departments: 0,
             todayLogins: Math.floor(Math.random() * 50) + 10
-          });
-        } catch (usersError) {
-          console.error("Error fetching users:", usersError);
+          }));
+          
+          if (data.currentUser) {
+            setUserRole(data.currentUser.name || data.currentUser.role || "user");
+          }
+          
+          // Store in localStorage
+          localStorage.setItem("company", JSON.stringify(companyData));
+          
+          if (companyData.companyCode) {
+            localStorage.setItem("companyCode", companyData.companyCode);
+          }
+          
+          // Fetch departments and job roles
+          await fetchDepartments(companyId);
+          await fetchJobRoles(companyId);
+          
+          return;
         }
+      } catch (apiError) {
+        console.error("Company users API failed:", apiError);
+        await fetchCompanyFromLocalStorage(headers);
       }
-    } else {
-      // Create default company data with proper logo
-      const defaultCompany = {
-        _id: "temp_" + Date.now(),
-        companyName: "My Company",
-        companyCode: "COMPANY",
-        companyEmail: "Not provided",
-        companyPhone: "Not provided",
-        companyAddress: "Not provided",
-        companyDomain: "gmail.com",
-        ownerName: "Administrator",
-        loginUrl: "/company/COMPANY/login",
-        dbIdentifier: `company_${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        subscriptionExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        // FIXED: Use proper company default logo
-        logo: defaultCompanyLogo,
-        isActive: true
-      };
       
-      setCompany(defaultCompany);
-      setCompanyEditFormData({
-        companyName: defaultCompany.companyName,
-        companyCode: defaultCompany.companyCode,
-        companyEmail: "",
-        companyPhone: "",
-        companyAddress: "",
-        companyDomain: defaultCompany.companyDomain,
-        ownerName: defaultCompany.ownerName,
-        logo: defaultCompany.logo
-      });
+    } catch (error) {
+      console.error("Error fetching company details:", error);
       
-      localStorage.setItem("company", JSON.stringify(defaultCompany));
+      if (error.response?.status === 401) {
+        toast.error("Session expired. Please login again!");
+        localStorage.clear();
+        navigate("/login");
+        return;
+      }
+      
+      toast.error("Failed to load company details");
+    } finally {
+      setLoading(false);
+      setPageLoading(false);
     }
-  } catch (error) {
-    console.error("Error in fallback method:", error);
-  }
-};
+  };
+
+  // Fetch company from localStorage
+  const fetchCompanyFromLocalStorage = async (headers) => {
+    try {
+      const companyData = localStorage.getItem("company");
+      
+      if (companyData) {
+        const companyInfo = JSON.parse(companyData);
+        console.log("Company from localStorage:", companyInfo);
+        
+        const fullCompanyData = {
+          ...companyInfo,
+          companyName: companyInfo.companyName || companyInfo.name || "Company",
+          companyCode: companyInfo.companyCode || companyInfo.code || "",
+          logo: companyInfo.logo || null,
+          companyEmail: companyInfo.companyEmail || 
+                       companyInfo.email || 
+                       "Not provided",
+          companyPhone: companyInfo.companyPhone || 
+                       companyInfo.phone || 
+                       "Not provided",
+          companyAddress: companyInfo.companyAddress || 
+                         companyInfo.address || 
+                         "Not provided",
+          companyDomain: companyInfo.companyDomain || 
+                        companyInfo.domain || 
+                        "gmail.com",
+          ownerName: companyInfo.ownerName || 
+                    companyInfo.owner || 
+                    "Administrator",
+          loginUrl: companyInfo.loginUrl || "/company/CIISNE/login",
+          dbIdentifier: companyInfo.dbIdentifier || `company_${Date.now()}`,
+          createdAt: companyInfo.createdAt || new Date().toISOString(),
+          updatedAt: companyInfo.updatedAt || new Date().toISOString(),
+          subscriptionExpiry: companyInfo.subscriptionExpiry || 
+                            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          isActive: companyInfo.isActive ?? true
+        };
+        
+        setCompany(fullCompanyData);
+        setCompanyEditFormData({
+          companyName: fullCompanyData.companyName,
+          companyCode: fullCompanyData.companyCode,
+          companyEmail: fullCompanyData.companyEmail !== "Not provided" ? fullCompanyData.companyEmail : "",
+          companyPhone: fullCompanyData.companyPhone !== "Not provided" ? fullCompanyData.companyPhone : "",
+          companyAddress: fullCompanyData.companyAddress !== "Not provided" ? fullCompanyData.companyAddress : "",
+          companyDomain: fullCompanyData.companyDomain,
+          ownerName: fullCompanyData.ownerName,
+          logo: fullCompanyData.logo
+        });
+        
+        if (fullCompanyData._id) {
+          await fetchDepartments(fullCompanyData._id);
+          await fetchJobRoles(fullCompanyData._id);
+          
+          try {
+            const usersRes = await axios.get(
+              `${API_URL}/superAdmin/company/${fullCompanyData._id}/users`,
+              { headers }
+            );
+            
+            const users = usersRes.data || [];
+            setRecentUsers(users);
+            
+            const activeUsers = users.filter(user => user.isActive).length;
+            
+            setStats({
+              totalUsers: users.length,
+              activeUsers,
+              departments: 0,
+              todayLogins: Math.floor(Math.random() * 50) + 10
+            });
+          } catch (usersError) {
+            console.error("Error fetching users:", usersError);
+          }
+        }
+      } else {
+        // Create default company data
+        const defaultCompany = {
+          _id: "temp_" + Date.now(),
+          companyName: "My Company",
+          companyCode: "COMPANY",
+          companyEmail: "Not provided",
+          companyPhone: "Not provided",
+          companyAddress: "Not provided",
+          companyDomain: "gmail.com",
+          ownerName: "Administrator",
+          loginUrl: "/company/COMPANY/login",
+          dbIdentifier: `company_${Date.now()}`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          subscriptionExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          logo: DEFAULT_COMPANY_LOGO,
+          isActive: true
+        };
+        
+        setCompany(defaultCompany);
+        setCompanyEditFormData({
+          companyName: defaultCompany.companyName,
+          companyCode: defaultCompany.companyCode,
+          companyEmail: "",
+          companyPhone: "",
+          companyAddress: "",
+          companyDomain: defaultCompany.companyDomain,
+          ownerName: defaultCompany.ownerName,
+          logo: defaultCompany.logo
+        });
+        
+        localStorage.setItem("company", JSON.stringify(defaultCompany));
+      }
+    } catch (error) {
+      console.error("Error in fallback method:", error);
+    }
+  };
+
+  // Update users when departments map changes
+  useEffect(() => {
+    if (recentUsers.length > 0 && Object.keys(departmentsMap).length > 0) {
+      const processedUsers = recentUsers.map(user => {
+        if (user.department && departmentsMap[user.department]) {
+          return { ...user, departmentName: departmentsMap[user.department] };
+        } else if (user.department && typeof user.department === 'object' && user.department.name) {
+          return { ...user, departmentName: user.department.name };
+        }
+        return { ...user, departmentName: user.department || "No Department" };
+      });
+      setRecentUsers(processedUsers);
+    }
+  }, [departmentsMap]);
+
   // Format date function
   const formatDate = (dateString) => {
     if (!dateString) return "Not available";
@@ -608,7 +673,7 @@ const fetchCompanyFromLocalStorage = async (headers) => {
         companyAddress: company.companyAddress !== "Not provided" ? company.companyAddress : "",
         companyDomain: company.companyDomain || "",
         ownerName: company.ownerName || "",
-        logo: company.logo || "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
+        logo: company.logo || DEFAULT_COMPANY_LOGO
       });
       setCompanyEditSuccess(false);
       setCompanyEditModalOpen(true);
@@ -693,7 +758,7 @@ const fetchCompanyFromLocalStorage = async (headers) => {
         }
       }
       
-      // Update local state regardless of API success
+      // Update local state
       const updatedCompany = {
         ...company,
         companyName: companyEditFormData.companyName,
@@ -703,7 +768,7 @@ const fetchCompanyFromLocalStorage = async (headers) => {
         companyAddress: companyEditFormData.companyAddress || "Not provided",
         companyDomain: companyEditFormData.companyDomain,
         ownerName: companyEditFormData.ownerName,
-        logo: companyEditFormData.logo || "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
+        logo: companyEditFormData.logo || DEFAULT_COMPANY_LOGO
       };
       
       setCompany(updatedCompany);
@@ -741,17 +806,18 @@ const fetchCompanyFromLocalStorage = async (headers) => {
   const handleEditUser = (user) => {
     console.log("Editing user:", user);
     
-    // Find department name from ID if needed
-    let departmentName = user.department;
-    if (user.department && typeof user.department === 'object') {
+    // Get department name
+    let departmentName = "";
+    if (user.departmentName) {
+      departmentName = user.departmentName;
+    } else if (user.department && typeof user.department === 'object') {
       departmentName = user.department.name || user.department._id;
     } else if (user.department) {
-      const dept = departments.find(d => d.id === user.department || d.value === user.department);
-      departmentName = dept?.name || user.department;
+      departmentName = getDepartmentName(user.department);
     }
     
-    // Find job role name from ID if needed
-    let jobRoleName = user.jobRole;
+    // Get job role name
+    let jobRoleName = "";
     if (user.jobRole && typeof user.jobRole === 'object') {
       jobRoleName = user.jobRole.name || user.jobRole._id;
     } else if (user.jobRole) {
@@ -827,23 +893,6 @@ const fetchCompanyFromLocalStorage = async (headers) => {
     setEditFormData(prev => ({
       ...prev,
       [name]: value
-    }));
-  };
-
-  // Handle department change
-  const handleDepartmentChange = (value) => {
-    setEditFormData(prev => ({
-      ...prev,
-      department: value
-    }));
-  };
-
-  // Handle job role change
-  const handleRoleChange = (value) => {
-    setEditFormData(prev => ({
-      ...prev,
-      jobRole: value,
-      role: value
     }));
   };
 
@@ -968,7 +1017,11 @@ const fetchCompanyFromLocalStorage = async (headers) => {
         // Optimistic update
         const updatedUsers = recentUsers.map(user => 
           (user.id === userId || user._id === userId) 
-            ? { ...user, ...editFormData }
+            ? { 
+                ...user, 
+                ...editFormData,
+                departmentName: editFormData.department // Store department name
+              }
             : user
         );
         setRecentUsers(updatedUsers);
@@ -1023,7 +1076,11 @@ const fetchCompanyFromLocalStorage = async (headers) => {
     const userId = selectedUser.id || selectedUser._id;
     const updatedUsers = recentUsers.map(user => 
       (user.id === userId || user._id === userId) 
-        ? { ...user, ...editFormData }
+        ? { 
+            ...user, 
+            ...editFormData,
+            departmentName: editFormData.department
+          }
         : user
     );
     setRecentUsers(updatedUsers);
@@ -1166,7 +1223,7 @@ const fetchCompanyFromLocalStorage = async (headers) => {
     setActiveTab(tabIndex);
   };
 
-  // ✅ Load data with page loader
+  // Load data with page loader
   useEffect(() => {
     const loadData = async () => {
       setPageLoading(true);
@@ -1176,7 +1233,6 @@ const fetchCompanyFromLocalStorage = async (headers) => {
         console.error("Error loading company details:", error);
         toast.error("Failed to load company details");
       } finally {
-        // Minimum 500ms loader show karega
         setTimeout(() => {
           setPageLoading(false);
         }, 500);
@@ -1186,12 +1242,11 @@ const fetchCompanyFromLocalStorage = async (headers) => {
     loadData();
   }, []);
 
-  const defaultLogo = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
   const daysRemaining = getDaysRemaining(company?.subscriptionExpiry);
   const subscriptionStatus = getSubscriptionStatus(daysRemaining);
   const subscriptionProgress = Math.min((daysRemaining / 30) * 100, 100);
 
-  // ✅ Show CIISLoader while page is loading
+  // Show CIISLoader while page is loading
   if (pageLoading) {
     return <CIISLoader />;
   }
@@ -1323,25 +1378,25 @@ const fetchCompanyFromLocalStorage = async (headers) => {
         <div className="CompanyDetails-header">
           <div className="CompanyDetails-header-gradient">
             <div className="CompanyDetails-header-content">
-              {/* Logo and Company Info */}
+              {/* Logo and Company Info - FIXED: Now shows company name properly */}
               <div className="CompanyDetails-header-left">
-<div className="CompanyDetails-logo-wrapper">
-  <img 
-    src={company.logo || defaultLogo}
-    alt={company.companyName}
-    className="CompanyDetails-company-logo"
-    onError={(e) => { 
-      e.target.src = defaultLogo; 
-    }}
-  />
-  {company.isActive && (
-    <div className="CompanyDetails-active-badge">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-      </svg>
-    </div>
-  )}
-</div>
+                <div className="CompanyDetails-logo-wrapper">
+                  <img 
+                    src={company.logo || DEFAULT_COMPANY_LOGO}
+                    alt={company.companyName}
+                    className="CompanyDetails-company-logo"
+                    onError={(e) => { 
+                      e.target.src = DEFAULT_COMPANY_LOGO; 
+                    }}
+                  />
+                  {company.isActive && (
+                    <div className="CompanyDetails-active-badge">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                    </div>
+                  )}
+                </div>
 
                 <div className="CompanyDetails-company-info">
                   <div className="CompanyDetails-company-name-wrapper">
@@ -1381,7 +1436,7 @@ const fetchCompanyFromLocalStorage = async (headers) => {
                 </div>
               </div>
 
-              {/* Desktop Login URL - Visible only on desktop */}
+              {/* Desktop Login URL */}
               <div className="CompanyDetails-desktop-login-url">
                 <div className="CompanyDetails-url-wrapper">
                   <span className="CompanyDetails-url-label-desktop">Login URL:</span>
@@ -1407,7 +1462,7 @@ const fetchCompanyFromLocalStorage = async (headers) => {
                 </div>
               </div>
 
-              {/* Action Buttons - Desktop/Tablet */}
+              {/* Action Buttons */}
               <div className="CompanyDetails-header-actions">
                 <button className="CompanyDetails-icon-btn CompanyDetails-refresh-btn" onClick={handleRefresh} title="Refresh Data">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -1431,7 +1486,7 @@ const fetchCompanyFromLocalStorage = async (headers) => {
               </button>
             </div>
 
-            {/* Mobile Login URL (only visible on mobile) */}
+            {/* Mobile Login URL */}
             <div className="CompanyDetails-mobile-login-url">
               <span className="CompanyDetails-url-label">Login URL:</span>
               <div className="CompanyDetails-url-container">
@@ -1604,33 +1659,48 @@ const fetchCompanyFromLocalStorage = async (headers) => {
 
                 <div className="CompanyDetails-users-list">
                   {recentUsers.length > 0 ? (
-                    recentUsers.map((user, index) => (
-                      <div key={user.id || user._id || index} className="CompanyDetails-user-item">
-                        <div className="CompanyDetails-user-avatar-wrapper">
-                          <div className={`CompanyDetails-user-avatar ${user.isActive ? 'CompanyDetails-active' : 'CompanyDetails-inactive'}`}>
-                            {user.name?.charAt(0) || 'U'}
+                    recentUsers.map((user, index) => {
+                      // Get department name for display
+                      let deptDisplay = "No Department";
+                      
+                      if (user.departmentName) {
+                        deptDisplay = user.departmentName;
+                      } else if (user.department && typeof user.department === 'object') {
+                        deptDisplay = user.department.name || user.department._id;
+                      } else if (user.department) {
+                        deptDisplay = getDepartmentName(user.department);
+                      }
+                      
+                      return (
+                        <div key={user.id || user._id || index} className="CompanyDetails-user-item">
+                          <div className="CompanyDetails-user-avatar-wrapper">
+                            <div className={`CompanyDetails-user-avatar ${user.isActive ? 'CompanyDetails-active' : 'CompanyDetails-inactive'}`}>
+                              {user.name?.charAt(0) || 'U'}
+                            </div>
+                            <div className={`CompanyDetails-status-dot ${user.isActive ? 'CompanyDetails-active' : 'CompanyDetails-inactive'}`}></div>
                           </div>
-                          <div className={`CompanyDetails-status-dot ${user.isActive ? 'CompanyDetails-active' : 'CompanyDetails-inactive'}`}></div>
-                        </div>
 
-                        <div className="CompanyDetails-user-info">
-                          <div className="CompanyDetails-user-name">{user.name || 'Unknown User'}</div>
-                          <div className="CompanyDetails-user-tags">
-                            {user.employeeType && (
-                              <span className="CompanyDetails-tag CompanyDetails-employee-type">{user.employeeType}</span>
-                            )}
-                            <span className="CompanyDetails-tag CompanyDetails-department">{user.department || 'No Dept'}</span>
+                          <div className="CompanyDetails-user-info">
+                            <div className="CompanyDetails-user-name">{user.name || 'Unknown User'}</div>
+                            <div className="CompanyDetails-user-tags">
+                              {user.employeeType && (
+                                <span className="CompanyDetails-tag CompanyDetails-employee-type">{user.employeeType}</span>
+                              )}
+                              <span className="CompanyDetails-tag CompanyDetails-department">
+                                {deptDisplay}
+                              </span>
+                            </div>
                           </div>
-                        </div>
 
-                        <button className="CompanyDetails-edit-user-btn" onClick={() => handleEditUser(user)} title="Edit User">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                          </svg>
-                          {!isMobile && 'Edit'}
-                        </button>
-                      </div>
-                    ))
+                          <button className="CompanyDetails-edit-user-btn" onClick={() => handleEditUser(user)} title="Edit User">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                            </svg>
+                            {!isMobile && 'Edit'}
+                          </button>
+                        </div>
+                      );
+                    })
                   ) : (
                     <div className="CompanyDetails-empty-state">
                       <div className="CompanyDetails-empty-icon">
@@ -1737,33 +1807,48 @@ const fetchCompanyFromLocalStorage = async (headers) => {
 
                 <div className="CompanyDetails-users-list">
                   {recentUsers.length > 0 ? (
-                    recentUsers.map((user, index) => (
-                      <div key={user.id || user._id || index} className="CompanyDetails-user-item">
-                        <div className="CompanyDetails-user-avatar-wrapper">
-                          <div className={`CompanyDetails-user-avatar ${user.isActive ? 'CompanyDetails-active' : 'CompanyDetails-inactive'}`}>
-                            {user.name?.charAt(0) || 'U'}
+                    recentUsers.map((user, index) => {
+                      // Get department name for display
+                      let deptDisplay = "No Department";
+                      
+                      if (user.departmentName) {
+                        deptDisplay = user.departmentName;
+                      } else if (user.department && typeof user.department === 'object') {
+                        deptDisplay = user.department.name || user.department._id;
+                      } else if (user.department) {
+                        deptDisplay = getDepartmentName(user.department);
+                      }
+                      
+                      return (
+                        <div key={user.id || user._id || index} className="CompanyDetails-user-item">
+                          <div className="CompanyDetails-user-avatar-wrapper">
+                            <div className={`CompanyDetails-user-avatar ${user.isActive ? 'CompanyDetails-active' : 'CompanyDetails-inactive'}`}>
+                              {user.name?.charAt(0) || 'U'}
+                            </div>
+                            <div className={`CompanyDetails-status-dot ${user.isActive ? 'CompanyDetails-active' : 'CompanyDetails-inactive'}`}></div>
                           </div>
-                          <div className={`CompanyDetails-status-dot ${user.isActive ? 'CompanyDetails-active' : 'CompanyDetails-inactive'}`}></div>
-                        </div>
 
-                        <div className="CompanyDetails-user-info">
-                          <div className="CompanyDetails-user-name">{user.name || 'Unknown User'}</div>
-                          <div className="CompanyDetails-user-tags">
-                            {user.employeeType && (
-                              <span className="CompanyDetails-tag CompanyDetails-employee-type">{user.employeeType}</span>
-                            )}
-                            <span className="CompanyDetails-tag CompanyDetails-department">{user.department || 'No Dept'}</span>
+                          <div className="CompanyDetails-user-info">
+                            <div className="CompanyDetails-user-name">{user.name || 'Unknown User'}</div>
+                            <div className="CompanyDetails-user-tags">
+                              {user.employeeType && (
+                                <span className="CompanyDetails-tag CompanyDetails-employee-type">{user.employeeType}</span>
+                              )}
+                              <span className="CompanyDetails-tag CompanyDetails-department">
+                                {deptDisplay}
+                              </span>
+                            </div>
                           </div>
-                        </div>
 
-                        <button className="CompanyDetails-edit-user-btn" onClick={() => handleEditUser(user)} title="Edit User">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                          </svg>
-                          {!isMobile && 'Edit'}
-                        </button>
-                      </div>
-                    ))
+                          <button className="CompanyDetails-edit-user-btn" onClick={() => handleEditUser(user)} title="Edit User">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                            </svg>
+                            {!isMobile && 'Edit'}
+                          </button>
+                        </div>
+                      );
+                    })
                   ) : (
                     <div className="CompanyDetails-empty-state">
                       <div className="CompanyDetails-empty-icon">
@@ -1958,7 +2043,7 @@ const fetchCompanyFromLocalStorage = async (headers) => {
                         src={companyEditFormData.logo} 
                         alt="Logo preview"
                         className="CompanyDetails-preview-img"
-                        onError={(e) => { e.target.src = defaultLogo; }}
+                        onError={(e) => { e.target.src = DEFAULT_COMPANY_LOGO; }}
                       />
                       <div className="CompanyDetails-preview-text">
                         <span className="CompanyDetails-preview-label">Logo Preview</span>

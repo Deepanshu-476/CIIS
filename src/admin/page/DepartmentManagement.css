@@ -221,7 +221,7 @@
 /* Mobile stat label */
 @media (max-width: 767px) {
   .DepartmentManagement-stat-label {
-    font-size: 0.65rem;
+    font-size: 0.45rem;
     margin-bottom: 2px;
   }
 }
@@ -618,6 +618,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  padding-bottom: 4px;
 }
 
 .DepartmentManagement-mobile-filter-content {

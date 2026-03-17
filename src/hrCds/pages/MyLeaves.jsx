@@ -833,7 +833,7 @@ const closeDetailModal = () => {
           <h3>Rejected</h3>
         </div>
         <div className="MyLeaves-stat-value"
-        style={{ marginTop: "12px" , gap: "5px" }}
+        style={{ marginTop: "13px" , gap: "5px" }}
         >{stats.rejected}</div>
         {/* <div className="MyLeaves-stat-footer">
           <span>Declined requests</span>

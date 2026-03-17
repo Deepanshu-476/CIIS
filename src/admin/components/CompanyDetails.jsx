@@ -250,7 +250,7 @@ const CompanyDetails = () => {
     });
   };
 
-  // Fetch current user company
+  // 🔥 FIXED: Fetch current user company with proper company name extraction
   const fetchCurrentUserCompany = async () => {
     try {
       setLoading(true);
@@ -280,21 +280,55 @@ const CompanyDetails = () => {
           
           let companyId = "";
           let companyDetails = {};
+          let companyName = "Company"; // Default fallback
           
-          // Extract company details
-          if (data.company?.id?._id) {
-            companyId = data.company.id._id;
-            companyDetails = data.company.id;
-          } else if (data.company?._id) {
+          // 🔥 FIXED: Extract company details properly
+          // First try to get from company.id object
+          if (data.company?.id) {
+            if (data.company.id._id) {
+              companyId = data.company.id._id;
+              companyDetails = data.company.id;
+              companyName = data.company.id.name || data.company.id.companyName || companyName;
+            } else {
+              companyId = data.company.id;
+            }
+          } 
+          // Then try company object
+          else if (data.company?._id) {
             companyId = data.company._id;
             companyDetails = data.company;
-          } else if (data.company?.id) {
-            companyId = data.company.id;
-            companyDetails = data.company;
-          } else if (data.users && data.users.length > 0 && data.users[0].company) {
-            companyId = data.users[0].company._id || data.users[0].company.id;
-            companyDetails = data.users[0].company;
+            companyName = data.company.name || data.company.companyName || companyName;
           }
+          // Then try from first user
+          else if (data.users && data.users.length > 0) {
+            const firstUser = data.users[0];
+            if (firstUser.company) {
+              if (firstUser.company._id) {
+                companyId = firstUser.company._id;
+                companyDetails = firstUser.company;
+                companyName = firstUser.company.name || firstUser.company.companyName || companyName;
+              } else {
+                companyId = firstUser.company;
+              }
+            }
+            // Also check if user has companyName directly
+            if (firstUser.companyName) {
+              companyName = firstUser.companyName;
+            }
+          }
+          
+          // 🔥 FIXED: Also check for company name in data.company
+          if (data.company?.companyName) {
+            companyName = data.company.companyName;
+          } else if (data.company?.name) {
+            companyName = data.company.name;
+          }
+          
+          console.log("✅ Extracted company details:", {
+            companyId,
+            companyName,
+            companyDetails
+          });
           
           if (!companyId) {
             console.error("Company ID not found in response");
@@ -317,18 +351,15 @@ const CompanyDetails = () => {
             companyLogo = data.company.logoUrl;
           }
           
-          // Company data mapping
+          // Company data mapping with proper name
           const companyData = {
             _id: companyId,
-            companyName: companyDetails.name || 
-                          companyDetails.companyName || 
-                          data.company?.name || 
-                          "Company",
+            companyName: companyName, // 🔥 FIXED: Use extracted company name
             companyCode: companyDetails.companyCode || 
-                          companyDetails.code || 
-                          data.company?.companyCode || 
-                          "",
-            logo: companyLogo || null,
+                        companyDetails.code || 
+                        data.company?.companyCode || 
+                        "",
+            logo: companyLogo || DEFAULT_COMPANY_LOGO,
             isActive: companyDetails.isActive ?? 
                       companyDetails.active ?? 
                       data.company?.isActive ?? 
@@ -390,7 +421,7 @@ const CompanyDetails = () => {
                                new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
           };
           
-          console.log("Mapped Company Data:", companyData);
+          console.log("✅ Mapped Company Data:", companyData);
           setCompany(companyData);
           
           // Initialize company edit form
@@ -406,9 +437,8 @@ const CompanyDetails = () => {
           });
           
           const users = data.users || [];
-          console.log("Users fetched:", users);
+          console.log("Users fetched:", users.length);
           
-          // First set users, then process them after departments are loaded
           setRecentUsers(users);
           
           const activeUsers = users.filter(user => user.isActive).length;
@@ -459,7 +489,7 @@ const CompanyDetails = () => {
     }
   };
 
-  // Fetch company from localStorage
+  // Fetch company from localStorage (fallback)
   const fetchCompanyFromLocalStorage = async (headers) => {
     try {
       const companyData = localStorage.getItem("company");
@@ -472,7 +502,7 @@ const CompanyDetails = () => {
           ...companyInfo,
           companyName: companyInfo.companyName || companyInfo.name || "Company",
           companyCode: companyInfo.companyCode || companyInfo.code || "",
-          logo: companyInfo.logo || null,
+          logo: companyInfo.logo || DEFAULT_COMPANY_LOGO,
           companyEmail: companyInfo.companyEmail || 
                        companyInfo.email || 
                        "Not provided",
@@ -1378,31 +1408,9 @@ const CompanyDetails = () => {
         <div className="CompanyDetails-header">
           <div className="CompanyDetails-header-gradient">
             <div className="CompanyDetails-header-content">
-              {/* Logo and Company Info - FIXED: Now shows company name properly */}
+              {/* Logo and Company Info */}
               <div className="CompanyDetails-header-left">
-                <div className="CompanyDetails-logo-wrapper">
-                  <img 
-                    src={company.logo || DEFAULT_COMPANY_LOGO}
-                    alt={company.companyName}
-                    className="CompanyDetails-company-logo"
-                    onError={(e) => { 
-                      e.target.src = DEFAULT_COMPANY_LOGO; 
-                    }}
-                  />
-                  {company.isActive && (
-                    <div className="CompanyDetails-active-badge">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                      </svg>
-                    </div>
-                  )}
-                </div>
-
                 <div className="CompanyDetails-company-info">
-                  <div className="CompanyDetails-company-name-wrapper">
-                    <h1 className="CompanyDetails-company-name">{company.companyName}</h1>
-                  </div>
-
                   <div className="CompanyDetails-company-chips">
                     <span className={`CompanyDetails-chip ${company.isActive ? 'CompanyDetails-chip-active' : 'CompanyDetails-chip-inactive'}`}>
                       {company.isActive ? (

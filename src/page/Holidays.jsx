@@ -218,7 +218,7 @@ const Holidays = () => {
         <div className="holidays-container">
             {/* Header */}
             <div className="holidays-header">
-                <h1>🏖️ Holiday Management</h1>
+                <h1>Holiday Management</h1>
                 <button 
                     className="add-btn"
                     onClick={() => {
@@ -346,52 +346,75 @@ const Holidays = () => {
                             Total Holidays: {filteredHolidays.length}
                         </div>
                         
-                        <div className="holidays-grid">
-                            {filteredHolidays.map(holiday => (
-                                <div key={holiday._id} className="holiday-card">
-                                    <div className="holiday-card-header">
-                                        <h3>{holiday.title}</h3>
-                                        <span className="month-badge">{holiday.month}</span>
-                                    </div>
-                                    
-                                    <div className="holiday-card-body">
-                                        <div className="holiday-date">
-                                            📅 {formatDate(holiday.date)}
-                                        </div>
-                                        
-                                        {holiday.description && (
-                                            <div className="holiday-description">
-                                               Description: {holiday.description}
-                                            </div>
-                                        )}
-                                        
-                                        <div className="holiday-meta">
-                                            <small>
-                                                Added by: {holiday.createdBy?.name || 'Unknown'}
-                                            </small>
-                                            <small>
-                                                {new Date(holiday.createdAt).toLocaleDateString()}
-                                            </small>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="holiday-card-footer">
-                                        <button 
-                                            className="edit-btn"
-                                            onClick={() => handleEdit(holiday)}
-                                        >
-                                            ✏️ Edit
-                                        </button>
-                                        <button 
-                                            className="delete-btn"
-                                            onClick={() => handleDelete(holiday._id, holiday.title)}
-                                        >
-                                            🗑️ Delete
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                    <div className="holidays-grid">
+    {filteredHolidays.map(holiday => (
+        <div key={holiday._id} className="holiday-card">
+            {/* Card Header with decorative accent */}
+            <div className="holiday-card-header">
+                <div className="header-left">
+                    <h3>{holiday.title}</h3>
+                    <span className="month-badge">{holiday.month}</span>
+                </div>
+                <div className="header-actions">
+                    {/* Optional: Add a favorite/flag icon here */}
+                </div>
+            </div>
+            
+            {/* Card Body - Main content */}
+            <div className="holiday-card-body">
+                {/* Date with icon and enhanced styling */}
+                <div className="holiday-date">
+                    <span className="date-text">{formatDate(holiday.date)}</span>
+                </div>
+                
+                {/* Description with better formatting */}
+                {holiday.description && (
+                    <div className="holiday-description">
+                        <span className="description-label">About this holiday</span>
+                        <p>{holiday.description}</p>
+                    </div>
+                )}
+                
+                {/* Meta information with icons */}
+                <div className="holiday-meta">
+                    <div className="meta-item">
+                        <span className="meta-icon">👤</span>
+                        <span className="meta-text">Added by: {holiday.createdBy?.name || 'Unknown'}</span>
+                    </div>
+                    <div className="meta-item">
+                        <span className="meta-icon">📆</span>
+                        <span className="meta-text">{new Date(holiday.createdAt).toLocaleDateString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric'
+                        })}</span>
+                    </div>
+                </div>
+            </div>
+            
+            {/* Card Footer with action buttons */}
+            <div className="holiday-card-footer">
+                <button 
+                    className="edit-btn"
+                    onClick={() => handleEdit(holiday)}
+                >
+                    <span className="btn-icon">✏️</span>
+                    <span className="btn-text">Edit</span>
+                </button>
+                <button 
+                    className="delete-btn"
+                    onClick={() => handleDelete(holiday._id, holiday.title)}
+                >
+                    <span className="btn-icon">🗑️</span>
+                    <span className="btn-text">Delete</span>
+                </button>
+            </div>
+            
+            {/* Decorative gradient line at bottom */}
+            <div className="card-accent"></div>
+        </div>
+    ))}
+</div>
                     </>
                 )}
             </div>

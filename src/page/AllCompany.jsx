@@ -70,35 +70,15 @@ const AllCompany = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Validation function
-  const validateSuperAdmin = () => {
-    try {
-      const superAdminRaw = localStorage.getItem("superAdmin");
-      const token = localStorage.getItem("token");
-
-      if (!superAdminRaw || !token) {
-        toast.error("Please login as super admin");
-        localStorage.clear();
-        navigate("/superAdmin/login");
-        return false;
-      }
-
-      const superAdmin = JSON.parse(superAdminRaw);
-      
-      if (superAdmin.department !== "Management" || superAdmin.role !== "super-admin") {
-        toast.error("Access denied! Unauthorized access.");
-        localStorage.clear();
-        navigate("/");
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      toast.error("Invalid session data");
-      localStorage.clear();
+  // Check authentication
+  const checkAuth = () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Please login first");
       navigate("/super-admin/login");
       return false;
     }
+    return true;
   };
 
   // Fetch company details by ID
@@ -139,7 +119,7 @@ const AllCompany = () => {
   // Update company details
   const handleUpdateCompany = async () => {
     try {
-      if (!validateSuperAdmin()) return;
+      if (!checkAuth()) return;
       
       const token = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
@@ -202,7 +182,7 @@ const AllCompany = () => {
 
   // Main function to fetch companies with users
   const fetchCompaniesWithUsers = async () => {
-    if (!validateSuperAdmin()) return;
+    if (!checkAuth()) return;
 
     try {
       setLoading(true);
@@ -1317,70 +1297,70 @@ const AllCompany = () => {
                     </div>
                   </div>
 
-        {/* Address Section - Full Width */}
-            <div className="AllCompany-details-full-width">
-              <h4 className="AllCompany-details-section-title">Address</h4>
-              <div className="AllCompany-details-card">
-                {editMode ? (
-                  <textarea
-                    className="AllCompany-detail-textarea"
-                    rows="3"
-                    value={editedCompany?.companyAddress || ''}
-                    onChange={(e) => handleEditChange('companyAddress', e.target.value)}
-                    placeholder="Enter full address"
-                  />
-                ) : (
-                  <span className="AllCompany-detail-value">{companyDetails.companyAddress || "No address provided"}</span>
-                )}
-              </div>
+                  {/* Address Section - Full Width */}
+                  <div className="AllCompany-details-full-width">
+                    <h4 className="AllCompany-details-section-title">Address</h4>
+                    <div className="AllCompany-details-card">
+                      {editMode ? (
+                        <textarea
+                          className="AllCompany-detail-textarea"
+                          rows="3"
+                          value={editedCompany?.companyAddress || ''}
+                          onChange={(e) => handleEditChange('companyAddress', e.target.value)}
+                          placeholder="Enter full address"
+                        />
+                      ) : (
+                        <span className="AllCompany-detail-value">{companyDetails.companyAddress || "No address provided"}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* System Information Section */}
+                  <div className="AllCompany-details-full-width">
+                    <h4 className="AllCompany-details-section-title">System Information</h4>
+                    <div className="AllCompany-system-info-grid">
+                      <div className="AllCompany-system-info-card">
+                        <span className="material-icons AllCompany-system-icon">storage</span>
+                        <span className="AllCompany-system-label">Database ID</span>
+                        <span className="AllCompany-system-value">{companyDetails.dbIdentifier || "N/A"}</span>
+                      </div>
+                      <div className="AllCompany-system-info-card">
+                        <span className="material-icons AllCompany-system-icon">schedule</span>
+                        <span className="AllCompany-system-label">Subscription</span>
+                        <span className="AllCompany-system-value">{formatDate(companyDetails.subscriptionExpiry)}</span>
+                      </div>
+                      <div className="AllCompany-system-info-card">
+                        <span className="material-icons AllCompany-system-icon">calendar_today</span>
+                        <span className="AllCompany-system-label">Created</span>
+                        <span className="AllCompany-system-value">{formatDate(companyDetails.createdAt)}</span>
+                      </div>
+                      <div className="AllCompany-system-info-card">
+                        <span className="material-icons AllCompany-system-icon">auto_graph</span>
+                        <span className="AllCompany-system-label">Last Updated</span>
+                        <span className="AllCompany-system-value">{formatDate(companyDetails.updatedAt)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="AllCompany-error-alert">
+                  <span className="material-icons AllCompany-error-icon">error</span>
+                  <div>
+                    <h4 className="AllCompany-error-title">Error</h4>
+                    <p className="AllCompany-error-message">Company details could not be loaded</p>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* System Information Section */}
-            <div className="AllCompany-details-full-width">
-              <h4 className="AllCompany-details-section-title">System Information</h4>
-              <div className="AllCompany-system-info-grid">
-                <div className="AllCompany-system-info-card">
-                  <span className="material-icons AllCompany-system-icon">storage</span>
-                  <span className="AllCompany-system-label">Database ID</span>
-                  <span className="AllCompany-system-value">{companyDetails.dbIdentifier || "N/A"}</span>
-                </div>
-                <div className="AllCompany-system-info-card">
-                  <span className="material-icons AllCompany-system-icon">schedule</span>
-                  <span className="AllCompany-system-label">Subscription</span>
-                  <span className="AllCompany-system-value">{formatDate(companyDetails.subscriptionExpiry)}</span>
-                </div>
-                <div className="AllCompany-system-info-card">
-                  <span className="material-icons AllCompany-system-icon">calendar_today</span>
-                  <span className="AllCompany-system-label">Created</span>
-                  <span className="AllCompany-system-value">{formatDate(companyDetails.createdAt)}</span>
-                </div>
-                <div className="AllCompany-system-info-card">
-                  <span className="material-icons AllCompany-system-icon">auto_graph</span>
-                  <span className="AllCompany-system-label">Last Updated</span>
-                  <span className="AllCompany-system-value">{formatDate(companyDetails.updatedAt)}</span>
-                </div>
-              </div>
+            <div className="AllCompany-modal-footer">
+              <button className="AllCompany-btn-outline" onClick={handleCloseCompanyDetails}>
+                Close
+              </button>
             </div>
           </div>
-        ) : (
-          <div className="AllCompany-error-alert">
-            <span className="material-icons AllCompany-error-icon">error</span>
-            <div>
-              <h4 className="AllCompany-error-title">Error</h4>
-              <p className="AllCompany-error-message">Company details could not be loaded</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="AllCompany-modal-footer">
-        <button className="AllCompany-btn-outline" onClick={handleCloseCompanyDetails}>
-          Close
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+        </div>
+      )}
 
       {/* Users Dialog */}
       {usersPopupOpen && (

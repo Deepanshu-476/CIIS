@@ -26,7 +26,7 @@ import {
 
 // Styled components (same as before)
 const SidebarContainer = styled(Box)(({ theme }) => ({
-  width: 240,
+  width: 260,
   flexShrink: 0,
   whiteSpace: 'nowrap',
   boxSizing: 'border-box',
@@ -205,7 +205,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
     { 
       icon: <AssetsIcon />,
       name: 'Assets Management', 
-      route: '/Ciis-network/assets',
+      route: '/Ciis-network/company-assets',
       // Ye sab users ke liye show hoga
       showForAll: true
     },

@@ -88,7 +88,9 @@ const EmployeeProject = () => {
     Group: () => <span className="EmployeeProject-icon">👥</span>,
     Folder: () => <span className="EmployeeProject-icon">📁</span>,
     CloudUpload: () => <span className="EmployeeProject-icon">☁️↑</span>,
-    Bolt: () => <span className="EmployeeProject-icon">⚡</span>
+    Bolt: () => <span className="EmployeeProject-icon">⚡</span>,
+    Notifications: () => <span className="EmployeeProject-icon">🔔</span>,
+    NoProjects: () => <span className="EmployeeProject-icon">📭</span>
   };
 
   // ✅ Load all projects with page loader
@@ -138,8 +140,6 @@ const EmployeeProject = () => {
       setLoading(prev => ({ ...prev, projects: false }));
     }
   };
-
-
 
   // Load selected project details + tasks
   const handleSelectProject = async (id) => {
@@ -215,6 +215,17 @@ const EmployeeProject = () => {
     } catch (error) {
       console.error("Error loading activity logs:", error);
       showSnackbar("Error loading activity logs", "error");
+    }
+  };
+
+  // Load notifications (placeholder - implement actual API call)
+  const loadNotifications = async () => {
+    try {
+      // const res = await axios.get("/projects/notifications");
+      // setNotifications(res.data || []);
+      setNotifications([]); // Placeholder
+    } catch (error) {
+      console.error("Error loading notifications:", error);
     }
   };
 
@@ -571,10 +582,9 @@ const EmployeeProject = () => {
             <h1 className="EmployeeProject-title">Project Dashboard</h1>
             <p className="EmployeeProject-subtitle">Manage your projects and tasks efficiently</p>
           </div>
-     
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats Cards - Only show if project is selected */}
         {selectedProject && (
           <div className="EmployeeProject-stats-grid">
             <div className="EmployeeProject-stat-item">
@@ -619,111 +629,131 @@ const EmployeeProject = () => {
         <LinearProgress />
       )}
 
-      {/* PROJECT LIST */}
-      <div className="EmployeeProject-grid">
-        {projects.map((p) => (
-          <div className="EmployeeProject-grid-item" key={p._id}>
-            <div
-              className={`EmployeeProject-card ${selectedProject === p._id ? 'EmployeeProject-card-selected' : ''}`}
-              onClick={() => handleSelectProject(p._id)}
-            >
-              <div className="EmployeeProject-card-highlight" />
+      {/* PROJECT LIST - SHOW NO PROJECTS MESSAGE IF EMPTY */}
+      {projects.length === 0 ? (
+        <div className="EmployeeProject-no-projects">
+          <div className="EmployeeProject-no-projects-content">
+            <div className="EmployeeProject-no-projects-icon">
+              <Icons.NoProjects />
+            </div>
+            <h2 className="EmployeeProject-no-projects-title">No Projects Found</h2>
+            <p className="EmployeeProject-no-projects-message">
+              You haven't been assigned to any projects yet.
+            </p>
+            <p className="EmployeeProject-no-projects-submessage">
+              Once you're assigned to a project, it will appear here.
+            </p>
+            <div className="EmployeeProject-no-projects-illustration">
               
-              <div className="EmployeeProject-card-content">
-                <div className="EmployeeProject-card-header">
-                  <div className="EmployeeProject-card-title-section">
-                    <div className="EmployeeProject-card-title-row">
-                      <Icons.Folder />
-                      <h3 className="EmployeeProject-card-title">{p.projectName}</h3>
-                    </div>
-                    <Chip
-                      label={p.status}
-                      color={getStatusColor(p.status)}
-                    />
-                  </div>
-                  <button className="EmployeeProject-icon-button EmployeeProject-card-menu">
-                    <Icons.MoreVert />
-                  </button>
-                </div>
-                
-                <div className="EmployeeProject-chip-container">
-                  <Chip
-                    label={p.priority}
-                    color={getPriorityColor(p.priority)}
-                  />
-                  <Chip
-                    icon={<Icons.Group />}
-                    label={`${p.users?.length || 0}`}
-                    variant="outlined"
-                  />
-                  <Chip
-                    icon={<Icons.Task />}
-                    label={`${p.tasks?.length || 0}`}
-                    variant="outlined"
-                  />
-                </div>
-                
-                {p.description && (
-                  <p className="EmployeeProject-card-description">
-                    {p.description.length > 120 
-                      ? `${p.description.substring(0, 120)}...` 
-                      : p.description}
-                  </p>
-                )}
-                
-                <div className="EmployeeProject-card-footer">
-                  <div className="EmployeeProject-card-date">
-                    <Icons.CalendarToday />
-                    <span>{p.startDate ? new Date(p.startDate).toLocaleDateString() : 'No date'}</span>
-                  </div>
-                  <button
-                    className={`EmployeeProject-button EmployeeProject-button-sm ${selectedProject === p._id ? 'EmployeeProject-button-primary' : 'EmployeeProject-button-outline'}`}
-                  >
-                    View
-                    <Icons.ArrowForward />
-                  </button>
-                </div>
-                
-                {/* Project PDF indicator */}
-                {p.pdfFile?.path && (
-                  <div className="EmployeeProject-card-pdf">
-                    <div className="EmployeeProject-pdf-info">
-                      <Icons.PictureAsPdf />
-                      <span className="EmployeeProject-pdf-text">Document attached</span>
-                    </div>
-                    <div className="EmployeeProject-pdf-actions">
-                      <Tooltip title="View PDF">
-                        <button
-                          className="EmployeeProject-icon-button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            viewPdf(p.pdfFile.path, p.pdfFile.filename);
-                          }}
-                        >
-                          <Icons.Visibility />
-                        </button>
-                      </Tooltip>
-                      <Tooltip title="Download PDF">
-                        <button
-                          className="EmployeeProject-icon-button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            downloadPdf(p.pdfFile.path, p.pdfFile.filename);
-                          }}
-                        >
-                          <Icons.Download />
-                        </button>
-                      </Tooltip>
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
-        ))}
-      </div>
+        </div>
+      ) : (
+        <div className="EmployeeProject-grid">
+          {projects.map((p) => (
+            <div className="EmployeeProject-grid-item" key={p._id}>
+              <div
+                className={`EmployeeProject-card ${selectedProject === p._id ? 'EmployeeProject-card-selected' : ''}`}
+                onClick={() => handleSelectProject(p._id)}
+              >
+                <div className="EmployeeProject-card-highlight" />
+                
+                <div className="EmployeeProject-card-content">
+                  <div className="EmployeeProject-card-header">
+                    <div className="EmployeeProject-card-title-section">
+                      <div className="EmployeeProject-card-title-row">
+                        <Icons.Folder />
+                        <h3 className="EmployeeProject-card-title">{p.projectName}</h3>
+                      </div>
+                      <Chip
+                        label={p.status}
+                        color={getStatusColor(p.status)}
+                      />
+                    </div>
+                    <button className="EmployeeProject-icon-button EmployeeProject-card-menu">
+                      <Icons.MoreVert />
+                    </button>
+                  </div>
+                  
+                  <div className="EmployeeProject-chip-container">
+                    <Chip
+                      label={p.priority}
+                      color={getPriorityColor(p.priority)}
+                    />
+                    <Chip
+                      icon={<Icons.Group />}
+                      label={`${p.users?.length || 0}`}
+                      variant="outlined"
+                    />
+                    <Chip
+                      icon={<Icons.Task />}
+                      label={`${p.tasks?.length || 0}`}
+                      variant="outlined"
+                    />
+                  </div>
+                  
+                  {p.description && (
+                    <p className="EmployeeProject-card-description">
+                      {p.description.length > 120 
+                        ? `${p.description.substring(0, 120)}...` 
+                        : p.description}
+                    </p>
+                  )}
+                  
+                  <div className="EmployeeProject-card-footer">
+                    <div className="EmployeeProject-card-date">
+                      <Icons.CalendarToday />
+                      <span>{p.startDate ? new Date(p.startDate).toLocaleDateString() : 'No date'}</span>
+                    </div>
+                    <button
+                      className={`EmployeeProject-button EmployeeProject-button-sm ${selectedProject === p._id ? 'EmployeeProject-button-primary' : 'EmployeeProject-button-outline'}`}
+                    >
+                      View
+                      <Icons.ArrowForward />
+                    </button>
+                  </div>
+                  
+                  {/* Project PDF indicator */}
+                  {p.pdfFile?.path && (
+                    <div className="EmployeeProject-card-pdf">
+                      <div className="EmployeeProject-pdf-info">
+                        <Icons.PictureAsPdf />
+                        <span className="EmployeeProject-pdf-text">Document attached</span>
+                      </div>
+                      <div className="EmployeeProject-pdf-actions">
+                        <Tooltip title="View PDF">
+                          <button
+                            className="EmployeeProject-icon-button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              viewPdf(p.pdfFile.path, p.pdfFile.filename);
+                            }}
+                          >
+                            <Icons.Visibility />
+                          </button>
+                        </Tooltip>
+                        <Tooltip title="Download PDF">
+                          <button
+                            className="EmployeeProject-icon-button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              downloadPdf(p.pdfFile.path, p.pdfFile.filename);
+                            }}
+                          >
+                            <Icons.Download />
+                          </button>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-      {/* TASK PANEL */}
+      {/* TASK PANEL - Only show if a project is selected */}
       {selectedProject && projectDetails && (
         <div className="EmployeeProject-panel">
           <div className="EmployeeProject-panel-header">

@@ -1808,3 +1808,120 @@
     font-size: 0.7rem;
   }
 }
+/* No Projects Found Styles */
+.EmployeeProject-no-projects {
+  min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.05);
+  border: 1px solid rgba(255,255,255,0.2);
+  margin: 2rem 0;
+  padding: 3rem;
+  animation: EmployeeProject-fadeIn 0.5s ease;
+}
+
+.EmployeeProject-no-projects-content {
+  text-align: center;
+  max-width: 500px;
+}
+
+.EmployeeProject-no-projects-icon {
+  font-size: 5rem;
+  margin-bottom: 1.5rem;
+  animation: EmployeeProject-bounce 2s infinite ease-in-out;
+}
+
+.EmployeeProject-no-projects-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.EmployeeProject-no-projects-message {
+  font-size: 1.1rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+.EmployeeProject-no-projects-submessage {
+  font-size: 0.95rem;
+  color: #888;
+  margin-bottom: 2rem;
+}
+
+.EmployeeProject-no-projects-illustration {
+  margin-top: 2rem;
+  opacity: 0.7;
+}
+
+.EmployeeProject-no-projects-illustration svg {
+  width: 200px;
+  height: 200px;
+  animation: EmployeeProject-pulse 3s infinite ease-in-out;
+}
+
+/* Animations */
+@keyframes EmployeeProject-fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes EmployeeProject-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes EmployeeProject-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+}
+
+/* Responsive adjustments for no projects */
+@media (max-width: 768px) {
+  .EmployeeProject-no-projects {
+    padding: 2rem 1rem;
+    margin: 1rem 0;
+    min-height: 300px;
+  }
+  
+  .EmployeeProject-no-projects-title {
+    font-size: 1.5rem;
+  }
+  
+  .EmployeeProject-no-projects-message {
+    font-size: 1rem;
+  }
+  
+  .EmployeeProject-no-projects-icon {
+    font-size: 4rem;
+  }
+  
+  .EmployeeProject-no-projects-illustration svg {
+    width: 150px;
+    height: 150px;
+  }
+}

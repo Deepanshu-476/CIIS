@@ -38,6 +38,9 @@ const MyLeaves = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [recentlyUpdatedId, setRecentlyUpdatedId] = useState(null);
+  const [expandedReasonId, setExpandedReasonId] = useState(null);
+  const [selectedLeave, setSelectedLeave] = useState(null);
+const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   
   // Socket and Notification Hooks with safe defaults
   let socketContext = {};
@@ -60,6 +63,20 @@ const MyLeaves = () => {
   
   const { showToast = (msg) => console.log('Toast:', msg) } = notificationContext;
   
+
+  const toggleReason = (id) => {
+  setExpandedReasonId(prev => (prev === id ? null : id));
+};
+
+const openDetailModal = (leave) => {
+  setSelectedLeave(leave);
+  setIsDetailModalOpen(true);
+};
+
+const closeDetailModal = () => {
+  setSelectedLeave(null);
+  setIsDetailModalOpen(false);
+};
   // Job Roles aur Departments State
   const [jobRoles, setJobRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -815,10 +832,12 @@ const MyLeaves = () => {
           <FiXCircle className="MyLeaves-stat-icon" />
           <h3>Rejected</h3>
         </div>
-        <div className="MyLeaves-stat-value">{stats.rejected}</div>
-        <div className="MyLeaves-stat-footer">
+        <div className="MyLeaves-stat-value"
+        style={{ marginTop: "12px" , gap: "5px" }}
+        >{stats.rejected}</div>
+        {/* <div className="MyLeaves-stat-footer">
           <span>Declined requests</span>
-        </div>
+        </div> */}
       </div>
     )}
   </div>
@@ -945,11 +964,22 @@ const MyLeaves = () => {
                                     {leave.days || calculateDays(leave.startDate, leave.endDate)} day(s)
                                   </span>
                                 </td>
-                                <td className="MyLeaves-reason-cell" title={leave.reason}>
-                                  {leave.reason?.length > 50 
-                                    ? `${leave.reason.substring(0, 50)}...` 
-                                    : leave.reason}
-                                </td>
+<td className="MyLeaves-reason-cell">
+  <div>
+    {leave.reason?.length > 30
+      ? `${leave.reason.substring(0, 30)}...`
+      : leave.reason}
+  </div>
+
+  {leave.reason?.length > 30 && (
+    <button
+      className="view-more-btn"
+      onClick={() => openDetailModal(leave)}
+    >
+      View Full Details
+    </button>
+  )}
+</td>
                                 <td>
                                   <span className={`MyLeaves-status-badge MyLeaves-status-${leave.status?.toLowerCase()}`}>
                                     {leave.status === "Approved" && <FiCheckCircle size={12} />}
@@ -1006,10 +1036,24 @@ const MyLeaves = () => {
                             </div>
                             
                             <div className="MyLeaves-mobile-card-content">
-                              <div className="MyLeaves-mobile-card-row">
-                                <span className="MyLeaves-mobile-label">Reason:</span>
-                                <span className="MyLeaves-mobile-value">{leave.reason}</span>
-                              </div>
+<div className="MyLeaves-mobile-card-row">
+  <span className="MyLeaves-mobile-label">Reason:</span>
+
+  <span className="MyLeaves-mobile-value">
+    {leave.reason?.length > 30
+      ? `${leave.reason.substring(0, 30)}...`
+      : leave.reason}
+  </span>
+
+  {leave.reason?.length > 30 && (
+    <button
+      className="view-more-btn"
+      onClick={() => openDetailModal(leave)}
+    >
+      View Full Details
+    </button>
+  )}
+</div>
                               <div className="MyLeaves-mobile-card-row">
                                 <span className="MyLeaves-mobile-label">Days:</span>
                                 <span className="MyLeaves-mobile-value">
@@ -1044,6 +1088,69 @@ const MyLeaves = () => {
             </div>
           </div>
         )}
+
+
+{isDetailModalOpen && selectedLeave && (
+  <div className="modal-overlay">
+    <div className="modal-container">
+
+      {/* Header */}
+      <div className="modal-header">
+        <h2>Leave Details</h2>
+        <button className="close-btn" onClick={closeDetailModal}>✖</button>
+      </div>
+
+      {/* Body */}
+      <div className="modal-body">
+
+        <div className="detail-grid">
+
+          <div className="detail-card">
+            <span className="label">Type</span>
+            <span className="value type">{selectedLeave.type}</span>
+          </div>
+
+          <div className="detail-card">
+            <span className="label">Status</span>
+            <span className={`value status status-${selectedLeave.status?.toLowerCase()}`}>
+              {selectedLeave.status}
+            </span>
+          </div>
+
+          <div className="detail-card">
+            <span className="label">Period</span>
+            <span className="value">
+              {formatDate(selectedLeave.startDate)} - {formatDate(selectedLeave.endDate)}
+            </span>
+          </div>
+
+          <div className="detail-card">
+            <span className="label">Days</span>
+            <span className="value">
+              {selectedLeave.days || calculateDays(selectedLeave.startDate, selectedLeave.endDate)}
+            </span>
+          </div>
+
+          <div className="detail-card">
+            <span className="label">Applied On</span>
+            <span className="value">
+              {formatDate(selectedLeave.createdAt || selectedLeave.appliedOn)}
+            </span>
+          </div>
+
+        </div>
+
+        {/* Reason Section */}
+        <div className="reason-section">
+          <h4>Reason</h4>
+          <p>{selectedLeave.reason}</p>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+)}
 
         {/* Apply Leave Tab */}
         {tab === 1 && (

@@ -170,6 +170,7 @@ const EmployeeLeaves = () => {
   const [currentUserCompanyId, setCurrentUserCompanyId] = useState("");
   const [currentUserName, setCurrentUserName] = useState("");
   const [allUsers, setAllUsers] = useState([]);
+  const [usersMap, setUsersMap] = useState({});
   
   // Department Related States
   const [departments, setDepartments] = useState([]);
@@ -242,27 +243,22 @@ const EmployeeLeaves = () => {
   const getDepartmentName = useCallback((dept) => {
     if (!dept) return null;
     
-    // If it's an object with name property
     if (typeof dept === 'object') {
       if (dept.name) return dept.name;
       if (dept.departmentName) return dept.departmentName;
       if (dept._id && departmentMap[dept._id]) return departmentMap[dept._id];
     }
     
-    // If it's a string (ID or name)
     if (typeof dept === 'string') {
-      // Check if it's in departmentMap
       if (departmentMap[dept]) {
         return departmentMap[dept];
       }
       
-      // Find in departments array
       const foundDept = departments.find(d => (d._id || d.id) === dept);
       if (foundDept) {
         return foundDept.name || foundDept.departmentName || foundDept.title;
       }
       
-      // If it's not a MongoDB ObjectId, return as is
       if (!dept.match(/^[0-9a-f]{24}$/i)) {
         return dept;
       }
@@ -352,7 +348,6 @@ const EmployeeLeaves = () => {
 
   const getWhatsAppLink = (phoneNumber, userName, status, remarks) => {
     if (!phoneNumber) return "#";
-    
     const message = `Hello ${userName},\n\nYour leave request has been ${status?.toLowerCase() || 'updated'}.\n${remarks ? `Remarks: ${remarks}\n` : ''}\nThank you.`;
     const encodedMessage = encodeURIComponent(message);
     return `https://wa.me/${phoneNumber.replace(/\D/g, '')}?text=${encodedMessage}`;
@@ -369,18 +364,34 @@ const EmployeeLeaves = () => {
     return role.charAt(0).toUpperCase() + role.slice(1);
   };
 
-  const getUserNameById = (userId) => {
+  // SIMPLE FUNCTION TO GET USER NAME
+  const getUserName = (userId) => {
     if (!userId) return "System";
     
-    if (typeof userId === "object" && userId?.name) {
+    // If it's already a name string
+    if (typeof userId === 'string' && !userId.match(/^[0-9a-f]{24}$/i)) {
+      return userId;
+    }
+    
+    // If it's an object with name
+    if (typeof userId === 'object' && userId?.name) {
       return userId.name;
     }
-
-    const user = allUsers.find(
-      (u) => u._id === userId || u.id === userId
-    );
-
-    return user?.name || userId;
+    
+    // Get ID as string
+    const id = typeof userId === 'object' ? userId?._id || userId?.id : userId;
+    
+    // Check in users map
+    if (usersMap[id]) {
+      return usersMap[id].name || usersMap[id].username || 'User';
+    }
+    
+    // Check if it's current user
+    if (id === currentUserId) {
+      return currentUserName;
+    }
+    
+    return "System";
   };
 
   // ============================================
@@ -405,7 +416,7 @@ const EmployeeLeaves = () => {
     try {
       const userStr = localStorage.getItem('user');
       if (!userStr) {
-        console.log("⚠️ No user found in localStorage");
+        console.log("No user found in localStorage");
         return;
       }
 
@@ -460,13 +471,10 @@ const EmployeeLeaves = () => {
     try {
       let response;
       
-      try {
-        response = await axios.get(`/companies/${currentUserCompanyId}`);
-      } catch (err1) {
+      {
         try {
           response = await axios.get(`/company/${currentUserCompanyId}`);
         } catch (err2) {
-          // Use from localStorage
           const user = JSON.parse(localStorage.getItem('user') || '{}');
           setCompanyName(user.companyName || 'Company');
           return;
@@ -483,7 +491,7 @@ const EmployeeLeaves = () => {
         }
       }
     } catch (error) {
-      console.error("❌ Failed to fetch company details:", error);
+      console.error("Failed to fetch company details:", error);
       setCompanyName('Company');
     }
   }, [currentUserCompanyId]);
@@ -493,7 +501,6 @@ const EmployeeLeaves = () => {
     
     setLoadingDepartments(true);
     try {
-      console.log("🏢 Fetching departments for company:", currentUserCompanyId);
       const response = await axios.get(`/departments?company=${currentUserCompanyId}`);
       
       let departmentsData = [];
@@ -519,7 +526,7 @@ const EmployeeLeaves = () => {
       setDepartments(departmentsData);
       
     } catch (error) {
-      console.error("❌ Failed to fetch departments:", error);
+      console.error("Failed to fetch departments:", error);
       showSnackbar("Error loading departments", "error");
     } finally {
       setLoadingDepartments(false);
@@ -558,7 +565,16 @@ const EmployeeLeaves = () => {
       
       setAllUsers(usersData);
       
-      // Update department map from users
+      // Create users map for easy lookup
+      const map = {};
+      usersData.forEach(user => {
+        const id = user._id || user.id;
+        if (id) {
+          map[id] = user;
+        }
+      });
+      setUsersMap(map);
+      
       const deptFromUsers = {};
       usersData.forEach(user => {
         if (user.department && typeof user.department === 'object') {
@@ -573,7 +589,7 @@ const EmployeeLeaves = () => {
       setDepartmentMap(prev => ({ ...prev, ...deptFromUsers }));
       
     } catch (err) {
-      console.error("❌ Failed to load users", err);
+      console.error("Failed to load users", err);
       showSnackbar("Error loading users data", "error");
     }
   }, [currentUserCompanyId, currentUserDepartment, isOwner, showSnackbar]);
@@ -589,14 +605,11 @@ const EmployeeLeaves = () => {
       const params = new URLSearchParams();
       params.append('company', currentUserCompanyId);
       
-      // Apply department filter based on user role
       if (!isOwner) {
-        // Non-owners only see their department
         if (currentUserDepartment) {
           params.append('department', currentUserDepartment);
         }
       } else {
-        // Owners can filter by department
         if (departmentFilter && departmentFilter !== 'all') {
           params.append('department', departmentFilter);
         }
@@ -609,7 +622,6 @@ const EmployeeLeaves = () => {
       const queryString = params.toString();
       const endpoint = `/leaves/all${queryString ? `?${queryString}` : ''}`;
       
-      console.log("🌐 Fetching leaves from:", endpoint);
       const res = await axios.get(endpoint);
       
       let data = [];
@@ -623,9 +635,6 @@ const EmployeeLeaves = () => {
         data = res.data.message;
       }
       
-      console.log(`✅ Fetched ${data.length} leaves`);
-      
-      // Additional client-side filtering for non-owners (safety net)
       if (!isOwner && currentUserDepartment) {
         data = data.filter(leave => {
           const leaveDept = leave.user?.department?._id || 
@@ -639,7 +648,7 @@ const EmployeeLeaves = () => {
       updateStats(data);
       
     } catch (err) {
-      console.error("❌ Failed to load leaves", err);
+      console.error("Failed to load leaves", err);
       
       if (err.response?.status === 403) {
         showSnackbar("Access denied - Please contact administrator", "error");
@@ -702,14 +711,9 @@ const EmployeeLeaves = () => {
   useEffect(() => {
     if (!currentUserId || !onNewLeave || !onLeaveStatusChanged || !onLeaveDeleted) return;
 
-    console.log('🔌 Setting up socket listeners for leaves...');
-
     const unsubscribeNewLeave = onNewLeave((data) => {
-      console.log('📢 New leave received via socket:', data);
-      
       const newLeave = data.data;
       
-      // Check if this leave should be visible
       const shouldShow = isOwner || 
         (newLeave.user?.department?._id === currentUserDepartment) ||
         (newLeave.user?.department === currentUserDepartment) ||
@@ -742,9 +746,7 @@ const EmployeeLeaves = () => {
     });
 
     const unsubscribeStatusChange = onLeaveStatusChanged((data) => {
-      console.log('📢 Leave status changed via socket:', data);
-      
-      const { leaveId, oldStatus, newStatus, updatedBy } = data.data;
+      const { leaveId, newStatus } = data.data;
       
       setLeaves(prev => {
         const updated = prev.map(leave => {
@@ -758,7 +760,7 @@ const EmployeeLeaves = () => {
         
         const leave = prev.find(l => l._id === leaveId);
         if (leave && showToast) {
-          const message = `Leave request from ${leave.user?.name} changed from ${oldStatus} to ${newStatus}`;
+          const message = `Leave request from ${leave.user?.name} changed to ${newStatus}`;
           showToast(message, newStatus === 'Approved' ? 'success' : 'warning', 4000);
         }
         
@@ -767,8 +769,6 @@ const EmployeeLeaves = () => {
     });
 
     const unsubscribeDelete = onLeaveDeleted((data) => {
-      console.log('📢 Leave deleted via socket:', data);
-      
       const { leaveId } = data.data;
       
       setLeaves(prev => {
@@ -787,7 +787,6 @@ const EmployeeLeaves = () => {
       }
     });
 
-    // Join rooms for existing leaves
     leaves.forEach(leave => {
       if (joinLeaveRoom) {
         joinLeaveRoom(leave._id);
@@ -795,7 +794,6 @@ const EmployeeLeaves = () => {
     });
 
     return () => {
-      console.log('🔌 Cleaning up socket listeners...');
       unsubscribeNewLeave?.();
       unsubscribeStatusChange?.();
       unsubscribeDelete?.();
@@ -843,7 +841,7 @@ const EmployeeLeaves = () => {
   // ============================================
   const openStatusDialog = (leaveId, newStatus, userEmail, userName, userPhone, userId, currentStatus) => {
     if (!canApproveLeave()) {
-      showSnackbar("⛔ Access Denied: You don't have permission to update leave status", "error");
+      showSnackbar("Access Denied: You don't have permission to update leave status", "error");
       return;
     }
     
@@ -921,7 +919,7 @@ const EmployeeLeaves = () => {
       if (!leave) return;
       
       if (!canDeleteLeave()) {
-        showSnackbar("⛔ Access Denied: You don't have permission to delete leave requests", "error");
+        showSnackbar("Access Denied: You don't have permission to delete leave requests", "error");
         setDeleteDialog(null);
         return;
       }
@@ -945,21 +943,45 @@ const EmployeeLeaves = () => {
 
   const openHistoryDialog = (leave) => {
     const history = leave.history || [];
-    setHistoryDialog({
-      open: true,
-      title: `${leave.user?.name || 'Employee'} — ${leave.type || ''} Leave`,
-      items: history.length > 0 ? history : [
-        {
+    
+    if (history.length === 0) {
+      // Create history from current status
+      setHistoryDialog({
+        open: true,
+        title: `${leave.user?.name || 'Employee'} — ${leave.type || ''} Leave`,
+        items: [{
           action: leave.status || 'Pending',
           from: 'N/A',
           to: leave.status || 'Pending',
-          by: leave.approvedBy || 'System',
-          byName: leave.approvedByName || 'System',
-          byRole: 'System',
+          by: getUserName(leave.approvedBy),
+          byName: getUserName(leave.approvedBy),
+          byRole: leave.approvedBy?.role || 'System',
           at: leave.updatedAt || leave.createdAt,
           remarks: leave.remarks || '',
-        }
-      ],
+        }],
+      });
+      return;
+    }
+    
+    // Process existing history
+    const processedHistory = history.map(item => {
+      let byName = item.byName;
+      
+      if (item.by) {
+        byName = getUserName(item.by);
+      }
+      
+      return {
+        ...item,
+        byName: byName || 'System',
+        byRole: item.byRole || 'System',
+      };
+    });
+    
+    setHistoryDialog({
+      open: true,
+      title: `${leave.user?.name || 'Employee'} — ${leave.type || ''} Leave`,
+      items: processedHistory,
     });
   };
 
@@ -1078,6 +1100,7 @@ const EmployeeLeaves = () => {
     const createdDate = leave.createdAt ? formatDateTime(leave.createdAt) : "N/A";
     const updatedDate = leave.updatedAt ? formatDateTime(leave.updatedAt) : "N/A";
     const departmentName = getDepartmentName(leave.user?.department);
+    const approvedByName = getUserName(leave.approvedBy);
 
     return (
       <div className="EmppLeaves-dialog-overlay" onClick={onClose}>
@@ -1099,9 +1122,7 @@ const EmployeeLeaves = () => {
             </div>
 
             <div className="EmppLeaves-details-grid-container">
-              {/* Left Column */}
               <div className="EmppLeaves-details-column">
-                {/* Employee Information Card */}
                 <div className="EmppLeaves-details-card EmppLeaves-employee-card">
                   <div className="EmppLeaves-card-header">
                     <FiUserCheck size={18} color="#1976d2" />
@@ -1159,7 +1180,6 @@ const EmployeeLeaves = () => {
                   </div>
                 </div>
 
-                {/* Leave Information Card */}
                 <div className="EmppLeaves-details-card EmppLeaves-leave-card">
                   <div className="EmppLeaves-card-header">
                     <FiCalendarIcon size={18} color="#1976d2" />
@@ -1199,9 +1219,7 @@ const EmployeeLeaves = () => {
                 </div>
               </div>
 
-              {/* Right Column */}
               <div className="EmppLeaves-details-column">
-                {/* Reason Card */}
                 <div className="EmppLeaves-details-card EmppLeaves-reason-card">
                   <div className="EmppLeaves-card-header">
                     <FiMessageSquare size={18} color="#1976d2" />
@@ -1214,7 +1232,6 @@ const EmployeeLeaves = () => {
                   </div>
                 </div>
 
-                {/* Admin Remarks Card */}
                 {leave.remarks && (
                   <div className="EmppLeaves-details-card EmppLeaves-remarks-card">
                     <div className="EmppLeaves-card-header">
@@ -1229,7 +1246,6 @@ const EmployeeLeaves = () => {
                   </div>
                 )}
 
-                {/* Approval Information Card */}
                 {leave.status !== 'Pending' && (
                   <div className="EmppLeaves-details-card EmppLeaves-approval-card">
                     <div className="EmppLeaves-card-header">
@@ -1242,7 +1258,7 @@ const EmployeeLeaves = () => {
                           <FiUser size={14} className="EmppLeaves-info-icon" />
                           <span className="EmppLeaves-info-label">Decision By:</span>
                           <span className="EmppLeaves-info-value">
-                            {leave.approvedBy?.name || leave.approvedBy || "System"}
+                            {approvedByName}
                           </span>
                         </div>
                         {leave.approvedBy?.role && (
@@ -1262,7 +1278,6 @@ const EmployeeLeaves = () => {
                   </div>
                 )}
 
-                {/* Timestamps Card */}
                 <div className="EmppLeaves-details-card EmppLeaves-timestamps-card">
                   <div className="EmppLeaves-card-header">
                     <FiClock size={18} color="#1976d2" />
@@ -1350,7 +1365,7 @@ const EmployeeLeaves = () => {
           )}
         </h3>
         {isConnected && (
-          <span className="EmppLeaves-socket-badge" title="Real-time updates active">
+          <span className="EmppLeaves-socket-badge">
             <FiBell size={14} />
             Live
           </span>
@@ -1377,6 +1392,7 @@ const EmployeeLeaves = () => {
                 const userId = leave.user?._id || leave.user;
                 const isOwnLeave = userId === currentUserId;
                 const departmentName = getDepartmentName(leave.user?.department);
+                const approvedByName = getUserName(leave.approvedBy);
                 
                 const reasonPreview = leave.reason 
                   ? leave.reason.length > 40 
@@ -1386,7 +1402,7 @@ const EmployeeLeaves = () => {
                 
                 return (
                   <tr key={leave._id} className={`${getRowClass(leave.status)} ${isOwnLeave ? 'EmppLeaves-own-leave-row' : ''}`}>
-                    <td data-show-on-mobile="true">
+                    <td>
                       <div className="EmppLeaves-employee-info">
                         <div className="EmppLeaves-employee-avatar">
                           {getInitials(leave.user?.name)}
@@ -1421,7 +1437,7 @@ const EmployeeLeaves = () => {
                         </div>
                       </div>
                     </td>
-                    <td data-show-on-mobile="false">
+                    <td>
                       {departmentName ? (
                         <div className="EmppLeaves-department-info">
                           <FiHome size={14} />
@@ -1431,7 +1447,7 @@ const EmployeeLeaves = () => {
                         <span className="EmppLeaves-text-muted">—</span>
                       )}
                     </td>
-                    <td data-show-on-mobile="true">
+                    <td>
                       <div className="EmppLeaves-leave-details">
                         <div className="EmppLeaves-leave-type-wrapper">
                           <span className={`EmppLeaves-leave-type-chip ${getLeaveTypeClass(leave.type)}`}>
@@ -1439,15 +1455,9 @@ const EmployeeLeaves = () => {
                           </span>
                         </div>
                         
-                        <div className="EmppLeaves-leave-reason-preview EmppLeaves-hide-mobile" title={leave.reason || ""}>
+                        <div className="EmppLeaves-leave-reason-preview">
                           {reasonPreview}
                         </div>
-                        
-                        {leave.status === 'Pending' && (
-                          <span className={`EmppLeaves-status-chip ${getStatusClass(leave.status)}`} style={{ marginTop: '8px', display: 'inline-block' }}>
-                            {leave.status}
-                          </span>
-                        )}
                         
                         <button 
                           className="EmppLeaves-view-details-button"
@@ -1458,7 +1468,7 @@ const EmployeeLeaves = () => {
                         </button>
                       </div>
                     </td>
-                    <td data-show-on-mobile="false">
+                    <td>
                       <div className="EmppLeaves-duration-info">
                         <div className="EmppLeaves-date-range">
                           {formatDate(leave.startDate)}
@@ -1474,28 +1484,27 @@ const EmployeeLeaves = () => {
                       </div>
                     </td>
                     {showStatusColumn && (
-                      <td data-show-on-mobile="false">
+                      <td>
                         <span className={`EmppLeaves-status-chip ${getStatusClass(leave.status)}`}>
                           {leave.status || "Pending"}
                         </span>
                       </td>
                     )}
-                    <td data-show-on-mobile="false">
+                    <td>
                       <div className="EmppLeaves-approved-by">
-                        {leave.approvedBy?.name || leave.approvedBy || "-"}
-                        {leave.approvedBy?.role && (
+                        {approvedByName}
+                        {leave.approvedBy?.role && approvedByName !== 'System' && (
                           <span className="EmppLeaves-approver-role">
                             ({normalizeRole(leave.approvedBy.role)})
                           </span>
                         )}
                       </div>
                     </td>
-                    <td data-show-on-mobile="false">
+                    <td>
                       <div className="EmppLeaves-actions-container">
                         <button 
                           className="EmppLeaves-action-icon-button EmppLeaves-view-history"
                           onClick={() => openHistoryDialog(leave)}
-                          title="View History"
                         >
                           <FiList size={16} />
                         </button>
@@ -1513,7 +1522,6 @@ const EmployeeLeaves = () => {
                                 userId,
                                 leave.status
                               )}
-                              title="Approve Leave"
                             >
                               <FiCheckCircle size={16} />
                             </button>
@@ -1528,7 +1536,6 @@ const EmployeeLeaves = () => {
                                 userId,
                                 leave.status
                               )}
-                              title="Reject Leave"
                             >
                               <FiXCircle size={16} />
                             </button>
@@ -1539,7 +1546,6 @@ const EmployeeLeaves = () => {
                           <button 
                             className="EmppLeaves-action-icon-button EmppLeaves-delete"
                             onClick={() => setDeleteDialog(leave._id)}
-                            title="Delete Leave"
                           >
                             <FiTrash2 size={16} />
                           </button>
@@ -1585,9 +1591,9 @@ const EmployeeLeaves = () => {
   if (loading) {
     return <CIISLoader />;
   }
+  
   return (
     <div className="EmppLeaves-employee-leaves">
-      {/* Header */}
       <div className="EmppLeaves-leaves-header">
         <div>
           <h1 className="EmppLeaves-leaves-title">
@@ -1623,12 +1629,10 @@ const EmployeeLeaves = () => {
           </p>
         </div>
 
-        {/* Action Bar */}
         <div className="EmppLeaves-header-actions">
           <button 
             className="EmppLeaves-action-button"
             onClick={fetchLeaves}
-            title="Refresh Data"
             disabled={loading}
           >
             <FiRefreshCw size={20} className={loading ? 'EmppLeaves-spinning' : ''} />
@@ -1638,7 +1642,6 @@ const EmployeeLeaves = () => {
             <button 
               className="EmppLeaves-action-button"
               onClick={exportData}
-              title="Export Report"
             >
               <FiDownload size={20} />
             </button>
@@ -1658,32 +1661,6 @@ const EmployeeLeaves = () => {
         </div>
       </div>
 
-      {/* View Only Warning Banner */}
-      {/* {!canApproveLeave() && (
-        <div className="EmppLeaves-owner-warning-banner">
-          <div className="EmppLeaves-warning-content">
-            <FiLock size={20} />
-            <div className="EmppLeaves-warning-text">
-              <strong>🔒 View Only Mode</strong>
-              <p>You are viewing leaves from your department only. Only managers can approve/reject requests.</p>
-            </div>
-          </div>
-        </div>
-      )} */}
-
-      {/* Department Info Banner */}
-      {/* {!isOwner && currentUserDepartment && (
-        <div className="EmppLeaves-department-info-banner">
-          <div className="EmppLeaves-info-content">
-            <div className="EmppLeaves-info-text">
-              <strong>🏢 Your Department: {getDepartmentName(currentUserDepartment) || 'Unknown'}</strong>
-              <p>Showing leave requests only from your department</p>
-            </div>
-          </div>
-        </div>
-      )} */}
-
-      {/* Filter Section */}
       <div className="EmppLeaves-filter-section">
         <div className="EmppLeaves-filter-header">
           <FiFilter size={20} color="#1976d2" />
@@ -1768,7 +1745,6 @@ const EmployeeLeaves = () => {
         </div>
       </div>
 
-      {/* Stat Cards */}
       <div className="EmppLeaves-stats-container">
         {[
           { 
@@ -1820,9 +1796,7 @@ const EmployeeLeaves = () => {
           ))}
       </div>
 
-      {/* Two Sections: Pending Leaves and Other Leaves */}
       <div className="EmppLeaves-leaves-sections-container">
-        {/* Pending Leaves Section */}
         {pendingLeaves.length > 0 && (
           <div className="EmppLeaves-leaves-section EmppLeaves-pending-section">
             <div className="EmppLeaves-section-header">
@@ -1839,7 +1813,6 @@ const EmployeeLeaves = () => {
           </div>
         )}
 
-        {/* Other Leaves Section */}
         <div className="EmppLeaves-leaves-section">
           <div className="EmppLeaves-section-header">
             <h2 className="EmppLeaves-section-title">
@@ -1852,11 +1825,6 @@ const EmployeeLeaves = () => {
         </div>
       </div>
 
-      {/* ======================================== */}
-      {/* MODALS AND DIALOGS */}
-      {/* ======================================== */}
-
-      {/* Leave Details Modal */}
       {detailsModal.open && (
         <LeaveDetailsModal 
           leave={detailsModal.leave} 
@@ -1864,7 +1832,6 @@ const EmployeeLeaves = () => {
         />
       )}
 
-      {/* Status Update Dialog */}
       {statusDialog.open && (
         <div className="EmppLeaves-dialog-overlay" onClick={closeStatusDialog}>
           <div className="EmppLeaves-dialog-content EmppLeaves-status-dialog" onClick={(e) => e.stopPropagation()}>
@@ -1944,7 +1911,6 @@ const EmployeeLeaves = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Dialog */}
       {deleteDialog && (
         <div className="EmppLeaves-dialog-overlay" onClick={() => setDeleteDialog(null)}>
           <div className="EmppLeaves-dialog-content EmppLeaves-delete-dialog" onClick={(e) => e.stopPropagation()}>
@@ -1982,7 +1948,6 @@ const EmployeeLeaves = () => {
         </div>
       )}
 
-      {/* History Dialog */}
       {historyDialog.open && (
         <div className="EmppLeaves-dialog-overlay" onClick={closeHistoryDialog}>
           <div className="EmppLeaves-dialog-content EmppLeaves-history-dialog" onClick={(e) => e.stopPropagation()}>
@@ -2019,8 +1984,9 @@ const EmployeeLeaves = () => {
                           </div>
                         )}
                         <div className="EmppLeaves-history-by">
-                          <strong>By:</strong> {item.byName || getUserNameById(item.by)}
-                          {item.byRole && (
+                          <strong>By:</strong> 
+                          {item.byName || 'System'}
+                          {item.byRole && item.byRole !== 'System' && (
                             <span className="EmppLeaves-history-role">({normalizeRole(item.byRole)})</span>
                           )}
                         </div>
@@ -2050,7 +2016,6 @@ const EmployeeLeaves = () => {
         </div>
       )}
 
-      {/* Snackbar */}
       {snackbar.open && (
         <div className="EmppLeaves-snackbar">
           <div className={`EmppLeaves-snackbar-content EmppLeaves-snackbar-${snackbar.type}`}>

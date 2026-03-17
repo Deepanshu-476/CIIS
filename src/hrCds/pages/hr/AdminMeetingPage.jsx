@@ -14,6 +14,7 @@ export default function AdminMeetingPage() {
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, meetingId: null, meetingTitle: "" });
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [debugInfo, setDebugInfo] = useState({ show: false, message: "" });
+  const [companyCode, setCompanyCode] = useState("");
 
   const [form, setForm] = useState({
     title: "",
@@ -26,12 +27,35 @@ export default function AdminMeetingPage() {
 
   const adminId = localStorage.getItem("userId");
 
-  // 🟢 Fetch all users
+  // 🟢 Get company code from user data
+  const getCompanyCodeFromUsers = (usersList) => {
+    if (usersList && usersList.length > 0 && usersList[0].companyCode) {
+      const code = usersList[0].companyCode;
+      localStorage.setItem("companyCode", code);
+      setCompanyCode(code);
+      return code;
+    }
+    // Fallback to localStorage or default
+    const storedCode = localStorage.getItem("companyCode") || "CAREER";
+    setCompanyCode(storedCode);
+    return storedCode;
+  };
+
+  // 🟢 Fetch all users for current company
   const fetchUsers = async () => {
     try {
       const res = await axios.get(`${API_URL}/users/company-users`);
       if (res.data?.success && res.data.message?.users) {
-        setUsers(res.data.message.users || []);
+        const fetchedUsers = res.data.message.users || [];
+        setUsers(fetchedUsers);
+        
+        // Extract and set company code from first user
+        if (fetchedUsers.length > 0 && fetchedUsers[0].companyCode) {
+          const code = fetchedUsers[0].companyCode;
+          localStorage.setItem("companyCode", code);
+          setCompanyCode(code);
+          console.log("Company code set from users:", code);
+        }
       } else {
         console.warn("Unexpected API response structure:", res.data);
         setUsers([]);
@@ -43,22 +67,85 @@ export default function AdminMeetingPage() {
     }
   };
 
-  // 🟢 Fetch all meetings
+  // 🟢 Fetch all meetings for current company
   const fetchMeetings = async () => {
     try {
       setRefreshing(true);
-      const res = await axios.get(`${API_URL}/meetings`);
       
+      // Get company code from state, localStorage, or use default
+      const currentCompanyCode = companyCode || localStorage.getItem("companyCode") || "CAREER";
+      
+      console.log(`Fetching meetings for company: ${currentCompanyCode}`);
+      
+      // Try different API endpoints based on your backend structure
       let fetchedMeetings = [];
-      if (Array.isArray(res.data)) fetchedMeetings = res.data;
-      else if (res.data?.data) fetchedMeetings = res.data.data;
-      else if (res.data?.meetings) fetchedMeetings = res.data.meetings;
-      else if (res.data?.success && res.data.data) fetchedMeetings = res.data.data;
       
-      // Log the first meeting to see its structure
+      // Option 1: Try with query parameter
+      try {
+        const res = await axios.get(`${API_URL}/meetings?companyCode=${currentCompanyCode}`);
+        
+        if (Array.isArray(res.data)) {
+          fetchedMeetings = res.data;
+        } else if (res.data?.data) {
+          fetchedMeetings = res.data.data;
+        } else if (res.data?.meetings) {
+          fetchedMeetings = res.data.meetings;
+        } else if (res.data?.success && res.data.data) {
+          fetchedMeetings = res.data.data;
+        }
+      } catch (err) {
+        console.log("Query parameter approach failed, trying alternative...");
+        
+        // Option 2: Try with POST request
+        try {
+          const res = await axios.post(`${API_URL}/meetings/company-meetings`, {
+            companyCode: currentCompanyCode
+          });
+          
+          if (Array.isArray(res.data)) {
+            fetchedMeetings = res.data;
+          } else if (res.data?.data) {
+            fetchedMeetings = res.data.data;
+          } else if (res.data?.meetings) {
+            fetchedMeetings = res.data.meetings;
+          }
+        } catch (err2) {
+          console.log("POST approach failed, fetching all and filtering client-side...");
+          
+          // Option 3: Fallback - fetch all and filter client-side
+          const res = await axios.get(`${API_URL}/meetings`);
+          
+          if (Array.isArray(res.data)) {
+            fetchedMeetings = res.data;
+          } else if (res.data?.data) {
+            fetchedMeetings = res.data.data;
+          } else if (res.data?.meetings) {
+            fetchedMeetings = res.data.meetings;
+          } else if (res.data?.success && res.data.data) {
+            fetchedMeetings = res.data.data;
+          }
+          
+          // Client-side filtering
+          fetchedMeetings = fetchedMeetings.filter(meeting => {
+            return meeting.companyCode === currentCompanyCode || 
+                   meeting.company === currentCompanyCode ||
+                   meeting.companyId === currentCompanyCode ||
+                   !meeting.companyCode; // Include meetings without companyCode (backward compatibility)
+          });
+        }
+      }
+      
+      // Additional client-side filter to ensure data consistency
+      fetchedMeetings = fetchedMeetings.filter(meeting => {
+        const meetingCompanyCode = meeting.companyCode || meeting.company || meeting.companyId;
+        return !meetingCompanyCode || meetingCompanyCode === currentCompanyCode;
+      });
+      
+      console.log(`Fetched ${fetchedMeetings.length} meetings for company: ${currentCompanyCode}`);
+      
+      // Log first meeting for debugging
       if (fetchedMeetings.length > 0) {
         console.log("Sample meeting structure:", fetchedMeetings[0]);
-        console.log("Meeting ID field:", fetchedMeetings[0]._id || fetchedMeetings[0].id);
       }
       
       setMeetings(fetchedMeetings);
@@ -71,10 +158,25 @@ export default function AdminMeetingPage() {
     }
   };
 
+  // Initialize data
   useEffect(() => {
-    fetchUsers();
-    fetchMeetings();
+    const initializeData = async () => {
+      await fetchUsers();
+      // After users are fetched, companyCode will be set
+      setTimeout(() => {
+        fetchMeetings();
+      }, 100); // Small delay to ensure companyCode is set
+    };
+    
+    initializeData();
   }, []);
+
+  // Retry fetching meetings if companyCode changes
+  useEffect(() => {
+    if (companyCode) {
+      fetchMeetings();
+    }
+  }, [companyCode]);
 
   // 🟢 Handle form inputs
   const handleChange = (e) => {
@@ -113,7 +215,19 @@ export default function AdminMeetingPage() {
 
     setLoading(true);
     try {
-      const payload = { ...form, createdBy: adminId };
+      // Get company code from state or localStorage
+      const currentCompanyCode = companyCode || localStorage.getItem("companyCode") || "CAREER";
+      
+      const payload = { 
+        ...form, 
+        createdBy: adminId,
+        companyCode: currentCompanyCode,
+        company: currentCompanyCode,
+        companyName: users.length > 0 ? users[0].companyName : "CAREER INFOWIS IT SOLUTION PRIVATE LIMITED"
+      };
+      
+      console.log("Creating meeting with payload:", payload);
+      
       const res = await axios.post(`${API_URL}/meetings/create`, payload);
       if (res.data.success) {
         toast.success("✅ Meeting created successfully!");
@@ -125,14 +239,14 @@ export default function AdminMeetingPage() {
           recurring: "No",
           attendees: [],
         });
-        fetchMeetings();
+        fetchMeetings(); // This will now fetch only current company's meetings
         setActiveTab("manage");
       } else {
         toast.error(res.data.message || "❌ Failed to create meeting");
       }
     } catch (err) {
-      console.error(err);
-      toast.error("❌ Failed to create meeting");
+      console.error("Create meeting error:", err);
+      toast.error(err.response?.data?.message || "❌ Failed to create meeting");
     } finally {
       setLoading(false);
     }
@@ -155,12 +269,14 @@ export default function AdminMeetingPage() {
 
   // 🟢 Debug function to test different endpoints
   const testDeleteEndpoints = async (meetingId) => {
+    const currentCompanyCode = companyCode || localStorage.getItem("companyCode") || "CAREER";
+    
     const endpoints = [
       { method: 'delete', url: `${API_URL}/task/${meetingId}`, name: 'Task endpoint' },
       { method: 'delete', url: `${API_URL}/meetings/${meetingId}`, name: 'Meetings direct' },
-      { method: 'post', url: `${API_URL}/meetings/delete`, data: { meetingId }, name: 'Meetings delete post' },
+      { method: 'post', url: `${API_URL}/meetings/delete`, data: { meetingId, companyCode: currentCompanyCode }, name: 'Meetings delete post' },
       { method: 'delete', url: `${API_URL}/meetings/delete/${meetingId}`, name: 'Meetings delete with ID' },
-      { method: 'put', url: `${API_URL}/meetings/${meetingId}`, data: { status: 'deleted' }, name: 'Meetings update status' },
+      { method: 'put', url: `${API_URL}/meetings/${meetingId}`, data: { status: 'deleted', companyCode: currentCompanyCode }, name: 'Meetings update status' },
       { method: 'delete', url: `${API_URL}/api/task/${meetingId}`, name: 'API task endpoint' },
       { method: 'delete', url: `${API_URL}/tasks/${meetingId}`, name: 'Tasks endpoint' },
     ];
@@ -297,6 +413,25 @@ export default function AdminMeetingPage() {
 
   return (
     <div className="amp-container">
+      {/* Company Code Indicator */}
+      {companyCode && (
+        <div className="amp-company-indicator" style={{
+          position: 'fixed',
+          top: '10px',
+          right: '10px',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+          padding: '4px 12px',
+          borderRadius: '20px',
+          fontSize: '12px',
+          fontWeight: '600',
+          zIndex: 1000,
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+        }}>
+          Company: {companyCode}
+        </div>
+      )}
+
       {/* Debug Info Modal */}
       {debugInfo.show && (
         <div className="amp-modal-overlay" onClick={() => setDebugInfo({ show: false, message: "" })}>
@@ -351,6 +486,16 @@ export default function AdminMeetingPage() {
             <div>
               <h1 className="amp-header-title">Meeting Management</h1>
               <p className="amp-header-subtitle">Create and manage team meetings efficiently</p>
+              {companyCode && (
+                <p className="amp-company-badge" style={{
+                  marginTop: '4px',
+                  fontSize: '14px',
+                  color: '#667eea',
+                  fontWeight: '500'
+                }}>
+                  Company: {companyCode}
+                </p>
+              )}
             </div>
           </div>
           <div className="amp-stats">
@@ -590,7 +735,7 @@ export default function AdminMeetingPage() {
             <div className="amp-manage-title-wrapper">
               <h2 className="amp-manage-title">All Meetings</h2>
               <p className="amp-manage-subtitle">
-                {meetings.length} {meetings.length === 1 ? 'meeting' : 'meetings'} scheduled
+                {meetings.length} {meetings.length === 1 ? 'meeting' : 'meetings'} scheduled for {companyCode}
               </p>
             </div>
             <div className="amp-manage-actions">
@@ -609,7 +754,7 @@ export default function AdminMeetingPage() {
             <div className="amp-empty-state">
               <div className="amp-empty-icon">📅</div>
               <h3 className="amp-empty-title">No Meetings Yet</h3>
-              <p className="amp-empty-text">Get started by creating your first meeting</p>
+              <p className="amp-empty-text">Get started by creating your first meeting for {companyCode}</p>
               <button 
                 onClick={() => setActiveTab("create")}
                 className="amp-btn amp-btn-primary amp-empty-btn"
@@ -648,6 +793,14 @@ export default function AdminMeetingPage() {
                             datetime.isToday ? 'amp-badge-today' : 'amp-badge-upcoming'
                           }`}>
                             {datetime.isPast ? 'Past' : datetime.isToday ? 'Today' : 'Upcoming'}
+                          </span>
+                          {/* Company code badge for debugging */}
+                          <span className="amp-badge amp-badge-company" style={{
+                            background: '#f3f4f6',
+                            color: '#4b5563',
+                            fontSize: '11px'
+                          }}>
+                            {meeting.companyCode || meeting.company || 'N/A'}
                           </span>
                         </div>
                       </div>

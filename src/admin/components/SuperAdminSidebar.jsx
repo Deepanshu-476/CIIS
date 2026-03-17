@@ -192,7 +192,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
     { 
       icon: <AssetsIcon />, // Add Assets Management with Inventory icon
       name: 'Assets Management', 
-      route: '/Ciis-network/assets',
+      route: '/Ciis-network/company-assets',
       showForRoles: ['ADMIN', 'Owner']
     },
     { 

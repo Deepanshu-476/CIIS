@@ -106,8 +106,14 @@ const SidebarManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedCategories, setExpandedCategories] = useState({});
   const [activeTab, setActiveTab] = useState(0);
-  const [previewConfig, setPreviewConfig] = useState(null);
-  const [openPreview, setOpenPreview] = useState(false);
+  
+  // 🔥 FIXED: Modal state management - single modal at a time
+  const [modalState, setModalState] = useState({
+    isOpen: false,
+    type: null, // 'preview', 'delete', 'addRole', etc.
+    data: null
+  });
+  
   const [customRoles, setCustomRoles] = useState([]);
   const [activeStep, setActiveStep] = useState(0);
   const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false);
@@ -121,7 +127,7 @@ const SidebarManagement = () => {
     if (snackbar.open) {
       timer = setTimeout(() => {
         setSnackbar(prev => ({ ...prev, open: false }));
-      }, 5000); // 5 seconds
+      }, 5000);
     }
     return () => {
       if (timer) clearTimeout(timer);
@@ -137,6 +143,33 @@ const SidebarManagement = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // 🔥 NEW: Handle Escape key press to close modal
+  useEffect(() => {
+    const handleEscapeKey = (e) => {
+      if (e.key === 'Escape' && modalState.isOpen) {
+        closeModal();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscapeKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [modalState.isOpen]);
+
+  // 🔥 NEW: Prevent body scroll when modal is open
+  useEffect(() => {
+    if (modalState.isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [modalState.isOpen]);
 
   // Get company from localStorage
   const getCompanyFromLocalStorage = () => {
@@ -307,7 +340,7 @@ const SidebarManagement = () => {
     }
   };
 
-  // ✅ FIXED: Fetch existing configurations with null handling
+  // Fetch existing configurations with null handling
   const fetchExistingConfigs = async (companyId) => {
     try {
       setLoading(prev => ({ ...prev, fetching: true }));
@@ -347,56 +380,45 @@ const SidebarManagement = () => {
     }
   };
 
-  // ✅ FIXED: Get department name with null check
+  // Get department name with null check
   const getDepartmentName = (departmentId) => {
     if (!departmentId) return 'No Department';
     
-    // Agar departmentId object hai
     if (typeof departmentId === 'object' && departmentId !== null) {
       return departmentId.name || departmentId.departmentName || 'Department';
     }
     
-    // Agar departmentId string hai
     const department = departments.find(d => d._id === departmentId);
     if (department) return department.name;
     
     return 'Department';
   };
 
-  // ✅ FIXED: Get role name by ID with better null handling and direct role access
+  // Get role name by ID with better null handling and direct role access
   const getRoleNameById = (roleId) => {
     if (!roleId) return 'No Role';
     
-    // Agar roleId object hai
     if (typeof roleId === 'object' && roleId !== null) {
       if (roleId.name) return roleId.name;
       if (roleId.roleName) return roleId.roleName;
       if (roleId.role) return roleId.role;
     }
     
-    // Pehle jobRoles mein search karo
     const jobRole = jobRoles.find(r => r._id === roleId);
     if (jobRole) return jobRole.name;
     
-    // Phir customRoles mein search karo
     const customRole = customRoles.find(r => r._id === roleId);
     if (customRole) return customRole.name;
     
-    // ✅ FIXED: Search in existing configs for the role name
-    // Agar existing configs mein roleName ho
     const config = existingConfigs.find(c => c.role === roleId);
     if (config) {
-      // Agar config mein roleName property hai
       if (config.roleName) return config.roleName;
       
-      // Agar config mein role object hai with name
       if (config.role && typeof config.role === 'object' && config.role.name) {
         return config.role.name;
       }
       
-      // Agar roleId string hai to formatted version return karo
       if (typeof roleId === 'string') {
-        // Format role ID to readable name (e.g., "role_123" -> "Role 123")
         if (roleId.startsWith('custom_')) {
           return roleId.replace('custom_', 'Custom ');
         }
@@ -404,7 +426,6 @@ const SidebarManagement = () => {
       }
     }
     
-    // Agar roleId string hai to use hi return karo
     if (typeof roleId === 'string') {
       return roleId;
     }
@@ -663,47 +684,49 @@ const SidebarManagement = () => {
     }
   };
 
-  // Delete configuration
-  const handleDelete = async (configId) => {
-    const result = await Swal.fire({
-      title: 'Are you sure?',
-      text: 'This configuration will be deleted permanently!',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Yes, delete it!'
+  // 🔥 FIXED: Delete configuration with modal
+  const handleDelete = (configId) => {
+    setModalState({
+      isOpen: true,
+      type: 'delete',
+      data: configId
     });
+  };
 
-    if (result.isConfirmed) {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await axiosInstance.delete(`/sidebar/${configId}`, {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (response.data.success) {
-          await fetchExistingConfigs(company._id);
-          
-          setSnackbar({
-            open: true,
-            message: 'Configuration deleted successfully',
-            severity: 'success'
-          });
-        } else {
-          throw new Error(response.data.message);
+  // 🔥 FIXED: Confirm delete
+  const confirmDelete = async () => {
+    if (!modalState.data) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axiosInstance.delete(`/sidebar/${modalState.data}`, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      } catch (error) {
-        console.error('Error deleting config:', error);
+      });
+
+      if (response.data.success) {
+        await fetchExistingConfigs(company._id);
+        
         setSnackbar({
           open: true,
-          message: 'Failed to delete configuration',
-          severity: 'error'
+          message: 'Configuration deleted successfully',
+          severity: 'success'
         });
+        
+        closeModal();
+      } else {
+        throw new Error(response.data.message);
       }
+    } catch (error) {
+      console.error('Error deleting config:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to delete configuration',
+        severity: 'error'
+      });
+      closeModal();
     }
   };
 
@@ -719,55 +742,70 @@ const SidebarManagement = () => {
     }
   };
 
-  // Preview configuration
+  // 🔥 FIXED: Preview configuration
   const handlePreview = (config) => {
-    setPreviewConfig(config);
-    setOpenPreview(true);
+    setModalState({
+      isOpen: true,
+      type: 'preview',
+      data: config
+    });
   };
 
-  // Add custom role
+  // 🔥 FIXED: Add custom role with modal
   const handleAddRole = () => {
-    Swal.fire({
-      title: 'Add Custom Role',
-      input: 'text',
-      inputLabel: 'Enter role name',
-      inputPlaceholder: 'e.g., team-lead, supervisor, executive',
-      showCancelButton: true,
-      confirmButtonText: 'Add Role',
-      cancelButtonText: 'Cancel',
-      inputValidator: (value) => {
-        if (!value) {
-          return 'Role name is required!';
-        }
-        const allRoles = getAllAvailableRoles();
-        const roleExists = allRoles.some(role => 
-          role.name.toLowerCase() === value.toLowerCase()
-        );
-        if (roleExists) {
-          return 'Role already exists!';
-        }
-      }
-    }).then((result) => {
-      if (result.isConfirmed) {
-        const newRoleName = result.value.toUpperCase();
-        const newRole = {
-          _id: `custom_${Date.now()}`,
-          name: newRoleName,
-          description: `${newRoleName} (Custom)`,
-          isCustom: true
-        };
-        
-        setCustomRoles(prev => [...prev, newRole]);
-        
-        setSelectedRole(newRole._id);
-        setActiveStep(2);
-        
-        setSnackbar({
-          open: true,
-          message: `Custom role "${newRoleName}" added successfully`,
-          severity: 'success'
-        });
-      }
+    setModalState({
+      isOpen: true,
+      type: 'addRole',
+      data: null
+    });
+  };
+
+  // 🔥 FIXED: Confirm add custom role
+  const confirmAddRole = (roleName) => {
+    if (!roleName) return;
+    
+    const allRoles = getAllAvailableRoles();
+    const roleExists = allRoles.some(role => 
+      role.name.toLowerCase() === roleName.toLowerCase()
+    );
+    
+    if (roleExists) {
+      setSnackbar({
+        open: true,
+        message: 'Role already exists!',
+        severity: 'error'
+      });
+      return;
+    }
+    
+    const newRoleName = roleName.toUpperCase();
+    const newRole = {
+      _id: `custom_${Date.now()}`,
+      name: newRoleName,
+      description: `${newRoleName} (Custom)`,
+      isCustom: true
+    };
+    
+    setCustomRoles(prev => [...prev, newRole]);
+    
+    setSelectedRole(newRole._id);
+    setActiveStep(2);
+    
+    setSnackbar({
+      open: true,
+      message: `Custom role "${newRoleName}" added successfully`,
+      severity: 'success'
+    });
+    
+    closeModal();
+  };
+
+  // 🔥 FIXED: Close modal function
+  const closeModal = () => {
+    setModalState({
+      isOpen: false,
+      type: null,
+      data: null
     });
   };
 
@@ -1310,7 +1348,7 @@ const SidebarManagement = () => {
             </>
           )}
 
-          {/* ✅ FIXED: Tab 2 - Existing Configurations */}
+          {/* Tab 2 - Existing Configurations */}
           {activeTab === 1 && (
             <div className="SidebarManagement-configs-card">
               <div className="SidebarManagement-configs-header">
@@ -1413,45 +1451,85 @@ const SidebarManagement = () => {
         </div>
       )}
 
-      {/* Preview Modal */}
-      {openPreview && previewConfig && (
-        <div className="SidebarManagement-modal-overlay" onClick={() => setOpenPreview(false)}>
+      {/* 🔥 FIXED: Unified Modal Component with proper background click handling */}
+      {modalState.isOpen && (
+        <div className="SidebarManagement-modal-overlay" onClick={closeModal}>
           <div className="SidebarManagement-modal" onClick={e => e.stopPropagation()}>
-            <div className="SidebarManagement-modal-header">
-              <div className="SidebarManagement-modal-header-content">
-                <span className="SidebarManagement-modal-header-icon">👁️</span>
-                <h3 className="SidebarManagement-modal-header-title">Menu Preview</h3>
-              </div>
-              <span className="SidebarManagement-modal-subtitle">
-                {company?.companyName} ({company?.companyCode}) - 
-                {getDepartmentName(previewConfig.departmentId)} - 
-                {getRoleNameById(previewConfig.role)}
-              </span>
-              <button className="SidebarManagement-modal-close" onClick={() => setOpenPreview(false)}>✗</button>
-            </div>
-            <div className="SidebarManagement-modal-content">
-              <div className="SidebarManagement-preview-list">
-                {previewConfig.menuItems.map((item, index) => (
-                  <div key={item.id} className="SidebarManagement-preview-item">
-                    <div className="SidebarManagement-preview-item-icon">
-                      {getIconHtml(item.icon)}
-                    </div>
-                    <div className="SidebarManagement-preview-item-details">
-                      <span className="SidebarManagement-preview-item-name">{item.name}</span>
-                      <div className="SidebarManagement-preview-item-meta">
-                        <span className="SidebarManagement-preview-item-path">{item.path}</span>
-                        <span className="SidebarManagement-preview-item-category">{getCategoryDisplayName(item.category)}</span>
-                      </div>
-                    </div>
+            
+            {/* Preview Modal */}
+            {modalState.type === 'preview' && modalState.data && (
+              <>
+                <div className="SidebarManagement-modal-header">
+                  <div className="SidebarManagement-modal-header-content">
+                    <span className="SidebarManagement-modal-header-icon">👁️</span>
+                    <h3 className="SidebarManagement-modal-header-title">Menu Preview</h3>
                   </div>
-                ))}
-              </div>
-            </div>
-            <div className="SidebarManagement-modal-footer">
-              <button className="SidebarManagement-modal-close-btn" onClick={() => setOpenPreview(false)}>
-                Close
-              </button>
-            </div>
+                  <span className="SidebarManagement-modal-subtitle">
+                    {company?.companyName} ({company?.companyCode}) - 
+                    {getDepartmentName(modalState.data.departmentId)} - 
+                    {getRoleNameById(modalState.data.role)}
+                  </span>
+                  <button className="SidebarManagement-modal-close" onClick={closeModal}>✗</button>
+                </div>
+                <div className="SidebarManagement-modal-content">
+                  <div className="SidebarManagement-preview-list">
+                    {modalState.data.menuItems.map((item, index) => (
+                      <div key={item.id} className="SidebarManagement-preview-item">
+                        <div className="SidebarManagement-preview-item-icon">
+                          {getIconHtml(item.icon)}
+                        </div>
+                        <div className="SidebarManagement-preview-item-details">
+                          <span className="SidebarManagement-preview-item-name">{item.name}</span>
+                          <div className="SidebarManagement-preview-item-meta">
+                            <span className="SidebarManagement-preview-item-path">{item.path}</span>
+                            <span className="SidebarManagement-preview-item-category">{getCategoryDisplayName(item.category)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="SidebarManagement-modal-footer">
+                  <button className="SidebarManagement-modal-close-btn" onClick={closeModal}>
+                    Close
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {modalState.type === 'delete' && (
+              <>
+                <div className="SidebarManagement-modal-header SidebarManagement-modal-header-warning">
+                  <div className="SidebarManagement-modal-header-content">
+                    <span className="SidebarManagement-modal-header-icon">⚠️</span>
+                    <h3 className="SidebarManagement-modal-header-title">Confirm Delete</h3>
+                  </div>
+                  <button className="SidebarManagement-modal-close" onClick={closeModal}>✗</button>
+                </div>
+                <div className="SidebarManagement-modal-content">
+                  <p className="SidebarManagement-modal-text">
+                    Are you sure you want to delete this configuration? This action cannot be undone.
+                  </p>
+                </div>
+                <div className="SidebarManagement-modal-footer">
+                  <button className="SidebarManagement-modal-cancel-btn" onClick={closeModal}>
+                    Cancel
+                  </button>
+                  <button className="SidebarManagement-modal-delete-btn" onClick={confirmDelete}>
+                    Delete
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Add Custom Role Modal */}
+            {modalState.type === 'addRole' && (
+              <AddRoleModal 
+                onClose={closeModal}
+                onConfirm={confirmAddRole}
+              />
+            )}
           </div>
         </div>
       )}
@@ -1469,6 +1547,53 @@ const SidebarManagement = () => {
         </div>
       )}
     </div>
+  );
+};
+
+// 🔥 NEW: Add Role Modal Component
+const AddRoleModal = ({ onClose, onConfirm }) => {
+  const [roleName, setRoleName] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (roleName.trim()) {
+      onConfirm(roleName.trim());
+    }
+  };
+
+  return (
+    <>
+      <div className="SidebarManagement-modal-header">
+        <div className="SidebarManagement-modal-header-content">
+          <span className="SidebarManagement-modal-header-icon">➕</span>
+          <h3 className="SidebarManagement-modal-header-title">Add Custom Role</h3>
+        </div>
+        <button className="SidebarManagement-modal-close" onClick={onClose}>✗</button>
+      </div>
+      <form onSubmit={handleSubmit}>
+        <div className="SidebarManagement-modal-content">
+          <div className="SidebarManagement-form-group">
+            <label className="SidebarManagement-form-label">Role Name</label>
+            <input
+              type="text"
+              className="SidebarManagement-form-input"
+              placeholder="e.g., team-lead, supervisor, executive"
+              value={roleName}
+              onChange={(e) => setRoleName(e.target.value)}
+              autoFocus
+            />
+          </div>
+        </div>
+        <div className="SidebarManagement-modal-footer">
+          <button type="button" className="SidebarManagement-modal-cancel-btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="SidebarManagement-modal-add-btn" disabled={!roleName.trim()}>
+            Add Role
+          </button>
+        </div>
+      </form>
+    </>
   );
 };
 

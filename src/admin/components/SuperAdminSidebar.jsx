@@ -26,7 +26,7 @@ import {
 
 // Styled components (same as before)
 const SidebarContainer = styled(Box)(({ theme }) => ({
-  width: 240,
+  width: 260,
   flexShrink: 0,
   whiteSpace: 'nowrap',
   boxSizing: 'border-box',

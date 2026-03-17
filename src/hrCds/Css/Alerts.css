@@ -611,11 +611,11 @@
   position: absolute;
   z-index: 1000;
   bottom: 125%;
-  left: 50%;
+  left: 49%;
   transform: translateX(-50%);
   background: var(--gray-800);
   color: white;
-  padding: 6px 12px;
+  padding: 4px 7px;
   border-radius: var(--border-radius-sm);
   font-size: 12px;
   white-space: nowrap;
@@ -626,6 +626,7 @@
 .Alerts-tooltip:hover .Alerts-tooltip-text {
   visibility: visible;
   opacity: 1;
+  font-size: 9px;
 }
 
 /* Progress */

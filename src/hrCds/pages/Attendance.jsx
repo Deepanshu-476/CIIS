@@ -38,7 +38,7 @@ const Attendance = () => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const [timeRange, setTimeRange] = useState("ALL");
+  const [timeRange, setTimeRange] = useState("MONTH");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [showMobileFilter, setShowMobileFilter] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);

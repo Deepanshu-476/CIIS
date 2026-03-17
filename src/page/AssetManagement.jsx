@@ -1001,37 +1001,6 @@ const AssetManagement = () => {
           </div>
         </div>
 
-        {/* Super Admin Toggle */}
-        {isSuperAdmin && (
-          <div className="AssetManagement-super-admin-banner">
-            <div className="AssetManagement-super-admin-content">
-              <div className="AssetManagement-super-admin-icon" dangerouslySetInnerHTML={{ __html: Icons.admin_panel(isMobile ? 20 : 24) }} />
-              <div>
-                <div className="AssetManagement-super-admin-title">
-                  {isMobile ? 'Super Admin' : 'Super Admin Mode'}
-                </div>
-                {!isMobile && (
-                  <div className="AssetManagement-super-admin-subtitle">
-                    You have access to view all assets
-                  </div>
-                )}
-              </div>
-            </div>
-            <label className="AssetManagement-toggle">
-              <input
-                type="checkbox"
-                checked={showAllCompanies}
-                onChange={(e) => setShowAllCompanies(e.target.checked)}
-              />
-              <span className="AssetManagement-toggle-slider"></span>
-              {!isMobile && (
-                <span className="AssetManagement-toggle-label">
-                  {showAllCompanies ? 'All Companies' : 'My Company'}
-                </span>
-              )}
-            </label>
-          </div>
-        )}
 
         {/* Quick Filters Tabs */}
         <div className="AssetManagement-tabs">

@@ -114,7 +114,8 @@
 
 @media (max-width: 480px) {
   .SidebarManagement-company-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: self-end;
   }
 }
 
@@ -162,7 +163,7 @@
 }
 
 .SidebarManagement-company-label {
-  font-size: 12px;
+  font-size: 11px;
   color: #666;
 }
 
@@ -746,7 +747,7 @@
 .SidebarManagement-search-icon {
   position: absolute;
   left: 36px;
-  top: 50%;
+  top: 36%;
   transform: translateY(-50%);
   color: #757575;
   font-size: 16px;
@@ -1108,6 +1109,7 @@
 @media (max-width: 600px) {
   .SidebarManagement-configs-grid {
     grid-template-columns: 1fr;
+    justify-content: center;
   }
 }
 

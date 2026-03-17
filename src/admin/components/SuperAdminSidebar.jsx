@@ -21,10 +21,10 @@ import {
   WorkOutline as JobRoleIcon,
   PersonAdd as CreateUserIcon,
   ExitToApp as LogoutIcon,
-  Inventory as AssetsIcon, // Import Assets Icon
+  Inventory as AssetsIcon,
 } from '@mui/icons-material';
 
-// Styled components
+// Styled components (same as before)
 const SidebarContainer = styled(Box)(({ theme }) => ({
   width: 240,
   flexShrink: 0,
@@ -55,16 +55,15 @@ const CollapsedSidebar = styled(SidebarContainer)(({ theme }) => ({
   overflowX: 'hidden',
 }));
 
-// Header space for AppBar
 const HeaderSpacer = styled(Box)(({ theme }) => ({
-  height: 64, // AppBar ki height
+  height: 64,
   [theme.breakpoints.down('sm')]: {
-    height: 56, // Mobile par AppBar ki height
+    height: 56,
   },
 }));
 
 const SectionHeading = styled(Typography)(({ theme }) => ({
-  padding: theme.spacing(2, 2, 1), // Top padding increased
+  padding: theme.spacing(2, 2, 1),
   fontSize: '0.75rem',
   textTransform: 'uppercase',
   color: theme.palette.text.secondary,
@@ -80,8 +79,8 @@ const StyledListItemButton = styled(ListItemButton)(({ theme, selected }) => ({
   minHeight: 48,
   justifyContent: 'initial',
   padding: theme.spacing(1, 2),
-  margin: theme.spacing(0.5, 1), // Added margin for better spacing
-  borderRadius: theme.spacing(1), // Rounded corners
+  margin: theme.spacing(0.5, 1),
+  borderRadius: theme.spacing(1),
   color: selected ? theme.palette.primary.main : theme.palette.text.secondary,
   backgroundColor: selected ? theme.palette.action.selected : 'transparent',
   '&:hover': {
@@ -98,13 +97,12 @@ const StyledListItemIcon = styled(ListItemIcon)(({ theme }) => ({
   color: 'inherit',
 }));
 
-// Logout button styled component
 const LogoutListItemButton = styled(ListItemButton)(({ theme }) => ({
   minHeight: 48,
   justifyContent: 'initial',
   padding: theme.spacing(1, 2),
-  margin: theme.spacing(0.5, 1), // Same margin as other items
-  borderRadius: theme.spacing(1), // Rounded corners
+  margin: theme.spacing(0.5, 1),
+  borderRadius: theme.spacing(1),
   color: theme.palette.error.main,
   '&:hover': {
     backgroundColor: theme.palette.error.light + '20',
@@ -114,7 +112,6 @@ const LogoutListItemButton = styled(ListItemButton)(({ theme }) => ({
   },
 }));
 
-// Content wrapper for proper spacing
 const ContentWrapper = styled(Box)({
   flex: 1,
   display: 'flex',
@@ -129,6 +126,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   const [companyRole, setCompanyRole] = useState('Owner');
+  const [userEmail, setUserEmail] = useState('');
   
   useEffect(() => {
     try {
@@ -146,6 +144,16 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
           console.log('companyRole not found in user data');
           setCompanyRole('Owner');
         }
+
+        // Extract email from user data
+        if (userData && userData.email) {
+          setUserEmail(userData.email);
+          console.log('User email set to:', userData.email);
+        } else if (userData && userData.user && userData.user.email) {
+          // Check nested structure
+          setUserEmail(userData.user.email);
+          console.log('User email set to (nested):', userData.user.email);
+        }
       } else {
         console.log('No superAdmin data found in localStorage');
         setCompanyRole('Owner');
@@ -157,49 +165,66 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
   }, []);
 
   const ciisUserMenuItems = [
-    { heading: 'MPA Management' }, // Changed heading text as per your image
+    { heading: 'MPA Management' },
     { 
       icon: <CompanyIcon />, 
       name: 'Company Details', 
       route: '/Ciis-network/company-details',
-      showForRoles: ['ADMIN','Owner']
+      // Ab sirf specific email ke liye show hoga
+      // showForEmail: ['ashutoshrai130@gmail.com']
+      showForAll: true
     },
-     { 
+    { 
       icon: <CompanyIcon />, 
       name: 'All Company', 
       route: '/Ciis-network/all-company',
-      showForRoles: ['ADMIN']
+      // Ab sirf specific email ke liye show hoga
+      showForEmail: ['ashutoshrai130@gmail.com']
     },
-    
     { 
       icon: <DepartmentIcon />, 
       name: 'Department', 
       route: '/Ciis-network/department',
-      showForRoles: ['ADMIN', 'Owner']
+      // Ye sab users ke liye show hoga
+      showForAll: true
     },
     { 
       icon: <JobRoleIcon />, 
       name: 'Job Roles', 
       route: '/Ciis-network/JobRoleManagement',
-      showForRoles: ['ADMIN', 'Owner']
+      // Ye sab users ke liye show hoga
+      showForAll: true
     },
     { 
       icon: <CreateUserIcon />, 
       name: 'Create User', 
       route: '/Ciis-network/create-user',
-      showForRoles: ['ADMIN', 'Owner']
+      // Ye sab users ke liye show hoga
+      showForAll: true
     },
     { 
-      icon: <AssetsIcon />, // Add Assets Management with Inventory icon
+      icon: <AssetsIcon />,
       name: 'Assets Management', 
       route: '/Ciis-network/assets',
-      showForRoles: ['ADMIN', 'Owner']
+      // Ye sab users ke liye show hoga
+      showForAll: true
     },
     { 
       icon: <DepartmentIcon />, 
       name: 'Sidebar Management', 
       route: '/Ciis-network/SidebarManagement',
-      showForRoles: ['ADMIN', 'Owner']
+      // Ab sirf specific email ke liye show hoga
+      // showForEmail: ['ashutoshrai130@gmail.com']
+      showForAll: true
+    },
+ 
+     { 
+      icon: <CompanyIcon />, 
+      name: 'Holiday', 
+      route: '/Ciis-network/holiday',
+      // Ab sirf specific email ke liye show hoga
+      // showForEmail: ['ashutoshrai130@gmail.com']
+      showForAll: true
     },
   ];
 
@@ -217,7 +242,16 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
         }
         filteredItems.push(item);
       } else {
-        const shouldShow = !item.showForRoles || item.showForRoles.includes(companyRole);
+        // Check if item should be shown based on new conditions
+        let shouldShow = false;
+        
+        if (item.showForAll) {
+          // Agar showForAll true hai to sabko dikhao
+          shouldShow = true;
+        } else if (item.showForEmail && item.showForEmail.includes(userEmail)) {
+          // Agar specific email match karta hai to dikhao
+          shouldShow = true;
+        }
         
         if (shouldShow) {
           filteredItems.push(item);
@@ -230,6 +264,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       }
     }
     
+    // Remove empty headings
     return filteredItems.filter((item, index, array) => {
       if (item.heading) {
         const hasMenuItemAfter = array
@@ -248,7 +283,6 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
     }
   };
 
-  // Logout function
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to logout?')) {
       localStorage.removeItem('token');
@@ -266,17 +300,15 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
   const SidebarComponent = isOpen ? SidebarContainer : CollapsedSidebar;
   const filteredMenuItems = getFilteredMenuItems();
 
-  console.log('Current companyRole:', companyRole);
+  console.log('Current userEmail:', userEmail);
   console.log('Filtered menu items count:', filteredMenuItems.length);
 
   return (
     <SidebarComponent>
-      {/* Header Spacer - Yeh AppBar ke neeche space dega */}
       <HeaderSpacer />
       
       <ContentWrapper>
-        {/* Main Menu Items */}
-        <List sx={{ pt: 1 }}> {/* Reduced top padding */}
+        <List sx={{ pt: 1 }}>
           {filteredMenuItems.map((item, idx) =>
             item.heading ? (
               isOpen && (
@@ -318,14 +350,10 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
           )}
         </List>
 
-        {/* Spacer to push logout to bottom */}
         <Box sx={{ flex: 1 }} />
-
-        {/* Divider before logout */}
         <Divider sx={{ my: 1, mx: 2 }} />
 
-        {/* Logout Button */}
-        <List sx={{ pb: 2 }}> {/* Bottom padding */}
+        <List sx={{ pb: 2 }}>
           <StyledListItem disablePadding>
             {isOpen ? (
               <LogoutListItemButton onClick={handleLogout}>

@@ -1,14 +1,17 @@
 /* ClientDashboard.css */
 
+/* Base Styles */
 .ClientDashboard-client-dashboard {
   min-height: 100vh;
   background: #f5f5f5;
-  display: flex;
+  display: block;
+  padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
 }
 
 /* Loading State */
-.ClientDashboard-client-dashboard-loading,
-.ClientDashboard-client-dashboard-error {
+.ClientDashboard-dashboard-loading,
+.ClientDashboard-dashboard-error {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -34,12 +37,13 @@
   to { transform: rotate(360deg); }
 }
 
+/* Error State */
 .ClientDashboard-error-icon {
   font-size: 48px;
   margin-bottom: 16px;
 }
 
-.ClientDashboard-client-dashboard-error .ClientDashboard-btn {
+.ClientDashboard-dashboard-error .ClientDashboard-btn {
   margin: 8px;
   padding: 10px 20px;
   border: none;
@@ -50,628 +54,275 @@
   transition: all 0.3s;
 }
 
-.ClientDashboard-client-dashboard-error .ClientDashboard-btn--primary {
+.ClientDashboard-dashboard-error .ClientDashboard-btn--primary {
   background: white;
   color: #667eea;
 }
 
-.ClientDashboard-client-dashboard-error .ClientDashboard-btn--outlined {
+.ClientDashboard-dashboard-error .ClientDashboard-btn--outlined {
   background: transparent;
   border: 1px solid white;
   color: white;
 }
 
-/* Mobile Menu Button */
-.ClientDashboard-mobile-menu-btn {
-  display: none;
-  position: fixed;
-  top: 16px;
-  left: 16px;
-  z-index: 100;
-  background: white;
-  border: none;
-  border-radius: 8px;
-  padding: 10px;
-  font-size: 20px;
-  cursor: pointer;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-@media (max-width: 768px) {
-  .ClientDashboard-mobile-menu-btn {
-    display: block;
-  }
-}
-
-/* Sidebar */
-.ClientDashboard-dashboard-sidebar {
-  width: 280px;
-  background: white;
-  height: 100vh;
-  position: fixed;
-  left: 0;
-  top: 0;
-  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease;
-  z-index: 1000;
-  overflow-y: auto;
-}
-
-@media (max-width: 768px) {
-  .ClientDashboard-dashboard-sidebar {
-    transform: translateX(-100%);
-  }
-  
-  .ClientDashboard-dashboard-sidebar.ClientDashboard-sidebar-open {
-    transform: translateX(0);
-  }
-}
-
-.ClientDashboard-sidebar-header {
-  padding: 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+.ClientDashboard-error-actions {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.ClientDashboard-sidebar-header h2 {
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.ClientDashboard-sidebar-close {
-  display: none;
-  background: none;
-  border: none;
-  color: white;
-  font-size: 20px;
-  cursor: pointer;
-}
-
-@media (max-width: 768px) {
-  .ClientDashboard-sidebar-close {
-    display: block;
-  }
-}
-
-.ClientDashboard-sidebar-user {
-  padding: 24px;
-  text-align: center;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.ClientDashboard-user-avatar {
-  width: 80px;
-  height: 80px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  flex-wrap: wrap;
   justify-content: center;
-  font-size: 32px;
-  font-weight: 600;
-  color: white;
-  margin: 0 auto 16px;
 }
 
-.ClientDashboard-user-info h4 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 4px;
-}
-
-.ClientDashboard-user-info p {
-  font-size: 14px;
-  color: #666;
-  margin-bottom: 12px;
-}
-
-.ClientDashboard-sidebar-nav {
+/* Info Cards */
+.ClientDashboard-info-card {
+  background: white;
+  border-radius: 12px;
   padding: 24px;
-}
-
-.ClientDashboard-nav-item {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  color: #666;
-  text-decoration: none;
-  border-radius: 8px;
-  transition: all 0.3s;
-  margin-bottom: 8px;
-  width: 100%;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 15px;
-}
-
-.ClientDashboard-nav-item svg {
-  margin-right: 12px;
-  font-size: 20px;
-}
-
-.ClientDashboard-nav-item:hover {
-  background: #f5f5f5;
-  color: #667eea;
-}
-
-.ClientDashboard-nav-item.ClientDashboard-nav-item--active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
-.ClientDashboard-nav-item.ClientDashboard-nav-item--logout {
-  margin-top: 24px;
-  border-top: 1px solid #e0e0e0;
-  padding-top: 24px;
-}
-
-.ClientDashboard-nav-item.ClientDashboard-nav-item--logout:hover {
-  background: #fee;
-  color: #f44336;
-}
-
-/* Main Content */
-.ClientDashboard-dashboard-main {
-  flex: 1;
-  margin-left: 280px;
-  padding: 24px;
-}
-
-@media (max-width: 768px) {
-  .ClientDashboard-dashboard-main {
-    margin-left: 0;
-    padding: 16px;
-    padding-top: 70px;
-  }
-}
-
-.ClientDashboard-dashboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  background: white;
-  padding: 20px 24px;
-  border-radius: 12px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-}
-
-.ClientDashboard-dashboard-header h1 {
-  font-size: 22px;
-  font-weight: 600;
-  color: #333;
-}
-
-.ClientDashboard-header-date {
-  color: #666;
-  font-size: 14px;
-  background: #f5f5f5;
-  padding: 8px 16px;
-  border-radius: 20px;
-}
-
-@media (max-width: 640px) {
-  .ClientDashboard-dashboard-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-  
-  .ClientDashboard-header-date {
-    align-self: flex-start;
-  }
-}
-
-/* Stats Grid */
-.ClientDashboard-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
   margin-bottom: 24px;
 }
 
-@media (max-width: 1024px) {
-  .ClientDashboard-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 640px) {
-  .ClientDashboard-stats-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.ClientDashboard-stat-card {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-  transition: transform 0.3s;
-}
-
-.ClientDashboard-stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-}
-
-.ClientDashboard-stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  color: white;
-}
-
-.ClientDashboard-stat-card--primary .ClientDashboard-stat-icon {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.ClientDashboard-stat-card--success .ClientDashboard-stat-icon {
-  background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
-}
-
-.ClientDashboard-stat-card--warning .ClientDashboard-stat-icon {
-  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
-}
-
-.ClientDashboard-stat-card--error .ClientDashboard-stat-icon {
-  background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
-}
-
-.ClientDashboard-stat-content {
-  flex: 1;
-}
-
-.ClientDashboard-stat-label {
-  font-size: 13px;
-  color: #666;
-  display: block;
-  margin-bottom: 4px;
-}
-
-.ClientDashboard-stat-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: #333;
-  margin-bottom: 4px;
-}
-
-.ClientDashboard-stat-sub {
-  font-size: 12px;
-  color: #999;
-}
-
-.ClientDashboard-stat-card .ClientDashboard-progress-bar {
-  height: 4px;
-  background: #f0f0f0;
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.ClientDashboard-stat-card .ClientDashboard-progress-fill {
-  height: 100%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 2px;
-  transition: width 0.3s;
-}
-
-/* Company Info */
-.ClientDashboard-company-info {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 24px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-}
-
-.ClientDashboard-company-info h3 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 16px;
-}
-
-.ClientDashboard-info-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-}
-
-@media (max-width: 768px) {
-  .ClientDashboard-info-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 480px) {
-  .ClientDashboard-info-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.ClientDashboard-info-item label {
-  display: block;
-  font-size: 12px;
-  color: #999;
-  margin-bottom: 4px;
-}
-
-.ClientDashboard-info-item p {
-  font-size: 15px;
-  color: #333;
-  font-weight: 500;
-}
-
-/* Projects Section */
-.ClientDashboard-projects-section {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 24px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-}
-
-.ClientDashboard-projects-section h3 {
+.ClientDashboard-info-card h3 {
   font-size: 18px;
   font-weight: 600;
   color: #333;
   margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e0e0e0;
 }
 
-.ClientDashboard-projects-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+.ClientDashboard-full-width {
+  width: 100%;
 }
 
-.ClientDashboard-project-card {
-  background: #f8f9fa;
-  border-radius: 10px;
-  overflow: hidden;
-  transition: all 0.3s;
-}
-
-.ClientDashboard-project-card.ClientDashboard-project-expanded {
-  background: white;
-  border: 1px solid #667eea;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
-}
-
-.ClientDashboard-project-header {
-  padding: 16px;
-  cursor: pointer;
-  transition: background 0.3s;
-}
-
-.ClientDashboard-project-header:hover {
-  background: #f0f0f0;
-}
-
-.ClientDashboard-project-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.ClientDashboard-project-title h4 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
-}
-
-.ClientDashboard-project-arrow {
-  font-size: 18px;
-  color: #999;
-  transition: transform 0.3s;
-}
-
-.ClientDashboard-project-arrow.ClientDashboard-arrow-rotated {
-  transform: rotate(90deg);
-  color: #667eea;
-}
-
-.ClientDashboard-project-stats {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-
-.ClientDashboard-project-stats .ClientDashboard-stat {
-  font-size: 13px;
-  color: #666;
-}
-
-.ClientDashboard-project-stats .ClientDashboard-stat strong {
-  color: #333;
-  font-weight: 600;
-}
-
-.ClientDashboard-project-stats .ClientDashboard-stat.ClientDashboard-overdue {
-  color: #f44336;
-}
-
-.ClientDashboard-project-stats .ClientDashboard-stat.ClientDashboard-overdue strong {
-  color: #f44336;
-}
-
-.ClientDashboard-project-progress {
-  margin-bottom: 8px;
-}
-
-.ClientDashboard-project-progress .ClientDashboard-progress-bar {
-  height: 6px;
-  background: #e0e0e0;
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.ClientDashboard-project-progress .ClientDashboard-progress-fill {
-  height: 100%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 3px;
-  transition: width 0.3s;
-}
-
-/* Tasks List */
-.ClientDashboard-project-tasks {
-  padding: 16px;
-  border-top: 1px solid #e0e0e0;
-}
-
-.ClientDashboard-project-tasks h5 {
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 12px;
-}
-
-.ClientDashboard-tasks-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.ClientDashboard-task-item {
-  display: flex;
-  gap: 12px;
-  padding: 10px;
-  background: #f8f9fa;
-  border-radius: 8px;
-}
-
-.ClientDashboard-task-checkbox input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  margin-top: 2px;
-}
-
-.ClientDashboard-task-content {
-  flex: 1;
-}
-
-.ClientDashboard-task-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-  flex-wrap: wrap;
-}
-
-.ClientDashboard-task-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-}
-
-.ClientDashboard-task-name.ClientDashboard-task-completed {
-  text-decoration: line-through;
-  color: #999;
-}
-
-.ClientDashboard-priority-badge {
-  font-size: 10px;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-weight: 500;
-}
-
-.ClientDashboard-priority-badge--high {
-  background: #fee;
-  color: #f44336;
-}
-
-.ClientDashboard-priority-badge--medium {
-  background: #fff3e0;
-  color: #ff9800;
-}
-
-.ClientDashboard-priority-badge--low {
-  background: #e8f5e9;
-  color: #4caf50;
-}
-
-.ClientDashboard-task-meta {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 4px;
-  font-size: 12px;
-}
-
-.ClientDashboard-task-assignee,
-.ClientDashboard-task-due {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: #666;
-}
-
-.ClientDashboard-task-assignee svg,
-.ClientDashboard-task-due svg {
-  font-size: 12px;
-}
-
-.ClientDashboard-task-due.ClientDashboard-due-overdue {
-  color: #f44336;
-  font-weight: 500;
-}
-
-.ClientDashboard-task-completed {
-  font-size: 11px;
-  color: #4caf50;
-}
-
-/* Team Section */
-.ClientDashboard-team-section {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-}
-
-.ClientDashboard-team-section h3 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 16px;
-}
-
-.ClientDashboard-team-list {
+/* Info Grid */
+.ClientDashboard-info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.ClientDashboard-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ClientDashboard-info-item label {
+  font-size: 12px;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  word-break: break-word;
+}
+
+.ClientDashboard-info-item p {
+  font-size: 16px;
+  color: #333;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+/* Team Grid */
+.ClientDashboard-team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
 }
 
 .ClientDashboard-team-member {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
+  gap: 16px;
+  padding: 16px;
   background: #f8f9fa;
-  border-radius: 8px;
-  transition: transform 0.3s;
+  border-radius: 10px;
+  transition: all 0.3s;
 }
 
 .ClientDashboard-team-member:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: #f0f0f0;
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .ClientDashboard-member-avatar {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 600;
+  color: white;
+  flex-shrink: 0;
+}
+
+.ClientDashboard-member-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.ClientDashboard-member-info h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ClientDashboard-member-info p {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ClientDashboard-member-info small {
+  font-size: 12px;
+  color: #999;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Projects Section */
+.ClientDashboard-projects-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.ClientDashboard-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.ClientDashboard-section-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+/* Services List */
+.ClientDashboard-services-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Service Card */
+.ClientDashboard-service-card {
+  background: #f8f9fa;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.3s;
+  border: 1px solid transparent;
+}
+
+.ClientDashboard-service-card.ClientDashboard-service-card--expanded {
+  background: white;
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.ClientDashboard-service-card__header {
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: background 0.3s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.ClientDashboard-service-card__header:hover {
+  background: #f0f0f0;
+}
+
+.ClientDashboard-service-card__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ClientDashboard-service-icon {
+  font-size: 20px;
+  color: #667eea;
+  flex-shrink: 0;
+}
+
+.ClientDashboard-service-card__title h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ClientDashboard-service-arrow {
+  font-size: 18px;
+  color: #999;
+  transition: transform 0.3s;
+  flex-shrink: 0;
+}
+
+.ClientDashboard-service-arrow.ClientDashboard-service-arrow--rotated {
+  transform: rotate(90deg);
+  color: #667eea;
+}
+
+.ClientDashboard-service-card__stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ClientDashboard-stat-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: white;
+  border-radius: 30px;
+  font-size: 13px;
+  color: #666;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  white-space: nowrap;
+}
+
+.ClientDashboard-stat-badge.ClientDashboard-stat-badge--error {
+  background: #fee;
+  color: #f44336;
+}
+
+.ClientDashboard-stat-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.ClientDashboard-text-success {
+  color: #4caf50;
+}
+
+.ClientDashboard-progress-circle {
   width: 40px;
   height: 40px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -679,69 +330,616 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.ClientDashboard-progress-circle__text {
+  font-size: 12px;
   font-weight: 600;
   color: white;
 }
 
-.ClientDashboard-member-info h4 {
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 2px;
+/* Progress Bar */
+.ClientDashboard-service-card__progress {
+  padding: 0 20px 16px 20px;
 }
 
-.ClientDashboard-member-info p {
+.ClientDashboard-progress-bar {
+  height: 8px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ClientDashboard-progress-bar__fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+.ClientDashboard-progress-bar__fill--success {
+  background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+}
+
+.ClientDashboard-progress-bar__fill--primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.ClientDashboard-progress-bar__fill--warning {
+  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+}
+
+.ClientDashboard-progress-bar__fill--info {
+  background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+}
+
+/* Service Card Content */
+.ClientDashboard-service-card__content {
+  padding: 20px;
+  border-top: 1px solid #e0e0e0;
+  background: white;
+}
+
+/* Loading State in Card */
+.ClientDashboard-service-card__loading {
+  padding: 40px;
+  text-align: center;
+}
+
+.ClientDashboard-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #f3f3f3;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: ClientDashboard-spin 1s linear infinite;
+  margin: 0 auto 12px;
+}
+
+/* Tasks List */
+.ClientDashboard-tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ClientDashboard-task-item {
+  background: #f8f9fa;
+  border-radius: 8px;
+  transition: all 0.3s;
+  border: 1px solid transparent;
+}
+
+.ClientDashboard-task-item:hover {
+  background: #f0f0f0;
+  border-color: #667eea;
+  transform: translateX(4px);
+}
+
+.ClientDashboard-task-item__content {
+  padding: 16px;
+}
+
+.ClientDashboard-task-item__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ClientDashboard-task-item__name {
+  font-size: 15px;
+  font-weight: 500;
+  color: #333;
+  word-break: break-word;
+}
+
+.ClientDashboard-task-item__name.ClientDashboard-task-item__name--completed {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.ClientDashboard-task-item__badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Completed Badge */
+.ClientDashboard-completed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-radius: 30px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Task Meta */
+.ClientDashboard-task-item__meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
   font-size: 12px;
   color: #666;
+  flex-wrap: wrap;
 }
 
-/* Status Badges */
-.ClientDashboard-status-badge {
-  display: inline-block;
+.ClientDashboard-task-completed-date {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.ClientDashboard-status-badge--active {
   background: #e8f5e9;
-  color: #4caf50;
+  color: #2e7d32;
+  border-radius: 30px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
-.ClientDashboard-status-badge--hold {
-  background: #fff3e0;
-  color: #ff9800;
+.ClientDashboard-meta-icon {
+  font-size: 12px;
+  flex-shrink: 0;
 }
 
-.ClientDashboard-status-badge--inactive {
-  background: #fee;
-  color: #f44336;
-}
-
-/* Empty State */
-.ClientDashboard-empty-state {
+/* Empty States */
+.ClientDashboard-empty-tasks {
   text-align: center;
   padding: 40px 20px;
+  color: #999;
+  font-size: 14px;
   background: #f8f9fa;
-  border-radius: 10px;
+  border-radius: 8px;
+}
+
+.ClientDashboard-empty-tasks svg {
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.ClientDashboard-empty-subtext {
+  font-size: 12px;
+  color: #999;
+  margin-top: 8px;
+  word-break: break-word;
+}
+
+.ClientDashboard-empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
 .ClientDashboard-empty-icon {
-  font-size: 40px;
-  color: #999;
-  margin-bottom: 12px;
+  font-size: 60px;
+  color: #ccc;
+  margin-bottom: 16px;
 }
 
 .ClientDashboard-empty-state h4 {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
+  word-break: break-word;
 }
 
 .ClientDashboard-empty-state p {
   font-size: 14px;
   color: #666;
+  word-break: break-word;
+}
+
+/* Status Badges */
+.ClientDashboard-status-badge {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 30px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.ClientDashboard-status-badge--success {
+  background: #e8f5e9;
+  color: #4caf50;
+}
+
+.ClientDashboard-status-badge--warning {
+  background: #fff3e0;
+  color: #ff9800;
+}
+
+.ClientDashboard-status-badge--error {
+  background: #fee;
+  color: #f44336;
+}
+
+/* Buttons */
+.ClientDashboard-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.ClientDashboard-btn.ClientDashboard-btn--primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.ClientDashboard-btn.ClientDashboard-btn--primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.ClientDashboard-btn.ClientDashboard-btn--outlined {
+  background: transparent;
+  border: 1px solid #667eea;
+  color: #667eea;
+}
+
+.ClientDashboard-btn.ClientDashboard-btn--outlined:hover:not(:disabled) {
+  background: #667eea;
+  color: white;
+}
+
+/* ========== RESPONSIVE DESIGN ========== */
+
+/* Mobile Phones (Portrait) - Up to 480px */
+@media (max-width: 480px) {
+  .ClientDashboard-client-dashboard {
+    padding: 12px;
+  }
+
+  /* Info Cards */
+  .ClientDashboard-info-card {
+    padding: 16px;
+  }
+
+  .ClientDashboard-info-card h3 {
+    font-size: 16px;
+    margin-bottom: 16px;
+  }
+
+  .ClientDashboard-info-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .ClientDashboard-info-item p {
+    font-size: 14px;
+  }
+
+  /* Team Grid */
+  .ClientDashboard-team-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .ClientDashboard-team-member {
+    padding: 12px;
+  }
+
+  .ClientDashboard-member-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+
+  .ClientDashboard-member-info h4 {
+    font-size: 14px;
+  }
+
+  .ClientDashboard-member-info p {
+    font-size: 12px;
+  }
+
+  /* Projects Section */
+  .ClientDashboard-projects-section {
+    padding: 16px;
+  }
+
+  .ClientDashboard-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .ClientDashboard-section-header h3 {
+    font-size: 16px;
+  }
+
+  /* Service Cards */
+  .ClientDashboard-service-card__header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 12px 16px;
+  }
+
+  .ClientDashboard-service-card__title {
+    width: 100%;
+  }
+
+  .ClientDashboard-service-card__title h4 {
+    font-size: 14px;
+  }
+
+  .ClientDashboard-service-card__stats {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .ClientDashboard-stat-badge {
+    padding: 4px 8px;
+    font-size: 11px;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .ClientDashboard-progress-circle {
+    width: 32px;
+    height: 32px;
+  }
+
+  .ClientDashboard-progress-circle__text {
+    font-size: 10px;
+  }
+
+  .ClientDashboard-service-card__content {
+    padding: 16px;
+  }
+
+  /* Task Items */
+  .ClientDashboard-task-item__content {
+    padding: 12px;
+  }
+
+  .ClientDashboard-task-item__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .ClientDashboard-task-item__name {
+    font-size: 14px;
+    width: 100%;
+  }
+
+  .ClientDashboard-task-item__badges {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ClientDashboard-completed-badge {
+    padding: 3px 8px;
+    font-size: 10px;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .ClientDashboard-task-item__meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .ClientDashboard-task-completed-date {
+    width: 100%;
+    justify-content: center;
+    white-space: normal;
+    word-break: break-word;
+    text-align: center;
+  }
+
+  /* Empty States */
+  .ClientDashboard-empty-state {
+    padding: 40px 16px;
+  }
+
+  .ClientDashboard-empty-icon {
+    font-size: 48px;
+  }
+
+  .ClientDashboard-empty-state h4 {
+    font-size: 16px;
+  }
+
+  .ClientDashboard-empty-state p {
+    font-size: 13px;
+  }
+
+  .ClientDashboard-empty-tasks {
+    padding: 30px 16px;
+    font-size: 13px;
+  }
+}
+
+/* Mobile Phones (Landscape) - 481px to 767px */
+@media (min-width: 481px) and (max-width: 767px) {
+  .ClientDashboard-client-dashboard {
+    padding: 16px;
+  }
+
+  /* Info Grid */
+  .ClientDashboard-info-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  /* Team Grid */
+  .ClientDashboard-team-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  /* Service Cards */
+  .ClientDashboard-service-card__header {
+    flex-wrap: wrap;
+  }
+
+  .ClientDashboard-service-card__stats {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  /* Task Items */
+  .ClientDashboard-task-item__header {
+    flex-wrap: wrap;
+  }
+
+  .ClientDashboard-task-item__badges {
+    flex-wrap: wrap;
+  }
+
+  .ClientDashboard-task-item__meta {
+    flex-wrap: wrap;
+  }
+}
+
+/* Tablets (Portrait) - 768px to 1024px */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .ClientDashboard-client-dashboard {
+    padding: 20px;
+  }
+
+  /* Info Grid */
+  .ClientDashboard-info-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  /* Team Grid */
+  .ClientDashboard-team-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  /* Service Cards */
+  .ClientDashboard-service-card__header {
+    padding: 14px 18px;
+  }
+
+  .ClientDashboard-service-card__stats {
+    gap: 10px;
+  }
+
+  /* Task Items */
+  .ClientDashboard-task-item__meta {
+    gap: 12px;
+  }
+}
+
+/* Tablets (Landscape) - 1025px to 1280px */
+@media (min-width: 1025px) and (max-width: 1280px) {
+  .ClientDashboard-client-dashboard {
+    padding: 24px;
+  }
+
+  .ClientDashboard-info-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .ClientDashboard-team-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Large Desktop - 1281px and above */
+@media (min-width: 1281px) {
+  .ClientDashboard-client-dashboard {
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  .ClientDashboard-info-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .ClientDashboard-team-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ========== DARK MODE SUPPORT ========== */
+@media (prefers-color-scheme: dark) {
+  .ClientDashboard-client-dashboard {
+    background: #1a1a1a;
+  }
+  
+  .ClientDashboard-info-card,
+  .ClientDashboard-projects-section {
+    background: #2d2d2d;
+  }
+  
+  .ClientDashboard-info-card h3,
+  .ClientDashboard-projects-section h3,
+  .ClientDashboard-service-card__title h4,
+  .ClientDashboard-task-item__name,
+  .ClientDashboard-member-info h4 {
+    color: #fff;
+  }
+  
+  .ClientDashboard-info-item label,
+  .ClientDashboard-task-item__meta,
+  .ClientDashboard-member-info p,
+  .ClientDashboard-member-info small {
+    color: #999;
+  }
+  
+  .ClientDashboard-service-card,
+  .ClientDashboard-team-member,
+  .ClientDashboard-stat-badge,
+  .ClientDashboard-task-item,
+  .ClientDashboard-empty-tasks {
+    background: #3d3d3d;
+  }
+  
+  .ClientDashboard-service-card__header:hover,
+  .ClientDashboard-team-member:hover,
+  .ClientDashboard-task-item:hover {
+    background: #4d4d4d;
+  }
+  
+  .ClientDashboard-progress-bar {
+    background: #4d4d4d;
+  }
+  
+  .ClientDashboard-info-item p {
+    color: #fff;
+  }
+  
+  .ClientDashboard-empty-state {
+    background: #2d2d2d;
+  }
+  
+  .ClientDashboard-empty-icon {
+    color: #666;
+  }
+  
+  .ClientDashboard-empty-state h4 {
+    color: #fff;
+  }
+  
+  .ClientDashboard-empty-state p {
+    color: #999;
+  }
 }

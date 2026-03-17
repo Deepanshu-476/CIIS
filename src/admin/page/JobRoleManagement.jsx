@@ -626,33 +626,6 @@ const JobRoleManagement = () => {
           </div>
         </div>
 
-        {/* Super Admin Toggle */}
-        {isSuperAdmin && (
-          <div className="JobRoleManagement-super-admin-panel">
-            <div className="JobRoleManagement-super-admin-content">
-              <div className="JobRoleManagement-super-admin-left">
-                <div className="JobRoleManagement-super-admin-avatar">👑</div>
-                <div className="JobRoleManagement-super-admin-text">
-                  <div className="JobRoleManagement-super-admin-title">Super Admin Mode</div>
-                  <div className="JobRoleManagement-super-admin-subtitle">You have access to view all job roles</div>
-                </div>
-              </div>
-              <div className="JobRoleManagement-super-admin-toggle">
-                <label className="JobRoleManagement-switch">
-                  <input
-                    type="checkbox"
-                    checked={showAllCompanies}
-                    onChange={(e) => setShowAllCompanies(e.target.checked)}
-                  />
-                  <span className="JobRoleManagement-slider"></span>
-                </label>
-                <span className="JobRoleManagement-toggle-label">
-                  {showAllCompanies ? 'Showing All Companies' : 'Showing My Company Only'}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
 
         {!userInfo && (
           <div className="JobRoleManagement-alert JobRoleManagement-alert-warning">

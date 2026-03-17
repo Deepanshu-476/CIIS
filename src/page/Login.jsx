@@ -211,15 +211,20 @@ const Login = () => {
 
       toast.success("Login successful!");
 
-      let redirectPath = '/ciisUser/user-dashboard';
-      
-      if (res.data.redirectTo) {
-        redirectPath = res.data.redirectTo;
-      } else if (res.data.user?.role) {
-        redirectPath = res.data.user.role === 'admin' 
-          ? '/admin/dashboard' 
-          : '/ciisUser/user-dashboard';
-      }
+let redirectPath = '/ciisUser/user-dashboard';
+
+if (res.data.redirectTo) {
+  redirectPath = res.data.redirectTo;
+} 
+else if (res.data.user?.companyRole === 'client') {
+  redirectPath = '/ciisUser/ClientDashboard';
+}
+else if (res.data.user?.role === 'admin') {
+  redirectPath = '/admin/dashboard';
+}
+else {
+  redirectPath = '/ciisUser/user-dashboard';
+}
 
       console.log('Redirecting to:', redirectPath);
       navigate(redirectPath);
@@ -347,10 +352,17 @@ const Login = () => {
         toast.success('Login successful!');
 
         // Redirect based on role
-        let redirectPath = '/ciisUser/user-dashboard';
-        if (response.data.user?.role === 'admin') {
-          redirectPath = '/admin/dashboard';
-        }
+      let redirectPath = '/ciisUser/user-dashboard';
+
+if (response.data.user?.companyRole === 'client') {
+  redirectPath = '/ciisUser/ClientDashboard';
+}
+else if (response.data.user?.role === 'admin') {
+  redirectPath = '/admin/dashboard';
+}
+else {
+  redirectPath = '/ciisUser/user-dashboard';
+}
         
         navigate(redirectPath);
       }

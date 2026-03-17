@@ -783,39 +783,7 @@ const DepartmentManagement = () => {
           </div>
         )}
 
-        {/* Super Admin Toggle */}
-        {isSuperAdmin && (
-          <div className="DepartmentManagement-super-admin-banner">
-            <div className="DepartmentManagement-super-admin-content">
-              <div className="DepartmentManagement-super-admin-icon">
-                {getIconSvg('admin', isMobile ? 20 : 24)}
-              </div>
-              <div>
-                <div className="DepartmentManagement-super-admin-title">
-                  {isMobile ? 'Super Admin' : 'Super Admin Mode'}
-                </div>
-                {!isMobile && (
-                  <div className="DepartmentManagement-super-admin-subtitle">
-                    You have access to view all departments
-                  </div>
-                )}
-              </div>
-            </div>
-            <label className="DepartmentManagement-toggle">
-              <input
-                type="checkbox"
-                checked={showAllCompanies}
-                onChange={(e) => setShowAllCompanies(e.target.checked)}
-              />
-              <span className="DepartmentManagement-toggle-slider"></span>
-              {!isMobile && (
-                <span className="DepartmentManagement-toggle-label">
-                  {showAllCompanies ? 'All Companies' : 'My Company'}
-                </span>
-              )}
-            </label>
-          </div>
-        )}
+   
 
         {/* View Selection */}
         {isTablet && !isMobile && (

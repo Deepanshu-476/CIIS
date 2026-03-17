@@ -99,6 +99,21 @@
   flex-wrap: wrap;
 }
 
+.form-group label {
+  font-weight: 600;
+    color: #4b5563;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    gap: 12px;
+}
+
+
+.form-group label::after {
+  display: none !important;
+}
+
 /* ===== STATS GRID - COMPACT ===== */
 .stats-grid {
   display: grid;
@@ -1214,7 +1229,8 @@ textarea.form-input {
 .dropdown-item input[type="checkbox"] {
   width: 13px;
   height: 13px;
-  margin-top: 2px;
+  margin-top: 9px;
+  margin-left: 4px;
 }
 
 .dropdown-item-content {

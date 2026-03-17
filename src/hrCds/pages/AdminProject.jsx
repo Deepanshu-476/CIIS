@@ -821,9 +821,9 @@ export const AdminProject = () => {
               <h1 className="ap-header-title">Project Management</h1>
               <p className="ap-header-subtitle">Admin dashboard for managing all projects</p>
             </div>
-            <div className="ap-admin-badge">
+            {/* <div className="ap-admin-badge">
               <Icons.AdminPanelSettings />
-            </div>
+            </div> */}
           </div>
 
           {/* Stats Cards */}

@@ -168,7 +168,7 @@
 @media (max-width: 480px) { .ap-stat-value { font-size: 1.2rem; } }
 
 .ap-stat-label {
-  font-size: 0.65rem;
+  font-size: 0.55rem;
   font-weight: 600;
   color: var(--ap-gray);
   text-transform: uppercase;

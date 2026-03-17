@@ -277,7 +277,7 @@
 
 .MyAssets-card-subtitle {
   color: var(--gray-600);
-  font-size: 14px;
+  font-size: 12px;
   margin: 0;
   line-height: 1.5;
 }
@@ -439,7 +439,7 @@
   margin-bottom: 16px;
   color: var(--gray-400);
   opacity: 0.5;
-  margin-left: 30vh;
+  display: inline;
 }
 
 .MyAssets-no-properties h3 {
@@ -483,7 +483,7 @@
 
 .MyAssets-requests-title-section p {
   color: var(--gray-600);
-  font-size: 14px;
+  font-size: 13px;
   margin: 0;
 }
 
@@ -1000,7 +1000,7 @@
   }
   
   .MyAssets-filter-tabs {
-    padding: 20px 24px 0;
+    padding: 19px 16px 0;
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -1025,9 +1025,7 @@
     gap: 10px;
   }
 
-  .MyAssets-no-properties-icon {
-    margin-left: 11vh;
-  }
+ 
 
   .MyAssets-stat-avatar.MyAssets-primary {
     width: 36px;
@@ -1081,7 +1079,7 @@
   }
 
   .MyAssets-subtitle {
-    font-size: 13px;
+    font-size: 10px;
     line-height: 1.5;
     max-width: 80%;
   }

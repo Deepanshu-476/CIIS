@@ -17,6 +17,7 @@ const APP_ROUTES = [
   { path: 'company-all-task', name: 'Company All Tasks', icon: 'ListAlt', category: 'tasks' },
   // { path: 'department-all-task', name: 'Department All Tasks', icon: 'ListAlt', category: 'tasks' },
   { path: 'emp-client', name: 'Client Management', icon: 'ClientIcon', category: 'clients' },
+  { path: 'ClienDashboard', name: 'Client Dashboard', icon: 'ClientIcon', category: 'clients' },
   { path: 'alert', name: 'Alerts', icon: 'Notifications', category: 'communication' },
   { path: 'attendance', name: 'My Attendance', icon: 'CalendarToday', category: 'main' },
   { path: 'my-assets', name: 'My Assets', icon: 'Computer', category: 'main' },
@@ -113,6 +114,19 @@ const SidebarManagement = () => {
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [departmentSearch, setDepartmentSearch] = useState('');
   const [roleSearch, setRoleSearch] = useState('');
+
+  // 🔥 NEW: Auto-dismiss snackbar after 5 seconds
+  useEffect(() => {
+    let timer;
+    if (snackbar.open) {
+      timer = setTimeout(() => {
+        setSnackbar(prev => ({ ...prev, open: false }));
+      }, 5000); // 5 seconds
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [snackbar.open]);
 
   // Handle window resize
   useEffect(() => {
@@ -349,7 +363,7 @@ const SidebarManagement = () => {
     return 'Department';
   };
 
-  // ✅ FIXED: Get role name by ID with null check
+  // ✅ FIXED: Get role name by ID with better null handling and direct role access
   const getRoleNameById = (roleId) => {
     if (!roleId) return 'No Role';
     
@@ -368,9 +382,27 @@ const SidebarManagement = () => {
     const customRole = customRoles.find(r => r._id === roleId);
     if (customRole) return customRole.name;
     
+    // ✅ FIXED: Search in existing configs for the role name
     // Agar existing configs mein roleName ho
     const config = existingConfigs.find(c => c.role === roleId);
-    if (config && config.roleName) return config.roleName;
+    if (config) {
+      // Agar config mein roleName property hai
+      if (config.roleName) return config.roleName;
+      
+      // Agar config mein role object hai with name
+      if (config.role && typeof config.role === 'object' && config.role.name) {
+        return config.role.name;
+      }
+      
+      // Agar roleId string hai to formatted version return karo
+      if (typeof roleId === 'string') {
+        // Format role ID to readable name (e.g., "role_123" -> "Role 123")
+        if (roleId.startsWith('custom_')) {
+          return roleId.replace('custom_', 'Custom ');
+        }
+        return roleId;
+      }
+    }
     
     // Agar roleId string hai to use hi return karo
     if (typeof roleId === 'string') {
@@ -1424,7 +1456,7 @@ const SidebarManagement = () => {
         </div>
       )}
 
-      {/* Snackbar/Toast */}
+      {/* Snackbar/Toast with Auto-dismiss */}
       {snackbar.open && (
         <div className={`SidebarManagement-snackbar SidebarManagement-snackbar-${snackbar.severity}`}>
           <span className="SidebarManagement-snackbar-icon">
@@ -1435,17 +1467,6 @@ const SidebarManagement = () => {
           <span className="SidebarManagement-snackbar-message">{snackbar.message}</span>
           <button className="SidebarManagement-snackbar-close" onClick={() => setSnackbar({ ...snackbar, open: false })}>✗</button>
         </div>
-      )}
-
-      {/* Floating Action Button for Mobile */}
-      {isMobile && selectedDepartment && selectedRole && selectedItems.length > 0 && (
-        <button 
-          className="SidebarManagement-fab"
-          onClick={handleSave}
-          disabled={loading.saving}
-        >
-          {loading.saving ? <div className="SidebarManagement-spinner-small SidebarManagement-spinner-white"></div> : '💾'}
-        </button>
       )}
     </div>
   );

@@ -8,12 +8,13 @@ import {
   FiXCircle, FiFilter, FiSearch, FiLogOut, FiMessageCircle,
   FiBarChart2, FiTrendingUp, FiList, FiPause, FiTarget, FiUsers,
   FiSlash, FiImage, FiCamera, FiTrash2, FiZoomIn, FiCheckSquare,
-  FiGlobe, FiSun, FiRotateCcw, FiAlertTriangle, FiBriefcase, FiServer
+  FiGlobe, FiSun, FiRotateCcw, FiAlertTriangle
 } from 'react-icons/fi';
 
 import "../Css/TaskManagement.css";
 import API_URL from '../../config';
 import CIISLoader from '../../Loader/CIISLoader';
+
 
 // Helper function to get correct image URL - COMPLETELY FIXED VERSION
 const getImageUrl = (imagePath) => {
@@ -115,18 +116,6 @@ const UserCreateTask = () => {
   const [pageLoading, setPageLoading] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  // Add new state for clients and services
-  const [clients, setClients] = useState([]);
-  const [selectedClient, setSelectedClient] = useState('');
-  const [selectedClientData, setSelectedClientData] = useState(null);
-  const [loadingClients, setLoadingClients] = useState(false);
-  const [companyCode, setCompanyCode] = useState('');
-
-  // New state for client services
-  const [clientServices, setClientServices] = useState([]);
-  const [selectedService, setSelectedService] = useState('');
-  const [loadingServices, setLoadingServices] = useState(false);
-
   const [myTasksGrouped, setMyTasksGrouped] = useState({});
   const [statusFilter, setStatusFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -163,7 +152,6 @@ const UserCreateTask = () => {
     end: null
   });
 
-  // Update newTask state to include client and service
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -172,10 +160,6 @@ const UserCreateTask = () => {
     priorityDays: '1',
     files: null,
     voiceNote: null,
-    clientId: '', // Add client ID field
-    clientName: '', // Add client name field
-    serviceId: '', // Add service ID field
-    serviceName: '' // Add service name field
   });
 
   const [pendingStatusChange, setPendingStatusChange] = useState({ taskId: null, status: '' });
@@ -192,9 +176,6 @@ const UserCreateTask = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
 
-  // Debug state
-  const [debugInfo, setDebugInfo] = useState(null);
-
   // Refs for filter values to prevent infinite loops
   const statusFilterRef = useRef(statusFilter);
   const searchTermRef = useRef(searchTerm);
@@ -206,150 +187,6 @@ const UserCreateTask = () => {
     searchTermRef.current = searchTerm;
     timeFilterRef.current = timeFilter;
   }, [statusFilter, searchTerm, timeFilter]);
-
-  // Fetch company code and clients on mount
-  useEffect(() => {
-    const fetchCompanyInfo = () => {
-      try {
-        const companyCodeFromStorage = localStorage.getItem('companyCode') || 
-                                      localStorage.getItem('company') || '';
-        console.log('🔍 Company code from storage:', companyCodeFromStorage);
-        setCompanyCode(companyCodeFromStorage);
-      } catch (error) {
-        console.error('❌ Error fetching company info:', error);
-      }
-    };
-
-    fetchCompanyInfo();
-  }, []);
-
-  // Fetch clients based on company code
-  const fetchClients = useCallback(async () => {
-    if (!companyCode) {
-      console.log('⚠️ No company code available');
-      return;
-    }
-
-    setLoadingClients(true);
-    try {
-      console.log('🔍 Fetching clients for company:', companyCode);
-      
-      // Create axios instance with proper headers
-      const clientsApi = axios.create({
-        baseURL: `${API_URL}/clientsservice`,
-        timeout: 10000,
-      });
-
-      // Add auth token
-      const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-      
-      const response = await clientsApi.get('/', {
-        params: { companyCode },
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-          'Content-Type': 'application/json'
-        }
-      });
-
-      console.log('✅ Clients response:', response.data);
-
-      let clientsList = [];
-      
-      if (response.data?.success && Array.isArray(response.data.data)) {
-        clientsList = response.data.data;
-      } else if (Array.isArray(response.data)) {
-        clientsList = response.data;
-      } else if (response.data?.data && Array.isArray(response.data.data)) {
-        clientsList = response.data.data;
-      }
-
-      // Filter clients by company code to be safe
-      const filteredClients = clientsList.filter(client => 
-        client.companyCode === companyCode || 
-        client.companyIdentifier === companyCode
-      );
-
-      console.log('✅ Filtered clients:', filteredClients.length);
-      setClients(filteredClients);
-
-    } catch (error) {
-      console.error('❌ Error fetching clients:', error);
-      
-      // Log detailed error for debugging
-      if (error.response) {
-        console.error('Response error:', {
-          status: error.response.status,
-          data: error.response.data
-        });
-      }
-      
-      showSnackbar('Failed to load clients', 'error');
-    } finally {
-      setLoadingClients(false);
-    }
-  }, [companyCode]);
-
-  // Fetch client services when client is selected
-  const fetchClientServices = useCallback(async (clientId) => {
-    if (!clientId) {
-      setClientServices([]);
-      return;
-    }
-
-    setLoadingServices(true);
-    try {
-      console.log('🔍 Fetching services for client:', clientId);
-      
-      const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-      
-      // First, get the client details to see their services
-      const client = clients.find(c => c._id === clientId);
-      
-      if (client && client.services && Array.isArray(client.services)) {
-        console.log('✅ Client services from client object:', client.services);
-        setClientServices(client.services);
-      } else {
-        // If services not in client object, try to fetch from API
-        const servicesApi = axios.create({
-          baseURL: `${API_URL}/clientsservice`,
-          timeout: 10000,
-        });
-
-        const response = await servicesApi.get(`/${clientId}`, {
-          headers: {
-            'Authorization': token ? `Bearer ${token}` : '',
-            'Content-Type': 'application/json'
-          }
-        });
-
-        console.log('✅ Client details response:', response.data);
-        
-        if (response.data?.success && response.data.data) {
-          const clientData = response.data.data;
-          if (clientData.services && Array.isArray(clientData.services)) {
-            setClientServices(clientData.services);
-          } else {
-            setClientServices([]);
-          }
-        } else {
-          setClientServices([]);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error fetching client services:', error);
-      setClientServices([]);
-      showSnackbar('Failed to load client services', 'error');
-    } finally {
-      setLoadingServices(false);
-    }
-  }, [clients]);
-
-  // Fetch clients when component mounts or companyCode changes
-  useEffect(() => {
-    if (companyCode && !authError) {
-      fetchClients();
-    }
-  }, [companyCode, authError, fetchClients]);
 
   // Responsive handler
   useEffect(() => {
@@ -929,120 +766,14 @@ const UserCreateTask = () => {
     }
   };
 
-  // Handle client selection
-  const handleClientChange = (e) => {
-    const clientId = e.target.value;
-    const client = clients.find(c => c._id === clientId);
-    
-    setSelectedClient(clientId);
-    setSelectedClientData(client);
-    setSelectedService(''); // Reset service selection
-    
-    setNewTask({
-      ...newTask,
-      clientId: clientId,
-      clientName: client ? client.client : '',
-      serviceId: '', // Reset service ID
-      serviceName: '' // Reset service name
-    });
-    
-    console.log('🔍 Selected client:', client);
-    
-    // Fetch client services
-    if (clientId) {
-      fetchClientServices(clientId);
-    } else {
-      setClientServices([]);
-    }
-  };
-
-  // Handle service selection
-  const handleServiceChange = (e) => {
-    const serviceId = e.target.value;
-    let serviceName = '';
-    
-    // Find service name from clientServices
-    if (clientServices.length > 0) {
-      // If serviceId is a string (service name directly)
-      if (typeof clientServices[0] === 'string') {
-        serviceName = serviceId;
-      } else {
-        // If serviceId is an object with servicename property
-        const service = clientServices.find(s => s._id === serviceId || s.servicename === serviceId);
-        serviceName = service ? (service.servicename || service.name || serviceId) : serviceId;
-      }
-    }
-    
-    setSelectedService(serviceId);
-    setNewTask({
-      ...newTask,
-      serviceId: serviceId,
-      serviceName: serviceName || serviceId
-    });
-    
-    console.log('🔍 Selected service:', serviceId, serviceName);
-  };
-
-  // Test function to check backend fields
-  const testBackendFields = async () => {
-    try {
-      console.log('🧪 Testing backend connection...');
-      
-      // Test 1: Check if we can reach the server
-      const testResponse = await axios.get('/task/test', { timeout: 5000 }).catch(() => null);
-      console.log('Test endpoint response:', testResponse?.data);
-      
-      // Test 2: Try to create a minimal task
-      const testFormData = new FormData();
-      testFormData.append('title', 'Test Task');
-      testFormData.append('description', 'Test Description');
-      testFormData.append('dueDateTime', new Date().toISOString());
-      testFormData.append('priority', 'medium');
-      
-      console.log('🧪 Testing with minimal fields...');
-      const response = await axios.post('/task/create-self', testFormData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        }
-      });
-      console.log('✅ Test successful! Backend accepts minimal fields:', response.data);
-      showSnackbar('Backend test successful!', 'success');
-    } catch (err) {
-      console.error('❌ Test failed:', err);
-      console.error('Error details:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-        headers: err.response?.headers
-      });
-      
-      let errorMsg = 'Backend test failed';
-      if (err.response?.data?.error) {
-        errorMsg = err.response.data.error;
-      } else if (err.response?.data?.message) {
-        errorMsg = err.response.data.message;
-      }
-      
-      setDebugInfo({
-        error: errorMsg,
-        details: err.response?.data,
-        status: err.response?.status
-      });
-      
-      showSnackbar(`Test failed: ${errorMsg}`, 'error');
-    }
-  };
-
-  // Update handleCreateTask to include client and service data with flexible field names
   const handleCreateTask = async () => {
     if (authError || !userId) {
       showSnackbar('Please log in to create tasks', 'error');
       return;
     }
 
-    // Validate required fields including client and service
-    if (!newTask.title || !newTask.description || !newTask.dueDateTime || !newTask.clientId || !newTask.serviceId) {
-      showSnackbar('Please fill all required fields (Title, Description, Due Date, Client, Service)', 'error');
+    if (!newTask.title || !newTask.description || !newTask.dueDateTime) {
+      showSnackbar('Please fill all required fields (Title, Description, Due Date)', 'error');
       return;
     }
 
@@ -1086,107 +817,31 @@ const UserCreateTask = () => {
       }
 
       const formData = new FormData();
-      
-      // Try different field name variations that your backend might expect
-      // Title fields
       formData.append('title', newTask.title);
-      formData.append('taskTitle', newTask.title);
-      formData.append('task_name', newTask.title);
-      
-      // Description fields
       formData.append('description', newTask.description);
-      formData.append('taskDescription', newTask.description);
-      formData.append('task_description', newTask.description);
-      formData.append('details', newTask.description);
-      
-      // Due date fields - try multiple formats
       formData.append('dueDateTime', dueDate.toISOString());
-      formData.append('dueDate', dueDate.toISOString());
-      formData.append('deadline', dueDate.toISOString());
-      formData.append('endDate', dueDate.toISOString());
-      
-      // Also try formatted date string
-      const formattedDate = dueDate.toLocaleString('en-US', { 
-        year: 'numeric', 
-        month: '2-digit', 
-        day: '2-digit', 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
-      formData.append('due_date_string', formattedDate);
-      
-      // Priority fields
-      formData.append('priority', newTask.priority);
-      formData.append('priorityLevel', newTask.priority);
       formData.append('priorityDays', newTask.priorityDays || '1');
-      formData.append('priority_days', newTask.priorityDays || '1');
-      
-      // Client fields - try multiple variations
-      formData.append('clientId', newTask.clientId);
-      formData.append('client', newTask.clientId);
-      formData.append('clientID', newTask.clientId);
-      formData.append('customerId', newTask.clientId);
-      
-      formData.append('clientName', newTask.clientName);
-      formData.append('customerName', newTask.clientName);
-      
-      // Service fields - try multiple variations
-      formData.append('serviceId', newTask.serviceId);
-      formData.append('service', newTask.serviceId);
-      formData.append('serviceID', newTask.serviceId);
-      formData.append('serviceName', newTask.serviceName);
-      
-      // Also try sending as JSON in a field
-      formData.append('clientData', JSON.stringify({
-        id: newTask.clientId,
-        name: newTask.clientName
-      }));
-      
-      formData.append('serviceData', JSON.stringify({
-        id: newTask.serviceId,
-        name: newTask.serviceName
-      }));
-      
-      // Add company code
-      if (companyCode) {
-        formData.append('companyCode', companyCode);
-        formData.append('company', companyCode);
-      }
+      formData.append('priority', newTask.priority);
 
       if (newTask.files) {
         for (let i = 0; i < newTask.files.length; i++) {
           formData.append('files', newTask.files[i]);
-          formData.append('attachments', newTask.files[i]);
-          formData.append('file', newTask.files[i]);
         }
       }
 
       if (newTask.voiceNote) {
         formData.append('voiceNote', newTask.voiceNote);
-        formData.append('audio', newTask.voiceNote);
-        formData.append('voice_note', newTask.voiceNote);
       }
 
-      // Log all form data for debugging
-      console.log('📤 FormData contents:');
-      const formDataEntries = [];
-      for (let pair of formData.entries()) {
-        if (pair[0].includes('file') || pair[0].includes('File') || pair[0].includes('audio')) {
-          formDataEntries.push({ field: pair[0], value: '[File object]' });
-          console.log(pair[0] + ': [File object]');
-        } else {
-          formDataEntries.push({ field: pair[0], value: pair[1] });
-          console.log(pair[0] + ': ' + pair[1]);
-        }
-      }
-      
-      setDebugInfo({
-        action: 'Creating task',
-        formData: formDataEntries,
-        timestamp: new Date().toISOString()
+      console.log('📤 Creating task with data:', {
+        title: newTask.title,
+        description: newTask.description,
+        dueDateTime: dueDate.toISOString(),
+        dueDateTimeLocal: newTask.dueDateTime,
+        priority: newTask.priority,
+        priorityDays: newTask.priorityDays
       });
 
-      console.log('📤 Sending request to /task/create-self');
       const response = await axios.post('/task/create-self', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -1194,17 +849,10 @@ const UserCreateTask = () => {
       });
 
       console.log('✅ Task created successfully:', response.data);
-      
-      setDebugInfo(prev => ({
-        ...prev,
-        response: response.data,
-        success: true
-      }));
 
       setOpenDialog(false);
       showSnackbar('Task created successfully', 'success');
       
-      // Reset form
       setNewTask({
         title: '', 
         description: '', 
@@ -1213,15 +861,7 @@ const UserCreateTask = () => {
         priorityDays: '1', 
         files: null, 
         voiceNote: null,
-        clientId: '',
-        clientName: '',
-        serviceId: '',
-        serviceName: ''
       });
-      setSelectedClient('');
-      setSelectedClientData(null);
-      setSelectedService('');
-      setClientServices([]);
 
       fetchMyTasks();
 
@@ -1229,37 +869,15 @@ const UserCreateTask = () => {
       console.error('❌ Full error creating task:', err);
       console.error('❌ Error response:', err.response?.data);
       
-      // Show more detailed error message
-      let errorMessage = 'Task creation failed';
-      let errorDetails = '';
-      
-      if (err.response?.data) {
-        if (typeof err.response.data === 'string') {
-          errorMessage = err.response.data;
-        } else if (err.response.data.error) {
-          errorMessage = err.response.data.error;
-          errorDetails = err.response.data.message || '';
-        } else if (err.response.data.message) {
-          errorMessage = err.response.data.message;
-        } else if (err.response.data.errors) {
-          errorMessage = Object.values(err.response.data.errors).join(', ');
-        }
-      }
-      
-      setDebugInfo({
-        error: errorMessage,
-        details: err.response?.data,
-        status: err.response?.status,
-        timestamp: new Date().toISOString()
-      });
-      
       if (err.response?.status === 401) {
         setAuthError(true);
         showSnackbar('Session expired. Please log in again.', 'error');
       } else if (err.response?.status === 400) {
-        showSnackbar(errorMessage, 'error');
+        const errorMsg = err.response?.data?.error || 'Invalid input. Please check your data.';
+        showSnackbar(errorMsg, 'error');
       } else {
-        showSnackbar(errorMessage, 'error');
+        const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Task creation failed';
+        showSnackbar(errorMsg, 'error');
       }
     } finally {
       setIsCreatingTask(false);
@@ -1616,314 +1234,6 @@ const UserCreateTask = () => {
       </select>
     );
   };
-
-  // Render create task dialog with client and service selection
-  const renderCreateTaskDialog = () => (
-    <div className="user-create-task-dialog-overlay" style={{ display: openDialog ? 'flex' : 'none' }}>
-      <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
-        maxWidth: isMobile ? '95%' : isTablet ? '650px' : '700px',
-        width: isMobile ? '95%' : 'auto'
-      }}>
-        <div className="user-create-task-dialog-title">
-          <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-2">
-            <FiPlus size={isMobile ? 18 : 24} />
-            <div style={{ fontSize: isMobile ? '18px' : '24px' }}>Create Personal Task</div>
-          </div>
-          <div style={{ fontSize: isMobile ? '12px' : '14px', color: '#666', marginTop: '4px' }}>
-            This task will be automatically assigned to you ({userName})
-          </div>
-          {companyCode && (
-            <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#1976d2', marginTop: '2px' }}>
-              Company: {companyCode}
-            </div>
-          )}
-        </div>
-        
-        <div className="user-create-task-dialog-content">
-          <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
-            <div className="user-create-task-alert info" style={{ padding: isMobile ? '12px' : '16px' }}>
-              This task will be automatically assigned to you ({userName})
-            </div>
-
-            {/* Debug Button */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
-              <button
-                className="user-create-task-button user-create-task-button-outlined"
-                onClick={testBackendFields}
-                style={{ padding: '4px 8px', fontSize: '12px' }}
-              >
-                <FiRefreshCw size={12} /> Test Backend
-              </button>
-            </div>
-
-            {/* Client Selection Field */}
-            <div className="user-create-task-form-control">
-              <label>Select Client *</label>
-              <select
-                className="user-create-task-select"
-                value={selectedClient}
-                onChange={handleClientChange}
-                required
-                disabled={loadingClients || clients.length === 0}
-              >
-                <option value="">
-                  {loadingClients ? 'Loading clients...' : 
-                   clients.length === 0 ? 'No clients available' : 
-                   'Select a client'}
-                </option>
-                {clients.map((client) => (
-                  <option key={client._id} value={client._id}>
-                    {client.client} {client.company ? `- ${client.company}` : ''} {client.city ? `(${client.city})` : ''}
-                  </option>
-                ))}
-              </select>
-              {clients.length === 0 && !loadingClients && companyCode && (
-                <small style={{ color: '#f44336', marginTop: '4px', display: 'block' }}>
-                  No clients found for this company. Please add clients first.
-                </small>
-              )}
-              {!companyCode && (
-                <small style={{ color: '#f44336', marginTop: '4px', display: 'block' }}>
-                  Company code not found. Please refresh the page.
-                </small>
-              )}
-            </div>
-
-            {/* Client Info Display - Show when client is selected */}
-            {selectedClientData && (
-              <div className="user-create-task-paper" style={{ padding: isMobile ? '8px' : '12px', backgroundColor: '#f0f7ff' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                  <FiBriefcase color="#1976d2" />
-                  <strong>Client Details:</strong>
-                </div>
-                <div style={{ fontSize: isMobile ? '12px' : '14px' }}>
-                  <div><strong>Name:</strong> {selectedClientData.client}</div>
-                  {selectedClientData.company && <div><strong>Company:</strong> {selectedClientData.company}</div>}
-                  {selectedClientData.city && <div><strong>City:</strong> {selectedClientData.city}</div>}
-                  {selectedClientData.email && <div><strong>Email:</strong> {selectedClientData.email}</div>}
-                  {selectedClientData.phone && <div><strong>Phone:</strong> {selectedClientData.phone}</div>}
-                </div>
-              </div>
-            )}
-
-            {/* Service Selection Field - Show only after client is selected */}
-            {selectedClient && (
-              <div className="user-create-task-form-control">
-                <label>Select Service *</label>
-                <select
-                  className="user-create-task-select"
-                  value={selectedService}
-                  onChange={handleServiceChange}
-                  required
-                  disabled={loadingServices || clientServices.length === 0}
-                >
-                  <option value="">
-                    {loadingServices ? 'Loading services...' : 
-                     clientServices.length === 0 ? 'No services available for this client' : 
-                     'Select a service'}
-                  </option>
-                  {clientServices.map((service, index) => {
-                    // Handle both string and object formats
-                    const serviceId = typeof service === 'string' ? service : (service._id || service.servicename || index);
-                    const serviceName = typeof service === 'string' ? service : (service.servicename || service.name || 'Service');
-                    
-                    return (
-                      <option key={serviceId} value={serviceId}>
-                        {serviceName}
-                      </option>
-                    );
-                  })}
-                </select>
-                {clientServices.length === 0 && !loadingServices && (
-                  <small style={{ color: '#f44336', marginTop: '4px', display: 'block' }}>
-                    No services found for this client. Please add services to the client first.
-                  </small>
-                )}
-              </div>
-            )}
-
-            <div className="user-create-task-form-control">
-              <label>Task Title *</label>
-              <input
-                type="text"
-                className="user-create-task-input"
-                placeholder="Enter a descriptive task title"
-                value={newTask.title}
-                onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-              />
-            </div>
-
-            <div className="user-create-task-form-control">
-              <label>Description *</label>
-              <textarea
-                className="user-create-task-input"
-                rows={isMobile ? 3 : 4}
-                placeholder="Provide detailed description of the task..."
-                value={newTask.description}
-                onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-              />
-            </div>
-
-            <div className={`user-create-task-flex ${isMobile ? 'user-create-task-flex-column' : 'user-create-task-gap-2'}`}>
-              <div className="user-create-task-form-control" style={{ flex: 1 }}>
-                <label>Due Date & Time *</label>
-                
-                <input
-                  type="datetime-local"
-                  className="user-create-task-input"
-                  value={newTask.dueDateTime || ''}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    console.log('📅 Selected datetime-local value:', value);
-                    
-                    let formattedValue = value;
-                    if (value && value.includes('T') && value.split(':').length === 2) {
-                      formattedValue = `${value}:00`;
-                    }
-                    
-                    setNewTask({ ...newTask, dueDateTime: formattedValue });
-                  }}
-                  min={new Date().toISOString().slice(0, 16)}
-                />
-              </div>
-
-              <div className="user-create-task-form-control" style={{ flex: 1 }}>
-                <label>Priority</label>
-                <select
-                  className="user-create-task-select"
-                  value={newTask.priority}
-                  onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="user-create-task-form-control">
-              <label>Priority Days</label>
-              <input
-                type="number"
-                className="user-create-task-input"
-                placeholder="Enter priority days"
-                value={newTask.priorityDays}
-                onChange={(e) => setNewTask({ ...newTask, priorityDays: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>Attachments (Optional)</div>
-              
-              <div className={`user-create-task-flex ${isMobile ? 'user-create-task-flex-column user-create-task-gap-2' : 'user-create-task-gap-2'}`}>
-                <button 
-                  className="user-create-task-button user-create-task-button-outlined"
-                  onClick={() => document.getElementById('file-upload').click()}
-                  style={{ flex: 1, padding: isMobile ? '10px' : '12px' }}
-                >
-                  <FiFileText />
-                  {isMobile ? 'Upload' : 'Upload Files'}
-                  <input
-                    id="file-upload"
-                    type="file"
-                    multiple
-                    style={{ display: 'none' }}
-                    onChange={(e) => setNewTask({ ...newTask, files: e.target.files })}
-                  />
-                </button>
-
-                <button
-                  className={`user-create-task-button ${isRecording ? 'user-create-task-button-contained' : 'user-create-task-button-outlined'}`}
-                  onClick={isRecording ? stopRecording : startRecording}
-                  style={{ 
-                    flex: 1,
-                    padding: isMobile ? '10px' : '12px',
-                    backgroundColor: isRecording ? '#f44336' : undefined,
-                    borderColor: isRecording ? '#f44336' : undefined
-                  }}
-                >
-                  <FiMic />
-                  {isRecording ? "Stop" : (isMobile ? "Record" : "Record Voice")}
-                </button>
-              </div>
-            </div>
-
-            {/* Show selected client and service summary */}
-            {selectedClient && selectedService && (
-              <div className="user-create-task-alert success" style={{ padding: isMobile ? '8px' : '12px' }}>
-                <div><strong>Selected Client:</strong> {newTask.clientName}</div>
-                <div><strong>Selected Service:</strong> {newTask.serviceName}</div>
-              </div>
-            )}
-
-            {/* Debug Info */}
-            {debugInfo && (
-              <div style={{ 
-                marginTop: '16px', 
-                padding: '12px', 
-                backgroundColor: '#f5f5f5', 
-                borderRadius: '4px',
-                fontSize: '12px',
-                maxHeight: '200px',
-                overflow: 'auto'
-              }}>
-                <strong>Debug Info:</strong>
-                <pre style={{ margin: '8px 0 0 0', whiteSpace: 'pre-wrap' }}>
-                  {JSON.stringify(debugInfo, null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="user-create-task-dialog-actions">
-          <button
-            className="user-create-task-button user-create-task-button-outlined"
-            onClick={() => {
-              setOpenDialog(false);
-              setSelectedClient('');
-              setSelectedClientData(null);
-              setSelectedService('');
-              setClientServices([]);
-              setNewTask({
-                title: '', 
-                description: '', 
-                dueDateTime: '',
-                priority: 'medium', 
-                priorityDays: '1', 
-                files: null, 
-                voiceNote: null,
-                clientId: '',
-                clientName: '',
-                serviceId: '',
-                serviceName: ''
-              });
-              setDebugInfo(null);
-            }}
-            style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-          >
-            Cancel
-          </button>
-
-          <button
-            className="user-create-task-button user-create-task-button-contained"
-            onClick={handleCreateTask}
-            disabled={!newTask.title || !newTask.description || !newTask.dueDateTime || !newTask.clientId || !newTask.serviceId || isCreatingTask}
-            style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-          >
-            {isCreatingTask ? (
-              'Creating...'
-            ) : (
-              <>
-                <FiCheck size={isMobile ? 14 : 16} />
-                {isMobile ? 'Create' : 'Create Task'}
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 
   // Render remarks dialog - FIXED VERSION with improved image error handling
   const renderRemarksDialog = () => (
@@ -2368,11 +1678,6 @@ const UserCreateTask = () => {
                       <div style={{ fontWeight: 600, fontSize: isMobile ? '13px' : '14px' }}>
                         {task.title}
                       </div>
-                      {task.serviceName && (
-                        <div style={{ fontSize: '11px', color: '#1976d2', marginTop: '2px' }}>
-                          Service: {task.serviceName}
-                        </div>
-                      )}
                       {isMobile && (
                         <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
                           {task.description.length > 50 ? task.description.substring(0, 50) + '...' : task.description}
@@ -2384,11 +1689,6 @@ const UserCreateTask = () => {
                         <div style={{ fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {task.description}
                         </div>
-                        {task.serviceName && (
-                          <div style={{ fontSize: '12px', color: '#1976d2', marginTop: '4px' }}>
-                            Service: {task.serviceName}
-                          </div>
-                        )}
                       </td>
                     )}
                     <td style={{ padding: isMobile ? '8px' : '12px' }}>
@@ -2489,11 +1789,6 @@ const UserCreateTask = () => {
                         <div className="user-create-task-mobile-card-title">
                           {task.title}
                         </div>
-                        {task.serviceName && (
-                          <div style={{ fontSize: '11px', color: '#1976d2', marginTop: '2px' }}>
-                            Service: {task.serviceName}
-                          </div>
-                        )}
                         <div className="user-create-task-mobile-card-description">
                           {task.description}
                         </div>
@@ -2656,11 +1951,6 @@ const UserCreateTask = () => {
                             <div style={{ fontWeight: 600, fontSize: isMobile ? '14px' : '15px', color: '#333' }}>
                               {task.title}
                             </div>
-                            {task.serviceName && (
-                              <div style={{ fontSize: '11px', color: '#1976d2', marginTop: '2px' }}>
-                                Service: {task.serviceName}
-                              </div>
-                            )}
                             <div style={{ fontSize: isMobile ? '12px' : '13px', color: '#666', marginTop: '4px' }}>
                               {task.description.length > 80 ? task.description.substring(0, 80) + '...' : task.description}
                             </div>
@@ -2911,6 +2201,166 @@ const UserCreateTask = () => {
             style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
           >
             Apply Filter
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Render create task dialog
+  const renderCreateTaskDialog = () => (
+    <div className="user-create-task-dialog-overlay" style={{ display: openDialog ? 'flex' : 'none' }}>
+      <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
+        maxWidth: isMobile ? '95%' : isTablet ? '550px' : '600px',
+        width: isMobile ? '95%' : 'auto'
+      }}>
+        <div className="user-create-task-dialog-title">
+          <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-2">
+            <FiPlus size={isMobile ? 18 : 24} />
+            <div style={{ fontSize: isMobile ? '18px' : '24px' }}>Create Personal Task</div>
+          </div>
+          <div style={{ fontSize: isMobile ? '12px' : '14px', color: '#666', marginTop: '4px' }}>
+            This task will be automatically assigned to you ({userName})
+          </div>
+        </div>
+        
+        <div className="user-create-task-dialog-content">
+          <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
+            <div className="user-create-task-alert info" style={{ padding: isMobile ? '12px' : '16px' }}>
+              This task will be automatically assigned to you ({userName})
+            </div>
+
+            <div className="user-create-task-form-control">
+              <label>Task Title *</label>
+              <input
+                type="text"
+                className="user-create-task-input"
+                placeholder="Enter a descriptive task title"
+                value={newTask.title}
+                onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+              />
+            </div>
+
+            <div className="user-create-task-form-control">
+              <label>Description *</label>
+              <textarea
+                className="user-create-task-input"
+                rows={isMobile ? 3 : 4}
+                placeholder="Provide detailed description of the task..."
+                value={newTask.description}
+                onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+              />
+            </div>
+
+            <div className={`user-create-task-flex ${isMobile ? 'user-create-task-flex-column' : 'user-create-task-gap-2'}`}>
+              <div className="user-create-task-form-control" style={{ flex: 1 }}>
+                <label>Due Date & Time *</label>
+                
+                <input
+                  type="datetime-local"
+                  className="user-create-task-input"
+                  value={newTask.dueDateTime || ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    console.log('📅 Selected datetime-local value:', value);
+                    
+                    let formattedValue = value;
+                    if (value && value.includes('T') && value.split(':').length === 2) {
+                      formattedValue = `${value}:00`;
+                    }
+                    
+                    setNewTask({ ...newTask, dueDateTime: formattedValue });
+                  }}
+                  min={new Date().toISOString().slice(0, 16)}
+                />
+              </div>
+
+              <div className="user-create-task-form-control" style={{ flex: 1 }}>
+                <label>Priority</label>
+                <select
+                  className="user-create-task-select"
+                  value={newTask.priority}
+                  onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="user-create-task-form-control">
+              <label>Priority Days</label>
+              <input
+                type="number"
+                className="user-create-task-input"
+                placeholder="Enter priority days"
+                value={newTask.priorityDays}
+                onChange={(e) => setNewTask({ ...newTask, priorityDays: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>Attachments (Optional)</div>
+              
+              <div className={`user-create-task-flex ${isMobile ? 'user-create-task-flex-column user-create-task-gap-2' : 'user-create-task-gap-2'}`}>
+                <button 
+                  className="user-create-task-button user-create-task-button-outlined"
+                  onClick={() => document.getElementById('file-upload').click()}
+                  style={{ flex: 1, padding: isMobile ? '10px' : '12px' }}
+                >
+                  <FiFileText />
+                  {isMobile ? 'Upload' : 'Upload Files'}
+                  <input
+                    id="file-upload"
+                    type="file"
+                    multiple
+                    style={{ display: 'none' }}
+                    onChange={(e) => setNewTask({ ...newTask, files: e.target.files })}
+                  />
+                </button>
+
+                <button
+                  className={`user-create-task-button ${isRecording ? 'user-create-task-button-contained' : 'user-create-task-button-outlined'}`}
+                  onClick={isRecording ? stopRecording : startRecording}
+                  style={{ 
+                    flex: 1,
+                    padding: isMobile ? '10px' : '12px',
+                    backgroundColor: isRecording ? '#f44336' : undefined,
+                    borderColor: isRecording ? '#f44336' : undefined
+                  }}
+                >
+                  <FiMic />
+                  {isRecording ? "Stop" : (isMobile ? "Record" : "Record Voice")}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="user-create-task-dialog-actions">
+          <button
+            className="user-create-task-button user-create-task-button-outlined"
+            onClick={() => setOpenDialog(false)}
+            style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+          >
+            Cancel
+          </button>
+
+          <button
+            className="user-create-task-button user-create-task-button-contained"
+            onClick={handleCreateTask}
+            disabled={!newTask.title || !newTask.description || !newTask.dueDateTime || isCreatingTask}
+            style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+          >
+            {isCreatingTask ? (
+              'Creating...'
+            ) : (
+              <>
+                <FiCheck size={isMobile ? 14 : 16} />
+                {isMobile ? 'Create' : 'Create Task'}
+              </>
+            )}
           </button>
         </div>
       </div>

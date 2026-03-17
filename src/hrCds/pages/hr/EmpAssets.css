@@ -608,7 +608,7 @@
 
 .EmpAssets-table th {
   padding: 18px 20px;
-  text-align: left;
+  text-align: left !important;
   font-weight: 600;
   color: white;
   font-size: 13px;
@@ -1013,6 +1013,7 @@
   font-size: 60px;
   color: var(--gray-400);
   margin-bottom: 20px;
+  display: inline-block;
 }
 
 .EmpAssets-empty-state h3 {

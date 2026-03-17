@@ -38,7 +38,7 @@ const Attendance = () => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const [timeRange, setTimeRange] = useState("ALL");
+  const [timeRange, setTimeRange] = useState("MONTH");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [showMobileFilter, setShowMobileFilter] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -64,6 +64,12 @@ const Attendance = () => {
     percentage: 0,
   });
 
+  // Add refs for each popup
+  const filterMenuRef = useRef(null);
+  const calendarRef = useRef(null);
+  const dateRangePickerRef = useRef(null);
+  const mobileFilterRef = useRef(null);
+
   // Get user from localStorage
   const user = useMemo(() => {
     try {
@@ -84,6 +90,56 @@ const Attendance = () => {
     } catch {
       return null;
     }
+  }, []);
+
+  // Handle click outside to close popups
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Close filter menu if clicked outside
+      if (filterMenuRef.current && !filterMenuRef.current.contains(event.target)) {
+        setShowFilterMenu(false);
+      }
+      
+      // Close calendar if clicked outside
+      if (calendarRef.current && !calendarRef.current.contains(event.target)) {
+        setShowCalendar(false);
+      }
+      
+      // Close date range picker if clicked outside
+      if (dateRangePickerRef.current && !dateRangePickerRef.current.contains(event.target)) {
+        setShowDateRangePicker(false);
+      }
+      
+      // Close mobile filter if clicked outside (but only if it's open)
+      if (showMobileFilter && 
+          mobileFilterRef.current && 
+          !mobileFilterRef.current.contains(event.target) &&
+          !event.target.closest('.Attendance-icon-button')) {
+        setShowMobileFilter(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMobileFilter]);
+
+  // Handle Escape key press
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape') {
+        setShowFilterMenu(false);
+        setShowCalendar(false);
+        setShowDateRangePicker(false);
+        setShowMobileFilter(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
   }, []);
 
   // Parse user's creation date
@@ -677,7 +733,12 @@ const Attendance = () => {
             {/* 🔥 NEW: Date Range Picker Button */}
             <button
               className={`Attendance-icon-button ${isDateRangeActive ? 'Attendance-active' : ''}`}
-              onClick={() => setShowDateRangePicker(!showDateRangePicker)}
+              onClick={() => {
+                setShowDateRangePicker(!showDateRangePicker);
+                setShowFilterMenu(false);
+                setShowCalendar(false);
+                setShowMobileFilter(false);
+              }}
               title="Date Range Filter"
             >
               <FiCalendarRange />
@@ -687,8 +748,18 @@ const Attendance = () => {
               className="Attendance-icon-button"
               onClick={
                 isMobile
-                  ? () => setShowMobileFilter(true)
-                  : () => setShowFilterMenu(!showFilterMenu)
+                  ? () => {
+                      setShowMobileFilter(true);
+                      setShowDateRangePicker(false);
+                      setShowFilterMenu(false);
+                      setShowCalendar(false);
+                    }
+                  : () => {
+                      setShowFilterMenu(!showFilterMenu);
+                      setShowDateRangePicker(false);
+                      setShowCalendar(false);
+                      setShowMobileFilter(false);
+                    }
               }
             >
               <FiFilter />
@@ -715,7 +786,7 @@ const Attendance = () => {
 
         {/* 🔥 NEW: Date Range Picker */}
         {showDateRangePicker && (
-          <div className="Attendance-date-range-picker">
+          <div className="Attendance-date-range-picker" ref={dateRangePickerRef}>
             <h3>Select Date Range</h3>
             <div className="Attendance-date-range-inputs">
               <div className="Attendance-date-input-group">
@@ -767,7 +838,7 @@ const Attendance = () => {
 
         {/* Calendar Popover */}
         {showCalendar && (
-          <div className="Attendance-calendar-popover">
+          <div className="Attendance-calendar-popover" ref={calendarRef}>
             <input
               type="date"
               className="Attendance-date-picker"
@@ -786,7 +857,7 @@ const Attendance = () => {
 
         {/* Filter Menu */}
         {showFilterMenu && !isMobile && (
-          <div className="Attendance-filter-menu">
+          <div className="Attendance-filter-menu" ref={filterMenuRef}>
             {statusOptions.map((status) => (
               <button
                 key={status}
@@ -820,13 +891,18 @@ const Attendance = () => {
 
       {/* Mobile Filter Drawer */}
       {showMobileFilter && isMobile && (
-        <div className="Attendance-mobile-filter-drawer">
+        <div className="Attendance-mobile-filter-drawer" ref={mobileFilterRef}>
           <div className="Attendance-filter-drawer-content">
             <div className="Attendance-filter-drawer-header">
               <h3>Filters</h3>
               <button
                 className="Attendance-close-filter"
-                onClick={() => setShowMobileFilter(false)}
+                onClick={() => {
+                  setShowMobileFilter(false);
+                  setShowFilterMenu(false);
+                  setShowCalendar(false);
+                  setShowDateRangePicker(false);
+                }}
               >
                 <FiX />
               </button>

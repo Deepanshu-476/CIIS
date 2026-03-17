@@ -206,7 +206,8 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       icon: <AssetsIcon />,
       name: 'Assets Management', 
       route: '/Ciis-network/company-assets',
-      showForRoles: ['ADMIN', 'Owner']
+      // Ye sab users ke liye show hoga
+      showForAll: true
     },
     { 
       icon: <DepartmentIcon />, 

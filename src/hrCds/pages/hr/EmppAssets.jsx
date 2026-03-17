@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from '../../../utils/axiosConfig';
-import CIISLoader from '../../../Loader/CIISLoader'; // Import CIISLoader
+import CIISLoader from '../../../Loader/CIISLoader';
 import {
   FiEdit, FiTrash2, FiPackage, FiCheckCircle,
   FiXCircle, FiClock, FiMessageCircle, FiSearch, 
@@ -23,7 +23,7 @@ const EmpAssets = () => {
   const [selectedCompany, setSelectedCompany] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('');
   const [departments, setDepartments] = useState([]);
-  const [departmentMap, setDepartmentMap] = useState({}); // Add department map
+  const [departmentMap, setDepartmentMap] = useState({});
   const [showFilters, setShowFilters] = useState(false);
 
   // User Role Related States
@@ -173,7 +173,7 @@ const EmpAssets = () => {
   };
 
   // ============================================
-  // FIXED: FETCH DEPARTMENTS WITH PROPER MAPPING
+  // FETCH DEPARTMENTS
   // ============================================
   const fetchDepartments = async () => {
     try {
@@ -233,7 +233,7 @@ const EmpAssets = () => {
   };
 
   // ============================================
-  // FIXED: ENHANCED GET DEPARTMENT NAME FUNCTION
+  // GET DEPARTMENT NAME
   // ============================================
   const getDepartmentName = (dept) => {
     if (!dept) return 'Not Assigned';
@@ -303,12 +303,13 @@ const EmpAssets = () => {
   };
 
   // ============================================
-  // FETCH ASSET REQUESTS - FIXED WITH ROLE-BASED CONTROL
+  // 🔥 FIXED: FETCH ASSET REQUESTS - CORRECT ENDPOINTS
   // ============================================
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      let url = `/assets/all`;
+      // ✅ FIXED: Use correct endpoint - /asset-requests/all instead of /assets/all
+      let url = `/asset-requests/all`;
       const params = [];
       
       // Always add company filter
@@ -318,7 +319,7 @@ const EmpAssets = () => {
         params.push(`companyCode=${selectedCompany}`);
       }
       
-      // FIXED: For non-owners, force filter by their department
+      // For non-owners, force filter by their department
       if (!isOwner && !isAdmin && !isHR) {
         if (currentUserDepartment) {
           console.log("📊 Filtering asset requests by department:", currentUserDepartment);
@@ -357,7 +358,7 @@ const EmpAssets = () => {
       
       console.log(`✅ Fetched ${requestsData.length} asset requests`);
       
-      // FIXED: For non-owners, double-check filtering by department (safety net)
+      // For non-owners, double-check filtering by department (safety net)
       if (!isOwner && !isAdmin && !isHR && currentUserDepartment) {
         const beforeFilter = requestsData.length;
         const deptValue = typeof currentUserDepartment === 'object' 
@@ -410,7 +411,7 @@ const EmpAssets = () => {
   };
 
   // ============================================
-  // UI HELPER FUNCTIONS
+  // 🔥 FIXED: HANDLE FUNCTIONS WITH CORRECT ENDPOINTS
   // ============================================
   const handleStatFilter = (type) => {
     if (selectedStat === type) {
@@ -435,7 +436,8 @@ const EmpAssets = () => {
     if (!window.confirm('Are you sure you want to delete this request?')) return;
     setActionLoading(true);
     try {
-      await axios.delete(`/assets/delete/${id}`);
+      // ✅ FIXED: Use correct endpoint - /asset-requests/delete/:id
+      await axios.delete(`/asset-requests/delete/${id}`);
       setNotification({ message: 'Request deleted successfully', severity: 'success' });
       fetchRequests();
     } catch (err) {
@@ -457,7 +459,8 @@ const EmpAssets = () => {
     
     setActionLoading(true);
     try {
-      await axios.patch(`/assets/update/${reqId}`, { status: newStatus });
+      // ✅ FIXED: Use correct endpoint - /asset-requests/update/:id
+      await axios.patch(`/asset-requests/update/${reqId}`, { status: newStatus });
       setNotification({ message: 'Status updated successfully', severity: 'success' });
       fetchRequests();
     } catch (err) {
@@ -492,7 +495,8 @@ const EmpAssets = () => {
     
     setActionLoading(true);
     try {
-      await axios.patch(`/assets/update/${editingCommentReq._id}`, {
+      // ✅ FIXED: Use correct endpoint - /asset-requests/update/:id
+      await axios.patch(`/asset-requests/update/${editingCommentReq._id}`, {
         adminComment: commentText,
         status: editingCommentReq.status
       });
@@ -751,7 +755,7 @@ const EmpAssets = () => {
           { label: 'Approved', count: stats.approved, color: 'success', type: 'Approved', icon: <FiCheckCircle /> },
           { label: 'Rejected', count: stats.rejected, color: 'error', type: 'Rejected', icon: <FiXCircle /> },
         ]
-          .filter(item => item.alwaysShow || item.count > 0) // ✅ FILTER: Show if alwaysShow OR count > 0
+          .filter(item => item.alwaysShow || item.count > 0)
           .map((item) => (
             <div 
               key={item.type}
@@ -786,7 +790,7 @@ const EmpAssets = () => {
         </div>
 
         <div className="EmpAssets-filter-options">
-          {/* FIXED: Only show department filter for users who can view all departments */}
+          {/* Only show department filter for users who can view all departments */}
           {(isOwner || isAdmin || isHR) && (
             <div className="EmpAssets-department-filter">
               <FiBriefcase />

@@ -15,36 +15,29 @@ import "../Css/TaskManagement.css";
 import API_URL from '../../config';
 import CIISLoader from '../../Loader/CIISLoader';
 
-
-// Helper function to get correct image URL - COMPLETELY FIXED VERSION
+// Helper function to get correct image URL
 const getImageUrl = (imagePath) => {
   if (!imagePath) return '';
 
   console.log('🔍 Original image path:', imagePath);
 
-  // अगर already full URL है
   if (imagePath.startsWith('http')) {
     return imagePath;
   }
 
   const baseUrl = API_URL || 'http://localhost:3000';
-  const baseUrlWithoutApi = baseUrl.replace(/\/api$/, ''); // Remove /api if present
+  const baseUrlWithoutApi = baseUrl.replace(/\/api$/, '');
 
-  // Clean the path - replace backslashes and remove leading slashes
   let cleanPath = imagePath.replace(/\\/g, '/').replace(/^\/+/, '');
   
-  // Check if the path already has the correct structure
   if (cleanPath.startsWith('uploads/')) {
-    // Path already has uploads/ prefix
     return `${baseUrlWithoutApi}/${cleanPath}`;
   }
   
   if (cleanPath.startsWith('remarks/')) {
-    // Path starts with remarks/ - need to add uploads/
     return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
   }
   
-  // If it's just a filename, assume it's in uploads/remarks/
   const filename = cleanPath.split('/').pop();
   return `${baseUrlWithoutApi}/uploads/remarks/${filename}`;
 };
@@ -93,17 +86,6 @@ const getColorValue = (color) => {
   return colors[color] || '#1976d2';
 };
 
-const statusColors = {
-  pending: 'warning',
-  'in-progress': 'info',
-  completed: 'success',
-  rejected: 'error',
-  onhold: 'secondary',
-  reopen: 'secondary',
-  cancelled: 'grey',
-  overdue: 'error',
-};
-
 const UserCreateTask = () => {
   // State declarations
   const [openDialog, setOpenDialog] = useState(false);
@@ -115,11 +97,21 @@ const UserCreateTask = () => {
   const [authError, setAuthError] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [loadingAssigned, setLoadingAssigned] = useState(false);
 
+  // Self tasks state
   const [myTasksGrouped, setMyTasksGrouped] = useState({});
+  
+  // Client tasks assigned to me
+  const [assignedToMeTasksGrouped, setAssignedToMeTasksGrouped] = useState({});
+  
+  // Task view mode
+  const [taskViewMode, setTaskViewMode] = useState('self');
+
   const [statusFilter, setStatusFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Self task stats
   const [taskStats, setTaskStats] = useState({
     total: 0,
     pending: { count: 0, percentage: 0 },
@@ -129,6 +121,15 @@ const UserCreateTask = () => {
     onHold: { count: 0, percentage: 0 },
     reopen: { count: 0, percentage: 0 },
     cancelled: { count: 0, percentage: 0 },
+    overdue: { count: 0, percentage: 0 }
+  });
+
+  // Assigned tasks stats
+  const [assignedTaskStats, setAssignedTaskStats] = useState({
+    total: 0,
+    pending: { count: 0, percentage: 0 },
+    inProgress: { count: 0, percentage: 0 },
+    completed: { count: 0, percentage: 0 },
     overdue: { count: 0, percentage: 0 }
   });
 
@@ -176,12 +177,12 @@ const UserCreateTask = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
 
-  // Refs for filter values to prevent infinite loops
+  // Refs for filter values
   const statusFilterRef = useRef(statusFilter);
   const searchTermRef = useRef(searchTerm);
   const timeFilterRef = useRef(timeFilter);
 
-  // Update refs when filter values change
+  // Update refs
   useEffect(() => {
     statusFilterRef.current = statusFilter;
     searchTermRef.current = searchTerm;
@@ -223,7 +224,6 @@ const UserCreateTask = () => {
       if (!userStr) {
         setAuthError(true);
         showSnackbar('Please log in to access tasks', 'error');
-        setLoading(false);
         return;
       }
 
@@ -236,7 +236,6 @@ const UserCreateTask = () => {
       if (!userId || !userRole || !userName) {
         setAuthError(true);
         showSnackbar('Invalid user data. Please log in again.', 'error');
-        setLoading(false);
         return;
       }
 
@@ -245,15 +244,16 @@ const UserCreateTask = () => {
       setUserName(userName);
       setAuthError(false);
       
+      console.log('✅ User data loaded:', { userId, userRole, userName });
+      
     } catch (error) {
       console.error('Error parsing user data:', error);
       setAuthError(true);
       showSnackbar('Error loading user data. Please log in again.', 'error');
-      setLoading(false);
     }
   }, []);
 
-  // Get user status for a task
+  // Get user status for a task (for self tasks)
   const getUserStatusForTask = useCallback((task, userId) => {
     if (!task || !userId) return 'pending';
     
@@ -271,10 +271,20 @@ const UserCreateTask = () => {
     return 'pending';
   }, []);
 
+  // Get status for assigned tasks
+  const getAssignedTaskStatus = useCallback((task) => {
+    if (!task) return 'pending';
+    
+    if (task.completed === true) return 'completed';
+    if (task.completed === false) return 'pending';
+    if (task.status) return task.status;
+    
+    return 'pending';
+  }, []);
+
   // Check if task is overdue
   const isOverdue = useCallback((dueDateTime, status) => {
     if (!dueDateTime) return false;
-    
     if (status === 'overdue') return true;
     
     const now = new Date();
@@ -286,23 +296,32 @@ const UserCreateTask = () => {
     return isPastDue && canBeOverdue.includes(status);
   }, []);
 
-  // Get overdue count - Memoized
+  // Get overdue count
   const getOverdueCount = useMemo(() => {
+    const tasksToCheck = taskViewMode === 'self' ? myTasksGrouped : assignedToMeTasksGrouped;
     let count = 0;
-    Object.values(myTasksGrouped).forEach(tasks => {
+    
+    Object.values(tasksToCheck).forEach(tasks => {
       tasks.forEach(task => {
-        const myStatus = getUserStatusForTask(task, userId);
-        const taskIsOverdue = isOverdue(task.dueDateTime, myStatus);
-        
-        if (taskIsOverdue || myStatus === 'overdue') {
-          count++;
+        if (taskViewMode === 'self') {
+          const myStatus = getUserStatusForTask(task, userId);
+          const taskIsOverdue = isOverdue(task.dueDateTime, myStatus);
+          if (taskIsOverdue || myStatus === 'overdue') {
+            count++;
+          }
+        } else {
+          const status = getAssignedTaskStatus(task);
+          const taskIsOverdue = isOverdue(task.dueDate || task.dueDateTime, status);
+          if (taskIsOverdue || status === 'overdue') {
+            count++;
+          }
         }
       });
     });
     return count;
-  }, [myTasksGrouped, userId, getUserStatusForTask, isOverdue]);
+  }, [myTasksGrouped, assignedToMeTasksGrouped, taskViewMode, userId, getUserStatusForTask, getAssignedTaskStatus, isOverdue]);
 
-  // Calculate stats from tasks
+  // Calculate stats from self tasks
   const calculateStatsFromTasks = useCallback((tasks) => {
     if (!tasks || Object.keys(tasks).length === 0) {
       setTaskStats({
@@ -361,20 +380,175 @@ const UserCreateTask = () => {
     });
   }, [userId, getUserStatusForTask, isOverdue]);
 
-  // Manual overdue check
-  const manualCheckOverdue = async () => {
-    try {
-      const res = await axios.get('/task/check-overdue');
-      showSnackbar(res.data.message, 'success');
-      fetchMyTasks();
-      fetchOverdueTasks();
-    } catch (error) {
-      console.error('Error checking overdue tasks:', error);
-      showSnackbar('Failed to check overdue tasks', 'error');
+  // Calculate stats from assigned tasks
+  const calculateAssignedStatsFromTasks = useCallback((tasks) => {
+    if (!tasks || Object.keys(tasks).length === 0) {
+      setAssignedTaskStats({
+        total: 0,
+        pending: { count: 0, percentage: 0 },
+        inProgress: { count: 0, percentage: 0 },
+        completed: { count: 0, percentage: 0 },
+        overdue: { count: 0, percentage: 0 }
+      });
+      return;
     }
-  };
+    
+    let total = 0;
+    let pending = 0;
+    let inProgress = 0;
+    let completed = 0;
+    let overdue = 0;
 
-  // Fetch user's tasks - FIXED: Using refs for filter values
+    Object.values(tasks).forEach(dateTasks => {
+      dateTasks.forEach(task => {
+        total++;
+        
+        let status = 'pending';
+        if (task.completed === true) {
+          status = 'completed';
+          completed++;
+        } else if (task.status === 'in-progress') {
+          status = 'in-progress';
+          inProgress++;
+        } else {
+          status = 'pending';
+          pending++;
+        }
+        
+        const dueDate = task.dueDate || task.dueDateTime;
+        if (dueDate && !task.completed) {
+          if (isOverdue(dueDate, status)) {
+            overdue++;
+          }
+        }
+      });
+    });
+
+    const calculatePercentage = (count) => total > 0 ? Math.round((count / total) * 100) : 0;
+
+    setAssignedTaskStats({
+      total,
+      pending: { count: pending, percentage: calculatePercentage(pending) },
+      inProgress: { count: inProgress, percentage: calculatePercentage(inProgress) },
+      completed: { count: completed, percentage: calculatePercentage(completed) },
+      overdue: { count: overdue, percentage: calculatePercentage(overdue) }
+    });
+  }, [isOverdue]);
+
+  // ===== FIXED: Fetch assigned to me tasks =====
+  const fetchAssignedToMeTasks = useCallback(async () => {
+    if (authError || !userId) {
+      console.log('⛔ Cannot fetch assigned tasks: authError or no userId', { authError, userId });
+      return;
+    }
+
+    console.log('🚀 Starting fetchAssignedToMeTasks...');
+    setLoadingAssigned(true);
+    
+    try {
+      const params = new URLSearchParams();
+      
+      if (statusFilterRef.current && statusFilterRef.current !== 'all') {
+        params.append('status', statusFilterRef.current);
+      }
+      
+      if (searchTermRef.current) {
+        params.append('search', searchTermRef.current);
+      }
+      
+      if (timeFilterRef.current && timeFilterRef.current !== 'all') {
+        params.append('period', timeFilterRef.current);
+      }
+
+      // ✅ CORRECT URL - /api/tasks/assigned-to-me
+      const url = `/tasks/assigned-to-me?${params.toString()}`;
+      
+      console.log('📡 Fetching assigned tasks from:', url);
+      console.log('🔑 Using userId for filter:', userId);
+      
+      const res = await axios.get(url);
+      
+      console.log('✅ API Response received:', res.status);
+      console.log('📦 Response data:', res.data);
+
+      if (res.data && res.data.success) {
+        // 🔥 Get grouped tasks from backend
+        let tasksFromBackend = res.data.groupedTasks || {};
+        
+        console.log('📊 Grouped tasks from backend:', tasksFromBackend);
+        console.log('📊 Keys in grouped tasks:', Object.keys(tasksFromBackend));
+        
+        // Count total tasks
+        const totalTasks = Object.values(tasksFromBackend).flat().length;
+        console.log(`✅ Total tasks received: ${totalTasks}`);
+        
+        // Log first task if exists
+        if (totalTasks > 0) {
+          const firstKey = Object.keys(tasksFromBackend)[0];
+          console.log('📝 Sample task:', tasksFromBackend[firstKey][0]);
+        }
+
+        // 🔥 Update state
+        setAssignedToMeTasksGrouped(tasksFromBackend);
+        
+        // Update stats
+        if (res.data.stats) {
+          console.log('📊 Using stats from backend:', res.data.stats);
+          setAssignedTaskStats(res.data.stats);
+        } else {
+          calculateAssignedStatsFromTasks(tasksFromBackend);
+        }
+        
+        // Show success message
+        if (totalTasks > 0) {
+          showSnackbar(`✅ Loaded ${totalTasks} assigned tasks`, 'success');
+        } else {
+          console.log('ℹ️ No assigned tasks found');
+        }
+        
+      } else {
+        console.log('⚠️ API returned success: false or invalid data');
+        setAssignedToMeTasksGrouped({});
+        calculateAssignedStatsFromTasks({});
+      }
+
+    } catch (err) {
+      console.error('❌ Error in fetchAssignedToMeTasks:', err);
+      
+      if (err.response) {
+        console.error('❌ Error response:', {
+          status: err.response.status,
+          data: err.response.data,
+          headers: err.response.headers
+        });
+        
+        if (err.response.status === 401) {
+          setAuthError(true);
+          showSnackbar('Session expired. Please log in again.', 'error');
+        } else if (err.response.status === 404) {
+          console.warn('⚠️ Assigned tasks API endpoint not found (404)');
+          showSnackbar('Assigned tasks feature is not available', 'warning');
+        } else {
+          showSnackbar(`Failed to load assigned tasks (${err.response.status})`, 'error');
+        }
+      } else if (err.request) {
+        console.error('❌ No response received:', err.request);
+        showSnackbar('Network error - server not responding', 'error');
+      } else {
+        console.error('❌ Error setting up request:', err.message);
+        showSnackbar('Failed to load assigned tasks', 'error');
+      }
+      
+      setAssignedToMeTasksGrouped({});
+      calculateAssignedStatsFromTasks({});
+      
+    } finally {
+      setLoadingAssigned(false);
+      console.log('🏁 fetchAssignedToMeTasks completed');
+    }
+  }, [authError, userId, calculateAssignedStatsFromTasks]);
+
+  // Fetch self tasks
   const fetchMyTasks = useCallback(async () => {
     if (authError || !userId) {
       setLoading(false);
@@ -390,14 +564,18 @@ const UserCreateTask = () => {
       if (timeFilterRef.current && timeFilterRef.current !== 'all') params.append('period', timeFilterRef.current);
 
       const url = `/task/my?${params.toString()}`;
+      console.log('📡 Fetching my tasks from:', url);
+      
       const res = await axios.get(url);
       const tasks = res.data.groupedTasks || {};
+      
+      console.log('✅ My tasks received:', Object.keys(tasks).length, 'groups');
       
       setMyTasksGrouped(tasks);
       calculateStatsFromTasks(tasks);
 
     } catch (err) {
-      console.error('Error fetching tasks:', err);
+      console.error('Error fetching my tasks:', err);
       if (err.response?.status === 401) {
         setAuthError(true);
         showSnackbar('Session expired. Please log in again.', 'error');
@@ -426,9 +604,29 @@ const UserCreateTask = () => {
     }
   }, [authError, userId]);
 
+  // Manual overdue check
+  const manualCheckOverdue = async () => {
+    try {
+      const res = await axios.get('/task/check-overdue');
+      showSnackbar(res.data.message, 'success');
+      fetchMyTasks();
+      fetchAssignedToMeTasks();
+      fetchOverdueTasks();
+    } catch (error) {
+      console.error('Error checking overdue tasks:', error);
+      showSnackbar('Failed to check overdue tasks', 'error');
+    }
+  };
+
   // Handle time filter change
   const handleTimeFilterChange = (period) => {
     setTimeFilter(period);
+  };
+
+  // Handle view mode change
+  const handleViewModeChange = (mode) => {
+    setTaskViewMode(mode);
+    setStatusFilter('');
   };
 
   // Handle stats card click
@@ -439,7 +637,7 @@ const UserCreateTask = () => {
       
       showSnackbar(
         newStatusFilter 
-          ? `Filtering tasks by: ${status.replace('-', ' ')}` 
+          ? `Filtering ${taskViewMode === 'self' ? 'personal' : 'assigned'} tasks by: ${status.replace('-', ' ')}` 
           : 'Cleared status filter',
         'info'
       );
@@ -463,16 +661,6 @@ const UserCreateTask = () => {
       const res = await axios.get(`/task/${taskId}/remarks`);
       console.log('📥 Remarks data:', res.data);
       
-      // Check image paths
-      if (res.data.remarks) {
-        res.data.remarks.forEach((remark, index) => {
-          if (remark.image) {
-            console.log(`📸 Remark ${index} image path:`, remark.image);
-            console.log(`🔗 Full URL:`, getImageUrl(remark.image));
-          }
-        });
-      }
-      
       setRemarksDialog({ 
         open: true, 
         taskId, 
@@ -494,7 +682,6 @@ const UserCreateTask = () => {
       return;
     }
 
-    // Clean up previous previews
     remarkImages.forEach(image => URL.revokeObjectURL(image.preview));
 
     const newImage = {
@@ -562,14 +749,8 @@ const UserCreateTask = () => {
 
       console.log('✅ Remark added response:', response.data);
       
-      // Check response for image path
-      if (response.data.remark && response.data.remark.image) {
-        console.log('📸 Image saved at path:', response.data.remark.image);
-      }
-
       setNewRemark('');
       
-      // Clean up previews
       remarkImages.forEach(image => URL.revokeObjectURL(image.preview));
       setRemarkImages([]);
       
@@ -578,7 +759,6 @@ const UserCreateTask = () => {
         'success'
       );
 
-      // Refresh remarks after adding
       await fetchTaskRemarks(taskId);
 
     } catch (error) {
@@ -614,7 +794,7 @@ const UserCreateTask = () => {
         let taskDate;
         
         if (dateFilterType === 'dueDate') {
-          taskDate = task.dueDateTime ? new Date(task.dueDateTime) : null;
+          taskDate = task.dueDateTime ? new Date(task.dueDateTime) : (task.dueDate ? new Date(task.dueDate) : null);
         } else {
           taskDate = task.createdAt ? new Date(task.createdAt) : null;
         }
@@ -669,10 +849,11 @@ const UserCreateTask = () => {
 
   // Filtered tasks
   const filteredTasks = useMemo(() => {
-    return applyDateFilter(myTasksGrouped);
-  }, [myTasksGrouped, applyDateFilter]);
+    const tasksToFilter = taskViewMode === 'self' ? myTasksGrouped : assignedToMeTasksGrouped;
+    return applyDateFilter(tasksToFilter);
+  }, [myTasksGrouped, assignedToMeTasksGrouped, taskViewMode, applyDateFilter]);
 
-  // Handle status change
+  // Handle status change for self tasks
   const handleStatusChange = async (taskId, newStatus, remarks = '') => {
     if (authError || !userId) {
       showSnackbar('Please log in to update task status', 'error');
@@ -701,6 +882,43 @@ const UserCreateTask = () => {
     }
   };
 
+  // Handle status change for assigned tasks
+  const handleAssignedTaskStatusChange = async (taskId, newStatus, remarks = '') => {
+    if (authError || !userId) {
+      showSnackbar('Please log in to update task status', 'error');
+      return;
+    }
+
+    try {
+      await axios.patch(`/tasks/assigned/${taskId}/status`, { 
+        status: newStatus,
+        completed: newStatus === 'completed',
+        remarks: remarks || `Status changed to ${newStatus}`
+      });
+
+      fetchAssignedToMeTasks();
+      fetchOverdueTasks();
+      
+      showSnackbar('Task status updated successfully', 'success');
+
+    } catch (err) {
+      console.error("Error updating assigned task:", err);
+      try {
+        await axios.patch(`/task/${taskId}/status`, { 
+          status: newStatus, 
+          remarks: remarks || `Status changed to ${newStatus}`
+        });
+        
+        fetchAssignedToMeTasks();
+        fetchOverdueTasks();
+        showSnackbar('Status updated successfully', 'success');
+      } catch (fallbackErr) {
+        console.error("Fallback also failed:", fallbackErr);
+        showSnackbar('Failed to update task status', 'error');
+      }
+    }
+  };
+
   // Mark task as overdue
   const markTaskAsOverdue = async (taskId, remarks = '') => {
     if (authError || !userId) {
@@ -713,7 +931,11 @@ const UserCreateTask = () => {
         remarks: remarks || 'Manually marked as overdue'
       });
 
-      fetchMyTasks();
+      if (taskViewMode === 'self') {
+        fetchMyTasks();
+      } else {
+        fetchAssignedToMeTasks();
+      }
       fetchOverdueTasks();
       
       showSnackbar('Task marked as overdue', 'warning');
@@ -746,7 +968,6 @@ const UserCreateTask = () => {
         const file = new File([blob], "voice-note.webm", { type: "audio/webm" });
         setNewTask({ ...newTask, voiceNote: file });
         
-        // Stop all tracks to release microphone
         stream.getTracks().forEach(track => track.stop());
       };
 
@@ -766,6 +987,7 @@ const UserCreateTask = () => {
     }
   };
 
+  // Create task
   const handleCreateTask = async () => {
     if (authError || !userId) {
       showSnackbar('Please log in to create tasks', 'error');
@@ -773,7 +995,7 @@ const UserCreateTask = () => {
     }
 
     if (!newTask.title || !newTask.description || !newTask.dueDateTime) {
-      showSnackbar('Please fill all required fields (Title, Description, Due Date)', 'error');
+      showSnackbar('Please fill all required fields', 'error');
       return;
     }
 
@@ -789,29 +1011,14 @@ const UserCreateTask = () => {
           const dateStr = newTask.dueDateTime.includes(':') && newTask.dueDateTime.split(':').length === 2 
             ? `${newTask.dueDateTime}:00` 
             : newTask.dueDateTime;
-          
           dueDate = new Date(dateStr);
         } else {
           dueDate = new Date(newTask.dueDateTime);
         }
-      } else {
-        showSnackbar('Invalid date format', 'error');
-        setIsCreatingTask(false);
-        return;
       }
 
       if (isNaN(dueDate.getTime())) {
-        console.error('Invalid date:', newTask.dueDateTime);
-        showSnackbar('Invalid date format. Please select a valid date and time.', 'error');
-        setIsCreatingTask(false);
-        return;
-      }
-
-      const now = new Date();
-      const buffer = 5 * 60 * 1000;
-      
-      if (dueDate < new Date(now.getTime() - buffer)) {
-        showSnackbar('Due date cannot be in the past. Please select a future date and time.', 'error');
+        showSnackbar('Invalid date format', 'error');
         setIsCreatingTask(false);
         return;
       }
@@ -832,15 +1039,6 @@ const UserCreateTask = () => {
       if (newTask.voiceNote) {
         formData.append('voiceNote', newTask.voiceNote);
       }
-
-      console.log('📤 Creating task with data:', {
-        title: newTask.title,
-        description: newTask.description,
-        dueDateTime: dueDate.toISOString(),
-        dueDateTimeLocal: newTask.dueDateTime,
-        priority: newTask.priority,
-        priorityDays: newTask.priorityDays
-      });
 
       const response = await axios.post('/task/create-self', formData, {
         headers: {
@@ -866,19 +1064,8 @@ const UserCreateTask = () => {
       fetchMyTasks();
 
     } catch (err) {
-      console.error('❌ Full error creating task:', err);
-      console.error('❌ Error response:', err.response?.data);
-      
-      if (err.response?.status === 401) {
-        setAuthError(true);
-        showSnackbar('Session expired. Please log in again.', 'error');
-      } else if (err.response?.status === 400) {
-        const errorMsg = err.response?.data?.error || 'Invalid input. Please check your data.';
-        showSnackbar(errorMsg, 'error');
-      } else {
-        const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Task creation failed';
-        showSnackbar(errorMsg, 'error');
-      }
+      console.error('❌ Error creating task:', err);
+      showSnackbar(err?.response?.data?.error || 'Task creation failed', 'error');
     } finally {
       setIsCreatingTask(false);
     }
@@ -891,42 +1078,63 @@ const UserCreateTask = () => {
     navigate('/login');
   };
 
-  // Load initial data with page loader - Run once on mount
+  // ===== LOAD INITIAL DATA =====
   useEffect(() => {
     const loadData = async () => {
       setPageLoading(true);
+      console.log('🚀 Loading initial data...');
+      
       try {
+        // First get user data
         fetchUserData();
-        if (!authError && userId) {
-          await fetchMyTasks();
-          await fetchOverdueTasks();
-        }
+        
+        // Small delay to ensure user data is set
+        setTimeout(() => {
+          if (!authError && userId) {
+            console.log('👤 User authenticated, fetching tasks...');
+            fetchMyTasks();
+            fetchAssignedToMeTasks();
+            fetchOverdueTasks();
+          } else {
+            console.log('⚠️ User not authenticated yet, waiting...');
+          }
+        }, 1000);
+        
       } catch (error) {
-        console.error('Error loading task data:', error);
+        console.error('❌ Error loading data:', error);
       } finally {
         setTimeout(() => {
           setPageLoading(false);
-        }, 500);
+        }, 2000);
       }
     };
     
     loadData();
-  }, []); // Empty dependency array - run only once
+  }, []); // Run once on mount
 
-  // FIXED: Single useEffect for filter changes
+  // Fetch when user ID becomes available
+  useEffect(() => {
+    if (userId && !authError) {
+      console.log('👤 User ID available, fetching assigned tasks...');
+      fetchAssignedToMeTasks();
+    }
+  }, [userId, authError]);
+
+  // Fetch when filters change
   useEffect(() => {
     if (!authError && userId) {
-      fetchMyTasks();
+      const timer = setTimeout(() => {
+        console.log('🔄 Filters changed, refetching data');
+        if (taskViewMode === 'self') {
+          fetchMyTasks();
+        } else {
+          fetchAssignedToMeTasks();
+        }
+      }, 500);
+      
+      return () => clearTimeout(timer);
     }
-  }, [statusFilter, searchTerm, timeFilter, authError, userId]);
-
-  // FIXED: Single useEffect for user authentication
-  useEffect(() => {
-    if (!authError && userId) {
-      fetchMyTasks();
-      fetchOverdueTasks();
-    }
-  }, [authError, userId]);
+  }, [statusFilter, searchTerm, timeFilter, authError, userId, taskViewMode]);
 
   // Cleanup effect
   useEffect(() => {
@@ -935,7 +1143,6 @@ const UserCreateTask = () => {
         clearTimeout(snackbarTimerRef.current);
       }
       
-      // Clean up any object URLs
       remarkImages.forEach(image => {
         if (image.preview) {
           URL.revokeObjectURL(image.preview);
@@ -944,88 +1151,51 @@ const UserCreateTask = () => {
     };
   }, [remarkImages]);
 
+  // ===== RENDER VIEW MODE TOGGLE =====
+  const renderViewModeToggle = () => (
+    <div className="user-create-task-view-toggle">
+      <button
+        className={`user-create-task-view-toggle-btn ${taskViewMode === 'self' ? 'active' : ''}`}
+        onClick={() => handleViewModeChange('self')}
+      >
+        <FiUser size={16} />
+        My Personal Tasks
+        {taskViewMode === 'self' && Object.keys(myTasksGrouped).length > 0 && (
+          <span className="view-toggle-count">{Object.values(myTasksGrouped).flat().length}</span>
+        )}
+      </button>
+      <button
+        className={`user-create-task-view-toggle-btn ${taskViewMode === 'assigned' ? 'active' : ''}`}
+        onClick={() => handleViewModeChange('assigned')}
+      >
+        <FiUsers size={16} />
+        Assigned to Me
+        {taskViewMode === 'assigned' && Object.keys(assignedToMeTasksGrouped).length > 0 && (
+          <span className="view-toggle-count">{Object.values(assignedToMeTasksGrouped).flat().length}</span>
+        )}
+      </button>
+    </div>
+  );
+
+  // ===== RENDER STATISTICS CARDS =====
   const renderStatisticsCards = () => {
-    const statsData = [
-      {
-        title: 'Total Tasks',
-        value: taskStats.total,
-        icon: FiList,
-        color: 'primary',
-        description: `All tasks (${timeFilter})`,
-        clickable: false,
-        status: null
-      },
-      {
-        title: 'Completed',
-        value: taskStats.completed.count,
-        percentage: taskStats.completed.percentage,
-        icon: FiCheckCircle,
-        color: 'success',
-        description: `${taskStats.completed.percentage}% of total`,
-        status: 'completed',
-        clickable: true
-      },
-      {
-        title: 'In Progress',
-        value: taskStats.inProgress.count,
-        percentage: taskStats.inProgress.percentage,
-        icon: FiTrendingUp,
-        color: 'info',
-        description: `${taskStats.inProgress.percentage}% of total`,
-        status: 'in-progress',
-        clickable: true
-      },
-      {
-        title: 'Pending',
-        value: taskStats.pending.count,
-        percentage: taskStats.pending.percentage,
-        icon: FiClock,
-        color: 'warning',
-        description: `${taskStats.pending.percentage}% of total`,
-        status: 'pending',
-        clickable: true
-      },
-      {
-        title: 'On Hold',
-        value: taskStats.onHold.count,
-        percentage: taskStats.onHold.percentage,
-        icon: FiPause,
-        color: 'secondary',
-        description: `${taskStats.onHold.percentage}% of total`,
-        status: 'onhold',
-        clickable: true
-      },
-      {
-        title: 'Cancelled',
-        value: taskStats.cancelled.count,
-        percentage: taskStats.cancelled.percentage,
-        icon: FiSlash,
-        color: 'grey',
-        description: `${taskStats.cancelled.percentage}% of total`,
-        status: 'cancelled',
-        clickable: true
-      },
-      {
-        title: 'Overdue',
-        value: taskStats.overdue.count,
-        percentage: taskStats.overdue.percentage,
-        icon: FiAlertCircle,
-        color: 'error',
-        description: `${taskStats.overdue.percentage}% of total`,
-        status: 'overdue',
-        clickable: true
-      },
-      {
-        title: 'Rejected',
-        value: taskStats.rejected.count,
-        percentage: taskStats.rejected.percentage,
-        icon: FiXCircle,
-        color: 'error',
-        description: `${taskStats.rejected.percentage}% of total`,
-        status: 'rejected',
-        clickable: true
-      }
-    ];
+    const statsToShow = taskViewMode === 'self' ? taskStats : assignedTaskStats;
+    
+    const statsData = taskViewMode === 'self' 
+      ? [
+          { title: 'Total Tasks', value: statsToShow.total, icon: FiList, color: 'primary', description: `All tasks (${timeFilter})`, clickable: false, status: null },
+          { title: 'Completed', value: statsToShow.completed.count, percentage: statsToShow.completed.percentage, icon: FiCheckCircle, color: 'success', description: `${statsToShow.completed.percentage}% of total`, status: 'completed', clickable: true },
+          { title: 'In Progress', value: statsToShow.inProgress.count, percentage: statsToShow.inProgress.percentage, icon: FiTrendingUp, color: 'info', description: `${statsToShow.inProgress.percentage}% of total`, status: 'in-progress', clickable: true },
+          { title: 'Pending', value: statsToShow.pending.count, percentage: statsToShow.pending.percentage, icon: FiClock, color: 'warning', description: `${statsToShow.pending.percentage}% of total`, status: 'pending', clickable: true },
+          { title: 'Overdue', value: statsToShow.overdue.count, percentage: statsToShow.overdue.percentage, icon: FiAlertCircle, color: 'error', description: `${statsToShow.overdue.percentage}% of total`, status: 'overdue', clickable: true }
+        ]
+      : [
+          { title: 'Total Tasks', value: statsToShow.total, icon: FiList, color: 'primary', description: `All assigned tasks (${timeFilter})`, clickable: false, status: null },
+          { title: 'Completed', value: statsToShow.completed.count, percentage: statsToShow.completed.percentage, icon: FiCheckCircle, color: 'success', description: `${statsToShow.completed.percentage}% of total`, status: 'completed', clickable: true },
+          { title: 'In Progress', value: statsToShow.inProgress.count, percentage: statsToShow.inProgress.percentage, icon: FiTrendingUp, color: 'info', description: `${statsToShow.inProgress.percentage}% of total`, status: 'in-progress', clickable: true },
+          { title: 'Pending', value: statsToShow.pending.count, percentage: statsToShow.pending.percentage, icon: FiClock, color: 'warning', description: `${statsToShow.pending.percentage}% of total`, status: 'pending', clickable: true },
+          { title: 'Overdue', value: statsToShow.overdue.count, percentage: statsToShow.overdue.percentage, icon: FiAlertCircle, color: 'error', description: `${statsToShow.overdue.percentage}% of total`, status: 'overdue', clickable: true }
+        ];
 
     return (
       <div className="user-create-task-grid-container">
@@ -1045,12 +1215,8 @@ const UserCreateTask = () => {
                 <div className="user-create-task-stat-card-content">
                   <div className="user-create-task-stat-card-header">
                     <div>
-                      <div className="user-create-task-stat-card-title">
-                        {stat.title}
-                      </div>
-                      <div className="user-create-task-stat-card-value">
-                        {stat.value}
-                      </div>
+                      <div className="user-create-task-stat-card-title">{stat.title}</div>
+                      <div className="user-create-task-stat-card-value">{stat.value}</div>
                     </div>
                     <div 
                       className="user-create-task-stat-card-icon"
@@ -1066,12 +1232,8 @@ const UserCreateTask = () => {
                   {stat.percentage !== undefined && (
                     <div className="user-create-task-progress-container">
                       <div className="user-create-task-progress-header">
-                        <div className="user-create-task-progress-label">
-                          Progress
-                        </div>
-                        <div className="user-create-task-progress-percentage">
-                          {stat.percentage}%
-                        </div>
+                        <div className="user-create-task-progress-label">Progress</div>
+                        <div className="user-create-task-progress-percentage">{stat.percentage}%</div>
                       </div>
                       <div className="user-create-task-progress-bar">
                         <div 
@@ -1085,9 +1247,7 @@ const UserCreateTask = () => {
                     </div>
                   )}
 
-                  <div className="user-create-task-stat-card-description">
-                    {stat.description}
-                  </div>
+                  <div className="user-create-task-stat-card-description">{stat.description}</div>
                 </div>
               </StatCard>
             );
@@ -1096,17 +1256,13 @@ const UserCreateTask = () => {
     );
   };
 
-  // Render time filter
+  // ===== RENDER TIME FILTER =====
   const renderTimeFilter = () => (
     <div className="user-create-task-time-filter">
       <div className="user-create-task-time-filter-header">
         <div>
-          <div className="user-create-task-time-filter-title">
-            Filter by Time Period
-          </div>
-          <div className="user-create-task-time-filter-subtitle">
-            Select a timeframe to view task statistics
-          </div>
+          <div className="user-create-task-time-filter-title">Filter by Time Period</div>
+          <div className="user-create-task-time-filter-subtitle">Select a timeframe to view task statistics</div>
         </div>
         {timeFilter !== 'today' && (
           <button
@@ -1146,10 +1302,14 @@ const UserCreateTask = () => {
     </div>
   );
 
-  // Render action buttons
-  const renderActionButtons = (task) => {
-    const myStatus = getUserStatusForTask(task, userId);
-    const taskIsOverdue = isOverdue(task.dueDateTime, myStatus);
+  // ===== RENDER ACTION BUTTONS =====
+  const renderActionButtons = (task, isAssignedTask = false) => {
+    const myStatus = isAssignedTask 
+      ? getAssignedTaskStatus(task)
+      : getUserStatusForTask(task, userId);
+    
+    const dueDate = isAssignedTask ? (task.dueDate || task.dueDateTime) : task.dueDateTime;
+    const taskIsOverdue = isOverdue(dueDate, myStatus);
     
     return (
       <div className="user-create-task-action-buttons">
@@ -1158,10 +1318,7 @@ const UserCreateTask = () => {
             className="user-create-task-action-button overdue-mark"
             onClick={() => markTaskAsOverdue(task._id, 'Manual overdue marking')}
             title="Mark as Overdue"
-            style={{
-              backgroundColor: '#f44336',
-              color: 'white'
-            }}
+            style={{ backgroundColor: '#f44336', color: 'white' }}
           >
             <FiAlertTriangle size={isMobile ? 14 : 16} />
           </button>
@@ -1198,44 +1355,509 @@ const UserCreateTask = () => {
     );
   };
 
-  // Render status select
-  const renderStatusSelect = (task) => {
-    const myStatus = getUserStatusForTask(task, userId);
-    const taskIsOverdue = isOverdue(task.dueDateTime, myStatus);
+  // ===== RENDER STATUS SELECT =====
+  const renderStatusSelect = (task, isAssignedTask = false) => {
+    if (isAssignedTask) {
+      const status = getAssignedTaskStatus(task);
+      const dueDate = task.dueDate || task.dueDateTime;
+      const taskIsOverdue = isOverdue(dueDate, status);
+      
+      return (
+        <select
+          value={status}
+          onChange={(e) => {
+            const selectedStatus = e.target.value;
+            if (selectedStatus === 'completed' || selectedStatus === 'in-progress' || selectedStatus === 'pending') {
+              setPendingStatusChange({ taskId: task._id, status: selectedStatus });
+              setRemarksDialog({ open: true, taskId: task._id, remarks: [] });
+            } else {
+              handleAssignedTaskStatusChange(task._id, selectedStatus);
+            }
+          }}
+          className="user-create-task-select"
+          style={{ 
+            minWidth: isMobile ? '90px' : '100px',
+            borderColor: taskIsOverdue ? '#f44336' : undefined,
+            color: taskIsOverdue ? '#f44336' : undefined,
+            fontWeight: taskIsOverdue ? '600' : undefined
+          }}
+        >
+          <option value="pending">Pending</option>
+          <option value="in-progress">In Progress</option>
+          <option value="completed">Completed</option>
+          <option value="overdue">Overdue</option>
+        </select>
+      );
+    } else {
+      const myStatus = getUserStatusForTask(task, userId);
+      const taskIsOverdue = isOverdue(task.dueDateTime, myStatus);
+      
+      return (
+        <select
+          value={myStatus}
+          onChange={(e) => {
+            const selectedStatus = e.target.value;
+            if (["completed", "onhold", "reopen", "cancelled", "rejected", "overdue"].includes(selectedStatus)) {
+              setPendingStatusChange({ taskId: task._id, status: selectedStatus });
+              setRemarksDialog({ open: true, taskId: task._id, remarks: [] });
+            } else {
+              handleStatusChange(task._id, selectedStatus);
+            }
+          }}
+          className="user-create-task-select"
+          style={{ 
+            minWidth: isMobile ? '90px' : '100px',
+            borderColor: taskIsOverdue ? '#f44336' : undefined,
+            color: taskIsOverdue ? '#f44336' : undefined,
+            fontWeight: taskIsOverdue ? '600' : undefined
+          }}
+        >
+          <option value="pending">Pending</option>
+          <option value="in-progress">In Progress</option>
+          <option value="completed">Completed</option>
+          <option value="overdue">Overdue</option>
+          <option value="rejected">Rejected</option>
+          <option value="onhold">On Hold</option>
+          <option value="reopen">Reopen</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      );
+    }
+  };
+
+  // ===== RENDER DESKTOP TABLE =====
+  const renderDesktopTable = (tasksData, isAssignedView = false) => {
+    console.log('🎨 Rendering desktop table with data:', tasksData);
     
+    if (!tasksData || Object.keys(tasksData).length === 0) {
+      return <div className="user-create-task-empty-state">No tasks to display</div>;
+    }
+    
+    return Object.entries(tasksData).map(([dateKey, tasks]) => (
+      <div key={dateKey} style={{ marginTop: '24px' }}>
+        <div style={{ 
+          padding: isMobile ? '12px' : '16px',
+          borderRadius: isMobile ? '6px' : '8px',
+          backgroundColor: '#f5f5f5',
+          marginBottom: '16px',
+          fontSize: isMobile ? '14px' : '16px',
+          fontWeight: 'bold'
+        }}>
+          📅 {dateKey} ({tasks.length} {tasks.length === 1 ? 'task' : 'tasks'})
+        </div>
+        <div className="user-create-task-table-container">
+          <table className="user-create-task-table">
+            <thead>
+              <tr style={{ backgroundColor: '#f5f5f5' }}>
+                <th style={{ padding: isMobile ? '8px' : '12px' }}>Title</th>
+                {!isMobile && <th style={{ padding: isMobile ? '8px' : '12px' }}>Description</th>}
+                <th style={{ padding: isMobile ? '8px' : '12px' }}>Due Date</th>
+                <th style={{ padding: isMobile ? '8px' : '12px' }}>Priority</th>
+                <th style={{ padding: isMobile ? '8px' : '12px' }}>Status</th>
+                {isAssignedView && <th style={{ padding: isMobile ? '8px' : '12px' }}>Client</th>}
+                <th style={{ padding: isMobile ? '8px' : '12px' }}>Files</th>
+                <th style={{ padding: isMobile ? '8px' : '12px' }}>Actions</th>
+                <th style={{ padding: isMobile ? '8px' : '12px' }}>Change Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tasks.map((task) => {
+                const status = isAssignedView 
+                  ? getAssignedTaskStatus(task)
+                  : getUserStatusForTask(task, userId);
+                
+                const dueDate = isAssignedView 
+                  ? (task.dueDate || task.dueDateTime)
+                  : task.dueDateTime;
+                
+                const taskIsOverdue = isOverdue(dueDate, status);
+                const priority = task.priority || 'medium';
+
+                return (
+                  <tr 
+                    key={task._id} 
+                    className={`user-create-task-table-row ${taskIsOverdue ? 'overdue-task' : ''}`}
+                    style={taskIsOverdue ? { 
+                      borderLeft: '4px solid #f44336',
+                      backgroundColor: '#fff5f5'
+                    } : {}}
+                  >
+                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
+                      <div style={{ fontWeight: 600, fontSize: isMobile ? '13px' : '14px' }}>
+                        {task.title || task.name || 'Untitled'}
+                      </div>
+                      {isMobile && (
+                        <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                          {(task.description || '').length > 50 
+                            ? (task.description || '').substring(0, 50) + '...' 
+                            : task.description || ''}
+                        </div>
+                      )}
+                    </td>
+                    {!isMobile && (
+                      <td style={{ padding: '12px', maxWidth: '200px' }}>
+                        <div style={{ fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {task.description || task.name || '-'}
+                        </div>
+                      </td>
+                    )}
+                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
+                      <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
+                        <FiCalendar size={isMobile ? 12 : 14} />
+                        <div style={{
+                          fontSize: isMobile ? '13px' : '14px',
+                          color: taskIsOverdue ? '#f44336' : '#333',
+                          fontWeight: taskIsOverdue ? '600' : '500'
+                        }}>
+                          {dueDate
+                            ? new Date(dueDate).toLocaleDateString()
+                            : '—'}
+                        </div>
+                        {taskIsOverdue && (
+                          <div 
+                            className="user-create-task-overdue-badge"
+                            style={{
+                              backgroundColor: '#f44336',
+                              color: 'white',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              fontSize: '11px',
+                              fontWeight: '600'
+                            }}
+                          >
+                            OVERDUE
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
+                      <PriorityChip priority={priority} />
+                    </td>
+                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
+                      <StatusChip status={status} label={status} />
+                    </td>
+                    
+                    {isAssignedView && (
+                      <td style={{ padding: isMobile ? '8px' : '12px' }}>
+                        {task.clientName || task.clientId?.name || 'N/A'}
+                      </td>
+                    )}
+                    
+                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
+                      {task.files?.length > 0 && (
+                        <a
+                          className="user-create-task-action-button"
+                          href={getImageUrl(task.files[0].path || task.files[0])}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`${task.files.length} file(s)`}
+                        >
+                          <FiDownload size={isMobile ? 14 : 16} />
+                        </a>
+                      )}
+                    </td>
+
+                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
+                      {renderActionButtons(task, isAssignedView)}
+                    </td>
+                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
+                      {renderStatusSelect(task, isAssignedView)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ));
+  };
+
+  // ===== RENDER MOBILE CARDS =====
+  const renderMobileCards = (tasksData, isAssignedView = false) => {
+    return Object.entries(tasksData).map(([dateKey, tasks]) => (
+      <div key={dateKey} style={{ marginTop: isMobile ? '16px' : '20px' }}>
+        <div style={{ 
+          padding: isMobile ? '12px' : '16px',
+          backgroundColor: '#f5f5f5',
+          marginBottom: isMobile ? '8px' : '12px',
+          fontSize: isMobile ? '14px' : '16px',
+          fontWeight: 'bold'
+        }}>
+          📅 {dateKey} ({tasks.length} {tasks.length === 1 ? 'task' : 'tasks'})
+        </div>
+        <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2">
+          {tasks.map((task) => {
+            const status = isAssignedView 
+              ? getAssignedTaskStatus(task)
+              : getUserStatusForTask(task, userId);
+            
+            const dueDate = isAssignedView 
+              ? (task.dueDate || task.dueDateTime)
+              : task.dueDateTime;
+            
+            const taskIsOverdue = isOverdue(dueDate, status);
+            const priority = task.priority || 'medium';
+
+            return (
+              <div 
+                key={task._id} 
+                className={`user-create-task-mobile-card ${taskIsOverdue ? 'overdue-task' : ''}`}
+                style={taskIsOverdue ? { 
+                  borderLeft: '4px solid #f44336',
+                  backgroundColor: '#fff5f5'
+                } : {}}
+              >
+                <div className="user-create-task-mobile-card-content">
+                  <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2">
+                    <div className="user-create-task-mobile-card-header">
+                      <div style={{ flex: 1 }}>
+                        <div className="user-create-task-mobile-card-title">
+                          {task.title || task.name || 'Untitled'}
+                        </div>
+                        <div className="user-create-task-mobile-card-description">
+                          {task.description || ''}
+                        </div>
+                        {isAssignedView && task.clientName && (
+                          <div className="user-create-task-mobile-card-client" style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                            Client: {task.clientName}
+                          </div>
+                        )}
+                      </div>
+                      <StatusChip status={status} label={status} />
+                    </div>
+
+                    <div className="user-create-task-mobile-card-details">
+                      <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
+                        <FiCalendar size={isMobile ? 12 : 14} />
+                        <div style={{ 
+                          fontSize: isMobile ? '13px' : '14px', 
+                          color: taskIsOverdue ? '#f44336' : '#333',
+                          fontWeight: taskIsOverdue ? '600' : '400'
+                        }}>
+                          {dueDate ? new Date(dueDate).toLocaleDateString() : 'No date'}
+                        </div>
+                        {taskIsOverdue && (
+                          <div 
+                            style={{
+                              backgroundColor: '#f44336',
+                              color: 'white',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              fontSize: '10px',
+                              fontWeight: '600',
+                              marginLeft: '4px'
+                            }}
+                          >
+                            OVERDUE
+                          </div>
+                        )}
+                      </div>
+                      <PriorityChip priority={priority} />
+                    </div>
+
+                    <div className="user-create-task-mobile-card-actions">
+                      <div className="user-create-task-flex user-create-task-gap-1">
+                        {renderActionButtons(task, isAssignedView)}
+                      </div>
+                      <div style={{ minWidth: isMobile ? '90px' : '100px' }}>
+                        {renderStatusSelect(task, isAssignedView)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    ));
+  };
+
+  // ===== RENDER GROUPED TASKS (FIXED) =====
+  const renderGroupedTasks = () => {
+    console.log('🔍 renderGroupedTasks - Current view:', taskViewMode);
+    console.log('📦 myTasksGrouped:', myTasksGrouped);
+    console.log('📦 assignedToMeTasksGrouped:', assignedToMeTasksGrouped);
+    
+    const tasksToDisplay = taskViewMode === 'self' ? myTasksGrouped : assignedToMeTasksGrouped;
+    
+    console.log('📊 tasksToDisplay keys:', Object.keys(tasksToDisplay));
+    console.log('📊 tasksToDisplay has data?', Object.keys(tasksToDisplay).length > 0);
+    
+    // 🔥 IMPORTANT: Directly check if we have data
+    const hasData = tasksToDisplay && Object.keys(tasksToDisplay).length > 0;
+    
+    if (!hasData) {
+      console.log('⚠️ No data to display, showing empty state');
+      return (
+        <div className="user-create-task-empty-state">
+          <div className="user-create-task-empty-state-icon">
+            {taskViewMode === 'self' ? <FiUser size={48} /> : <FiUsers size={48} />}
+          </div>
+          <div className="user-create-task-empty-state-title">
+            {taskViewMode === 'self' 
+              ? 'No personal tasks found' 
+              : 'No tasks assigned to you'}
+          </div>
+          <div className="user-create-task-empty-state-subtitle">
+            {taskViewMode === 'self'
+              ? 'Create a personal task to get started'
+              : 'You have no tasks assigned from clients'}
+          </div>
+          {Object.keys(assignedToMeTasksGrouped).length > 0 && (
+            <div style={{ marginTop: '10px', color: '#4caf50' }}>
+              Debug: Found {Object.keys(assignedToMeTasksGrouped).length} groups in state
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // 🔥 We have data, render it!
+    console.log('✅ Data found, rendering now!');
+    return isMobile 
+      ? renderMobileCards(tasksToDisplay, taskViewMode === 'assigned') 
+      : renderDesktopTable(tasksToDisplay, taskViewMode === 'assigned');
+  };
+
+  // ===== RENDER OVERDUE TASKS SECTION =====
+  const renderOverdueTasksSection = () => {
+    if (getOverdueCount === 0) return null;
+
     return (
-      <select
-        value={myStatus}
-        onChange={(e) => {
-          const selectedStatus = e.target.value;
-          if (["completed", "onhold", "reopen", "cancelled", "rejected", "overdue"].includes(selectedStatus)) {
-            setPendingStatusChange({ taskId: task._id, status: selectedStatus });
-            setRemarksDialog({ open: true, taskId: task._id, remarks: [] });
-          } else {
-            handleStatusChange(task._id, selectedStatus);
-          }
-        }}
-        className="user-create-task-select"
-        style={{ 
-          minWidth: isMobile ? '90px' : '100px',
-          borderColor: taskIsOverdue ? '#f44336' : undefined,
-          color: taskIsOverdue ? '#f44336' : undefined,
-          fontWeight: taskIsOverdue ? '600' : undefined
-        }}
-      >
-        <option value="pending">Pending</option>
-        <option value="in-progress">In Progress</option>
-        <option value="completed">Completed</option>
-        <option value="overdue">Overdue</option>
-        <option value="rejected">Rejected</option>
-        <option value="onhold">On Hold</option>
-        <option value="reopen">Reopen</option>
-        <option value="cancelled">Cancelled</option>
-      </select>
+      <div className="user-create-task-paper" style={{ 
+        marginTop: '16px',
+        borderLeft: '4px solid #f44336'
+      }}>
+        <div style={{ 
+          padding: isMobile ? '12px 16px' : '16px 24px', 
+          borderBottom: '1px solid #ffcdd2',
+          backgroundColor: '#fff5f5'
+        }}>
+          <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1.5">
+            <FiAlertTriangle size={isMobile ? 18 : 20} color="#f44336" />
+            <div style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: 700, color: '#f44336' }}>
+              ⚠️ Overdue Tasks ({getOverdueCount})
+            </div>
+          </div>
+          <div style={{ fontSize: isMobile ? '13px' : '14px', color: '#d32f2f', marginTop: '4px' }}>
+            Tasks past their due date requiring immediate attention
+          </div>
+        </div>
+
+        <div className="user-create-task-paper-content">
+          {Object.keys(taskViewMode === 'self' ? myTasksGrouped : assignedToMeTasksGrouped).map(dateKey => {
+            const tasksToCheck = taskViewMode === 'self' ? myTasksGrouped : assignedToMeTasksGrouped;
+            
+            const overdueTasksForDate = tasksToCheck[dateKey].filter(task => {
+              if (taskViewMode === 'self') {
+                const myStatus = getUserStatusForTask(task, userId);
+                return isOverdue(task.dueDateTime, myStatus);
+              } else {
+                const status = getAssignedTaskStatus(task);
+                const dueDate = task.dueDate || task.dueDateTime;
+                return isOverdue(dueDate, status);
+              }
+            });
+
+            if (overdueTasksForDate.length === 0) return null;
+
+            return (
+              <div key={dateKey} style={{ marginTop: '16px' }}>
+                <div style={{ 
+                  padding: isMobile ? '10px 12px' : '12px 16px',
+                  backgroundColor: '#ffebee',
+                  borderRadius: '4px',
+                  fontSize: isMobile ? '13px' : '14px',
+                  fontWeight: '600',
+                  color: '#c62828'
+                }}>
+                  📅 {dateKey} - {overdueTasksForDate.length} overdue task(s)
+                </div>
+                <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2" style={{ marginTop: '8px' }}>
+                  {overdueTasksForDate.map(task => {
+                    const status = taskViewMode === 'self' 
+                      ? getUserStatusForTask(task, userId)
+                      : getAssignedTaskStatus(task);
+                    
+                    const dueDate = taskViewMode === 'self' 
+                      ? task.dueDateTime 
+                      : (task.dueDate || task.dueDateTime);
+                    
+                    return (
+                      <div 
+                        key={task._id} 
+                        className="user-create-task-overdue-item"
+                        style={{
+                          borderLeft: '3px solid #f44336',
+                          backgroundColor: '#fff5f5',
+                          padding: isMobile ? '12px' : '16px',
+                          borderRadius: '4px'
+                        }}
+                      >
+                        <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-start">
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600, fontSize: isMobile ? '14px' : '15px', color: '#333' }}>
+                              {task.title || task.name}
+                            </div>
+                            <div style={{ fontSize: isMobile ? '12px' : '13px', color: '#666', marginTop: '4px' }}>
+                              {(task.description || '').length > 80 
+                                ? (task.description || '').substring(0, 80) + '...' 
+                                : task.description || ''}
+                            </div>
+                          </div>
+                          <div className="user-create-task-flex user-create-task-gap-1">
+                            <button
+                              className="user-create-task-button user-create-task-button-contained"
+                              onClick={() => {
+                                if (taskViewMode === 'self') {
+                                  handleStatusChange(task._id, 'in-progress', 'Working on overdue task');
+                                } else {
+                                  handleAssignedTaskStatusChange(task._id, 'in-progress', 'Working on overdue task');
+                                }
+                              }}
+                              style={{
+                                padding: isMobile ? '6px 8px' : '8px 12px',
+                                backgroundColor: '#1976d2',
+                                fontSize: isMobile ? '11px' : '12px'
+                              }}
+                            >
+                              Start
+                            </button>
+                            <button
+                              className="user-create-task-button user-create-task-button-outlined"
+                              onClick={() => markTaskAsOverdue(task._id, 'Manual overdue marking')}
+                              style={{
+                                padding: isMobile ? '6px 8px' : '8px 12px',
+                                borderColor: '#f44336',
+                                color: '#f44336',
+                                fontSize: isMobile ? '11px' : '12px'
+                              }}
+                            >
+                              Mark
+                            </button>
+                          </div>
+                        </div>
+                        <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center" style={{ marginTop: '8px' }}>
+                          <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#666' }}>
+                            Due: {dueDate ? new Date(dueDate).toLocaleDateString() : 'No date'}
+                          </div>
+                          <StatusChip status={status} label={status} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     );
   };
 
-  // Render remarks dialog - FIXED VERSION with improved image error handling
+  // ===== RENDER REMARKS DIALOG =====
   const renderRemarksDialog = () => (
     <div className="user-create-task-dialog-overlay" style={{ display: remarksDialog.open ? 'flex' : 'none' }}>
       <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ maxWidth: isMobile ? '95%' : isTablet ? '700px' : '800px', width: isMobile ? '95%' : 'auto' }}>
@@ -1398,7 +2020,6 @@ const UserCreateTask = () => {
                             </div>
                           )}
 
-                          {/* FIXED: Image display section with proper error handling */}
                           {remark.image && (
                             <div style={{ marginTop: isMobile ? '6px' : '8px' }}>
                               <div style={{ fontSize: isMobile ? '11px' : '12px', marginBottom: '4px' }}>
@@ -1422,31 +2043,19 @@ const UserCreateTask = () => {
                                   onError={(e) => {
                                     console.error('❌ Image failed to load:', e.target.src);
                                     
-                                    // Get the base URL without /api
                                     const baseUrl = (API_URL || 'http://localhost:3000').replace(/\/api$/, '');
-                                    
-                                    // Get the filename from the original path
                                     const originalPath = remark.image;
                                     const filename = originalPath.split(/[\\/]/).pop();
                                     
-                                    // Try different path combinations
                                     const pathsToTry = [
-                                      // Most likely correct paths
                                       `${baseUrl}/uploads/remarks/${filename}`,
                                       `${baseUrl}/uploads/${filename}`,
                                       `${baseUrl}/remarks/${filename}`,
-                                      
-                                      // With /api prefix
                                       `${baseUrl}/api/uploads/remarks/${filename}`,
                                       `${baseUrl}/api/uploads/${filename}`,
                                       `${baseUrl}/api/remarks/${filename}`,
-                                      
-                                      // With original path structure
-                                      `${baseUrl}/${originalPath.replace(/\\/g, '/')}`,
-                                      `${baseUrl}/uploads/${originalPath.replace(/\\/g, '/')}`,
                                     ];
                                     
-                                    // Remove duplicates
                                     const uniquePaths = [...new Set(pathsToTry)];
                                     
                                     console.log('🔄 Trying alternative paths:', uniquePaths);
@@ -1458,17 +2067,14 @@ const UserCreateTask = () => {
                                         e.target.src = uniquePaths[triedIndex];
                                         triedIndex++;
                                       } else {
-                                        // Show fallback if all paths fail
                                         e.target.style.display = 'none';
                                         const parent = e.target.parentElement;
                                         
-                                        // Remove any existing fallback
                                         const existingFallback = parent.querySelector('.image-error-fallback');
                                         if (existingFallback) {
                                           existingFallback.remove();
                                         }
                                         
-                                        // Create fallback UI
                                         const fallback = document.createElement('div');
                                         fallback.className = 'image-error-fallback';
                                         fallback.style.cssText = `
@@ -1510,7 +2116,6 @@ const UserCreateTask = () => {
                 </div>
               ) : (
                 <div className="user-create-task-paper" style={{ textAlign: 'center', padding: isMobile ? '24px' : '32px' }}>
-                  
                   <div style={{ marginTop: isMobile ? '12px' : '16px', color: '#666', fontWeight: 600 }}>
                     No remarks yet
                   </div>
@@ -1530,18 +2135,30 @@ const UserCreateTask = () => {
                   await addRemark(remarksDialog.taskId);
 
                   if (pendingStatusChange.status) {
-                    await handleStatusChange(
-                      pendingStatusChange.taskId,
-                      pendingStatusChange.status,
-                      newRemark || "Status changed"
-                    );
+                    if (taskViewMode === 'self') {
+                      await handleStatusChange(
+                        pendingStatusChange.taskId,
+                        pendingStatusChange.status,
+                        newRemark || "Status changed"
+                      );
+                    } else {
+                      await handleAssignedTaskStatusChange(
+                        pendingStatusChange.taskId,
+                        pendingStatusChange.status,
+                        newRemark || "Status changed"
+                      );
+                    }
                     setPendingStatusChange({ taskId: null, status: "" });
                   }
 
-                  // Refresh remarks after adding
                   await fetchTaskRemarks(remarksDialog.taskId);
                   setNewRemark("");
-                  fetchMyTasks();
+                  
+                  if (taskViewMode === 'self') {
+                    fetchMyTasks();
+                  } else {
+                    fetchAssignedToMeTasks();
+                  }
 
                 } catch (error) {
                   console.error("Error saving remark:", error);
@@ -1586,7 +2203,7 @@ const UserCreateTask = () => {
     </div>
   );
 
-  // Render image zoom modal
+  // ===== RENDER IMAGE ZOOM MODAL =====
   const renderImageZoomModal = () => (
     <div className="user-create-task-dialog-overlay" style={{ display: zoomImage ? 'flex' : 'none' }}>
       <div style={{ 
@@ -1595,26 +2212,26 @@ const UserCreateTask = () => {
         maxHeight: '90vh',
       }}>
         <button
-        onClick={() => setZoomImage(null)}
-        style={{
-          position: 'absolute',
-          top: '16px',
-          right: '13px',
-          backgroundColor: 'rgba(0,0,0,0.6)',
-          color: 'white',
-          border: 'none',
-          borderRadius: '50%',
-          width: isMobile ? '32px' : '36px',
-          height: isMobile ? '32px' : '36px',
-          cursor: 'pointer',
-          zIndex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}
-      >
-     <FiX size={isMobile ? 16 : 20} />
-    </button>
+          onClick={() => setZoomImage(null)}
+          style={{
+            position: 'absolute',
+            top: '16px',
+            right: '13px',
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '50%',
+            width: isMobile ? '32px' : '36px',
+            height: isMobile ? '32px' : '36px',
+            cursor: 'pointer',
+            zIndex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <FiX size={isMobile ? 16 : 20} />
+        </button>
         <img
           src={zoomImage}
           alt="Zoomed view"
@@ -1623,7 +2240,6 @@ const UserCreateTask = () => {
             height: 'auto',
             maxHeight: '77vh',
             objectFit: 'contain',
-            
           }}
           onError={(e) => {
             console.error('Zoom image failed to load:', e.target.src);
@@ -1633,373 +2249,7 @@ const UserCreateTask = () => {
     </div>
   );
 
-  // Render desktop table
-  const renderDesktopTable = (tasksData) => {
-    return Object.entries(tasksData).map(([dateKey, tasks]) => (
-      <div key={dateKey} style={{ marginTop: '24px' }}>
-        <div style={{ 
-          padding: isMobile ? '12px' : '16px',
-          borderRadius: isMobile ? '6px' : '8px',
-          backgroundColor: 'white',
-          marginBottom: '16px',
-          fontSize: isMobile ? '14px' : '16px'
-        }}>
-          📅 {dateKey}
-        </div>
-        <div className="user-create-task-table-container">
-          <table className="user-create-task-table">
-            <thead>
-              <tr style={{ backgroundColor: '#f5f5f5' }}>
-                <th style={{ padding: isMobile ? '8px' : '12px' }}>Title</th>
-                {!isMobile && <th style={{ padding: isMobile ? '8px' : '12px' }}>Description</th>}
-                <th style={{ padding: isMobile ? '8px' : '12px' }}>Due Date</th>
-                <th style={{ padding: isMobile ? '8px' : '12px' }}>Priority</th>
-                <th style={{ padding: isMobile ? '8px' : '12px' }}>Status</th>
-                <th style={{ padding: isMobile ? '8px' : '12px' }}>Files</th>
-                <th style={{ padding: isMobile ? '8px' : '12px' }}>Actions</th>
-                <th style={{ padding: isMobile ? '8px' : '12px' }}>Change Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tasks.map((task) => {
-                const myStatus = getUserStatusForTask(task, userId);
-                const taskIsOverdue = isOverdue(task.dueDateTime, myStatus);
-
-                return (
-                  <tr 
-                    key={task._id} 
-                    className={`user-create-task-table-row ${taskIsOverdue ? 'overdue-task' : ''}`}
-                    style={taskIsOverdue ? { 
-                      borderLeft: '4px solid #f44336',
-                      backgroundColor: '#fff5f5'
-                    } : {}}
-                  >
-                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                      <div style={{ fontWeight: 600, fontSize: isMobile ? '13px' : '14px' }}>
-                        {task.title}
-                      </div>
-                      {isMobile && (
-                        <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                          {task.description.length > 50 ? task.description.substring(0, 50) + '...' : task.description}
-                        </div>
-                      )}
-                    </td>
-                    {!isMobile && (
-                      <td style={{ padding: '12px', maxWidth: '200px' }}>
-                        <div style={{ fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {task.description}
-                        </div>
-                      </td>
-                    )}
-                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                      <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
-                        <FiCalendar size={isMobile ? 12 : 14} />
-                        <div style={{
-                          fontSize: isMobile ? '13px' : '14px',
-                          color: taskIsOverdue ? '#f44336' : '#333',
-                          fontWeight: taskIsOverdue ? '600' : '500'
-                        }}>
-                          {task.dueDateTime
-                            ? new Date(task.dueDateTime).toLocaleDateString()
-                            : '—'}
-                        </div>
-                        {taskIsOverdue && (
-                          <div 
-                            className="user-create-task-overdue-badge"
-                            style={{
-                              backgroundColor: '#f44336',
-                              color: 'white',
-                              padding: '2px 8px',
-                              borderRadius: '12px',
-                              fontSize: '11px',
-                              fontWeight: '600'
-                            }}
-                          >
-                            OVERDUE
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                      <PriorityChip priority={task.priority || 'medium'} />
-                    </td>
-                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                      <StatusChip status={myStatus} label={myStatus} />
-                    </td>
-                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                      {task.files?.length > 0 && (
-                        <a
-                          className="user-create-task-action-button"
-                          href={getImageUrl(task.files[0].path || task.files[0])}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title={`${task.files.length} file(s)`}
-                        >
-                          <FiDownload size={isMobile ? 14 : 16} />
-                        </a>
-                      )}
-                    </td>
-
-                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                      {renderActionButtons(task)}
-                    </td>
-                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                      {renderStatusSelect(task)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    ));
-  };
-
-  // Render mobile cards
-  const renderMobileCards = (tasksData) => {
-    return Object.entries(tasksData).map(([dateKey, tasks]) => (
-      <div key={dateKey} style={{ marginTop: isMobile ? '16px' : '20px' }}>
-        <div style={{ 
-          padding: isMobile ? '12px' : '16px',
-          backgroundColor: 'white',
-          marginBottom: isMobile ? '8px' : '12px',
-          fontSize: isMobile ? '14px' : '16px'
-        }}>
-          📅 {dateKey}
-        </div>
-        <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2">
-          {tasks.map((task) => {
-            const myStatus = getUserStatusForTask(task, userId);
-            const taskIsOverdue = isOverdue(task.dueDateTime, myStatus);
-
-            return (
-              <div 
-                key={task._id} 
-                className={`user-create-task-mobile-card ${taskIsOverdue ? 'overdue-task' : ''}`}
-                style={taskIsOverdue ? { 
-                  borderLeft: '4px solid #f44336',
-                  backgroundColor: '#fff5f5'
-                } : {}}
-              >
-                <div className="user-create-task-mobile-card-content">
-                  <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2">
-                    <div className="user-create-task-mobile-card-header">
-                      <div style={{ flex: 1 }}>
-                        <div className="user-create-task-mobile-card-title">
-                          {task.title}
-                        </div>
-                        <div className="user-create-task-mobile-card-description">
-                          {task.description}
-                        </div>
-                      </div>
-                      <StatusChip status={myStatus} label={myStatus} />
-                    </div>
-
-                    <div className="user-create-task-mobile-card-details">
-                      <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
-                        <FiCalendar size={isMobile ? 12 : 14} />
-                        <div style={{ 
-                          fontSize: isMobile ? '13px' : '14px', 
-                          color: taskIsOverdue ? '#f44336' : '#333',
-                          fontWeight: taskIsOverdue ? '600' : '400'
-                        }}>
-                          {task.dueDateTime ? new Date(task.dueDateTime).toLocaleDateString() : 'No date'}
-                        </div>
-                        {taskIsOverdue && (
-                          <div 
-                            style={{
-                              backgroundColor: '#f44336',
-                              color: 'white',
-                              padding: '2px 8px',
-                              borderRadius: '12px',
-                              fontSize: '10px',
-                              fontWeight: '600',
-                              marginLeft: '4px'
-                            }}
-                          >
-                            OVERDUE
-                          </div>
-                        )}
-                      </div>
-                      <PriorityChip priority={task.priority || 'medium'} />
-                    </div>
-
-                    <div className="user-create-task-mobile-card-actions">
-                      <div className="user-create-task-flex user-create-task-gap-1">
-                        {renderActionButtons(task)}
-                      </div>
-                      <div style={{ minWidth: isMobile ? '90px' : '100px' }}>
-                        {renderStatusSelect(task)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    ));
-  };
-
-  // Render grouped tasks
-  const renderGroupedTasks = () => {
-    let tasksToRender = showOverdueOnly 
-      ? Object.entries(myTasksGrouped).reduce((acc, [dateKey, tasks]) => {
-          const overdueTasks = tasks.filter(task => {
-            const myStatus = getUserStatusForTask(task, userId);
-            return isOverdue(task.dueDateTime, myStatus);
-          });
-          if (overdueTasks.length > 0) {
-            acc[dateKey] = overdueTasks;
-          }
-          return acc;
-        }, {})
-      : myTasksGrouped;
-
-    tasksToRender = applyDateFilter(tasksToRender);
-    
-    if (Object.keys(tasksToRender).length === 0) {
-      return (
-        <div className="user-create-task-empty-state">
-          <div className="user-create-task-empty-state-icon">
-            <FiCalendar size={isMobile ? 36 : 48} color="#666" />
-          </div>
-
-          <div className="user-create-task-empty-state-title">
-            {showOverdueOnly ? 'No overdue tasks found' : statusFilter ? `No ${statusFilter} tasks found` : 'No tasks found'}
-          </div>
-
-          <div className="user-create-task-empty-state-subtitle">
-            {showOverdueOnly
-              ? 'Great job! You have no overdue tasks.'
-              : statusFilter
-              ? 'Try changing your status filter'
-              : 'You have no tasks assigned yet'}
-          </div>
-        </div>
-      );
-    }
-
-    return isMobile ? renderMobileCards(tasksToRender) : renderDesktopTable(tasksToRender);
-  };
-
-  // Render overdue tasks section
-  const renderOverdueTasksSection = () => {
-    if (getOverdueCount === 0) return null;
-
-    return (
-      <div className="user-create-task-paper" style={{ 
-        marginTop: '16px',
-        borderLeft: '4px solid #f44336'
-      }}>
-        <div style={{ 
-          padding: isMobile ? '12px 16px' : '16px 24px', 
-          borderBottom: '1px solid #ffcdd2',
-          backgroundColor: '#fff5f5'
-        }}>
-          <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1.5">
-            <FiAlertTriangle size={isMobile ? 18 : 20} color="#f44336" />
-            <div style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: 700, color: '#f44336' }}>
-              ⚠️ Overdue Tasks ({getOverdueCount})
-            </div>
-          </div>
-          <div style={{ fontSize: isMobile ? '13px' : '14px', color: '#d32f2f', marginTop: '4px' }}>
-            Tasks past their due date requiring immediate attention
-          </div>
-        </div>
-
-        <div className="user-create-task-paper-content">
-          {Object.keys(myTasksGrouped).map(dateKey => {
-            const overdueTasksForDate = myTasksGrouped[dateKey].filter(task => {
-              const myStatus = getUserStatusForTask(task, userId);
-              return isOverdue(task.dueDateTime, myStatus);
-            });
-
-            if (overdueTasksForDate.length === 0) return null;
-
-            return (
-              <div key={dateKey} style={{ marginTop: '16px' }}>
-                <div style={{ 
-                  padding: isMobile ? '10px 12px' : '12px 16px',
-                  backgroundColor: '#ffebee',
-                  borderRadius: '4px',
-                  fontSize: isMobile ? '13px' : '14px',
-                  fontWeight: '600',
-                  color: '#c62828'
-                }}>
-                  📅 {dateKey} - {overdueTasksForDate.length} overdue task(s)
-                </div>
-                <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2" style={{ marginTop: '8px' }}>
-                  {overdueTasksForDate.map(task => {
-                    const myStatus = getUserStatusForTask(task, userId);
-                    
-                    return (
-                      <div 
-                        key={task._id} 
-                        className="user-create-task-overdue-item"
-                        style={{
-                          borderLeft: '3px solid #f44336',
-                          backgroundColor: '#fff5f5',
-                          padding: isMobile ? '12px' : '16px',
-                          borderRadius: '4px'
-                        }}
-                      >
-                        <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-start">
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600, fontSize: isMobile ? '14px' : '15px', color: '#333' }}>
-                              {task.title}
-                            </div>
-                            <div style={{ fontSize: isMobile ? '12px' : '13px', color: '#666', marginTop: '4px' }}>
-                              {task.description.length > 80 ? task.description.substring(0, 80) + '...' : task.description}
-                            </div>
-                          </div>
-                          <div className="user-create-task-flex user-create-task-gap-1">
-                            <button
-                              className="user-create-task-button user-create-task-button-contained"
-                              onClick={() => handleStatusChange(task._id, 'in-progress', 'Working on overdue task')}
-                              style={{
-                                padding: isMobile ? '6px 8px' : '8px 12px',
-                                backgroundColor: '#1976d2',
-                                fontSize: isMobile ? '11px' : '12px'
-                              }}
-                            >
-                              Start
-                            </button>
-                            <button
-                              className="user-create-task-button user-create-task-button-outlined"
-                              onClick={() => markTaskAsOverdue(task._id, 'Manual overdue marking')}
-                              style={{
-                                padding: isMobile ? '6px 8px' : '8px 12px',
-                                borderColor: '#f44336',
-                                color: '#f44336',
-                                fontSize: isMobile ? '11px' : '12px'
-                              }}
-                            >
-                              Mark
-                            </button>
-                          </div>
-                        </div>
-                        <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center" style={{ marginTop: '8px' }}>
-                          <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#666' }}>
-                            Due: {task.dueDateTime ? new Date(task.dueDateTime).toLocaleDateString() : 'No date'}
-                          </div>
-                          <StatusChip status={myStatus} label={myStatus} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
-  // Render activity logs dialog
+  // ===== RENDER ACTIVITY LOGS DIALOG =====
   const renderActivityLogsDialog = () => (
     <div className="user-create-task-dialog-overlay" style={{ display: activityDialog.open ? 'flex' : 'none' }}>
       <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
@@ -2075,7 +2325,7 @@ const UserCreateTask = () => {
     </div>
   );
 
-  // Render calendar filter dialog
+  // ===== RENDER CALENDAR FILTER DIALOG =====
   const renderCalendarFilterDialog = () => (
     <div className="user-create-task-dialog-overlay" style={{ display: calendarFilterOpen ? 'flex' : 'none' }}>
       <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
@@ -2207,7 +2457,7 @@ const UserCreateTask = () => {
     </div>
   );
 
-  // Render create task dialog
+  // ===== RENDER CREATE TASK DIALOG =====
   const renderCreateTaskDialog = () => (
     <div className="user-create-task-dialog-overlay" style={{ display: openDialog ? 'flex' : 'none' }}>
       <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
@@ -2367,7 +2617,7 @@ const UserCreateTask = () => {
     </div>
   );
 
-  // Auth error screen
+  // ===== AUTH ERROR SCREEN =====
   if (authError) {
     return (
       <div className="user-create-task-error-container">
@@ -2396,7 +2646,7 @@ const UserCreateTask = () => {
     return <CIISLoader />;
   }
 
-  // Main render
+  // ===== MAIN RENDER =====
   return (
     <div className="user-create-task-container">
       {/* Snackbar */}
@@ -2423,49 +2673,57 @@ const UserCreateTask = () => {
           {/* LEFT: Title + subtitle + stats */}
           <div className="user-create-task-header-left" style={isMobile ? { marginBottom: '16px' } : {}}>
             <div className="user-create-task-title" style={{ fontSize: isMobile ? '24px' : isTablet ? '28px' : '32px' }}>
-              My Task Management
+              Task Management
             </div>
 
             <div className="user-create-task-subtitle" style={{ fontSize: isMobile ? '14px' : '16px' }}>
-              Manage and track your personal tasks efficiently
+              Manage your personal tasks and tasks assigned to you
             </div>
 
             <div className="user-create-task-stats-indicators">
               <div className="user-create-task-stat-indicator">
                 <div className="user-create-task-stat-dot" style={{ backgroundColor: '#4caf50' }}></div>
                 <div className="user-create-task-stat-label" style={{ fontSize: isMobile ? '12px' : '14px' }}>
-                  {taskStats.completed.count} Completed
+                  {taskViewMode === 'self' ? taskStats.completed.count : assignedTaskStats.completed.count} Completed
                 </div>
               </div>
 
               <div className="user-create-task-stat-indicator">
                 <div className="user-create-task-stat-dot" style={{ backgroundColor: '#2196f3' }}></div>
                 <div className="user-create-task-stat-label" style={{ fontSize: isMobile ? '12px' : '14px' }}>
-                  {taskStats.inProgress.count} In Progress
+                  {taskViewMode === 'self' ? taskStats.inProgress.count : assignedTaskStats.inProgress.count} In Progress
                 </div>
               </div>
 
               <div className="user-create-task-stat-indicator">
                 <div className="user-create-task-stat-dot" style={{ backgroundColor: '#f44336' }}></div>
                 <div className="user-create-task-stat-label" style={{ fontSize: isMobile ? '12px' : '14px' }}>
-                  {taskStats.overdue.count} Overdue
+                  {taskViewMode === 'self' ? taskStats.overdue.count : assignedTaskStats.overdue.count} Overdue
                 </div>
               </div>
             </div>
           </div>
 
-          {/* RIGHT: Create Task */}
-          <div className={`user-create-task-header-actions ${isMobile ? 'user-create-task-flex-row user-create-task-justify-between' : ''}`}>
-            <button
-              className="user-create-task-button user-create-task-button-contained"
-              onClick={() => setOpenDialog(true)}
-              style={{ padding: isMobile ? '10px 14px' : '12px 20px' }}
-            >
-              <FiPlus size={isMobile ? 16 : 18} />
-              {isMobile ? 'Create Task' : 'Create Task'}
-            </button>
-          </div>
+          {/* RIGHT: Create Task - only show in self mode */}
+          {taskViewMode === 'self' && (
+            <div className={`user-create-task-header-actions ${isMobile ? 'user-create-task-flex-row user-create-task-justify-between' : ''}`}>
+              <button
+                className="user-create-task-button user-create-task-button-contained"
+                onClick={() => setOpenDialog(true)}
+                style={{ padding: isMobile ? '10px 14px' : '12px 20px' }}
+              >
+                <FiPlus size={isMobile ? 16 : 18} />
+                {isMobile ? 'Create Task' : 'Create Task'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
+      {/* View Mode Toggle */}
+      <div className="user-create-task-paper" style={{ marginBottom: '16px' }}>
+        <div className="user-create-task-paper-content">
+          {renderViewModeToggle()}
         </div>
       </div>
 
@@ -2473,7 +2731,7 @@ const UserCreateTask = () => {
       <div className="user-create-task-paper">
         <div className="user-create-task-paper-content">
           <div style={{ marginBottom: '16px', fontWeight: 600, fontSize: isMobile ? '16px' : '18px' }}>
-            Task Statistics
+            {taskViewMode === 'self' ? 'Personal Task Statistics' : 'Assigned Task Statistics'}
           </div>
           
           {renderTimeFilter()}
@@ -2539,9 +2797,9 @@ const UserCreateTask = () => {
         }}>
           <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2">
             <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1.5">
-              <FiCheckSquare size={isMobile ? 18 : 20} />
+              {taskViewMode === 'self' ? <FiUser size={isMobile ? 18 : 20} /> : <FiUsers size={isMobile ? 18 : 20} />}
               <div style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: 700 }}>
-                My Tasks
+                {taskViewMode === 'self' ? 'My Personal Tasks' : 'Tasks Assigned to Me'}
               </div>
               {getOverdueCount > 0 && (
                 <div style={{
@@ -2579,10 +2837,14 @@ const UserCreateTask = () => {
                   <option value="in-progress">In Progress</option>
                   <option value="completed">Completed</option>
                   <option value="overdue">Overdue</option>
-                  <option value="rejected">Rejected</option>
-                  <option value="onhold">On Hold</option>
-                  <option value="reopen">Reopen</option>
-                  <option value="cancelled">Cancelled</option>
+                  {taskViewMode === 'self' && (
+                    <>
+                      <option value="rejected">Rejected</option>
+                      <option value="onhold">On Hold</option>
+                      <option value="reopen">Reopen</option>
+                      <option value="cancelled">Cancelled</option>
+                    </>
+                  )}
                 </select>
 
                 <button
@@ -2601,7 +2863,7 @@ const UserCreateTask = () => {
 
                 <button
                   className="user-create-task-action-button"
-                  onClick={fetchMyTasks}
+                  onClick={taskViewMode === 'self' ? fetchMyTasks : fetchAssignedToMeTasks}
                 >
                   <FiRefreshCw size={isMobile ? 14 : 16} />
                 </button>
@@ -2623,7 +2885,14 @@ const UserCreateTask = () => {
         </div>
 
         <div className="user-create-task-paper-content">
-          {renderGroupedTasks()}
+          {taskViewMode === 'assigned' && loadingAssigned ? (
+            <div className="user-create-task-loading">
+              <div className="spinner"></div>
+              <p>Loading assigned tasks...</p>
+            </div>
+          ) : (
+            renderGroupedTasks()
+          )}
         </div>
       </div>
 

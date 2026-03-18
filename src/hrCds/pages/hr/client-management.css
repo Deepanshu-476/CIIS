@@ -3334,3 +3334,96 @@ textarea.form-input {
     gap: 8px;
   }
 }
+
+/* View Mode Toggle */
+.user-create-task-view-toggle {
+  display: flex;
+  gap: 12px;
+  padding: 4px;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.user-create-task-view-toggle-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #666;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.user-create-task-view-toggle-btn.active {
+  background: white;
+  color: #1976d2;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.user-create-task-view-toggle-btn:hover:not(.active) {
+  background: rgba(0,0,0,0.05);
+}
+
+.view-toggle-count {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #f44336;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 12px;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* Loading State */
+.user-create-task-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  color: #666;
+}
+
+.user-create-task-loading .spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #1976d2;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .user-create-task-view-toggle {
+    flex-direction: column;
+  }
+  
+  .user-create-task-view-toggle-btn {
+    width: 100%;
+    padding: 10px;
+  }
+  
+  .view-toggle-count {
+    position: static;
+    margin-left: 8px;
+    display: inline-block;
+  }
+}

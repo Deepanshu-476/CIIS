@@ -175,11 +175,11 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
     console.log(`🔍 Fetching tasks for client ${clientId}, service ${service}`);
     try {
       setLoading(true);
-      const response = await api.get(`/client/${clientId}/service/${service}`);
+      const encodedService = encodeURIComponent(service);
+      const response = await api.get(`/client/${clientId}/service/${encodedService}`);
       console.log('✅ Tasks fetched successfully:', response.data);
-      if (response.data.success) {
-        setTasks(response.data.data || []);
-      }
+     const tasksData = response.data?.data || [];
+      setTasks(Array.isArray(tasksData) ? tasksData : []);
     } catch (error) {
       console.error('❌ Error fetching tasks:', error);
       const savedTasks = localStorage.getItem(`client_${clientId}_service_${service}_tasks`);
@@ -215,7 +215,8 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
     console.log('🔍 Adding new task:', newTask);
     if (newTask.name.trim()) {
       try {
-        const response = await api.post(`/client/${clientId}/service/${service}`, {
+        const encodedService = encodeURIComponent(service);
+        await api.post(`/client/${clientId}/service/${encodedService}`, {
           name: newTask.name.trim(),
           dueDate: newTask.dueDate || null,
           assignee: newTask.assignee,
@@ -1337,7 +1338,7 @@ const ClientManagement = () => {
   });
 
   const tasksApi = axios.create({
-    baseURL: `${API_URL}/clienttasks`,
+    baseURL: `${API_URL}/tasks`,
     timeout: 10000,
   });
 
@@ -2026,7 +2027,8 @@ const ClientManagement = () => {
       if (type === 'client') {
         try {
           const tasksResponse = await tasksApi.get(`/client/${id}`);
-          if (tasksResponse.data.success && tasksResponse.data.data.tasks) {
+          const tasks = tasksResponse.data?.data || [];
+          for (const task of tasks) {
             for (const task of tasksResponse.data.data.tasks) {
               await tasksApi.delete(`/${task._id}`);
             }

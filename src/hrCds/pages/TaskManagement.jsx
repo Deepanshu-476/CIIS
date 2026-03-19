@@ -1705,11 +1705,6 @@ const UserCreateTask = () => {
               ? 'Create a personal task to get started'
               : 'You have no tasks assigned from clients'}
           </div>
-          {Object.keys(assignedToMeTasksGrouped).length > 0 && (
-            <div style={{ marginTop: '10px', color: '#4caf50' }}>
-              Debug: Found {Object.keys(assignedToMeTasksGrouped).length} groups in state
-            </div>
-          )}
         </div>
       );
     }

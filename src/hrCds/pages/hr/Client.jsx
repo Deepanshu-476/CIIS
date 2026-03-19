@@ -2218,7 +2218,7 @@ const ClientManagement = () => {
         </div>
       </div>
 
-      <div className="stats-grid">
+      <div className="stats-griddd">
         {[
           { label: 'Total Clients', value: filteredClients.length, color: 'primary', icon: <FiUsers /> },
           { label: 'Active Clients', value: filteredClients.filter(c => c.status === 'Active').length, color: 'success', icon: <FiCheckCircle /> },

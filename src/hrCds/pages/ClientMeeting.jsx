@@ -187,7 +187,7 @@ export default function ClientMeeting() {
       </div>
 
       {/* ================= QUICK STATS ================= */}
-      <div className="stats-grid">
+      <div className="stats-gridd">
         <div className="stat-card">
           <div className="stat-icon blue">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -243,7 +243,7 @@ export default function ClientMeeting() {
       </div>
 
       {/* ================= FILTERS SECTION ================= */}
-      <div className="filters-section">
+      <div className="filters-sectionn">
         <div className="search-wrapper">
           <svg className="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <circle cx="11" cy="11" r="8" strokeWidth="2"/>

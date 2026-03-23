@@ -15,22 +15,36 @@ import "../Css/TaskManagement.css";
 import API_URL from '../../config';
 import CIISLoader from '../../Loader/CIISLoader';
 
-// Helper function to get correct image URL
+// Helper function to get correct image URL - FIXED VERSION FOR ASSIGNED TASKS
 const getImageUrl = (imagePath) => {
   if (!imagePath) return '';
 
   console.log('🔍 Original image path:', imagePath);
 
-  if (imagePath.startsWith('http')) {
+  // If it's already a full URL, return it
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
     return imagePath;
   }
 
+  // Get base URL (remove /api if present)
   const baseUrl = API_URL || 'http://localhost:3000';
   const baseUrlWithoutApi = baseUrl.replace(/\/api$/, '');
 
+  // Clean the path
   let cleanPath = imagePath.replace(/\\/g, '/').replace(/^\/+/, '');
   
-  if (cleanPath.startsWith('uploads/')) {
+  console.log('📁 Cleaned path:', cleanPath);
+
+  // Handle different path formats - ENHANCED FOR ASSIGNED TASKS
+  if (cleanPath.startsWith('uploads/client-remarks/')) {
+    return `${baseUrlWithoutApi}/${cleanPath}`;
+  }
+  
+  if (cleanPath.startsWith('client-remarks/')) {
+    return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
+  }
+  
+  if (cleanPath.startsWith('uploads/remarks/')) {
     return `${baseUrlWithoutApi}/${cleanPath}`;
   }
   
@@ -38,8 +52,29 @@ const getImageUrl = (imagePath) => {
     return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
   }
   
+  if (cleanPath.startsWith('uploads/')) {
+    return `${baseUrlWithoutApi}/${cleanPath}`;
+  }
+  
+  // Check for paths that might be from assigned tasks (client-remarks)
+  if (cleanPath.includes('client-remarks')) {
+    return `${baseUrlWithoutApi}/${cleanPath}`;
+  }
+  
+  // Check if it's a filename without path (for client remarks)
   const filename = cleanPath.split('/').pop();
-  return `${baseUrlWithoutApi}/uploads/remarks/${filename}`;
+  
+  // Try multiple possible paths for assigned tasks
+  const possiblePaths = [
+    `${baseUrlWithoutApi}/uploads/client-remarks/${filename}`,
+    `${baseUrlWithoutApi}/uploads/remarks/client-remarks/${filename}`,
+    `${baseUrlWithoutApi}/client-remarks/${filename}`,
+    `${baseUrlWithoutApi}/uploads/${filename}`
+  ];
+  
+  // Return the first path - if it fails, the onError handler will try others
+  console.log('🔗 Generated URL:', possiblePaths[0]);
+  return possiblePaths[0];
 };
 
 const StatCard = ({ color = 'primary', clickable = true, active = false, children, onClick }) => {
@@ -296,6 +331,47 @@ const UserCreateTask = () => {
     return isPastDue && canBeOverdue.includes(status);
   }, []);
 
+  // Helper function to group tasks by date
+  const groupTasksByDate = useCallback((tasks) => {
+    const grouped = {};
+    
+    tasks.forEach(task => {
+      const dateToUse = task.dueDate || task.dueDateTime || task.createdAt;
+      
+      if (dateToUse) {
+        const dateKey = new Date(dateToUse).toLocaleDateString('en-IN', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+        
+        if (!grouped[dateKey]) {
+          grouped[dateKey] = [];
+        }
+        grouped[dateKey].push(task);
+      } else {
+        const fallbackKey = 'No Date';
+        if (!grouped[fallbackKey]) {
+          grouped[fallbackKey] = [];
+        }
+        grouped[fallbackKey].push(task);
+      }
+    });
+    
+    const sortedGrouped = {};
+    Object.keys(grouped)
+      .sort((a, b) => {
+        if (a === 'No Date') return 1;
+        if (b === 'No Date') return -1;
+        return new Date(a) - new Date(b);
+      })
+      .forEach(key => {
+        sortedGrouped[key] = grouped[key];
+      });
+    
+    return sortedGrouped;
+  }, []);
+
   // Get overdue count
   const getOverdueCount = useMemo(() => {
     const tasksToCheck = taskViewMode === 'self' ? myTasksGrouped : assignedToMeTasksGrouped;
@@ -435,7 +511,7 @@ const UserCreateTask = () => {
     });
   }, [isOverdue]);
 
-  // ===== FIXED: Fetch assigned to me tasks =====
+  // Fetch assigned to me tasks
   const fetchAssignedToMeTasks = useCallback(async () => {
     if (authError || !userId) {
       console.log('⛔ Cannot fetch assigned tasks: authError or no userId', { authError, userId });
@@ -460,46 +536,53 @@ const UserCreateTask = () => {
         params.append('period', timeFilterRef.current);
       }
 
-      // ✅ CORRECT URL - /api/tasks/assigned-to-me
-      const url = `/tasks/assigned-to-me?${params.toString()}`;
+      const url = `/tasks/assigned-to-me${params.toString() ? `?${params.toString()}` : ''}`;
       
       console.log('📡 Fetching assigned tasks from:', url);
-      console.log('🔑 Using userId for filter:', userId);
       
       const res = await axios.get(url);
       
-      console.log('✅ API Response received:', res.status);
+      console.log('✅ API Response status:', res.status);
       console.log('📦 Response data:', res.data);
 
-      if (res.data && res.data.success) {
-        // 🔥 Get grouped tasks from backend
-        let tasksFromBackend = res.data.groupedTasks || {};
+      if (res.data) {
+        let tasksData = {};
         
-        console.log('📊 Grouped tasks from backend:', tasksFromBackend);
-        console.log('📊 Keys in grouped tasks:', Object.keys(tasksFromBackend));
-        
-        // Count total tasks
-        const totalTasks = Object.values(tasksFromBackend).flat().length;
-        console.log(`✅ Total tasks received: ${totalTasks}`);
-        
-        // Log first task if exists
-        if (totalTasks > 0) {
-          const firstKey = Object.keys(tasksFromBackend)[0];
-          console.log('📝 Sample task:', tasksFromBackend[firstKey][0]);
+        if (res.data.groupedTasks) {
+          tasksData = res.data.groupedTasks;
+          console.log('📊 Using groupedTasks from response');
+        } 
+        else if (res.data.tasks && Array.isArray(res.data.tasks)) {
+          tasksData = groupTasksByDate(res.data.tasks);
+          console.log('📊 Grouped tasks from array');
         }
-
-        // 🔥 Update state
-        setAssignedToMeTasksGrouped(tasksFromBackend);
+        else if (Array.isArray(res.data)) {
+          tasksData = groupTasksByDate(res.data);
+          console.log('📊 Grouped tasks from direct array');
+        }
+        else if (res.data.success && res.data.data) {
+          if (Array.isArray(res.data.data)) {
+            tasksData = groupTasksByDate(res.data.data);
+          } else if (res.data.data.groupedTasks) {
+            tasksData = res.data.data.groupedTasks;
+          }
+        }
         
-        // Update stats
+        console.log('📊 Final grouped tasks:', tasksData);
+        console.log('📊 Number of date groups:', Object.keys(tasksData).length);
+        
+        const totalTasks = Object.values(tasksData).reduce((sum, tasks) => sum + tasks.length, 0);
+        console.log(`✅ Total tasks loaded: ${totalTasks}`);
+        
+        setAssignedToMeTasksGrouped(tasksData);
+        
         if (res.data.stats) {
           console.log('📊 Using stats from backend:', res.data.stats);
           setAssignedTaskStats(res.data.stats);
         } else {
-          calculateAssignedStatsFromTasks(tasksFromBackend);
+          calculateAssignedStatsFromTasks(tasksData);
         }
         
-        // Show success message
         if (totalTasks > 0) {
           showSnackbar(`✅ Loaded ${totalTasks} assigned tasks`, 'success');
         } else {
@@ -507,7 +590,7 @@ const UserCreateTask = () => {
         }
         
       } else {
-        console.log('⚠️ API returned success: false or invalid data');
+        console.log('⚠️ No data in response');
         setAssignedToMeTasksGrouped({});
         calculateAssignedStatsFromTasks({});
       }
@@ -519,7 +602,6 @@ const UserCreateTask = () => {
         console.error('❌ Error response:', {
           status: err.response.status,
           data: err.response.data,
-          headers: err.response.headers
         });
         
         if (err.response.status === 401) {
@@ -528,8 +610,10 @@ const UserCreateTask = () => {
         } else if (err.response.status === 404) {
           console.warn('⚠️ Assigned tasks API endpoint not found (404)');
           showSnackbar('Assigned tasks feature is not available', 'warning');
+          setAssignedToMeTasksGrouped({});
+          calculateAssignedStatsFromTasks({});
         } else {
-          showSnackbar(`Failed to load assigned tasks (${err.response.status})`, 'error');
+          showSnackbar(`Failed to load assigned tasks: ${err.response.data?.message || err.response.status}`, 'error');
         }
       } else if (err.request) {
         console.error('❌ No response received:', err.request);
@@ -546,7 +630,7 @@ const UserCreateTask = () => {
       setLoadingAssigned(false);
       console.log('🏁 fetchAssignedToMeTasks completed');
     }
-  }, [authError, userId, calculateAssignedStatsFromTasks]);
+  }, [authError, userId, calculateAssignedStatsFromTasks, groupTasksByDate]);
 
   // Fetch self tasks
   const fetchMyTasks = useCallback(async () => {
@@ -604,20 +688,6 @@ const UserCreateTask = () => {
     }
   }, [authError, userId]);
 
-  // Manual overdue check
-  const manualCheckOverdue = async () => {
-    try {
-      const res = await axios.get('/task/check-overdue');
-      showSnackbar(res.data.message, 'success');
-      fetchMyTasks();
-      fetchAssignedToMeTasks();
-      fetchOverdueTasks();
-    } catch (error) {
-      console.error('Error checking overdue tasks:', error);
-      showSnackbar('Failed to check overdue tasks', 'error');
-    }
-  };
-
   // Handle time filter change
   const handleTimeFilterChange = (period) => {
     setTimeFilter(period);
@@ -655,17 +725,48 @@ const UserCreateTask = () => {
     showSnackbar('All filters cleared', 'info');
   };
 
-  // Fetch task remarks
+  // Fetch task remarks - UPDATED with better logging
   const fetchTaskRemarks = async (taskId) => {
     try {
-      const res = await axios.get(`/task/${taskId}/remarks`);
+      const isAssignedTask = taskViewMode === 'assigned';
+      const endpoint = isAssignedTask 
+        ? `/tasks/${taskId}/client-remarks`
+        : `/task/${taskId}/remarks`;
+      
+      console.log('📡 Fetching remarks from endpoint:', endpoint);
+      
+      const res = await axios.get(endpoint);
       console.log('📥 Remarks data:', res.data);
+      
+      let remarks = [];
+      if (res.data.success && res.data.data) {
+        if (Array.isArray(res.data.data)) {
+          remarks = res.data.data;
+        } else if (res.data.data.remarks) {
+          remarks = res.data.data.remarks;
+        } else if (res.data.data.data && Array.isArray(res.data.data.data)) {
+          remarks = res.data.data.data;
+        }
+      } else if (res.data.remarks) {
+        remarks = res.data.remarks;
+      } else if (Array.isArray(res.data)) {
+        remarks = res.data;
+      }
+      
+      // Log image data for debugging
+      remarks.forEach((remark, idx) => {
+        console.log(`📸 Remark ${idx + 1} images:`, remark.images);
+        console.log(`📸 Remark ${idx + 1} image (old format):`, remark.image);
+      });
+      
+      console.log('📊 Processed remarks count:', remarks.length);
       
       setRemarksDialog({ 
         open: true, 
         taskId, 
-        remarks: res.data.remarks || [] 
+        remarks: remarks 
       });
+      
     } catch (error) {
       console.error('Error fetching remarks:', error);
       showSnackbar('Failed to load remarks', 'error');
@@ -682,23 +783,28 @@ const UserCreateTask = () => {
       return;
     }
 
-    remarkImages.forEach(image => URL.revokeObjectURL(image.preview));
+    // Clean up old previews
+    remarkImages.forEach(image => {
+      if (image.preview) URL.revokeObjectURL(image.preview);
+    });
 
-    const newImage = {
-      file: imageFiles[0],
-      preview: URL.createObjectURL(imageFiles[0]),
-      name: imageFiles[0].name,
-      size: imageFiles[0].size
-    };
+    const newImages = imageFiles.map(file => ({
+      file: file,
+      preview: URL.createObjectURL(file),
+      name: file.name,
+      size: file.size
+    }));
 
-    setRemarkImages([newImage]);
+    setRemarkImages(newImages);
   };
 
   // Handle remove remark image
   const handleRemoveRemarkImage = (index) => {
     setRemarkImages(prev => {
       const newImages = [...prev];
-      URL.revokeObjectURL(newImages[index].preview);
+      if (newImages[index].preview) {
+        URL.revokeObjectURL(newImages[index].preview);
+      }
       newImages.splice(index, 1);
       return newImages;
     });
@@ -723,35 +829,61 @@ const UserCreateTask = () => {
     }
   };
 
-  // Add remark
+  // Add remark - UPDATED with proper image upload
   const addRemark = async (taskId) => {
     if (!newRemark.trim() && remarkImages.length === 0) {
       showSnackbar('Please enter a remark or upload an image', 'warning');
-      return;
+      return false;
     }
     
     setIsUploadingRemark(true);
     
     try {
-      const formData = new FormData();
-      formData.append('text', newRemark.trim());
+      const isAssignedTask = taskViewMode === 'assigned';
+      
+      let endpoint;
+      let formData = new FormData();
+      
+      if (isAssignedTask) {
+        if (remarkImages.length > 0) {
+          // Use upload-images endpoint for images
+          endpoint = `/tasks/${taskId}/client-remarks/upload-images`;
+          formData.append('text', newRemark.trim());
+          
+          remarkImages.forEach((image) => {
+            console.log('📤 Uploading image:', image.file.name);
+            formData.append('images', image.file);
+          });
+        } else {
+          // Use regular endpoint for text only
+          endpoint = `/tasks/${taskId}/client-remarks`;
+          formData.append('text', newRemark.trim());
+        }
+      } else {
+        // For self tasks, always use the regular endpoint with image field
+        endpoint = `/task/${taskId}/remarks`;
+        formData.append('text', newRemark.trim());
+        
+        if (remarkImages.length > 0) {
+          formData.append('image', remarkImages[0].file);
+        }
+      }
 
-      remarkImages.forEach((image) => {
-        console.log('📤 Uploading image:', image.file.name);
-        formData.append('image', image.file);
-      });
-
-      const response = await axios.post(`/task/${taskId}/remarks`, formData, {
+      console.log('📡 Adding remark to endpoint:', endpoint);
+      
+      const response = await axios.post(endpoint, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         }
       });
 
-      console.log('✅ Remark added response:', response.data);
+      console.log('✅ Remark added successfully:', response.data);
       
+      // Clear form data
       setNewRemark('');
-      
-      remarkImages.forEach(image => URL.revokeObjectURL(image.preview));
+      remarkImages.forEach(image => {
+        if (image.preview) URL.revokeObjectURL(image.preview);
+      });
       setRemarkImages([]);
       
       showSnackbar(
@@ -759,22 +891,121 @@ const UserCreateTask = () => {
         'success'
       );
 
-      await fetchTaskRemarks(taskId);
+      return true;
 
     } catch (error) {
-      console.error('Error adding remark:', error);
-      showSnackbar('Failed to add remark', 'error');
+      console.error('❌ Error adding remark:', error);
+      console.error('❌ Error details:', error.response?.data);
+      showSnackbar('Failed to add remark: ' + (error.response?.data?.message || error.message), 'error');
+      return false;
+      
     } finally {
       setIsUploadingRemark(false);
+    }
+  };
+
+  // Handle save remark with status
+  const handleSaveRemarkWithStatus = async () => {
+    try {
+      // First, add the remark
+      const remarkAdded = await addRemark(remarksDialog.taskId);
+      
+      if (!remarkAdded && newRemark.trim() === '' && remarkImages.length === 0) {
+        // If no remark content and no status change, just close
+        if (!pendingStatusChange.status) {
+          setRemarksDialog({ open: false, taskId: null, remarks: [] });
+          return;
+        }
+      }
+
+      // If there's a pending status change, apply it
+      if (pendingStatusChange.status) {
+        console.log('📝 Applying pending status change:', pendingStatusChange);
+        
+        if (taskViewMode === 'self') {
+          await handleStatusChange(
+            pendingStatusChange.taskId,
+            pendingStatusChange.status,
+            newRemark.trim() || "Status changed"
+          );
+        } else {
+          await handleAssignedTaskStatusChange(
+            pendingStatusChange.taskId,
+            pendingStatusChange.status,
+            newRemark.trim() || "Status changed"
+          );
+        }
+        setPendingStatusChange({ taskId: null, status: "" });
+      }
+
+      // Refresh remarks
+      await fetchTaskRemarks(remarksDialog.taskId);
+      
+      // Clear form
+      setNewRemark("");
+      remarkImages.forEach(image => {
+        if (image.preview) URL.revokeObjectURL(image.preview);
+      });
+      setRemarkImages([]);
+      
+      // Refresh tasks based on view mode
+      if (taskViewMode === 'self') {
+        fetchMyTasks();
+      } else {
+        fetchAssignedToMeTasks();
+      }
+      
+      // Show success message
+      if (pendingStatusChange.status) {
+        showSnackbar('Status updated and remark added successfully', 'success');
+      } else if (newRemark.trim() || remarkImages.length > 0) {
+        showSnackbar('Remark added successfully', 'success');
+      }
+      
+      // Close dialog if no pending status change
+      if (!pendingStatusChange.status) {
+        setRemarksDialog({ open: false, taskId: null, remarks: [] });
+      }
+      
+    } catch (error) {
+      console.error("Error saving remark:", error);
+      showSnackbar('Failed to save remark', 'error');
     }
   };
 
   // Fetch activity logs
   const fetchActivityLogs = async (taskId) => {
     try {
-      const res = await axios.get(`/task/${taskId}/activity-logs`);
-      setActivityLogs(res.data.logs || []);
+      const isAssignedTask = taskViewMode === 'assigned';
+      const endpoint = isAssignedTask 
+        ? `/tasks/${taskId}/client-activity-logs`
+        : `/task/${taskId}/activity-logs`;
+      
+      console.log('📡 Fetching activity logs from endpoint:', endpoint);
+      
+      const res = await axios.get(endpoint);
+      console.log('📥 Activity logs data:', res.data);
+      
+      let logs = [];
+      if (res.data.success && res.data.data) {
+        if (Array.isArray(res.data.data)) {
+          logs = res.data.data;
+        } else if (res.data.data.logs) {
+          logs = res.data.data.logs;
+        } else if (res.data.data.data && Array.isArray(res.data.data.data)) {
+          logs = res.data.data.data;
+        }
+      } else if (res.data.logs) {
+        logs = res.data.logs;
+      } else if (Array.isArray(res.data)) {
+        logs = res.data;
+      }
+      
+      console.log('📊 Processed activity logs count:', logs.length);
+      
+      setActivityLogs(logs);
       setActivityDialog({ open: true, taskId });
+      
     } catch (error) {
       console.error('Error fetching activity logs:', error);
       showSnackbar('Failed to load activity logs', 'error');
@@ -890,32 +1121,31 @@ const UserCreateTask = () => {
     }
 
     try {
-      await axios.patch(`/tasks/assigned/${taskId}/status`, { 
+      // First, add remark if provided using the client-remarks endpoint (without images)
+      if (remarks && remarks.trim()) {
+        console.log('📝 Adding remark before status update...');
+        await axios.post(`/tasks/${taskId}/client-remarks`, { text: remarks });
+        console.log('✅ Remark added successfully');
+      }
+      
+      // Then update status using the assigned endpoint
+      console.log('🔄 Updating assigned task status...');
+      const response = await axios.patch(`/tasks/assigned/${taskId}/status`, {
         status: newStatus,
         completed: newStatus === 'completed',
         remarks: remarks || `Status changed to ${newStatus}`
       });
-
-      fetchAssignedToMeTasks();
-      fetchOverdueTasks();
+      
+      console.log('✅ Assigned task status updated:', response.data);
+      
+      await fetchAssignedToMeTasks();
+      await fetchOverdueTasks();
       
       showSnackbar('Task status updated successfully', 'success');
 
     } catch (err) {
       console.error("Error updating assigned task:", err);
-      try {
-        await axios.patch(`/task/${taskId}/status`, { 
-          status: newStatus, 
-          remarks: remarks || `Status changed to ${newStatus}`
-        });
-        
-        fetchAssignedToMeTasks();
-        fetchOverdueTasks();
-        showSnackbar('Status updated successfully', 'success');
-      } catch (fallbackErr) {
-        console.error("Fallback also failed:", fallbackErr);
-        showSnackbar('Failed to update task status', 'error');
-      }
+      showSnackbar('Failed to update task status: ' + (err.response?.data?.message || err.message), 'error');
     }
   };
 
@@ -927,9 +1157,16 @@ const UserCreateTask = () => {
     }
 
     try {
-      await axios.patch(`/task/${taskId}/overdue`, { 
-        remarks: remarks || 'Manually marked as overdue'
-      });
+      if (taskViewMode === 'assigned') {
+        await axios.patch(`/tasks/assigned/${taskId}/status`, { 
+          status: 'overdue',
+          remarks: remarks || 'Manually marked as overdue'
+        });
+      } else {
+        await axios.patch(`/task/${taskId}/overdue`, { 
+          remarks: remarks || 'Manually marked as overdue'
+        });
+      }
 
       if (taskViewMode === 'self') {
         fetchMyTasks();
@@ -1078,51 +1315,71 @@ const UserCreateTask = () => {
     navigate('/login');
   };
 
-  // ===== LOAD INITIAL DATA =====
+  // LOAD INITIAL DATA
   useEffect(() => {
     const loadData = async () => {
       setPageLoading(true);
       console.log('🚀 Loading initial data...');
       
       try {
-        // First get user data
-        fetchUserData();
-        
-        // Small delay to ensure user data is set
-        setTimeout(() => {
-          if (!authError && userId) {
-            console.log('👤 User authenticated, fetching tasks...');
-            fetchMyTasks();
-            fetchAssignedToMeTasks();
-            fetchOverdueTasks();
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          const userIdFromStorage = user.id || user._id;
+          const userRoleFromStorage = user.role || user.jobRole;
+          const userNameFromStorage = user.name;
+          
+          if (userIdFromStorage && userRoleFromStorage && userNameFromStorage) {
+            console.log('👤 User found in localStorage:', { 
+              userId: userIdFromStorage, 
+              role: userRoleFromStorage,
+              name: userNameFromStorage 
+            });
+            
+            setUserRole(userRoleFromStorage);
+            setUserId(userIdFromStorage);
+            setUserName(userNameFromStorage);
+            setAuthError(false);
+            
+            console.log('📡 Fetching tasks for user:', userIdFromStorage);
+            
+            await Promise.all([
+              fetchMyTasks(),
+              fetchAssignedToMeTasks(),
+              fetchOverdueTasks()
+            ]);
           } else {
-            console.log('⚠️ User not authenticated yet, waiting...');
+            console.error('❌ Invalid user data in localStorage');
+            setAuthError(true);
           }
-        }, 1000);
-        
+        } else {
+          console.error('❌ No user data in localStorage');
+          setAuthError(true);
+        }
       } catch (error) {
         console.error('❌ Error loading data:', error);
+        setAuthError(true);
       } finally {
         setTimeout(() => {
           setPageLoading(false);
-        }, 2000);
+        }, 500);
       }
     };
     
     loadData();
-  }, []); // Run once on mount
+  }, []);
 
   // Fetch when user ID becomes available
   useEffect(() => {
-    if (userId && !authError) {
+    if (userId && !authError && !pageLoading) {
       console.log('👤 User ID available, fetching assigned tasks...');
       fetchAssignedToMeTasks();
     }
-  }, [userId, authError]);
+  }, [userId, authError, pageLoading]);
 
   // Fetch when filters change
   useEffect(() => {
-    if (!authError && userId) {
+    if (!authError && userId && !pageLoading) {
       const timer = setTimeout(() => {
         console.log('🔄 Filters changed, refetching data');
         if (taskViewMode === 'self') {
@@ -1134,7 +1391,7 @@ const UserCreateTask = () => {
       
       return () => clearTimeout(timer);
     }
-  }, [statusFilter, searchTerm, timeFilter, authError, userId, taskViewMode]);
+  }, [statusFilter, searchTerm, timeFilter, authError, userId, taskViewMode, pageLoading]);
 
   // Cleanup effect
   useEffect(() => {
@@ -1151,1468 +1408,7 @@ const UserCreateTask = () => {
     };
   }, [remarkImages]);
 
-  // ===== RENDER VIEW MODE TOGGLE =====
-  const renderViewModeToggle = () => (
-    <div className="user-create-task-view-toggle">
-      <button
-        className={`user-create-task-view-toggle-btn ${taskViewMode === 'self' ? 'active' : ''}`}
-        onClick={() => handleViewModeChange('self')}
-      >
-        <FiUser size={16} />
-        My Personal Tasks
-        {taskViewMode === 'self' && Object.keys(myTasksGrouped).length > 0 && (
-          <span className="view-toggle-count">{Object.values(myTasksGrouped).flat().length}</span>
-        )}
-      </button>
-      <button
-        className={`user-create-task-view-toggle-btn ${taskViewMode === 'assigned' ? 'active' : ''}`}
-        onClick={() => handleViewModeChange('assigned')}
-      >
-        <FiUsers size={16} />
-        Assigned to Me
-        {taskViewMode === 'assigned' && Object.keys(assignedToMeTasksGrouped).length > 0 && (
-          <span className="view-toggle-count">{Object.values(assignedToMeTasksGrouped).flat().length}</span>
-        )}
-      </button>
-    </div>
-  );
-
-  // ===== RENDER STATISTICS CARDS =====
-  const renderStatisticsCards = () => {
-    const statsToShow = taskViewMode === 'self' ? taskStats : assignedTaskStats;
-    
-    const statsData = taskViewMode === 'self' 
-      ? [
-          { title: 'Total Tasks', value: statsToShow.total, icon: FiList, color: 'primary', description: `All tasks (${timeFilter})`, clickable: false, status: null },
-          { title: 'Completed', value: statsToShow.completed.count, percentage: statsToShow.completed.percentage, icon: FiCheckCircle, color: 'success', description: `${statsToShow.completed.percentage}% of total`, status: 'completed', clickable: true },
-          { title: 'In Progress', value: statsToShow.inProgress.count, percentage: statsToShow.inProgress.percentage, icon: FiTrendingUp, color: 'info', description: `${statsToShow.inProgress.percentage}% of total`, status: 'in-progress', clickable: true },
-          { title: 'Pending', value: statsToShow.pending.count, percentage: statsToShow.pending.percentage, icon: FiClock, color: 'warning', description: `${statsToShow.pending.percentage}% of total`, status: 'pending', clickable: true },
-          { title: 'Overdue', value: statsToShow.overdue.count, percentage: statsToShow.overdue.percentage, icon: FiAlertCircle, color: 'error', description: `${statsToShow.overdue.percentage}% of total`, status: 'overdue', clickable: true }
-        ]
-      : [
-          { title: 'Total Tasks', value: statsToShow.total, icon: FiList, color: 'primary', description: `All assigned tasks (${timeFilter})`, clickable: false, status: null },
-          { title: 'Completed', value: statsToShow.completed.count, percentage: statsToShow.completed.percentage, icon: FiCheckCircle, color: 'success', description: `${statsToShow.completed.percentage}% of total`, status: 'completed', clickable: true },
-          { title: 'In Progress', value: statsToShow.inProgress.count, percentage: statsToShow.inProgress.percentage, icon: FiTrendingUp, color: 'info', description: `${statsToShow.inProgress.percentage}% of total`, status: 'in-progress', clickable: true },
-          { title: 'Pending', value: statsToShow.pending.count, percentage: statsToShow.pending.percentage, icon: FiClock, color: 'warning', description: `${statsToShow.pending.percentage}% of total`, status: 'pending', clickable: true },
-          { title: 'Overdue', value: statsToShow.overdue.count, percentage: statsToShow.overdue.percentage, icon: FiAlertCircle, color: 'error', description: `${statsToShow.overdue.percentage}% of total`, status: 'overdue', clickable: true }
-        ];
-
-    return (
-      <div className="user-create-task-grid-container">
-        {statsData
-          .filter(stat => stat.value > 0 || stat.title === 'Total Tasks')
-          .map((stat, index) => {
-            const isActive = stat.status === statusFilter;
-            
-            return (
-              <StatCard
-                key={index}
-                color={stat.color}
-                clickable={stat.clickable}
-                active={isActive}
-                onClick={() => stat.clickable && handleStatsCardClick(stat.status)}
-              >
-                <div className="user-create-task-stat-card-content">
-                  <div className="user-create-task-stat-card-header">
-                    <div>
-                      <div className="user-create-task-stat-card-title">{stat.title}</div>
-                      <div className="user-create-task-stat-card-value">{stat.value}</div>
-                    </div>
-                    <div 
-                      className="user-create-task-stat-card-icon"
-                      style={{
-                        backgroundColor: `${getColorValue(stat.color)}15`,
-                        color: getColorValue(stat.color)
-                      }}
-                    >
-                      {React.createElement(stat.icon, { size: isMobile ? 16 : 18 })}
-                    </div>
-                  </div>
-
-                  {stat.percentage !== undefined && (
-                    <div className="user-create-task-progress-container">
-                      <div className="user-create-task-progress-header">
-                        <div className="user-create-task-progress-label">Progress</div>
-                        <div className="user-create-task-progress-percentage">{stat.percentage}%</div>
-                      </div>
-                      <div className="user-create-task-progress-bar">
-                        <div 
-                          className="user-create-task-progress-fill"
-                          style={{
-                            width: `${stat.percentage}%`,
-                            backgroundColor: getColorValue(stat.color)
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="user-create-task-stat-card-description">{stat.description}</div>
-                </div>
-              </StatCard>
-            );
-          })}
-      </div>
-    );
-  };
-
-  // ===== RENDER TIME FILTER =====
-  const renderTimeFilter = () => (
-    <div className="user-create-task-time-filter">
-      <div className="user-create-task-time-filter-header">
-        <div>
-          <div className="user-create-task-time-filter-title">Filter by Time Period</div>
-          <div className="user-create-task-time-filter-subtitle">Select a timeframe to view task statistics</div>
-        </div>
-        {timeFilter !== 'today' && (
-          <button
-            className="user-create-task-button user-create-task-button-text"
-            onClick={() => handleTimeFilterChange('all')}
-          >
-            <FiRotateCcw size={14} />
-            {!isMobile && "Reset"}
-          </button>
-        )}
-      </div>
-
-      <div className="user-create-task-time-filter-buttons">
-        {[
-          { value: "all", label: "All Time", icon: FiGlobe },
-          { value: "today", label: "Today", icon: FiSun },
-          { value: "yesterday", label: "Yesterday", icon: FiCalendar },
-          { value: "this-week", label: "This Week", icon: FiClock },
-          { value: "last-week", label: "Last Week", icon: FiCalendar },
-          { value: "this-month", label: "This Month", icon: FiCalendar },
-          { value: "last-month", label: "Last Month", icon: FiCalendar },
-        ].map((period) => {
-          const isActive = timeFilter === period.value;
-          
-          return (
-            <button
-              key={period.value}
-              className={`user-create-task-time-filter-button ${isActive ? 'active' : ''}`}
-              onClick={() => handleTimeFilterChange(period.value)}
-            >
-              {React.createElement(period.icon, { size: isMobile ? 12 : 14 })}
-              {isMobile ? period.label.split(' ')[0] : period.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  // ===== RENDER ACTION BUTTONS =====
-  const renderActionButtons = (task, isAssignedTask = false) => {
-    const myStatus = isAssignedTask 
-      ? getAssignedTaskStatus(task)
-      : getUserStatusForTask(task, userId);
-    
-    const dueDate = isAssignedTask ? (task.dueDate || task.dueDateTime) : task.dueDateTime;
-    const taskIsOverdue = isOverdue(dueDate, myStatus);
-    
-    return (
-      <div className="user-create-task-action-buttons">
-        {taskIsOverdue && (
-          <button 
-            className="user-create-task-action-button overdue-mark"
-            onClick={() => markTaskAsOverdue(task._id, 'Manual overdue marking')}
-            title="Mark as Overdue"
-            style={{ backgroundColor: '#f44336', color: 'white' }}
-          >
-            <FiAlertTriangle size={isMobile ? 14 : 16} />
-          </button>
-        )}
-
-        <button 
-          className="user-create-task-action-button"
-          onClick={() => fetchTaskRemarks(task._id)}
-          title="View Remarks"
-        >
-          <FiMessageSquare size={isMobile ? 14 : 16} />
-        </button>
-
-        <button 
-          className="user-create-task-action-button"
-          onClick={() => fetchActivityLogs(task._id)}
-          title="Activity Logs"
-        >
-          <FiActivity size={isMobile ? 14 : 16} />
-        </button>
-
-        {task.files?.length > 0 && (
-          <a
-            className="user-create-task-action-button"
-            href={getImageUrl(task.files[0].path || task.files[0])}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Download Files"
-          >
-            <FiDownload size={isMobile ? 14 : 16} />
-          </a>
-        )}
-      </div>
-    );
-  };
-
-  // ===== RENDER STATUS SELECT =====
-  const renderStatusSelect = (task, isAssignedTask = false) => {
-    if (isAssignedTask) {
-      const status = getAssignedTaskStatus(task);
-      const dueDate = task.dueDate || task.dueDateTime;
-      const taskIsOverdue = isOverdue(dueDate, status);
-      
-      return (
-        <select
-          value={status}
-          onChange={(e) => {
-            const selectedStatus = e.target.value;
-            if (selectedStatus === 'completed' || selectedStatus === 'in-progress' || selectedStatus === 'pending') {
-              setPendingStatusChange({ taskId: task._id, status: selectedStatus });
-              setRemarksDialog({ open: true, taskId: task._id, remarks: [] });
-            } else {
-              handleAssignedTaskStatusChange(task._id, selectedStatus);
-            }
-          }}
-          className="user-create-task-select"
-          style={{ 
-            minWidth: isMobile ? '90px' : '100px',
-            borderColor: taskIsOverdue ? '#f44336' : undefined,
-            color: taskIsOverdue ? '#f44336' : undefined,
-            fontWeight: taskIsOverdue ? '600' : undefined
-          }}
-        >
-          <option value="pending">Pending</option>
-          <option value="in-progress">In Progress</option>
-          <option value="completed">Completed</option>
-          <option value="overdue">Overdue</option>
-        </select>
-      );
-    } else {
-      const myStatus = getUserStatusForTask(task, userId);
-      const taskIsOverdue = isOverdue(task.dueDateTime, myStatus);
-      
-      return (
-        <select
-          value={myStatus}
-          onChange={(e) => {
-            const selectedStatus = e.target.value;
-            if (["completed", "onhold", "reopen", "cancelled", "rejected", "overdue"].includes(selectedStatus)) {
-              setPendingStatusChange({ taskId: task._id, status: selectedStatus });
-              setRemarksDialog({ open: true, taskId: task._id, remarks: [] });
-            } else {
-              handleStatusChange(task._id, selectedStatus);
-            }
-          }}
-          className="user-create-task-select"
-          style={{ 
-            minWidth: isMobile ? '90px' : '100px',
-            borderColor: taskIsOverdue ? '#f44336' : undefined,
-            color: taskIsOverdue ? '#f44336' : undefined,
-            fontWeight: taskIsOverdue ? '600' : undefined
-          }}
-        >
-          <option value="pending">Pending</option>
-          <option value="in-progress">In Progress</option>
-          <option value="completed">Completed</option>
-          <option value="overdue">Overdue</option>
-          <option value="rejected">Rejected</option>
-          <option value="onhold">On Hold</option>
-          <option value="reopen">Reopen</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-      );
-    }
-  };
-
-  // ===== RENDER DESKTOP TABLE =====
-  const renderDesktopTable = (tasksData, isAssignedView = false) => {
-    console.log('🎨 Rendering desktop table with data:', tasksData);
-    
-    if (!tasksData || Object.keys(tasksData).length === 0) {
-      return <div className="user-create-task-empty-state">No tasks to display</div>;
-    }
-    
-    return Object.entries(tasksData).map(([dateKey, tasks]) => (
-      <div key={dateKey} style={{ marginTop: '24px' }}>
-        <div style={{ 
-          padding: isMobile ? '12px' : '16px',
-          borderRadius: isMobile ? '6px' : '8px',
-          backgroundColor: '#f5f5f5',
-          marginBottom: '16px',
-          fontSize: isMobile ? '14px' : '16px',
-          fontWeight: 'bold'
-        }}>
-          📅 {dateKey} ({tasks.length} {tasks.length === 1 ? 'task' : 'tasks'})
-        </div>
-        <div className="user-create-task-table-container">
-          <table className="user-create-task-table">
-            <thead>
-              <tr style={{ backgroundColor: '#f5f5f5' }}>
-                <th style={{ padding: isMobile ? '8px' : '12px' }}>Title</th>
-                {!isMobile && <th style={{ padding: isMobile ? '8px' : '12px' }}>Description</th>}
-                <th style={{ padding: isMobile ? '8px' : '12px' }}>Due Date</th>
-                <th style={{ padding: isMobile ? '8px' : '12px' }}>Priority</th>
-                <th style={{ padding: isMobile ? '8px' : '12px' }}>Status</th>
-                {isAssignedView && <th style={{ padding: isMobile ? '8px' : '12px' }}>Client</th>}
-                <th style={{ padding: isMobile ? '8px' : '12px' }}>Files</th>
-                <th style={{ padding: isMobile ? '8px' : '12px' }}>Actions</th>
-                <th style={{ padding: isMobile ? '8px' : '12px' }}>Change Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tasks.map((task) => {
-                const status = isAssignedView 
-                  ? getAssignedTaskStatus(task)
-                  : getUserStatusForTask(task, userId);
-                
-                const dueDate = isAssignedView 
-                  ? (task.dueDate || task.dueDateTime)
-                  : task.dueDateTime;
-                
-                const taskIsOverdue = isOverdue(dueDate, status);
-                const priority = task.priority || 'medium';
-
-                return (
-                  <tr 
-                    key={task._id} 
-                    className={`user-create-task-table-row ${taskIsOverdue ? 'overdue-task' : ''}`}
-                    style={taskIsOverdue ? { 
-                      borderLeft: '4px solid #f44336',
-                      backgroundColor: '#fff5f5'
-                    } : {}}
-                  >
-                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                      <div style={{ fontWeight: 600, fontSize: isMobile ? '13px' : '14px' }}>
-                        {task.title || task.name || 'Untitled'}
-                      </div>
-                      {isMobile && (
-                        <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                          {(task.description || '').length > 50 
-                            ? (task.description || '').substring(0, 50) + '...' 
-                            : task.description || ''}
-                        </div>
-                      )}
-                    </td>
-                    {!isMobile && (
-                      <td style={{ padding: '12px', maxWidth: '200px' }}>
-                        <div style={{ fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {task.description || task.name || '-'}
-                        </div>
-                      </td>
-                    )}
-                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                      <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
-                        <FiCalendar size={isMobile ? 12 : 14} />
-                        <div style={{
-                          fontSize: isMobile ? '13px' : '14px',
-                          color: taskIsOverdue ? '#f44336' : '#333',
-                          fontWeight: taskIsOverdue ? '600' : '500'
-                        }}>
-                          {dueDate
-                            ? new Date(dueDate).toLocaleDateString()
-                            : '—'}
-                        </div>
-                        {taskIsOverdue && (
-                          <div 
-                            className="user-create-task-overdue-badge"
-                            style={{
-                              backgroundColor: '#f44336',
-                              color: 'white',
-                              padding: '2px 8px',
-                              borderRadius: '12px',
-                              fontSize: '11px',
-                              fontWeight: '600'
-                            }}
-                          >
-                            OVERDUE
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                      <PriorityChip priority={priority} />
-                    </td>
-                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                      <StatusChip status={status} label={status} />
-                    </td>
-                    
-                    {isAssignedView && (
-                      <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                        {task.clientName || task.clientId?.name || 'N/A'}
-                      </td>
-                    )}
-                    
-                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                      {task.files?.length > 0 && (
-                        <a
-                          className="user-create-task-action-button"
-                          href={getImageUrl(task.files[0].path || task.files[0])}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title={`${task.files.length} file(s)`}
-                        >
-                          <FiDownload size={isMobile ? 14 : 16} />
-                        </a>
-                      )}
-                    </td>
-
-                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                      {renderActionButtons(task, isAssignedView)}
-                    </td>
-                    <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                      {renderStatusSelect(task, isAssignedView)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    ));
-  };
-
-  // ===== RENDER MOBILE CARDS =====
-  const renderMobileCards = (tasksData, isAssignedView = false) => {
-    return Object.entries(tasksData).map(([dateKey, tasks]) => (
-      <div key={dateKey} style={{ marginTop: isMobile ? '16px' : '20px' }}>
-        <div style={{ 
-          padding: isMobile ? '12px' : '16px',
-          backgroundColor: '#f5f5f5',
-          marginBottom: isMobile ? '8px' : '12px',
-          fontSize: isMobile ? '14px' : '16px',
-          fontWeight: 'bold'
-        }}>
-          📅 {dateKey} ({tasks.length} {tasks.length === 1 ? 'task' : 'tasks'})
-        </div>
-        <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2">
-          {tasks.map((task) => {
-            const status = isAssignedView 
-              ? getAssignedTaskStatus(task)
-              : getUserStatusForTask(task, userId);
-            
-            const dueDate = isAssignedView 
-              ? (task.dueDate || task.dueDateTime)
-              : task.dueDateTime;
-            
-            const taskIsOverdue = isOverdue(dueDate, status);
-            const priority = task.priority || 'medium';
-
-            return (
-              <div 
-                key={task._id} 
-                className={`user-create-task-mobile-card ${taskIsOverdue ? 'overdue-task' : ''}`}
-                style={taskIsOverdue ? { 
-                  borderLeft: '4px solid #f44336',
-                  backgroundColor: '#fff5f5'
-                } : {}}
-              >
-                <div className="user-create-task-mobile-card-content">
-                  <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2">
-                    <div className="user-create-task-mobile-card-header">
-                      <div style={{ flex: 1 }}>
-                        <div className="user-create-task-mobile-card-title">
-                          {task.title || task.name || 'Untitled'}
-                        </div>
-                        <div className="user-create-task-mobile-card-description">
-                          {task.description || ''}
-                        </div>
-                        {isAssignedView && task.clientName && (
-                          <div className="user-create-task-mobile-card-client" style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                            Client: {task.clientName}
-                          </div>
-                        )}
-                      </div>
-                      <StatusChip status={status} label={status} />
-                    </div>
-
-                    <div className="user-create-task-mobile-card-details">
-                      <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
-                        <FiCalendar size={isMobile ? 12 : 14} />
-                        <div style={{ 
-                          fontSize: isMobile ? '13px' : '14px', 
-                          color: taskIsOverdue ? '#f44336' : '#333',
-                          fontWeight: taskIsOverdue ? '600' : '400'
-                        }}>
-                          {dueDate ? new Date(dueDate).toLocaleDateString() : 'No date'}
-                        </div>
-                        {taskIsOverdue && (
-                          <div 
-                            style={{
-                              backgroundColor: '#f44336',
-                              color: 'white',
-                              padding: '2px 8px',
-                              borderRadius: '12px',
-                              fontSize: '10px',
-                              fontWeight: '600',
-                              marginLeft: '4px'
-                            }}
-                          >
-                            OVERDUE
-                          </div>
-                        )}
-                      </div>
-                      <PriorityChip priority={priority} />
-                    </div>
-
-                    <div className="user-create-task-mobile-card-actions">
-                      <div className="user-create-task-flex user-create-task-gap-1">
-                        {renderActionButtons(task, isAssignedView)}
-                      </div>
-                      <div style={{ minWidth: isMobile ? '90px' : '100px' }}>
-                        {renderStatusSelect(task, isAssignedView)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    ));
-  };
-
-  // ===== RENDER GROUPED TASKS (FIXED) =====
-  const renderGroupedTasks = () => {
-    console.log('🔍 renderGroupedTasks - Current view:', taskViewMode);
-    console.log('📦 myTasksGrouped:', myTasksGrouped);
-    console.log('📦 assignedToMeTasksGrouped:', assignedToMeTasksGrouped);
-    
-    const tasksToDisplay = taskViewMode === 'self' ? myTasksGrouped : assignedToMeTasksGrouped;
-    
-    console.log('📊 tasksToDisplay keys:', Object.keys(tasksToDisplay));
-    console.log('📊 tasksToDisplay has data?', Object.keys(tasksToDisplay).length > 0);
-    
-    // 🔥 IMPORTANT: Directly check if we have data
-    const hasData = tasksToDisplay && Object.keys(tasksToDisplay).length > 0;
-    
-    if (!hasData) {
-      console.log('⚠️ No data to display, showing empty state');
-      return (
-        <div className="user-create-task-empty-state">
-          <div className="user-create-task-empty-state-icon">
-            {taskViewMode === 'self' ? <FiUser size={48} /> : <FiUsers size={48} />}
-          </div>
-          <div className="user-create-task-empty-state-title">
-            {taskViewMode === 'self' 
-              ? 'No personal tasks found' 
-              : 'No tasks assigned to you'}
-          </div>
-          <div className="user-create-task-empty-state-subtitle">
-            {taskViewMode === 'self'
-              ? 'Create a personal task to get started'
-              : 'You have no tasks assigned from clients'}
-          </div>
-        </div>
-      );
-    }
-
-    // 🔥 We have data, render it!
-    console.log('✅ Data found, rendering now!');
-    return isMobile 
-      ? renderMobileCards(tasksToDisplay, taskViewMode === 'assigned') 
-      : renderDesktopTable(tasksToDisplay, taskViewMode === 'assigned');
-  };
-
-  // ===== RENDER OVERDUE TASKS SECTION =====
-  const renderOverdueTasksSection = () => {
-    if (getOverdueCount === 0) return null;
-
-    return (
-      <div className="user-create-task-paper" style={{ 
-        marginTop: '16px',
-        borderLeft: '4px solid #f44336'
-      }}>
-        <div style={{ 
-          padding: isMobile ? '12px 16px' : '16px 24px', 
-          borderBottom: '1px solid #ffcdd2',
-          backgroundColor: '#fff5f5'
-        }}>
-          <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1.5">
-            <FiAlertTriangle size={isMobile ? 18 : 20} color="#f44336" />
-            <div style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: 700, color: '#f44336' }}>
-              ⚠️ Overdue Tasks ({getOverdueCount})
-            </div>
-          </div>
-          <div style={{ fontSize: isMobile ? '13px' : '14px', color: '#d32f2f', marginTop: '4px' }}>
-            Tasks past their due date requiring immediate attention
-          </div>
-        </div>
-
-        <div className="user-create-task-paper-content">
-          {Object.keys(taskViewMode === 'self' ? myTasksGrouped : assignedToMeTasksGrouped).map(dateKey => {
-            const tasksToCheck = taskViewMode === 'self' ? myTasksGrouped : assignedToMeTasksGrouped;
-            
-            const overdueTasksForDate = tasksToCheck[dateKey].filter(task => {
-              if (taskViewMode === 'self') {
-                const myStatus = getUserStatusForTask(task, userId);
-                return isOverdue(task.dueDateTime, myStatus);
-              } else {
-                const status = getAssignedTaskStatus(task);
-                const dueDate = task.dueDate || task.dueDateTime;
-                return isOverdue(dueDate, status);
-              }
-            });
-
-            if (overdueTasksForDate.length === 0) return null;
-
-            return (
-              <div key={dateKey} style={{ marginTop: '16px' }}>
-                <div style={{ 
-                  padding: isMobile ? '10px 12px' : '12px 16px',
-                  backgroundColor: '#ffebee',
-                  borderRadius: '4px',
-                  fontSize: isMobile ? '13px' : '14px',
-                  fontWeight: '600',
-                  color: '#c62828'
-                }}>
-                  📅 {dateKey} - {overdueTasksForDate.length} overdue task(s)
-                </div>
-                <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2" style={{ marginTop: '8px' }}>
-                  {overdueTasksForDate.map(task => {
-                    const status = taskViewMode === 'self' 
-                      ? getUserStatusForTask(task, userId)
-                      : getAssignedTaskStatus(task);
-                    
-                    const dueDate = taskViewMode === 'self' 
-                      ? task.dueDateTime 
-                      : (task.dueDate || task.dueDateTime);
-                    
-                    return (
-                      <div 
-                        key={task._id} 
-                        className="user-create-task-overdue-item"
-                        style={{
-                          borderLeft: '3px solid #f44336',
-                          backgroundColor: '#fff5f5',
-                          padding: isMobile ? '12px' : '16px',
-                          borderRadius: '4px'
-                        }}
-                      >
-                        <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-start">
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600, fontSize: isMobile ? '14px' : '15px', color: '#333' }}>
-                              {task.title || task.name}
-                            </div>
-                            <div style={{ fontSize: isMobile ? '12px' : '13px', color: '#666', marginTop: '4px' }}>
-                              {(task.description || '').length > 80 
-                                ? (task.description || '').substring(0, 80) + '...' 
-                                : task.description || ''}
-                            </div>
-                          </div>
-                          <div className="user-create-task-flex user-create-task-gap-1">
-                            <button
-                              className="user-create-task-button user-create-task-button-contained"
-                              onClick={() => {
-                                if (taskViewMode === 'self') {
-                                  handleStatusChange(task._id, 'in-progress', 'Working on overdue task');
-                                } else {
-                                  handleAssignedTaskStatusChange(task._id, 'in-progress', 'Working on overdue task');
-                                }
-                              }}
-                              style={{
-                                padding: isMobile ? '6px 8px' : '8px 12px',
-                                backgroundColor: '#1976d2',
-                                fontSize: isMobile ? '11px' : '12px'
-                              }}
-                            >
-                              Start
-                            </button>
-                            <button
-                              className="user-create-task-button user-create-task-button-outlined"
-                              onClick={() => markTaskAsOverdue(task._id, 'Manual overdue marking')}
-                              style={{
-                                padding: isMobile ? '6px 8px' : '8px 12px',
-                                borderColor: '#f44336',
-                                color: '#f44336',
-                                fontSize: isMobile ? '11px' : '12px'
-                              }}
-                            >
-                              Mark
-                            </button>
-                          </div>
-                        </div>
-                        <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center" style={{ marginTop: '8px' }}>
-                          <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#666' }}>
-                            Due: {dueDate ? new Date(dueDate).toLocaleDateString() : 'No date'}
-                          </div>
-                          <StatusChip status={status} label={status} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
-  // ===== RENDER REMARKS DIALOG =====
-  const renderRemarksDialog = () => (
-    <div className="user-create-task-dialog-overlay" style={{ display: remarksDialog.open ? 'flex' : 'none' }}>
-      <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ maxWidth: isMobile ? '95%' : isTablet ? '700px' : '800px', width: isMobile ? '95%' : 'auto' }}>
-        <div className="user-create-task-dialog-title">
-          <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
-            <FiMessageSquare />
-            <div>Task Remarks</div>
-          </div>
-        </div>
-        
-        <div className="user-create-task-dialog-content">
-          <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
-            {/* Add New Remark Section */}
-            <div className="user-create-task-paper">
-              <div className="user-create-task-paper-content">
-                <div style={{ marginBottom: isMobile ? '12px' : '16px', fontWeight: 600 }}>Add New Remark</div>
-                
-                <textarea
-                  className="user-create-task-input"
-                  rows={isMobile ? 2 : 3}
-                  placeholder="Enter your remark here..."
-                  value={newRemark}
-                  onChange={(e) => setNewRemark(e.target.value)}
-                  style={{ marginBottom: isMobile ? '12px' : '16px', width: '100%' }}
-                />
-
-                {/* Image Upload Section */}
-                <div style={{ marginBottom: isMobile ? '12px' : '16px' }}>
-                  <div style={{ marginBottom: isMobile ? '6px' : '8px', fontWeight: 600 }}>Attach Images (Optional)</div>
-                  
-                  <div
-                    onDragOver={handleDragOver}
-                    onDrop={handleDrop}
-                    onClick={() => document.getElementById('remark-image-upload').click()}
-                    style={{
-                      border: '2px dashed #ccc',
-                      borderRadius: isMobile ? '6px' : '8px',
-                      padding: isMobile ? '16px' : '24px',
-                      textAlign: 'center',
-                      backgroundColor: 'white',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease'
-                    }}
-                  >
-                    <div className="user-create-task-flex user-create-task-flex-column user-create-task-align-center user-create-task-gap-1">
-                      <button
-                        className="user-create-task-button user-create-task-button-outlined"
-                        style={{ marginTop: '8px', padding: isMobile ? '8px 12px' : '10px 16px' }}
-                      >
-                        <FiCamera />
-                        {!isMobile && "Choose Images"}
-                      </button>
-                    </div>
-                    
-                    <input
-                      id="remark-image-upload"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleRemarkImageUpload}
-                      style={{ display: 'none' }}
-                    />
-                  </div>
-
-                  {/* Image Previews */}
-                  {remarkImages.length > 0 && (
-                    <div style={{ marginTop: isMobile ? '12px' : '16px' }}>
-                      <div style={{ marginBottom: isMobile ? '6px' : '8px', fontWeight: 600 }}>Selected Image</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: isMobile ? '6px' : '8px' }}>
-                        {remarkImages.map((image, index) => (
-                          <div key={index} style={{ position: 'relative' }}>
-                            <img
-                              src={image.preview}
-                              alt={`Preview ${index + 1}`}
-                              style={{
-                                width: '100%',
-                                height: isMobile ? '60px' : '80px',
-                                objectFit: 'cover',
-                                borderRadius: '4px'
-                              }}
-                              onClick={() => setZoomImage(image.preview)}
-                            />
-                            <button
-                              style={{
-                                position: 'absolute',
-                                top: '4px',
-                                right: '4px',
-                                backgroundColor: '#f44336',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '50%',
-                                width: isMobile ? '20px' : '24px',
-                                height: isMobile ? '20px' : '24px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: isMobile ? '12px' : '14px'
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemoveRemarkImage(index);
-                              }}
-                            >
-                              <FiX size={isMobile ? 12 : 14} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Remarks History */}
-            <div>
-              <div style={{ marginBottom: isMobile ? '12px' : '16px', fontWeight: 600 }}>Remarks History</div>
-              
-              {remarksDialog.remarks.length > 0 ? (
-                <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2">
-                  {remarksDialog.remarks.map((remark, index) => (
-                    <div key={index} className="user-create-task-paper">
-                      <div className="user-create-task-paper-content">
-                        <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-1.5">
-                          <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center user-create-task-gap-1">
-                            <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1.5">
-                              <div style={{
-                                width: isMobile ? '32px' : '36px',
-                                height: isMobile ? '32px' : '36px',
-                                borderRadius: '50%',
-                                backgroundColor: '#f0f0f0',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontWeight: 600,
-                                fontSize: isMobile ? '14px' : '16px'
-                              }}>
-                                {remark.user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                              </div>
-                              <div>
-                                <div style={{ fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>
-                                  {remark.user?.name || 'Unknown User'}
-                                </div>
-                                <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#666' }}>
-                                  {new Date(remark.createdAt).toLocaleDateString()} at {' '}
-                                  {new Date(remark.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {remark.text && (
-                            <div style={{ 
-                              padding: isMobile ? '8px' : '12px',
-                              backgroundColor: '#fafafa',
-                              borderRadius: '4px',
-                              fontSize: isMobile ? '13px' : '14px'
-                            }}>
-                              {remark.text}
-                            </div>
-                          )}
-
-                          {remark.image && (
-                            <div style={{ marginTop: isMobile ? '6px' : '8px' }}>
-                              <div style={{ fontSize: isMobile ? '11px' : '12px', marginBottom: '4px' }}>
-                                Attached Image:
-                              </div>
-                              <div 
-                                onClick={() => setZoomImage(getImageUrl(remark.image))}
-                                style={{ cursor: 'pointer' }}
-                              >
-                                <img
-                                  src={getImageUrl(remark.image)}
-                                  alt="Remark attachment"
-                                  style={{
-                                    width: '100%',
-                                    height: 'auto',
-                                    borderRadius: '4px',
-                                    maxHeight: '300px',
-                                    objectFit: 'contain',
-                                    border: '1px solid #eee'
-                                  }}
-                                  onError={(e) => {
-                                    console.error('❌ Image failed to load:', e.target.src);
-                                    
-                                    const baseUrl = (API_URL || 'http://localhost:3000').replace(/\/api$/, '');
-                                    const originalPath = remark.image;
-                                    const filename = originalPath.split(/[\\/]/).pop();
-                                    
-                                    const pathsToTry = [
-                                      `${baseUrl}/uploads/remarks/${filename}`,
-                                      `${baseUrl}/uploads/${filename}`,
-                                      `${baseUrl}/remarks/${filename}`,
-                                      `${baseUrl}/api/uploads/remarks/${filename}`,
-                                      `${baseUrl}/api/uploads/${filename}`,
-                                      `${baseUrl}/api/remarks/${filename}`,
-                                    ];
-                                    
-                                    const uniquePaths = [...new Set(pathsToTry)];
-                                    
-                                    console.log('🔄 Trying alternative paths:', uniquePaths);
-                                    
-                                    let triedIndex = 0;
-                                    const tryNextPath = () => {
-                                      if (triedIndex < uniquePaths.length) {
-                                        console.log(`🔄 Trying path ${triedIndex + 1}:`, uniquePaths[triedIndex]);
-                                        e.target.src = uniquePaths[triedIndex];
-                                        triedIndex++;
-                                      } else {
-                                        e.target.style.display = 'none';
-                                        const parent = e.target.parentElement;
-                                        
-                                        const existingFallback = parent.querySelector('.image-error-fallback');
-                                        if (existingFallback) {
-                                          existingFallback.remove();
-                                        }
-                                        
-                                        const fallback = document.createElement('div');
-                                        fallback.className = 'image-error-fallback';
-                                        fallback.style.cssText = `
-                                          padding: 20px;
-                                          background: #fff3f3;
-                                          border: 1px solid #ffcdd2;
-                                          border-radius: 8px;
-                                          text-align: center;
-                                          color: #d32f2f;
-                                          font-size: 14px;
-                                          display: flex;
-                                          flex-direction: column;
-                                          align-items: center;
-                                          gap: 8px;
-                                        `;
-                                        fallback.innerHTML = `
-                                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <circle cx="12" cy="12" r="10"></circle>
-                                            <line x1="12" y1="8" x2="12" y2="12"></line>
-                                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                                          </svg>
-                                          <span>Image not available</span>
-                                        `;
-                                        parent.appendChild(fallback);
-                                      }
-                                    };
-                                    
-                                    e.target.onerror = tryNextPath;
-                                    tryNextPath();
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="user-create-task-paper" style={{ textAlign: 'center', padding: isMobile ? '24px' : '32px' }}>
-                  <div style={{ marginTop: isMobile ? '12px' : '16px', color: '#666', fontWeight: 600 }}>
-                    No remarks yet
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        
-        {/* Dialog Actions */}
-        <div className="user-create-task-dialog-actions">
-          <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center" style={{ width: '100%' }}>
-            <button
-              className="user-create-task-button user-create-task-button-contained"
-              onClick={async () => {
-                try {
-                  await addRemark(remarksDialog.taskId);
-
-                  if (pendingStatusChange.status) {
-                    if (taskViewMode === 'self') {
-                      await handleStatusChange(
-                        pendingStatusChange.taskId,
-                        pendingStatusChange.status,
-                        newRemark || "Status changed"
-                      );
-                    } else {
-                      await handleAssignedTaskStatusChange(
-                        pendingStatusChange.taskId,
-                        pendingStatusChange.status,
-                        newRemark || "Status changed"
-                      );
-                    }
-                    setPendingStatusChange({ taskId: null, status: "" });
-                  }
-
-                  await fetchTaskRemarks(remarksDialog.taskId);
-                  setNewRemark("");
-                  
-                  if (taskViewMode === 'self') {
-                    fetchMyTasks();
-                  } else {
-                    fetchAssignedToMeTasks();
-                  }
-
-                } catch (error) {
-                  console.error("Error saving remark:", error);
-                }
-              }}
-              disabled={isUploadingRemark || (!newRemark.trim() && remarkImages.length === 0)}
-              style={{ 
-                padding: isMobile ? '8px 12px' : '10px 16px',
-                minWidth: isMobile ? '120px' : '160px',
-                marginRight: 'auto'
-              }}
-            >
-              {isUploadingRemark ? (
-                "Uploading..."
-              ) : pendingStatusChange.status ? (
-                isMobile ? "Save & Update" : "Save Remark "
-              ) : (
-                <>
-                  <FiMessageSquare />
-                  {isMobile ? "Add Remark" : "Add Remark"}
-                </>
-              )}
-            </button>
-
-            <button
-              className="user-create-task-button user-create-task-button-outlined"
-              onClick={() => {
-                setRemarksDialog({ open: false, taskId: null, remarks: [] });
-                setRemarkImages([]);
-                setNewRemark('');
-              }}
-              style={{ 
-                padding: isMobile ? '8px 12px' : '10px 16px',
-                marginLeft: 'auto'
-              }}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ===== RENDER IMAGE ZOOM MODAL =====
-  const renderImageZoomModal = () => (
-    <div className="user-create-task-dialog-overlay" style={{ display: zoomImage ? 'flex' : 'none' }}>
-      <div style={{ 
-        position: 'relative',
-        maxWidth: '90vw',
-        maxHeight: '90vh',
-      }}>
-        <button
-          onClick={() => setZoomImage(null)}
-          style={{
-            position: 'absolute',
-            top: '16px',
-            right: '13px',
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '50%',
-            width: isMobile ? '32px' : '36px',
-            height: isMobile ? '32px' : '36px',
-            cursor: 'pointer',
-            zIndex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-        >
-          <FiX size={isMobile ? 16 : 20} />
-        </button>
-        <img
-          src={zoomImage}
-          alt="Zoomed view"
-          style={{
-            width: '100%',
-            height: 'auto',
-            maxHeight: '77vh',
-            objectFit: 'contain',
-          }}
-          onError={(e) => {
-            console.error('Zoom image failed to load:', e.target.src);
-          }}
-        />
-      </div>
-    </div>
-  );
-
-  // ===== RENDER ACTIVITY LOGS DIALOG =====
-  const renderActivityLogsDialog = () => (
-    <div className="user-create-task-dialog-overlay" style={{ display: activityDialog.open ? 'flex' : 'none' }}>
-      <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
-        maxWidth: isMobile ? '95%' : isTablet ? '700px' : '800px',
-        width: isMobile ? '95%' : 'auto'
-      }}>
-        <div className="user-create-task-dialog-title">
-          <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
-            <FiActivity />
-            <div>Activity Logs</div>
-          </div>
-        </div>
-        <div className="user-create-task-dialog-content">
-          {activityLogs.length > 0 ? (
-            <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-1">
-              {activityLogs.map((log, index) => (
-                <div key={index} className="user-create-task-paper">
-                  <div className="user-create-task-paper-content">
-                    <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-1">
-                      <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center user-create-task-gap-1">
-                        <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1.5">
-                          <div style={{
-                            width: isMobile ? '28px' : '32px',
-                            height: isMobile ? '28px' : '32px',
-                            borderRadius: '50%',
-                            backgroundColor: '#f0f0f0',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 600,
-                            fontSize: isMobile ? '12px' : '14px'
-                          }}>
-                            {log.user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: 600, fontSize: isMobile ? '13px' : '14px' }}>
-                              {log.user?.name || 'Unknown User'}
-                            </div>
-                            <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#666' }}>
-                              {log.user?.role || 'User'}
-                            </div>
-                          </div>
-                        </div>
-                        <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#666' }}>
-                          {new Date(log.createdAt).toLocaleDateString()} at {new Date(log.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </div>
-                      </div>
-                      <div style={{ fontSize: isMobile ? '13px' : '14px' }}>
-                        {log.description}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ color: '#666', textAlign: 'center', padding: isMobile ? '20px' : '24px' }}>
-              No activity logs found for this task
-            </div>
-          )}
-        </div>
-        
-        <div className="user-create-task-dialog-actions">
-          <button
-            className="user-create-task-button user-create-task-button-outlined"
-            onClick={() => setActivityDialog({ open: false, taskId: null })}
-            style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ===== RENDER CALENDAR FILTER DIALOG =====
-  const renderCalendarFilterDialog = () => (
-    <div className="user-create-task-dialog-overlay" style={{ display: calendarFilterOpen ? 'flex' : 'none' }}>
-      <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
-        maxWidth: isMobile ? '95%' : isTablet ? '450px' : '500px',
-        width: isMobile ? '95%' : 'auto'
-      }}>
-        <div className="user-create-task-dialog-title">
-          <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
-            <FiCalendar />
-            <div>Filter by Date</div>
-          </div>
-        </div>
-
-        <div className="user-create-task-dialog-content">
-          <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
-            <div className="user-create-task-form-control">
-              <label>Filter By</label>
-              <select
-                className="user-create-task-select"
-                value={dateFilterType}
-                onChange={(e) => setDateFilterType(e.target.value)}
-              >
-                <option value="createdDate">Created Date</option>
-                <option value="dueDate">Due Date</option>
-              </select>
-            </div>
-
-            <div>
-              <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>Select Specific Date</div>
-              <input
-                type="date"
-                className="user-create-task-input"
-                value={selectedDate ? new Date(selectedDate).toISOString().split('T')[0] : ''}
-                onChange={(e) => {
-                  setSelectedDate(e.target.value);
-                  setDateRange({ start: null, end: null });
-                }}
-              />
-            </div>
-
-            <div>
-              <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>Or Select Date Range</div>
-              <div className="user-create-task-flex user-create-task-gap-2">
-                <div style={{ flex: 1 }}>
-                  <input
-                    type="date"
-                    className="user-create-task-input"
-                    placeholder="Start Date"
-                    value={dateRange.start ? new Date(dateRange.start).toISOString().split('T')[0] : ''}
-                    onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <input
-                    type="date"
-                    className="user-create-task-input"
-                    placeholder="End Date"
-                    value={dateRange.end ? new Date(dateRange.end).toISOString().split('T')[0] : ''}
-                    onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>Quick Filters</div>
-              <div className="user-create-task-flex user-create-task-gap-1 user-create-task-flex-wrap">
-                <button
-                  className="user-create-task-button user-create-task-button-outlined"
-                  onClick={() => {
-                    const today = new Date();
-                    setSelectedDate(today.toISOString().split('T')[0]);
-                    setDateRange({ start: null, end: null });
-                  }}
-                  style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-                >
-                  Today
-                </button>
-                <button
-                  className="user-create-task-button user-create-task-button-outlined"
-                  onClick={() => {
-                    const tomorrow = new Date();
-                    tomorrow.setDate(tomorrow.getDate() + 1);
-                    setSelectedDate(tomorrow.toISOString().split('T')[0]);
-                    setDateRange({ start: null, end: null });
-                  }}
-                  style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-                >
-                  Tomorrow
-                </button>
-                <button
-                  className="user-create-task-button user-create-task-button-outlined"
-                  onClick={() => {
-                    const start = new Date();
-                    const end = new Date();
-                    end.setDate(end.getDate() + 7);
-                    setSelectedDate(null);
-                    setDateRange({ 
-                      start: start.toISOString().split('T')[0], 
-                      end: end.toISOString().split('T')[0] 
-                    });
-                  }}
-                  style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-                >
-                  Next 7 Days
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="user-create-task-dialog-actions">
-          <button
-            className="user-create-task-button user-create-task-button-outlined"
-            onClick={clearDateFilter}
-            style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-          >
-            Clear Filter
-          </button>
-          <button
-            className="user-create-task-button user-create-task-button-contained"
-            onClick={() => setCalendarFilterOpen(false)}
-            style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-          >
-            Apply Filter
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ===== RENDER CREATE TASK DIALOG =====
-  const renderCreateTaskDialog = () => (
-    <div className="user-create-task-dialog-overlay" style={{ display: openDialog ? 'flex' : 'none' }}>
-      <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
-        maxWidth: isMobile ? '95%' : isTablet ? '550px' : '600px',
-        width: isMobile ? '95%' : 'auto'
-      }}>
-        <div className="user-create-task-dialog-title">
-          <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-2">
-            <FiPlus size={isMobile ? 18 : 24} />
-            <div style={{ fontSize: isMobile ? '18px' : '24px' }}>Create Personal Task</div>
-          </div>
-          <div style={{ fontSize: isMobile ? '12px' : '14px', color: '#666', marginTop: '4px' }}>
-            This task will be automatically assigned to you ({userName})
-          </div>
-        </div>
-        
-        <div className="user-create-task-dialog-content">
-          <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
-            <div className="user-create-task-alert info" style={{ padding: isMobile ? '12px' : '16px' }}>
-              This task will be automatically assigned to you ({userName})
-            </div>
-
-            <div className="user-create-task-form-control">
-              <label>Task Title *</label>
-              <input
-                type="text"
-                className="user-create-task-input"
-                placeholder="Enter a descriptive task title"
-                value={newTask.title}
-                onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-              />
-            </div>
-
-            <div className="user-create-task-form-control">
-              <label>Description *</label>
-              <textarea
-                className="user-create-task-input"
-                rows={isMobile ? 3 : 4}
-                placeholder="Provide detailed description of the task..."
-                value={newTask.description}
-                onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-              />
-            </div>
-
-            <div className={`user-create-task-flex ${isMobile ? 'user-create-task-flex-column' : 'user-create-task-gap-2'}`}>
-              <div className="user-create-task-form-control" style={{ flex: 1 }}>
-                <label>Due Date & Time *</label>
-                
-                <input
-                  type="datetime-local"
-                  className="user-create-task-input"
-                  value={newTask.dueDateTime || ''}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    console.log('📅 Selected datetime-local value:', value);
-                    
-                    let formattedValue = value;
-                    if (value && value.includes('T') && value.split(':').length === 2) {
-                      formattedValue = `${value}:00`;
-                    }
-                    
-                    setNewTask({ ...newTask, dueDateTime: formattedValue });
-                  }}
-                  min={new Date().toISOString().slice(0, 16)}
-                />
-              </div>
-
-              <div className="user-create-task-form-control" style={{ flex: 1 }}>
-                <label>Priority</label>
-                <select
-                  className="user-create-task-select"
-                  value={newTask.priority}
-                  onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="user-create-task-form-control">
-              <label>Priority Days</label>
-              <input
-                type="number"
-                className="user-create-task-input"
-                placeholder="Enter priority days"
-                value={newTask.priorityDays}
-                onChange={(e) => setNewTask({ ...newTask, priorityDays: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>Attachments (Optional)</div>
-              
-              <div className={`user-create-task-flex ${isMobile ? 'user-create-task-flex-column user-create-task-gap-2' : 'user-create-task-gap-2'}`}>
-                <button 
-                  className="user-create-task-button user-create-task-button-outlined"
-                  onClick={() => document.getElementById('file-upload').click()}
-                  style={{ flex: 1, padding: isMobile ? '10px' : '12px' }}
-                >
-                  <FiFileText />
-                  {isMobile ? 'Upload' : 'Upload Files'}
-                  <input
-                    id="file-upload"
-                    type="file"
-                    multiple
-                    style={{ display: 'none' }}
-                    onChange={(e) => setNewTask({ ...newTask, files: e.target.files })}
-                  />
-                </button>
-
-                <button
-                  className={`user-create-task-button ${isRecording ? 'user-create-task-button-contained' : 'user-create-task-button-outlined'}`}
-                  onClick={isRecording ? stopRecording : startRecording}
-                  style={{ 
-                    flex: 1,
-                    padding: isMobile ? '10px' : '12px',
-                    backgroundColor: isRecording ? '#f44336' : undefined,
-                    borderColor: isRecording ? '#f44336' : undefined
-                  }}
-                >
-                  <FiMic />
-                  {isRecording ? "Stop" : (isMobile ? "Record" : "Record Voice")}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="user-create-task-dialog-actions">
-          <button
-            className="user-create-task-button user-create-task-button-outlined"
-            onClick={() => setOpenDialog(false)}
-            style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-          >
-            Cancel
-          </button>
-
-          <button
-            className="user-create-task-button user-create-task-button-contained"
-            onClick={handleCreateTask}
-            disabled={!newTask.title || !newTask.description || !newTask.dueDateTime || isCreatingTask}
-            style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-          >
-            {isCreatingTask ? (
-              'Creating...'
-            ) : (
-              <>
-                <FiCheck size={isMobile ? 14 : 16} />
-                {isMobile ? 'Create' : 'Create Task'}
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ===== AUTH ERROR SCREEN =====
+  // AUTH ERROR SCREEN
   if (authError) {
     return (
       <div className="user-create-task-error-container">
@@ -2641,7 +1437,7 @@ const UserCreateTask = () => {
     return <CIISLoader />;
   }
 
-  // ===== MAIN RENDER =====
+  // MAIN RENDER
   return (
     <div className="user-create-task-container">
       {/* Snackbar */}
@@ -2718,7 +1514,28 @@ const UserCreateTask = () => {
       {/* View Mode Toggle */}
       <div className="user-create-task-paper" style={{ marginBottom: '16px' }}>
         <div className="user-create-task-paper-content">
-          {renderViewModeToggle()}
+          <div className="user-create-task-view-toggle">
+            <button
+              className={`user-create-task-view-toggle-btn ${taskViewMode === 'self' ? 'active' : ''}`}
+              onClick={() => handleViewModeChange('self')}
+            >
+              <FiUser size={16} />
+              My Personal Tasks
+              {taskViewMode === 'self' && Object.keys(myTasksGrouped).length > 0 && (
+                <span className="view-toggle-count">{Object.values(myTasksGrouped).flat().length}</span>
+              )}
+            </button>
+            <button
+              className={`user-create-task-view-toggle-btn ${taskViewMode === 'assigned' ? 'active' : ''}`}
+              onClick={() => handleViewModeChange('assigned')}
+            >
+              <FiUsers size={16} />
+              Assigned to Me
+              {taskViewMode === 'assigned' && Object.keys(assignedToMeTasksGrouped).length > 0 && (
+                <span className="view-toggle-count">{Object.values(assignedToMeTasksGrouped).flat().length}</span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -2729,8 +1546,123 @@ const UserCreateTask = () => {
             {taskViewMode === 'self' ? 'Personal Task Statistics' : 'Assigned Task Statistics'}
           </div>
           
-          {renderTimeFilter()}
-          {renderStatisticsCards()}
+          <div className="user-create-task-time-filter">
+            <div className="user-create-task-time-filter-header">
+              <div>
+                <div className="user-create-task-time-filter-title">Filter by Time Period</div>
+                <div className="user-create-task-time-filter-subtitle">Select a timeframe to view task statistics</div>
+              </div>
+              {timeFilter !== 'today' && (
+                <button
+                  className="user-create-task-button user-create-task-button-text"
+                  onClick={() => handleTimeFilterChange('all')}
+                >
+                  <FiRotateCcw size={14} />
+                  {!isMobile && "Reset"}
+                </button>
+              )}
+            </div>
+
+            <div className="user-create-task-time-filter-buttons">
+              {[
+                { value: "all", label: "All Time", icon: FiGlobe },
+                { value: "today", label: "Today", icon: FiSun },
+                { value: "yesterday", label: "Yesterday", icon: FiCalendar },
+                { value: "this-week", label: "This Week", icon: FiClock },
+                { value: "last-week", label: "Last Week", icon: FiCalendar },
+                { value: "this-month", label: "This Month", icon: FiCalendar },
+                { value: "last-month", label: "Last Month", icon: FiCalendar },
+              ].map((period) => {
+                const isActive = timeFilter === period.value;
+                
+                return (
+                  <button
+                    key={period.value}
+                    className={`user-create-task-time-filter-button ${isActive ? 'active' : ''}`}
+                    onClick={() => handleTimeFilterChange(period.value)}
+                  >
+                    {React.createElement(period.icon, { size: isMobile ? 12 : 14 })}
+                    {isMobile ? period.label.split(' ')[0] : period.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="user-create-task-grid-container">
+            {(() => {
+              const statsToShow = taskViewMode === 'self' ? taskStats : assignedTaskStats;
+              const statsData = taskViewMode === 'self' 
+                ? [
+                    { title: 'Total Tasks', value: statsToShow.total, icon: FiList, color: 'primary', description: `All tasks (${timeFilter})`, clickable: false, status: null },
+                    { title: 'Completed', value: statsToShow.completed.count, percentage: statsToShow.completed.percentage, icon: FiCheckCircle, color: 'success', description: `${statsToShow.completed.percentage}% of total`, status: 'completed', clickable: true },
+                    { title: 'In Progress', value: statsToShow.inProgress.count, percentage: statsToShow.inProgress.percentage, icon: FiTrendingUp, color: 'info', description: `${statsToShow.inProgress.percentage}% of total`, status: 'in-progress', clickable: true },
+                    { title: 'Pending', value: statsToShow.pending.count, percentage: statsToShow.pending.percentage, icon: FiClock, color: 'warning', description: `${statsToShow.pending.percentage}% of total`, status: 'pending', clickable: true },
+                    { title: 'Overdue', value: statsToShow.overdue.count, percentage: statsToShow.overdue.percentage, icon: FiAlertCircle, color: 'error', description: `${statsToShow.overdue.percentage}% of total`, status: 'overdue', clickable: true }
+                  ]
+                : [
+                    { title: 'Total Tasks', value: statsToShow.total, icon: FiList, color: 'primary', description: `All assigned tasks (${timeFilter})`, clickable: false, status: null },
+                    { title: 'Completed', value: statsToShow.completed.count, percentage: statsToShow.completed.percentage, icon: FiCheckCircle, color: 'success', description: `${statsToShow.completed.percentage}% of total`, status: 'completed', clickable: true },
+                    { title: 'In Progress', value: statsToShow.inProgress.count, percentage: statsToShow.inProgress.percentage, icon: FiTrendingUp, color: 'info', description: `${statsToShow.inProgress.percentage}% of total`, status: 'in-progress', clickable: true },
+                    { title: 'Pending', value: statsToShow.pending.count, percentage: statsToShow.pending.percentage, icon: FiClock, color: 'warning', description: `${statsToShow.pending.percentage}% of total`, status: 'pending', clickable: true },
+                    { title: 'Overdue', value: statsToShow.overdue.count, percentage: statsToShow.overdue.percentage, icon: FiAlertCircle, color: 'error', description: `${statsToShow.overdue.percentage}% of total`, status: 'overdue', clickable: true }
+                  ];
+
+              return statsData
+                .filter(stat => stat.value > 0 || stat.title === 'Total Tasks')
+                .map((stat, index) => {
+                  const isActive = stat.status === statusFilter;
+                  
+                  return (
+                    <StatCard
+                      key={index}
+                      color={stat.color}
+                      clickable={stat.clickable}
+                      active={isActive}
+                      onClick={() => stat.clickable && handleStatsCardClick(stat.status)}
+                    >
+                      <div className="user-create-task-stat-card-content">
+                        <div className="user-create-task-stat-card-header">
+                          <div>
+                            <div className="user-create-task-stat-card-title">{stat.title}</div>
+                            <div className="user-create-task-stat-card-value">{stat.value}</div>
+                          </div>
+                          <div 
+                            className="user-create-task-stat-card-icon"
+                            style={{
+                              backgroundColor: `${getColorValue(stat.color)}15`,
+                              color: getColorValue(stat.color)
+                            }}
+                          >
+                            {React.createElement(stat.icon, { size: isMobile ? 16 : 18 })}
+                          </div>
+                        </div>
+
+                        {stat.percentage !== undefined && (
+                          <div className="user-create-task-progress-container">
+                            <div className="user-create-task-progress-header">
+                              <div className="user-create-task-progress-label">Progress</div>
+                              <div className="user-create-task-progress-percentage">{stat.percentage}%</div>
+                            </div>
+                            <div className="user-create-task-progress-bar">
+                              <div 
+                                className="user-create-task-progress-fill"
+                                style={{
+                                  width: `${stat.percentage}%`,
+                                  backgroundColor: getColorValue(stat.color)
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="user-create-task-stat-card-description">{stat.description}</div>
+                      </div>
+                    </StatCard>
+                  );
+                });
+            })()}
+          </div>
 
           {(statusFilter || timeFilter !== 'all' || showOverdueOnly) && (
             <div className="user-create-task-alert info" style={{ marginTop: '16px', padding: isMobile ? '12px' : '16px' }}>
@@ -2782,7 +1714,136 @@ const UserCreateTask = () => {
       </div>
 
       {/* Overdue Tasks Section */}
-      {renderOverdueTasksSection()}
+      {getOverdueCount > 0 && (
+        <div className="user-create-task-paper" style={{ 
+          marginTop: '16px',
+          borderLeft: '4px solid #f44336'
+        }}>
+          <div style={{ 
+            padding: isMobile ? '12px 16px' : '16px 24px', 
+            borderBottom: '1px solid #ffcdd2',
+            backgroundColor: '#fff5f5'
+          }}>
+            <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1.5">
+              <FiAlertTriangle size={isMobile ? 18 : 20} color="#f44336" />
+              <div style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: 700, color: '#f44336' }}>
+                ⚠️ Overdue Tasks ({getOverdueCount})
+              </div>
+            </div>
+            <div style={{ fontSize: isMobile ? '13px' : '14px', color: '#d32f2f', marginTop: '4px' }}>
+              Tasks past their due date requiring immediate attention
+            </div>
+          </div>
+
+          <div className="user-create-task-paper-content">
+            {Object.keys(taskViewMode === 'self' ? myTasksGrouped : assignedToMeTasksGrouped).map(dateKey => {
+              const tasksToCheck = taskViewMode === 'self' ? myTasksGrouped : assignedToMeTasksGrouped;
+              
+              const overdueTasksForDate = tasksToCheck[dateKey]?.filter(task => {
+                if (taskViewMode === 'self') {
+                  const myStatus = getUserStatusForTask(task, userId);
+                  return isOverdue(task.dueDateTime, myStatus);
+                } else {
+                  const status = getAssignedTaskStatus(task);
+                  const dueDate = task.dueDate || task.dueDateTime;
+                  return isOverdue(dueDate, status);
+                }
+              }) || [];
+
+              if (overdueTasksForDate.length === 0) return null;
+
+              return (
+                <div key={dateKey} style={{ marginTop: '16px' }}>
+                  <div style={{ 
+                    padding: isMobile ? '10px 12px' : '12px 16px',
+                    backgroundColor: '#ffebee',
+                    borderRadius: '4px',
+                    fontSize: isMobile ? '13px' : '14px',
+                    fontWeight: '600',
+                    color: '#c62828'
+                  }}>
+                    📅 {dateKey} - {overdueTasksForDate.length} overdue task(s)
+                  </div>
+                  <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2" style={{ marginTop: '8px' }}>
+                    {overdueTasksForDate.map(task => {
+                      const status = taskViewMode === 'self' 
+                        ? getUserStatusForTask(task, userId)
+                        : getAssignedTaskStatus(task);
+                      
+                      const dueDate = taskViewMode === 'self' 
+                        ? task.dueDateTime 
+                        : (task.dueDate || task.dueDateTime);
+                      
+                      return (
+                        <div 
+                          key={task._id} 
+                          className="user-create-task-overdue-item"
+                          style={{
+                            borderLeft: '3px solid #f44336',
+                            backgroundColor: '#fff5f5',
+                            padding: isMobile ? '12px' : '16px',
+                            borderRadius: '4px'
+                          }}
+                        >
+                          <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-start">
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 600, fontSize: isMobile ? '14px' : '15px', color: '#333' }}>
+                                {task.title || task.name}
+                              </div>
+                              <div style={{ fontSize: isMobile ? '12px' : '13px', color: '#666', marginTop: '4px' }}>
+                                {(task.description || '').length > 80 
+                                  ? (task.description || '').substring(0, 80) + '...' 
+                                  : task.description || ''}
+                              </div>
+                            </div>
+                            <div className="user-create-task-flex user-create-task-gap-1">
+                              <button
+                                className="user-create-task-button user-create-task-button-contained"
+                                onClick={() => {
+                                  if (taskViewMode === 'self') {
+                                    handleStatusChange(task._id, 'in-progress', 'Working on overdue task');
+                                  } else {
+                                    handleAssignedTaskStatusChange(task._id, 'in-progress', 'Working on overdue task');
+                                  }
+                                }}
+                                style={{
+                                  padding: isMobile ? '6px 8px' : '8px 12px',
+                                  backgroundColor: '#1976d2',
+                                  fontSize: isMobile ? '11px' : '12px'
+                                }}
+                              >
+                                Start
+                              </button>
+                              <button
+                                className="user-create-task-button user-create-task-button-outlined"
+                                onClick={() => markTaskAsOverdue(task._id, 'Manual overdue marking')}
+                                style={{
+                                  padding: isMobile ? '6px 8px' : '8px 12px',
+                                  borderColor: '#f44336',
+                                  color: '#f44336',
+                                  fontSize: isMobile ? '11px' : '12px'
+                                }}
+                              >
+                                Mark
+                              </button>
+                            </div>
+                          </div>
+                          <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center" style={{ marginTop: '8px' }}>
+                            <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#666' }}>
+                              Due: {dueDate ? new Date(dueDate).toLocaleDateString() : 'No date'}
+                            </div>
+                            <StatusChip status={status} label={status} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Tasks Section */}
       <div className="user-create-task-paper">
@@ -2886,17 +1947,1242 @@ const UserCreateTask = () => {
               <p>Loading assigned tasks...</p>
             </div>
           ) : (
-            renderGroupedTasks()
+            (() => {
+              let tasksToDisplay = taskViewMode === 'self' ? myTasksGrouped : assignedToMeTasksGrouped;
+              
+              // Apply overdue filter if enabled
+              if (showOverdueOnly) {
+                const filtered = {};
+                Object.entries(tasksToDisplay).forEach(([dateKey, tasks]) => {
+                  const overdueTasks = tasks.filter(task => {
+                    if (taskViewMode === 'self') {
+                      const myStatus = getUserStatusForTask(task, userId);
+                      return isOverdue(task.dueDateTime, myStatus);
+                    } else {
+                      const status = getAssignedTaskStatus(task);
+                      const dueDate = task.dueDate || task.dueDateTime;
+                      return isOverdue(dueDate, status);
+                    }
+                  });
+                  if (overdueTasks.length > 0) {
+                    filtered[dateKey] = overdueTasks;
+                  }
+                });
+                tasksToDisplay = filtered;
+              }
+              
+              // Apply date filter
+              tasksToDisplay = applyDateFilter(tasksToDisplay);
+              
+              const hasData = tasksToDisplay && Object.keys(tasksToDisplay).length > 0;
+              
+              if (!hasData) {
+                return (
+                  <div className="user-create-task-empty-state">
+                    <div className="user-create-task-empty-state-icon">
+                      {taskViewMode === 'self' ? <FiUser size={48} /> : <FiUsers size={48} />}
+                    </div>
+                    <div className="user-create-task-empty-state-title">
+                      {taskViewMode === 'self' 
+                        ? 'No personal tasks found' 
+                        : showOverdueOnly 
+                          ? 'No overdue tasks found'
+                          : 'No tasks assigned to you'}
+                    </div>
+                    <div className="user-create-task-empty-state-subtitle">
+                      {taskViewMode === 'self'
+                        ? 'Create a personal task to get started'
+                        : showOverdueOnly
+                          ? 'Great job! You have no overdue tasks.'
+                          : 'You have no tasks assigned from clients'}
+                    </div>
+                  </div>
+                );
+              }
+
+              // Mobile view
+              if (isMobile) {
+                return Object.entries(tasksToDisplay).map(([dateKey, tasks]) => (
+                  <div key={dateKey} style={{ marginTop: '16px' }}>
+                    <div style={{ 
+                      padding: '12px',
+                      backgroundColor: '#f5f5f5',
+                      marginBottom: '8px',
+                      fontSize: '14px',
+                      fontWeight: 'bold'
+                    }}>
+                      📅 {dateKey} ({tasks.length} {tasks.length === 1 ? 'task' : 'tasks'})
+                    </div>
+                    <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2">
+                      {tasks.map((task) => {
+                        const status = taskViewMode === 'assigned' 
+                          ? getAssignedTaskStatus(task)
+                          : getUserStatusForTask(task, userId);
+                        
+                        const dueDate = taskViewMode === 'assigned' 
+                          ? (task.dueDate || task.dueDateTime)
+                          : task.dueDateTime;
+                        
+                        const taskIsOverdue = isOverdue(dueDate, status);
+                        const priority = task.priority || 'medium';
+
+                        return (
+                          <div 
+                            key={task._id} 
+                            className={`user-create-task-mobile-card ${taskIsOverdue ? 'overdue-task' : ''}`}
+                            style={taskIsOverdue ? { 
+                              borderLeft: '4px solid #f44336',
+                              backgroundColor: '#fff5f5'
+                            } : {}}
+                          >
+                            <div className="user-create-task-mobile-card-content">
+                              <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2">
+                                <div className="user-create-task-mobile-card-header">
+                                  <div style={{ flex: 1 }}>
+                                    <div className="user-create-task-mobile-card-title">
+                                      {task.title || task.name || 'Untitled'}
+                                    </div>
+                                    <div className="user-create-task-mobile-card-description">
+                                      {task.description || ''}
+                                    </div>
+                                    {taskViewMode === 'assigned' && task.clientName && (
+                                      <div className="user-create-task-mobile-card-client" style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                                        Client: {task.clientName}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <StatusChip status={status} label={status} />
+                                </div>
+
+                                <div className="user-create-task-mobile-card-details">
+                                  <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
+                                    <FiCalendar size={12} />
+                                    <div style={{ 
+                                      fontSize: '13px', 
+                                      color: taskIsOverdue ? '#f44336' : '#333',
+                                      fontWeight: taskIsOverdue ? '600' : '400'
+                                    }}>
+                                      {dueDate ? new Date(dueDate).toLocaleDateString() : 'No date'}
+                                    </div>
+                                    {taskIsOverdue && (
+                                      <div 
+                                        style={{
+                                          backgroundColor: '#f44336',
+                                          color: 'white',
+                                          padding: '2px 8px',
+                                          borderRadius: '12px',
+                                          fontSize: '10px',
+                                          fontWeight: '600',
+                                          marginLeft: '4px'
+                                        }}
+                                      >
+                                        OVERDUE
+                                      </div>
+                                    )}
+                                  </div>
+                                  <PriorityChip priority={priority} />
+                                </div>
+
+                                <div className="user-create-task-mobile-card-actions">
+                                  <div className="user-create-task-flex user-create-task-gap-1">
+                                    <button 
+                                      className="user-create-task-action-button"
+                                      onClick={() => fetchTaskRemarks(task._id)}
+                                      title="View Remarks"
+                                    >
+                                      <FiMessageSquare size={14} />
+                                    </button>
+
+                                    <button 
+                                      className="user-create-task-action-button"
+                                      onClick={() => fetchActivityLogs(task._id)}
+                                      title="Activity Logs"
+                                    >
+                                      <FiActivity size={14} />
+                                    </button>
+
+                                    {task.files?.length > 0 && (
+                                      <a
+                                        className="user-create-task-action-button"
+                                        href={getImageUrl(task.files[0].path || task.files[0])}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title="Download Files"
+                                      >
+                                        <FiDownload size={14} />
+                                      </a>
+                                    )}
+                                  </div>
+                                  <div style={{ minWidth: '90px' }}>
+                                    <select
+                                      value={status}
+                                      onChange={(e) => {
+                                        const selectedStatus = e.target.value;
+                                        if (selectedStatus === 'completed' || selectedStatus === 'in-progress' || selectedStatus === 'pending') {
+                                          setPendingStatusChange({ taskId: task._id, status: selectedStatus });
+                                          setRemarksDialog({ open: true, taskId: task._id, remarks: [] });
+                                        } else {
+                                          if (taskViewMode === 'assigned') {
+                                            handleAssignedTaskStatusChange(task._id, selectedStatus);
+                                          } else {
+                                            handleStatusChange(task._id, selectedStatus);
+                                          }
+                                        }
+                                      }}
+                                      className="user-create-task-select"
+                                      style={{ 
+                                        minWidth: '90px',
+                                        borderColor: taskIsOverdue ? '#f44336' : undefined,
+                                        color: taskIsOverdue ? '#f44336' : undefined,
+                                        fontWeight: taskIsOverdue ? '600' : undefined
+                                      }}
+                                    >
+                                      {taskViewMode === 'assigned' ? (
+                                        <>
+                                          <option value="pending">Pending</option>
+                                          <option value="in-progress">In Progress</option>
+                                          <option value="completed">Completed</option>
+                                          <option value="overdue">Overdue</option>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <option value="pending">Pending</option>
+                                          <option value="in-progress">In Progress</option>
+                                          <option value="completed">Completed</option>
+                                          <option value="overdue">Overdue</option>
+                                          <option value="rejected">Rejected</option>
+                                          <option value="onhold">On Hold</option>
+                                          <option value="reopen">Reopen</option>
+                                          <option value="cancelled">Cancelled</option>
+                                        </>
+                                      )}
+                                    </select>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ));
+              }
+              
+              // Desktop view
+              return Object.entries(tasksToDisplay).map(([dateKey, tasks]) => (
+                <div key={dateKey} style={{ marginTop: '24px' }}>
+                  <div style={{ 
+                    padding: isMobile ? '12px' : '16px',
+                    borderRadius: isMobile ? '6px' : '8px',
+                    backgroundColor: '#f5f5f5',
+                    marginBottom: '16px',
+                    fontSize: isMobile ? '14px' : '16px',
+                    fontWeight: 'bold'
+                  }}>
+                    📅 {dateKey} ({tasks.length} {tasks.length === 1 ? 'task' : 'tasks'})
+                  </div>
+                  <div className="user-create-task-table-container">
+                    <table className="user-create-task-table">
+                      <thead>
+                        <tr style={{ backgroundColor: '#f5f5f5' }}>
+                          <th style={{ padding: isMobile ? '8px' : '12px' }}>Title</th>
+                          {!isMobile && <th style={{ padding: isMobile ? '8px' : '12px' }}>Description</th>}
+                          <th style={{ padding: isMobile ? '8px' : '12px' }}>Due Date</th>
+                          <th style={{ padding: isMobile ? '8px' : '12px' }}>Priority</th>
+                          <th style={{ padding: isMobile ? '8px' : '12px' }}>Status</th>
+                          {taskViewMode === 'assigned' && <th style={{ padding: isMobile ? '8px' : '12px' }}>Client</th>}
+                          <th style={{ padding: isMobile ? '8px' : '12px' }}>Files</th>
+                          <th style={{ padding: isMobile ? '8px' : '12px' }}>Actions</th>
+                          <th style={{ padding: isMobile ? '8px' : '12px' }}>Change Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tasks.map((task) => {
+                          const status = taskViewMode === 'assigned' 
+                            ? getAssignedTaskStatus(task)
+                            : getUserStatusForTask(task, userId);
+                          
+                          const dueDate = taskViewMode === 'assigned' 
+                            ? (task.dueDate || task.dueDateTime)
+                            : task.dueDateTime;
+                          
+                          const taskIsOverdue = isOverdue(dueDate, status);
+                          const priority = task.priority || 'medium';
+
+                          return (
+                            <tr 
+                              key={task._id} 
+                              className={`user-create-task-table-row ${taskIsOverdue ? 'overdue-task' : ''}`}
+                              style={taskIsOverdue ? { 
+                                borderLeft: '4px solid #f44336',
+                                backgroundColor: '#fff5f5'
+                              } : {}}
+                            >
+                              <td style={{ padding: isMobile ? '8px' : '12px' }}>
+                                <div style={{ fontWeight: 600, fontSize: isMobile ? '13px' : '14px' }}>
+                                  {task.title || task.name || 'Untitled'}
+                                </div>
+                                {isMobile && (
+                                  <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                                    {(task.description || '').length > 50 
+                                      ? (task.description || '').substring(0, 50) + '...' 
+                                      : task.description || ''}
+                                  </div>
+                                )}
+                              </td>
+                              {!isMobile && (
+                                <td style={{ padding: '12px', maxWidth: '200px' }}>
+                                  <div style={{ fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {task.description || task.name || '-'}
+                                  </div>
+                                </td>
+                              )}
+                              <td style={{ padding: isMobile ? '8px' : '12px' }}>
+                                <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
+                                  <FiCalendar size={isMobile ? 12 : 14} />
+                                  <div style={{
+                                    fontSize: isMobile ? '13px' : '14px',
+                                    color: taskIsOverdue ? '#f44336' : '#333',
+                                    fontWeight: taskIsOverdue ? '600' : '500'
+                                  }}>
+                                    {dueDate
+                                      ? new Date(dueDate).toLocaleDateString()
+                                      : '—'}
+                                  </div>
+                                  {taskIsOverdue && (
+                                    <div 
+                                      className="user-create-task-overdue-badge"
+                                      style={{
+                                        backgroundColor: '#f44336',
+                                        color: 'white',
+                                        padding: '2px 8px',
+                                        borderRadius: '12px',
+                                        fontSize: '11px',
+                                        fontWeight: '600'
+                                      }}
+                                    >
+                                      OVERDUE
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td style={{ padding: isMobile ? '8px' : '12px' }}>
+                                <PriorityChip priority={priority} />
+                              </td>
+                              <td style={{ padding: isMobile ? '8px' : '12px' }}>
+                                <StatusChip status={status} label={status} />
+                              </td>
+                              
+                              {taskViewMode === 'assigned' && (
+                                <td style={{ padding: isMobile ? '8px' : '12px' }}>
+                                  {task.clientName || task.clientId?.name || 'N/A'}
+                                </td>
+                              )}
+                              
+                              <td style={{ padding: isMobile ? '8px' : '12px' }}>
+                                {task.files?.length > 0 && (
+                                  <a
+                                    className="user-create-task-action-button"
+                                    href={getImageUrl(task.files[0].path || task.files[0])}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title={`${task.files.length} file(s)`}
+                                  >
+                                    <FiDownload size={isMobile ? 14 : 16} />
+                                  </a>
+                                )}
+                              </td>
+
+                              <td style={{ padding: isMobile ? '8px' : '12px' }}>
+                                <div className="user-create-task-action-buttons">
+                                  <button 
+                                    className="user-create-task-action-button"
+                                    onClick={() => fetchTaskRemarks(task._id)}
+                                    title="View Remarks"
+                                  >
+                                    <FiMessageSquare size={isMobile ? 14 : 16} />
+                                  </button>
+
+                                  <button 
+                                    className="user-create-task-action-button"
+                                    onClick={() => fetchActivityLogs(task._id)}
+                                    title="Activity Logs"
+                                  >
+                                    <FiActivity size={isMobile ? 14 : 16} />
+                                  </button>
+
+                                  {task.files?.length > 0 && (
+                                    <a
+                                      className="user-create-task-action-button"
+                                      href={getImageUrl(task.files[0].path || task.files[0])}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      title="Download Files"
+                                    >
+                                      <FiDownload size={isMobile ? 14 : 16} />
+                                    </a>
+                                  )}
+                                </div>
+                              </td>
+                              <td style={{ padding: isMobile ? '8px' : '12px' }}>
+                                <select
+                                  value={status}
+                                  onChange={(e) => {
+                                    const selectedStatus = e.target.value;
+                                    if (selectedStatus === 'completed' || selectedStatus === 'in-progress' || selectedStatus === 'pending') {
+                                      setPendingStatusChange({ taskId: task._id, status: selectedStatus });
+                                      setRemarksDialog({ open: true, taskId: task._id, remarks: [] });
+                                    } else {
+                                      if (taskViewMode === 'assigned') {
+                                        handleAssignedTaskStatusChange(task._id, selectedStatus);
+                                      } else {
+                                        handleStatusChange(task._id, selectedStatus);
+                                      }
+                                    }
+                                  }}
+                                  className="user-create-task-select"
+                                  style={{ 
+                                    minWidth: isMobile ? '90px' : '100px',
+                                    borderColor: taskIsOverdue ? '#f44336' : undefined,
+                                    color: taskIsOverdue ? '#f44336' : undefined,
+                                    fontWeight: taskIsOverdue ? '600' : undefined
+                                  }}
+                                >
+                                  {taskViewMode === 'assigned' ? (
+                                    <>
+                                      <option value="pending">Pending</option>
+                                      <option value="in-progress">In Progress</option>
+                                      <option value="completed">Completed</option>
+                                      <option value="overdue">Overdue</option>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <option value="pending">Pending</option>
+                                      <option value="in-progress">In Progress</option>
+                                      <option value="completed">Completed</option>
+                                      <option value="overdue">Overdue</option>
+                                      <option value="rejected">Rejected</option>
+                                      <option value="onhold">On Hold</option>
+                                      <option value="reopen">Reopen</option>
+                                      <option value="cancelled">Cancelled</option>
+                                    </>
+                                  )}
+                                </select>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ));
+            })()
           )}
         </div>
       </div>
 
-      {/* DIALOGS */}
-      {renderCreateTaskDialog()}
-      {renderCalendarFilterDialog()}
-      {renderRemarksDialog()}
-      {renderActivityLogsDialog()}
-      {renderImageZoomModal()}
+      {/* CREATE TASK DIALOG */}
+      <div className="user-create-task-dialog-overlay" style={{ display: openDialog ? 'flex' : 'none' }}>
+        <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
+          maxWidth: isMobile ? '95%' : isTablet ? '550px' : '600px',
+          width: isMobile ? '95%' : 'auto'
+        }}>
+          <div className="user-create-task-dialog-title">
+            <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-2">
+              <FiPlus size={isMobile ? 18 : 24} />
+              <div style={{ fontSize: isMobile ? '18px' : '24px' }}>Create Personal Task</div>
+            </div>
+            <div style={{ fontSize: isMobile ? '12px' : '14px', color: '#666', marginTop: '4px' }}>
+              This task will be automatically assigned to you ({userName})
+            </div>
+          </div>
+          
+          <div className="user-create-task-dialog-content">
+            <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
+              <div className="user-create-task-alert info" style={{ padding: isMobile ? '12px' : '16px' }}>
+                This task will be automatically assigned to you ({userName})
+              </div>
+
+              <div className="user-create-task-form-control">
+                <label>Task Title *</label>
+                <input
+                  type="text"
+                  className="user-create-task-input"
+                  placeholder="Enter a descriptive task title"
+                  value={newTask.title}
+                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                />
+              </div>
+
+              <div className="user-create-task-form-control">
+                <label>Description *</label>
+                <textarea
+                  className="user-create-task-input"
+                  rows={isMobile ? 3 : 4}
+                  placeholder="Provide detailed description of the task..."
+                  value={newTask.description}
+                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                />
+              </div>
+
+              <div className={`user-create-task-flex ${isMobile ? 'user-create-task-flex-column' : 'user-create-task-gap-2'}`}>
+                <div className="user-create-task-form-control" style={{ flex: 1 }}>
+                  <label>Due Date & Time *</label>
+                  <input
+                    type="datetime-local"
+                    className="user-create-task-input"
+                    value={newTask.dueDateTime || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      let formattedValue = value;
+                      if (value && value.includes('T') && value.split(':').length === 2) {
+                        formattedValue = `${value}:00`;
+                      }
+                      setNewTask({ ...newTask, dueDateTime: formattedValue });
+                    }}
+                    min={new Date().toISOString().slice(0, 16)}
+                  />
+                </div>
+
+                <div className="user-create-task-form-control" style={{ flex: 1 }}>
+                  <label>Priority</label>
+                  <select
+                    className="user-create-task-select"
+                    value={newTask.priority}
+                    onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="user-create-task-form-control">
+                <label>Priority Days</label>
+                <input
+                  type="number"
+                  className="user-create-task-input"
+                  placeholder="Enter priority days"
+                  value={newTask.priorityDays}
+                  onChange={(e) => setNewTask({ ...newTask, priorityDays: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>Attachments (Optional)</div>
+                
+                <div className={`user-create-task-flex ${isMobile ? 'user-create-task-flex-column user-create-task-gap-2' : 'user-create-task-gap-2'}`}>
+                  <button 
+                    className="user-create-task-button user-create-task-button-outlined"
+                    onClick={() => document.getElementById('file-upload').click()}
+                    style={{ flex: 1, padding: isMobile ? '10px' : '12px' }}
+                  >
+                    <FiFileText />
+                    {isMobile ? 'Upload' : 'Upload Files'}
+                    <input
+                      id="file-upload"
+                      type="file"
+                      multiple
+                      style={{ display: 'none' }}
+                      onChange={(e) => setNewTask({ ...newTask, files: e.target.files })}
+                    />
+                  </button>
+
+                  <button
+                    className={`user-create-task-button ${isRecording ? 'user-create-task-button-contained' : 'user-create-task-button-outlined'}`}
+                    onClick={isRecording ? stopRecording : startRecording}
+                    style={{ 
+                      flex: 1,
+                      padding: isMobile ? '10px' : '12px',
+                      backgroundColor: isRecording ? '#f44336' : undefined,
+                      borderColor: isRecording ? '#f44336' : undefined
+                    }}
+                  >
+                    <FiMic />
+                    {isRecording ? "Stop" : (isMobile ? "Record" : "Record Voice")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="user-create-task-dialog-actions">
+            <button
+              className="user-create-task-button user-create-task-button-outlined"
+              onClick={() => setOpenDialog(false)}
+              style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+            >
+              Cancel
+            </button>
+
+            <button
+              className="user-create-task-button user-create-task-button-contained"
+              onClick={handleCreateTask}
+              disabled={!newTask.title || !newTask.description || !newTask.dueDateTime || isCreatingTask}
+              style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+            >
+              {isCreatingTask ? (
+                'Creating...'
+              ) : (
+                <>
+                  <FiCheck size={isMobile ? 14 : 16} />
+                  {isMobile ? 'Create' : 'Create Task'}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* CALENDAR FILTER DIALOG */}
+      <div className="user-create-task-dialog-overlay" style={{ display: calendarFilterOpen ? 'flex' : 'none' }}>
+        <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
+          maxWidth: isMobile ? '95%' : isTablet ? '450px' : '500px',
+          width: isMobile ? '95%' : 'auto'
+        }}>
+          <div className="user-create-task-dialog-title">
+            <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
+              <FiCalendar />
+              <div>Filter by Date</div>
+            </div>
+          </div>
+
+          <div className="user-create-task-dialog-content">
+            <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
+              <div className="user-create-task-form-control">
+                <label>Filter By</label>
+                <select
+                  className="user-create-task-select"
+                  value={dateFilterType}
+                  onChange={(e) => setDateFilterType(e.target.value)}
+                >
+                  <option value="createdDate">Created Date</option>
+                  <option value="dueDate">Due Date</option>
+                </select>
+              </div>
+
+              <div>
+                <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>Select Specific Date</div>
+                <input
+                  type="date"
+                  className="user-create-task-input"
+                  value={selectedDate ? new Date(selectedDate).toISOString().split('T')[0] : ''}
+                  onChange={(e) => {
+                    setSelectedDate(e.target.value);
+                    setDateRange({ start: null, end: null });
+                  }}
+                />
+              </div>
+
+              <div>
+                <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>Or Select Date Range</div>
+                <div className="user-create-task-flex user-create-task-gap-2">
+                  <div style={{ flex: 1 }}>
+                    <input
+                      type="date"
+                      className="user-create-task-input"
+                      placeholder="Start Date"
+                      value={dateRange.start ? new Date(dateRange.start).toISOString().split('T')[0] : ''}
+                      onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <input
+                      type="date"
+                      className="user-create-task-input"
+                      placeholder="End Date"
+                      value={dateRange.end ? new Date(dateRange.end).toISOString().split('T')[0] : ''}
+                      onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>Quick Filters</div>
+                <div className="user-create-task-flex user-create-task-gap-1 user-create-task-flex-wrap">
+                  <button
+                    className="user-create-task-button user-create-task-button-outlined"
+                    onClick={() => {
+                      const today = new Date();
+                      setSelectedDate(today.toISOString().split('T')[0]);
+                      setDateRange({ start: null, end: null });
+                    }}
+                    style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+                  >
+                    Today
+                  </button>
+                  <button
+                    className="user-create-task-button user-create-task-button-outlined"
+                    onClick={() => {
+                      const tomorrow = new Date();
+                      tomorrow.setDate(tomorrow.getDate() + 1);
+                      setSelectedDate(tomorrow.toISOString().split('T')[0]);
+                      setDateRange({ start: null, end: null });
+                    }}
+                    style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+                  >
+                    Tomorrow
+                  </button>
+                  <button
+                    className="user-create-task-button user-create-task-button-outlined"
+                    onClick={() => {
+                      const start = new Date();
+                      const end = new Date();
+                      end.setDate(end.getDate() + 7);
+                      setSelectedDate(null);
+                      setDateRange({ 
+                        start: start.toISOString().split('T')[0], 
+                        end: end.toISOString().split('T')[0] 
+                      });
+                    }}
+                    style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+                  >
+                    Next 7 Days
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="user-create-task-dialog-actions">
+            <button
+              className="user-create-task-button user-create-task-button-outlined"
+              onClick={clearDateFilter}
+              style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+            >
+              Clear Filter
+            </button>
+            <button
+              className="user-create-task-button user-create-task-button-contained"
+              onClick={() => setCalendarFilterOpen(false)}
+              style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+            >
+              Apply Filter
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* REMARKS DIALOG */}
+      <div className="user-create-task-dialog-overlay" style={{ display: remarksDialog.open ? 'flex' : 'none' }}>
+        <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ maxWidth: isMobile ? '95%' : isTablet ? '700px' : '800px', width: isMobile ? '95%' : 'auto' }}>
+          <div className="user-create-task-dialog-title">
+            <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
+              <FiMessageSquare />
+              <div>Task Remarks</div>
+            </div>
+          </div>
+          
+          <div className="user-create-task-dialog-content">
+            <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
+              {/* Add New Remark Section */}
+              <div className="user-create-task-paper">
+                <div className="user-create-task-paper-content">
+                  <div style={{ marginBottom: isMobile ? '12px' : '16px', fontWeight: 600 }}>Add New Remark</div>
+                  
+                  <textarea
+                    className="user-create-task-input"
+                    rows={isMobile ? 2 : 3}
+                    placeholder="Enter your remark here..."
+                    value={newRemark}
+                    onChange={(e) => setNewRemark(e.target.value)}
+                    style={{ marginBottom: isMobile ? '12px' : '16px', width: '100%' }}
+                  />
+
+                  {/* Image Upload Section */}
+                  <div style={{ marginBottom: isMobile ? '12px' : '16px' }}>
+                    <div style={{ marginBottom: isMobile ? '6px' : '8px', fontWeight: 600 }}>Attach Images (Optional)</div>
+                    
+                    <div
+                      onDragOver={handleDragOver}
+                      onDrop={handleDrop}
+                      onClick={() => document.getElementById('remark-image-upload').click()}
+                      style={{
+                        border: '2px dashed #ccc',
+                        borderRadius: isMobile ? '6px' : '8px',
+                        padding: isMobile ? '16px' : '24px',
+                        textAlign: 'center',
+                        backgroundColor: 'white',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      <div className="user-create-task-flex user-create-task-flex-column user-create-task-align-center user-create-task-gap-1">
+                        <button
+                          className="user-create-task-button user-create-task-button-outlined"
+                          style={{ marginTop: '8px', padding: isMobile ? '8px 12px' : '10px 16px' }}
+                        >
+                          <FiCamera />
+                          {!isMobile && "Choose Images"}
+                        </button>
+                      </div>
+                      
+                      <input
+                        id="remark-image-upload"
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleRemarkImageUpload}
+                        style={{ display: 'none' }}
+                      />
+                    </div>
+
+                    {/* Image Previews */}
+                    {remarkImages.length > 0 && (
+                      <div style={{ marginTop: isMobile ? '12px' : '16px' }}>
+                        <div style={{ marginBottom: isMobile ? '6px' : '8px', fontWeight: 600 }}>Selected Images</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: isMobile ? '6px' : '8px' }}>
+                          {remarkImages.map((image, index) => (
+                            <div key={index} style={{ position: 'relative' }}>
+                              <img
+                                src={image.preview}
+                                alt={`Preview ${index + 1}`}
+                                style={{
+                                  width: '100%',
+                                  height: isMobile ? '60px' : '80px',
+                                  objectFit: 'cover',
+                                  borderRadius: '4px'
+                                }}
+                                onClick={() => setZoomImage(image.preview)}
+                              />
+                              <button
+                                style={{
+                                  position: 'absolute',
+                                  top: '4px',
+                                  right: '4px',
+                                  backgroundColor: '#f44336',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '50%',
+                                  width: isMobile ? '20px' : '24px',
+                                  height: isMobile ? '20px' : '24px',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: isMobile ? '12px' : '14px'
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemoveRemarkImage(index);
+                                }}
+                              >
+                                <FiX size={isMobile ? 12 : 14} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Remarks History */}
+              <div>
+                <div style={{ marginBottom: isMobile ? '12px' : '16px', fontWeight: 600 }}>Remarks History</div>
+                
+                {remarksDialog.remarks.length > 0 ? (
+                  <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2">
+                    {remarksDialog.remarks.map((remark, index) => (
+                      <div key={index} className="user-create-task-paper">
+                        <div className="user-create-task-paper-content">
+                          <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-1.5">
+                            <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center user-create-task-gap-1">
+                              <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1.5">
+                                <div style={{
+                                  width: isMobile ? '32px' : '36px',
+                                  height: isMobile ? '32px' : '36px',
+                                  borderRadius: '50%',
+                                  backgroundColor: '#f0f0f0',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontWeight: 600,
+                                  fontSize: isMobile ? '14px' : '16px'
+                                }}>
+                                  {remark.userName?.charAt(0)?.toUpperCase() || remark.user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                                </div>
+                                <div>
+                                  <div style={{ fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>
+                                    {remark.userName || remark.user?.name || 'Unknown User'}
+                                  </div>
+                                  <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#666' }}>
+                                    {new Date(remark.createdAt).toLocaleDateString()} at {' '}
+                                    {new Date(remark.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {remark.text && (
+                              <div style={{ 
+                                padding: isMobile ? '8px' : '12px',
+                                backgroundColor: '#fafafa',
+                                borderRadius: '4px',
+                                fontSize: isMobile ? '13px' : '14px'
+                              }}>
+                                {remark.text}
+                              </div>
+                            )}
+
+                            {/* Handle new format (images array) */}
+                            {remark.images && remark.images.length > 0 && (
+                              <div style={{ marginTop: isMobile ? '6px' : '8px' }}>
+                                <div style={{ fontSize: isMobile ? '11px' : '12px', marginBottom: '4px' }}>
+                                  Attached Images ({remark.images.length}):
+                                </div>
+                                <div style={{ 
+                                  display: 'grid', 
+                                  gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', 
+                                  gap: isMobile ? '6px' : '8px' 
+                                }}>
+                                  {remark.images.map((image, imgIndex) => {
+                                    const imageUrl = getImageUrl(image.url || image.path || image);
+                                    console.log(`🖼️ Rendering image ${imgIndex + 1}:`, imageUrl);
+                                    
+                                    return (
+                                      <div 
+                                        key={imgIndex}
+                                        onClick={() => setZoomImage(imageUrl)}
+                                        style={{ cursor: 'pointer', position: 'relative' }}
+                                      >
+                                        <img
+                                          src={imageUrl}
+                                          alt={`Remark image ${imgIndex + 1}`}
+                                          style={{
+                                            width: '100%',
+                                            height: '100px',
+                                            objectFit: 'cover',
+                                            borderRadius: '4px',
+                                            border: '1px solid #eee'
+                                          }}
+                                          onError={(e) => {
+                                            console.error('❌ Image failed to load:', e.target.src);
+                                            // Try alternative URLs for assigned tasks
+                                            const originalSrc = e.target.src;
+                                            const filename = imageUrl.split('/').pop();
+                                            const baseUrl = API_URL?.replace(/\/api$/, '') || 'http://localhost:3000';
+                                            const alternativeUrls = [
+                                              `${baseUrl}/uploads/client-remarks/${filename}`,
+                                              `${baseUrl}/uploads/${filename}`,
+                                              `${baseUrl}/${filename}`
+                                            ];
+                                            
+                                            let currentIndex = 0;
+                                            const tryNextUrl = () => {
+                                              if (currentIndex < alternativeUrls.length && e.target.src !== alternativeUrls[currentIndex]) {
+                                                e.target.src = alternativeUrls[currentIndex];
+                                                currentIndex++;
+                                              } else {
+                                                e.target.style.display = 'none';
+                                                const parent = e.target.parentElement;
+                                                if (parent && !parent.querySelector('.image-error-fallback')) {
+                                                  const fallback = document.createElement('div');
+                                                  fallback.className = 'image-error-fallback';
+                                                  fallback.style.cssText = `
+                                                    width: 100%;
+                                                    height: 100px;
+                                                    background: #fff3f3;
+                                                    border: 1px solid #ffcdd2;
+                                                    border-radius: 4px;
+                                                    text-align: center;
+                                                    color: #d32f2f;
+                                                    font-size: 12px;
+                                                    display: flex;
+                                                    align-items: center;
+                                                    justify-content: center;
+                                                    flex-direction: column;
+                                                    gap: 4px;
+                                                  `;
+                                                  fallback.innerHTML = `
+                                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                      <circle cx="12" cy="12" r="10"></circle>
+                                                      <line x1="12" y1="8" x2="12" y2="12"></line>
+                                                      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                                    </svg>
+                                                    <span>Image not available</span>
+                                                  `;
+                                                  parent.appendChild(fallback);
+                                                }
+                                              }
+                                            };
+                                            
+                                            tryNextUrl();
+                                          }}
+                                          onLoad={() => {
+                                            console.log('✅ Image loaded successfully:', e.target.src);
+                                          }}
+                                        />
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Handle old format (single image) */}
+                            {remark.image && !remark.images && (
+                              <div style={{ marginTop: isMobile ? '6px' : '8px' }}>
+                                <div style={{ fontSize: isMobile ? '11px' : '12px', marginBottom: '4px' }}>
+                                  Attached Image:
+                                </div>
+                                <div 
+                                  onClick={() => setZoomImage(getImageUrl(remark.image))}
+                                  style={{ cursor: 'pointer' }}
+                                >
+                                  <img
+                                    src={getImageUrl(remark.image)}
+                                    alt="Remark attachment"
+                                    style={{
+                                      width: '100%',
+                                      height: 'auto',
+                                      borderRadius: '4px',
+                                      maxHeight: '300px',
+                                      objectFit: 'contain',
+                                      border: '1px solid #eee'
+                                    }}
+                                    onError={(e) => {
+                                      console.error('❌ Image failed to load:', e.target.src);
+                                      const filename = remark.image.split('/').pop();
+                                      const baseUrl = API_URL?.replace(/\/api$/, '') || 'http://localhost:3000';
+                                      const alternativeUrls = [
+                                        `${baseUrl}/uploads/client-remarks/${filename}`,
+                                        `${baseUrl}/uploads/${filename}`,
+                                        `${baseUrl}/${filename}`
+                                      ];
+                                      
+                                      let currentIndex = 0;
+                                      const tryNextUrl = () => {
+                                        if (currentIndex < alternativeUrls.length && e.target.src !== alternativeUrls[currentIndex]) {
+                                          e.target.src = alternativeUrls[currentIndex];
+                                          currentIndex++;
+                                        } else {
+                                          e.target.style.display = 'none';
+                                          const parent = e.target.parentElement;
+                                          if (parent && !parent.querySelector('.image-error-fallback')) {
+                                            const fallback = document.createElement('div');
+                                            fallback.className = 'image-error-fallback';
+                                            fallback.style.cssText = `
+                                              padding: 20px;
+                                              background: #fff3f3;
+                                              border: 1px solid #ffcdd2;
+                                              border-radius: 8px;
+                                              text-align: center;
+                                              color: #d32f2f;
+                                              font-size: 14px;
+                                              display: flex;
+                                              flex-direction: column;
+                                              align-items: center;
+                                              gap: 8px;
+                                            `;
+                                            fallback.innerHTML = `
+                                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                                <line x1="12" y1="8" x2="12" y2="12"></line>
+                                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                              </svg>
+                                              <span>Image not available</span>
+                                            `;
+                                            parent.appendChild(fallback);
+                                          }
+                                        }
+                                      };
+                                      
+                                      tryNextUrl();
+                                    }}
+                                    onLoad={() => {
+                                      console.log('✅ Image loaded successfully:', e.target.src);
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="user-create-task-paper" style={{ textAlign: 'center', padding: isMobile ? '24px' : '32px' }}>
+                    <div style={{ marginTop: isMobile ? '12px' : '16px', color: '#666', fontWeight: 600 }}>
+                      No remarks yet
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {/* Dialog Actions */}
+          <div className="user-create-task-dialog-actions">
+            <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center" style={{ width: '100%' }}>
+              <button
+                className="user-create-task-button user-create-task-button-contained"
+                onClick={handleSaveRemarkWithStatus}
+                disabled={isUploadingRemark}
+                style={{ 
+                  padding: isMobile ? '8px 12px' : '10px 16px',
+                  minWidth: isMobile ? '120px' : '160px',
+                  marginRight: 'auto'
+                }}
+              >
+                {isUploadingRemark ? (
+                  "Uploading..."
+                ) : pendingStatusChange.status ? (
+                  isMobile ? "Save & Update" : "Save Remark & Update Status"
+                ) : (
+                  <>
+                    <FiMessageSquare />
+                    {isMobile ? "Add Remark" : "Add Remark"}
+                  </>
+                )}
+              </button>
+
+              <button
+                className="user-create-task-button user-create-task-button-outlined"
+                onClick={() => {
+                  setRemarksDialog({ open: false, taskId: null, remarks: [] });
+                  remarkImages.forEach(image => {
+                    if (image.preview) URL.revokeObjectURL(image.preview);
+                  });
+                  setRemarkImages([]);
+                  setNewRemark('');
+                  setPendingStatusChange({ taskId: null, status: "" });
+                }}
+                style={{ 
+                  padding: isMobile ? '8px 12px' : '10px 16px',
+                  marginLeft: 'auto'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ACTIVITY LOGS DIALOG */}
+      <div className="user-create-task-dialog-overlay" style={{ display: activityDialog.open ? 'flex' : 'none' }}>
+        <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
+          maxWidth: isMobile ? '95%' : isTablet ? '700px' : '800px',
+          width: isMobile ? '95%' : 'auto'
+        }}>
+          <div className="user-create-task-dialog-title">
+            <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
+              <FiActivity />
+              <div>Activity Logs</div>
+            </div>
+          </div>
+          <div className="user-create-task-dialog-content">
+            {activityLogs.length > 0 ? (
+              <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-1">
+                {activityLogs.map((log, index) => (
+                  <div key={index} className="user-create-task-paper">
+                    <div className="user-create-task-paper-content">
+                      <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-1">
+                        <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center user-create-task-gap-1">
+                          <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1.5">
+                            <div style={{
+                              width: isMobile ? '28px' : '32px',
+                              height: isMobile ? '28px' : '32px',
+                              borderRadius: '50%',
+                              backgroundColor: '#f0f0f0',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 600,
+                              fontSize: isMobile ? '12px' : '14px'
+                            }}>
+                              {log.userName?.charAt(0)?.toUpperCase() || log.user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 600, fontSize: isMobile ? '13px' : '14px' }}>
+                                {log.userName || log.user?.name || 'Unknown User'}
+                              </div>
+                              <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#666' }}>
+                                {log.action || 'Update'}
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#666' }}>
+                            {new Date(log.createdAt).toLocaleDateString()} at {new Date(log.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: isMobile ? '13px' : '14px' }}>
+                          {log.description}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ color: '#666', textAlign: 'center', padding: isMobile ? '20px' : '24px' }}>
+                No activity logs found for this task
+              </div>
+            )}
+          </div>
+          
+          <div className="user-create-task-dialog-actions">
+            <button
+              className="user-create-task-button user-create-task-button-outlined"
+              onClick={() => setActivityDialog({ open: false, taskId: null })}
+              style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* IMAGE ZOOM MODAL */}
+      <div className="user-create-task-dialog-overlay" style={{ display: zoomImage ? 'flex' : 'none' }}>
+        <div style={{ 
+          position: 'relative',
+          maxWidth: '90vw',
+          maxHeight: '90vh',
+        }}>
+          <button
+            onClick={() => setZoomImage(null)}
+            style={{
+              position: 'absolute',
+              top: '16px',
+              right: '13px',
+              backgroundColor: 'rgba(0,0,0,0.6)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '50%',
+              width: isMobile ? '32px' : '36px',
+              height: isMobile ? '32px' : '36px',
+              cursor: 'pointer',
+              zIndex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <FiX size={isMobile ? 16 : 20} />
+          </button>
+          <img
+            src={zoomImage}
+            alt="Zoomed view"
+            style={{
+              width: '100%',
+              height: 'auto',
+              maxHeight: '77vh',
+              objectFit: 'contain',
+            }}
+            onError={(e) => {
+              console.error('Zoom image failed to load:', e.target.src);
+            }}
+          />
+        </div>
+      </div>
     </div>
   );
 };

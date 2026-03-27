@@ -79,6 +79,34 @@ const getImageUrl = (imagePath) => {
   return possiblePaths[0];
 };
 
+// Helper function to get client name from task object
+const getClientNameFromTask = (task) => {
+  // Check if there's a clientName field
+  if (task.clientName && task.clientName !== 'Unknown Client') {
+    return task.clientName;
+  }
+  
+  // Check if clientId is an object with company name
+  if (task.clientId && typeof task.clientId === 'object') {
+    // Use company name as client name
+    if (task.clientId.company) {
+      return task.clientId.company;
+    }
+    // Fallback to email if no company name
+    if (task.clientId.email) {
+      return task.clientId.email.split('@')[0]; // Use email username as fallback
+    }
+  }
+  
+  // Check if clientCompany exists
+  if (task.clientCompany) {
+    return task.clientCompany;
+  }
+  
+  // Last resort
+  return 'N/A';
+};
+
 const StatCard = ({ color = 'primary', clickable = true, active = false, children, onClick }) => {
   return (
     <div 
@@ -513,6 +541,36 @@ const UserCreateTask = () => {
     });
   }, [isOverdue]);
 
+  // Function to enrich tasks with proper client names
+  const enrichAssignedTasksWithClientNames = useCallback((groupedTasks) => {
+    const enrichedGroupedTasks = {};
+    
+    Object.entries(groupedTasks).forEach(([dateKey, tasks]) => {
+      enrichedGroupedTasks[dateKey] = tasks.map(task => {
+        // Extract client name from clientId object
+        let clientDisplayName = 'Unknown Client';
+        
+        if (task.clientId && typeof task.clientId === 'object') {
+          if (task.clientId.company) {
+            clientDisplayName = task.clientId.company;
+          } else if (task.clientId.email) {
+            // Use email domain or username as display name
+            clientDisplayName = task.clientId.email.split('@')[0];
+          }
+        }
+        
+        return {
+          ...task,
+          clientName: clientDisplayName,
+          clientCompany: task.clientId?.company || task.clientCompany,
+          clientEmail: task.clientId?.email || task.clientEmail
+        };
+      });
+    });
+    
+    return enrichedGroupedTasks;
+  }, []);
+
   // Fetch assigned to me tasks
   const fetchAssignedToMeTasks = useCallback(async () => {
     if (authError || !userId) {
@@ -547,30 +605,60 @@ const UserCreateTask = () => {
       console.log('✅ API Response status:', res.status);
       console.log('📦 Response data:', res.data);
 
-      if (res.data) {
+      if (res.data && res.data.success) {
         let tasksData = {};
         
         if (res.data.groupedTasks) {
           tasksData = res.data.groupedTasks;
-          console.log('📊 Using groupedTasks from response');
+          
+          // Enrich tasks with proper client names
+          tasksData = enrichAssignedTasksWithClientNames(tasksData);
+          console.log('📊 Enriched tasks with client names:', tasksData);
         } 
         else if (res.data.tasks && Array.isArray(res.data.tasks)) {
-          tasksData = groupTasksByDate(res.data.tasks);
-          console.log('📊 Grouped tasks from array');
+          const rawTasks = res.data.tasks;
+          const enrichedTasks = rawTasks.map(task => {
+            let clientDisplayName = 'Unknown Client';
+            
+            if (task.clientId && typeof task.clientId === 'object') {
+              if (task.clientId.company) {
+                clientDisplayName = task.clientId.company;
+              } else if (task.clientId.email) {
+                clientDisplayName = task.clientId.email.split('@')[0];
+              }
+            }
+            
+            return {
+              ...task,
+              clientName: clientDisplayName,
+              clientCompany: task.clientId?.company || task.clientCompany,
+              clientEmail: task.clientId?.email || task.clientEmail
+            };
+          });
+          tasksData = groupTasksByDate(enrichedTasks);
         }
         else if (Array.isArray(res.data)) {
-          tasksData = groupTasksByDate(res.data);
-          console.log('📊 Grouped tasks from direct array');
-        }
-        else if (res.data.success && res.data.data) {
-          if (Array.isArray(res.data.data)) {
-            tasksData = groupTasksByDate(res.data.data);
-          } else if (res.data.data.groupedTasks) {
-            tasksData = res.data.data.groupedTasks;
-          }
+          const enrichedTasks = res.data.map(task => {
+            let clientDisplayName = 'Unknown Client';
+            
+            if (task.clientId && typeof task.clientId === 'object') {
+              if (task.clientId.company) {
+                clientDisplayName = task.clientId.company;
+              } else if (task.clientId.email) {
+                clientDisplayName = task.clientId.email.split('@')[0];
+              }
+            }
+            
+            return {
+              ...task,
+              clientName: clientDisplayName,
+              clientCompany: task.clientId?.company || task.clientCompany,
+              clientEmail: task.clientId?.email || task.clientEmail
+            };
+          });
+          tasksData = groupTasksByDate(enrichedTasks);
         }
         
-        console.log('📊 Final grouped tasks:', tasksData);
         console.log('📊 Number of date groups:', Object.keys(tasksData).length);
         
         const totalTasks = Object.values(tasksData).reduce((sum, tasks) => sum + tasks.length, 0);
@@ -632,7 +720,7 @@ const UserCreateTask = () => {
       setLoadingAssigned(false);
       console.log('🏁 fetchAssignedToMeTasks completed');
     }
-  }, [authError, userId, calculateAssignedStatsFromTasks, groupTasksByDate]);
+  }, [authError, userId, calculateAssignedStatsFromTasks, groupTasksByDate, enrichAssignedTasksWithClientNames]);
 
   // Fetch self tasks
   const fetchMyTasks = useCallback(async () => {
@@ -1816,6 +1904,19 @@ const UserCreateTask = () => {
                                   ? (task.description || '').substring(0, 80) + '...' 
                                   : task.description || ''}
                               </div>
+                              {taskViewMode === 'assigned' && getClientNameFromTask(task) !== 'N/A' && (
+                                <div style={{ 
+                                  fontSize: isMobile ? '11px' : '12px', 
+                                  color: '#1976d2', 
+                                  marginTop: '4px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}>
+                                  <FiUsers size={10} />
+                                  Client: {getClientNameFromTask(task)}
+                                </div>
+                              )}
                             </div>
                             <div className="user-create-task-flex user-create-task-gap-1">
                               <button
@@ -2046,6 +2147,7 @@ const UserCreateTask = () => {
                         
                         const taskIsOverdue = isOverdue(dueDate, status);
                         const priority = task.priority || 'medium';
+                        const clientName = getClientNameFromTask(task);
 
                         return (
                           <div 
@@ -2066,9 +2168,17 @@ const UserCreateTask = () => {
                                     <div className="user-create-task-mobile-card-description">
                                       {task.description || ''}
                                     </div>
-                                    {taskViewMode === 'assigned' && task.clientName && (
-                                      <div className="user-create-task-mobile-card-client" style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                                        Client: {task.clientName}
+                                    {taskViewMode === 'assigned' && clientName !== 'N/A' && (
+                                      <div className="user-create-task-mobile-card-client" style={{ 
+                                        fontSize: '12px', 
+                                        color: '#1976d2', 
+                                        marginTop: '4px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                      }}>
+                                        <FiUsers size={10} />
+                                        Client: {clientName}
                                       </div>
                                     )}
                                   </div>
@@ -2230,6 +2340,7 @@ const UserCreateTask = () => {
                           
                           const taskIsOverdue = isOverdue(dueDate, status);
                           const priority = task.priority || 'medium';
+                          const clientName = getClientNameFromTask(task);
 
                           return (
                             <tr 
@@ -2251,13 +2362,13 @@ const UserCreateTask = () => {
                                       : task.description || ''}
                                   </div>
                                 )}
-                              </td>
+                               </td>
                               {!isMobile && (
                                 <td style={{ padding: '12px', maxWidth: '200px' }}>
                                   <div style={{ fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                     {task.description || task.name || '-'}
                                   </div>
-                                </td>
+                                 </td>
                               )}
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
                                 <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
@@ -2287,18 +2398,26 @@ const UserCreateTask = () => {
                                     </div>
                                   )}
                                 </div>
-                              </td>
+                               </td>
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
                                 <PriorityChip priority={priority} />
-                              </td>
+                               </td>
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
                                 <StatusChip status={status} label={status} />
-                              </td>
+                               </td>
                               
                               {taskViewMode === 'assigned' && (
                                 <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                                  {task.clientName || task.clientId?.name || 'N/A'}
-                                </td>
+                                  <div style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '4px',
+                                    color: '#1976d2'
+                                  }}>
+                                    <FiUsers size={12} />
+                                    {clientName}
+                                  </div>
+                                 </td>
                               )}
                               
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
@@ -2313,7 +2432,7 @@ const UserCreateTask = () => {
                                     <FiDownload size={isMobile ? 14 : 16} />
                                   </a>
                                 )}
-                              </td>
+                               </td>
 
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
                                 <div className="user-create-task-action-buttons">
@@ -2345,7 +2464,7 @@ const UserCreateTask = () => {
                                     </a>
                                   )}
                                 </div>
-                              </td>
+                               </td>
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
                                 <select
                                   value={status}
@@ -2390,8 +2509,8 @@ const UserCreateTask = () => {
                                     </>
                                   )}
                                 </select>
-                              </td>
-                            </tr>
+                               </td>
+                             </tr>
                           );
                         })}
                       </tbody>

@@ -10,15 +10,26 @@ import companyLogo from '../../public/logoo.png';
 
 const SuperAdminLogin = () => {
   const navigate = useNavigate();
+  
+  // Login form state
   const [form, setForm] = useState({
     email: '',
     password: ''
   });
+  
+  // OTP verification state
+  const [otpStep, setOtpStep] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [tempToken, setTempToken] = useState('');
+  const [email, setEmail] = useState('');
+  const [resendTimer, setResendTimer] = useState(0);
+  
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({
     email: '',
     password: '',
+    otp: '',
     general: ''
   });
 
@@ -31,6 +42,14 @@ const SuperAdminLogin = () => {
 
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleOtpChange = (e) => {
+    const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
+    setOtp(value);
+    if (errors.otp) {
+      setErrors((prev) => ({ ...prev, otp: '' }));
     }
   };
 
@@ -53,19 +72,54 @@ const SuperAdminLogin = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const validateOtp = () => {
+    if (!otp || otp.length !== 6) {
+      setErrors((prev) => ({ ...prev, otp: 'Please enter a valid 6-digit OTP' }));
+      return false;
+    }
+    return true;
+  };
+
+  // Start resend timer
+  const startResendTimer = () => {
+    setResendTimer(60);
+    const timer = setInterval(() => {
+      setResendTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  // Handle login submission (first step)
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
     setLoading(true);
+    setErrors({ email: '', password: '', otp: '', general: '' });
 
     try {
-      const response = await axios.post(`${API_URL}/superAdmin/login`, form);
+      const response = await axios.post(`${API_URL}/auth/superadmin/login`, {
+        email: form.email,
+        password: form.password
+      });
       
-      if (response.data.success) {
-        localStorage.setItem('superAdmin', JSON.stringify(response.data.data));
+      if (response.data.success && response.data.requiresOTP) {
+        // OTP required - move to OTP verification step
+        setTempToken(response.data.tempToken);
+        setEmail(response.data.email);
+        setOtpStep(true);
+        startResendTimer();
+        toast.success('OTP sent to your email! Please verify.');
+      } else if (response.data.success) {
+        // Direct login (if OTP is disabled)
+        localStorage.setItem('superAdmin', JSON.stringify(response.data.user));
         localStorage.setItem('token', response.data.token);
-        localStorage.setItem('company', JSON.stringify(response.data.data));
+        localStorage.setItem('company', JSON.stringify(response.data.companyDetails));
 
         toast.success('Login successful! Redirecting...');
         navigate('/Ciis-network/company-details');
@@ -82,6 +136,80 @@ const SuperAdminLogin = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle OTP verification
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    if (!validateOtp()) return;
+
+    setLoading(true);
+    setErrors({ email: '', password: '', otp: '', general: '' });
+
+    try {
+      const response = await axios.post(`${API_URL}/auth/superadmin/verify-otp`, {
+        email: email,
+        otp: otp,
+        tempToken: tempToken
+      });
+      
+      if (response.data.success) {
+        localStorage.setItem('superAdmin', JSON.stringify(response.data.user));
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('company', JSON.stringify(response.data.companyDetails));
+
+        toast.success('Login successful! Redirecting...');
+        navigate('/Ciis-network/company-details');
+      } else {
+        toast.error(response.data.message || 'OTP verification failed');
+        setErrors((prev) => ({ ...prev, otp: response.data.message || 'Invalid OTP' }));
+      }
+    } catch (error) {
+      console.error('OTP verification error:', error);
+      const errorMsg = error.response?.data?.message || 'OTP verification failed';
+      toast.error(errorMsg);
+      setErrors((prev) => ({ ...prev, otp: errorMsg }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle resend OTP
+  const handleResendOtp = async () => {
+    if (resendTimer > 0) return;
+    
+    setLoading(true);
+    
+    try {
+      const response = await axios.post(`${API_URL}/auth/superadmin/resend-otp`, {
+        email: email,
+        tempToken: tempToken
+      });
+      
+      if (response.data.success) {
+        setTempToken(response.data.tempToken);
+        startResendTimer();
+        toast.success('New OTP sent to your email!');
+        setOtp('');
+      } else {
+        toast.error(response.data.message || 'Failed to resend OTP');
+      }
+    } catch (error) {
+      console.error('Resend OTP error:', error);
+      toast.error(error.response?.data?.message || 'Failed to resend OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle back to login
+  const handleBackToLogin = () => {
+    setOtpStep(false);
+    setOtp('');
+    setTempToken('');
+    setEmail('');
+    setErrors({ email: '', password: '', otp: '', general: '' });
+    setResendTimer(0);
   };
 
   // Icons as inline SVG components
@@ -145,6 +273,190 @@ const SuperAdminLogin = () => {
     </svg>
   );
 
+  // OTP Verification UI
+  if (otpStep) {
+    return (
+      <div className="ciis-login-container">
+        <div className="ciis-login-paper ciis-login-fade-in">
+          {/* LEFT SECTION - Super Admin Features (Hidden on mobile) */}
+          <div className="ciis-login-left">
+            <div className="ciis-login-left-pattern"></div>
+            
+            <div className="ciis-login-left-content">
+              <div className="ciis-login-logo-container">
+                <img 
+                  src={companyLogo} 
+                  alt="Company Logo" 
+                  className="ciis-login-company-logo"
+                />
+              </div>
+
+              <h1 className="ciis-login-company-name">
+                CIIS NETWORK
+              </h1>
+
+              <p className="ciis-login-company-subtitle">
+                Super Admin Portal
+              </p>
+
+              <div className="ciis-login-features-card">
+                <h3 className="ciis-login-features-title">
+                  Super Admin Features:
+                </h3>
+                
+                <div className="ciis-login-feature-item">
+                  <div className="ciis-login-feature-icon">
+                    <DashboardIcon />
+                  </div>
+                  <span className="ciis-login-feature-text">📊 Manage all companies</span>
+                </div>
+                
+                <div className="ciis-login-feature-item">
+                  <div className="ciis-login-feature-icon">
+                    <PeopleIcon />
+                  </div>
+                  <span className="ciis-login-feature-text">👥 View all users across companies</span>
+                </div>
+                
+                <div className="ciis-login-feature-item">
+                  <div className="ciis-login-feature-icon">
+                    <SettingsIcon />
+                  </div>
+                  <span className="ciis-login-feature-text">⚙️ System configuration</span>
+                </div>
+                
+                <div className="ciis-login-feature-item">
+                  <div className="ciis-login-feature-icon">
+                    <AnalyticsIcon />
+                  </div>
+                  <span className="ciis-login-feature-text">📈 Analytics and reports</span>
+                </div>
+                
+                <div className="ciis-login-feature-item">
+                  <div className="ciis-login-feature-icon">
+                    <SecurityIcon />
+                  </div>
+                  <span className="ciis-login-feature-text">🔐 Master access control</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT SECTION - OTP Verification */}
+          <div className="ciis-login-right">
+            <div className="ciis-login-form-container">
+              <div className="ciis-login-form-header">
+                <div className="ciis-login-form-logo">
+                  <div className="ciis-login-mobile-logo">
+                    <img 
+                      src={companyLogo} 
+                      alt="Company Logo" 
+                      className="ciis-login-mobile-logo-img"
+                    />
+                  </div>
+                </div>
+                
+                <h2 className="ciis-login-form-title">
+                  Verify OTP
+                </h2>
+                <p className="ciis-login-form-subtitle">
+                  We've sent a 6-digit code to {email}
+                </p>
+              </div>
+
+              {/* Error Alert */}
+              {errors.general && (
+                <div className="ciis-login-error-alert">
+                  <div className="ciis-login-error-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#5f2120">
+                      <path d="M11 15h2v2h-2zm0-8h2v6h-2zm.99-5C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
+                    </svg>
+                  </div>
+                  {errors.general}
+                </div>
+              )}
+
+              <form onSubmit={handleVerifyOtp}>
+                {/* OTP Input */}
+                <div className="ciis-login-input-group">
+                  <label className="ciis-login-input-label">6-Digit OTP</label>
+                  <div className="ciis-login-input-container">
+                    <div className="ciis-login-input-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+                      </svg>
+                    </div>
+                    <input
+                      type="text"
+                      name="otp"
+                      value={otp}
+                      onChange={handleOtpChange}
+                      disabled={loading}
+                      maxLength="6"
+                      className={`ciis-login-input ${errors.otp ? 'ciis-login-input-error' : ''}`}
+                      placeholder="Enter 6-digit OTP"
+                      autoFocus
+                    />
+                  </div>
+                  {errors.otp && <span className="ciis-login-error-text">{errors.otp}</span>}
+                </div>
+
+                {/* Resend OTP Link */}
+                <div className="ciis-login-resend-container">
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={resendTimer > 0 || loading}
+                    className="ciis-login-resend-button"
+                  >
+                    {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : 'Resend OTP'}
+                  </button>
+                </div>
+
+                {/* Verify Button */}
+                <button
+                  type="submit"
+                  className="ciis-login-button"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <div className="ciis-login-button-icon">
+                        <div className="ciis-login-spinner"></div>
+                      </div>
+                      Verifying...
+                    </>
+                  ) : (
+                    <>
+                      <div className="ciis-login-button-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                        </svg>
+                      </div>
+                      Verify OTP
+                    </>
+                  )}
+                </button>
+
+                {/* Back to Login Link */}
+                <div className="ciis-login-link-text">
+                  <button 
+                    type="button"
+                    onClick={handleBackToLogin}
+                    className="ciis-login-link-button"
+                  >
+                    ← Back to Login
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Regular Login UI
   return (
     <div className="ciis-login-container">
       <div className="ciis-login-paper ciis-login-fade-in">

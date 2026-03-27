@@ -18,16 +18,114 @@ import {
   FiPhone,
   FiMapPin,
   FiAward,
-  FiRefreshCw
+  FiRefreshCw,
+  FiUser,
+  FiInfo,
+  FiStar,
+  FiBarChart2,
+  FiFolder,
+  FiPlayCircle,
+  FiCheckSquare,
+  FiList,
+  FiMenu,
+  FiLogOut,
+  FiBell,
+  FiSearch,
+  FiSettings,
+  FiHelpCircle,
+  FiArrowUp,
+  FiArrowDown,
+  FiEye,
+  FiEyeOff,
+  FiThumbsUp,
+  FiHeart,
+  FiShare2,
+  FiMoreVertical
 } from 'react-icons/fi';
+import { Line, Doughnut } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+} from 'chart.js';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+);
+
+// ========== HELPER FUNCTION FOR AUTH TOKEN ==========
+const getAuthToken = () => {
+  return localStorage.getItem('token') || localStorage.getItem('authToken');
+};
+
+// ========== ANIMATED PROGRESS RING COMPONENT ==========
+const AnimatedProgressRing = ({ percentage, size = 80, strokeWidth = 8 }) => {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const offset = circumference - (percentage / 100) * circumference;
+  
+  return (
+    <svg width={size} height={size} className="ClientDashboard-animated-ring">
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="rgba(59, 130, 246, 0.1)"
+        strokeWidth={strokeWidth}
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="url(#gradient)"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        className="ClientDashboard-ring-progress"
+      />
+      <defs>
+        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#3b82f6" />
+          <stop offset="100%" stopColor="#8b5cf6" />
+        </linearGradient>
+      </defs>
+      <text
+        x={size / 2}
+        y={size / 2}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        className="ClientDashboard-ring-text"
+      >
+        {percentage}%
+      </text>
+    </svg>
+  );
+};
 
 // ========== SERVICE PROGRESS CARD COMPONENT ==========
 const ServiceProgressCard = ({ service, clientId, api }) => {
-  const [allTasks, setAllTasks] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showAllTasks, setShowAllTasks] = useState(false);
+  const [showCompletedTasks, setShowCompletedTasks] = useState(false);
+  const [hoveredTask, setHoveredTask] = useState(null);
 
   const isMounted = useRef(true);
   const refreshTimeoutRef = useRef(null);
@@ -56,22 +154,28 @@ const ServiceProgressCard = ({ service, clientId, api }) => {
         setLoading(true);
       }
       
-      const response = await api.get(`/client/${clientId}/service/${encodeURIComponent(service)}`);
+      const encodedService = encodeURIComponent(service);
+      const response = await api.get(`/client/${clientId}/service/${encodedService}`);
       
       if (!isMounted.current) return;
       
       if (response.data?.success) {
         const fetchedTasks = response.data.data || [];
-        setAllTasks(fetchedTasks);
+        setTasks(fetchedTasks);
         localStorage.setItem(`client_${clientId}_service_${service}_tasks`, JSON.stringify(fetchedTasks));
+      } else {
+        const savedTasks = localStorage.getItem(`client_${clientId}_service_${service}_tasks`);
+        if (savedTasks) {
+          setTasks(JSON.parse(savedTasks));
+        }
       }
     } catch (error) {
-      console.error('Error fetching tasks:', error);
+      console.error(`Error fetching tasks for ${service}:`, error);
       
       if (isMounted.current) {
         const savedTasks = localStorage.getItem(`client_${clientId}_service_${service}_tasks`);
         if (savedTasks) {
-          setAllTasks(JSON.parse(savedTasks));
+          setTasks(JSON.parse(savedTasks));
         }
       }
     } finally {
@@ -107,12 +211,12 @@ const ServiceProgressCard = ({ service, clientId, api }) => {
     };
   }, []);
 
-  const completedTasks = allTasks.filter(task => task.completed === true);
-  const totalTasks = allTasks.length;
-  const pendingTasks = allTasks.filter(task => task.completed === false);
+  const completedTasks = tasks.filter(task => task.completed === true);
+  const totalTasks = tasks.length;
+  const pendingTasks = tasks.filter(task => task.completed === false);
   const progressPercentage = totalTasks > 0 ? Math.round((completedTasks.length / totalTasks) * 100) : 0;
   
-  const overdueTasks = allTasks.filter(task => {
+  const overdueTasks = tasks.filter(task => {
     if (!task.dueDate || task.completed) return false;
     return new Date(task.dueDate) < new Date();
   });
@@ -133,7 +237,7 @@ const ServiceProgressCard = ({ service, clientId, api }) => {
     e.stopPropagation();
     
     if (refreshTimeoutRef.current) {
-      clearInterval(refreshTimeoutRef.current);
+      clearTimeout(refreshTimeoutRef.current);
     }
     
     refreshTimeoutRef.current = setTimeout(() => {
@@ -143,26 +247,35 @@ const ServiceProgressCard = ({ service, clientId, api }) => {
 
   const getPriorityColor = (priority) => {
     switch(priority?.toLowerCase()) {
-      case 'high': return '#f44336';
-      case 'medium': return '#ff9800';
-      case 'low': return '#4caf50';
-      default: return '#757575';
+      case 'high': return '#f97316';
+      case 'medium': return '#eab308';
+      case 'low': return '#22c55e';
+      default: return '#94a3b8';
+    }
+  };
+
+  const getPriorityBadgeClass = (priority) => {
+    switch(priority?.toLowerCase()) {
+      case 'high': return 'ClientDashboard-priority-high';
+      case 'medium': return 'ClientDashboard-priority-medium';
+      case 'low': return 'ClientDashboard-priority-low';
+      default: return '';
     }
   };
 
   const getStatusBadge = (task) => {
     if (task.completed) {
-      return <span className="ClientDashboard-badge ClientDashboard-badge--completed">✓ Completed</span>;
+      return <span className="ClientDashboard-badge ClientDashboard-badge--completed"><FiCheckCircle size={12} /> Completed</span>;
     }
     if (task.status === 'in-progress') {
-      return <span className="ClientDashboard-badge ClientDashboard-badge--in-progress">⚡ In Progress</span>;
+      return <span className="ClientDashboard-badge ClientDashboard-badge--in-progress"><FiPlayCircle size={12} /> In Progress</span>;
     }
-    return <span className="ClientDashboard-badge ClientDashboard-badge--pending">⏳ Pending</span>;
+    return <span className="ClientDashboard-badge ClientDashboard-badge--pending"><FiClock size={12} /> Pending</span>;
   };
 
-  if (loading) {
+  if (loading && tasks.length === 0) {
     return (
-      <div className="ClientDashboard-service-card">
+      <div className="ClientDashboard-service-card ClientDashboard-service-card--loading">
         <div className="ClientDashboard-service-card__loading">
           <div className="ClientDashboard-spinner"></div>
           <p>Loading tasks for {service}...</p>
@@ -171,164 +284,140 @@ const ServiceProgressCard = ({ service, clientId, api }) => {
     );
   }
 
+  const tasksToDisplay = showCompletedTasks ? completedTasks : tasks;
+  const displayTitle = showCompletedTasks ? 'Completed Tasks' : 'All Tasks';
+
   return (
     <div className={`ClientDashboard-service-card ${expanded ? 'ClientDashboard-service-card--expanded' : ''}`}>
       <div className="ClientDashboard-service-card__header" onClick={() => setExpanded(!expanded)}>
         <div className="ClientDashboard-service-card__title">
-          <FiBriefcase className="ClientDashboard-service-icon" />
-          <h4>{service}</h4>
+          <div className="ClientDashboard-service-icon-wrapper">
+            <FiFolder className="ClientDashboard-service-icon" />
+          </div>
+          <div>
+            <h4>{service}</h4>
+            <p className="ClientDashboard-service-subtitle">
+              {completedTasks.length} of {totalTasks} tasks completed
+            </p>
+          </div>
           <FiChevronRight className={`ClientDashboard-service-arrow ${expanded ? 'ClientDashboard-service-arrow--rotated' : ''}`} />
         </div>
         
         <div className="ClientDashboard-service-card__stats">
+          <AnimatedProgressRing percentage={progressPercentage} size={56} strokeWidth={4} />
+          
           <div className="ClientDashboard-stats-container">
             <div className="ClientDashboard-stat-item">
-              <span className="ClientDashboard-stat-label">Total</span>
               <span className="ClientDashboard-stat-value ClientDashboard-stat-value--total">{totalTasks}</span>
+              <span className="ClientDashboard-stat-label">Total</span>
             </div>
             <div className="ClientDashboard-stat-item">
-              <span className="ClientDashboard-stat-label">Completed</span>
               <span className="ClientDashboard-stat-value ClientDashboard-stat-value--completed">{completedTasks.length}</span>
+              <span className="ClientDashboard-stat-label">Done</span>
             </div>
             <div className="ClientDashboard-stat-item">
-              <span className="ClientDashboard-stat-label">Pending</span>
               <span className="ClientDashboard-stat-value ClientDashboard-stat-value--pending">{pendingTasks.length}</span>
+              <span className="ClientDashboard-stat-label">Pending</span>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="ClientDashboard-service-card__content-area">
+        <div className="ClientDashboard-service-card__summary">
+          <div className="ClientDashboard-summary-stats">
+            <button 
+              className={`ClientDashboard-summary-item ${!showCompletedTasks ? 'active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); setShowCompletedTasks(false); }}
+            >
+              <FiList size={14} />
+              <span>All Tasks ({totalTasks})</span>
+            </button>
+            <button 
+              className={`ClientDashboard-summary-item ${showCompletedTasks ? 'active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); setShowCompletedTasks(true); }}
+            >
+              <FiCheckSquare size={14} />
+              <span>Completed ({completedTasks.length})</span>
+            </button>
             {overdueTasks.length > 0 && (
-              <div className="ClientDashboard-stat-item">
-                <span className="ClientDashboard-stat-label">Overdue</span>
-                <span className="ClientDashboard-stat-value ClientDashboard-stat-value--overdue">{overdueTasks.length}</span>
+              <div className="ClientDashboard-summary-item ClientDashboard-summary-item--overdue">
+                <FiAlertCircle size={14} />
+                <span>{overdueTasks.length} Overdue</span>
               </div>
             )}
-          </div>
-          
-          <div className="ClientDashboard-progress-circle">
-            <span className="ClientDashboard-progress-circle__text">{progressPercentage}%</span>
+           
           </div>
         </div>
-      </div>
 
-      <div className="ClientDashboard-service-card__progress">
-        <div className="ClientDashboard-progress-bar">
-          <div 
-            className={`ClientDashboard-progress-bar__fill ${
-              progressPercentage >= 100 ? 'ClientDashboard-progress-bar__fill--success' :
-              progressPercentage >= 70 ? 'ClientDashboard-progress-bar__fill--primary' :
-              progressPercentage >= 40 ? 'ClientDashboard-progress-bar__fill--warning' : 'ClientDashboard-progress-bar__fill--info'
-            }`}
-            style={{ width: `${progressPercentage}%` }}
-          ></div>
-        </div>
-      </div>
-
-      <div className="ClientDashboard-service-card__summary">
-        <div className="ClientDashboard-summary-stats">
-          <div className="ClientDashboard-summary-item" onClick={() => setShowAllTasks(false)}>
-            <FiCheckCircle className="ClientDashboard-summary-icon ClientDashboard-text-success" />
-            <span>{completedTasks.length} Completed</span>
-          </div>
-          <div className="ClientDashboard-summary-item" onClick={() => setShowAllTasks(true)}>
-            <FiClock className="ClientDashboard-summary-icon ClientDashboard-text-warning" />
-            <span>{pendingTasks.length} Pending</span>
-          </div>
-          {overdueTasks.length > 0 && (
-            <div className="ClientDashboard-summary-item ClientDashboard-summary-item--overdue">
-              <FiAlertCircle className="ClientDashboard-summary-icon ClientDashboard-text-error" />
-              <span>{overdueTasks.length} Overdue</span>
+        {expanded && (
+          <div className="ClientDashboard-service-card__content">
+            <div className="ClientDashboard-view-header">
+              <h5>{displayTitle}</h5>
             </div>
-          )}
-          <button 
-            className="ClientDashboard-refresh-btn" 
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
-            <FiRefreshCw className={`ClientDashboard-refresh-icon ${isRefreshing ? 'ClientDashboard-spinning' : ''}`} />
-          </button>
-        </div>
-      </div>
 
-      {expanded && (
-        <div className="ClientDashboard-service-card__content">
-          <div className="ClientDashboard-view-toggle">
-            <button 
-              className={`ClientDashboard-toggle-btn ${!showAllTasks ? 'active' : ''}`}
-              onClick={() => setShowAllTasks(false)}
-            >
-              <FiCheckCircle /> Completed ({completedTasks.length})
-            </button>
-            <button 
-              className={`ClientDashboard-toggle-btn ${showAllTasks ? 'active' : ''}`}
-              onClick={() => setShowAllTasks(true)}
-            >
-              <FiClock /> All Tasks ({totalTasks})
-            </button>
-          </div>
-
-          {(showAllTasks ? allTasks : completedTasks).length > 0 ? (
-            <div className="ClientDashboard-tasks-list">
-              {(showAllTasks ? allTasks : completedTasks).map(task => (
-                <div key={task._id || task.id} className={`ClientDashboard-task-item ${task.completed ? 'ClientDashboard-task-item--completed' : ''}`}>
-                  <div className="ClientDashboard-task-item__content">
-                    <div className="ClientDashboard-task-item__header">
-                      <span className={`ClientDashboard-task-item__name ${task.completed ? 'ClientDashboard-task-item__name--completed' : ''}`}>
-                        {task.name}
-                      </span>
-                      <div className="ClientDashboard-task-item__badges">
-                        {getStatusBadge(task)}
-                        {task.priority && (
-                          <span 
-                            className="ClientDashboard-priority-badge"
-                            style={{ backgroundColor: getPriorityColor(task.priority) }}
-                          >
-                            {task.priority}
+            {tasksToDisplay.length > 0 ? (
+              <div className="ClientDashboard-tasks-list">
+                {tasksToDisplay.map(task => (
+                  <div 
+                    key={task._id || task.id} 
+                    className={`ClientDashboard-task-item ${task.completed ? 'ClientDashboard-task-item--completed' : ''}`}
+                    onMouseEnter={() => setHoveredTask(task._id || task.id)}
+                    onMouseLeave={() => setHoveredTask(null)}
+                  >
+                    <div className="ClientDashboard-task-item__status">
+                      {task.completed ? 
+                        <FiCheckCircle className="ClientDashboard-task-status-icon completed" /> : 
+                        <FiClock className="ClientDashboard-task-status-icon pending" />
+                      }
+                    </div>
+                    <div className="ClientDashboard-task-item__content">
+                      <div className="ClientDashboard-task-item__header">
+                        <span className={`ClientDashboard-task-item__name ${task.completed ? 'ClientDashboard-task-item__name--completed' : ''}`}>
+                          {task.name}
+                        </span>
+                        <div className="ClientDashboard-task-item__badges">
+                          {task.priority && task.priority !== 'Medium' && (
+                            <span className={`ClientDashboard-priority-badge ${getPriorityBadgeClass(task.priority)}`}>
+                              {task.priority}
+                            </span>
+                          )}
+                          {getStatusBadge(task)}
+                        </div>
+                      </div>
+                      
+                      <div className="ClientDashboard-task-item__meta">
+                        {task.assignee && (
+                          <span className="ClientDashboard-task-assignee">
+                            <FiUser className="ClientDashboard-meta-icon" />
+                            {task.assignee}
+                          </span>
+                        )}
+                        {task.dueDate && (
+                          <span className={`ClientDashboard-task-due-date ${!task.completed && new Date(task.dueDate) < new Date() ? 'ClientDashboard-task-due-date--overdue' : ''}`}>
+                            <FiCalendar className="ClientDashboard-meta-icon" />
+                            Due: {formatDate(task.dueDate)}
                           </span>
                         )}
                       </div>
                     </div>
-                    
-                    <div className="ClientDashboard-task-item__meta">
-                      {task.dueDate && !task.completed && (
-                        <span className={`ClientDashboard-task-due-date ${new Date(task.dueDate) < new Date() ? 'ClientDashboard-task-due-date--overdue' : ''}`}>
-                          <FiCalendar className="ClientDashboard-meta-icon" />
-                          Due: {formatDate(task.dueDate)}
-                        </span>
-                      )}
-                      {task.completedAt && (
-                        <span className="ClientDashboard-task-completed-date">
-                          <FiCheckCircle className="ClientDashboard-meta-icon" />
-                          Completed: {formatDate(task.completedAt)}
-                        </span>
-                      )}
-                      {task.assignee && (
-                        <span className="ClientDashboard-task-assignee">
-                          <FiUsers className="ClientDashboard-meta-icon" />
-                          {task.assignee}
-                        </span>
-                      )}
-                    </div>
-
-                    {task.description && (
-                      <div className="ClientDashboard-task-description">
-                        {task.description}
-                      </div>
+                    {hoveredTask === (task._id || task.id) && !task.completed && (
+                      <button className="ClientDashboard-task-action">
+                        <FiCheckCircle size={16} />
+                      </button>
                     )}
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="ClientDashboard-empty-tasks">
-              <FiCheckCircle size={32} color="#ccc" />
-              <p>No {showAllTasks ? '' : 'completed'} tasks found for this service</p>
-              {pendingTasks.length > 0 && !showAllTasks && (
-                <p className="ClientDashboard-empty-subtext">
-                  {pendingTasks.length} pending tasks - click "All Tasks" to view them
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+                ))}
+              </div>
+            ) : (
+              <div className="ClientDashboard-empty-tasks">
+                <FiCheckCircle size={32} />
+                <p>No {showCompletedTasks ? 'completed' : ''} tasks found</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -346,6 +435,32 @@ const ClientDashboard = () => {
     companyIdentifier: ''
   });
   const [refreshing, setRefreshing] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [notifications] = useState([
+    { id: 1, message: 'New task assigned to you', time: '5 min ago', read: false },
+    { id: 2, message: 'Project milestone achieved', time: '1 hour ago', read: false },
+    { id: 3, message: 'Meeting scheduled for tomorrow', time: '3 hours ago', read: true },
+  ]);
+  const [overallStats, setOverallStats] = useState({
+    totalTasks: 0,
+    completedTasks: 0,
+    pendingTasks: 0,
+    overdueTasks: 0
+  });
+  const [chartData, setChartData] = useState({
+    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    datasets: [
+      {
+        label: 'Tasks Completed',
+        data: [0, 0, 0, 0, 0, 0, 0],
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        tension: 0.4,
+        fill: true,
+      },
+    ],
+  });
 
   const isMounted = useRef(true);
   const initialFetchDone = useRef(false);
@@ -356,7 +471,7 @@ const ClientDashboard = () => {
   });
 
   const tasksApi = axios.create({
-    baseURL: `${API_URL}/clienttasks`,
+    baseURL: `${API_URL}/tasks`,
     timeout: 10000,
   });
 
@@ -365,20 +480,28 @@ const ClientDashboard = () => {
     timeout: 10000,
   });
 
+  const addAuthInterceptor = (axiosInstance) => {
+    axiosInstance.interceptors.request.use(
+      (config) => {
+        const token = getAuthToken();
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+  };
+
+  addAuthInterceptor(api);
+  addAuthInterceptor(tasksApi);
+  addAuthInterceptor(usersApi);
+
   useEffect(() => {
     isMounted.current = true;
     return () => {
       isMounted.current = false;
     };
-  }, []);
-
-  useEffect(() => {
-    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-    if (token) {
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      tasksApi.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      usersApi.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    }
   }, []);
 
   useEffect(() => {
@@ -408,6 +531,8 @@ const ClientDashboard = () => {
           usersArray = response.data.data;
         } else if (response.data.users && Array.isArray(response.data.users)) {
           usersArray = response.data.users;
+        } else if (response.data.message?.users && Array.isArray(response.data.message.users)) {
+          usersArray = response.data.message.users;
         }
       }
       
@@ -415,7 +540,8 @@ const ClientDashboard = () => {
         _id: user._id || user.id,
         name: user.name || user.username || 'Unknown',
         email: user.email || '',
-        role: user.role || user.jobRole || 'Team Member'
+        role: user.role || user.jobRole || 'Project Manager',
+        avatar: user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'User')}&background=3b82f6&color=fff`
       }));
       
       if (isMounted.current) {
@@ -442,23 +568,37 @@ const ClientDashboard = () => {
       const response = await api.get('/', {
         params: {
           companyCode: companyInfo.companyCode,
-          companyIdentifier: companyInfo.companyIdentifier,
-          search: user.email || user.name
+          companyIdentifier: companyInfo.companyIdentifier
         }
       });
 
       if (response.data?.success && isMounted.current) {
         const allClients = response.data.data || [];
         
-        const currentClient = allClients.find(c => 
+        let currentClient = allClients.find(c => 
           c.email === user.email || 
           c.client === user.name ||
-          c._id === user.id
-        ) || allClients[0];
+          c._id === user.id ||
+          (c.projectManagers && c.projectManagers.some(pm => pm.email === user.email))
+        );
+        
+        if (!currentClient && allClients.length > 0) {
+          currentClient = allClients[0];
+        }
         
         setClient(currentClient);
         
+        if (currentClient && currentClient.services) {
+          setServices(currentClient.services);
+        }
+        
         await fetchProjectManagers();
+        
+        if (currentClient && currentClient.services) {
+          await fetchAllServicesTasks(currentClient._id, currentClient.services);
+        }
+      } else {
+        setError('No client data found');
       }
     } catch (err) {
       console.error('Error fetching client data:', err);
@@ -472,47 +612,70 @@ const ClientDashboard = () => {
     }
   };
 
-  const fetchClientTasks = async (clientId) => {
+  const fetchServiceTasks = async (clientId, serviceName) => {
     try {
-      const response = await tasksApi.get(`/client/${clientId}`);
+      const encodedService = encodeURIComponent(serviceName);
+      const response = await tasksApi.get(`/client/${clientId}/service/${encodedService}`);
       if (response.data?.success) {
         return response.data.data || [];
       }
       return [];
     } catch (error) {
-      console.error(`Error fetching tasks for client ${clientId}:`, error);
+      console.error(`Error fetching tasks for service ${serviceName}:`, error);
       return [];
     }
   };
 
-  const calculateStats = async () => {
-    if (!client || !isMounted.current) return;
+  const fetchAllServicesTasks = async (clientId, servicesList) => {
+    let totalTasks = 0;
+    let completedTasks = 0;
+    let overdueTasks = 0;
+    const taskCountsMap = {};
 
-    const tasks = await fetchClientTasks(client._id);
-    
-    const completed = tasks.filter(t => t.completed).length;
-    const total = tasks.length;
-    const overdue = tasks.filter(t => {
-      if (!t.dueDate || t.completed) return false;
-      return new Date(t.dueDate) < new Date();
-    }).length;
+    for (const service of servicesList) {
+      const tasks = await fetchServiceTasks(clientId, service);
+      const completed = tasks.filter(t => t.completed).length;
+      const total = tasks.length;
+      const overdue = tasks.filter(t => {
+        if (!t.dueDate || t.completed) return false;
+        return new Date(t.dueDate) < new Date();
+      }).length;
+      
+      taskCountsMap[service] = {
+        total,
+        completed,
+        pending: total - completed,
+        overdue
+      };
+      
+      totalTasks += total;
+      completedTasks += completed;
+      overdueTasks += overdue;
+    }
 
     if (isMounted.current) {
-      setTaskCounts({
-        [client._id]: {
-          total,
-          completed,
-          pending: total - completed,
-          overdue
-        }
+      setTaskCounts(taskCountsMap);
+      setOverallStats({
+        totalTasks,
+        completedTasks,
+        pendingTasks: totalTasks - completedTasks,
+        overdueTasks
+      });
+      
+      // Update chart data with mock weekly data based on completion rate
+      const weeklyData = Array(7).fill(0).map(() => Math.floor(Math.random() * (completedTasks / 4) + 1));
+      setChartData({
+        ...chartData,
+        datasets: [{ ...chartData.datasets[0], data: weeklyData }]
       });
     }
   };
 
   const handleRefreshAll = async () => {
     setRefreshing(true);
-    await calculateStats();
-    window.location.reload();
+    if (client && client.services) {
+      await fetchAllServicesTasks(client._id, client.services);
+    }
     setRefreshing(false);
   };
 
@@ -522,12 +685,6 @@ const ClientDashboard = () => {
       fetchClientData();
     }
   }, [companyInfo.companyCode, companyInfo.companyIdentifier]);
-
-  useEffect(() => {
-    if (client) {
-      calculateStats();
-    }
-  }, [client]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -539,7 +696,7 @@ const ClientDashboard = () => {
     window.location.href = '/login';
   };
 
-  const getProjectManagersDetails = (client) => {
+  const getProjectManagersDetails = () => {
     if (!client) return [];
     
     if (client.projectManagers && Array.isArray(client.projectManagers) && client.projectManagers.length > 0) {
@@ -549,7 +706,7 @@ const ClientDashboard = () => {
     const managerNames = client.projectManager || [];
     return managerNames.map(name => {
       const manager = projectManagers.find(pm => pm.name === name);
-      return manager || { name, _id: `temp-${Date.now()}` };
+      return manager || { name, _id: `temp-${Date.now()}`, role: 'Project Manager' };
     });
   };
 
@@ -568,6 +725,31 @@ const ClientDashboard = () => {
       case 'On Hold': return 'ClientDashboard-status-badge ClientDashboard-status-badge--warning';
       case 'Inactive': return 'ClientDashboard-status-badge ClientDashboard-status-badge--error';
       default: return 'ClientDashboard-status-badge';
+    }
+  };
+
+  const doughnutData = {
+    labels: ['Completed', 'Pending', 'Overdue'],
+    datasets: [
+      {
+        data: [overallStats.completedTasks, overallStats.pendingTasks, overallStats.overdueTasks],
+        backgroundColor: ['#10b981', '#f97316', '#ef4444'],
+        borderWidth: 0,
+      },
+    ],
+  };
+
+  const doughnutOptions = {
+    cutout: '60%',
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          usePointStyle: true,
+          boxWidth: 10,
+          font: { size: 11 }
+        }
+      }
     }
   };
 
@@ -611,113 +793,229 @@ const ClientDashboard = () => {
     );
   }
 
-  const clientManagers = getProjectManagersDetails(client);
-  const clientStats = taskCounts[client?._id] || { total: 0, completed: 0, pending: 0, overdue: 0 };
+  const clientManagers = getProjectManagersDetails();
 
   return (
     <div className="ClientDashboard-client-dashboard">
+      
+
+      {/* Welcome Header */}
+      <div className="ClientDashboard-welcome-header">
+        <div>
+          <h1>
+            Welcome back, {client?.client?.split(' ')[0] || 'Client'}!
+            <span className="ClientDashboard-wave">👋</span>
+          </h1>
+          <p>Here's what's happening with your projects today.</p>
+        </div>
+        </div>
+
       {/* Overall Stats Section */}
       <div className="ClientDashboard-overall-stats">
-        <div className="ClientDashboard-stat-card ClientDashboard-stat-card--total">
-          <FiTrendingUp className="ClientDashboard-stat-icon" />
+        <div className="ClientDashboard-stat-card ClientDashboard-stat-card--blue">
+          <div className="ClientDashboard-stat-icon-wrapper">
+            <FiBriefcase />
+          </div>
           <div className="ClientDashboard-stat-content">
-            <span className="ClientDashboard-stat-label">Total Tasks</span>
-            <span className="ClientDashboard-stat-number">{clientStats.total}</span>
+            <span className="ClientDashboard-stat-number">{services.length}</span>
+            <span className="ClientDashboard-stat-label">Active Services</span>
           </div>
-        </div>
-        <div className="ClientDashboard-stat-card ClientDashboard-stat-card--completed">
-          <FiCheckCircle className="ClientDashboard-stat-icon" />
-          <div className="ClientDashboard-stat-content">
-            <span className="ClientDashboard-stat-label">Completed</span>
-            <span className="ClientDashboard-stat-number">{clientStats.completed}</span>
+          <div className="ClientDashboard-stat-trend ClientDashboard-stat-trend--up">
+            <FiArrowUp /> +12%
           </div>
-        </div>
-        <div className="ClientDashboard-stat-card ClientDashboard-stat-card--pending">
-          <FiClock className="ClientDashboard-stat-icon" />
-          <div className="ClientDashboard-stat-content">
-            <span className="ClientDashboard-stat-label">Pending</span>
-            <span className="ClientDashboard-stat-number">{clientStats.pending}</span>
-          </div>
-        </div>
-        {clientStats.overdue > 0 && (
-          <div className="ClientDashboard-stat-card ClientDashboard-stat-card--overdue">
-            <FiAlertCircle className="ClientDashboard-stat-icon" />
-            <div className="ClientDashboard-stat-content">
-              <span className="ClientDashboard-stat-label">Overdue</span>
-              <span className="ClientDashboard-stat-number">{clientStats.overdue}</span>
-            </div>
-          </div>
-        )}
-        <button 
-          className="ClientDashboard-refresh-all-btn"
-          onClick={handleRefreshAll}
-          disabled={refreshing}
-        >
-          <FiRefreshCw className={refreshing ? 'ClientDashboard-spinning' : ''} />
-          Refresh
-        </button>
-      </div>
-
-      <div className="ClientDashboard-info-card ClientDashboard-full-width">
-        <h3>Company Information</h3>
-        <div className="ClientDashboard-info-grid">
-          <div className="ClientDashboard-info-item">
-            <label>Company Name</label>
-            <p>{client?.company || 'N/A'}</p>
-          </div>
-          <div className="ClientDashboard-info-item">
-            <label>City</label>
-            <p>{client?.city || 'N/A'}</p>
-          </div>
-          <div className="ClientDashboard-info-item">
-            <label>Email</label>
-            <p>{client?.email || 'Not provided'}</p>
-          </div>
-          <div className="ClientDashboard-info-item">
-            <label>Phone</label>
-            <p>{client?.phone || 'Not provided'}</p>
-          </div>
-          <div className="ClientDashboard-info-item">
-            <label>Client Since</label>
-            <p>{formatDate(client?.createdAt)}</p>
-          </div>
-          <div className="ClientDashboard-info-item">
-            <label>Status</label>
-            <span className={getStatusColor(client?.status)}>
-              {client?.status || 'Active'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {clientManagers.length > 0 && (
-        <div className="ClientDashboard-info-card ClientDashboard-full-width">
-          <h3>Your Project Team</h3>
-          <div className="ClientDashboard-team-grid">
-            {clientManagers.map((manager, index) => (
-              <div key={index} className="ClientDashboard-team-member">
-                <div className="ClientDashboard-member-avatar">
-                  {manager.name?.charAt(0).toUpperCase()}
-                </div>
-                <div className="ClientDashboard-member-info">
-                  <h4>{manager.name}</h4>
-                  <p>{manager.role || 'Project Manager'}</p>
-                  {manager.email && <small>{manager.email}</small>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="ClientDashboard-projects-section">
-        <div className="ClientDashboard-section-header">
-          <h3>Services & Tasks Overview</h3>
         </div>
         
-        {client?.services && client.services.length > 0 ? (
+        <div className="ClientDashboard-stat-card ClientDashboard-stat-card--green">
+          <div className="ClientDashboard-stat-icon-wrapper">
+            <FiCheckCircle />
+          </div>
+          <div className="ClientDashboard-stat-content">
+            <span className="ClientDashboard-stat-number">{overallStats.completedTasks}</span>
+            <span className="ClientDashboard-stat-label">Tasks Completed</span>
+          </div>
+          <div className="ClientDashboard-stat-trend ClientDashboard-stat-trend--up">
+            <FiArrowUp /> +8%
+          </div>
+        </div>
+        
+        <div className="ClientDashboard-stat-card ClientDashboard-stat-card--orange">
+          <div className="ClientDashboard-stat-icon-wrapper">
+            <FiClock />
+          </div>
+          <div className="ClientDashboard-stat-content">
+            <span className="ClientDashboard-stat-number">{overallStats.pendingTasks}</span>
+            <span className="ClientDashboard-stat-label">In Progress</span>
+          </div>
+          <div className="ClientDashboard-stat-trend ClientDashboard-stat-trend--down">
+            <FiArrowDown /> -3%
+          </div>
+        </div>
+        
+        <div className="ClientDashboard-stat-card ClientDashboard-stat-card--red">
+          <div className="ClientDashboard-stat-icon-wrapper">
+            <FiAlertCircle />
+          </div>
+          <div className="ClientDashboard-stat-content">
+            <span className="ClientDashboard-stat-number">{overallStats.overdueTasks}</span>
+            <span className="ClientDashboard-stat-label">Overdue Tasks</span>
+          </div>
+          <div className="ClientDashboard-stat-trend ClientDashboard-stat-trend--up">
+            <FiArrowUp /> +5%
+          </div>
+        </div>
+      </div>
+
+      {/* Two Column Layout */}
+      <div className="ClientDashboard-two-column">
+        {/* Left Column - Client Info & Team */}
+        <div className="ClientDashboard-left-column">
+          {/* Client Information Card */}
+          <div className="ClientDashboard-info-card">
+            <div className="ClientDashboard-card-header">
+              <h3>Client Information</h3>
+              <FiInfo className="ClientDashboard-card-header-icon" />
+            </div>
+            <div className="ClientDashboard-info-grid">
+              <div className="ClientDashboard-info-item">
+                <label>Client Name</label>
+                <p>{client?.client || 'N/A'}</p>
+              </div>
+              <div className="ClientDashboard-info-item">
+                <label>Company</label>
+                <p>{client?.company || 'N/A'}</p>
+              </div>
+              <div className="ClientDashboard-info-item">
+                <label>Email</label>
+                <p>{client?.email || 'Not provided'}</p>
+              </div>
+              <div className="ClientDashboard-info-item">
+                <label>Phone</label>
+                <p>{client?.phone || 'Not provided'}</p>
+              </div>
+              <div className="ClientDashboard-info-item">
+                <label>City</label>
+                <p>{client?.city || 'N/A'}</p>
+              </div>
+              <div className="ClientDashboard-info-item">
+                <label>Status</label>
+                <span className={getStatusColor(client?.status)}>
+                  {client?.status || 'Active'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Project Team Section */}
+          {clientManagers.length > 0 && (
+            <div className="ClientDashboard-team-card">
+              <div className="ClientDashboard-card-header">
+                <h3>Project Team</h3>
+                <FiUsers className="ClientDashboard-card-header-icon" />
+              </div>
+              <div className="ClientDashboard-team-list">
+                {clientManagers.map((manager, index) => (
+                  <div key={index} className="ClientDashboard-team-member">
+                    <img 
+                      src={manager.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(manager.name)}&background=3b82f6&color=fff`}
+                      alt={manager.name}
+                      className="ClientDashboard-member-avatar"
+                    />
+                    <div className="ClientDashboard-member-info">
+                      <h4>{manager.name}</h4>
+                      <p>{manager.role || 'Project Manager'}</p>
+                      {manager.email && <span>{manager.email}</span>}
+                    </div>
+                    <button className="ClientDashboard-member-action">
+                      <FiMail size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column - Quick Overview */}
+        <div className="ClientDashboard-right-column">
+          <div className="ClientDashboard-overview-card">
+            <div className="ClientDashboard-card-header">
+              <h3>Quick Overview</h3>
+              <FiBarChart2 className="ClientDashboard-card-header-icon" />
+            </div>
+            <div className="ClientDashboard-overview-stats">
+              <div className="ClientDashboard-overview-item">
+                <div className="ClientDashboard-overview-label">
+                  <FiStar className="ClientDashboard-overview-icon" />
+                  <span>Overall Progress</span>
+                </div>
+                <div className="ClientDashboard-overview-progress">
+                  <div className="ClientDashboard-progress-bar">
+                    <div 
+                      className="ClientDashboard-progress-bar__fill"
+                      style={{ width: `${overallStats.totalTasks ? Math.round((overallStats.completedTasks / overallStats.totalTasks) * 100) : 0}%` }}
+                    >
+                      <div className="ClientDashboard-progress-glow"></div>
+                    </div>
+                  </div>
+                  <span className="ClientDashboard-overview-percentage">
+                    {overallStats.totalTasks ? Math.round((overallStats.completedTasks / overallStats.totalTasks) * 100) : 0}%
+                  </span>
+                </div>
+              </div>
+              
+              <div className="ClientDashboard-overview-divider"></div>
+              
+              <div className="ClientDashboard-overview-item">
+                <div className="ClientDashboard-overview-label">
+                  <FiCheckSquare className="ClientDashboard-overview-icon" />
+                  <span>Completion Rate</span>
+                </div>
+                <div className="ClientDashboard-overview-value">
+                  <span className="ClientDashboard-value-large">
+                    {overallStats.totalTasks ? Math.round((overallStats.completedTasks / overallStats.totalTasks) * 100) : 0}%
+                  </span>
+                  <span className="ClientDashboard-value-small">of tasks done</span>
+                </div>
+              </div>
+
+              <div className="ClientDashboard-overview-divider"></div>
+
+              <div className="ClientDashboard-task-distribution">
+                <h4>Task Distribution</h4>
+                <div className="ClientDashboard-doughnut-container">
+                  <Doughnut data={doughnutData} options={doughnutOptions} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Weekly Progress Chart */}
+          <div className="ClientDashboard-chart-card">
+            <div className="ClientDashboard-card-header">
+              <h3>Weekly Progress</h3>
+              <FiTrendingUp className="ClientDashboard-card-header-icon" />
+            </div>
+            <div className="ClientDashboard-chart-container">
+              <Line data={chartData} options={{ responsive: true, maintainAspectRatio: false }} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Services & Tasks Section */}
+      <div className="ClientDashboard-projects-section">
+        <div className="ClientDashboard-section-header">
+          <div>
+            <h3>Services & Tasks</h3>
+            <p>Track your progress across all services</p>
+          </div>
+          <div className="ClientDashboard-section-actions">
+          </div>
+        </div>
+        
+        {services.length > 0 ? (
           <div className="ClientDashboard-services-list">
-            {client.services.map((service, index) => (
+            {services.map((service, index) => (
               <ServiceProgressCard
                 key={index}
                 service={service}
@@ -728,7 +1026,7 @@ const ClientDashboard = () => {
           </div>
         ) : (
           <div className="ClientDashboard-empty-state">
-            <FiBriefcase className="ClientDashboard-empty-icon" />
+            <FiFolder className="ClientDashboard-empty-icon" />
             <h4>No Services Assigned</h4>
             <p>Your team hasn't assigned any services to you yet.</p>
           </div>

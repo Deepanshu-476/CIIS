@@ -15,7 +15,7 @@ import "../Css/TaskManagement.css";
 import API_URL from '../../config';
 import CIISLoader from '../../Loader/CIISLoader';
 
-// Helper function to get correct image URL - FIXED VERSION FOR ASSIGNED TASKS
+// Helper function to get correct image URL - UPDATED FOR ASSIGNED TASKS
 const getImageUrl = (imagePath) => {
   if (!imagePath) return '';
 
@@ -72,8 +72,10 @@ const getImageUrl = (imagePath) => {
     `${baseUrlWithoutApi}/uploads/${filename}`
   ];
   
+  // Log all possible paths for debugging
+  console.log('🔗 Possible image paths:', possiblePaths);
+  
   // Return the first path - if it fails, the onError handler will try others
-  console.log('🔗 Generated URL:', possiblePaths[0]);
   return possiblePaths[0];
 };
 
@@ -725,7 +727,7 @@ const UserCreateTask = () => {
     showSnackbar('All filters cleared', 'info');
   };
 
-  // Fetch task remarks - UPDATED with better logging
+  // Fetch task remarks - UPDATED with better logging and image handling
   const fetchTaskRemarks = async (taskId) => {
     try {
       const isAssignedTask = taskViewMode === 'assigned';
@@ -753,10 +755,28 @@ const UserCreateTask = () => {
         remarks = res.data;
       }
       
-      // Log image data for debugging
-      remarks.forEach((remark, idx) => {
-        console.log(`📸 Remark ${idx + 1} images:`, remark.images);
-        console.log(`📸 Remark ${idx + 1} image (old format):`, remark.image);
+      // Process remarks to ensure images array exists
+      remarks = remarks.map(remark => {
+        // If there's an image field but no images array, create images array
+        if (remark.image && !remark.images) {
+          remark.images = [{
+            url: remark.image,
+            filename: remark.image.split('/').pop(),
+            originalName: remark.image.split('/').pop(),
+            size: 0,
+            mimeType: 'image/jpeg'
+          }];
+        }
+        
+        // Ensure images array exists
+        if (!remark.images) {
+          remark.images = [];
+        }
+        
+        // Log image data for debugging
+        console.log(`📸 Remark has ${remark.images.length} image(s):`, remark.images);
+        
+        return remark;
       });
       
       console.log('📊 Processed remarks count:', remarks.length);
@@ -829,7 +849,7 @@ const UserCreateTask = () => {
     }
   };
 
-  // Add remark - UPDATED with proper image upload
+  // Add remark - UPDATED with proper image upload for assigned tasks
   const addRemark = async (taskId) => {
     if (!newRemark.trim() && remarkImages.length === 0) {
       showSnackbar('Please enter a remark or upload an image', 'warning');
@@ -845,13 +865,13 @@ const UserCreateTask = () => {
       let formData = new FormData();
       
       if (isAssignedTask) {
+        // For assigned tasks, always use the upload-images endpoint with images
         if (remarkImages.length > 0) {
-          // Use upload-images endpoint for images
           endpoint = `/tasks/${taskId}/client-remarks/upload-images`;
           formData.append('text', newRemark.trim());
           
           remarkImages.forEach((image) => {
-            console.log('📤 Uploading image:', image.file.name);
+            console.log('📤 Uploading image for assigned task:', image.file.name);
             formData.append('images', image.file);
           });
         } else {
@@ -870,6 +890,7 @@ const UserCreateTask = () => {
       }
 
       console.log('📡 Adding remark to endpoint:', endpoint);
+      console.log('📸 Images count:', remarkImages.length);
       
       const response = await axios.post(endpoint, formData, {
         headers: {
@@ -2667,7 +2688,7 @@ const UserCreateTask = () => {
         </div>
       </div>
 
-      {/* REMARKS DIALOG */}
+      {/* REMARKS DIALOG - UPDATED WITH IMAGE SUPPORT */}
       <div className="user-create-task-dialog-overlay" style={{ display: remarksDialog.open ? 'flex' : 'none' }}>
         <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ maxWidth: isMobile ? '95%' : isTablet ? '700px' : '800px', width: isMobile ? '95%' : 'auto' }}>
           <div className="user-create-task-dialog-title">
@@ -2693,9 +2714,16 @@ const UserCreateTask = () => {
                     style={{ marginBottom: isMobile ? '12px' : '16px', width: '100%' }}
                   />
 
-                  {/* Image Upload Section */}
+                  {/* Image Upload Section - UPDATED FOR ASSIGNED TASKS */}
                   <div style={{ marginBottom: isMobile ? '12px' : '16px' }}>
-                    <div style={{ marginBottom: isMobile ? '6px' : '8px', fontWeight: 600 }}>Attach Images (Optional)</div>
+                    <div style={{ marginBottom: isMobile ? '6px' : '8px', fontWeight: 600 }}>
+                      Attach Images (Optional)
+                      {taskViewMode === 'assigned' && (
+                        <span style={{ fontSize: isMobile ? '10px' : '11px', color: '#666', marginLeft: '8px' }}>
+                          (Multiple images supported)
+                        </span>
+                      )}
+                    </div>
                     
                     <div
                       onDragOver={handleDragOver}
@@ -2712,6 +2740,15 @@ const UserCreateTask = () => {
                       }}
                     >
                       <div className="user-create-task-flex user-create-task-flex-column user-create-task-align-center user-create-task-gap-1">
+                        <FiImage size={isMobile ? 24 : 32} color="#666" />
+                        <div style={{ fontSize: isMobile ? '12px' : '14px', color: '#666' }}>
+                          Drag and drop images here, or click to select
+                        </div>
+                        <div style={{ fontSize: isMobile ? '10px' : '12px', color: '#999' }}>
+                          {taskViewMode === 'assigned' 
+                            ? 'Supports JPG, PNG, GIF (up to 5MB each)'
+                            : 'Supports JPG, PNG, GIF (single image)'}
+                        </div>
                         <button
                           className="user-create-task-button user-create-task-button-outlined"
                           style={{ marginTop: '8px', padding: isMobile ? '8px 12px' : '10px 16px' }}
@@ -2725,7 +2762,7 @@ const UserCreateTask = () => {
                         id="remark-image-upload"
                         type="file"
                         accept="image/*"
-                        multiple
+                        multiple={taskViewMode === 'assigned'}
                         onChange={handleRemarkImageUpload}
                         style={{ display: 'none' }}
                       />
@@ -2734,8 +2771,14 @@ const UserCreateTask = () => {
                     {/* Image Previews */}
                     {remarkImages.length > 0 && (
                       <div style={{ marginTop: isMobile ? '12px' : '16px' }}>
-                        <div style={{ marginBottom: isMobile ? '6px' : '8px', fontWeight: 600 }}>Selected Images</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: isMobile ? '6px' : '8px' }}>
+                        <div style={{ marginBottom: isMobile ? '6px' : '8px', fontWeight: 600 }}>
+                          Selected Images ({remarkImages.length})
+                        </div>
+                        <div style={{ 
+                          display: 'grid', 
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', 
+                          gap: isMobile ? '6px' : '8px' 
+                        }}>
                           {remarkImages.map((image, index) => (
                             <div key={index} style={{ position: 'relative' }}>
                               <img
@@ -2745,7 +2788,8 @@ const UserCreateTask = () => {
                                   width: '100%',
                                   height: isMobile ? '60px' : '80px',
                                   objectFit: 'cover',
-                                  borderRadius: '4px'
+                                  borderRadius: '4px',
+                                  border: '1px solid #eee'
                                 }}
                                 onClick={() => setZoomImage(image.preview)}
                               />
@@ -2830,7 +2874,7 @@ const UserCreateTask = () => {
                               </div>
                             )}
 
-                            {/* Handle new format (images array) */}
+                            {/* Handle new format (images array) - IMPROVED FOR ASSIGNED TASKS */}
                             {remark.images && remark.images.length > 0 && (
                               <div style={{ marginTop: isMobile ? '6px' : '8px' }}>
                                 <div style={{ fontSize: isMobile ? '11px' : '12px', marginBottom: '4px' }}>
@@ -2842,7 +2886,16 @@ const UserCreateTask = () => {
                                   gap: isMobile ? '6px' : '8px' 
                                 }}>
                                   {remark.images.map((image, imgIndex) => {
-                                    const imageUrl = getImageUrl(image.url || image.path || image);
+                                    // Get image URL - try multiple formats
+                                    let imageUrl = '';
+                                    if (image.url) {
+                                      imageUrl = getImageUrl(image.url);
+                                    } else if (image.path) {
+                                      imageUrl = getImageUrl(image.path);
+                                    } else if (typeof image === 'string') {
+                                      imageUrl = getImageUrl(image);
+                                    }
+                                    
                                     console.log(`🖼️ Rendering image ${imgIndex + 1}:`, imageUrl);
                                     
                                     return (
@@ -2869,6 +2922,7 @@ const UserCreateTask = () => {
                                             const baseUrl = API_URL?.replace(/\/api$/, '') || 'http://localhost:3000';
                                             const alternativeUrls = [
                                               `${baseUrl}/uploads/client-remarks/${filename}`,
+                                              `${baseUrl}/uploads/remarks/client-remarks/${filename}`,
                                               `${baseUrl}/uploads/${filename}`,
                                               `${baseUrl}/${filename}`
                                             ];
@@ -3186,5 +3240,5 @@ const UserCreateTask = () => {
     </div>
   );
 };
-
+  
 export default UserCreateTask;

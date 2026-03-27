@@ -4,165 +4,10 @@ import axios from 'axios';
 import API_URL from '../config';
 import { toast } from 'react-toastify';
 import './SuperAdminLogin.css';
-import companyLogo from '../../public/logoo.png';
 
-// ==================== OTP POPUP COMPONENT ====================
-const OtpPopup = ({ email, tempToken, onClose, onSuccess }) => {
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [timer, setTimer] = useState(60);
-  const [canResend, setCanResend] = useState(false);
+// Import your company logo
+import companyLogo from '../../public/logoo.png'; 
 
-  React.useEffect(() => {
-    if (timer > 0) {
-      const interval = setTimeout(() => setTimer(timer - 1), 1000);
-      return () => clearTimeout(interval);
-    } else {
-      setCanResend(true);
-    }
-  }, [timer]);
-
-  const handleOtpChange = (index, value) => {
-    if (value.length > 1) return;
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
-    setError('');
-
-    if (value && index < 5) {
-      document.getElementById(`otp-${index + 1}`)?.focus();
-    }
-  };
-
-  const handleKeyDown = (index, e) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      document.getElementById(`otp-${index - 1}`)?.focus();
-    }
-  };
-
-  const handleVerify = async () => {
-    const otpString = otp.join('');
-    if (otpString.length !== 6) {
-      setError('Please enter complete 6-digit OTP');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await axios.post(`${API_URL}/auth/verify-login-otp`, {
-        email,
-        otp: otpString,
-        tempToken
-      });
-
-      if (response.data.success) {
-        localStorage.setItem('superAdmin', JSON.stringify(response.data.user));
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('company', JSON.stringify(response.data.companyDetails));
-        
-        toast.success('Login successful!');
-        onSuccess();
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Invalid OTP');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    setLoading(true);
-    try {
-      const response = await axios.post(`${API_URL}/auth/resend-login-otp`, { email });
-      if (response.data.success) {
-        setTimer(60);
-        setCanResend(false);
-        setOtp(['', '', '', '', '', '']);
-        toast.success('OTP resent successfully');
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to resend OTP');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="otp-popup-overlay">
-      <div className="otp-popup-container">
-        <button className="otp-popup-close" onClick={onClose}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-          </svg>
-        </button>
-        
-        <div className="otp-popup-header">
-          <div className="otp-popup-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="#667eea">
-              <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
-            </svg>
-          </div>
-          <h2>Verify OTP</h2>
-          <p>Enter the 6-digit code sent to</p>
-          <p className="otp-popup-email">{email}</p>
-        </div>
-
-        <div className="otp-popup-inputs">
-          {otp.map((digit, index) => (
-            <input
-              key={index}
-              id={`otp-${index}`}
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength="1"
-              value={digit}
-              onChange={(e) => handleOtpChange(index, e.target.value)}
-              onKeyDown={(e) => handleKeyDown(index, e)}
-              className="otp-popup-input"
-              disabled={loading}
-              autoFocus={index === 0}
-            />
-          ))}
-        </div>
-
-        {error && <div className="otp-popup-error">{error}</div>}
-
-        <button
-          onClick={handleVerify}
-          className="otp-popup-verify-btn"
-          disabled={loading || otp.join('').length !== 6}
-        >
-          {loading ? (
-            <>
-              <span className="otp-popup-spinner"></span>
-              Verifying...
-            </>
-          ) : (
-            'Verify OTP'
-          )}
-        </button>
-
-        <div className="otp-popup-resend">
-          {canResend ? (
-            <button 
-              onClick={handleResend} 
-              className="otp-popup-resend-btn"
-              disabled={loading}
-            >
-              Resend OTP
-            </button>
-          ) : (
-            <p>Resend OTP in <span className="otp-popup-timer">{timer}</span> seconds</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ==================== MAIN SUPER ADMIN LOGIN COMPONENT ====================
 const SuperAdminLogin = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({
@@ -176,11 +21,6 @@ const SuperAdminLogin = () => {
     password: '',
     general: ''
   });
-  
-  // OTP states
-  const [showOtpPopup, setShowOtpPopup] = useState(false);
-  const [otpEmail, setOtpEmail] = useState('');
-  const [tempToken, setTempToken] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -220,49 +60,23 @@ const SuperAdminLogin = () => {
     setLoading(true);
 
     try {
-      // ✅ Use superadmin specific route
-      const response = await axios.post(`${API_URL}/auth/superadmin/login`, {
-        email: form.email.trim(),
-        password: form.password
-        // No company code needed for superadmin
-      });
+      const response = await axios.post(`${API_URL}/superAdmin/login`, form);
+      
+      if (response.data.success) {
+        localStorage.setItem('superAdmin', JSON.stringify(response.data.data));
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('company', JSON.stringify(response.data.data));
 
-      // ✅ Check if OTP verification is required
-      if (response.data.requiresOTP) {
-        setOtpEmail(response.data.email);
-        setTempToken(response.data.tempToken);
-        setShowOtpPopup(true);
-        toast.info('OTP sent to your email. Please verify.');
+        toast.success('Login successful! Redirecting...');
+        navigate('/Ciis-network/company-details');
       } else {
-        handleLoginSuccess(response.data);
+        toast.error(response.data.message || 'Login failed');
       }
     } catch (error) {
       console.error('Login error:', error);
-      
-      let errorMsg = 'Login failed. Please try again.';
-      
-      if (error.response?.data) {
-        const { errorCode, message } = error.response.data;
-        
-        if (message) errorMsg = message;
-        
-        switch (errorCode) {
-          case 'ACCOUNT_LOCKED':
-            errorMsg = 'Account locked. Please try again later.';
-            break;
-          case 'ACCOUNT_DEACTIVATED':
-            errorMsg = 'Your account has been deactivated.';
-            break;
-          case 'INVALID_CREDENTIALS':
-            errorMsg = 'Invalid email or password.';
-            break;
-          default:
-            errorMsg = message || 'Login failed';
-        }
-      } else if (error.code === 'ERR_NETWORK') {
-        errorMsg = 'Network error. Please check your connection.';
-      }
-      
+      const errorMsg = error.response?.data?.message ||
+        error.response?.data?.error ||
+        'Login failed. Please check credentials.';
       toast.error(errorMsg);
       setErrors((prev) => ({ ...prev, general: errorMsg }));
     } finally {
@@ -270,21 +84,7 @@ const SuperAdminLogin = () => {
     }
   };
 
-  const handleLoginSuccess = (data) => {
-    localStorage.setItem('superAdmin', JSON.stringify(data.user));
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('company', JSON.stringify(data.companyDetails));
-    
-    toast.success('Login successful! Redirecting...');
-    navigate('/Ciis-network/company-details');
-  };
-
-  const handleOtpSuccess = () => {
-    setShowOtpPopup(false);
-    navigate('/Ciis-network/company-details');
-  };
-
-  // ==================== ICON COMPONENTS ====================
+  // Icons as inline SVG components
   const VisibilityIcon = () => (
     <svg className="ciis-login-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
@@ -348,11 +148,12 @@ const SuperAdminLogin = () => {
   return (
     <div className="ciis-login-container">
       <div className="ciis-login-paper ciis-login-fade-in">
-        {/* LEFT SECTION - Super Admin Features */}
+        {/* LEFT SECTION - Super Admin Features (Hidden on mobile) */}
         <div className="ciis-login-left">
           <div className="ciis-login-left-pattern"></div>
           
           <div className="ciis-login-left-content">
+            {/* Company Logo - Updated */}
             <div className="ciis-login-logo-container">
               <img 
                 src={companyLogo} 
@@ -361,6 +162,7 @@ const SuperAdminLogin = () => {
               />
             </div>
 
+            {/* Company Name */}
             <h1 className="ciis-login-company-name">
               CIIS NETWORK
             </h1>
@@ -369,33 +171,44 @@ const SuperAdminLogin = () => {
               Super Admin Portal
             </p>
 
+            {/* Features List */}
             <div className="ciis-login-features-card">
               <h3 className="ciis-login-features-title">
                 Super Admin Features:
               </h3>
               
               <div className="ciis-login-feature-item">
-                <div className="ciis-login-feature-icon"><DashboardIcon /></div>
+                <div className="ciis-login-feature-icon">
+                  <DashboardIcon />
+                </div>
                 <span className="ciis-login-feature-text">📊 Manage all companies</span>
               </div>
               
               <div className="ciis-login-feature-item">
-                <div className="ciis-login-feature-icon"><PeopleIcon /></div>
+                <div className="ciis-login-feature-icon">
+                  <PeopleIcon />
+                </div>
                 <span className="ciis-login-feature-text">👥 View all users across companies</span>
               </div>
               
               <div className="ciis-login-feature-item">
-                <div className="ciis-login-feature-icon"><SettingsIcon /></div>
+                <div className="ciis-login-feature-icon">
+                  <SettingsIcon />
+                </div>
                 <span className="ciis-login-feature-text">⚙️ System configuration</span>
               </div>
               
               <div className="ciis-login-feature-item">
-                <div className="ciis-login-feature-icon"><AnalyticsIcon /></div>
+                <div className="ciis-login-feature-icon">
+                  <AnalyticsIcon />
+                </div>
                 <span className="ciis-login-feature-text">📈 Analytics and reports</span>
               </div>
               
               <div className="ciis-login-feature-item">
-                <div className="ciis-login-feature-icon"><SecurityIcon /></div>
+                <div className="ciis-login-feature-icon">
+                  <SecurityIcon />
+                </div>
                 <span className="ciis-login-feature-text">🔐 Master access control</span>
               </div>
             </div>
@@ -405,7 +218,9 @@ const SuperAdminLogin = () => {
         {/* RIGHT SECTION - Login Form */}
         <div className="ciis-login-right">
           <div className="ciis-login-form-container">
+            {/* Form Header - With Logo on Mobile */}
             <div className="ciis-login-form-header">
+              {/* Mobile Logo - Only visible on mobile */}
               <div className="ciis-login-form-logo">
                 <div className="ciis-login-mobile-logo">
                   <img 
@@ -424,6 +239,7 @@ const SuperAdminLogin = () => {
               </p>
             </div>
 
+            {/* Error Alert */}
             {errors.general && (
               <div className="ciis-login-error-alert">
                 <div className="ciis-login-error-icon">
@@ -435,11 +251,15 @@ const SuperAdminLogin = () => {
               </div>
             )}
 
+            {/* Login Form */}
             <form onSubmit={handleSubmit}>
+              {/* Email Input */}
               <div className="ciis-login-input-group">
                 <label className="ciis-login-input-label">Email Address</label>
                 <div className="ciis-login-input-container">
-                  <div className="ciis-login-input-icon"><EmailIcon /></div>
+                  <div className="ciis-login-input-icon">
+                    <EmailIcon />
+                  </div>
                   <input
                     type="email"
                     name="email"
@@ -454,10 +274,13 @@ const SuperAdminLogin = () => {
                 {errors.email && <span className="ciis-login-error-text">{errors.email}</span>}
               </div>
 
+              {/* Password Input */}
               <div className="ciis-login-input-group">
                 <label className="ciis-login-input-label">Password</label>
                 <div className="ciis-login-input-container">
-                  <div className="ciis-login-input-icon"><LockIcon /></div>
+                  <div className="ciis-login-input-icon">
+                    <LockIcon />
+                  </div>
                   <input
                     type={showPassword ? 'text' : 'password'}
                     name="password"
@@ -478,6 +301,7 @@ const SuperAdminLogin = () => {
                 {errors.password && <span className="ciis-login-error-text">{errors.password}</span>}
               </div>
 
+              {/* Sign In Button */}
               <button
                 type="submit"
                 className="ciis-login-button"
@@ -492,18 +316,27 @@ const SuperAdminLogin = () => {
                   </>
                 ) : (
                   <>
-                    <div className="ciis-login-button-icon"><LoginIcon /></div>
+                    <div className="ciis-login-button-icon">
+                      <LoginIcon />
+                    </div>
                     Login as Super Admin
                   </>
                 )}
               </button>
 
+              {/* Regular Login Link */}
               <div className="ciis-login-link-text">
                 Regular company login?{' '}
-                <a href="/" className="ciis-login-link">Go to Home</a>
+                <a 
+                  href="/" 
+                  className="ciis-login-link"
+                >
+                  Go to Home
+                </a>
               </div>
             </form>
 
+            {/* Terms & Privacy */}
             <div className="ciis-login-terms">
               By signing in, you agree to our{' '}
               <a href="#" className="ciis-login-terms-link">Terms of Service</a> and{' '}
@@ -512,16 +345,6 @@ const SuperAdminLogin = () => {
           </div>
         </div>
       </div>
-
-      {/* OTP Popup */}
-      {showOtpPopup && (
-        <OtpPopup
-          email={otpEmail}
-          tempToken={tempToken}
-          onClose={() => setShowOtpPopup(false)}
-          onSuccess={handleOtpSuccess}
-        />
-      )}
     </div>
   );
 };

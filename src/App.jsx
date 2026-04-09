@@ -105,8 +105,8 @@ function App() {
         >
           <Route path="company-details" element={<CompanyDetails />} />
           <Route path="department" element={<Department />} />
-          <Route path="create-user" element={<CreateUser />} />
           <Route path="JobRoleManagement" element={<JobRoleManagement />} />
+          <Route path="create-user" element={<CreateUser />} />
           <Route path="all-company" element={<AllCompany />} />
           <Route path="company-assets" element={<CompanyAssetManagement/>}/>
           <Route path="CompanyManagement" element={<CompanyManagement />} />
@@ -148,6 +148,7 @@ function App() {
           <Route path="task-management" element={<TaskManagement />} />
           <Route path="employee-meeting" element={<EmployeeMeetingPage />} />
           <Route path="client-meeting" element={<ClientMeeting />} />
+          <Route path="create-user" element={<CreateUser />} />
           <Route path="create-alert" element={<CreateAlerts />} />
           <Route path="user-profile" element={<UserProfile/>} />
        

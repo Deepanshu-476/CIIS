@@ -76,6 +76,30 @@ const getStatusObject = (status) => {
   return defaultStatus[normalized] || defaultStatus.pending;
 };
 
+// Helper function to determine task type - FIXED: normalize source to 'assigned'
+const getTaskType = (task) => {
+  // Check if task has source property
+  if (task.source === 'assigned') return 'assigned';
+  if (task.source === 'personal') return 'personal';
+  if (task.source === 'client') return 'assigned'; // Normalize 'client' to 'assigned'
+  
+  // Check for other indicators
+  if (task.taskType === 'assigned' || task.taskType === 'client') return 'assigned';
+  if (task.taskType === 'personal') return 'personal';
+  
+  // Check if task has clientId or isClientTask flag
+  if (task.clientId || task.isClientTask === true) return 'assigned';
+  
+  // Check if task has assignedBy property (assigned tasks have this)
+  if (task.assignedBy) return 'assigned';
+  
+  // Check if task has userStatus property (assigned tasks use userStatus)
+  if (task.userStatus && !task.status) return 'assigned';
+  
+  // Default to personal if no clear indicator
+  return 'personal';
+};
+
 // API URL from config
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
 
@@ -102,14 +126,14 @@ const getImageUrl = (imagePath) => {
     return `${baseUrlWithoutApi}/${cleanPath}`;
   }
   
-  if (cleanPath.startsWith('remarks/')) {
-    // Path starts with remarks/ - need to add uploads/
+  if (cleanPath.startsWith('client-remarks/')) {
+    // Path starts with client-remarks/ - need to add uploads/
     return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
   }
   
-  // If it's just a filename, assume it's in uploads/remarks/
+  // If it's just a filename, assume it's in uploads/client-remarks/
   const filename = cleanPath.split('/').pop();
-  return `${baseUrlWithoutApi}/uploads/remarks/${filename}`;
+  return `${baseUrlWithoutApi}/uploads/client-remarks/${filename}`;
 };
 
 const TaskDetails = () => {
@@ -160,7 +184,8 @@ const TaskDetails = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeStatusFilters, setActiveStatusFilters] = useState(['all']);
   const [showStatusFilters, setShowStatusFilters] = useState(true);
-  const [dateFilter, setDateFilter] = useState("today");
+  // FIXED: Changed default dateFilter from "today" to "all"
+  const [dateFilter, setDateFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -186,7 +211,7 @@ const TaskDetails = () => {
   }, []);
 
   // ==================== SNACKBAR UTILITY ====================
-  const showSnackbar = (message, severity = 'info') => {
+  const showSnackbar = useCallback((message, severity = 'info') => {
     if (snackbarTimerRef.current) {
       clearTimeout(snackbarTimerRef.current);
     }
@@ -200,7 +225,7 @@ const TaskDetails = () => {
     snackbarTimerRef.current = setTimeout(() => {
       setSnackbar(prev => ({ ...prev, open: false }));
     }, 3000);
-  };
+  }, []);
 
   // ==================== HELPER FUNCTIONS ====================
 
@@ -398,6 +423,37 @@ const TaskDetails = () => {
     };
   }, [calculateTaskActiveTime]);
 
+  // ==================== TASK LOGS FETCHING WITH TYPE DETECTION ====================
+  
+  // Fetch logs for a single task based on its type
+  const fetchTaskLogsByType = useCallback(async (task) => {
+    const taskType = getTaskType(task);
+    const taskId = task._id;
+    
+    try {
+      let response;
+      
+      if (taskType === 'assigned') {
+        // Assigned task - use client endpoints
+        console.log(`📤 Fetching assigned task logs for task ${taskId} using client-activity-logs`);
+        response = await axios.get(`/tasks/${taskId}/client-activity-logs`);
+      } else {
+        // Personal task - use personal endpoints
+        console.log(`📤 Fetching personal task logs for task ${taskId} using activity-logs`);
+        response = await axios.get(`/task/${taskId}/activity-logs`);
+      }
+      
+      if (response.data.success && isMounted.current) {
+        return response.data.logs || [];
+      }
+      return [];
+    } catch (error) {
+      console.error(`❌ Failed to fetch logs for task ${taskId} (${taskType}):`, error);
+      return [];
+    }
+  }, []);
+
+  // Fetch all task logs with type detection
   const fetchAllTaskLogs = useCallback(async (tasksList) => {
     if (!tasksList || tasksList.length === 0) return;
 
@@ -406,17 +462,11 @@ const TaskDetails = () => {
 
     if (tasksNeedingLogs.length === 0) return;
 
+    // Fetch logs for each task based on its type
     for (const task of tasksNeedingLogs) {
-      try {
-        const response = await axios.get(`/task/${task._id}/activity-logs`);
-        if (response.data.success && isMounted.current) {
-          logsMap[task._id] = response.data.logs || [];
-        }
-      } catch (error) {
-        console.error(`❌ Failed to fetch logs for task ${task._id}:`, error);
-        if (isMounted.current) {
-          logsMap[task._id] = [];
-        }
+      const logs = await fetchTaskLogsByType(task);
+      if (isMounted.current) {
+        logsMap[task._id] = logs;
       }
     }
 
@@ -431,7 +481,7 @@ const TaskDetails = () => {
         return newLogs;
       });
     }
-  }, [allTaskLogs, calculateTodayTotalTime]);
+  }, [allTaskLogs, calculateTodayTotalTime, fetchTaskLogsByType]);
 
   // ==================== STATISTICS CALCULATION ====================
 
@@ -842,7 +892,7 @@ const TaskDetails = () => {
     });
   }, [overallStats]);
 
-  // FIXED: Improved filteredTasks with better date handling
+  // FIXED: Improved filteredTasks with better date handling and sorting by createdAt descending
   const filteredTasks = useMemo(() => {
     if (!Array.isArray(tasks)) return [];
 
@@ -867,76 +917,71 @@ const TaskDetails = () => {
       });
     }
 
-    // Date filter - FIXED
-    filtered = filtered.filter(task => {
-      const taskDate = task.dueDateTime || task.createdAt;
-      if (!taskDate) return true;
+    // Date filter - FIXED: Don't filter by date when dateFilter is 'all'
+    if (dateFilter !== "all") {
+      filtered = filtered.filter(task => {
+        const taskDate = task.dueDateTime || task.createdAt;
+        if (!taskDate) return true;
 
-      const taskDateTime = new Date(taskDate).getTime();
+        const taskDateTime = new Date(taskDate).getTime();
 
-      // Custom date range
-      if (fromDate || toDate) {
-        const fromDateTime = fromDate ? new Date(fromDate).setHours(0, 0, 0, 0) : null;
-        const toDateTime = toDate ? new Date(toDate).setHours(23, 59, 59, 999) : null;
+        // Custom date range
+        if (fromDate || toDate) {
+          const fromDateTime = fromDate ? new Date(fromDate).setHours(0, 0, 0, 0) : null;
+          const toDateTime = toDate ? new Date(toDate).setHours(23, 59, 59, 999) : null;
 
-        if (fromDateTime && taskDateTime < fromDateTime) return false;
-        if (toDateTime && taskDateTime > toDateTime) return false;
-        return true;
-      }
-
-      // Predefined date filters
-      switch (dateFilter) {
-        case "today": {
-          const todayStart = new Date(now);
-          todayStart.setHours(0, 0, 0, 0);
-          const todayEnd = new Date(now);
-          todayEnd.setHours(23, 59, 59, 999);
-          return taskDateTime >= todayStart.getTime() && taskDateTime <= todayEnd.getTime();
-        }
-        case "tomorrow": {
-          const tomorrow = new Date(now);
-          tomorrow.setDate(now.getDate() + 1);
-          tomorrow.setHours(0, 0, 0, 0);
-          const tomorrowEnd = new Date(tomorrow);
-          tomorrowEnd.setHours(23, 59, 59, 999);
-          return taskDateTime >= tomorrow.getTime() && taskDateTime <= tomorrowEnd.getTime();
-        }
-        case "week": {
-          const startOfWeek = new Date(now);
-          startOfWeek.setDate(now.getDate() - now.getDay());
-          startOfWeek.setHours(0, 0, 0, 0);
-          const endOfWeek = new Date(startOfWeek);
-          endOfWeek.setDate(startOfWeek.getDate() + 6);
-          endOfWeek.setHours(23, 59, 59, 999);
-          return taskDateTime >= startOfWeek.getTime() && taskDateTime <= endOfWeek.getTime();
-        }
-        case "overdue": {
-          const nowTime = now.getTime();
-          return taskDateTime < nowTime &&
-            (task.userStatus || task.status || task.overallStatus) !== 'completed';
-        }
-        default:
+          if (fromDateTime && taskDateTime < fromDateTime) return false;
+          if (toDateTime && taskDateTime > toDateTime) return false;
           return true;
-      }
-    });
+        }
+
+        // Predefined date filters
+        switch (dateFilter) {
+          case "today": {
+            const todayStart = new Date(now);
+            todayStart.setHours(0, 0, 0, 0);
+            const todayEnd = new Date(now);
+            todayEnd.setHours(23, 59, 59, 999);
+            return taskDateTime >= todayStart.getTime() && taskDateTime <= todayEnd.getTime();
+          }
+          case "tomorrow": {
+            const tomorrow = new Date(now);
+            tomorrow.setDate(now.getDate() + 1);
+            tomorrow.setHours(0, 0, 0, 0);
+            const tomorrowEnd = new Date(tomorrow);
+            tomorrowEnd.setHours(23, 59, 59, 999);
+            return taskDateTime >= tomorrow.getTime() && taskDateTime <= tomorrowEnd.getTime();
+          }
+          case "week": {
+            const startOfWeek = new Date(now);
+            startOfWeek.setDate(now.getDate() - now.getDay());
+            startOfWeek.setHours(0, 0, 0, 0);
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 6);
+            endOfWeek.setHours(23, 59, 59, 999);
+            return taskDateTime >= startOfWeek.getTime() && taskDateTime <= endOfWeek.getTime();
+          }
+          case "overdue": {
+            const nowTime = now.getTime();
+            return taskDateTime < nowTime &&
+              (task.userStatus || task.status || task.overallStatus) !== 'completed';
+          }
+          default:
+            return true;
+        }
+      });
+    }
 
     // Priority filter
     if (priorityFilter !== "all") {
       filtered = filtered.filter(task => task.priority === priorityFilter);
     }
 
-    // Sort tasks
+    // FIXED: Sort tasks by createdAt descending (newest first) to show newly assigned tasks at top
     filtered.sort((a, b) => {
-      const aDate = a.dueDateTime || a.createdAt;
-      const bDate = b.dueDateTime || b.createdAt;
-
-      const aToday = aDate && isSameDay(aDate, now);
-      const bToday = bDate && isSameDay(bDate, now);
-
-      if (aToday && !bToday) return -1;
-      if (!aToday && bToday) return 1;
-
-      return new Date(b.createdAt) - new Date(a.createdAt);
+      const aDate = a.createdAt ? new Date(a.createdAt) : new Date(0);
+      const bDate = b.createdAt ? new Date(b.createdAt) : new Date(0);
+      return bDate - aDate;
     });
 
     return filtered;
@@ -1169,7 +1214,7 @@ const TaskDetails = () => {
     });
   };
 
-  // UPDATED: fetchUserTasks function with improved loading
+  // FIXED: fetchUserTasks function with merged API calls - Normalize source to 'assigned'
   const fetchUserTasks = useCallback(async (userId) => {
     // Prevent fetching if already loading or same user
     if (loading || fetchingTasksForUser.current === userId) {
@@ -1209,32 +1254,239 @@ const TaskDetails = () => {
       }
 
       const queryString = params.toString();
-      const url = `/task/user/${userId}/tasks${queryString ? `?${queryString}` : ''}`;
+      
+      // Prepare both API calls - Using client task endpoints
+      const personalTasksUrl = `/task/user/${userId}/tasks${queryString ? `?${queryString}` : ''}`;
+      // UPDATED: Using the assigned tasks endpoint for client tasks
+      const assignedTasksUrl = `/tasks/user/${userId}/assigned-tasks${queryString ? `?${queryString}` : ''}`;
 
       console.log("📤 Fetching tasks for user:", userId);
-
-      const res = await axios.get(url);
-
-      if (res.data.success && isMounted.current) {
-        const tasksData = res.data.tasks || [];
-        setTasks(tasksData);
-
-        // Fetch logs for all tasks
-        await fetchAllTaskLogs(tasksData);
+      console.log("📤 Personal tasks URL:", personalTasksUrl);
+      console.log("📤 Assigned tasks URL:", assignedTasksUrl);
+      
+      // Fetch both APIs in parallel using Promise.all
+      const [personalTasksRes, assignedTasksRes] = await Promise.all([
+        axios.get(personalTasksUrl),
+        axios.get(assignedTasksUrl)
+      ]);
+      
+      if (isMounted.current) {
+        // Extract tasks from both responses with proper structure handling
+        let personalTasks = [];
+        let assignedTasks = [];
+        
+        // Handle personal tasks response
+        if (personalTasksRes.data) {
+          if (personalTasksRes.data.success && personalTasksRes.data.tasks) {
+            personalTasks = personalTasksRes.data.tasks;
+          } else if (personalTasksRes.data.tasks) {
+            personalTasks = personalTasksRes.data.tasks;
+          } else if (Array.isArray(personalTasksRes.data)) {
+            personalTasks = personalTasksRes.data;
+          } else if (personalTasksRes.data.data && Array.isArray(personalTasksRes.data.data)) {
+            personalTasks = personalTasksRes.data.data;
+          }
+        }
+        
+        // Handle assigned tasks response
+        if (assignedTasksRes.data) {
+          if (assignedTasksRes.data.success && assignedTasksRes.data.tasks) {
+            assignedTasks = assignedTasksRes.data.tasks;
+          } else if (assignedTasksRes.data.tasks) {
+            assignedTasks = assignedTasksRes.data.tasks;
+          } else if (Array.isArray(assignedTasksRes.data)) {
+            assignedTasks = assignedTasksRes.data;
+          } else if (assignedTasksRes.data.data && Array.isArray(assignedTasksRes.data.data)) {
+            assignedTasks = assignedTasksRes.data.data;
+          }
+        }
+        
+        console.log(`📥 Personal tasks: ${personalTasks.length}`);
+        console.log(`📥 Assigned tasks: ${assignedTasks.length}`);
+        
+        // FIXED: Merge tasks and add source property - normalize 'client' to 'assigned'
+        const mergedTasksMap = new Map();
+        
+        // Add personal tasks with source='personal'
+        personalTasks.forEach(task => {
+          if (task._id) {
+            mergedTasksMap.set(task._id, {
+              ...task,
+              source: 'personal'
+            });
+          }
+        });
+        
+        // FIXED: Add assigned tasks with source='assigned' (normalize 'client' to 'assigned')
+        assignedTasks.forEach(task => {
+          if (task._id && !mergedTasksMap.has(task._id)) {
+            mergedTasksMap.set(task._id, {
+              ...task,
+              source: 'assigned' // Normalize 'client' to 'assigned'
+            });
+          } else if (task._id && mergedTasksMap.has(task._id)) {
+            console.log(`⚠️ Duplicate task ${task._id} found, keeping from personal tasks`);
+          }
+        });
+        
+        // Convert map back to array
+        let mergedTasks = Array.from(mergedTasksMap.values());
+        
+        // FIXED: Sort tasks by createdAt descending (newest first) to show newly assigned tasks at top
+        mergedTasks.sort((a, b) => {
+          const aDate = a.createdAt ? new Date(a.createdAt) : new Date(0);
+          const bDate = b.createdAt ? new Date(b.createdAt) : new Date(0);
+          return bDate - aDate;
+        });
+        
+        console.log(`✅ Merged tasks total: ${mergedTasks.length}`);
+        console.log('📊 Task type breakdown:', {
+          personal: personalTasks.length,
+          assigned: assignedTasks.length,
+          total: mergedTasks.length
+        });
+        
+        // Log task types for debugging
+        mergedTasks.forEach(task => {
+          console.log(`📋 Task ${task._id}: ${task.title} - Type: ${task.source} - Created: ${task.createdAt}`);
+        });
+        
+        setTasks(mergedTasks);
+        
+        // Fetch logs for all merged tasks (using type detection)
+        await fetchAllTaskLogs(mergedTasks);
         await fetchTaskStatusCounts(userId);
-      } else {
-        setError(res.data.message || "Failed to fetch user tasks");
+        
+        // Show success message
+        if (mergedTasks.length > 0) {
+          const sourceMessage = [];
+          if (personalTasks.length > 0) sourceMessage.push(`${personalTasks.length} personal`);
+          if (assignedTasks.length > 0) sourceMessage.push(`${assignedTasks.length} assigned`);
+          console.log(`✅ Loaded ${mergedTasks.length} tasks (${sourceMessage.join(', ')})`);
+          
+          if (assignedTasks.length > 0) {
+            showSnackbar(`Loaded ${assignedTasks.length} assigned tasks for ${user.name}`, 'info');
+          }
+        } else if (mergedTasks.length === 0) {
+          console.log('⚠️ No tasks found for this user');
+          showSnackbar(`No tasks found for ${user.name}`, 'info');
+        }
       }
-
+      
     } catch (err) {
       console.error("❌ Error fetching user tasks:", err);
-      if (isMounted.current) {
-        setError(
-          err?.response?.data?.error ||
-          err?.response?.data?.message ||
-          err?.message ||
-          "Error fetching tasks. Please try again."
-        );
+      console.error("Error details:", err.response?.data);
+      
+      // Handle partial failures - try to get at least one API's data
+      if (err.response?.status === 404 || err.code === 'ECONNABORTED' || err.response?.status === 500) {
+        // One or both APIs failed, but we might still have partial data
+        console.log("⚠️ Partial API failure, attempting to fetch individual APIs...");
+        
+        try {
+          // Try to fetch personal tasks
+          let personalTasks = [];
+          try {
+            const personalRes = await axios.get(`/task/user/${userId}/tasks`);
+            console.log('Personal tasks response:', personalRes.data);
+            
+            if (personalRes.data) {
+              if (personalRes.data.success && personalRes.data.tasks) {
+                personalTasks = personalRes.data.tasks;
+              } else if (personalRes.data.tasks) {
+                personalTasks = personalRes.data.tasks;
+              } else if (Array.isArray(personalRes.data)) {
+                personalTasks = personalRes.data;
+              } else if (personalRes.data.data && Array.isArray(personalRes.data.data)) {
+                personalTasks = personalRes.data.data;
+              }
+            }
+            // Add source property
+            personalTasks = personalTasks.map(task => ({ ...task, source: 'personal' }));
+          } catch (personalErr) {
+            console.log("Personal tasks API failed:", personalErr.message);
+          }
+          
+          // Try to fetch assigned tasks
+          let assignedTasks = [];
+          try {
+            // UPDATED: Using the assigned tasks endpoint
+            const assignedRes = await axios.get(`/tasks/user/${userId}/assigned-tasks`);
+            console.log('Assigned tasks response:', assignedRes.data);
+            
+            if (assignedRes.data) {
+              if (assignedRes.data.success && assignedRes.data.tasks) {
+                assignedTasks = assignedRes.data.tasks;
+              } else if (assignedRes.data.tasks) {
+                assignedTasks = assignedRes.data.tasks;
+              } else if (Array.isArray(assignedRes.data)) {
+                assignedTasks = assignedRes.data;
+              } else if (assignedRes.data.data && Array.isArray(assignedRes.data.data)) {
+                assignedTasks = assignedRes.data.data;
+              }
+            }
+            // FIXED: Add source property and normalize to 'assigned'
+            assignedTasks = assignedTasks.map(task => ({ ...task, source: 'assigned' }));
+          } catch (assignedErr) {
+            console.log("Assigned tasks API failed:", assignedErr.message);
+          }
+          
+          console.log(`📥 Personal tasks (fallback): ${personalTasks.length}`);
+          console.log(`📥 Assigned tasks (fallback): ${assignedTasks.length}`);
+          
+          // Merge tasks
+          const mergedTasksMap = new Map();
+          personalTasks.forEach(task => {
+            if (task._id) mergedTasksMap.set(task._id, task);
+          });
+          assignedTasks.forEach(task => {
+            if (task._id && !mergedTasksMap.has(task._id)) {
+              mergedTasksMap.set(task._id, task);
+            }
+          });
+          
+          let mergedTasks = Array.from(mergedTasksMap.values());
+          
+          // FIXED: Sort by createdAt descending
+          mergedTasks.sort((a, b) => {
+            const aDate = a.createdAt ? new Date(a.createdAt) : new Date(0);
+            const bDate = b.createdAt ? new Date(b.createdAt) : new Date(0);
+            return bDate - aDate;
+          });
+          
+          if (isMounted.current && mergedTasks.length > 0) {
+            setTasks(mergedTasks);
+            await fetchAllTaskLogs(mergedTasks);
+            await fetchTaskStatusCounts(userId);
+            
+            // Show warning message
+            showSnackbar(`Loaded ${mergedTasks.length} tasks (some APIs may be unavailable)`, 'warning');
+          } else if (isMounted.current && mergedTasks.length === 0) {
+            setTasks([]);
+            showSnackbar(`No tasks found for ${user.name}`, 'info');
+          }
+          
+        } catch (fallbackErr) {
+          console.error("❌ Fallback also failed:", fallbackErr);
+          if (isMounted.current) {
+            setTasks([]);
+            setError(
+              err?.response?.data?.error ||
+              err?.response?.data?.message ||
+              err?.message ||
+              "Error fetching tasks. Please try again."
+            );
+          }
+        }
+      } else {
+        if (isMounted.current) {
+          setTasks([]);
+          setError(
+            err?.response?.data?.error ||
+            err?.response?.data?.message ||
+            err?.message ||
+            "Error fetching tasks. Please try again."
+          );
+        }
       }
     } finally {
       if (isMounted.current) {
@@ -1242,68 +1494,81 @@ const TaskDetails = () => {
       }
       fetchingTasksForUser.current = null;
     }
-  }, [users, searchQuery, fetchAllTaskLogs, fetchTaskStatusCounts, loading]);
+  }, [users, searchQuery, fetchAllTaskLogs, fetchTaskStatusCounts, loading, showSnackbar]);
 
-  const fetchActivityLogs = async (taskId) => {
-    if (!taskId) return;
-
-    setLoadingActivity(true);
-    try {
-      console.log("📤 Fetching activity logs for task:", taskId);
-      const response = await axios.get(`/task/${taskId}/activity-logs`);
-
-      if (response.data.success && isMounted.current) {
-        setActivityLogs(response.data.logs || []);
-
-        setAllTaskLogs(prev => ({
-          ...prev,
-          [taskId]: response.data.logs || []
-        }));
-      } else {
-        setActivityLogs([]);
-      }
-    } catch (err) {
-      console.error("❌ Error fetching activity logs:", err);
-      setActivityLogs([]);
-    } finally {
-      if (isMounted.current) {
-        setLoadingActivity(false);
-      }
+  // Debug effect to log tasks when they change
+  useEffect(() => {
+    if (tasks.length > 0) {
+      console.log('📊 Current tasks in state:', tasks.length);
+      console.log('📊 First 3 tasks (newest first):', tasks.slice(0, 3).map(t => ({ 
+        id: t._id, 
+        title: t.title, 
+        source: t.source,
+        createdAt: t.createdAt 
+      })));
+    } else {
+      console.log('📊 No tasks in state');
     }
-  };
+  }, [tasks]);
 
-  // ==================== REMARKS FUNCTIONS - UPDATED (Only View) ====================
-  const fetchTaskRemarks = async (taskId) => {
+  // ==================== REMARKS FUNCTIONS WITH TYPE DETECTION ====================
+  
+  // Fetch remarks for a task based on its type
+  const fetchTaskRemarks = useCallback(async (taskId) => {
     if (!taskId) return;
 
+    // Find the task to determine its type
+    const task = tasks.find(t => t._id === taskId);
+    if (!task) {
+      console.error("❌ Task not found for remarks:", taskId);
+      showSnackbar('Task not found', 'error');
+      return;
+    }
+
+    const taskType = getTaskType(task);
     setLoadingRemarks(true);
+    
     try {
-      console.log("📤 Fetching remarks for task:", taskId);
-      const res = await axios.get(`/task/${taskId}/remarks`);
-      console.log('📥 Remarks data:', res.data);
+      let response;
+      
+      if (taskType === 'assigned') {
+        // Assigned task - use client-remarks endpoint
+        console.log(`📤 Fetching assigned task remarks for task ${taskId} using client-remarks`);
+        response = await axios.get(`/tasks/${taskId}/client-remarks`);
+      } else {
+        // Personal task - use personal remarks endpoint
+        console.log(`📤 Fetching personal task remarks for task ${taskId} using remarks`);
+        response = await axios.get(`/task/${taskId}/remarks`);
+      }
+      
+      console.log('📥 Remarks data:', response.data);
       
       // Check image paths
-      if (res.data.remarks) {
-        res.data.remarks.forEach((remark, index) => {
-          if (remark.image) {
-            console.log(`📸 Remark ${index} image path:`, remark.image);
-            console.log(`🔗 Full URL:`, getImageUrl(remark.image));
-          }
-        });
-      }
+      const remarks = response.data.data || response.data.remarks || [];
+      remarks.forEach((remark, index) => {
+        if (remark.image) {
+          console.log(`📸 Remark ${index} image path:`, remark.image);
+          console.log(`🔗 Full URL:`, getImageUrl(remark.image));
+        }
+      });
       
       setRemarksDialog({ 
         open: true, 
         taskId, 
-        remarks: res.data.remarks || [] 
+        remarks: remarks
       });
     } catch (error) {
-      console.error('Error fetching remarks:', error);
+      console.error(`Error fetching remarks for task ${taskId} (${taskType}):`, error);
       showSnackbar('Failed to load remarks', 'error');
+      setRemarksDialog({ 
+        open: true, 
+        taskId, 
+        remarks: [] 
+      });
     } finally {
       setLoadingRemarks(false);
     }
-  };
+  }, [tasks, showSnackbar]);
 
   const handleViewRemarks = (task, e) => {
     e.stopPropagation();
@@ -1313,6 +1578,57 @@ const TaskDetails = () => {
   const handleCloseRemarksDialog = useCallback(() => {
     setRemarksDialog({ open: false, taskId: null, remarks: [] });
   }, []);
+
+  // ==================== ACTIVITY LOGS WITH TYPE DETECTION ====================
+  
+  // Fetch activity logs for a task based on its type
+  const fetchActivityLogs = useCallback(async (taskId) => {
+    if (!taskId) return;
+
+    // Find the task to determine its type
+    const task = tasks.find(t => t._id === taskId);
+    if (!task) {
+      console.error("❌ Task not found for activity logs:", taskId);
+      showSnackbar('Task not found', 'error');
+      return;
+    }
+
+    const taskType = getTaskType(task);
+    setLoadingActivity(true);
+    
+    try {
+      let response;
+      
+      if (taskType === 'assigned') {
+        // Assigned task - use client-activity-logs endpoint
+        console.log(`📤 Fetching assigned task activity logs for task ${taskId} using client-activity-logs`);
+        response = await axios.get(`/tasks/${taskId}/client-activity-logs`);
+      } else {
+        // Personal task - use personal activity-logs endpoint
+        console.log(`📤 Fetching personal task activity logs for task ${taskId} using activity-logs`);
+        response = await axios.get(`/task/${taskId}/activity-logs`);
+      }
+
+      if (response.data.success && isMounted.current) {
+        const logs = response.data.data || response.data.logs || [];
+        setActivityLogs(logs);
+
+        setAllTaskLogs(prev => ({
+          ...prev,
+          [taskId]: logs
+        }));
+      } else {
+        setActivityLogs([]);
+      }
+    } catch (err) {
+      console.error(`Error fetching activity logs for task ${taskId} (${taskType}):`, err);
+      setActivityLogs([]);
+    } finally {
+      if (isMounted.current) {
+        setLoadingActivity(false);
+      }
+    }
+  }, [tasks, showSnackbar]);
 
   const handleViewActivityLogs = (task, e) => {
     e.stopPropagation();
@@ -1328,15 +1644,15 @@ const TaskDetails = () => {
   }, []);
 
   // UPDATED: Comprehensive reset filters function
-const resetFilters = useCallback(() => {
-  setSearchQuery('');
-  setActiveStatusFilters(['all']);
-  setDateFilter('today');  // ← ab today hoga
-  setPriorityFilter('all');
-  setFromDate('');
-  setToDate('');
-  setShowStatusFilters(true);
-}, []);
+  const resetFilters = useCallback(() => {
+    setSearchQuery('');
+    setActiveStatusFilters(['all']);
+    setDateFilter('all'); // FIXED: Reset to 'all' instead of 'today'
+    setPriorityFilter('all');
+    setFromDate('');
+    setToDate('');
+    setShowStatusFilters(true);
+  }, []);
 
   // UPDATED: Internal refresh function
   const refreshContent = useCallback(() => {
@@ -1353,6 +1669,9 @@ const resetFilters = useCallback(() => {
     
     // Reset filters
     resetFilters();
+    
+    // Reset error
+    setError("");
     
     // Reset status filters visibility
     setShowStatusFilters(true);
@@ -1381,6 +1700,9 @@ const resetFilters = useCallback(() => {
       setShowActivityLog(false);
       setActivityLogs([]);
       setRemarksDialog({ open: false, taskId: null, remarks: [] });
+      
+      // Reset any error states
+      setError("");
     }
   }, [openDialog]);
 
@@ -1896,10 +2218,12 @@ const resetFilters = useCallback(() => {
     );
   };
 
+  // UPDATED: renderActivityLogModal with task type display
   const renderActivityLogModal = () => {
     if (!showActivityLog || !selectedTaskForActivity) return null;
 
     const timeData = calculateTaskActiveTime(activityLogs);
+    const taskType = getTaskType(selectedTaskForActivity);
 
     const getStatusIcon = () => {
       switch (timeData.currentStatus) {
@@ -1925,6 +2249,17 @@ const resetFilters = useCallback(() => {
                     {selectedTaskForActivity.title || 'Untitled Task'}
                     {selectedTaskForActivity.serialNo && ` (#${selectedTaskForActivity.serialNo})`}
                   </p>
+                  <span style={{
+                    fontSize: '0.7rem',
+                    padding: '0.2rem 0.5rem',
+                    borderRadius: '0.25rem',
+                    backgroundColor: taskType === 'assigned' ? '#e3f2fd' : '#fff3e0',
+                    color: taskType === 'assigned' ? '#1976d2' : '#f57c00',
+                    display: 'inline-block',
+                    marginTop: '0.25rem'
+                  }}>
+                    {taskType === 'assigned' ? '📋 Assigned Task' : '👤 Personal Task'}
+                  </span>
                 </div>
               </div>
               <button
@@ -2121,9 +2456,13 @@ const resetFilters = useCallback(() => {
     );
   };
 
-  // UPDATED: Render remarks dialog - Only viewing, no adding
+  // UPDATED: renderRemarksDialog with task type display
   const renderRemarksDialog = () => {
     if (!remarksDialog.open) return null;
+
+    // Find the task to get its type
+    const task = tasks.find(t => t._id === remarksDialog.taskId);
+    const taskType = task ? getTaskType(task) : 'personal';
 
     return (
       <div className="TaskDetails-activity-modal-overlay" onClick={handleCloseRemarksDialog}>
@@ -2139,6 +2478,17 @@ const resetFilters = useCallback(() => {
                   <p className="TaskDetails-activity-modal-task-title">
                     {selectedUser?.name || 'User'}'s Task
                   </p>
+                  <span style={{
+                    fontSize: '0.7rem',
+                    padding: '0.2rem 0.5rem',
+                    borderRadius: '0.25rem',
+                    backgroundColor: taskType === 'assigned' ? '#e3f2fd' : '#fff3e0',
+                    color: taskType === 'assigned' ? '#1976d2' : '#f57c00',
+                    display: 'inline-block',
+                    marginTop: '0.25rem'
+                  }}>
+                    {taskType === 'assigned' ? '📋 Assigned Task' : '👤 Personal Task'}
+                  </span>
                 </div>
               </div>
               <button
@@ -2215,12 +2565,12 @@ const resetFilters = useCallback(() => {
                             
                             // Try different path combinations
                             const pathsToTry = [
-                              `${baseUrl}/uploads/remarks/${filename}`,
+                              `${baseUrl}/uploads/client-remarks/${filename}`,
                               `${baseUrl}/uploads/${filename}`,
-                              `${baseUrl}/remarks/${filename}`,
-                              `${baseUrl}/api/uploads/remarks/${filename}`,
+                              `${baseUrl}/client-remarks/${filename}`,
+                              `${baseUrl}/api/uploads/client-remarks/${filename}`,
                               `${baseUrl}/api/uploads/${filename}`,
-                              `${baseUrl}/api/remarks/${filename}`,
+                              `${baseUrl}/api/client-remarks/${filename}`,
                               `${baseUrl}/${originalPath.replace(/\\/g, '/')}`,
                               `${baseUrl}/uploads/${originalPath.replace(/\\/g, '/')}`,
                             ];
@@ -2356,7 +2706,7 @@ const resetFilters = useCallback(() => {
     );
   };
 
-  // UPDATED: renderEnhancedDialog - FIXED with full background color
+  // UPDATED: renderEnhancedDialog with task type display in each task card
   const renderEnhancedDialog = () => {
     if (!openDialog) return null;
 
@@ -2637,7 +2987,17 @@ const resetFilters = useCallback(() => {
                     <FiArchive size={32} />
                   </div>
                   <h4>No tasks found</h4>
-                  <p>Try adjusting your search or filters</p>
+                  <p>
+                    {tasks.length === 0 
+                      ? 'No personal or assigned tasks available for this employee' 
+                      : 'Try adjusting your search or filters'}
+                  </p>
+                  {tasks.length === 0 && (
+                    <div style={{ marginTop: '1rem', fontSize: '0.85rem', color: '#666' }}>
+                      <p>📌 This employee has no tasks assigned yet</p>
+                      <p>💡 You can assign tasks from the task creation section</p>
+                    </div>
+                  )}
                   <button
                     className="TaskDetails-modal-empty-reset"
                     onClick={resetFilters}
@@ -2667,6 +3027,7 @@ const resetFilters = useCallback(() => {
 
                     const taskLogs = allTaskLogs[task._id] || [];
                     const timeData = calculateTaskActiveTime(taskLogs);
+                    const taskType = getTaskType(task);
 
                     return (
                       <div
@@ -2694,6 +3055,16 @@ const resetFilters = useCallback(() => {
                             >
                               {statusObject.label}
                             </span>
+                            <span style={{
+                              fontSize: '0.65rem',
+                              padding: '0.15rem 0.4rem',
+                              borderRadius: '0.25rem',
+                              backgroundColor: taskType === 'assigned' ? '#e3f2fd' : '#fff3e0',
+                              color: taskType === 'assigned' ? '#1976d2' : '#f57c00',
+                              marginLeft: '0.5rem'
+                            }}>
+                              {taskType === 'assigned' ? '📋 Assigned' : '👤 Personal'}
+                            </span>
                           </div>
                           <span className={`TaskDetails-modal-task-priority ${task.priority || 'medium'}`}>
                             {task.priority || 'medium'}
@@ -2715,6 +3086,7 @@ const resetFilters = useCallback(() => {
                             </span>
                           </div>
 
+                          {/* UPDATED: Time tracking display for both personal and assigned tasks */}
                           <div className="TaskDetails-modal-task-time-item">
                             {timeData.currentStatus === 'in-progress' ? (
                               <FiPlay size={12} color="#10b981" />
@@ -2756,7 +3128,7 @@ const resetFilters = useCallback(() => {
                         </div>
 
                         <div className="TaskDetails-modal-task-actions">
-                          {/* NEW: Remarks Button */}
+                          {/* Remarks Button */}
                           <button
                             className="TaskDetails-modal-task-activity-btn"
                             onClick={(e) => handleViewRemarks(task, e)}

@@ -451,7 +451,7 @@ const CompanyDetails = () => {
           }));
           
           if (data.currentUser) {
-            setUserRole(data.currentUser.name || data.currentUser.role || "user");
+            setUserRole(data.currentUser.role || data.currentUser.name || "user");
           }
           
           // Store in localStorage
@@ -1128,74 +1128,123 @@ const CompanyDetails = () => {
     }, 2000);
   };
 
-  // Delete user
+  // ✅ UPDATED: Delete user with DELETE API call
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
     
-    if (!window.confirm(`Are you sure you want to delete ${selectedUser.name}?`)) {
+    if (!window.confirm(`⚠️ Are you sure you want to delete "${selectedUser.name}"?\n\nThis action cannot be undone. All user data will be permanently removed.`)) {
       return;
     }
     
     try {
       setSaveLoading(true);
       const token = localStorage.getItem("token");
-      const headers = { Authorization: `Bearer ${token}` };
       
+      if (!token) {
+        toast.error("Authentication token not found. Please login again.");
+        navigate("/login");
+        return;
+      }
+      
+      const headers = { Authorization: `Bearer ${token}` };
       const userId = selectedUser.id || selectedUser._id;
       
-      let success = false;
+      if (!userId) {
+        toast.error("User ID not found");
+        return;
+      }
       
-      try {
-        const response = await axios.delete(
-          `${API_URL}/users/${userId}`,
-          { headers }
+      console.log("Deleting user with ID:", userId);
+      
+      // Make DELETE API call
+      const response = await axios.delete(
+        `${API_URL}/users/${userId}`,
+        { headers }
+      );
+      
+      if (response.data && response.data.success) {
+        // Success toast with custom design
+        toast.success(
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <svg style={{ color: '#f44336', width: '24px', height: '24px' }} viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+            </svg>
+            <div>
+              <div style={{ fontWeight: 600 }}>User Deleted Successfully!</div>
+              <div style={{ fontSize: '0.75rem', color: '#666' }}>{selectedUser.name} has been permanently removed</div>
+            </div>
+          </div>,
+          { icon: false, autoClose: 4000 }
         );
-        if (response.data && response.data.success) success = true;
-      } catch (error) {
-        console.log("Delete attempt 1 failed");
+        
+        // Remove user from recentUsers list
+        const filteredUsers = recentUsers.filter(user => 
+          (user.id !== userId && user._id !== userId)
+        );
+        setRecentUsers(filteredUsers);
+        
+        // Update stats
+        const activeUsersCount = filteredUsers.filter(user => user.isActive).length;
+        setStats(prev => ({
+          ...prev,
+          totalUsers: filteredUsers.length,
+          activeUsers: activeUsersCount
+        }));
+        
+        // Close modal
+        setEditModalOpen(false);
+        setSelectedUser(null);
+        
+        // Reset form
+        setEditFormData({
+          name: "",
+          email: "",
+          phone: "",
+          address: "",
+          gender: "",
+          maritalStatus: "",
+          dob: "",
+          department: "",
+          jobRole: "",
+          role: "",
+          employeeType: "",
+          designation: "",
+          salary: "",
+          accountNumber: "",
+          ifsc: "",
+          bankName: "",
+          bankHolderName: "",
+          fatherName: "",
+          motherName: "",
+          emergencyName: "",
+          emergencyPhone: "",
+          emergencyRelation: "",
+          emergencyAddress: "",
+          isActive: true,
+          properties: [],
+          propertyOwned: "",
+          additionalDetails: ""
+        });
+        
+      } else {
+        throw new Error(response.data?.message || "Failed to delete user");
       }
-      
-      if (!success) {
-        try {
-          const response = await axios.delete(
-            `${API_URL}/admin/users/${userId}`,
-            { headers }
-          );
-          if (response.data && response.data.success) success = true;
-        } catch (error) {
-          console.log("Delete attempt 2 failed");
-        }
-      }
-      
-      toast.success(
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <svg style={{ color: '#f44336', width: '24px', height: '24px' }} viewBox="0 0 24 24" fill="currentColor">
-            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-          </svg>
-          <div>
-            <div style={{ fontWeight: 600 }}>User Deleted Successfully!</div>
-            <div style={{ fontSize: '0.75rem', color: '#666' }}>{selectedUser.name} has been removed</div>
-          </div>
-        </div>,
-        { icon: false, autoClose: 4000 }
-      );
-      
-      const filteredUsers = recentUsers.filter(user => 
-        user.id !== userId && user._id !== userId
-      );
-      setRecentUsers(filteredUsers);
-      
-      setStats(prev => ({
-        ...prev,
-        totalUsers: prev.totalUsers - 1,
-        activeUsers: filteredUsers.filter(user => user.isActive).length
-      }));
-      
-      setEditModalOpen(false);
       
     } catch (error) {
       console.error("Error deleting user:", error);
-      toast.error("Failed to delete user");
+      
+      // Handle specific error cases
+      if (error.response?.status === 401) {
+        toast.error("Session expired. Please login again!");
+        localStorage.clear();
+        navigate("/login");
+      } else if (error.response?.status === 403) {
+        toast.error("You don't have permission to delete users");
+      } else if (error.response?.status === 404) {
+        toast.error("User not found");
+      } else {
+        toast.error(error.response?.data?.message || "Failed to delete user. Please try again.");
+      }
     } finally {
       setSaveLoading(false);
     }
@@ -2106,391 +2155,404 @@ const CompanyDetails = () => {
         </div>
       )}
 
+     
       {/* Edit User Modal */}
-      {editModalOpen && selectedUser && (
-        <div className="CompanyDetails-modal-overlay" onClick={() => !saveLoading && setEditModalOpen(false)}>
-          <div className={`CompanyDetails-modal-content CompanyDetails-large ${isMobile ? 'CompanyDetails-fullscreen' : ''}`} onClick={e => e.stopPropagation()}>
-            <div className="CompanyDetails-modal-header CompanyDetails-primary-header">
-              <div className="CompanyDetails-modal-header-left">
-                <div className="CompanyDetails-modal-header-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+{editModalOpen && selectedUser && (
+  <div className="CompanyDetails-modal-overlay" onClick={() => !saveLoading && setEditModalOpen(false)}>
+    <div className={`CompanyDetails-modal-content CompanyDetails-large ${isMobile ? 'CompanyDetails-fullscreen' : ''}`} onClick={e => e.stopPropagation()}>
+      <div className="CompanyDetails-modal-header CompanyDetails-primary-header">
+        <div className="CompanyDetails-modal-header-left">
+          <div className="CompanyDetails-modal-header-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+          </div>
+          <div>
+            <h2 className="CompanyDetails-modal-title">Edit User Details</h2>
+            <p className="CompanyDetails-modal-subtitle">Complete user profile management</p>
+          </div>
+        </div>
+        <button className="CompanyDetails-modal-close" onClick={() => setEditModalOpen(false)} disabled={saveLoading}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div className="CompanyDetails-modal-body">
+        {!editSuccess ? (
+          <div className="CompanyDetails-form-container">
+            <div className="CompanyDetails-alert-info">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+              </svg>
+              <span>Editing: <strong>{selectedUser.name}</strong> ({selectedUser.email})</span>
+            </div>
+
+            {/* SECTION 1: BASIC INFORMATION */}
+            <div className="CompanyDetails-form-section">
+              <div className="CompanyDetails-section-header">
+                <div className="CompanyDetails-section-icon CompanyDetails-blue-bg">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                   </svg>
                 </div>
-                <div>
-                  <h2 className="CompanyDetails-modal-title">Edit User Details</h2>
-                  <p className="CompanyDetails-modal-subtitle">Complete user profile management</p>
-                </div>
+                <h3 className="CompanyDetails-section-title">Basic Information</h3>
               </div>
-              <button className="CompanyDetails-modal-close" onClick={() => setEditModalOpen(false)} disabled={saveLoading}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                </svg>
-              </button>
-            </div>
 
-            <div className="CompanyDetails-modal-body">
-              {!editSuccess ? (
-                <div className="CompanyDetails-form-container">
-                  <div className="CompanyDetails-alert-info">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-                    </svg>
-                    <span>Editing: <strong>{selectedUser.name}</strong> ({selectedUser.email})</span>
-                  </div>
-
-                  {/* SECTION 1: BASIC INFORMATION */}
-                  <div className="CompanyDetails-form-section">
-                    <div className="CompanyDetails-section-header">
-                      <div className="CompanyDetails-section-icon CompanyDetails-blue-bg">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                        </svg>
-                      </div>
-                      <h3 className="CompanyDetails-section-title">Basic Information</h3>
-                    </div>
-
-                    <div className="CompanyDetails-form-grid">
-                      <div className="CompanyDetails-form-group">
-                        <label className="CompanyDetails-form-label">Full Name *</label>
-                        <div className="CompanyDetails-input-wrapper">
-                          <span className="CompanyDetails-input-icon">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                            </svg>
-                          </span>
-                          <input
-                            type="text"
-                            name="name"
-                            value={editFormData.name}
-                            onChange={handleInputChange}
-                            className={`CompanyDetails-form-input ${formErrors.name ? 'CompanyDetails-error' : ''}`}
-                            placeholder="Enter full name"
-                          />
-                        </div>
-                        {formErrors.name && <span className="CompanyDetails-error-message">{formErrors.name}</span>}
-                      </div>
-
-                      <div className="CompanyDetails-form-group">
-                        <label className="CompanyDetails-form-label">Email Address</label>
-                        <div className="CompanyDetails-input-wrapper">
-                          <span className="CompanyDetails-input-icon">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
-                            </svg>
-                          </span>
-                          <input
-                            type="email"
-                            name="email"
-                            value={editFormData.email}
-                            onChange={handleInputChange}
-                            className={`CompanyDetails-form-input ${formErrors.email ? 'CompanyDetails-error' : ''}`}
-                            placeholder="Enter email"
-                          />
-                        </div>
-                        {formErrors.email && <span className="CompanyDetails-error-message">{formErrors.email}</span>}
-                      </div>
-
-                      <div className="CompanyDetails-form-group">
-                        <label className="CompanyDetails-form-label">Phone Number</label>
-                        <div className="CompanyDetails-input-wrapper">
-                          <span className="CompanyDetails-input-icon">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
-                            </svg>
-                          </span>
-                          <input
-                            type="text"
-                            name="phone"
-                            value={editFormData.phone}
-                            onChange={handleInputChange}
-                            className="CompanyDetails-form-input"
-                            placeholder="Enter phone number"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="CompanyDetails-form-group">
-                        <label className="CompanyDetails-form-label">Date of Birth</label>
-                        <div className="CompanyDetails-input-wrapper">
-                          <span className="CompanyDetails-input-icon">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H4V8h16v13z"/>
-                            </svg>
-                          </span>
-                          <input
-                            type="date"
-                            name="dob"
-                            value={editFormData.dob}
-                            onChange={handleInputChange}
-                            className="CompanyDetails-form-input"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="CompanyDetails-form-group">
-                        <label className="CompanyDetails-form-label">Gender</label>
-                        <div className="CompanyDetails-input-wrapper">
-                          <span className="CompanyDetails-input-icon">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2z"/>
-                            </svg>
-                          </span>
-                          <select
-                            name="gender"
-                            value={editFormData.gender}
-                            onChange={handleSelectChange}
-                            className="CompanyDetails-form-input"
-                          >
-                            <option value="">None</option>
-                            {genderOptions.map(option => (
-                              <option key={option} value={option}>
-                                {option.charAt(0).toUpperCase() + option.slice(1)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="CompanyDetails-form-group">
-                        <label className="CompanyDetails-form-label">Marital Status</label>
-                        <div className="CompanyDetails-input-wrapper">
-                          <span className="CompanyDetails-input-icon">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                            </svg>
-                          </span>
-                          <select
-                            name="maritalStatus"
-                            value={editFormData.maritalStatus}
-                            onChange={handleSelectChange}
-                            className="CompanyDetails-form-input"
-                          >
-                            <option value="">None</option>
-                            {maritalStatusOptions.map(option => (
-                              <option key={option} value={option}>
-                                {option.charAt(0).toUpperCase() + option.slice(1)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="CompanyDetails-form-group CompanyDetails-full-width">
-                        <label className="CompanyDetails-form-label">Address</label>
-                        <div className="CompanyDetails-input-wrapper">
-                          <span className="CompanyDetails-input-icon">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                            </svg>
-                          </span>
-                          <textarea
-                            name="address"
-                            value={editFormData.address}
-                            onChange={handleInputChange}
-                            className="CompanyDetails-form-input"
-                            placeholder="Enter address"
-                            rows={isMobile ? 1 : 2}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* SECTION 2: EMPLOYMENT INFORMATION */}
-                  <div className="CompanyDetails-form-section">
-                    <div className="CompanyDetails-section-header">
-                      <div className="CompanyDetails-section-icon CompanyDetails-orange-bg">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/>
-                        </svg>
-                      </div>
-                      <h3 className="CompanyDetails-section-title">Employment Information</h3>
-                    </div>
-
-                    <div className="CompanyDetails-form-grid">
-                      <div className="CompanyDetails-form-group">
-                        <label className="CompanyDetails-form-label">Job Role</label>
-                        <div className="CompanyDetails-input-wrapper">
-                          <span className="CompanyDetails-input-icon">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2z"/>
-                            </svg>
-                          </span>
-                          <input
-                            type="text"
-                            name="jobRole"
-                            value={editFormData.jobRole}
-                            onChange={handleInputChange}
-                            className="CompanyDetails-form-input"
-                            placeholder="Enter job role"
-                            list="CompanyDetails-job-roles"
-                          />
-                          <datalist id="CompanyDetails-job-roles">
-                            {jobRoles.map(role => (
-                              <option key={role.id} value={role.name} />
-                            ))}
-                          </datalist>
-                        </div>
-                      </div>
-
-                      <div className="CompanyDetails-form-group">
-                        <label className="CompanyDetails-form-label">Department</label>
-                        <div className="CompanyDetails-input-wrapper">
-                          <span className="CompanyDetails-input-icon">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10z"/>
-                            </svg>
-                          </span>
-                          <input
-                            type="text"
-                            name="department"
-                            value={editFormData.department}
-                            onChange={handleInputChange}
-                            className="CompanyDetails-form-input"
-                            placeholder="Enter department"
-                            list="CompanyDetails-departments"
-                          />
-                          <datalist id="CompanyDetails-departments">
-                            {departments.map(dept => (
-                              <option key={dept.id} value={dept.name} />
-                            ))}
-                          </datalist>
-                        </div>
-                      </div>
-
-                      <div className="CompanyDetails-form-group">
-                        <label className="CompanyDetails-form-label">Employee Type</label>
-                        <div className="CompanyDetails-input-wrapper">
-                          <span className="CompanyDetails-input-icon">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2z"/>
-                            </svg>
-                          </span>
-                          <select
-                            name="employeeType"
-                            value={editFormData.employeeType}
-                            onChange={handleSelectChange}
-                            className="CompanyDetails-form-input"
-                          >
-                            <option value="">None</option>
-                            {employeeTypeOptions.map(option => (
-                              <option key={option} value={option}>
-                                {option.charAt(0).toUpperCase() + option.slice(1)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="CompanyDetails-form-group">
-                        <label className="CompanyDetails-form-label">Designation</label>
-                        <div className="CompanyDetails-input-wrapper">
-                          <span className="CompanyDetails-input-icon">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                            </svg>
-                          </span>
-                          <input
-                            type="text"
-                            name="designation"
-                            value={editFormData.designation}
-                            onChange={handleInputChange}
-                            className="CompanyDetails-form-input"
-                            placeholder="Enter designation"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="CompanyDetails-form-group">
-                        <label className="CompanyDetails-form-label">Salary</label>
-                        <div className="CompanyDetails-input-wrapper">
-                          <span className="CompanyDetails-input-icon">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M11.5 1L8 7h7l-3.5-6zm0 22L8 17h7l-3.5 6zM12 10.5l-3.5 6h7l-3.5-6z"/>
-                            </svg>
-                          </span>
-                          <input
-                            type="number"
-                            name="salary"
-                            value={editFormData.salary}
-                            onChange={handleInputChange}
-                            className="CompanyDetails-form-input"
-                            placeholder="Enter salary"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="CompanyDetails-form-group CompanyDetails-checkbox-group">
-                        <label className="CompanyDetails-checkbox-label">
-                          <input
-                            type="checkbox"
-                            name="isActive"
-                            checked={editFormData.isActive}
-                            onChange={handleInputChange}
-                            className="CompanyDetails-checkbox-input"
-                          />
-                          <span className="CompanyDetails-checkbox-text">Active Status</span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="CompanyDetails-success-state">
-                  <div className="CompanyDetails-success-icon">
-                    <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                    </svg>
-                  </div>
-                  <h3 className="CompanyDetails-success-title">Update Successful!</h3>
-                  <p className="CompanyDetails-success-message">
-                    User <span className="CompanyDetails-highlight">{editFormData.name}</span> has been updated successfully.
-                  </p>
-                  <div className="CompanyDetails-success-spinner"></div>
-                </div>
-              )}
-            </div>
-
-            {!editSuccess && (
-              <div className="CompanyDetails-modal-footer">
-                <button className="CompanyDetails-btn CompanyDetails-btn-secondary" onClick={() => setEditModalOpen(false)} disabled={saveLoading}>
-                  Cancel
-                </button>
-                <button 
-                  className="CompanyDetails-btn CompanyDetails-btn-danger" 
-                  onClick={handleDeleteUser} 
-                  disabled={saveLoading}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                  </svg>
-                  Delete
-                </button>
-                <button 
-                  className="CompanyDetails-btn CompanyDetails-btn-primary" 
-                  onClick={handleSaveUser} 
-                  disabled={saveLoading || !editFormData.name.trim()}
-                >
-                  {saveLoading ? (
-                    <>
-                      <span className="CompanyDetails-spinner"></span>
-                      Saving...
-                    </>
-                  ) : (
-                    <>
+              <div className="CompanyDetails-form-grid">
+                <div className="CompanyDetails-form-group">
+                  <label className="CompanyDetails-form-label">Full Name *</label>
+                  <div className="CompanyDetails-input-wrapper">
+                    <span className="CompanyDetails-input-icon">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm4-10H5V5h11v4z"/>
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                       </svg>
-                      Save Changes
-                    </>
-                  )}
-                </button>
+                    </span>
+                    <input
+                      type="text"
+                      name="name"
+                      value={editFormData.name}
+                      onChange={handleInputChange}
+                      className={`CompanyDetails-form-input ${formErrors.name ? 'CompanyDetails-error' : ''}`}
+                      placeholder="Enter full name"
+                    />
+                  </div>
+                  {formErrors.name && <span className="CompanyDetails-error-message">{formErrors.name}</span>}
+                </div>
+
+                <div className="CompanyDetails-form-group">
+                  <label className="CompanyDetails-form-label">Email Address</label>
+                  <div className="CompanyDetails-input-wrapper">
+                    <span className="CompanyDetails-input-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+                      </svg>
+                    </span>
+                    <input
+                      type="email"
+                      name="email"
+                      value={editFormData.email}
+                      onChange={handleInputChange}
+                      className={`CompanyDetails-form-input ${formErrors.email ? 'CompanyDetails-error' : ''}`}
+                      placeholder="Enter email"
+                    />
+                  </div>
+                  {formErrors.email && <span className="CompanyDetails-error-message">{formErrors.email}</span>}
+                </div>
+
+                <div className="CompanyDetails-form-group">
+                  <label className="CompanyDetails-form-label">Phone Number</label>
+                  <div className="CompanyDetails-input-wrapper">
+                    <span className="CompanyDetails-input-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+                      </svg>
+                    </span>
+                    <input
+                      type="text"
+                      name="phone"
+                      value={editFormData.phone}
+                      onChange={handleInputChange}
+                      className="CompanyDetails-form-input"
+                      placeholder="Enter phone number"
+                    />
+                  </div>
+                </div>
+
+                <div className="CompanyDetails-form-group">
+                  <label className="CompanyDetails-form-label">Date of Birth</label>
+                  <div className="CompanyDetails-input-wrapper">
+                    <span className="CompanyDetails-input-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H4V8h16v13z"/>
+                      </svg>
+                    </span>
+                    <input
+                      type="date"
+                      name="dob"
+                      value={editFormData.dob}
+                      onChange={handleInputChange}
+                      className="CompanyDetails-form-input"
+                    />
+                  </div>
+                </div>
+
+                <div className="CompanyDetails-form-group">
+                  <label className="CompanyDetails-form-label">Gender</label>
+                  <div className="CompanyDetails-input-wrapper">
+                    <span className="CompanyDetails-input-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2z"/>
+                      </svg>
+                    </span>
+                    <select
+                      name="gender"
+                      value={editFormData.gender}
+                      onChange={handleSelectChange}
+                      className="CompanyDetails-form-input"
+                    >
+                      <option value="">None</option>
+                      {genderOptions.map(option => (
+                        <option key={option} value={option}>
+                          {option.charAt(0).toUpperCase() + option.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="CompanyDetails-form-group">
+                  <label className="CompanyDetails-form-label">Marital Status</label>
+                  <div className="CompanyDetails-input-wrapper">
+                    <span className="CompanyDetails-input-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                      </svg>
+                    </span>
+                    <select
+                      name="maritalStatus"
+                      value={editFormData.maritalStatus}
+                      onChange={handleSelectChange}
+                      className="CompanyDetails-form-input"
+                    >
+                      <option value="">None</option>
+                      {maritalStatusOptions.map(option => (
+                        <option key={option} value={option}>
+                          {option.charAt(0).toUpperCase() + option.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="CompanyDetails-form-group CompanyDetails-full-width">
+                  <label className="CompanyDetails-form-label">Address</label>
+                  <div className="CompanyDetails-input-wrapper">
+                    <span className="CompanyDetails-input-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                      </svg>
+                    </span>
+                    <textarea
+                      name="address"
+                      value={editFormData.address}
+                      onChange={handleInputChange}
+                      className="CompanyDetails-form-input"
+                      placeholder="Enter address"
+                      rows={isMobile ? 1 : 2}
+                    />
+                  </div>
+                </div>
               </div>
-            )}
+            </div>
+
+            {/* SECTION 2: EMPLOYMENT INFORMATION */}
+            <div className="CompanyDetails-form-section">
+              <div className="CompanyDetails-section-header">
+                <div className="CompanyDetails-section-icon CompanyDetails-orange-bg">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/>
+                  </svg>
+                </div>
+                <h3 className="CompanyDetails-section-title">Employment Information</h3>
+              </div>
+
+              <div className="CompanyDetails-form-grid">
+                <div className="CompanyDetails-form-group">
+                  <label className="CompanyDetails-form-label">Job Role</label>
+                  <div className="CompanyDetails-input-wrapper">
+                    <span className="CompanyDetails-input-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2z"/>
+                      </svg>
+                    </span>
+                    <input
+                      type="text"
+                      name="jobRole"
+                      value={editFormData.jobRole}
+                      onChange={handleInputChange}
+                      className="CompanyDetails-form-input"
+                      placeholder="Enter job role"
+                      list="CompanyDetails-job-roles"
+                    />
+                    <datalist id="CompanyDetails-job-roles">
+                      {jobRoles.map(role => (
+                        <option key={role.id} value={role.name} />
+                      ))}
+                    </datalist>
+                  </div>
+                </div>
+
+                <div className="CompanyDetails-form-group">
+                  <label className="CompanyDetails-form-label">Department</label>
+                  <div className="CompanyDetails-input-wrapper">
+                    <span className="CompanyDetails-input-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10z"/>
+                      </svg>
+                    </span>
+                    <input
+                      type="text"
+                      name="department"
+                      value={editFormData.department}
+                      onChange={handleInputChange}
+                      className="CompanyDetails-form-input"
+                      placeholder="Enter department"
+                      list="CompanyDetails-departments"
+                    />
+                    <datalist id="CompanyDetails-departments">
+                      {departments.map(dept => (
+                        <option key={dept.id} value={dept.name} />
+                      ))}
+                    </datalist>
+                  </div>
+                </div>
+
+                <div className="CompanyDetails-form-group">
+                  <label className="CompanyDetails-form-label">Employee Type</label>
+                  <div className="CompanyDetails-input-wrapper">
+                    <span className="CompanyDetails-input-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2z"/>
+                      </svg>
+                    </span>
+                    <select
+                      name="employeeType"
+                      value={editFormData.employeeType}
+                      onChange={handleSelectChange}
+                      className="CompanyDetails-form-input"
+                    >
+                      <option value="">None</option>
+                      {employeeTypeOptions.map(option => (
+                        <option key={option} value={option}>
+                          {option.charAt(0).toUpperCase() + option.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="CompanyDetails-form-group">
+                  <label className="CompanyDetails-form-label">Designation</label>
+                  <div className="CompanyDetails-input-wrapper">
+                    <span className="CompanyDetails-input-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                      </svg>
+                    </span>
+                    <input
+                      type="text"
+                      name="designation"
+                      value={editFormData.designation}
+                      onChange={handleInputChange}
+                      className="CompanyDetails-form-input"
+                      placeholder="Enter designation"
+                    />
+                  </div>
+                </div>
+
+                <div className="CompanyDetails-form-group">
+                  <label className="CompanyDetails-form-label">Salary</label>
+                  <div className="CompanyDetails-input-wrapper">
+                    <span className="CompanyDetails-input-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M11.5 1L8 7h7l-3.5-6zm0 22L8 17h7l-3.5 6zM12 10.5l-3.5 6h7l-3.5-6z"/>
+                      </svg>
+                    </span>
+                    <input
+                      type="number"
+                      name="salary"
+                      value={editFormData.salary}
+                      onChange={handleInputChange}
+                      className="CompanyDetails-form-input"
+                      placeholder="Enter salary"
+                    />
+                  </div>
+                </div>
+
+                <div className="CompanyDetails-form-group CompanyDetails-checkbox-group">
+                  <label className="CompanyDetails-checkbox-label">
+                    <input
+                      type="checkbox"
+                      name="isActive"
+                      checked={editFormData.isActive}
+                      onChange={handleInputChange}
+                      className="CompanyDetails-checkbox-input"
+                    />
+                    <span className="CompanyDetails-checkbox-text">Active Status</span>
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
+        ) : (
+          <div className="CompanyDetails-success-state">
+            <div className="CompanyDetails-success-icon">
+              <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+            <h3 className="CompanyDetails-success-title">Update Successful!</h3>
+            <p className="CompanyDetails-success-message">
+              User <span className="CompanyDetails-highlight">{editFormData.name}</span> has been updated successfully.
+            </p>
+            <div className="CompanyDetails-success-spinner"></div>
+          </div>
+        )}
+      </div>
+
+      {!editSuccess && (
+        <div className="CompanyDetails-modal-footer">
+          <button className="CompanyDetails-btn CompanyDetails-btn-secondary" onClick={() => setEditModalOpen(false)} disabled={saveLoading}>
+            Cancel
+          </button>
+          
+          {/* Delete User Button - Exactly where it was before */}
+          <button 
+            className="CompanyDetails-btn CompanyDetails-btn-danger" 
+            onClick={handleDeleteUser} 
+            disabled={saveLoading}
+          >
+            {saveLoading ? (
+              <>
+                <span className="CompanyDetails-spinner"></span>
+                Deleting...
+              </>
+            ) : (
+              <>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                </svg>
+                Delete User
+              </>
+            )}
+          </button>
+          
+          <button 
+            className="CompanyDetails-btn CompanyDetails-btn-primary" 
+            onClick={handleSaveUser} 
+            disabled={saveLoading || !editFormData.name.trim()}
+          >
+            {saveLoading ? (
+              <>
+                <span className="CompanyDetails-spinner"></span>
+                Saving...
+              </>
+            ) : (
+              <>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm4-10H5V5h11v4z"/>
+                </svg>
+                Save Changes
+              </>
+            )}
+          </button>
         </div>
       )}
+    </div>
+  </div>
+)}
     </div>
   );
 };

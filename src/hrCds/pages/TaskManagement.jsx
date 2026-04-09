@@ -15,27 +15,19 @@ import "../Css/TaskManagement.css";
 import API_URL from '../../config';
 import CIISLoader from '../../Loader/CIISLoader';
 
-// Helper function to get correct image URL - UPDATED FOR ASSIGNED TASKS
+// Helper function to get correct image URL
 const getImageUrl = (imagePath) => {
   if (!imagePath) return '';
 
-  console.log('🔍 Original image path:', imagePath);
-
-  // If it's already a full URL, return it
   if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
     return imagePath;
   }
 
-  // Get base URL (remove /api if present)
   const baseUrl = API_URL || 'http://localhost:3000';
   const baseUrlWithoutApi = baseUrl.replace(/\/api$/, '');
 
-  // Clean the path
   let cleanPath = imagePath.replace(/\\/g, '/').replace(/^\/+/, '');
   
-  console.log('📁 Cleaned path:', cleanPath);
-
-  // Handle different path formats - ENHANCED FOR ASSIGNED TASKS
   if (cleanPath.startsWith('uploads/client-remarks/')) {
     return `${baseUrlWithoutApi}/${cleanPath}`;
   }
@@ -56,15 +48,12 @@ const getImageUrl = (imagePath) => {
     return `${baseUrlWithoutApi}/${cleanPath}`;
   }
   
-  // Check for paths that might be from assigned tasks (client-remarks)
   if (cleanPath.includes('client-remarks')) {
     return `${baseUrlWithoutApi}/${cleanPath}`;
   }
   
-  // Check if it's a filename without path (for client remarks)
   const filename = cleanPath.split('/').pop();
   
-  // Try multiple possible paths for assigned tasks
   const possiblePaths = [
     `${baseUrlWithoutApi}/uploads/client-remarks/${filename}`,
     `${baseUrlWithoutApi}/uploads/remarks/client-remarks/${filename}`,
@@ -72,39 +61,50 @@ const getImageUrl = (imagePath) => {
     `${baseUrlWithoutApi}/uploads/${filename}`
   ];
   
-  // Log all possible paths for debugging
-  console.log('🔗 Possible image paths:', possiblePaths);
-  
-  // Return the first path - if it fails, the onError handler will try others
   return possiblePaths[0];
 };
 
 // Helper function to get client name from task object
 const getClientNameFromTask = (task) => {
-  // Check if there's a clientName field
   if (task.clientName && task.clientName !== 'Unknown Client') {
     return task.clientName;
   }
   
-  // Check if clientId is an object with company name
   if (task.clientId && typeof task.clientId === 'object') {
-    // Use company name as client name
     if (task.clientId.company) {
       return task.clientId.company;
     }
-    // Fallback to email if no company name
     if (task.clientId.email) {
-      return task.clientId.email.split('@')[0]; // Use email username as fallback
+      return task.clientId.email.split('@')[0];
     }
   }
   
-  // Check if clientCompany exists
   if (task.clientCompany) {
     return task.clientCompany;
   }
   
-  // Last resort
   return 'N/A';
+};
+
+// Helper function to normalize status
+const normalizeStatus = (status) => {
+  if (!status) return 'pending';
+  
+  const statusMap = {
+    'In Progress': 'in-progress',
+    'In-Progress': 'in-progress',
+    'inprogress': 'in-progress',
+    'Pending': 'pending',
+    'Completed': 'completed',
+    'Overdue': 'overdue',
+    'Rejected': 'rejected',
+    'On Hold': 'onhold',
+    'OnHold': 'onhold',
+    'Reopen': 'reopen',
+    'Cancelled': 'cancelled'
+  };
+  
+  return statusMap[status] || status.toLowerCase();
 };
 
 const StatCard = ({ color = 'primary', clickable = true, active = false, children, onClick }) => {
@@ -120,9 +120,10 @@ const StatCard = ({ color = 'primary', clickable = true, active = false, childre
 };
 
 const StatusChip = ({ status, label }) => {
-  const statusLabel = label || status;
+  const normalizedStatus = normalizeStatus(status);
+  const statusLabel = label || normalizedStatus;
   return (
-    <div className={`user-create-task-status-chip ${status}`}>
+    <div className={`user-create-task-status-chip ${normalizedStatus}`}>
       {statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1).replace('-', ' ')}
     </div>
   );
@@ -328,21 +329,25 @@ const UserCreateTask = () => {
       return false;
     });
     
-    if (userStatus) return userStatus.status || 'pending';
+    if (userStatus) return normalizeStatus(userStatus.status);
     
     const statusInfo = task.statusInfo?.find(s => s.userId === userId);
-    if (statusInfo) return statusInfo.status || 'pending';
+    if (statusInfo) return normalizeStatus(statusInfo.status);
     
     return 'pending';
   }, []);
 
-  // Get status for assigned tasks
+  // Get status for assigned tasks - FIXED: properly normalize status
   const getAssignedTaskStatus = useCallback((task) => {
     if (!task) return 'pending';
     
+    // Check for completed flag
     if (task.completed === true) return 'completed';
-    if (task.completed === false) return 'pending';
-    if (task.status) return task.status;
+    
+    // Check for status field
+    if (task.status) {
+      return normalizeStatus(task.status);
+    }
     
     return 'pending';
   }, []);
@@ -417,7 +422,8 @@ const UserCreateTask = () => {
           }
         } else {
           const status = getAssignedTaskStatus(task);
-          const taskIsOverdue = isOverdue(task.dueDate || task.dueDateTime, status);
+          const dueDate = task.dueDate || task.dueDateTime;
+          const taskIsOverdue = isOverdue(dueDate, status);
           if (taskIsOverdue || status === 'overdue') {
             count++;
           }
@@ -486,7 +492,7 @@ const UserCreateTask = () => {
     });
   }, [userId, getUserStatusForTask, isOverdue]);
 
-  // Calculate stats from assigned tasks
+  // Calculate stats from assigned tasks - FIXED: properly handle status counts
   const calculateAssignedStatsFromTasks = useCallback((tasks) => {
     if (!tasks || Object.keys(tasks).length === 0) {
       setAssignedTaskStats({
@@ -509,22 +515,29 @@ const UserCreateTask = () => {
       dateTasks.forEach(task => {
         total++;
         
-        let status = 'pending';
-        if (task.completed === true) {
-          status = 'completed';
+        // Get normalized status
+        let status = getAssignedTaskStatus(task);
+        
+        // Count by status
+        if (status === 'completed') {
           completed++;
-        } else if (task.status === 'in-progress') {
-          status = 'in-progress';
+        } else if (status === 'in-progress') {
           inProgress++;
-        } else {
-          status = 'pending';
+        } else if (status === 'pending') {
           pending++;
+        } else if (status === 'overdue') {
+          overdue++;
         }
         
+        // Also check if task is overdue based on due date
         const dueDate = task.dueDate || task.dueDateTime;
-        if (dueDate && !task.completed) {
-          if (isOverdue(dueDate, status)) {
+        if (dueDate && status !== 'completed') {
+          const isTaskOverdue = isOverdue(dueDate, status);
+          if (isTaskOverdue && status !== 'overdue') {
             overdue++;
+            // Don't double count - if it's overdue, it shouldn't be in pending/in-progress for stats
+            if (status === 'pending') pending--;
+            if (status === 'in-progress') inProgress--;
           }
         }
       });
@@ -539,39 +552,40 @@ const UserCreateTask = () => {
       completed: { count: completed, percentage: calculatePercentage(completed) },
       overdue: { count: overdue, percentage: calculatePercentage(overdue) }
     });
-  }, [isOverdue]);
+  }, [getAssignedTaskStatus, isOverdue]);
 
-  // Function to enrich tasks with proper client names
-  const enrichAssignedTasksWithClientNames = useCallback((groupedTasks) => {
-    const enrichedGroupedTasks = {};
-    
-    Object.entries(groupedTasks).forEach(([dateKey, tasks]) => {
-      enrichedGroupedTasks[dateKey] = tasks.map(task => {
-        // Extract client name from clientId object
-        let clientDisplayName = 'Unknown Client';
-        
-        if (task.clientId && typeof task.clientId === 'object') {
-          if (task.clientId.company) {
-            clientDisplayName = task.clientId.company;
-          } else if (task.clientId.email) {
-            // Use email domain or username as display name
-            clientDisplayName = task.clientId.email.split('@')[0];
-          }
+  // Function to enrich tasks with proper client names and normalize status
+  const enrichAssignedTasks = useCallback((tasks) => {
+    return tasks.map(task => {
+      let clientDisplayName = 'Unknown Client';
+      
+      if (task.clientId && typeof task.clientId === 'object') {
+        if (task.clientId.company) {
+          clientDisplayName = task.clientId.company;
+        } else if (task.clientId.email) {
+          clientDisplayName = task.clientId.email.split('@')[0];
         }
-        
-        return {
-          ...task,
-          clientName: clientDisplayName,
-          clientCompany: task.clientId?.company || task.clientCompany,
-          clientEmail: task.clientId?.email || task.clientEmail
-        };
-      });
+      }
+      
+      // Normalize the status
+      let normalizedStatus = normalizeStatus(task.status);
+      
+      // If task is completed, ensure status reflects that
+      if (task.completed === true && normalizedStatus !== 'completed') {
+        normalizedStatus = 'completed';
+      }
+      
+      return {
+        ...task,
+        clientName: clientDisplayName,
+        clientCompany: task.clientId?.company || task.clientCompany,
+        clientEmail: task.clientId?.email || task.clientEmail,
+        status: normalizedStatus
+      };
     });
-    
-    return enrichedGroupedTasks;
   }, []);
 
-  // Fetch assigned to me tasks
+  // Fetch assigned to me tasks - FIXED: properly handle groupedTasks response
   const fetchAssignedToMeTasks = useCallback(async () => {
     if (authError || !userId) {
       console.log('⛔ Cannot fetch assigned tasks: authError or no userId', { authError, userId });
@@ -606,74 +620,54 @@ const UserCreateTask = () => {
       console.log('📦 Response data:', res.data);
 
       if (res.data && res.data.success) {
-        let tasksData = {};
+        let tasksArray = [];
         
+        // Handle groupedTasks response (backend sends grouped object)
         if (res.data.groupedTasks) {
-          tasksData = res.data.groupedTasks;
+          console.log('📊 Received groupedTasks from backend');
           
-          // Enrich tasks with proper client names
-          tasksData = enrichAssignedTasksWithClientNames(tasksData);
-          console.log('📊 Enriched tasks with client names:', tasksData);
+          // Convert groupedTasks to flat array
+          tasksArray = Object.values(res.data.groupedTasks).flat();
+          console.log(`📊 Flattened tasks: ${tasksArray.length} tasks`);
+          
+          // Enrich tasks with client names and normalize status
+          tasksArray = enrichAssignedTasks(tasksArray);
+          
+          // Group tasks by date for display
+          const groupedTasks = groupTasksByDate(tasksArray);
+          setAssignedToMeTasksGrouped(groupedTasks);
+          
+          // Calculate stats from tasks
+          calculateAssignedStatsFromTasks(groupedTasks);
+          
         } 
+        // Handle tasks array response
         else if (res.data.tasks && Array.isArray(res.data.tasks)) {
-          const rawTasks = res.data.tasks;
-          const enrichedTasks = rawTasks.map(task => {
-            let clientDisplayName = 'Unknown Client';
-            
-            if (task.clientId && typeof task.clientId === 'object') {
-              if (task.clientId.company) {
-                clientDisplayName = task.clientId.company;
-              } else if (task.clientId.email) {
-                clientDisplayName = task.clientId.email.split('@')[0];
-              }
-            }
-            
-            return {
-              ...task,
-              clientName: clientDisplayName,
-              clientCompany: task.clientId?.company || task.clientCompany,
-              clientEmail: task.clientId?.email || task.clientEmail
-            };
-          });
-          tasksData = groupTasksByDate(enrichedTasks);
+          console.log('📊 Received tasks array from backend');
+          tasksArray = enrichAssignedTasks(res.data.tasks);
+          const groupedTasks = groupTasksByDate(tasksArray);
+          setAssignedToMeTasksGrouped(groupedTasks);
+          calculateAssignedStatsFromTasks(groupedTasks);
         }
+        // Handle direct array response
         else if (Array.isArray(res.data)) {
-          const enrichedTasks = res.data.map(task => {
-            let clientDisplayName = 'Unknown Client';
-            
-            if (task.clientId && typeof task.clientId === 'object') {
-              if (task.clientId.company) {
-                clientDisplayName = task.clientId.company;
-              } else if (task.clientId.email) {
-                clientDisplayName = task.clientId.email.split('@')[0];
-              }
-            }
-            
-            return {
-              ...task,
-              clientName: clientDisplayName,
-              clientCompany: task.clientId?.company || task.clientCompany,
-              clientEmail: task.clientId?.email || task.clientEmail
-            };
-          });
-          tasksData = groupTasksByDate(enrichedTasks);
+          console.log('📊 Received direct array from backend');
+          tasksArray = enrichAssignedTasks(res.data);
+          const groupedTasks = groupTasksByDate(tasksArray);
+          setAssignedToMeTasksGrouped(groupedTasks);
+          calculateAssignedStatsFromTasks(groupedTasks);
+        }
+        else {
+          console.log('⚠️ No tasks data in response');
+          setAssignedToMeTasksGrouped({});
+          calculateAssignedStatsFromTasks({});
         }
         
-        console.log('📊 Number of date groups:', Object.keys(tasksData).length);
-        
-        const totalTasks = Object.values(tasksData).reduce((sum, tasks) => sum + tasks.length, 0);
-        console.log(`✅ Total tasks loaded: ${totalTasks}`);
-        
-        setAssignedToMeTasksGrouped(tasksData);
-        
-        if (res.data.stats) {
-          console.log('📊 Using stats from backend:', res.data.stats);
-          setAssignedTaskStats(res.data.stats);
-        } else {
-          calculateAssignedStatsFromTasks(tasksData);
-        }
+        const totalTasks = tasksArray.length;
+        console.log(`✅ Total assigned tasks loaded: ${totalTasks}`);
         
         if (totalTasks > 0) {
+          console.log('📊 Sample task statuses:', tasksArray.slice(0, 3).map(t => ({ title: t.title, status: t.status })));
           showSnackbar(`✅ Loaded ${totalTasks} assigned tasks`, 'success');
         } else {
           console.log('ℹ️ No assigned tasks found');
@@ -720,7 +714,7 @@ const UserCreateTask = () => {
       setLoadingAssigned(false);
       console.log('🏁 fetchAssignedToMeTasks completed');
     }
-  }, [authError, userId, calculateAssignedStatsFromTasks, groupTasksByDate, enrichAssignedTasksWithClientNames]);
+  }, [authError, userId, enrichAssignedTasks, groupTasksByDate, calculateAssignedStatsFromTasks]);
 
   // Fetch self tasks
   const fetchMyTasks = useCallback(async () => {
@@ -815,7 +809,7 @@ const UserCreateTask = () => {
     showSnackbar('All filters cleared', 'info');
   };
 
-  // Fetch task remarks - UPDATED with better logging and image handling
+  // Fetch task remarks
   const fetchTaskRemarks = async (taskId) => {
     try {
       const isAssignedTask = taskViewMode === 'assigned';
@@ -843,9 +837,7 @@ const UserCreateTask = () => {
         remarks = res.data;
       }
       
-      // Process remarks to ensure images array exists
       remarks = remarks.map(remark => {
-        // If there's an image field but no images array, create images array
         if (remark.image && !remark.images) {
           remark.images = [{
             url: remark.image,
@@ -856,13 +848,9 @@ const UserCreateTask = () => {
           }];
         }
         
-        // Ensure images array exists
         if (!remark.images) {
           remark.images = [];
         }
-        
-        // Log image data for debugging
-        console.log(`📸 Remark has ${remark.images.length} image(s):`, remark.images);
         
         return remark;
       });
@@ -891,7 +879,6 @@ const UserCreateTask = () => {
       return;
     }
 
-    // Clean up old previews
     remarkImages.forEach(image => {
       if (image.preview) URL.revokeObjectURL(image.preview);
     });
@@ -937,7 +924,7 @@ const UserCreateTask = () => {
     }
   };
 
-  // Add remark - UPDATED with proper image upload for assigned tasks
+  // Add remark
   const addRemark = async (taskId) => {
     if (!newRemark.trim() && remarkImages.length === 0) {
       showSnackbar('Please enter a remark or upload an image', 'warning');
@@ -953,7 +940,6 @@ const UserCreateTask = () => {
       let formData = new FormData();
       
       if (isAssignedTask) {
-        // For assigned tasks, always use the upload-images endpoint with images
         if (remarkImages.length > 0) {
           endpoint = `/tasks/${taskId}/client-remarks/upload-images`;
           formData.append('text', newRemark.trim());
@@ -962,45 +948,77 @@ const UserCreateTask = () => {
             console.log('📤 Uploading image for assigned task:', image.file.name);
             formData.append('images', image.file);
           });
+          
+          const response = await axios.post(endpoint, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            }
+          });
+          
+          console.log('✅ Remark with images added successfully:', response.data);
+          
+          setNewRemark('');
+          remarkImages.forEach(image => {
+            if (image.preview) URL.revokeObjectURL(image.preview);
+          });
+          setRemarkImages([]);
+          
+          showSnackbar('Remark added successfully with images', 'success');
+          return true;
         } else {
-          // Use regular endpoint for text only
           endpoint = `/tasks/${taskId}/client-remarks`;
-          formData.append('text', newRemark.trim());
+          console.log('📡 Adding remark to endpoint:', endpoint);
+          console.log('📝 Remark text:', newRemark.trim());
+          
+          const response = await axios.post(endpoint, { text: newRemark.trim() }, {
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          });
+          
+          console.log('✅ Remark added successfully:', response.data);
+          
+          setNewRemark('');
+          remarkImages.forEach(image => {
+            if (image.preview) URL.revokeObjectURL(image.preview);
+          });
+          setRemarkImages([]);
+          
+          showSnackbar('Remark added successfully', 'success');
+          return true;
         }
       } else {
-        // For self tasks, always use the regular endpoint with image field
         endpoint = `/task/${taskId}/remarks`;
         formData.append('text', newRemark.trim());
         
         if (remarkImages.length > 0) {
           formData.append('image', remarkImages[0].file);
         }
+        
+        console.log('📡 Adding remark to endpoint:', endpoint);
+        console.log('📸 Images count:', remarkImages.length);
+        
+        const response = await axios.post(endpoint, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          }
+        });
+
+        console.log('✅ Remark added successfully:', response.data);
+        
+        setNewRemark('');
+        remarkImages.forEach(image => {
+          if (image.preview) URL.revokeObjectURL(image.preview);
+        });
+        setRemarkImages([]);
+        
+        showSnackbar(
+          `Remark added successfully${remarkImages.length > 0 ? ' with image' : ''}`, 
+          'success'
+        );
+
+        return true;
       }
-
-      console.log('📡 Adding remark to endpoint:', endpoint);
-      console.log('📸 Images count:', remarkImages.length);
-      
-      const response = await axios.post(endpoint, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        }
-      });
-
-      console.log('✅ Remark added successfully:', response.data);
-      
-      // Clear form data
-      setNewRemark('');
-      remarkImages.forEach(image => {
-        if (image.preview) URL.revokeObjectURL(image.preview);
-      });
-      setRemarkImages([]);
-      
-      showSnackbar(
-        `Remark added successfully${remarkImages.length > 0 ? ' with image' : ''}`, 
-        'success'
-      );
-
-      return true;
 
     } catch (error) {
       console.error('❌ Error adding remark:', error);
@@ -1016,18 +1034,15 @@ const UserCreateTask = () => {
   // Handle save remark with status
   const handleSaveRemarkWithStatus = async () => {
     try {
-      // First, add the remark
       const remarkAdded = await addRemark(remarksDialog.taskId);
       
       if (!remarkAdded && newRemark.trim() === '' && remarkImages.length === 0) {
-        // If no remark content and no status change, just close
         if (!pendingStatusChange.status) {
           setRemarksDialog({ open: false, taskId: null, remarks: [] });
           return;
         }
       }
 
-      // If there's a pending status change, apply it
       if (pendingStatusChange.status) {
         console.log('📝 Applying pending status change:', pendingStatusChange);
         
@@ -1047,31 +1062,26 @@ const UserCreateTask = () => {
         setPendingStatusChange({ taskId: null, status: "" });
       }
 
-      // Refresh remarks
       await fetchTaskRemarks(remarksDialog.taskId);
       
-      // Clear form
       setNewRemark("");
       remarkImages.forEach(image => {
         if (image.preview) URL.revokeObjectURL(image.preview);
       });
       setRemarkImages([]);
       
-      // Refresh tasks based on view mode
       if (taskViewMode === 'self') {
         fetchMyTasks();
       } else {
-        fetchAssignedToMeTasks();
+        await fetchAssignedToMeTasks();
       }
       
-      // Show success message
       if (pendingStatusChange.status) {
         showSnackbar('Status updated and remark added successfully', 'success');
       } else if (newRemark.trim() || remarkImages.length > 0) {
         showSnackbar('Remark added successfully', 'success');
       }
       
-      // Close dialog if no pending status change
       if (!pendingStatusChange.status) {
         setRemarksDialog({ open: false, taskId: null, remarks: [] });
       }
@@ -1222,7 +1232,7 @@ const UserCreateTask = () => {
     }
   };
 
-  // Handle status change for assigned tasks
+  // Handle status change for assigned tasks - FIXED: ensure status is normalized
   const handleAssignedTaskStatusChange = async (taskId, newStatus, remarks = '') => {
     if (authError || !userId) {
       showSnackbar('Please log in to update task status', 'error');
@@ -1230,7 +1240,10 @@ const UserCreateTask = () => {
     }
 
     try {
-      // First, add remark if provided using the client-remarks endpoint (without images)
+      const normalizedStatus = normalizeStatus(newStatus);
+      console.log(`🔄 Updating assigned task ${taskId} status to: ${normalizedStatus}`);
+      
+      // First, add remark if provided using the client-remarks endpoint
       if (remarks && remarks.trim()) {
         console.log('📝 Adding remark before status update...');
         await axios.post(`/tasks/${taskId}/client-remarks`, { text: remarks });
@@ -1238,23 +1251,37 @@ const UserCreateTask = () => {
       }
       
       // Then update status using the assigned endpoint
-      console.log('🔄 Updating assigned task status...');
-      const response = await axios.patch(`/tasks/assigned/${taskId}/status`, {
-        status: newStatus,
-        completed: newStatus === 'completed',
-        remarks: remarks || `Status changed to ${newStatus}`
-      });
+      let statusPayload = { status: normalizedStatus };
+      
+      // If marking as completed, also set completed flag
+      if (normalizedStatus === 'completed') {
+        statusPayload.completed = true;
+      }
+      
+      console.log('📤 Sending status update payload:', statusPayload);
+      
+      const response = await axios.patch(`/tasks/assigned/${taskId}/status`, statusPayload);
       
       console.log('✅ Assigned task status updated:', response.data);
       
+      // IMPORTANT: Refresh tasks to update UI
       await fetchAssignedToMeTasks();
       await fetchOverdueTasks();
       
-      showSnackbar('Task status updated successfully', 'success');
+      showSnackbar(`Task status changed to ${normalizedStatus} successfully`, 'success');
 
     } catch (err) {
-      console.error("Error updating assigned task:", err);
-      showSnackbar('Failed to update task status: ' + (err.response?.data?.message || err.message), 'error');
+      console.error("❌ Error updating assigned task:", err);
+      console.error("Error details:", err.response?.data);
+      
+      let errorMessage = 'Failed to update task status';
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      }
+      
+      showSnackbar(errorMessage, 'error');
     }
   };
 
@@ -2047,7 +2074,6 @@ const UserCreateTask = () => {
                 </button>
               </div>
 
-              {/* Clear All Filters button */}
               {(statusFilter || selectedDate || dateRange.start || dateRange.end || showOverdueOnly) && (
                 <button
                   className="user-create-task-button user-create-task-button-outlined"
@@ -2072,7 +2098,6 @@ const UserCreateTask = () => {
             (() => {
               let tasksToDisplay = taskViewMode === 'self' ? myTasksGrouped : assignedToMeTasksGrouped;
               
-              // Apply overdue filter if enabled
               if (showOverdueOnly) {
                 const filtered = {};
                 Object.entries(tasksToDisplay).forEach(([dateKey, tasks]) => {
@@ -2093,7 +2118,6 @@ const UserCreateTask = () => {
                 tasksToDisplay = filtered;
               }
               
-              // Apply date filter
               tasksToDisplay = applyDateFilter(tasksToDisplay);
               
               const hasData = tasksToDisplay && Object.keys(tasksToDisplay).length > 0;
@@ -2362,13 +2386,13 @@ const UserCreateTask = () => {
                                       : task.description || ''}
                                   </div>
                                 )}
-                               </td>
+                              </td>
                               {!isMobile && (
                                 <td style={{ padding: '12px', maxWidth: '200px' }}>
                                   <div style={{ fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                     {task.description || task.name || '-'}
                                   </div>
-                                 </td>
+                                </td>
                               )}
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
                                 <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
@@ -2398,13 +2422,13 @@ const UserCreateTask = () => {
                                     </div>
                                   )}
                                 </div>
-                               </td>
+                              </td>
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
                                 <PriorityChip priority={priority} />
-                               </td>
+                              </td>
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
                                 <StatusChip status={status} label={status} />
-                               </td>
+                              </td>
                               
                               {taskViewMode === 'assigned' && (
                                 <td style={{ padding: isMobile ? '8px' : '12px' }}>
@@ -2417,7 +2441,7 @@ const UserCreateTask = () => {
                                     <FiUsers size={12} />
                                     {clientName}
                                   </div>
-                                 </td>
+                                </td>
                               )}
                               
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
@@ -2432,7 +2456,7 @@ const UserCreateTask = () => {
                                     <FiDownload size={isMobile ? 14 : 16} />
                                   </a>
                                 )}
-                               </td>
+                              </td>
 
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
                                 <div className="user-create-task-action-buttons">
@@ -2464,7 +2488,7 @@ const UserCreateTask = () => {
                                     </a>
                                   )}
                                 </div>
-                               </td>
+                              </td>
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
                                 <select
                                   value={status}
@@ -2509,8 +2533,8 @@ const UserCreateTask = () => {
                                     </>
                                   )}
                                 </select>
-                               </td>
-                             </tr>
+                              </td>
+                            </tr>
                           );
                         })}
                       </tbody>
@@ -2807,7 +2831,7 @@ const UserCreateTask = () => {
         </div>
       </div>
 
-      {/* REMARKS DIALOG - UPDATED WITH IMAGE SUPPORT */}
+      {/* REMARKS DIALOG */}
       <div className="user-create-task-dialog-overlay" style={{ display: remarksDialog.open ? 'flex' : 'none' }}>
         <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ maxWidth: isMobile ? '95%' : isTablet ? '700px' : '800px', width: isMobile ? '95%' : 'auto' }}>
           <div className="user-create-task-dialog-title">
@@ -2833,7 +2857,7 @@ const UserCreateTask = () => {
                     style={{ marginBottom: isMobile ? '12px' : '16px', width: '100%' }}
                   />
 
-                  {/* Image Upload Section - UPDATED FOR ASSIGNED TASKS */}
+                  {/* Image Upload Section */}
                   <div style={{ marginBottom: isMobile ? '12px' : '16px' }}>
                     <div style={{ marginBottom: isMobile ? '6px' : '8px', fontWeight: 600 }}>
                       Attach Images (Optional)
@@ -2993,7 +3017,7 @@ const UserCreateTask = () => {
                               </div>
                             )}
 
-                            {/* Handle new format (images array) - IMPROVED FOR ASSIGNED TASKS */}
+                            {/* Handle images array */}
                             {remark.images && remark.images.length > 0 && (
                               <div style={{ marginTop: isMobile ? '6px' : '8px' }}>
                                 <div style={{ fontSize: isMobile ? '11px' : '12px', marginBottom: '4px' }}>
@@ -3005,7 +3029,6 @@ const UserCreateTask = () => {
                                   gap: isMobile ? '6px' : '8px' 
                                 }}>
                                   {remark.images.map((image, imgIndex) => {
-                                    // Get image URL - try multiple formats
                                     let imageUrl = '';
                                     if (image.url) {
                                       imageUrl = getImageUrl(image.url);
@@ -3014,8 +3037,6 @@ const UserCreateTask = () => {
                                     } else if (typeof image === 'string') {
                                       imageUrl = getImageUrl(image);
                                     }
-                                    
-                                    console.log(`🖼️ Rendering image ${imgIndex + 1}:`, imageUrl);
                                     
                                     return (
                                       <div 
@@ -3034,9 +3055,6 @@ const UserCreateTask = () => {
                                             border: '1px solid #eee'
                                           }}
                                           onError={(e) => {
-                                            console.error('❌ Image failed to load:', e.target.src);
-                                            // Try alternative URLs for assigned tasks
-                                            const originalSrc = e.target.src;
                                             const filename = imageUrl.split('/').pop();
                                             const baseUrl = API_URL?.replace(/\/api$/, '') || 'http://localhost:3000';
                                             const alternativeUrls = [
@@ -3087,9 +3105,6 @@ const UserCreateTask = () => {
                                             
                                             tryNextUrl();
                                           }}
-                                          onLoad={() => {
-                                            console.log('✅ Image loaded successfully:', e.target.src);
-                                          }}
                                         />
                                       </div>
                                     );
@@ -3120,7 +3135,6 @@ const UserCreateTask = () => {
                                       border: '1px solid #eee'
                                     }}
                                     onError={(e) => {
-                                      console.error('❌ Image failed to load:', e.target.src);
                                       const filename = remark.image.split('/').pop();
                                       const baseUrl = API_URL?.replace(/\/api$/, '') || 'http://localhost:3000';
                                       const alternativeUrls = [
@@ -3167,9 +3181,6 @@ const UserCreateTask = () => {
                                       };
                                       
                                       tryNextUrl();
-                                    }}
-                                    onLoad={() => {
-                                      console.log('✅ Image loaded successfully:', e.target.src);
                                     }}
                                   />
                                 </div>

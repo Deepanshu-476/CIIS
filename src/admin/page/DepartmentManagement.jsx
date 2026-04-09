@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import axios from '../../utils/axiosConfig';
 import './DepartmentManagement.css';
-import CIISLoader from '../../Loader/CIISLoader'; // ✅ Import CIISLoader
+import CIISLoader from '../../Loader/CIISLoader';
 
 const DepartmentManagement = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
-  const [pageLoading, setPageLoading] = useState(true); // ✅ Page loading state
+  const [pageLoading, setPageLoading] = useState(true);
   
   const [departments, setDepartments] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
@@ -37,6 +37,7 @@ const DepartmentManagement = () => {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
+  const [apiError, setApiError] = useState(null); // 🆕 API error state
 
   // Handle window resize
   useEffect(() => {
@@ -58,16 +59,16 @@ const DepartmentManagement = () => {
     if (!userStr) userStr = sessionStorage.getItem('superAdmin') || sessionStorage.getItem('user');
     
     if (!userStr) {
-      console.log('No user found in storage');
+      console.log('❌ No user found in storage');
       return null;
     }
     
     try {
       const user = JSON.parse(userStr);
-      console.log('User found in storage:', user);
+      console.log('✅ User found in storage:', user);
       return user;
     } catch (error) {
-      console.error('Error parsing user data:', error);
+      console.error('❌ Error parsing user data:', error);
       toast.error('Error loading user data');
       return null;
     }
@@ -78,19 +79,43 @@ const DepartmentManagement = () => {
     if (!user) return false;
     return user.role === 'super-admin' || 
            user.jobRole === 'super_admin' ||
+           user.role === 'super_admin' ||
            (user.role === 'super-admin' && user.department === 'Management');
+  };
+
+  // 🆕 Debug function to test API directly
+  const testAPIDirectly = async () => {
+    try {
+      console.log('🔍 Testing API directly...');
+      const token = localStorage.getItem('token');
+      console.log('Token:', token ? 'Present' : 'Missing');
+      
+      const response = await axios.get('/departments');
+      console.log('📊 Direct API Response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Direct API Error:', error.response?.data || error.message);
+      return null;
+    }
   };
 
   // ✅ Load initial data with page loader
   useEffect(() => {
     const loadData = async () => {
       setPageLoading(true);
+      setApiError(null);
+      
       try {
+        // 🔍 First, test API directly
+        const testResult = await testAPIDirectly();
+        console.log('Test Result:', testResult);
+        
         const user = getUserFromStorage();
         if (user) {
           setUserInfo(user);
           const isSuper = checkSuperAdminStatus(user);
           setIsSuperAdmin(isSuper);
+          console.log('Is Super Admin:', isSuper);
           
           if (user.company && user.companyCode) {
             setFormData(prev => ({
@@ -103,12 +128,13 @@ const DepartmentManagement = () => {
           await fetchDepartments(user, isSuper);
         } else {
           toast.error('Please login to continue');
+          setApiError('User not logged in');
         }
       } catch (error) {
-        console.error('Error loading departments:', error);
+        console.error('❌ Error loading departments:', error);
+        setApiError(error.message || 'Failed to load departments');
         toast.error('Failed to load departments');
       } finally {
-        // Minimum 500ms loader show karega
         setTimeout(() => {
           setPageLoading(false);
         }, 500);
@@ -121,10 +147,13 @@ const DepartmentManagement = () => {
   const fetchDepartments = async (user = null, isSuper = false) => {
     try {
       setLoading(true);
+      setApiError(null);
+      
       if (!user) {
         user = getUserFromStorage();
         if (!user) {
           toast.error('User not found');
+          setApiError('User not found');
           return;
         }
         isSuper = checkSuperAdminStatus(user);
@@ -133,16 +162,44 @@ const DepartmentManagement = () => {
       let url = '/departments';
       let params = {};
       
+      // 🔥 FIX: Don't filter by company for now to see all data
+      // Remove company filter temporarily for debugging
       if (!isSuper || !showAllCompanies) {
         if (user.company) {
-          params.company = user.company;
+          // params.company = user.company; // Commented for debugging
+          console.log('Company filter would be applied:', user.company);
         }
       }
       
-      console.log('Fetching departments with params:', params);
+      console.log('🚀 Fetching departments with params:', params);
+      console.log('📡 API URL:', url);
       
-      const response = await axios.get('/departments', { params });
-      const depts = response.data.departments || [];
+      const response = await axios.get(url, { params });
+      console.log('✅ Full API Response:', response);
+      console.log('📊 Response data:', response.data);
+      
+      // 🔥 FIX: Check different possible response structures
+      let depts = [];
+      if (response.data && response.data.success) {
+        depts = response.data.departments || response.data.data || [];
+      } else if (response.data && response.data.departments) {
+        depts = response.data.departments;
+      } else if (Array.isArray(response.data)) {
+        depts = response.data;
+      } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+        depts = response.data.data;
+      } else {
+        depts = [];
+      }
+      
+      console.log('📋 Processed departments:', depts);
+      console.log('📊 Department count:', depts.length);
+      
+      if (depts.length === 0) {
+        console.warn('⚠️ No departments found in response');
+        setApiError('No departments found. Try creating one.');
+      }
+      
       setDepartments(depts);
       
       // Calculate stats
@@ -152,12 +209,42 @@ const DepartmentManagement = () => {
         inactive: depts.filter(d => d.isActive === false).length
       });
       
-      console.log('Departments fetched:', depts.length);
     } catch (err) {
-      console.error('Fetch departments error:', err);
-      toast.error(err.response?.data?.message || 'Failed to load departments');
+      console.error('❌ Fetch departments error:', err);
+      console.error('❌ Error response:', err.response?.data);
+      console.error('❌ Error status:', err.response?.status);
+      
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to load departments';
+      setApiError(errorMsg);
+      toast.error(errorMsg);
+      
+      // Show more detailed error in console
+      if (err.response?.status === 401) {
+        console.error('🔐 Authentication error - Token might be expired');
+        toast.error('Session expired. Please login again.');
+      } else if (err.response?.status === 403) {
+        console.error('🚫 Permission denied');
+        toast.error('You don\'t have permission to view departments');
+      } else if (err.response?.status === 404) {
+        console.error('🔍 API endpoint not found');
+        toast.error('API endpoint not found. Check your API URL.');
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Manual refresh function
+  const handleManualRefresh = async () => {
+    toast.info('Refreshing departments...');
+    setPageLoading(true);
+    try {
+      await fetchDepartments(userInfo, isSuperAdmin);
+      toast.success('Departments refreshed!');
+    } catch (error) {
+      toast.error('Failed to refresh');
+    } finally {
+      setPageLoading(false);
     }
   };
 
@@ -187,36 +274,14 @@ const DepartmentManagement = () => {
         submitData.companyCode = formData.companyCode || user.companyCode;
       }
       
-      console.log('Submitting department data:', submitData);
+      console.log('📤 Submitting department data:', submitData);
       
       if (editingDept) {
         await axios.put(`/departments/${editingDept._id}`, submitData);
-        toast.success(
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <svg style={{ color: '#4caf50', width: '24px', height: '24px' }} viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-            <div>
-              <div style={{ fontWeight: 600 }}>Department Updated!</div>
-              <div style={{ fontSize: '0.75rem', color: '#666' }}>{formData.name} has been updated successfully</div>
-            </div>
-          </div>,
-          { icon: false, autoClose: 3000 }
-        );
+        toast.success(`Department "${formData.name}" updated successfully!`);
       } else {
         await axios.post('/departments', submitData);
-        toast.success(
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <svg style={{ color: '#4caf50', width: '24px', height: '24px' }} viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-            <div>
-              <div style={{ fontWeight: 600 }}>Department Created!</div>
-              <div style={{ fontSize: '0.75rem', color: '#666' }}>{formData.name} has been added to your organization</div>
-            </div>
-          </div>,
-          { icon: false, autoClose: 3000 }
-        );
+        toast.success(`Department "${formData.name}" created successfully!`);
       }
       
       setOpenDialog(false);
@@ -229,7 +294,7 @@ const DepartmentManagement = () => {
       setEditingDept(null);
       setRefreshKey(prev => prev + 1);
     } catch (err) {
-      console.error('Submit error:', err);
+      console.error('❌ Submit error:', err);
       const msg = err.response?.data?.message || 'Operation failed';
       toast.error(msg);
     } finally {
@@ -244,18 +309,7 @@ const DepartmentManagement = () => {
     try {
       setLoading(true);
       await axios.delete(`/departments/${id}`);
-      toast.success(
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <svg style={{ color: '#f44336', width: '24px', height: '24px' }} viewBox="0 0 24 24" fill="currentColor">
-            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-          </svg>
-          <div>
-            <div style={{ fontWeight: 600 }}>Department Deleted!</div>
-            <div style={{ fontSize: '0.75rem', color: '#666' }}>{dept?.name} has been removed</div>
-          </div>
-        </div>,
-        { icon: false, autoClose: 3000 }
-      );
+      toast.success(`Department "${dept?.name}" deleted successfully!`);
       setRefreshKey(prev => prev + 1);
     } catch (err) {
       const msg = err.response?.data?.message || 'Deletion failed';
@@ -279,7 +333,6 @@ const DepartmentManagement = () => {
     setShowMenu(false);
   };
 
-  // Handle menu open
   const handleMenuOpen = (event, dept) => {
     const rect = event.currentTarget.getBoundingClientRect();
     setMenuPosition({
@@ -295,18 +348,10 @@ const DepartmentManagement = () => {
     setSelectedDeptMenu(null);
   };
 
-  // Handle refresh
-  const handleRefresh = () => {
-    toast.info('Refreshing departments...');
-    setRefreshKey(prev => prev + 1);
-  };
-
-  // Handle clear search
   const handleClearSearch = () => {
     setSearchTerm('');
   };
 
-  // Sort departments
   const sortDepartments = (depts) => {
     return [...depts].sort((a, b) => {
       let comparison = 0;
@@ -327,17 +372,8 @@ const DepartmentManagement = () => {
     });
   };
 
-  // Filter departments
   const getFilteredDepartments = () => {
     let filtered = departments;
-    const user = userInfo || getUserFromStorage();
-    const isSuper = checkSuperAdminStatus(user);
-    
-    if (!isSuper || !showAllCompanies) {
-      filtered = departments.filter(dept => 
-        !dept.company || dept.company === user?.company
-      );
-    }
     
     if (searchTerm) {
       filtered = filtered.filter(dept =>
@@ -352,7 +388,6 @@ const DepartmentManagement = () => {
 
   const filteredDepartments = getFilteredDepartments();
 
-  // Format date
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {
@@ -459,79 +494,6 @@ const DepartmentManagement = () => {
     </div>
   );
 
-  // Tablet Department Card Component
-  const TabletDepartmentCard = ({ dept }) => (
-    <div className="DepartmentManagement-tablet-card">
-      <div className="DepartmentManagement-tablet-card-header">
-        <div className="DepartmentManagement-tablet-card-title">
-          <div className="DepartmentManagement-tablet-card-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10z"/>
-            </svg>
-          </div>
-          <div>
-            <h3 className="DepartmentManagement-tablet-card-name">{dept.name}</h3>
-            <div className="DepartmentManagement-tablet-card-tags">
-              {dept.companyCode && (
-                <span className="DepartmentManagement-tag DepartmentManagement-tag-code">{dept.companyCode}</span>
-              )}
-              <span className={`DepartmentManagement-tag ${dept.isActive !== false ? 'DepartmentManagement-tag-active' : 'DepartmentManagement-tag-inactive'}`}>
-                {dept.isActive !== false ? 'Active' : 'Inactive'}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="DepartmentManagement-tablet-card-actions">
-          <button 
-            className="DepartmentManagement-icon-btn DepartmentManagement-icon-btn-primary" 
-            onClick={() => handleEdit(dept)}
-            title="Edit"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-            </svg>
-          </button>
-          <button 
-            className="DepartmentManagement-icon-btn DepartmentManagement-icon-btn-danger" 
-            onClick={() => handleDelete(dept._id)}
-            disabled={dept.isActive === false}
-            title="Delete"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-      
-      {dept.description && (
-        <div className="DepartmentManagement-tablet-card-description">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-          </svg>
-          <span>{dept.description}</span>
-        </div>
-      )}
-      
-      <div className="DepartmentManagement-tablet-card-footer">
-        <div className="DepartmentManagement-meta-item">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H4V8h16v13z"/>
-          </svg>
-          <span>{formatDate(dept.createdAt)}</span>
-        </div>
-        {dept.createdBy?.name && (
-          <div className="DepartmentManagement-meta-item">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-            </svg>
-            <span>{dept.createdBy.name}</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
   const getIconSvg = (iconName, size = 24) => {
     switch(iconName) {
       case 'corporate':
@@ -546,14 +508,6 @@ const DepartmentManagement = () => {
         return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>;
       case 'clear':
         return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>;
-      case 'admin':
-        return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>;
-      case 'business':
-        return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10z"/></svg>;
-      case 'description':
-        return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>;
-      case 'code':
-        return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>;
       case 'refresh':
         return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>;
       case 'filter':
@@ -566,8 +520,6 @@ const DepartmentManagement = () => {
         return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>;
       case 'delete':
         return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>;
-      case 'sort':
-        return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z"/></svg>;
       default:
         return null;
     }
@@ -576,6 +528,31 @@ const DepartmentManagement = () => {
   // ✅ Show CIISLoader while page is loading
   if (pageLoading) {
     return <CIISLoader />;
+  }
+
+  // 🆕 Show error state if API failed
+  if (apiError && departments.length === 0) {
+    return (
+      <div className="DepartmentManagement-error-container">
+        <div className="DepartmentManagement-error-card">
+          <div className="DepartmentManagement-error-icon">
+            <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+            </svg>
+          </div>
+          <h3 className="DepartmentManagement-error-title">Failed to Load Departments</h3>
+          <p className="DepartmentManagement-error-message">{apiError}</p>
+          <div className="DepartmentManagement-error-actions">
+            <button className="DepartmentManagement-btn DepartmentManagement-btn-primary" onClick={handleManualRefresh}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '8px' }}>
+                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+              </svg>
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!userInfo) {
@@ -601,10 +578,11 @@ const DepartmentManagement = () => {
         </div>
       )}
 
+      
+
       {/* Stats Cards */}
       {departments.length > 0 && (
         <div className="DepartmentManagement-stats-grid">
-          {/* Total Departments Card */}
           <div className="DepartmentManagement-stat-card DepartmentManagement-stat-total">
             <div className="DepartmentManagement-stat-icon">
               {getIconSvg('corporate', isMobile ? 24 : 28)}
@@ -613,12 +591,10 @@ const DepartmentManagement = () => {
               <div className="DepartmentManagement-stat-label">Total</div>
               <div className="DepartmentManagement-stat-value-wrapper">
                 <span className="DepartmentManagement-stat-value">{stats.total}</span>
-                {!isMobile && <span className="DepartmentManagement-stat-badge">All</span>}
               </div>
             </div>
           </div>
 
-          {/* Active Departments Card */}
           <div className="DepartmentManagement-stat-card DepartmentManagement-stat-active">
             <div className="DepartmentManagement-stat-icon">
               {getIconSvg('check', isMobile ? 24 : 28)}
@@ -627,16 +603,10 @@ const DepartmentManagement = () => {
               <div className="DepartmentManagement-stat-label">Active</div>
               <div className="DepartmentManagement-stat-value-wrapper">
                 <span className="DepartmentManagement-stat-value">{stats.active}</span>
-                {!isMobile && (
-                  <span className="DepartmentManagement-stat-badge">
-                    {stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0}%
-                  </span>
-                )}
               </div>
             </div>
           </div>
 
-          {/* Inactive Departments Card */}
           <div className="DepartmentManagement-stat-card DepartmentManagement-stat-inactive">
             <div className="DepartmentManagement-stat-icon">
               {getIconSvg('cancel', isMobile ? 24 : 28)}
@@ -645,11 +615,6 @@ const DepartmentManagement = () => {
               <div className="DepartmentManagement-stat-label">Inactive</div>
               <div className="DepartmentManagement-stat-value-wrapper">
                 <span className="DepartmentManagement-stat-value">{stats.inactive}</span>
-                {!isMobile && (
-                  <span className="DepartmentManagement-stat-badge">
-                    {stats.total > 0 ? Math.round((stats.inactive / stats.total) * 100) : 0}%
-                  </span>
-                )}
               </div>
             </div>
           </div>
@@ -667,32 +632,10 @@ const DepartmentManagement = () => {
               <h2 className="DepartmentManagement-title">
                 {isMobile ? 'Departments' : 'Department Management'}
               </h2>
-              {userInfo && !isMobile && (
-                <div className="DepartmentManagement-user-info">
-                  <span className="DepartmentManagement-user-chip">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                    </svg>
-                    {userInfo.name}
-                  </span>
-                  <span className={`DepartmentManagement-role-chip ${isSuperAdmin ? 'DepartmentManagement-role-super' : 'DepartmentManagement-role-regular'}`}>
-                    {userInfo.role}
-                  </span>
-                  {userInfo.companyCode && (
-                    <span className="DepartmentManagement-company-chip">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
-                      </svg>
-                      {userInfo.companyCode}
-                    </span>
-                  )}
-                </div>
-              )}
             </div>
           </div>
           
           <div className="DepartmentManagement-header-actions">
-            {/* Search Bar - Always visible */}
             <div className="DepartmentManagement-search-wrapper">
               <span className="DepartmentManagement-search-icon">
                 {getIconSvg('search', isMobile ? 18 : 20)}
@@ -711,17 +654,16 @@ const DepartmentManagement = () => {
               )}
             </div>
             
-            {/* Mobile Filter Button */}
-            {isMobile && (
-              <button
-                className="DepartmentManagement-filter-btn"
-                onClick={() => setShowMobileFilters(!showMobileFilters)}
-              >
-                {getIconSvg('filter', 20)}
-              </button>
-            )}
+            {/* Refresh Button */}
+            <button
+              className="DepartmentManagement-icon-btn"
+              onClick={handleManualRefresh}
+              title="Refresh"
+              style={{ marginRight: '8px' }}
+            >
+              {getIconSvg('refresh', 20)}
+            </button>
             
-            {/* Add Department Button - Hidden on mobile (FAB used instead) */}
             {!isMobile && (
               <button
                 className="DepartmentManagement-btn DepartmentManagement-btn-primary"
@@ -748,74 +690,20 @@ const DepartmentManagement = () => {
           </div>
         </div>
 
-        {/* Mobile Filters */}
-        {isMobile && showMobileFilters && (
-          <div className="DepartmentManagement-mobile-filters">
-            <div className="DepartmentManagement-mobile-filter-header">
-              <h4>Sort & Filter</h4>
-              <button onClick={() => setShowMobileFilters(false)}>×</button>
-            </div>
-            <div className="DepartmentManagement-mobile-filter-content">
-              <div className="DepartmentManagement-filter-group">
-                <label>Sort By</label>
-                <select 
-                  value={sortBy} 
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="DepartmentManagement-filter-select"
-                >
-                  <option value="name">Name</option>
-                  <option value="date">Date Created</option>
-                  <option value="status">Status</option>
-                </select>
-              </div>
-              <div className="DepartmentManagement-filter-group">
-                <label>Order</label>
-                <select 
-                  value={sortOrder} 
-                  onChange={(e) => setSortOrder(e.target.value)}
-                  className="DepartmentManagement-filter-select"
-                >
-                  <option value="asc">Ascending</option>
-                  <option value="desc">Descending</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        )}
-
-   
-
-        {/* View Selection */}
-        {isTablet && !isMobile && (
-          <div className="DepartmentManagement-view-tabs">
-            <button 
-              className={`DepartmentManagement-view-tab ${!isMobile ? 'active' : ''}`}
-              onClick={() => {}}
-            >
-              Grid View
-            </button>
-            <button 
-              className={`DepartmentManagement-view-tab ${isMobile ? 'active' : ''}`}
-              onClick={() => {}}
-            >
-              List View
-            </button>
-          </div>
-        )}
-
         {/* Content View */}
         {isMobile ? (
-          // Mobile Card View
           <div className="DepartmentManagement-mobile-view">
             {filteredDepartments.length === 0 ? (
               <div className="DepartmentManagement-empty-state">
                 <div className="DepartmentManagement-empty-icon">
                   {getIconSvg('corporate', 50)}
                 </div>
-                <h3 className="DepartmentManagement-empty-title">No Departments Found</h3>
+                <h3 className="DepartmentManagement-empty-title">
+                  {searchTerm ? 'No Matching Departments' : 'No Departments Found'}
+                </h3>
                 <p className="DepartmentManagement-empty-message">
                   {searchTerm 
-                    ? 'No matches found. Try different keywords.'
+                    ? `No departments match "${searchTerm}"`
                     : 'Create your first department to get started.'}
                 </p>
                 {searchTerm ? (
@@ -826,7 +714,24 @@ const DepartmentManagement = () => {
                     {getIconSvg('clear', 18)}
                     Clear Search
                   </button>
-                ) : null}
+                ) : (
+                  <button 
+                    className="DepartmentManagement-btn DepartmentManagement-btn-primary"
+                    onClick={() => {
+                      const user = getUserFromStorage();
+                      setFormData({ 
+                        name: '', 
+                        description: '',
+                        company: user?.company || '',
+                        companyCode: user?.companyCode || ''
+                      });
+                      setOpenDialog(true);
+                    }}
+                  >
+                    {getIconSvg('add', 18)}
+                    Create Department
+                  </button>
+                )}
               </div>
             ) : (
               <>
@@ -839,27 +744,6 @@ const DepartmentManagement = () => {
               </>
             )}
           </div>
-        ) : isTablet ? (
-          // Tablet Grid View
-          <div className="DepartmentManagement-tablet-grid">
-            {filteredDepartments.length === 0 ? (
-              <div className="DepartmentManagement-empty-state">
-                <div className="DepartmentManagement-empty-icon">
-                  {getIconSvg('corporate', 50)}
-                </div>
-                <h3 className="DepartmentManagement-empty-title">No Departments Found</h3>
-                <p className="DepartmentManagement-empty-message">
-                  {searchTerm ? 'No departments match your search' : 'Get started by adding a department'}
-                </p>
-              </div>
-            ) : (
-              filteredDepartments
-                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map(dept => (
-                  <TabletDepartmentCard key={dept._id} dept={dept} />
-                ))
-            )}
-          </div>
         ) : (
           // Desktop Table View
           <div className="DepartmentManagement-table-container">
@@ -868,7 +752,6 @@ const DepartmentManagement = () => {
                 <tr>
                   <th>Department Name</th>
                   <th>Description</th>
-                  {isSuperAdmin && showAllCompanies && <th>Company Code</th>}
                   <th>Created By</th>
                   <th>Created On</th>
                   <th>Status</th>
@@ -878,7 +761,7 @@ const DepartmentManagement = () => {
               <tbody>
                 {filteredDepartments.length === 0 ? (
                   <tr>
-                    <td colSpan={isSuperAdmin && showAllCompanies ? 7 : 6} className="DepartmentManagement-empty-cell">
+                    <td colSpan="6" className="DepartmentManagement-empty-cell">
                       <div className="DepartmentManagement-empty-state">
                         <div className="DepartmentManagement-empty-icon">
                           {getIconSvg('corporate', 50)}
@@ -893,7 +776,7 @@ const DepartmentManagement = () => {
                 ) : (
                   filteredDepartments
                     .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((dept, index) => (
+                    .map((dept) => (
                       <tr key={dept._id} className="DepartmentManagement-table-row">
                         <td>
                           <div className="DepartmentManagement-department-name">
@@ -908,17 +791,6 @@ const DepartmentManagement = () => {
                             {dept.description || '—'}
                           </span>
                         </td>
-                        {isSuperAdmin && showAllCompanies && (
-                          <td>
-                            {dept.companyCode ? (
-                              <span className="DepartmentManagement-chip DepartmentManagement-chip-code">
-                                {dept.companyCode}
-                              </span>
-                            ) : (
-                              <span className="DepartmentManagement-text-muted">Global</span>
-                            )}
-                          </td>
-                        )}
                         <td>
                           <div className="DepartmentManagement-meta-item">
                             {getIconSvg('person', 16)}
@@ -1051,7 +923,6 @@ const DepartmentManagement = () => {
                 </span>
                 <div className="DepartmentManagement-menu-content">
                   <span className="DepartmentManagement-menu-title">Edit Department</span>
-                  {!isMobile && <span className="DepartmentManagement-menu-subtitle">Modify department details</span>}
                 </div>
               </div>
               <div className="DepartmentManagement-menu-divider"></div>
@@ -1069,11 +940,6 @@ const DepartmentManagement = () => {
                 </span>
                 <div className="DepartmentManagement-menu-content">
                   <span className="DepartmentManagement-menu-title">Delete Department</span>
-                  {!isMobile && (
-                    <span className="DepartmentManagement-menu-subtitle">
-                      {!selectedDeptMenu?.isActive ? 'Already inactive' : 'Remove permanently'}
-                    </span>
-                  )}
                 </div>
               </div>
             </div>
@@ -1097,13 +963,6 @@ const DepartmentManagement = () => {
                   <h3 className="DepartmentManagement-modal-title">
                     {editingDept ? 'Edit Department' : 'Create Department'}
                   </h3>
-                  {!isMobile && (
-                    <p className="DepartmentManagement-modal-subtitle">
-                      {editingDept 
-                        ? 'Update department information' 
-                        : 'Add a new department to organize your teams'}
-                    </p>
-                  )}
                 </div>
               </div>
               <button 
@@ -1118,25 +977,6 @@ const DepartmentManagement = () => {
             </div>
 
             <div className="DepartmentManagement-modal-body">
-              {/* User Info Banner */}
-              {userInfo?.companyCode && !isSuperAdmin && (
-                <div className="DepartmentManagement-info-banner">
-                  <svg width={isMobile ? "18" : "22"} height={isMobile ? "18" : "22"} viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10z"/>
-                  </svg>
-                  <div>
-                    <div className="DepartmentManagement-info-title">
-                      {isMobile ? userInfo.companyCode : `Creating for ${userInfo.companyCode}`}
-                    </div>
-                    {!isMobile && (
-                      <div className="DepartmentManagement-info-subtitle">
-                        This department will be associated with your company
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
               <div className="DepartmentManagement-form-group">
                 <label className="DepartmentManagement-form-label">Name *</label>
                 <div className="DepartmentManagement-input-wrapper">

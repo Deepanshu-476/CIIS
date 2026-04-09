@@ -12,6 +12,7 @@ const APP_ROUTES = [
   { path: 'emp-assets', name: 'Employee Assets', icon: 'Computer', category: 'administration' },
   { path: 'emp-attendance', name: 'Employee Attendance', icon: 'CalendarToday', category: 'administration' },
   { path: 'admin-task-create', name: 'Admin Create Task', icon: 'Task', category: 'administration' },
+  { path: 'create-user', name: 'Create User', icon: 'PersonAdd', category: 'administration' },
   { path: 'admin-meeting', name: 'Create Employee Meeting', icon: 'MeetingRoom', category: 'meetings' },
   { path: 'adminproject', name: 'Admin Projects', icon: 'ProjectIcon', category: 'projects' },
   { path: 'company-all-task', name: 'Company All Tasks', icon: 'ListAlt', category: 'tasks' },

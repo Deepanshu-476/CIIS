@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import axios from '../../utils/axiosConfig';
 import './CreateUser.css';
-import CIISLoader from '../../Loader/CIISLoader'; // ✅ Import CIISLoader
+import CIISLoader from '../../Loader/CIISLoader';
 
 // Constants
 const genderOptions = ['male', 'female', 'other'];
@@ -25,7 +25,7 @@ const CreateUser = () => {
   const [form, setForm] = useState(initialFormState);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [pageLoading, setPageLoading] = useState(true); // ✅ Page loading state
+  const [pageLoading, setPageLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState([]);
   const [jobRoles, setJobRoles] = useState([]);
@@ -38,22 +38,69 @@ const CreateUser = () => {
   const [companyCode, setCompanyCode] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
 
-  // LocalStorage se current user aur company data fetch karna
+  // ✅ FIXED: LocalStorage se data fetch karna
   useEffect(() => {
     const fetchDataFromLocalStorage = () => {
       try {
-        const userData = JSON.parse(localStorage.getItem('superAdmin'));
-
+        // Try multiple possible storage keys
+        let userData = null;
+        let token = null;
+        
+        // Check for superAdmin
+        const superAdminStr = localStorage.getItem('superAdmin');
+        if (superAdminStr) {
+          userData = JSON.parse(superAdminStr);
+          console.log("📋 Found superAdmin:", userData);
+        }
+        
+        // Check for user
+        const userStr = localStorage.getItem('user');
+        if (userStr && !userData) {
+          userData = JSON.parse(userStr);
+          console.log("📋 Found user:", userData);
+        }
+        
+        // Check for token
+        token = localStorage.getItem('token');
+        
         if (userData) {
-          console.log("📋 LocalStorage User Data:", userData);
           setCurrentUser(userData);
-
-          if (userData.company && userData.companyCode) {
-            setCompanyId(userData.company);
-            setCompanyCode(userData.companyCode);
+          
+          // Try multiple possible company field names
+          const companyIdValue = userData.companyId || userData.company || userData.company_id || userData.CompanyId;
+          const companyCodeValue = userData.companyCode || userData.code || userData.company_code;
+          
+          console.log("🏢 Company ID from userData:", companyIdValue);
+          console.log("🏢 Company Code from userData:", companyCodeValue);
+          
+          if (companyIdValue && companyCodeValue) {
+            setCompanyId(companyIdValue);
+            setCompanyCode(companyCodeValue);
           } else {
-            toast.error("Company information not found in your profile");
-            navigate('/dashboard');
+            // Try to get from separate company object
+            const companyStr = localStorage.getItem('company');
+            if (companyStr) {
+              const companyData = JSON.parse(companyStr);
+              console.log("📋 Found separate company:", companyData);
+              setCompanyId(companyData._id || companyData.id);
+              setCompanyCode(companyData.companyCode || companyData.code);
+            } else {
+              toast.error("Company information not found in your profile");
+              navigate('/dashboard');
+            }
+          }
+        } else if (token) {
+          // Try to get company from separate storage
+          const companyStr = localStorage.getItem('company');
+          if (companyStr) {
+            const companyData = JSON.parse(companyStr);
+            console.log("📋 Found company from separate storage:", companyData);
+            setCompanyId(companyData._id || companyData.id);
+            setCompanyCode(companyData.companyCode || companyData.code);
+            setCurrentUser({ name: companyData.companyName || 'Admin' });
+          } else {
+            toast.error("Please login again");
+            navigate('/login');
           }
         } else {
           toast.error("Please login again");
@@ -69,15 +116,31 @@ const CreateUser = () => {
     fetchDataFromLocalStorage();
   }, [navigate]);
 
-  // ✅ FIXED: Departments fetch with DEBUGGING
+  // ✅ FIXED: Departments fetch with better company ID handling
   useEffect(() => {
-    if (companyId) {
-      console.log("🔍 Company ID found, fetching departments for:", companyId);
-      fetchDepartments();
-    } else {
-      console.log("⚠️ No company ID yet");
-    }
-  }, [companyId]);
+    const loadDepartments = async () => {
+      if (companyId) {
+        console.log("🔍 Company ID found, fetching departments for:", companyId);
+        await fetchDepartments();
+      } else if (companyCode) {
+        console.log("🔍 Company Code found, fetching departments by code:", companyCode);
+        await fetchDepartmentsByCode();
+      } else {
+        console.log("⚠️ No company ID or code yet, waiting...");
+        // Retry after 1 second if still no company ID
+        const timer = setTimeout(() => {
+          const retryCompanyId = localStorage.getItem('companyId') || 
+                                 JSON.parse(localStorage.getItem('company')?._id);
+          if (retryCompanyId) {
+            setCompanyId(retryCompanyId);
+          }
+        }, 1000);
+        return () => clearTimeout(timer);
+      }
+    };
+    
+    loadDepartments();
+  }, [companyId, companyCode]);
 
   // Department change pe job roles fetch karna
   useEffect(() => {
@@ -89,38 +152,37 @@ const CreateUser = () => {
     }
   }, [form.department]);
 
-  // ✅ Page loading complete
+  // Page loading complete
   useEffect(() => {
-    // Jab saara data load ho jaye to page loading off kar do
-    if (companyId && departments.length > 0 && !loadingDepartments) {
+    if (companyId && (departments.length > 0 || !loadingDepartments)) {
       setTimeout(() => {
         setPageLoading(false);
       }, 500);
     }
   }, [companyId, departments, loadingDepartments]);
 
-  // ✅ FIXED: Fetch Departments - All possible endpoints try karo
+  // ✅ FIXED: Fetch Departments by ID
   const fetchDepartments = async () => {
     try {
       if (!companyId) {
-        toast.error("Company ID not found");
+        console.warn("No company ID available");
         return;
       }
       
       setLoadingDepartments(true);
-      console.log("📡 Fetching departments for company:", companyId);
+      console.log("📡 Fetching departments for company ID:", companyId);
       
       let response = null;
       let success = false;
       
-      // 🔥 TRY MULTIPLE ENDPOINTS - Backend ke according adjust karo
+      // Try multiple endpoints with company ID
       const endpoints = [
+        `/departments?companyId=${companyId}`,
         `/departments?company=${companyId}`,
         `/departments/company/${companyId}`,
-        `/api/departments?company=${companyId}`,
-        `/department?companyId=${companyId}`,
-        `/departments?companyId=${companyId}`,
-        `/departments?companyCode=${companyCode}`
+        `/api/departments?companyId=${companyId}`,
+        `/department/company/${companyId}`,
+        `/departments/by-company/${companyId}`
       ];
       
       for (const endpoint of endpoints) {
@@ -131,45 +193,37 @@ const CreateUser = () => {
           success = true;
           break;
         } catch (err) {
-          console.log(`❌ Failed: ${endpoint}`, err.message);
+          console.log(`❌ Failed: ${endpoint}`, err.response?.status, err.message);
         }
       }
       
       if (!success) {
-        throw new Error("All endpoints failed");
+        throw new Error("All department endpoints failed");
       }
 
-      // 🔥 HANDLE ALL RESPONSE FORMATS
+      // Handle different response formats
       let departmentsData = [];
-      
-      // Response data ko normalize karo
       const data = response.data;
-      console.log("📦 Raw response data:", data);
+      console.log("📦 Raw department response:", data);
       
       if (data) {
-        // Case 1: Direct array
         if (Array.isArray(data)) {
           departmentsData = data;
         }
-        // Case 2: { departments: [...] }
         else if (data.departments && Array.isArray(data.departments)) {
           departmentsData = data.departments;
         }
-        // Case 3: { data: [...] }
         else if (data.data && Array.isArray(data.data)) {
           departmentsData = data.data;
         }
-        // Case 4: { result: [...] }
         else if (data.result && Array.isArray(data.result)) {
           departmentsData = data.result;
         }
-        // Case 5: { success: true, data: [...] }
-        else if (data.success && data.data && Array.isArray(data.data)) {
-          departmentsData = data.data;
-        }
-        // Case 6: { success: true, departments: [...] }
         else if (data.success && data.departments && Array.isArray(data.departments)) {
           departmentsData = data.departments;
+        }
+        else if (data.success && data.data && Array.isArray(data.data)) {
+          departmentsData = data.data;
         }
       }
       
@@ -184,41 +238,33 @@ const CreateUser = () => {
 
     } catch (err) {
       console.error("❌ All department fetch attempts failed:", err);
-      toast.error('Failed to load departments. Check API endpoint.');
+      toast.error('Failed to load departments. Please check API endpoint.');
       setDepartments([]);
       
-      // 🔥 DEBUG: Show current company ID
-      console.log("🔍 Current company ID:", companyId);
-      console.log("🔍 Current company Code:", companyCode);
-      console.log("🔍 Current user:", currentUser);
+      console.log("🔍 Debug - Company ID:", companyId);
+      console.log("🔍 Debug - Company Code:", companyCode);
       
     } finally {
       setLoadingDepartments(false);
     }
   };
 
-  // ✅ FIXED: Fetch Job Roles - Multiple endpoints
-  const fetchJobRolesByDepartment = async (departmentId) => {
+  // ✅ NEW: Fetch Departments by Code
+  const fetchDepartmentsByCode = async () => {
     try {
-      if (!departmentId) {
-        setJobRoles([]);
-        return;
-      }
-
-      setLoadingJobRoles(true);
-      console.log("📡 Fetching job roles for department:", departmentId);
+      if (!companyCode) return;
+      
+      setLoadingDepartments(true);
+      console.log("📡 Fetching departments for company code:", companyCode);
       
       let response = null;
       let success = false;
       
-      // 🔥 TRY MULTIPLE ENDPOINTS
       const endpoints = [
-        `/job-roles?department=${departmentId}`,
-        `/job-roles/department/${departmentId}`,
-        `/api/job-roles?department=${departmentId}`,
-        `/job-roles?departmentId=${departmentId}`,
-        `/job-roles?dept=${departmentId}`,
-        `/job-roles/by-department/${departmentId}`
+        `/departments?companyCode=${companyCode}`,
+        `/departments/code/${companyCode}`,
+        `/api/departments?code=${companyCode}`,
+        `/department/company-code/${companyCode}`
       ];
       
       for (const endpoint of endpoints) {
@@ -234,12 +280,95 @@ const CreateUser = () => {
       }
       
       if (!success) {
+        throw new Error("All department by code endpoints failed");
+      }
+
+      let departmentsData = [];
+      const data = response.data;
+      
+      if (data) {
+        if (Array.isArray(data)) departmentsData = data;
+        else if (data.departments && Array.isArray(data.departments)) departmentsData = data.departments;
+        else if (data.data && Array.isArray(data.data)) departmentsData = data.data;
+        else if (data.result && Array.isArray(data.result)) departmentsData = data.result;
+      }
+      
+      console.log("✅ Processed departments by code:", departmentsData);
+      setDepartments(departmentsData);
+
+    } catch (err) {
+      console.error("❌ Failed to fetch departments by code:", err);
+    } finally {
+      setLoadingDepartments(false);
+    }
+  };
+
+  // ✅ FIXED: Fetch Job Roles with better handling
+  const fetchJobRolesByDepartment = async (departmentId) => {
+    try {
+      if (!departmentId) {
+        setJobRoles([]);
+        return;
+      }
+
+      setLoadingJobRoles(true);
+      console.log("📡 Fetching job roles for department:", departmentId);
+      
+      let response = null;
+      let success = false;
+      
+      // Try multiple endpoints
+      const endpoints = [
+        `/job-roles?departmentId=${departmentId}`,
+        `/job-roles?department=${departmentId}`,
+        `/job-roles/department/${departmentId}`,
+        `/api/job-roles?departmentId=${departmentId}`,
+        `/job-roles/by-department/${departmentId}`,
+        `/job-roles/department-id/${departmentId}`,
+        `/job-roles?dept=${departmentId}`
+      ];
+      
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`🔄 Trying job role endpoint: ${endpoint}`);
+          response = await axios.get(endpoint);
+          console.log(`✅ Success with: ${endpoint}`, response.data);
+          success = true;
+          break;
+        } catch (err) {
+          console.log(`❌ Failed: ${endpoint}`, err.response?.status, err.message);
+        }
+      }
+      
+      if (!success) {
+        // Try with company context
+        const companyEndpoints = [
+          `/job-roles?companyId=${companyId}&departmentId=${departmentId}`,
+          `/job-roles?company=${companyId}&department=${departmentId}`,
+          `/job-roles/company/${companyId}/department/${departmentId}`
+        ];
+        
+        for (const endpoint of companyEndpoints) {
+          try {
+            console.log(`🔄 Trying with company context: ${endpoint}`);
+            response = await axios.get(endpoint);
+            console.log(`✅ Success with: ${endpoint}`, response.data);
+            success = true;
+            break;
+          } catch (err) {
+            console.log(`❌ Failed: ${endpoint}`, err.message);
+          }
+        }
+      }
+      
+      if (!success) {
         throw new Error("All job role endpoints failed");
       }
 
-      // 🔥 HANDLE ALL RESPONSE FORMATS
+      // Handle different response formats
       let jobRolesData = [];
       const data = response.data;
+      console.log("📦 Raw job role response:", data);
       
       if (data) {
         if (Array.isArray(data)) {
@@ -254,16 +383,20 @@ const CreateUser = () => {
         else if (data.result && Array.isArray(data.result)) {
           jobRolesData = data.result;
         }
+        else if (data.roles && Array.isArray(data.roles)) {
+          jobRolesData = data.roles;
+        }
         else if (data.success && data.jobRoles && Array.isArray(data.jobRoles)) {
           jobRolesData = data.jobRoles;
-        }
-        else if (data.success && data.data && Array.isArray(data.data)) {
-          jobRolesData = data.data;
         }
       }
       
       console.log("✅ Processed job roles:", jobRolesData);
       setJobRoles(jobRolesData);
+      
+      if (jobRolesData.length === 0) {
+        toast.warning('No job roles found for this department');
+      }
 
     } catch (err) {
       console.error("❌ Failed to load job roles:", err);
@@ -300,7 +433,6 @@ const CreateUser = () => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
     
-    // Agar department change ho raha hai to job role reset karo
     if (name === 'department') {
       setForm(prev => ({ ...prev, jobRole: '' }));
     }
@@ -331,7 +463,7 @@ const CreateUser = () => {
       toast.error('Please select a job role');
       return false;
     }
-    if (!companyId || !companyCode) {
+    if (!companyId && !companyCode) {
       toast.error('Company information is missing');
       return false;
     }
@@ -342,7 +474,7 @@ const CreateUser = () => {
     e.preventDefault();
 
     if (!validateForm()) return;
-    if (!companyId || !companyCode) {
+    if (!companyId && !companyCode) {
       toast.error("Company reference is missing");
       return;
     }
@@ -364,6 +496,9 @@ const CreateUser = () => {
       toast.success('✅ User created successfully');
       
       setForm({ ...initialFormState });
+      
+      // Reset select fields
+      setJobRoles([]);
 
     } catch (err) {
       console.error("❌ Registration error:", err);
@@ -378,7 +513,6 @@ const CreateUser = () => {
     }
   };
 
-  // Get user display name
   const getUserDisplayName = () => {
     if (currentUser?.name) {
       return currentUser.name.toUpperCase();
@@ -386,12 +520,14 @@ const CreateUser = () => {
     return 'USER';
   };
 
-  // 🔥 DEBUG: Show current state
+  // Debug logs
   console.log("🏢 Current departments state:", departments);
   console.log("📋 Selected department ID:", form.department);
   console.log("🎯 Job Roles:", jobRoles);
+  console.log("🏢 Company ID:", companyId);
+  console.log("🏢 Company Code:", companyCode);
 
-  // ✅ Show CIISLoader while page is loading
+  // Show CIISLoader while page is loading
   if (pageLoading) {
     return <CIISLoader />;
   }
@@ -418,13 +554,13 @@ const CreateUser = () => {
               {getUserDisplayName()}
             </h3>
             <p className="CreateUser-company-details">
-              Created by: {currentUser.name} ({currentUser.jobRole || 'super_admin'})
+              Created by: {currentUser.name || currentUser.email || 'Admin'} ({currentUser.jobRole || 'super_admin'})
             </p>
             <p className="CreateUser-company-details">
-              Company ID: {companyId?.substring(0, 8)}...
+              Company ID: {companyId || 'Loading...'}
             </p>
             <p className="CreateUser-company-details CreateUser-company-details-highlight">
-              Departments: {departments.length} loaded
+              Departments Loaded: {departments.length}
             </p>
           </div>
         )}
@@ -542,7 +678,6 @@ const CreateUser = () => {
 
             {/* ROW 3: Department & Job Role */}
             <div className="CreateUser-form-row">
-              {/* Department - Simple Select like Gender */}
               <div className="CreateUser-form-group">
                 <label htmlFor="department" className="CreateUser-label">
                   Department <span className="CreateUser-required-star">*</span>
@@ -580,7 +715,6 @@ const CreateUser = () => {
                 )}
               </div>
 
-              {/* Job Role - Simple Select like Gender */}
               <div className="CreateUser-form-group">
                 <label htmlFor="jobRole" className="CreateUser-label">
                   Job Role <span className="CreateUser-required-star">*</span>
@@ -751,7 +885,7 @@ const CreateUser = () => {
           <button
             type="submit"
             className="CreateUser-submit-button"
-            disabled={loading || !companyId || !companyCode || departments.length === 0 || !form.jobRole}
+            disabled={loading || (!companyId && !companyCode) || departments.length === 0 || !form.jobRole}
           >
             {loading ? (
               <>
@@ -766,26 +900,18 @@ const CreateUser = () => {
             )}
           </button>
 
-          {/* Debug Info - Remove in production */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="CreateUser-debug-info">
-              <small>
-                🔍 Debug: Company ID: {companyId || 'Not set'} | Departments: {departments.length} | 
-                Selected Dept: {form.department || 'None'} | Job Roles: {jobRoles.length}
-              </small>
-            </div>
-          )}
-
           {/* Warning Messages */}
-          {(!companyId || !companyCode) && (
+          {(!companyId && !companyCode) && (
             <div className="CreateUser-info-message CreateUser-error-message">
               ⚠️ Company information is missing. Please login again or contact support.
             </div>
           )}
 
-          {departments.length === 0 && companyId && !loadingDepartments && (
+          {departments.length === 0 && (companyId || companyCode) && !loadingDepartments && (
             <div className="CreateUser-info-message CreateUser-warning-message">
               ⚠️ No departments found. Please create departments first before adding users.
+              <br />
+              <small>Company ID: {companyId || 'Not found'} | Code: {companyCode || 'Not found'}</small>
             </div>
           )}
         </form>

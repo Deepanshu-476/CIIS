@@ -585,7 +585,7 @@ const UserCreateTask = () => {
     });
   }, []);
 
-  // Fetch assigned to me tasks - FIXED: properly handle groupedTasks response
+  // Fetch assigned to me tasks
   const fetchAssignedToMeTasks = useCallback(async () => {
     if (authError || !userId) {
       console.log('⛔ Cannot fetch assigned tasks: authError or no userId', { authError, userId });
@@ -1232,7 +1232,7 @@ const UserCreateTask = () => {
     }
   };
 
-  // Handle status change for assigned tasks - FIXED: ensure status is normalized
+  // Handle status change for assigned tasks
   const handleAssignedTaskStatusChange = async (taskId, newStatus, remarks = '') => {
     if (authError || !userId) {
       showSnackbar('Please log in to update task status', 'error');
@@ -2273,15 +2273,19 @@ const UserCreateTask = () => {
                                       value={status}
                                       onChange={(e) => {
                                         const selectedStatus = e.target.value;
-                                        if (selectedStatus === 'completed' || selectedStatus === 'in-progress' || selectedStatus === 'pending') {
-                                          setPendingStatusChange({ taskId: task._id, status: selectedStatus });
-                                          setRemarksDialog({ open: true, taskId: task._id, remarks: [] });
-                                        } else {
-                                          if (taskViewMode === 'assigned') {
-                                            handleAssignedTaskStatusChange(task._id, selectedStatus);
+                                        const currentTaskId = task._id;
+                                        
+                                        if (selectedStatus === 'in-progress') {
+                                          // Direct status update (NO POPUP)
+                                          if (taskViewMode === 'self') {
+                                            handleStatusChange(currentTaskId, 'in-progress', 'Started working');
                                           } else {
-                                            handleStatusChange(task._id, selectedStatus);
+                                            handleAssignedTaskStatusChange(currentTaskId, 'in-progress', 'Started working');
                                           }
+                                        } else {
+                                          // Other statuses will open popup
+                                          setPendingStatusChange({ taskId: currentTaskId, status: selectedStatus });
+                                          setRemarksDialog({ open: true, taskId: currentTaskId, remarks: [] });
                                         }
                                       }}
                                       className="user-create-task-select"
@@ -2494,15 +2498,26 @@ const UserCreateTask = () => {
                                   value={status}
                                   onChange={(e) => {
                                     const selectedStatus = e.target.value;
-                                    if (selectedStatus === 'completed' || selectedStatus === 'in-progress' || selectedStatus === 'pending') {
-                                      setPendingStatusChange({ taskId: task._id, status: selectedStatus });
-                                      setRemarksDialog({ open: true, taskId: task._id, remarks: [] });
-                                    } else {
-                                      if (taskViewMode === 'assigned') {
-                                        handleAssignedTaskStatusChange(task._id, selectedStatus);
+                                    const currentTaskId = task._id;
+                                    
+                                    if (selectedStatus === 'completed' || selectedStatus === 'pending') {
+                                      // Open remarks dialog for status change
+                                      setPendingStatusChange({ taskId: currentTaskId, status: selectedStatus });
+                                      setRemarksDialog({ open: true, taskId: currentTaskId, remarks: [] });
+                                    } 
+                                    else if (selectedStatus === 'in-progress') {
+                                      // Direct status update for in-progress (no popup needed)
+                                      if (taskViewMode === 'self') {
+                                        handleStatusChange(currentTaskId, 'in-progress', 'Started working on task');
                                       } else {
-                                        handleStatusChange(task._id, selectedStatus);
+                                        handleAssignedTaskStatusChange(currentTaskId, 'in-progress', 'Started working on task');
                                       }
+                                    }
+                                    else {
+                                      // For other statuses (overdue, rejected, onhold, reopen, cancelled)
+                                      // Open remarks dialog with pending status change
+                                      setPendingStatusChange({ taskId: currentTaskId, status: selectedStatus });
+                                      setRemarksDialog({ open: true, taskId: currentTaskId, remarks: [] });
                                     }
                                   }}
                                   className="user-create-task-select"

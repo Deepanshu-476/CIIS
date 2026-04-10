@@ -71,7 +71,8 @@ const useUser = () => {
       const combinedUser = {
         ...parsedUser,
         companyDetails,
-        companyRole: parsedUser.companyRole || parsedUser.role || 'employee'
+        companyRole: parsedUser.companyRole || parsedUser.role || 'employee',
+        jobRole: parsedUser.jobRole || parsedUser.role || 'employee'
       };
       
       return combinedUser;
@@ -117,9 +118,21 @@ const useUser = () => {
     return (user?.companyRole || user?.role || 'employee').toLowerCase();
   }, [getCurrentUser]);
   
+  // Check if user is super_admin
+  const isSuperAdmin = useMemo(() => {
+    const jobRole = getCurrentUserJobRole();
+    return jobRole === 'super_admin';
+  }, [getCurrentUserJobRole]);
+  
+  // Check if user can edit all fields
+  const canEditAllFields = useMemo(() => {
+    const jobRole = getCurrentUserJobRole();
+    return jobRole === 'super_admin';
+  }, [getCurrentUserJobRole]);
+  
   const isCurrentUserAdmin = useMemo(() => {
     const jobRole = getCurrentUserJobRole();
-    return ['admin', 'superadmin'].includes(jobRole);
+    return ['admin', 'superadmin', 'super_admin'].includes(jobRole);
   }, [getCurrentUserJobRole]);
   
   const isCurrentUserManagerOrHR = useMemo(() => {
@@ -148,6 +161,8 @@ const useUser = () => {
     isCurrentUserAdmin,
     isCurrentUserManagerOrHR,
     isCurrentUserOwner,
+    isSuperAdmin,
+    canEditAllFields,
     getAuthToken
   };
 };
@@ -172,7 +187,8 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
   onMenuOpen,
   currentUserId,
   jobRoles,
-  departments
+  departments,
+  isSuperAdmin
 }) => {
   const getInitials = (name) => {
     if (!name) return 'U';
@@ -240,15 +256,17 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
       className="EmployeeDirectory-employee-card"
       onClick={() => onView(emp)}
     >
-      <button 
-        className="EmployeeDirectory-employee-card-menu"
-        onClick={(e) => {
-          e.stopPropagation();
-          onMenuOpen(e, emp);
-        }}
-      >
-        <FiMoreVertical size={16} />
-      </button>
+      {isSuperAdmin && (
+        <button 
+          className="EmployeeDirectory-employee-card-menu"
+          onClick={(e) => {
+            e.stopPropagation();
+            onMenuOpen(e, emp);
+          }}
+        >
+          <FiMoreVertical size={16} />
+        </button>
+      )}
       
       <div className="EmployeeDirectory-employee-card-content">
         <div className="EmployeeDirectory-employee-header">
@@ -347,19 +365,25 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
 });
 
 // Children Form Component
-const ChildrenForm = ({ children = [], onChange }) => {
+const ChildrenForm = ({ children = [], onChange, isReadOnly = false }) => {
   const addChild = () => {
-    onChange([...children, { name: '', age: '', dob: '' }]);
+    if (!isReadOnly) {
+      onChange([...children, { name: '', age: '', dob: '' }]);
+    }
   };
 
   const removeChild = (index) => {
-    onChange(children.filter((_, i) => i !== index));
+    if (!isReadOnly) {
+      onChange(children.filter((_, i) => i !== index));
+    }
   };
 
   const updateChild = (index, field, value) => {
-    const updated = [...children];
-    updated[index] = { ...updated[index], [field]: value };
-    onChange(updated);
+    if (!isReadOnly) {
+      const updated = [...children];
+      updated[index] = { ...updated[index], [field]: value };
+      onChange(updated);
+    }
   };
 
   return (
@@ -376,6 +400,7 @@ const ChildrenForm = ({ children = [], onChange }) => {
             placeholder="Name"
             value={child.name || ''}
             onChange={(e) => updateChild(index, 'name', e.target.value)}
+            disabled={isReadOnly}
           />
           <input
             type="number"
@@ -383,47 +408,59 @@ const ChildrenForm = ({ children = [], onChange }) => {
             placeholder="Age"
             value={child.age || ''}
             onChange={(e) => updateChild(index, 'age', e.target.value)}
+            disabled={isReadOnly}
           />
           <input
             type="date"
             className="EmployeeDirectory-form-input EmployeeDirectory-child-input"
             value={child.dob || ''}
             onChange={(e) => updateChild(index, 'dob', e.target.value)}
+            disabled={isReadOnly}
           />
-          <button
-            type="button"
-            className="EmployeeDirectory-btn-icon EmployeeDirectory-btn-danger"
-            onClick={() => removeChild(index)}
-          >
-            <FiX size={16} />
-          </button>
+          {!isReadOnly && (
+            <button
+              type="button"
+              className="EmployeeDirectory-btn-icon EmployeeDirectory-btn-danger"
+              onClick={() => removeChild(index)}
+            >
+              <FiX size={16} />
+            </button>
+          )}
         </div>
       ))}
-      <button
-        type="button"
-        className="EmployeeDirectory-btn EmployeeDirectory-btn-outlined EmployeeDirectory-btn-add"
-        onClick={addChild}
-      >
-        <FiPlus size={14} /> Add Child
-      </button>
+      {!isReadOnly && (
+        <button
+          type="button"
+          className="EmployeeDirectory-btn EmployeeDirectory-btn-outlined EmployeeDirectory-btn-add"
+          onClick={addChild}
+        >
+          <FiPlus size={14} /> Add Child
+        </button>
+      )}
     </div>
   );
 };
 
 // Documents Form Component
-const DocumentsForm = ({ documents = [], onChange }) => {
+const DocumentsForm = ({ documents = [], onChange, isReadOnly = false }) => {
   const addDocument = () => {
-    onChange([...documents, { name: '', type: '', url: '' }]);
+    if (!isReadOnly) {
+      onChange([...documents, { name: '', type: '', url: '' }]);
+    }
   };
 
   const removeDocument = (index) => {
-    onChange(documents.filter((_, i) => i !== index));
+    if (!isReadOnly) {
+      onChange(documents.filter((_, i) => i !== index));
+    }
   };
 
   const updateDocument = (index, field, value) => {
-    const updated = [...documents];
-    updated[index] = { ...updated[index], [field]: value };
-    onChange(updated);
+    if (!isReadOnly) {
+      const updated = [...documents];
+      updated[index] = { ...updated[index], [field]: value };
+      onChange(updated);
+    }
   };
 
   return (
@@ -440,11 +477,13 @@ const DocumentsForm = ({ documents = [], onChange }) => {
             placeholder="Document Name"
             value={doc.name || ''}
             onChange={(e) => updateDocument(index, 'name', e.target.value)}
+            disabled={isReadOnly}
           />
           <select
             className="EmployeeDirectory-form-select EmployeeDirectory-document-select"
             value={doc.type || ''}
             onChange={(e) => updateDocument(index, 'type', e.target.value)}
+            disabled={isReadOnly}
           >
             <option value="">Select Type</option>
             <option value="pdf">PDF</option>
@@ -461,37 +500,44 @@ const DocumentsForm = ({ documents = [], onChange }) => {
               placeholder="Document URL"
               value={doc.url || ''}
               onChange={(e) => updateDocument(index, 'url', e.target.value)}
+              disabled={isReadOnly}
             />
           </div>
-          <button
-            type="button"
-            className="EmployeeDirectory-btn-icon EmployeeDirectory-btn-danger"
-            onClick={() => removeDocument(index)}
-          >
-            <FiX size={16} />
-          </button>
+          {!isReadOnly && (
+            <button
+              type="button"
+              className="EmployeeDirectory-btn-icon EmployeeDirectory-btn-danger"
+              onClick={() => removeDocument(index)}
+            >
+              <FiX size={16} />
+            </button>
+          )}
         </div>
       ))}
-      <button
-        type="button"
-        className="EmployeeDirectory-btn EmployeeDirectory-btn-outlined EmployeeDirectory-btn-add"
-        onClick={addDocument}
-      >
-        <FiUpload size={14} /> Add Document
-      </button>
+      {!isReadOnly && (
+        <button
+          type="button"
+          className="EmployeeDirectory-btn EmployeeDirectory-btn-outlined EmployeeDirectory-btn-add"
+          onClick={addDocument}
+        >
+          <FiUpload size={14} /> Add Document
+        </button>
+      )}
     </div>
   );
 };
 
 // Assets Form Component
-const AssetsForm = ({ properties = [], currentlyAssignedAssets = [], onChange }) => {
+const AssetsForm = ({ properties = [], currentlyAssignedAssets = [], onChange, isReadOnly = false }) => {
   const assetOptions = ['sim', 'phone', 'laptop', 'desktop', 'headphones', 'tablet', 'vehicle'];
 
   const toggleAsset = (asset) => {
-    const newProperties = properties.includes(asset)
-      ? properties.filter(a => a !== asset)
-      : [...properties, asset];
-    onChange('properties', newProperties);
+    if (!isReadOnly) {
+      const newProperties = properties.includes(asset)
+        ? properties.filter(a => a !== asset)
+        : [...properties, asset];
+      onChange('properties', newProperties);
+    }
   };
 
   return (
@@ -507,6 +553,7 @@ const AssetsForm = ({ properties = [], currentlyAssignedAssets = [], onChange })
               type="checkbox"
               checked={properties.includes(asset)}
               onChange={() => toggleAsset(asset)}
+              disabled={isReadOnly}
             />
             <span className="EmployeeDirectory-asset-label">
               {assetIcons[asset] || <FiSmartphone size={14} />}
@@ -515,52 +562,14 @@ const AssetsForm = ({ properties = [], currentlyAssignedAssets = [], onChange })
           </label>
         ))}
       </div>
-
-      <div className="EmployeeDirectory-assets-details">
-        <div className="EmployeeDirectory-form-group">
-          <label className="EmployeeDirectory-form-label">Property Owned</label>
-          <input
-            type="text"
-            className="EmployeeDirectory-form-input"
-            value={properties.propertyOwned || ''}
-            onChange={(e) => onChange('propertyOwned', e.target.value)}
-            placeholder="e.g., Company provided laptop"
-          />
-        </div>
-
-        <div className="EmployeeDirectory-form-group">
-          <label className="EmployeeDirectory-form-label">Additional Asset Details</label>
-          <textarea
-            className="EmployeeDirectory-form-input EmployeeDirectory-form-textarea"
-            value={properties.additionalDetails || ''}
-            onChange={(e) => onChange('additionalDetails', e.target.value)}
-            rows="2"
-            placeholder="Any additional information about assets"
-          />
-        </div>
-      </div>
-
-      {currentlyAssignedAssets && currentlyAssignedAssets.length > 0 && (
-        <div className="EmployeeDirectory-current-assets">
-          <label className="EmployeeDirectory-form-label">Currently Assigned Assets</label>
-          <div className="EmployeeDirectory-assets-list">
-            {currentlyAssignedAssets.map((asset, index) => (
-              <div key={index} className="EmployeeDirectory-asset-item">
-                <span className="EmployeeDirectory-asset-item-icon">
-                  {assetIcons[asset.type] || <FiSmartphone size={14} />}
-                </span>
-                <span className="EmployeeDirectory-asset-item-name">{asset.name || asset.type}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
 // Bank Details Form Component
-const BankDetailsForm = ({ formData, onInputChange, canEditBankDetails }) => {
+const BankDetailsForm = ({ formData, onInputChange, canEditBankDetails, isSuperAdmin }) => {
+  const isReadOnly = !isSuperAdmin || !canEditBankDetails;
+  
   return (
     <div className="EmployeeDirectory-form-section">
       <h3 className="EmployeeDirectory-section-title">
@@ -574,9 +583,12 @@ const BankDetailsForm = ({ formData, onInputChange, canEditBankDetails }) => {
             className="EmployeeDirectory-form-input"
             value={formData.bankHolderName || ''}
             onChange={(e) => onInputChange('bankHolderName', e.target.value)}
-            disabled={!canEditBankDetails}
+            disabled={isReadOnly}
             placeholder="Enter account holder name"
           />
+          {isReadOnly && (
+            <span className="EmployeeDirectory-field-note">Only super_admin can edit bank details</span>
+          )}
         </div>
         
         <div className="EmployeeDirectory-form-group">
@@ -586,7 +598,7 @@ const BankDetailsForm = ({ formData, onInputChange, canEditBankDetails }) => {
             className="EmployeeDirectory-form-input"
             value={formData.accountNumber || ''}
             onChange={(e) => onInputChange('accountNumber', e.target.value)}
-            disabled={!canEditBankDetails}
+            disabled={isReadOnly}
             placeholder="Enter account number"
           />
         </div>
@@ -598,7 +610,7 @@ const BankDetailsForm = ({ formData, onInputChange, canEditBankDetails }) => {
             className="EmployeeDirectory-form-input"
             value={formData.ifsc || ''}
             onChange={(e) => onInputChange('ifsc', e.target.value)}
-            disabled={!canEditBankDetails}
+            disabled={isReadOnly}
             placeholder="Enter IFSC code"
           />
         </div>
@@ -610,7 +622,7 @@ const BankDetailsForm = ({ formData, onInputChange, canEditBankDetails }) => {
             className="EmployeeDirectory-form-input"
             value={formData.bankName || ''}
             onChange={(e) => onInputChange('bankName', e.target.value)}
-            disabled={!canEditBankDetails}
+            disabled={isReadOnly}
             placeholder="Enter bank name"
           />
         </div>
@@ -620,7 +632,7 @@ const BankDetailsForm = ({ formData, onInputChange, canEditBankDetails }) => {
 };
 
 // Family Details Form Component
-const FamilyDetailsForm = ({ formData, onInputChange }) => {
+const FamilyDetailsForm = ({ formData, onInputChange, isReadOnly = false }) => {
   return (
     <div className="EmployeeDirectory-form-section">
       <h3 className="EmployeeDirectory-section-title">
@@ -634,6 +646,7 @@ const FamilyDetailsForm = ({ formData, onInputChange }) => {
             className="EmployeeDirectory-form-input"
             value={formData.fatherName || ''}
             onChange={(e) => onInputChange('fatherName', e.target.value)}
+            disabled={isReadOnly}
             placeholder="Enter father's name"
           />
         </div>
@@ -645,6 +658,7 @@ const FamilyDetailsForm = ({ formData, onInputChange }) => {
             className="EmployeeDirectory-form-input"
             value={formData.motherName || ''}
             onChange={(e) => onInputChange('motherName', e.target.value)}
+            disabled={isReadOnly}
             placeholder="Enter mother's name"
           />
         </div>
@@ -656,6 +670,7 @@ const FamilyDetailsForm = ({ formData, onInputChange }) => {
             className="EmployeeDirectory-form-input"
             value={formData.spouseName || ''}
             onChange={(e) => onInputChange('spouseName', e.target.value)}
+            disabled={isReadOnly}
             placeholder="Enter spouse name"
           />
         </div>
@@ -665,13 +680,14 @@ const FamilyDetailsForm = ({ formData, onInputChange }) => {
       <ChildrenForm 
         children={formData.children || []} 
         onChange={(children) => onInputChange('children', children)}
+        isReadOnly={isReadOnly}
       />
     </div>
   );
 };
 
 // Emergency Contact Form Component
-const EmergencyContactForm = ({ formData, onInputChange }) => {
+const EmergencyContactForm = ({ formData, onInputChange, isReadOnly = false }) => {
   return (
     <div className="EmployeeDirectory-form-section">
       <h3 className="EmployeeDirectory-section-title">
@@ -685,6 +701,7 @@ const EmergencyContactForm = ({ formData, onInputChange }) => {
             className="EmployeeDirectory-form-input"
             value={formData.emergencyName || ''}
             onChange={(e) => onInputChange('emergencyName', e.target.value)}
+            disabled={isReadOnly}
             placeholder="Enter emergency contact name"
           />
         </div>
@@ -696,6 +713,7 @@ const EmergencyContactForm = ({ formData, onInputChange }) => {
             className="EmployeeDirectory-form-input"
             value={formData.emergencyPhone || ''}
             onChange={(e) => onInputChange('emergencyPhone', e.target.value)}
+            disabled={isReadOnly}
             placeholder="Enter emergency phone number"
           />
         </div>
@@ -707,6 +725,7 @@ const EmergencyContactForm = ({ formData, onInputChange }) => {
             className="EmployeeDirectory-form-input"
             value={formData.emergencyRelation || ''}
             onChange={(e) => onInputChange('emergencyRelation', e.target.value)}
+            disabled={isReadOnly}
             placeholder="e.g., Spouse, Parent, Sibling"
           />
         </div>
@@ -718,6 +737,7 @@ const EmergencyContactForm = ({ formData, onInputChange }) => {
             value={formData.emergencyAddress || ''}
             onChange={(e) => onInputChange('emergencyAddress', e.target.value)}
             rows="2"
+            disabled={isReadOnly}
             placeholder="Enter emergency contact address"
           />
         </div>
@@ -739,7 +759,8 @@ const EmploymentDetailsForm = ({
   canEditSalary,
   canEditEmployeeType,
   canEditReportingManager,
-  canEditStatus
+  canEditStatus,
+  isSuperAdmin
 }) => {
   const employeeTypeOptions = [
     { value: 'full-time', label: 'Full Time' },
@@ -757,11 +778,19 @@ const EmploymentDetailsForm = ({
     { value: 'owner', label: 'Owner' }
   ];
 
+  const isReadOnly = !isSuperAdmin;
+
   return (
     <div className="EmployeeDirectory-form-section">
       <h3 className="EmployeeDirectory-section-title">
         <FiBriefcase /> Employment Information
       </h3>
+      {!isSuperAdmin && (
+        <div className="EmployeeDirectory-info-banner">
+          <FiInfo size={14} />
+          <span>Employment details can only be edited by super_admin</span>
+        </div>
+      )}
       <div className="EmployeeDirectory-employment-grid">
         <div className="EmployeeDirectory-form-group">
           <label className="EmployeeDirectory-form-label">Employee ID</label>
@@ -770,11 +799,11 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-input"
             value={formData.employeeId || ''}
             onChange={(e) => onInputChange('employeeId', e.target.value)}
-            disabled={!canEditEmployeeId}
+            disabled={!canEditEmployeeId || isReadOnly}
             placeholder="Auto-generated if empty"
           />
-          {!canEditEmployeeId && (
-            <span className="EmployeeDirectory-field-note">Only admins can edit</span>
+          {(!canEditEmployeeId || isReadOnly) && (
+            <span className="EmployeeDirectory-field-note">Only super_admin can edit</span>
           )}
         </div>
         
@@ -784,7 +813,7 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-select"
             value={formData.jobRole || ''}
             onChange={(e) => onInputChange('jobRole', e.target.value)}
-            disabled={!canEditJobRole}
+            disabled={!canEditJobRole || isReadOnly}
           >
             <option value="">Select Job Role</option>
             {jobRoles.map(role => (
@@ -793,8 +822,8 @@ const EmploymentDetailsForm = ({
               </option>
             ))}
           </select>
-          {!canEditJobRole && (
-            <span className="EmployeeDirectory-field-note">Only admins can edit (not self)</span>
+          {(!canEditJobRole || isReadOnly) && (
+            <span className="EmployeeDirectory-field-note">Only super_admin can edit</span>
           )}
         </div>
         
@@ -804,15 +833,15 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-select"
             value={formData.department || ''}
             onChange={(e) => onInputChange('department', e.target.value)}
-            disabled={!canEditDepartment}
+            disabled={!canEditDepartment || isReadOnly}
           >
             <option value="">Select Department</option>
             {departments.map(dept => (
               <option key={dept._id} value={dept._id}>{dept.name}</option>
             ))}
           </select>
-          {!canEditDepartment && (
-            <span className="EmployeeDirectory-field-note">Only admins can edit</span>
+          {(!canEditDepartment || isReadOnly) && (
+            <span className="EmployeeDirectory-field-note">Only super_admin can edit</span>
           )}
         </div>
 
@@ -822,14 +851,14 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-select"
             value={formData.companyRole || 'employee'}
             onChange={(e) => onInputChange('companyRole', e.target.value)}
-            disabled={!canEditCompanyRole}
+            disabled={!canEditCompanyRole || isReadOnly}
           >
             {companyRoleOptions.map(option => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
-          {!canEditCompanyRole && (
-            <span className="EmployeeDirectory-field-note">Only admins can edit (not self)</span>
+          {(!canEditCompanyRole || isReadOnly) && (
+            <span className="EmployeeDirectory-field-note">Only super_admin can edit</span>
           )}
         </div>
         
@@ -839,13 +868,16 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-select"
             value={formData.employeeType || ''}
             onChange={(e) => onInputChange('employeeType', e.target.value)}
-            disabled={!canEditEmployeeType}
+            disabled={!canEditEmployeeType || isReadOnly}
           >
             <option value="">Select Type</option>
             {employeeTypeOptions.map(option => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
+          {(!canEditEmployeeType || isReadOnly) && (
+            <span className="EmployeeDirectory-field-note">Only super_admin can edit</span>
+          )}
         </div>
         
         <div className="EmployeeDirectory-form-group">
@@ -858,9 +890,12 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-input"
             value={formData.salary || ''}
             onChange={(e) => onInputChange('salary', e.target.value)}
-            disabled={!canEditSalary}
+            disabled={!canEditSalary || isReadOnly}
             placeholder="Enter salary"
           />
+          {(!canEditSalary || isReadOnly) && (
+            <span className="EmployeeDirectory-field-note">Only super_admin can edit</span>
+          )}
         </div>
         
         <div className="EmployeeDirectory-form-group">
@@ -869,13 +904,13 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-select"
             value={formData.isActive === false ? 'inactive' : 'active'}
             onChange={(e) => onInputChange('isActive', e.target.value === 'active')}
-            disabled={!canEditStatus}
+            disabled={!canEditStatus || isReadOnly}
           >
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select>
-          {!canEditStatus && (
-            <span className="EmployeeDirectory-field-note">Only admins can edit (not self)</span>
+          {(!canEditStatus || isReadOnly) && (
+            <span className="EmployeeDirectory-field-note">Only super_admin can edit</span>
           )}
         </div>
 
@@ -886,8 +921,35 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-input"
             value={formData.reportingManager || ''}
             onChange={(e) => onInputChange('reportingManager', e.target.value)}
-            disabled={!canEditReportingManager}
-            placeholder="Manager ID"
+            disabled={!canEditReportingManager || isReadOnly}
+            placeholder="Manager ID or Name"
+          />
+          {(!canEditReportingManager || isReadOnly) && (
+            <span className="EmployeeDirectory-field-note">Only super_admin can edit</span>
+          )}
+        </div>
+
+        <div className="EmployeeDirectory-form-group">
+          <label className="EmployeeDirectory-form-label">Date of Joining</label>
+          <input
+            type="date"
+            className="EmployeeDirectory-form-input"
+            value={formData.dateOfJoining ? new Date(formData.dateOfJoining).toISOString().split('T')[0] : ''}
+            onChange={(e) => onInputChange('dateOfJoining', e.target.value)}
+            disabled={isReadOnly}
+            placeholder="Date of joining"
+          />
+        </div>
+
+        <div className="EmployeeDirectory-form-group">
+          <label className="EmployeeDirectory-form-label">Work Location</label>
+          <input
+            type="text"
+            className="EmployeeDirectory-form-input"
+            value={formData.workLocation || ''}
+            onChange={(e) => onInputChange('workLocation', e.target.value)}
+            disabled={isReadOnly}
+            placeholder="Office location"
           />
         </div>
       </div>
@@ -896,7 +958,7 @@ const EmploymentDetailsForm = ({
 };
 
 // Personal Information Form Component
-const PersonalInfoForm = ({ formData, onInputChange }) => {
+const PersonalInfoForm = ({ formData, onInputChange, isReadOnly = false }) => {
   const genderOptions = [
     { value: 'male', label: 'Male' },
     { value: 'female', label: 'Female' },
@@ -924,6 +986,7 @@ const PersonalInfoForm = ({ formData, onInputChange }) => {
             value={formData.name || ''}
             onChange={(e) => onInputChange('name', e.target.value)}
             required
+            disabled={isReadOnly}
             placeholder="Enter full name"
           />
         </div>
@@ -937,6 +1000,7 @@ const PersonalInfoForm = ({ formData, onInputChange }) => {
             disabled
             placeholder="Email cannot be changed"
           />
+          <span className="EmployeeDirectory-field-note">Email cannot be changed</span>
         </div>
         
         <div className="EmployeeDirectory-form-group">
@@ -946,6 +1010,7 @@ const PersonalInfoForm = ({ formData, onInputChange }) => {
             className="EmployeeDirectory-form-input"
             value={formData.phone || ''}
             onChange={(e) => onInputChange('phone', e.target.value)}
+            disabled={isReadOnly}
             placeholder="Enter phone number"
           />
         </div>
@@ -957,6 +1022,7 @@ const PersonalInfoForm = ({ formData, onInputChange }) => {
             className="EmployeeDirectory-form-input"
             value={formData.dob ? new Date(formData.dob).toISOString().split('T')[0] : ''}
             onChange={(e) => onInputChange('dob', e.target.value)}
+            disabled={isReadOnly}
           />
         </div>
         
@@ -966,6 +1032,7 @@ const PersonalInfoForm = ({ formData, onInputChange }) => {
             className="EmployeeDirectory-form-select"
             value={formData.gender || ''}
             onChange={(e) => onInputChange('gender', e.target.value)}
+            disabled={isReadOnly}
           >
             <option value="">Select Gender</option>
             {genderOptions.map(option => (
@@ -980,6 +1047,7 @@ const PersonalInfoForm = ({ formData, onInputChange }) => {
             className="EmployeeDirectory-form-select"
             value={formData.maritalStatus || ''}
             onChange={(e) => onInputChange('maritalStatus', e.target.value)}
+            disabled={isReadOnly}
           >
             <option value="">Select Status</option>
             {maritalStatusOptions.map(option => (
@@ -995,7 +1063,56 @@ const PersonalInfoForm = ({ formData, onInputChange }) => {
             value={formData.address || ''}
             onChange={(e) => onInputChange('address', e.target.value)}
             rows="2"
+            disabled={isReadOnly}
             placeholder="Enter full address"
+          />
+        </div>
+
+        <div className="EmployeeDirectory-form-group">
+          <label className="EmployeeDirectory-form-label">City</label>
+          <input
+            type="text"
+            className="EmployeeDirectory-form-input"
+            value={formData.city || ''}
+            onChange={(e) => onInputChange('city', e.target.value)}
+            disabled={isReadOnly}
+            placeholder="City"
+          />
+        </div>
+
+        <div className="EmployeeDirectory-form-group">
+          <label className="EmployeeDirectory-form-label">State</label>
+          <input
+            type="text"
+            className="EmployeeDirectory-form-input"
+            value={formData.state || ''}
+            onChange={(e) => onInputChange('state', e.target.value)}
+            disabled={isReadOnly}
+            placeholder="State"
+          />
+        </div>
+
+        <div className="EmployeeDirectory-form-group">
+          <label className="EmployeeDirectory-form-label">Zip Code</label>
+          <input
+            type="text"
+            className="EmployeeDirectory-form-input"
+            value={formData.zipCode || ''}
+            onChange={(e) => onInputChange('zipCode', e.target.value)}
+            disabled={isReadOnly}
+            placeholder="Zip code"
+          />
+        </div>
+
+        <div className="EmployeeDirectory-form-group">
+          <label className="EmployeeDirectory-form-label">Country</label>
+          <input
+            type="text"
+            className="EmployeeDirectory-form-input"
+            value={formData.country || ''}
+            onChange={(e) => onInputChange('country', e.target.value)}
+            disabled={isReadOnly}
+            placeholder="Country"
           />
         </div>
       </div>
@@ -1012,7 +1129,8 @@ const EditEmployeeForm = React.memo(({
   jobRoles,
   isCurrentUserAdmin,
   isSelfEdit,
-  currentUserId
+  currentUserId,
+  isSuperAdmin
 }) => {
   if (!editingUser) {
     return null;
@@ -1020,85 +1138,80 @@ const EditEmployeeForm = React.memo(({
   
   const isEditingSelf = currentUserId === (editingUser._id || editingUser.id);
   
-  // Permission logic
-  const canEditJobRole = isCurrentUserAdmin && !isEditingSelf;
-  const canEditDepartment = isCurrentUserAdmin;
-  const canEditStatus = isCurrentUserAdmin && !isEditingSelf;
-  const canEditEmployeeId = isCurrentUserAdmin;
-  const canEditCompanyRole = isCurrentUserAdmin && !isEditingSelf;
-  const canEditSalary = isCurrentUserAdmin;
-  const canEditBankDetails = isCurrentUserAdmin;
-  const canEditEmployeeType = isCurrentUserAdmin;
-  const canEditReportingManager = isCurrentUserAdmin;
+  // PERMISSION LOGIC - Only super_admin can edit all fields
+  // Non-super_admin users can only edit basic personal details
+  const canEditJobRole = isSuperAdmin && !isEditingSelf;
+  const canEditDepartment = isSuperAdmin;
+  const canEditStatus = isSuperAdmin && !isEditingSelf;
+  const canEditEmployeeId = isSuperAdmin;
+  const canEditCompanyRole = isSuperAdmin && !isEditingSelf;
+  const canEditSalary = isSuperAdmin;
+  const canEditBankDetails = isSuperAdmin;
+  const canEditEmployeeType = isSuperAdmin;
+  const canEditReportingManager = isSuperAdmin;
+  
+  // Show permission warning for non-super_admin users
+  const showPermissionWarning = !isSuperAdmin;
   
   return (
-    <form onSubmit={(e) => e.preventDefault()}>
-      <div className="EmployeeDirectory-form-sections EmployeeDirectory-scrollable-form">
-        {/* Personal Information */}
-        <PersonalInfoForm 
-          formData={formData} 
-          onInputChange={onInputChange} 
-        />
+    <>
+      {showPermissionWarning && (
+        <div className="EmployeeDirectory-permission-warning">
+          <FiShield size={20} />
+          <span>You have limited edit permissions. Only basic personal information, family details, and emergency contacts can be edited.</span>
+        </div>
+      )}
+      
+      <form onSubmit={(e) => e.preventDefault()} className="EmployeeDirectory-edit-form">
+        <div className="EmployeeDirectory-form-sections EmployeeDirectory-scrollable-form">
+          {/* Personal Information - Editable by all */}
+          <PersonalInfoForm 
+            formData={formData} 
+            onInputChange={onInputChange}
+            isReadOnly={false}
+          />
 
-        {/* Employment Information */}
-        <EmploymentDetailsForm 
-          formData={formData}
-          onInputChange={onInputChange}
-          departments={departments}
-          jobRoles={jobRoles}
-          canEditJobRole={canEditJobRole}
-          canEditDepartment={canEditDepartment}
-          canEditEmployeeId={canEditEmployeeId}
-          canEditCompanyRole={canEditCompanyRole}
-          canEditSalary={canEditSalary}
-          canEditEmployeeType={canEditEmployeeType}
-          canEditReportingManager={canEditReportingManager}
-          canEditStatus={canEditStatus}
-        />
+          {/* Employment Information - Only super_admin can edit */}
+          <EmploymentDetailsForm 
+            formData={formData}
+            onInputChange={onInputChange}
+            departments={departments}
+            jobRoles={jobRoles}
+            canEditJobRole={canEditJobRole}
+            canEditDepartment={canEditDepartment}
+            canEditEmployeeId={canEditEmployeeId}
+            canEditCompanyRole={canEditCompanyRole}
+            canEditSalary={canEditSalary}
+            canEditEmployeeType={canEditEmployeeType}
+            canEditReportingManager={canEditReportingManager}
+            canEditStatus={canEditStatus}
+            isSuperAdmin={isSuperAdmin}
+          />
 
-        {/* Bank Details */}
-        <BankDetailsForm 
-          formData={formData}
-          onInputChange={onInputChange}
-          canEditBankDetails={canEditBankDetails}
-        />
+          {/* Bank Details - Only super_admin can edit */}
+          <BankDetailsForm 
+            formData={formData}
+            onInputChange={onInputChange}
+            canEditBankDetails={canEditBankDetails}
+            isSuperAdmin={isSuperAdmin}
+          />
 
-        {/* Family Details */}
-        <FamilyDetailsForm 
-          formData={formData}
-          onInputChange={onInputChange}
-        />
+          {/* Family Details - Editable by all */}
+          <FamilyDetailsForm 
+            formData={formData}
+            onInputChange={onInputChange}
+            isReadOnly={false}
+          />
 
-        {/* Emergency Contact */}
-        <EmergencyContactForm 
-          formData={formData}
-          onInputChange={onInputChange}
-        />
-
-        {/* Assets Section */}
-        <div className="EmployeeDirectory-form-section">
-          <h3 className="EmployeeDirectory-section-title">
-            <FiSmartphone /> Assets
-          </h3>
-          <AssetsForm 
-            properties={formData.properties || []}
-            currentlyAssignedAssets={formData.currentlyAssignedAssets || []}
-            onChange={onInputChange}
+          {/* Emergency Contact - Editable by all */}
+          <EmergencyContactForm 
+            formData={formData}
+            onInputChange={onInputChange}
+            isReadOnly={false}
           />
         </div>
-
-        {/* Documents Section */}
-        <div className="EmployeeDirectory-form-section">
-          <h3 className="EmployeeDirectory-section-title">
-            <FiFileText /> Documents
-          </h3>
-          <DocumentsForm 
-            documents={formData.documents || []} 
-            onChange={(documents) => onInputChange('documents', documents)}
-          />
-        </div>
-      </div>
-    </form>
+      </form>
+    </>
   );
 });
 
@@ -1148,6 +1261,8 @@ const EmployeeDirectory = () => {
   const isCurrentUserAdmin = user.isCurrentUserAdmin;
   const isCurrentUserManagerOrHR = user.isCurrentUserManagerOrHR;
   const isCurrentUserOwner = user.isCurrentUserOwner;
+  const isSuperAdmin = user.isSuperAdmin;
+  const canEditAllFields = user.canEditAllFields;
   
   // Snackbar helper
   const showSnackbar = useCallback((message, severity = 'success') => {
@@ -1257,12 +1372,13 @@ const EmployeeDirectory = () => {
       return false;
     }
     
-    if (!isCurrentUserAdmin) {
+    // Only super_admin can delete users
+    if (!isSuperAdmin) {
       return false;
     }
     
     return true;
-  }, [currentUserId, isCurrentUserAdmin]);
+  }, [currentUserId, isSuperAdmin]);
   
   // Responsive check
   useEffect(() => {
@@ -1298,7 +1414,7 @@ const EmployeeDirectory = () => {
       
       let usersRes;
       
-      if (isCurrentUserOwner) {
+      if (isCurrentUserOwner || isSuperAdmin) {
         usersRes = await axios.get(`/users/company-users?companyId=${currentUserCompanyId}`, config);
       } else {
         usersRes = await axios.get(
@@ -1351,6 +1467,7 @@ const EmployeeDirectory = () => {
     currentUserCompanyId, 
     currentUserDepartmentId, 
     isCurrentUserOwner,
+    isSuperAdmin,
     showSnackbar, 
     user.getAuthToken,
     fetchJobRoles
@@ -1392,7 +1509,10 @@ const EmployeeDirectory = () => {
     
     setEditingUser(userData);
     
-    const formDataToSet = { 
+    // For self-edit, we might want to load the most up-to-date data from localStorage
+    const isEditingSelf = currentUserId === (userData._id || userData.id);
+    
+    let formDataToSet = { 
       ...userData,
       department: userData.department?._id || userData.department || '',
       jobRole: userData.jobRole || '',
@@ -1402,16 +1522,29 @@ const EmployeeDirectory = () => {
       currentlyAssignedAssets: userData.currentlyAssignedAssets || []
     };
     
+    // If editing self, we could also merge with latest localStorage data
+    if (isEditingSelf) {
+      const latestUserData = user.getCurrentUser();
+      if (latestUserData) {
+        formDataToSet = {
+          ...formDataToSet,
+          ...latestUserData,
+          department: latestUserData.department?._id || latestUserData.department || formDataToSet.department,
+          jobRole: latestUserData.jobRole || formDataToSet.jobRole,
+        };
+      }
+    }
+    
     resetEditForm(formDataToSet);
     handleMenuClose();
-  }, [resetEditForm, handleMenuClose]);
+  }, [resetEditForm, handleMenuClose, currentUserId, user]);
   
   const handleCancelEdit = useCallback(() => {
     setEditingUser(null);
     resetEditForm({});
   }, [resetEditForm]);
   
-  // Handle save
+  // Handle save - Updated with conditional API endpoint
   const handleSaveEdit = useCallback(async () => {
     if (!editingUser) {
       return;
@@ -1433,17 +1566,25 @@ const EmployeeDirectory = () => {
         updateData.department = updateData.department._id;
       }
       
-      if (updateData.jobRole && typeof updateData.jobRole === 'object') {
-        updateData.jobRole = updateData.jobRole._id || updateData.jobRole.id;
+      if (updateData.jobRole) {
+        const roleObj = jobRoles.find(r => r._id === updateData.jobRole);
+
+        if (roleObj) {
+          updateData.jobRole = roleObj.roleName.toLowerCase();
+        }
       }
-      
+
+     
       const isSelfEdit = currentUserId === userId;
       
-      if (!isCurrentUserAdmin) {
+      // Restrict updates based on user role - Only super_admin can edit all fields
+      if (!isSuperAdmin) {
+        // Non-super_admin users can only edit basic personal details
         const allowedFields = [
           'name', 'phone', 'dob', 'gender', 'maritalStatus', 'address',
           'fatherName', 'motherName', 'spouseName', 'children',
-          'emergencyName', 'emergencyPhone', 'emergencyRelation', 'emergencyAddress'
+          'emergencyName', 'emergencyPhone', 'emergencyRelation', 'emergencyAddress',
+          'city', 'state', 'zipCode', 'country'
         ];
         
         Object.keys(updateData).forEach(key => {
@@ -1453,6 +1594,7 @@ const EmployeeDirectory = () => {
         });
       }
       
+      // If editing self, remove sensitive fields even for super_admin
       if (isSelfEdit) {
         delete updateData.jobRole;
         delete updateData.department;
@@ -1460,6 +1602,7 @@ const EmployeeDirectory = () => {
         delete updateData.companyRole;
         delete updateData.employeeType;
         delete updateData.salary;
+        delete updateData.employeeId;
       }
       
       const fieldsToDelete = [
@@ -1487,34 +1630,74 @@ const EmployeeDirectory = () => {
         }
       };
       
-      const res = await axios.put(`/users/${userId}`, updateData, config);
+      // IMPORTANT: Use different API endpoints based on who is being edited
+      // - If editing own profile: PUT /users/me
+      // - If admin editing another user: PUT /users/:id
+      const apiUrl = isSelfEdit ? '/users/me' : `/users/${userId}`;
+      
+      console.log(`📝 Updating user: ${isSelfEdit ? 'Self-edit' : 'Admin edit'} - Endpoint: ${apiUrl}`);
+      console.log("FINAL PAYLOAD 👉", updateData);
+      
+      const res = await axios.put(apiUrl, updateData, config);
       
       if (res.data && res.data.success) {
-        const updatedUser = res.data.user || res.data.data;
+        const updatedUser = res.data.message?.user || res.data.user || res.data.data;
+
+        // ✅ UPDATE SELECTED USER (POPUP FIX)
+          if (selectedUser && (selectedUser._id === userId || selectedUser.id === userId)) {
+            setSelectedUser(updatedUser);
+          }
         
+        // Update employees list
         setEmployees(prev => prev.map(emp => 
-          (emp._id === userId || emp.id === userId) ? updatedUser : emp
+          (emp._id === userId || emp.id === userId) 
+            ? { ...updatedUser } 
+            : emp
         ));
-        
-        if (currentUserId === userId) {
+
+        if (selectedUser && (selectedUser._id === userId)) {
+          setSelectedUser(updatedUser);
+        }
+
+
+
+        // If editing self, update localStorage with the latest data
+        if (isSelfEdit) {
           const currentUserData = user.getCurrentUser();
-          const updatedCurrentUser = { ...currentUserData, ...updateData };
+          const updatedCurrentUser = { ...currentUserData, ...updateData, ...updatedUser };
           localStorage.setItem('user', JSON.stringify(updatedCurrentUser));
+          
+          // Also update companyDetails if the user object contains company info
+          const companyDetails = localStorage.getItem('companyDetails');
+          if (companyDetails && updatedUser.companyDetails) {
+            localStorage.setItem('companyDetails', JSON.stringify(updatedUser.companyDetails));
+          }
+          
+          showSnackbar('Your profile has been updated successfully');
+        } else {
+          showSnackbar(`${editingUser.name || 'Employee'} has been updated successfully`);
         }
         
         setEditingUser(null);
         resetEditForm({});
-        showSnackbar('Employee updated successfully');
-        fetchData();
+        await fetchData();
         
       } else {
         showSnackbar(res.data.message || 'Update failed', 'error');
       }
-      
+        
     } catch (err) {
       console.error("❌ Update failed:", err);
       const errorMessage = err.response?.data?.message || 'Failed to update employee';
-      showSnackbar(errorMessage, 'error');
+      
+      // Provide more specific error messages based on status code
+      if (err.response?.status === 403) {
+        showSnackbar('You do not have permission to edit this user', 'error');
+      } else if (err.response?.status === 404) {
+        showSnackbar('User not found', 'error');
+      } else {
+        showSnackbar(errorMessage, 'error');
+      }
     } finally {
       setSaving(false);
     }
@@ -1522,7 +1705,7 @@ const EmployeeDirectory = () => {
     editingUser, 
     editFormData, 
     currentUserId, 
-    isCurrentUserAdmin,
+    isSuperAdmin,
     showSnackbar, 
     resetEditForm, 
     user,
@@ -1536,9 +1719,9 @@ const EmployeeDirectory = () => {
     const canDelete = canDeleteUser(userData);
     
     if (!canDelete) {
-      const message = isCurrentUserAdmin ? 
+      const message = isSuperAdmin ? 
         'You cannot delete your own account' : 
-        'You do not have permission to delete users';
+        'Only super_admin can delete users';
       showSnackbar(message, 'error');
       handleMenuClose();
       return;
@@ -1547,10 +1730,20 @@ const EmployeeDirectory = () => {
     setUserToDelete(userData);
     setDeleteConfirmOpen(true);
     handleMenuClose();
-  }, [canDeleteUser, isCurrentUserAdmin, showSnackbar, handleMenuClose]);
+  }, [canDeleteUser, isSuperAdmin, showSnackbar, handleMenuClose]);
   
   const handleDeleteConfirm = useCallback(async () => {
     if (!userToDelete) {
+      return;
+    }
+    
+    const isSelfDelete = currentUserId === (userToDelete._id || userToDelete.id);
+    
+    // Prevent self-deletion
+    if (isSelfDelete) {
+      showSnackbar('You cannot delete your own account', 'error');
+      setDeleteConfirmOpen(false);
+      setUserToDelete(null);
       return;
     }
     
@@ -1582,7 +1775,7 @@ const EmployeeDirectory = () => {
           handleCloseUser();
         }
         
-        fetchData();
+      
         
       } else {
         showSnackbar(response.data.message || 'Delete failed', 'error');
@@ -1595,7 +1788,7 @@ const EmployeeDirectory = () => {
     } finally {
       setDeleting(false);
     }
-  }, [userToDelete, selectedUser, handleCloseUser, showSnackbar, fetchData, user.getAuthToken]);
+  }, [userToDelete, selectedUser, currentUserId, handleCloseUser, showSnackbar, fetchData, user.getAuthToken]);
   
   // Helper functions
   const formatPhoneNumber = useCallback((phone) => {
@@ -1736,7 +1929,7 @@ const EmployeeDirectory = () => {
   }
   
   return (
-    <div className="EmployeeDirectory">
+    <div className="EmployeeDirectory">      
       <div className="EmployeeDirectory-header">
         <div className="EmployeeDirectory-company-info">
           <div className="EmployeeDirectory-company-avatar"></div>
@@ -1744,12 +1937,17 @@ const EmployeeDirectory = () => {
             <h1 className="EmployeeDirectory-title">Employee Directory</h1>
             <p className="EmployeeDirectory-subtitle">
               {currentUserCompanyName || 'Company'} • {currentUserCompanyCode}
-              {!isCurrentUserAdmin && currentUserDepartmentId && (
+              {!isSuperAdmin && currentUserDepartmentId && (
                 <span className="EmployeeDirectory-department-badge">
                   • {getDepartmentName(currentUserDepartmentId)} Department
                 </span>
               )}
-              {isCurrentUserOwner && (
+              {isSuperAdmin && (
+                <span className="EmployeeDirectory-super-admin-badge">
+                  • Super Admin Access
+                </span>
+              )}
+              {isCurrentUserOwner && !isSuperAdmin && (
                 <span className="EmployeeDirectory-owner-badge">
                   • Company Owner
                 </span>
@@ -1857,7 +2055,7 @@ const EmployeeDirectory = () => {
         
         <div className="EmployeeDirectory-permission-note">
           <FiInfo size={16} />
-          <span>All users can view and edit employee information in this company.</span>
+          <span>{isSuperAdmin ? 'Super Admin: You have full edit access' : 'You can edit basic personal information, family details, and emergency contacts'}</span>
         </div>
       </div>
 
@@ -1926,6 +2124,7 @@ const EmployeeDirectory = () => {
               currentUserId={currentUserId}
               jobRoles={jobRoles}
               departments={departments}
+              isSuperAdmin={isSuperAdmin}
             />
           ))}
         </div>
@@ -1993,18 +2192,6 @@ const EmployeeDirectory = () => {
               >
                 <FiPhoneCall size={14} /> Emergency
               </button>
-              <button 
-                className={`EmployeeDirectory-tab ${activeTab === 'assets' ? 'active' : ''}`}
-                onClick={() => setActiveTab('assets')}
-              >
-                <FiSmartphone size={14} /> Assets
-              </button>
-              <button 
-                className={`EmployeeDirectory-tab ${activeTab === 'documents' ? 'active' : ''}`}
-                onClick={() => setActiveTab('documents')}
-              >
-                <FiFileText size={14} /> Documents
-              </button>
             </div>
             
             <div className="EmployeeDirectory-modal-content">
@@ -2049,6 +2236,34 @@ const EmployeeDirectory = () => {
                       <div className="EmployeeDirectory-detail-label">Address</div>
                       <div className="EmployeeDirectory-detail-value">{selectedUser.address || 'Not provided'}</div>
                     </div>
+
+                    {selectedUser.city && (
+                      <div className="EmployeeDirectory-detail-item">
+                        <div className="EmployeeDirectory-detail-label">City</div>
+                        <div className="EmployeeDirectory-detail-value">{selectedUser.city}</div>
+                      </div>
+                    )}
+
+                    {selectedUser.state && (
+                      <div className="EmployeeDirectory-detail-item">
+                        <div className="EmployeeDirectory-detail-label">State</div>
+                        <div className="EmployeeDirectory-detail-value">{selectedUser.state}</div>
+                      </div>
+                    )}
+
+                    {selectedUser.zipCode && (
+                      <div className="EmployeeDirectory-detail-item">
+                        <div className="EmployeeDirectory-detail-label">Zip Code</div>
+                        <div className="EmployeeDirectory-detail-value">{selectedUser.zipCode}</div>
+                      </div>
+                    )}
+
+                    {selectedUser.country && (
+                      <div className="EmployeeDirectory-detail-item">
+                        <div className="EmployeeDirectory-detail-label">Country</div>
+                        <div className="EmployeeDirectory-detail-value">{selectedUser.country}</div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -2114,6 +2329,20 @@ const EmployeeDirectory = () => {
                       <div className="EmployeeDirectory-detail-label">Reporting Manager</div>
                       <div className="EmployeeDirectory-detail-value">{selectedUser.reportingManager || 'Not assigned'}</div>
                     </div>
+
+                    {selectedUser.dateOfJoining && (
+                      <div className="EmployeeDirectory-detail-item">
+                        <div className="EmployeeDirectory-detail-label">Date of Joining</div>
+                        <div className="EmployeeDirectory-detail-value">{formatDate(selectedUser.dateOfJoining)}</div>
+                      </div>
+                    )}
+
+                    {selectedUser.workLocation && (
+                      <div className="EmployeeDirectory-detail-item">
+                        <div className="EmployeeDirectory-detail-label">Work Location</div>
+                        <div className="EmployeeDirectory-detail-value">{selectedUser.workLocation}</div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -2125,6 +2354,11 @@ const EmployeeDirectory = () => {
                     <FiCreditCard /> Bank Details
                   </h3>
                   <div className="EmployeeDirectory-detail-grid">
+                    <div className="EmployeeDirectory-detail-item">
+                      <div className="EmployeeDirectory-detail-label">Account Holder Name</div>
+                      <div className="EmployeeDirectory-detail-value">{selectedUser.bankHolderName || 'Not provided'}</div>
+                    </div>
+                    
                     <div className="EmployeeDirectory-detail-item">
                       <div className="EmployeeDirectory-detail-label">Account Number</div>
                       <div className="EmployeeDirectory-detail-value">{selectedUser.accountNumber || 'Not provided'}</div>
@@ -2138,11 +2372,6 @@ const EmployeeDirectory = () => {
                     <div className="EmployeeDirectory-detail-item">
                       <div className="EmployeeDirectory-detail-label">Bank Name</div>
                       <div className="EmployeeDirectory-detail-value">{selectedUser.bankName || 'Not provided'}</div>
-                    </div>
-                    
-                    <div className="EmployeeDirectory-detail-item">
-                      <div className="EmployeeDirectory-detail-label">Account Holder Name</div>
-                      <div className="EmployeeDirectory-detail-value">{selectedUser.bankHolderName || 'Not provided'}</div>
                     </div>
                   </div>
                 </div>
@@ -2217,102 +2446,18 @@ const EmployeeDirectory = () => {
                   </div>
                 </div>
               )}
-
-              {/* Assets Tab */}
-              {activeTab === 'assets' && (
-                <div className="EmployeeDirectory-modal-section">
-                  <h3 className="EmployeeDirectory-section-title">
-                    <FiSmartphone /> Assets
-                  </h3>
-                  
-                  {selectedUser.properties && selectedUser.properties.length > 0 && (
-                    <div>
-                      <h4 className="EmployeeDirectory-subsection-title">Assigned Assets</h4>
-                      <div className="EmployeeDirectory-assets-list">
-                        {selectedUser.properties.map((asset, index) => (
-                          <div key={index} className="EmployeeDirectory-asset-badge">
-                            {assetIcons[asset] || <FiSmartphone size={14} />}
-                            <span>{asset.charAt(0).toUpperCase() + asset.slice(1)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {selectedUser.propertyOwned && (
-                    <div className="EmployeeDirectory-detail-item" style={{ marginTop: '16px' }}>
-                      <div className="EmployeeDirectory-detail-label">Property Owned</div>
-                      <div className="EmployeeDirectory-detail-value">{selectedUser.propertyOwned}</div>
-                    </div>
-                  )}
-                  
-                  {selectedUser.additionalDetails && (
-                    <div className="EmployeeDirectory-detail-item" style={{ marginTop: '16px' }}>
-                      <div className="EmployeeDirectory-detail-label">Additional Details</div>
-                      <div className="EmployeeDirectory-detail-value">{selectedUser.additionalDetails}</div>
-                    </div>
-                  )}
-
-                  {selectedUser.currentlyAssignedAssets && selectedUser.currentlyAssignedAssets.length > 0 && (
-                    <div style={{ marginTop: '16px' }}>
-                      <h4 className="EmployeeDirectory-subsection-title">Currently Assigned Assets</h4>
-                      <div className="EmployeeDirectory-assets-list">
-                        {selectedUser.currentlyAssignedAssets.map((asset, index) => (
-                          <div key={index} className="EmployeeDirectory-asset-badge">
-                            {assetIcons[asset.type] || <FiSmartphone size={14} />}
-                            <span>{asset.name || asset.type}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Documents Tab */}
-              {activeTab === 'documents' && (
-                <div className="EmployeeDirectory-modal-section">
-                  <h3 className="EmployeeDirectory-section-title">
-                    <FiFileText /> Documents
-                  </h3>
-                  
-                  {selectedUser.documents && selectedUser.documents.length > 0 ? (
-                    <div className="EmployeeDirectory-documents-list">
-                      {selectedUser.documents.map((doc, index) => (
-                        <div key={index} className="EmployeeDirectory-document-item">
-                          <FiFileText size={20} />
-                          <div className="EmployeeDirectory-document-info">
-                            <div className="EmployeeDirectory-document-name">{doc.name}</div>
-                            <div className="EmployeeDirectory-document-type">{doc.type}</div>
-                          </div>
-                          {doc.url && (
-                            <a 
-                              href={doc.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="EmployeeDirectory-document-link"
-                            >
-                              View
-                            </a>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="EmployeeDirectory-empty-text">No documents uploaded</p>
-                  )}
-                </div>
-              )}
             </div>
             
             <div className="EmployeeDirectory-modal-footer">
-              <button 
-                className="EmployeeDirectory-btn EmployeeDirectory-btn-outlined"
-                onClick={() => handleEdit(selectedUser)}
-                style={{ marginRight: '8px' }}
-              >
-                <FiEdit size={14} /> Edit
-              </button>
+              {isSuperAdmin && (
+                <button 
+                  className="EmployeeDirectory-btn EmployeeDirectory-btn-contained"
+                  onClick={() => handleEdit(selectedUser)}
+                  style={{ marginRight: '8px' }}
+                >
+                  <FiEdit size={14} /> Edit Employee
+                </button>
+              )}
               <button className="EmployeeDirectory-btn EmployeeDirectory-btn-outlined" onClick={handleCloseUser}>
                 Close
               </button>
@@ -2328,9 +2473,11 @@ const EmployeeDirectory = () => {
             <div className="EmployeeDirectory-modal-header">
               <div className="EmployeeDirectory-modal-header-content">
                 <h2 className="EmployeeDirectory-modal-title">
-                  {currentUserId === (editingUser._id || editingUser.id) ? 'Edit Your Profile' : 'Edit Employee'}
+                  {currentUserId === (editingUser._id || editingUser.id) ? 'Edit Your Profile' : `Edit ${editingUser.name}`}
                 </h2>
-                <div className="EmployeeDirectory-modal-subtitle">{editingUser.name}</div>
+                <div className="EmployeeDirectory-modal-subtitle">
+                  Update employee information across all sections
+                </div>
               </div>
               <button className="EmployeeDirectory-modal-close" onClick={handleCancelEdit}>
                 <FiX size={20} />
@@ -2347,6 +2494,7 @@ const EmployeeDirectory = () => {
                 isCurrentUserAdmin={isCurrentUserAdmin}
                 isSelfEdit={currentUserId === (editingUser._id || editingUser.id)}
                 currentUserId={currentUserId}
+                isSuperAdmin={isSuperAdmin}
               />
             </div>
             
@@ -2370,7 +2518,7 @@ const EmployeeDirectory = () => {
                   </>
                 ) : (
                   <>
-                    <FiSave size={14} /> Save Changes
+                    <FiSave size={14} /> Save All Changes
                   </>
                 )}
               </button>
@@ -2439,8 +2587,8 @@ const EmployeeDirectory = () => {
         </div>
       )}
 
-      {/* Context Menu */}
-      {menuAnchorEl && selectedMenuUser && (
+      {/* Context Menu - Only visible to super_admin */}
+      {isSuperAdmin && menuAnchorEl && selectedMenuUser && (
         <>
           <div 
             className="EmployeeDirectory-modal-overlay"
@@ -2466,7 +2614,7 @@ const EmployeeDirectory = () => {
               onClick={() => handleEdit(selectedMenuUser)}
             >
               <FiEdit size={16} color="#1976d2" />
-              <span className="EmployeeDirectory-menu-item-text">Edit</span>
+              <span className="EmployeeDirectory-menu-item-text">Edit Employee</span>
             </button>
             
             {canDeleteUser(selectedMenuUser) && (
@@ -2476,7 +2624,7 @@ const EmployeeDirectory = () => {
                 style={{ color: '#d32f2f' }}
               >
                 <FiTrash2 size={16} color="#d32f2f" />
-                <span className="EmployeeDirectory-menu-item-text">Delete</span>
+                <span className="EmployeeDirectory-menu-item-text">Delete Employee</span>
               </button>
             )}
           </div>

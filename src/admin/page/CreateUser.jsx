@@ -759,7 +759,7 @@ const CreateUser = () => {
             <div className="CreateUser-form-row">
               <div className="CreateUser-form-group">
                 <label htmlFor="gender" className="CreateUser-label">
-                  Gender <span className="CreateUser-required-star">*</span>
+                  Gender <span className="CreateUser-required-star"></span>
                 </label>
                 <div className="CreateUser-select-wrapper">
                   <span className="CreateUser-select-icon">⚥</span>
@@ -769,7 +769,7 @@ const CreateUser = () => {
                     value={form.gender}
                     onChange={handleSelectChange}
                     className="CreateUser-select"
-                    required
+                    
                   >
                     <option value="">Select Gender</option>
                     {genderOptions.map(option => (
@@ -784,7 +784,7 @@ const CreateUser = () => {
 
               <div className="CreateUser-form-group">
                 <label htmlFor="maritalStatus" className="CreateUser-label">
-                  Marital Status <span className="CreateUser-required-star">*</span>
+                  Marital Status <span className="CreateUser-required-star"></span>
                 </label>
                 <div className="CreateUser-select-wrapper">
                   <span className="CreateUser-select-icon">💍</span>
@@ -794,7 +794,7 @@ const CreateUser = () => {
                     value={form.maritalStatus}
                     onChange={handleSelectChange}
                     className="CreateUser-select"
-                    required
+                    
                   >
                     <option value="">Select Marital Status</option>
                     {maritalStatusOptions.map(option => (
@@ -812,7 +812,7 @@ const CreateUser = () => {
             <div className="CreateUser-form-row">
               <div className="CreateUser-form-group">
                 <label htmlFor="dob" className="CreateUser-label">
-                  Date of Birth <span className="CreateUser-required-star">*</span>
+                  Date of Birth <span className="CreateUser-required-star"></span>
                 </label>
                 <div className="CreateUser-input-wrapper">
                   <span className="CreateUser-input-icon">🎂</span>
@@ -823,14 +823,14 @@ const CreateUser = () => {
                     value={form.dob}
                     onChange={handleTextChange}
                     className="CreateUser-input"
-                    required
+                    
                   />
                 </div>
               </div>
 
               <div className="CreateUser-form-group">
                 <label htmlFor="phone" className="CreateUser-label">
-                  Phone Number <span className="CreateUser-required-star">*</span>
+                  Phone Number <span className="CreateUser-required-star"></span>
                 </label>
                 <div className="CreateUser-input-wrapper">
                   <span className="CreateUser-input-icon">📞</span>
@@ -843,7 +843,7 @@ const CreateUser = () => {
                     className="CreateUser-input"
                     placeholder="Enter 10 digit number"
                     maxLength="10"
-                    required
+                    
                   />
                 </div>
                 <small className="CreateUser-helper-text">10 digits only</small>
@@ -861,7 +861,7 @@ const CreateUser = () => {
           <div className="CreateUser-form-grid">
             <div className="CreateUser-form-group CreateUser-full-width">
               <label htmlFor="address" className="CreateUser-label">
-                Address <span className="CreateUser-required-star">*</span>
+                Address <span className="CreateUser-required-star"></span>
               </label>
               <div className="CreateUser-input-wrapper">
                 <span className="CreateUser-input-icon CreateUser-textarea-icon">🏠</span>
@@ -873,7 +873,6 @@ const CreateUser = () => {
                   className="CreateUser-textarea"
                   placeholder="Enter full address"
                   rows="3"
-                  required
                 ></textarea>
               </div>
             </div>

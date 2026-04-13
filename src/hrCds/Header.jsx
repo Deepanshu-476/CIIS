@@ -56,6 +56,179 @@ const Header = ({ toggleSidebar, isMobile }) => {
     message: "",
     type: "info"
   });
+  const [overdueTasks, setOverdueTasks] = useState(new Set()); // Track notified overdue tasks
+
+  // Local unread count state - single source of truth
+  const [localUnreadCount, setLocalUnreadCount] = useState(0);
+
+  // Helper function to combine dueDate and dueTime
+  const combineDateTime = (dueDate, dueTime) => {
+    if (!dueDate) return null;
+    
+    try {
+      // Parse the date
+      let dateObj;
+      if (dueDate instanceof Date) {
+        dateObj = dueDate;
+      } else {
+        dateObj = new Date(dueDate);
+      }
+      
+      // If date is invalid, return null
+      if (isNaN(dateObj.getTime())) return null;
+      
+      // If time is provided, combine it
+      if (dueTime) {
+        const [hours, minutes] = dueTime.split(':');
+        if (hours && minutes) {
+          dateObj.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+        }
+      } else {
+        // Default to end of day if no time specified
+        dateObj.setHours(23, 59, 59, 999);
+      }
+      
+      return dateObj;
+    } catch (error) {
+      console.error('Error combining date/time:', error);
+      return null;
+    }
+  };
+
+  // Function to trigger vibration (if supported)
+  const triggerVibration = (pattern = 200) => {
+    if (window.navigator && window.navigator.vibrate) {
+      window.navigator.vibrate(pattern);
+    }
+  };
+
+  // Function to check for overdue tasks
+  const checkOverdueTasks = (tasks) => {
+    const now = new Date();
+    const newlyOverdue = [];
+    
+    tasks.forEach(task => {
+      // Skip if task is already completed
+      if (task.status === 'completed' || task.status === 'Completed') {
+        return;
+      }
+      
+      // Combine dueDate and dueTime
+      const dueDateTime = combineDateTime(task.dueDate, task.dueTime);
+      
+      // Skip if no due date
+      if (!dueDateTime) return;
+      
+      // Check if task is overdue
+      const isOverdue = dueDateTime < now;
+      
+      // Check if we've already notified for this task
+      const taskId = task._id || task.id;
+      const alreadyNotified = overdueTasks.has(taskId);
+      
+      if (isOverdue && !alreadyNotified) {
+        newlyOverdue.push({
+          ...task,
+          dueDateTime,
+          overdueMinutes: Math.floor((now - dueDateTime) / (1000 * 60))
+        });
+      }
+    });
+    
+    // Process newly overdue tasks
+    if (newlyOverdue.length > 0) {
+      // Trigger vibration
+      triggerVibration([200, 100, 200]);
+      
+      // Show notifications for each overdue task
+      newlyOverdue.forEach(task => {
+        const overdueMinutes = task.overdueMinutes;
+        const overdueHours = Math.floor(overdueMinutes / 60);
+        const overdueText = overdueHours > 0 
+          ? `${overdueHours} hour${overdueHours > 1 ? 's' : ''} and ${overdueMinutes % 60} minute${(overdueMinutes % 60) !== 1 ? 's' : ''}`
+          : `${overdueMinutes} minute${overdueMinutes !== 1 ? 's' : ''}`;
+        
+        // Show toast notification
+        showToast(
+          `⚠️ Task Overdue: "${task.title}" is overdue by ${overdueText}!`,
+          'warning',
+          8000
+        );
+        
+        // Add to notifications list
+        setNotifications(prev => {
+          const formattedNotification = {
+            id: `overdue-${task._id || Date.now()}-${Date.now()}`,
+            msg: `⚠️ OVERDUE TASK: "${task.title}" - Due ${dueDateTime.toLocaleString()} (Overdue by ${overdueText})`,
+            time: new Date(),
+            type: 'error',
+            read: false,
+            category: 'overdue',
+            data: task
+          };
+          
+          // Check if already exists to prevent duplicates
+          const exists = prev.some(n => n.id === formattedNotification.id);
+          if (!exists) {
+            return [formattedNotification, ...prev];
+          }
+          return prev;
+        });
+        
+        // Update unread count
+        setLocalUnreadCount(prev => {
+          const newCount = prev + 1;
+          localStorage.setItem('unreadCount', newCount);
+          return newCount;
+        });
+        
+        // Mark task as notified
+        setOverdueTasks(prev => new Set([...prev, task._id || task.id]));
+      });
+      
+      // Show consolidated notification for multiple overdue tasks
+      if (newlyOverdue.length > 1) {
+        showToast(
+          `⚠️ ${newlyOverdue.length} tasks are overdue! Please check your tasks.`,
+          'error',
+          8000
+        );
+      }
+    }
+    
+    return newlyOverdue;
+  };
+
+  // ========== FETCH INITIAL UNREAD COUNT FROM BACKEND ==========
+  const fetchUnreadCount = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const response = await axios.get(`${API_URL}/notifications/unread-count`, { headers });
+      
+      const count = response.data?.data?.unreadCount || 0;
+      setLocalUnreadCount(count);
+      localStorage.setItem('unreadCount', count);
+      console.log('📊 Initial unread count:', count);
+      
+    } catch (err) {
+      console.error("Error fetching unread count:", err);
+      // Fallback: count from notifications if API fails
+      const storedUnread = localStorage.getItem('unreadCount');
+      if (storedUnread) {
+        setLocalUnreadCount(parseInt(storedUnread, 10));
+      }
+    }
+  };
+
+  useEffect(() => {
+    const stored = localStorage.getItem('unreadCount');
+    if (stored) {
+      setLocalUnreadCount(parseInt(stored, 10));
+    }
+  }, []);
 
   // ========== SOCKET NOTIFICATION LISTENER ==========
   useEffect(() => {
@@ -65,24 +238,31 @@ const Header = ({ toggleSidebar, isMobile }) => {
     const unsubscribe = onNewNotification((notification) => {
       console.log('📢 Header: New notification received:', notification);
       
-      // Add to notifications list
+      // Add to notifications list and update count
       setNotifications(prev => {
-        // Check if already exists
-        const exists = prev.some(n => n._id === notification._id);
+        // Check if notification already exists
+        const exists = prev.some(n => n._id === notification._id || n.id === notification.id);
+        
         if (!exists) {
-          // Show toast for new notification
-          showToast(notification.message || 'New notification', 
-            notification.type === 'error' ? 'error' : 
-            notification.type === 'success' ? 'success' : 'info', 
-            5000
-          );
+          showToast(notification.message || 'New notification', 'info', 5000);
+
+          setLocalUnreadCount(prevCount => {
+            const newCount = prevCount + 1;
+            localStorage.setItem('unreadCount', newCount);
+            return newCount;
+          });
+
+          const formattedNotification = {
+            ...notification,
+            id: notification._id || notification.id,
+            read: false,
+          };
           
-          return [notification, ...prev];
+          return [formattedNotification, ...prev];
         }
+        
         return prev;
       });
-      
-      // Update unread count is handled by socket context
     });
 
     return () => {
@@ -90,10 +270,11 @@ const Header = ({ toggleSidebar, isMobile }) => {
     };
   }, [onNewNotification, showToast]);
 
-  // ========== FETCH INITIAL NOTIFICATIONS ==========
+  // ========== FETCH INITIAL NOTIFICATIONS AND UNREAD COUNT ==========
   useEffect(() => {
     if (!hasFetched) {
       fetchNotifications();
+      fetchUnreadCount(); 
     }
     
     // Set up interval to refresh notifications every 2 minutes
@@ -125,15 +306,17 @@ const Header = ({ toggleSidebar, isMobile }) => {
       ] = await Promise.allSettled([
         axios.get(`${API_URL}/attendance/list`, { headers }),
         axios.get(`${API_URL}/leaves/status`, { headers }),
-        axios.get(`${API_URL}/assets/my-requests`, { headers }),
+        axios.get(`${API_URL}/asset-requests/my-requests`, { headers }),
         axios.get(`${API_URL}/task/my`, { headers }),
         axios.get(`${API_URL}/task/assigned`, { headers }),
         axios.get(`${API_URL}/groups`, { headers }),
         axios.get(`${API_URL}/alerts`, { headers }),
       ]);
+      
 
       const all = [];
       const today = new Date().toDateString();
+      const now = new Date();
 
       const formatTime = (dateStr) => {
         if (!dateStr) return "";
@@ -201,8 +384,10 @@ const Header = ({ toggleSidebar, isMobile }) => {
         });
       });
 
-      // My Tasks (Skip completed)
+      // My Tasks with overdue checking
       const groupedTasks = myTasksRes.value?.data?.groupedTasks || {};
+      const allTasks = [];
+      
       Object.keys(groupedTasks).forEach((dateKey) => {
         groupedTasks[dateKey].forEach((t) => {
           const status =
@@ -210,29 +395,78 @@ const Header = ({ toggleSidebar, isMobile }) => {
               (s) => s.userId === user?._id || s.user === user?._id
             )?.status || "N/A";
 
+          // Store task for overdue checking
+          if (status.toLowerCase() !== "completed") {
+            allTasks.push(t);
+          }
+
           if (status.toLowerCase() === "completed") return;
 
+          // Combine dueDate and dueTime for display
+          const dueDateTime = combineDateTime(t.dueDate, t.dueTime);
+          const dueDateTimeStr = dueDateTime ? dueDateTime.toLocaleString() : 'No due date';
+          
+          // Check if overdue for highlighting
+          const isOverdue = dueDateTime && dueDateTime < now && status.toLowerCase() !== "completed";
+          
           all.push({
             id: `task-${t._id || Date.now()}`,
-            msg: `🧾 Task Update: ${t.title} (${status})`,
+            msg: isOverdue 
+              ? `⚠️ OVERDUE: ${t.title} (${status}) - Due: ${dueDateTimeStr}`
+              : `🧾 Task Update: ${t.title} (${status})`,
             time: t.createdAt,
-            type: 'info',
+            type: isOverdue ? 'error' : 'info',
             read: false,
-            category: 'task'
+            category: 'task',
+            isOverdue: isOverdue,
+            dueDateTime: dueDateTime,
+            taskData: t
           });
         });
       });
+
+      // Check for overdue tasks and trigger notifications
+      const overdueTasksList = checkOverdueTasks(allTasks);
+      
+      // If we found overdue tasks, add them to notifications with priority
+      if (overdueTasksList.length > 0) {
+        overdueTasksList.forEach(task => {
+          const dueDateTime = combineDateTime(task.dueDate, task.dueTime);
+          const overdueMinutes = Math.floor((now - dueDateTime) / (1000 * 60));
+          const overdueHours = Math.floor(overdueMinutes / 60);
+          const overdueText = overdueHours > 0 
+            ? `${overdueHours}h ${overdueMinutes % 60}m`
+            : `${overdueMinutes}m`;
+          
+          all.unshift({
+            id: `overdue-priority-${task._id || Date.now()}`,
+            msg: `🔴 CRITICAL: Task "${task.title}" is overdue by ${overdueText}! Please complete immediately.`,
+            time: new Date(),
+            type: 'error',
+            read: false,
+            category: 'overdue',
+            priority: 'high',
+            taskData: task
+          });
+        });
+      }
 
       // Assigned Tasks (Skip completed)
       const assignedTaskData = assignedTasksRes.value?.data?.data || [];
       assignedTaskData.forEach((t) => {
         if (t.status?.toLowerCase() === "completed") return;
-
+        
+        // Combine dueDate and dueTime for assigned tasks
+        const dueDateTime = combineDateTime(t.dueDate, t.dueTime);
+        const isOverdue = dueDateTime && dueDateTime < now;
+        
         all.push({
           id: `assigned-${t._id || Date.now()}`,
-          msg: `📋 New Task Assigned: ${t.title} (${t.status})`,
+          msg: isOverdue
+            ? `⚠️ OVERDUE Assigned Task: ${t.title} (${t.status})`
+            : `📋 New Task Assigned: ${t.title} (${t.status})`,
           time: t.createdAt,
-          type: 'info',
+          type: isOverdue ? 'error' : 'info',
           read: false,
           category: 'task'
         });
@@ -264,17 +498,30 @@ const Header = ({ toggleSidebar, isMobile }) => {
         });
       });
 
-      // ✅ Sorting Latest First + Only Today's Notifications
-      const sorted = all.sort((a, b) => new Date(b.time) - new Date(a.time));
-      const todayNotifications = sorted.filter(
-        (n) => new Date(n.time).toDateString() === today
+      // ✅ Sorting Latest First + Prioritize Overdue Tasks
+      const sorted = all.sort((a, b) => {
+        // Prioritize overdue tasks
+        if (a.category === 'overdue' && b.category !== 'overdue') return -1;
+        if (a.category !== 'overdue' && b.category === 'overdue') return 1;
+        // Then sort by time
+        return new Date(b.time) - new Date(a.time);
+      });
+      
+      // Filter for today's notifications but keep overdue tasks regardless of date
+      const filteredNotifications = sorted.filter(
+        (n) => n.category === 'overdue' || new Date(n.time).toDateString() === today
       );
 
-      setNotifications(todayNotifications);
+      setNotifications(filteredNotifications);
       setHasFetched(true);
       
-      if (!silent && todayNotifications.length > 0) {
-        showToast(`${todayNotifications.length} new notification(s)`, 'info', 3000);
+      if (!silent && filteredNotifications.length > 0) {
+        const overdueCount = filteredNotifications.filter(n => n.category === 'overdue').length;
+        if (overdueCount > 0) {
+          showToast(`⚠️ ${overdueCount} overdue task${overdueCount > 1 ? 's' : ''} found!`, 'error', 5000);
+        } else {
+          showToast(`${filteredNotifications.length} new notification(s)`, 'info', 3000);
+        }
       }
       
     } catch (err) {
@@ -286,6 +533,16 @@ const Header = ({ toggleSidebar, isMobile }) => {
       if (!silent) setLoading(false);
     }
   };
+
+  // ========== PERIODIC OVERDUE CHECK ==========
+  useEffect(() => {
+    // Check for overdue tasks every minute
+    const overdueCheckInterval = setInterval(() => {
+      fetchNotifications(true); // Silent refresh to check for overdue tasks
+    }, 60000); // Check every minute
+    
+    return () => clearInterval(overdueCheckInterval);
+  }, []);
 
   // ========== HANDLE NOTIFICATION CLICK ==========
   const handleNotificationClick = async (e) => {
@@ -304,6 +561,13 @@ const Header = ({ toggleSidebar, isMobile }) => {
     try {
       // Remove from notifications list
       setNotifications(prev => prev.filter((_, i) => i !== index));
+      
+      // Decrease local unread count (don't go below 0)
+      setLocalUnreadCount(prev => {
+        const newCount = Math.max(0, prev - 1);
+        localStorage.setItem('unreadCount', newCount);
+        return newCount;
+      });
       
       // If it has an ID, mark as read via socket
       if (notification._id) {
@@ -329,7 +593,11 @@ const Header = ({ toggleSidebar, isMobile }) => {
       
       await Promise.all(promises);
       
+      // Clear notifications and reset unread count to 0
       setNotifications([]);
+      setLocalUnreadCount(0);
+      localStorage.setItem('unreadCount', 0);
+      
       showToast('All notifications marked as read', 'success', 3000);
     } catch (error) {
       console.error('Error marking all as read:', error);
@@ -370,6 +638,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
     if (result.isConfirmed) {
       localStorage.removeItem("user");
       localStorage.removeItem("token");
+      localStorage.removeItem('unreadCount');
       navigate("/login");
 
       Swal.fire({
@@ -502,7 +771,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
                 }}
               >
                 <Badge 
-                  badgeContent={unreadCount} 
+                  badgeContent={localUnreadCount || notifications.length}
                   color="error" 
                   overlap="circular"
                   sx={{
@@ -512,6 +781,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
                       minWidth: isMobile ? 18 : 20,
                       height: isMobile ? 18 : 20,
                       borderRadius: '50%',
+                      marginTop: '-10px',
                       boxShadow: '0 2px 8px rgba(244, 67, 54, 0.4)',
                     }
                   }}
@@ -519,7 +789,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
                   <NotificationsIcon 
                     sx={{ 
                       fontSize: isMobile ? 20 : 24,
-                      animation: unreadCount > 0 ? 'pulse 2s infinite' : 'none',
+                      animation: localUnreadCount > 0 ? 'pulse 2s infinite' : 'none',
                       '@keyframes pulse': {
                         '0%': { transform: 'scale(1)' },
                         '50%': { transform: 'scale(1.1)' },
@@ -576,7 +846,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
                     Notifications
                   </Typography>
                   <Typography variant="caption" sx={{ opacity: 0.9, fontSize: '0.75rem' }}>
-                    {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up!'}
+                    {localUnreadCount > 0 ? `${localUnreadCount} unread` : 'All caught up!'}
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1 }}>
@@ -660,10 +930,12 @@ const Header = ({ toggleSidebar, isMobile }) => {
                         gap: 1,
                         p: 2,
                         borderBottom: i < notifications.length - 1 ? '1px solid rgba(0,0,0,0.04)' : 'none',
-                        backgroundColor: "transparent",
+                        backgroundColor: n.category === 'overdue' ? 'rgba(244, 67, 54, 0.05)' : "transparent",
                         position: 'relative',
                         "&:hover": {
-                          backgroundColor: "rgba(102, 126, 234, 0.05)",
+                          backgroundColor: n.category === 'overdue' 
+                            ? 'rgba(244, 67, 54, 0.1)' 
+                            : "rgba(102, 126, 234, 0.05)",
                           transform: 'translateX(4px)',
                         },
                         transition: 'all 0.2s ease',
@@ -675,11 +947,9 @@ const Header = ({ toggleSidebar, isMobile }) => {
                           top: 0,
                           bottom: 0,
                           width: '3px',
-                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                          opacity: 0,
-                          transition: 'opacity 0.3s ease',
-                        },
-                        '&:hover::before': {
+                          background: n.category === 'overdue' 
+                            ? 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)'
+                            : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                           opacity: 1,
                         }
                       }}
@@ -692,7 +962,11 @@ const Header = ({ toggleSidebar, isMobile }) => {
                       }}>
                         {/* Notification Icon */}
                         <Box sx={{ mt: 0.5 }}>
-                          {getNotificationIcon(n.type)}
+                          {n.category === 'overdue' ? (
+                            <ErrorIcon sx={{ color: '#f44336', fontSize: 20 }} />
+                          ) : (
+                            getNotificationIcon(n.type)
+                          )}
                         </Box>
                         
                         {/* Notification Content */}
@@ -700,9 +974,9 @@ const Header = ({ toggleSidebar, isMobile }) => {
                           <Typography 
                             variant="body2" 
                             sx={{ 
-                              fontWeight: 500, 
+                              fontWeight: n.category === 'overdue' ? 700 : 500, 
                               lineHeight: 1.4,
-                              color: 'text.primary',
+                              color: n.category === 'overdue' ? '#d32f2f' : 'text.primary',
                               fontSize: '0.875rem',
                               mb: 0.5
                             }}
@@ -816,6 +1090,9 @@ const Header = ({ toggleSidebar, isMobile }) => {
                     sx={{ fontWeight: 500 }}
                   >
                     {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
+                    {notifications.filter(n => n.category === 'overdue').length > 0 && 
+                      ` (${notifications.filter(n => n.category === 'overdue').length} overdue)`
+                    }
                   </Typography>
                 </Box>
               )}

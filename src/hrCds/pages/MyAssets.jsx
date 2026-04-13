@@ -22,6 +22,8 @@ import {
 } from "react-icons/fi";
 import "../Css/MyAssets.css";
 import CIISLoader from '../../Loader/CIISLoader';
+import { useSocket } from "../../context/SocketContext";
+import { useNotification } from "../../context/NotificationContext";
 
 const MyAssets = () => {
   const [newAsset, setNewAsset] = useState("");
@@ -46,6 +48,10 @@ const MyAssets = () => {
 
   // ✅ Allowed assets for dropdown
   const [allowedAssets, setAllowedAssets] = useState([]);
+
+  // ✅ Initialize socket and notification hooks
+  const socketContext = useSocket();
+  const { showToast } = useNotification();
 
   // Check mobile viewport
   useEffect(() => {
@@ -117,10 +123,7 @@ const MyAssets = () => {
       
     } catch (err) {
       console.error("❌ Failed to fetch company assets:", err);
-      setNotification({
-        message: "Failed to load company assets",
-        severity: "error",
-      });
+      showToast("Failed to load company assets", "error", 4000);
     }
   };
 
@@ -149,13 +152,13 @@ const MyAssets = () => {
     return 'primary';
   };
 
-  // ✅ FIXED: Fetch user's asset requests from asset-requests API
+  // ✅ Fetch user's asset requests from asset-requests API
   const fetchRequests = async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
     
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get("/asset-requests/my-requests", {  // ✅ FIXED: Changed from /assets/my-requests to /asset-requests/my-requests
+      const res = await axios.get("/asset-requests/my-requests", {
         headers: { Authorization: `Bearer ${token}` },
       });
       
@@ -172,17 +175,11 @@ const MyAssets = () => {
       calculateStats(data);
       
       if (showRefresh) {
-        setNotification({
-          message: "✅ Asset data refreshed!",
-          severity: "success",
-        });
+        showToast("✅ Asset data refreshed!", "success", 3000);
       }
     } catch (err) {
       console.error("❌ Failed to fetch requests:", err);
-      setNotification({
-        message: "Failed to fetch requests",
-        severity: "error",
-      });
+      showToast("Failed to fetch requests", "error", 4000);
     } finally {
       setRefreshing(false);
     }
@@ -202,6 +199,77 @@ const MyAssets = () => {
       approvalRate: data.length > 0 ? Math.round((approved / data.length) * 100) : 0,
     });
   };
+
+  // ✅ Listen for real-time socket notifications
+  useEffect(() => {
+    // Function to handle incoming notifications
+    const handleNotification = (notificationData) => {
+      console.log("🔔 Real-time notification received (MyAssets):", notificationData);
+      
+      // Show toast notification
+      if (notificationData && notificationData.message) {
+        showToast(notificationData.message, "info", 4000);
+      }
+      
+      // Refresh data to reflect changes
+      fetchRequests();
+      fetchCompanyAssets();
+    };
+
+    // Try to get socket from context in different possible ways
+    let socket = null;
+    let cleanupFunctions = [];
+
+    // Check if socketContext has a socket property
+    if (socketContext && socketContext.socket && typeof socketContext.socket.on === 'function') {
+      socket = socketContext.socket;
+      console.log("✅ Using socket from context.socket");
+    } 
+    // Check if socketContext itself is the socket
+    else if (socketContext && typeof socketContext.on === 'function') {
+      socket = socketContext;
+      console.log("✅ Using socket context directly as socket");
+    }
+    // Check if socketContext has a getSocket method
+    else if (socketContext && typeof socketContext.getSocket === 'function') {
+      socket = socketContext.getSocket();
+      if (socket && typeof socket.on === 'function') {
+        console.log("✅ Using socket from getSocket()");
+      }
+    }
+
+    // If we have a valid socket, set up event listeners
+    if (socket && typeof socket.on === 'function') {
+      // Listen to various notification events
+      const events = ['notification', 'asset-request-update', 'asset-update', 'new_notification'];
+      
+      events.forEach(eventName => {
+        socket.on(eventName, handleNotification);
+        cleanupFunctions.push(() => socket.off(eventName, handleNotification));
+      });
+      
+      console.log(`✅ Socket listeners registered for events: ${events.join(', ')}`);
+    } else {
+      console.warn("⚠️ Socket not available for real-time notifications");
+      // Fallback: Poll for updates every 30 seconds
+      const intervalId = setInterval(() => {
+        console.log("🔄 Fallback: Polling for updates");
+        fetchRequests();
+        fetchCompanyAssets();
+      }, 30000);
+      
+      cleanupFunctions.push(() => clearInterval(intervalId));
+    }
+    
+    // Cleanup subscription on component unmount
+    return () => {
+      cleanupFunctions.forEach(cleanup => {
+        if (typeof cleanup === 'function') {
+          cleanup();
+        }
+      });
+    };
+  }, [socketContext, showToast]);
 
   // Load all data on mount
   useEffect(() => {
@@ -227,10 +295,10 @@ const MyAssets = () => {
     loadData();
   }, []);
 
-  // ✅ FIXED: Handle asset request using asset-requests API
+  // ✅ Handle asset request using asset-requests API
   const handleRequest = async () => {
     if (!newAsset) {
-      setNotification({ message: "Please select an asset.", severity: "error" });
+      showToast("Please select an asset.", "error", 4000);
       return;
     }
 
@@ -238,16 +306,13 @@ const MyAssets = () => {
     const selectedAsset = companyAssets.find(asset => asset._id === newAsset);
 
     if (!selectedAsset) {
-      setNotification({ message: "Invalid asset selected.", severity: "error" });
+      showToast("Invalid asset selected.", "error", 4000);
       return;
     }
 
     // Check if asset is available
     if (selectedAsset.status !== 'Available') {
-      setNotification({ 
-        message: `❌ This asset is ${selectedAsset.status}. Only Available assets can be requested.`, 
-        severity: "error" 
-      });
+      showToast(`❌ This asset is ${selectedAsset.status}. Only Available assets can be requested.`, "error", 4000);
       return;
     }
 
@@ -255,7 +320,7 @@ const MyAssets = () => {
     try {
       const token = localStorage.getItem("token");
       
-      // ✅ FIXED: Send only required fields to match backend
+      // Send only required fields to match backend
       const requestData = {
         assetId: newAsset,
         reason: `Request for ${selectedAsset.name}`,
@@ -264,17 +329,13 @@ const MyAssets = () => {
       
       console.log("📤 Sending request:", requestData);
       
-      // ✅ FIXED: Changed endpoint to /asset-requests/request
       await axios.post(
         "/asset-requests/request",
         requestData,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      setNotification({ 
-        message: "🎉 Request submitted successfully!", 
-        severity: "success" 
-      });
+      showToast("🎉 Request submitted successfully!", "success", 4000);
       
       setNewAsset("");
       await fetchRequests(); // Refresh to get updated requests
@@ -282,10 +343,7 @@ const MyAssets = () => {
       
     } catch (error) {
       console.error("❌ Request failed:", error);
-      setNotification({ 
-        message: error.response?.data?.error || "❌ Request failed. Please try again.", 
-        severity: "error" 
-      });
+      showToast(error.response?.data?.error || "❌ Request failed. Please try again.", "error", 4000);
     } finally {
       setLoading(false);
     }
@@ -743,7 +801,7 @@ const MyAssets = () => {
         )}
       </div>
 
-      {/* Notification */}
+      {/* Local Notification (kept for backward compatibility) */}
       {notification && (
         <div className={`MyAssets-notification MyAssets-notification-${notification.severity}`}>
           <div className="MyAssets-notification-content">

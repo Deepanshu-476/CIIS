@@ -2,12 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import axios from '../../utils/axiosConfig';
 import './JobRoleManagement.css';
-import CIISLoader from '../../Loader/CIISLoader';
+import CIISLoader from '../../Loader/CIISLoader'; // ✅ Import CIISLoader
+
+// Transition for dialog
+const Transition = (props) => {
+  return <div className="JobRoleManagement-transition" {...props} />;
+};
 
 const JobRoleManagement = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
-  const [pageLoading, setPageLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(true); // ✅ Page loading state
   
   const [jobRoles, setJobRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -30,8 +35,6 @@ const JobRoleManagement = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedJobRoleMenu, setSelectedJobRoleMenu] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [apiError, setApiError] = useState(null); // 🆕 API error state
-  const [debugInfo, setDebugInfo] = useState({}); // 🆕 Debug info
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
@@ -73,16 +76,16 @@ const JobRoleManagement = () => {
     if (!userStr) userStr = sessionStorage.getItem('superAdmin') || sessionStorage.getItem('user');
     
     if (!userStr) {
-      console.log('❌ No user found in storage');
+      console.log('No user found in storage');
       return null;
     }
     
     try {
       const user = JSON.parse(userStr);
-      console.log('✅ User found in storage:', user);
+      console.log('User found in storage:', user);
       return user;
     } catch (error) {
-      console.error('❌ Error parsing user data:', error);
+      console.error('Error parsing user data:', error);
       toast.error('Error loading user data');
       return null;
     }
@@ -93,41 +96,28 @@ const JobRoleManagement = () => {
     if (!user) return false;
     
     const isSuper = 
-      user.role === 'super-admin' || 
-      user.jobRole === 'super_admin' ||
-      user.role === 'super_admin';
+      (user.role === 'super-admin' && 
+       user.department === 'Management' && 
+       user.jobRole === 'super_admin') ||
+      user.role === 'super-admin' ||
+      user.jobRole === 'super_admin';
     
-    console.log('🔍 Super admin check:', { isSuper, role: user.role, jobRole: user.jobRole });
+    console.log('Super admin check:', {
+      user,
+      isSuper,
+      role: user.role,
+      department: user.department,
+      jobRole: user.jobRole
+    });
+    
     return isSuper;
-  };
-
-  // 🆕 Debug function to test API directly
-  const testAPIDirectly = async () => {
-    try {
-      console.log('🔍 Testing Job Roles API directly...');
-      const token = localStorage.getItem('token');
-      console.log('Token:', token ? 'Present' : 'Missing');
-      
-      const response = await axios.get('/job-roles');
-      console.log('📊 Direct API Response:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('❌ Direct API Error:', error.response?.data || error.message);
-      return null;
-    }
   };
 
   // ✅ Load initial data with page loader
   useEffect(() => {
     const loadData = async () => {
       setPageLoading(true);
-      setApiError(null);
-      
       try {
-        // 🔍 Test API first
-        const testResult = await testAPIDirectly();
-        setDebugInfo(prev => ({ ...prev, testResult }));
-        
         const user = getUserFromStorage();
         
         if (user) {
@@ -147,13 +137,12 @@ const JobRoleManagement = () => {
           await fetchDepartments(user, isSuper);
         } else {
           toast.error('Please login to continue');
-          setApiError('User not logged in');
         }
       } catch (error) {
-        console.error('❌ Error loading job roles:', error);
-        setApiError(error.message || 'Failed to load job roles');
+        console.error('Error loading job roles:', error);
         toast.error('Failed to load job roles');
       } finally {
+        // Minimum 500ms loader show karega
         setTimeout(() => {
           setPageLoading(false);
         }, 500);
@@ -166,13 +155,10 @@ const JobRoleManagement = () => {
   const fetchJobRoles = async (user = null, isSuper = false) => {
     try {
       setLoading(true);
-      setApiError(null);
-      
       if (!user) {
         user = getUserFromStorage();
         if (!user) {
           toast.error('User not found');
-          setApiError('User not found');
           return;
         }
         isSuper = checkSuperAdminStatus(user);
@@ -180,41 +166,16 @@ const JobRoleManagement = () => {
       
       let params = {};
       
-      // 🔥 Temporarily remove filter for debugging
-      // if (!isSuper || !showAllCompanies) {
-      //   if (user.company) {
-      //     params.company = user.company;
-      //   }
-      // }
+      if (!isSuper && !showAllCompanies) {
+        if (user.company) {
+          params.company = user.company;
+        }
+      }
       
-      console.log('🚀 Fetching job roles with params:', params);
+      console.log('Fetching job roles with params:', params);
       
       const response = await axios.get('/job-roles', { params });
-      console.log('✅ Full Job Roles Response:', response);
-      console.log('📊 Response data:', response.data);
-      
-      // 🔥 FIX: Handle different response structures
-      let roles = [];
-      if (response.data && response.data.success) {
-        roles = response.data.jobRoles || response.data.data || [];
-      } else if (response.data && response.data.jobRoles) {
-        roles = response.data.jobRoles;
-      } else if (Array.isArray(response.data)) {
-        roles = response.data;
-      } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
-        roles = response.data.data;
-      } else {
-        roles = [];
-      }
-      
-      console.log('📋 Processed job roles:', roles);
-      console.log('📊 Job roles count:', roles.length);
-      
-      if (roles.length === 0) {
-        console.warn('⚠️ No job roles found in response');
-        setApiError('No job roles found. Try creating one.');
-      }
-      
+      const roles = response.data.jobRoles || [];
       setJobRoles(roles);
       
       // Calculate stats
@@ -225,26 +186,10 @@ const JobRoleManagement = () => {
         withDepartment: roles.filter(r => r.department).length
       });
       
-      setDebugInfo(prev => ({ 
-        ...prev, 
-        jobRolesCount: roles.length,
-        jobRolesSample: roles.slice(0, 2)
-      }));
-      
+      console.log('Job roles fetched:', roles.length);
     } catch (err) {
-      console.error('❌ Fetch job roles error:', err);
-      console.error('❌ Error response:', err.response?.data);
-      console.error('❌ Error status:', err.response?.status);
-      
-      const errorMsg = err.response?.data?.message || err.message || 'Failed to load job roles';
-      setApiError(errorMsg);
-      toast.error(errorMsg);
-      
-      if (err.response?.status === 401) {
-        toast.error('Session expired. Please login again.');
-      } else if (err.response?.status === 403) {
-        toast.error('You don\'t have permission to view job roles');
-      }
+      console.error('Fetch job roles error:', err);
+      toast.error(err.response?.data?.message || 'Failed to load job roles');
     } finally {
       setLoading(false);
     }
@@ -260,54 +205,19 @@ const JobRoleManagement = () => {
       
       let params = {};
       
-      // 🔥 Temporarily remove filter for debugging
-      // if (!isSuper) {
-      //   if (user.company) {
-      //     params.company = user.company;
-      //   }
-      // }
-      
-      console.log('🚀 Fetching departments for dropdown with params:', params);
-      
-      const response = await axios.get('/departments', { params });
-      console.log('✅ Departments response:', response.data);
-      
-      let depts = [];
-      if (response.data && response.data.success) {
-        depts = response.data.departments || [];
-      } else if (response.data && response.data.departments) {
-        depts = response.data.departments;
-      } else if (Array.isArray(response.data)) {
-        depts = response.data;
-      } else {
-        depts = [];
+      if (!isSuper) {
+        if (user.company) {
+          params.company = user.company;
+        }
       }
       
-      setDepartments(depts);
-      console.log('📋 Departments for dropdown:', depts.length);
+      const response = await axios.get('/departments', { params });
+      setDepartments(response.data.departments || []);
       
-      setDebugInfo(prev => ({ ...prev, departmentsCount: depts.length }));
-      
+      console.log('Departments fetched for dropdown:', response.data.departments?.length);
     } catch (err) {
-      console.error('❌ Fetch departments error:', err);
+      console.error('Fetch departments error:', err);
       toast.error(err.response?.data?.message || 'Failed to load departments');
-    }
-  };
-
-  // 🆕 Manual refresh function
-  const handleManualRefresh = async () => {
-    toast.info('Refreshing job roles...');
-    setPageLoading(true);
-    try {
-      const user = getUserFromStorage();
-      const isSuper = checkSuperAdminStatus(user);
-      await fetchJobRoles(user, isSuper);
-      await fetchDepartments(user, isSuper);
-      toast.success('Job roles refreshed!');
-    } catch (error) {
-      toast.error('Failed to refresh');
-    } finally {
-      setPageLoading(false);
     }
   };
 
@@ -343,14 +253,32 @@ const JobRoleManagement = () => {
         submitData.companyCode = formData.companyCode || user.companyCode;
       }
       
-      console.log('📤 Submitting job role data:', submitData);
+      console.log('Submitting job role data:', submitData);
       
       if (editingJobRole) {
         await axios.put(`/job-roles/${editingJobRole._id}`, submitData);
-        toast.success(`Job Role "${formData.name}" updated successfully!`);
+        toast.success(
+          <div className="JobRoleManagement-toast-content">
+            <span className="JobRoleManagement-toast-icon">✓</span>
+            <div>
+              <div className="JobRoleManagement-toast-title">Job Role Updated!</div>
+              <div className="JobRoleManagement-toast-subtitle">{formData.name} has been updated successfully</div>
+            </div>
+          </div>,
+          { icon: false, autoClose: 3000 }
+        );
       } else {
         await axios.post('/job-roles', submitData);
-        toast.success(`Job Role "${formData.name}" created successfully!`);
+        toast.success(
+          <div className="JobRoleManagement-toast-content">
+            <span className="JobRoleManagement-toast-icon">✓</span>
+            <div>
+              <div className="JobRoleManagement-toast-title">Job Role Created!</div>
+              <div className="JobRoleManagement-toast-subtitle">{formData.name} has been added to your organization</div>
+            </div>
+          </div>,
+          { icon: false, autoClose: 3000 }
+        );
       }
       
       setOpenDialog(false);
@@ -364,7 +292,7 @@ const JobRoleManagement = () => {
       setEditingJobRole(null);
       setRefreshKey(prev => prev + 1);
     } catch (err) {
-      console.error('❌ Submit error:', err);
+      console.error('Submit error:', err);
       const msg = err.response?.data?.message || 'Operation failed';
       toast.error(msg);
     } finally {
@@ -379,7 +307,16 @@ const JobRoleManagement = () => {
     try {
       setLoading(true);
       await axios.delete(`/job-roles/${id}`);
-      toast.success(`Job Role "${jobRole?.name}" deleted successfully!`);
+      toast.success(
+        <div className="JobRoleManagement-toast-content">
+          <span className="JobRoleManagement-toast-icon JobRoleManagement-toast-icon-delete">🗑️</span>
+          <div>
+            <div className="JobRoleManagement-toast-title">Job Role Deleted!</div>
+            <div className="JobRoleManagement-toast-subtitle">{jobRole?.name} has been removed</div>
+          </div>
+        </div>,
+        { icon: false, autoClose: 3000 }
+      );
       setRefreshKey(prev => prev + 1);
     } catch (err) {
       const msg = err.response?.data?.message || 'Deletion failed';
@@ -404,6 +341,7 @@ const JobRoleManagement = () => {
     setAnchorEl(null);
   };
 
+  // Handle menu open
   const handleMenuOpen = (event, jobRole) => {
     setAnchorEl(event.currentTarget);
     setSelectedJobRoleMenu(jobRole);
@@ -414,6 +352,13 @@ const JobRoleManagement = () => {
     setSelectedJobRoleMenu(null);
   };
 
+  // Handle refresh
+  const handleRefresh = () => {
+    toast.info('Refreshing job roles...');
+    setRefreshKey(prev => prev + 1);
+  };
+
+  // Handle clear search
   const handleClearSearch = () => {
     setSearchTerm('');
   };
@@ -421,6 +366,15 @@ const JobRoleManagement = () => {
   // Filter job roles
   const getFilteredJobRoles = () => {
     let filtered = jobRoles;
+    const user = userInfo || getUserFromStorage();
+    const isSuper = checkSuperAdminStatus(user);
+    
+    if (!isSuper && !showAllCompanies) {
+      filtered = jobRoles.filter(jobRole => 
+        !jobRole.company || 
+        (typeof jobRole.company === 'object' ? jobRole.company._id : jobRole.company) === user?.company
+      );
+    }
     
     if (searchTerm) {
       filtered = filtered.filter(jobRole =>
@@ -493,14 +447,14 @@ const JobRoleManagement = () => {
               className="JobRoleManagement-action-btn JobRoleManagement-action-edit"
               onClick={() => handleEdit(jobRole)}
             >
-              ✏️
+              <span className="JobRoleManagement-action-icon">✏️</span>
             </button>
             <button 
               className={`JobRoleManagement-action-btn JobRoleManagement-action-delete ${jobRole.isActive === false ? 'JobRoleManagement-disabled' : ''}`}
               onClick={() => handleDelete(jobRole._id)}
               disabled={jobRole.isActive === false}
             >
-              🗑️
+              <span className="JobRoleManagement-action-icon">🗑️</span>
             </button>
           </div>
         </div>
@@ -511,24 +465,6 @@ const JobRoleManagement = () => {
   // ✅ Show CIISLoader while page is loading
   if (pageLoading) {
     return <CIISLoader />;
-  }
-
-  // 🆕 Show error state if API failed
-  if (apiError && jobRoles.length === 0) {
-    return (
-      <div className="JobRoleManagement-error-container">
-        <div className="JobRoleManagement-error-card">
-          <div className="JobRoleManagement-error-icon">⚠️</div>
-          <h3 className="JobRoleManagement-error-title">Failed to Load Job Roles</h3>
-          <p className="JobRoleManagement-error-message">{apiError}</p>
-          <div className="JobRoleManagement-error-actions">
-            <button className="JobRoleManagement-btn-primary" onClick={handleManualRefresh}>
-              🔄 Try Again
-            </button>
-          </div>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -542,61 +478,72 @@ const JobRoleManagement = () => {
         </div>
       )}
 
-    
       {/* Stats Cards */}
       {jobRoles.length > 0 && (
         <div className="JobRoleManagement-stats-grid">
+          {/* Total Job Roles */}
           <div className="JobRoleManagement-stat-card JobRoleManagement-stat-blue">
             <div className="JobRoleManagement-stat-content">
               <div className="JobRoleManagement-stat-icon-box">
                 <span className="JobRoleManagement-stat-icon">📋</span>
               </div>
+              
               <div className="JobRoleManagement-stat-info">
                 <span className="JobRoleManagement-stat-label">Total Roles</span>
                 <div className="JobRoleManagement-stat-value-wrapper">
                   <span className="JobRoleManagement-stat-value">{stats.total}</span>
+                  <span className="JobRoleManagement-stat-chip">All roles</span>
                 </div>
               </div>
             </div>
           </div>
 
+          {/* Active Job Roles */}
           <div className="JobRoleManagement-stat-card JobRoleManagement-stat-green">
             <div className="JobRoleManagement-stat-content">
               <div className="JobRoleManagement-stat-icon-box">
                 <span className="JobRoleManagement-stat-icon">✓</span>
               </div>
+              
               <div className="JobRoleManagement-stat-info">
                 <span className="JobRoleManagement-stat-label">Active Roles</span>
                 <div className="JobRoleManagement-stat-value-wrapper">
                   <span className="JobRoleManagement-stat-value">{stats.active}</span>
+                  <span className="JobRoleManagement-stat-chip">{stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0}%</span>
                 </div>
               </div>
             </div>
           </div>
 
+          {/* With Department */}
           <div className="JobRoleManagement-stat-card JobRoleManagement-stat-blue">
             <div className="JobRoleManagement-stat-content">
               <div className="JobRoleManagement-stat-icon-box">
                 <span className="JobRoleManagement-stat-icon">📂</span>
               </div>
+              
               <div className="JobRoleManagement-stat-info">
                 <span className="JobRoleManagement-stat-label">With Dept</span>
                 <div className="JobRoleManagement-stat-value-wrapper">
                   <span className="JobRoleManagement-stat-value">{stats.withDepartment}</span>
+                  <span className="JobRoleManagement-stat-chip">{stats.total > 0 ? Math.round((stats.withDepartment / stats.total) * 100) : 0}%</span>
                 </div>
               </div>
             </div>
           </div>
 
+          {/* Inactive */}
           <div className="JobRoleManagement-stat-card JobRoleManagement-stat-red">
             <div className="JobRoleManagement-stat-content">
               <div className="JobRoleManagement-stat-icon-box">
                 <span className="JobRoleManagement-stat-icon">✗</span>
               </div>
+              
               <div className="JobRoleManagement-stat-info">
                 <span className="JobRoleManagement-stat-label">Inactive</span>
                 <div className="JobRoleManagement-stat-value-wrapper">
                   <span className="JobRoleManagement-stat-value">{stats.inactive}</span>
+                  <span className="JobRoleManagement-stat-chip">{stats.total > 0 ? Math.round((stats.inactive / stats.total) * 100) : 0}%</span>
                 </div>
               </div>
             </div>
@@ -613,6 +560,23 @@ const JobRoleManagement = () => {
             </div>
             <div className="JobRoleManagement-header-text">
               <h2 className="JobRoleManagement-header-title">Job Role Management</h2>
+              {userInfo && (
+                <div className="JobRoleManagement-user-info">
+                  <span className="JobRoleManagement-user-chip">
+                    <span className="JobRoleManagement-chip-icon">👤</span>
+                    {userInfo.name}
+                  </span>
+                  <span className="JobRoleManagement-user-chip JobRoleManagement-chip-primary">
+                    {userInfo.role}
+                  </span>
+                  {userInfo.companyCode && (
+                    <span className="JobRoleManagement-user-chip JobRoleManagement-chip-primary">
+                      <span className="JobRoleManagement-chip-icon">📊</span>
+                      {userInfo.companyCode}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           
@@ -629,20 +593,10 @@ const JobRoleManagement = () => {
               />
               {searchTerm && (
                 <button className="JobRoleManagement-clear-search" onClick={handleClearSearch}>
-                  ✕
+                  <span className="JobRoleManagement-clear-icon">✕</span>
                 </button>
               )}
             </div>
-            
-            {/* Refresh Button */}
-            <button
-              className="JobRoleManagement-icon-btn"
-              onClick={handleManualRefresh}
-              title="Refresh"
-              style={{ marginRight: '8px' }}
-            >
-              🔄
-            </button>
             
             {/* Add Job Role Button */}
             <button
@@ -672,49 +626,58 @@ const JobRoleManagement = () => {
           </div>
         </div>
 
-        {/* Empty State or Table View */}
-        {filteredJobRoles.length === 0 ? (
-          <div className="JobRoleManagement-empty-state">
-            <div className="JobRoleManagement-empty-icon">📋</div>
-            <h3 className="JobRoleManagement-empty-title">
-              {searchTerm ? 'No Matching Job Roles' : 'No Job Roles Found'}
-            </h3>
-            <p className="JobRoleManagement-empty-text">
-              {searchTerm 
-                ? `No job roles match "${searchTerm}"`
-                : 'Get started by creating your first job role to define positions.'}
-            </p>
-            {searchTerm ? (
-              <button className="JobRoleManagement-btn-outline" onClick={handleClearSearch}>
-                ✕ Clear Search
-              </button>
-            ) : (
-              <button 
-                className="JobRoleManagement-btn-primary"
-                onClick={() => {
-                  const user = getUserFromStorage();
-                  setFormData({ 
-                    name: '', 
-                    description: '',
-                    department: '',
-                    company: user?.company || '',
-                    companyCode: user?.companyCode || ''
-                  });
-                  setOpenDialog(true);
-                }}
-              >
-                + Add Job Role
-              </button>
-            )}
+
+        {!userInfo && (
+          <div className="JobRoleManagement-alert JobRoleManagement-alert-warning">
+            <span className="JobRoleManagement-alert-icon">⚠️</span>
+            <span>User information not found. Please login again.</span>
           </div>
-        ) : isMobile ? (
+        )}
+
+        {/* Table/List View */}
+        {isMobile ? (
           // Mobile Card View
           <div className="JobRoleManagement-mobile-view">
-            {filteredJobRoles
-              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-              .map(jobRole => (
-                <MobileJobRoleCard key={jobRole._id} jobRole={jobRole} />
-              ))}
+            {filteredJobRoles.length === 0 ? (
+              <div className="JobRoleManagement-empty-state">
+                <div className="JobRoleManagement-empty-icon">📋</div>
+                <h3 className="JobRoleManagement-empty-title">No Job Roles Found</h3>
+                <p className="JobRoleManagement-empty-text">
+                  {searchTerm 
+                    ? 'No job roles match your search criteria. Try different keywords.'
+                    : 'Get started by creating your first job role to define positions.'}
+                </p>
+                {searchTerm ? (
+                  <button 
+                    className="JobRoleManagement-btn-outline"
+                    onClick={handleClearSearch}
+                  >
+                    <span className="JobRoleManagement-btn-icon">✕</span>
+                    Clear Search
+                  </button>
+                ) : (
+                  <button 
+                    className="JobRoleManagement-btn-primary"
+                    onClick={() => {
+                      setEditingJobRole(null);
+                      setOpenDialog(true);
+                    }}
+                  >
+                    <span className="JobRoleManagement-btn-icon">+</span>
+                    Add Job Role
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                {filteredJobRoles
+                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  .map(jobRole => (
+                    <MobileJobRoleCard key={jobRole._id} jobRole={jobRole} />
+                  ))
+                }
+              </>
+            )}
           </div>
         ) : (
           // Desktop Table View
@@ -725,6 +688,9 @@ const JobRoleManagement = () => {
                   <th>Job Role Name</th>
                   <th>Description</th>
                   <th>Department</th>
+                  {isSuperAdmin && showAllCompanies && (
+                    <th>Company Code</th>
+                  )}
                   <th>Created By</th>
                   <th>Created On</th>
                   <th>Status</th>
@@ -732,68 +698,91 @@ const JobRoleManagement = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredJobRoles
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((jobRole) => (
-                    <tr key={jobRole._id} className="JobRoleManagement-table-row">
-                      <td>
-                        <div className="JobRoleManagement-job-role-cell">
-                          <span className="JobRoleManagement-job-role-icon">💼</span>
-                          <span className="JobRoleManagement-job-role-name">{jobRole.name}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <span className="JobRoleManagement-description">
-                          {jobRole.description || '—'}
-                        </span>
-                      </td>
-                      <td>
-                        {jobRole.department?.name ? (
-                          <span className="JobRoleManagement-badge JobRoleManagement-badge-primary">
-                            {jobRole.department.name}
+                {filteredJobRoles.length === 0 ? (
+                  <tr>
+                    <td colSpan={isSuperAdmin && showAllCompanies ? 8 : 7} className="JobRoleManagement-empty-cell">
+                      <div className="JobRoleManagement-table-empty">
+                        <span className="JobRoleManagement-table-empty-icon">📋</span>
+                        <h4>No Job Roles Found</h4>
+                        <p>{searchTerm ? 'No job roles match your search' : 'Get started by adding a job role'}</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredJobRoles
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((jobRole, index) => (
+                      <tr key={jobRole._id} className="JobRoleManagement-table-row">
+                        <td>
+                          <div className="JobRoleManagement-job-role-cell">
+                            <span className="JobRoleManagement-job-role-icon">💼</span>
+                            <span className="JobRoleManagement-job-role-name">{jobRole.name}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <span className="JobRoleManagement-description">
+                            {jobRole.description || '—'}
                           </span>
-                        ) : (
-                          <span className="JobRoleManagement-text-disabled">Not assigned</span>
+                        </td>
+                        <td>
+                          {jobRole.department?.name ? (
+                            <span className="JobRoleManagement-badge JobRoleManagement-badge-primary">
+                              {jobRole.department.name}
+                            </span>
+                          ) : (
+                            <span className="JobRoleManagement-text-disabled">Not assigned</span>
+                          )}
+                        </td>
+                        {isSuperAdmin && showAllCompanies && (
+                          <td>
+                            {jobRole.companyCode ? (
+                              <span className="JobRoleManagement-badge JobRoleManagement-badge-primary">
+                                {jobRole.companyCode}
+                              </span>
+                            ) : (
+                              <span className="JobRoleManagement-text-disabled">Global</span>
+                            )}
+                          </td>
                         )}
-                      </td>
-                      <td>
-                        <div className="JobRoleManagement-created-by">
-                          <span className="JobRoleManagement-created-by-icon">👤</span>
-                          <span>{jobRole.createdBy?.name || 'System'}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="JobRoleManagement-created-date">
-                          <span className="JobRoleManagement-date-icon">📅</span>
-                          <span>{formatDate(jobRole.createdAt)}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`JobRoleManagement-badge JobRoleManagement-badge-${jobRole.isActive !== false ? 'success' : 'error'}`}>
-                          {jobRole.isActive !== false ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="JobRoleManagement-action-buttons">
-                          <button 
-                            className="JobRoleManagement-icon-btn JobRoleManagement-icon-edit"
-                            onClick={() => handleEdit(jobRole)}
-                            title="Edit Job Role"
-                          >
-                            ✏️
-                          </button>
-                          <button 
-                            className={`JobRoleManagement-icon-btn JobRoleManagement-icon-delete ${jobRole.isActive === false ? 'JobRoleManagement-disabled' : ''}`}
-                            onClick={() => handleDelete(jobRole._id)}
-                            title="Delete Job Role"
-                            disabled={jobRole.isActive === false}
-                          >
-                            🗑️
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        <td>
+                          <div className="JobRoleManagement-created-by">
+                            <span className="JobRoleManagement-created-by-icon">👤</span>
+                            <span>{jobRole.createdBy?.name || 'System'}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="JobRoleManagement-created-date">
+                            <span className="JobRoleManagement-date-icon">📅</span>
+                            <span>{formatDate(jobRole.createdAt)}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`JobRoleManagement-badge JobRoleManagement-badge-${jobRole.isActive !== false ? 'success' : 'error'}`}>
+                            {jobRole.isActive !== false ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="JobRoleManagement-action-buttons">
+                            <button 
+                              className="JobRoleManagement-icon-btn JobRoleManagement-icon-edit"
+                              onClick={() => handleEdit(jobRole)}
+                              title="Edit Job Role"
+                            >
+                              <span className="JobRoleManagement-icon">✏️</span>
+                            </button>
+                            <button 
+                              className={`JobRoleManagement-icon-btn JobRoleManagement-icon-delete ${jobRole.isActive === false ? 'JobRoleManagement-disabled' : ''}`}
+                              onClick={() => handleDelete(jobRole._id)}
+                              title="Delete Job Role"
+                              disabled={jobRole.isActive === false}
+                            >
+                              <span className="JobRoleManagement-icon">🗑️</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                )}
               </tbody>
             </table>
           </div>
@@ -828,29 +817,15 @@ const JobRoleManagement = () => {
                 >
                   ‹
                 </button>
-                {Array.from({ length: Math.min(5, Math.ceil(filteredJobRoles.length / rowsPerPage)) }, (_, i) => {
-                  let pageNum;
-                  const totalPages = Math.ceil(filteredJobRoles.length / rowsPerPage);
-                  if (totalPages <= 5) {
-                    pageNum = i;
-                  } else if (page < 3) {
-                    pageNum = i;
-                  } else if (page > totalPages - 3) {
-                    pageNum = totalPages - 5 + i;
-                  } else {
-                    pageNum = page - 2 + i;
-                  }
-                  
-                  return (
-                    <button
-                      key={pageNum}
-                      className={`JobRoleManagement-pagination-btn ${page === pageNum ? 'JobRoleManagement-active' : ''}`}
-                      onClick={() => setPage(pageNum)}
-                    >
-                      {pageNum + 1}
-                    </button>
-                  );
-                })}
+                {Array.from({ length: Math.ceil(filteredJobRoles.length / rowsPerPage) }, (_, i) => (
+                  <button
+                    key={i}
+                    className={`JobRoleManagement-pagination-btn ${page === i ? 'JobRoleManagement-active' : ''}`}
+                    onClick={() => setPage(i)}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
                 <button 
                   className="JobRoleManagement-pagination-btn"
                   onClick={() => setPage(prev => Math.min(Math.ceil(filteredJobRoles.length / rowsPerPage) - 1, prev + 1))}
@@ -894,6 +869,7 @@ const JobRoleManagement = () => {
                 <span className="JobRoleManagement-menu-icon">✏️</span>
                 <div className="JobRoleManagement-menu-text">
                   <div className="JobRoleManagement-menu-title">Edit Job Role</div>
+                  <div className="JobRoleManagement-menu-subtitle">Modify role details</div>
                 </div>
               </button>
               <hr className="JobRoleManagement-menu-divider" />
@@ -908,6 +884,9 @@ const JobRoleManagement = () => {
                 <span className="JobRoleManagement-menu-icon">🗑️</span>
                 <div className="JobRoleManagement-menu-text">
                   <div className="JobRoleManagement-menu-title">Delete Job Role</div>
+                  <div className="JobRoleManagement-menu-subtitle">
+                    {!selectedJobRoleMenu?.isActive ? 'Already inactive' : 'Remove permanently'}
+                  </div>
                 </div>
               </button>
             </div>
@@ -928,11 +907,31 @@ const JobRoleManagement = () => {
                   <h3 className="JobRoleManagement-modal-title">
                     {editingJobRole ? 'Edit Job Role' : 'Create New Job Role'}
                   </h3>
+                  <p className="JobRoleManagement-modal-subtitle">
+                    {editingJobRole 
+                      ? 'Update job role information' 
+                      : 'Add a new job role to define positions'}
+                  </p>
                 </div>
               </div>
             </div>
             
             <div className="JobRoleManagement-modal-body">
+              {/* User Info Banner */}
+              {userInfo?.companyCode && !isSuperAdmin && (
+                <div className="JobRoleManagement-info-banner">
+                  <span className="JobRoleManagement-info-icon">🏢</span>
+                  <div>
+                    <div className="JobRoleManagement-info-title">
+                      Creating job role for {userInfo.companyCode}
+                    </div>
+                    <div className="JobRoleManagement-info-subtitle">
+                      This role will be associated with your company
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div className="JobRoleManagement-form-group">
                 <label className="JobRoleManagement-form-label">Job Role Name *</label>
                 <div className="JobRoleManagement-input-wrapper">

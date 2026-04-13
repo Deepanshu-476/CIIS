@@ -1570,7 +1570,7 @@ const EmployeeDirectory = () => {
         const roleObj = jobRoles.find(r => r._id === updateData.jobRole);
 
         if (roleObj) {
-          updateData.jobRole = roleObj.roleName.toLowerCase();
+          updateData.jobRole = roleObj.roleName; // ✅ FIX (STRING bhejni hai)
         }
       }
 

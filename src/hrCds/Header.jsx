@@ -244,7 +244,15 @@ const Header = ({ toggleSidebar, isMobile }) => {
         const exists = prev.some(n => n._id === notification._id || n.id === notification.id);
         
         if (!exists) {
-          showToast(notification.message || 'New notification', 'info', 5000);
+          showToast(
+            notification.message || notification.title || 'New notification',
+            'info',
+            5000
+          );
+
+          if (notification.type === "meeting") {
+            console.log("📅 Meeting Notification Received:", notification);
+          }
 
           setLocalUnreadCount(prevCount => {
             const newCount = prevCount + 1;

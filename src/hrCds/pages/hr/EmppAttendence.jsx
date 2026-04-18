@@ -1856,18 +1856,18 @@ const EmployeeAttendance = () => {
       setLoading(true);
       
       if (recordId.startsWith('absent_')) {
-        const parts = recordId.split('_');
-        const userId = parts[1];
-        const date = parts[2];
-        
-        await axios.put(`/attendance/${userId}`, {
-          ...updatedData,
-          user: userId,
-          date: date
-        });
-      } else {
-        await axios.put(`/attendance/${recordId}`, updatedData);
-      }
+  const parts = recordId.split('_');
+  const userId = parts[1];
+  const date = parts[2];
+
+  await axios.post('/attendance/manual', {
+    user: userId,
+    date: date,
+    ...updatedData
+  });
+} else {
+  await axios.put(`/attendance/${recordId}`, updatedData);
+}
       
       showSnackbar("Attendance record saved successfully!", "success");
       

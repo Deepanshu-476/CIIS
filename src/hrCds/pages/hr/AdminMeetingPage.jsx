@@ -3,6 +3,8 @@ import axios from "../../../utils/axiosConfig";
 import API_URL from "../../../config";
 import { toast } from "react-toastify";
 import "./AdminMeetingPage.css"; 
+import { useSocket } from '../../../context/SocketContext';
+import { useNotification } from '../../../context/NotificationContext';
 
 export default function AdminMeetingPage() {
   const [users, setUsers] = useState([]);
@@ -15,6 +17,17 @@ export default function AdminMeetingPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [debugInfo, setDebugInfo] = useState({ show: false, message: "" });
   const [companyCode, setCompanyCode] = useState("");
+  
+  // Get socket from context
+  const { 
+    socket, 
+    isConnected,
+    onNewNotification,
+    onMeetingUpdate,
+    onMeetingReminder
+  } = useSocket();
+  
+  const { showToast } = useNotification();
 
   const [form, setForm] = useState({
     title: "",
@@ -27,6 +40,42 @@ export default function AdminMeetingPage() {
 
   const adminId = localStorage.getItem("userId");
 
+  // 🟢 Socket Notification Listeners using the context methods
+  useEffect(() => {
+    console.log("🔔 Setting up socket notification listeners");
+
+    // Listen for new meeting notifications
+    const unsubscribeNewMeeting = onNewNotification?.((data) => {
+      console.log("📢 New Meeting Notification:", data);
+      
+      showToast?.(`📅 New Meeting: ${data.title || 'Meeting Scheduled'}`, 'info', 5000);
+      
+      // Refresh meetings list
+      fetchMeetings();
+    });
+
+    // Listen for meeting updates if available
+    const unsubscribeMeetingUpdate = onMeetingUpdate?.((data) => {
+      console.log("🔄 Meeting Update Notification:", data);
+      showToast?.(`✏️ Meeting Updated: ${data.title || 'Meeting Details Changed'}`, 'info', 5000);
+      fetchMeetings();
+    });
+
+    // Listen for meeting reminders if available
+    const unsubscribeMeetingReminder = onMeetingReminder?.((data) => {
+      console.log("⏰ Meeting Reminder:", data);
+      showToast?.(`⏰ Reminder: ${data.title} starts soon!`, 'warning', 10000);
+    });
+
+    // Cleanup function
+    return () => {
+      console.log("🧹 Cleaning up socket notification listeners");
+      unsubscribeNewMeeting?.();
+      unsubscribeMeetingUpdate?.();
+      unsubscribeMeetingReminder?.();
+    };
+  }, [onNewNotification, onMeetingUpdate, onMeetingReminder]);
+
   // 🟢 Get company code from user data
   const getCompanyCodeFromUsers = (usersList) => {
     if (usersList && usersList.length > 0 && usersList[0].companyCode) {
@@ -35,7 +84,6 @@ export default function AdminMeetingPage() {
       setCompanyCode(code);
       return code;
     }
-    // Fallback to localStorage or default
     const storedCode = localStorage.getItem("companyCode") || "CAREER";
     setCompanyCode(storedCode);
     return storedCode;
@@ -49,7 +97,6 @@ export default function AdminMeetingPage() {
         const fetchedUsers = res.data.message.users || [];
         setUsers(fetchedUsers);
         
-        // Extract and set company code from first user
         if (fetchedUsers.length > 0 && fetchedUsers[0].companyCode) {
           const code = fetchedUsers[0].companyCode;
           localStorage.setItem("companyCode", code);
@@ -72,15 +119,12 @@ export default function AdminMeetingPage() {
     try {
       setRefreshing(true);
       
-      // Get company code from state, localStorage, or use default
       const currentCompanyCode = companyCode || localStorage.getItem("companyCode") || "CAREER";
       
       console.log(`Fetching meetings for company: ${currentCompanyCode}`);
       
-      // Try different API endpoints based on your backend structure
       let fetchedMeetings = [];
       
-      // Option 1: Try with query parameter
       try {
         const res = await axios.get(`${API_URL}/meetings?companyCode=${currentCompanyCode}`);
         
@@ -96,7 +140,6 @@ export default function AdminMeetingPage() {
       } catch (err) {
         console.log("Query parameter approach failed, trying alternative...");
         
-        // Option 2: Try with POST request
         try {
           const res = await axios.post(`${API_URL}/meetings/company-meetings`, {
             companyCode: currentCompanyCode
@@ -112,7 +155,6 @@ export default function AdminMeetingPage() {
         } catch (err2) {
           console.log("POST approach failed, fetching all and filtering client-side...");
           
-          // Option 3: Fallback - fetch all and filter client-side
           const res = await axios.get(`${API_URL}/meetings`);
           
           if (Array.isArray(res.data)) {
@@ -125,17 +167,15 @@ export default function AdminMeetingPage() {
             fetchedMeetings = res.data.data;
           }
           
-          // Client-side filtering
           fetchedMeetings = fetchedMeetings.filter(meeting => {
             return meeting.companyCode === currentCompanyCode || 
                    meeting.company === currentCompanyCode ||
                    meeting.companyId === currentCompanyCode ||
-                   !meeting.companyCode; // Include meetings without companyCode (backward compatibility)
+                   !meeting.companyCode;
           });
         }
       }
       
-      // Additional client-side filter to ensure data consistency
       fetchedMeetings = fetchedMeetings.filter(meeting => {
         const meetingCompanyCode = meeting.companyCode || meeting.company || meeting.companyId;
         return !meetingCompanyCode || meetingCompanyCode === currentCompanyCode;
@@ -143,7 +183,6 @@ export default function AdminMeetingPage() {
       
       console.log(`Fetched ${fetchedMeetings.length} meetings for company: ${currentCompanyCode}`);
       
-      // Log first meeting for debugging
       if (fetchedMeetings.length > 0) {
         console.log("Sample meeting structure:", fetchedMeetings[0]);
       }
@@ -162,10 +201,9 @@ export default function AdminMeetingPage() {
   useEffect(() => {
     const initializeData = async () => {
       await fetchUsers();
-      // After users are fetched, companyCode will be set
       setTimeout(() => {
         fetchMeetings();
-      }, 100); // Small delay to ensure companyCode is set
+      }, 100);
     };
     
     initializeData();
@@ -215,7 +253,6 @@ export default function AdminMeetingPage() {
 
     setLoading(true);
     try {
-      // Get company code from state or localStorage
       const currentCompanyCode = companyCode || localStorage.getItem("companyCode") || "CAREER";
       
       const payload = { 
@@ -231,6 +268,31 @@ export default function AdminMeetingPage() {
       const res = await axios.post(`${API_URL}/meetings/create`, payload);
       if (res.data.success) {
         toast.success("✅ Meeting created successfully!");
+        
+        // Emit socket event if socket is available and has emit method
+        if (socket && typeof socket.emit === 'function') {
+          socket.emit("meeting-created", {
+            meetingId: res.data.meeting?._id,
+            title: form.title,
+            date: form.date,
+            time: form.time,
+            companyCode: currentCompanyCode
+          });
+        } else if (socket && typeof socket.emit === 'undefined') {
+          console.log("Socket available but emit method not found, using alternative notification method");
+          // Try alternative emit method if socket has different structure
+          const socketInstance = socket.socket || socket;
+          if (socketInstance && typeof socketInstance.emit === 'function') {
+            socketInstance.emit("meeting-created", {
+              meetingId: res.data.meeting?._id,
+              title: form.title,
+              date: form.date,
+              time: form.time,
+              companyCode: currentCompanyCode
+            });
+          }
+        }
+        
         setForm({
           title: "",
           description: "",
@@ -239,7 +301,7 @@ export default function AdminMeetingPage() {
           recurring: "No",
           attendees: [],
         });
-        fetchMeetings(); // This will now fetch only current company's meetings
+        fetchMeetings();
         setActiveTab("manage");
       } else {
         toast.error(res.data.message || "❌ Failed to create meeting");
@@ -304,7 +366,6 @@ export default function AdminMeetingPage() {
           message: prev.message + `\n✅ SUCCESS! Status: ${response.status}` 
         }));
         
-        // If successful, remove from UI
         setMeetings(prevMeetings => 
           prevMeetings.filter(m => (m._id || m.id) !== meetingId)
         );
@@ -333,10 +394,16 @@ export default function AdminMeetingPage() {
     
     setDeleteLoading(true);
     try {
-      // First try the task endpoint
-      const response = await axios.delete(`${API_URL}/task/${deleteConfirm.meetingId}`);
+      const response = await axios.delete(`${API_URL}/meetings/${deleteConfirm.meetingId}`);
       
       if (response.status === 200) {
+        if (socket && typeof socket.emit === 'function') {
+          socket.emit("meeting-deleted", {
+            meetingId: deleteConfirm.meetingId,
+            title: deleteConfirm.meetingTitle
+          });
+        }
+        
         setMeetings(prevMeetings => 
           prevMeetings.filter(m => (m._id || m.id) !== deleteConfirm.meetingId)
         );
@@ -347,7 +414,6 @@ export default function AdminMeetingPage() {
       console.error("Delete error:", err);
       
       if (err.response?.status === 404) {
-        // Show debug options for 404
         toast.warning(
           <div>
             <p>Endpoint not found. Would you like to:</p>
@@ -362,7 +428,6 @@ export default function AdminMeetingPage() {
             </button>
             <button 
               onClick={() => {
-                // Force remove from UI
                 setMeetings(prevMeetings => 
                   prevMeetings.filter(m => (m._id || m.id) !== deleteConfirm.meetingId)
                 );
@@ -413,6 +478,23 @@ export default function AdminMeetingPage() {
 
   return (
     <div className="amp-container">
+      {/* Socket Connection Status Indicator */}
+      <div className="amp-socket-indicator" style={{
+        position: 'fixed',
+        top: '10px',
+        right: '120px',
+        background: isConnected ? '#10b981' : '#ef4444',
+        color: 'white',
+        padding: '4px 12px',
+        borderRadius: '20px',
+        fontSize: '11px',
+        fontWeight: '600',
+        zIndex: 1000,
+        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+      }}>
+        {isConnected ? '🔌 Live' : '📡 Connecting...'}
+      </div>
+
       {/* Company Code Indicator */}
       {companyCode && (
         <div className="amp-company-indicator" style={{
@@ -511,7 +593,7 @@ export default function AdminMeetingPage() {
         </div>
       </div>
 
-      {/* Navigation Tabs - Modern Design */}
+      {/* Navigation Tabs */}
       <div className="amp-tabs-container">
         <div className="amp-tabs">
           <button 
@@ -794,7 +876,6 @@ export default function AdminMeetingPage() {
                           }`}>
                             {datetime.isPast ? 'Past' : datetime.isToday ? 'Today' : 'Upcoming'}
                           </span>
-                          {/* Company code badge for debugging */}
                           <span className="amp-badge amp-badge-company" style={{
                             background: '#f3f4f6',
                             color: '#4b5563',

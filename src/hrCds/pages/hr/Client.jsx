@@ -111,9 +111,9 @@ const TaskDetailsModal = ({ task, open, onClose, projectManagers = [] }) => {
 
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'High': return 'badge--error';
-      case 'Medium': return 'badge--warning';
-      case 'Low': return 'badge--info';
+      case 'High': return 'ClientManagement-badge--error';
+      case 'Medium': return 'ClientManagement-badge--warning';
+      case 'Low': return 'ClientManagement-badge--info';
       default: return '';
     }
   };
@@ -130,60 +130,60 @@ const TaskDetailsModal = ({ task, open, onClose, projectManagers = [] }) => {
   const assigneeDetails = getAssigneeDetails(task.assignee);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal__header">
+    <div className="ClientManagement-modal-overlay" onClick={onClose}>
+      <div className="ClientManagement-modal" onClick={e => e.stopPropagation()}>
+        <div className="ClientManagement-modal__header">
           <h3>Task Details</h3>
-          <button className="action-button" onClick={onClose}>
+          <button className="ClientManagement-action-button" onClick={onClose}>
             <FiX />
           </button>
         </div>
-        <div className="modal__content">
-          <div className="form-group">
-            <label className="form-label">Task Name</label>
-            <p className="text-large">{task.name}</p>
+        <div className="ClientManagement-modal__content">
+          <div className="ClientManagement-form-group">
+            <label className="ClientManagement-form-label">Task Name</label>
+            <p className="ClientManagement-text-large">{task.name}</p>
           </div>
 
-          <div className="grid-2">
-            <div className="form-group">
-              <label className="form-label">Status</label>
-              <div className={`badge ${task.completed ? 'badge--success' : ''}`}>
+          <div className="ClientManagement-grid-2">
+            <div className="ClientManagement-form-group">
+              <label className="ClientManagement-form-label">Status</label>
+              <div className={`ClientManagement-badge ${task.completed ? 'ClientManagement-badge--success' : ''}`}>
                 {task.completed ? 'Completed' : 'Pending'}
               </div>
             </div>
-            <div className="form-group">
-              <label className="form-label">Priority</label>
-              <div className={`badge ${getPriorityColor(task.priority)}`}>
+            <div className="ClientManagement-form-group">
+              <label className="ClientManagement-form-label">Priority</label>
+              <div className={`ClientManagement-badge ${getPriorityColor(task.priority)}`}>
                 {task.priority}
               </div>
             </div>
           </div>
 
           {task.dueDate && (
-            <div className="form-group">
-              <label className="form-label">Due Date</label>
-              <div className="flex-align-center gap-1">
+            <div className="ClientManagement-form-group">
+              <label className="ClientManagement-form-label">Due Date</label>
+              <div className="ClientManagement-flex-align-center ClientManagement-gap-1">
                 <p>{new Date(task.dueDate).toLocaleDateString()}</p>
                 {isOverdue(task.dueDate) && !task.completed && (
-                  <div className="badge badge--error">Overdue</div>
+                  <div className="ClientManagement-badge ClientManagement-badge--error">Overdue</div>
                 )}
               </div>
             </div>
           )}
 
           {task.assignee && (
-            <div className="form-group">
-              <label className="form-label">Assigned To</label>
-              <div className="flex-align-center gap-1 mt-1">
+            <div className="ClientManagement-form-group">
+              <label className="ClientManagement-form-label">Assigned To</label>
+              <div className="ClientManagement-flex-align-center ClientManagement-gap-1 ClientManagement-mt-1">
                 {assigneeDetails ? (
                   <>
-                    <div className="avatar avatar--primary">
+                    <div className="ClientManagement-avatar ClientManagement-avatar--primary">
                       {assigneeDetails.name?.charAt(0)?.toUpperCase() || 'U'}
                     </div>
                     <div>
-                      <p className="text-bold">{assigneeDetails.name}</p>
+                      <p className="ClientManagement-text-bold">{assigneeDetails.name}</p>
                       {assigneeDetails.email && (
-                        <small className="text-muted">{assigneeDetails.email}</small>
+                        <small className="ClientManagement-text-muted">{assigneeDetails.email}</small>
                       )}
                     </div>
                   </>
@@ -194,8 +194,8 @@ const TaskDetailsModal = ({ task, open, onClose, projectManagers = [] }) => {
             </div>
           )}
 
-          <div className="form-group">
-            <label className="form-label">Created</label>
+          <div className="ClientManagement-form-group">
+            <label className="ClientManagement-form-label">Created</label>
             <p>
               {new Date(task.createdAt).toLocaleDateString()} at{' '}
               {new Date(task.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -203,8 +203,8 @@ const TaskDetailsModal = ({ task, open, onClose, projectManagers = [] }) => {
           </div>
 
           {task.completed && task.completedAt && (
-            <div className="form-group">
-              <label className="form-label">Completed</label>
+            <div className="ClientManagement-form-group">
+              <label className="ClientManagement-form-label">Completed</label>
               <p>
                 {new Date(task.completedAt).toLocaleDateString()} at{' '}
                 {new Date(task.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -212,8 +212,8 @@ const TaskDetailsModal = ({ task, open, onClose, projectManagers = [] }) => {
             </div>
           )}
         </div>
-        <div className="modal__footer">
-          <button className="btn btn--outlined" onClick={onClose}>Close</button>
+        <div className="ClientManagement-modal__footer">
+          <button className="ClientManagement-btn ClientManagement-btn--outlined" onClick={onClose}>Close</button>
         </div>
       </div>
     </div>
@@ -428,9 +428,9 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
 
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'High': return 'badge--error';
-      case 'Medium': return 'badge--warning';
-      case 'Low': return 'badge--info';
+      case 'High': return 'ClientManagement-badge--error';
+      case 'Medium': return 'ClientManagement-badge--warning';
+      case 'Low': return 'ClientManagement-badge--info';
       default: return '';
     }
   };
@@ -446,11 +446,11 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
 
   if (loading) {
     return (
-      <div className="card">
-        <div className="card__content">
-          <div className="flex-align-center justify-center py-3">
-            <div className="spinner"></div>
-            <p className="ml-2">Loading tasks...</p>
+      <div className="ClientManagement-card">
+        <div className="ClientManagement-card__content">
+          <div className="ClientManagement-flex-align-center ClientManagement-justify-center ClientManagement-py-3">
+            <div className="ClientManagement-spinner"></div>
+            <p className="ClientManagement-ml-2">Loading tasks...</p>
           </div>
         </div>
       </div>
@@ -458,25 +458,25 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
   }
 
   return (
-    <div className="card mb-2">
-      <div className="card__content">
-        <div className="flex-align-center justify-between mb-2">
-          <div className="flex-grow-1">
-            <h4 className="mb-1">{service}</h4>
-            <p className="text-muted">
+    <div className="ClientManagement-card ClientManagement-mb-2">
+      <div className="ClientManagement-card__content">
+        <div className="ClientManagement-flex-align-center ClientManagement-justify-between ClientManagement-mb-2">
+          <div className="ClientManagement-flex-grow-1">
+            <h4 className="ClientManagement-mb-1">{service}</h4>
+            <p className="ClientManagement-text-muted">
               {completedTasks} / {totalTasks} tasks completed
             </p>
           </div>
-          <div className="flex-align-center gap-1">
-            <div className={`badge ${
-              progressPercentage >= 100 ? 'badge--success' :
-              progressPercentage >= 70 ? 'badge--info' :
-              progressPercentage >= 40 ? 'badge--warning' : ''
+          <div className="ClientManagement-flex-align-center ClientManagement-gap-1">
+            <div className={`ClientManagement-badge ${
+              progressPercentage >= 100 ? 'ClientManagement-badge--success' :
+              progressPercentage >= 70 ? 'ClientManagement-badge--info' :
+              progressPercentage >= 40 ? 'ClientManagement-badge--warning' : ''
             }`}>
               {Math.round(progressPercentage)}%
             </div>
             <button 
-              className="action-button action-button--primary"
+              className="ClientManagement-action-button ClientManagement-action-button--primary"
               onClick={() => {
                 console.log('🔍 Add task button clicked');
                 setShowAddTask(!showAddTask);
@@ -486,7 +486,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
               <FiPlus />
             </button>
             <button 
-              className="action-button"
+              className="ClientManagement-action-button"
               onClick={() => {
                 console.log('🔍 Refresh tasks button clicked');
                 fetchTasks();
@@ -498,24 +498,24 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
           </div>
         </div>
 
-        <div className="progress-bar mb-2">
+        <div className="ClientManagement-progress-bar ClientManagement-mb-2">
           <div 
-            className={`progress-bar__fill ${
-              progressPercentage >= 100 ? 'progress-bar__fill--success' :
-              progressPercentage >= 70 ? 'progress-bar__fill--primary' :
-              progressPercentage >= 40 ? 'progress-bar__fill--warning' : 'progress-bar__fill--info'
+            className={`ClientManagement-progress-bar__fill ${
+              progressPercentage >= 100 ? 'ClientManagement-progress-bar__fill--success' :
+              progressPercentage >= 70 ? 'ClientManagement-progress-bar__fill--primary' :
+              progressPercentage >= 40 ? 'ClientManagement-progress-bar__fill--warning' : 'ClientManagement-progress-bar__fill--info'
             }`}
             style={{ width: `${progressPercentage}%` }}
           ></div>
         </div>
 
         {(showAddTask || editTask) && (
-          <div className="card mb-2 p-2 bg-grey-50">
-            <h5 className="mb-2">{editTask ? 'Edit Task' : 'Add New Task'}</h5>
-            <div className="space-y-2">
+          <div className="ClientManagement-card ClientManagement-mb-2 ClientManagement-p-2 ClientManagement-bg-grey-50">
+            <h5 className="ClientManagement-mb-2">{editTask ? 'Edit Task' : 'Add New Task'}</h5>
+            <div className="ClientManagement-space-y-2">
               <input
                 type="text"
-                className="form-input"
+                className="ClientManagement-form-input"
                 placeholder="Enter task name..."
                 value={editTask ? editTask.name : newTask.name}
                 onChange={(e) => {
@@ -529,11 +529,11 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
                 autoFocus
               />
               
-              <div className="grid-2 gap-2">
+              <div className="ClientManagement-grid-2 ClientManagement-gap-2">
                 <div>
                   <input
                     type="date"
-                    className="form-input"
+                    className="ClientManagement-form-input"
                     value={editTask ? (editTask.dueDate ? new Date(editTask.dueDate).toISOString().split('T')[0] : '') : newTask.dueDate}
                     onChange={(e) => {
                       if (editTask) {
@@ -547,7 +547,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
                 
                 <div>
                   <select
-                    className="form-input"
+                    className="ClientManagement-form-input"
                     value={editTask ? editTask.assignee : newTask.assignee}
                     onChange={(e) => {
                       if (editTask) {
@@ -569,7 +569,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
               
               <div>
                 <select
-                  className="form-input"
+                  className="ClientManagement-form-input"
                   value={editTask ? editTask.priority : newTask.priority}
                   onChange={(e) => {
                     if (editTask) {
@@ -585,9 +585,9 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
                 </select>
               </div>
               
-              <div className="flex justify-end gap-1">
+              <div className="ClientManagement-flex ClientManagement-justify-end ClientManagement-gap-1">
                 <button 
-                  className="btn btn--outlined"
+                  className="ClientManagement-btn ClientManagement-btn--outlined"
                   onClick={() => {
                     console.log('🔍 Cancel button clicked');
                     if (editTask) {
@@ -606,7 +606,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
                   Cancel
                 </button>
                 <button 
-                  className="btn btn--primary"
+                  className="ClientManagement-btn ClientManagement-btn--primary"
                   onClick={editTask ? handleEditTask : handleAddTask}
                   disabled={editTask ? !editTask.name.trim() : !newTask.name.trim()}
                 >
@@ -618,53 +618,53 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
         )}
 
         <div>
-          <h5 className="mb-2">Tasks ({totalTasks}):</h5>
+          <h5 className="ClientManagement-mb-2">Tasks ({totalTasks}):</h5>
           {tasks.length > 0 ? (
-            <div className="task-list">
+            <div className="ClientManagement-task-list">
               {tasks.map((task) => (
-                <div key={task._id || task.id} className="task-item">
-                  <div className="task-item__checkbox">
+                <div key={task._id || task.id} className="ClientManagement-task-item">
+                  <div className="ClientManagement-task-item__checkbox">
                     <input
                       type="checkbox"
                       checked={task.completed}
                       onChange={() => toggleTaskCompletion(task)}
                     />
                   </div>
-                  <div className="task-item__content">
-                    <div className="flex-align-center gap-1 flex-wrap">
-                      <p className={task.completed ? 'text-line-through text-muted' : ''}>
+                  <div className="ClientManagement-task-item__content">
+                    <div className="ClientManagement-flex-align-center ClientManagement-gap-1 ClientManagement-flex-wrap">
+                      <p className={task.completed ? 'ClientManagement-text-line-through ClientManagement-text-muted' : ''}>
                         {task.name}
                       </p>
                       
                       {task.priority && task.priority !== 'Medium' && (
-                        <div className={`badge ${getPriorityColor(task.priority)}`}>
+                        <div className={`ClientManagement-badge ${getPriorityColor(task.priority)}`}>
                           {task.priority}
                         </div>
                       )}
                       
                       {task.assignee && (
-                        <div className="badge" title={`Assigned to: ${task.assignee}`}>
+                        <div className="ClientManagement-badge" title={`Assigned to: ${task.assignee}`}>
                           {task.assignee}
                         </div>
                       )}
                       
                       {task.dueDate && (
-                        <div className="badge" title={`Due: ${new Date(task.dueDate).toLocaleDateString()}`}>
+                        <div className="ClientManagement-badge" title={`Due: ${new Date(task.dueDate).toLocaleDateString()}`}>
                           {new Date(task.dueDate).toLocaleDateString()}
                         </div>
                       )}
                     </div>
                     
-                    <small className="text-muted">
+                    <small className="ClientManagement-text-muted">
                       Added: {new Date(task.createdAt).toLocaleDateString()}
                       {task.completed && task.completedAt && (
                         <> • Completed: {new Date(task.completedAt).toLocaleDateString()}</>
                       )}
                     </small>
                   </div>
-                  <div className="task-item__actions">
+                  <div className="ClientManagement-task-item__actions">
                     <button 
-                      className="action-button"
+                      className="ClientManagement-action-button"
                       onClick={() => {
                         console.log('🔍 View task details clicked:', task);
                         setShowTaskDetails({ open: true, task });
@@ -674,7 +674,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
                       <FiEye />
                     </button>
                     <button 
-                      className="action-button action-button--primary"
+                      className="ClientManagement-action-button ClientManagement-action-button--primary"
                       onClick={() => {
                         console.log('🔍 Edit task clicked:', task);
                         setEditTask(task);
@@ -684,7 +684,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
                       <FiEdit />
                     </button>
                     <button 
-                      className="action-button action-button--error"
+                      className="ClientManagement-action-button ClientManagement-action-button--error"
                       onClick={() => {
                         console.log('🔍 Delete task clicked:', task);
                         deleteTask(task);
@@ -698,8 +698,8 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
               ))}
             </div>
           ) : (
-            <div className="text-center py-3 border-dashed border rounded bg-grey-50">
-              <p className="text-muted">
+            <div className="ClientManagement-text-center ClientManagement-py-3 ClientManagement-border-dashed ClientManagement-border ClientManagement-rounded ClientManagement-bg-grey-50">
+              <p className="ClientManagement-text-muted">
                 No tasks added yet. Click the + icon to add tasks.
               </p>
             </div>
@@ -744,34 +744,34 @@ const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService,
   if (!open) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal__header">
+    <div className="ClientManagement-modal-overlay" onClick={onClose}>
+      <div className="ClientManagement-modal" onClick={e => e.stopPropagation()}>
+        <div className="ClientManagement-modal__header">
           <h3>Manage Services</h3>
-          <button className="action-button" onClick={onClose}>
+          <button className="ClientManagement-action-button" onClick={onClose}>
             <FiX />
           </button>
         </div>
-        <div className="modal__content">
+        <div className="ClientManagement-modal__content">
           {!companyCode && (
-            <div className="alert alert--warning mb-3">
+            <div className="ClientManagement-alert ClientManagement-alert--warning ClientManagement-mb-3">
               <FiAlertCircle /> Company code not found. Services may not save properly.
             </div>
           )}
           
-          <form onSubmit={handleSubmit} className="mb-3">
-            <div className="grid-2 gap-2">
+          <form onSubmit={handleSubmit} className="ClientManagement-mb-3">
+            <div className="ClientManagement-grid-2 ClientManagement-gap-2">
               <div>
                 <input
                   type="text"
-                  className="form-input"
+                  className="ClientManagement-form-input"
                   placeholder="New Service Name"
                   value={newService}
                   onChange={(e) => setNewService(e.target.value)}
                   required
                 />
                 {companyCode && (
-                  <small className="text-muted mt-1 block">
+                  <small className="ClientManagement-text-muted ClientManagement-mt-1 ClientManagement-block">
                     This service will be added for company: {companyCode}
                   </small>
                 )}
@@ -779,7 +779,7 @@ const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService,
               <div>
                 <button 
                   type="submit" 
-                  className="btn btn--primary w-100"
+                  className="ClientManagement-btn ClientManagement-btn--primary ClientManagement-w-100"
                   disabled={!companyCode}
                 >
                   <FiPlus /> {companyCode ? 'Add Service' : 'Company Code Required'}
@@ -788,29 +788,29 @@ const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService,
             </div>
           </form>
 
-          <hr className="my-2" />
+          <hr className="ClientManagement-my-2" />
 
-          <h4 className="mb-2">All Services ({filteredServices.length})</h4>
+          <h4 className="ClientManagement-mb-2">All Services ({filteredServices.length})</h4>
           
           {filteredServices.length > 0 ? (
-            <div className="service-list">
+            <div className="ClientManagement-service-list">
               {filteredServices.map((service) => (
-                <div key={service._id} className="service-item">
-                  <div className="service-item__icon">
+                <div key={service._id} className="ClientManagement-service-item">
+                  <div className="ClientManagement-service-item__icon">
                     <FiBriefcase />
                   </div>
-                  <div className="service-item__content">
-                    <p className="font-bold">{service.servicename}</p>
-                    <small className="text-muted">
+                  <div className="ClientManagement-service-item__content">
+                    <p className="ClientManagement-font-bold">{service.servicename}</p>
+                    <small className="ClientManagement-text-muted">
                       Created: {new Date(service.createdAt).toLocaleDateString()}
                       {service.companyCode && (
                         <> • Company: {service.companyCode}</>
                       )}
                     </small>
                   </div>
-                  <div className="service-item__actions">
+                  <div className="ClientManagement-service-item__actions">
                     <button
-                      className="action-button action-button--error"
+                      className="ClientManagement-action-button ClientManagement-action-button--error"
                       onClick={() => {
                         console.log('🔍 Delete service clicked:', service);
                         onDeleteService(service._id, service.servicename);
@@ -824,10 +824,10 @@ const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService,
               ))}
             </div>
           ) : (
-            <div className="text-center py-3">
-              <FiBriefcase className="text-4xl text-muted mb-2" />
-              <h5 className="text-muted">No Services Found</h5>
-              <p className="text-muted">
+            <div className="ClientManagement-text-center ClientManagement-py-3">
+              <FiBriefcase className="ClientManagement-text-4xl ClientManagement-text-muted ClientManagement-mb-2" />
+              <h5 className="ClientManagement-text-muted">No Services Found</h5>
+              <p className="ClientManagement-text-muted">
                 {companyCode 
                   ? 'Add your first service using the form above'
                   : 'Company code not found. Please refresh the page.'
@@ -836,8 +836,8 @@ const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService,
             </div>
           )}
         </div>
-        <div className="modal__footer">
-          <button className="btn btn--outlined" onClick={onClose}>Close</button>
+        <div className="ClientManagement-modal__footer">
+          <button className="ClientManagement-btn ClientManagement-btn--outlined" onClick={onClose}>Close</button>
         </div>
       </div>
     </div>
@@ -880,7 +880,7 @@ const AddClientModal = ({
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest('.dropdown-container')) {
+      if (!event.target.closest('.ClientManagement-dropdown-container')) {
         setTeamOpen(false);
         setServicesOpen(false);
       }
@@ -968,31 +968,31 @@ const AddClientModal = ({
   if (!open) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
-        <div className="modal__header">
+    <div className="ClientManagement-modal-overlay" onClick={onClose}>
+      <div className="ClientManagement-modal ClientManagement-modal-lg" onClick={e => e.stopPropagation()}>
+        <div className="ClientManagement-modal__header">
           <h3>Add New Client</h3>
           {companyCode && (
-            <small className="text-muted">Company: {companyCode}</small>
+            <small className="ClientManagement-text-muted">Company: {companyCode}</small>
           )}
-          <button className="action-button" onClick={onClose} disabled={loading}>
+          <button className="ClientManagement-action-button" onClick={onClose} disabled={loading}>
             <FiX />
           </button>
         </div>
-        <div className="modal__content">
+        <div className="ClientManagement-modal__content">
           {!companyCode && (
-            <div className="alert alert--warning mb-3">
+            <div className="ClientManagement-alert ClientManagement-alert--warning ClientManagement-mb-3">
               <FiAlertCircle /> Company code not found. Client may not save properly.
             </div>
           )}
           
-          <form onSubmit={handleSubmit} className="dropdown-container">
-            <div className="grid-2 gap-2">
-              <div className="form-group">
-                <label className="form-label">Client Name *</label>
+          <form onSubmit={handleSubmit} className="ClientManagement-dropdown-container">
+            <div className="ClientManagement-grid-2 ClientManagement-gap-2">
+              <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">Client Name *</label>
                 <input
                   type="text"
-                  className="form-input"
+                  className="ClientManagement-form-input"
                   value={newClient.client}
                   onChange={(e) => {
                     console.log('🔍 Client name changed:', e.target.value);
@@ -1002,11 +1002,11 @@ const AddClientModal = ({
                   disabled={loading}
                 />
               </div>
-              <div className="form-group">
-                <label className="form-label">Company *</label>
+              <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">Company *</label>
                 <input
                   type="text"
-                  className="form-input"
+                  className="ClientManagement-form-input"
                   value={newClient.company}
                   onChange={(e) => {
                     console.log('🔍 Company changed:', e.target.value);
@@ -1017,11 +1017,11 @@ const AddClientModal = ({
                 />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">City *</label>
+              <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">City *</label>
                 <input
                   type="text"
-                  className="form-input"
+                  className="ClientManagement-form-input"
                   value={newClient.city}
                   onChange={(e) => {
                     console.log('🔍 City changed:', e.target.value);
@@ -1032,10 +1032,10 @@ const AddClientModal = ({
                 />
               </div>
               
-              <div className="form-group">
-                <label className="form-label">Status *</label>
+              <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">Status *</label>
                 <select
-                  className="form-input"
+                  className="ClientManagement-form-input"
                   value={newClient.status}
                   onChange={(e) => {
                     console.log('🔍 Status changed:', e.target.value);
@@ -1049,11 +1049,11 @@ const AddClientModal = ({
                 </select>
               </div>
 
-              <div className="form-group col-span-2">
-                <label className="form-label">Team *</label>
-                <div className="dropdown-wrapper">
+              <div className="ClientManagement-form-group ClientManagement-col-span-2">
+                <label className="ClientManagement-form-label">Team *</label>
+                <div className="ClientManagement-dropdown-wrapper">
                   <div
-                    className="form-input cursor-pointer flex justify-between items-center"
+                    className="ClientManagement-dropdown-box"
                     onClick={() => {
                       console.log('🔍 Team dropdown toggled');
                       setTeamOpen(!teamOpen);
@@ -1064,17 +1064,17 @@ const AddClientModal = ({
                         ? "Select team members"
                         : `${newClient.projectManagers.length} selected`}
                     </span>
-                    <span className={`dropdown-arrow ${teamOpen ? 'dropdown-arrow--open' : ''}`}>
+                    <span className={`ClientManagement-dropdown-arrow ${teamOpen ? 'ClientManagement-dropdown-arrow--open' : ''}`}>
                       <FiChevronDown />
                     </span>
                   </div>
 
                   {teamOpen && (
-                    <div className="dropdown-content">
-                      <div className="dropdown-search">
+                    <div className="ClientManagement-dropdown-content">
+                      <div className="ClientManagement-dropdown-search">
                         <input
                           type="text"
-                          className="form-input"
+                          className="ClientManagement-form-input"
                           placeholder="Search users..."
                           value={managerSearch}
                           onChange={(e) => {
@@ -1085,14 +1085,13 @@ const AddClientModal = ({
                         />
                       </div>
                       
-                      <div className="dropdown-list">
+                      <div className="ClientManagement-dropdown-list">
                         {filteredManagers.length > 0 ? (
                           filteredManagers.map((manager) => (
                             <label
                               key={manager._id}
-                              className="dropdown-item"
+                              className="ClientManagement-dropdown-item"
                               onClick={(e) => e.stopPropagation()}
-                              style={{ border: '1px solid #e0e0e0', marginBottom: '4px' }}
                             >
                               <input
                                 type="checkbox"
@@ -1109,13 +1108,13 @@ const AddClientModal = ({
                                 }}
                                 disabled={loading}
                               />
-                              <div className="dropdown-item-content">
-                                <div className="avatar avatar--primary">
+                              <div className="ClientManagement-dropdown-item-content">
+                                <div className="ClientManagement-avatar ClientManagement-avatar--primary">
                                   {manager.name?.charAt(0)?.toUpperCase() || 'U'}
                                 </div>
                                 <div>
-                                  <span className="font-medium">{manager.name || 'No Name'}</span>
-                                  <div className="dropdown-item-details">
+                                  <span className="ClientManagement-font-medium">{manager.name || 'No Name'}</span>
+                                  <div className="ClientManagement-dropdown-item-details">
                                     <span>•</span>
                                     <span>{manager.email || 'No email'}</span>
                                   </div>
@@ -1124,7 +1123,7 @@ const AddClientModal = ({
                             </label>
                           ))
                         ) : (
-                          <div className="dropdown-empty">
+                          <div className="ClientManagement-dropdown-empty">
                             <p>No users found</p>
                           </div>
                         )}
@@ -1134,16 +1133,16 @@ const AddClientModal = ({
                 </div>
                 
                 {newClient.projectManagers.length > 0 && (
-                  <div className="selected-items-preview">
+                  <div className="ClientManagement-selected-items-preview">
                     {newClient.projectManagers.map(managerId => {
                       const manager = projectManagers.find(pm => pm._id === managerId);
                       if (!manager) return null;
                       return (
-                        <div key={managerId} className="selected-item">
+                        <div key={managerId} className="ClientManagement-selected-item">
                           <span>{manager.name}</span>
                           <button
                             type="button"
-                            className="selected-item-remove"
+                            className="ClientManagement-selected-item-remove"
                             onClick={() => {
                               console.log(`🔍 Removing manager: ${manager.name}`);
                               setNewClient(prev => ({
@@ -1161,16 +1160,16 @@ const AddClientModal = ({
                 )}
               </div>
 
-              <div className="form-group col-span-2">
-                <label className="form-label">Services</label>
+              <div className="ClientManagement-form-group ClientManagement-col-span-2">
+                <label className="ClientManagement-form-label">Services</label>
                 {filteredServices.length === 0 && (
-                  <div className="alert alert--info mb-2">
+                  <div className="ClientManagement-alert ClientManagement-alert--info ClientManagement-mb-2">
                     <FiInfo /> No services available for this company. Please add services first.
                   </div>
                 )}
-                <div className="dropdown-wrapper">
+                <div className="ClientManagement-dropdown-wrapper">
                   <div 
-                    className="form-input cursor-pointer flex justify-between items-center"
+                    className="ClientManagement-dropdown-box"
                     onClick={() => {
                       console.log('🔍 Services dropdown toggled');
                       setServicesOpen(!servicesOpen);
@@ -1181,19 +1180,19 @@ const AddClientModal = ({
                         ? "Select services"
                         : `${newClient.services.length} selected`}
                     </span>
-                    <span className={`dropdown-arrow ${servicesOpen ? 'dropdown-arrow--open' : ''}`}>
+                    <span className={`ClientManagement-dropdown-arrow ${servicesOpen ? 'ClientManagement-dropdown-arrow--open' : ''}`}>
                       <FiChevronDown />
                     </span>
                   </div>
 
                   {servicesOpen && (
-                    <div className="dropdown-content">
-                      <div className="dropdown-list">
+                    <div className="ClientManagement-dropdown-content">
+                      <div className="ClientManagement-dropdown-list">
                         {filteredServices.length > 0 ? (
                           filteredServices.map((service) => (
                             <label
                               key={service._id}
-                              className="dropdown-item"
+                              className="ClientManagement-dropdown-item"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <input
@@ -1212,14 +1211,14 @@ const AddClientModal = ({
                                 }}
                                 disabled={loading || filteredServices.length === 0}
                               />
-                              <label htmlFor={`service-${service._id}`} className="dropdown-item-content">
-                                <div className="font-medium">{service.servicename}</div>
+                              <label htmlFor={`service-${service._id}`} className="ClientManagement-dropdown-item-content">
+                                <div className="ClientManagement-font-medium">{service.servicename}</div>
                     
                               </label>
                             </label>
                           ))
                         ) : (
-                          <div className="dropdown-empty">
+                          <div className="ClientManagement-dropdown-empty">
                             No services available
                           </div>
                         )}
@@ -1229,13 +1228,13 @@ const AddClientModal = ({
                 </div>
                 
                 {newClient.services.length > 0 && (
-                  <div className="selected-items-preview">
+                  <div className="ClientManagement-selected-items-preview">
                     {newClient.services.map((serviceName, index) => (
-                      <div key={index} className="selected-item selected-item--info">
+                      <div key={index} className="ClientManagement-selected-item ClientManagement-selected-item--info">
                         <span>{serviceName}</span>
                         <button
                           type="button"
-                          className="selected-item-remove"
+                          className="ClientManagement-selected-item-remove"
                           onClick={() => {
                             console.log(`🔍 Removing service: ${serviceName}`);
                             setNewClient(prev => ({
@@ -1252,10 +1251,10 @@ const AddClientModal = ({
                 )}
               </div>
 
-              <div className="form-group col-span-2">
-                <label className="form-label">Description</label>
+              <div className="ClientManagement-form-group ClientManagement-col-span-2">
+                <label className="ClientManagement-form-label">Description</label>
                 <textarea
-                  className="form-input"
+                  className="ClientManagement-form-input"
                   rows="3"
                   value={newClient.description}
                   onChange={(e) => {
@@ -1267,11 +1266,11 @@ const AddClientModal = ({
                 />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Email</label>
+              <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">Email</label>
                 <input
                   type="email"
-                  className="form-input"
+                  className="ClientManagement-form-input"
                   value={newClient.email}
                   onChange={(e) => {
                     console.log('🔍 Email changed:', e.target.value);
@@ -1281,11 +1280,11 @@ const AddClientModal = ({
                 />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Phone</label>
+              <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">Phone</label>
                 <input
                   type="text"
-                  className="form-input"
+                  className="ClientManagement-form-input"
                   value={newClient.phone}
                   onChange={(e) => {
                     console.log('🔍 Phone changed:', e.target.value);
@@ -1295,11 +1294,11 @@ const AddClientModal = ({
                 />
               </div>
 
-              <div className="form-group col-span-2">
-                <label className="form-label">Address</label>
+              <div className="ClientManagement-form-group ClientManagement-col-span-2">
+                <label className="ClientManagement-form-label">Address</label>
                 <input
                   type="text"
-                  className="form-input"
+                  className="ClientManagement-form-input"
                   value={newClient.address}
                   onChange={(e) => {
                     console.log('🔍 Address changed:', e.target.value);
@@ -1309,10 +1308,10 @@ const AddClientModal = ({
                 />
               </div>
 
-              <div className="form-group col-span-2">
-                <label className="form-label">Notes</label>
+              <div className="ClientManagement-form-group ClientManagement-col-span-2">
+                <label className="ClientManagement-form-label">Notes</label>
                 <textarea
-                  className="form-input"
+                  className="ClientManagement-form-input"
                   rows="2"
                   value={newClient.notes}
                   onChange={(e) => {
@@ -1326,12 +1325,12 @@ const AddClientModal = ({
             </div>
           </form>
         </div>
-        <div className="modal__footer">
-          <button className="btn btn--outlined" onClick={onClose} disabled={loading}>
+        <div className="ClientManagement-modal__footer">
+          <button className="ClientManagement-btn ClientManagement-btn--outlined" onClick={onClose} disabled={loading}>
             Cancel
           </button>
           <button 
-            className="btn btn--primary"
+            className="ClientManagement-btn ClientManagement-btn--primary"
             onClick={handleSubmit}
             disabled={
               loading || 
@@ -2099,31 +2098,22 @@ const ClientManagement = () => {
 
   const renderManagerInfo = (manager) => {
     return (
-      <div className="manager-info">
-        <div className="manager-header">
-          <div className="avatar avatar--primary">
+      <div className="ClientManagement-manager-info">
+        <div className="ClientManagement-manager-header">
+          <div className="ClientManagement-avatar ClientManagement-avatar--primary">
             {manager.name?.charAt(0)?.toUpperCase() || 'U'}
           </div>
           <div>
-            <p className="font-bold">{manager.name}</p>
-            {/* <small className="text-muted">
-              ID: {manager._id?.slice(-8) || manager.id?.slice(-8) || 'N/A'}
-            </small> */}
+            <p className="ClientManagement-font-bold">{manager.name}</p>
           </div>
         </div>
-        <div className="manager-details">
+        <div className="ClientManagement-manager-details">
           {manager.email && (
             <div>
-              <small className="text-muted">Email:</small>
+              <small className="ClientManagement-text-muted">Email:</small>
               <small>{manager.email}</small>
             </div>
           )}
-          {/* {manager.role && (
-            <div>
-              <small className="text-muted">Role:</small>
-              <small>{manager.role}</small>
-            </div>
-          )} */}
         </div>
       </div>
     );
@@ -2142,24 +2132,24 @@ const ClientManagement = () => {
   const filteredClients = getFilteredClients();
 
   return (
-    <div className="client-management">
-      <div className="client-management-header">
-        <div className="card__content">
-          <div className="client-header-container">
-            <div className="client-header-left">
-              <FiUsers className="client-header-icon" />
+    <div className="ClientManagement-client-management">
+      <div className="ClientManagement-client-management-header">
+        <div className="ClientManagement-card__content">
+          <div className="ClientManagement-client-header-container">
+            <div className="ClientManagement-client-header-left">
+              <FiUsers className="ClientManagement-client-header-icon" />
               <div>
-                <h1 className="client-header-title">Client Management</h1>
-                <p className="client-header-subtitle">
+                <h1 className="ClientManagement-client-header-title">Client Management</h1>
+                <p className="ClientManagement-client-header-subtitle">
                   {companyCode || companyIdentifier 
                     ? `Company: ${companyCode || companyIdentifier}` 
                     : 'Manage clients and services'}
                 </p>
               </div>
             </div>
-            <div className="client-header-actions">
+            <div className="ClientManagement-client-header-actions">
               <button
-                className="btn btn--outlined"
+                className="ClientManagement-btn ClientManagement-btn--outlined"
                 onClick={() => {
                   console.log('🔍 Services modal button clicked');
                   setServicesModal(true);
@@ -2169,7 +2159,7 @@ const ClientManagement = () => {
                 <FiBriefcase /> Services ({services.length})
               </button>
               <button
-                className="btn btn--primary"
+                className="ClientManagement-btn ClientManagement-btn--primary"
                 onClick={() => {
                   console.log('🔍 Add client modal button clicked');
                   setAddClientModal(true);
@@ -2179,7 +2169,7 @@ const ClientManagement = () => {
                 <FiPlus /> Add Client
               </button>
               <button
-                className="btn btn--outlined"
+                className="ClientManagement-btn ClientManagement-btn--outlined"
                 onClick={() => {
                   console.log('🔍 Refresh button clicked');
                   fetchData();
@@ -2192,7 +2182,7 @@ const ClientManagement = () => {
         </div>
       </div>
 
-      <div className="stats-griddd">
+      <div className="ClientManagement-stats-griddd">
         {[
           { label: 'Total Clients', value: filteredClients.length, color: 'primary', icon: <FiUsers /> },
           { label: 'Active Clients', value: filteredClients.filter(c => c.status === 'Active').length, color: 'success', icon: <FiCheckCircle /> },
@@ -2200,15 +2190,15 @@ const ClientManagement = () => {
           { label: 'Overdue Tasks', value: tasksStats.overdueTasks, color: 'error', icon: <FiAlertCircle /> },
           { label: 'Services', value: services.length, color: 'info', icon: <FiBriefcase /> },
         ].map((stat, index) => (
-          <div key={index} className={`stat-card stat-card--${stat.color}`}>
-            <div className="card__content">
-              <div className="stat-card-content">
-                <div className={`avatar avatar--${stat.color}`}>
+          <div key={index} className={`ClientManagement-stat-card ClientManagement-stat-card--${stat.color}`}>
+            <div className="ClientManagement-card__content">
+              <div className="ClientManagement-stat-card-content">
+                <div className={`ClientManagement-avatar ClientManagement-avatar--${stat.color}`}>
                   {stat.icon}
                 </div>
                 <div>
-                  <small className="text-muted">{stat.label}</small>
-                  <p className="stat-card-value">{stat.value}</p>
+                  <small className="ClientManagement-text-muted">{stat.label}</small>
+                  <p className="ClientManagement-stat-card-value">{stat.value}</p>
                 </div>
               </div>
             </div>
@@ -2217,49 +2207,48 @@ const ClientManagement = () => {
       </div>
 
       {!companyCode && !companyIdentifier && (
-        <div className="alert alert--warning">
+        <div className="ClientManagement-alert ClientManagement-alert--warning">
           <FiAlertCircle /> Company information not found. Please refresh the page or login again.
         </div>
       )}
 
       {error && (
-        <div className="alert alert--error">
+        <div className="ClientManagement-alert ClientManagement-alert--error">
           <FiAlertCircle /> {error}
         </div>
       )}
 
       {success && (
-        <div className="alert alert--success">
+        <div className="ClientManagement-alert ClientManagement-alert--success">
           <FiCheckCircle /> {success}
         </div>
       )}
 
-      <div className="card">
-        <div className="card__header card-header-gradient">
-          <div className="card-header-container">
-            <div className="card-header-left">
-              <div className="avatar-circle">
+      <div className="ClientManagement-card">
+        <div className="ClientManagement-card__header ClientManagement-card-header-gradient">
+          <div className="ClientManagement-card-header-container">
+            <div className="ClientManagement-card-header-left">
+              <div className="ClientManagement-avatar-circle">
                 <FiUsers />
               </div>
               <div>
-                <h2 className="card-header-title">Client Portfolio</h2>
-                <p className="card-header-subtitle">
-                  Total {filteredClients.length} clients • {filteredClients.filter(c => c.status === 'Active').length} active
-                  {(companyCode || companyIdentifier) && 
+                <h2 className="ClientManagement-card-header-title">Client Portfolio</h2>
+                <p className="ClientManagement-card-header-subtitle">
+                  Total {filteredClients.length} clients • {filteredClients.filter(c => c.status === 'Active').length} active                  {(companyCode || companyIdentifier) && 
                     <span> • Company: {companyCode || companyIdentifier}</span>
                   }
                 </p>
               </div>
             </div>
             
-            <div className="card-header-right">
-              <div className="active-indicator">
+            <div className="ClientManagement-card-header-right">
+              <div className="ClientManagement-active-indicator">
                 <FiActivity />
                 <span>{filteredClients.filter(c => c.status === 'Active').length} Active</span>
               </div>
               
               <button 
-                className="refresh-button"
+                className="ClientManagement-refresh-button"
                 onClick={() => {
                   console.log('🔍 Header refresh button clicked');
                   fetchData();
@@ -2271,10 +2260,10 @@ const ClientManagement = () => {
           </div>
         </div>
         
-        <div className="filter-bar">
-          <div className="filter-grid">
-            <div className="filter-search-container">
-              <div className="search-input">
+        <div className="ClientManagement-filter-bar">
+          <div className="ClientManagement-filter-grid">
+            <div className="ClientManagement-filter-search-container">
+              <div className="ClientManagement-search-input">
                 <FiSearch />
                 <input
                   type="text"
@@ -2287,7 +2276,7 @@ const ClientManagement = () => {
             
             <div>
               <select
-                className="form-input"
+                className="ClientManagement-form-input"
                 value={filters.status}
                 onChange={(e) => handleFilterChange('status', e.target.value)}
               >
@@ -2300,7 +2289,7 @@ const ClientManagement = () => {
             
             <div>
               <select
-                className="form-input"
+                className="ClientManagement-form-input"
                 value={filters.projectManager}
                 onChange={(e) => handleFilterChange('projectManager', e.target.value)}
               >
@@ -2315,7 +2304,7 @@ const ClientManagement = () => {
             
             <div>
               <select
-                className="form-input"
+                className="ClientManagement-form-input"
                 value={filters.service}
                 onChange={(e) => handleFilterChange('service', e.target.value)}
               >
@@ -2330,7 +2319,7 @@ const ClientManagement = () => {
             
             <div>
               <button
-                className="btn btn--primary w-100"
+                className="ClientManagement-btn ClientManagement-btn--primary ClientManagement-w-100"
                 onClick={() => {
                   console.log('🔍 New Client button clicked');
                   setAddClientModal(true);
@@ -2343,17 +2332,17 @@ const ClientManagement = () => {
           </div>
         </div>
         
-        <div className="card__content card-content-padded">
+        <div className="ClientManagement-card__content ClientManagement-card-content-padded">
           {!companyCode && !companyIdentifier ? (
-            <div className="empty-state-container">
-              <div className="empty-state">
-                <FiAlertCircle className="empty-state-icon" />
-                <h3 className="empty-state-title">Company Information Required</h3>
-                <p className="empty-state-description">
+            <div className="ClientManagement-empty-state-container">
+              <div className="ClientManagement-empty-state">
+                <FiAlertCircle className="ClientManagement-empty-state-icon" />
+                <h3 className="ClientManagement-empty-state-title">Company Information Required</h3>
+                <p className="ClientManagement-empty-state-description">
                   Company code or identifier not found. Please refresh the page or login again.
                 </p>
                 <button 
-                  className="btn btn--primary"
+                  className="ClientManagement-btn ClientManagement-btn--primary"
                   onClick={() => {
                     console.log('🔍 Refresh page button clicked');
                     window.location.reload();
@@ -2364,23 +2353,23 @@ const ClientManagement = () => {
               </div>
             </div>
           ) : loading ? (
-            <div className="loading-container">
-              <div className="spinner"></div>
+            <div className="ClientManagement-loading-container">
+              <div className="ClientManagement-spinner"></div>
               <p>Loading clients...</p>
             </div>
           ) : filteredClients.length > 0 ? (
             <>
-              <div className="table-container">
-                <table className="data-table">
+              <div className="ClientManagement-table-container">
+                <table className="ClientManagement-data-table">
                   <thead>
                     <tr>
                       <th>Client</th>
-                      <th className="table-cell-hidden-sm">Company</th>
-                      <th className="table-cell-hidden-md">Services</th>
+                      <th className="ClientManagement-table-cell-hidden-sm">Company</th>
+                      <th className="ClientManagement-table-cell-hidden-md">Services</th>
                       <th>Status</th>
                       <th>Progress</th>
-                      <th className="table-cell-hidden-sm">Tasks</th>
-                      <th className="text-center">Actions</th>
+                      <th className="ClientManagement-table-cell-hidden-sm">Tasks</th>
+                      <th className="ClientManagement-text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2392,37 +2381,37 @@ const ClientManagement = () => {
                       return (
                         <tr key={client._id}>
                           <td>
-                            <div className="client-cell">
+                            <div className="ClientManagement-client-cell">
                               <div>
-                                <p className="font-bold">{client.client || 'N/A'}</p>
-                                <small className="text-muted client-cell-secondary">
+                                <p className="ClientManagement-font-bold">{client.client || 'N/A'}</p>
+                                <small className="ClientManagement-text-muted ClientManagement-client-cell-secondary">
                                   ID: {client.clientId || client._id?.slice(-6)}
                                   {client.companyCode && ` • Code: ${client.companyCode}`}
                                   {client.companyIdentifier && ` • ID: ${client.companyIdentifier}`}
                                 </small>
-                                <small className="text-muted client-cell-mobile">
+                                <small className="ClientManagement-text-muted ClientManagement-client-cell-mobile">
                                   {client.company || 'N/A'}
                                 </small>
                               </div>
                             </div>
                           </td>
                           
-                          <td className="table-cell-hidden-sm">
+                          <td className="ClientManagement-table-cell-hidden-sm">
                             <div>
-                              <p className="font-medium">{client.company || 'N/A'}</p>
-                              <small className="text-muted">{client.email || 'No email'}</small>
+                              <p className="ClientManagement-font-medium">{client.company || 'N/A'}</p>
+                              <small className="ClientManagement-text-muted">{client.email || 'No email'}</small>
                             </div>
                           </td>
                           
-                          <td className="table-cell-hidden-md">
-                            <div className="services-tags">
+                          <td className="ClientManagement-table-cell-hidden-md">
+                            <div className="ClientManagement-services-tags">
                               {Array.isArray(client.services) && client.services.slice(0, 2).map((service, idx) => (
-                                <div key={idx} className="badge badge--info">
+                                <div key={idx} className="ClientManagement-badge ClientManagement-badge--info">
                                   {service}
                                 </div>
                               ))}
                               {Array.isArray(client.services) && client.services.length > 2 && (
-                                <div className="badge">
+                                <div className="ClientManagement-badge">
                                   +{client.services.length - 2}
                                 </div>
                               )}
@@ -2430,25 +2419,25 @@ const ClientManagement = () => {
                           </td>
                           
                           <td>
-                            <div className={`status-chip status-chip--${client.status === 'Active' ? 'active' : client.status === 'On Hold' ? 'on-hold' : 'default'}`}>
+                            <div className={`ClientManagement-status-chip ClientManagement-status-chip--${client.status === 'Active' ? 'active' : client.status === 'On Hold' ? 'on-hold' : 'default'}`}>
                               {client.status || 'Unknown'}
                             </div>
                           </td>
                           
                           <td>
-                            <div className="progress-cell">
-                              <div className="progress-header">
-                                <p className="font-medium">{progress}%</p>
-                                <small className="text-muted progress-stats">
+                            <div className="ClientManagement-progress-cell">
+                              <div className="ClientManagement-progress-header">
+                                <p className="ClientManagement-font-medium">{progress}%</p>
+                                <small className="ClientManagement-text-muted ClientManagement-progress-stats">
                                   {stats.completed}/{stats.total}
                                 </small>
                               </div>
-                              <div className="progress-bar">
+                              <div className="ClientManagement-progress-bar">
                                 <div 
-                                  className={`progress-bar__fill ${
-                                    progress > 70 ? 'progress-bar__fill--success' :
-                                    progress > 30 ? 'progress-bar__fill--warning' :
-                                    'progress-bar__fill--error'
+                                  className={`ClientManagement-progress-bar__fill ${
+                                    progress > 70 ? 'ClientManagement-progress-bar__fill--success' :
+                                    progress > 30 ? 'ClientManagement-progress-bar__fill--warning' :
+                                    'ClientManagement-progress-bar__fill--error'
                                   }`}
                                   style={{ width: `${progress}%` }}
                                 ></div>
@@ -2456,26 +2445,26 @@ const ClientManagement = () => {
                             </div>
                           </td>
                           
-                          <td className="table-cell-hidden-sm">
-                            <div className="tasks-cell">
-                              <div className={`badge ${pending > 0 ? 'badge--warning' : 'badge--success'}`}>
+                          <td className="ClientManagement-table-cell-hidden-sm">
+                            <div className="ClientManagement-tasks-cell">
+                              <div className={`ClientManagement-badge ${pending > 0 ? 'ClientManagement-badge--warning' : 'ClientManagement-badge--success'}`}>
                                 {pending}
                               </div>
-                              <small className="text-muted">pending</small>
+                              <small className="ClientManagement-text-muted">pending</small>
                             </div>
                           </td>
                           
-                          <td className="text-center">
-                            <div className="actions-cell">
+                          <td className="ClientManagement-text-center">
+                            <div className="ClientManagement-actions-cell">
                               <button 
-                                className="action-button action-button--primary"
+                                className="ClientManagement-action-button ClientManagement-action-button--primary"
                                 onClick={() => handleViewClick(client)}
                                 title="View Details"
                               >
                                 <FiEye />
                               </button>
                               <button 
-                                className="action-button action-button--success"
+                                className="ClientManagement-action-button ClientManagement-action-button--success"
                                 onClick={() => handleEditClick(client)}
                                 title="Edit Client"
                               >
@@ -2490,10 +2479,10 @@ const ClientManagement = () => {
                 </table>
               </div>
               
-              <div className="pagination-container">
-                <div className="pagination-left">
+              <div className="ClientManagement-pagination-container">
+                <div className="ClientManagement-pagination-left">
                   <select
-                    className="form-input pagination-select"
+                    className="ClientManagement-form-input ClientManagement-pagination-select"
                     value={filters.limit}
                     onChange={(e) => handleFilterChange('limit', e.target.value)}
                   >
@@ -2502,16 +2491,16 @@ const ClientManagement = () => {
                     <option value={25}>25 per page</option>
                     <option value={50}>50 per page</option>
                   </select>
-                  <p className="pagination-info">
+                  <p className="ClientManagement-pagination-info">
                     Showing <strong>{((filters.page - 1) * filters.limit) + 1}-{Math.min(filters.page * filters.limit, filteredClients.length)}</strong> of <strong>{filteredClients.length}</strong>
                   </p>
                 </div>
                 
-                <div className="pagination">
+                <div className="ClientManagement-pagination">
                   {Array.from({ length: Math.ceil(filteredClients.length / filters.limit) }, (_, i) => i + 1).map((page) => (
                     <button
                       key={page}
-                      className={`pagination__item ${page === filters.page ? 'pagination__item--active' : ''}`}
+                      className={`ClientManagement-pagination__item ${page === filters.page ? 'ClientManagement-pagination__item--active' : ''}`}
                       onClick={() => {
                         console.log(`🔍 Page changed to: ${page}`);
                         handleFilterChange('page', page);
@@ -2524,18 +2513,18 @@ const ClientManagement = () => {
               </div>
             </>
           ) : (
-            <div className="empty-state-container">
-              <div className="empty-state">
-                <FiUsers className="empty-state-icon" />
-                <h3 className="empty-state-title">No Clients Found</h3>
-                <p className="empty-state-description">
+            <div className="ClientManagement-empty-state-container">
+              <div className="ClientManagement-empty-state">
+                <FiUsers className="ClientManagement-empty-state-icon" />
+                <h3 className="ClientManagement-empty-state-title">No Clients Found</h3>
+                <p className="ClientManagement-empty-state-description">
                   {services.length === 0 
                     ? 'Add services first to create clients' 
                     : `No clients found for ${companyCode || companyIdentifier}. Add your first client.`
                   }
                 </p>
                 <button 
-                  className="btn btn--primary"
+                  className="ClientManagement-btn ClientManagement-btn--primary"
                   onClick={() => {
                     console.log('🔍 Create first client button clicked');
                     services.length === 0 ? setServicesModal(true) : setAddClientModal(true);
@@ -2576,21 +2565,21 @@ const ClientManagement = () => {
       />
 
       {deleteDialog.open && (
-        <div className="modal-overlay" onClick={handleDeleteCancel}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal__header">
+        <div className="ClientManagement-modal-overlay" onClick={handleDeleteCancel}>
+          <div className="ClientManagement-modal" onClick={e => e.stopPropagation()}>
+            <div className="ClientManagement-modal__header">
               <h3>Delete {deleteDialog.type === 'client' ? 'Client' : 'Service'}</h3>
             </div>
-            <div className="modal__content">
+            <div className="ClientManagement-modal__content">
               <p>
                 Are you sure you want to delete {deleteDialog.type} "{deleteDialog.name}"?
                 {deleteDialog.type === 'client' && ' This action will also delete all associated tasks.'}
               </p>
             </div>
-            <div className="modal__footer">
-              <button className="btn btn--outlined" onClick={handleDeleteCancel}>Cancel</button>
+            <div className="ClientManagement-modal__footer">
+              <button className="ClientManagement-btn ClientManagement-btn--outlined" onClick={handleDeleteCancel}>Cancel</button>
               <button 
-                className="btn btn--error"
+                className="ClientManagement-btn ClientManagement-btn--error"
                 onClick={handleDeleteConfirm}
               >
                 <FiTrash2 /> Delete
@@ -2601,297 +2590,61 @@ const ClientManagement = () => {
       )}
 
       {viewDialog.open && viewDialog.client && (
-        <div 
-          className="modal-overlay" 
-          onClick={() => setViewDialog({ open: false, client: null })}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'linear-gradient(135deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.9) 100%)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-            animation: 'fadeIn 0.3s ease',
-            padding: window.innerWidth <= 768 ? '10px' : '0'
-          }}
-        >
-          <div 
-            className="modal modal-lg" 
-            onClick={e => e.stopPropagation()}
-            style={{
-              background: 'linear-gradient(135deg, #ffffff 0%, #f5f7ff 100%)',
-              borderRadius: window.innerWidth <= 768 ? '20px' : '28px',
-              boxShadow: '0 30px 70px -20px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1) inset',
-              width: window.innerWidth <= 768 ? '100%' : '90%',
-              maxWidth: '1100px',
-              maxHeight: window.innerWidth <= 768 ? '98vh' : '90vh',
-              height: window.innerWidth <= 768 ? '98vh' : 'auto',
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-              animation: 'slideUp 0.4s ease'
-            }}
-          >
-            {/* Modal Header - Mobile Responsive */}
-            <div 
-              className="modal__header"
-              style={{
-                padding: window.innerWidth <= 768 ? '16px 20px' : '24px 30px',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                borderBottom: '1px solid rgba(255,255,255,0.2)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: window.innerWidth <= 768 ? 'wrap' : 'nowrap',
-                gap: window.innerWidth <= 768 ? '10px' : '0'
-              }}
-            >
-              <h3 style={{
-                margin: 0,
-                fontSize: window.innerWidth <= 768 ? '18px' : '24px',
-                fontWeight: 600,
-                color: 'white',
-                textShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                letterSpacing: '0.5px',
-                lineHeight: 1.3,
-                flex: 1
-              }}>
-                Client Details
-              </h3>
-              <button 
-                className="action-button" 
-                onClick={() => setViewDialog({ open: false, client: null })}
-                style={{
-                  background: 'rgba(255,255,255,0.2)',
-                  color: 'white',
-                  width: window.innerWidth <= 768 ? '36px' : '40px',
-                  height: window.innerWidth <= 768 ? '36px' : '40px',
-                  borderRadius: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  fontSize: window.innerWidth <= 768 ? '18px' : '20px',
-                  backdropFilter: 'blur(4px)',
-                  transition: 'all 0.3s ease',
-                  border: '1px solid rgba(255,255,255,0.3)',
-                  flexShrink: 0
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
-              >
+        <div className="ClientManagement-modal-overlay ClientManagement-view-modal-overlay" onClick={() => setViewDialog({ open: false, client: null })}>
+          <div className="ClientManagement-modal ClientManagement-modal-lg ClientManagement-view-modal" onClick={e => e.stopPropagation()}>
+            <div className="ClientManagement-modal__header ClientManagement-view-modal-header">
+              <h3>Client Details</h3>
+              <button className="ClientManagement-action-button ClientManagement-view-modal-close" onClick={() => setViewDialog({ open: false, client: null })}>
                 <FiX />
               </button>
             </div>
             
-            {/* Modal Content - Mobile Responsive */}
-            <div 
-              className="modal__content"
-              style={{
-                flex: 1,
-                overflowY: 'auto',
-                padding: window.innerWidth <= 768 ? '16px' : '30px',
-                background: '#f8fafc',
-                WebkitOverflowScrolling: 'touch'
-              }}
-            >
-              <div className="client-details-content" style={{ 
-                display: 'flex', 
-                flexDirection: 'column',
-                gap: window.innerWidth <= 768 ? '16px' : '30px' 
-              }}>
+            <div className="ClientManagement-modal__content ClientManagement-view-modal-content">
+              <div className="ClientManagement-client-details-content">
                 
-                {/* Basic Information Section - Mobile Responsive */}
-                <div 
-                  className="client-details-section"
-                  style={{
-                    background: 'white',
-                    borderRadius: window.innerWidth <= 768 ? '16px' : '20px',
-                    padding: window.innerWidth <= 768 ? '16px' : '25px',
-                    boxShadow: '0 10px 30px -15px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.02)',
-                    transition: 'transform 0.3s ease, box-shadow 0.3s ease'
-                  }}
-                  onMouseEnter={e => {
-                    if(window.innerWidth > 768) {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 20px 40px -15px rgba(0,0,0,0.2)';
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if(window.innerWidth > 768) {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = '0 10px 30px -15px rgba(0,0,0,0.1)';
-                    }
-                  }}
-                >
-                  <h4 className="section-header" style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    margin: '0 0 16px 0',
-                    fontSize: window.innerWidth <= 768 ? '16px' : '18px',
-                    fontWeight: 600,
-                    color: '#1e293b',
-                    paddingBottom: '10px',
-                    borderBottom: '2px solid #f1f5f9'
-                  }}>
-                    <FiBriefcase style={{ color: '#4158D0', fontSize: window.innerWidth <= 768 ? '18px' : '20px' }} />
+                {/* Basic Information Section */}
+                <div className="ClientManagement-client-details-section">
+                  <h4 className="ClientManagement-section-header">
+                    <FiBriefcase className="ClientManagement-section-icon" />
                     Basic Information
                   </h4>
                   
-                  <div className="details-grid" style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(2,1fr)',
-                    gap: window.innerWidth <= 768 ? '12px' : '20px'
-                  }}>
-                    <div className="detail-item" style={{ padding: '8px 0' }}>
-                      <p className="detail-label" style={{
-                        fontSize: window.innerWidth <= 768 ? '12px' : '13px',
-                        color: '#64748b',
-                        marginBottom: '4px',
-                        fontWeight: 500,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px'
-                      }}>Client Name</p>
-                      <p className="detail-value client-name-highlight" style={{
-                        fontSize: window.innerWidth <= 768 ? '16px' : '18px',
-                        fontWeight: 600,
-                        color: '#4158D0',
-                        margin: 0,
-                        wordBreak: 'break-word'
-                      }}>{viewDialog.client.client}</p>
+                  <div className="ClientManagement-details-grid">
+                    <div className="ClientManagement-detail-item">
+                      <p className="ClientManagement-detail-label">Client Name</p>
+                      <p className="ClientManagement-detail-value ClientManagement-client-name-highlight">{viewDialog.client.client}</p>
                     </div>
                     
-                    <div className="detail-item" style={{ padding: '8px 0' }}>
-                      <p className="detail-label" style={{
-                        fontSize: window.innerWidth <= 768 ? '12px' : '13px',
-                        color: '#64748b',
-                        marginBottom: '4px',
-                        fontWeight: 500,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px'
-                      }}>Company</p>
-                      <p className="detail-value company-badge" style={{
-                        fontSize: window.innerWidth <= 768 ? '14px' : '16px',
-                        fontWeight: 500,
-                        color: '#334155',
-                        margin: 0,
-                        background: '#f1f5f9',
-                        padding: '4px 12px',
-                        borderRadius: '20px',
-                        display: 'inline-block',
-                        wordBreak: 'break-word',
-                        maxWidth: '100%'
-                      }}>{viewDialog.client.company}</p>
+                    <div className="ClientManagement-detail-item">
+                      <p className="ClientManagement-detail-label">Company</p>
+                      <p className="ClientManagement-detail-value ClientManagement-company-badge">{viewDialog.client.company}</p>
                     </div>
                     
-                    <div className="detail-item" style={{ padding: '8px 0' }}>
-                      <p className="detail-label" style={{
-                        fontSize: window.innerWidth <= 768 ? '12px' : '13px',
-                        color: '#64748b',
-                        marginBottom: '4px',
-                        fontWeight: 500,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px'
-                      }}>City</p>
-                      <p className="detail-value location-text" style={{
-                        fontSize: window.innerWidth <= 768 ? '14px' : '16px',
-                        color: '#334155',
-                        margin: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        flexWrap: 'wrap'
-                      }}>
-                        <span style={{
-                          width: '8px',
-                          height: '8px',
-                          background: '#10b981',
-                          borderRadius: '50%',
-                          display: 'inline-block',
-                          flexShrink: 0
-                        }}></span>
-                        <span style={{ wordBreak: 'break-word' }}>{viewDialog.client.city}</span>
+                    <div className="ClientManagement-detail-item">
+                      <p className="ClientManagement-detail-label">City</p>
+                      <p className="ClientManagement-detail-value ClientManagement-location-text">
+                        <span className="ClientManagement-location-dot"></span>
+                        <span>{viewDialog.client.city}</span>
                       </p>
                     </div>
                     
-                    <div className="detail-item" style={{ padding: '8px 0' }}>
-                      <p className="detail-label" style={{
-                        fontSize: window.innerWidth <= 768 ? '12px' : '13px',
-                        color: '#64748b',
-                        marginBottom: '4px',
-                        fontWeight: 500,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px'
-                      }}>Status</p>
-                      <div className={`status-chip status-chip--${viewDialog.client.status === 'Active' ? 'active' : viewDialog.client.status === 'On Hold' ? 'on-hold' : 'default'}`} style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: window.innerWidth <= 768 ? '4px 12px' : '6px 14px',
-                        borderRadius: '30px',
-                        fontSize: window.innerWidth <= 768 ? '13px' : '14px',
-                        fontWeight: 500,
-                        background: viewDialog.client.status === 'Active' ? '#d1fae5' : viewDialog.client.status === 'On Hold' ? '#fed7aa' : '#f1f5f9',
-                        color: viewDialog.client.status === 'Active' ? '#065f46' : viewDialog.client.status === 'On Hold' ? '#92400e' : '#475569',
-                        border: viewDialog.client.status === 'Active' ? '1px solid #10b981' : viewDialog.client.status === 'On Hold' ? '1px solid #f59e0b' : '1px solid #cbd5e1'
-                      }}>
-                        <span style={{
-                          width: '8px',
-                          height: '8px',
-                          background: viewDialog.client.status === 'Active' ? '#10b981' : viewDialog.client.status === 'On Hold' ? '#f59e0b' : '#94a3b8',
-                          borderRadius: '50%',
-                          display: 'inline-block'
-                        }}></span>
+                    <div className="ClientManagement-detail-item">
+                      <p className="ClientManagement-detail-label">Status</p>
+                      <div className={`ClientManagement-status-chip ClientManagement-status-chip--${viewDialog.client.status === 'Active' ? 'active' : viewDialog.client.status === 'On Hold' ? 'on-hold' : 'default'}`}>
+                        <span className="ClientManagement-status-dot"></span>
                         {viewDialog.client.status}
                       </div>
                     </div>
                     
                     {(viewDialog.client.companyCode || viewDialog.client.companyIdentifier) && (
-                      <div className="detail-item company-info-item" style={{
-                        padding: '8px 0',
-                        gridColumn: window.innerWidth <= 768 ? 'auto' : 'span 2'
-                      }}>
-                        <p className="detail-label" style={{
-                          fontSize: window.innerWidth <= 768 ? '12px' : '13px',
-                          color: '#64748b',
-                          marginBottom: '4px',
-                          fontWeight: 500,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px'
-                        }}>Company Info</p>
-                        <p className="detail-value company-codes" style={{
-                          display: 'flex',
-                          gap: '8px',
-                          flexWrap: 'wrap',
-                          margin: 0
-                        }}>
+                      <div className="ClientManagement-detail-item ClientManagement-company-info-item">
+                        <p className="ClientManagement-detail-label">Company Info</p>
+                        <p className="ClientManagement-detail-value ClientManagement-company-codes">
                           {viewDialog.client.companyCode && (
-                            <span style={{
-                              background: '#e0e7ff',
-                              color: '#4f46e5',
-                              padding: '4px 10px',
-                              borderRadius: '20px',
-                              fontSize: window.innerWidth <= 768 ? '12px' : '13px',
-                              fontWeight: 500,
-                              wordBreak: 'break-word'
-                            }}>Code: {viewDialog.client.companyCode}</span>
+                            <span className="ClientManagement-company-code-badge">Code: {viewDialog.client.companyCode}</span>
                           )}
                           {viewDialog.client.companyIdentifier && (
-                            <span style={{
-                              background: '#e0e7ff',
-                              color: '#7c3aed',
-                              padding: '4px 10px',
-                              borderRadius: '20px',
-                              fontSize: window.innerWidth <= 768 ? '12px' : '13px',
-                              fontWeight: 500,
-                              wordBreak: 'break-word'
-                            }}>ID: {viewDialog.client.companyIdentifier}</span>
+                            <span className="ClientManagement-company-id-badge">ID: {viewDialog.client.companyIdentifier}</span>
                           )}
                         </p>
                       </div>
@@ -2899,223 +2652,63 @@ const ClientManagement = () => {
                   </div>
                 </div>
 
-                {/* Team Section - Mobile Responsive */}
-                <div 
-                  className="client-details-section team-section"
-                  style={{
-                    background: 'white',
-                    borderRadius: window.innerWidth <= 768 ? '16px' : '20px',
-                    padding: window.innerWidth <= 768 ? '16px' : '25px',
-                    boxShadow: '0 10px 30px -15px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.02)',
-                    transition: 'transform 0.3s ease, box-shadow 0.3s ease'
-                  }}
-                  onMouseEnter={e => {
-                    if(window.innerWidth > 768) {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 20px 40px -15px rgba(0,0,0,0.2)';
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if(window.innerWidth > 768) {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = '0 10px 30px -15px rgba(0,0,0,0.1)';
-                    }
-                  }}
-                >
-                  <h4 className="section-header" style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    margin: '0 0 16px 0',
-                    fontSize: window.innerWidth <= 768 ? '16px' : '18px',
-                    fontWeight: 600,
-                    color: '#1e293b',
-                    paddingBottom: '10px',
-                    borderBottom: '2px solid #f1f5f9'
-                  }}>
-                    <FiUsers style={{ color: '#C850C0', fontSize: window.innerWidth <= 768 ? '18px' : '20px' }} />
+                {/* Team Section */}
+                <div className="ClientManagement-client-details-section ClientManagement-team-section">
+                  <h4 className="ClientManagement-section-header">
+                    <FiUsers className="ClientManagement-section-icon" />
                     Team
                   </h4>
                   
-                  <p className="section-description" style={{
-                    margin: '0 0 16px 0',
-                    fontSize: window.innerWidth <= 768 ? '13px' : '14px',
-                    color: '#64748b',
-                    background: '#f8fafc',
-                    padding: window.innerWidth <= 768 ? '10px 12px' : '12px 16px',
-                    borderRadius: '12px',
-                    borderLeft: '4px solid #C850C0',
-                    lineHeight: 1.5
-                  }}>
-                    <span style={{ marginRight: '8px', fontSize: window.innerWidth <= 768 ? '14px' : '16px' }}>👥</span>
+                  <p className="ClientManagement-section-description ClientManagement-team-description">
+                    <span className="ClientManagement-description-icon">👥</span>
                     These managers will appear in task assignment dropdowns
                   </p>
                   
-                  <div className="team-members-container">
+                  <div className="ClientManagement-team-members-container">
                     {(() => {
                       const managers = getProjectManagersDetails(viewDialog.client);
                       return managers.length > 0 ? (
-                        <div className="managers-grid" style={{
-                          display: 'grid',
-                          gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))',
-                          gap: window.innerWidth <= 768 ? '10px' : '15px'
-                        }}>
+                        <div className="ClientManagement-managers-grid">
                           {managers.map((manager, idx) => (
-                            <div key={idx} className="manager-card-wrapper" style={{
-                              background: '#f8fafc',
-                              borderRadius: '14px',
-                              padding: window.innerWidth <= 768 ? '12px' : '16px',
-                              border: '1px solid #e2e8f0',
-                              transition: 'all 0.3s ease'
-                            }}
-                            onMouseEnter={e => {
-                              if(window.innerWidth > 768) {
-                                e.currentTarget.style.background = '#f1f5f9';
-                                e.currentTarget.style.borderColor = '#C850C0';
-                                e.currentTarget.style.transform = 'translateX(4px)';
-                              }
-                            }}
-                            onMouseLeave={e => {
-                              if(window.innerWidth > 768) {
-                                e.currentTarget.style.background = '#f8fafc';
-                                e.currentTarget.style.borderColor = '#e2e8f0';
-                                e.currentTarget.style.transform = 'translateX(0)';
-                              }
-                            }}
-                            >
+                            <div key={idx} className="ClientManagement-manager-card-wrapper">
                               {renderManagerInfo(manager)}
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div className="empty-state enhanced-empty" style={{
-                          textAlign: 'center',
-                          padding: window.innerWidth <= 768 ? '30px 16px' : '40px 20px',
-                          background: '#f8fafc',
-                          borderRadius: '16px',
-                          border: '2px dashed #cbd5e1'
-                        }}>
-                          <div style={{ fontSize: window.innerWidth <= 768 ? '40px' : '48px', marginBottom: '12px', opacity: 0.5 }}>👥</div>
-                          <p className="text-muted" style={{ 
-                            color: '#94a3b8', 
-                            marginBottom: '16px',
-                            fontSize: window.innerWidth <= 768 ? '14px' : '16px'
-                          }}>No project managers assigned</p>
-                          <button style={{
-                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                            color: 'white',
-                            border: 'none',
-                            padding: window.innerWidth <= 768 ? '8px 20px' : '10px 24px',
-                            borderRadius: '30px',
-                            fontSize: window.innerWidth <= 768 ? '13px' : '14px',
-                            fontWeight: 500,
-                            cursor: 'pointer',
-                            boxShadow: '0 4px 10px rgba(200,80,192,0.3)',
-                            width: window.innerWidth <= 768 ? '100%' : 'auto'
-                          }}>Assign Manager</button>
+                        <div className="ClientManagement-empty-state ClientManagement-enhanced-empty">
+                          <div className="ClientManagement-empty-icon">👥</div>
+                          <p className="ClientManagement-text-muted">No project managers assigned</p>
+                          <button className="ClientManagement-btn-assign-manager">Assign Manager</button>
                         </div>
                       );
                     })()}
                   </div>
                 </div>
 
-                {/* Services & Task Management Section - Mobile Responsive */}
+                {/* Services & Task Management Section */}
                 {viewDialog.client.services && viewDialog.client.services.length > 0 && (
-                  <div 
-                    className="client-details-section services-section"
-                    style={{
-                      background: 'white',
-                      borderRadius: window.innerWidth <= 768 ? '16px' : '20px',
-                      padding: window.innerWidth <= 768 ? '16px' : '25px',
-                      boxShadow: '0 10px 30px -15px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.02)',
-                      transition: 'transform 0.3s ease, box-shadow 0.3s ease'
-                    }}
-                    onMouseEnter={e => {
-                      if(window.innerWidth > 768) {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = '0 20px 40px -15px rgba(0,0,0,0.2)';
-                      }
-                    }}
-                    onMouseLeave={e => {
-                      if(window.innerWidth > 768) {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 10px 30px -15px rgba(0,0,0,0.1)';
-                      }
-                    }}
-                  >
-                    <h4 className="section-header" style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      margin: '0 0 16px 0',
-                      fontSize: window.innerWidth <= 768 ? '16px' : '18px',
-                      fontWeight: 600,
-                      color: '#1e293b',
-                      paddingBottom: '10px',
-                      borderBottom: '2px solid #f1f5f9'
-                    }}>
-                      <FiTrendingUp style={{ color: '#FFCC70', fontSize: window.innerWidth <= 768 ? '18px' : '20px' }} />
+                  <div className="ClientManagement-client-details-section ClientManagement-services-section">
+                    <h4 className="ClientManagement-section-header">
+                      <FiTrendingUp className="ClientManagement-section-icon" />
                       Services & Tasks
                     </h4>
                     
-                    <p className="section-description" style={{
-                      margin: '0 0 16px 0',
-                      fontSize: window.innerWidth <= 768 ? '13px' : '14px',
-                      color: '#64748b',
-                      background: '#f8fafc',
-                      padding: window.innerWidth <= 768 ? '10px 12px' : '12px 16px',
-                      borderRadius: '12px',
-                      borderLeft: '4px solid #FFCC70',
-                      lineHeight: 1.5
-                    }}>
-                      <span style={{ marginRight: '8px', fontSize: window.innerWidth <= 768 ? '14px' : '16px' }}>📋</span>
+                    <p className="ClientManagement-section-description ClientManagement-services-description">
+                      <span className="ClientManagement-description-icon">📋</span>
                       Add tasks with due dates and assign them to project managers
                     </p>
                     
-                    <div className="services-container" style={{ 
-                      display: 'flex', 
-                      flexDirection: 'column', 
-                      gap: window.innerWidth <= 768 ? '12px' : '20px' 
-                    }}>
+                    <div className="ClientManagement-services-container">
                       {viewDialog.client.services.map((service, index) => {
                         const clientProjectManagers = getProjectManagersDetails(viewDialog.client);
                         return (
-                          <div key={index} className="service-card-wrapper" style={{
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '16px',
-                            overflow: 'hidden',
-                            transition: 'all 0.3s ease',
-                          }}
-                          onMouseEnter={e => {
-                            if(window.innerWidth > 768) {
-                              e.currentTarget.style.borderColor = '#4158D0';
-                              e.currentTarget.style.boxShadow = '0 10px 25px -10px rgba(65,88,208,0.3)';
-                            }
-                          }}
-                          onMouseLeave={e => {
-                            if(window.innerWidth > 768) {
-                              e.currentTarget.style.borderColor = '#e2e8f0';
-                              e.currentTarget.style.boxShadow = 'none';
-                            }
-                          }}
-                          >
-                            <div style={{
-                              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                              padding: window.innerWidth <= 768 ? '10px 14px' : '12px 16px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px'
-                            }}>
-                              <span style={{ fontSize: window.innerWidth <= 768 ? '18px' : '20px' }}>📊</span>
-                              <h5 style={{ 
-                                margin: 0, 
-                                color: 'white', 
-                                fontWeight: 500,
-                                fontSize: window.innerWidth <= 768 ? '14px' : '16px',
-                                wordBreak: 'break-word'
-                              }}>{service}</h5>
+                          <div key={index} className="ClientManagement-service-card-wrapper">
+                            <div className="ClientManagement-service-card-header">
+                              <span className="ClientManagement-service-icon">📊</span>
+                              <h5 className="ClientManagement-service-title">{service}</h5>
                             </div>
-                            <div style={{ padding: window.innerWidth <= 768 ? '12px' : '16px' }}>
+                            <div className="ClientManagement-service-card-body">
                               <ServiceProgressCard
                                 service={service}
                                 clientId={viewDialog.client._id}
@@ -3131,191 +2724,56 @@ const ClientManagement = () => {
                   </div>
                 )}
 
-                {/* Additional Information Section - Mobile Responsive */}
-                <div 
-                  className="client-details-section additional-info-section"
-                  style={{
-                    background: 'white',
-                    borderRadius: window.innerWidth <= 768 ? '16px' : '20px',
-                    padding: window.innerWidth <= 768 ? '16px' : '25px',
-                    boxShadow: '0 10px 30px -15px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.02)',
-                    transition: 'transform 0.3s ease, box-shadow 0.3s ease'
-                  }}
-                  onMouseEnter={e => {
-                    if(window.innerWidth > 768) {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 20px 40px -15px rgba(0,0,0,0.2)';
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if(window.innerWidth > 768) {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = '0 10px 30px -15px rgba(0,0,0,0.1)';
-                    }
-                  }}
-                >
-                  <h4 className="section-header" style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    margin: '0 0 16px 0',
-                    fontSize: window.innerWidth <= 768 ? '16px' : '18px',
-                    fontWeight: 600,
-                    color: '#1e293b',
-                    paddingBottom: '10px',
-                    borderBottom: '2px solid #f1f5f9'
-                  }}>
-                    <FiMapPin style={{ color: '#10b981', fontSize: window.innerWidth <= 768 ? '18px' : '20px' }} />
+                {/* Additional Information Section */}
+                <div className="ClientManagement-client-details-section ClientManagement-additional-info-section">
+                  <h4 className="ClientManagement-section-header">
+                    <FiMapPin className="ClientManagement-section-icon" />
                     Additional Information
                   </h4>
                   
-                  <div className="details-grid additional-grid" style={{
-                    display: 'grid',
-                    gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : 'repeat(auto-fit, minmax(250px, 1fr))',
-                    gap: window.innerWidth <= 768 ? '12px' : '20px'
-                  }}>
+                  <div className="ClientManagement-details-grid ClientManagement-additional-grid">
                     {viewDialog.client.phone && (
-                      <div className="detail-item contact-item" style={{
-                        padding: window.innerWidth <= 768 ? '10px' : '12px',
-                        background: '#f8fafc',
-                        borderRadius: '12px',
-                        border: '1px solid #e2e8f0'
-                      }}>
-                        <p className="detail-label" style={{
-                          fontSize: window.innerWidth <= 768 ? '12px' : '13px',
-                          color: '#64748b',
-                          marginBottom: '6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}>
-                          <span style={{ fontSize: window.innerWidth <= 768 ? '14px' : '16px' }}>📞</span> Phone
+                      <div className="ClientManagement-detail-item ClientManagement-contact-item">
+                        <p className="ClientManagement-detail-label">
+                          <span className="ClientManagement-contact-icon">📞</span> Phone
                         </p>
-                        <p className="detail-value contact-value" style={{
-                          fontSize: window.innerWidth <= 768 ? '14px' : '15px',
-                          fontWeight: 500,
-                          color: '#1e293b',
-                          margin: 0,
-                          wordBreak: 'break-word'
-                        }}>{viewDialog.client.phone}</p>
+                        <p className="ClientManagement-detail-value ClientManagement-contact-value">{viewDialog.client.phone}</p>
                       </div>
                     )}
                     
                     {viewDialog.client.email && (
-                      <div className="detail-item contact-item" style={{
-                        padding: window.innerWidth <= 768 ? '10px' : '12px',
-                        background: '#f8fafc',
-                        borderRadius: '12px',
-                        border: '1px solid #e2e8f0'
-                      }}>
-                        <p className="detail-label" style={{
-                          fontSize: window.innerWidth <= 768 ? '12px' : '13px',
-                          color: '#64748b',
-                          marginBottom: '6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}>
-                          <span style={{ fontSize: window.innerWidth <= 768 ? '14px' : '16px' }}>✉️</span> Email
+                      <div className="ClientManagement-detail-item ClientManagement-contact-item">
+                        <p className="ClientManagement-detail-label">
+                          <span className="ClientManagement-contact-icon">✉️</span> Email
                         </p>
-                        <p className="detail-value contact-value email-value" style={{
-                          fontSize: window.innerWidth <= 768 ? '13px' : '14px',
-                          color: '#4158D0',
-                          margin: 0,
-                          wordBreak: 'break-all'
-                        }}>{viewDialog.client.email}</p>
+                        <p className="ClientManagement-detail-value ClientManagement-contact-value ClientManagement-email-value">{viewDialog.client.email}</p>
                       </div>
                     )}
                     
                     {viewDialog.client.address && (
-                      <div className="detail-item address-item" style={{
-                        padding: window.innerWidth <= 768 ? '10px' : '12px',
-                        background: '#f8fafc',
-                        borderRadius: '12px',
-                        border: '1px solid #e2e8f0',
-                        gridColumn: window.innerWidth <= 768 ? 'auto' : (viewDialog.client.phone && viewDialog.client.email ? 'span 2' : 'auto')
-                      }}>
-                        <p className="detail-label" style={{
-                          fontSize: window.innerWidth <= 768 ? '12px' : '13px',
-                          color: '#64748b',
-                          marginBottom: '6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}>
-                          <span style={{ fontSize: window.innerWidth <= 768 ? '14px' : '16px' }}>📍</span> Address
+                      <div className="ClientManagement-detail-item ClientManagement-address-item">
+                        <p className="ClientManagement-detail-label">
+                          <span className="ClientManagement-contact-icon">📍</span> Address
                         </p>
-                        <p className="detail-value address-text" style={{
-                          fontSize: window.innerWidth <= 768 ? '13px' : '14px',
-                          color: '#334155',
-                          margin: 0,
-                          lineHeight: 1.5,
-                          wordBreak: 'break-word'
-                        }}>{viewDialog.client.address}</p>
+                        <p className="ClientManagement-detail-value ClientManagement-address-text">{viewDialog.client.address}</p>
                       </div>
                     )}
                     
                     {viewDialog.client.description && (
-                      <div className="detail-item detail-item-full description-item" style={{
-                        padding: window.innerWidth <= 768 ? '10px' : '12px',
-                        background: '#f8fafc',
-                        borderRadius: '12px',
-                        border: '1px solid #e2e8f0',
-                        gridColumn: '1/-1'
-                      }}>
-                        <p className="detail-label" style={{
-                          fontSize: window.innerWidth <= 768 ? '12px' : '13px',
-                          color: '#64748b',
-                          marginBottom: '6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}>
-                          <span style={{ fontSize: window.innerWidth <= 768 ? '14px' : '16px' }}>📝</span> Description
+                      <div className="ClientManagement-detail-item ClientManagement-detail-item-full ClientManagement-description-item">
+                        <p className="ClientManagement-detail-label">
+                          <span className="ClientManagement-contact-icon">📝</span> Description
                         </p>
-                        <p className="detail-value description-text" style={{
-                          fontSize: window.innerWidth <= 768 ? '13px' : '14px',
-                          color: '#334155',
-                          margin: 0,
-                          lineHeight: 1.6,
-                          padding: window.innerWidth <= 768 ? '10px' : '12px',
-                          background: 'white',
-                          borderRadius: '8px',
-                          border: '1px solid #e2e8f0',
-                          wordBreak: 'break-word'
-                        }}>{viewDialog.client.description}</p>
+                        <p className="ClientManagement-detail-value ClientManagement-description-text">{viewDialog.client.description}</p>
                       </div>
                     )}
                     
                     {viewDialog.client.notes && (
-                      <div className="detail-item detail-item-full notes-item" style={{
-                        padding: window.innerWidth <= 768 ? '10px' : '12px',
-                        background: '#fff7ed',
-                        borderRadius: '12px',
-                        border: '1px solid #fed7aa',
-                        gridColumn: '1/-1'
-                      }}>
-                        <p className="detail-label" style={{
-                          fontSize: window.innerWidth <= 768 ? '12px' : '13px',
-                          color: '#9a3412',
-                          marginBottom: '6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}>
-                          <span style={{ fontSize: window.innerWidth <= 768 ? '14px' : '16px' }}>📌</span> Notes
+                      <div className="ClientManagement-detail-item ClientManagement-detail-item-full ClientManagement-notes-item">
+                        <p className="ClientManagement-detail-label">
+                          <span className="ClientManagement-contact-icon">📌</span> Notes
                         </p>
-                        <p className="detail-value notes-text" style={{
-                          fontSize: window.innerWidth <= 768 ? '13px' : '14px',
-                          color: '#7c2d12',
-                          margin: 0,
-                          lineHeight: 1.6,
-                          padding: window.innerWidth <= 768 ? '10px' : '12px',
-                          background: '#fffbeb',
-                          borderRadius: '8px',
-                          border: '1px solid #fed7aa',
-                          wordBreak: 'break-word'
-                        }}>{viewDialog.client.notes}</p>
+                        <p className="ClientManagement-detail-value ClientManagement-notes-text">{viewDialog.client.notes}</p>
                       </div>
                     )}
                   </div>
@@ -3324,52 +2782,9 @@ const ClientManagement = () => {
               </div>
             </div>
             
-            {/* Modal Footer - Mobile Responsive */}
-            <div 
-              className="modal__footer"
-              style={{
-                padding: window.innerWidth <= 768 ? '12px 16px' : '20px 30px',
-                background: 'white',
-                borderTop: '1px solid #e2e8f0',
-                display: 'flex',
-                justifyContent: window.innerWidth <= 768 ? 'stretch' : 'flex-end'
-              }}
-            >
-              <button 
-                className="btn btn--outlined" 
-                onClick={() => setViewDialog({ open: false, client: null })}
-                style={{
-                  padding: window.innerWidth <= 768 ? '10px 20px' : '12px 28px',
-                  borderRadius: '30px',
-                  fontSize: window.innerWidth <= 768 ? '14px' : '15px',
-                  fontWeight: 500,
-                  background: 'transparent',
-                  border: '2px solid #e2e8f0',
-                  color: '#64748b',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  transition: 'all 0.3s ease',
-                  width: window.innerWidth <= 768 ? '100%' : 'auto'
-                }}
-                onMouseEnter={e => {
-                  if(window.innerWidth > 768) {
-                    e.currentTarget.style.background = '#f1f5f9';
-                    e.currentTarget.style.borderColor = '#94a3b8';
-                    e.currentTarget.style.color = '#334155';
-                  }
-                }}
-                onMouseLeave={e => {
-                  if(window.innerWidth > 768) {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.borderColor = '#e2e8f0';
-                    e.currentTarget.style.color = '#64748b';
-                  }
-                }}
-              >
-                <span style={{ fontSize: window.innerWidth <= 768 ? '16px' : '18px' }}>✕</span> Close
+            <div className="ClientManagement-modal__footer ClientManagement-view-modal-footer">
+              <button className="ClientManagement-btn ClientManagement-btn--outlined ClientManagement-view-modal-close-btn" onClick={() => setViewDialog({ open: false, client: null })}>
+                <span className="ClientManagement-close-icon">✕</span> Close
               </button>
             </div>
           </div>
@@ -3377,18 +2792,18 @@ const ClientManagement = () => {
       )}
 
       {editDialog.open && editDialog.client && (
-        <div className="modal-overlay" onClick={() => setEditDialog({ open: false, client: null })}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal__header">
+        <div className="ClientManagement-modal-overlay" onClick={() => setEditDialog({ open: false, client: null })}>
+          <div className="ClientManagement-modal ClientManagement-edit-modal" onClick={e => e.stopPropagation()}>
+            <div className="ClientManagement-modal__header">
               <h3>Edit Client</h3>
             </div>
-            <div className="modal__content">
-              <div className="edit-client-grid">
-                <div className="form-group">
-                  <label className="form-label">Client Name *</label>
+            <div className="ClientManagement-modal__content">
+              <div className="ClientManagement-edit-client-grid">
+                <div className="ClientManagement-form-group">
+                  <label className="ClientManagement-form-label">Client Name *</label>
                   <input
                     type="text"
-                    className="form-input"
+                    className="ClientManagement-form-input"
                     value={editDialog.client.client}
                     onChange={(e) => setEditDialog({
                       ...editDialog,
@@ -3397,11 +2812,11 @@ const ClientManagement = () => {
                     required
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Company *</label>
+                <div className="ClientManagement-form-group">
+                  <label className="ClientManagement-form-label">Company *</label>
                   <input
                     type="text"
-                    className="form-input"
+                    className="ClientManagement-form-input"
                     value={editDialog.client.company}
                     onChange={(e) => setEditDialog({
                       ...editDialog,
@@ -3411,11 +2826,11 @@ const ClientManagement = () => {
                   />
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">City *</label>
+                <div className="ClientManagement-form-group">
+                  <label className="ClientManagement-form-label">City *</label>
                   <input
                     type="text"
-                    className="form-input"
+                    className="ClientManagement-form-input"
                     value={editDialog.client.city}
                     onChange={(e) => setEditDialog({
                       ...editDialog,
@@ -3425,10 +2840,10 @@ const ClientManagement = () => {
                   />
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Status</label>
+                <div className="ClientManagement-form-group">
+                  <label className="ClientManagement-form-label">Status</label>
                   <select
-                    className="form-input"
+                    className="ClientManagement-form-input"
                     value={editDialog.client.status}
                     onChange={(e) => setEditDialog({
                       ...editDialog,
@@ -3441,13 +2856,13 @@ const ClientManagement = () => {
                   </select>
                 </div>
 
-                <div className="form-group edit-managers-group">
-                  <label className="form-label">Team *</label>
-                  <div className="managers-list">
+                <div className="ClientManagement-form-group ClientManagement-edit-managers-group">
+                  <label className="ClientManagement-form-label">Team *</label>
+                  <div className="ClientManagement-managers-list">
                     {safeMapProjectManagers((manager) => (
-                      <div key={manager._id} className="manager-checkbox-item">
+                      <div key={manager._id} className="ClientManagement-manager-checkbox-item">
                         <input
-                        style ={{ width: '16px', height: '14px' }}
+                          style={{ width: '16px', height: '14px' }}
                           type="checkbox"
                           id={`edit-manager-${manager._id}`}
                           checked={editDialog.client.projectManagers.some(pm => pm._id === manager._id || pm.id === manager._id)}
@@ -3469,14 +2884,14 @@ const ClientManagement = () => {
                             });
                           }}
                         />
-                        <div className="manager-checkbox-content">
-                          <div className="avatar avatar--primary">
+                        <div className="ClientManagement-manager-checkbox-content">
+                          <div className="ClientManagement-avatar ClientManagement-avatar--primary">
                             {manager.name?.charAt(0)?.toUpperCase() || 'U'}
                           </div>
                           <div>
-                            <p className="font-bold">{manager.name}</p>
-                            <small className="text-muted">
-                             • {manager.email}
+                            <p className="ClientManagement-font-bold">{manager.name}</p>
+                            <small className="ClientManagement-text-muted">
+                              • {manager.email}
                             </small>
                           </div>
                         </div>
@@ -3485,13 +2900,13 @@ const ClientManagement = () => {
                   </div>
                 </div>
 
-                <div className="form-group edit-services-group">
-                  <label className="form-label">Services</label>
-                  <div className="services-list">
+                <div className="ClientManagement-form-group ClientManagement-edit-services-group">
+                  <label className="ClientManagement-form-label">Services</label>
+                  <div className="ClientManagement-services-list">
                     {services.map((service) => (
-                      <div key={service._id} className="service-checkbox-item">
+                      <div key={service._id} className="ClientManagement-service-checkbox-item">
                         <input
-                        style ={{ width: '16px', height: '14px' }}
+                          style={{ width: '16px', height: '14px' }}
                           type="checkbox"
                           id={`edit-service-${service._id}`}
                           checked={(editDialog.client.services || []).includes(service.servicename)}
@@ -3517,11 +2932,11 @@ const ClientManagement = () => {
                   </div>
                 </div>
 
-                <div className="form-group edit-progress-group">
-                  <label className="form-label">Progress</label>
+                <div className="ClientManagement-form-group ClientManagement-edit-progress-group">
+                  <label className="ClientManagement-form-label">Progress</label>
                   <input
                     type="text"
-                    className="form-input"
+                    className="ClientManagement-form-input"
                     value={editDialog.client.progress}
                     onChange={(e) => setEditDialog({
                       ...editDialog,
@@ -3531,11 +2946,11 @@ const ClientManagement = () => {
                   />
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Email</label>
+                <div className="ClientManagement-form-group">
+                  <label className="ClientManagement-form-label">Email</label>
                   <input
                     type="email"
-                    className="form-input"
+                    className="ClientManagement-form-input"
                     value={editDialog.client.email || ''}
                     onChange={(e) => setEditDialog({
                       ...editDialog,
@@ -3544,11 +2959,11 @@ const ClientManagement = () => {
                   />
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Phone</label>
+                <div className="ClientManagement-form-group">
+                  <label className="ClientManagement-form-label">Phone</label>
                   <input
                     type="text"
-                    className="form-input"
+                    className="ClientManagement-form-input"
                     value={editDialog.client.phone || ''}
                     onChange={(e) => setEditDialog({
                       ...editDialog,
@@ -3557,11 +2972,11 @@ const ClientManagement = () => {
                   />
                 </div>
 
-                <div className="form-group edit-address-group">
-                  <label className="form-label">Address</label>
+                <div className="ClientManagement-form-group ClientManagement-edit-address-group">
+                  <label className="ClientManagement-form-label">Address</label>
                   <input
                     type="text"
-                    className="form-input"
+                    className="ClientManagement-form-input"
                     value={editDialog.client.address || ''}
                     onChange={(e) => setEditDialog({
                       ...editDialog,
@@ -3570,10 +2985,10 @@ const ClientManagement = () => {
                   />
                 </div>
 
-                <div className="form-group edit-description-group">
-                  <label className="form-label">Description</label>
+                <div className="ClientManagement-form-group ClientManagement-edit-description-group">
+                  <label className="ClientManagement-form-label">Description</label>
                   <textarea
-                    className="form-input"
+                    className="ClientManagement-form-input"
                     rows="3"
                     value={editDialog.client.description || ''}
                     onChange={(e) => setEditDialog({
@@ -3584,10 +2999,10 @@ const ClientManagement = () => {
                   />
                 </div>
 
-                <div className="form-group edit-notes-group">
-                  <label className="form-label">Notes</label>
+                <div className="ClientManagement-form-group ClientManagement-edit-notes-group">
+                  <label className="ClientManagement-form-label">Notes</label>
                   <textarea
-                    className="form-input"
+                    className="ClientManagement-form-input"
                     rows="2"
                     value={editDialog.client.notes || ''}
                     onChange={(e) => setEditDialog({
@@ -3599,12 +3014,12 @@ const ClientManagement = () => {
                 </div>
               </div>
             </div>
-            <div className="modal__footer">
-              <button className="btn btn--outlined" onClick={() => setEditDialog({ open: false, client: null })}>
+            <div className="ClientManagement-modal__footer">
+              <button className="ClientManagement-btn ClientManagement-btn--outlined" onClick={() => setEditDialog({ open: false, client: null })}>
                 Cancel
               </button>
               <button 
-                className="btn btn--primary"
+                className="ClientManagement-btn ClientManagement-btn--primary"
                 onClick={() => {
                   console.log('🔍 Save edit button clicked');
                   handleEditSave();
@@ -3621,4 +3036,4 @@ const ClientManagement = () => {
   );
 };
 
-export default ClientManagement;
+export default ClientManagement;  

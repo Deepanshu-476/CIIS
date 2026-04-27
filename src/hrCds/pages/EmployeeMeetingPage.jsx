@@ -10,36 +10,35 @@ export default function EmployeeMeetingPage() {
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState("all"); // all, upcoming, past, unseen
+  const [filter, setFilter] = useState("all");
 
-  // 🟢 Load user data safely from localStorage
+  // Load user data safely from localStorage
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem("user"));
     const id = storedUser?._id || storedUser?.id || localStorage.getItem("userId");
     const name = storedUser?.name || "Employee";
     
     if (!id) {
-      toast.error("⚠️ No user found. Please log in again.");
+      toast.error("No user found. Please log in again.");
       return;
     }
     setUserId(id);
     setUserName(name);
   }, []);
 
-  // 🟢 Fetch employee's meetings
+  // Fetch employee's meetings
   const fetchMeetings = async (id) => {
     if (!id) return;
     setLoading(true);
     try {
       const res = await axios.get(`${API_URL}/meetings/user/${id}`);
-      console.log("📩 Meeting API response:", res.data);
       if (Array.isArray(res.data)) {
         setMeetings(res.data);
       } else {
         setMeetings([]);
       }
     } catch (err) {
-      console.error("❌ Error fetching meetings:", err);
+      console.error("Error fetching meetings:", err);
       toast.error("Failed to load meetings");
     } finally {
       setLoading(false);
@@ -47,12 +46,12 @@ export default function EmployeeMeetingPage() {
     }
   };
 
-  // 🟢 Refetch when userId available
+  // Refetch when userId available
   useEffect(() => {
     if (userId) fetchMeetings(userId);
   }, [userId]);
 
-  // 🟢 Mark as Seen
+  // Mark as Seen
   const markSeen = async (meetingId) => {
     if (!userId) return;
     try {
@@ -60,22 +59,22 @@ export default function EmployeeMeetingPage() {
         meetingId,
         userId,
       });
-      toast.success("✅ Marked as seen!");
+      toast.success("Marked as seen!");
       fetchMeetings(userId);
     } catch (err) {
-      console.error("❌ Mark Seen error:", err);
+      console.error("Mark Seen error:", err);
       toast.error("Failed to update status");
     }
   };
 
-  // 🟢 Manual refresh
+  // Manual refresh
   const handleRefresh = () => {
     if (!userId) return;
     setRefreshing(true);
     fetchMeetings(userId);
   };
 
-  // 🟢 Filter meetings
+  // Filter meetings
   const filteredMeetings = meetings.filter(meeting => {
     const now = new Date();
     const meetingDate = new Date(`${meeting.date}T${meeting.time}`);
@@ -92,7 +91,7 @@ export default function EmployeeMeetingPage() {
     }
   });
 
-  // 🟢 Get meeting status
+  // Get meeting status
   const getMeetingStatus = (meeting) => {
     const now = new Date();
     const meetingDate = new Date(`${meeting.date}T${meeting.time}`);
@@ -100,13 +99,13 @@ export default function EmployeeMeetingPage() {
     if (meetingDate < now) {
       return { type: "past", text: "Completed", color: "#6b7280" };
     } else if (meetingDate.toDateString() === now.toDateString()) {
-      return { type: "today", text: "Today", color: "#059669" };
+      return { type: "today", text: "Today", color: "#10b981" };
     } else {
-      return { type: "upcoming", text: "Upcoming", color: "#2563eb" };
+      return { type: "upcoming", text: "Upcoming", color: "#3b82f6" };
     }
   };
 
-  // 🟢 Format time
+  // Format time
   const formatTime = (time) => {
     return new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', {
       hour: 'numeric',
@@ -115,7 +114,7 @@ export default function EmployeeMeetingPage() {
     });
   };
 
-  // 🟢 Format date
+  // Format date
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -135,63 +134,136 @@ export default function EmployeeMeetingPage() {
     }
   };
 
-  // 🕒 Loading State
+  // Stats calculations
+  const totalMeetings = meetings.length;
+  const unseenCount = meetings.filter(m => !m.viewed).length;
+  const upcomingCount = meetings.filter(m => {
+    const meetingDate = new Date(`${m.date}T${m.time}`);
+    return meetingDate >= new Date();
+  }).length;
+  const todayCount = meetings.filter(m => {
+    const meetingDate = new Date(`${m.date}T${m.time}`);
+    const today = new Date();
+    return meetingDate.toDateString() === today.toDateString();
+  }).length;
+
+  // Loading State
   if (loading) {
     return (
-      <div className="UserCreateTask-meeting-loading-container">
-        <div className="UserCreateTask-meeting-spinner"></div>
-        <p className="UserCreateTask-meeting-loading-text">Loading your meetings...</p>
+      <div className="emp-meeting-loading-container">
+        <div className="emp-meeting-spinner"></div>
+        <p className="emp-meeting-loading-text">Loading your meetings...</p>
       </div>
     );
   }
 
   return (
-    <div className="UserCreateTask-meeting-container">
-      {/* Header Section */}
-      <div className="UserCreateTask-meeting-header">
-        <div className="UserCreateTask-meeting-header-content">
-          <div className="UserCreateTask-meeting-user-info">
-            <h1 className="UserCreateTask-meeting-greeting">Hello, {userName} 👋</h1>
-            <p className="UserCreateTask-meeting-subtitle">Here are your scheduled meetings</p>
-          </div>
-          <div className="UserCreateTask-meeting-header-stats">
-            <div className="UserCreateTask-meeting-stat-card">
-              <span className="UserCreateTask-meeting-stat-number">{meetings.length}</span>
-              <span className="UserCreateTask-meeting-stat-label">Total Meetings</span>
+    <div className="emp-meeting-container">
+      {/* Header Section with Gradient */}
+      <div className="emp-meeting-header">
+        <div className="emp-meeting-header-content">
+          <div className="emp-meeting-header-left">
+            <div className="emp-meeting-header-icon">📅</div>
+            <div>
+              <h1 className="emp-meeting-header-title">My Meetings</h1>
+              <p className="emp-meeting-header-subtitle">
+                Hello, {userName}! Here are your scheduled meetings
+              </p>
             </div>
-            <div className="UserCreateTask-meeting-stat-card">
-              <span className="UserCreateTask-meeting-stat-number">
-                {meetings.filter(m => !m.viewed).length}
-              </span>
-              <span className="UserCreateTask-meeting-stat-label">Unseen</span>
+          </div>
+          <div className="emp-meeting-header-stats">
+            <div className="emp-meeting-header-stat-card">
+              <span className="emp-meeting-header-stat-number">{totalMeetings}</span>
+              <span className="emp-meeting-header-stat-label">Total</span>
+            </div>
+            <div className="emp-meeting-header-stat-card">
+              <span className="emp-meeting-header-stat-number">{unseenCount}</span>
+              <span className="emp-meeting-header-stat-label">Unseen</span>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Stats Grid */}
+      <div className="emp-meeting-stats-grid">
+        <div className="emp-meeting-stat-card">
+          <div className="emp-meeting-stat-card-icon blue">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+          </div>
+          <div className="emp-meeting-stat-card-content">
+            <span className="emp-meeting-stat-card-number">{totalMeetings}</span>
+            <span className="emp-meeting-stat-card-label">Total Meetings</span>
+          </div>
+        </div>
+
+        <div className="emp-meeting-stat-card">
+          <div className="emp-meeting-stat-card-icon green">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div className="emp-meeting-stat-card-content">
+            <span className="emp-meeting-stat-card-number">{todayCount}</span>
+            <span className="emp-meeting-stat-card-label">Today's Meetings</span>
+          </div>
+        </div>
+
+        <div className="emp-meeting-stat-card">
+          <div className="emp-meeting-stat-card-icon orange">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
+          <div className="emp-meeting-stat-card-content">
+            <span className="emp-meeting-stat-card-number">{upcomingCount}</span>
+            <span className="emp-meeting-stat-card-label">Upcoming</span>
+          </div>
+        </div>
+
+        <div className="emp-meeting-stat-card">
+          <div className="emp-meeting-stat-card-icon purple">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </div>
+          <div className="emp-meeting-stat-card-content">
+            <span className="emp-meeting-stat-card-number">{unseenCount}</span>
+            <span className="emp-meeting-stat-card-label">Unseen</span>
+          </div>
+        </div>
+      </div>
+
       {/* Controls Section */}
-      <div className="UserCreateTask-meeting-controls">
-        <div className="UserCreateTask-meeting-filter-tabs">
+      <div className="emp-meeting-controls">
+        <div className="emp-meeting-filter-tabs">
           <button
-            className={`UserCreateTask-meeting-filter-tab ${filter === "all" ? "UserCreateTask-meeting-filter-tab-active" : ""}`}
+            className={`emp-meeting-filter-tab ${filter === "all" ? "active" : ""}`}
             onClick={() => setFilter("all")}
           >
             All Meetings
           </button>
           <button
-            className={`UserCreateTask-meeting-filter-tab ${filter === "upcoming" ? "UserCreateTask-meeting-filter-tab-active" : ""}`}
+            className={`emp-meeting-filter-tab ${filter === "upcoming" ? "active" : ""}`}
             onClick={() => setFilter("upcoming")}
           >
             Upcoming
           </button>
           <button
-            className={`UserCreateTask-meeting-filter-tab ${filter === "past" ? "UserCreateTask-meeting-filter-tab-active" : ""}`}
+            className={`emp-meeting-filter-tab ${filter === "past" ? "active" : ""}`}
             onClick={() => setFilter("past")}
           >
             Past
           </button>
           <button
-            className={`UserCreateTask-meeting-filter-tab ${filter === "unseen" ? "UserCreateTask-meeting-filter-tab-active" : ""}`}
+            className={`emp-meeting-filter-tab ${filter === "unseen" ? "active" : ""}`}
             onClick={() => setFilter("unseen")}
           >
             Unseen
@@ -201,11 +273,11 @@ export default function EmployeeMeetingPage() {
         <button 
           onClick={handleRefresh} 
           disabled={refreshing}
-          className="UserCreateTask-meeting-refresh-button"
+          className="emp-meeting-refresh-button"
         >
           {refreshing ? (
             <>
-              <div className="UserCreateTask-meeting-small-spinner"></div>
+              <div className="emp-meeting-small-spinner"></div>
               Refreshing...
             </>
           ) : (
@@ -215,16 +287,16 @@ export default function EmployeeMeetingPage() {
       </div>
 
       {/* Meetings List */}
-      <div className="UserCreateTask-meeting-section">
+      <div className="emp-meeting-section">
         {filteredMeetings.length === 0 ? (
-          <div className="UserCreateTask-meeting-empty-state">
-            <div className="UserCreateTask-meeting-empty-icon">📅</div>
-            <h3 className="UserCreateTask-meeting-empty-title">
+          <div className="emp-meeting-empty-state">
+            <div className="emp-meeting-empty-icon">📅</div>
+            <h3 className="emp-meeting-empty-title">
               {filter === "all" ? "No Meetings Scheduled" :
                filter === "upcoming" ? "No Upcoming Meetings" :
                filter === "past" ? "No Past Meetings" : "No Unseen Meetings"}
             </h3>
-            <p className="UserCreateTask-meeting-empty-text">
+            <p className="emp-meeting-empty-text">
               {filter === "all" ? "You don't have any meetings scheduled yet." :
                filter === "unseen" ? "You've seen all your meetings! 🎉" :
                `No ${filter} meetings found.`}
@@ -232,95 +304,107 @@ export default function EmployeeMeetingPage() {
             {filter !== "all" && (
               <button 
                 onClick={() => setFilter("all")}
-                className="UserCreateTask-meeting-view-all-button"
+                className="emp-meeting-view-all-button"
               >
                 View All Meetings
               </button>
             )}
           </div>
         ) : (
-          <div className="UserCreateTask-meeting-grid">
+          <div className="emp-meeting-grid">
             {filteredMeetings.map((meeting) => {
               const status = getMeetingStatus(meeting);
+              const isToday = status.type === "today";
+              const isUpcoming = status.type === "upcoming";
+              const isPast = status.type === "past";
+              
               return (
-                <div key={meeting._id} className="UserCreateTask-meeting-card">
-                  {/* Card Header */}
-                  <div className="UserCreateTask-meeting-card-header">
-                    <div className="UserCreateTask-meeting-title-section">
-                      <h3 className="UserCreateTask-meeting-title">{meeting.title}</h3>
-                      <span 
-                        className="UserCreateTask-meeting-status-badge"
-                        style={{ backgroundColor: status.color }}
-                      >
-                        {status.text}
-                      </span>
-                    </div>
-                    <div className="UserCreateTask-meeting-view-status">
-                      <span className={`UserCreateTask-meeting-view-indicator ${meeting.viewed ? "UserCreateTask-meeting-viewed" : "UserCreateTask-meeting-not-viewed"}`}>
-                        {meeting.viewed ? "✅ Seen" : "👁️ Not Seen"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  {meeting.description && (
-                    <p className="UserCreateTask-meeting-description">{meeting.description}</p>
-                  )}
-
-                  {/* Meeting Details */}
-                  <div className="UserCreateTask-meeting-details">
-                    <div className="UserCreateTask-meeting-detail-row">
-                      <div className="UserCreateTask-meeting-detail-item">
-                        <span className="UserCreateTask-meeting-detail-icon">📅</span>
-                        <div>
-                          <div className="UserCreateTask-meeting-detail-label">Date</div>
-                          <div className="UserCreateTask-meeting-detail-value">
-                            {formatDate(meeting.date)}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="UserCreateTask-meeting-detail-item">
-                        <span className="UserCreateTask-meeting-detail-icon">🕒</span>
-                        <div>
-                          <div className="UserCreateTask-meeting-detail-label">Time</div>
-                          <div className="UserCreateTask-meeting-detail-value">
-                            {formatTime(meeting.time)}
-                          </div>
+                <div key={meeting._id} className="emp-meeting-card">
+                  <div className={`emp-meeting-card-border ${isToday ? "today" : isUpcoming ? "upcoming" : "past"}`}></div>
+                  <div className="emp-meeting-card-content">
+                    <div className="emp-meeting-card-header">
+                      <div className="emp-meeting-title-section">
+                        <h3 className="emp-meeting-title">{meeting.title}</h3>
+                        <div className="emp-meeting-badges">
+                          <span 
+                            className="emp-meeting-status-badge"
+                            style={{ backgroundColor: status.color }}
+                          >
+                            {status.text}
+                          </span>
+                          <span className={`emp-meeting-view-badge ${meeting.viewed ? "viewed" : "unseen"}`}>
+                            {meeting.viewed ? "✓ Seen" : "👁 Unseen"}
+                          </span>
                         </div>
                       </div>
                     </div>
-                    
-                    {meeting.recurring !== "No" && (
-                      <div className="UserCreateTask-meeting-detail-item">
-                        <span className="UserCreateTask-meeting-detail-icon">🔁</span>
-                        <div>
-                          <div className="UserCreateTask-meeting-detail-label">Recurrence</div>
-                          <div className="UserCreateTask-meeting-detail-value">{meeting.recurring}</div>
+
+                    {meeting.description && (
+                      <p className="emp-meeting-description">{meeting.description}</p>
+                    )}
+
+                    <div className="emp-meeting-details">
+                      <div className="emp-meeting-detail-row">
+                        <div className="emp-meeting-detail-item">
+                          <span className="emp-meeting-detail-icon">📅</span>
+                          <div>
+                            <div className="emp-meeting-detail-label">Date</div>
+                            <div className="emp-meeting-detail-value">
+                              {formatDate(meeting.date)}
+                            </div>
+                          </div>
                         </div>
+                        <div className="emp-meeting-detail-item">
+                          <span className="emp-meeting-detail-icon">🕒</span>
+                          <div>
+                            <div className="emp-meeting-detail-label">Time</div>
+                            <div className="emp-meeting-detail-value">
+                              {formatTime(meeting.time)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {meeting.recurring && meeting.recurring !== "No" && (
+                        <div className="emp-meeting-detail-item">
+                          <span className="emp-meeting-detail-icon">🔄</span>
+                          <div>
+                            <div className="emp-meeting-detail-label">Recurrence</div>
+                            <div className="emp-meeting-detail-value">{meeting.recurring}</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action Button */}
+                    {!meeting.viewed && !isPast && (
+                      <div className="emp-meeting-action-section">
+                        <button 
+                          onClick={() => markSeen(meeting._id)}
+                          className="emp-meeting-mark-seen-button"
+                        >
+                          <span className="emp-meeting-button-icon">👁️</span>
+                          Mark as Seen
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Past Meeting Note */}
+                    {isPast && !meeting.viewed && (
+                      <div className="emp-meeting-past-note">
+                        <span className="emp-meeting-past-icon">💡</span>
+                        This meeting has passed but you haven't marked it as seen
+                      </div>
+                    )}
+
+                    {/* Already Seen Note */}
+                    {meeting.viewed && (
+                      <div className="emp-meeting-seen-note">
+                        <span className="emp-meeting-seen-icon">✓</span>
+                        You've marked this meeting as seen
                       </div>
                     )}
                   </div>
-
-                  {/* Action Button */}
-                  {!meeting.viewed && status.type !== "past" && (
-                    <div className="UserCreateTask-meeting-action-section">
-                      <button 
-                        onClick={() => markSeen(meeting._id)}
-                        className="UserCreateTask-meeting-mark-seen-button"
-                      >
-                        <span className="UserCreateTask-meeting-button-icon">👁️</span>
-                        Mark as Seen
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Past Meeting Note */}
-                  {status.type === "past" && !meeting.viewed && (
-                    <div className="UserCreateTask-meeting-past-note">
-                      <span className="UserCreateTask-meeting-past-icon">💡</span>
-                      This meeting has passed but you haven't marked it as seen
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -328,14 +412,17 @@ export default function EmployeeMeetingPage() {
         )}
       </div>
 
-      {/* Quick Stats Footer */}
-      <div className="UserCreateTask-meeting-footer">
-        <div className="UserCreateTask-meeting-footer-stats">
-          <span className="UserCreateTask-meeting-footer-stat">
+      {/* Footer Stats */}
+      <div className="emp-meeting-footer">
+        <div className="emp-meeting-footer-stats">
+          <span className="emp-meeting-footer-stat">
             📊 Showing {filteredMeetings.length} of {meetings.length} meetings
           </span>
-          <span className="UserCreateTask-meeting-footer-stat">
-            👁️ {meetings.filter(m => !m.viewed).length} unseen
+          <span className="emp-meeting-footer-stat">
+            👁️ {unseenCount} unseen
+          </span>
+          <span className="emp-meeting-footer-stat">
+            📅 {todayCount} today
           </span>
         </div>
       </div>

@@ -10,7 +10,7 @@ export default function ClientMeeting() {
   const [filterPriority, setFilterPriority] = useState("all");
   const [loading, setLoading] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState(null);
-  const [viewMode, setViewMode] = useState("table"); // table, calendar, grid
+  const [viewMode, setViewMode] = useState("table");
 
   const [form, setForm] = useState({
     clientName: "",
@@ -35,7 +35,6 @@ export default function ClientMeeting() {
       setMeetings(res.data.data);
     } catch (err) {
       console.error(err);
-      // Show error toast here
     } finally {
       setLoading(false);
     }
@@ -164,32 +163,42 @@ export default function ClientMeeting() {
   };
 
   return (
-    <div className="client-meeting-container">
-      {/* ================= HEADER ================= */}
-      <div className="page-header">
-        <div className="header-left">
-          <div className="header-title">
-            <h1 className="page-title">Client Meetings</h1>
-            <span className="meeting-count">{totalMeetings} total</span>
+    <div className="cm-container">
+      {/* ================= HEADER WITH GRADIENT ================= */}
+      <div className="cm-header">
+        <div className="cm-header-content">
+          <div className="cm-header-left">
+            <div className="cm-header-icon">🤝</div>
+            <div>
+              <h1 className="cm-header-title">Client Meetings</h1>
+              <p className="cm-header-subtitle">Manage and schedule client meetings efficiently</p>
+            </div>
           </div>
-          <p className="page-subtitle">Manage and schedule client meetings efficiently</p>
+          <div className="cm-stats">
+            <div className="cm-stat-item">
+              <span className="cm-stat-value">{totalMeetings}</span>
+              <span className="cm-stat-label">Total Meetings</span>
+            </div>
+            <div className="cm-stat-item">
+              <span className="cm-stat-value">{todayMeetings}</span>
+              <span className="cm-stat-label">Today</span>
+            </div>
+            <div className="cm-stat-item">
+              <span className="cm-stat-value">{upcomingMeetings}</span>
+              <span className="cm-stat-label">Upcoming</span>
+            </div>
+            <div className="cm-stat-item">
+              <span className="cm-stat-value">{highPriorityMeetings}</span>
+              <span className="cm-stat-label">High Priority</span>
+            </div>
+          </div>
         </div>
-        <button className="btn-primary" onClick={() => {
-          resetForm();
-          setShowModal(true);
-        }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="12" y1="5" x2="12" y2="19"/>
-            <line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-          New Meeting
-        </button>
       </div>
 
-      {/* ================= QUICK STATS ================= */}
-      <div className="stats-gridd">
-        <div className="stat-card">
-          <div className="stat-icon blue">
+      {/* ================= QUICK STATS GRID ================= */}
+      <div className="cm-stats-grid">
+        <div className="cm-stat-card">
+          <div className="cm-stat-card-icon blue">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
               <line x1="16" y1="2" x2="16" y2="6"/>
@@ -197,309 +206,136 @@ export default function ClientMeeting() {
               <line x1="3" y1="10" x2="21" y2="10"/>
             </svg>
           </div>
-          <div className="stat-content">
-            <span className="stat-number">{totalMeetings}</span>
-            <span className="stat-label">Total Meetings</span>
+          <div className="cm-stat-card-content">
+            <span className="cm-stat-card-number">{totalMeetings}</span>
+            <span className="cm-stat-card-label">Total Meetings</span>
           </div>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-icon green">
+        <div className="cm-stat-card">
+          <div className="cm-stat-card-icon green">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10"/>
               <polyline points="12 6 12 12 16 14"/>
             </svg>
           </div>
-          <div className="stat-content">
-            <span className="stat-number">{todayMeetings}</span>
-            <span className="stat-label">Today</span>
+          <div className="cm-stat-card-content">
+            <span className="cm-stat-card-number">{todayMeetings}</span>
+            <span className="cm-stat-card-label">Today's Meetings</span>
           </div>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-icon orange">
+        <div className="cm-stat-card">
+          <div className="cm-stat-card-icon orange">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
               <circle cx="12" cy="7" r="4"/>
             </svg>
           </div>
-          <div className="stat-content">
-            <span className="stat-number">{upcomingMeetings}</span>
-            <span className="stat-label">Upcoming</span>
+          <div className="cm-stat-card-content">
+            <span className="cm-stat-card-number">{upcomingMeetings}</span>
+            <span className="cm-stat-card-label">Upcoming</span>
           </div>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-icon red">
+        <div className="cm-stat-card">
+          <div className="cm-stat-card-icon red">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
             </svg>
           </div>
-          <div className="stat-content">
-            <span className="stat-number">{highPriorityMeetings}</span>
-            <span className="stat-label">High Priority</span>
+          <div className="cm-stat-card-content">
+            <span className="cm-stat-card-number">{highPriorityMeetings}</span>
+            <span className="cm-stat-card-label">High Priority</span>
           </div>
         </div>
       </div>
 
+      {/* ================= TABS SECTION ================= */}
+      <div className="cm-tabs-container">
+        <div className="cm-tabs">
+          <button 
+            className={`cm-tab ${viewMode === "table" ? "cm-tab-active" : ""}`}
+            onClick={() => setViewMode("table")}
+          >
+            <span className="cm-tab-icon">📋</span>
+            <span>Table View</span>
+          </button>
+          <button 
+            className={`cm-tab ${viewMode === "grid" ? "cm-tab-active" : ""}`}
+            onClick={() => setViewMode("grid")}
+          >
+            <span className="cm-tab-icon">🎴</span>
+            <span>Grid View</span>
+          </button>
+        </div>
+      </div>
+
       {/* ================= FILTERS SECTION ================= */}
-      <div className="filters-sectionn">
-        <div className="search-wrapper">
-          <svg className="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <div className="cm-filters-section">
+        <div className="cm-search-wrapper">
+          <svg className="cm-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <circle cx="11" cy="11" r="8" strokeWidth="2"/>
             <path d="M21 21L16.65 16.65" strokeWidth="2" strokeLinecap="round"/>
           </svg>
           <input
             type="text"
             placeholder="Search by name, company, email..."
-            className="search-input"
+            className="cm-search-input"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           {searchTerm && (
-            <button className="clear-search" onClick={() => setSearchTerm("")}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
+            <button className="cm-clear-search" onClick={() => setSearchTerm("")}>
+              ✕
             </button>
           )}
         </div>
         
-        <div className="filter-controls">
-          <select 
-            className="filter-select"
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-          >
-            <option value="all">All Types</option>
-            <option value="Online">Online</option>
-            <option value="Demo">Demo</option>
-            <option value="Discussion">Discussion</option>
-            <option value="Sales">Sales</option>
-            <option value="Review">Review</option>
-          </select>
-
-          <select 
-            className="filter-select"
-            value={filterPriority}
-            onChange={(e) => setFilterPriority(e.target.value)}
-          >
-            <option value="all">All Priorities</option>
-            <option value="High">High Priority</option>
-            <option value="Normal">Normal</option>
-            <option value="Low">Low</option>
-          </select>
-
-          <div className="view-toggle">
-            <button 
-              className={`view-btn ${viewMode === "table" ? "active" : ""}`}
-              onClick={() => setViewMode("table")}
+        <div className="cm-filter-controls">
+          <div className="cm-select-wrapper">
+            <select 
+              className="cm-select"
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                <line x1="3" y1="9" x2="21" y2="9"/>
-                <line x1="3" y1="15" x2="21" y2="15"/>
-                <line x1="9" y1="21" x2="9" y2="9"/>
-              </svg>
-            </button>
-            <button 
-              className={`view-btn ${viewMode === "grid" ? "active" : ""}`}
-              onClick={() => setViewMode("grid")}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <rect x="3" y="3" width="7" height="7"/>
-                <rect x="14" y="3" width="7" height="7"/>
-                <rect x="14" y="14" width="7" height="7"/>
-                <rect x="3" y="14" width="7" height="7"/>
-              </svg>
-            </button>
+              <option value="all">All Types</option>
+              <option value="Online">Online</option>
+              <option value="Demo">Demo</option>
+              <option value="Discussion">Discussion</option>
+              <option value="Sales">Sales</option>
+              <option value="Review">Review</option>
+            </select>
           </div>
+
+          <div className="cm-select-wrapper">
+            <select 
+              className="cm-select"
+              value={filterPriority}
+              onChange={(e) => setFilterPriority(e.target.value)}
+            >
+              <option value="all">All Priorities</option>
+              <option value="High">High Priority</option>
+              <option value="Normal">Normal</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+
+          <button className="cm-btn cm-btn-primary cm-new-meeting-btn" onClick={() => {
+            resetForm();
+            setShowModal(true);
+          }}>
+            <span>➕</span>
+            New Meeting
+          </button>
         </div>
       </div>
 
       {/* ================= LOADING STATE ================= */}
       {loading && (
-        <div className="loading-state">
-          <div className="spinner"></div>
+        <div className="cm-loading-state">
+          <div className="cm-spinner"></div>
           <p>Loading meetings...</p>
-        </div>
-      )}
-
-      {/* ================= MODAL ================= */}
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>{selectedMeeting ? "Edit Meeting" : "Schedule New Meeting"}</h3>
-              <button className="modal-close" onClick={() => {
-                setShowModal(false);
-                resetForm();
-              }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <line x1="18" y1="6" x2="6" y2="18"/>
-                  <line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
-            </div>
-
-            <div className="modal-body">
-              <div className="form-grid">
-                {/* Column 1 */}
-                <div className="form-group required">
-                  <label>Client Name</label>
-                  <input
-                    name="clientName"
-                    value={form.clientName}
-                    onChange={handleChange}
-                    placeholder="Enter client name"
-                  />
-                </div>
-
-                <div className="form-group required">
-                  <label>Phone</label>
-                  <input
-                    name="phone"
-                    value={form.phone}
-                    onChange={handleChange}
-                    placeholder="+1 234 567 8900"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Email</label>
-                  <input
-                    name="email"
-                    type="email"
-                    value={form.email}
-                    onChange={handleChange}
-                    placeholder="client@company.com"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Company</label>
-                  <input
-                    name="company"
-                    value={form.company}
-                    onChange={handleChange}
-                    placeholder="Company name"
-                  />
-                </div>
-
-                {/* Column 2 */}
-                <div className="form-group">
-                  <label>Meeting Type</label>
-                  <select
-                    name="meetingType"
-                    value={form.meetingType}
-                    onChange={handleChange}
-                  >
-                    <option value="Online">Online</option>
-                    <option value="Demo">Demo</option>
-                    <option value="Discussion">Discussion</option>
-                    <option value="Sales">Sales</option>
-                    <option value="Review">Review</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Priority</label>
-                  <select
-                    name="priority"
-                    value={form.priority}
-                    onChange={handleChange}
-                  >
-                    <option value="Low">Low</option>
-                    <option value="Normal">Normal</option>
-                    <option value="High">High</option>
-                  </select>
-                </div>
-
-                <div className="form-group required">
-                  <label>Date</label>
-                  <input
-                    type="date"
-                    name="meetingDate"
-                    value={form.meetingDate}
-                    onChange={handleChange}
-                    min={new Date().toISOString().split('T')[0]}
-                  />
-                </div>
-
-                <div className="form-group required">
-                  <label>Time</label>
-                  <input
-                    type="time"
-                    name="meetingTime"
-                    value={form.meetingTime}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-
-              <div className="form-group required">
-                <label>Duration (minutes)</label>
-                <select
-                  name="duration"
-                  value={form.duration}
-                  onChange={handleChange}
-                >
-                  <option value="15">15 minutes</option>
-                  <option value="30">30 minutes</option>
-                  <option value="45">45 minutes</option>
-                  <option value="60">1 hour</option>
-                  <option value="90">1.5 hours</option>
-                  <option value="120">2 hours</option>
-                </select>
-              </div>
-
-              <div className="form-group required">
-                <label>Location / Platform</label>
-                <input
-                  name="location"
-                  value={form.location}
-                  onChange={handleChange}
-                  placeholder="Zoom link, Teams link, or physical address"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Agenda / Notes</label>
-                <textarea
-                  name="description"
-                  value={form.description}
-                  onChange={handleChange}
-                  placeholder="Meeting agenda, discussion points, preparation notes..."
-                  rows="3"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Follow-up Required</label>
-                <select
-                  name="followUpRequired"
-                  value={form.followUpRequired}
-                  onChange={handleChange}
-                >
-                  <option value="No">No</option>
-                  <option value="Yes">Yes</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => {
-                setShowModal(false);
-                resetForm();
-              }}>
-                Cancel
-              </button>
-              <button className="btn-primary" onClick={saveMeeting} disabled={loading}>
-                {loading ? "Saving..." : (selectedMeeting ? "Update Meeting" : "Schedule Meeting")}
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
@@ -507,36 +343,25 @@ export default function ClientMeeting() {
       {!loading && (
         <>
           {filteredMeetings.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                  <line x1="16" y1="2" x2="16" y2="6"/>
-                  <line x1="8" y1="2" x2="8" y2="6"/>
-                  <line x1="3" y1="10" x2="21" y2="10"/>
-                  <path d="M8 14h8M8 18h8" strokeLinecap="round"/>
-                </svg>
-              </div>
-              <h3>No meetings found</h3>
-              <p>
+            <div className="cm-empty-state">
+              <div className="cm-empty-icon">📅</div>
+              <h3 className="cm-empty-title">No meetings found</h3>
+              <p className="cm-empty-text">
                 {searchTerm || filterType !== "all" || filterPriority !== "all"
                   ? "Try adjusting your filters"
                   : "Schedule your first meeting to get started"}
               </p>
-              <button className="btn-primary" onClick={() => {
+              <button className="cm-btn cm-btn-primary" onClick={() => {
                 resetForm();
                 setShowModal(true);
               }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <line x1="12" y1="5" x2="12" y2="19"/>
-                  <line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
+                <span>➕</span>
                 Schedule Meeting
               </button>
             </div>
           ) : viewMode === "table" ? (
-            <div className="table-container">
-              <table className="data-table">
+            <div className="cm-table-container">
+              <table className="cm-data-table">
                 <thead>
                   <tr>
                     <th>Client</th>
@@ -548,183 +373,361 @@ export default function ClientMeeting() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredMeetings.map((meeting) => (
-                    <tr key={meeting._id} className={meeting.meetingDate === today ? "today-row" : ""}>
-                      <td>
-                        <div className="client-info">
-                          <div className="client-avatar">
-                            {meeting.clientName?.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="client-details">
-                            <div className="client-name">{meeting.clientName}</div>
-                            <div className="client-meta">
-                              {meeting.company && <span>{meeting.company}</span>}
-                              {meeting.email && <span>• {meeting.email}</span>}
+                  {filteredMeetings.map((meeting) => {
+                    const isToday = meeting.meetingDate === today;
+                    return (
+                      <tr key={meeting._id} className={isToday ? "cm-today-row" : ""}>
+                        <td>
+                          <div className="cm-client-info">
+                            <div className="cm-client-avatar">
+                              {meeting.clientName?.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="cm-client-details">
+                              <div className="cm-client-name">{meeting.clientName}</div>
+                              <div className="cm-client-meta">
+                                {meeting.company && <span>{meeting.company}</span>}
+                                {meeting.email && <span>• {meeting.email}</span>}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`meeting-type type-${meeting.meetingType.toLowerCase()}`}>
-                          {meeting.meetingType}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="datetime">
-                          <div className="date">{formatDate(meeting.meetingDate)}</div>
-                          <div className="time">{formatTime(meeting.meetingTime)}</div>
-                          <div className="duration">{meeting.duration} min</div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`priority-badge priority-${meeting.priority.toLowerCase()}`}>
-                          {meeting.priority}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="location-cell" title={meeting.location}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                            <circle cx="12" cy="10" r="3"/>
-                          </svg>
-                          <span className="location-text">
-                            {meeting.location?.length > 30 
-                              ? meeting.location.substring(0, 30) + "..." 
-                              : meeting.location}
+                        </td>
+                        <td>
+                          <span className={`cm-meeting-type cm-type-${meeting.meetingType?.toLowerCase()}`}>
+                            {meeting.meetingType}
                           </span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="action-buttons">
-                          <button 
-                            className="btn-icon btn-edit" 
-                            onClick={() => editMeeting(meeting)}
-                            title="Edit meeting"
-                          >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+                        </td>
+                        <td>
+                          <div className="cm-datetime">
+                            <div className="cm-date">{formatDate(meeting.meetingDate)}</div>
+                            <div className="cm-time">{formatTime(meeting.meetingTime)}</div>
+                            <div className="cm-duration">{meeting.duration} min</div>
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`cm-priority-badge cm-priority-${meeting.priority?.toLowerCase()}`}>
+                            {meeting.priority}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="cm-location-cell" title={meeting.location}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                              <circle cx="12" cy="10" r="3"/>
                             </svg>
-                          </button>
-                          <button 
-                            className="btn-icon btn-delete" 
-                            onClick={() => deleteMeeting(meeting._id)}
-                            title="Delete meeting"
-                          >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                              <polyline points="3 6 5 6 21 6"/>
-                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                            </svg>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            <span className="cm-location-text">{meeting.location}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="cm-action-buttons">
+                            <button 
+                              className="cm-action-btn cm-action-edit" 
+                              onClick={() => editMeeting(meeting)}
+                              title="Edit meeting"
+                            >
+                              ✏️
+                            </button>
+                            <button 
+                              className="cm-action-btn cm-action-delete" 
+                              onClick={() => deleteMeeting(meeting._id)}
+                              title="Delete meeting"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           ) : (
-            <div className="grid-view">
+            <div className="cm-grid-view">
               {filteredMeetings.map((meeting) => (
-                <div key={meeting._id} className="meeting-card">
-                  <div className="card-header">
-                    <div className="card-type">
-                      <span className={`meeting-type type-${meeting.meetingType.toLowerCase()}`}>
-                        {meeting.meetingType}
-                      </span>
-                      <span className={`priority-dot priority-${meeting.priority.toLowerCase()}`} />
+                <div key={meeting._id} className="cm-meeting-card">
+                  <div className="cm-meeting-status-bar" data-priority={meeting.priority?.toLowerCase()} />
+                  <div className="cm-meeting-content">
+                    <div className="cm-meeting-header">
+                      <div className="cm-meeting-title-wrapper">
+                        <span className="cm-meeting-icon">🤝</span>
+                        <h3 className="cm-meeting-title">{meeting.clientName}</h3>
+                      </div>
+                      <div className="cm-meeting-badges">
+                        <span className={`cm-badge cm-badge-type cm-type-${meeting.meetingType?.toLowerCase()}`}>
+                          {meeting.meetingType}
+                        </span>
+                        <span className={`cm-badge cm-badge-priority cm-priority-${meeting.priority?.toLowerCase()}`}>
+                          {meeting.priority}
+                        </span>
+                      </div>
                     </div>
-                    <button 
-                      className="card-menu-btn"
-                      onClick={() => editMeeting(meeting)}
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <circle cx="12" cy="12" r="1"/>
-                        <circle cx="12" cy="5" r="1"/>
-                        <circle cx="12" cy="19" r="1"/>
-                      </svg>
-                    </button>
-                  </div>
-                  
-                  <div className="card-body">
-                    <h4 className="card-client">{meeting.clientName}</h4>
+
                     {meeting.company && (
-                      <div className="card-company">{meeting.company}</div>
+                      <div className="cm-meeting-company">{meeting.company}</div>
                     )}
-                    
-                    <div className="card-details">
-                      <div className="card-detail">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                          <line x1="16" y1="2" x2="16" y2="6"/>
-                          <line x1="8" y1="2" x2="8" y2="6"/>
-                          <line x1="3" y1="10" x2="21" y2="10"/>
-                        </svg>
-                        <span>{formatDate(meeting.meetingDate)}</span>
+
+                    <div className="cm-meeting-details">
+                      <div className="cm-detail-item">
+                        <span className="cm-detail-icon">📆</span>
+                        <span className="cm-detail-text">{formatDate(meeting.meetingDate)}</span>
                       </div>
-                      
-                      <div className="card-detail">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <circle cx="12" cy="12" r="10"/>
-                          <polyline points="12 6 12 12 16 14"/>
-                        </svg>
-                        <span>{formatTime(meeting.meetingTime)} ({meeting.duration} min)</span>
+                      <div className="cm-detail-item">
+                        <span className="cm-detail-icon">⏰</span>
+                        <span className="cm-detail-text">{formatTime(meeting.meetingTime)} ({meeting.duration} min)</span>
                       </div>
-                      
-                      <div className="card-detail">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                          <circle cx="12" cy="10" r="3"/>
-                        </svg>
-                        <span className="location-text">{meeting.location}</span>
+                      <div className="cm-detail-item">
+                        <span className="cm-detail-icon">📍</span>
+                        <span className="cm-detail-text">{meeting.location}</span>
                       </div>
-                      
                       {meeting.email && (
-                        <div className="card-detail">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                            <polyline points="22,6 12,13 2,6"/>
-                          </svg>
-                          <span>{meeting.email}</span>
+                        <div className="cm-detail-item">
+                          <span className="cm-detail-icon">📧</span>
+                          <span className="cm-detail-text">{meeting.email}</span>
                         </div>
                       )}
-                      
                       {meeting.phone && (
-                        <div className="card-detail">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
-                            <line x1="12" y1="18" x2="12" y2="18"/>
-                          </svg>
-                          <span>{meeting.phone}</span>
+                        <div className="cm-detail-item">
+                          <span className="cm-detail-icon">📞</span>
+                          <span className="cm-detail-text">{meeting.phone}</span>
                         </div>
                       )}
                     </div>
-                    
+
                     {meeting.description && (
-                      <div className="card-description">
+                      <div className="cm-meeting-description">
                         <p>{meeting.description}</p>
                       </div>
                     )}
-                  </div>
-                  
-                  <div className="card-footer">
-                    <button 
-                      className="btn-secondary btn-small"
-                      onClick={() => editMeeting(meeting)}
-                    >
-                      Edit
-                    </button>
-                    <button 
-                      className="btn-danger btn-small"
-                      onClick={() => deleteMeeting(meeting._id)}
-                    >
-                      Delete
-                    </button>
+
+                    <div className="cm-meeting-footer">
+                      <div className="cm-meeting-actions">
+                        <button 
+                          onClick={() => editMeeting(meeting)}
+                          className="cm-action-btn cm-action-view"
+                          title="Edit"
+                        >
+                          ✏️
+                        </button>
+                        <button 
+                          onClick={() => deleteMeeting(meeting._id)}
+                          className="cm-action-btn cm-action-delete"
+                          title="Delete"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           )}
         </>
+      )}
+
+      {/* ================= MODAL ================= */}
+      {showModal && (
+        <div className="cm-modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="cm-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cm-modal-header">
+              <div className="cm-modal-title-wrapper">
+                <span className="cm-modal-icon">📅</span>
+                <h3 className="cm-modal-title">{selectedMeeting ? "Edit Meeting" : "Schedule New Meeting"}</h3>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowModal(false);
+                  resetForm();
+                }}
+                className="cm-modal-close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="cm-modal-body">
+              <div className="cm-form-grid">
+                <div className="cm-form-group required">
+                  <label className="cm-label">Client Name</label>
+                  <input
+                    name="clientName"
+                    value={form.clientName}
+                    onChange={handleChange}
+                    placeholder="Enter client name"
+                    className="cm-input"
+                  />
+                </div>
+
+                <div className="cm-form-group required">
+                  <label className="cm-label">Phone</label>
+                  <input
+                    name="phone"
+                    value={form.phone}
+                    onChange={handleChange}
+                    placeholder="+1 234 567 8900"
+                    className="cm-input"
+                  />
+                </div>
+
+                <div className="cm-form-group">
+                  <label className="cm-label">Email</label>
+                  <input
+                    name="email"
+                    type="email"
+                    value={form.email}
+                    onChange={handleChange}
+                    placeholder="client@company.com"
+                    className="cm-input"
+                  />
+                </div>
+
+                <div className="cm-form-group">
+                  <label className="cm-label">Company</label>
+                  <input
+                    name="company"
+                    value={form.company}
+                    onChange={handleChange}
+                    placeholder="Company name"
+                    className="cm-input"
+                  />
+                </div>
+
+                <div className="cm-form-group">
+                  <label className="cm-label">Meeting Type</label>
+                  <div className="cm-select-wrapper">
+                    <select
+                      name="meetingType"
+                      value={form.meetingType}
+                      onChange={handleChange}
+                      className="cm-select"
+                    >
+                      <option value="Online">Online</option>
+                      <option value="Demo">Demo</option>
+                      <option value="Discussion">Discussion</option>
+                      <option value="Sales">Sales</option>
+                      <option value="Review">Review</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="cm-form-group">
+                  <label className="cm-label">Priority</label>
+                  <div className="cm-select-wrapper">
+                    <select
+                      name="priority"
+                      value={form.priority}
+                      onChange={handleChange}
+                      className="cm-select"
+                    >
+                      <option value="Low">Low</option>
+                      <option value="Normal">Normal</option>
+                      <option value="High">High</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="cm-form-group required">
+                  <label className="cm-label">Date</label>
+                  <input
+                    type="date"
+                    name="meetingDate"
+                    value={form.meetingDate}
+                    onChange={handleChange}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="cm-input"
+                  />
+                </div>
+
+                <div className="cm-form-group required">
+                  <label className="cm-label">Time</label>
+                  <input
+                    type="time"
+                    name="meetingTime"
+                    value={form.meetingTime}
+                    onChange={handleChange}
+                    className="cm-input"
+                  />
+                </div>
+              </div>
+
+              <div className="cm-form-group required">
+                <label className="cm-label">Duration</label>
+                <div className="cm-select-wrapper">
+                  <select
+                    name="duration"
+                    value={form.duration}
+                    onChange={handleChange}
+                    className="cm-select"
+                  >
+                    <option value="15">15 minutes</option>
+                    <option value="30">30 minutes</option>
+                    <option value="45">45 minutes</option>
+                    <option value="60">1 hour</option>
+                    <option value="90">1.5 hours</option>
+                    <option value="120">2 hours</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="cm-form-group required">
+                <label className="cm-label">Location / Platform</label>
+                <input
+                  name="location"
+                  value={form.location}
+                  onChange={handleChange}
+                  placeholder="Zoom link, Teams link, or physical address"
+                  className="cm-input"
+                />
+              </div>
+
+              <div className="cm-form-group">
+                <label className="cm-label">Agenda / Notes</label>
+                <textarea
+                  name="description"
+                  value={form.description}
+                  onChange={handleChange}
+                  placeholder="Meeting agenda, discussion points, preparation notes..."
+                  rows="4"
+                  className="cm-textarea"
+                />
+              </div>
+
+              <div className="cm-form-group">
+                <label className="cm-label">Follow-up Required</label>
+                <div className="cm-select-wrapper">
+                  <select
+                    name="followUpRequired"
+                    value={form.followUpRequired}
+                    onChange={handleChange}
+                    className="cm-select"
+                  >
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="cm-modal-footer">
+              <button 
+                className="cm-btn cm-btn-secondary" 
+                onClick={() => {
+                  setShowModal(false);
+                  resetForm();
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="cm-btn cm-btn-primary" 
+                onClick={saveMeeting} 
+                disabled={loading}
+              >
+                {loading ? "Saving..." : (selectedMeeting ? "Update Meeting" : "Schedule Meeting")}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -44,7 +44,8 @@ const MyAssets = () => {
     rejected: 0,
     approvalRate: 0,
   });
-  const [isMobile, setIsMobile] = useState(false);
+ const [viewCommentReq, setViewCommentReq] = useState(null);
+ const [isMobile, setIsMobile] = useState(false);
 
   // ✅ Allowed assets for dropdown
   const [allowedAssets, setAllowedAssets] = useState([]);
@@ -666,6 +667,7 @@ const MyAssets = () => {
                   <th>Status</th>
                   <th>Approved By</th>
                   <th>Requested At</th>
+                  <th>Comments</th>
                 </tr>
               </thead>
               <tbody>
@@ -708,6 +710,20 @@ const MyAssets = () => {
                         <td>
                           <strong>{formatDate(req.createdAt)}</strong>
                         </td>
+                        <td>
+                        <button
+                          style={{
+                            padding: "5px 10px",
+                            background: "#eef2ff",
+                            borderRadius: "6px",
+                            border: "none",
+                            cursor: "pointer"
+                          }}
+                          onClick={() => setViewCommentReq(req)}
+                        >
+                          {req.adminComments?.length > 0 ? "View Comments" : "No Comments"}
+                        </button>
+                      </td>
                       </tr>
                     );
                   })
@@ -790,6 +806,37 @@ const MyAssets = () => {
           </div>
         )}
       </div>
+
+
+      {viewCommentReq && (
+          <div className="MyAssets-modal-overlay">
+            <div className="MyAssets-modal">
+
+              <div className="MyAssets-modal-header">
+                <h3>💬 Admin Comments</h3>
+                <button onClick={() => setViewCommentReq(null)}>✕</button>
+              </div>
+
+              <div className="MyAssets-modal-body">
+                {viewCommentReq.adminComments?.length > 0 ? (
+                  viewCommentReq.adminComments.map((c, i) => (
+                    <div key={i} style={{
+                      marginBottom: "8px",
+                      padding: "10px",
+                      background: "#f5f7ff",
+                      borderRadius: "6px"
+                    }}>
+                      • {c.text}
+                    </div>
+                  ))
+                ) : (
+                  <p>No comments available</p>
+                )}
+              </div>
+
+            </div>
+          </div>
+        )}
 
       {/* Local Notification (kept for backward compatibility) */}
       {notification && (

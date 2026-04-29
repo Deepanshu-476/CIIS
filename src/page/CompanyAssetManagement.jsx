@@ -19,7 +19,8 @@ const CompanyAssetManagement = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [quantity, setQuantity] = useState('');
-
+const [editingCommentReq, setEditingCommentReq] = useState(null);
+const [commentText, setCommentText] = useState('');
  useEffect(() => {
   fetchAssets();
   fetchRequests(); // 🔥 ADD THIS
@@ -102,6 +103,29 @@ const CompanyAssetManagement = () => {
       console.error(err);
     }
   };
+
+  const handleCommentEditOpen = (req) => {
+  setEditingCommentReq(req);
+  setCommentText('');
+};
+
+const handleCommentUpdate = async () => {
+  try {
+    await axios.patch(`/asset-requests/update/${editingCommentReq._id}`, {
+      adminComment: commentText,
+    });
+
+    toast.success("Comment added");
+
+    setCommentText('');
+    setEditingCommentReq(null);
+
+    fetchRequests(); // 🔥 IMPORTANT
+  } catch (err) {
+    toast.error("Failed to add comment");
+    console.error(err);
+  }
+};
 
   // Create new company asset
   const handleSubmit = async (e) => {
@@ -548,9 +572,6 @@ const CompanyAssetManagement = () => {
           </div>
        ) : (
           <div className="ca-table-wrapper">
-
-            <h3 style={{ marginBottom: '10px' }}>All Requests</h3>
-
             <table className="ca-table">
               <thead>
                 <tr>
@@ -560,6 +581,7 @@ const CompanyAssetManagement = () => {
                   <th>Asset</th>
                   <th>Department</th>
                   <th>Status</th>
+                  <th>Comment</th>
                 </tr>
               </thead>
 
@@ -573,6 +595,20 @@ const CompanyAssetManagement = () => {
                       <td>{req.assetName}</td>
                       <td>{req.department}</td>
                       <td>{req.status}</td>
+                      <td>
+                        <div
+                          style={{
+                            cursor: "pointer",
+                            padding: "5px 10px",
+                            background: "#eef2ff",
+                            borderRadius: "6px",
+                            fontSize: "12px"
+                          }}
+                          onClick={() => handleCommentEditOpen(req)}
+                        >
+                          {req.adminComments?.length > 0 ? 'Add Comment' : 'Add Comment'}
+                        </div>
+                      </td>
                     </tr>
                   ))
                 ) : (
@@ -661,6 +697,56 @@ const CompanyAssetManagement = () => {
           </div>
         </div>
       )}
+
+      {/* 🔥 COMMENT POPUP START */}
+        {editingCommentReq && (
+          <div className="ca-modal-overlay">
+            <div className="ca-modal">
+              <div className="ca-modal-header">
+                <h3>Admin Comment</h3>
+                <button onClick={() => setEditingCommentReq(null)}>✕</button>
+              </div>
+
+              <div className="ca-modal-body">
+
+                {/* TEXTAREA */}
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Write your comment..."
+                  style={{ width: "100%", padding: "10px" }}
+                />
+
+                {/* PREVIOUS COMMENTS */}
+                {editingCommentReq.adminComments?.length > 0 && (
+                  <div style={{ marginTop: "10px" }}>
+                    <strong>Comments:</strong>
+
+                    {editingCommentReq.adminComments.map((c, i) => (
+                      <div key={i} style={{
+                        marginTop: "5px",
+                        padding: "8px",
+                        background: "#f5f7ff",
+                        borderRadius: "6px"
+                      }}>
+                        {c.text}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+              </div>
+
+              <div className="ca-modal-footer">
+                <button onClick={() => setEditingCommentReq(null)}>Cancel</button>
+                <button onClick={handleCommentUpdate}>
+                  Add Comment
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* 🔥 COMMENT POPUP END */}
     </div>
   );
 };

@@ -5,6 +5,7 @@ import './CompanyAssetManagement.css';
 
 const CompanyAssetManagement = () => {
   const [assets, setAssets] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,12 +20,11 @@ const CompanyAssetManagement = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [quantity, setQuantity] = useState('');
 
-  // Fetch assets on component mount
-  useEffect(() => {
-    console.log('📱 CompanyAssetManagement Component mounted');
-    fetchAssets();
-    getCompanyInfo();
-  }, []);
+ useEffect(() => {
+  fetchAssets();
+  fetchRequests(); // 🔥 ADD THIS
+  getCompanyInfo();
+}, []);
 
   // Update stats whenever assets change
  
@@ -91,6 +91,15 @@ const CompanyAssetManagement = () => {
       toast.error(err.response?.data?.message || 'Failed to load company assets');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchRequests = async () => {
+    try {
+      const res = await axios.get('/asset-requests/all');
+      setRequests(res.data.requests || []);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -314,22 +323,22 @@ const CompanyAssetManagement = () => {
             <span>{showForm ? 'Cancel' : 'Add New Asset'}</span>
           </button>
           
-          <div className="ca-view-toggle">
-            <button 
-              className={`ca-view-btn ${viewMode === 'table' ? 'active' : ''}`}
-              onClick={() => setViewMode('table')}
-              title="Table View"
-            >
-              📋
-            </button>
-            <button 
-              className={`ca-view-btn ${viewMode === 'grid' ? 'active' : ''}`}
-              onClick={() => setViewMode('grid')}
-              title="Grid View"
-            >
-              🧩
-            </button>
-          </div>
+            <div className="ca-view-toggle">
+              <button 
+                className={`ca-view-btn ${viewMode === 'table' ? 'active' : ''}`}
+                onClick={() => setViewMode('table')}
+                title="Table View"
+              >
+                Assets
+              </button>
+              <button 
+                className={`ca-view-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                onClick={() => setViewMode('grid')}
+                title="Grid View"
+              >
+                All Requests
+              </button>
+            </div>
         </div>
         
         <div className="ca-action-right">
@@ -537,41 +546,45 @@ const CompanyAssetManagement = () => {
               </tbody>
             </table>
           </div>
-        ) : (
-          <div className="ca-grid-view">
-            {filteredAssets.map((asset) => (
-              <div key={asset._id} className="ca-asset-card">
-                <div className="ca-asset-card-header">
-                  <div className="ca-asset-card-icon">📦</div>
-                  <button 
-                    className="ca-card-delete"
-                    onClick={() => setShowDeleteConfirm(asset)}
-                    title="Delete Asset"
-                  >
-                    🗑️
-                  </button>
-                </div>
-                <div className="ca-asset-card-body">
-                  <h4 onClick={() => viewAssetDetails(asset)} className="ca-asset-card-title">
-                    {asset.name}
-                  </h4>
-                  <p className="ca-asset-card-description">
-                    {asset.description || 'No description provided'}
-                  </p>
-                </div>
-                <div className="ca-asset-card-footer">
-                  <div className="ca-card-creator">
-                    <span className="ca-creator-initial">
-                      {asset.createdBy?.name?.charAt(0) || '?'}
-                    </span>
-                    <span>{asset.createdBy?.name || 'Unknown'}</span>
-                  </div>
-                  <div className="ca-card-date">
-                    {new Date(asset.createdAt).toLocaleDateString()}
-                  </div>
-                </div>
-              </div>
-            ))}
+       ) : (
+          <div className="ca-table-wrapper">
+
+            <h3 style={{ marginBottom: '10px' }}>All Requests</h3>
+
+            <table className="ca-table">
+              <thead>
+                <tr>
+                  <th>No</th>
+                  <th>Employee</th>
+                  <th>Email</th>
+                  <th>Asset</th>
+                  <th>Department</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {requests.length > 0 ? (
+                  requests.map((req, index) => (
+                    <tr key={req._id}>
+                      <td>{index + 1}</td>
+                      <td>{req.user?.name}</td>
+                      <td>{req.user?.email}</td>
+                      <td>{req.assetName}</td>
+                      <td>{req.department}</td>
+                      <td>{req.status}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="6" style={{ textAlign: 'center' }}>
+                      No Requests Found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+
           </div>
         )}
       </div>

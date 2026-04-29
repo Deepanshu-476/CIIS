@@ -11,6 +11,18 @@ const CompanyAssetManagement = () => {
   const [showForm, setShowForm] = useState(false);
   const [companyInfo, setCompanyInfo] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('table');
+  const [selectedAsset, setSelectedAsset] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [stats, setStats] = useState({
+    total: 0,
+    available: 0,
+    assigned: 0,
+    maintenance: 0
+  });
 
   // Fetch assets on component mount
   useEffect(() => {
@@ -19,10 +31,14 @@ const CompanyAssetManagement = () => {
     getCompanyInfo();
   }, []);
 
+  // Update stats whenever assets change
+  useEffect(() => {
+    updateStats();
+  }, [assets]);
+
   // Get user from storage
   const getUser = () => {
     try {
-      // Try different storage locations
       let userStr = localStorage.getItem('user');
       if (!userStr) userStr = localStorage.getItem('superAdmin');
       if (!userStr) userStr = sessionStorage.getItem('user');
@@ -57,11 +73,18 @@ const CompanyAssetManagement = () => {
         code: user.companyCode || 'N/A',
         id: user._id
       });
-      console.log('🏢 Company info set:', {
-        name: user.companyName || user.company,
-        code: user.companyCode
-      });
     }
+  };
+
+  // Update statistics
+  const updateStats = () => {
+    const newStats = {
+      total: assets.length,
+      available: assets.filter(a => a.status === 'Available').length,
+      assigned: assets.filter(a => a.status === 'Assigned').length,
+      maintenance: assets.filter(a => a.status === 'Maintenance').length  
+    };
+    setStats(newStats);
   };
 
   // Fetch all company assets
@@ -82,11 +105,6 @@ const CompanyAssetManagement = () => {
       }
     } catch (err) {
       console.error('❌ Fetch assets error:', err);
-      console.error('Error details:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status
-      });
       toast.error(err.response?.data?.message || 'Failed to load company assets');
     } finally {
       setLoading(false);
@@ -119,25 +137,16 @@ const CompanyAssetManagement = () => {
       
       if (response.data.success) {
         toast.success('✅ Company asset created successfully!');
-        console.log('📊 New asset status:', response.data.asset.status); // Should be 'Available'
         
-        // Reset form
         setName('');
         setDescription('');
         setShowForm(false);
-        
-        // Refresh assets list
         fetchAssets();
       } else {
         toast.error(response.data.message || 'Failed to create asset');
       }
     } catch (err) {
       console.error('❌ Create asset error:', err);
-      console.error('Error details:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status
-      });
       toast.error(err.response?.data?.message || 'Failed to create company asset');
     } finally {
       setLoading(false);
@@ -159,7 +168,6 @@ const CompanyAssetManagement = () => {
       if (response.data.success) {
         toast.success(`📊 Status updated to ${newStatus}`);
         
-        // Update local state immediately for better UX
         setAssets(prevAssets => 
           prevAssets.map(asset => 
             asset._id === id 
@@ -179,11 +187,9 @@ const CompanyAssetManagement = () => {
   };
 
   // Delete company asset
-  const handleDelete = async (id, assetName) => {
-    if (!window.confirm(`Are you sure you want to delete "${assetName}"?`)) return;
-
+  const handleDelete = async (id) => {
     try {
-      console.log('🔄 Deleting asset:', { id, name: assetName });
+      console.log('🔄 Deleting asset:', { id });
       setLoading(true);
       
       const response = await axios.delete(`/company-assets/${id}`);
@@ -191,9 +197,8 @@ const CompanyAssetManagement = () => {
       
       if (response.data.success) {
         toast.success('🗑️ Company asset deleted successfully!');
-        
-        // Remove from local state
         setAssets(prevAssets => prevAssets.filter(asset => asset._id !== id));
+        setShowDeleteConfirm(null);
       } else {
         toast.error(response.data.message || 'Failed to delete asset');
       }
@@ -205,383 +210,508 @@ const CompanyAssetManagement = () => {
     }
   };
 
-  // Get status badge with color and icon
+  // Get status badge
   const getStatusBadge = (status) => {
     const statusConfig = {
-      'Available': { color: '#4caf50', icon: '✅', label: 'Available' },
-      'Assigned': { color: '#2196f3', icon: '👤', label: 'Assigned' },
-      'Maintenance': { color: '#ff9800', icon: '🔧', label: 'Maintenance' },
-      'Damaged': { color: '#f44336', icon: '⚠️', label: 'Damaged' },
-      'Retired': { color: '#9e9e9e', icon: '📦', label: 'Retired' }
+      'Available': { color: '#10b981', icon: '✅', label: 'Available', bg: '#d1fae5' },
+      'Assigned': { color: '#3b82f6', icon: '👤', label: 'Assigned', bg: '#dbeafe' },
+      'Maintenance': { color: '#f59e0b', icon: '🔧', label: 'Maintenance', bg: '#fed7aa' },
+     
     };
     
     const config = statusConfig[status] || statusConfig['Available'];
     
     return (
-      <span style={{
-        backgroundColor: config.color,
-        color: 'white',
-        padding: '4px 12px',
-        borderRadius: '20px',
-        fontSize: '13px',
-        fontWeight: '500',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '4px'
-      }}>
-        <span>{config.icon}</span>
-        <span>{config.label}</span>
+      <span className={`status-badge status-${status.toLowerCase()}`}>
+        <span className="status-icon">{config.icon}</span>
+        <span className="status-label">{config.label}</span>
       </span>
     );
   };
 
+  // Filter and search assets
+  const getFilteredAssets = () => {
+    let filtered = [...assets];
+    
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(asset => asset.status === statusFilter);
+    }
+    
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(asset => 
+        asset.name.toLowerCase().includes(term) ||
+        (asset.description && asset.description.toLowerCase().includes(term))
+      );
+    }
+    
+    return filtered;
+  };
+
+  // View asset details
+  const viewAssetDetails = (asset) => {
+    setSelectedAsset(asset);
+    setShowDetailsModal(true);
+  };
+
+  // Get status color for stats card
+  const getStatColor = (type) => {
+    const colors = {
+      total: '#6366f1',
+      available: '#10b981',
+      assigned: '#3b82f6',
+      maintenance: '#f59e0b'
+    };
+    return colors[type];
+  };
+
+  const filteredAssets = getFilteredAssets();
   const user = getUser();
 
   // If no user, show login message
   if (!user) {
     return (
-      <div style={{ 
-        padding: '40px', 
-        textAlign: 'center',
-        background: '#fff3cd',
-        borderRadius: '8px',
-        margin: '20px'
-      }}>
-        <h3>⚠️ Not Logged In</h3>
-        <p>Please log in to view company assets.</p>
+      <div className="ca-login-prompt">
+        <div className="ca-login-card">
+          <div className="ca-login-icon">⚠️</div>
+          <h3>Not Logged In</h3>
+          <p>Please log in to view company assets.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="company-asset-management">
-      {/* Header with Company Info */}
-      <div className="header" style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '30px',
-        padding: '20px',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        borderRadius: '10px',
-        color: 'white'
-      }}>
-        <div>
-          <h1 style={{ margin: '0 0 10px 0', fontSize: '28px' }}>
-            📦 Company Assets
-          </h1>
-          {companyInfo && (
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <span style={{
-                background: 'rgba(255,255,255,0.2)',
-                padding: '4px 12px',
-                borderRadius: '20px',
-                fontSize: '14px'
-              }}>
-                🏢 {companyInfo.name}
-              </span>
-              <span style={{
-                background: 'rgba(255,255,255,0.2)',
-                padding: '4px 12px',
-                borderRadius: '20px',
-                fontSize: '14px'
-              }}>
-                📋 {companyInfo.code}
-              </span>
+    <div className="ca-container">
+      {/* Header Section */}
+      <div className="ca-header">
+        <div className="ca-header-content">
+          <div className="ca-header-left">
+            <div className="ca-header-icon">📦</div>
+            <div>
+              <h1>Company Assets</h1>
+              <p>Manage and track your company's inventory</p>
             </div>
-          )}
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <p style={{ margin: '0 0 5px 0', fontSize: '16px' }}>
-            👋 Welcome, {user.name}
-          </p>
-          <p style={{ margin: '0', fontSize: '14px', opacity: '0.9' }}>
-            {user.email}
-          </p>
+          </div>
+          <div className="ca-header-right">
+            <div className="ca-company-badge">
+              <span className="ca-company-icon">🏢</span>
+              <div>
+                <div className="ca-company-name">{companyInfo?.name || 'Your Company'}</div>
+                <div className="ca-company-code">Code: {companyInfo?.code}</div>
+              </div>
+            </div>
+            <div className="ca-user-badge">
+              <div className="ca-user-avatar">
+                {user.name?.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <div className="ca-user-name">{user.name}</div>
+                <div className="ca-user-email">{user.email}</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Add Asset Button */}
-      {!showForm && (
-        <button 
-          className="btn btn-primary"
-          onClick={() => setShowForm(true)}
-          style={{
-            background: '#4CAF50',
-            color: 'white',
-            border: 'none',
-            padding: '12px 24px',
-            borderRadius: '8px',
-            fontSize: '16px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            marginBottom: '20px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-        >
-          <span>➕</span>
-          <span>Add New Company Asset</span>
-        </button>
-      )}
+      {/* Stats Cards */}
+      <div className="ca-stats-grid">
+        <div className="ca-stat-card" style={{ borderLeftColor: getStatColor('total') }}>
+          <div className="ca-stat-icon">📊</div>
+          <div className="ca-stat-info">
+            <div className="ca-stat-value">{stats.total}</div>
+            <div className="ca-stat-label">Total Assets</div>
+          </div>
+        </div>
+        <div className="ca-stat-card" style={{ borderLeftColor: getStatColor('available') }}>
+          <div className="ca-stat-icon">✅</div>
+          <div className="ca-stat-info">
+            <div className="ca-stat-value">{stats.available}</div>
+            <div className="ca-stat-label">Available</div>
+          </div>
+        </div>
+        <div className="ca-stat-card" style={{ borderLeftColor: getStatColor('assigned') }}>
+          <div className="ca-stat-icon">👤</div>
+          <div className="ca-stat-info">
+            <div className="ca-stat-value">{stats.assigned}</div>
+            <div className="ca-stat-label">Assigned</div>
+          </div>
+        </div>
+        <div className="ca-stat-card" style={{ borderLeftColor: getStatColor('maintenance') }}>
+          <div className="ca-stat-icon">🔧</div>
+          <div className="ca-stat-info">
+            <div className="ca-stat-value">{stats.maintenance}</div>
+            <div className="ca-stat-label">Maintenance</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Action Bar */}
+      <div className="ca-action-bar">
+        <div className="ca-action-left">
+          <button 
+            className={`ca-btn ca-btn-primary ${!showForm ? 'ca-btn-glow' : ''}`}
+            onClick={() => setShowForm(!showForm)}
+          >
+            <span>{showForm ? '✕' : '+'}</span>
+            <span>{showForm ? 'Cancel' : 'Add New Asset'}</span>
+          </button>
+          
+          <div className="ca-view-toggle">
+            <button 
+              className={`ca-view-btn ${viewMode === 'table' ? 'active' : ''}`}
+              onClick={() => setViewMode('table')}
+              title="Table View"
+            >
+              📋
+            </button>
+            <button 
+              className={`ca-view-btn ${viewMode === 'grid' ? 'active' : ''}`}
+              onClick={() => setViewMode('grid')}
+              title="Grid View"
+            >
+              🧩
+            </button>
+          </div>
+        </div>
+        
+        <div className="ca-action-right">
+          <div className="ca-search-box">
+            <span className="ca-search-icon">🔍</span>
+            <input
+              type="text"
+              placeholder="Search assets..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="ca-search-input"
+            />
+            {searchTerm && (
+              <button className="ca-search-clear" onClick={() => setSearchTerm('')}>✕</button>
+            )}
+          </div>
+          
+          <select 
+            className="ca-filter-select"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="all">All Status</option>
+            <option value="Available">✅ Available</option>
+            <option value="Assigned">👤 Assigned</option>
+            <option value="Maintenance">🔧 Maintenance</option>
+          </select>
+        </div>
+      </div>
 
       {/* Create Asset Form */}
       {showForm && (
-        <div className="form-container" style={{
-          background: 'white',
-          borderRadius: '10px',
-          padding: '24px',
-          marginBottom: '30px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-        }}>
-          <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>
-            Create New Asset
-          </h3>
-          <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontWeight: '500',
-                color: '#555'
-              }}>
-                Asset Name <span style={{ color: '#f44336' }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter asset name"
-                disabled={loading}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  border: '2px solid #e0e0e0',
-                  borderRadius: '8px',
-                  fontSize: '14px'
-                }}
-                autoFocus
-              />
-              <small style={{
-                display: 'block',
-                marginTop: '8px',
-                color: '#666',
-                fontSize: '13px'
-              }}>
-                ℹ️ Status will be automatically set to <strong>Available</strong>
-              </small>
+        <div className="ca-form-modal">
+          <div className="ca-form-card">
+            <div className="ca-form-header">
+              <h3>Create New Asset</h3>
+              <button className="ca-close-btn" onClick={() => setShowForm(false)}>✕</button>
             </div>
+            <form onSubmit={handleSubmit}>
+              <div className="ca-form-group">
+                <label>
+                  Asset Name <span className="ca-required">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter asset name"
+                  disabled={loading}
+                  className="ca-form-input"
+                  autoFocus
+                />
+                <div className="ca-form-hint">
+                  ℹ️ Status will be automatically set to <strong>Available</strong>
+                </div>
+              </div>
 
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontWeight: '500',
-                color: '#555'
-              }}>
-                Description
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Enter asset description (optional)"
-                rows="3"
-                disabled={loading}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  border: '2px solid #e0e0e0',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  resize: 'vertical'
-                }}
-              />
-            </div>
+              <div className="ca-form-group">
+                <label>Description</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Enter asset description (optional)"
+                  rows="3"
+                  disabled={loading}
+                  className="ca-form-textarea"
+                />
+              </div>
 
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              <button 
-                type="button"
-                onClick={() => {
-                  setShowForm(false);
-                  setName('');
-                  setDescription('');
-                }}
-                disabled={loading}
-                style={{
-                  padding: '10px 20px',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  background: '#f5f5f5',
-                  color: '#333'
-                }}
-              >
-                Cancel
-              </button>
-              <button 
-                type="submit"
-                disabled={loading || !name.trim()}
-                style={{
-                  padding: '10px 20px',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  cursor: loading || !name.trim() ? 'not-allowed' : 'pointer',
-                  background: '#4CAF50',
-                  color: 'white',
-                  opacity: loading || !name.trim() ? 0.7 : 1
-                }}
-              >
-                {loading ? 'Creating...' : 'Create Asset'}
-              </button>
-            </div>
-          </form>
+              <div className="ca-form-actions">
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setShowForm(false);
+                    setName('');
+                    setDescription('');
+                  }}
+                  disabled={loading}
+                  className="ca-btn ca-btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={loading || !name.trim()}
+                  className="ca-btn ca-btn-primary"
+                >
+                  {loading ? 'Creating...' : 'Create Asset'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
-      {/* Assets List */}
-      <div className="assets-list">
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '20px'
-        }}>
-          <h3 style={{ margin: 0, color: '#333' }}>
-            Your Company Assets
+      {/* Assets Display */}
+      <div className="ca-assets-section">
+        <div className="ca-section-header">
+          <h3>
+            {statusFilter === 'all' ? 'All Assets' : `${statusFilter} Assets`}
+            {searchTerm && <span className="ca-search-badge">Search: "{searchTerm}"</span>}
           </h3>
-          <span style={{
-            background: '#e0e0e0',
-            padding: '4px 12px',
-            borderRadius: '20px',
-            fontSize: '14px',
-            color: '#666'
-          }}>
-            Total: {assets.length}
-          </span>
+          <div className="ca-assets-count">
+            Showing {filteredAssets.length} of {assets.length} assets
+          </div>
         </div>
-        
+
         {loading && assets.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-            <div style={{ fontSize: '24px', marginBottom: '10px' }}>⏳</div>
-            <div>Loading assets...</div>
+          <div className="ca-loading">
+            <div className="ca-spinner"></div>
+            <p>Loading assets...</p>
           </div>
-        ) : assets.length === 0 ? (
-          <div style={{
-            textAlign: 'center',
-            padding: '60px',
-            background: '#f9f9f9',
-            borderRadius: '10px',
-            border: '2px dashed #e0e0e0'
-          }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📦</div>
-            <h4 style={{ margin: '0 0 8px 0', color: '#333' }}>No Assets Found</h4>
-            <p style={{ margin: 0, color: '#666' }}>
-              Your company doesn't have any assets yet. Click the button above to create your first asset.
+        ) : filteredAssets.length === 0 ? (
+          <div className="ca-empty-state">
+            <div className="ca-empty-icon">📦</div>
+            <h4>No Assets Found</h4>
+            <p>
+              {searchTerm || statusFilter !== 'all' 
+                ? "No assets match your search criteria. Try adjusting your filters."
+                : "Your company doesn't have any assets yet. Click the button above to create your first asset."}
             </p>
+            {(searchTerm || statusFilter !== 'all') && (
+              <button 
+                className="ca-btn ca-btn-secondary"
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('all');
+                }}
+              >
+                Clear Filters
+              </button>
+            )}
           </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              background: 'white',
-              borderRadius: '10px',
-              overflow: 'hidden',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-            }}>
+        ) : viewMode === 'table' ? (
+          <div className="ca-table-wrapper">
+            <table className="ca-table">
               <thead>
-                <tr style={{ background: '#f5f5f5' }}>
-                  <th style={{ padding: '16px', textAlign: 'left', fontWeight: '600', color: '#555' }}>#</th>
-                  <th style={{ padding: '16px', textAlign: 'left', fontWeight: '600', color: '#555' }}>Asset Name</th>
-                  <th style={{ padding: '16px', textAlign: 'left', fontWeight: '600', color: '#555' }}>Description</th>
-                  <th style={{ padding: '16px', textAlign: 'left', fontWeight: '600', color: '#555' }}>Status</th>
-                  <th style={{ padding: '16px', textAlign: 'left', fontWeight: '600', color: '#555' }}>Created Date</th>
-                  <th style={{ padding: '16px', textAlign: 'left', fontWeight: '600', color: '#555' }}>Created By</th>
-                  <th style={{ padding: '16px', textAlign: 'left', fontWeight: '600', color: '#555' }}>Actions</th>
-                </tr>
+                <tr>
+                  <th>No</th>
+                  <th>Asset Name</th>
+                  <th>Description</th>
+                  <th>Status</th>
+                  <th>Created Date</th>
+                  <th>Created By</th>
+                  <th>Actions</th>
+                 </tr>
               </thead>
               <tbody>
-                {assets.map((asset, index) => (
-                  <tr key={asset._id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                    <td style={{ padding: '16px' }}>{index + 1}</td>
-                    <td style={{ padding: '16px' }}>
-                      <strong>{asset.name}</strong>
+                {filteredAssets.map((asset, index) => (
+                  <tr key={asset._id} className="ca-table-row">
+                    <td data-label="#">{index + 1}</td>
+                    <td data-label="Asset Name">
+                      <button 
+                        className="ca-asset-link"
+                        onClick={() => viewAssetDetails(asset)}
+                      >
+                        <strong>{asset.name}</strong>
+                      </button>
                     </td>
-                    <td style={{ padding: '16px', color: '#666' }}>
+                    <td data-label="Description" className="ca-description-cell">
                       {asset.description || '—'}
                     </td>
-                    <td style={{ padding: '16px' }}>
+                    <td data-label="Status">
                       <select
                         value={asset.status}
                         onChange={(e) => handleStatusChange(asset._id, e.target.value)}
                         disabled={updatingStatus === asset._id}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '20px',
-                          border: 'none',
-                          background: getStatusBadge(asset.status).props.style.backgroundColor,
-                          color: 'white',
-                          fontWeight: '500',
-                          cursor: 'pointer',
-                          fontSize: '13px'
-                        }}
+                        className={`ca-status-select status-${asset.status.toLowerCase()}`}
                       >
-                        <option value="Available" style={{ background: '#4caf50' }}>✅ Available</option>
-                        <option value="Assigned" style={{ background: '#2196f3' }}>👤 Assigned</option>
-                        <option value="Maintenance" style={{ background: '#ff9800' }}>🔧 Maintenance</option>
-                        <option value="Damaged" style={{ background: '#f44336' }}>⚠️ Damaged</option>
-                        <option value="Retired" style={{ background: '#9e9e9e' }}>📦 Retired</option>
+                        <option value="Available">✅ Available</option>
+                        <option value="Assigned">👤 Assigned</option>
+                        <option value="Maintenance">🔧 Maintenance</option>
                       </select>
-                      {updatingStatus === asset._id && (
-                        <span style={{ marginLeft: '8px' }}>⏳</span>
-                      )}
+                      {updatingStatus === asset._id && <span className="ca-updating-spinner"></span>}
                     </td>
-                    <td style={{ padding: '16px', color: '#666' }}>
+                    <td data-label="Created Date">
                       {new Date(asset.createdAt).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric'
                       })}
                     </td>
-                    <td style={{ padding: '16px' }}>
-                      <span style={{
-                        background: '#f0f0f0',
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        fontSize: '13px',
-                        color: '#666'
-                      }}>
-                        {asset.createdBy?.name || 'Unknown'}
+                    <td data-label="Created By">
+                      <span className="ca-creator-badge">
+                       
+                        <span>{asset.createdBy?.name || 'Unknown'}</span>
                       </span>
                     </td>
-                    <td style={{ padding: '16px' }}>
-                      <button
-                        onClick={() => handleDelete(asset._id, asset.name)}
-                        disabled={loading}
-                        style={{
-                          padding: '6px 12px',
-                          border: 'none',
-                          borderRadius: '4px',
-                          background: '#f44336',
-                          color: 'white',
-                          cursor: loading ? 'not-allowed' : 'pointer',
-                          opacity: loading ? 0.7 : 1,
-                          fontSize: '13px'
-                        }}
-                      >
-                        🗑️ Delete
-                      </button>
+                    <td data-label="Actions">
+                      <div className="ca-action-buttons">
+                        <button
+                          className="ca-action-btn ca-view-btn-sm"
+                          onClick={() => viewAssetDetails(asset)}
+                          title="View Details"
+                        >
+                          👁️
+                        </button>
+                        <button
+                          className="ca-action-btn ca-delete-btn-sm"
+                          onClick={() => setShowDeleteConfirm(asset)}
+                          title="Delete Asset"
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </td>
-                  </tr>
+                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        ) : (
+          <div className="ca-grid-view">
+            {filteredAssets.map((asset) => (
+              <div key={asset._id} className="ca-asset-card">
+                <div className="ca-asset-card-header">
+                  <div className="ca-asset-card-icon">📦</div>
+                  <button 
+                    className="ca-card-delete"
+                    onClick={() => setShowDeleteConfirm(asset)}
+                    title="Delete Asset"
+                  >
+                    🗑️
+                  </button>
+                </div>
+                <div className="ca-asset-card-body">
+                  <h4 onClick={() => viewAssetDetails(asset)} className="ca-asset-card-title">
+                    {asset.name}
+                  </h4>
+                  <p className="ca-asset-card-description">
+                    {asset.description || 'No description provided'}
+                  </p>
+                  <div className="ca-asset-card-status">
+                    <select
+                      value={asset.status}
+                      onChange={(e) => handleStatusChange(asset._id, e.target.value)}
+                      disabled={updatingStatus === asset._id}
+                      className={`ca-status-select-sm status-${asset.status.toLowerCase()}`}
+                    >
+                      <option value="Available">✅ Available</option>
+                      <option value="Assigned">👤 Assigned</option>
+                      <option value="Maintenance">🔧 Maintenance</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="ca-asset-card-footer">
+                  <div className="ca-card-creator">
+                    <span className="ca-creator-initial">
+                      {asset.createdBy?.name?.charAt(0) || '?'}
+                    </span>
+                    <span>{asset.createdBy?.name || 'Unknown'}</span>
+                  </div>
+                  <div className="ca-card-date">
+                    {new Date(asset.createdAt).toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
+
+      {/* Asset Details Modal */}
+      {showDetailsModal && selectedAsset && (
+        <div className="ca-modal-overlay" onClick={() => setShowDetailsModal(false)}>
+          <div className="ca-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ca-modal-header">
+              <h3>Asset Details</h3>
+              <button className="ca-close-btn" onClick={() => setShowDetailsModal(false)}>✕</button>
+            </div>
+            <div className="ca-modal-body">
+              <div className="ca-detail-item">
+                <label>Asset Name</label>
+                <div className="ca-detail-value">{selectedAsset.name}</div>
+              </div>
+              <div className="ca-detail-item">
+                <label>Description</label>
+                <div className="ca-detail-value">{selectedAsset.description || '—'}</div>
+              </div>
+              <div className="ca-detail-item">
+                <label>Status</label>
+                <div className="ca-detail-value">
+                  {getStatusBadge(selectedAsset.status)}
+                </div>
+              </div>
+              <div className="ca-detail-item">
+                <label>Created By</label>
+                <div className="ca-detail-value">{selectedAsset.createdBy?.name || 'Unknown'}</div>
+              </div>
+              <div className="ca-detail-item">
+                <label>Created Date</label>
+                <div className="ca-detail-value">
+                  {new Date(selectedAsset.createdAt).toLocaleString()}
+                </div>
+              </div>
+              <div className="ca-detail-item">
+                <label>Last Updated</label>
+                <div className="ca-detail-value">
+                  {new Date(selectedAsset.updatedAt).toLocaleString()}
+                </div>
+              </div>
+              <div className="ca-detail-item">
+                <label>Asset ID</label>
+                <div className="ca-detail-value ca-monospace">{selectedAsset._id}</div>
+              </div>
+            </div>
+            <div className="ca-modal-footer">
+              <button className="ca-btn ca-btn-secondary" onClick={() => setShowDetailsModal(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="ca-modal-overlay" onClick={() => setShowDeleteConfirm(null)}>
+          <div className="ca-modal ca-modal-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="ca-modal-header">
+              <h3>Confirm Delete</h3>
+              <button className="ca-close-btn" onClick={() => setShowDeleteConfirm(null)}>✕</button>
+            </div>
+            <div className="ca-modal-body ca-delete-body">
+              <div className="ca-delete-icon">🗑️</div>
+              <p>Are you sure you want to delete <strong>"{showDeleteConfirm.name}"</strong>?</p>
+              <p className="ca-delete-warning">This action cannot be undone.</p>
+            </div>
+            <div className="ca-modal-footer">
+              <button className="ca-btn ca-btn-secondary" onClick={() => setShowDeleteConfirm(null)}>
+                Cancel
+              </button>
+              <button className="ca-btn ca-btn-danger" onClick={() => handleDelete(showDeleteConfirm._id)}>
+                Delete Asset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

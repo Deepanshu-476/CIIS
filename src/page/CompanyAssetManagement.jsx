@@ -17,12 +17,7 @@ const CompanyAssetManagement = () => {
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
-  const [stats, setStats] = useState({
-    total: 0,
-    available: 0,
-    assigned: 0,
-    maintenance: 0
-  });
+  const [quantity, setQuantity] = useState('');
 
   // Fetch assets on component mount
   useEffect(() => {
@@ -32,10 +27,7 @@ const CompanyAssetManagement = () => {
   }, []);
 
   // Update stats whenever assets change
-  useEffect(() => {
-    updateStats();
-  }, [assets]);
-
+ 
   // Get user from storage
   const getUser = () => {
     try {
@@ -76,16 +68,7 @@ const CompanyAssetManagement = () => {
     }
   };
 
-  // Update statistics
-  const updateStats = () => {
-    const newStats = {
-      total: assets.length,
-      available: assets.filter(a => a.status === 'Available').length,
-      assigned: assets.filter(a => a.status === 'Assigned').length,
-      maintenance: assets.filter(a => a.status === 'Maintenance').length  
-    };
-    setStats(newStats);
-  };
+
 
   // Fetch all company assets
   const fetchAssets = async () => {
@@ -123,14 +106,16 @@ const CompanyAssetManagement = () => {
     try {
       console.log('🔄 Creating asset with data:', {
         name: name.trim(),
-        description: description.trim()
+        description: description.trim(),
+        quantity: quantity
       });
       
       setLoading(true);
       
       const response = await axios.post('/company-assets', {
         name: name.trim(),
-        description: description.trim()
+        description: description.trim(),
+        quantity: quantity
       });
       
       console.log('✅ Create asset response:', response.data);
@@ -140,7 +125,9 @@ const CompanyAssetManagement = () => {
         
         setName('');
         setDescription('');
+        setQuantity('');
         setShowForm(false);
+        
         fetchAssets();
       } else {
         toast.error(response.data.message || 'Failed to create asset');
@@ -314,37 +301,7 @@ const CompanyAssetManagement = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="ca-stats-grid">
-        <div className="ca-stat-card" style={{ borderLeftColor: getStatColor('total') }}>
-          <div className="ca-stat-icon">📊</div>
-          <div className="ca-stat-info">
-            <div className="ca-stat-value">{stats.total}</div>
-            <div className="ca-stat-label">Total Assets</div>
-          </div>
-        </div>
-        <div className="ca-stat-card" style={{ borderLeftColor: getStatColor('available') }}>
-          <div className="ca-stat-icon">✅</div>
-          <div className="ca-stat-info">
-            <div className="ca-stat-value">{stats.available}</div>
-            <div className="ca-stat-label">Available</div>
-          </div>
-        </div>
-        <div className="ca-stat-card" style={{ borderLeftColor: getStatColor('assigned') }}>
-          <div className="ca-stat-icon">👤</div>
-          <div className="ca-stat-info">
-            <div className="ca-stat-value">{stats.assigned}</div>
-            <div className="ca-stat-label">Assigned</div>
-          </div>
-        </div>
-        <div className="ca-stat-card" style={{ borderLeftColor: getStatColor('maintenance') }}>
-          <div className="ca-stat-icon">🔧</div>
-          <div className="ca-stat-info">
-            <div className="ca-stat-value">{stats.maintenance}</div>
-            <div className="ca-stat-label">Maintenance</div>
-          </div>
-        </div>
-      </div>
+     
 
       {/* Action Bar */}
       <div className="ca-action-bar">
@@ -425,11 +382,17 @@ const CompanyAssetManagement = () => {
                   className="ca-form-input"
                   autoFocus
                 />
-                <div className="ca-form-hint">
-                  ℹ️ Status will be automatically set to <strong>Available</strong>
-                </div>
               </div>
-
+              <div className="ca-form-group">
+                <label>Quantity</label>
+                <input
+                  type="number"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  placeholder="Enter quantity"
+                  className="ca-form-input"
+                />
+              </div>
               <div className="ca-form-group">
                 <label>Description</label>
                 <textarea
@@ -514,7 +477,7 @@ const CompanyAssetManagement = () => {
                   <th>No</th>
                   <th>Asset Name</th>
                   <th>Description</th>
-                  <th>Status</th>
+                  <th>Quantity</th>
                   <th>Created Date</th>
                   <th>Created By</th>
                   <th>Actions</th>
@@ -535,19 +498,9 @@ const CompanyAssetManagement = () => {
                     <td data-label="Description" className="ca-description-cell">
                       {asset.description || '—'}
                     </td>
-                    <td data-label="Status">
-                      <select
-                        value={asset.status}
-                        onChange={(e) => handleStatusChange(asset._id, e.target.value)}
-                        disabled={updatingStatus === asset._id}
-                        className={`ca-status-select status-${asset.status.toLowerCase()}`}
-                      >
-                        <option value="Available">✅ Available</option>
-                        <option value="Assigned">👤 Assigned</option>
-                        <option value="Maintenance">🔧 Maintenance</option>
-                      </select>
-                      {updatingStatus === asset._id && <span className="ca-updating-spinner"></span>}
-                    </td>
+
+                    <td data-label="Quantity">{asset.quantity || 0}</td>
+                    
                     <td data-label="Created Date">
                       {new Date(asset.createdAt).toLocaleDateString('en-US', {
                         year: 'numeric',
@@ -605,18 +558,6 @@ const CompanyAssetManagement = () => {
                   <p className="ca-asset-card-description">
                     {asset.description || 'No description provided'}
                   </p>
-                  <div className="ca-asset-card-status">
-                    <select
-                      value={asset.status}
-                      onChange={(e) => handleStatusChange(asset._id, e.target.value)}
-                      disabled={updatingStatus === asset._id}
-                      className={`ca-status-select-sm status-${asset.status.toLowerCase()}`}
-                    >
-                      <option value="Available">✅ Available</option>
-                      <option value="Assigned">👤 Assigned</option>
-                      <option value="Maintenance">🔧 Maintenance</option>
-                    </select>
-                  </div>
                 </div>
                 <div className="ca-asset-card-footer">
                   <div className="ca-card-creator">
@@ -652,12 +593,7 @@ const CompanyAssetManagement = () => {
                 <label>Description</label>
                 <div className="ca-detail-value">{selectedAsset.description || '—'}</div>
               </div>
-              <div className="ca-detail-item">
-                <label>Status</label>
-                <div className="ca-detail-value">
-                  {getStatusBadge(selectedAsset.status)}
-                </div>
-              </div>
+              
               <div className="ca-detail-item">
                 <label>Created By</label>
                 <div className="ca-detail-value">{selectedAsset.createdBy?.name || 'Unknown'}</div>

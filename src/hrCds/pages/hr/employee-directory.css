@@ -117,7 +117,7 @@
 
 /* ===== HEADER SECTION ===== */
 .EmployeeDirectory-header {
-  background: white;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: var(--dir-radius-2xl);
   padding: 28px 32px;
   margin-bottom: 24px;
@@ -138,6 +138,7 @@
   top: 0;
   left: 0;
   right: 0;
+  display: none;
   height: 4px;
   background: linear-gradient(90deg, var(--dir-primary), var(--dir-secondary));
 }
@@ -159,18 +160,14 @@
 .EmployeeDirectory-title {
   font-size: 32px;
   font-weight: 700;
-  color: var(--dir-gray-900);
+  color: white;
   margin: 0 0 4px 0;
   letter-spacing: -0.5px;
-  background: linear-gradient(135deg, var(--dir-primary), var(--dir-secondary));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 .EmployeeDirectory-subtitle {
   font-size: 14px;
-  color: var(--dir-gray-600);
+  color: white;
   margin: 0;
   display: flex;
   align-items: center;
@@ -179,7 +176,7 @@
 }
 
 .EmployeeDirectory-department-badge {
-  color: var(--dir-primary);
+  color: white;
   font-weight: 500;
 }
 

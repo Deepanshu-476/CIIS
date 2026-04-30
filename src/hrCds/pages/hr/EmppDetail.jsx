@@ -1932,7 +1932,7 @@ const EmployeeDirectory = () => {
     <div className="EmployeeDirectory">      
       <div className="EmployeeDirectory-header">
         <div className="EmployeeDirectory-company-info">
-          <div className="EmployeeDirectory-company-avatar"></div>
+         
           <div>
             <h1 className="EmployeeDirectory-title">Employee Directory</h1>
             <p className="EmployeeDirectory-subtitle">

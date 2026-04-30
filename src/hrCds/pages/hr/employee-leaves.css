@@ -50,7 +50,7 @@
 /* HEADER STYLES */
 /* ============================================ */
 .EmppLeaves-leaves-header {
-  background: white;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 28px 32px;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
@@ -66,14 +66,14 @@
 .EmppLeaves-leaves-title {
   font-size: 28px;
   font-weight: 700;
-  color: #1a365d;
+  color: white;
   margin: 0 0 12px 0;
   letter-spacing: -0.5px;
 }
 
 .EmppLeaves-leaves-subtitle {
   font-size: 15px;
-  color: #718096;
+  color: white; 
   margin: 0;
   display: flex;
   align-items: center;

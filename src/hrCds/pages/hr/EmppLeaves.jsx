@@ -402,8 +402,9 @@ const EmployeeLeaves = () => {
   }, [isOwner, isAdmin, isHR, isManager]);
 
   const canDeleteLeave = useCallback(() => {
-    return isOwner || isAdmin || isHR || isManager;
-  }, [isOwner, isAdmin, isHR, isManager]);
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  return isOwner || isAdmin || isHR || isManager || user.jobRole === "superadmin";
+}, [isOwner, isAdmin, isHR, isManager]);
 
   const canApproveLeave = useCallback(() => {
     return isOwner || isAdmin || isHR || isManager;
@@ -914,32 +915,47 @@ const EmployeeLeaves = () => {
   };
 
   const handleDeleteLeave = async (leaveId) => {
-    try {
-      const leave = leaves.find(l => l._id === leaveId);
-      if (!leave) return;
-      
-      if (!canDeleteLeave()) {
-        showSnackbar("Access Denied: You don't have permission to delete leave requests", "error");
-        setDeleteDialog(null);
-        return;
-      }
-      
-      const res = await axios.delete(`/leaves/${leaveId}`);
-      
-      if (res.data.success || res.data.message) {
-        showSnackbar("Leave deleted successfully", "success");
-        await fetchLeaves();
-        setDeleteDialog(null);
-      }
-    } catch (err) {
-      console.error("Failed to delete leave", err);
-      if (err.response?.status === 403) {
-        showSnackbar(err.response.data.error || "Permission denied", "error");
-      } else {
-        showSnackbar("Failed to delete leave", "error");
-      }
+  try {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+    const leave = leaves.find(l => l._id === leaveId);
+    if (!leave) return;
+
+    if (!canDeleteLeave()) {
+      showSnackbar("Access Denied: You don't have permission to delete leave requests", "error");
+      setDeleteDialog(null);
+      return;
     }
-  };
+
+    const res = await axios.delete(`/leaves/${leaveId}`, {
+      headers: {
+        "x-user-company-role": user.companyRole,
+        "x-user-job-role": user.jobRole
+      }
+    });
+
+    if (res.data.success || res.data.message) {
+      showSnackbar("Leave deleted successfully", "success");
+
+      setLeaves(prev => {
+        const updated = prev.filter(l => l._id !== leaveId);
+        updateStats(updated);
+        return updated;
+      });
+
+      setDeleteDialog(null);
+    }
+
+  } catch (err) {
+    console.error("Failed to delete leave", err);
+
+    if (err.response?.status === 403) {
+      showSnackbar(err.response.data.error || "Permission denied", "error");
+    } else {
+      showSnackbar("Failed to delete leave", "error");
+    }
+  }
+};
 
   const openHistoryDialog = (leave) => {
     const history = leave.history || [];

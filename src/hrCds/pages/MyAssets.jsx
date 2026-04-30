@@ -44,7 +44,8 @@ const MyAssets = () => {
     rejected: 0,
     approvalRate: 0,
   });
-  const [isMobile, setIsMobile] = useState(false);
+ const [viewCommentReq, setViewCommentReq] = useState(null);
+ const [isMobile, setIsMobile] = useState(false);
 
   // ✅ Allowed assets for dropdown
   const [allowedAssets, setAllowedAssets] = useState([]);
@@ -107,11 +108,14 @@ const MyAssets = () => {
       // Format assets for dropdown
       const formattedAssets = assets.map(asset => ({
         value: asset._id,
-        label: asset.name,
+        label: asset.name || asset.assetName || 'Unnamed Asset',
         type: asset.category || asset.type || 'other',
         icon: getIconForAssetType(asset.category || asset.type),
         color: getColorForAssetType(asset.category || asset.type),
-        available: asset.status === 'Available',
+
+        // ✅ FIXED
+        available: asset.quantity > 0,
+
         status: asset.status,
         serialNumber: asset.serialNumber,
         model: asset.model,
@@ -310,12 +314,6 @@ const MyAssets = () => {
       return;
     }
 
-    // Check if asset is available
-    if (selectedAsset.status !== 'Available') {
-      showToast(`❌ This asset is ${selectedAsset.status}. Only Available assets can be requested.`, "error", 4000);
-      return;
-    }
-
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
@@ -323,8 +321,7 @@ const MyAssets = () => {
       // Send only required fields to match backend
       const requestData = {
         assetId: newAsset,
-        reason: `Request for ${selectedAsset.name}`,
-        expectedReturnDate: null
+        reason: `Request for ${selectedAsset.name}`
       };
       
       console.log("📤 Sending request:", requestData);
@@ -342,9 +339,9 @@ const MyAssets = () => {
       await fetchCompanyAssets(); // Refresh to update available assets
       
     } catch (error) {
-      console.error("❌ Request failed:", error);
-      showToast(error.response?.data?.error || "❌ Request failed. Please try again.", "error", 4000);
-    } finally {
+        console.error("❌ FULL ERROR:", error.response?.data);
+        showToast(error.response?.data?.error || "❌ Request failed", "error", 4000);
+      } finally {
       setLoading(false);
     }
   };
@@ -524,18 +521,12 @@ const MyAssets = () => {
                   <option 
                     key={asset.value} 
                     value={asset.value}
-                    disabled={!asset.available}
-                    style={{ 
-                      color: asset.available ? 'inherit' : '#999',
-                      backgroundColor: asset.available ? 'white' : '#f5f5f5'
-                    }}
                   >
-                    {asset.label} 
+                    {asset.label || 'No Name'}
                     {asset.model ? ` (${asset.model})` : ''} 
                     {asset.serialNumber ? ` - SN: ${asset.serialNumber}` : ''}
-                    {!asset.available && ` (${asset.status || 'Not Available'})`}
-                    {asset.available && ' ✅ Available'}
-                  </option>
+                    {asset.status ? ` (${asset.status})` : ''}
+                  </option> 
                 ))}
                 {allowedAssets.length === 0 && (
                   <option value="" disabled>Loading assets...</option>
@@ -676,6 +667,7 @@ const MyAssets = () => {
                   <th>Status</th>
                   <th>Approved By</th>
                   <th>Requested At</th>
+                  <th>Comments</th>
                 </tr>
               </thead>
               <tbody>
@@ -718,6 +710,20 @@ const MyAssets = () => {
                         <td>
                           <strong>{formatDate(req.createdAt)}</strong>
                         </td>
+                        <td>
+                        <button
+                          style={{
+                            padding: "5px 10px",
+                            background: "#eef2ff",
+                            borderRadius: "6px",
+                            border: "none",
+                            cursor: "pointer"
+                          }}
+                          onClick={() => setViewCommentReq(req)}
+                        >
+                          {req.adminComments?.length > 0 ? "View Comments" : "No Comments"}
+                        </button>
+                      </td>
                       </tr>
                     );
                   })
@@ -800,6 +806,37 @@ const MyAssets = () => {
           </div>
         )}
       </div>
+
+
+      {viewCommentReq && (
+          <div className="MyAssets-modal-overlay">
+            <div className="MyAssets-modal">
+
+              <div className="MyAssets-modal-header">
+                <h3>💬 Admin Comments</h3>
+                <button onClick={() => setViewCommentReq(null)}>✕</button>
+              </div>
+
+              <div className="MyAssets-modal-body">
+                {viewCommentReq.adminComments?.length > 0 ? (
+                  viewCommentReq.adminComments.map((c, i) => (
+                    <div key={i} style={{
+                      marginBottom: "8px",
+                      padding: "10px",
+                      background: "#f5f7ff",
+                      borderRadius: "6px"
+                    }}>
+                      • {c.text}
+                    </div>
+                  ))
+                ) : (
+                  <p>No comments available</p>
+                )}
+              </div>
+
+            </div>
+          </div>
+        )}
 
       {/* Local Notification (kept for backward compatibility) */}
       {notification && (

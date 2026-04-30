@@ -481,7 +481,7 @@ const EmpAssets = () => {
     }
     
     setEditingCommentReq(req);
-    setCommentText(req.adminComment || '');
+    setCommentText('');
   };
 
   const handleCommentUpdate = async () => {
@@ -498,11 +498,13 @@ const EmpAssets = () => {
       // ✅ FIXED: Use correct endpoint - /asset-requests/update/:id
       await axios.patch(`/asset-requests/update/${editingCommentReq._id}`, {
         adminComment: commentText,
-        status: editingCommentReq.status
       });
       setNotification({ message: 'Comment updated successfully', severity: 'success' });
-      setEditingCommentReq(null);
-      fetchRequests();
+      // ✅ comment ko turant UI me show karo
+        await fetchRequests();
+
+        // textarea clear karo
+        setCommentText('');
     } catch (err) {
       setNotification({ message: 'Failed to update comment', severity: 'error' });
       console.error('Comment update error:', err);
@@ -571,7 +573,9 @@ const EmpAssets = () => {
       req.user?.name?.toLowerCase().includes(searchLower) ||
       req.user?.email?.toLowerCase().includes(searchLower) ||
       req.assetName?.toLowerCase().includes(searchLower) ||
-      req.adminComment?.toLowerCase().includes(searchLower) ||
+      req.adminComments?.some(c => 
+      c.text?.toLowerCase().includes(searchLower)
+    ) ||
       departmentMatch ||
       req.companyCode?.toLowerCase().includes(searchLower)
     );
@@ -889,14 +893,13 @@ const EmpAssets = () => {
                   </td>
                   <td>
                     <div 
-                      className={`EmpAssets-comment-badge ${req.adminComment ? 'EmpAssets-has-comment' : 'EmpAssets-no-comment'}`}
-                      title={req.adminComment || "Click to add comment"}
+                      className={`EmpAssets-comment-badge ${req.adminComments?.length > 0 ? 'EmpAssets-has-comment' : 'EmpAssets-no-comment'}`}
+                        title={req.adminComments?.length > 0 ? "View comments" : "Click to add comment"}
                       onClick={() => handleCommentEditOpen(req)}
                     >
                       <FiMessageCircle size={12} />
-                      <span>{req.adminComment ? 
-                        (req.adminComment.length > 20 ? req.adminComment.substring(0, 20) + '...' : req.adminComment) 
-                        : 'Add Comment'}
+                     <span>
+                        {req.adminComments?.length > 0 ? 'View' : 'Add Comment'}
                       </span>
                     </div>
                   </td>
@@ -981,15 +984,36 @@ const EmpAssets = () => {
               <p>Request from: {editingCommentReq.user?.name} | Department: {getDepartmentName(editingCommentReq.department)}</p>
             </div>
             <div className="EmpAssets-dialog-body">
+
+              {/* ✅ TEXTAREA (YE MISSING HAI) */}
               <textarea
                 className="EmpAssets-textarea-field"
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Add your comment..."
-                rows={5}
+                placeholder="Write your comment here..."
+                rows={4}
                 autoFocus
               />
-            </div>
+
+              {/* ✅ PREVIOUS COMMENT */}
+              {editingCommentReq?.adminComments?.length > 0 && (
+                <div style={{ marginTop: "10px" }}>
+                  <strong>Comments:</strong>
+
+                  {editingCommentReq.adminComments.map((c, i) => (
+                    <div key={i} style={{
+                      marginTop: "6px",
+                      padding: "8px",
+                      background: "#f5f7ff",
+                      borderRadius: "6px"
+                    }}>
+                      {c.text}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+            </div>  
             <div className="EmpAssets-dialog-footer">
               <button 
                 className="EmpAssets-btn EmpAssets-btn-cancel"
@@ -1003,7 +1027,7 @@ const EmpAssets = () => {
                 onClick={handleCommentUpdate}
                 disabled={actionLoading}
               >
-                {actionLoading ? 'Saving...' : 'Save Comment'}
+                {actionLoading ? 'Adding...' : 'Add Comment'}
               </button>
             </div>
           </div>

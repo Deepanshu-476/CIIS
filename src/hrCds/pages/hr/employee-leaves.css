@@ -822,6 +822,12 @@
   border-color: #fbd38d;
 }
 
+.EmppLeaves-leave-type-halfday {
+  background: #e9d8fd;
+  color: #553c9a;
+  border-color: #d6bcfa;
+}
+
 .EmppLeaves-leave-reason-preview {
   font-size: 13px;
   color: #718096;

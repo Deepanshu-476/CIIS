@@ -1090,7 +1090,6 @@ const UserDashboard = () => {
               <div className="activity-icon-container"><MdOutlineWatchLater className="activity-icon" /></div>
               <div>
                 <h2 className="activity-title">Recent Activity</h2>
-                <p className="activity-subtitle">Latest attendance & holidays</p>
               </div>
             </div>
             <button onClick={handleRefresh} disabled={loading.attendance} className="activity-refresh-btn">
@@ -1106,7 +1105,7 @@ const UserDashboard = () => {
             {loading.attendance && !recentActivity.length && <ActivityLoader />}
             
             {/* Show actual data when not loading */}
-            {!loading.attendance && recentActivity.map((item, index) => {
+           {!loading.attendance && recentActivity.map((item, index) => {
               const date = new Date(item.date);
 
               return (
@@ -1123,7 +1122,33 @@ const UserDashboard = () => {
                           day: 'numeric'
                         })}
                       </div>
-                      <div className="activity-title">{item.title}</div>
+                      <div className="activity-title">
+                        {item.title}
+                        {/* ✅ ADD THIS - Show user name if exists */}
+                        {item.userName && (
+                          <span style={{ 
+                            display: 'block', 
+                            fontSize: '12px', 
+                            color: '#666',
+                            marginTop: '4px',
+                            fontWeight: 'normal'
+                          }}>
+                            👤 {item.userName} {item.userEmail && `(${item.userEmail})`}
+                          </span>
+                        )}
+                        {/* ✅ ADD THIS - Show reason if exists */}
+                        {item.reason && (
+                          <span style={{ 
+                            display: 'block', 
+                            fontSize: '11px', 
+                            color: '#888',
+                            marginTop: '2px',
+                            fontStyle: 'italic'
+                          }}>
+                            📝 "{item.reason.substring(0, 100)}"
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -83,7 +83,7 @@
 /* Header */
 .EmployeeProject-header {
   margin-bottom: 2rem;
-  background: white;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: 12px;
   padding: 1.5rem;
   box-shadow: 0 8px 32px rgba(0,0,0,0.05);
@@ -95,6 +95,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+
 }
 
 .EmployeeProject-title {
@@ -102,10 +103,11 @@
   font-weight: 800;
   color: #667eea;
   margin-bottom: 0.5rem;
+  color: white;
 }
 
 .EmployeeProject-subtitle {
-  color: #666;
+  color: white;
   font-size: 1rem;
 }
 

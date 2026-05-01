@@ -3231,7 +3231,7 @@ const TaskDetails = () => {
                 Comprehensive dashboard with advanced filtering and analytics
               </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
-                <p style={{ fontSize: '0.9rem', color: '#6b7280' }}>
+                <p style={{ fontSize: '0.9rem', color: '#fff' }}>
                   Logged in as: {currentUser?.name}
                   <span style={{
                     marginLeft: '0.5rem',
@@ -3246,7 +3246,7 @@ const TaskDetails = () => {
                   </span>
                 </p>
                 {!isOwner() && currentUser?.department && (
-                  <p style={{ fontSize: '0.9rem', color: '#6b7280', display: 'flex', gap: '3px' }}>
+                  <p style={{ fontSize: '0.9rem', color: 'white', display: 'flex', gap: '3px' }}>
                     <FiUsers size={14} /> Department: {getDepartmentName(currentUser.department)}
                   </p>
                 )}

@@ -691,20 +691,20 @@ const EmpAssets = () => {
       </div>
 
       {/* Permission Warning Banner */}
-      {!canApproveRequest() && (
-        <div className="EmpAssets-warning-banner">
-          <div className="EmpAssets-warning-content">
-            <FiLock size={20} />
-            <div className="EmpAssets-warning-text">
-              <strong>🔒 View Only Mode</strong>
-              <p>You are viewing asset requests from your department only. Only Owners, Admins, HR, and Managers can approve/reject requests.</p>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* {!canApproveRequest() && (
+        // <div className="EmpAssets-warning-banner">
+        //   <div className="EmpAssets-warning-content">
+        //     <FiLock size={20} />
+        //     <div className="EmpAssets-warning-text">
+        //       <strong>🔒 View Only Mode</strong>
+        //       <p>You are viewing asset requests from your department only. Only Owners, Admins, HR, and Managers can approve/reject requests.</p>
+        //     </div>
+        //   </div>
+        // </div>
+      )} */}
 
       {/* Department Info Banner - Show for non-privileged users */}
-      {!isOwner && !isAdmin && !isHR && !isManager && currentUserDepartment && (
+      {/* {!isOwner && !isAdmin && !isHR && !isManager && currentUserDepartment && (
         <div className="EmpAssets-department-info-banner">
           <div className="EmpAssets-info-content">
             <FiHome size={20} />
@@ -714,10 +714,10 @@ const EmpAssets = () => {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Company Info Bar */}
-      <div className="EmpAssets-company-bar">
+      {/* <div className="EmpAssets-company-bar">
         <div className="EmpAssets-company-info">
           <span>Company: <strong>{currentUserCompanyCode || companyCode}</strong></span>
           {(isOwner || isAdmin || isHR) && (
@@ -749,7 +749,7 @@ const EmpAssets = () => {
             </button>
           )}
         </div>
-      </div>
+      </div> */}
 
       {/* Stats Cards - Only show cards with count > 0 */}
       <div className="EmpAssets-stats-grid">

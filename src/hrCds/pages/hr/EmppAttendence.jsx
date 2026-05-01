@@ -2350,12 +2350,12 @@ const EmployeeAttendance = () => {
           <p className="EmppAttendence-attendance-subtitle">
             Monitor and manage employee attendance by department
             <RoleBadge />
-            {!isOwner && !isAdmin && !isHR && (
+            {/* {!isOwner && !isAdmin && !isHR && (
               <span className="EmppAttendence-view-only-badge">
                 <FiEyeOff size={14} />
                 View Only (Your Department)
               </span>
-            )}
+            )} */}
           </p>
           <div className="EmppAttendence-timing-rules">
             <span className="EmppAttendence-rule-item"><FiCheckCircle /> Before 9:10 AM → PRESENT</span>
@@ -2364,12 +2364,12 @@ const EmployeeAttendance = () => {
             <span className="EmppAttendence-rule-item"><FiUserX /> After 10:00 AM → HALF DAY / No Login → ABSENT</span>
           </div>
           
-          {!isOwner && !isAdmin && !isHR && (
+          {/* {!isOwner && !isAdmin && !isHR && (
             <div className="EmppAttendence-permission-warning-banner">
               <FiLock size={16} />
               <span>You are viewing attendance records from your department only. Only Owners, Admins, and HR can view all departments.</span>
             </div>
-          )}
+          )} */}
 
           {/* {!isOwner && !isAdmin && !isHR && currentUserDepartment && (
             <div className="EmppAttendence-department-info-banner">

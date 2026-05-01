@@ -108,19 +108,19 @@
 
 /* ===== HEADER SECTION ===== */
 .EmppAttendence-attendance-header {
-  background: white;
-  border-radius: var(--radius-2xl);
-  padding: 28px 32px;
-  margin-bottom: 24px;
-  box-shadow: var(--shadow-lg);
-  border: 1px solid var(--gray-200);
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 20px;
-  position: relative;
-  overflow: visible;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-radius: var(--radius-2xl);
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--gray-200);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 20px;
+    position: relative;
+    overflow: visible;
 }
 
 .EmppAttendence-attendance-header::before {
@@ -129,6 +129,7 @@
   top: 0;
   left: 0;
   right: 0;
+  display: none;
   height: 4px;
   background: linear-gradient(90deg, var(--primary), var(--secondary));
 }
@@ -136,17 +137,18 @@
 .EmppAttendence-attendance-title {
   font-size: 32px;
   font-weight: 700;
-  color: var(--gray-900);
+  color: white ;
   margin: 0 0 10px 0;
   letter-spacing: -0.5px;
 }
 
 .EmppAttendence-attendance-subtitle {
   font-size: 16px;
-  color: var(--gray-600);
+  color: white;
   margin: 0 0 12px 0;
   display: flex;
   align-items: center;
+  
   gap: 12px;
   flex-wrap: wrap;
 }

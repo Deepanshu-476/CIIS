@@ -899,6 +899,12 @@
   border: 1px solid rgba(74, 85, 104, 0.3);
 }
 
+.MyLeaves-type-halfday {
+  background: linear-gradient(135deg, #805ad520 0%, #6b46c120 100%);
+  color: #6b46c1;
+  border: 1px solid rgba(107, 70, 193, 0.3);
+}
+
 .MyLeaves-date-range {
   display: flex;
   align-items: center;

@@ -16,7 +16,7 @@ const APP_ROUTES = [
   { path: 'admin-meeting', name: 'Create Employee Meeting', icon: 'MeetingRoom', category: 'meetings' },
   { path: 'adminproject', name: 'Admin Projects', icon: 'ProjectIcon', category: 'projects' },
   { path: 'company-all-task', name: 'Company All Tasks', icon: 'ListAlt', category: 'tasks' },
-  // { path: 'department-all-task', name: 'Department All Tasks', icon: 'ListAlt', category: 'tasks' },
+  { path: 'department-all-task', name: 'Department All Tasks', icon: 'ListAlt', category: 'tasks' },
   { path: 'emp-client', name: 'Client Management', icon: 'ClientIcon', category: 'clients' },
   // { path: 'ClienDashboard', name: 'Client Dashboard', icon: 'ClientIcon', category: 'clients' },
   { path: 'alert', name: 'Alerts', icon: 'Notifications', category: 'communication' },

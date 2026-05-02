@@ -510,7 +510,11 @@ const SidebarManagement = () => {
       
       setSelectedDepartment(departmentId);
       setSelectedRole(roleId);
-      setSelectedItems(config.menuItems.map(item => item.id));
+      setSelectedItems(
+          config.menuItems
+            .map(item => item.id)
+            .filter(id => availablePages.some(p => p.id === id)) // 🔥 invalid hata do
+        );
       setActiveTab(0);
       setActiveStep(2);
       
@@ -607,16 +611,16 @@ const SidebarManagement = () => {
         companyId: company._id,
         departmentId: selectedDepartment,
         role: selectedRole,
-        menuItems: selectedItems.map(id => {
-          const page = availablePages.find(p => p.id === id);
-          return {
-            id: page.id,
-            name: page.name,
-            icon: page.icon,
-            path: page.path,
-            category: page.category
-          };
-        })
+        menuItems: selectedItems
+        .map(id => availablePages.find(p => p.id === id))
+        .filter(page => page)   // 🔥 yahi fix hai
+        .map(page => ({
+          id: page.id,
+          name: page.name,
+          icon: page.icon,
+          path: page.path,
+          category: page.category
+        }))
       };
 
       console.log('Saving config data:', configData);

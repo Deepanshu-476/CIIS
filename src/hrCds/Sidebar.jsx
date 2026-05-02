@@ -541,8 +541,12 @@ const Sidebar = ({ isMobile = false }) => {
 
   // Check if user is super_admin with Management department
   const isSuperAdminWithManagement = useMemo(() => {
-    return userData?.department === "Management" && userData?.jobRole === "super_admin";
-  }, [userData]);
+      return (
+        userData?.companyRole === "Owner" &&
+        userData?.department === "Management" &&
+        userData?.jobRole === "super_admin"
+      );
+    }, [userData]);
 
   // LocalStorage se user data aur company details fetch karo
   useEffect(() => {

@@ -701,6 +701,7 @@
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 @media (max-width: 640px) {
@@ -1310,6 +1311,37 @@
 .ap-section-title-small {
   font-size: 1rem;
   margin-top: 24px;
+}
+
+.ap-section-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ap-section-title-row .ap-section-title {
+  margin-bottom: 0;
+}
+
+.ap-inline-filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .ap-section-title-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ap-inline-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 .ap-task-list {

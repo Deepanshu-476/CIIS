@@ -797,6 +797,34 @@ const Alerts = () => {
                     <p className={`Alerts-alert-message ${unread ? 'Alerts-alert-message-unread' : ''}`}>
                       {alert.message}
                     </p>
+                      
+                        {/* ✅ Seen Users */}
+                      {alert.seenByUsers && alert.seenByUsers.length > 0 && (
+                        <div style={{ marginTop: "8px" }}>
+                          <strong style={{ color: "green" }}>Seen by:</strong>
+                          <div>
+                            {alert.seenByUsers.map((user) => (
+                              <span key={user._id} style={{ marginRight: "8px", color: "green" }}>
+                                {user.name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ❌ Not Seen Users */}
+                      {alert.notSeenUsers && alert.notSeenUsers.length > 0 && (
+                        <div style={{ marginTop: "6px" }}>
+                          <strong style={{ color: "red" }}>Not seen:</strong>
+                          <div>
+                            {alert.notSeenUsers.map((user) => (
+                              <span key={user._id} style={{ marginRight: "8px", color: "red" }}>
+                                {user.name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                     {/* {(expanded || assignedUsers.length > 0 || assignedGroups.length > 0) && (
                       <div className="Alerts-alert-details">

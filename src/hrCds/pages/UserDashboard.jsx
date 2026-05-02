@@ -1122,33 +1122,29 @@ const UserDashboard = () => {
                           day: 'numeric'
                         })}
                       </div>
-                      <div className="activity-title">
-                        {item.title}
-                        {/* ✅ ADD THIS - Show user name if exists */}
-                        {item.userName && (
-                          <span style={{ 
-                            display: 'block', 
-                            fontSize: '12px', 
-                            color: '#666',
-                            marginTop: '4px',
-                            fontWeight: 'normal'
-                          }}>
-                            👤 {item.userName} {item.userEmail && `(${item.userEmail})`}
-                          </span>
-                        )}
-                        {/* ✅ ADD THIS - Show reason if exists */}
-                        {item.reason && (
-                          <span style={{ 
-                            display: 'block', 
-                            fontSize: '11px', 
-                            color: '#888',
-                            marginTop: '2px',
-                            fontStyle: 'italic'
-                          }}>
-                            📝 "{item.reason.substring(0, 100)}"
-                          </span>
-                        )}
-                      </div>
+                      <div className="activity-title task-row">
+  
+  <div>
+    <div className="task-name">
+      {item.title.replace("Task: ", "")}
+    </div>
+
+    {/* 👇 Assigned User */}
+    {item.assignedTo && (
+      <div className="task-user">
+        👤 {item.assignedTo}
+      </div>
+    )}
+  </div>
+
+  {/* 👇 STATUS */}
+  {item.status && (
+    <div className={`task-status-badge ${item.status.toLowerCase()}`}>
+      {item.status}
+    </div>
+  )}
+
+</div>
                     </div>
                   </div>
                 </div>

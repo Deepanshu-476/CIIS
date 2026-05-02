@@ -1942,3 +1942,82 @@
   font-size: 12px;
   font-weight: 500;
 }
+.task-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.task-name {
+  font-weight: 600;
+  color: #111827;
+}
+
+.task-status-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+/* COLORS */
+.task-status-badge.in-progress {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.task-status-badge.pending {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.task-status-badge.completed {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.task-status-badge.overdue {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.task-status-badge.rejected {
+  background: #f3e8ff;
+  color: #9333ea;
+}
+
+.task-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.task-user {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 3px;
+}
+
+.task-status-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* colors */
+.task-status-badge.completed {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.task-status-badge.in-progress {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.task-status-badge.pending {
+  background: #fef3c7;
+  color: #d97706;
+}

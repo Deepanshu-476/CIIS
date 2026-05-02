@@ -873,10 +873,19 @@ const AddClientModal = ({
   const [managerSearch, setManagerSearch] = useState('');
   const [teamOpen, setTeamOpen] = useState(false);
   const [servicesOpen, setServicesOpen] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const filteredServices = companyCode 
     ? services.filter(service => service.companyCode === companyCode)
     : services;
+
+  useEffect(() => {
+    if (open) {
+      setFormError('');
+      setFieldErrors({});
+    }
+  }, [open]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -895,7 +904,27 @@ const AddClientModal = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log('🔍 AddClientModal handleSubmit called with data:', newClient);
-    
+
+    setFormError('');
+    setFieldErrors({});
+
+    const nextFieldErrors = {};
+    if (!newClient.client.trim()) nextFieldErrors.client = 'Client name is required';
+    if (!newClient.company.trim()) nextFieldErrors.company = 'Company is required';
+    if (!newClient.city.trim()) nextFieldErrors.city = 'City is required';
+    if (newClient.projectManagers.length === 0) nextFieldErrors.projectManagers = 'Select at least one team member';
+    if (!companyCode) nextFieldErrors.companyCode = 'Company code is missing. Please login again.';
+    if (filteredServices.length === 0) nextFieldErrors.services = 'Add at least one service before creating a client.';
+    if (newClient.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newClient.email.trim())) {
+      nextFieldErrors.email = 'Enter a valid email address';
+    }
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors);
+      setFormError(Object.values(nextFieldErrors)[0]);
+      return;
+    }
+
     if (
       newClient.client &&
       newClient.company &&
@@ -942,11 +971,16 @@ const AddClientModal = ({
           notes: ''
         });
 
-        console.log('✅ Client added successfully, reloading page');
-        window.location.reload();
+        console.log('✅ Client added successfully');
 
       } catch (error) {
         console.error("❌ Error adding client:", error);
+        const responseData = error.response?.data || {};
+        const message = responseData.message || responseData.errors?.join(', ') || error.message || 'Client add failed';
+        setFormError(message);
+        if (responseData.field) {
+          setFieldErrors({ [responseData.field]: message });
+        }
       }
     } else {
       console.warn('⚠️ Form validation failed:', {
@@ -955,6 +989,7 @@ const AddClientModal = ({
         city: !!newClient.city,
         projectManagers: newClient.projectManagers.length > 0
       });
+      setFormError('Please fill all required fields.');
     }
   };
 
@@ -980,6 +1015,12 @@ const AddClientModal = ({
           </button>
         </div>
         <div className="ClientManagement-modal__content">
+          {formError && (
+            <div className="ClientManagement-alert ClientManagement-alert--error ClientManagement-mb-3">
+              <FiAlertCircle /> {formError}
+            </div>
+          )}
+
           {!companyCode && (
             <div className="ClientManagement-alert ClientManagement-alert--warning ClientManagement-mb-3">
               <FiAlertCircle /> Company code not found. Client may not save properly.
@@ -996,11 +1037,13 @@ const AddClientModal = ({
                   value={newClient.client}
                   onChange={(e) => {
                     console.log('🔍 Client name changed:', e.target.value);
+                    setFieldErrors(prev => ({ ...prev, client: '' }));
                     setNewClient({...newClient, client: e.target.value});
                   }}
                   required
                   disabled={loading}
                 />
+                {fieldErrors.client && <small className="ClientManagement-text-danger">{fieldErrors.client}</small>}
               </div>
               <div className="ClientManagement-form-group">
                 <label className="ClientManagement-form-label">Company *</label>
@@ -1010,11 +1053,13 @@ const AddClientModal = ({
                   value={newClient.company}
                   onChange={(e) => {
                     console.log('🔍 Company changed:', e.target.value);
+                    setFieldErrors(prev => ({ ...prev, company: '' }));
                     setNewClient({...newClient, company: e.target.value});
                   }}
                   required
                   disabled={loading}
                 />
+                {fieldErrors.company && <small className="ClientManagement-text-danger">{fieldErrors.company}</small>}
               </div>
 
               <div className="ClientManagement-form-group">
@@ -1025,11 +1070,13 @@ const AddClientModal = ({
                   value={newClient.city}
                   onChange={(e) => {
                     console.log('🔍 City changed:', e.target.value);
+                    setFieldErrors(prev => ({ ...prev, city: '' }));
                     setNewClient({...newClient, city: e.target.value});
                   }}
                   required
                   disabled={loading}
                 />
+                {fieldErrors.city && <small className="ClientManagement-text-danger">{fieldErrors.city}</small>}
               </div>
               
               <div className="ClientManagement-form-group">
@@ -1105,6 +1152,7 @@ const AddClientModal = ({
                                       ? [...prev.projectManagers, manager._id]
                                       : prev.projectManagers.filter(id => id !== manager._id)
                                   }));
+                                  setFieldErrors(prev => ({ ...prev, projectManagers: '' }));
                                 }}
                                 disabled={loading}
                               />
@@ -1158,6 +1206,7 @@ const AddClientModal = ({
                     })}
                   </div>
                 )}
+                {fieldErrors.projectManagers && <small className="ClientManagement-text-danger">{fieldErrors.projectManagers}</small>}
               </div>
 
               <div className="ClientManagement-form-group ClientManagement-col-span-2">
@@ -1249,6 +1298,7 @@ const AddClientModal = ({
                     ))}
                   </div>
                 )}
+                {fieldErrors.services && <small className="ClientManagement-text-danger">{fieldErrors.services}</small>}
               </div>
 
               <div className="ClientManagement-form-group ClientManagement-col-span-2">
@@ -1274,10 +1324,12 @@ const AddClientModal = ({
                   value={newClient.email}
                   onChange={(e) => {
                     console.log('🔍 Email changed:', e.target.value);
+                    setFieldErrors(prev => ({ ...prev, email: '' }));
                     setNewClient({...newClient, email: e.target.value});
                   }}
                   disabled={loading}
                 />
+                {fieldErrors.email && <small className="ClientManagement-text-danger">{fieldErrors.email}</small>}
               </div>
 
               <div className="ClientManagement-form-group">
@@ -1964,6 +2016,7 @@ const ClientManagement = () => {
                          err.response?.data?.errors?.join(', ') || 
                          'Client add failed';
       setError(errorMessage);
+      throw err;
     } finally {
       setAddLoading(false);
     }

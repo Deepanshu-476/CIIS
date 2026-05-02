@@ -5,7 +5,6 @@ import Swal from 'sweetalert2';
 import './SidebarManagement.css';
 import CIISLoader from '../../Loader/CIISLoader';
 
-// Your routes configuration
 const APP_ROUTES = [
   { path: 'emp-details', name: 'Employee Details', icon: 'Person', category: 'administration' },
   { path: 'emp-leaves', name: 'Employee Leaves', icon: 'EventNote', category: 'administration' },

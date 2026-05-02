@@ -1,8 +1,19 @@
 // ========================= EmployeeProject.jsx =========================
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import axios from "../../utils/axiosConfig";
 import "../Css/EmployeeProject.css";
 import CIISLoader from '../../Loader/CIISLoader'; // ✅ Import CIISLoader
+
+const getStoredCurrentUser = () => {
+  try {
+    const storedUser = localStorage.getItem("user") || localStorage.getItem("superAdmin");
+    return storedUser ? JSON.parse(storedUser) : null;
+  } catch {
+    return null;
+  }
+};
+
+const getUserId = (user) => user?._id || user?.id || user;
 
 const EmployeeProject = () => {
   const [projects, setProjects] = useState([]);
@@ -26,12 +37,18 @@ const EmployeeProject = () => {
   const [selectedPdfUrl, setSelectedPdfUrl] = useState("");
   const [selectedPdfName, setSelectedPdfName] = useState("");
   const [tabValue, setTabValue] = useState(0);
+  const [taskTeamFilter, setTaskTeamFilter] = useState("all");
+  const [taskStatusFilter, setTaskStatusFilter] = useState("all");
+  const [taskSearchTerm, setTaskSearchTerm] = useState("");
   const [stats, setStats] = useState({
     totalTasks: 0,
     completedTasks: 0,
     pendingTasks: 0,
     inProgressTasks: 0
   });
+
+  const currentUser = useMemo(() => getStoredCurrentUser(), []);
+  const currentUserId = getUserId(currentUser);
 
   const [newTask, setNewTask] = useState({
     title: "",
@@ -79,6 +96,7 @@ const EmployeeProject = () => {
     Task: () => <span className="EmployeeProject-icon">✅</span>,
     Description: () => <span className="EmployeeProject-icon">📝</span>,
     Dashboard: () => <span className="EmployeeProject-icon">📊</span>,
+    Filter: () => <span className="EmployeeProject-icon">🔍</span>,
     TrendingUp: () => <span className="EmployeeProject-icon">📈</span>,
     MoreVert: () => <span className="EmployeeProject-icon">⋯</span>,
     ArrowForward: () => <span className="EmployeeProject-icon">→</span>,
@@ -115,24 +133,22 @@ const EmployeeProject = () => {
   }, []);
 
   useEffect(() => {
-    if (tasks.length > 0) {
-      const completed = tasks.filter(t => t.status === "completed").length;
-      const pending = tasks.filter(t => t.status === "pending").length;
-      const inProgress = tasks.filter(t => t.status === "in progress").length;
-      setStats({
-        totalTasks: tasks.length,
-        completedTasks: completed,
-        pendingTasks: pending,
-        inProgressTasks: inProgress
-      });
-    }
+    const completed = tasks.filter(t => t.status === "completed").length;
+    const pending = tasks.filter(t => t.status === "pending").length;
+    const inProgress = tasks.filter(t => t.status === "in progress").length;
+    setStats({
+      totalTasks: tasks.length,
+      completedTasks: completed,
+      pendingTasks: pending,
+      inProgressTasks: inProgress
+    });
   }, [tasks]);
 
   const loadProjects = async () => {
     setLoading(prev => ({ ...prev, projects: true }));
     try {
       const res = await axios.get("/projects");
-      setProjects(res.data.items || []);
+      setProjects(res.data.items || res.data.projects || res.data.data || (Array.isArray(res.data) ? res.data : []));
     } catch (error) {
       console.error("Error loading projects:", error);
       showSnackbar("Error loading projects", "error");
@@ -150,6 +166,9 @@ const EmployeeProject = () => {
       setProjectDetails(res.data);
       setProjectUsers(res.data.users || []);
       setTasks(res.data.tasks || []);
+      setTaskTeamFilter("all");
+      setTaskStatusFilter("all");
+      setTaskSearchTerm("");
       setTabValue(0); // Reset to tasks tab
     } catch (error) {
       console.error("Error loading project details:", error);
@@ -197,6 +216,10 @@ const EmployeeProject = () => {
 
   // Open status update dialog
   const handleOpenStatusDialog = (task) => {
+    if (!isTaskAssignedToCurrentUser(task)) {
+      showSnackbar("Only the assigned user can update this task status", "warning");
+      return;
+    }
     setSelectedTask(task);
     setStatusRemark("");
     setOpenStatusDialog(true);
@@ -221,9 +244,8 @@ const EmployeeProject = () => {
   // Load notifications (placeholder - implement actual API call)
   const loadNotifications = async () => {
     try {
-      // const res = await axios.get("/projects/notifications");
-      // setNotifications(res.data || []);
-      setNotifications([]); // Placeholder
+      const res = await axios.get("/projects/notifications");
+      setNotifications(res.data.notifications || res.data.items || res.data || []);
     } catch (error) {
       console.error("Error loading notifications:", error);
     }
@@ -405,6 +427,24 @@ const EmployeeProject = () => {
   };
 
   const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
+
+  const isTaskAssignedToCurrentUser = (task) => {
+    if (!currentUserId) return false;
+    return getUserId(task?.assignedTo)?.toString() === currentUserId.toString();
+  };
+
+  const filteredTasks = tasks.filter((task) => {
+    const assignedToId = getUserId(task.assignedTo)?.toString();
+    const matchesTeam = taskTeamFilter === "all" || assignedToId === taskTeamFilter;
+    const matchesStatus = taskStatusFilter === "all" || task.status === taskStatusFilter;
+    const search = taskSearchTerm.trim().toLowerCase();
+    const matchesSearch = !search ||
+      (task.title || "").toLowerCase().includes(search) ||
+      (task.description || "").toLowerCase().includes(search) ||
+      (task.assignedTo?.name || "").toLowerCase().includes(search);
+
+    return matchesTeam && matchesStatus && matchesSearch;
+  });
 
   const StatCard = ({ icon, value, label, color, subtext, trend }) => (
     <div className="EmployeeProject-stat-card" style={{ borderLeftColor: color }}>
@@ -814,6 +854,49 @@ const EmployeeProject = () => {
                   </div>
                 </div>
 
+                <div className="EmployeeProject-task-filters">
+                  <div className="EmployeeProject-filter-field EmployeeProject-filter-search">
+                    <label>Search Tasks</label>
+                    <input
+                      type="text"
+                      className="EmployeeProject-input"
+                      placeholder="Search by title, description, assignee"
+                      value={taskSearchTerm}
+                      onChange={(e) => setTaskSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <div className="EmployeeProject-filter-field">
+                    <label>Team Member</label>
+                    <select
+                      className="EmployeeProject-select"
+                      value={taskTeamFilter}
+                      onChange={(e) => setTaskTeamFilter(e.target.value)}
+                    >
+                      <option value="all">All Team Members</option>
+                      {projectUsers.map((user) => (
+                        <option key={getUserId(user)} value={getUserId(user)}>
+                          {user.name || user.email || "Unknown User"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="EmployeeProject-filter-field">
+                    <label>Status</label>
+                    <select
+                      className="EmployeeProject-select"
+                      value={taskStatusFilter}
+                      onChange={(e) => setTaskStatusFilter(e.target.value)}
+                    >
+                      <option value="all">All Status</option>
+                      {TASK_STATUS_OPTIONS.map((status) => (
+                        <option key={status.value} value={status.value}>
+                          {status.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
                 {loading.tasks ? (
                   <div className="EmployeeProject-loading">
                     <CircularProgress />
@@ -831,9 +914,15 @@ const EmployeeProject = () => {
                       Create First Task
                     </button>
                   </div>
+                ) : filteredTasks.length === 0 ? (
+                  <div className="EmployeeProject-empty-state">
+                    <Icons.Filter />
+                    <h3>No matching tasks</h3>
+                    <p>Try changing the team or status filter</p>
+                  </div>
                 ) : (
                   <div className="EmployeeProject-tasks-list">
-                    {tasks.map((t) => (
+                    {filteredTasks.map((t) => (
                       <div className="EmployeeProject-task-card" key={t._id} style={{ borderLeftColor: getStatusColor(t.status) }}>
                         <div className="EmployeeProject-task-content">
                           <div className="EmployeeProject-task-header">
@@ -879,8 +968,9 @@ const EmployeeProject = () => {
                               )}
                               <Tooltip title="Update Status">
                                 <button
-                                  className="EmployeeProject-icon-button"
+                                  className={`EmployeeProject-icon-button ${!isTaskAssignedToCurrentUser(t) ? 'EmployeeProject-icon-button-disabled' : ''}`}
                                   onClick={() => handleOpenStatusDialog(t)}
+                                  disabled={!isTaskAssignedToCurrentUser(t)}
                                 >
                                   <Icons.Update />
                                 </button>

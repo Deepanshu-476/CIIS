@@ -79,6 +79,10 @@ export const AdminProject = () => {
   const [tabValue, setTabValue] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("newest");
+  const [projectStatusFilter, setProjectStatusFilter] = useState("all");
+  const [projectTeamFilter, setProjectTeamFilter] = useState("all");
+  const [detailTaskStatusFilter, setDetailTaskStatusFilter] = useState("all");
+  const [detailTaskTeamFilter, setDetailTaskTeamFilter] = useState("all");
   const [stats, setStats] = useState({ total: 0, active: 0, completed: 0, onHold: 0, highPriority: 0 });
 
   // DROPDOWN STATES
@@ -188,6 +192,7 @@ export const AdminProject = () => {
       if (Array.isArray(res.data)) setProjects(res.data);
       else if (res.data?.data) setProjects(res.data.data);
       else if (res.data?.projects) setProjects(res.data.projects);
+      else if (res.data?.items) setProjects(res.data.items);
       else if (res.data?.success && res.data.data) setProjects(res.data.data);
       else setProjects([]);
     } catch (error) {
@@ -206,6 +211,10 @@ export const AdminProject = () => {
   };
 
   const filteredProjects = projects.filter(project => {
+    const matchesProjectStatus = projectStatusFilter === "all" || project.status === projectStatusFilter;
+    const matchesProjectTeam = projectTeamFilter === "all" ||
+      (project.users || []).some((user) => getUserId(user)?.toString() === projectTeamFilter);
+    if (!matchesProjectStatus || !matchesProjectTeam) return false;
     if (!searchTerm) return true;
     const searchLower = searchTerm.toLowerCase();
     return (
@@ -224,6 +233,13 @@ export const AdminProject = () => {
       case "name": return (a.projectName || "").localeCompare(b.projectName || "");
       default: return 0;
     }
+  });
+
+  const detailTasks = (selectedProject?.tasks || []).filter((task) => {
+    const matchesStatus = detailTaskStatusFilter === "all" || task.status === detailTaskStatusFilter;
+    const matchesTeam = detailTaskTeamFilter === "all" ||
+      getUserId(task.assignedTo)?.toString() === detailTaskTeamFilter;
+    return matchesStatus && matchesTeam;
   });
 
   const validateForm = () => {
@@ -374,6 +390,8 @@ export const AdminProject = () => {
   const viewProjectDetails = (project) => {
     setSelectedProject(project);
     setTabValue(0);
+    setDetailTaskStatusFilter("all");
+    setDetailTaskTeamFilter("all");
     setOpenDetailsDialog(true);
   };
 
@@ -712,10 +730,38 @@ export const AdminProject = () => {
 
               {tabValue === 1 && (
                 <div className="ap-tab-panel">
-                  <h4 className="ap-section-title">Tasks ({selectedProject.tasks?.length || 0})</h4>
-                  {selectedProject.tasks?.length > 0 ? (
+                  <div className="ap-section-title-row">
+                    <h4 className="ap-section-title">Tasks ({detailTasks.length})</h4>
+                    <div className="ap-inline-filters">
+                      <select
+                        className="ap-sort-select"
+                        value={detailTaskTeamFilter}
+                        onChange={(e) => setDetailTaskTeamFilter(e.target.value)}
+                      >
+                        <option value="all">All Team Members</option>
+                        {(selectedProject.users || []).map((user) => (
+                          <option key={getUserId(user)} value={getUserId(user)}>
+                            {user.name || user.email || "Unknown User"}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        className="ap-sort-select"
+                        value={detailTaskStatusFilter}
+                        onChange={(e) => setDetailTaskStatusFilter(e.target.value)}
+                      >
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="in progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                        <option value="on hold">On Hold</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                    </div>
+                  </div>
+                  {selectedProject.tasks?.length > 0 && detailTasks.length > 0 ? (
                     <div className="ap-task-list">
-                      {selectedProject.tasks.map((task) => (
+                      {detailTasks.map((task) => (
                         <div key={task._id || task.id} className="ap-task-item">
                           <div className="ap-task-header">
                             <div className="ap-task-title-wrapper">
@@ -745,6 +791,11 @@ export const AdminProject = () => {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  ) : selectedProject.tasks?.length > 0 ? (
+                    <div className="ap-empty-state ap-empty-state-small">
+                      <Icons.Task className="ap-empty-icon" />
+                      <p>No tasks match the selected filters</p>
                     </div>
                   ) : (
                     <div className="ap-empty-state ap-empty-state-small">
@@ -1116,6 +1167,30 @@ export const AdminProject = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
+              <select
+                className="ap-sort-select"
+                value={projectTeamFilter}
+                onChange={(e) => setProjectTeamFilter(e.target.value)}
+              >
+                <option value="all">All Teams</option>
+                {users.map((user) => (
+                  <option key={getUserId(user)} value={getUserId(user)}>
+                    {user.name || user.email || "Unknown User"}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="ap-sort-select"
+                value={projectStatusFilter}
+                onChange={(e) => setProjectStatusFilter(e.target.value)}
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="planning">Planning</option>
+                <option value="on hold">On Hold</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
               <select 
                 className="ap-sort-select" 
                 value={sortBy} 

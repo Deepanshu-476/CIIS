@@ -25,6 +25,7 @@ const Home = () => {
         }
       }, 16);
     };
+    
 
     animateCount(setEmployeeCount, 125);
     animateCount(setAttendanceCount, 3420);

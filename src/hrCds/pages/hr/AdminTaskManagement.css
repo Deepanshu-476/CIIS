@@ -1015,11 +1015,11 @@
   gap: 8px;
   padding: 6px 10px;
   background: linear-gradient(135deg, var(--gray-100), var(--white));
-  border-radius: 30px;
+  border-radius: 8px;
   border: 1px solid var(--gray-200);
   transition: var(--transition);
   animation: AdminTaskManagement-fadeIn 0.3s ease;
-  width: 50%;
+  width: 100%;
 }
 
 .AdminTaskManagement-user-badge:hover {
@@ -1046,10 +1046,10 @@
 .AdminTaskManagement-user-info {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
   flex: 1;
   min-width: 0;
-  flex-wrap: wrap;
 }
 
 .AdminTaskManagement-user-name {
@@ -1059,7 +1059,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 80px;
+  max-width: 120px;
 }
 
 .AdminTaskManagement-user-status {
@@ -1095,6 +1095,46 @@
   background: var(--danger-light);
   color: var(--danger);
   border: 1px solid var(--danger);
+}
+
+.AdminTaskManagement-user-status-onhold,
+.AdminTaskManagement-user-status-reopen,
+.AdminTaskManagement-user-status-overdue {
+  background: var(--gray-100);
+  color: var(--gray-700);
+  border: 1px solid var(--gray-400);
+}
+
+.AdminTaskManagement-creator-status-control {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 132px;
+}
+
+.AdminTaskManagement-inline-status-select {
+  height: 30px;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--gray-800);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0 8px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.AdminTaskManagement-inline-status-select:hover:not(:disabled),
+.AdminTaskManagement-inline-status-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+  outline: none;
+}
+
+.AdminTaskManagement-inline-status-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .AdminTaskManagement-see-more-btn,

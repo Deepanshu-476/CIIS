@@ -91,6 +91,7 @@ const SidebarManagement = () => {
   const [company, setCompany] = useState(null);
   const [departments, setDepartments] = useState([]);
   const [jobRoles, setJobRoles] = useState([]);
+  const [companyRoles, setCompanyRoles] = useState([]);
   const [selectedDepartment, setSelectedDepartment] = useState('');
   const [selectedRole, setSelectedRole] = useState('');
   const [loading, setLoading] = useState({
@@ -235,6 +236,7 @@ const SidebarManagement = () => {
         setCompany(companyFromStorage);
         
         await fetchDepartments(companyFromStorage._id);
+        await fetchCompanyRoles(companyFromStorage._id);
         await fetchExistingConfigs(companyFromStorage._id);
         
         setSnackbar({
@@ -341,6 +343,37 @@ const SidebarManagement = () => {
     }
   };
 
+  const fetchCompanyRoles = async (companyId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axiosInstance.get(`/job-roles`, {
+        params: { company: companyId },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      let roles = [];
+      if (response.data?.jobRoles && Array.isArray(response.data.jobRoles)) {
+        roles = response.data.jobRoles;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        roles = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        roles = response.data;
+      }
+
+      setCompanyRoles(roles.map(role => ({
+        _id: role._id || role.id,
+        name: role.name || role.roleName || role.role || 'Role',
+        description: role.description || role.roleName || role.name || ''
+      })));
+    } catch (error) {
+      console.error('Error fetching company roles:', error);
+      setCompanyRoles([]);
+    }
+  };
+
   // Fetch existing configurations with null handling
   const fetchExistingConfigs = async (companyId) => {
     try {
@@ -405,7 +438,7 @@ const SidebarManagement = () => {
       if (roleId.role) return roleId.role;
     }
     
-    const jobRole = jobRoles.find(r => r._id === roleId);
+    const jobRole = [...jobRoles, ...companyRoles].find(r => r._id === roleId);
     if (jobRole) return jobRole.name;
     
     const customRole = customRoles.find(r => r._id === roleId);

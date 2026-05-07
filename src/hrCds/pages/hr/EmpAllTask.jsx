@@ -143,6 +143,7 @@ const TaskDetails = () => {
   const fetchUsersTimeoutRef = useRef(null);
   const fetchingTasksForUser = useRef(null);
   const snackbarTimerRef = useRef(null);
+  const skipNextTaskFetchRef = useRef(false);
 
   // State declarations
   const [users, setUsers] = useState([]);
@@ -184,11 +185,14 @@ const TaskDetails = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeStatusFilters, setActiveStatusFilters] = useState(['all']);
   const [showStatusFilters, setShowStatusFilters] = useState(true);
-  // FIXED: Changed default dateFilter from "today" to "all"
-  const [dateFilter, setDateFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("today");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [taskPage, setTaskPage] = useState(1);
+  const [taskLimit, setTaskLimit] = useState(10);
+  const [taskTotal, setTaskTotal] = useState(0);
+  const [taskTotalPages, setTaskTotalPages] = useState(1);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
@@ -892,108 +896,15 @@ const TaskDetails = () => {
     });
   }, [overallStats]);
 
-  // FIXED: Improved filteredTasks with better date handling and sorting by createdAt descending
+  // Backend already applies search, status, date, priority and pagination.
   const filteredTasks = useMemo(() => {
     if (!Array.isArray(tasks)) return [];
-
-    let filtered = [...tasks];
-    const now = new Date();
-
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(task =>
-        task.title?.toLowerCase().includes(query) ||
-        task.description?.toLowerCase().includes(query) ||
-        task.serialNo?.toString().includes(query)
-      );
-    }
-
-    // Status filter
-    if (!activeStatusFilters.includes("all")) {
-      filtered = filtered.filter(task => {
-        const status = task.userStatus || task.status || task.overallStatus;
-        return activeStatusFilters.includes(status);
-      });
-    }
-
-    // Date filter - FIXED: Don't filter by date when dateFilter is 'all'
-    if (dateFilter !== "all") {
-      filtered = filtered.filter(task => {
-        const taskDate = task.dueDateTime || task.createdAt;
-        if (!taskDate) return true;
-
-        const taskDateTime = new Date(taskDate).getTime();
-
-        // Custom date range
-        if (fromDate || toDate) {
-          const fromDateTime = fromDate ? new Date(fromDate).setHours(0, 0, 0, 0) : null;
-          const toDateTime = toDate ? new Date(toDate).setHours(23, 59, 59, 999) : null;
-
-          if (fromDateTime && taskDateTime < fromDateTime) return false;
-          if (toDateTime && taskDateTime > toDateTime) return false;
-          return true;
-        }
-
-        // Predefined date filters
-        switch (dateFilter) {
-          case "today": {
-            const todayStart = new Date(now);
-            todayStart.setHours(0, 0, 0, 0);
-            const todayEnd = new Date(now);
-            todayEnd.setHours(23, 59, 59, 999);
-            return taskDateTime >= todayStart.getTime() && taskDateTime <= todayEnd.getTime();
-          }
-          case "tomorrow": {
-            const tomorrow = new Date(now);
-            tomorrow.setDate(now.getDate() + 1);
-            tomorrow.setHours(0, 0, 0, 0);
-            const tomorrowEnd = new Date(tomorrow);
-            tomorrowEnd.setHours(23, 59, 59, 999);
-            return taskDateTime >= tomorrow.getTime() && taskDateTime <= tomorrowEnd.getTime();
-          }
-          case "week": {
-            const startOfWeek = new Date(now);
-            startOfWeek.setDate(now.getDate() - now.getDay());
-            startOfWeek.setHours(0, 0, 0, 0);
-            const endOfWeek = new Date(startOfWeek);
-            endOfWeek.setDate(startOfWeek.getDate() + 6);
-            endOfWeek.setHours(23, 59, 59, 999);
-            return taskDateTime >= startOfWeek.getTime() && taskDateTime <= endOfWeek.getTime();
-          }
-          case "overdue": {
-            const nowTime = now.getTime();
-            return taskDateTime < nowTime &&
-              (task.userStatus || task.status || task.overallStatus) !== 'completed';
-          }
-          default:
-            return true;
-        }
-      });
-    }
-
-    // Priority filter
-    if (priorityFilter !== "all") {
-      filtered = filtered.filter(task => task.priority === priorityFilter);
-    }
-
-    // FIXED: Sort tasks by createdAt descending (newest first) to show newly assigned tasks at top
-    filtered.sort((a, b) => {
+    return [...tasks].sort((a, b) => {
       const aDate = a.createdAt ? new Date(a.createdAt) : new Date(0);
       const bDate = b.createdAt ? new Date(b.createdAt) : new Date(0);
       return bDate - aDate;
     });
-
-    return filtered;
-  }, [
-    tasks,
-    searchQuery,
-    activeStatusFilters,
-    dateFilter,
-    fromDate,
-    toDate,
-    priorityFilter
-  ]);
+  }, [tasks]);
 
   // UPDATED: Calculate stats based on filtered tasks
   useEffect(() => {
@@ -1215,9 +1126,9 @@ const TaskDetails = () => {
   };
 
   // FIXED: fetchUserTasks function with merged API calls - Normalize source to 'assigned'
-  const fetchUserTasks = useCallback(async (userId) => {
+  const fetchUserTasks = useCallback(async (userId, page = taskPage, options = {}) => {
     // Prevent fetching if already loading or same user
-    if (loading || fetchingTasksForUser.current === userId) {
+    if (loading || fetchingTasksForUser.current === `${userId}-${page}`) {
       return;
     }
 
@@ -1226,7 +1137,7 @@ const TaskDetails = () => {
       return;
     }
 
-    fetchingTasksForUser.current = userId;
+    fetchingTasksForUser.current = `${userId}-${page}`;
 
     // Find and set the user first
     const user = users.find((x) => x._id === userId || x.id === userId);
@@ -1241,137 +1152,57 @@ const TaskDetails = () => {
       setSelectedUser(user);
       setSelectedUserId(userId);
       setOpenDialog(true); // Open modal immediately
-      setTasks([]); // Clear previous tasks
+      if (options.reset) {
+        setTasks([]); // Clear previous tasks
+        setTaskTotal(0);
+        setTaskTotalPages(1);
+        setTaskPage(1);
+        setDateFilter("today");
+        setFromDate("");
+        setToDate("");
+      }
     }
 
     setLoading(true); // Set loading after modal opens
     setError("");
 
     try {
-      const params = new URLSearchParams();
-      if (searchQuery) {
-        params.append('search', searchQuery);
+      const nextDateFilter = options.dateFilter ?? dateFilter;
+      const nextFromDate = options.fromDate ?? fromDate;
+      const nextToDate = options.toDate ?? toDate;
+      let statusParam = activeStatusFilters.includes('all') ? 'all' : activeStatusFilters.join(',');
+      if (nextDateFilter === 'overdue') {
+        statusParam = statusParam === 'all' ? 'overdue' : `${statusParam},overdue`;
       }
 
-      const queryString = params.toString();
-      
-      // Prepare both API calls - Using client task endpoints
-      const personalTasksUrl = `/task/user/${userId}/tasks${queryString ? `?${queryString}` : ''}`;
-      // UPDATED: Using the assigned tasks endpoint for client tasks
-      const assignedTasksUrl = `/tasks/user/${userId}/assigned-tasks${queryString ? `?${queryString}` : ''}`;
+      const response = await axios.get(`/task/user/${userId}/all-tasks`, {
+        params: {
+          page,
+          limit: taskLimit,
+          period: nextFromDate || nextToDate || nextDateFilter === 'overdue' ? 'all' : nextDateFilter,
+          fromDate: nextFromDate,
+          toDate: nextToDate,
+          search: searchQuery,
+          status: statusParam,
+          priority: priorityFilter,
+        }
+      });
 
-      console.log("📤 Fetching tasks for user:", userId);
-      console.log("📤 Personal tasks URL:", personalTasksUrl);
-      console.log("📤 Assigned tasks URL:", assignedTasksUrl);
-      
-      // Fetch both APIs in parallel using Promise.all
-      const [personalTasksRes, assignedTasksRes] = await Promise.all([
-        axios.get(personalTasksUrl),
-        axios.get(assignedTasksUrl)
-      ]);
-      
       if (isMounted.current) {
-        // Extract tasks from both responses with proper structure handling
-        let personalTasks = [];
-        let assignedTasks = [];
-        
-        // Handle personal tasks response
-        if (personalTasksRes.data) {
-          if (personalTasksRes.data.success && personalTasksRes.data.tasks) {
-            personalTasks = personalTasksRes.data.tasks;
-          } else if (personalTasksRes.data.tasks) {
-            personalTasks = personalTasksRes.data.tasks;
-          } else if (Array.isArray(personalTasksRes.data)) {
-            personalTasks = personalTasksRes.data;
-          } else if (personalTasksRes.data.data && Array.isArray(personalTasksRes.data.data)) {
-            personalTasks = personalTasksRes.data.data;
-          }
-        }
-        
-        // Handle assigned tasks response
-        if (assignedTasksRes.data) {
-          if (assignedTasksRes.data.success && assignedTasksRes.data.tasks) {
-            assignedTasks = assignedTasksRes.data.tasks;
-          } else if (assignedTasksRes.data.tasks) {
-            assignedTasks = assignedTasksRes.data.tasks;
-          } else if (Array.isArray(assignedTasksRes.data)) {
-            assignedTasks = assignedTasksRes.data;
-          } else if (assignedTasksRes.data.data && Array.isArray(assignedTasksRes.data.data)) {
-            assignedTasks = assignedTasksRes.data.data;
-          }
-        }
-        
-        console.log(`📥 Personal tasks: ${personalTasks.length}`);
-        console.log(`📥 Assigned tasks: ${assignedTasks.length}`);
-        
-        // FIXED: Merge tasks and add source property - normalize 'client' to 'assigned'
-        const mergedTasksMap = new Map();
-        
-        // Add personal tasks with source='personal'
-        personalTasks.forEach(task => {
-          if (task._id) {
-            mergedTasksMap.set(task._id, {
-              ...task,
-              source: 'personal'
-            });
-          }
-        });
-        
-        // FIXED: Add assigned tasks with source='assigned' (normalize 'client' to 'assigned')
-        assignedTasks.forEach(task => {
-          if (task._id && !mergedTasksMap.has(task._id)) {
-            mergedTasksMap.set(task._id, {
-              ...task,
-              source: 'assigned' // Normalize 'client' to 'assigned'
-            });
-          } else if (task._id && mergedTasksMap.has(task._id)) {
-            console.log(`⚠️ Duplicate task ${task._id} found, keeping from personal tasks`);
-          }
-        });
-        
-        // Convert map back to array
-        let mergedTasks = Array.from(mergedTasksMap.values());
-        
-        // FIXED: Sort tasks by createdAt descending (newest first) to show newly assigned tasks at top
-        mergedTasks.sort((a, b) => {
-          const aDate = a.createdAt ? new Date(a.createdAt) : new Date(0);
-          const bDate = b.createdAt ? new Date(b.createdAt) : new Date(0);
-          return bDate - aDate;
-        });
-        
-        console.log(`✅ Merged tasks total: ${mergedTasks.length}`);
-        console.log('📊 Task type breakdown:', {
-          personal: personalTasks.length,
-          assigned: assignedTasks.length,
-          total: mergedTasks.length
-        });
-        
-        // Log task types for debugging
-        mergedTasks.forEach(task => {
-          console.log(`📋 Task ${task._id}: ${task.title} - Type: ${task.source} - Created: ${task.createdAt}`);
-        });
-        
-        setTasks(mergedTasks);
-        
-        // Fetch logs for all merged tasks (using type detection)
-        await fetchAllTaskLogs(mergedTasks);
+        const nextTasks = response.data?.tasks || response.data?.data || [];
+        setTasks(nextTasks);
+        setTaskTotal(response.data?.pagination?.total || response.data?.total || nextTasks.length);
+        setTaskTotalPages(response.data?.pagination?.pages || 1);
+        setTaskPage(page);
+        await fetchAllTaskLogs(nextTasks.slice(0, taskLimit));
         await fetchTaskStatusCounts(userId);
-        
-        // Show success message
-        if (mergedTasks.length > 0) {
-          const sourceMessage = [];
-          if (personalTasks.length > 0) sourceMessage.push(`${personalTasks.length} personal`);
-          if (assignedTasks.length > 0) sourceMessage.push(`${assignedTasks.length} assigned`);
-          console.log(`✅ Loaded ${mergedTasks.length} tasks (${sourceMessage.join(', ')})`);
-          
-          if (assignedTasks.length > 0) {
-            showSnackbar(`Loaded ${assignedTasks.length} assigned tasks for ${user.name}`, 'info');
-          }
-        } else if (mergedTasks.length === 0) {
-          console.log('⚠️ No tasks found for this user');
+
+        if (nextTasks.length === 0) {
           showSnackbar(`No tasks found for ${user.name}`, 'info');
         }
       }
+
+      return;
       
     } catch (err) {
       console.error("❌ Error fetching user tasks:", err);
@@ -1494,7 +1325,36 @@ const TaskDetails = () => {
       }
       fetchingTasksForUser.current = null;
     }
-  }, [users, searchQuery, fetchAllTaskLogs, fetchTaskStatusCounts, loading, showSnackbar]);
+  }, [
+    activeStatusFilters,
+    dateFilter,
+    fetchAllTaskLogs,
+    fetchTaskStatusCounts,
+    fromDate,
+    loading,
+    priorityFilter,
+    searchQuery,
+    showSnackbar,
+    taskLimit,
+    taskPage,
+    toDate,
+    users,
+  ]);
+
+  useEffect(() => {
+    if (!selectedUserId || !openDialog) return;
+    if (skipNextTaskFetchRef.current) {
+      skipNextTaskFetchRef.current = false;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setTaskPage(1);
+      fetchUserTasks(selectedUserId, 1, { dateFilter, fromDate, toDate });
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [activeStatusFilters, dateFilter, fromDate, openDialog, priorityFilter, searchQuery, selectedUserId, taskLimit, toDate]);
 
   // Debug effect to log tasks when they change
   useEffect(() => {
@@ -1647,10 +1507,11 @@ const TaskDetails = () => {
   const resetFilters = useCallback(() => {
     setSearchQuery('');
     setActiveStatusFilters(['all']);
-    setDateFilter('all'); // FIXED: Reset to 'all' instead of 'today'
+    setDateFilter('today');
     setPriorityFilter('all');
     setFromDate('');
     setToDate('');
+    setTaskPage(1);
     setShowStatusFilters(true);
   }, []);
 
@@ -1660,6 +1521,8 @@ const TaskDetails = () => {
     setSelectedUserId(null);
     setSelectedUser(null);
     setTasks([]);
+    setTaskTotal(0);
+    setTaskTotalPages(1);
     setAllTaskLogs({});
     setTodayTotalTime({ totalSeconds: 0, displayText: '0s' });
     setSelectedTaskForActivity(null);
@@ -1694,6 +1557,8 @@ const TaskDetails = () => {
     if (!openDialog) {
       // Clear task-related data when modal is closed
       setTasks([]);
+      setTaskTotal(0);
+      setTaskTotalPages(1);
       setAllTaskLogs({});
       setTodayTotalTime({ totalSeconds: 0, displayText: '0s' });
       setSelectedTaskForActivity(null);
@@ -2092,7 +1957,7 @@ const TaskDetails = () => {
   // UPDATED: renderEnhancedUserCard with loading state
   const renderEnhancedUserCard = (user) => {
     const isSelected = selectedUserId === (user._id || user.id);
-    const isLoading = loading && fetchingTasksForUser.current === (user._id || user.id);
+    const isLoading = loading && fetchingTasksForUser.current?.startsWith(`${user._id || user.id}-`);
     const userStats = getUserTaskStats(user);
     const completionRate = userStats.completionRate || 0;
     const badgeClass = completionRate >= 80 ? 'TaskDetails-user-avatar-badge-high' :
@@ -2110,7 +1975,8 @@ const TaskDetails = () => {
         onClick={() => {
           if (userId && !isLoading) {
             setSelectedUserId(userId);
-            fetchUserTasks(userId);
+            skipNextTaskFetchRef.current = true;
+            fetchUserTasks(userId, 1, { reset: true, dateFilter: 'today', fromDate: '', toDate: '' });
           }
         }}
       >
@@ -2187,7 +2053,8 @@ const TaskDetails = () => {
               e.stopPropagation();
               if (userId && !isLoading) {
                 setSelectedUserId(userId);
-                fetchUserTasks(userId);
+                skipNextTaskFetchRef.current = true;
+                fetchUserTasks(userId, 1, { reset: true, dateFilter: 'today', fromDate: '', toDate: '' });
               }
             }}
             disabled={isLoading}
@@ -2967,7 +2834,7 @@ const TaskDetails = () => {
                   <FiList size={18} />
                   <h3>Tasks</h3>
                   <span className="TaskDetails-modal-tasks-count">
-                    {filteredTasks.length} of {tasks.length}
+                    {filteredTasks.length} of {taskTotal}
                   </span>
                 </div>
                 <div className="TaskDetails-modal-tasks-sort">
@@ -3149,6 +3016,45 @@ const TaskDetails = () => {
                       </div>
                     );
                   })}
+                  <div className="TaskDetails-modal-pagination">
+                    <div className="TaskDetails-modal-page-size">
+                      {[10, 25, 50].map(size => (
+                        <button
+                          key={size}
+                          className={`TaskDetails-modal-page-size-btn ${taskLimit === size ? 'active' : ''}`}
+                          onClick={() => {
+                            setTaskLimit(size);
+                            setTaskPage(1);
+                          }}
+                        >
+                          {size}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="TaskDetails-modal-page-info">
+                      Showing {taskTotal === 0 ? 0 : ((taskPage - 1) * taskLimit) + 1}
+                      -{Math.min(taskPage * taskLimit, taskTotal)} of {taskTotal}
+                    </div>
+                    <div className="TaskDetails-modal-page-controls">
+                      <button
+                        className="TaskDetails-modal-page-btn"
+                        disabled={taskPage <= 1 || loading}
+                        onClick={() => fetchUserTasks(selectedUserId, Math.max(1, taskPage - 1))}
+                      >
+                        Previous
+                      </button>
+                      <span className="TaskDetails-modal-page-current">
+                        Page {taskPage} of {taskTotalPages}
+                      </span>
+                      <button
+                        className="TaskDetails-modal-page-btn"
+                        disabled={taskPage >= taskTotalPages || loading}
+                        onClick={() => fetchUserTasks(selectedUserId, Math.min(taskTotalPages, taskPage + 1))}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -3156,7 +3062,7 @@ const TaskDetails = () => {
 
           <div className="TaskDetails-modal-footer">
             <div className="TaskDetails-modal-footer-stats">
-              <span>Total: {filteredTasks.length} tasks</span>
+              <span>Total: {taskTotal} tasks</span>
               <span>•</span>
               <span>Completed: {filteredTasks.filter(t =>
                 (t.userStatus || t.status) === 'completed'

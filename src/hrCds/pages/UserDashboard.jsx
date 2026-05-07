@@ -52,6 +52,33 @@ const getCalendarGrid = (year, month) => {
   return grid;
 };
 
+const getValueId = value => {
+  if (!value) return '';
+  if (typeof value === 'object') return String(value._id || value.id || value.userId || '');
+  return String(value);
+};
+
+const getCurrentUserId = user => getValueId(user?._id || user?.id || user?.userId || user?.user?._id || user?.user?.id);
+
+const pickTaskRecords = data => {
+  if (Array.isArray(data?.tasks)) return data.tasks;
+  if (Array.isArray(data?.data?.tasks)) return data.data.tasks;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data)) return data;
+  return [];
+};
+
+const mapTaskToActivity = task => ({
+  ...task,
+  type: 'task',
+  date: task.updatedAt || task.createdAt || task.dueDateTime || task.dueDate,
+  title: task.title || task.name || 'Task activity',
+  status: task.userStatus || task.overallStatus || task.status || (task.completed ? 'completed' : 'pending'),
+  assignedTo: Array.isArray(task.assignedUsers)
+    ? task.assignedUsers.map(item => item?.name || item?.email).filter(Boolean).join(', ')
+    : task.assignee || task.assignedTo || '',
+});
+
 // ✅ Loader Components
 const StatsLoader = () => (
   <div className="stats-loader-container">
@@ -109,6 +136,7 @@ const UserDashboard = () => {
 
   const [attendanceData, setAttendanceData] = useState([]);
   const [leaveData, setLeaveData] = useState([]);
+  const [taskActivity, setTaskActivity] = useState([]);
   
   // ✅ Holidays ke liye state
   const [holidays, setHolidays] = useState([]);
@@ -162,7 +190,8 @@ const UserDashboard = () => {
     leaves: false,
     status: false,
     jobRoles: false,
-    holidays: false
+    holidays: false,
+    taskActivity: false
   });
 
   const abortControllerRef = useRef(null);
@@ -464,8 +493,51 @@ const UserDashboard = () => {
 
   }, [token, isUserInCurrentCompany]);
 
+  const fetchRecentTaskActivity = useCallback(async () => {
+    if (!isUserInCurrentCompany) return;
+    if (fetchInProgress.current.taskActivity) return;
+
+    const userId = getCurrentUserId(user);
+    if (!userId) {
+      setTaskActivity([]);
+      return;
+    }
+
+    fetchInProgress.current.taskActivity = true;
+
+    try {
+      const response = await axios.get(`/task/user/${userId}/all-tasks`, {
+        params: { page: 1, limit: 8, period: 'all' },
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000
+      });
+      setTaskActivity(pickTaskRecords(response.data).map(mapTaskToActivity));
+    } catch (error) {
+      console.error('Failed to load recent task activity:', error);
+      try {
+        const response = await axios.get(`/task/user-activity/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 10000
+        });
+        const logs = response.data?.logs || response.data?.data?.logs || [];
+        setTaskActivity(logs.slice(0, 8).map(log => ({
+          type: 'task',
+          title: log.description || log.action || log.task?.title || 'Activity',
+          date: log.createdAt || log.updatedAt,
+          assignedTo: log.user?.name || '',
+          status: log.action || ''
+        })));
+      } catch (fallbackError) {
+        console.error('Failed to load recent activity fallback:', fallbackError);
+        setTaskActivity([]);
+      }
+    } finally {
+      fetchInProgress.current.taskActivity = false;
+    }
+  }, [token, isUserInCurrentCompany, user]);
+
   // ✅ Function to update recent activity (HOLIDAY优先)
-  const updateRecentActivity = useCallback((attendance, holidayList) => {
+  const updateRecentActivity = useCallback((attendance, holidayList, tasks = taskActivity) => {
     // Pehle sab activities ko collect karo
     const allActivities = [];
     
@@ -491,13 +563,23 @@ const UserDashboard = () => {
         displayDate: new Date(holiday.date)
       });
     });
+
+    tasks.forEach(task => {
+      allActivities.push({
+        ...task,
+        type: 'task',
+        date: task.date,
+        status: task.status || 'pending',
+        displayDate: new Date(task.date || Date.now())
+      });
+    });
     
     // Sort by date (latest first)
     allActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
     
     // Take top 5
     setRecentActivity(allActivities.slice(0, 5));
-  }, []);
+  }, [taskActivity]);
 
   // Load initial data with page loader
   useEffect(() => {
@@ -519,6 +601,7 @@ const UserDashboard = () => {
         await fetchAttendanceData(true); // ✅ Phir attendance fetch karo
         await fetchLeaveData();
         await fetchCurrentStatus();
+        await fetchRecentTaskActivity();
       } catch (error) {
         console.error('Error loading dashboard data:', error);
       } finally {
@@ -536,10 +619,10 @@ const UserDashboard = () => {
 
   // ✅ Effect to update recent activity when holidays or attendance change
   useEffect(() => {
-    if (attendanceData.length > 0 || holidays.length > 0) {
-      updateRecentActivity(attendanceData, holidays);
+    if (attendanceData.length > 0 || holidays.length > 0 || taskActivity.length > 0) {
+      updateRecentActivity(attendanceData, holidays, taskActivity);
     }
-  }, [attendanceData, holidays, updateRecentActivity]);
+  }, [attendanceData, holidays, taskActivity, updateRecentActivity]);
 
   // Timer effect
   useEffect(() => {
@@ -815,7 +898,8 @@ const UserDashboard = () => {
   const handleRefresh = useCallback(() => {
     if (loading.attendance) return;
     fetchAttendanceData(true);
-  }, [loading.attendance, fetchAttendanceData]);
+    fetchRecentTaskActivity();
+  }, [loading.attendance, fetchAttendanceData, fetchRecentTaskActivity]);
 
   const getStatusColor = useCallback((status) => {
     switch(status) {
@@ -1149,6 +1233,32 @@ const UserDashboard = () => {
                       </div>
                     </div>
                     <div className="activity-status status-holiday">HOLIDAY</div>
+                  </div>
+                );
+              }
+
+              if (item.type === 'task') {
+                const date = new Date(item.date || Date.now());
+                return (
+                  <div key={`task-${index}`} className="activity-item">
+                    <div className="activity-item-content">
+                      <div className="activity-status-icon status-default">
+                        <FiBriefcase className="status-icon" />
+                      </div>
+                      <div className="activity-details">
+                        <div className="activity-date">
+                          {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                          <span className="current-month-badge">Task</span>
+                        </div>
+                        <div className="activity-title">{item.title}</div>
+                        {item.assignedTo && (
+                          <div className="activity-time">
+                            <FiUser size={12} /> {item.assignedTo}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="activity-status status-default">{item.status || 'pending'}</div>
                   </div>
                 );
               }

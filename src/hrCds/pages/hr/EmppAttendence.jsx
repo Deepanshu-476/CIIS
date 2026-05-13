@@ -168,9 +168,8 @@ const EmployeeTypeFilter = ({ selected, onChange }) => {
   );
 };
 
-// Department Filter Component - FIXED
+// Department Filter Component
 const DepartmentFilter = ({ selected, onChange, departments }) => {
-  // Create options from departments array
   const options = [
     { value: 'all', label: 'All Departments' },
     ...(departments || []).map(dept => ({
@@ -220,7 +219,7 @@ const StatusFilter = ({ selected, onChange }) => {
 };
 
 // Add New Attendance Modal
-const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserDepartment, isOwner, isAdmin, isHR }) => {
+const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserDepartment, canEdit }) => {
   const [formData, setFormData] = useState({
     user: '',
     date: selectedDate,
@@ -235,22 +234,17 @@ const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserD
   const [loading, setLoading] = useState(false);
   const [searchUser, setSearchUser] = useState('');
 
-  // Filter users based on role
+  // Filter users based on department (everyone can see all users in same company)
   const filteredUsers = useMemo(() => {
     let availableUsers = users;
     
-    if (!isOwner && !isAdmin && !isHR && currentUserDepartment) {
-      availableUsers = users.filter(user => 
-        user.department === currentUserDepartment ||
-        user.departmentId === currentUserDepartment
-      );
-    }
-    
+    // Only filter by department if not in admin role (but still show all users)
+    // For attendance, everyone can add attendance for any user in same company
     return availableUsers.filter(user => 
       user.name?.toLowerCase().includes(searchUser.toLowerCase()) ||
       user.email?.toLowerCase().includes(searchUser.toLowerCase())
     );
-  }, [users, searchUser, currentUserDepartment, isOwner, isAdmin, isHR]);
+  }, [users, searchUser]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -490,32 +484,31 @@ const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserD
   );
 };
 
-// Helper function to get department name - ADD THIS
+// Helper function to get department name
 const getDepartmentName = (deptId, departmentsMap, departmentsList) => {
   if (!deptId) return 'Unassigned';
   
-  // Try to get from map first
   if (departmentsMap && departmentsMap[deptId]) {
     return departmentsMap[deptId];
   }
   
-  // Fallback: search in departments list
   if (departmentsList && Array.isArray(departmentsList)) {
     const dept = departmentsList.find(d => d._id === deptId || d.id === deptId);
     if (dept) return dept.name;
   }
   
-  return deptId; // Return ID as last resort
+  return deptId;
 };
 
-// Edit Attendance Modal
-const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, currentUserDepartment, isOwner, isAdmin, isHR }) => {
+// Edit Attendance Modal - UPDATED with full permissions
+const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit }) => {
   const [editedRecord, setEditedRecord] = useState({});
   const [loading, setLoading] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
-  const canEdit = isOwner || isAdmin || isHR;
-  const canDelete = isOwner || isAdmin || isHR;
+  // ✅ Everyone can edit and delete
+  const canEditRecord = true;
+  const canDeleteRecord = true;
 
   useEffect(() => {
     if (record) {
@@ -534,11 +527,6 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, current
   }, [record]);
 
   const handleSave = async () => {
-    if (!canEdit) {
-      alert("You don't have permission to edit attendance records");
-      return;
-    }
-    
     setLoading(true);
     try {
       const inDateTime = new Date(`${editedRecord.date}T${editedRecord.inTime}`);
@@ -565,11 +553,6 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, current
   };
 
   const handleDelete = async () => {
-    if (!canDelete) {
-      alert("You don't have permission to delete attendance records");
-      return;
-    }
-    
     setLoading(true);
     try {
       await onDelete(record._id);
@@ -637,13 +620,6 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, current
             </div>
           </div>
 
-          {!canEdit && (
-            <div className="EmppAttendence-permission-warning">
-              <FiLock size={20} />
-              <span>You have read-only access. Only Owners, Admins, and HR can edit attendance records.</span>
-            </div>
-          )}
-
           <div className="EmppAttendence-form-grid">
             <div className="EmppAttendence-form-group">
               <label>Date</label>
@@ -652,7 +628,6 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, current
                 className="EmppAttendence-form-input"
                 value={editedRecord.date}
                 onChange={(e) => setEditedRecord(prev => ({ ...prev, date: e.target.value }))}
-                disabled={!canEdit}
               />
             </div>
 
@@ -663,7 +638,6 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, current
                 className="EmppAttendence-form-input"
                 value={editedRecord.inTime}
                 onChange={(e) => handleTimeChange('inTime', e.target.value)}
-                disabled={!canEdit}
               />
             </div>
 
@@ -674,7 +648,6 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, current
                 className="EmppAttendence-form-input"
                 value={editedRecord.outTime}
                 onChange={(e) => setEditedRecord(prev => ({ ...prev, outTime: e.target.value }))}
-                disabled={!canEdit}
               />
             </div>
 
@@ -684,7 +657,6 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, current
                 className="EmppAttendence-form-input"
                 value={editedRecord.status}
                 onChange={(e) => setEditedRecord(prev => ({ ...prev, status: e.target.value }))}
-                disabled={!canEdit}
               >
                 <option value="present">Present</option>
                 <option value="late">Late</option>
@@ -701,7 +673,6 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, current
                 value={editedRecord.lateBy}
                 onChange={(e) => setEditedRecord(prev => ({ ...prev, lateBy: e.target.value }))}
                 placeholder="00:00:00"
-                disabled={!canEdit}
               />
             </div>
 
@@ -713,7 +684,6 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, current
                 value={editedRecord.earlyLeave}
                 onChange={(e) => setEditedRecord(prev => ({ ...prev, earlyLeave: e.target.value }))}
                 placeholder="00:00:00"
-                disabled={!canEdit}
               />
             </div>
 
@@ -725,7 +695,6 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, current
                 value={editedRecord.overTime}
                 onChange={(e) => setEditedRecord(prev => ({ ...prev, overTime: e.target.value }))}
                 placeholder="00:00:00"
-                disabled={!canEdit}
               />
             </div>
 
@@ -737,7 +706,6 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, current
                 onChange={(e) => setEditedRecord(prev => ({ ...prev, notes: e.target.value }))}
                 placeholder="Add any additional notes..."
                 rows="3"
-                disabled={!canEdit}
               />
             </div>
           </div>
@@ -792,29 +760,25 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, current
 
         <div className="EmppAttendence-modal-footer">
           <div className="EmppAttendence-footer-left">
-            {canDelete && (
-              <button 
-                className="EmppAttendence-btn EmppAttendence-btn-danger" 
-                onClick={() => setShowConfirmDelete(true)}
-                disabled={showConfirmDelete}
-              >
-                <FiTrash2 /> Delete Record
-              </button>
-            )}
+            <button 
+              className="EmppAttendence-btn EmppAttendence-btn-danger" 
+              onClick={() => setShowConfirmDelete(true)}
+              disabled={showConfirmDelete}
+            >
+              <FiTrash2 /> Delete Record
+            </button>
           </div>
           <div className="EmppAttendence-footer-right">
             <button className="EmppAttendence-btn EmppAttendence-btn-outlined" onClick={onClose}>
               Cancel
             </button>
-            {canEdit && (
-              <button 
-                className="EmppAttendence-btn EmppAttendence-btn-contained" 
-                onClick={handleSave}
-                disabled={loading || showConfirmDelete}
-              >
-                {loading ? 'Saving...' : 'Save Changes'}
-              </button>
-            )}
+            <button 
+              className="EmppAttendence-btn EmppAttendence-btn-contained" 
+              onClick={handleSave}
+              disabled={loading || showConfirmDelete}
+            >
+              {loading ? 'Saving...' : 'Save Changes'}
+            </button>
           </div>
         </div>
       </div>
@@ -822,19 +786,12 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, current
   );
 };
 
-// Quick Edit Modal
-const QuickEditModal = ({ records, onClose, onSave, isOwner, isAdmin, isHR }) => {
+// Quick Edit Modal - UPDATED with full permissions
+const QuickEditModal = ({ records, onClose, onSave }) => {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('present');
 
-  const canEdit = isOwner || isAdmin || isHR;
-
   const handleSave = async () => {
-    if (!canEdit) {
-      alert("You don't have permission to edit attendance records");
-      return;
-    }
-    
     setLoading(true);
     try {
       const promises = records.map(record =>
@@ -862,13 +819,6 @@ const QuickEditModal = ({ records, onClose, onSave, isOwner, isAdmin, isHR }) =>
         </div>
 
         <div className="EmppAttendence-modal-body">
-          {!canEdit && (
-            <div className="EmppAttendence-permission-warning">
-              <FiLock size={20} />
-              <span>You don't have permission to edit attendance records.</span>
-            </div>
-          )}
-
           <div className="EmppAttendence-selected-count">
             <FiUsers size={20} />
             <span>{records.length} employee(s) selected</span>
@@ -879,29 +829,25 @@ const QuickEditModal = ({ records, onClose, onSave, isOwner, isAdmin, isHR }) =>
             <div className="EmppAttendence-status-options">
               <button 
                 className={`EmppAttendence-status-option ${status === 'present' ? 'EmppAttendence-selected' : ''}`}
-                onClick={() => canEdit && setStatus('present')}
-                disabled={!canEdit}
+                onClick={() => setStatus('present')}
               >
                 <FiCheckCircle /> Present
               </button>
               <button 
                 className={`EmppAttendence-status-option ${status === 'late' ? 'EmppAttendence-selected' : ''}`}
-                onClick={() => canEdit && setStatus('late')}
-                disabled={!canEdit}
+                onClick={() => setStatus('late')}
               >
                 <FiClock /> Late
               </button>
               <button 
                 className={`EmppAttendence-status-option ${status === 'halfday' ? 'EmppAttendence-selected' : ''}`}
-                onClick={() => canEdit && setStatus('halfday')}
-                disabled={!canEdit}
+                onClick={() => setStatus('halfday')}
               >
                 <FiAlertCircle /> Half Day
               </button>
               <button 
                 className={`EmppAttendence-status-option ${status === 'absent' ? 'EmppAttendence-selected' : ''}`}
-                onClick={() => canEdit && setStatus('absent')}
-                disabled={!canEdit}
+                onClick={() => setStatus('absent')}
               >
                 <FiUserX /> Absent
               </button>
@@ -932,15 +878,13 @@ const QuickEditModal = ({ records, onClose, onSave, isOwner, isAdmin, isHR }) =>
           <button className="EmppAttendence-btn EmppAttendence-btn-outlined" onClick={onClose}>
             Cancel
           </button>
-          {canEdit && (
-            <button 
-              className="EmppAttendence-btn EmppAttendence-btn-contained" 
-              onClick={handleSave}
-              disabled={loading}
-            >
-              {loading ? 'Updating...' : `Update to ${status.toUpperCase()}`}
-            </button>
-          )}
+          <button 
+            className="EmppAttendence-btn EmppAttendence-btn-contained" 
+            onClick={handleSave}
+            disabled={loading}
+          >
+            {loading ? 'Updating...' : `Update to ${status.toUpperCase()}`}
+          </button>
         </div>
       </div>
     </div>
@@ -959,6 +903,7 @@ const getInitials = (name) => {
 };
 
 const formatDate = (dateStr) => {
+  if (!dateStr) return 'N/A';
   return new Date(dateStr).toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
@@ -1015,7 +960,7 @@ const EmployeeAttendance = () => {
   const [records, setRecords] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
-  const [departmentsMap, setDepartmentsMap] = useState({}); // ADD THIS
+  const [departmentsMap, setDepartmentsMap] = useState({});
   
   // Date states
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -1075,17 +1020,9 @@ const EmployeeAttendance = () => {
   const [currentUserCompanyCode, setCurrentUserCompanyCode] = useState('');
   const [currentUserName, setCurrentUserName] = useState('');
   
-  // Permission States
-  const [isOwner, setIsOwner] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isHR, setIsHR] = useState(false);
-  const [isManager, setIsManager] = useState(false);
-  const [permissions, setPermissions] = useState({
-    canViewAllAttendance: false,
-    canEditAttendance: false,
-    canDeleteAttendance: false,
-    canExportData: true
-  });
+  // ✅ UPDATED: Everyone can edit attendance now
+  const [canEditAttendance, setCanEditAttendance] = useState(true);
+  const [canViewAllAttendance, setCanViewAllAttendance] = useState(true);
 
   const tableRef = useRef(null);
   const exportMenuRef = useRef(null);
@@ -1115,10 +1052,10 @@ const EmployeeAttendance = () => {
 
   // Fetch users after user role is loaded
   useEffect(() => {
-    if (currentUserCompanyId && currentUserRole) {
+    if (currentUserCompanyId) {
       fetchAllUsers();
     }
-  }, [currentUserCompanyId, currentUserRole, isOwner, isAdmin, isHR]);
+  }, [currentUserCompanyId]);
 
   // Fetch attendance after users are loaded
   useEffect(() => {
@@ -1179,26 +1116,9 @@ const EmployeeAttendance = () => {
       setCurrentUserName(name);
       setCurrentUserRole(role);
       
-      const isOwnerRole = role === 'Owner' || role === 'owner' || role === 'OWNER';
-      const isAdminRole = role === 'Admin' || role === 'admin' || role === 'ADMIN';
-      const isHRRole = role === 'HR' || role === 'hr' || role === 'Hr';
-      const isManagerRole = role === 'Manager' || role === 'manager' || role === 'MANAGER';
-      
-      setIsOwner(isOwnerRole);
-      setIsAdmin(isAdminRole);
-      setIsHR(isHRRole);
-      setIsManager(isManagerRole);
-      
-      setPermissions({
-        canViewAllAttendance: isOwnerRole || isAdminRole || isHRRole,
-        canEditAttendance: isOwnerRole || isAdminRole || isHRRole,
-        canDeleteAttendance: isOwnerRole || isAdminRole || isHRRole,
-        canExportData: true
-      });
-      
-      if (!role && userId) {
-        await fetchUserRole(userId);
-      }
+      // ✅ Everyone can edit attendance
+      setCanEditAttendance(true);
+      setCanViewAllAttendance(true);
       
     } catch (error) {
       console.error("Error parsing user data:", error);
@@ -1206,38 +1126,7 @@ const EmployeeAttendance = () => {
     }
   };
 
-  const fetchUserRole = async (userId) => {
-    try {
-      const res = await axios.get(`/users/${userId}`);
-      if (res.data && res.data.success && res.data.user) {
-        const user = res.data.user;
-        const userRole = user.companyRole || user.role;
-        
-        setCurrentUserRole(userRole);
-        
-        const isOwnerRole = userRole === 'Owner' || userRole === 'owner' || userRole === 'OWNER';
-        const isAdminRole = userRole === 'Admin' || userRole === 'admin' || userRole === 'ADMIN';
-        const isHRRole = userRole === 'HR' || userRole === 'hr' || userRole === 'Hr';
-        const isManagerRole = userRole === 'Manager' || userRole === 'manager' || userRole === 'MANAGER';
-        
-        setIsOwner(isOwnerRole);
-        setIsAdmin(isAdminRole);
-        setIsHR(isHRRole);
-        setIsManager(isManagerRole);
-        
-        setPermissions({
-          canViewAllAttendance: isOwnerRole || isAdminRole || isHRRole,
-          canEditAttendance: isOwnerRole || isAdminRole || isHRRole,
-          canDeleteAttendance: isOwnerRole || isAdminRole || isHRRole,
-          canExportData: true
-        });
-      }
-    } catch (err) {
-      console.error("Failed to fetch user role:", err);
-    }
-  };
-
-  // FIXED fetchAllUsers function with proper department mapping
+  // Fetch all users function
   const fetchAllUsers = async () => {
     try {
       console.log("🔄 Fetching all company users...");
@@ -1259,7 +1148,6 @@ const EmployeeAttendance = () => {
           }
         }
         
-        // Create ID to name mapping
         deptMap = departmentsList.reduce((acc, dept) => {
           if (dept._id) {
             acc[dept._id] = dept.name;
@@ -1271,23 +1159,14 @@ const EmployeeAttendance = () => {
         }, {});
         
         setDepartments(departmentsList);
-        setDepartmentsMap(deptMap); // Store in state
+        setDepartmentsMap(deptMap);
         console.log("✅ Departments loaded:", deptMap);
       } catch (deptErr) {
         console.error("❌ Failed to load departments", deptErr);
       }
       
-      // Determine endpoint based on user role
-      let endpoint = '';
-      if (isOwner || isAdmin || isHR) {
-        endpoint = '/users/company-users';
-        console.log("👑 Owner/Admin/HR - fetching all company users");
-      } else {
-        endpoint = `/users/department-users?department=${currentUserDepartment}`;
-        console.log("👤 Employee - fetching department users only");
-      }
-      
-      const res = await axios.get(endpoint);
+      // Fetch all company users
+      const res = await axios.get('/users/company-users');
       
       let usersData = [];
       
@@ -1309,19 +1188,16 @@ const EmployeeAttendance = () => {
         }
       }
       
-      // Process users and map department IDs to names
       const usersWithDepartment = usersData.map(user => {
         let deptId = null;
         let deptName = "Unassigned";
         
-        // Handle different department field formats
         if (user.department) {
           if (typeof user.department === "object") {
             deptId = user.department._id || user.department.id;
             deptName = user.department.name || "Unassigned";
           } else {
             deptId = user.department;
-            // Try to get name from map
             deptName = deptMap[user.department] || user.departmentName || "Unassigned";
           }
         } else if (user.departmentId) {
@@ -1338,13 +1214,13 @@ const EmployeeAttendance = () => {
           email: user.email,
           employeeType: user.employeeType || user.employmentType || 'full-time',
           departmentId: deptId,
-          department: deptName, // This should now be the name
+          department: deptName,
           jobRole: user.jobRole || user.position || user.designation
         };
       });
       
       setAllUsers(usersWithDepartment);
-      console.log("✅ Users loaded with departments:", usersWithDepartment[0]);
+      console.log("✅ Users loaded:", usersWithDepartment.length);
       
     } catch (err) {
       console.error("❌ Failed to load users", err);
@@ -1375,14 +1251,7 @@ const EmployeeAttendance = () => {
       const formatted = date;
       console.log("📅 Fetching attendance for date:", formatted);
       
-      let endpoint = `/attendance/all?date=${formatted}`;
-      
-      if (!isOwner && !isAdmin && !isHR && currentUserDepartment) {
-        endpoint += `&department=${currentUserDepartment}`;
-        console.log("📊 Filtering attendance by department:", currentUserDepartment);
-      }
-      
-      const res = await axios.get(endpoint);
+      const res = await axios.get(`/attendance/all?date=${formatted}`);
       
       const attendanceMap = {};
       if (res.data && res.data.data && Array.isArray(res.data.data)) {
@@ -1397,15 +1266,7 @@ const EmployeeAttendance = () => {
         });
       }
 
-      let usersToProcess = allUsers;
-      if (!isOwner && !isAdmin && !isHR && currentUserDepartment) {
-        usersToProcess = allUsers.filter(user => 
-          user.department === currentUserDepartment ||
-          user.departmentId === currentUserDepartment
-        );
-      }
-
-      const combinedRecords = usersToProcess.map(user => {
+      const combinedRecords = allUsers.map(user => {
         const userId = user.id || user._id;
         const attendanceRecord = attendanceMap[userId];
         
@@ -1433,7 +1294,7 @@ const EmployeeAttendance = () => {
               name: user.name,
               email: user.email,
               employeeType: user.employeeType || 'full-time',
-              department: user.department, // This is the name from usersWithDepartment
+              department: user.department,
               departmentId: user.departmentId,
               jobRole: user.jobRole
             },
@@ -1452,7 +1313,7 @@ const EmployeeAttendance = () => {
               name: user.name,
               email: user.email,
               employeeType: user.employeeType || 'full-time',
-              department: user.department, // This is the name from usersWithDepartment
+              department: user.department,
               departmentId: user.departmentId,
               jobRole: user.jobRole
             },
@@ -1505,13 +1366,7 @@ const EmployeeAttendance = () => {
       
       const fetchPromises = dateRange.map(async (date) => {
         try {
-          let endpoint = `/attendance/all?date=${date}`;
-          
-          if (!isOwner && !isAdmin && !isHR && currentUserDepartment) {
-            endpoint += `&department=${currentUserDepartment}`;
-          }
-          
-          const res = await axios.get(endpoint);
+          const res = await axios.get(`/attendance/all?date=${date}`);
           return { date, data: res.data };
         } catch (error) {
           console.error(`Error fetching attendance for ${date}:`, error);
@@ -1536,15 +1391,7 @@ const EmployeeAttendance = () => {
           });
         }
 
-        let usersToProcess = allUsers;
-        if (!isOwner && !isAdmin && !isHR && currentUserDepartment) {
-          usersToProcess = allUsers.filter(user => 
-            user.department === currentUserDepartment ||
-            user.departmentId === currentUserDepartment
-          );
-        }
-
-        const dateCombinedRecords = usersToProcess.map(user => {
+        const dateCombinedRecords = allUsers.map(user => {
           const userId = user.id || user._id;
           const attendanceRecord = attendanceMap[userId];
           
@@ -1847,27 +1694,22 @@ const EmployeeAttendance = () => {
   };
 
   const handleSaveRecord = async (recordId, updatedData) => {
-    if (!isOwner && !isAdmin && !isHR) {
-      showSnackbar("You don't have permission to edit attendance records", "error");
-      return;
-    }
-    
     try {
       setLoading(true);
       
       if (recordId.startsWith('absent_')) {
-  const parts = recordId.split('_');
-  const userId = parts[1];
-  const date = parts[2];
+        const parts = recordId.split('_');
+        const userId = parts[1];
+        const date = parts[2];
 
-  await axios.post('/attendance/manual', {
-    user: userId,
-    date: date,
-    ...updatedData
-  });
-} else {
-  await axios.put(`/attendance/${recordId}`, updatedData);
-}
+        await axios.post('/attendance/manual', {
+          user: userId,
+          date: date,
+          ...updatedData
+        });
+      } else {
+        await axios.put(`/attendance/${recordId}`, updatedData);
+      }
       
       showSnackbar("Attendance record saved successfully!", "success");
       
@@ -1885,11 +1727,6 @@ const EmployeeAttendance = () => {
   };
 
   const handleAddNewRecord = async (data) => {
-    if (!isOwner && !isAdmin && !isHR) {
-      showSnackbar("You don't have permission to add attendance records", "error");
-      return;
-    }
-    
     try {
       setLoading(true);
       await axios.post('/attendance/manual', data);
@@ -1910,11 +1747,6 @@ const EmployeeAttendance = () => {
   };
 
   const handleDeleteRecord = async (recordId) => {
-    if (!isOwner && !isAdmin && !isHR) {
-      showSnackbar("You don't have permission to delete attendance records", "error");
-      return;
-    }
-    
     try {
       setLoading(true);
       
@@ -1944,11 +1776,6 @@ const EmployeeAttendance = () => {
   };
 
   const handleBulkStatusChange = async (status) => {
-    if (!isOwner && !isAdmin && !isHR) {
-      showSnackbar("You don't have permission to edit attendance records", "error");
-      return;
-    }
-    
     if (selectedRecords.length === 0) {
       showSnackbar("Please select records to update", "warning");
       return;
@@ -1961,12 +1788,6 @@ const EmployeeAttendance = () => {
       );
       
       await Promise.all(promises);
-      
-      setRecords(prev => prev.map(record =>
-        selectedRecords.includes(record._id)
-          ? { ...record, status: status.toLowerCase() }
-          : record
-      ));
       
       showSnackbar(`Updated ${selectedRecords.length} record(s) to ${status}`, "success");
       setSelectedRecords([]);
@@ -2301,15 +2122,16 @@ const EmployeeAttendance = () => {
     let badgeClass = 'EmppAttendence-role-badge';
     let icon = <FiUsers size={12} />;
     
-    if (isOwner) {
+    const roleLower = currentUserRole.toLowerCase();
+    if (roleLower === 'owner') {
       badgeClass += ' EmppAttendence-role-badge-owner';
       icon = <FiShield size={12} />;
-    } else if (isAdmin) {
+    } else if (roleLower === 'admin') {
       badgeClass += ' EmppAttendence-role-badge-admin';
       icon = <FiShield size={12} />;
-    } else if (isHR) {
+    } else if (roleLower === 'hr') {
       badgeClass += ' EmppAttendence-role-badge-hr';
-    } else if (isManager) {
+    } else if (roleLower === 'manager') {
       badgeClass += ' EmppAttendence-role-badge-manager';
     }
     
@@ -2348,14 +2170,9 @@ const EmployeeAttendance = () => {
         <div>
           <h1 className="EmppAttendence-attendance-title">Attendance Management</h1>
           <p className="EmppAttendence-attendance-subtitle">
-            Monitor and manage employee attendance by department
+            Monitor and manage employee attendance
             <RoleBadge />
-            {!isOwner && !isAdmin && !isHR && (
-              <span className="EmppAttendence-view-only-badge">
-                <FiEyeOff size={14} />
-                View Only (Your Department)
-              </span>
-            )}
+            
           </p>
           <div className="EmppAttendence-timing-rules">
             <span className="EmppAttendence-rule-item"><FiCheckCircle /> Before 9:10 AM → PRESENT</span>
@@ -2364,20 +2181,6 @@ const EmployeeAttendance = () => {
             <span className="EmppAttendence-rule-item"><FiUserX /> After 10:00 AM → HALF DAY / No Login → ABSENT</span>
           </div>
           
-          {!isOwner && !isAdmin && !isHR && (
-            <div className="EmppAttendence-permission-warning-banner">
-              <FiLock size={16} />
-              <span>You are viewing attendance records from your department only. Only Owners, Admins, and HR can view all departments.</span>
-            </div>
-          )}
-
-          {/* {!isOwner && !isAdmin && !isHR && currentUserDepartment && (
-            <div className="EmppAttendence-department-info-banner">
-              <FiHome size={16} />
-              <span>Your Department: <strong>{typeof currentUserDepartment === 'string' ? currentUserDepartment : 'Your Department'}</strong></span>
-            </div>
-          )}
-           */}
           {dateRangeMode && (
             <div className="EmppAttendence-date-range-indicator">
               <FiRangeCalendar size={16} />
@@ -2398,35 +2201,30 @@ const EmployeeAttendance = () => {
                 <button 
                   className="EmppAttendence-btn EmppAttendence-btn-outlined EmppAttendence-btn-sm"
                   onClick={() => handleBulkStatusChange('present')}
-                  disabled={!(isOwner || isAdmin || isHR)}
                 >
                   Mark as Present
                 </button>
                 <button 
                   className="EmppAttendence-btn EmppAttendence-btn-outlined EmppAttendence-btn-sm"
                   onClick={() => handleBulkStatusChange('late')}
-                  disabled={!(isOwner || isAdmin || isHR)}
                 >
                   Mark as Late
                 </button>
                 <button 
                   className="EmppAttendence-btn EmppAttendence-btn-outlined EmppAttendence-btn-sm"
                   onClick={() => handleBulkStatusChange('halfday')}
-                  disabled={!(isOwner || isAdmin || isHR)}
                 >
                   Mark as Half Day
                 </button>
                 <button 
                   className="EmppAttendence-btn EmppAttendence-btn-outlined EmppAttendence-btn-sm"
                   onClick={() => handleBulkStatusChange('absent')}
-                  disabled={!(isOwner || isAdmin || isHR)}
                 >
                   Mark as Absent
                 </button>
                 <button 
                   className="EmppAttendence-btn EmppAttendence-btn-contained EmppAttendence-btn-sm"
                   onClick={handleQuickEdit}
-                  disabled={!(isOwner || isAdmin || isHR)}
                 >
                   <FiEdit /> Quick Edit
                 </button>
@@ -2446,17 +2244,15 @@ const EmployeeAttendance = () => {
 
         {/* Action Bar */}
         <div className="EmppAttendence-header-actions">
-          {(isOwner || isAdmin || isHR) && (
-            <button
-              className="EmppAttendence-date-chip"
-              onClick={handleAddRecord}
-              title="Add Attendance Record"
-              style={{ marginRight: '8px' }}
-            >
-              <FiPlus size={16} />
-              <span>Add Attendance</span>
-            </button>
-          )}
+          <button
+            className="EmppAttendence-date-chip"
+            onClick={handleAddRecord}
+            title="Add Attendance Record"
+            style={{ marginRight: '8px' }}
+          >
+            <FiPlus size={16} />
+            <span>Add Attendance</span>
+          </button>
 
           {/* Export Button */}
           <div className="EmppAttendence-export-container" ref={exportMenuRef}>
@@ -2530,24 +2326,14 @@ const EmployeeAttendance = () => {
             />
           </div>
           
-          {/* <div className="EmppAttendence-filter-group">
-            <label className="EmppAttendence-filter-label">Employee Type</label>
-            <EmployeeTypeFilter
-              selected={selectedEmployeeType}
-              onChange={setSelectedEmployeeType}
+          <div className="EmppAttendence-filter-group">
+            <label className="EmppAttendence-filter-label">Department</label>
+            <DepartmentFilter
+              selected={selectedDepartment}
+              onChange={setSelectedDepartment}
+              departments={departments}
             />
-          </div> */}
-
-          {(isOwner || isAdmin || isHR) && (
-            <div className="EmppAttendence-filter-group">
-              <label className="EmppAttendence-filter-label">Department</label>
-              <DepartmentFilter
-                selected={selectedDepartment}
-                onChange={setSelectedDepartment}
-                departments={departments}
-              />
-            </div>
-          )}
+          </div>
 
           <div className="EmppAttendence-filter-group">
             <label className="EmppAttendence-filter-label">Status</label>
@@ -2739,15 +2525,10 @@ const EmployeeAttendance = () => {
               <span style={{ marginLeft: '16px', color: '#666' }}>
                 Showing: {statusFilter === 'all' ? 'All Status' : statusFilter.toUpperCase()}
               </span>
-              {!isOwner && !isAdmin && !isHR && (
-                <span style={{ marginLeft: '16px', color: '#1976d2' }}>
-                  <FiHome size={14} /> Your Department Only
-                </span>
-              )}
             </div>
           </div>
           
-          {bulkEditMode && (isOwner || isAdmin || isHR) && (
+          {bulkEditMode && (
             <div className="EmppAttendence-bulk-select-all">
               <input
                 type="checkbox"
@@ -3097,42 +2878,40 @@ const EmployeeAttendance = () => {
 
       {/* Summary Section */}
       <div className="EmppAttendence-summary-grid">
+        {stats.total > 0 && (
+          <div className="EmppAttendence-summary-item">
+            <span className="EmppAttendence-summary-label">Total Employees:</span>
+            <span className="EmppAttendence-summary-value">{stats.total}</span>
+          </div>
+        )}
 
-  {stats.total > 0 && (
-    <div className="EmppAttendence-summary-item">
-      <span className="EmppAttendence-summary-label">Total Employees:</span>
-      <span className="EmppAttendence-summary-value">{stats.total}</span>
-    </div>
-  )}
+        {(stats.present + stats.late + stats.halfDay) > 0 && (
+          <div className="EmppAttendence-summary-item">
+            <span className="EmppAttendence-summary-label">Attendance Rate:</span>
+            <span className="EmppAttendence-summary-value">
+              {((stats.present + stats.late + stats.halfDay) / stats.total * 100).toFixed(1)}%
+            </span>
+          </div>
+        )}
 
-  {(stats.present + stats.late + stats.halfDay) > 0 && (
-    <div className="EmppAttendence-summary-item">
-      <span className="EmppAttendence-summary-label">Attendance Rate:</span>
-      <span className="EmppAttendence-summary-value">
-        {((stats.present + stats.late + stats.halfDay) / stats.total * 100).toFixed(1)}%
-      </span>
-    </div>
-  )}
+        {stats.onTime > 0 && (
+          <div className="EmppAttendence-summary-item">
+            <span className="EmppAttendence-summary-label">On Time Rate:</span>
+            <span className="EmppAttendence-summary-value">
+              {(stats.onTime / stats.total * 100).toFixed(1)}%
+            </span>
+          </div>
+        )}
 
-  {stats.onTime > 0 && (
-    <div className="EmppAttendence-summary-item">
-      <span className="EmppAttendence-summary-label">On Time Rate:</span>
-      <span className="EmppAttendence-summary-value">
-        {(stats.onTime / stats.total * 100).toFixed(1)}%
-      </span>
-    </div>
-  )}
-
-  {stats.late > 0 && (
-    <div className="EmppAttendence-summary-item">
-      <span className="EmppAttendence-summary-label">Late Rate:</span>
-      <span className="EmppAttendence-summary-value">
-        {(stats.late / stats.total * 100).toFixed(1)}%
-      </span>
-    </div>
-  )}
-
-</div>
+        {stats.late > 0 && (
+          <div className="EmppAttendence-summary-item">
+            <span className="EmppAttendence-summary-label">Late Rate:</span>
+            <span className="EmppAttendence-summary-value">
+              {(stats.late / stats.total * 100).toFixed(1)}%
+            </span>
+          </div>
+        )}
+      </div>
 
       {/* Modals */}
       {editModalOpen && (
@@ -3145,10 +2924,7 @@ const EmployeeAttendance = () => {
           onSave={handleSaveRecord}
           onDelete={handleDeleteRecord}
           users={allUsers}
-          currentUserDepartment={currentUserDepartment}
-          isOwner={isOwner}
-          isAdmin={isAdmin}
-          isHR={isHR}
+          canEdit={canEditAttendance}
         />
       )}
 
@@ -3158,10 +2934,7 @@ const EmployeeAttendance = () => {
           onSave={handleAddNewRecord}
           users={allUsers}
           selectedDate={selectedDate}
-          currentUserDepartment={currentUserDepartment}
-          isOwner={isOwner}
-          isAdmin={isAdmin}
-          isHR={isHR}
+          canEdit={canEditAttendance}
         />
       )}
 
@@ -3170,9 +2943,6 @@ const EmployeeAttendance = () => {
           records={filteredRecords.filter(rec => selectedRecords.includes(rec._id))}
           onClose={() => setQuickEditModalOpen(false)}
           onSave={handleQuickEditSave}
-          isOwner={isOwner}
-          isAdmin={isAdmin}
-          isHR={isHR}
         />
       )}
 

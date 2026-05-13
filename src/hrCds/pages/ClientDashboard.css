@@ -427,7 +427,7 @@
 
 .ClientDashboard-card-header-icon {
   font-size: 18px;
-  color: #94a3b8;
+  color: #000;
 }
 
 /* ===== Info Grid ===== */
@@ -1358,5 +1358,232 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
+  }
+}
+
+/* ========== SUBSCRIPTION CARD STYLES ========== */
+.ClientDashboard-subscription-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 24px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  transition: all 0.3s ease;
+}
+
+.ClientDashboard-subscription-card:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+.ClientDashboard-subscription-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ClientDashboard-subscription-status-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.ClientDashboard-subscription-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ClientDashboard-subscription-badge--active {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+}
+
+.ClientDashboard-subscription-badge--expired {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+}
+
+.ClientDashboard-subscription-badge--none {
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+  color: white;
+}
+
+.ClientDashboard-subscription-badge .ClientDashboard-subscription-warning {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 11px;
+  margin-left: 4px;
+}
+
+.ClientDashboard-subscription-dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+}
+
+.ClientDashboard-subscription-date-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ClientDashboard-date-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #000;
+  letter-spacing: 0.5px;
+}
+
+.ClientDashboard-date-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #000;
+  margin: 0;
+}
+
+.ClientDashboard-date-value--expired {
+  color: #ef4444;
+  text-decoration: line-through;
+}
+
+.ClientDashboard-subscription-validity {
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.ClientDashboard-validity-active {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 10px;
+  border-radius: 10px;
+}
+
+.ClientDashboard-validity-active strong {
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.ClientDashboard-validity-expired {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  padding: 10px;
+  border-radius: 10px;
+}
+
+.ClientDashboard-subscription-progress {
+  margin-top: 8px;
+}
+
+.ClientDashboard-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #000;
+  margin-bottom: 8px;
+}
+
+.ClientDashboard-progress-bar {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.ClientDashboard-progress-bar__fill {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.5s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.ClientDashboard-progress-bar__fill--success {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.ClientDashboard-progress-bar__fill--warning {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.ClientDashboard-progress-glow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.ClientDashboard-subscription-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px 20px;
+  text-align: center;
+  color: #94a3b8;
+}
+
+.ClientDashboard-subscription-empty svg {
+  opacity: 0.5;
+}
+
+.ClientDashboard-subscription-empty p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.ClientDashboard-subscription-empty small {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .ClientDashboard-subscription-dates {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .ClientDashboard-subscription-card {
+    padding: 16px;
+  }
+  
+  .ClientDashboard-subscription-badge {
+    padding: 6px 12px;
+    font-size: 12px;
   }
 }

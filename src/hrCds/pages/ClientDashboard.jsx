@@ -71,6 +71,86 @@ const getAuthToken = () => {
   return localStorage.getItem('token') || localStorage.getItem('authToken');
 };
 
+// ========== HELPER FUNCTION TO GET LATEST SUBSCRIPTION ==========
+const getLatestSubscription = (client) => {
+  if (!client || !client.subscription || client.subscription.length === 0) {
+    return null;
+  }
+  // Get the last subscription in the array
+  return client.subscription[client.subscription.length - 1];
+};
+
+// ========== HELPER FUNCTION TO CHECK IF SUBSCRIPTION IS EXPIRED ==========
+const isSubscriptionExpired = (subscription) => {
+  if (!subscription || !subscription.endDate) return true;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const endDate = new Date(subscription.endDate);
+  endDate.setHours(0, 0, 0, 0);
+  return endDate < today;
+};
+
+// ========== HELPER FUNCTION TO FORMAT DATE ==========
+const formatSubscriptionDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
+
+// ========== HELPER FUNCTION TO GET DAYS REMAINING ==========
+const getDaysRemaining = (subscription) => {
+  if (!subscription || !subscription.endDate) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const endDate = new Date(subscription.endDate);
+  endDate.setHours(0, 0, 0, 0);
+  
+  if (endDate < today) return null;
+  
+  const diffTime = endDate - today;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+};
+
+// ========== SUBSCRIPTION STATUS BADGE COMPONENT ==========
+const SubscriptionStatusBadge = ({ subscription }) => {
+  const expired = isSubscriptionExpired(subscription);
+  const daysRemaining = getDaysRemaining(subscription);
+  
+  if (!subscription) {
+    return (
+      <div className="ClientDashboard-subscription-badge ClientDashboard-subscription-badge--none">
+        <FiAlertCircle size={14} />
+        <span>No Subscription</span>
+      </div>
+    );
+  }
+  
+  if (expired) {
+    return (
+      <div className="ClientDashboard-subscription-badge ClientDashboard-subscription-badge--expired">
+        <FiAlertCircle size={14} />
+        <span>Expired</span>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="ClientDashboard-subscription-badge ClientDashboard-subscription-badge--active">
+      <FiCheckCircle size={14} />
+      <span>Active</span>
+      {daysRemaining !== null && daysRemaining <= 7 && (
+        <span className="ClientDashboard-subscription-warning">
+          ({daysRemaining} days left)
+        </span>
+      )}
+    </div>
+  );
+};
+
 // ========== ANIMATED PROGRESS RING COMPONENT ==========
 const AnimatedProgressRing = ({ percentage, size = 80, strokeWidth = 8 }) => {
   const radius = (size - strokeWidth) / 2;
@@ -231,18 +311,6 @@ const ServiceProgressCard = ({ service, clientId, api }) => {
     if (date.toDateString() === today.toDateString()) return 'Today';
     if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
-  const handleRefresh = (e) => {
-    e.stopPropagation();
-    
-    if (refreshTimeoutRef.current) {
-      clearTimeout(refreshTimeoutRef.current);
-    }
-    
-    refreshTimeoutRef.current = setTimeout(() => {
-      fetchTasks();
-    }, 300);
   };
 
   const getPriorityColor = (priority) => {
@@ -794,6 +862,9 @@ const ClientDashboard = () => {
   }
 
   const clientManagers = getProjectManagersDetails();
+  const latestSubscription = getLatestSubscription(client);
+  const subscriptionExpired = isSubscriptionExpired(latestSubscription);
+  const daysRemaining = getDaysRemaining(latestSubscription);
 
   return (
     <div className="ClientDashboard-client-dashboard">
@@ -903,6 +974,105 @@ const ClientDashboard = () => {
                 </span>
               </div>
             </div>
+          </div>
+
+          {/* Subscription Details Card */}
+          <div className="ClientDashboard-subscription-card">
+            <div className="ClientDashboard-card-header">
+              <h3>Subscription Details</h3>
+              <FiCalendar className="ClientDashboard-card-header-icon" />
+            </div>
+            
+            {latestSubscription ? (
+              <div className="ClientDashboard-subscription-content">
+                {/* Status Badge */}
+                <div className="ClientDashboard-subscription-status-wrapper">
+                  <SubscriptionStatusBadge subscription={latestSubscription} />
+                </div>
+                
+                {/* Subscription Dates */}
+                <div className="ClientDashboard-subscription-dates">
+                  <div className="ClientDashboard-subscription-date-item">
+                    <div className="ClientDashboard-date-label">
+                      <FiCalendar size={14} />
+                      <span>Start Date</span>
+                    </div>
+                    <p className="ClientDashboard-date-value">
+                      {formatSubscriptionDate(latestSubscription.startDate)}
+                    </p>
+                  </div>
+                  
+                  <div className="ClientDashboard-subscription-date-item">
+                    <div className="ClientDashboard-date-label">
+                      <FiCalendar size={14} />
+                      <span>End Date</span>
+                    </div>
+                    <p className={`ClientDashboard-date-value ${subscriptionExpired ? 'ClientDashboard-date-value--expired' : ''}`}>
+                      {formatSubscriptionDate(latestSubscription.endDate)}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Valid Till / Days Remaining */}
+                <div className="ClientDashboard-subscription-validity">
+                  {subscriptionExpired ? (
+                    <div className="ClientDashboard-validity-expired">
+                      <FiAlertCircle size={16} />
+                      <span>Subscription has expired. Please renew to continue services.</span>
+                    </div>
+                  ) : (
+                    <div className="ClientDashboard-validity-active">
+                      <FiCheckCircle size={16} />
+                      <span>
+                        Valid till {formatSubscriptionDate(latestSubscription.endDate)}
+                        {daysRemaining !== null && (
+                          <strong> ({daysRemaining} days remaining)</strong>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Progress Bar for Days Remaining (if active) */}
+                {!subscriptionExpired && latestSubscription.startDate && latestSubscription.endDate && (
+                  <div className="ClientDashboard-subscription-progress">
+                    <div className="ClientDashboard-progress-label">
+                      <span>Subscription Period Progress</span>
+                      <span>{daysRemaining !== null ? daysRemaining : 0} days left</span>
+                    </div>
+                    <div className="ClientDashboard-progress-bar">
+                      <div 
+                        className={`ClientDashboard-progress-bar__fill ${
+                          daysRemaining !== null && daysRemaining <= 7 
+                            ? 'ClientDashboard-progress-bar__fill--warning'
+                            : 'ClientDashboard-progress-bar__fill--success'
+                        }`}
+                        style={{ 
+                          width: `${(() => {
+                            if (!latestSubscription.startDate || !latestSubscription.endDate) return 0;
+                            const start = new Date(latestSubscription.startDate);
+                            const end = new Date(latestSubscription.endDate);
+                            const today = new Date();
+                            const total = end - start;
+                            const elapsed = today - start;
+                            const percentage = Math.min(100, Math.max(0, (elapsed / total) * 100));
+                            return percentage;
+                          })()}%` 
+                        }}
+                      >
+                        <div className="ClientDashboard-progress-glow"></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="ClientDashboard-subscription-empty">
+                <FiAlertCircle size={32} />
+                <p>No subscription information available</p>
+                <small>Please contact your administrator for subscription details</small>
+              </div>
+            )}
           </div>
 
           {/* Project Team Section */}

@@ -124,26 +124,23 @@ const useUser = () => {
     return jobRole === 'super_admin';
   }, [getCurrentUserJobRole]);
   
-  // Check if user can edit all fields
-  const canEditAllFields = useMemo(() => {
+  // ✅ UPDATED: EVERYONE can edit other employees (Employee, Owner, HR, Manager, Admin, Super Admin)
+  const canEditOtherEmployees = useMemo(() => {
     const jobRole = getCurrentUserJobRole();
-    return jobRole === 'super_admin';
-  }, [getCurrentUserJobRole]);
-  
-  const isCurrentUserAdmin = useMemo(() => {
-    const jobRole = getCurrentUserJobRole();
-    return ['admin', 'superadmin', 'super_admin'].includes(jobRole);
-  }, [getCurrentUserJobRole]);
-  
-  const isCurrentUserManagerOrHR = useMemo(() => {
-    const jobRole = getCurrentUserJobRole();
-    return ['manager', 'hr', 'human resources'].includes(jobRole);
-  }, [getCurrentUserJobRole]);
-  
-  const isCurrentUserOwner = useMemo(() => {
     const companyRole = getCurrentUserCompanyRole();
-    return companyRole === 'owner';
-  }, [getCurrentUserCompanyRole]);
+    // Sabko edit permission - Employee, Owner, HR, Manager, Admin, Super Admin sab edit kar sakte hain
+    const allowedRoles = ['super_admin', 'admin', 'owner', 'hr', 'manager', 'employee'];
+    return allowedRoles.includes(jobRole) || allowedRoles.includes(companyRole);
+  }, [getCurrentUserJobRole, getCurrentUserCompanyRole]);
+  
+  // ✅ Check if user can see all company users (Owner, HR, Manager, Admin, Super Admin)
+  // Employee will only see department users
+  const canSeeAllCompanyUsers = useMemo(() => {
+    const jobRole = getCurrentUserJobRole();
+    const companyRole = getCurrentUserCompanyRole();
+    const allowedRoles = ['super_admin', 'admin', 'owner', 'hr', 'manager'];
+    return allowedRoles.includes(jobRole) || allowedRoles.includes(companyRole);
+  }, [getCurrentUserJobRole, getCurrentUserCompanyRole]);
   
   const getAuthToken = useCallback(() => {
     return localStorage.getItem('token');
@@ -158,11 +155,9 @@ const useUser = () => {
     getCurrentUserCompanyName,
     getCurrentUserDepartmentId,
     getCurrentUserCompanyRole,
-    isCurrentUserAdmin,
-    isCurrentUserManagerOrHR,
-    isCurrentUserOwner,
     isSuperAdmin,
-    canEditAllFields,
+    canEditOtherEmployees,
+    canSeeAllCompanyUsers,
     getAuthToken
   };
 };
@@ -188,7 +183,7 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
   currentUserId,
   jobRoles,
   departments,
-  isSuperAdmin
+  canEditOtherEmployees
 }) => {
   const getInitials = (name) => {
     if (!name) return 'U';
@@ -250,13 +245,17 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
   };
   
   const isCurrentUserEmp = currentUserId === (emp._id || emp.id);
+  const isOtherUser = !isCurrentUserEmp;
+  
+  // Show menu if user can edit other employees AND this is not the current user
+  const showMenu = canEditOtherEmployees && isOtherUser;
   
   return (
     <div 
       className="EmployeeDirectory-employee-card"
       onClick={() => onView(emp)}
     >
-      {isSuperAdmin && (
+      {showMenu && (
         <button 
           className="EmployeeDirectory-employee-card-menu"
           onClick={(e) => {
@@ -567,9 +566,7 @@ const AssetsForm = ({ properties = [], currentlyAssignedAssets = [], onChange, i
 };
 
 // Bank Details Form Component
-const BankDetailsForm = ({ formData, onInputChange, canEditBankDetails, isSuperAdmin }) => {
-  const isReadOnly = !isSuperAdmin || !canEditBankDetails;
-  
+const BankDetailsForm = ({ formData, onInputChange, canEdit }) => {
   return (
     <div className="EmployeeDirectory-form-section">
       <h3 className="EmployeeDirectory-section-title">
@@ -583,11 +580,11 @@ const BankDetailsForm = ({ formData, onInputChange, canEditBankDetails, isSuperA
             className="EmployeeDirectory-form-input"
             value={formData.bankHolderName || ''}
             onChange={(e) => onInputChange('bankHolderName', e.target.value)}
-            disabled={isReadOnly}
+            disabled={!canEdit}
             placeholder="Enter account holder name"
           />
-          {isReadOnly && (
-            <span className="EmployeeDirectory-field-note">Only super_admin can edit bank details</span>
+          {!canEdit && (
+            <span className="EmployeeDirectory-field-note">You don't have permission to edit bank details</span>
           )}
         </div>
         
@@ -598,7 +595,7 @@ const BankDetailsForm = ({ formData, onInputChange, canEditBankDetails, isSuperA
             className="EmployeeDirectory-form-input"
             value={formData.accountNumber || ''}
             onChange={(e) => onInputChange('accountNumber', e.target.value)}
-            disabled={isReadOnly}
+            disabled={!canEdit}
             placeholder="Enter account number"
           />
         </div>
@@ -610,7 +607,7 @@ const BankDetailsForm = ({ formData, onInputChange, canEditBankDetails, isSuperA
             className="EmployeeDirectory-form-input"
             value={formData.ifsc || ''}
             onChange={(e) => onInputChange('ifsc', e.target.value)}
-            disabled={isReadOnly}
+            disabled={!canEdit}
             placeholder="Enter IFSC code"
           />
         </div>
@@ -622,7 +619,7 @@ const BankDetailsForm = ({ formData, onInputChange, canEditBankDetails, isSuperA
             className="EmployeeDirectory-form-input"
             value={formData.bankName || ''}
             onChange={(e) => onInputChange('bankName', e.target.value)}
-            disabled={isReadOnly}
+            disabled={!canEdit}
             placeholder="Enter bank name"
           />
         </div>
@@ -752,14 +749,7 @@ const EmploymentDetailsForm = ({
   onInputChange, 
   departments, 
   jobRoles,
-  canEditJobRole,
-  canEditDepartment,
-  canEditEmployeeId,
-  canEditCompanyRole,
-  canEditSalary,
-  canEditEmployeeType,
-  canEditReportingManager,
-  canEditStatus,
+  canEditAllFields,
   isSuperAdmin
 }) => {
   const employeeTypeOptions = [
@@ -778,17 +768,15 @@ const EmploymentDetailsForm = ({
     { value: 'owner', label: 'Owner' }
   ];
 
-  const isReadOnly = !isSuperAdmin;
-
   return (
     <div className="EmployeeDirectory-form-section">
       <h3 className="EmployeeDirectory-section-title">
         <FiBriefcase /> Employment Information
       </h3>
-      {!isSuperAdmin && (
+      {!canEditAllFields && (
         <div className="EmployeeDirectory-info-banner">
           <FiInfo size={14} />
-          <span>Employment details can only be edited by super_admin</span>
+          <span>You don't have permission to edit employment details</span>
         </div>
       )}
       <div className="EmployeeDirectory-employment-grid">
@@ -799,11 +787,11 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-input"
             value={formData.employeeId || ''}
             onChange={(e) => onInputChange('employeeId', e.target.value)}
-            disabled={!canEditEmployeeId || isReadOnly}
+            disabled={!canEditAllFields}
             placeholder="Auto-generated if empty"
           />
-          {(!canEditEmployeeId || isReadOnly) && (
-            <span className="EmployeeDirectory-field-note">Only super_admin can edit</span>
+          {!canEditAllFields && (
+            <span className="EmployeeDirectory-field-note">You don't have permission to edit</span>
           )}
         </div>
         
@@ -813,7 +801,7 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-select"
             value={formData.jobRole || ''}
             onChange={(e) => onInputChange('jobRole', e.target.value)}
-            disabled={!canEditJobRole || isReadOnly}
+            disabled={!canEditAllFields}
           >
             <option value="">Select Job Role</option>
             {jobRoles.map(role => (
@@ -822,8 +810,8 @@ const EmploymentDetailsForm = ({
               </option>
             ))}
           </select>
-          {(!canEditJobRole || isReadOnly) && (
-            <span className="EmployeeDirectory-field-note">Only super_admin can edit</span>
+          {!canEditAllFields && (
+            <span className="EmployeeDirectory-field-note">You don't have permission to edit</span>
           )}
         </div>
         
@@ -833,15 +821,15 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-select"
             value={formData.department || ''}
             onChange={(e) => onInputChange('department', e.target.value)}
-            disabled={!canEditDepartment || isReadOnly}
+            disabled={!canEditAllFields}
           >
             <option value="">Select Department</option>
             {departments.map(dept => (
               <option key={dept._id} value={dept._id}>{dept.name}</option>
             ))}
           </select>
-          {(!canEditDepartment || isReadOnly) && (
-            <span className="EmployeeDirectory-field-note">Only super_admin can edit</span>
+          {!canEditAllFields && (
+            <span className="EmployeeDirectory-field-note">You don't have permission to edit</span>
           )}
         </div>
 
@@ -851,14 +839,14 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-select"
             value={formData.companyRole || 'employee'}
             onChange={(e) => onInputChange('companyRole', e.target.value)}
-            disabled={!canEditCompanyRole || isReadOnly}
+            disabled={!canEditAllFields}
           >
             {companyRoleOptions.map(option => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
-          {(!canEditCompanyRole || isReadOnly) && (
-            <span className="EmployeeDirectory-field-note">Only super_admin can edit</span>
+          {!canEditAllFields && (
+            <span className="EmployeeDirectory-field-note">You don't have permission to edit</span>
           )}
         </div>
         
@@ -868,15 +856,15 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-select"
             value={formData.employeeType || ''}
             onChange={(e) => onInputChange('employeeType', e.target.value)}
-            disabled={!canEditEmployeeType || isReadOnly}
+            disabled={!canEditAllFields}
           >
             <option value="">Select Type</option>
             {employeeTypeOptions.map(option => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
-          {(!canEditEmployeeType || isReadOnly) && (
-            <span className="EmployeeDirectory-field-note">Only super_admin can edit</span>
+          {!canEditAllFields && (
+            <span className="EmployeeDirectory-field-note">You don't have permission to edit</span>
           )}
         </div>
         
@@ -890,11 +878,11 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-input"
             value={formData.salary || ''}
             onChange={(e) => onInputChange('salary', e.target.value)}
-            disabled={!canEditSalary || isReadOnly}
+            disabled={!canEditAllFields}
             placeholder="Enter salary"
           />
-          {(!canEditSalary || isReadOnly) && (
-            <span className="EmployeeDirectory-field-note">Only super_admin can edit</span>
+          {!canEditAllFields && (
+            <span className="EmployeeDirectory-field-note">You don't have permission to edit</span>
           )}
         </div>
         
@@ -904,13 +892,13 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-select"
             value={formData.isActive === false ? 'inactive' : 'active'}
             onChange={(e) => onInputChange('isActive', e.target.value === 'active')}
-            disabled={!canEditStatus || isReadOnly}
+            disabled={!canEditAllFields}
           >
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select>
-          {(!canEditStatus || isReadOnly) && (
-            <span className="EmployeeDirectory-field-note">Only super_admin can edit</span>
+          {!canEditAllFields && (
+            <span className="EmployeeDirectory-field-note">You don't have permission to edit</span>
           )}
         </div>
 
@@ -921,11 +909,11 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-input"
             value={formData.reportingManager || ''}
             onChange={(e) => onInputChange('reportingManager', e.target.value)}
-            disabled={!canEditReportingManager || isReadOnly}
+            disabled={!canEditAllFields}
             placeholder="Manager ID or Name"
           />
-          {(!canEditReportingManager || isReadOnly) && (
-            <span className="EmployeeDirectory-field-note">Only super_admin can edit</span>
+          {!canEditAllFields && (
+            <span className="EmployeeDirectory-field-note">You don't have permission to edit</span>
           )}
         </div>
 
@@ -936,7 +924,7 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-input"
             value={formData.dateOfJoining ? new Date(formData.dateOfJoining).toISOString().split('T')[0] : ''}
             onChange={(e) => onInputChange('dateOfJoining', e.target.value)}
-            disabled={isReadOnly}
+            disabled={!canEditAllFields}
             placeholder="Date of joining"
           />
         </div>
@@ -948,7 +936,7 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-input"
             value={formData.workLocation || ''}
             onChange={(e) => onInputChange('workLocation', e.target.value)}
-            disabled={isReadOnly}
+            disabled={!canEditAllFields}
             placeholder="Office location"
           />
         </div>
@@ -1127,7 +1115,7 @@ const EditEmployeeForm = React.memo(({
   onInputChange, 
   departments, 
   jobRoles,
-  isCurrentUserAdmin,
+  canEditOtherEmployees,
   isSelfEdit,
   currentUserId,
   isSuperAdmin
@@ -1138,72 +1126,66 @@ const EditEmployeeForm = React.memo(({
   
   const isEditingSelf = currentUserId === (editingUser._id || editingUser.id);
   
-  // PERMISSION LOGIC - Only super_admin can edit all fields
-  // Non-super_admin users can only edit basic personal details
-  const canEditJobRole = isSuperAdmin && !isEditingSelf;
-  const canEditDepartment = isSuperAdmin;
-  const canEditStatus = isSuperAdmin && !isEditingSelf;
-  const canEditEmployeeId = isSuperAdmin;
-  const canEditCompanyRole = isSuperAdmin && !isEditingSelf;
-  const canEditSalary = isSuperAdmin;
-  const canEditBankDetails = isSuperAdmin;
-  const canEditEmployeeType = isSuperAdmin;
-  const canEditReportingManager = isSuperAdmin;
+  // If editing SELF -> Full edit access
+  // If editing OTHER and has permission -> Full edit access
+  const hasFullEditAccess = isEditingSelf || canEditOtherEmployees;
   
-  // Show permission warning for non-super_admin users
-  const showPermissionWarning = !isSuperAdmin;
+  // Show permission warning for users without edit access
+  const showPermissionWarning = !canEditOtherEmployees && !isEditingSelf;
+  
+  // Show info for users with edit access
+  const showEditInfo = canEditOtherEmployees && !isEditingSelf;
   
   return (
     <>
       {showPermissionWarning && (
         <div className="EmployeeDirectory-permission-warning">
           <FiShield size={20} />
-          <span>You have limited edit permissions. Only basic personal information, family details, and emergency contacts can be edited.</span>
+          <span>You don't have permission to edit other employees.</span>
+        </div>
+      )}
+      
+      {showEditInfo && (
+        <div className="EmployeeDirectory-permission-info">
+          <FiEdit size={20} />
+          <span>You have full edit access. You can edit all employee details.</span>
         </div>
       )}
       
       <form onSubmit={(e) => e.preventDefault()} className="EmployeeDirectory-edit-form">
         <div className="EmployeeDirectory-form-sections EmployeeDirectory-scrollable-form">
-          {/* Personal Information - Editable by all */}
+          {/* Personal Information */}
           <PersonalInfoForm 
             formData={formData} 
             onInputChange={onInputChange}
             isReadOnly={false}
           />
 
-          {/* Employment Information - Only super_admin can edit */}
+          {/* Employment Information */}
           <EmploymentDetailsForm 
             formData={formData}
             onInputChange={onInputChange}
             departments={departments}
             jobRoles={jobRoles}
-            canEditJobRole={canEditJobRole}
-            canEditDepartment={canEditDepartment}
-            canEditEmployeeId={canEditEmployeeId}
-            canEditCompanyRole={canEditCompanyRole}
-            canEditSalary={canEditSalary}
-            canEditEmployeeType={canEditEmployeeType}
-            canEditReportingManager={canEditReportingManager}
-            canEditStatus={canEditStatus}
+            canEditAllFields={hasFullEditAccess}
             isSuperAdmin={isSuperAdmin}
           />
 
-          {/* Bank Details - Only super_admin can edit */}
+          {/* Bank Details */}
           <BankDetailsForm 
             formData={formData}
             onInputChange={onInputChange}
-            canEditBankDetails={canEditBankDetails}
-            isSuperAdmin={isSuperAdmin}
+            canEdit={hasFullEditAccess}
           />
 
-          {/* Family Details - Editable by all */}
+          {/* Family Details */}
           <FamilyDetailsForm 
             formData={formData}
             onInputChange={onInputChange}
             isReadOnly={false}
           />
 
-          {/* Emergency Contact - Editable by all */}
+          {/* Emergency Contact */}
           <EmergencyContactForm 
             formData={formData}
             onInputChange={onInputChange}
@@ -1258,11 +1240,9 @@ const EmployeeDirectory = () => {
   const currentUserCompanyCode = user.getCurrentUserCompanyCode();
   const currentUserCompanyName = user.getCurrentUserCompanyName();
   const currentUserCompanyRole = user.getCurrentUserCompanyRole();
-  const isCurrentUserAdmin = user.isCurrentUserAdmin;
-  const isCurrentUserManagerOrHR = user.isCurrentUserManagerOrHR;
-  const isCurrentUserOwner = user.isCurrentUserOwner;
   const isSuperAdmin = user.isSuperAdmin;
-  const canEditAllFields = user.canEditAllFields;
+  const canEditOtherEmployees = user.canEditOtherEmployees;
+  const canSeeAllCompanyUsers = user.canSeeAllCompanyUsers;
   
   // Snackbar helper
   const showSnackbar = useCallback((message, severity = 'success') => {
@@ -1368,17 +1348,14 @@ const EmployeeDirectory = () => {
     
     const targetUserId = targetUser._id || targetUser.id;
     
+    // Cannot delete self
     if (currentUserId === targetUserId) {
       return false;
     }
     
-    // Only super_admin can delete users
-    if (!isSuperAdmin) {
-      return false;
-    }
-    
-    return true;
-  }, [currentUserId, isSuperAdmin]);
+    // Users with edit permission can delete
+    return canEditOtherEmployees;
+  }, [currentUserId, canEditOtherEmployees]);
   
   // Responsive check
   useEffect(() => {
@@ -1414,9 +1391,11 @@ const EmployeeDirectory = () => {
       
       let usersRes;
       
-      if (isCurrentUserOwner || isSuperAdmin) {
+      if (canSeeAllCompanyUsers) {
+        console.log("👑 Fetching ALL company users");
         usersRes = await axios.get(`/users/company-users?companyId=${currentUserCompanyId}`, config);
       } else {
+        console.log("👤 Fetching department users only");
         usersRes = await axios.get(
           `/users/department-users?department=${currentUserDepartmentId}`,
           config
@@ -1466,8 +1445,7 @@ const EmployeeDirectory = () => {
   }, [
     currentUserCompanyId, 
     currentUserDepartmentId, 
-    isCurrentUserOwner,
-    isSuperAdmin,
+    canSeeAllCompanyUsers,
     showSnackbar, 
     user.getAuthToken,
     fetchJobRoles
@@ -1509,7 +1487,6 @@ const EmployeeDirectory = () => {
     
     setEditingUser(userData);
     
-    // For self-edit, we might want to load the most up-to-date data from localStorage
     const isEditingSelf = currentUserId === (userData._id || userData.id);
     
     let formDataToSet = { 
@@ -1522,7 +1499,6 @@ const EmployeeDirectory = () => {
       currentlyAssignedAssets: userData.currentlyAssignedAssets || []
     };
     
-    // If editing self, we could also merge with latest localStorage data
     if (isEditingSelf) {
       const latestUserData = user.getCurrentUser();
       if (latestUserData) {
@@ -1544,7 +1520,7 @@ const EmployeeDirectory = () => {
     resetEditForm({});
   }, [resetEditForm]);
   
-  // Handle save - Updated with conditional API endpoint
+  // Handle save
   const handleSaveEdit = useCallback(async () => {
     if (!editingUser) {
       return;
@@ -1568,43 +1544,23 @@ const EmployeeDirectory = () => {
       
       if (updateData.jobRole) {
         const roleObj = jobRoles.find(r => r._id === updateData.jobRole);
-
         if (roleObj) {
-          updateData.jobRole = roleObj.roleName; // ✅ FIX (STRING bhejni hai)
+          updateData.jobRole = roleObj.roleName;
         }
       }
-
      
       const isSelfEdit = currentUserId === userId;
       
-      // Restrict updates based on user role - Only super_admin can edit all fields
-      if (!isSuperAdmin) {
-        // Non-super_admin users can only edit basic personal details
-        const allowedFields = [
-          'name', 'phone', 'dob', 'gender', 'maritalStatus', 'address',
-          'fatherName', 'motherName', 'spouseName', 'children',
-          'emergencyName', 'emergencyPhone', 'emergencyRelation', 'emergencyAddress',
-          'city', 'state', 'zipCode', 'country'
-        ];
-        
-        Object.keys(updateData).forEach(key => {
-          if (!allowedFields.includes(key) && key !== 'email') {
-            delete updateData[key];
-          }
-        });
+      // Permission check: Can edit if self OR has permission to edit others
+      const canEdit = isSelfEdit || canEditOtherEmployees;
+      
+      if (!canEdit) {
+        showSnackbar('You don\'t have permission to edit this user', 'error');
+        setSaving(false);
+        return;
       }
       
-      // If editing self, remove sensitive fields even for super_admin
-      if (isSelfEdit) {
-        delete updateData.jobRole;
-        delete updateData.department;
-        delete updateData.isActive;
-        delete updateData.companyRole;
-        delete updateData.employeeType;
-        delete updateData.salary;
-        delete updateData.employeeId;
-      }
-      
+      // Remove system fields only
       const fieldsToDelete = [
         '_id', 'id', '__v', 'createdAt', 'updatedAt', 
         'company', 'companyCode', 'companyId', 'createdBy',
@@ -1630,9 +1586,6 @@ const EmployeeDirectory = () => {
         }
       };
       
-      // IMPORTANT: Use different API endpoints based on who is being edited
-      // - If editing own profile: PUT /users/me
-      // - If admin editing another user: PUT /users/:id
       const apiUrl = isSelfEdit ? '/users/me' : `/users/${userId}`;
       
       console.log(`📝 Updating user: ${isSelfEdit ? 'Self-edit' : 'Admin edit'} - Endpoint: ${apiUrl}`);
@@ -1643,12 +1596,10 @@ const EmployeeDirectory = () => {
       if (res.data && res.data.success) {
         const updatedUser = res.data.message?.user || res.data.user || res.data.data;
 
-        // ✅ UPDATE SELECTED USER (POPUP FIX)
-          if (selectedUser && (selectedUser._id === userId || selectedUser.id === userId)) {
-            setSelectedUser(updatedUser);
-          }
+        if (selectedUser && (selectedUser._id === userId || selectedUser.id === userId)) {
+          setSelectedUser(updatedUser);
+        }
         
-        // Update employees list
         setEmployees(prev => prev.map(emp => 
           (emp._id === userId || emp.id === userId) 
             ? { ...updatedUser } 
@@ -1659,15 +1610,11 @@ const EmployeeDirectory = () => {
           setSelectedUser(updatedUser);
         }
 
-
-
-        // If editing self, update localStorage with the latest data
         if (isSelfEdit) {
           const currentUserData = user.getCurrentUser();
           const updatedCurrentUser = { ...currentUserData, ...updateData, ...updatedUser };
           localStorage.setItem('user', JSON.stringify(updatedCurrentUser));
           
-          // Also update companyDetails if the user object contains company info
           const companyDetails = localStorage.getItem('companyDetails');
           if (companyDetails && updatedUser.companyDetails) {
             localStorage.setItem('companyDetails', JSON.stringify(updatedUser.companyDetails));
@@ -1690,7 +1637,6 @@ const EmployeeDirectory = () => {
       console.error("❌ Update failed:", err);
       const errorMessage = err.response?.data?.message || 'Failed to update employee';
       
-      // Provide more specific error messages based on status code
       if (err.response?.status === 403) {
         showSnackbar('You do not have permission to edit this user', 'error');
       } else if (err.response?.status === 404) {
@@ -1705,11 +1651,13 @@ const EmployeeDirectory = () => {
     editingUser, 
     editFormData, 
     currentUserId, 
-    isSuperAdmin,
+    canEditOtherEmployees,
     showSnackbar, 
     resetEditForm, 
     user,
-    fetchData
+    fetchData,
+    jobRoles,
+    selectedUser
   ]);
   
   // Handle delete
@@ -1719,9 +1667,9 @@ const EmployeeDirectory = () => {
     const canDelete = canDeleteUser(userData);
     
     if (!canDelete) {
-      const message = isSuperAdmin ? 
+      const message = canEditOtherEmployees ? 
         'You cannot delete your own account' : 
-        'Only super_admin can delete users';
+        'You don\'t have permission to delete users';
       showSnackbar(message, 'error');
       handleMenuClose();
       return;
@@ -1730,7 +1678,7 @@ const EmployeeDirectory = () => {
     setUserToDelete(userData);
     setDeleteConfirmOpen(true);
     handleMenuClose();
-  }, [canDeleteUser, isSuperAdmin, showSnackbar, handleMenuClose]);
+  }, [canDeleteUser, canEditOtherEmployees, showSnackbar, handleMenuClose]);
   
   const handleDeleteConfirm = useCallback(async () => {
     if (!userToDelete) {
@@ -1739,7 +1687,6 @@ const EmployeeDirectory = () => {
     
     const isSelfDelete = currentUserId === (userToDelete._id || userToDelete.id);
     
-    // Prevent self-deletion
     if (isSelfDelete) {
       showSnackbar('You cannot delete your own account', 'error');
       setDeleteConfirmOpen(false);
@@ -1775,8 +1722,6 @@ const EmployeeDirectory = () => {
           handleCloseUser();
         }
         
-      
-        
       } else {
         showSnackbar(response.data.message || 'Delete failed', 'error');
       }
@@ -1788,7 +1733,7 @@ const EmployeeDirectory = () => {
     } finally {
       setDeleting(false);
     }
-  }, [userToDelete, selectedUser, currentUserId, handleCloseUser, showSnackbar, fetchData, user.getAuthToken]);
+  }, [userToDelete, selectedUser, currentUserId, handleCloseUser, showSnackbar, user.getAuthToken]);
   
   // Helper functions
   const formatPhoneNumber = useCallback((phone) => {
@@ -1937,19 +1882,14 @@ const EmployeeDirectory = () => {
             <h1 className="EmployeeDirectory-title">Employee Directory</h1>
             <p className="EmployeeDirectory-subtitle">
               {currentUserCompanyName || 'Company'} • {currentUserCompanyCode}
-              {!isSuperAdmin && currentUserDepartmentId && (
+              {!canSeeAllCompanyUsers && currentUserDepartmentId && (
                 <span className="EmployeeDirectory-department-badge">
                   • {getDepartmentName(currentUserDepartmentId)} Department
                 </span>
               )}
-              {isSuperAdmin && (
+              {canSeeAllCompanyUsers && (
                 <span className="EmployeeDirectory-super-admin-badge">
-                  • Super Admin Access
-                </span>
-              )}
-              {isCurrentUserOwner && !isSuperAdmin && (
-                <span className="EmployeeDirectory-owner-badge">
-                  • Company Owner
+                  • Full Company Access
                 </span>
               )}
             </p>
@@ -2055,7 +1995,7 @@ const EmployeeDirectory = () => {
         
         <div className="EmployeeDirectory-permission-note">
           <FiInfo size={16} />
-          <span>{isSuperAdmin ? 'Super Admin: You have full edit access' : 'You can edit basic personal information, family details, and emergency contacts'}</span>
+          <span>{canEditOtherEmployees ? 'You have full edit access' : 'You can only edit your own profile'}</span>
         </div>
       </div>
 
@@ -2124,7 +2064,7 @@ const EmployeeDirectory = () => {
               currentUserId={currentUserId}
               jobRoles={jobRoles}
               departments={departments}
-              isSuperAdmin={isSuperAdmin}
+              canEditOtherEmployees={canEditOtherEmployees}
             />
           ))}
         </div>
@@ -2449,7 +2389,7 @@ const EmployeeDirectory = () => {
             </div>
             
             <div className="EmployeeDirectory-modal-footer">
-              {isSuperAdmin && (
+              {(canEditOtherEmployees || currentUserId === (selectedUser._id || selectedUser.id)) && (
                 <button 
                   className="EmployeeDirectory-btn EmployeeDirectory-btn-contained"
                   onClick={() => handleEdit(selectedUser)}
@@ -2491,7 +2431,7 @@ const EmployeeDirectory = () => {
                 onInputChange={handleInputChange}
                 departments={departments}
                 jobRoles={jobRoles}
-                isCurrentUserAdmin={isCurrentUserAdmin}
+                canEditOtherEmployees={canEditOtherEmployees}
                 isSelfEdit={currentUserId === (editingUser._id || editingUser.id)}
                 currentUserId={currentUserId}
                 isSuperAdmin={isSuperAdmin}
@@ -2587,8 +2527,8 @@ const EmployeeDirectory = () => {
         </div>
       )}
 
-      {/* Context Menu - Only visible to super_admin */}
-      {isSuperAdmin && menuAnchorEl && selectedMenuUser && (
+      {/* Context Menu - Only visible to users with edit access */}
+      {canEditOtherEmployees && menuAnchorEl && selectedMenuUser && (
         <>
           <div 
             className="EmployeeDirectory-modal-overlay"

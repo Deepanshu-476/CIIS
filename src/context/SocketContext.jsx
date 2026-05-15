@@ -15,7 +15,7 @@ export const useSocket = () => {
       notifications: [],
       unreadCount: 0,
       markAsRead: () => Promise.resolve(),
-      joinLeaveRoom: () => {},
+      joinLeaveRoom: () => {},  
       leaveLeaveRoom: () => {},
       onNewLeave: () => () => {},
       onLeaveStatusChanged: () => () => {},

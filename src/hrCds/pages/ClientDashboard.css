@@ -1587,3 +1587,295 @@
     font-size: 12px;
   }
 }
+/* ========== SUBSCRIPTION RENEWAL CARD STYLES ========== */
+.ClientDashboard-renewal-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: all 0.3s ease;
+  border: 1px solid rgba(59, 130, 246, 0.1);
+}
+
+.ClientDashboard-renewal-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.ClientDashboard-renewal-description {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.ClientDashboard-renewal-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  animation: slideDown 0.3s ease;
+}
+
+.ClientDashboard-renewal-message--success {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+  border-left: 4px solid #10b981;
+}
+
+.ClientDashboard-renewal-message--error {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+  border-left: 4px solid #ef4444;
+}
+
+.ClientDashboard-renewal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ClientDashboard-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ClientDashboard-form-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.ClientDashboard-form-icon {
+  color: #3b82f6;
+  font-size: 16px;
+}
+
+.ClientDashboard-form-input {
+  padding: 12px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.ClientDashboard-form-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.ClientDashboard-form-input:disabled {
+  background: #f9fafb;
+  cursor: not-allowed;
+}
+
+/* File Upload Area */
+.ClientDashboard-file-upload-area {
+  position: relative;
+}
+
+.ClientDashboard-file-input {
+  position: absolute;
+  opacity: 0;
+  width: 0.1px;
+  height: 0.1px;
+  overflow: hidden;
+}
+
+.ClientDashboard-file-upload-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px 20px;
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #f9fafb;
+  text-align: center;
+}
+
+.ClientDashboard-file-upload-label:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.ClientDashboard-file-upload-label svg {
+  font-size: 32px;
+  color: #9ca3af;
+}
+
+.ClientDashboard-file-upload-label span {
+  font-size: 14px;
+  color: #374151;
+}
+
+.ClientDashboard-file-upload-label small {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.ClientDashboard-file-upload-label .ClientDashboard-file-clear {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.ClientDashboard-file-upload-label .ClientDashboard-file-clear:hover {
+  background: #dc2626;
+  transform: scale(1.1);
+}
+
+/* File Preview */
+.ClientDashboard-file-preview {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.ClientDashboard-file-preview img {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  padding: 4px;
+}
+
+/* Renewal Actions */
+.ClientDashboard-renewal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.ClientDashboard-btn {
+  flex: 1;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+}
+
+.ClientDashboard-btn--primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+}
+
+.ClientDashboard-btn--primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.ClientDashboard-btn--primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ClientDashboard-btn--outlined {
+  background: white;
+  color: #374151;
+  border: 2px solid #e5e7eb;
+}
+
+.ClientDashboard-btn--outlined:hover:not(:disabled) {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: #eff6ff;
+}
+
+.ClientDashboard-btn--outlined:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Renewal Info */
+.ClientDashboard-renewal-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #fef3c7;
+  border-radius: 8px;
+  margin-top: 16px;
+  font-size: 12px;
+  color: #92400e;
+}
+
+.ClientDashboard-renewal-info svg {
+  flex-shrink: 0;
+}
+
+/* Small Spinner */
+.ClientDashboard-spinner-small {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .ClientDashboard-renewal-actions {
+    flex-direction: column;
+  }
+  
+  .ClientDashboard-renewal-card {
+    padding: 16px;
+  }
+  
+  .ClientDashboard-file-upload-label {
+    padding: 20px 16px;
+  }
+  
+  .ClientDashboard-form-input {
+    padding: 10px 14px;
+  }
+}

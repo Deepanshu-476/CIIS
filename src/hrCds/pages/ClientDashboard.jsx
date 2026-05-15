@@ -40,7 +40,11 @@ import {
   FiThumbsUp,
   FiHeart,
   FiShare2,
-  FiMoreVertical
+  FiMoreVertical,
+  FiUpload,
+  FiDollarSign,
+  FiCreditCard,
+  FiFileText
 } from 'react-icons/fi';
 import { Line, Doughnut } from 'react-chartjs-2';
 import {
@@ -490,6 +494,251 @@ const ServiceProgressCard = ({ service, clientId, api }) => {
   );
 };
 
+// ========== SUBSCRIPTION RENEWAL COMPONENT ==========
+const SubscriptionRenewal = ({ clientId, onRenewalSuccess, api }) => {
+  const [renewAmount, setRenewAmount] = useState('');
+  const [transactionId, setTransactionId] = useState('');
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+  const [previewUrl, setPreviewUrl] = useState(null);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+      if (!validTypes.includes(file.type)) {
+        setMessage({ type: 'error', text: 'Please upload a valid file (JPEG, PNG, or PDF)' });
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setMessage({ type: 'error', text: 'File size should be less than 5MB' });
+        return;
+      }
+      
+      setReceiptFile(file);
+      setMessage({ type: '', text: '' });
+      
+      // Create preview for images
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPreviewUrl(reader.result);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setPreviewUrl(null);
+      }
+    }
+  };
+
+  const handleReceiptUpload = async () => {
+    // Validate fields
+    if (!renewAmount || !transactionId || !receiptFile) {
+      setMessage({ type: 'error', text: 'Please fill all fields and upload receipt' });
+      return;
+    }
+
+    if (isNaN(renewAmount) || parseFloat(renewAmount) <= 0) {
+      setMessage({ type: 'error', text: 'Please enter a valid amount' });
+      return;
+    }
+
+    setUploadingReceipt(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const formData = new FormData();
+      formData.append('amount', renewAmount);
+      formData.append('transactionId', transactionId);
+      formData.append('receipt', receiptFile);
+      formData.append('uploadDate', new Date().toISOString());
+
+      const response = await api.post(`/upload-receipt/${clientId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.data?.success) {
+        setMessage({ type: 'success', text: 'Receipt uploaded successfully! Owner has been notified.' });
+        
+        // Reset form
+        setRenewAmount('');
+        setTransactionId('');
+        setReceiptFile(null);
+        setPreviewUrl(null);
+        
+        // Notify parent component
+        if (onRenewalSuccess) {
+          onRenewalSuccess();
+        }
+        
+        // Clear success message after 5 seconds
+        setTimeout(() => {
+          setMessage({ type: '', text: '' });
+        }, 5000);
+      } else {
+        setMessage({ type: 'error', text: response.data?.message || 'Failed to upload receipt' });
+      }
+    } catch (error) {
+      console.error('Error uploading receipt:', error);
+      setMessage({ 
+        type: 'error', 
+        text: error.response?.data?.message || 'Failed to upload receipt. Please try again.' 
+      });
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
+
+  const handleReset = () => {
+    setRenewAmount('');
+    setTransactionId('');
+    setReceiptFile(null);
+    setPreviewUrl(null);
+    setMessage({ type: '', text: '' });
+  };
+
+  return (
+    <div className="ClientDashboard-renewal-card">
+      <div className="ClientDashboard-card-header">
+        <h3>Renew Subscription</h3>
+        <FiRefreshCw className="ClientDashboard-card-header-icon" />
+      </div>
+      
+      <div className="ClientDashboard-renewal-content">
+        <p className="ClientDashboard-renewal-description">
+          Submit your payment details to renew your subscription. Once verified, your subscription will be extended.
+        </p>
+        
+        {message.text && (
+          <div className={`ClientDashboard-renewal-message ClientDashboard-renewal-message--${message.type}`}>
+            {message.type === 'success' ? <FiCheckCircle /> : <FiAlertCircle />}
+            <span>{message.text}</span>
+          </div>
+        )}
+        
+        <div className="ClientDashboard-renewal-form">
+          <div className="ClientDashboard-form-group">
+            <label className="ClientDashboard-form-label">
+              <FiDollarSign className="ClientDashboard-form-icon" />
+              Amount (₹)
+            </label>
+            <input
+              type="number"
+              className="ClientDashboard-form-input"
+              placeholder="Enter amount"
+              value={renewAmount}
+              onChange={(e) => setRenewAmount(e.target.value)}
+              disabled={uploadingReceipt}
+            />
+          </div>
+          
+          <div className="ClientDashboard-form-group">
+            <label className="ClientDashboard-form-label">
+              <FiCreditCard className="ClientDashboard-form-icon" />
+              Transaction ID
+            </label>
+            <input
+              type="text"
+              className="ClientDashboard-form-input"
+              placeholder="Enter transaction ID"
+              value={transactionId}
+              onChange={(e) => setTransactionId(e.target.value)}
+              disabled={uploadingReceipt}
+            />
+          </div>
+          
+          <div className="ClientDashboard-form-group">
+            <label className="ClientDashboard-form-label">
+              <FiUpload className="ClientDashboard-form-icon" />
+              Upload Receipt
+            </label>
+            <div className="ClientDashboard-file-upload-area">
+              <input
+                type="file"
+                id="receipt-upload"
+                className="ClientDashboard-file-input"
+                onChange={handleFileChange}
+                accept="image/jpeg,image/png,image/jpg,application/pdf"
+                disabled={uploadingReceipt}
+              />
+              <label htmlFor="receipt-upload" className="ClientDashboard-file-upload-label">
+                {receiptFile ? (
+                  <>
+                    <FiFileText />
+                    <span>{receiptFile.name}</span>
+                    <button 
+                      className="ClientDashboard-file-clear"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setReceiptFile(null);
+                        setPreviewUrl(null);
+                      }}
+                    >
+                      ×
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <FiUpload />
+                    <span>Click or drag to upload receipt</span>
+                    <small>JPEG, PNG, or PDF (Max 5MB)</small>
+                  </>
+                )}
+              </label>
+            </div>
+            
+            {previewUrl && (
+              <div className="ClientDashboard-file-preview">
+                <img src={previewUrl} alt="Receipt Preview" />
+              </div>
+            )}
+          </div>
+          
+          <div className="ClientDashboard-renewal-actions">
+            <button 
+              className="ClientDashboard-btn ClientDashboard-btn--outlined"
+              onClick={handleReset}
+              disabled={uploadingReceipt}
+            >
+              Reset
+            </button>
+            <button 
+              className="ClientDashboard-btn ClientDashboard-btn--primary"
+              onClick={handleReceiptUpload}
+              disabled={uploadingReceipt}
+            >
+              {uploadingReceipt ? (
+                <>
+                  <div className="ClientDashboard-spinner-small"></div>
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <FiUpload />
+                  Submit Renewal
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+        
+        <div className="ClientDashboard-renewal-info">
+          <FiInfo size={14} />
+          <small>
+            Your payment will be verified by the owner. You'll receive a confirmation once approved.
+          </small>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ========== MAIN CLIENT DASHBOARD COMPONENT ==========
 const ClientDashboard = () => {
   const [client, setClient] = useState(null);
@@ -745,6 +994,11 @@ const ClientDashboard = () => {
       await fetchAllServicesTasks(client._id, client.services);
     }
     setRefreshing(false);
+  };
+
+  const handleRenewalSuccess = () => {
+    // Refresh client data to show updated subscription
+    fetchClientData();
   };
 
   useEffect(() => {
@@ -1074,6 +1328,13 @@ const ClientDashboard = () => {
               </div>
             )}
           </div>
+
+          {/* Subscription Renewal Card */}
+          <SubscriptionRenewal 
+            clientId={client._id}
+            onRenewalSuccess={handleRenewalSuccess}
+            api={api}
+          />
 
           {/* Project Team Section */}
           {clientManagers.length > 0 && (

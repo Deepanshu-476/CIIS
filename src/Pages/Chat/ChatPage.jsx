@@ -31,6 +31,10 @@ const [onlineUsers,
 setOnlineUsers] =
 useState([]);
 
+const [unreadCounts,
+setUnreadCounts] =
+useState({});
+
 const socket =
 useSocket()?.socket;
 
@@ -80,10 +84,25 @@ useEffect(() => {
         socket.off(
             "chat:online-users"
         );
+        socket.off(
+            "chat:unread-update"
+        );
     };
 
 }, [socket]);
+socket.on(
+    "chat:unread-update",
+    (data) => {
 
+        setUnreadCounts((prev) => ({
+
+            ...prev,
+
+            [data.senderId]:
+                data.count
+        }));
+    }
+);
 
     const fetchUsers =
     async () => {
@@ -112,6 +131,7 @@ useEffect(() => {
             <ChatSidebar
                 users={users}
                 onlineUsers={onlineUsers}
+                unreadCounts={unreadCounts}
                 selectedUser={selectedUser}
                 setSelectedUser={
                     setSelectedUser

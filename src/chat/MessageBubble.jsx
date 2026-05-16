@@ -22,6 +22,30 @@ const MessageBubble = ({
 
             {message.text}
 
+            {
+    message.sender?._id ===
+    currentUser?._id && (
+
+        <div
+            style={{
+                fontSize: "11px",
+                marginTop: "4px",
+                textAlign: "right",
+                color:
+                    message.seen
+                    ? "#22c55e"
+                    : "#999"
+            }}
+        >
+            {
+                message.seen
+                ? "✔✔ Seen"
+                : "✔ Sent"
+            }
+        </div>
+    )
+}
+
         </div>
 
     </div>

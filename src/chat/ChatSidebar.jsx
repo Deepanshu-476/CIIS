@@ -3,6 +3,7 @@ import React from "react";
 const ChatSidebar = ({
     users,
     onlineUsers,
+    unreadCounts,
     selectedUser,
     setSelectedUser
 }) => {
@@ -29,9 +30,45 @@ const ChatSidebar = ({
                     }
                 >
 
-                    <div className="chat-user-name">
-                        {user.name}
-                    </div>
+                    <div
+    style={{
+        display: "flex",
+        justifyContent:
+            "space-between",
+        alignItems: "center"
+    }}
+>
+
+    <div className="chat-user-name">
+        {user.name}
+    </div>
+
+    {
+        unreadCounts[user._id] > 0 && (
+
+            <div
+                style={{
+                    minWidth: "22px",
+                    height: "22px",
+                    borderRadius: "50%",
+                    background: "#22c55e",
+                    color: "#fff",
+                    fontSize: "12px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent:
+                        "center",
+                    fontWeight: "600"
+                }}
+            >
+                {
+                    unreadCounts[user._id]
+                }
+            </div>
+        )
+    }
+
+</div>
 
                     <div className="chat-user-role">
                         {

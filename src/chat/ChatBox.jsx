@@ -39,22 +39,61 @@ useEffect(() => {
     socket.on(
         "chat:receive-message",
         (message) => {
+            socket.emit(
+                "chat:seen",
+                {
+                    messageId:
+                        message._id,
+
+                    senderId:
+                        message.sender._id
+                }
+            );
 
             setMessages((prev) => [
 
                 ...prev,
 
-                message
+                {
+                    ...message,
+                    seen: false
+                }
             ]);
         }
     );
 
+    socket.on(
+    "chat:message-seen",
+    (data) => {
+
+        setMessages((prev) =>
+
+            prev.map((msg) =>
+
+                msg._id ===
+                data.messageId
+
+                ? {
+                    ...msg,
+                    seen: true
+                }
+
+                : msg
+            )
+        );
+    }
+);
+
     return () => {
 
-        socket.off(
-            "chat:receive-message"
-        );
-    };
+    socket.off(
+        "chat:receive-message"
+    );
+
+    socket.off(
+        "chat:message-seen"
+    );
+};
 
 }, []);
 
@@ -125,8 +164,13 @@ useEffect(() => {
                 await sendMessage(payload);
 
             setMessages((prev) => [
+
                 ...prev,
-                res.data.message
+
+                {
+                    ...res.data.message,
+                    seen: false
+                }
             ]);
 
             socket.emit(

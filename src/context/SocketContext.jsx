@@ -20,7 +20,7 @@ export const useSocket = () => {
       onNewLeave: () => () => {},
       onLeaveStatusChanged: () => () => {},
       onLeaveDeleted: () => () => {},
-      socket: socketService
+      socket: socketService.socket
     };
   }
   return context;
@@ -484,7 +484,7 @@ export const SocketProvider = ({ children }) => {
     onNewLeave: handleNewLeave,
     onLeaveStatusChanged: handleLeaveStatusChanged,
     onLeaveDeleted: handleLeaveDeleted,
-    socket: socketService
+    socket: socketService.socket
   };
 
   console.log('🔄 SocketProvider rendering with state:', {

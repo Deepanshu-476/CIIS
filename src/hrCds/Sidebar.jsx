@@ -30,6 +30,7 @@ import {
   Task as TaskIcon,
   MeetingRoom as MeetingRoomIcon,
   Groups as GroupsIcon,
+  Chat as ChatIcon,
   VideoCall as VideoCallIcon,
   ListAlt as ListAltIcon,
   ExpandMore,
@@ -181,6 +182,8 @@ const iconMap = {
   'meeting': VideoCallIcon,
   'Groups': GroupsIcon,
   'groups': GroupsIcon,
+  'Chat': ChatIcon,
+  'chat': ChatIcon,
   'ProjectIcon': GroupsIcon,
   'projecticon': GroupsIcon,
   'Project': GroupsIcon,
@@ -189,6 +192,7 @@ const iconMap = {
   'settings': SettingsIcon,
   'Logout': LogoutOutlined,
   'logout': LogoutOutlined,
+  
 };
 
 // ✅ Get icon component - case insensitive aur fallback
@@ -278,6 +282,14 @@ const fixedDefaultItems = [
     path: '/ciisUser/change-password',
     category: 'main',
     order: 5
+  },
+  {
+    id: 'chat',
+    name: 'Chat',
+    icon: 'Chat',
+    path: '/ciisUser/chat',
+    category: 'communication',
+    order: 6
   }
 ];
 
@@ -442,6 +454,14 @@ const allPagesItems = [
     path: '/ciisUser/change-password',
     category: 'main',
     order: 20
+  },
+  {
+    id: 'chat',
+    name: 'Chat',
+    icon: 'Chat',
+    path: '/ciisUser/chat',
+    category: 'communication',
+    order: 21
   }
 ];
 
@@ -472,6 +492,7 @@ const getPathFromName = (name) => {
     'Department All Tasks': '/ciisUser/department-all-task',
     'Client Management': '/ciisUser/emp-client',
     'Change Password': '/ciisUser/change-password',
+    'Chat': '/ciisUser/chat',
     'Client Dashboard': '/ciisUser/client-dashboard'
   };
   

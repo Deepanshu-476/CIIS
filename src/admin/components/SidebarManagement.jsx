@@ -30,6 +30,7 @@ const APP_ROUTES = [
   { path: 'client-meeting', name: 'Client Meeting', icon: 'VideoCall', category: 'meetings' },
   { path: 'change-password', name: 'Change Password', icon: 'Key', category: 'main' },
   { path: 'create-alert' , name: 'Create Alert', icon: 'Notifications', category: 'communication' },
+  { path: 'chat', name: 'Chat', icon: 'Chat', category: 'communication' },
 ];
 
 // Helper function to get icon component as HTML string
@@ -58,6 +59,7 @@ const getIconHtml = (iconName) => {
     Work: '💼',
     People: '👥',
     Forum: '💬',
+    Chat: '💬',
     Analytics: '📊',
     Receipt: '🧾',
     Assessment: '📈',

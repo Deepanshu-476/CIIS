@@ -63,6 +63,7 @@ import AllCompany from "./page/AllCompany.jsx";
 import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
 
+import ChatPage from "./pages/Chat/ChatPage";
 
 
 function App() {
@@ -151,7 +152,10 @@ function App() {
           <Route path="create-user" element={<CreateUser />} />
           <Route path="create-alert" element={<CreateAlerts />} />
           <Route path="user-profile" element={<UserProfile/>} />
-       
+          <Route
+            path="chat"
+            element={<ChatPage />}
+          />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

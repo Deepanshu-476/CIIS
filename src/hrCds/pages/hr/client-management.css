@@ -835,15 +835,15 @@ textarea.ClientManagement-form-input {
 }
 
 .ClientManagement-task-item {
-  display: flex;
-  align-items: flex-start;
-  padding: 6px 8px;
-  border-bottom: 1px solid #e2e8f0;
-  gap: 6px;
-  transition: all 0.2s ease;
-  background: white;
-  position: relative;
-  overflow: hidden;
+    display: flex;
+    align-items: flex-start;
+    padding: 4px 5px;
+    border-bottom: 1px solid #e2e8f0;
+    gap: 6px;
+    /* transition: all 0.2s ease; */
+    /* background: white; */
+    /* position: relative; */
+    /* overflow: hidden; */
 }
 
 .ClientManagement-task-item:last-child {
@@ -2917,4 +2917,418 @@ textarea.ClientManagement-form-input {
 .ClientManagement-sub-status.expired {
   background: #fee2e2;
   color: #991b1b;
+<<<<<<< HEAD
+=======
+}
+/* Payment Receipts Modal Styles */
+.ClientManagement-payment-receipts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 500px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.ClientManagement-payment-receipt-card {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+}
+
+.ClientManagement-payment-receipt-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border-color: #d1d5db;
+}
+
+.ClientManagement-payment-receipt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ClientManagement-payment-receipt-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ClientManagement-payment-receipt-number {
+  font-weight: 600;
+  color: #3b82f6;
+  font-size: 14px;
+}
+
+.ClientManagement-payment-receipt-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.ClientManagement-payment-receipt-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ClientManagement-payment-detail-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ClientManagement-payment-detail-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #4b5563;
+  min-width: 100px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ClientManagement-payment-detail-value {
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.ClientManagement-amount-highlight {
+  font-weight: 700;
+  color: #10b981;
+  font-size: 16px;
+}
+
+.ClientManagement-transaction-id {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ClientManagement-transaction-id code {
+  background: #f3f4f6;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.ClientManagement-copy-transaction-btn {
+  background: #e5e7eb;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.2s;
+}
+
+.ClientManagement-copy-transaction-btn:hover {
+  background: #d1d5db;
+}
+
+.ClientManagement-payment-receipt-image-container {
+  margin-top: 8px;
+}
+
+.ClientManagement-receipt-image-wrapper {
+  margin-top: 8px;
+  display: inline-block;
+  position: relative;
+}
+
+.ClientManagement-receipt-image {
+  max-width: 100%;
+  max-height: 150px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.ClientManagement-receipt-image:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.ClientManagement-view-receipt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.ClientManagement-view-receipt-btn:hover {
+  background: #2563eb;
+}
+
+.ClientManagement-payment-verification-info {
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.ClientManagement-payment-verification-info.approved {
+  background: #f0fdf4;
+  border-left: 3px solid #10b981;
+}
+
+.ClientManagement-payment-verification-info.rejected {
+  background: #fef2f2;
+  border-left: 3px solid #ef4444;
+}
+
+.ClientManagement-verification-notes {
+  margin-top: 4px;
+  font-style: italic;
+  color: #6b7280;
+}
+
+.ClientManagement-current-subscription-info {
+  background: linear-gradient(135deg, #eff6ff 0%, #e0e7ff 100%);
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.ClientManagement-current-subscription-info h4 {
+  margin-bottom: 12px;
+  color: #1e40af;
+}
+
+.ClientManagement-subscription-details {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.ClientManagement-subscription-date {
+  font-size: 14px;
+}
+
+.ClientManagement-subscription-status {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ClientManagement-subscription-status.active {
+  background: #10b981;
+  color: white;
+}
+
+.ClientManagement-subscription-status.expired {
+  background: #ef4444;
+  color: white;
+}
+
+.ClientManagement-receipts-title {
+  margin-bottom: 16px;
+  color: #374151;
+}
+
+/* Action button colors */
+.ClientManagement-action-button--info {
+  color: #8b5cf6;
+}
+
+.ClientManagement-action-button--info:hover {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.ClientManagement-header-icon {
+  margin-right: 8px;
+  vertical-align: middle;
+}
+/* ========== RENEWAL SECTION STYLES ========== */
+.ClientManagement-renewal-section {
+  margin-bottom: 20px;
+}
+
+.ClientManagement-renewal-toggle-btn {
+  width: 100%;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.ClientManagement-renewal-toggle-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.ClientManagement-renewal-toggle-btn.active {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.ClientManagement-renewal-form-container {
+  background: #f0fdf4;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid #bbf7d0;
+}
+
+.ClientManagement-renewal-form-container h4 {
+  color: #065f46;
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+.ClientManagement-renewal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ClientManagement-renewal-dates-preview {
+  display: flex;
+  gap: 16px;
+  padding: 12px;
+  background: #d1fae5;
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+.ClientManagement-preview-item {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.ClientManagement-preview-item span {
+  color: #065f46;
+}
+
+.ClientManagement-preview-item strong {
+  color: #047857;
+}
+
+.ClientManagement-renewal-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.ClientManagement-renewal-message--success {
+  background: #d1fae5;
+  color: #065f46;
+  border-left: 3px solid #10b981;
+}
+
+.ClientManagement-renewal-message--error {
+  background: #fee2e2;
+  color: #991b1b;
+  border-left: 3px solid #ef4444;
+}
+
+.ClientManagement-file-upload-area {
+  position: relative;
+}
+
+.ClientManagement-file-input {
+  position: absolute;
+  opacity: 0;
+  width: 0.1px;
+  height: 0.1px;
+  overflow: hidden;
+}
+
+.ClientManagement-file-upload-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 12px;
+  cursor: pointer;
+  background: white;
+  transition: all 0.2s;
+  flex-wrap: wrap;
+}
+
+.ClientManagement-file-upload-label:hover {
+  border-color: #10b981;
+  background: #f0fdf4;
+}
+
+.ClientManagement-file-upload-label svg {
+  font-size: 20px;
+  color: #10b981;
+}
+
+.ClientManagement-file-clear {
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  margin-left: 8px;
+}
+
+.ClientManagement-renewal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.ClientManagement-spinner-small {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;  
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+>>>>>>> e1d0cb8c01ff454da64890ba6d1dc0b10d490ea6
 }

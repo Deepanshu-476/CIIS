@@ -15,12 +15,12 @@ export const useSocket = () => {
       notifications: [],
       unreadCount: 0,
       markAsRead: () => Promise.resolve(),
-      joinLeaveRoom: () => {},
+      joinLeaveRoom: () => {},  
       leaveLeaveRoom: () => {},
       onNewLeave: () => () => {},
       onLeaveStatusChanged: () => () => {},
       onLeaveDeleted: () => () => {},
-      socket: socketService
+      socket: socketService.socket
     };
   }
   return context;
@@ -484,7 +484,7 @@ export const SocketProvider = ({ children }) => {
     onNewLeave: handleNewLeave,
     onLeaveStatusChanged: handleLeaveStatusChanged,
     onLeaveDeleted: handleLeaveDeleted,
-    socket: socketService
+    socket: socketService.socket
   };
 
   console.log('🔄 SocketProvider rendering with state:', {

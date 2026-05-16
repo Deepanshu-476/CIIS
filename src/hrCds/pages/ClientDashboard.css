@@ -1586,8 +1586,6 @@
     padding: 6px 12px;
     font-size: 12px;
   }
-<<<<<<< HEAD
-=======
 }
 /* ========== SUBSCRIPTION RENEWAL CARD STYLES ========== */
 .ClientDashboard-renewal-card {
@@ -1880,5 +1878,4 @@
   .ClientDashboard-form-input {
     padding: 10px 14px;
   }
->>>>>>> e1d0cb8c01ff454da64890ba6d1dc0b10d490ea6
 }

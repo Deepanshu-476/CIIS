@@ -2917,8 +2917,6 @@ textarea.ClientManagement-form-input {
 .ClientManagement-sub-status.expired {
   background: #fee2e2;
   color: #991b1b;
-<<<<<<< HEAD
-=======
 }
 /* Payment Receipts Modal Styles */
 .ClientManagement-payment-receipts-list {
@@ -3330,5 +3328,4 @@ textarea.ClientManagement-form-input {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
->>>>>>> e1d0cb8c01ff454da64890ba6d1dc0b10d490ea6
 }

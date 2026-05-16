@@ -1329,8 +1329,6 @@ const ClientDashboard = () => {
             )}
           </div>
 
-<<<<<<< HEAD
-=======
           {/* Subscription Renewal Card */}
           <SubscriptionRenewal 
             clientId={client._id}
@@ -1338,7 +1336,6 @@ const ClientDashboard = () => {
             api={api}
           />
 
->>>>>>> e1d0cb8c01ff454da64890ba6d1dc0b10d490ea6
           {/* Project Team Section */}
           {clientManagers.length > 0 && (
             <div className="ClientDashboard-team-card">

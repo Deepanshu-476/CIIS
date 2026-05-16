@@ -99,11 +99,7 @@ usersApi.interceptors.request.use(
 );
 
 // ============================================
-<<<<<<< HEAD
-//  REST OF THE COMPONENT
-=======
 //  PAYMENT RECEIPTS MODAL COMPONENT - UPDATED (ONLY SUBSCRIPTION RENEWAL/DATE CHANGE)
->>>>>>> e1d0cb8c01ff454da64890ba6d1dc0b10d490ea6
 // ============================================
 const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, userRole }) => {
   const [startDate, setStartDate] = useState('');
@@ -1284,9 +1280,6 @@ const AddClientModal = ({
       } else {
         setDateError('');
         return true;
-<<<<<<< HEAD
-      }
-=======
       }
     }
     setDateError('');
@@ -1390,145 +1383,8 @@ const AddClientModal = ({
       const responseData = error.response?.data || {};
       const message = responseData.message || responseData.errors?.join(', ') || error.message || 'Client add failed';
       setFormError(message);
->>>>>>> e1d0cb8c01ff454da64890ba6d1dc0b10d490ea6
     }
-    setDateError('');
-    return true;
   };
-
-  const handleStartDateChange = (date) => {
-    setNewClient({...newClient, subscriptionStartDate: date});
-    validateSubscriptionDates(date, newClient.subscriptionEndDate);
-  };
-
-  const handleEndDateChange = (date) => {
-    setNewClient({...newClient, subscriptionEndDate: date});
-    validateSubscriptionDates(newClient.subscriptionStartDate, date);
-  };
-
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  console.log('🔍 AddClientModal handleSubmit called with data:', newClient);
-
-  setFormError('');
-  setFieldErrors({});
-  setDateError('');
-
-  const nextFieldErrors = {};
-  if (!newClient.client.trim()) nextFieldErrors.client = 'Client name is required';
-  if (!newClient.company.trim()) nextFieldErrors.company = 'Company is required';
-  if (!newClient.city.trim()) nextFieldErrors.city = 'City is required';
-  if (newClient.projectManagers.length === 0) nextFieldErrors.projectManagers = 'Select at least one team member';
-  if (!companyCode) nextFieldErrors.companyCode = 'Company code is missing. Please login again.';
-  if (filteredServices.length === 0) nextFieldErrors.services = 'Add at least one service before creating a client.';
-  if (newClient.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newClient.email.trim())) {
-    nextFieldErrors.email = 'Enter a valid email address';
-  }
-
-  let subscriptionArray = [];
-  if (newClient.subscriptionStartDate && newClient.subscriptionEndDate) {
-    const start = new Date(newClient.subscriptionStartDate);
-    const end = new Date(newClient.subscriptionEndDate);
-    if (end <= start) {
-      nextFieldErrors.subscriptionDates = 'End date must be greater than start date';
-    } else {
-      subscriptionArray = [{
-        startDate: newClient.subscriptionStartDate,
-        endDate: newClient.subscriptionEndDate,
-        status: 'Active'
-      }];
-      console.log('✅ Subscription array created:', subscriptionArray);
-    }
-  }
-
-  if (Object.keys(nextFieldErrors).length > 0) {
-    setFieldErrors(nextFieldErrors);
-    setFormError(Object.values(nextFieldErrors)[0]);
-    return;
-  }
-
-  if (
-    newClient.client &&
-    newClient.company &&
-    newClient.city &&
-    newClient.projectManagers.length > 0
-  ) {
-    try {
-      const selectedManagerIds = newClient.projectManagers;
-
-      const selectedManagers = projectManagers.filter(pm =>
-        selectedManagerIds.includes(pm._id)
-      );
-      console.log('🔍 Selected managers:', selectedManagers);
-
-      const formattedProjectManagers = selectedManagers.map(pm => ({
-        _id: pm._id,
-        name: pm.name,
-        email: pm.email,
-        role: pm.role
-      }));
-
-      const clientData = {
-        client: newClient.client,
-        company: newClient.company,
-        city: newClient.city,
-        projectManagers: formattedProjectManagers,
-        projectManager: selectedManagers.map(pm => pm.name),
-        services: newClient.services,
-        status: newClient.status,
-        progress: newClient.progress,
-        email: newClient.email,
-        phone: newClient.phone,
-        address: newClient.address,
-        description: newClient.description,
-        notes: newClient.notes,
-        companyCode: companyCode,
-        subscriptionStartDate: newClient.subscriptionStartDate || null,
-        subscriptionEndDate: newClient.subscriptionEndDate || null,
-        subscription: subscriptionArray
-      };
-
-      console.log('🔍 Final client data to send:', JSON.stringify(clientData, null, 2));
-      await onAddClient(clientData);
-
-      setNewClient({
-        client: '',
-        company: '',
-        city: '',
-        projectManagers: [],
-        services: [],
-        status: 'Active',
-        progress: '',
-        email: '',
-        phone: '',
-        address: '',
-        description: '',
-        notes: '',
-        subscriptionStartDate: '',
-        subscriptionEndDate: ''
-      });
-
-      console.log('✅ Client added successfully');
-
-    } catch (error) {
-      console.error("❌ Error adding client:", error);
-      const responseData = error.response?.data || {};
-      const message = responseData.message || responseData.errors?.join(', ') || error.message || 'Client add failed';
-      setFormError(message);
-      if (responseData.field) {
-        setFieldErrors({ [responseData.field]: message });
-      }
-    }
-  } else {
-    console.warn('⚠️ Form validation failed:', {
-      client: !!newClient.client,
-      company: !!newClient.company,
-      city: !!newClient.city,
-      projectManagers: newClient.projectManagers.length > 0
-    });
-    setFormError('Please fill all required fields.');
-  }
-};
 
   const filteredManagers = Array.isArray(projectManagers) 
     ? projectManagers.filter(manager =>
@@ -1579,10 +1435,6 @@ const handleSubmit = async (e) => {
                   className="ClientManagement-form-input"
                   value={newClient.client}
                   onChange={(e) => {
-<<<<<<< HEAD
-                    console.log('🔍 Client name changed:', e.target.value);
-=======
->>>>>>> e1d0cb8c01ff454da64890ba6d1dc0b10d490ea6
                     setFieldErrors(prev => ({ ...prev, client: '' }));
                     setNewClient({...newClient, client: e.target.value});
                   }}
@@ -1599,10 +1451,6 @@ const handleSubmit = async (e) => {
                   className="ClientManagement-form-input"
                   value={newClient.company}
                   onChange={(e) => {
-<<<<<<< HEAD
-                    console.log('🔍 Company changed:', e.target.value);
-=======
->>>>>>> e1d0cb8c01ff454da64890ba6d1dc0b10d490ea6
                     setFieldErrors(prev => ({ ...prev, company: '' }));
                     setNewClient({...newClient, company: e.target.value});
                   }}
@@ -1619,10 +1467,6 @@ const handleSubmit = async (e) => {
                   className="ClientManagement-form-input"
                   value={newClient.city}
                   onChange={(e) => {
-<<<<<<< HEAD
-                    console.log('🔍 City changed:', e.target.value);
-=======
->>>>>>> e1d0cb8c01ff454da64890ba6d1dc0b10d490ea6
                     setFieldErrors(prev => ({ ...prev, city: '' }));
                     setNewClient({...newClient, city: e.target.value});
                   }}
@@ -1888,10 +1732,6 @@ const handleSubmit = async (e) => {
                   className="ClientManagement-form-input"
                   value={newClient.email}
                   onChange={(e) => {
-<<<<<<< HEAD
-                    console.log('🔍 Email changed:', e.target.value);
-=======
->>>>>>> e1d0cb8c01ff454da64890ba6d1dc0b10d490ea6
                     setFieldErrors(prev => ({ ...prev, email: '' }));
                     setNewClient({...newClient, email: e.target.value});
                   }}
@@ -2008,69 +1848,6 @@ const ClientManagement = () => {
     if (!client.subscription || client.subscription.length === 0) {
       return { endDate: null, status: null, isExpired: false, formattedEndDate: null };
     }
-<<<<<<< HEAD
-    
-    // Get the last subscription in the array
-    const latestSubscription = client.subscription[client.subscription.length - 1];
-    const endDate = latestSubscription.endDate;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const expiryDate = new Date(endDate);
-    expiryDate.setHours(0, 0, 0, 0);
-    const isExpired = expiryDate < today;
-    
-    return {
-      endDate: endDate,
-      status: latestSubscription.status,
-      isExpired: isExpired,
-      formattedEndDate: endDate ? new Date(endDate).toLocaleDateString() : null
-    };
-  };
-
-  // Renew subscription function
-  const handleRenewSubscription = async (clientId, days = 30) => {
-    console.log(`🔍 Renewing subscription for client: ${clientId}, days: ${days}`);
-    try {
-      const response = await api.put(`/${clientId}/renew`, { days });
-      console.log('✅ Subscription renewed successfully:', response.data);
-      
-      if (response.data.success) {
-        setSuccess(`Subscription renewed successfully! Extended by ${days} days.`);
-        setError('');
-        // Refresh the clients list to show updated subscription
-        await fetchData();
-        
-        // Auto-clear success message after 3 seconds
-        setTimeout(() => setSuccess(''), 3000);
-      } else {
-        setError(response.data.message || 'Subscription renewal failed');
-      }
-    } catch (err) {
-      console.error('❌ Renew subscription error:', err);
-      const errorMessage = err.response?.data?.message || 
-                         err.response?.data?.errors?.join(', ') || 
-                         'Failed to renew subscription. Please try again.';
-      setError(errorMessage);
-    }
-  };
-
-  // Debug function to check API configuration
-  useEffect(() => {
-    const debugAPI = () => {
-      console.log('========== API DEBUG INFO ==========');
-      console.log('API_URL from config:', API_URL);
-      console.log('Users API Base URL:', `${API_URL}/users`);
-      console.log('Full endpoint:', `${API_URL}/users/company-users`);
-      console.log('LocalStorage items:');
-      console.log('- token:', localStorage.getItem('token') ? 'Present' : 'Missing');
-      console.log('- authToken:', localStorage.getItem('authToken') ? 'Present' : 'Missing');
-      console.log('- company:', localStorage.getItem('company'));
-      console.log('- companyCode:', localStorage.getItem('companyCode'));
-      console.log('- companyIdentifier:', localStorage.getItem('companyIdentifier'));
-      console.log('=====================================');
-    };
-=======
->>>>>>> e1d0cb8c01ff454da64890ba6d1dc0b10d490ea6
     
     const latestSubscription = client.subscription[client.subscription.length - 1];
     const endDate = latestSubscription.endDate;
@@ -2412,53 +2189,6 @@ const ClientManagement = () => {
     }
   };
 
-<<<<<<< HEAD
-const handleAddClient = async (clientData) => {
-  console.log('🔍 Adding client with data:', clientData);
-  try {
-    setAddLoading(true);
-    setError('');
-    
-    const backendClientData = {
-      client: clientData.client,
-      company: clientData.company,
-      city: clientData.city,
-      projectManagers: clientData.projectManagers.map(pm => ({
-        _id: pm._id,
-        name: pm.name,
-        email: pm.email,
-        role: pm.role
-      })),
-      projectManager: clientData.projectManagers.map(pm => pm.name),
-      services: clientData.services,
-      status: clientData.status,
-      progress: clientData.progress,
-      email: clientData.email,
-      phone: clientData.phone,
-      address: clientData.address,
-      description: clientData.description,
-      notes: clientData.notes,
-      companyCode: clientData.companyCode,
-      subscription: clientData.subscription || []
-    };
-    
-    console.log('🔍 Sending to backend:', JSON.stringify(backendClientData, null, 2));
-    const response = await api.post('/', backendClientData);
-    console.log('✅ Client added response:', response.data);
-    
-    if (response.data.success) {
-      const fullClientData = {
-        ...response.data.data,
-        projectManagers: clientData.projectManagers
-      };
-      
-      setSuccess('Client added successfully!');
-      setError('');
-      setAddClientModal(false);
-      fetchData();
-    } else {
-      setError(response.data.message || 'Client add failed');
-=======
   const handleAddClient = async (clientData) => {
     try {
       setAddLoading(true);
@@ -2499,19 +2229,8 @@ const handleAddClient = async (clientData) => {
       throw err;
     } finally {
       setAddLoading(false);
->>>>>>> e1d0cb8c01ff454da64890ba6d1dc0b10d490ea6
     }
-  } catch (err) {
-    console.error('❌ Add client error:', err);
-    const errorMessage = err.response?.data?.message || 
-                       err.response?.data?.errors?.join(', ') || 
-                       'Client add failed';
-    setError(errorMessage);
-    throw err;
-  } finally {
-    setAddLoading(false);
-  }
-};
+  };
 
   const handleUpdateClient = async (clientId, updateData) => {
     try {
@@ -2575,12 +2294,6 @@ const handleAddClient = async (clientData) => {
   };
 
   const handleEditClick = (client) => {
-<<<<<<< HEAD
-    console.log('🔍 Edit clicked for client:', client);
-    
-    // Extract subscription dates for display in edit form
-=======
->>>>>>> e1d0cb8c01ff454da64890ba6d1dc0b10d490ea6
     let subscriptionStartDate = '';
     let subscriptionEndDate = '';
     if (client.subscription && client.subscription.length > 0) {
@@ -2614,28 +2327,16 @@ const handleAddClient = async (clientData) => {
       role: pm.role
     }));
     
-<<<<<<< HEAD
-    // Handle subscription update
-    let subscriptionData = client.subscription || [];
-    
-    // If new subscription dates are provided, update or add
-    if (client.subscriptionStartDate && client.subscriptionEndDate) {
-=======
     let subscriptionData = [];
     
     // ✅ IMPORTANT: Properly format subscription data
     if (client.subscriptionStartDate && client.subscriptionEndDate) {
       console.log("Creating new subscription with dates");
->>>>>>> e1d0cb8c01ff454da64890ba6d1dc0b10d490ea6
       subscriptionData = [{
         startDate: client.subscriptionStartDate,
         endDate: client.subscriptionEndDate,
         status: 'Active'
       }];
-<<<<<<< HEAD
-    }
-    
-=======
     } else if (client.subscription && client.subscription.length > 0) {
       console.log("Keeping existing subscription");
       subscriptionData = client.subscription;
@@ -2643,7 +2344,6 @@ const handleAddClient = async (clientData) => {
     
     console.log("Subscription data being sent:", subscriptionData);
     
->>>>>>> e1d0cb8c01ff454da64890ba6d1dc0b10d490ea6
     const updateData = {
       client: client.client,
       company: client.company,
@@ -3019,10 +2719,6 @@ const handleAddClient = async (clientData) => {
                             </div>
                           </td>
                           
-<<<<<<< HEAD
-                          {/* Subscription Column */}
-=======
->>>>>>> e1d0cb8c01ff454da64890ba6d1dc0b10d490ea6
                           <td>
                             <div className="ClientManagement-subscription-cell">
                               {subscriptionInfo.endDate ? (
@@ -3372,61 +3068,6 @@ const handleAddClient = async (clientData) => {
                     )}
                   </div>
                 </div>
-<<<<<<< HEAD
-
-                {/* SUBSCRIPTION INFORMATION SECTION */}
-                {viewDialog.client.subscription && viewDialog.client.subscription.length > 0 && (
-                  <div className="ClientManagement-client-details-section ClientManagement-subscription-section">
-                    <h4 className="ClientManagement-section-header">
-                      <FiCalendar className="ClientManagement-section-icon" />
-                      Subscription Details
-                      <button 
-                        className="ClientManagement-renew-button-inline"
-                        onClick={() => handleRenewSubscription(viewDialog.client._id, 30)}
-                        title="Renew Subscription (30 days)"
-                      >
-                        <Repeat size={14} /> Renew
-                      </button>
-                    </h4>
-                    
-                    <div className="ClientManagement-subscription-container">
-                      {(() => {
-                        const latestSub = viewDialog.client.subscription[viewDialog.client.subscription.length - 1];
-                        const isExpired = new Date(latestSub.endDate) < new Date();
-                        return (
-                          <div className="ClientManagement-subscription-card ClientManagement-subscription-card--latest">
-                            <div className="ClientManagement-subscription-header">
-                              <span className={`ClientManagement-subscription-badge ${latestSub.status === 'Active' && !isExpired ? 'ClientManagement-subscription-badge--active' : 'ClientManagement-subscription-badge--expired'}`}>
-                                {isExpired ? 'Expired' : (latestSub.status || 'Active')}
-                              </span>
-                              <span className="ClientManagement-subscription-period">
-                                Current Period
-                              </span>
-                            </div>
-                            <div className="ClientManagement-subscription-dates">
-                              <div className="ClientManagement-subscription-date-item">
-                                <label>Start Date</label>
-                                <p>{new Date(latestSub.startDate).toLocaleDateString()}</p>
-                              </div>
-                              <div className="ClientManagement-subscription-date-item">
-                                <label>End Date</label>
-                                <p>{new Date(latestSub.endDate).toLocaleDateString()}</p>
-                              </div>
-                            </div>
-                            {isExpired && (
-                              <div className="ClientManagement-subscription-renew-prompt">
-                                <p>⚠️ Subscription has expired. Click Renew to extend.</p>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                )}
-
-=======
->>>>>>> e1d0cb8c01ff454da64890ba6d1dc0b10d490ea6
               </div>
             </div>
             
@@ -3521,131 +3162,6 @@ const handleAddClient = async (clientData) => {
                     </select>
                   </div>
 
-<<<<<<< HEAD
-                {/* SUBSCRIPTION FIELDS IN EDIT MODAL */}
-                <div className="ClientManagement-form-group">
-                  <label className="ClientManagement-form-label">
-                    <FiCalendar className="ClientManagement-icon-inline" /> Subscription Start Date
-                  </label>
-                  <input
-                    type="date"
-                    className="ClientManagement-form-input"
-                    value={editDialog.client.subscriptionStartDate || ''}
-                    onChange={(e) => {
-                      const startDate = e.target.value;
-                      const endDate = editDialog.client.subscriptionEndDate || 
-                        (editDialog.client.subscription && editDialog.client.subscription[0] ? 
-                          new Date(editDialog.client.subscription[0].endDate).toISOString().split('T')[0] : '');
-                      
-                      setEditDialog({
-                        ...editDialog,
-                        client: { 
-                          ...editDialog.client, 
-                          subscriptionStartDate: startDate,
-                          subscriptionEndDate: endDate,
-                          subscription: startDate && endDate ? [{
-                            startDate: startDate,
-                            endDate: endDate,
-                            status: 'Active'
-                          }] : editDialog.client.subscription
-                        }
-                      });
-                    }}
-                  />
-                  <small className="ClientManagement-text-muted">Optional</small>
-                </div>
-
-                <div className="ClientManagement-form-group">
-                  <label className="ClientManagement-form-label">
-                    <FiCalendar className="ClientManagement-icon-inline" /> Subscription End Date
-                  </label>
-                  <input
-                    type="date"
-                    className="ClientManagement-form-input"
-                    value={editDialog.client.subscriptionEndDate || ''}
-                    onChange={(e) => {
-                      const endDate = e.target.value;
-                      const startDate = editDialog.client.subscriptionStartDate || 
-                        (editDialog.client.subscription && editDialog.client.subscription[0] ? 
-                          new Date(editDialog.client.subscription[0].startDate).toISOString().split('T')[0] : '');
-                      
-                      setEditDialog({
-                        ...editDialog,
-                        client: { 
-                          ...editDialog.client, 
-                          subscriptionStartDate: startDate,
-                          subscriptionEndDate: endDate,
-                          subscription: startDate && endDate ? [{
-                            startDate: startDate,
-                            endDate: endDate,
-                            status: 'Active'
-                          }] : editDialog.client.subscription
-                        }
-                      });
-                    }}
-                    min={editDialog.client.subscriptionStartDate || 
-                      (editDialog.client.subscription && editDialog.client.subscription[0] ? 
-                        new Date(editDialog.client.subscription[0].startDate).toISOString().split('T')[0] : '')}
-                  />
-                  <small className="ClientManagement-text-muted">Must be after start date</small>
-                </div>
-
-                {/* Show current subscription as read-only */}
-                {editDialog.client.subscription && editDialog.client.subscription.length > 0 && (
-                  <div className="ClientManagement-form-group ClientManagement-col-span-2">
-                    <label className="ClientManagement-form-label">Current Subscription Period</label>
-                    <div className="ClientManagement-current-subscription">
-                      {editDialog.client.subscription.map((sub, idx) => (
-                        <div key={idx} className="ClientManagement-subscription-info">
-                          <span>📅 Period {idx + 1}:</span>
-                          <span>{new Date(sub.startDate).toLocaleDateString()} → {new Date(sub.endDate).toLocaleDateString()}</span>
-                          <span className={`ClientManagement-sub-status ${sub.status === 'Active' ? 'active' : 'expired'}`}>
-                            {sub.status}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="ClientManagement-form-group ClientManagement-edit-managers-group">
-                  <label className="ClientManagement-form-label">Team *</label>
-                  <div className="ClientManagement-managers-list">
-                    {safeMapProjectManagers((manager) => (
-                      <div key={manager._id} className="ClientManagement-manager-checkbox-item">
-                        <input
-                          style={{ width: '16px', height: '14px' }}
-                          type="checkbox"
-                          id={`edit-manager-${manager._id}`}
-                          checked={editDialog.client.projectManagers.some(pm => pm._id === manager._id || pm.id === manager._id)}
-                          onChange={(e) => {
-                            const isChecked = e.target.checked;
-                            console.log(`🔍 Manager ${manager.name} ${isChecked ? 'selected' : 'deselected'} for edit`);
-                            setEditDialog({
-                              ...editDialog,
-                              client: {
-                                ...editDialog.client,
-                                projectManagers: isChecked
-                                  ? [...editDialog.client.projectManagers, {
-                                      _id: manager._id,
-                                      name: manager.name,
-                                      email: manager.email,
-                                    }]
-                                  : editDialog.client.projectManagers.filter(pm => pm._id !== manager._id)
-                              }
-                            });
-                          }}
-                        />
-                        <div className="ClientManagement-manager-checkbox-content">
-                          <div className="ClientManagement-avatar ClientManagement-avatar--primary">
-                            {manager.name?.charAt(0)?.toUpperCase() || 'U'}
-                          </div>
-                          <div>
-                            <p className="ClientManagement-font-bold">{manager.name}</p>
-                            <small className="ClientManagement-text-muted">
-                              • {manager.email}
-                            </small>
-=======
                   <div className="ClientManagement-form-group">
                     <label className="ClientManagement-form-label">
                       <FiCalendar className="ClientManagement-icon-inline" /> Subscription Start Date
@@ -3723,7 +3239,6 @@ const handleAddClient = async (clientData) => {
                               <p className="ClientManagement-font-bold">{manager.name}</p>
                               <small className="ClientManagement-text-muted">{manager.email}</small>
                             </div>
->>>>>>> e1d0cb8c01ff454da64890ba6d1dc0b10d490ea6
                           </div>
                         </div>
                       ))}

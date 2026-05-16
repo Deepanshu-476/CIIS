@@ -1,10 +1,5 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
-/node_modules
+node_modules/
 /.pnp
 .pnp.js
 
@@ -13,9 +8,11 @@
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
+.env
 .env.local
 .env.development.local
 .env.test.local
@@ -24,13 +21,3 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-=======
-npm install @mui/x-data-grid
->>>>>>> 34ef54591c882a891345c876cc6703ca84488aa7
-=======
-npm install @mui/x-data-grid
->>>>>>> 34ef54591c882a891345c876cc6703ca84488aa7
-=======
-npm install @mui/x-data-grid
->>>>>>> 34ef54591c882a891345c876cc6703ca84488aa7
-node_modules

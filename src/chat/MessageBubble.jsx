@@ -23,6 +23,47 @@ const MessageBubble = ({
             {message.text}
 
             {
+    message.file && (
+
+        message.fileType
+        ?.startsWith("image")
+
+        ? (
+
+            <img
+                src={
+                    `http://localhost:3000${message.file}`
+                }
+                alt=""
+                style={{
+                    width: "200px",
+                    borderRadius: "10px",
+                    marginTop: "8px"
+                }}
+            />
+        )
+
+        : (
+
+            <video
+                controls
+                style={{
+                    width: "220px",
+                    borderRadius: "10px",
+                    marginTop: "8px"
+                }}
+            >
+                <source
+                    src={
+                        `http://localhost:3000${message.file}`
+                    }
+                />
+            </video>
+        )
+    )
+}
+
+            {
     message.sender?._id ===
     currentUser?._id && (
 

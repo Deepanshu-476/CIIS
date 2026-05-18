@@ -23,7 +23,8 @@ const ChatBox = ({
     const [text, setText] =
         useState("");
 
-
+    const [file, setFile] =
+    useState(null);
 
     useEffect(() => {
 
@@ -57,7 +58,7 @@ useEffect(() => {
                 {
                     ...message,
                     seen: false
-                }
+                }   
             ]);
         }
     );
@@ -148,20 +149,36 @@ useEffect(() => {
     const handleSend =
     async () => {
 
-        if (!text.trim()) return;
+       if (
+            !text.trim()
+            && !file
+        ) return;
 
         try {
 
-            const payload = {
+            const formData =
+new FormData();
 
-                conversationId:
-                    conversation._id,
+formData.append(
+    "conversationId",
+    conversation._id
+);
 
-                text
-            };
+formData.append(
+                    "text",
+                    text
+                );
+
+                if (file) {
+
+                    formData.append(
+                        "file",
+                        file
+                    );
+                }
 
             const res =
-                await sendMessage(payload);
+                await sendMessage(formData);
 
             setMessages((prev) => [
 
@@ -185,6 +202,7 @@ useEffect(() => {
                 );
 
             setText("");
+            setFile(null);
 
         } catch (error) {
 
@@ -205,14 +223,40 @@ useEffect(() => {
         );
     }
 
+    const getAvatarSrc = (avatar) => {
+        if (!avatar) return null;
+        return avatar.startsWith("http")
+            ? avatar
+            : `http://localhost:3000${avatar}`;
+    };
+
     return (
 
         <div className="chat-box">
 
             <div className="chat-header">
-
-                {selectedUser.name}
-
+                <div className="chat-header-left">
+                    <div className="chat-avatar">
+                        {
+                            getAvatarSrc(selectedUser.avatar || selectedUser.profileImage || selectedUser.image)
+                                ? (
+                                    <img
+                                        src={getAvatarSrc(selectedUser.avatar || selectedUser.profileImage || selectedUser.image)}
+                                        alt={selectedUser.name}
+                                    />
+                                )
+                                : selectedUser.name?.charAt(0).toUpperCase()
+                        }
+                    </div>
+                    <div className="chat-user-meta">
+                        <div className="chat-user-name">
+                            {selectedUser.name}
+                        </div>
+                        <div className="chat-user-status">
+                            {selectedUser.status || "Online"}
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div className="chat-messages">
@@ -231,18 +275,43 @@ useEffect(() => {
             </div>
 
             <div className="chat-input-area">
+                <label className="file-upload-btn">
+                    <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) =>
+                            setFile(
+                                e.target.files[0]
+                            )
+                        }
+                    />
+                    <span>📎</span>
+                </label>
 
-                <input
-                    type="text"
-                    className="chat-input"
-                    value={text}
-                    onChange={(e) =>
-                        setText(
-                            e.target.value
-                        )
-                    }
-                    placeholder="Type message..."
-                />
+                <div className="chat-input-wrapper">
+                    <input
+                        type="text"
+                        className="chat-input"
+                        value={text}
+                        onChange={(e) =>
+                            setText(
+                                e.target.value
+                            )
+                        }
+                        placeholder="Type a message"
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                handleSend();
+                            }
+                        }}
+                    />
+
+                    {file && (
+                        <div className="selected-file-info">
+                            Selected: {file.name}
+                        </div>
+                    )}
+                </div>
 
                 <button
                     className="send-btn"

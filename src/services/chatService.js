@@ -47,14 +47,23 @@ export const getMessages = async (
     );
 };
 
-export const sendMessage = async (data) => {
+export const sendMessage =
+async (formData) => {
 
     return axios.post(
+
         `${API}/message`,
-        data,
+
+        formData,
+
         {
             headers: {
-                Authorization: `Bearer ${getToken()}`
+
+                Authorization:
+                    `Bearer ${getToken()}`,
+
+                "Content-Type":
+                    "multipart/form-data"
             }
         }
     );

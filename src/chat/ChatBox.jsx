@@ -4,11 +4,7 @@ import React, {
 } from "react";
 import "../Pages/Chat/chat.css";
 
-<<<<<<< HEAD
-import { createConversation, createGroupConversation, getMessages, sendMessage } from "../services/chatService";
-=======
 import { createConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, sendMessage } from "../services/chatService";
->>>>>>> 812e4cc42a9d9a620077c71af7e0b4f9622c511b
 
 import MessageBubble from "./MessageBubble";
 import socket from "../socket/socket";
@@ -28,13 +24,8 @@ const ChatBox = ({
     const [text, setText] =
         useState("");
 
-<<<<<<< HEAD
-    const [files, setFiles] =
-    useState([]);
-=======
     const [isSendingAction, setIsSendingAction] = useState(false);
 
->>>>>>> 812e4cc42a9d9a620077c71af7e0b4f9622c511b
 
     const [currentConversationId, setCurrentConversationId] =
         useState(null);
@@ -499,21 +490,6 @@ useEffect(() => {
                             }}
                         />
 
-<<<<<<< HEAD
-                        {files.length > 0 && (
-                            <div className="selected-file-info">
-                                Selected: {files.length} file{files.length === 1 ? '' : 's'}
-                                <div className="selected-file-list">
-                                    {files.map((fileItem, index) => (
-                                        <div key={`${fileItem.name}-${index}`}>
-                                            {fileItem.type.startsWith('video') ? '🎥' : '🖼️'} {fileItem.name}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-=======
                 <button
                     className="send-btn"
                     onClick={handleSend}
@@ -521,7 +497,6 @@ useEffect(() => {
                 >
                     Send
                 </button>
->>>>>>> 812e4cc42a9d9a620077c71af7e0b4f9622c511b
 
                     <button
                         className="send-btn"

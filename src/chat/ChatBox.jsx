@@ -4,14 +4,15 @@ import React, {
 } from "react";
 import "../Pages/Chat/chat.css";
 
-import { createConversation, getMessages, sendMessage } from "../services/chatService";
+import { createConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, sendMessage } from "../services/chatService";
 
 import MessageBubble from "./MessageBubble";
 import socket from "../socket/socket";
 
 const ChatBox = ({
     selectedUser,
-    currentUser
+    currentUser,
+    users
 }) => {
 
     const [conversation, setConversation] =
@@ -22,6 +23,8 @@ const ChatBox = ({
 
     const [text, setText] =
         useState("");
+
+    const [isSendingAction, setIsSendingAction] = useState(false);
 
 
 
@@ -63,6 +66,31 @@ useEffect(() => {
     );
 
     socket.on(
+        "chat:message-deleted-for-me",
+        ({ messageId }) => {
+            setMessages((prev) => prev.filter((msg) => msg._id !== messageId));
+        }
+    );
+
+    socket.on(
+        "chat:message-deleted-for-everyone",
+        ({ messageId }) => {
+            setMessages((prev) => prev.map((msg) => (
+                msg._id === messageId
+                    ? { ...msg, deletedForEveryone: true, text: "" }
+                    : msg
+            )));
+        }
+    );
+
+    socket.on(
+        "chat:message-forwarded",
+        (message) => {
+            setMessages((prev) => [...prev, message]);
+        }
+    );
+
+    socket.on(
     "chat:message-seen",
     (data) => {
 
@@ -93,6 +121,9 @@ useEffect(() => {
     socket.off(
         "chat:message-seen"
     );
+    socket.off("chat:message-deleted-for-me");
+    socket.off("chat:message-deleted-for-everyone");
+    socket.off("chat:message-forwarded");
 };
 
 }, []);
@@ -192,6 +223,46 @@ useEffect(() => {
         }
     };
 
+    const handleDeleteForMe = async (message) => {
+        try {
+            setIsSendingAction(true);
+            await deleteMessageForMe(message._id);
+            setMessages((prev) => prev.filter((msg) => msg._id !== message._id));
+            socket.emit("chat:delete-for-me", { messageId: message._id, conversationId: conversation?._id });
+        } catch (error) {
+            console.log(error);
+        } finally {
+            setIsSendingAction(false);
+        }
+    };
+
+    const handleDeleteForEveryone = async (message) => {
+        try {
+            setIsSendingAction(true);
+            await deleteMessageForEveryone(message._id);
+            setMessages((prev) => prev.map((msg) => (
+                msg._id === message._id ? { ...msg, deletedForEveryone: true, text: "" } : msg
+            )));
+            socket.emit("chat:delete-for-everyone", { messageId: message._id, conversationId: conversation?._id });
+        } catch (error) {
+            console.log(error);
+        } finally {
+            setIsSendingAction(false);
+        }
+    };
+
+    const handleForward = async (message, targetUserIds) => {
+        try {
+            setIsSendingAction(true);
+            await forwardMessage({ messageId: message._id, targetUserIds });
+            socket.emit("chat:forward-message", { messageId: message._id, targetUserIds });
+        } catch (error) {
+            console.log(error);
+        } finally {
+            setIsSendingAction(false);
+        }
+    };
+
 
 
     if (!selectedUser) {
@@ -224,6 +295,10 @@ useEffect(() => {
                             key={message._id}
                             message={message}
                             currentUser={currentUser}
+                            users={users}
+                            onDeleteForMe={handleDeleteForMe}
+                            onDeleteForEveryone={handleDeleteForEveryone}
+                            onForward={handleForward}
                         />
                     ))
                 }
@@ -247,6 +322,7 @@ useEffect(() => {
                 <button
                     className="send-btn"
                     onClick={handleSend}
+                    disabled={isSendingAction}
                 >
                     Send
                 </button>

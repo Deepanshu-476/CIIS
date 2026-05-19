@@ -67,6 +67,16 @@ useEffect(() => {
     );
 
     socket.on(
+        "chat:unread-update",
+        (data) => {
+            setUnreadCounts((prev) => ({
+                ...prev,
+                [data.senderId]: data.count
+            }));
+        }
+    );
+
+    socket.on(
         "chat:online-users",
         (users) => {
 
@@ -90,19 +100,6 @@ useEffect(() => {
     };
 
 }, [socket]);
-socket.on(
-    "chat:unread-update",
-    (data) => {
-
-        setUnreadCounts((prev) => ({
-
-            ...prev,
-
-            [data.senderId]:
-                data.count
-        }));
-    }
-);
 
     const fetchUsers =
     async () => {
@@ -141,6 +138,7 @@ socket.on(
             <ChatBox
                 selectedUser={selectedUser}
                 currentUser={currentUser}
+                users={users}
             />
 
         </div>

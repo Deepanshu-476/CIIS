@@ -59,3 +59,39 @@ export const sendMessage = async (data) => {
         }
     );
 };
+
+export const deleteMessageForMe = async (messageId) => {
+    return axios.patch(
+        `${API}/message/${messageId}/delete-for-me`,
+        {},
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
+export const deleteMessageForEveryone = async (messageId) => {
+    return axios.patch(
+        `${API}/message/${messageId}/delete-for-everyone`,
+        {},
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
+export const forwardMessage = async ({ messageId, targetUserIds = [] }) => {
+    return axios.post(
+        `${API}/message/${messageId}/forward`,
+        { targetUserIds },
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};

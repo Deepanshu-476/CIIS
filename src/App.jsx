@@ -63,7 +63,7 @@ import AllCompany from "./page/AllCompany.jsx";
 import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
 
-import ChatPage from "./pages/Chat/ChatPage";
+import ChatPage from "./Pages/Chat/ChatPage";
 
 
 function App() {

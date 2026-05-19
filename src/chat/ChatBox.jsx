@@ -4,7 +4,7 @@ import React, {
 } from "react";
 import "../Pages/Chat/chat.css";
 
-import { createConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, sendMessage } from "../services/chatService";
+import { createConversation, createGroupConversation, getMessages, sendMessage } from "../services/chatService";
 
 import MessageBubble from "./MessageBubble";
 import socket from "../socket/socket";
@@ -24,8 +24,8 @@ const ChatBox = ({
     const [text, setText] =
         useState("");
 
-    const [isSendingAction, setIsSendingAction] = useState(false);
-
+    const [files, setFiles] =
+    useState([]);
 
     const [currentConversationId, setCurrentConversationId] =
         useState(null);
@@ -490,13 +490,19 @@ useEffect(() => {
                             }}
                         />
 
-                <button
-                    className="send-btn"
-                    onClick={handleSend}
-                    disabled={isSendingAction}
-                >
-                    Send
-                </button>
+                        {files.length > 0 && (
+                            <div className="selected-file-info">
+                                Selected: {files.length} file{files.length === 1 ? '' : 's'}
+                                <div className="selected-file-list">
+                                    {files.map((fileItem, index) => (
+                                        <div key={`${fileItem.name}-${index}`}>
+                                            {fileItem.type.startsWith('video') ? '🎥' : '🖼️'} {fileItem.name}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
 
                     <button
                         className="send-btn"

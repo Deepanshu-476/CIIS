@@ -70,27 +70,11 @@ useState([]);
         socket.on("chat:online-users", handleOnline);
         socket.on("chat:unread-update", handleUnread);
 
-<<<<<<< HEAD
         return () => {
             socket.off("chat:online-users", handleOnline);
             socket.off("chat:unread-update", handleUnread);
         };
     }, [socket]);
-=======
-    socket.on(
-        "chat:unread-update",
-        (data) => {
-            setUnreadCounts((prev) => ({
-                ...prev,
-                [data.senderId]: data.count
-            }));
-        }
-    );
-
-    socket.on(
-        "chat:online-users",
-        (users) => {
->>>>>>> 812e4cc42a9d9a620077c71af7e0b4f9622c511b
 
     const fetchGroups =
     async () => {
@@ -118,11 +102,6 @@ useState([]);
         }
     };
 
-<<<<<<< HEAD
-=======
-}, [socket]);
-
->>>>>>> 812e4cc42a9d9a620077c71af7e0b4f9622c511b
     const fetchUsers =
     async () => {
 

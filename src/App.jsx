@@ -20,6 +20,7 @@ import ChangePassword from "./admin/page/ChangePassword";
 // HR Pages
 import EmppTask from "./hrCds/pages/hr/EmmpTask";
 import AdminTaskCreate from "./hrCds/pages/hr/AdminTaskCreate";
+import ManageGroups from "./hrCds/pages/hr/ManageGroups";
 import AdminMeetingPage from "./hrCds/pages/hr/AdminMeetingPage";
 import EmppDetail from "./hrCds/pages/hr/EmppDetail";
 import EmppLeave from "./hrCds/pages/hr/EmppLeaves";
@@ -134,6 +135,7 @@ function App() {
           <Route path="emp-attendance" element={<EmppAttendence />} />
           <Route path="emp-task-details" element={<TaskDeatils />} />
           <Route path="admin-task-create" element={<AdminTaskCreate />} />
+          <Route path="manage-groups" element={<ManageGroups />} />
           <Route path="admin-meeting" element={<AdminMeetingPage />} />
           <Route path="adminproject" element={<AdminProject />} />
           <Route path="company-all-task" element={<EmpAllTask />} />

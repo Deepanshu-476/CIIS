@@ -392,12 +392,20 @@ const allPagesItems = [
     order: 12
   },
   {
+    id: 'manage-groups',
+    name: 'Manage Groups',
+    icon: 'Groups',
+    path: '/ciisUser/manage-groups',
+    category: 'administration',
+    order: 13
+  },
+  {
     id: 'employee-meeting',
     name: 'Employee Meeting',
     icon: 'VideoCall',
     path: '/ciisUser/employee-meeting',
     category: 'meetings',
-    order: 13
+    order: 14
   },
   {
     id: 'client-meeting',
@@ -405,7 +413,7 @@ const allPagesItems = [
     icon: 'VideoCall',
     path: '/ciisUser/client-meeting',
     category: 'meetings',
-    order: 14
+    order: 15
   },
   {
     id: 'create-employee-meeting',
@@ -413,7 +421,7 @@ const allPagesItems = [
     icon: 'VideoCall',
     path: '/ciisUser/admin-meeting',
     category: 'meetings',
-    order: 15
+    order: 16
   },
   {
     id: 'admin-projects',
@@ -421,7 +429,7 @@ const allPagesItems = [
     icon: 'Groups',
     path: '/ciisUser/adminproject',
     category: 'projects',
-    order: 16
+    order: 17
   },
   {
     id: 'company-all-tasks',
@@ -429,7 +437,7 @@ const allPagesItems = [
     icon: 'Task',
     path: '/ciisUser/company-all-task',
     category: 'tasks',
-    order: 17
+    order: 18
   },
   {
     id: 'department-all-tasks',
@@ -437,7 +445,7 @@ const allPagesItems = [
     icon: 'Task',
     path: '/ciisUser/department-all-task',
     category: 'tasks',
-    order: 18
+    order: 19
   },
   {
     id: 'client-management',
@@ -445,7 +453,7 @@ const allPagesItems = [
     icon: 'Person',
     path: '/ciisUser/emp-client',
     category: 'clients',
-    order: 19
+    order: 20
   },
   {
     id: 'change-password',
@@ -453,7 +461,7 @@ const allPagesItems = [
     icon: 'Settings',
     path: '/ciisUser/change-password',
     category: 'main',
-    order: 20
+    order: 21
   },
   {
     id: 'chat',
@@ -461,7 +469,7 @@ const allPagesItems = [
     icon: 'Chat',
     path: '/ciisUser/chat',
     category: 'communication',
-    order: 21
+    order: 22
   }
 ];
 
@@ -484,6 +492,7 @@ const getPathFromName = (name) => {
     'Employee Attendance': '/ciisUser/emp-attendance',
     'Create Task': '/ciisUser/task-management',
     'Admin Create Task': '/ciisUser/admin-task-create',
+    'Manage Groups': '/ciisUser/manage-groups',
     'Employee Meeting': '/ciisUser/employee-meeting',
     'Client Meeting': '/ciisUser/client-meeting',
     'Create Employee Meeting': '/ciisUser/admin-meeting',

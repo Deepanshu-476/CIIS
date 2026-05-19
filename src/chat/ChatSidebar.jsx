@@ -1,6 +1,7 @@
 import React from "react";
 
 const ChatSidebar = ({
+    groups,
     users,
     onlineUsers,
     unreadCounts,
@@ -8,110 +9,142 @@ const ChatSidebar = ({
     setSelectedUser
 }) => {
 
+    const getAvatarSrc = (avatar) => {
+        if (!avatar) return null;
+        return avatar.startsWith("http")
+            ? avatar
+            : `http://localhost:3000${avatar}`;
+    };
+
+    const getGroupName = (group) => {
+        if (!group) return "";
+        return group.name || group.groupName || group.group_name || group.title || "Unnamed Group";
+    };
+
+    const getGroupMemberCount = (group) => {
+        if (!group) return 0;
+        const members = group.members || group.users || group.memberIds || group.membersIds;
+        if (Array.isArray(members)) return members.length;
+        return group.memberCount || group.count || 0;
+    };
+
     return (
-    <div className="chat-sidebar">
+        <div className="chat-sidebar">
 
-        <div className="chat-sidebar-header">
-            Company Users
-        </div>
+            <div className="sidebar-top">
+                <div className="sidebar-title">Chats</div>
+                <button className="sidebar-icon">+</button>
+            </div>
 
-        {
-            users.map((user) => (
+            <div className="chat-search-wrap">
+                <input
+                    type="text"
+                    className="chat-search"
+                    placeholder="Search or start new chat"
+                />
+            </div>
 
-                <div
-                    key={user._id}
-                    className={
-                        selectedUser?._id === user._id
-                        ? "chat-user active"
-                        : "chat-user"
-                    }
-                    onClick={() =>
-                        setSelectedUser(user)
-                    }
-                >
+            <div className="chat-sidebar-section">
+                <div className="sidebar-section-title">Groups</div>
+                {groups?.length === 0 ? (
+                    <div className="chat-sidebar-empty">No groups yet</div>
+                ) : (
+                    groups.map((group) => (
+                        <div
+                            key={group._id || group.id}
+                            className={
+                                selectedUser?._id === (group._id || group.id)
+                                    ? "chat-user active"
+                                    : "chat-user"
+                            }
+                            onClick={() =>
+                                setSelectedUser({ ...group, isGroup: true })
+                            }
+                        >
+                            <div className="chat-user-avatar">
+                                <span>👥</span>
+                            </div>
 
-                    <div
-    style={{
-        display: "flex",
-        justifyContent:
-            "space-between",
-        alignItems: "center"
-    }}
->
+                            <div className="chat-user-body">
+                                <div className="chat-user-row">
+                                    <div className="chat-user-name">
+                                        {getGroupName(group)}
+                                    </div>
+                                </div>
+                                <div className="chat-user-role">
+                                    <span className="status-dot group" />
+                                    {getGroupMemberCount(group)} member{getGroupMemberCount(group) === 1 ? '' : 's'}
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
 
-    <div className="chat-user-name">
-        {user.name}
-    </div>
-
-    {
-        unreadCounts[user._id] > 0 && (
-
-            <div
-                style={{
-                    minWidth: "22px",
-                    height: "22px",
-                    borderRadius: "50%",
-                    background: "#22c55e",
-                    color: "#fff",
-                    fontSize: "12px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent:
-                        "center",
-                    fontWeight: "600"
-                }}
-            >
+            <div className="chat-sidebar-list">
                 {
-                    unreadCounts[user._id]
+                    users.map((user) => (
+                        <div
+                            key={user._id}
+                            className={
+                                selectedUser?._id === user._id
+                                    ? "chat-user active"
+                                    : "chat-user"
+                            }
+                            onClick={() =>
+                                setSelectedUser(user)
+                            }
+                        >
+                            <div className="chat-user-avatar">
+                                {
+                                    getAvatarSrc(user.avatar || user.profileImage || user.image)
+                                        ? (
+                                            <img
+                                                src={getAvatarSrc(user.avatar || user.profileImage || user.image)}
+                                                alt={user.name}
+                                            />
+                                        )
+                                        : user.name?.charAt(0).toUpperCase()
+                                }
+                            </div>
+
+                            <div className="chat-user-body">
+                                <div className="chat-user-row">
+                                    <div className="chat-user-name">
+                                        {user.name}
+                                    </div>
+
+                                    {
+                                        unreadCounts[user._id] > 0 && (
+                                            <div className="chat-user-badge">
+                                                {unreadCounts[user._id]}
+                                            </div>
+                                        )
+                                    }
+                                </div>
+
+                                <div className="chat-user-role">
+                                    <span className={
+                                        onlineUsers.includes(user._id.toString())
+                                            ? "status-dot"
+                                            : "status-dot offline"
+                                    } />
+                                    {
+                                        onlineUsers.includes(user._id.toString())
+                                            ? "Online"
+                                            : "Offline"
+                                    }
+                                    <span className="role-text">
+                                        {user.companyRole}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    ))
                 }
             </div>
-        )
-    }
-
-</div>
-
-                    <div className="chat-user-role">
-                        {
-    onlineUsers.includes(
-    user._id.toString()
-    )
-
-    ? (
-
-        <div
-            style={{
-                color: "green",
-                fontSize: "12px",
-                marginTop: "4px"
-            }}
-        >
-            ● Online
         </div>
-
-    )
-
-    : (
-
-        <div
-            style={{
-                color: "gray",
-                fontSize: "12px",
-                marginTop: "4px"
-            }}
-        >
-            ● Offline
-        </div>
-    )
-}
-                        {user.companyRole}
-                    </div>
-
-                </div>
-            ))
-        }
-
-    </div>
-);
+    );
 };
 
 export default ChatSidebar;

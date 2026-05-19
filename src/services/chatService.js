@@ -33,6 +33,21 @@ export const createConversation = async (
     );
 };
 
+export const createGroupConversation = async (
+    groupId
+) => {
+
+    return axios.post(
+        `${API}/conversation/group`,
+        { groupId },
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
 export const getMessages = async (
     conversationId
 ) => {
@@ -47,11 +62,67 @@ export const getMessages = async (
     );
 };
 
-export const sendMessage = async (data) => {
+export const sendMessage =
+async (formData) => {
 
     return axios.post(
+
         `${API}/message`,
-        data,
+
+        formData,
+
+        {
+            headers: {
+
+                Authorization:
+                    `Bearer ${getToken()}`,
+
+                "Content-Type":
+                    "multipart/form-data"
+            }
+        }
+    );
+};
+
+export const getCompanyGroups = async () => {
+    return axios.get(
+        `http://localhost:3000/api/groups`,
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
+export const deleteMessageForMe = async (messageId) => {
+    return axios.patch(
+        `${API}/message/${messageId}/delete-for-me`,
+        {},
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
+export const deleteMessageForEveryone = async (messageId) => {
+    return axios.patch(
+        `${API}/message/${messageId}/delete-for-everyone`,
+        {},
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
+export const forwardMessage = async ({ messageId, targetUserIds = [] }) => {
+    return axios.post(
+        `${API}/message/${messageId}/forward`,
+        { targetUserIds },
         {
             headers: {
                 Authorization: `Bearer ${getToken()}`

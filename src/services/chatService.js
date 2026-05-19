@@ -33,6 +33,21 @@ export const createConversation = async (
     );
 };
 
+export const createGroupConversation = async (
+    groupId
+) => {
+
+    return axios.post(
+        `${API}/conversation/group`,
+        { groupId },
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
 export const getMessages = async (
     conversationId
 ) => {
@@ -64,6 +79,17 @@ async (formData) => {
 
                 "Content-Type":
                     "multipart/form-data"
+            }
+        }
+    );
+};
+
+export const getCompanyGroups = async () => {
+    return axios.get(
+        `http://localhost:3000/api/groups`,
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
             }
         }
     );

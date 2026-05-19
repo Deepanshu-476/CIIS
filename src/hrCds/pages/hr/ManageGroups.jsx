@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../../context/useAuth";
 import {
   Box,
   Button,
@@ -90,13 +91,35 @@ const ManageGroups = () => {
     }
   };
 
+  const { user } = useAuth();
+  const companyId = user?.company?._id || user?.company;
+
   // Fetch users from company
   const fetchUsers = async () => {
     try {
-      console.log("Fetching users...");
-      const response = await apiCall("get", "/users/company");
+      console.log("Fetching users for company:", companyId || "default");
+      const url = companyId ? `/users/company-users?companyId=${companyId}` : "/users/company-users";
+      const response = await apiCall("get", url);
       console.log("Users fetched successfully:", response.data);
-      setUsers(response.data.users || response.data || []);
+
+      let usersList = [];
+      if (response.data) {
+        usersList =
+          response.data.users ||
+          response.data.data ||
+          response.data.message?.users ||
+          response.data ||
+          [];
+      }
+
+      if (companyId && Array.isArray(usersList)) {
+        usersList = usersList.filter((item) => {
+          const itemCompany = item.company?._id || item.company;
+          return itemCompany?.toString() === companyId?.toString();
+        });
+      }
+
+      setUsers(Array.isArray(usersList) ? usersList : []);
     } catch (error) {
       console.error("Failed to fetch users:", error.message);
       // Don't redirect on API errors, just show snackbar
@@ -126,7 +149,9 @@ const ManageGroups = () => {
       setFormData({
         name: group.name || "",
         description: group.description || "",
-        members: group.members || [],
+        members: Array.isArray(group.members)
+          ? group.members.map((member) => getEntityId(member)).filter(Boolean)
+          : [],
       });
     } else {
       setEditingGroup(null);
@@ -209,10 +234,16 @@ const ManageGroups = () => {
     }
   };
 
+  const getEntityId = (entity) => {
+    if (!entity) return "";
+    return entity._id || entity.id || entity;
+  };
+
   // Get user name by ID
   const getUserName = (userId) => {
-    const user = users.find((u) => u._id === userId || u.id === userId);
-    return user ? user.name : "Unknown";
+    const normalizedId = getEntityId(userId);
+    const user = users.find((u) => getEntityId(u) === normalizedId);
+    return user ? user.name : "";
   };
 
   if (loading) {
@@ -267,29 +298,11 @@ const ManageGroups = () => {
                   <TableCell sx={{ fontWeight: 500 }}>{group.name}</TableCell>
                   <TableCell>{group.description || "—"}</TableCell>
                   <TableCell>
-                    <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-                      {group.members && group.members.length > 0 ? (
-                        group.members.slice(0, 2).map((memberId) => (
-                          <Chip
-                            key={memberId}
-                            label={getUserName(memberId)}
-                            size="small"
-                            variant="outlined"
-                          />
-                        ))
-                      ) : (
-                        <Typography variant="body2" color="textSecondary">
-                          No members
-                        </Typography>
-                      )}
-                      {group.members && group.members.length > 2 && (
-                        <Chip
-                          label={`+${group.members.length - 2} more`}
-                          size="small"
-                          variant="filled"
-                        />
-                      )}
-                    </Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {group.members && group.members.length > 0
+                        ? `${group.members.length} member${group.members.length > 1 ? "s" : ""}`
+                        : "0 members"}
+                    </Typography>
                   </TableCell>
                   <TableCell sx={{ textAlign: "center" }}>
                     <Tooltip title="Edit">

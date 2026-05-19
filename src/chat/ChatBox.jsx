@@ -4,7 +4,7 @@ import React, {
 } from "react";
 import "../Pages/Chat/chat.css";
 
-import { createConversation, getMessages, sendMessage } from "../services/chatService";
+import { createConversation, createGroupConversation, getMessages, sendMessage } from "../services/chatService";
 
 import MessageBubble from "./MessageBubble";
 import socket from "../socket/socket";
@@ -23,17 +23,46 @@ const ChatBox = ({
     const [text, setText] =
         useState("");
 
-    const [file, setFile] =
-    useState(null);
+    const [files, setFiles] =
+    useState([]);
+
+    const [currentConversationId, setCurrentConversationId] =
+        useState(null);
 
     useEffect(() => {
-
-        if (selectedUser) {
-
-            startConversation();
+        if (!selectedUser) {
+            return;
         }
 
+        if (currentConversationId) {
+            socket.emit(
+                "chat:leave-conversation",
+                {
+                    conversationId:
+                        currentConversationId
+                }
+            );
+            setCurrentConversationId(null);
+        }
+
+        setConversation(null);
+        setMessages([]);
+        startConversation();
     }, [selectedUser]);
+
+    useEffect(() => {
+        return () => {
+            if (currentConversationId) {
+                socket.emit(
+                    "chat:leave-conversation",
+                    {
+                        conversationId:
+                            currentConversationId
+                    }
+                );
+            }
+        };
+    }, [currentConversationId]);
 
 useEffect(() => {
 
@@ -51,15 +80,25 @@ useEffect(() => {
                 }
             );
 
-            setMessages((prev) => [
+            setMessages((prev) => {
+                if (
+                    prev.some(
+                        (msg) =>
+                            msg._id ===
+                            message._id
+                    )
+                ) {
+                    return prev;
+                }
 
-                ...prev,
-
-                {
-                    ...message,
-                    seen: false
-                }   
-            ]);
+                return [
+                    ...prev,
+                    {
+                        ...message,
+                        seen: false
+                    }
+                ];
+            });
         }
     );
 
@@ -98,26 +137,55 @@ useEffect(() => {
 
 }, []);
 
+    const joinConversationRoom =
+    (conversationId) => {
+        if (!conversationId) return;
+
+        socket.emit(
+            "chat:join-conversation",
+            {
+                conversationId
+            }
+        );
+
+        setCurrentConversationId(
+            conversationId
+        );
+    };
+
     const startConversation =
     async () => {
+        if (!selectedUser) return;
 
         try {
+            let res;
 
-            const res =
-                await createConversation(
+            if (selectedUser?.isGroup) {
+                res = await createGroupConversation(
+                    selectedUser._id || selectedUser.id
+                );
+            } else {
+                res = await createConversation(
                     selectedUser._id
                 );
+            }
+
+            const conversationData =
+                res.data.conversation;
 
             setConversation(
-                res.data.conversation
+                conversationData
             );
 
-            fetchMessages(
-                res.data.conversation._id
-            );
-
+            if (conversationData?._id) {
+                fetchMessages(
+                    conversationData._id
+                );
+                joinConversationRoom(
+                    conversationData._id
+                );
+            }
         } catch (error) {
-
             console.log(error);
         }
     };
@@ -149,63 +217,99 @@ useEffect(() => {
     const handleSend =
     async () => {
 
-       if (
+        if (
             !text.trim()
-            && !file
+            && files.length === 0
         ) return;
 
+        if (!conversation) {
+            return;
+        }
+
         try {
+            const messagesToAppend = [];
 
-            const formData =
-new FormData();
+            if (files.length > 0) {
+                for (let index = 0; index < files.length; index += 1) {
+                    const fileItem = files[index];
+                    const formData = new FormData();
 
-formData.append(
-    "conversationId",
-    conversation._id
-);
+                    formData.append(
+                        "conversationId",
+                        conversation._id
+                    );
 
-formData.append(
+                    if (index === 0 && text.trim()) {
+                        formData.append(
+                            "text",
+                            text
+                        );
+                    }
+
+                    formData.append(
+                        "file",
+                        fileItem
+                    );
+
+                    const res =
+                        await sendMessage(formData);
+
+                    const newMessage =
+                        res.data.message;
+
+                    messagesToAppend.push(newMessage);
+
+                    socket.emit(
+                        "chat:send-message",
+                        {
+                            ...newMessage,
+                            conversationId:
+                                conversation._id
+                        }
+                    );
+                }
+            } else {
+                const formData = new FormData();
+
+                formData.append(
+                    "conversationId",
+                    conversation._id
+                );
+
+                formData.append(
                     "text",
                     text
                 );
 
-                if (file) {
+                const res = await sendMessage(formData);
+                messagesToAppend.push(res.data.message);
 
-                    formData.append(
-                        "file",
-                        file
-                    );
-                }
-
-            const res =
-                await sendMessage(formData);
-
-            setMessages((prev) => [
-
-                ...prev,
-
-                {
-                    ...res.data.message,
-                    seen: false
-                }
-            ]);
-
-            socket.emit(
+                socket.emit(
                     "chat:send-message",
                     {
-
                         ...res.data.message,
-
-                        receiverId:
-                            selectedUser._id
+                        conversationId:
+                            conversation._id
                     }
                 );
+            }
+
+            setMessages((prev) => {
+                const combined = [...prev];
+
+                messagesToAppend.forEach((message) => {
+                    if (!combined.some((msg) => msg._id === message._id)) {
+                        combined.push({ ...message, seen: false });
+                    }
+                });
+
+                return combined;
+            });
 
             setText("");
-            setFile(null);
+            setFiles([]);
 
         } catch (error) {
-
             console.log(error);
         }
     };
@@ -230,6 +334,11 @@ formData.append(
             : `http://localhost:3000${avatar}`;
     };
 
+    const getGroupName = (group) => {
+        if (!group) return "";
+        return group.name || group.groupName || group.group_name || group.title || "Unnamed Group";
+    };
+
     return (
 
         <div className="chat-box">
@@ -250,11 +359,11 @@ formData.append(
                     </div>
                     <div className="chat-user-meta">
                         <div className="chat-user-name">
-                            {selectedUser.name}
-                        </div>
-                        <div className="chat-user-status">
-                            {selectedUser.status || "Online"}
-                        </div>
+                                {selectedUser.isGroup ? getGroupName(selectedUser) : selectedUser.name}
+                            </div>
+                            <div className="chat-user-status">
+                                {selectedUser.isGroup ? "Group Chat" : selectedUser.status || "Online"}
+                            </div>
                     </div>
                 </div>
             </div>
@@ -275,51 +384,60 @@ formData.append(
             </div>
 
             <div className="chat-input-area">
-                <label className="file-upload-btn">
-                    <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) =>
-                            setFile(
-                                e.target.files[0]
-                            )
-                        }
-                    />
-                    <span>📎</span>
-                </label>
-
-                <div className="chat-input-wrapper">
-                    <input
-                        type="text"
-                        className="chat-input"
-                        value={text}
-                        onChange={(e) =>
-                            setText(
-                                e.target.value
-                            )
-                        }
-                        placeholder="Type a message"
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                                handleSend();
+                <>
+                    <label className="file-upload-btn">
+                        <input
+                            type="file"
+                            accept="image/*,video/*"
+                            multiple
+                            onChange={(e) =>
+                                setFiles(
+                                    Array.from(e.target.files || [])
+                                )
                             }
-                        }}
-                    />
+                        />
+                        <span>📎</span>
+                    </label>
 
-                    {file && (
-                        <div className="selected-file-info">
-                            Selected: {file.name}
-                        </div>
-                    )}
-                </div>
+                    <div className="chat-input-wrapper">
+                        <input
+                            type="text"
+                            className="chat-input"
+                            value={text}
+                            onChange={(e) =>
+                                setText(
+                                    e.target.value
+                                )
+                            }
+                            placeholder="Type a message"
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    handleSend();
+                                }
+                            }}
+                        />
 
-                <button
-                    className="send-btn"
-                    onClick={handleSend}
-                >
-                    Send
-                </button>
+                        {files.length > 0 && (
+                            <div className="selected-file-info">
+                                Selected: {files.length} file{files.length === 1 ? '' : 's'}
+                                <div className="selected-file-list">
+                                    {files.map((fileItem, index) => (
+                                        <div key={`${fileItem.name}-${index}`}>
+                                            {fileItem.type.startsWith('video') ? '🎥' : '🖼️'} {fileItem.name}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
 
+                    <button
+                        className="send-btn"
+                        onClick={handleSend}
+                    >
+                        Send
+                    </button>
+                </>
             </div>
 
         </div>

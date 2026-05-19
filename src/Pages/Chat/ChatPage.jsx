@@ -12,7 +12,8 @@ import ChatBox
 from "../../chat/ChatBox";
 
 import {
-    getCompanyUsers
+    getCompanyUsers,
+    getCompanyGroups
 } from "../../services/chatService";
 
 import { useSocket }
@@ -35,74 +36,71 @@ const [unreadCounts,
 setUnreadCounts] =
 useState({});
 
-const socket =
-useSocket()?.socket;
+    const [groups,
+    setGroups] =
+useState([]);
 
-    const currentUser =
-        JSON.parse(
-            localStorage.getItem("user")
-        ) || {};
+    const socket = useSocket()?.socket;
+    const currentUser = JSON.parse(localStorage.getItem("user")) || {};
 
-
+    
 
     useEffect(() => {
-
         fetchUsers();
-
+        fetchGroups();
     }, []);
 
-useEffect(() => {
+    useEffect(() => {
+        if (!socket) return;
 
-    if (!socket) {
+        console.log("✅ ONLINE SOCKET READY");
 
-        console.log(
-            "❌ SOCKET NOT READY"
-        );
+        const handleOnline = (users) => {
+            console.log("🟢 ONLINE USERS:", users);
+            setOnlineUsers(users);
+        };
 
-        return;
-    }
+        const handleUnread = (data) => {
+            setUnreadCounts((prev) => ({
+                ...prev,
+                [data.senderId]: data.count
+            }));
+        };
 
-    console.log(
-        "✅ ONLINE SOCKET READY"
-    );
+        socket.on("chat:online-users", handleOnline);
+        socket.on("chat:unread-update", handleUnread);
 
-    socket.on(
-        "chat:online-users",
-        (users) => {
+        return () => {
+            socket.off("chat:online-users", handleOnline);
+            socket.off("chat:unread-update", handleUnread);
+        };
+    }, [socket]);
 
-            console.log(
-                "🟢 ONLINE USERS:",
-                users
+    const fetchGroups =
+    async () => {
+
+        try {
+
+            const res =
+                await getCompanyGroups();
+
+            const fetchedGroups =
+                res.data.groups ||
+                res.data.data ||
+                res.data ||
+                [];
+
+            setGroups(
+                Array.isArray(fetchedGroups)
+                    ? fetchedGroups
+                    : []
             );
 
-            setOnlineUsers(users);
+        } catch (error) {
+
+            console.log(error);
         }
-    );
-
-    return () => {
-
-        socket.off(
-            "chat:online-users"
-        );
-        socket.off(
-            "chat:unread-update"
-        );
     };
-
-}, [socket]);
-socket.on(
-    "chat:unread-update",
-    (data) => {
-
-        setUnreadCounts((prev) => ({
-
-            ...prev,
-
-            [data.senderId]:
-                data.count
-        }));
-    }
-);
 
     const fetchUsers =
     async () => {
@@ -129,6 +127,7 @@ socket.on(
         <div className="chat-page">
 
             <ChatSidebar
+                groups={groups}
                 users={users}
                 onlineUsers={onlineUsers}
                 unreadCounts={unreadCounts}

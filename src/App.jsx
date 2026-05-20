@@ -155,7 +155,7 @@ function App() {
           <Route path="create-alert" element={<CreateAlerts />} />
           <Route path="user-profile" element={<UserProfile/>} />
           <Route
-            path="chat"
+            path="chat" 
             element={<ChatPage />}
           />
         </Route>

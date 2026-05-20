@@ -1,6 +1,7 @@
 import axios from "axios";
+import API_URL from "../config";
 
-const API = "http://localhost:3000/api/chat";
+const API = `${API_URL}/chat`;
 
 const getToken = () => {
     return localStorage.getItem("token");
@@ -75,10 +76,7 @@ async (formData) => {
             headers: {
 
                 Authorization:
-                    `Bearer ${getToken()}`,
-
-                "Content-Type":
-                    "multipart/form-data"
+                    `Bearer ${getToken()}`
             }
         }
     );
@@ -86,7 +84,7 @@ async (formData) => {
 
 export const getCompanyGroups = async () => {
     return axios.get(
-        `http://localhost:3000/api/groups`,
+        `${API_URL}/groups`,
         {
             headers: {
                 Authorization: `Bearer ${getToken()}`

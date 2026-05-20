@@ -4,7 +4,7 @@ import React, {
 } from "react";
 import "../Pages/Chat/chat.css";
 
-import { createConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, sendMessage } from "../services/chatService";
+import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, sendMessage } from "../services/chatService";
 
 import MessageBubble from "./MessageBubble";
 import socket from "../socket/socket";
@@ -23,6 +23,9 @@ const ChatBox = ({
 
     const [text, setText] =
         useState("");
+
+    const [files, setFiles] =
+        useState([]);
 
     const [isSendingAction, setIsSendingAction] = useState(false);
 
@@ -457,38 +460,38 @@ useEffect(() => {
             </div>
 
             <div className="chat-input-area">
-                <>
-                    <label className="file-upload-btn">
-                        <input
-                            type="file"
-                            accept="image/*,video/*"
-                            multiple
-                            onChange={(e) =>
-                                setFiles(
-                                    Array.from(e.target.files || [])
-                                )
-                            }
-                        />
-                        <span>📎</span>
-                    </label>
+                <label className="file-upload-btn">
+                    <input
+                        type="file"
+                        accept="image/*,video/*"
+                        multiple
+                        onChange={(e) =>
+                            setFiles(
+                                Array.from(e.target.files || [])
+                            )
+                        }
+                    />
+                    <span>📎</span>
+                </label>
 
-                    <div className="chat-input-wrapper">
-                        <input
-                            type="text"
-                            className="chat-input"
-                            value={text}
-                            onChange={(e) =>
-                                setText(
-                                    e.target.value
-                                )
+                <div className="chat-input-wrapper">
+                    <input
+                        type="text"
+                        className="chat-input"
+                        value={text}
+                        onChange={(e) =>
+                            setText(
+                                e.target.value
+                            )
+                        }
+                        placeholder="Type a message"
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                handleSend();
                             }
-                            placeholder="Type a message"
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                    handleSend();
-                                }
-                            }}
-                        />
+                        }}
+                    />
+                </div>
 
                 <button
                     className="send-btn"
@@ -497,14 +500,6 @@ useEffect(() => {
                 >
                     Send
                 </button>
-
-                    <button
-                        className="send-btn"
-                        onClick={handleSend}
-                    >
-                        Send
-                    </button>
-                </>
             </div>
 
         </div>

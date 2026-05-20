@@ -104,6 +104,7 @@ usersApi.interceptors.request.use(
 const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, userRole }) => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [price, setPrice] = useState('');
   const [showRenewForm, setShowRenewForm] = useState(false);
   const [renewMessage, setRenewMessage] = useState({ type: '', text: '' });
   const [updating, setUpdating] = useState(false);
@@ -147,6 +148,14 @@ const handleUpdateSubscription = async (e) => {
     return;
   }
 
+  if (price && (isNaN(price) || parseFloat(price) <= 0)) {
+    setRenewMessage({
+      type: 'error',
+      text: 'Please enter a valid price (positive number)'
+    });
+    return;
+  }
+
   setUpdating(true);
   setRenewMessage({ type: '', text: '' });
 
@@ -158,7 +167,8 @@ const handleUpdateSubscription = async (e) => {
       `/renew-subscription/${client._id}`,
       {
         startDate,
-        endDate
+        endDate,
+        price: price ? parseFloat(price) : undefined
       }
     );
 
@@ -173,6 +183,7 @@ const handleUpdateSubscription = async (e) => {
 
       setStartDate('');
       setEndDate('');
+      setPrice('');
 
       if (onRenewSubscription) {
         onRenewSubscription();
@@ -260,6 +271,11 @@ const handleUpdateSubscription = async (e) => {
                 <div className="ClientManagement-subscription-date">
                   <strong>End:</strong> {new Date(latestSubscription.endDate).toLocaleDateString()}
                 </div>
+                {latestSubscription.price && (
+                  <div className="ClientManagement-subscription-price">
+                    <strong>Price:</strong> ₹{typeof latestSubscription.price === 'number' ? latestSubscription.price.toLocaleString('en-IN') : latestSubscription.price}
+                  </div>
+                )}
                 <div className={`ClientManagement-subscription-status ${new Date(latestSubscription.endDate) < new Date() ? 'expired' : 'active'}`}>
                   {new Date(latestSubscription.endDate) < new Date() ? 'Expired' : 'Active'}
                 </div>
@@ -342,6 +358,23 @@ const handleUpdateSubscription = async (e) => {
                       </div>
                     </div>
 
+                    <div className="ClientManagement-form-group">
+                      <label className="ClientManagement-form-label">
+                        <FiDollarSign /> Price (₹)
+                      </label>
+                      <input
+                        type="number"
+                        className="ClientManagement-form-input"
+                        placeholder="Enter subscription price"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        disabled={updating}
+                        step="0.01"
+                        min="0"
+                      />
+                      <small className="ClientManagement-text-muted">Optional - Enter the subscription amount</small>
+                    </div>
+
                     <div className="ClientManagement-renewal-actions">
                       <button 
                         className="ClientManagement-btn ClientManagement-btn--outlined"
@@ -349,6 +382,7 @@ const handleUpdateSubscription = async (e) => {
                           setShowRenewForm(false);
                           setStartDate('');
                           setEndDate('');
+                          setPrice('');
                           setRenewMessage({ type: '', text: '' });
                         }}
                         disabled={updating}
@@ -1209,7 +1243,7 @@ const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService,
 };
 
 // ============================================
-//  ADD CLIENT MODAL COMPONENT
+//  ADD CLIENT MODAL COMPONENT WITH PRICE FIELD
 // ============================================
 const AddClientModal = ({ 
   open, 
@@ -1234,7 +1268,8 @@ const AddClientModal = ({
     description: '',
     notes: '',
     subscriptionStartDate: '',
-    subscriptionEndDate: ''
+    subscriptionEndDate: '',
+    subscriptionPrice: ''
   });
 
   const [managerSearch, setManagerSearch] = useState('');
@@ -1243,6 +1278,7 @@ const AddClientModal = ({
   const [formError, setFormError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const [dateError, setDateError] = useState('');
+  const [priceError, setPriceError] = useState('');
 
   const filteredServices = companyCode 
     ? services.filter(service => service.companyCode === companyCode)
@@ -1253,6 +1289,7 @@ const AddClientModal = ({
       setFormError('');
       setFieldErrors({});
       setDateError('');
+      setPriceError('');
     }
   }, [open]);
 
@@ -1286,6 +1323,15 @@ const AddClientModal = ({
     return true;
   };
 
+  const validatePrice = (price) => {
+    if (price && (isNaN(price) || parseFloat(price) <= 0)) {
+      setPriceError('Price must be a positive number');
+      return false;
+    }
+    setPriceError('');
+    return true;
+  };
+
   const handleStartDateChange = (date) => {
     setNewClient({...newClient, subscriptionStartDate: date});
     validateSubscriptionDates(date, newClient.subscriptionEndDate);
@@ -1296,11 +1342,17 @@ const AddClientModal = ({
     validateSubscriptionDates(newClient.subscriptionStartDate, date);
   };
 
+  const handlePriceChange = (price) => {
+    setNewClient({...newClient, subscriptionPrice: price});
+    validatePrice(price);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setFieldErrors({});
     setDateError('');
+    setPriceError('');
 
     const nextFieldErrors = {};
     if (!newClient.client.trim()) nextFieldErrors.client = 'Client name is required';
@@ -1313,6 +1365,10 @@ const AddClientModal = ({
       nextFieldErrors.email = 'Enter a valid email address';
     }
 
+    if (newClient.subscriptionPrice && !validatePrice(newClient.subscriptionPrice)) {
+      nextFieldErrors.subscriptionPrice = 'Please enter a valid price';
+    }
+
     let subscriptionArray = [];
     if (newClient.subscriptionStartDate && newClient.subscriptionEndDate) {
       const start = new Date(newClient.subscriptionStartDate);
@@ -1323,6 +1379,7 @@ const AddClientModal = ({
         subscriptionArray = [{
           startDate: newClient.subscriptionStartDate,
           endDate: newClient.subscriptionEndDate,
+          price: newClient.subscriptionPrice ? parseFloat(newClient.subscriptionPrice) : undefined,
           status: 'Active'
         }];
       }
@@ -1376,7 +1433,8 @@ const AddClientModal = ({
         description: '',
         notes: '',
         subscriptionStartDate: '',
-        subscriptionEndDate: ''
+        subscriptionEndDate: '',
+        subscriptionPrice: ''
       });
     } catch (error) {
       console.error("Error adding client:", error);
@@ -1417,6 +1475,12 @@ const AddClientModal = ({
           {dateError && (
             <div className="ClientManagement-alert ClientManagement-alert--error ClientManagement-mb-3">
               <FiAlertCircle /> {dateError}
+            </div>
+          )}
+
+          {priceError && (
+            <div className="ClientManagement-alert ClientManagement-alert--error ClientManagement-mb-3">
+              <FiAlertCircle /> {priceError}
             </div>
           )}
 
@@ -1520,6 +1584,24 @@ const AddClientModal = ({
                 {fieldErrors.subscriptionDates && (
                   <small className="ClientManagement-text-danger">{fieldErrors.subscriptionDates}</small>
                 )}
+              </div>
+
+              <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">
+                  <FiDollarSign className="ClientManagement-icon-inline" /> Subscription Price (₹)
+                </label>
+                <input
+                  type="number"
+                  className="ClientManagement-form-input"
+                  placeholder="Enter subscription amount"
+                  value={newClient.subscriptionPrice}
+                  onChange={(e) => handlePriceChange(e.target.value)}
+                  disabled={loading}
+                  step="0.01"
+                  min="0"
+                />
+                <small className="ClientManagement-text-muted">Optional - Enter the subscription amount</small>
+                {priceError && <small className="ClientManagement-text-danger">{priceError}</small>}
               </div>
 
               <div className="ClientManagement-form-group ClientManagement-col-span-2">
@@ -1791,7 +1873,8 @@ const AddClientModal = ({
               newClient.projectManagers.length === 0 ||
               filteredServices.length === 0 ||
               !companyCode ||
-              !!dateError
+              !!dateError ||
+              !!priceError
             }
           >
             {loading ? 'Adding Client...' : 
@@ -1846,7 +1929,7 @@ const ClientManagement = () => {
   // Helper function to get latest subscription info
   const getLatestSubscriptionInfo = (client) => {
     if (!client.subscription || client.subscription.length === 0) {
-      return { endDate: null, status: null, isExpired: false, formattedEndDate: null };
+      return { endDate: null, status: null, isExpired: false, formattedEndDate: null, price: null };
     }
     
     const latestSubscription = client.subscription[client.subscription.length - 1];
@@ -1861,7 +1944,8 @@ const ClientManagement = () => {
       endDate: endDate,
       status: latestSubscription.status,
       isExpired: isExpired,
-      formattedEndDate: endDate ? new Date(endDate).toLocaleDateString() : null
+      formattedEndDate: endDate ? new Date(endDate).toLocaleDateString() : null,
+      price: latestSubscription.price
     };
   };
 
@@ -1911,14 +1995,11 @@ const ClientManagement = () => {
     fetchCompanyInfo();
   }, []);
 
-  // UPDATED: fetchProjectManagers with proper department-based filtering for employees
+  // fetchProjectManagers with proper department-based filtering for employees
   const fetchProjectManagers = async () => {
     try {
       const token = getAuthToken();
 
-      // =========================
-      // GET CURRENT USER
-      // =========================
       const userStr = localStorage.getItem('user');
       let currentUser = {};
 
@@ -1926,9 +2007,6 @@ const ClientManagement = () => {
         currentUser = JSON.parse(userStr);
       }
 
-      // =========================
-      // GET COMPANY ROLE
-      // =========================
       const companyRole = (
         currentUser.companyRole ||
         currentUser.role ||
@@ -1939,17 +2017,12 @@ const ClientManagement = () => {
       console.log("Current User:", currentUser);
       console.log("Company Role:", companyRole);
 
-      // =========================
-      // SELECT API BASED ON ROLE
-      // =========================
       let apiEndpoint = '/company-users';
 
-      // employee -> department users only
       if (companyRole === 'employee') {
         apiEndpoint = '/department-users';
       }
 
-      // owner / hr / manager -> all company users
       if (
         companyRole === 'owner' ||
         companyRole === 'hr' ||
@@ -1960,9 +2033,6 @@ const ClientManagement = () => {
 
       console.log("Selected API:", apiEndpoint);
 
-      // =========================
-      // API CALL
-      // =========================
       const response = await usersApi.get(apiEndpoint, {
         headers: {
           Authorization: token ? `Bearer ${token}` : '',
@@ -1971,9 +2041,6 @@ const ClientManagement = () => {
         },
       });
 
-      // =========================
-      // GET USERS ARRAY
-      // =========================
       let usersArray = [];
 
       if (response.data) {
@@ -1990,9 +2057,6 @@ const ClientManagement = () => {
 
       console.log("Total Users:", usersArray.length);
 
-      // =========================
-      // FORMAT USERS
-      // =========================
       const formattedManagers = usersArray.map((user) => ({
         _id: user.id || user._id,
         name: user.name || 'Unknown User',
@@ -2293,21 +2357,67 @@ const ClientManagement = () => {
     setDeleteDialog({ open: false, type: '', id: '', name: '' });
   };
 
+  // FIXED: handleEditClick with proper team members mapping
   const handleEditClick = (client) => {
     let subscriptionStartDate = '';
     let subscriptionEndDate = '';
+    let subscriptionPrice = '';
+    
     if (client.subscription && client.subscription.length > 0) {
-      subscriptionStartDate = new Date(client.subscription[0].startDate).toISOString().split('T')[0];
-      subscriptionEndDate = new Date(client.subscription[0].endDate).toISOString().split('T')[0];
+      const latestSub = client.subscription[client.subscription.length - 1];
+      subscriptionStartDate = new Date(latestSub.startDate).toISOString().split('T')[0];
+      subscriptionEndDate = new Date(latestSub.endDate).toISOString().split('T')[0];
+      subscriptionPrice = latestSub.price || '';
+    }
+    
+    // IMPORTANT: Map the project managers correctly
+    let formattedProjectManagers = [];
+    
+    if (client.projectManagers && Array.isArray(client.projectManagers)) {
+      // Check if projectManagers are objects or strings
+      if (client.projectManagers.length > 0 && typeof client.projectManagers[0] === 'object') {
+        // Already objects with _id, name, etc.
+        formattedProjectManagers = client.projectManagers.map(pm => ({
+          _id: pm._id || pm.id,
+          name: pm.name,
+          email: pm.email,
+          role: pm.role
+        }));
+      } else if (client.projectManagers.length > 0 && typeof client.projectManagers[0] === 'string') {
+        // It's an array of names, find matching managers from projectManagers state
+        formattedProjectManagers = client.projectManagers.map(name => {
+          const manager = projectManagers.find(pm => pm.name === name);
+          return manager ? {
+            _id: manager._id,
+            name: manager.name,
+            email: manager.email,
+            role: manager.role
+          } : { _id: name, name: name, email: '', role: '' };
+        });
+      }
+    }
+    
+    // Also check for projectManager field (backward compatibility)
+    if (formattedProjectManagers.length === 0 && client.projectManager && Array.isArray(client.projectManager)) {
+      formattedProjectManagers = client.projectManager.map(name => {
+        const manager = projectManagers.find(pm => pm.name === name);
+        return manager ? {
+          _id: manager._id,
+          name: manager.name,
+          email: manager.email,
+          role: manager.role
+        } : { _id: name, name: name, email: '', role: '' };
+      });
     }
     
     setEditDialog({ 
       open: true, 
       client: {
         ...client,
-        projectManagers: client.projectManagers || [],
+        projectManagers: formattedProjectManagers,
         subscriptionStartDate: subscriptionStartDate,
-        subscriptionEndDate: subscriptionEndDate
+        subscriptionEndDate: subscriptionEndDate,
+        subscriptionPrice: subscriptionPrice
       }
     });
   };
@@ -2319,6 +2429,7 @@ const ClientManagement = () => {
     console.log("Client data:", client);
     console.log("Subscription Start Date:", client.subscriptionStartDate);
     console.log("Subscription End Date:", client.subscriptionEndDate);
+    console.log("Subscription Price:", client.subscriptionPrice);
     
     const formattedProjectManagers = client.projectManagers.map(pm => ({
       _id: pm._id || pm.id,
@@ -2329,12 +2440,12 @@ const ClientManagement = () => {
     
     let subscriptionData = [];
     
-    // ✅ IMPORTANT: Properly format subscription data
     if (client.subscriptionStartDate && client.subscriptionEndDate) {
-      console.log("Creating new subscription with dates");
+      console.log("Creating new subscription with dates and price");
       subscriptionData = [{
         startDate: client.subscriptionStartDate,
         endDate: client.subscriptionEndDate,
+        price: client.subscriptionPrice ? parseFloat(client.subscriptionPrice) : undefined,
         status: 'Active'
       }];
     } else if (client.subscription && client.subscription.length > 0) {
@@ -2727,6 +2838,11 @@ const ClientManagement = () => {
                                     <small>Expires:</small>
                                     <strong>{subscriptionInfo.formattedEndDate}</strong>
                                   </div>
+                                  {subscriptionInfo.price && (
+                                    <div className="ClientManagement-subscription-price-badge">
+                                      <small>₹{typeof subscriptionInfo.price === 'number' ? subscriptionInfo.price.toLocaleString('en-IN') : subscriptionInfo.price}</small>
+                                    </div>
+                                  )}
                                   <div className={`ClientManagement-subscription-status ${subscriptionInfo.isExpired ? 'status-expired' : 'status-active'}`}>
                                     {subscriptionInfo.isExpired ? 'Expired' : 'Active'}
                                   </div>
@@ -3081,7 +3197,7 @@ const ClientManagement = () => {
       )}
 
       {/* ============================================ */}
-      {/* FIXED EDIT CLIENT MODAL */}
+      {/* FIXED EDIT CLIENT MODAL WITH PROPER TEAM SELECTION */}
       {/* ============================================ */}
       {editDialog.open && editDialog.client && (
         <div className="ClientManagement-modal-overlay" onClick={() => setEditDialog({ open: false, client: null })}>
@@ -3205,44 +3321,107 @@ const ClientManagement = () => {
                     <small className="ClientManagement-text-muted">Must be after start date</small>
                   </div>
 
+                  <div className="ClientManagement-form-group">
+                    <label className="ClientManagement-form-label">
+                      <FiDollarSign className="ClientManagement-icon-inline" /> Subscription Price (₹)
+                    </label>
+                    <input
+                      type="number"
+                      className="ClientManagement-form-input"
+                      placeholder="Enter subscription amount"
+                      value={editDialog.client.subscriptionPrice || ''}
+                      onChange={(e) => {
+                        setEditDialog({
+                          ...editDialog,
+                          client: { 
+                            ...editDialog.client, 
+                            subscriptionPrice: e.target.value
+                          }
+                        });
+                      }}
+                      step="0.01"
+                      min="0"
+                    />
+                    <small className="ClientManagement-text-muted">Optional - Enter the subscription amount</small>
+                  </div>
+
                   <div className="ClientManagement-form-group ClientManagement-edit-managers-group">
                     <label className="ClientManagement-form-label">Team *</label>
                     <div className="ClientManagement-managers-list">
-                      {safeMapProjectManagers((manager) => (
-                        <div key={manager._id} className="ClientManagement-manager-checkbox-item">
-                          <input
-                            type="checkbox"
-                            id={`edit-manager-${manager._id}`}
-                            checked={editDialog.client.projectManagers?.some(pm => pm._id === manager._id || pm.id === manager._id) || false}
-                            onChange={(e) => {
-                              const isChecked = e.target.checked;
-                              setEditDialog({
-                                ...editDialog,
-                                client: {
-                                  ...editDialog.client,
-                                  projectManagers: isChecked
-                                    ? [...(editDialog.client.projectManagers || []), {
-                                        _id: manager._id,
-                                        name: manager.name,
-                                        email: manager.email,
-                                      }]
-                                    : (editDialog.client.projectManagers || []).filter(pm => pm._id !== manager._id)
-                                }
-                              });
-                            }}
-                          />
-                          <div className="ClientManagement-manager-checkbox-content">
-                            <div className="ClientManagement-avatar ClientManagement-avatar--primary">
-                              {manager.name?.charAt(0)?.toUpperCase() || 'U'}
-                            </div>
-                            <div>
-                              <p className="ClientManagement-font-bold">{manager.name}</p>
-                              <small className="ClientManagement-text-muted">{manager.email}</small>
+                      {safeMapProjectManagers((manager) => {
+                        // Check if this manager is in the client's projectManagers
+                        const isSelected = editDialog.client.projectManagers?.some(pm => 
+                          pm._id === manager._id || pm.id === manager._id || pm.name === manager.name
+                        ) || false;
+                        
+                        return (
+                          <div key={manager._id} className="ClientManagement-manager-checkbox-item">
+                            <input
+                              type="checkbox"
+                              id={`edit-manager-${manager._id}`}
+                              checked={isSelected}
+                              onChange={(e) => {
+                                const isChecked = e.target.checked;
+                                setEditDialog({
+                                  ...editDialog,
+                                  client: {
+                                    ...editDialog.client,
+                                    projectManagers: isChecked
+                                      ? [...(editDialog.client.projectManagers || []), {
+                                          _id: manager._id,
+                                          name: manager.name,
+                                          email: manager.email,
+                                          role: manager.role
+                                        }]
+                                      : (editDialog.client.projectManagers || []).filter(pm => 
+                                          pm._id !== manager._id && pm.id !== manager._id && pm.name !== manager.name
+                                        )
+                                  }
+                                });
+                              }}
+                            />
+                            <div className="ClientManagement-manager-checkbox-content">
+                              <div className="ClientManagement-avatar ClientManagement-avatar--primary">
+                                {manager.name?.charAt(0)?.toUpperCase() || 'U'}
+                              </div>
+                              <div>
+                                <p className="ClientManagement-font-bold">{manager.name}</p>
+                                <small className="ClientManagement-text-muted">{manager.email}</small>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
+                    
+                    {/* Display selected managers preview */}
+                    {editDialog.client.projectManagers && editDialog.client.projectManagers.length > 0 && (
+                      <div className="ClientManagement-selected-items-preview ClientManagement-mt-2">
+                        <small className="ClientManagement-text-muted">Selected Team Members:</small>
+                        <div className="ClientManagement-flex ClientManagement-flex-wrap ClientManagement-gap-1 ClientManagement-mt-1">
+                          {editDialog.client.projectManagers.map((pm, idx) => (
+                            <div key={idx} className="ClientManagement-selected-item ClientManagement-selected-item--primary">
+                              <span>{pm.name}</span>
+                              <button
+                                type="button"
+                                className="ClientManagement-selected-item-remove"
+                                onClick={() => {
+                                  setEditDialog({
+                                    ...editDialog,
+                                    client: {
+                                      ...editDialog.client,
+                                      projectManagers: editDialog.client.projectManagers.filter(p => p.name !== pm.name)
+                                    }
+                                  });
+                                }}
+                              >
+                                <FiX />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="ClientManagement-form-group ClientManagement-edit-services-group">

@@ -8,7 +8,6 @@ import "./chat.css";
 import ChatSidebar
 from "../../chat/ChatSidebar";
 
-
 import ChatBox
 from "../../chat/ChatBox";
 

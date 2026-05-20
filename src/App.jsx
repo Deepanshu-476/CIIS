@@ -70,7 +70,7 @@ import AllCompany from "./page/AllCompany.jsx";
 import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
 
-import ChatPage from "./pages/Chat/ChatPage";
+import ChatPage from "./Pages/Chat/ChatPage";
 
 
 function App() {
@@ -161,32 +161,10 @@ function App() {
           <Route path="create-user" element={<CreateUser />} />
           <Route path="create-alert" element={<CreateAlerts />} />
           <Route path="user-profile" element={<UserProfile/>} />
-          <Route path="chat" element={<ChatPage />} />
-        </Route>
-
-        {/* ========== CLIENT SPECIFIC ROUTES (NEW) ========== */}
-        <Route
-          path="/client/*"
-          element={
-            <ThemeContextProvider>
-              <ProtectedRoute>
-                <ClientLayout />
-              </ProtectedRoute>
-            </ThemeContextProvider>
-          }
-        >
-          {/* Client Dashboard - Main landing page for clients */}
-          <Route index element={<ClientDashboard />} />
-          <Route path="dashboard" element={<ClientDashboard />} />
-          
-          {/* Client Payment Section */}
-          <Route path="payment" element={<ClientPaymentSection />} />
-          
-          {/* Client Services & Tasks */}
-          <Route path="services-tasks" element={<ClientServicesTasks />} />
-          
-          {/* Redirect any unknown client routes to dashboard */}
-          <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
+          <Route
+            path="chat" 
+            element={<ChatPage />}
+          />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

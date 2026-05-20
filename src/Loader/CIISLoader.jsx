@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import logo from "../../public/logoo.png"; // yaha apna logo file rakho
-import "./CIISLoader.css"; // CSS file for styling - this import is correct
+import "./CIISLOADER.css"; // CSS file for styling
 
 /**
  * A collection of 20+ unique loader animations.

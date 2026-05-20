@@ -1124,7 +1124,7 @@ const TaskDetails = () => {
       } else {
         return [...newFilters, status];
       }
-    });
+    }); 
   };
 
   // FIXED: fetchUserTasks function with merged API calls - Normalize source to 'assigned'

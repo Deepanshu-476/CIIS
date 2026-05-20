@@ -31,7 +31,13 @@ import EmpAllTask from "./hrCds/pages/hr/EmpAllTask";
 import EmpDepartmentAllTask from "./hrCds/pages/hr/EmpDepartmentAllTask.jsx";
 import AdminProject from "./hrCds/pages/AdminProject";
 import Client from "./hrCds/pages/hr/Client";
-import ClienDashboard from "./hrCds/pages/ClientDashboard.jsx";
+
+// ========== CLIENT PAGES (NEW) ==========
+import ClientDashboard from "./hrCds/pages/Dashboard.jsx";
+import ClientPaymentSection from "./hrCds/pages/ClientPaymentSection.jsx";
+import ClientServicesTasks from "./hrCds/pages/ClientServicesTasks.jsx";
+import ClientLayout from "./hrCds/layouts/ClientLayout.jsx";
+
 // User Pages
 import Alerts from "./hrCds/pages/Alerts";
 import Attendance from "./hrCds/pages/Attendance";
@@ -74,7 +80,7 @@ function App() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setLoading(false);
-    }, 500); // 2.5 sec loader
+    }, 500);
 
     return () => clearTimeout(timer);
   }, []);
@@ -116,7 +122,7 @@ function App() {
           <Route path="holiday" element={<Holiday />} />
         </Route>
 
-        {/* CDS User Routes */}
+        {/* ========== CDS USER ROUTES (HR, Employee, etc.) ========== */}
         <Route
           path="/ciisUser/*"
           element={
@@ -127,7 +133,9 @@ function App() {
             </ThemeContextProvider>
           }
         >
-          <Route path="ClientDashboard" element={<ClienDashboard />} />
+          
+          
+          {/* HR/Employee Routes */}
           <Route path="change-password" element={<ChangePassword />} />
           <Route path="emp-details" element={<EmppDetail />} />
           <Route path="emp-leaves" element={<EmppLeave />} />
@@ -139,7 +147,6 @@ function App() {
           <Route path="admin-meeting" element={<AdminMeetingPage />} />
           <Route path="adminproject" element={<AdminProject />} />
           <Route path="company-all-task" element={<EmpAllTask />} />
-          {/* <Route path="department-all-task" element={<EmpDepartmentAllTask />} /> */}
           <Route path="emp-client" element={<Client />} />
           <Route path="alert" element={<Alerts />} />
           <Route path="attendance" element={<Attendance />} />
@@ -154,10 +161,32 @@ function App() {
           <Route path="create-user" element={<CreateUser />} />
           <Route path="create-alert" element={<CreateAlerts />} />
           <Route path="user-profile" element={<UserProfile/>} />
-          <Route
-            path="chat"
-            element={<ChatPage />}
-          />
+          <Route path="chat" element={<ChatPage />} />
+        </Route>
+
+        {/* ========== CLIENT SPECIFIC ROUTES (NEW) ========== */}
+        <Route
+          path="/client/*"
+          element={
+            <ThemeContextProvider>
+              <ProtectedRoute>
+                <ClientLayout />
+              </ProtectedRoute>
+            </ThemeContextProvider>
+          }
+        >
+          {/* Client Dashboard - Main landing page for clients */}
+          <Route index element={<ClientDashboard />} />
+          <Route path="dashboard" element={<ClientDashboard />} />
+          
+          {/* Client Payment Section */}
+          <Route path="payment" element={<ClientPaymentSection />} />
+          
+          {/* Client Services & Tasks */}
+          <Route path="services-tasks" element={<ClientServicesTasks />} />
+          
+          {/* Redirect any unknown client routes to dashboard */}
+          <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

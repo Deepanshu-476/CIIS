@@ -105,6 +105,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [price, setPrice] = useState('');
+  const [months, setMonths] = useState(1);
   const [showRenewForm, setShowRenewForm] = useState(false);
   const [renewMessage, setRenewMessage] = useState({ type: '', text: '' });
   const [updating, setUpdating] = useState(false);
@@ -117,6 +118,29 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
     : null;
 
   const canRenewSubscription = userRole === 'owner' || userRole === 'admin' || userRole === 'superadmin';
+
+  const calculateEndDate = (startDateValue, monthsValue) => {
+    if (!startDateValue || !monthsValue) return '';
+    const date = new Date(startDateValue);
+    date.setMonth(date.getMonth() + parseInt(monthsValue));
+    return date.toISOString().split('T')[0];
+  };
+
+  const handleMonthsChange = (selectedMonths) => {
+    setMonths(selectedMonths);
+    if (startDate) {
+      const calculatedEndDate = calculateEndDate(startDate, selectedMonths);
+      setEndDate(calculatedEndDate);
+    }
+  };
+
+  const handleStartDateChange = (date) => {
+    setStartDate(date);
+    if (date && months) {
+      const calculatedEndDate = calculateEndDate(date, months);
+      setEndDate(calculatedEndDate);
+    }
+  };
 
   const handleUpdateSubscription = async (e) => {
     if (e) {
@@ -173,6 +197,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
         setStartDate('');
         setEndDate('');
         setPrice('');
+        setMonths(1);
 
         if (onRenewSubscription) {
           onRenewSubscription();
@@ -228,6 +253,8 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
       setUpdating(false);
     }
   };
+
+  const monthOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
   return (
     <div className="ClientManagement-modal-overlay" onClick={onClose}>
@@ -296,7 +323,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
 
               {showRenewForm && (
                 <div className="ClientManagement-renewal-form-container">
-                  <h4>🔄 Update Subscription Dates</h4>
+                  <h4>🔄 Update Subscription</h4>
                   
                   {renewMessage.text && (
                     <div className={`ClientManagement-renewal-message ClientManagement-renewal-message--${renewMessage.type}`}>
@@ -308,31 +335,46 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
                   <div className="ClientManagement-renewal-form">
                     <div className="ClientManagement-form-group">
                       <label className="ClientManagement-form-label">
-                        <FiCalendar /> Subscription Period
+                        <FiCalendar /> Start Date
                       </label>
-                      <div className="ClientManagement-grid-2 ClientManagement-gap-2">
-                        <div>
-                          <label className="ClientManagement-form-label-sm">Start Date</label>
-                          <input
-                            type="date"
-                            className="ClientManagement-form-input"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                            disabled={updating}
-                          />
-                        </div>
-                        <div>
-                          <label className="ClientManagement-form-label-sm">End Date</label>
-                          <input
-                            type="date"
-                            className="ClientManagement-form-input"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            disabled={updating}
-                            min={startDate || undefined}
-                          />
-                        </div>
-                      </div>
+                      <input
+                        type="date"
+                        className="ClientManagement-form-input"
+                        value={startDate}
+                        onChange={(e) => handleStartDateChange(e.target.value)}
+                        disabled={updating}
+                      />
+                    </div>
+
+                    <div className="ClientManagement-form-group">
+                      <label className="ClientManagement-form-label">
+                        <FiCalendar /> Subscription Period (Months)
+                      </label>
+                      <select
+                        className="ClientManagement-form-input"
+                        value={months}
+                        onChange={(e) => handleMonthsChange(parseInt(e.target.value))}
+                        disabled={updating}
+                      >
+                        {monthOptions.map(month => (
+                          <option key={month} value={month}>{month} {month === 1 ? 'Month' : 'Months'}</option>
+                        ))}
+                      </select>
+                      <small className="ClientManagement-text-muted">Select number of months for subscription</small>
+                    </div>
+
+                    <div className="ClientManagement-form-group">
+                      <label className="ClientManagement-form-label">
+                        <FiCalendar /> End Date (Auto-calculated)
+                      </label>
+                      <input
+                        type="date"
+                        className="ClientManagement-form-input"
+                        value={endDate}
+                        disabled
+                        style={{ backgroundColor: '#f3f4f6' }}
+                      />
+                      <small className="ClientManagement-text-muted">End date will be calculated based on start date and months selected</small>
                     </div>
 
                     <div className="ClientManagement-form-group">
@@ -349,7 +391,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
                         step="0.01"
                         min="0"
                       />
-                      <small className="ClientManagement-text-muted">Optional - Enter the subscription amount</small>
+                      <small className="ClientManagement-text-muted">Enter the subscription amount</small>
                     </div>
 
                     <div className="ClientManagement-renewal-actions">
@@ -360,6 +402,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
                           setStartDate('');
                           setEndDate('');
                           setPrice('');
+                          setMonths(1);
                           setRenewMessage({ type: '', text: '' });
                         }}
                         disabled={updating}
@@ -1216,7 +1259,7 @@ const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService,
 };
 
 // ============================================
-//  ADD CLIENT MODAL COMPONENT WITH PRICE FIELD
+//  ADD CLIENT MODAL COMPONENT WITH PER MONTH SUBSCRIPTION
 // ============================================
 const AddClientModal = ({ 
   open, 
@@ -1242,7 +1285,8 @@ const AddClientModal = ({
     notes: '',
     subscriptionStartDate: '',
     subscriptionEndDate: '',
-    subscriptionPrice: ''
+    subscriptionPrice: '',
+    subscriptionMonths: 1
   });
 
   const [managerSearch, setManagerSearch] = useState('');
@@ -1257,12 +1301,15 @@ const AddClientModal = ({
     ? services.filter(service => service.companyCode === companyCode)
     : services;
 
+  const monthOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
   useEffect(() => {
     if (open) {
       setFormError('');
       setFieldErrors({});
       setDateError('');
       setPriceError('');
+      setNewClient(prev => ({ ...prev, subscriptionMonths: 1 }));
     }
   }, [open]);
 
@@ -1279,6 +1326,13 @@ const AddClientModal = ({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  const calculateEndDate = (startDate, months) => {
+    if (!startDate || !months) return '';
+    const date = new Date(startDate);
+    date.setMonth(date.getMonth() + parseInt(months));
+    return date.toISOString().split('T')[0];
+  };
 
   const validateSubscriptionDates = (startDate, endDate) => {
     if (startDate && endDate) {
@@ -1306,17 +1360,25 @@ const AddClientModal = ({
   };
 
   const handleStartDateChange = (date) => {
-    setNewClient({...newClient, subscriptionStartDate: date});
-    validateSubscriptionDates(date, newClient.subscriptionEndDate);
+    setNewClient(prev => ({...prev, subscriptionStartDate: date}));
+    if (date && newClient.subscriptionMonths) {
+      const calculatedEndDate = calculateEndDate(date, newClient.subscriptionMonths);
+      setNewClient(prev => ({...prev, subscriptionEndDate: calculatedEndDate}));
+      validateSubscriptionDates(date, calculatedEndDate);
+    }
   };
 
-  const handleEndDateChange = (date) => {
-    setNewClient({...newClient, subscriptionEndDate: date});
-    validateSubscriptionDates(newClient.subscriptionStartDate, date);
+  const handleMonthsChange = (months) => {
+    setNewClient(prev => ({...prev, subscriptionMonths: months}));
+    if (newClient.subscriptionStartDate && months) {
+      const calculatedEndDate = calculateEndDate(newClient.subscriptionStartDate, months);
+      setNewClient(prev => ({...prev, subscriptionEndDate: calculatedEndDate}));
+      validateSubscriptionDates(newClient.subscriptionStartDate, calculatedEndDate);
+    }
   };
 
   const handlePriceChange = (price) => {
-    setNewClient({...newClient, subscriptionPrice: price});
+    setNewClient(prev => ({...prev, subscriptionPrice: price}));
     validatePrice(price);
   };
 
@@ -1353,7 +1415,8 @@ const AddClientModal = ({
           startDate: newClient.subscriptionStartDate,
           endDate: newClient.subscriptionEndDate,
           price: newClient.subscriptionPrice ? parseFloat(newClient.subscriptionPrice) : undefined,
-          status: 'Active'
+          status: 'Active',
+          months: newClient.subscriptionMonths
         }];
       }
     }
@@ -1407,7 +1470,8 @@ const AddClientModal = ({
         notes: '',
         subscriptionStartDate: '',
         subscriptionEndDate: '',
-        subscriptionPrice: ''
+        subscriptionPrice: '',
+        subscriptionMonths: 1
       });
     } catch (error) {
       console.error("Error adding client:", error);
@@ -1473,7 +1537,7 @@ const AddClientModal = ({
                   value={newClient.client}
                   onChange={(e) => {
                     setFieldErrors(prev => ({ ...prev, client: '' }));
-                    setNewClient({...newClient, client: e.target.value});
+                    setNewClient(prev => ({...prev, client: e.target.value}));
                   }}
                   required
                   disabled={loading}
@@ -1489,7 +1553,7 @@ const AddClientModal = ({
                   value={newClient.company}
                   onChange={(e) => {
                     setFieldErrors(prev => ({ ...prev, company: '' }));
-                    setNewClient({...newClient, company: e.target.value});
+                    setNewClient(prev => ({...prev, company: e.target.value}));
                   }}
                   required
                   disabled={loading}
@@ -1505,7 +1569,7 @@ const AddClientModal = ({
                   value={newClient.city}
                   onChange={(e) => {
                     setFieldErrors(prev => ({ ...prev, city: '' }));
-                    setNewClient({...newClient, city: e.target.value});
+                    setNewClient(prev => ({...prev, city: e.target.value}));
                   }}
                   required
                   disabled={loading}
@@ -1518,7 +1582,7 @@ const AddClientModal = ({
                 <select
                   className="ClientManagement-form-input"
                   value={newClient.status}
-                  onChange={(e) => setNewClient({...newClient, status: e.target.value})}
+                  onChange={(e) => setNewClient(prev => ({...prev, status: e.target.value}))}
                   disabled={loading}
                 >
                   <option value="Active">Active</option>
@@ -1538,7 +1602,24 @@ const AddClientModal = ({
                   onChange={(e) => handleStartDateChange(e.target.value)}
                   disabled={loading}
                 />
-                <small className="ClientManagement-text-muted">Optional</small>
+                <small className="ClientManagement-text-muted">Select start date</small>
+              </div>
+
+              <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">
+                  <FiCalendar className="ClientManagement-icon-inline" /> Subscription Period
+                </label>
+                <select
+                  className="ClientManagement-form-input"
+                  value={newClient.subscriptionMonths}
+                  onChange={(e) => handleMonthsChange(parseInt(e.target.value))}
+                  disabled={loading}
+                >
+                  {monthOptions.map(month => (
+                    <option key={month} value={month}>{month} {month === 1 ? 'Month' : 'Months'}</option>
+                  ))}
+                </select>
+                <small className="ClientManagement-text-muted">Select number of months</small>
               </div>
 
               <div className="ClientManagement-form-group">
@@ -1549,11 +1630,10 @@ const AddClientModal = ({
                   type="date"
                   className="ClientManagement-form-input"
                   value={newClient.subscriptionEndDate}
-                  onChange={(e) => handleEndDateChange(e.target.value)}
-                  disabled={loading}
-                  min={newClient.subscriptionStartDate || undefined}
+                  disabled
+                  style={{ backgroundColor: '#f3f4f6' }}
                 />
-                <small className="ClientManagement-text-muted">Must be after start date</small>
+                <small className="ClientManagement-text-muted">Auto-calculated based on start date and months</small>
                 {fieldErrors.subscriptionDates && (
                   <small className="ClientManagement-text-danger">{fieldErrors.subscriptionDates}</small>
                 )}
@@ -1573,10 +1653,11 @@ const AddClientModal = ({
                   step="0.01"
                   min="0"
                 />
-                <small className="ClientManagement-text-muted">Optional - Enter the subscription amount</small>
+                <small className="ClientManagement-text-muted">Enter the subscription amount</small>
                 {priceError && <small className="ClientManagement-text-danger">{priceError}</small>}
               </div>
 
+              {/* Team Selection */}
               <div className="ClientManagement-form-group ClientManagement-col-span-2">
                 <label className="ClientManagement-form-label">Team *</label>
                 <div className="ClientManagement-dropdown-wrapper">
@@ -1682,6 +1763,7 @@ const AddClientModal = ({
                 {fieldErrors.projectManagers && <small className="ClientManagement-text-danger">{fieldErrors.projectManagers}</small>}
               </div>
 
+              {/* Services Selection */}
               <div className="ClientManagement-form-group ClientManagement-col-span-2">
                 <label className="ClientManagement-form-label">Services</label>
                 {filteredServices.length === 0 && (
@@ -1774,7 +1856,7 @@ const AddClientModal = ({
                   className="ClientManagement-form-input"
                   rows="3"
                   value={newClient.description}
-                  onChange={(e) => setNewClient({...newClient, description: e.target.value})}
+                  onChange={(e) => setNewClient(prev => ({...prev, description: e.target.value}))}
                   placeholder="Enter client description..."
                   disabled={loading}
                 />
@@ -1788,7 +1870,7 @@ const AddClientModal = ({
                   value={newClient.email}
                   onChange={(e) => {
                     setFieldErrors(prev => ({ ...prev, email: '' }));
-                    setNewClient({...newClient, email: e.target.value});
+                    setNewClient(prev => ({...prev, email: e.target.value}));
                   }}
                   disabled={loading}
                 />
@@ -1801,7 +1883,7 @@ const AddClientModal = ({
                   type="text"
                   className="ClientManagement-form-input"
                   value={newClient.phone}
-                  onChange={(e) => setNewClient({...newClient, phone: e.target.value})}
+                  onChange={(e) => setNewClient(prev => ({...prev, phone: e.target.value}))}
                   disabled={loading}
                 />
               </div>
@@ -1812,7 +1894,7 @@ const AddClientModal = ({
                   type="text"
                   className="ClientManagement-form-input"
                   value={newClient.address}
-                  onChange={(e) => setNewClient({...newClient, address: e.target.value})}
+                  onChange={(e) => setNewClient(prev => ({...prev, address: e.target.value}))}
                   disabled={loading}
                 />
               </div>
@@ -1823,7 +1905,7 @@ const AddClientModal = ({
                   className="ClientManagement-form-input"
                   rows="2"
                   value={newClient.notes}
-                  onChange={(e) => setNewClient({...newClient, notes: e.target.value})}
+                  onChange={(e) => setNewClient(prev => ({...prev, notes: e.target.value}))}
                   placeholder="Additional notes..."
                   disabled={loading}
                 />
@@ -1899,7 +1981,6 @@ const ClientManagement = () => {
     overdueTasks: 0
   });
 
-  // Helper function to get latest subscription info
   const getLatestSubscriptionInfo = (client) => {
     if (!client.subscription || client.subscription.length === 0) {
       return { endDate: null, status: null, isExpired: false, formattedEndDate: null, price: null };
@@ -1922,7 +2003,6 @@ const ClientManagement = () => {
     };
   };
 
-  // Get user role from localStorage
   useEffect(() => {
     const getUserRole = () => {
       try {
@@ -1930,7 +2010,6 @@ const ClientManagement = () => {
         if (userStr) {
           const user = JSON.parse(userStr);
           setUserRole(user.role || user.userRole || 'client');
-          console.log('User role:', user.role || user.userRole || 'client');
         } else {
           setUserRole('client');
         }
@@ -1968,11 +2047,9 @@ const ClientManagement = () => {
     fetchCompanyInfo();
   }, []);
 
-  // fetchProjectManagers with proper department-based filtering for employees
   const fetchProjectManagers = async () => {
     try {
       const token = getAuthToken();
-
       const userStr = localStorage.getItem('user');
       let currentUser = {};
 
@@ -1987,24 +2064,15 @@ const ClientManagement = () => {
         ''
       ).toLowerCase();
 
-      console.log("Current User:", currentUser);
-      console.log("Company Role:", companyRole);
-
       let apiEndpoint = '/company-users';
 
       if (companyRole === 'employee') {
         apiEndpoint = '/department-users';
       }
 
-      if (
-        companyRole === 'owner' ||
-        companyRole === 'hr' ||
-        companyRole === 'manager'
-      ) {
+      if (companyRole === 'owner' || companyRole === 'hr' || companyRole === 'manager') {
         apiEndpoint = '/company-users';
       }
-
-      console.log("Selected API:", apiEndpoint);
 
       const response = await usersApi.get(apiEndpoint, {
         headers: {
@@ -2027,8 +2095,6 @@ const ClientManagement = () => {
           usersArray = response.data.data;
         }
       }
-
-      console.log("Total Users:", usersArray.length);
 
       const formattedManagers = usersArray.map((user) => ({
         _id: user.id || user._id,
@@ -2089,9 +2155,7 @@ const ClientManagement = () => {
         
         const enhancedClients = allClients.map(client => ({
           ...client,
-          projectManagers: Array.isArray(client.projectManagers)
-          ? client.projectManagers
-          : []
+          projectManagers: Array.isArray(client.projectManagers) ? client.projectManagers : []
         }));
         
         setClients(enhancedClients);
@@ -2226,20 +2290,18 @@ const ClientManagement = () => {
     }
   };
 
-  // ✅ FIXED: handleAddClient with correct projectManager field name
   const handleAddClient = async (clientData) => {
     try {
       setAddLoading(true);
       setError('');
       
-      // Extract just the manager names (strings) from the projectManagers array
       const managerNames = clientData.projectManagers.map(pm => pm.name);
       
       const backendClientData = {
         client: clientData.client,
         company: clientData.company,
         city: clientData.city,
-        projectManager: managerNames,  // ✅ Fixed: Changed from projectManagers to projectManager
+        projectManager: managerNames,
         services: clientData.services,
         status: clientData.status,
         progress: clientData.progress,
@@ -2251,8 +2313,6 @@ const ClientManagement = () => {
         companyCode: clientData.companyCode,
         subscription: clientData.subscription || []
       };
-      
-      console.log("Sending to backend:", backendClientData);
       
       const response = await api.post('/', backendClientData);
       
@@ -2266,7 +2326,6 @@ const ClientManagement = () => {
       }
     } catch (err) {
       console.error('Add client error:', err);
-      console.error('Error response:', err.response?.data);
       const errorMessage = err.response?.data?.message || 
                           err.response?.data?.errors?.join(', ') || 
                           'Client add failed';
@@ -2397,15 +2456,8 @@ const ClientManagement = () => {
     });
   };
 
-  // ✅ FIXED: handleEditSave with correct projectManager field name
   const handleEditSave = () => {
-    console.log("=== SAVING CLIENT WITH SUBSCRIPTION ===");
     const { client } = editDialog;
-    
-    console.log("Client data:", client);
-    console.log("Subscription Start Date:", client.subscriptionStartDate);
-    console.log("Subscription End Date:", client.subscriptionEndDate);
-    console.log("Subscription Price:", client.subscriptionPrice);
     
     const formattedProjectManagers = client.projectManagers.map(pm => ({
       _id: pm._id || pm.id,
@@ -2414,13 +2466,11 @@ const ClientManagement = () => {
       role: pm.role
     }));
     
-    // Extract just the manager names for backend
     const managerNames = client.projectManagers.map(pm => pm.name);
     
     let subscriptionData = [];
     
     if (client.subscriptionStartDate && client.subscriptionEndDate) {
-      console.log("Creating new subscription with dates and price");
       subscriptionData = [{
         startDate: client.subscriptionStartDate,
         endDate: client.subscriptionEndDate,
@@ -2428,17 +2478,14 @@ const ClientManagement = () => {
         status: 'Active'
       }];
     } else if (client.subscription && client.subscription.length > 0) {
-      console.log("Keeping existing subscription");
       subscriptionData = client.subscription;
     }
-    
-    console.log("Subscription data being sent:", subscriptionData);
     
     const updateData = {
       client: client.client,
       company: client.company,
       city: client.city,
-      projectManager: managerNames,  // ✅ Fixed: Send array of strings, not objects
+      projectManager: managerNames,
       services: client.services,
       status: client.status,
       progress: client.progress,
@@ -2450,8 +2497,6 @@ const ClientManagement = () => {
       companyCode: companyCode,
       subscription: subscriptionData
     };
-    
-    console.log("Final update data:", updateData);
     
     handleUpdateClient(client._id, updateData);
   };
@@ -2928,7 +2973,6 @@ const ClientManagement = () => {
         </div>
       </div>
 
-      {/* Modals */}
       <AddClientModal
         open={addClientModal}
         onClose={() => setAddClientModal(false)}
@@ -2985,8 +3029,6 @@ const ClientManagement = () => {
             
             <div className="ClientManagement-modal__content ClientManagement-view-modal-content">
               <div className="ClientManagement-client-details-content">
-                
-                {/* Basic Information Section */}
                 <div className="ClientManagement-client-details-section">
                   <h4 className="ClientManagement-section-header">
                     <FiBriefcase className="ClientManagement-section-icon" />
@@ -3036,7 +3078,6 @@ const ClientManagement = () => {
                   </div>
                 </div>
 
-                {/* Team Section */}
                 <div className="ClientManagement-client-details-section ClientManagement-team-section">
                   <h4 className="ClientManagement-section-header">
                     <FiUsers className="ClientManagement-section-icon" />
@@ -3070,7 +3111,6 @@ const ClientManagement = () => {
                   </div>
                 </div>
 
-                {/* Services & Task Management Section */}
                 {viewDialog.client.services && viewDialog.client.services.length > 0 && (
                   <div className="ClientManagement-client-details-section ClientManagement-services-section">
                     <h4 className="ClientManagement-section-header">
@@ -3108,7 +3148,6 @@ const ClientManagement = () => {
                   </div>
                 )}
 
-                {/* Additional Information Section */}
                 <div className="ClientManagement-client-details-section ClientManagement-additional-info-section">
                   <h4 className="ClientManagement-section-header">
                     <FiMapPin className="ClientManagement-section-icon" />
@@ -3174,7 +3213,6 @@ const ClientManagement = () => {
         </div>
       )}
 
-      {/* Edit Client Modal */}
       {editDialog.open && editDialog.client && (
         <div className="ClientManagement-modal-overlay" onClick={() => setEditDialog({ open: false, client: null })}>
           <div className="ClientManagement-modal ClientManagement-edit-modal" onClick={e => e.stopPropagation()}>
@@ -3272,7 +3310,7 @@ const ClientManagement = () => {
                         });
                       }}
                     />
-                    <small className="ClientManagement-text-muted">Optional - Select start date</small>
+                    <small className="ClientManagement-text-muted">Select start date</small>
                   </div>
 
                   <div className="ClientManagement-form-group">
@@ -3318,7 +3356,7 @@ const ClientManagement = () => {
                       step="0.01"
                       min="0"
                     />
-                    <small className="ClientManagement-text-muted">Optional - Enter the subscription amount</small>
+                    <small className="ClientManagement-text-muted">Enter the subscription amount</small>
                   </div>
 
                   <div className="ClientManagement-form-group ClientManagement-edit-managers-group">
@@ -3529,7 +3567,6 @@ const ClientManagement = () => {
         </div>
       )}
 
-      {/* Payment Receipts Modal */}
       <PaymentReceiptsModal 
         open={paymentReceiptsModal.open}
         onClose={() => setPaymentReceiptsModal({ open: false, client: null })}

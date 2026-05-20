@@ -99,7 +99,7 @@ usersApi.interceptors.request.use(
 );
 
 // ============================================
-//  PAYMENT RECEIPTS MODAL COMPONENT - UPDATED (ONLY SUBSCRIPTION RENEWAL/DATE CHANGE)
+//  PAYMENT RECEIPTS MODAL COMPONENT
 // ============================================
 const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, userRole }) => {
   const [startDate, setStartDate] = useState('');
@@ -116,100 +116,83 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
     ? client.subscription[client.subscription.length - 1] 
     : null;
 
-  // Check if current user has permission to renew/update subscription
   const canRenewSubscription = userRole === 'owner' || userRole === 'admin' || userRole === 'superadmin';
 
-  // Function to update subscription dates
-const handleUpdateSubscription = async (e) => {
-
-  if (e) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
-
-  console.log("SUBSCRIPTION API HIT");
-
-  if (!startDate || !endDate) {
-    setRenewMessage({
-      type: 'error',
-      text: 'Please select both start and end date'
-    });
-    return;
-  }
-
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-
-  if (end <= start) {
-    setRenewMessage({
-      type: 'error',
-      text: 'End date must be greater than start date'
-    });
-    return;
-  }
-
-  if (price && (isNaN(price) || parseFloat(price) <= 0)) {
-    setRenewMessage({
-      type: 'error',
-      text: 'Please enter a valid price (positive number)'
-    });
-    return;
-  }
-
-  setUpdating(true);
-  setRenewMessage({ type: '', text: '' });
-
-  try {
-
-    console.log("CLIENT ID:", client._id);
-
-    const response = await api.patch(
-      `/renew-subscription/${client._id}`,
-      {
-        startDate,
-        endDate,
-        price: price ? parseFloat(price) : undefined
-      }
-    );
-
-    console.log("RESPONSE:", response.data);
-
-    if (response.data.success) {
-
-      setRenewMessage({
-        type: 'success',
-        text: 'Subscription updated successfully!'
-      });
-
-      setStartDate('');
-      setEndDate('');
-      setPrice('');
-
-      if (onRenewSubscription) {
-        onRenewSubscription();
-      }
-
-      setTimeout(() => {
-        setShowRenewForm(false);
-        setRenewMessage({ type: '', text: '' });
-      }, 3000);
+  const handleUpdateSubscription = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
     }
 
-  } catch (error) {
+    if (!startDate || !endDate) {
+      setRenewMessage({
+        type: 'error',
+        text: 'Please select both start and end date'
+      });
+      return;
+    }
 
-    console.log("ERROR:", error);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
 
-    setRenewMessage({
-      type: 'error',
-      text: error.response?.data?.message || 'Update failed'
-    });
+    if (end <= start) {
+      setRenewMessage({
+        type: 'error',
+        text: 'End date must be greater than start date'
+      });
+      return;
+    }
 
-  } finally {
-    setUpdating(false);
-  }
-};
+    if (price && (isNaN(price) || parseFloat(price) <= 0)) {
+      setRenewMessage({
+        type: 'error',
+        text: 'Please enter a valid price (positive number)'
+      });
+      return;
+    }
 
-  // Function to remove subscription
+    setUpdating(true);
+    setRenewMessage({ type: '', text: '' });
+
+    try {
+      const response = await api.patch(
+        `/renew-subscription/${client._id}`,
+        {
+          startDate,
+          endDate,
+          price: price ? parseFloat(price) : undefined
+        }
+      );
+
+      if (response.data.success) {
+        setRenewMessage({
+          type: 'success',
+          text: 'Subscription updated successfully!'
+        });
+
+        setStartDate('');
+        setEndDate('');
+        setPrice('');
+
+        if (onRenewSubscription) {
+          onRenewSubscription();
+        }
+
+        setTimeout(() => {
+          setShowRenewForm(false);
+          setRenewMessage({ type: '', text: '' });
+        }, 3000);
+      }
+    } catch (error) {
+      setRenewMessage({
+        type: 'error',
+        text: error.response?.data?.message || 'Update failed'
+      });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const handleRemoveSubscription = async () => {
     if (!window.confirm('Are you sure you want to remove the subscription for this client?')) {
       return;
@@ -259,8 +242,6 @@ const handleUpdateSubscription = async (e) => {
           </button>
         </div>
         <div className="ClientManagement-modal__content">
-          
-          {/* Current Subscription Info */}
           {latestSubscription ? (
             <div className="ClientManagement-current-subscription-info">
               <h4>📅 Current Subscription</h4>
@@ -290,20 +271,17 @@ const handleUpdateSubscription = async (e) => {
             </div>
           )}
 
-          {/* Only show subscription management for authorized users */}
           {canRenewSubscription && (
             <>
-              {/* Renew/Update Subscription Button */}
               <div className="ClientManagement-renewal-section">
                 <button 
-                    type="button"
-                    className={`ClientManagement-renewal-toggle-btn ${showRenewForm ? 'active' : ''}`}
-                    onClick={() => setShowRenewForm(!showRenewForm)}
-                  >
+                  type="button"
+                  className={`ClientManagement-renewal-toggle-btn ${showRenewForm ? 'active' : ''}`}
+                  onClick={() => setShowRenewForm(!showRenewForm)}
+                >
                   <FiPlus /> {showRenewForm ? 'Cancel' : 'Update Subscription'}
                 </button>
 
-                {/* Remove Subscription Button */}
                 {latestSubscription && (
                   <button 
                     type="button"
@@ -316,7 +294,6 @@ const handleUpdateSubscription = async (e) => {
                 )}
               </div>
 
-              {/* Update Subscription Form */}
               {showRenewForm && (
                 <div className="ClientManagement-renewal-form-container">
                   <h4>🔄 Update Subscription Dates</h4>
@@ -390,11 +367,11 @@ const handleUpdateSubscription = async (e) => {
                         Cancel
                       </button>
                       <button 
-                          type="button"
-                          className="ClientManagement-btn ClientManagement-btn--primary"
-                          onClick={(e) => handleUpdateSubscription(e)}
-                          disabled={updating || !startDate || !endDate}
-                        >
+                        type="button"
+                        className="ClientManagement-btn ClientManagement-btn--primary"
+                        onClick={(e) => handleUpdateSubscription(e)}
+                        disabled={updating || !startDate || !endDate}
+                      >
                         {updating ? ( 
                           <>
                             <div className="ClientManagement-spinner-small"></div>
@@ -413,7 +390,6 @@ const handleUpdateSubscription = async (e) => {
             </>
           )}
 
-          {/* Payment Receipts List - Read-only for everyone */}
           <h4 className="ClientManagement-receipts-title">💰 Payment History ({paymentReceipts.length})</h4>
           
           {paymentReceipts.length > 0 ? (
@@ -464,7 +440,6 @@ const handleUpdateSubscription = async (e) => {
                       </div>
                     </div>
                     
-                    {/* Receipt Image */}
                     {receipt.receiptImage && (
                       <div className="ClientManagement-payment-receipt-image-container">
                         <div className="ClientManagement-payment-detail-label">🖼️ Receipt:</div>
@@ -489,7 +464,6 @@ const handleUpdateSubscription = async (e) => {
                       </div>
                     )}
                     
-                    {/* Receipt Filename */}
                     {receipt.receiptFilename && (
                       <div className="ClientManagement-payment-detail-row">
                         <div className="ClientManagement-payment-detail-label">📄 File:</div>
@@ -499,7 +473,6 @@ const handleUpdateSubscription = async (e) => {
                       </div>
                     )}
                     
-                    {/* Verification Info */}
                     {receipt.status !== 'Pending' && (
                       <div className={`ClientManagement-payment-verification-info ${receipt.status === 'Approved' ? 'approved' : 'rejected'}`}>
                         <div className="ClientManagement-payment-detail-label">
@@ -2253,17 +2226,20 @@ const ClientManagement = () => {
     }
   };
 
+  // ✅ FIXED: handleAddClient with correct projectManager field name
   const handleAddClient = async (clientData) => {
     try {
       setAddLoading(true);
       setError('');
       
+      // Extract just the manager names (strings) from the projectManagers array
+      const managerNames = clientData.projectManagers.map(pm => pm.name);
+      
       const backendClientData = {
         client: clientData.client,
         company: clientData.company,
         city: clientData.city,
-        projectManagers: clientData.projectManagers,
-        
+        projectManager: managerNames,  // ✅ Fixed: Changed from projectManagers to projectManager
         services: clientData.services,
         status: clientData.status,
         progress: clientData.progress,
@@ -2275,6 +2251,8 @@ const ClientManagement = () => {
         companyCode: clientData.companyCode,
         subscription: clientData.subscription || []
       };
+      
+      console.log("Sending to backend:", backendClientData);
       
       const response = await api.post('/', backendClientData);
       
@@ -2288,7 +2266,10 @@ const ClientManagement = () => {
       }
     } catch (err) {
       console.error('Add client error:', err);
-      const errorMessage = err.response?.data?.message || 'Client add failed';
+      console.error('Error response:', err.response?.data);
+      const errorMessage = err.response?.data?.message || 
+                          err.response?.data?.errors?.join(', ') || 
+                          'Client add failed';
       setError(errorMessage);
       throw err;
     } finally {
@@ -2357,7 +2338,6 @@ const ClientManagement = () => {
     setDeleteDialog({ open: false, type: '', id: '', name: '' });
   };
 
-  // FIXED: handleEditClick with proper team members mapping
   const handleEditClick = (client) => {
     let subscriptionStartDate = '';
     let subscriptionEndDate = '';
@@ -2370,13 +2350,10 @@ const ClientManagement = () => {
       subscriptionPrice = latestSub.price || '';
     }
     
-    // IMPORTANT: Map the project managers correctly
     let formattedProjectManagers = [];
     
     if (client.projectManagers && Array.isArray(client.projectManagers)) {
-      // Check if projectManagers are objects or strings
       if (client.projectManagers.length > 0 && typeof client.projectManagers[0] === 'object') {
-        // Already objects with _id, name, etc.
         formattedProjectManagers = client.projectManagers.map(pm => ({
           _id: pm._id || pm.id,
           name: pm.name,
@@ -2384,7 +2361,6 @@ const ClientManagement = () => {
           role: pm.role
         }));
       } else if (client.projectManagers.length > 0 && typeof client.projectManagers[0] === 'string') {
-        // It's an array of names, find matching managers from projectManagers state
         formattedProjectManagers = client.projectManagers.map(name => {
           const manager = projectManagers.find(pm => pm.name === name);
           return manager ? {
@@ -2397,7 +2373,6 @@ const ClientManagement = () => {
       }
     }
     
-    // Also check for projectManager field (backward compatibility)
     if (formattedProjectManagers.length === 0 && client.projectManager && Array.isArray(client.projectManager)) {
       formattedProjectManagers = client.projectManager.map(name => {
         const manager = projectManagers.find(pm => pm.name === name);
@@ -2422,6 +2397,7 @@ const ClientManagement = () => {
     });
   };
 
+  // ✅ FIXED: handleEditSave with correct projectManager field name
   const handleEditSave = () => {
     console.log("=== SAVING CLIENT WITH SUBSCRIPTION ===");
     const { client } = editDialog;
@@ -2438,6 +2414,9 @@ const ClientManagement = () => {
       role: pm.role
     }));
     
+    // Extract just the manager names for backend
+    const managerNames = client.projectManagers.map(pm => pm.name);
+    
     let subscriptionData = [];
     
     if (client.subscriptionStartDate && client.subscriptionEndDate) {
@@ -2445,7 +2424,7 @@ const ClientManagement = () => {
       subscriptionData = [{
         startDate: client.subscriptionStartDate,
         endDate: client.subscriptionEndDate,
-        price: client.subscriptionPrice ? parseFloat(client.subscriptionPrice) : undefined,
+        price: client.subscriptionPrice ? parseFloat(client.subscriptionPrice) : 0,
         status: 'Active'
       }];
     } else if (client.subscription && client.subscription.length > 0) {
@@ -2459,8 +2438,7 @@ const ClientManagement = () => {
       client: client.client,
       company: client.company,
       city: client.city,
-      projectManagers: formattedProjectManagers,
-      projectManager: client.projectManagers.map(pm => pm.name),
+      projectManager: managerNames,  // ✅ Fixed: Send array of strings, not objects
       services: client.services,
       status: client.status,
       progress: client.progress,
@@ -3196,9 +3174,7 @@ const ClientManagement = () => {
         </div>
       )}
 
-      {/* ============================================ */}
-      {/* FIXED EDIT CLIENT MODAL WITH PROPER TEAM SELECTION */}
-      {/* ============================================ */}
+      {/* Edit Client Modal */}
       {editDialog.open && editDialog.client && (
         <div className="ClientManagement-modal-overlay" onClick={() => setEditDialog({ open: false, client: null })}>
           <div className="ClientManagement-modal ClientManagement-edit-modal" onClick={e => e.stopPropagation()}>
@@ -3349,7 +3325,6 @@ const ClientManagement = () => {
                     <label className="ClientManagement-form-label">Team *</label>
                     <div className="ClientManagement-managers-list">
                       {safeMapProjectManagers((manager) => {
-                        // Check if this manager is in the client's projectManagers
                         const isSelected = editDialog.client.projectManagers?.some(pm => 
                           pm._id === manager._id || pm.id === manager._id || pm.name === manager.name
                         ) || false;
@@ -3394,7 +3369,6 @@ const ClientManagement = () => {
                       })}
                     </div>
                     
-                    {/* Display selected managers preview */}
                     {editDialog.client.projectManagers && editDialog.client.projectManagers.length > 0 && (
                       <div className="ClientManagement-selected-items-preview ClientManagement-mt-2">
                         <small className="ClientManagement-text-muted">Selected Team Members:</small>

@@ -189,6 +189,8 @@ const TaskDetails = () => {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [globalFromDate, setGlobalFromDate] = useState("");
+  const [globalToDate, setGlobalToDate] = useState("");
   const [taskPage, setTaskPage] = useState(1);
   const [taskLimit, setTaskLimit] = useState(10);
   const [taskTotal, setTaskTotal] = useState(0);
@@ -1122,7 +1124,7 @@ const TaskDetails = () => {
       } else {
         return [...newFilters, status];
       }
-    });
+    }); 
   };
 
   // FIXED: fetchUserTasks function with merged API calls - Normalize source to 'assigned'
@@ -1341,6 +1343,39 @@ const TaskDetails = () => {
     users,
   ]);
 
+  const fetchAllUsersTasks = useCallback(async (options = {}) => {
+    setLoading(true);
+    setError("");
+    try {
+      const nextFromDate = options.fromDate ?? globalFromDate;
+      const nextToDate = options.toDate ?? globalToDate;
+
+      const response = await axios.get('/task/all-users-tasks', {
+        params: {
+          fromDate: nextFromDate || undefined,
+          toDate: nextToDate || undefined,
+        }
+      });
+
+      const allUsersTasks = response.data?.tasks || response.data?.data || [];
+      setTasks(allUsersTasks);
+      setTaskTotal(allUsersTasks.length);
+      setTaskTotalPages(1);
+      setTaskPage(1);
+      await fetchAllTaskLogs(allUsersTasks.slice(0, taskLimit));
+    } catch (err) {
+      console.error("❌ Error fetching all users tasks:", err);
+      setTasks([]);
+      setError(
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        "Error fetching all users tasks."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchAllTaskLogs, globalFromDate, globalToDate, taskLimit]);
+
   useEffect(() => {
     if (!selectedUserId || !openDialog) return;
     if (skipNextTaskFetchRef.current) {
@@ -1355,6 +1390,11 @@ const TaskDetails = () => {
 
     return () => clearTimeout(timer);
   }, [activeStatusFilters, dateFilter, fromDate, openDialog, priorityFilter, searchQuery, selectedUserId, taskLimit, toDate]);
+
+  useEffect(() => {
+    if (selectedUserId) return;
+    fetchAllUsersTasks({ fromDate: globalFromDate, toDate: globalToDate });
+  }, [fetchAllUsersTasks, globalFromDate, globalToDate, selectedUserId]);
 
   // Debug effect to log tasks when they change
   useEffect(() => {
@@ -3172,6 +3212,39 @@ const TaskDetails = () => {
           </div>
 
           {renderOverallStats()}
+
+          <div className="TaskDetails-modal-date-range" style={{ marginTop: '1rem' }}>
+            <div className="TaskDetails-modal-date-input">
+              <FiCalendar size={14} />
+              <input
+                type="date"
+                value={globalFromDate}
+                onChange={(e) => setGlobalFromDate(e.target.value)}
+                placeholder="From Date"
+              />
+            </div>
+            <span className="TaskDetails-modal-date-separator">→</span>
+            <div className="TaskDetails-modal-date-input">
+              <FiCalendar size={14} />
+              <input
+                type="date"
+                value={globalToDate}
+                onChange={(e) => setGlobalToDate(e.target.value)}
+                placeholder="To Date"
+              />
+            </div>
+            {(globalFromDate || globalToDate) && (
+              <button
+                className="TaskDetails-modal-date-clear"
+                onClick={() => {
+                  setGlobalFromDate('');
+                  setGlobalToDate('');
+                }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

@@ -254,6 +254,23 @@ const Header = ({ toggleSidebar, isMobile }) => {
             console.log("📅 Meeting Notification Received:", notification);
           }
 
+          const route = notification.targetPath || notification.data?.targetPath;
+          if (route && Notification.permission === "granted") {
+            try {
+              const browserNotification = new Notification(notification.title || "New notification", {
+                body: notification.message || "",
+                data: { route },
+                icon: "/logoo.png"
+              });
+              browserNotification.onclick = () => {
+                window.focus();
+                navigate(route);
+              };
+            } catch (error) {
+              console.error("Browser notification failed:", error);
+            }
+          }
+
           setLocalUnreadCount(prevCount => {
             const newCount = prevCount + 1;
             localStorage.setItem('unreadCount', newCount);
@@ -311,6 +328,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
         assignedTasksRes,
         groupsRes,
         alertsRes,
+        systemNotificationsRes,
       ] = await Promise.allSettled([
         axios.get(`${API_URL}/attendance/list`, { headers }),
         axios.get(`${API_URL}/leaves/status`, { headers }),
@@ -319,12 +337,31 @@ const Header = ({ toggleSidebar, isMobile }) => {
         axios.get(`${API_URL}/task/assigned`, { headers }),
         axios.get(`${API_URL}/groups`, { headers }),
         axios.get(`${API_URL}/alerts`, { headers }),
+        axios.get(`${API_URL}/notifications`, { headers }),
       ]);
       
 
       const all = [];
       const today = new Date().toDateString();
       const now = new Date();
+
+      const backendNotifications =
+        systemNotificationsRes.status === "fulfilled"
+          ? systemNotificationsRes.value?.data?.data?.notifications || []
+          : [];
+
+      backendNotifications.forEach((item) => {
+        all.push({
+          ...item,
+          id: item._id || item.id,
+          msg: item.message || item.title || "New notification",
+          time: item.createdAt || item.updatedAt || new Date(),
+          type: item.type || "system",
+          category: item.priority === "high" ? "system-high" : "system",
+          targetPath: item.targetPath,
+          targetScreen: item.targetScreen,
+        });
+      });
 
       const formatTime = (dateStr) => {
         if (!dateStr) return "";
@@ -580,11 +617,26 @@ const Header = ({ toggleSidebar, isMobile }) => {
       // If it has an ID, mark as read via socket
       if (notification._id) {
         await markAsRead(notification._id);
+        const token = localStorage.getItem("token");
+        if (token) {
+          await axios.patch(`${API_URL}/notifications/${notification._id}/read`, {}, {
+            headers: { Authorization: `Bearer ${token}` }
+          }).catch(() => {});
+        }
       }
       
       showToast('Notification marked as read', 'success', 2000);
     } catch (error) {
       console.error('Error marking as read:', error);
+    }
+  };
+
+  const handleOpenNotification = async (notification, index) => {
+    const route = notification.targetPath || notification.data?.targetPath;
+    await handleMarkAsRead(notification, index);
+    setAnchorEl(null);
+    if (route) {
+      navigate(route);
     }
   };
 
@@ -931,6 +983,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
                   notifications.map((n, i) => (
                     <MenuItem
                       key={n.id || i}
+                      onClick={() => handleOpenNotification(n, i)}
                       sx={{
                         display: "flex",
                         alignItems: "flex-start",

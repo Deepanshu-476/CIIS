@@ -1,0 +1,420 @@
+/* Dashboard.css - Enhanced Professional UI */
+
+/* ===== Modern Reset & Variables ===== */
+.ClientDashboard-client-dashboard {
+  max-width: 1600px;
+  margin: 0 auto;
+  background: #f8fafc;
+  min-height: 100vh;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ===== Welcome Header ===== */
+.ClientDashboard-welcome-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28px 32px 20px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.ClientDashboard-welcome-header h1 {
+  font-size: 28px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.01em;
+}
+
+.ClientDashboard-welcome-header p {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* ===== Stats Cards ===== */
+.ClientDashboard-overall-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  padding: 0 32px 28px;
+}
+
+.ClientDashboard-stat-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s ease;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.ClientDashboard-stat-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.ClientDashboard-stat-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ClientDashboard-stat-number {
+  font-size: 32px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.ClientDashboard-stat-label {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.ClientDashboard-stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.ClientDashboard-stat-icon--blue {
+  background: #eff6ff;
+  color: #3b82f6;
+}
+
+.ClientDashboard-stat-icon--green {
+  background: #ecfdf5;
+  color: #10b981;
+}
+
+.ClientDashboard-stat-icon--orange {
+  background: #fff7ed;
+  color: #f97316;
+}
+
+.ClientDashboard-stat-icon--red {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+/* ===== Three Column Layout ===== */
+.ClientDashboard-three-column {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  padding: 0 32px 32px;
+}
+
+/* ===== Cards Common ===== */
+.ClientDashboard-info-card,
+.ClientDashboard-overview-card,
+.ClientDashboard-chart-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.ClientDashboard-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ClientDashboard-card-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.ClientDashboard-card-header-icon {
+  font-size: 18px;
+  color: #94a3b8;
+}
+
+/* ===== Info Grid ===== */
+.ClientDashboard-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.ClientDashboard-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ClientDashboard-info-item label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #94a3b8;
+}
+
+.ClientDashboard-info-item p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+/* ===== Overview Card ===== */
+.ClientDashboard-overview-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+}
+
+.ClientDashboard-overview-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ClientDashboard-overview-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+}
+
+.ClientDashboard-overview-icon {
+  font-size: 14px;
+  color: #3b82f6;
+}
+
+.ClientDashboard-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ClientDashboard-progress-bar__fill {
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.ClientDashboard-overview-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ClientDashboard-overview-percentage {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  min-width: 40px;
+}
+
+.ClientDashboard-overview-divider {
+  height: 1px;
+  background: #f1f5f9;
+  margin: 4px 0;
+}
+
+.ClientDashboard-overview-value {
+  text-align: center;
+  padding: 16px 0 8px;
+}
+
+.ClientDashboard-value-large {
+  font-size: 36px;
+  font-weight: 700;
+  color: #1e293b;
+  display: block;
+  line-height: 1;
+}
+
+.ClientDashboard-value-small {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 6px;
+  display: block;
+}
+
+.ClientDashboard-task-distribution h4 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  color: #475569;
+}
+
+.ClientDashboard-doughnut-container {
+  width: 180px;
+  margin: 0 auto;
+}
+
+/* ===== Chart Card ===== */
+.ClientDashboard-chart-container {
+  height: 260px;
+  position: relative;
+  flex: 1;
+}
+
+/* ===== Status Badge ===== */
+.ClientDashboard-status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.ClientDashboard-status-badge--success {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.ClientDashboard-status-badge--warning {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.ClientDashboard-status-badge--error {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+/* ===== Loading & Error ===== */
+.ClientDashboard-dashboard-loading,
+.ClientDashboard-dashboard-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 500px;
+  text-align: center;
+  background: #f8fafc;
+}
+
+.ClientDashboard-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 2px solid #e2e8f0;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: ClientDashboard-spin 0.6s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes ClientDashboard-spin {
+  to { transform: rotate(360deg); }
+}
+
+.ClientDashboard-error-icon {
+  font-size: 48px;
+  color: #ef4444;
+  margin-bottom: 16px;
+}
+
+.ClientDashboard-error-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.ClientDashboard-btn {
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.ClientDashboard-btn--primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.ClientDashboard-btn--primary:hover {
+  background: #2563eb;
+}
+
+.ClientDashboard-btn--outlined {
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+}
+
+.ClientDashboard-btn--outlined:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 1200px) {
+  .ClientDashboard-three-column {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .ClientDashboard-chart-column {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 1024px) {
+  .ClientDashboard-welcome-header,
+  .ClientDashboard-overall-stats,
+  .ClientDashboard-three-column {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  
+  .ClientDashboard-overall-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .ClientDashboard-welcome-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .ClientDashboard-overall-stats {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .ClientDashboard-three-column {
+    grid-template-columns: 1fr;
+  }
+  
+  .ClientDashboard-chart-column {
+    grid-column: span 1;
+  }
+  
+  .ClientDashboard-info-grid {
+    grid-template-columns: 1fr;
+  }
+}

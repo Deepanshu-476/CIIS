@@ -1343,39 +1343,10 @@ const TaskDetails = () => {
     users,
   ]);
 
-  const fetchAllUsersTasks = useCallback(async (options = {}) => {
-    setLoading(true);
-    setError("");
-    try {
-      const nextFromDate = options.fromDate ?? globalFromDate;
-      const nextToDate = options.toDate ?? globalToDate;
+  // REMOVED: fetchAllUsersTasks - endpoint doesn't exist
+  // The function is removed entirely since the endpoint returns 404
 
-      const response = await axios.get('/task/all-users-tasks', {
-        params: {
-          fromDate: nextFromDate || undefined,
-          toDate: nextToDate || undefined,
-        }
-      });
-
-      const allUsersTasks = response.data?.tasks || response.data?.data || [];
-      setTasks(allUsersTasks);
-      setTaskTotal(allUsersTasks.length);
-      setTaskTotalPages(1);
-      setTaskPage(1);
-      await fetchAllTaskLogs(allUsersTasks.slice(0, taskLimit));
-    } catch (err) {
-      console.error("❌ Error fetching all users tasks:", err);
-      setTasks([]);
-      setError(
-        err?.response?.data?.error ||
-        err?.response?.data?.message ||
-        "Error fetching all users tasks."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchAllTaskLogs, globalFromDate, globalToDate, taskLimit]);
-
+  // UPDATED: useEffect for fetching tasks when selectedUserId changes
   useEffect(() => {
     if (!selectedUserId || !openDialog) return;
     if (skipNextTaskFetchRef.current) {
@@ -1389,12 +1360,7 @@ const TaskDetails = () => {
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [activeStatusFilters, dateFilter, fromDate, openDialog, priorityFilter, searchQuery, selectedUserId, taskLimit, toDate]);
-
-  useEffect(() => {
-    if (selectedUserId) return;
-    fetchAllUsersTasks({ fromDate: globalFromDate, toDate: globalToDate });
-  }, [fetchAllUsersTasks, globalFromDate, globalToDate, selectedUserId]);
+  }, [activeStatusFilters, dateFilter, fromDate, openDialog, priorityFilter, searchQuery, selectedUserId, taskLimit, toDate, fetchUserTasks]);
 
   // Debug effect to log tasks when they change
   useEffect(() => {
@@ -1750,7 +1716,7 @@ const TaskDetails = () => {
         </div>
 
         <div className="TaskDetails-overall-stats-grid">
-          <div className="TaskDetails-overall-stat-card">
+          <div className="TaskDetails-overall-stat-card" key="total-stat">
             <div className="TaskDetails-overall-stat-content">
               <div
                 className="TaskDetails-overall-stat-icon"
@@ -2011,6 +1977,7 @@ const TaskDetails = () => {
 
     return (
       <div
+        key={userId}
         className={`TaskDetails-user-card ${isSelected ? 'TaskDetails-user-card-selected' : ''} ${isLoading ? 'TaskDetails-user-card-loading' : ''}`}
         onClick={() => {
           if (userId && !isLoading) {
@@ -2416,7 +2383,7 @@ const TaskDetails = () => {
             ) : remarksDialog.remarks.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 {remarksDialog.remarks.map((remark, index) => (
-                  <div key={index} style={{
+                  <div key={remark._id || index} style={{
                     padding: '15px',
                     backgroundColor: '#f8fafc',
                     borderRadius: '8px',

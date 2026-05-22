@@ -1,0 +1,640 @@
+/* ServicesTasks.css - Only for Services & Tasks Page */
+
+/* ===== Services & Tasks Container ===== */
+.ClientDashboard-services-tasks-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  background: linear-gradient(135deg, #f5f7fb 0%, #f8fafc 100%);
+  min-height: 100vh;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ===== Welcome Header ===== */
+.ClientDashboard-welcome-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 32px 32px 24px;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.ClientDashboard-welcome-header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.02em;
+}
+
+.ClientDashboard-welcome-header p {
+  font-size: 15px;
+  color: #475569;
+  margin: 0;
+}
+
+.ClientDashboard-section-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.ClientDashboard-refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 40px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ClientDashboard-refresh-btn:hover {
+  background: #f8fafc;
+  transform: translateY(-1px);
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Services List ===== */
+.ClientDashboard-services-list {
+  padding: 0 32px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ===== Service Card ===== */
+.ClientDashboard-service-card {
+  background: white;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.ClientDashboard-service-card--expanded {
+  box-shadow: 0 20px 25px -12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.ClientDashboard-service-card__header {
+  padding: 20px 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: white;
+  transition: background 0.2s ease;
+}
+
+.ClientDashboard-service-card__header:hover {
+  background: #fafcff;
+}
+
+.ClientDashboard-service-card__title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+}
+
+.ClientDashboard-service-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ClientDashboard-service-icon {
+  font-size: 24px;
+  color: #3b82f6;
+}
+
+.ClientDashboard-service-card__title h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.ClientDashboard-service-subtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.ClientDashboard-service-arrow {
+  font-size: 18px;
+  color: #94a3b8;
+  transition: transform 0.3s ease;
+}
+
+.ClientDashboard-service-arrow--rotated {
+  transform: rotate(90deg);
+}
+
+/* Service Stats */
+.ClientDashboard-service-card__stats {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.ClientDashboard-stats-container {
+  display: flex;
+  gap: 20px;
+}
+
+.ClientDashboard-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 50px;
+}
+
+.ClientDashboard-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.ClientDashboard-stat-value--total { color: #3b82f6; }
+.ClientDashboard-stat-value--completed { color: #10b981; }
+.ClientDashboard-stat-value--pending { color: #f97316; }
+
+.ClientDashboard-stat-label {
+  font-size: 10px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+/* Animated Progress Ring */
+.ClientDashboard-animated-ring {
+  transform: rotate(-90deg);
+  transition: all 0.3s ease;
+}
+
+.ClientDashboard-ring-progress {
+  transition: stroke-dashoffset 0.8s ease;
+}
+
+.ClientDashboard-ring-text {
+  font-size: 12px;
+  font-weight: 700;
+  fill: #0f172a;
+  transform: rotate(90deg);
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+/* Content Area */
+.ClientDashboard-service-card__content-area {
+  border-top: 1px solid #eef2f6;
+}
+
+.ClientDashboard-service-card__summary {
+  padding: 16px 24px;
+  background: #fafcff;
+}
+
+.ClientDashboard-summary-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ClientDashboard-summary-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 30px;
+  background: white;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid #e2e8f0;
+}
+
+.ClientDashboard-summary-item.active {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  border-color: #3b82f6;
+  color: white;
+}
+
+.ClientDashboard-summary-item:hover:not(.active) {
+  background: #f1f5f9;
+  transform: translateY(-1px);
+}
+
+.ClientDashboard-summary-item--overdue {
+  background: #fef2f2;
+  border-color: #fee2e2;
+  color: #ef4444;
+}
+
+/* Content */
+.ClientDashboard-service-card__content {
+  padding: 20px 24px 24px;
+  background: white;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ClientDashboard-view-header {
+  margin-bottom: 20px;
+}
+
+.ClientDashboard-view-header h5 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+  margin: 0;
+}
+
+/* Tasks List */
+.ClientDashboard-tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.ClientDashboard-tasks-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.ClientDashboard-tasks-list::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.ClientDashboard-tasks-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+/* Task Item */
+.ClientDashboard-task-item {
+  display: flex;
+  gap: 14px;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 16px;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  position: relative;
+}
+
+.ClientDashboard-task-item:hover {
+  background: white;
+  border-color: #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transform: translateX(4px);
+}
+
+.ClientDashboard-task-item--completed {
+  opacity: 0.6;
+}
+
+.ClientDashboard-task-item__status {
+  flex-shrink: 0;
+}
+
+.ClientDashboard-task-status-icon {
+  font-size: 20px;
+}
+
+.ClientDashboard-task-status-icon.completed {
+  color: #10b981;
+}
+
+.ClientDashboard-task-status-icon.pending {
+  color: #f97316;
+}
+
+.ClientDashboard-task-item__content {
+  flex: 1;
+}
+
+.ClientDashboard-task-item__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.ClientDashboard-task-item__name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.ClientDashboard-task-item__name--completed {
+  text-decoration: line-through;
+  color: #94a3b8;
+}
+
+/* Badges */
+.ClientDashboard-task-item__badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ClientDashboard-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 30px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.ClientDashboard-badge--completed {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.ClientDashboard-badge--pending {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.ClientDashboard-badge--in-progress {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.ClientDashboard-priority-badge {
+  padding: 4px 10px;
+  border-radius: 30px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+}
+
+.ClientDashboard-priority-high {
+  background: #f97316;
+}
+
+.ClientDashboard-priority-medium {
+  background: #eab308;
+}
+
+.ClientDashboard-priority-low {
+  background: #22c55e;
+}
+
+/* Task Meta */
+.ClientDashboard-task-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.ClientDashboard-task-assignee,
+.ClientDashboard-task-due-date {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ClientDashboard-task-due-date--overdue {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+.ClientDashboard-meta-icon {
+  font-size: 12px;
+}
+
+/* Task Action Button */
+.ClientDashboard-task-action {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: #eff6ff;
+  color: #3b82f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ClientDashboard-task-item:hover .ClientDashboard-task-action {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ClientDashboard-task-action:hover {
+  background: #3b82f6;
+  color: white;
+  transform: translateY(-50%) scale(1.05);
+}
+
+/* Empty States */
+.ClientDashboard-empty-tasks {
+  text-align: center;
+  padding: 40px 20px;
+  background: #fafcff;
+  border-radius: 16px;
+  border: 1px dashed #e2e8f0;
+}
+
+.ClientDashboard-empty-tasks svg {
+  color: #cbd5e1;
+}
+
+.ClientDashboard-empty-tasks p {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.ClientDashboard-empty-state {
+  text-align: center;
+  padding: 80px 20px;
+  background: white;
+  border-radius: 24px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  margin: 32px;
+}
+
+.ClientDashboard-empty-icon {
+  font-size: 64px;
+  color: #cbd5e1;
+  margin-bottom: 16px;
+}
+
+.ClientDashboard-empty-state h4 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: #1e293b;
+}
+
+.ClientDashboard-empty-state p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+/* Loading State */
+.ClientDashboard-service-card--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.ClientDashboard-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 12px;
+}
+
+/* Loading & Error Pages */
+.ClientDashboard-dashboard-loading,
+.ClientDashboard-dashboard-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
+}
+
+.ClientDashboard-loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+
+.ClientDashboard-error-icon {
+  font-size: 64px;
+  color: #ef4444;
+  margin-bottom: 16px;
+}
+
+.ClientDashboard-error-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.ClientDashboard-btn {
+  padding: 10px 24px;
+  border-radius: 40px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ClientDashboard-btn--primary {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border: none;
+}
+
+.ClientDashboard-btn--outlined {
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .ClientDashboard-welcome-header,
+  .ClientDashboard-services-list {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .ClientDashboard-welcome-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .ClientDashboard-service-card__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .ClientDashboard-service-card__stats {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .ClientDashboard-summary-stats {
+    flex-wrap: wrap;
+  }
+  
+  .ClientDashboard-task-item__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .ClientDashboard-task-item__badges {
+    margin-top: 8px;
+  }
+  
+  .ClientDashboard-task-action {
+    opacity: 1;
+    pointer-events: auto;
+    right: 8px;
+  }
+}

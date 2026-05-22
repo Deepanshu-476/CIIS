@@ -35,6 +35,8 @@ import {
   ListAlt as ListAltIcon,
   ExpandMore,
   ExpandLess,
+  CreditCard as CreditCardIcon,
+  Folder as FolderIcon,
 } from '@mui/icons-material';
 import Swal from "sweetalert2";
 import axiosInstance from '../utils/axiosConfig';
@@ -150,7 +152,7 @@ const CollapsedHeading = styled(Box)(({ theme }) => ({
   justifyContent: 'center',
 }));
 
-// ✅ COMPREHENSIVE ICON MAPPING
+// ✅ ICON MAPPING
 const iconMap = {
   'Dashboard': DashboardIcon,
   'dashboard': DashboardIcon,
@@ -192,10 +194,17 @@ const iconMap = {
   'settings': SettingsIcon,
   'Logout': LogoutOutlined,
   'logout': LogoutOutlined,
-  
+  'CreditCard': CreditCardIcon,
+  'creditcard': CreditCardIcon,
+  'Payment': CreditCardIcon,
+  'payment': CreditCardIcon,
+  'Folder': FolderIcon,
+  'folder': FolderIcon,
+  'Services': FolderIcon,
+  'services': FolderIcon,
 };
 
-// ✅ Get icon component - case insensitive aur fallback
+// ✅ Get icon component
 const getIconComponent = (iconName) => {
   if (!iconName) {
     return <DashboardIcon />;
@@ -233,6 +242,10 @@ const getIconComponent = (iconName) => {
       IconComponent = GroupsIcon;
     } else if (iconName.toLowerCase().includes('settings') || iconName.toLowerCase().includes('password')) {
       IconComponent = SettingsIcon;
+    } else if (iconName.toLowerCase().includes('credit') || iconName.toLowerCase().includes('payment')) {
+      IconComponent = CreditCardIcon;
+    } else if (iconName.toLowerCase().includes('folder') || iconName.toLowerCase().includes('service')) {
+      IconComponent = FolderIcon;
     } else {
       IconComponent = DashboardIcon;
     }
@@ -290,6 +303,34 @@ const fixedDefaultItems = [
     path: '/ciisUser/chat',
     category: 'communication',
     order: 6
+  }
+];
+
+// ✅ CLIENT MENU ITEMS - Sirf 3 pages client ke liye
+const clientMenuItems = [
+  {
+    id: 'client-dashboard',
+    name: 'Dashboard',
+    icon: 'Dashboard',
+    path: '/client/dashboard',
+    category: 'main',
+    order: 1
+  },
+  {
+    id: 'client-payment',
+    name: 'Payment',
+    icon: 'CreditCard',
+    path: '/client/payment',
+    category: 'main',
+    order: 2
+  },
+  {
+    id: 'client-services-tasks',
+    name: 'Services & Tasks',
+    icon: 'Folder',
+    path: '/client/services-tasks',
+    category: 'main',
+    order: 3
   }
 ];
 
@@ -473,9 +514,6 @@ const allPagesItems = [
   }
 ];
 
-// ✅ CLIENT MENU ITEMS - EMPTY ARRAY (so nothing shows)
-const clientMenuItems = []; // Empty array means no menu items for clients
-
 // ✅ Path mapping helper
 const getPathFromName = (name) => {
   const pathMap = {
@@ -502,7 +540,9 @@ const getPathFromName = (name) => {
     'Client Management': '/ciisUser/emp-client',
     'Change Password': '/ciisUser/change-password',
     'Chat': '/ciisUser/chat',
-    'Client Dashboard': '/ciisUser/client-dashboard'
+    'Client Dashboard': '/client/dashboard',
+    'Payment': '/client/payment',
+    'Services & Tasks': '/client/services-tasks'
   };
   
   return pathMap[name] || '/ciisUser/user-dashboard';
@@ -706,7 +746,7 @@ const Sidebar = ({ isMobile = false }) => {
         timer: 2000,
       });
 
-      setTimeout(() => navigate("/login"), 1800);
+      setTimeout(() => navigate("/"), 1800);
     }
   };
 
@@ -725,10 +765,10 @@ const Sidebar = ({ isMobile = false }) => {
     console.log('Is client user:', isClientUser);
     console.log('Is super_admin with Management:', isSuperAdminWithManagement);
 
-    // If user is client, show empty array (no menu items)
+    // ✅ If user is client, show client menu items (3 pages)
     if (isClientUser) {
-      console.log('Client user detected - showing empty menu');
-      return []; // Return empty array so nothing renders
+      console.log('Client user detected - showing client menu items (3 pages)');
+      return clientMenuItems;
     }
 
     // If user is super_admin with Management department, show all pages
@@ -786,7 +826,8 @@ const Sidebar = ({ isMobile = false }) => {
       name: item.name, 
       order: item.order,
       category: item.category,
-      icon: item.icon
+      icon: item.icon,
+      path: item.path
     })));
 
     return sortedItems;
@@ -927,10 +968,89 @@ const Sidebar = ({ isMobile = false }) => {
     );
   }
 
-  // ✅ KEY CHANGE: If client user, return null (don't render sidebar at all)
+  // ✅ For client users, render the sidebar with client menu items
   if (isClientUser) {
-    console.log('Client user detected - hiding sidebar completely');
-    return null; // This completely removes the sidebar for client users
+    console.log('Client user detected - rendering sidebar with client menu items');
+    // Client sidebar renders but with limited menu items
+    return (
+      <Container
+        ref={sidebarRef}
+        onMouseEnter={isMobile ? undefined : handleMouseEnter}
+        onMouseLeave={isMobile ? undefined : handleMouseLeave}
+        sx={!isMobile ? {
+          width: isSidebarOpen ? drawerWidthOpen : drawerWidthClosed,
+        } : undefined}
+      >
+        {/* Client User Info */}
+        {isSidebarOpen && (
+          <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
+            <Typography variant="subtitle2" fontWeight={600} noWrap>
+              {userData?.name || 'Client User'}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" noWrap>
+              Client Portal
+            </Typography>
+          </Box>
+        )}
+
+        {/* Menu Items */}
+        <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', mt: 2 }}>
+          <List sx={{ py: 0 }}>
+            {menuItems.map((item) => (
+              <StyledListItem key={item.id} disablePadding>
+                {renderMenuItem(item, isSidebarOpen)}
+              </StyledListItem>
+            ))}
+          </List>
+        </Box>
+
+        {/* Logout Button */}
+        <Box sx={{ px: 2, py: 2 }}>
+          {isSidebarOpen ? (
+            <StyledListItemButton
+              onClick={handleLogout}
+              sx={{
+                color: 'error.main',
+                '&:hover': { 
+                  backgroundColor: 'error.light',
+                  color: 'error.dark'
+                }
+              }}
+            >
+              <StyledListItemIcon>
+                <LogoutOutlined />
+              </StyledListItemIcon>
+              <ListItemText
+                primary="Logout"
+                primaryTypographyProps={{ 
+                  variant: 'body2', 
+                  fontWeight: 600 
+                }}
+              />
+            </StyledListItemButton>
+          ) : (
+            <Tooltip title="Logout" placement="right">
+              <IconButton
+                onClick={handleLogout}
+                sx={{
+                  width: '100%',
+                  justifyContent: 'center',
+                  color: 'error.main',
+                  padding: '8px',
+                  borderRadius: 2,
+                  '&:hover': { 
+                    color: 'error.dark',
+                    backgroundColor: 'error.light'
+                  }
+                }}
+              >
+                <LogoutOutlined />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
+      </Container>
+    );
   }
 
   // If menuItems is empty and not loading, show empty state
@@ -958,7 +1078,7 @@ const Sidebar = ({ isMobile = false }) => {
     );
   }
 
-  // Render category headings
+  // Render category headings for non-client users
   const renderCategoryHeading = (category) => {
     const categoryLabels = {
       'main': 'Main Menu',
@@ -1004,6 +1124,18 @@ const Sidebar = ({ isMobile = false }) => {
         width: isSidebarOpen ? drawerWidthOpen : drawerWidthClosed,
       } : undefined}
     >
+      {/* User Info (only when sidebar is open) */}
+      {isSidebarOpen && (
+        <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
+          <Typography variant="subtitle2" fontWeight={600} noWrap>
+            {userData?.name || 'User'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" noWrap>
+            {userData?.jobRole || 'Employee'}
+          </Typography>
+        </Box>
+      )}
+
       {/* Menu Items */}
       <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
         {Object.keys(groupedItems).map(category => (
@@ -1022,6 +1154,7 @@ const Sidebar = ({ isMobile = false }) => {
         ))}
       </Box>
 
+      {/* Logout Button */}
       <Box sx={{ px: 2, py: 2 }}>
         {isSidebarOpen ? (
           <StyledListItemButton

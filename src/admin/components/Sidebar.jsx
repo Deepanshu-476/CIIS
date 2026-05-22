@@ -29,6 +29,8 @@ import {
   MeetingRoom as MeetingRoomIcon,
   Apartment as ApartmentIcon,
   PersonAdd as PersonAddIcon,
+  CreditCard as CreditCardIcon,
+  Folder as FolderIcon,
   LogoutOutlined
 } from '@mui/icons-material';
 import Swal from "sweetalert2";
@@ -149,7 +151,6 @@ const Sidebar = ({ isMobile = false }) => {
   const hoverTimer = useRef(null);
   const leaveTimer = useRef(null);
 
-  // Mobile पर always open रहेगा, Desktop पर hover-based
   const isSidebarOpen = isMobile ? true : isHovered;
 
   // LocalStorage से user data fetch करें
@@ -165,7 +166,6 @@ const Sidebar = ({ isMobile = false }) => {
   }, []);
 
   useEffect(() => {
-    // Cleanup timers on unmount
     return () => {
       if (hoverTimer.current) clearTimeout(hoverTimer.current);
       if (leaveTimer.current) clearTimeout(leaveTimer.current);
@@ -173,7 +173,7 @@ const Sidebar = ({ isMobile = false }) => {
   }, []);
 
   const handleMouseEnter = () => {
-    if (isMobile) return; // Mobile पर hover नहीं चाहिए
+    if (isMobile) return;
     
     if (leaveTimer.current) {
       clearTimeout(leaveTimer.current);
@@ -186,7 +186,7 @@ const Sidebar = ({ isMobile = false }) => {
   };
 
   const handleMouseLeave = () => {
-    if (isMobile) return; // Mobile पर hover नहीं चाहिए
+    if (isMobile) return;
     
     if (hoverTimer.current) {
       clearTimeout(hoverTimer.current);
@@ -241,8 +241,38 @@ const Sidebar = ({ isMobile = false }) => {
     }
   };
 
-  // Single source of truth for all menu items
-  const menuItems = useMemo(() => [
+  // Check if user is a client
+  const isClientUser = useMemo(() => {
+    return userData?.companyRole === "client";
+  }, [userData]);
+
+  // CLIENT MENU ITEMS - Sirf 3 pages client ke liye
+  const clientMenuItems = useMemo(() => [
+    {
+      id: 'client-dashboard',
+      icon: <DashboardIcon />,
+      name: 'Dashboard',
+      path: '/client/dashboard',
+      category: 'main'
+    },
+    {
+      id: 'client-payment',
+      icon: <CreditCardIcon />,
+      name: 'Payment',
+      path: '/client/payment',
+      category: 'main'
+    },
+    {
+      id: 'client-services-tasks',
+      icon: <FolderIcon />,
+      name: 'Services & Tasks',
+      path: '/client/services-tasks',
+      category: 'main'
+    }
+  ], []);
+
+  // FULL MENU ITEMS - Admin/HR/Employee ke liye
+  const fullMenuItems = useMemo(() => [
     // Main Menu - सभी users के लिए (all departments)
     {
       id: 'dashboard',
@@ -442,11 +472,23 @@ const Sidebar = ({ isMobile = false }) => {
     },
   ], []);
 
-  // User के role और department के based filter menu items
+  // Filter menu items based on user type
+  const menuItems = useMemo(() => {
+    if (isClientUser) {
+      // Client ke liye sirf 3 pages
+      return clientMenuItems;
+    }
+    return fullMenuItems;
+  }, [isClientUser, clientMenuItems, fullMenuItems]);
+
+  // Filter items based on user role and department (only for non-client users)
   const filteredMenuItems = useMemo(() => {
+    if (isClientUser) {
+      // Client users ko directly client menu items return karo
+      return menuItems;
+    }
+
     if (!userData) return [];
-
-
 
     const userDepartment = userData.department;
     const userRole = userData.jobRole;
@@ -456,19 +498,29 @@ const Sidebar = ({ isMobile = false }) => {
     }
 
     return menuItems.filter(item => {
-      // Check if any access rule matches the user's department and role
+      if (!item.accessRules) return false;
       return item.accessRules.some(rule => {
         const departmentMatch = rule.department === 'all' || rule.department === userDepartment;
         const roleMatch = rule.roles.includes(userRole);
         return departmentMatch && roleMatch;
       });
     });
-  }, [userData, menuItems]);
+  }, [userData, menuItems, isClientUser]);
 
-  // Filtered items को sections में organize करें
+  // Organize menu items into sections
   const menuSections = useMemo(() => {
     if (!filteredMenuItems.length) return [];
 
+    if (isClientUser) {
+      // Client ke liye sirf ek section "Main Menu"
+      return [{
+        id: 'main',
+        heading: 'Main Menu',
+        items: filteredMenuItems
+      }];
+    }
+
+    // Non-client users ke liye multiple sections
     const sections = [
       { id: 'main', heading: 'Main Menu', items: [] },
       { id: 'tasks', heading: 'Tasks & Projects', items: [] },
@@ -483,12 +535,10 @@ const Sidebar = ({ isMobile = false }) => {
       }
     });
 
-    // खाली sections remove करें
     return sections.filter(section => section.items.length > 0);
-  }, [filteredMenuItems]);
+  }, [filteredMenuItems, isClientUser]);
 
   const renderMenuSection = (section) => {
-    // Mobile पर always open दिखाना है, desktop पर conditional
     const shouldShowFull = isMobile ? true : isSidebarOpen;
 
     return (
@@ -554,7 +604,6 @@ const Sidebar = ({ isMobile = false }) => {
     );
   };
 
-  // Mobile और Desktop के लिए अलग containers
   const Container = isMobile ? MobileSidebarContainer : SidebarContainer;
 
   // Loading state
@@ -590,7 +639,7 @@ const Sidebar = ({ isMobile = false }) => {
             {userData.name}
           </Typography>
           <Typography variant="caption" color="text.secondary" noWrap>
-            {userData.jobRole}
+            {isClientUser ? 'Client User' : userData.jobRole}
           </Typography>
         </Box>
       )}
@@ -602,7 +651,6 @@ const Sidebar = ({ isMobile = false }) => {
       <Box sx={{ mt: 'auto', p: 2 }}>
         <Divider sx={{ mb: 2 }} />
         
-        {/* Mobile पर always full view में दिखाना है */}
         {isMobile || isSidebarOpen ? (
           <StyledListItemButton
             onClick={handleLogout}

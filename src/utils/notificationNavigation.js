@@ -70,6 +70,7 @@ const TYPE_TO_ROUTE = {
   project_task_assigned: '/ciisUser/project',
   project_task_status_changed: '/ciisUser/adminproject',
   holiday_reminder: '/ciisUser/user-dashboard',
+  email_notification: '/ciisUser/user-dashboard',
 };
 
 const CATEGORY_TO_ROUTE = {
@@ -93,8 +94,9 @@ const routeFromPath = targetPath => {
 
 export const getNotificationRoute = notification => {
   const data = notification?.data || {};
-  const typeRoute = TYPE_TO_ROUTE[normalize(notification?.type || data.type)];
-  if (normalize(notification?.type || data.type) === 'task-client') return typeRoute;
+  const rawType = String(notification?.type || data.type || '').trim();
+  const typeRoute = TYPE_TO_ROUTE[rawType] || TYPE_TO_ROUTE[rawType.toLowerCase()] || TYPE_TO_ROUTE[normalize(rawType)];
+  if (normalize(rawType) === 'task-client') return typeRoute;
 
   return (
     routeFromPath(notification?.targetPath || data.targetPath) ||

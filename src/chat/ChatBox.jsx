@@ -1,18 +1,22 @@
 import React, {
     useEffect,
+    useRef,
     useState
 } from "react";
 import "../Pages/Chat/chat.css";
+import { Paperclip, SendHorizontal } from "lucide-react";
 
-import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, sendMessage } from "../services/chatService";
+import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage } from "../services/chatService";
 
 import MessageBubble from "./MessageBubble";
-import socket from "../socket/socket";
+import { API_URL_IMG } from "../config";
 
 const ChatBox = ({
     selectedUser,
     currentUser,
-    users
+    users,
+    socket,
+    onConversationChange
 }) => {
 
     const [conversation, setConversation] =
@@ -28,6 +32,8 @@ const ChatBox = ({
         useState([]);
 
     const [isSendingAction, setIsSendingAction] = useState(false);
+    const [typingUserId, setTypingUserId] = useState(null);
+    const typingTimerRef = useRef(null);
 
 
     const [currentConversationId, setCurrentConversationId] =
@@ -39,7 +45,7 @@ const ChatBox = ({
         }
 
         if (currentConversationId) {
-            socket.emit(
+            socket?.emit(
                 "chat:leave-conversation",
                 {
                     conversationId:
@@ -57,7 +63,7 @@ const ChatBox = ({
     useEffect(() => {
         return () => {
             if (currentConversationId) {
-                socket.emit(
+                socket?.emit(
                     "chat:leave-conversation",
                     {
                         conversationId:
@@ -68,21 +74,33 @@ const ChatBox = ({
         };
     }, [currentConversationId]);
 
+    useEffect(() => {
+        if (socket && conversation?._id) {
+            joinConversationRoom(conversation._id);
+        }
+    }, [socket, conversation?._id]);
+
 useEffect(() => {
+    if (!socket) return undefined;
 
     socket.on(
         "chat:receive-message",
         (message) => {
-            socket.emit(
-                "chat:seen",
-                {
-                    messageId:
-                        message._id,
+            const senderId = (message.sender?._id || message.sender || "").toString();
+            const currentUserId = (currentUser?._id || currentUser?.id || "").toString();
+            if (message?._id && senderId && senderId !== currentUserId) {
+                markMessageSeen(message._id).catch(() => {});
+                socket.emit(
+                    "chat:seen",
+                    {
+                        messageId:
+                            message._id,
 
-                    senderId:
-                        message.sender._id
-                }
-            );
+                        senderId:
+                        senderId
+                    }
+                );
+            }
 
             setMessages((prev) => {
                 if (
@@ -107,6 +125,24 @@ useEffect(() => {
     );
 
     socket.on(
+        "chat:typing",
+        (data) => {
+            if (data?.conversationId === currentConversationId) {
+                setTypingUserId(data.senderId);
+            }
+        }
+    );
+
+    socket.on(
+        "chat:stop-typing",
+        (data) => {
+            if (data?.conversationId === currentConversationId) {
+                setTypingUserId(null);
+            }
+        }
+    );
+
+    socket.on(
         "chat:message-deleted-for-me",
         ({ messageId }) => {
             setMessages((prev) => prev.filter((msg) => msg._id !== messageId));
@@ -127,7 +163,12 @@ useEffect(() => {
     socket.on(
         "chat:message-forwarded",
         (message) => {
-            setMessages((prev) => [...prev, message]);
+            if (message?.conversationId !== currentConversationId) return;
+            setMessages((prev) => (
+                prev.some(item => item._id === message._id)
+                    ? prev
+                    : [...prev, message]
+            ));
         }
     );
 
@@ -162,18 +203,20 @@ useEffect(() => {
     socket.off(
         "chat:message-seen"
     );
+    socket.off("chat:typing");
+    socket.off("chat:stop-typing");
     socket.off("chat:message-deleted-for-me");
     socket.off("chat:message-deleted-for-everyone");
     socket.off("chat:message-forwarded");
 };
 
-}, []);
+}, [socket, currentConversationId, currentUser?._id, currentUser?.id]);
 
     const joinConversationRoom =
     (conversationId) => {
         if (!conversationId) return;
 
-        socket.emit(
+        socket?.emit(
             "chat:join-conversation",
             {
                 conversationId
@@ -237,6 +280,7 @@ useEffect(() => {
             setMessages(
                 res.data.messages
             );
+            onConversationChange?.();
 
         } catch (error) {
 
@@ -291,7 +335,7 @@ useEffect(() => {
 
                     messagesToAppend.push(newMessage);
 
-                    socket.emit(
+                    socket?.emit(
                         "chat:send-message",
                         {
                             ...newMessage,
@@ -316,7 +360,7 @@ useEffect(() => {
                 const res = await sendMessage(formData);
                 messagesToAppend.push(res.data.message);
 
-                socket.emit(
+                socket?.emit(
                     "chat:send-message",
                     {
                         ...res.data.message,
@@ -340,6 +384,8 @@ useEffect(() => {
 
             setText("");
             setFiles([]);
+            socket?.emit("chat:stop-typing", { conversationId: conversation._id });
+            onConversationChange?.();
 
         } catch (error) {
             console.log(error);
@@ -351,7 +397,8 @@ useEffect(() => {
             setIsSendingAction(true);
             await deleteMessageForMe(message._id);
             setMessages((prev) => prev.filter((msg) => msg._id !== message._id));
-            socket.emit("chat:delete-for-me", { messageId: message._id, conversationId: conversation?._id });
+            socket?.emit("chat:delete-for-me", { messageId: message._id, conversationId: conversation?._id });
+            onConversationChange?.();
         } catch (error) {
             console.log(error);
         } finally {
@@ -366,7 +413,8 @@ useEffect(() => {
             setMessages((prev) => prev.map((msg) => (
                 msg._id === message._id ? { ...msg, deletedForEveryone: true, text: "" } : msg
             )));
-            socket.emit("chat:delete-for-everyone", { messageId: message._id, conversationId: conversation?._id });
+            socket?.emit("chat:delete-for-everyone", { messageId: message._id, conversationId: conversation?._id });
+            onConversationChange?.();
         } catch (error) {
             console.log(error);
         } finally {
@@ -377,8 +425,11 @@ useEffect(() => {
     const handleForward = async (message, targetUserIds) => {
         try {
             setIsSendingAction(true);
-            await forwardMessage({ messageId: message._id, targetUserIds });
-            socket.emit("chat:forward-message", { messageId: message._id, targetUserIds });
+            const res = await forwardMessage({ messageId: message._id, targetUserIds });
+            (res.data.messages || []).forEach(forwarded => {
+                socket?.emit("chat:forward-message", { message: forwarded });
+            });
+            onConversationChange?.();
         } catch (error) {
             console.log(error);
         } finally {
@@ -394,7 +445,11 @@ useEffect(() => {
             <div
                 className="chat-empty"
             >
-                Select User
+                <div className="chat-empty-card">
+                    <div className="chat-empty-icon">C</div>
+                    <h2>Choose a conversation</h2>
+                    <p>Messages, files, and group chats will appear here.</p>
+                </div>
             </div>
         );
     }
@@ -403,7 +458,7 @@ useEffect(() => {
         if (!avatar) return null;
         return avatar.startsWith("http")
             ? avatar
-            : `http://localhost:3000${avatar}`;
+            : `${API_URL_IMG.replace(/\/$/, "")}${avatar.startsWith("/") ? avatar : `/${avatar}`}`;
     };
 
     const getGroupName = (group) => {
@@ -419,7 +474,9 @@ useEffect(() => {
                 <div className="chat-header-left">
                     <div className="chat-avatar">
                         {
-                            getAvatarSrc(selectedUser.avatar || selectedUser.profileImage || selectedUser.image)
+                            selectedUser.isGroup
+                                ? selectedUser.name?.charAt(0).toUpperCase() || "G"
+                                : getAvatarSrc(selectedUser.avatar || selectedUser.profileImage || selectedUser.image)
                                 ? (
                                     <img
                                         src={getAvatarSrc(selectedUser.avatar || selectedUser.profileImage || selectedUser.image)}
@@ -434,7 +491,7 @@ useEffect(() => {
                                 {selectedUser.isGroup ? getGroupName(selectedUser) : selectedUser.name}
                             </div>
                             <div className="chat-user-status">
-                                {selectedUser.isGroup ? "Group Chat" : selectedUser.status || "Online"}
+                                {typingUserId ? "Typing..." : selectedUser.isGroup ? "Group Chat" : selectedUser.status || "Online"}
                             </div>
                     </div>
                 </div>
@@ -471,18 +528,30 @@ useEffect(() => {
                             )
                         }
                     />
-                    <span>📎</span>
+                    <Paperclip size={19} />
                 </label>
 
                 <div className="chat-input-wrapper">
+                    {files.length > 0 && (
+                        <div className="selected-file-info">
+                            {files.length === 1 ? files[0].name : `${files.length} files selected`}
+                        </div>
+                    )}
                     <input
                         type="text"
                         className="chat-input"
                         value={text}
                         onChange={(e) =>
-                            setText(
-                                e.target.value
-                            )
+                            {
+                                setText(e.target.value);
+                                if (conversation?._id) {
+                                    socket?.emit("chat:typing", { conversationId: conversation._id });
+                                    clearTimeout(typingTimerRef.current);
+                                    typingTimerRef.current = setTimeout(() => {
+                                        socket?.emit("chat:stop-typing", { conversationId: conversation._id });
+                                    }, 900);
+                                }
+                            }
                         }
                         placeholder="Type a message"
                         onKeyDown={(e) => {
@@ -498,7 +567,8 @@ useEffect(() => {
                     onClick={handleSend}
                     disabled={isSendingAction}
                 >
-                    Send
+                    <SendHorizontal size={18} />
+                    <span>Send</span>
                 </button>
             </div>
 

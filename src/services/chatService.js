@@ -19,6 +19,18 @@ export const getCompanyUsers = async () => {
     );
 };
 
+export const getConversations = async () => {
+
+    return axios.get(
+        `${API}/conversations`,
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
 export const createConversation = async (
     receiverId
 ) => {
@@ -84,7 +96,19 @@ async (formData) => {
 
 export const getCompanyGroups = async () => {
     return axios.get(
-        `${API_URL}/groups`,
+        `${API}/groups`,
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
+export const markMessageSeen = async (messageId) => {
+    return axios.patch(
+        `${API}/message/${messageId}/seen`,
+        {},
         {
             headers: {
                 Authorization: `Bearer ${getToken()}`

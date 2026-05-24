@@ -20,6 +20,7 @@ export const useSocket = () => {
       onNewLeave: () => () => {},
       onLeaveStatusChanged: () => () => {},
       onLeaveDeleted: () => () => {},
+      onNewNotification: () => () => {},
       socket: socketService.socket
     };
   }
@@ -417,6 +418,40 @@ export const SocketProvider = ({ children }) => {
     };
   }, []);
 
+  const handleNewNotification = useCallback((callback) => {
+    console.log('📢 Setting up notification:new listener');
+
+    let disposed = false;
+    let cleanup = () => {};
+
+    const attach = () => {
+      if (disposed) return true;
+      if (!socketService.socket) return false;
+
+      socketService.socket.on('notification:new', callback);
+      socketService.socket.on('new_notification', callback);
+      console.log('✅ notification listener registered');
+      cleanup = () => {
+        socketService.socket?.off('notification:new', callback);
+        socketService.socket?.off('new_notification', callback);
+      };
+      return true;
+    };
+
+    if (!attach()) {
+      const retry = setInterval(() => {
+        if (attach()) clearInterval(retry);
+      }, 300);
+
+      cleanup = () => clearInterval(retry);
+    }
+
+    return () => {
+      disposed = true;
+      cleanup();
+    };
+  }, [isConnected]);
+
   // ========== ROOM MANAGEMENT ==========
   const joinLeaveRoom = useCallback((leaveId) => {
     console.log(`🚪 Attempting to join leave room: ${leaveId}`);
@@ -484,6 +519,7 @@ export const SocketProvider = ({ children }) => {
     onNewLeave: handleNewLeave,
     onLeaveStatusChanged: handleLeaveStatusChanged,
     onLeaveDeleted: handleLeaveDeleted,
+    onNewNotification: handleNewNotification,
     socket: socketService.socket
   };
 

@@ -1,4 +1,6 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
+import { MessageSquarePlus, Search, Users } from "lucide-react";
+import { API_URL_IMG } from "../config";
 
 const ChatSidebar = ({
     groups,
@@ -8,12 +10,22 @@ const ChatSidebar = ({
     selectedUser,
     setSelectedUser
 }) => {
+    const [searchTerm, setSearchTerm] = useState("");
 
     const getAvatarSrc = (avatar) => {
         if (!avatar) return null;
         return avatar.startsWith("http")
             ? avatar
-            : `http://localhost:3000${avatar}`;
+            : `${API_URL_IMG.replace(/\/$/, "")}${avatar.startsWith("/") ? avatar : `/${avatar}`}`;
+    };
+
+    const getLastMessageText = item => {
+        const message = item?.lastMessage;
+        if (!message) return item?.isGroup ? "Group chat" : (item?.companyRole || "Direct message");
+        if (message.deletedForEveryone) return "This message was deleted";
+        if (message.text) return message.text;
+        if (message.file) return "Attachment";
+        return "New message";
     };
 
     const getGroupName = (group) => {
@@ -28,28 +40,56 @@ const ChatSidebar = ({
         return group.memberCount || group.count || 0;
     };
 
+    const filteredGroups = useMemo(() => {
+        const query = searchTerm.trim().toLowerCase();
+        if (!query) return groups || [];
+        return (groups || []).filter(group => [
+            getGroupName(group),
+            getLastMessageText(group),
+        ].some(value => String(value || "").toLowerCase().includes(query)));
+    }, [groups, searchTerm]);
+
+    const filteredUsers = useMemo(() => {
+        const query = searchTerm.trim().toLowerCase();
+        if (!query) return users || [];
+        return (users || []).filter(user => [
+            user.name,
+            user.email,
+            user.companyRole,
+            getLastMessageText(user),
+        ].some(value => String(value || "").toLowerCase().includes(query)));
+    }, [users, searchTerm]);
+
     return (
         <div className="chat-sidebar">
 
             <div className="sidebar-top">
-                <div className="sidebar-title">Chats</div>
-                <button className="sidebar-icon">+</button>
+                <div>
+                    <div className="sidebar-title">Chats</div>
+                    <div className="sidebar-subtitle">{(groups?.length || 0) + (users?.length || 0)} conversations</div>
+                </div>
+                <button className="sidebar-icon" title="New chat" type="button">
+                    <MessageSquarePlus size={19} />
+                </button>
             </div>
 
             <div className="chat-search-wrap">
+                <Search className="chat-search-icon" size={17} />
                 <input
                     type="text"
                     className="chat-search"
                     placeholder="Search or start new chat"
+                    value={searchTerm}
+                    onChange={event => setSearchTerm(event.target.value)}
                 />
             </div>
 
             <div className="chat-sidebar-section">
                 <div className="sidebar-section-title">Groups</div>
-                {groups?.length === 0 ? (
+                {filteredGroups?.length === 0 ? (
                     <div className="chat-sidebar-empty">No groups yet</div>
                 ) : (
-                    groups.map((group) => (
+                    filteredGroups.map((group) => (
                         <div
                             key={group._id || group.id}
                             className={
@@ -62,7 +102,7 @@ const ChatSidebar = ({
                             }
                         >
                             <div className="chat-user-avatar">
-                                <span>👥</span>
+                                <Users size={20} />
                             </div>
 
                             <div className="chat-user-body">
@@ -70,10 +110,20 @@ const ChatSidebar = ({
                                     <div className="chat-user-name">
                                         {getGroupName(group)}
                                     </div>
+                                    {
+                                        group.unreadCount > 0 && (
+                                            <div className="chat-user-badge">
+                                                {group.unreadCount}
+                                            </div>
+                                        )
+                                    }
                                 </div>
                                 <div className="chat-user-role">
                                     <span className="status-dot group" />
-                                    {getGroupMemberCount(group)} member{getGroupMemberCount(group) === 1 ? '' : 's'}
+                                    <span className="chat-last-message">{getLastMessageText(group)}</span>
+                                    {getGroupMemberCount(group) > 0 && (
+                                        <span className="chat-member-count">{getGroupMemberCount(group)}</span>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -83,7 +133,7 @@ const ChatSidebar = ({
 
             <div className="chat-sidebar-list">
                 {
-                    users.map((user) => (
+                    filteredUsers.map((user) => (
                         <div
                             key={user._id}
                             className={
@@ -115,9 +165,9 @@ const ChatSidebar = ({
                                     </div>
 
                                     {
-                                        unreadCounts[user._id] > 0 && (
+                                        (user.unreadCount || unreadCounts[user._id]) > 0 && (
                                             <div className="chat-user-badge">
-                                                {unreadCounts[user._id]}
+                                                {user.unreadCount || unreadCounts[user._id]}
                                             </div>
                                         )
                                     }
@@ -135,7 +185,7 @@ const ChatSidebar = ({
                                             : "Offline"
                                     }
                                     <span className="role-text">
-                                        {user.companyRole}
+                                        {getLastMessageText(user)}
                                     </span>
                                 </div>
                             </div>

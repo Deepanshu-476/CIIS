@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from "react";
+import { Check, CheckCheck, FileText, Forward, MoreVertical, Trash2 } from "lucide-react";
+import { API_URL_IMG } from "../config";
 
 const MessageBubble = ({
     message,
@@ -13,12 +15,18 @@ const MessageBubble = ({
     const [showForwardModal, setShowForwardModal] = useState(false);
     const [selectedTargets, setSelectedTargets] = useState([]);
 
-    const isOwn =
-        message.sender._id === currentUser._id;
+    const currentUserId = (currentUser?._id || currentUser?.id || "").toString();
+    const senderId = (message.sender?._id || message.sender || "").toString();
+    const isOwn = senderId === currentUserId;
 
     const isDeletedForEveryone = Boolean(message.deletedForEveryone);
-    const mediaType = message.mediaType || message.type;
-    const mediaUrl = message.mediaUrl || message.fileUrl || message.attachmentUrl;
+    const mediaType = message.mediaType || message.type || message.fileType;
+    const rawMediaUrl = message.mediaUrl || message.fileUrl || message.attachmentUrl || message.file;
+    const mediaUrl = rawMediaUrl
+        ? rawMediaUrl.startsWith("http")
+            ? rawMediaUrl
+            : `${API_URL_IMG.replace(/\/$/, "")}${rawMediaUrl.startsWith("/") ? rawMediaUrl : `/${rawMediaUrl}`}`
+        : "";
 
     const forwardCandidates = useMemo(() => (
         users.filter((user) => user._id !== currentUser?._id)
@@ -42,23 +50,24 @@ const MessageBubble = ({
     const renderMedia = () => {
         if (!mediaUrl) return null;
 
-        if (mediaType === "image") {
+        if (mediaType?.startsWith("image")) {
             return <img src={mediaUrl} alt="attachment" className="chat-media chat-media-image" />;
         }
 
-        if (mediaType === "video") {
+        if (mediaType?.startsWith("video")) {
             return <video src={mediaUrl} controls className="chat-media chat-media-video" />;
         }
 
         const labelMap = {
-            pdf: "📄 PDF",
-            document: "📝 Document",
-            file: "📎 File"
+            pdf: "PDF",
+            document: "Document",
+            file: "File"
         };
 
         return (
             <a className="chat-media-file" href={mediaUrl} target="_blank" rel="noreferrer">
-                {labelMap[mediaType] || "📎 File"}
+                <FileText size={16} />
+                {labelMap[mediaType] || "File"}
             </a>
         );
     };
@@ -78,7 +87,9 @@ const MessageBubble = ({
             <div className="message-top-row">
                 <span className="message-sender">{message.sender?.name || "Unknown"}</span>
                 <span className="message-time">{new Date(message.createdAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                <button className="message-menu-btn" onClick={() => setShowMenu((prev) => !prev)}>⋮</button>
+                <button className="message-menu-btn" onClick={() => setShowMenu((prev) => !prev)} title="Message options">
+                    <MoreVertical size={16} />
+                </button>
             </div>
 
             {message.isForwarded && <div className="forwarded-label">Forwarded</div>}
@@ -94,72 +105,22 @@ const MessageBubble = ({
 
             {showMenu && !isDeletedForEveryone && (
                 <div className="message-menu">
-                    <button onClick={() => { onDeleteForMe(message); setShowMenu(false); }}>Delete For Me</button>
-                    {isOwn && <button onClick={() => { onDeleteForEveryone(message); setShowMenu(false); }}>Delete For Everyone</button>}
-                    <button onClick={() => { setShowForwardModal(true); setShowMenu(false); }}>Forward</button>
+                    <button onClick={() => { onDeleteForMe(message); setShowMenu(false); }}><Trash2 size={13} />Delete For Me</button>
+                    {isOwn && <button onClick={() => { onDeleteForEveryone(message); setShowMenu(false); }}><Trash2 size={13} />Delete For Everyone</button>}
+                    <button onClick={() => { setShowForwardModal(true); setShowMenu(false); }}><Forward size={13} />Forward</button>
                 </div>
             )}
 
             {
-    message.file && (
-
-        message.fileType
-        ?.startsWith("image")
-
-        ? (
-
-            <img
-                src={
-                    `http://localhost:3000${message.file}`
-                }
-                alt=""
-                style={{
-                    width: "200px",
-                    borderRadius: "10px",
-                    marginTop: "8px"
-                }}
-            />
-        )
-
-        : (
-
-            <video
-                controls
-                style={{
-                    width: "220px",
-                    borderRadius: "10px",
-                    marginTop: "8px"
-                }}
-            >
-                <source
-                    src={
-                        `http://localhost:3000${message.file}`
-                    }
-                />
-            </video>
-        )
-    )
-}
-
-            {
-    message.sender?._id ===
-    currentUser?._id && (
+    isOwn && (
 
         <div
-            style={{
-                fontSize: "11px",
-                marginTop: "4px",
-                textAlign: "right",
-                color:
-                    message.seen
-                    ? "#22c55e"
-                    : "#999"
-            }}
+            className={message.seen ? "message-status seen" : "message-status"}
         >
             {
                 message.seen
-                ? "✔✔ Seen"
-                : "✔ Sent"
+                ? <><CheckCheck size={13} /> Seen</>
+                : <><Check size={13} /> Sent</>
             }
         </div>
     )

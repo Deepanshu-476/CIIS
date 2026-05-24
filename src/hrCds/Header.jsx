@@ -31,6 +31,7 @@ import logo from "/logoo.png";
 import axios from "axios";
 import API_URL from "../../src/config";
 import Swal from "sweetalert2";
+import { openNotificationRoute } from "../../src/utils/notificationNavigation";
 
 const Header = ({ toggleSidebar, isMobile }) => {
   const { user } = useAuth();
@@ -38,9 +39,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
   const isClient = user?.companyRole === "client";
   const { 
     onNewNotification = () => () => {}, 
-    unreadCount = 0, 
     markAsRead = async () => {},
-    isConnected = false 
   } = useSocket();
   const { showToast = () => {} } = useNotification();
   
@@ -60,6 +59,29 @@ const Header = ({ toggleSidebar, isMobile }) => {
 
   // Local unread count state - single source of truth
   const [localUnreadCount, setLocalUnreadCount] = useState(0);
+
+  const getDismissedNotificationKey = () =>
+    `dismissedNotifications:${user?._id || user?.id || "anonymous"}`;
+
+  const readDismissedNotificationIds = () => {
+    try {
+      const stored = localStorage.getItem(getDismissedNotificationKey());
+      return new Set(JSON.parse(stored || "[]").map(String));
+    } catch (error) {
+      console.error("Error reading dismissed notifications:", error);
+      return new Set();
+    }
+  };
+
+  const rememberDismissedNotificationIds = (ids) => {
+    const normalizedIds = ids.filter(Boolean).map(String);
+    if (!normalizedIds.length) return;
+
+    const dismissedIds = readDismissedNotificationIds();
+    normalizedIds.forEach(id => dismissedIds.add(id));
+    const nextIds = Array.from(dismissedIds).slice(-300);
+    localStorage.setItem(getDismissedNotificationKey(), JSON.stringify(nextIds));
+  };
 
   // Helper function to combine dueDate and dueTime
   const combineDateTime = (dueDate, dueTime) => {
@@ -125,8 +147,10 @@ const Header = ({ toggleSidebar, isMobile }) => {
       // Check if we've already notified for this task
       const taskId = task._id || task.id;
       const alreadyNotified = overdueTasks.has(taskId);
+      const dismissedIds = readDismissedNotificationIds();
+      const overdueNotificationId = `overdue-${taskId}`;
       
-      if (isOverdue && !alreadyNotified) {
+      if (isOverdue && !alreadyNotified && !dismissedIds.has(overdueNotificationId)) {
         newlyOverdue.push({
           ...task,
           dueDateTime,
@@ -158,8 +182,8 @@ const Header = ({ toggleSidebar, isMobile }) => {
         // Add to notifications list
         setNotifications(prev => {
           const formattedNotification = {
-            id: `overdue-${task._id || Date.now()}-${Date.now()}`,
-            msg: `⚠️ OVERDUE TASK: "${task.title}" - Due ${dueDateTime.toLocaleString()} (Overdue by ${overdueText})`,
+            id: `overdue-${task._id || task.id}`,
+            msg: `⚠️ OVERDUE TASK: "${task.title}" - Due ${task.dueDateTime.toLocaleString()} (Overdue by ${overdueText})`,
             time: new Date(),
             type: 'error',
             read: false,
@@ -349,6 +373,10 @@ const Header = ({ toggleSidebar, isMobile }) => {
         systemNotificationsRes.status === "fulfilled"
           ? systemNotificationsRes.value?.data?.data?.notifications || []
           : [];
+      const backendUnreadCount =
+        systemNotificationsRes.status === "fulfilled"
+          ? systemNotificationsRes.value?.data?.data?.pagination?.unreadCount
+          : undefined;
 
       backendNotifications.forEach((item) => {
         all.push({
@@ -358,6 +386,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
           time: item.createdAt || item.updatedAt || new Date(),
           type: item.type || "system",
           category: item.priority === "high" ? "system-high" : "system",
+          read: item.isRead === true,
           targetPath: item.targetPath,
           targetScreen: item.targetScreen,
         });
@@ -484,7 +513,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
             : `${overdueMinutes}m`;
           
           all.unshift({
-            id: `overdue-priority-${task._id || Date.now()}`,
+            id: `overdue-${task._id || task.id}`,
             msg: `🔴 CRITICAL: Task "${task.title}" is overdue by ${overdueText}! Please complete immediately.`,
             time: new Date(),
             type: 'error',
@@ -552,12 +581,21 @@ const Header = ({ toggleSidebar, isMobile }) => {
         return new Date(b.time) - new Date(a.time);
       });
       
-      // Filter for today's notifications but keep overdue tasks regardless of date
-      const filteredNotifications = sorted.filter(
-        (n) => n.category === 'overdue' || new Date(n.time).toDateString() === today
-      );
+      // Keep unread backend notifications even if they are older than today so
+      // the dropdown matches the unread badge count.
+      const dismissedIds = readDismissedNotificationIds();
+      const filteredNotifications = sorted.filter((n) => {
+        const notificationId = String(n.id || n._id || "");
+        if (notificationId && dismissedIds.has(notificationId)) return false;
+        if (n._id) return n.isRead === false;
+        return n.category === 'overdue' || new Date(n.time).toDateString() === today;
+      });
 
       setNotifications(filteredNotifications);
+      if (typeof backendUnreadCount === 'number') {
+        setLocalUnreadCount(backendUnreadCount);
+        localStorage.setItem('unreadCount', backendUnreadCount);
+      }
       setHasFetched(true);
       
       if (!silent && filteredNotifications.length > 0) {
@@ -604,15 +642,24 @@ const Header = ({ toggleSidebar, isMobile }) => {
   // ========== MARK SINGLE NOTIFICATION AS READ ==========
   const handleMarkAsRead = async (notification, index) => {
     try {
+      const shouldDecreaseCount =
+        (notification._id && notification.isRead === false) ||
+        (notification.category === 'overdue' && notification.read === false);
+      const notificationId = notification.id || notification._id;
+
+      rememberDismissedNotificationIds([notificationId]);
+
       // Remove from notifications list
       setNotifications(prev => prev.filter((_, i) => i !== index));
       
-      // Decrease local unread count (don't go below 0)
-      setLocalUnreadCount(prev => {
-        const newCount = Math.max(0, prev - 1);
-        localStorage.setItem('unreadCount', newCount);
-        return newCount;
-      });
+      if (shouldDecreaseCount) {
+        // Decrease local unread count (don't go below 0)
+        setLocalUnreadCount(prev => {
+          const newCount = Math.max(0, prev - 1);
+          localStorage.setItem('unreadCount', newCount);
+          return newCount;
+        });
+      }
       
       // If it has an ID, mark as read via socket
       if (notification._id) {
@@ -632,19 +679,18 @@ const Header = ({ toggleSidebar, isMobile }) => {
   };
 
   const handleOpenNotification = async (notification, index) => {
-    const route = notification.targetPath || notification.data?.targetPath;
     await handleMarkAsRead(notification, index);
     setAnchorEl(null);
-    if (route) {
-      navigate(route);
-    }
+    openNotificationRoute(navigate, notification);
   };
 
   // ========== MARK ALL AS READ ==========
   const handleMarkAllAsRead = async () => {
     try {
+      rememberDismissedNotificationIds(notifications.map(n => n.id || n._id));
+
       // Mark all current notifications as read
-      const promises = notifications.map((n, index) => {
+      const promises = notifications.map((n) => {
         if (n._id) {
           return markAsRead(n._id);
         }
@@ -652,6 +698,12 @@ const Header = ({ toggleSidebar, isMobile }) => {
       });
       
       await Promise.all(promises);
+      const token = localStorage.getItem("token");
+      if (token) {
+        await axios.patch(`${API_URL}/notifications/read-all`, {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(() => {});
+      }
       
       // Clear notifications and reset unread count to 0
       setNotifications([]);
@@ -667,14 +719,6 @@ const Header = ({ toggleSidebar, isMobile }) => {
   // ========== CLEAR TOAST ==========
   const handleCloseToast = () => {
     setToast(prev => ({ ...prev, open: false }));
-  };
-
-  // ========== SHOW TOAST ==========
-  const showCustomToast = (message, type = 'info', duration = 3000) => {
-    setToast({ open: true, message, type });
-    setTimeout(() => {
-      setToast(prev => ({ ...prev, open: false }));
-    }, duration);
   };
 
   // ========== LOGO CLICK HANDLER ==========
@@ -831,7 +875,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
                 }}
               >
                 <Badge 
-                  badgeContent={localUnreadCount || notifications.length}
+                  badgeContent={localUnreadCount}
                   color="error" 
                   overlap="circular"
                   sx={{
@@ -1078,23 +1122,28 @@ const Header = ({ toggleSidebar, isMobile }) => {
                         </Box>
 
                         {/* Mark as Read Button */}
-                        <IconButton
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleMarkAsRead(n, i);
-                          }}
-                          sx={{
-                            p: 0.5,
-                            opacity: 0.6,
-                            '&:hover': {
-                              opacity: 1,
-                              backgroundColor: 'rgba(0,0,0,0.04)'
-                            }
-                          }}
-                        >
-                          <CloseIcon fontSize="small" />
-                        </IconButton>
+                        <Tooltip title="Mark this notification as read">
+                          <IconButton
+                            size="small"
+                            aria-label="Mark this notification as read"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMarkAsRead(n, i);
+                            }}
+                            sx={{
+                              p: 0.5,
+                              opacity: 0.75,
+                              backgroundColor: 'rgba(0,0,0,0.03)',
+                              '&:hover': {
+                                opacity: 1,
+                                backgroundColor: 'rgba(244, 67, 54, 0.08)',
+                                color: '#d32f2f'
+                              }
+                            }}
+                          >
+                            <CloseIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                       </Box>
                     </MenuItem>
                   ))
@@ -1138,23 +1187,45 @@ const Header = ({ toggleSidebar, isMobile }) => {
 
               {/* Footer */}
               {notifications.length > 0 && (
-                <Box sx={{ 
-                  p: 1.5, 
-                  borderTop: 1, 
+                <Box sx={{
+                  p: 1.5,
+                  borderTop: 1,
                   borderColor: 'divider',
-                  textAlign: 'center',
-                  background: 'rgba(0,0,0,0.02)'
+                  background: 'rgba(0,0,0,0.02)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 1.5
                 }}>
                   <Typography 
                     variant="caption" 
                     color="text.secondary"
-                    sx={{ fontWeight: 500 }}
+                    sx={{ fontWeight: 500, textAlign: 'left' }}
                   >
                     {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
                     {notifications.filter(n => n.category === 'overdue').length > 0 && 
                       ` (${notifications.filter(n => n.category === 'overdue').length} overdue)`
                     }
                   </Typography>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    startIcon={<CheckCircleIcon fontSize="small" />}
+                    onClick={handleMarkAllAsRead}
+                    sx={{
+                      flexShrink: 0,
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      borderRadius: 2,
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      boxShadow: '0 4px 12px rgba(102, 126, 234, 0.22)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                      }
+                    }}
+                  >
+                    Mark all read
+                  </Button>
                 </Box>
               )}
             </Menu>

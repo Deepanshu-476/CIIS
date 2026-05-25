@@ -40,7 +40,6 @@ const ChatSidebar = ({
         return group.memberCount || group.count || 0;
     };
 
-    
     const filteredGroups = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();
         if (!query) return groups || [];

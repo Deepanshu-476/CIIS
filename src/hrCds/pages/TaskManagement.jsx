@@ -107,6 +107,13 @@ const normalizeStatus = (status) => {
   return statusMap[status] || status.toLowerCase();
 };
 
+const getLocalDateStart = (value = new Date()) => {
+  const date = value instanceof Date ? new Date(value) : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
 const StatCard = ({ color = 'primary', clickable = true, active = false, children, onClick }) => {
   return (
     <div 
@@ -375,10 +382,11 @@ const UserCreateTask = () => {
     if (!dueDateTime) return false;
     if (status === 'overdue') return true;
     
-    const now = new Date();
-    const dueDate = new Date(dueDateTime);
+    const today = getLocalDateStart();
+    const dueDate = getLocalDateStart(dueDateTime);
+    if (!today || !dueDate) return false;
     
-    const isPastDue = dueDate < now;
+    const isPastDue = dueDate < today;
     const canBeOverdue = ['pending', 'in-progress', 'reopen', 'onhold'];
     
     return isPastDue && canBeOverdue.includes(status);

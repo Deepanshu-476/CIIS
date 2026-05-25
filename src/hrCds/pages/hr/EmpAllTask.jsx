@@ -53,6 +53,63 @@ const normalizeStatus = (status) => {
   return mapping[lower] || lower;
 };
 
+const getLocalDateStart = (value = new Date()) => {
+  const date = value instanceof Date ? new Date(value) : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const isTaskOverdueByDate = (dueDate, status) => {
+  if (!dueDate) return false;
+  const normalizedStatus = normalizeStatus(status);
+  if (normalizedStatus === 'completed' || normalizedStatus === 'cancelled') return false;
+
+  const today = getLocalDateStart();
+  const dueDateStart = getLocalDateStart(dueDate);
+  return Boolean(today && dueDateStart && dueDateStart < today);
+};
+
+const getTaskDueDate = task => task?.dueDateTime || task?.dueDate;
+
+const calculateTaskStatsFromList = tasks => {
+  const statusCounts = {
+    pending: 0,
+    'in-progress': 0,
+    completed: 0,
+    rejected: 0,
+    overdue: 0,
+    onhold: 0,
+    reopen: 0,
+    cancelled: 0,
+  };
+
+  (tasks || []).forEach(task => {
+    let status = normalizeStatus(task.userStatus || task.status || task.overallStatus || 'pending');
+    if (isTaskOverdueByDate(getTaskDueDate(task), status)) {
+      status = 'overdue';
+    }
+    if (statusCounts[status] !== undefined) {
+      statusCounts[status] += 1;
+    }
+  });
+
+  const total = (tasks || []).length;
+  const completed = statusCounts.completed;
+  return {
+    total,
+    completed,
+    completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+    pending: statusCounts.pending,
+    inProgress: statusCounts['in-progress'],
+    rejected: statusCounts.rejected,
+    overdue: statusCounts.overdue,
+    onhold: statusCounts.onhold,
+    reopen: statusCounts.reopen,
+    cancelled: statusCounts.cancelled,
+  };
+};
+
 // Get complete status object with color and bgColor
 const getStatusObject = (status) => {
   const normalized = normalizeStatus(status);
@@ -775,28 +832,20 @@ const TaskDetails = () => {
             };
 
             try {
-              const statsRes = await axios.get(`/task/user/${userId}/stats`);
+              const tasksRes = await axios.get(`/task/user/${userId}/all-tasks`, {
+                params: {
+                  page: 1,
+                  limit: 50,
+                  period: 'today',
+                  status: 'all',
+                  priority: 'all',
+                },
+              });
 
-              if (statsRes.data.success && statsRes.data.statusCounts) {
-                const stats = statsRes.data.statusCounts;
-                const total = stats.total || 0;
-                const completed = stats.completed?.count || 0;
-
-                taskStats = {
-                  total,
-                  completed,
-                  completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
-                  pending: stats.pending?.count || 0,
-                  inProgress: stats.inProgress?.count || 0,
-                  rejected: stats.rejected?.count || 0,
-                  overdue: stats.overdue?.count || 0,
-                  onhold: stats.onHold?.count || 0,
-                  reopen: stats.reopen?.count || 0,
-                  cancelled: stats.cancelled?.count || 0
-                };
-              }
+              const userTasks = tasksRes.data?.tasks || tasksRes.data?.data || [];
+              taskStats = calculateTaskStatsFromList(userTasks);
             } catch (err) {
-              console.log("Stats fetch failed for user:", userId);
+              console.log("Task stats fetch failed for user:", userId);
             }
 
             return {
@@ -925,7 +974,6 @@ const TaskDetails = () => {
       return;
     }
 
-    const now = new Date();
     const statusCounts = {
       pending: 0,
       'in-progress': 0,
@@ -940,10 +988,7 @@ const TaskDetails = () => {
     filteredTasks.forEach(task => {
       let status = task.userStatus || task.status || task.overallStatus;
 
-      // Check for overdue
-      const dueDate = task.dueDateTime;
-      if (dueDate && new Date(dueDate) < now &&
-        status !== 'completed' && status !== 'cancelled') {
+      if (isTaskOverdueByDate(getTaskDueDate(task), status)) {
         status = 'overdue';
       }
 
@@ -1003,7 +1048,21 @@ const TaskDetails = () => {
         return;
       }
 
-      const response = await axios.get(`/task/user/${userId}/stats`);
+      let statusParam = activeStatusFilters.includes('all') ? 'all' : activeStatusFilters.join(',');
+      if (dateFilter === 'overdue') {
+        statusParam = statusParam === 'all' ? 'overdue' : `${statusParam},overdue`;
+      }
+
+      const response = await axios.get(`/task/user/${userId}/stats`, {
+        params: {
+          period: fromDate || toDate || dateFilter === 'overdue' ? 'all' : dateFilter,
+          fromDate,
+          toDate,
+          search: searchQuery,
+          status: statusParam,
+          priority: priorityFilter,
+        },
+      });
 
       if (response.data.success && response.data.statusCounts && isMounted.current) {
         const statusCounts = response.data.statusCounts;
@@ -1026,7 +1085,7 @@ const TaskDetails = () => {
         calculateStatsFromTasks();
       }
     }
-  }, []);
+  }, [activeStatusFilters, dateFilter, fromDate, priorityFilter, searchQuery, toDate]);
 
   // FIXED: calculateStatsFromTasks to include overdue
   const calculateStatsFromTasks = useCallback(() => {
@@ -1045,7 +1104,6 @@ const TaskDetails = () => {
       return;
     }
 
-    const now = new Date();
     const statusCounts = {
       pending: 0,
       'in-progress': 0,
@@ -1060,10 +1118,7 @@ const TaskDetails = () => {
     tasks.forEach(task => {
       let status = task.userStatus || task.status || task.overallStatus;
 
-      // Check for overdue
-      const dueDate = task.dueDateTime;
-      if (dueDate && new Date(dueDate) < now &&
-        status !== 'completed' && status !== 'cancelled') {
+      if (isTaskOverdueByDate(getTaskDueDate(task), status)) {
         status = 'overdue';
       }
 
@@ -1129,8 +1184,7 @@ const TaskDetails = () => {
 
   // FIXED: fetchUserTasks function with merged API calls - Normalize source to 'assigned'
   const fetchUserTasks = useCallback(async (userId, page = taskPage, options = {}) => {
-    // Prevent fetching if already loading or same user
-    if (loading || fetchingTasksForUser.current === `${userId}-${page}`) {
+    if (fetchingTasksForUser.current === `${userId}-${page}`) {
       return;
     }
 
@@ -1333,7 +1387,6 @@ const TaskDetails = () => {
     fetchAllTaskLogs,
     fetchTaskStatusCounts,
     fromDate,
-    loading,
     priorityFilter,
     searchQuery,
     showSnackbar,
@@ -2885,19 +2938,16 @@ const TaskDetails = () => {
                   {filteredTasks.map((task) => {
                     let status = task.userStatus || task.status || task.overallStatus;
 
-                    // Check for overdue
-                    const dueDate = task.dueDateTime;
-                    if (dueDate && new Date(dueDate) < today &&
-                      status !== 'completed'  && status !== 'cancelled') {
+                    const dueDate = getTaskDueDate(task);
+                    if (isTaskOverdueByDate(dueDate, status)) {
                       status = 'overdue';
                     }
 
                     // Get complete status object with color and bgColor
                     const statusObject = getStatusObject(status);
                     
-                    const isToday = isSameDay(task.dueDateTime || task.createdAt, today);
-                    const isOverdue = task.dueDateTime && new Date(task.dueDateTime) < today &&
-                      status !== 'completed' &&  status !== 'cancelled';
+                    const isToday = isSameDay(dueDate || task.createdAt, today);
+                    const isOverdue = isTaskOverdueByDate(dueDate, status);
 
                     const taskLogs = allTaskLogs[task._id] || [];
                     const timeData = calculateTaskActiveTime(taskLogs);

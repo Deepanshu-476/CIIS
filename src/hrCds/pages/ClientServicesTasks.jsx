@@ -23,6 +23,20 @@ const getAuthToken = () => {
   return localStorage.getItem('token') || localStorage.getItem('authToken');
 };
 
+const getLocalDateStart = value => {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return null;
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const isClientTaskOverdue = task => {
+  if (!task?.dueDate || task.completed) return false;
+  const dueDate = getLocalDateStart(task.dueDate);
+  const today = getLocalDateStart(new Date());
+  return Boolean(dueDate && today && dueDate < today);
+};
+
 // ========== ANIMATED PROGRESS RING ==========
 const AnimatedProgressRing = ({ percentage, size = 80, strokeWidth = 8 }) => {
   const radius = (size - strokeWidth) / 2;
@@ -165,8 +179,7 @@ const ServiceProgressCard = ({ service, clientId, api }) => {
   const progressPercentage = totalTasks > 0 ? Math.round((completedTasks.length / totalTasks) * 100) : 0;
   
   const overdueTasks = tasks.filter(task => {
-    if (!task.dueDate || task.completed) return false;
-    return new Date(task.dueDate) < new Date();
+    return isClientTaskOverdue(task);
   });
 
   const formatDate = (dateString) => {
@@ -320,7 +333,7 @@ const ServiceProgressCard = ({ service, clientId, api }) => {
                           </span>
                         )}
                         {task.dueDate && (
-                          <span className={`ClientDashboard-task-due-date ${!task.completed && new Date(task.dueDate) < new Date() ? 'ClientDashboard-task-due-date--overdue' : ''}`}>
+                          <span className={`ClientDashboard-task-due-date ${isClientTaskOverdue(task) ? 'ClientDashboard-task-due-date--overdue' : ''}`}>
                             <FiCalendar className="ClientDashboard-meta-icon" />
                             Due: {formatDate(task.dueDate)}
                           </span>

@@ -47,6 +47,27 @@ const getAuthToken = () => {
   return localStorage.getItem('token') || localStorage.getItem('authToken');
 };
 
+const getLocalDateStart = value => {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return null;
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const isClientTaskOverdue = taskOrDueDate => {
+  const dueDateValue = typeof taskOrDueDate === 'object' && taskOrDueDate !== null
+    ? taskOrDueDate.dueDate
+    : taskOrDueDate;
+  const completed = typeof taskOrDueDate === 'object' && taskOrDueDate !== null
+    ? taskOrDueDate.completed
+    : false;
+
+  if (!dueDateValue || completed) return false;
+  const dueDate = getLocalDateStart(dueDateValue);
+  const today = getLocalDateStart(new Date());
+  return Boolean(dueDate && today && dueDate < today);
+};
+
 // Clients API instance
 const api = axios.create({
   baseURL: `${API_URL}/clientsservice`,
@@ -569,12 +590,7 @@ const TaskDetailsModal = ({ task, open, onClose, projectManagers = [] }) => {
   };
 
   const isOverdue = (dueDate) => {
-    if (!dueDate) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const due = new Date(dueDate);
-    due.setHours(0, 0, 0, 0);
-    return due < today;
+    return isClientTaskOverdue(dueDate);
   };
 
   const assigneeDetails = getAssigneeDetails(task.assignee);
@@ -870,15 +886,6 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
       case 'Low': return 'ClientManagement-badge--info';
       default: return '';
     }
-  };
-
-  const isOverdue = (dueDate) => {
-    if (!dueDate) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const due = new Date(dueDate);
-    due.setHours(0, 0, 0, 0);
-    return due < today;
   };
 
   if (loading) {
@@ -2233,11 +2240,8 @@ const ClientManagement = () => {
         let totalOverdue = 0;
         for (const client of clients) {
           const tasksData = await fetchClientTasks(client._id);
-          const today = new Date();
           const overdue = tasksData.filter(t => {
-            if (!t.dueDate || t.completed) return false;
-            const dueDate = new Date(t.dueDate);
-            return dueDate < today;
+            return isClientTaskOverdue(t);
           }).length;
           totalOverdue += overdue;
         }

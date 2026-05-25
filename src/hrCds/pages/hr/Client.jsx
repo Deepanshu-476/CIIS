@@ -1966,7 +1966,9 @@ const ClientManagement = () => {
   const [servicesModal, setServicesModal] = useState(false);
   const [addClientModal, setAddClientModal] = useState(false);
   const [paymentReceiptsModal, setPaymentReceiptsModal] = useState({ open: false, client: null });
+  const [overdueClientsModal, setOverdueClientsModal] = useState(false);
   const [taskCounts, setTaskCounts] = useState({});
+  const [overdueClients, setOverdueClients] = useState([]);
   
   const [companyCode, setCompanyCode] = useState('');
   const [companyIdentifier, setCompanyIdentifier] = useState('');
@@ -2210,6 +2212,7 @@ const ClientManagement = () => {
     const calculateTasksForAll = async () => {
       const counts = {};
       let totalPending = 0;
+      const overdueClientsData = [];
       
       for (const client of clients) {
         try {
@@ -2217,9 +2220,18 @@ const ClientManagement = () => {
           const total = tasks.length;
           const completed = tasks.filter(t => t.completed).length;
           const pending = total - completed;
+          const overdueTasksCount = tasks.filter(t => isClientTaskOverdue(t)).length;
           
           counts[client._id] = { total, completed, pending };
           totalPending += pending;
+          if (overdueTasksCount > 0) {
+            overdueClientsData.push({
+              _id: client._id,
+              client: client.client,
+              company: client.company,
+              overdueTasksCount
+            });
+          }
         } catch (error) {
           console.error(`Error calculating tasks for client ${client._id}:`, error);
           counts[client._id] = { total: 0, completed: 0, pending: 0 };
@@ -2227,6 +2239,7 @@ const ClientManagement = () => {
       }
       
       setTaskCounts(counts);
+      setOverdueClients(overdueClientsData);
       setTasksStats(prev => ({
         ...prev,
         pendingTasks: totalPending
@@ -2254,6 +2267,7 @@ const ClientManagement = () => {
       calculateOverdueTasks();
     } else {
       setTaskCounts({});
+      setOverdueClients([]);
       setTasksStats({
         pendingTasks: 0,
         overdueTasks: 0
@@ -2608,7 +2622,16 @@ const ClientManagement = () => {
           { label: 'Overdue Tasks', value: tasksStats.overdueTasks, color: 'error', icon: <FiAlertCircle /> },
           { label: 'Services', value: services.length, color: 'info', icon: <FiBriefcase /> },
         ].map((stat, index) => (
-          <div key={index} className={`ClientManagement-stat-card ClientManagement-stat-card--${stat.color}`}>
+          <div
+            key={index}
+            className={`ClientManagement-stat-card ClientManagement-stat-card--${stat.color} ${stat.label === 'Overdue Tasks' ? 'ClientManagement-stat-card--clickable' : ''}`}
+            onClick={stat.label === 'Overdue Tasks' ? () => setOverdueClientsModal(true) : undefined}
+            role={stat.label === 'Overdue Tasks' ? 'button' : undefined}
+            tabIndex={stat.label === 'Overdue Tasks' ? 0 : undefined}
+            onKeyDown={stat.label === 'Overdue Tasks' ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') setOverdueClientsModal(true);
+            } : undefined}
+          >
             <div className="ClientManagement-card__content">
               <div className="ClientManagement-stat-card-content">
                 <div className={`ClientManagement-avatar ClientManagement-avatar--${stat.color}`}>
@@ -3567,6 +3590,41 @@ const ClientManagement = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {overdueClientsModal && (
+        <div className="ClientManagement-modal-overlay" onClick={() => setOverdueClientsModal(false)}>
+          <div className="ClientManagement-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ClientManagement-modal__header">
+              <h3>Overdue Task Clients</h3>
+              <button className="ClientManagement-close-btn" onClick={() => setOverdueClientsModal(false)}>
+                <FiX />
+              </button>
+            </div>
+            <div className="ClientManagement-modal__content">
+              {overdueClients.length > 0 ? (
+                <div className="ClientManagement-overdue-client-list">
+                  {overdueClients.map((client) => (
+                    <div key={client._id} className="ClientManagement-overdue-client-item">
+                      <div>
+                        <p className="ClientManagement-overdue-client-name">{client.client || 'Unnamed Client'}</p>
+                        <small className="ClientManagement-text-muted">{client.company || 'No company assigned'}</small>
+                      </div>
+                      <span className="ClientManagement-overdue-client-count">{client.overdueTasksCount} overdue</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="ClientManagement-text-muted">No clients currently have overdue tasks.</p>
+              )}
+            </div>
+            <div className="ClientManagement-modal__footer">
+              <button className="ClientManagement-btn ClientManagement-btn--outlined" onClick={() => setOverdueClientsModal(false)}>
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -2220,7 +2220,11 @@ const ClientManagement = () => {
           const total = tasks.length;
           const completed = tasks.filter(t => t.completed).length;
           const pending = total - completed;
-          const overdueTasksCount = tasks.filter(t => isClientTaskOverdue(t)).length;
+          const overdueTasks = tasks.filter(t => isClientTaskOverdue(t));
+          const overdueTasksCount = overdueTasks.length;
+          const overdueTaskNames = overdueTasks
+            .map(task => task?.name || task?.title || task?.taskName)
+            .filter(Boolean);
           
           counts[client._id] = { total, completed, pending };
           totalPending += pending;
@@ -2229,7 +2233,8 @@ const ClientManagement = () => {
               _id: client._id,
               client: client.client,
               company: client.company,
-              overdueTasksCount
+              overdueTasksCount,
+              overdueTaskNames
             });
           }
         } catch (error) {
@@ -3611,6 +3616,11 @@ const ClientManagement = () => {
                       <div>
                         <p className="ClientManagement-overdue-client-name">{client.client || 'Unnamed Client'}</p>
                         <small className="ClientManagement-text-muted">{client.company || 'No company assigned'}</small>
+                        {client.overdueTaskNames?.length > 0 && (
+                          <small className="ClientManagement-text-muted" style={{ display: 'block', marginTop: '4px' }}>
+                            Overdue task{client.overdueTaskNames.length > 1 ? 's' : ''}: {client.overdueTaskNames.join(', ')}
+                          </small>
+                        )}
                       </div>
                       <span className="ClientManagement-overdue-client-count">{client.overdueTasksCount} overdue</span>
                     </div>

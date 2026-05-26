@@ -5,6 +5,108 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
 }
 
+.TaskDetails-page-container {
+  width: min(1180px, calc(100vw - 48px));
+  margin: 0 auto;
+  padding: 1.5rem 0 2.5rem;
+}
+
+.TaskDetails-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.TaskDetails-page-title {
+  flex: 1;
+  min-width: 220px;
+}
+
+.TaskDetails-page-title h1 {
+  margin: 0 0 0.3rem;
+  color: #111827;
+  font-size: 1.6rem;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.TaskDetails-page-title p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.TaskDetails-page-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid #dbe3f0;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 0.65rem;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+  transition: all 0.2s ease;
+}
+
+.TaskDetails-page-back:hover {
+  border-color: #667eea;
+  color: #4f46e5;
+  transform: translateY(-1px);
+}
+
+.TaskDetails-page-panel {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  max-height: none;
+  min-height: auto;
+  animation: none;
+  border: 1px solid #e5eaf3;
+  border-radius: 1rem;
+  box-shadow: 0 16px 42px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+
+.TaskDetails-page-panel .TaskDetails-modal-header {
+  border-radius: 0;
+}
+
+.TaskDetails-page-panel .TaskDetails-modal-close-btn {
+  display: none;
+}
+
+.TaskDetails-page-panel .TaskDetails-modal-body {
+  max-height: none;
+  overflow: visible;
+}
+
+@media (max-width: 768px) {
+  .TaskDetails-page-container {
+    width: min(100% - 1.5rem, 1180px);
+    padding: 1rem 0 1.5rem;
+  }
+
+  .TaskDetails-page-header {
+    flex-direction: column;
+  }
+
+  .TaskDetails-page-title h1 {
+    font-size: 1.25rem;
+  }
+
+  .TaskDetails-page-back {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 /* ============================================ */
 /* MOBILE FIRST APPROACH (0px - 480px) */
 /* ============================================ */

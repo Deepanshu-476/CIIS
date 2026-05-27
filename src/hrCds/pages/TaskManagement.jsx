@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import axios from '../../utils/axiosConfig';
 import { useNavigate } from 'react-router-dom';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import {
   FiPlus, FiCalendar, FiInfo, FiPaperclip, FiMic, FiFileText,
   FiCheck, FiX, FiAlertCircle, FiUser, FiBell, FiRefreshCw,
@@ -10,7 +8,7 @@ import {
   FiXCircle, FiFilter, FiSearch, FiLogOut, FiMessageCircle,
   FiBarChart2, FiTrendingUp, FiList, FiPause, FiTarget, FiUsers,
   FiSlash, FiImage, FiCamera, FiTrash2, FiZoomIn, FiCheckSquare,
-  FiGlobe, FiSun, FiRotateCcw, FiAlertTriangle, FiBriefcase
+  FiGlobe, FiSun, FiRotateCcw, FiAlertTriangle
 } from 'react-icons/fi';
 
 import "../Css/TaskManagement.css";
@@ -109,6 +107,20 @@ const normalizeStatus = (status) => {
   return statusMap[status] || status.toLowerCase();
 };
 
+const getLocalDateStart = (value = new Date()) => {
+  const date = value instanceof Date ? new Date(value) : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const isSameLocalDay = (left, right) => {
+  const leftDate = getLocalDateStart(left);
+  const rightDate = getLocalDateStart(right);
+  if (!leftDate || !rightDate) return false;
+  return leftDate.getTime() === rightDate.getTime();
+};
+
 const StatCard = ({ color = 'primary', clickable = true, active = false, children, onClick }) => {
   return (
     <div 
@@ -140,41 +152,6 @@ const PriorityChip = ({ priority }) => {
   );
 };
 
-const normalizeId = (value) => {
-  if (!value) return '';
-  if (typeof value === 'object') {
-    return String(value._id || value.id || '');
-  }
-  return String(value);
-};
-
-const getDisplayName = (value, fallback = 'Unknown User') => {
-  if (!value) return fallback;
-  if (typeof value === 'object') {
-    return value.name || value.email || value.Name || fallback;
-  }
-  return fallback;
-};
-
-const isSameLocalDay = (value, baseDate = new Date()) => {
-  if (!value) return false;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return false;
-
-  return (
-    date.getFullYear() === baseDate.getFullYear() &&
-    date.getMonth() === baseDate.getMonth() &&
-    date.getDate() === baseDate.getDate()
-  );
-};
-
-const formatTaskDate = (value) => {
-  if (!value) return 'No date';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'No date';
-  return date.toLocaleDateString('en-IN');
-};
-
 const getColorValue = (color) => {
   const colors = {
     primary: '#1976d2',
@@ -189,6 +166,14 @@ const getColorValue = (color) => {
   return colors[color] || '#1976d2';
 };
 
+const emptyExternalStats = () => ({
+  total: 0,
+  pending: { count: 0, percentage: 0 },
+  inProgress: { count: 0, percentage: 0 },
+  completed: { count: 0, percentage: 0 },
+  overdue: { count: 0, percentage: 0 }
+});
+
 const UserCreateTask = () => {
   // State declarations
   const [openDialog, setOpenDialog] = useState(false);
@@ -202,18 +187,18 @@ const UserCreateTask = () => {
   const [loading, setLoading] = useState(false);
   const [loadingAssigned, setLoadingAssigned] = useState(false);
   const [loadingClientTasks, setLoadingClientTasks] = useState(false);
+  const [loadingAllTasks, setLoadingAllTasks] = useState(false);
 
   // Self tasks state
   const [myTasksGrouped, setMyTasksGrouped] = useState({});
   
-  // Tasks assigned to me by other users
-  const [assignedToMeTasksGrouped, setAssignedToMeTasksGrouped] = useState({});
-
   // Client tasks assigned to me
+  const [assignedToMeTasksGrouped, setAssignedToMeTasksGrouped] = useState({});
   const [clientTasksGrouped, setClientTasksGrouped] = useState({});
+  const [allTasksGrouped, setAllTasksGrouped] = useState({});
   
   // Task view mode
-  const [taskViewMode, setTaskViewMode] = useState('self');
+  const [taskViewMode, setTaskViewMode] = useState('all');
 
   const [statusFilter, setStatusFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -251,10 +236,11 @@ const UserCreateTask = () => {
   const [timeFilter, setTimeFilter] = useState("today");
   const [notifications, setNotifications] = useState([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
-  const [remarksDialog, setRemarksDialog] = useState({ open: false, taskId: null, remarks: [] });
+  const [remarksDialog, setRemarksDialog] = useState({ open: false, taskId: null, remarks: [], source: null });
   const [newRemark, setNewRemark] = useState('');
   const [remarkImages, setRemarkImages] = useState([]);
   const [isUploadingRemark, setIsUploadingRemark] = useState(false);
+  const [isSavingRemarkStatus, setIsSavingRemarkStatus] = useState(false);
   const [activityLogs, setActivityLogs] = useState([]);
   const [activityDialog, setActivityDialog] = useState({ open: false, taskId: null });
   
@@ -278,7 +264,7 @@ const UserCreateTask = () => {
     voiceNote: null,
   });
 
-  const [pendingStatusChange, setPendingStatusChange] = useState({ taskId: null, status: '' });
+  const [pendingStatusChange, setPendingStatusChange] = useState({ taskId: null, status: '', source: null });
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
   const chunks = useRef([]);
@@ -291,18 +277,6 @@ const UserCreateTask = () => {
   const snackbarTimerRef = useRef(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
-
-  // Refs for filter values
-  const statusFilterRef = useRef(statusFilter);
-  const searchTermRef = useRef(searchTerm);
-  const timeFilterRef = useRef(timeFilter);
-
-  // Update refs
-  useEffect(() => {
-    statusFilterRef.current = statusFilter;
-    searchTermRef.current = searchTerm;
-    timeFilterRef.current = timeFilter;
-  }, [statusFilter, searchTerm, timeFilter]);
 
   // Responsive handler
   useEffect(() => {
@@ -371,29 +345,24 @@ const UserCreateTask = () => {
   // Get user status for a task (for self tasks)
   const getUserStatusForTask = useCallback((task, userId) => {
     if (!task || !userId) return 'pending';
-    const targetUserId = normalizeId(userId);
     
     const userStatus = task.statusByUser?.find(s => {
-      return normalizeId(s.user) === targetUserId;
+      if (typeof s.user === 'string') return s.user === userId;
+      if (s.user && typeof s.user === 'object') return s.user._id === userId;
+      return false;
     });
     
     if (userStatus) return normalizeStatus(userStatus.status);
     
-    const statusInfo = task.statusInfo?.find(s => 
-      normalizeId(s.userId) === targetUserId || normalizeId(s.user) === targetUserId
-    );
+    const statusInfo = task.statusInfo?.find(s => s.userId === userId);
     if (statusInfo) return normalizeStatus(statusInfo.status);
     
     return 'pending';
   }, []);
 
-  // Get status for assigned tasks - current user's own status
+  // Get status for assigned tasks - FIXED: properly normalize status
   const getAssignedTaskStatus = useCallback((task) => {
     if (!task) return 'pending';
-
-    if (task.statusByUser || task.statusInfo) {
-      return getUserStatusForTask(task, userId);
-    }
     
     // Check for completed flag
     if (task.completed === true) return 'completed';
@@ -404,60 +373,18 @@ const UserCreateTask = () => {
     }
     
     return 'pending';
-  }, [getUserStatusForTask, userId]);
-
-  const getTaskOverallStatus = useCallback((task) => {
-    if (!task) return 'pending';
-    return normalizeStatus(task.overallStatus || task.status || 'pending');
   }, []);
-
-  const getTaskAssignedByName = useCallback((task) => {
-    return getDisplayName(task?.createdBy, 'Unknown User');
-  }, []);
-
-  const getAssignedUsersWithStatus = useCallback((task) => {
-    if (!task) return [];
-    const users = [];
-
-    if (Array.isArray(task.assignedUsers)) {
-      task.assignedUsers.forEach((user) => {
-        const userIdForStatus = normalizeId(user);
-        const name = getDisplayName(user);
-
-        users.push({
-          id: userIdForStatus,
-          name,
-          status: getUserStatusForTask(task, userIdForStatus)
-        });
-      });
-    }
-
-    if (Array.isArray(task.statusInfo)) {
-      task.statusInfo.forEach((statusInfo) => {
-        const statusUserId = normalizeId(statusInfo.userId || statusInfo.user);
-        if (!statusUserId || users.some(user => user.id === statusUserId)) return;
-
-        users.push({
-          id: statusUserId,
-          name: statusInfo.name || statusInfo.userName || getDisplayName(statusInfo.user),
-          status: normalizeStatus(statusInfo.status)
-        });
-      });
-    }
-
-    return users;
-  }, [getUserStatusForTask]);
 
   // Check if task is overdue
   const isOverdue = useCallback((dueDateTime, status) => {
     if (!dueDateTime) return false;
     if (status === 'overdue') return true;
     
-    const now = new Date();
     const dueDate = new Date(dueDateTime);
+    if (Number.isNaN(dueDate.getTime())) return false;
     
-    const isPastDue = dueDate < now;
-    const canBeOverdue = ['pending', 'in-progress', 'reopen', 'onhold'];
+    const isPastDue = dueDate < new Date();
+    const canBeOverdue = ['pending'];
     
     return isPastDue && canBeOverdue.includes(status);
   }, []);
@@ -467,7 +394,10 @@ const UserCreateTask = () => {
     const grouped = {};
     
     tasks.forEach(task => {
-      const dateToUse = task.dueDate || task.dueDateTime || task.createdAt;
+      const source = String(task?.__taskSource || task?.taskSource || '').toLowerCase();
+      const dateToUse = source === 'client'
+        ? (task.dueDate || task.dueDateTime || task.createdAt)
+        : (task.createdAt || task.dueDateTime || task.dueDate);
       
       if (dateToUse) {
         const dateKey = new Date(dateToUse).toLocaleDateString('en-IN', {
@@ -502,36 +432,6 @@ const UserCreateTask = () => {
     
     return sortedGrouped;
   }, []);
-
-  // Get overdue count
-  const getOverdueCount = useMemo(() => {
-    const tasksToCheck = taskViewMode === 'self'
-      ? myTasksGrouped
-      : taskViewMode === 'client'
-        ? clientTasksGrouped
-        : assignedToMeTasksGrouped;
-    let count = 0;
-    
-    Object.values(tasksToCheck).forEach(tasks => {
-      tasks.forEach(task => {
-        if (taskViewMode === 'self') {
-          const myStatus = getUserStatusForTask(task, userId);
-          const taskIsOverdue = isOverdue(task.dueDateTime, myStatus);
-          if (taskIsOverdue || myStatus === 'overdue') {
-            count++;
-          }
-        } else {
-          const status = getAssignedTaskStatus(task);
-          const dueDate = task.dueDate || task.dueDateTime;
-          const taskIsOverdue = isOverdue(dueDate, status);
-          if (taskIsOverdue || status === 'overdue') {
-            count++;
-          }
-        }
-      });
-    });
-    return count;
-  }, [myTasksGrouped, assignedToMeTasksGrouped, clientTasksGrouped, taskViewMode, userId, getUserStatusForTask, getAssignedTaskStatus, isOverdue]);
 
   // Calculate stats from self tasks
   const calculateStatsFromTasks = useCallback((tasks) => {
@@ -592,17 +492,10 @@ const UserCreateTask = () => {
     });
   }, [userId, getUserStatusForTask, isOverdue]);
 
-  // Calculate stats from assigned tasks - FIXED: properly handle status counts
-  const calculateAssignedStatsFromTasks = useCallback((tasks) => {
+  // Calculate stats from assigned/client tasks - FIXED: properly handle status counts
+  const calculateExternalStatsFromTasks = useCallback((tasks) => {
     if (!tasks || Object.keys(tasks).length === 0) {
-      setAssignedTaskStats({
-        total: 0,
-        pending: { count: 0, percentage: 0 },
-        inProgress: { count: 0, percentage: 0 },
-        completed: { count: 0, percentage: 0 },
-        overdue: { count: 0, percentage: 0 }
-      });
-      return;
+      return emptyExternalStats();
     }
     
     let total = 0;
@@ -635,9 +528,6 @@ const UserCreateTask = () => {
           const isTaskOverdue = isOverdue(dueDate, status);
           if (isTaskOverdue && status !== 'overdue') {
             overdue++;
-            // Don't double count - if it's overdue, it shouldn't be in pending/in-progress for stats
-            if (status === 'pending') pending--;
-            if (status === 'in-progress') inProgress--;
           }
         }
       });
@@ -645,68 +535,187 @@ const UserCreateTask = () => {
 
     const calculatePercentage = (count) => total > 0 ? Math.round((count / total) * 100) : 0;
 
-    setAssignedTaskStats({
+    return {
       total,
       pending: { count: pending, percentage: calculatePercentage(pending) },
       inProgress: { count: inProgress, percentage: calculatePercentage(inProgress) },
       completed: { count: completed, percentage: calculatePercentage(completed) },
       overdue: { count: overdue, percentage: calculatePercentage(overdue) }
-    });
+    };
   }, [getAssignedTaskStatus, isOverdue]);
 
+  const calculateAssignedStatsFromTasks = useCallback((tasks) => {
+    setAssignedTaskStats(calculateExternalStatsFromTasks(tasks));
+  }, [calculateExternalStatsFromTasks]);
+
   const calculateClientStatsFromTasks = useCallback((tasks) => {
+    setClientTaskStats(calculateExternalStatsFromTasks(tasks));
+  }, [calculateExternalStatsFromTasks]);
+
+  const getTaskSource = useCallback((task) => {
+    return task?.__taskSource || (taskViewMode === 'all' ? 'assigned' : taskViewMode);
+  }, [taskViewMode]);
+
+  const getStatusForTask = useCallback((task) => {
+    return getTaskSource(task) === 'self'
+      ? getUserStatusForTask(task, userId)
+      : getAssignedTaskStatus(task);
+  }, [getTaskSource, getUserStatusForTask, getAssignedTaskStatus, userId]);
+
+  const getDueDateForTask = useCallback((task) => {
+    return getTaskSource(task) === 'self'
+      ? task?.dueDateTime
+      : (task?.dueDate || task?.dueDateTime);
+  }, [getTaskSource]);
+
+  const getTaskTimeFilterDate = useCallback((task) => {
+    return getTaskSource(task) === 'client'
+      ? (getDueDateForTask(task) || task?.createdAt)
+      : (task?.createdAt || getDueDateForTask(task));
+  }, [getDueDateForTask, getTaskSource]);
+
+  const matchesTimeFilter = useCallback((task) => {
+    if (!timeFilter || timeFilter === 'all') return true;
+
+    const taskDate = getLocalDateStart(getTaskTimeFilterDate(task));
+    if (!taskDate) return false;
+
+    const today = getLocalDateStart();
+    const startOfThisWeek = new Date(today);
+    const day = startOfThisWeek.getDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    startOfThisWeek.setDate(startOfThisWeek.getDate() + diffToMonday);
+
+    const endOfThisWeek = new Date(startOfThisWeek);
+    endOfThisWeek.setDate(endOfThisWeek.getDate() + 6);
+    endOfThisWeek.setHours(23, 59, 59, 999);
+
+    const startOfLastWeek = new Date(startOfThisWeek);
+    startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+
+    const endOfLastWeek = new Date(startOfThisWeek);
+    endOfLastWeek.setMilliseconds(-1);
+
+    const startOfThisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const startOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+
+    switch (timeFilter) {
+      case 'today':
+        return isSameLocalDay(taskDate, today);
+      case 'yesterday': {
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        return isSameLocalDay(taskDate, yesterday);
+      }
+      case 'this-week':
+        return taskDate >= startOfThisWeek && taskDate <= endOfThisWeek;
+      case 'last-week':
+        return taskDate >= startOfLastWeek && taskDate <= endOfLastWeek;
+      case 'this-month':
+        return taskDate >= startOfThisMonth && taskDate < startOfNextMonth;
+      case 'last-month':
+        return taskDate >= startOfLastMonth && taskDate < startOfThisMonth;
+      default:
+        return true;
+    }
+  }, [timeFilter, getTaskTimeFilterDate]);
+
+  const matchesStatusFilter = useCallback((task) => {
+    if (!statusFilter || statusFilter === 'all') return true;
+
+    const status = getStatusForTask(task);
+    if (statusFilter === 'overdue') {
+      return status === 'overdue' || isOverdue(getDueDateForTask(task), status);
+    }
+
+    return status === statusFilter;
+  }, [statusFilter, getStatusForTask, getDueDateForTask, isOverdue]);
+
+  const matchesSearchFilter = useCallback((task) => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return true;
+
+    return [
+      task?.title,
+      task?.name,
+      task?.description,
+      task?.priority,
+      getClientNameFromTask(task)
+    ].some(value => String(value || '').toLowerCase().includes(query));
+  }, [searchTerm]);
+
+  const applyLocalFilters = useCallback((tasks) => {
+    const filtered = {};
+
+    Object.entries(tasks || {}).forEach(([dateKey, dateTasks]) => {
+      const filteredDateTasks = dateTasks.filter(task => (
+        matchesTimeFilter(task) &&
+        matchesStatusFilter(task) &&
+        matchesSearchFilter(task)
+      ));
+
+      if (filteredDateTasks.length > 0) {
+        filtered[dateKey] = filteredDateTasks;
+      }
+    });
+
+    return filtered;
+  }, [matchesTimeFilter, matchesStatusFilter, matchesSearchFilter]);
+
+  const calculateUnifiedStatsFromTasks = useCallback((tasks) => {
     if (!tasks || Object.keys(tasks).length === 0) {
-      setClientTaskStats({
-        total: 0,
-        pending: { count: 0, percentage: 0 },
-        inProgress: { count: 0, percentage: 0 },
-        completed: { count: 0, percentage: 0 },
-        overdue: { count: 0, percentage: 0 }
-      });
-      return;
+      return emptyExternalStats();
     }
 
     let total = 0;
-    let pending = 0;
-    let inProgress = 0;
-    let completed = 0;
-    let overdue = 0;
+    const counts = {
+      pending: 0,
+      'in-progress': 0,
+      completed: 0,
+      overdue: 0
+    };
 
     Object.values(tasks).forEach(dateTasks => {
       dateTasks.forEach(task => {
         total++;
-        const status = getAssignedTaskStatus(task);
+        const status = getStatusForTask(task);
+        const dueDate = getDueDateForTask(task);
+        const taskIsOverdue = isOverdue(dueDate, status);
 
-        if (status === 'completed') completed++;
-        else if (status === 'in-progress') inProgress++;
-        else if (status === 'overdue') overdue++;
-        else pending++;
-
-        const dueDate = task.dueDate || task.dueDateTime;
-        if (dueDate && status !== 'completed' && isOverdue(dueDate, status) && status !== 'overdue') {
-          overdue++;
-          if (status === 'pending') pending--;
-          if (status === 'in-progress') inProgress--;
+        if (status === 'completed') {
+          counts.completed++;
+        } else if (status === 'overdue' || taskIsOverdue) {
+          counts.overdue++;
+        } else if (status === 'in-progress') {
+          counts['in-progress']++;
+        } else {
+          counts.pending++;
         }
       });
     });
 
     const calculatePercentage = (count) => total > 0 ? Math.round((count / total) * 100) : 0;
 
-    setClientTaskStats({
+    return {
       total,
-      pending: { count: pending, percentage: calculatePercentage(pending) },
-      inProgress: { count: inProgress, percentage: calculatePercentage(inProgress) },
-      completed: { count: completed, percentage: calculatePercentage(completed) },
-      overdue: { count: overdue, percentage: calculatePercentage(overdue) }
-    });
-  }, [getAssignedTaskStatus, isOverdue]);
+      pending: { count: counts.pending, percentage: calculatePercentage(counts.pending) },
+      inProgress: { count: counts['in-progress'], percentage: calculatePercentage(counts['in-progress']) },
+      completed: { count: counts.completed, percentage: calculatePercentage(counts.completed) },
+      overdue: { count: counts.overdue, percentage: calculatePercentage(counts.overdue) }
+    };
+  }, [getStatusForTask, getDueDateForTask, isOverdue]);
 
-  // Function to enrich assigned tasks with normal task metadata
+  const getActiveTasksGrouped = useCallback(() => {
+    if (taskViewMode === 'all') return allTasksGrouped;
+    if (taskViewMode === 'self') return myTasksGrouped;
+    if (taskViewMode === 'client') return clientTasksGrouped;
+    return assignedToMeTasksGrouped;
+  }, [taskViewMode, allTasksGrouped, myTasksGrouped, clientTasksGrouped, assignedToMeTasksGrouped]);
+
+  // Function to enrich tasks with proper client names and normalize status
   const enrichAssignedTasks = useCallback((tasks) => {
-    return tasks
-      .filter(task => normalizeId(task.createdBy) !== normalizeId(userId))
-      .map(task => {
+    return tasks.map(task => {
       let clientDisplayName = 'Unknown Client';
       
       if (task.clientId && typeof task.clientId === 'object') {
@@ -727,42 +736,30 @@ const UserCreateTask = () => {
       
       return {
         ...task,
-        title: task.title || task.name,
-        name: task.name || task.title,
-        clientName: clientDisplayName,
-        clientCompany: task.clientId?.company || task.clientCompany,
-        clientEmail: task.clientId?.email || task.clientEmail,
-        status: normalizedStatus,
-        overallStatus: normalizeStatus(task.overallStatus || normalizedStatus)
-      };
-    });
-  }, [userId]);
-
-  const enrichClientTasks = useCallback((tasks) => {
-    return tasks.map(task => {
-      let clientDisplayName = 'Unknown Client';
-
-      if (task.clientId && typeof task.clientId === 'object') {
-        if (task.clientId.company) {
-          clientDisplayName = task.clientId.company;
-        } else if (task.clientId.email) {
-          clientDisplayName = task.clientId.email.split('@')[0];
-        }
-      }
-
-      let normalizedStatus = normalizeStatus(task.status);
-      if (task.completed === true && normalizedStatus !== 'completed') {
-        normalizedStatus = 'completed';
-      }
-
-      return {
-        ...task,
         clientName: clientDisplayName,
         clientCompany: task.clientId?.company || task.clientCompany,
         clientEmail: task.clientId?.email || task.clientEmail,
         status: normalizedStatus
       };
     });
+  }, []);
+
+  const extractTasksFromResponse = useCallback((data) => {
+    if (data?.groupedTasks) return Object.values(data.groupedTasks).flat();
+    if (Array.isArray(data?.tasks)) return data.tasks;
+    if (Array.isArray(data)) return data;
+    return [];
+  }, []);
+
+  const buildTaskQueryParams = useCallback(() => {
+    const params = new URLSearchParams();
+    if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
+    if (searchTerm.trim()) params.append('search', searchTerm.trim());
+    return params.toString();
+  }, [statusFilter, searchTerm]);
+
+  const tagTasksWithSource = useCallback((tasks, source) => {
+    return tasks.map(task => ({ ...task, __taskSource: source }));
   }, []);
 
   // Fetch assigned to me tasks
@@ -776,21 +773,8 @@ const UserCreateTask = () => {
     setLoadingAssigned(true);
     
     try {
-      const params = new URLSearchParams();
-      
-      if (statusFilterRef.current && statusFilterRef.current !== 'all') {
-        params.append('status', statusFilterRef.current);
-      }
-      
-      if (searchTermRef.current) {
-        params.append('search', searchTermRef.current);
-      }
-      
-      if (timeFilterRef.current && timeFilterRef.current !== 'all') {
-        params.append('period', timeFilterRef.current);
-      }
-
-      const url = `/task/my${params.toString() ? `?${params.toString()}` : ''}`;
+      const query = buildTaskQueryParams();
+      const url = `/task/assigned-to-me${query ? `?${query}` : ''}`;
       
       console.log('📡 Fetching assigned tasks from:', url);
       
@@ -799,49 +783,16 @@ const UserCreateTask = () => {
       console.log('✅ API Response status:', res.status);
       console.log('📦 Response data:', res.data);
 
-      if (res.data && res.data.success) {
-        let tasksArray = [];
-        
-        // Handle groupedTasks response (backend sends grouped object)
-        if (res.data.groupedTasks) {
-          console.log('📊 Received groupedTasks from backend');
-          
-          // Convert groupedTasks to flat array
-          tasksArray = Object.values(res.data.groupedTasks).flat();
-          console.log(`📊 Flattened tasks: ${tasksArray.length} tasks`);
-          
-          // Enrich tasks with client names and normalize status
-          tasksArray = enrichAssignedTasks(tasksArray);
-          
-          // Group tasks by date for display
-          const groupedTasks = groupTasksByDate(tasksArray);
-          setAssignedToMeTasksGrouped(groupedTasks);
-          
-          // Calculate stats from tasks
-          calculateAssignedStatsFromTasks(groupedTasks);
-          
-        } 
-        // Handle tasks array response
-        else if (res.data.tasks && Array.isArray(res.data.tasks)) {
-          console.log('📊 Received tasks array from backend');
-          tasksArray = enrichAssignedTasks(res.data.tasks);
-          const groupedTasks = groupTasksByDate(tasksArray);
-          setAssignedToMeTasksGrouped(groupedTasks);
-          calculateAssignedStatsFromTasks(groupedTasks);
-        }
-        // Handle direct array response
-        else if (Array.isArray(res.data)) {
-          console.log('📊 Received direct array from backend');
-          tasksArray = enrichAssignedTasks(res.data);
-          const groupedTasks = groupTasksByDate(tasksArray);
-          setAssignedToMeTasksGrouped(groupedTasks);
-          calculateAssignedStatsFromTasks(groupedTasks);
-        }
-        else {
-          console.log('⚠️ No tasks data in response');
-          setAssignedToMeTasksGrouped({});
-          calculateAssignedStatsFromTasks({});
-        }
+      if (res.data && (res.data.success || res.data.groupedTasks || Array.isArray(res.data))) {
+        let tasksArray = extractTasksFromResponse(res.data)
+          .filter(task => {
+            const createdBy = typeof task.createdBy === 'object' ? task.createdBy?._id || task.createdBy?.id : task.createdBy;
+            return !createdBy || createdBy.toString() !== userId.toString();
+          });
+        tasksArray = tagTasksWithSource(enrichAssignedTasks(tasksArray), 'assigned');
+        const groupedTasks = groupTasksByDate(tasksArray);
+        setAssignedToMeTasksGrouped(groupedTasks);
+        calculateAssignedStatsFromTasks(groupedTasks);
         
         const totalTasks = tasksArray.length;
         console.log(`✅ Total assigned tasks loaded: ${totalTasks}`);
@@ -894,69 +845,56 @@ const UserCreateTask = () => {
       setLoadingAssigned(false);
       console.log('🏁 fetchAssignedToMeTasks completed');
     }
-  }, [authError, userId, enrichAssignedTasks, groupTasksByDate, calculateAssignedStatsFromTasks]);
+  }, [authError, userId, enrichAssignedTasks, extractTasksFromResponse, groupTasksByDate, calculateAssignedStatsFromTasks, tagTasksWithSource, buildTaskQueryParams]);
 
   const fetchClientTasks = useCallback(async () => {
-    if (authError || !userId) {
-      return;
-    }
+    if (authError || !userId) return;
 
     setLoadingClientTasks(true);
-
     try {
-      const params = new URLSearchParams();
-
-      if (statusFilterRef.current && statusFilterRef.current !== 'all') {
-        params.append('status', statusFilterRef.current);
-      }
-
-      if (searchTermRef.current) {
-        params.append('search', searchTermRef.current);
-      }
-
-      if (timeFilterRef.current && timeFilterRef.current !== 'all') {
-        params.append('period', timeFilterRef.current);
-      }
-
-      const url = `/tasks/assigned-to-me${params.toString() ? `?${params.toString()}` : ''}`;
+      const query = buildTaskQueryParams();
+      const url = `/tasks/assigned-to-me${query ? `?${query}` : ''}`;
       const res = await axios.get(url);
-
-      if (res.data && res.data.success) {
-        let tasksArray = [];
-
-        if (res.data.groupedTasks) {
-          tasksArray = Object.values(res.data.groupedTasks).flat();
-        } else if (res.data.tasks && Array.isArray(res.data.tasks)) {
-          tasksArray = res.data.tasks;
-        } else if (Array.isArray(res.data)) {
-          tasksArray = res.data;
-        }
-
-        tasksArray = enrichClientTasks(tasksArray);
-        const groupedTasks = groupTasksByDate(tasksArray);
-        setClientTasksGrouped(groupedTasks);
-        calculateClientStatsFromTasks(groupedTasks);
-      } else {
-        setClientTasksGrouped({});
-        calculateClientStatsFromTasks({});
-      }
+      const tasksArray = tagTasksWithSource(enrichAssignedTasks(extractTasksFromResponse(res.data)), 'client');
+      const groupedTasks = groupTasksByDate(tasksArray);
+      setClientTasksGrouped(groupedTasks);
+      calculateClientStatsFromTasks(groupedTasks);
     } catch (err) {
       console.error('❌ Error in fetchClientTasks:', err);
       setClientTasksGrouped({});
       calculateClientStatsFromTasks({});
-
-      if (err.response?.status === 401) {
-        setAuthError(true);
-        showSnackbar('Session expired. Please log in again.', 'error');
-      } else if (err.response?.status === 404) {
-        showSnackbar('Client tasks feature is not available', 'warning');
-      } else {
-        showSnackbar(`Failed to load client tasks: ${err.response?.data?.message || err.message}`, 'error');
+      if (err.response?.status !== 404) {
+        showSnackbar('Failed to load client tasks', 'error');
       }
     } finally {
       setLoadingClientTasks(false);
     }
-  }, [authError, userId, enrichClientTasks, groupTasksByDate, calculateClientStatsFromTasks]);
+  }, [authError, userId, enrichAssignedTasks, extractTasksFromResponse, groupTasksByDate, calculateClientStatsFromTasks, tagTasksWithSource, buildTaskQueryParams]);
+
+  const fetchAllTasks = useCallback(async () => {
+    if (authError || !userId) return;
+
+    setLoadingAllTasks(true);
+    try {
+      const query = buildTaskQueryParams();
+      const url = `/task/all${query ? `?${query}` : ''}`;
+      const res = await axios.get(url);
+      const tasksArray = extractTasksFromResponse(res.data).map(task => ({
+        ...task,
+        __taskSource: task.__taskSource || task.taskSource || (task.clientId ? 'client' : 'assigned')
+      }));
+      const groupedTasks = groupTasksByDate(tasksArray);
+      setAllTasksGrouped(groupedTasks);
+    } catch (err) {
+      console.error('❌ Error in fetchAllTasks:', err);
+      setAllTasksGrouped({});
+      if (err.response?.status !== 404) {
+        showSnackbar('Failed to load all tasks', 'error');
+      }
+    } finally {
+      setLoadingAllTasks(false);
+    }
+  }, [authError, userId, buildTaskQueryParams, extractTasksFromResponse, groupTasksByDate]);
 
   // Fetch self tasks
   const fetchMyTasks = useCallback(async () => {
@@ -967,17 +905,13 @@ const UserCreateTask = () => {
 
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      
-      if (statusFilterRef.current && statusFilterRef.current !== 'all') params.append('status', statusFilterRef.current);
-      if (searchTermRef.current) params.append('search', searchTermRef.current);
-      if (timeFilterRef.current && timeFilterRef.current !== 'all') params.append('period', timeFilterRef.current);
-
-      const url = `/task/my?${params.toString()}`;
+      const query = buildTaskQueryParams();
+      const url = `/task/personal${query ? `?${query}` : ''}`;
       console.log('📡 Fetching my tasks from:', url);
       
       const res = await axios.get(url);
-      const tasks = res.data.groupedTasks || {};
+      const selfTasks = extractTasksFromResponse(res.data);
+      const tasks = groupTasksByDate(tagTasksWithSource(selfTasks, 'self'));
       
       console.log('✅ My tasks received:', Object.keys(tasks).length, 'groups');
       
@@ -995,7 +929,7 @@ const UserCreateTask = () => {
     } finally {
       setLoading(false);
     }
-  }, [authError, userId, calculateStatsFromTasks]);
+  }, [authError, userId, calculateStatsFromTasks, extractTasksFromResponse, groupTasksByDate, tagTasksWithSource, buildTaskQueryParams]);
 
   // Fetch overdue tasks
   const fetchOverdueTasks = useCallback(async () => {
@@ -1033,9 +967,7 @@ const UserCreateTask = () => {
       
       showSnackbar(
         newStatusFilter 
-          ? `Filtering ${
-              taskViewMode === 'self' ? 'personal' : taskViewMode === 'client' ? 'client' : 'assigned'
-            } tasks by: ${status.replace('-', ' ')}` 
+          ? `Filtering ${taskViewMode === 'all' ? 'all' : taskViewMode === 'self' ? 'personal' : taskViewMode === 'client' ? 'client' : 'assigned'} tasks by: ${status.replace('-', ' ')}` 
           : 'Cleared status filter',
         'info'
       );
@@ -1054,9 +986,10 @@ const UserCreateTask = () => {
   };
 
   // Fetch task remarks
-  const fetchTaskRemarks = async (taskId) => {
+  const fetchTaskRemarks = async (taskId, taskSource = taskViewMode) => {
     try {
-      const endpoint = taskViewMode === 'client'
+      const isClientTask = taskSource === 'client';
+      const endpoint = isClientTask 
         ? `/tasks/${taskId}/client-remarks`
         : `/task/${taskId}/remarks`;
       
@@ -1103,7 +1036,8 @@ const UserCreateTask = () => {
       setRemarksDialog({ 
         open: true, 
         taskId, 
-        remarks: remarks 
+        remarks: remarks,
+        source: taskSource
       });
       
     } catch (error) {
@@ -1126,7 +1060,8 @@ const UserCreateTask = () => {
       if (image.preview) URL.revokeObjectURL(image.preview);
     });
 
-    const newImages = imageFiles.map(file => ({
+    const filesToUse = remarksDialog.source === 'client' || taskViewMode === 'client' ? imageFiles : imageFiles.slice(0, 1);
+    const newImages = filesToUse.map(file => ({
       file: file,
       preview: URL.createObjectURL(file),
       name: file.name,
@@ -1168,7 +1103,7 @@ const UserCreateTask = () => {
   };
 
   // Add remark
-  const addRemark = async (taskId) => {
+  const addRemark = async (taskId, taskSource = taskViewMode) => {
     if (!newRemark.trim() && remarkImages.length === 0) {
       showSnackbar('Please enter a remark or upload an image', 'warning');
       return false;
@@ -1177,52 +1112,91 @@ const UserCreateTask = () => {
     setIsUploadingRemark(true);
     
     try {
+      const isAssignedTask = taskSource === 'client';
+      
       let endpoint;
       let formData = new FormData();
       
-      if (taskViewMode === 'client') {
-        endpoint = remarkImages.length > 0
-          ? `/tasks/${taskId}/client-remarks/upload-images`
-          : `/tasks/${taskId}/client-remarks`;
-
+      if (isAssignedTask) {
         if (remarkImages.length > 0) {
+          endpoint = `/tasks/${taskId}/client-remarks/upload-images`;
           formData.append('text', newRemark.trim());
-          remarkImages.forEach((image) => formData.append('images', image.file));
+          
+          remarkImages.forEach((image) => {
+            console.log('📤 Uploading image for assigned task:', image.file.name);
+            formData.append('images', image.file);
+          });
+          
+          const response = await axios.post(endpoint, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            }
+          });
+          
+          console.log('✅ Remark with images added successfully:', response.data);
+          
+          setNewRemark('');
+          remarkImages.forEach(image => {
+            if (image.preview) URL.revokeObjectURL(image.preview);
+          });
+          setRemarkImages([]);
+          
+          showSnackbar('Remark added successfully with images', 'success');
+          return true;
+        } else {
+          endpoint = `/tasks/${taskId}/client-remarks`;
+          console.log('📡 Adding remark to endpoint:', endpoint);
+          console.log('📝 Remark text:', newRemark.trim());
+          
+          const response = await axios.post(endpoint, { text: newRemark.trim() }, {
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          });
+          
+          console.log('✅ Remark added successfully:', response.data);
+          
+          setNewRemark('');
+          remarkImages.forEach(image => {
+            if (image.preview) URL.revokeObjectURL(image.preview);
+          });
+          setRemarkImages([]);
+          
+          showSnackbar('Remark added successfully', 'success');
+          return true;
         }
       } else {
         endpoint = `/task/${taskId}/remarks`;
         formData.append('text', newRemark.trim());
-
+        
         if (remarkImages.length > 0) {
           formData.append('image', remarkImages[0].file);
         }
+        
+        console.log('📡 Adding remark to endpoint:', endpoint);
+        console.log('📸 Images count:', remarkImages.length);
+        
+        const response = await axios.post(endpoint, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          }
+        });
+
+        console.log('✅ Remark added successfully:', response.data);
+        
+        setNewRemark('');
+        remarkImages.forEach(image => {
+          if (image.preview) URL.revokeObjectURL(image.preview);
+        });
+        setRemarkImages([]);
+        
+        showSnackbar(
+          `Remark added successfully${remarkImages.length > 0 ? ' with image' : ''}`, 
+          'success'
+        );
+
+        return true;
       }
-      
-      console.log('📡 Adding remark to endpoint:', endpoint);
-      console.log('📸 Images count:', remarkImages.length);
-      
-      const response = taskViewMode === 'client' && remarkImages.length === 0
-        ? await axios.post(endpoint, { text: newRemark.trim() }, {
-            headers: { 'Content-Type': 'application/json' }
-          })
-        : await axios.post(endpoint, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-
-      console.log('✅ Remark added successfully:', response.data);
-      
-      setNewRemark('');
-      remarkImages.forEach(image => {
-        if (image.preview) URL.revokeObjectURL(image.preview);
-      });
-      setRemarkImages([]);
-      
-      showSnackbar(
-        `Remark added successfully${remarkImages.length > 0 ? ' with image' : ''}`, 
-        'success'
-      );
-
-      return true;
 
     } catch (error) {
       console.error('❌ Error adding remark:', error);
@@ -1237,50 +1211,59 @@ const UserCreateTask = () => {
 
   // Handle save remark with status
   const handleSaveRemarkWithStatus = async () => {
+    if (isSavingRemarkStatus || isUploadingRemark) return;
+    setIsSavingRemarkStatus(true);
     try {
-      const remarkAdded = await addRemark(remarksDialog.taskId);
+      const taskId = remarksDialog.taskId;
+      const activeRemarkSource = pendingStatusChange.source || remarksDialog.source || taskViewMode;
+      const statusToApply = pendingStatusChange.status;
+      const statusTaskId = pendingStatusChange.taskId || taskId;
+      const hasRemarkContent = Boolean(newRemark.trim() || remarkImages.length > 0);
+      const remarkAdded = hasRemarkContent ? await addRemark(taskId, activeRemarkSource) : false;
       
-      if (!remarkAdded && newRemark.trim() === '' && remarkImages.length === 0) {
-        if (!pendingStatusChange.status) {
-          setRemarksDialog({ open: false, taskId: null, remarks: [] });
+      if (!remarkAdded && !hasRemarkContent) {
+        if (!statusToApply) {
+          setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
           return;
         }
       }
 
-      if (pendingStatusChange.status) {
+      if (statusToApply) {
         console.log('📝 Applying pending status change:', pendingStatusChange);
         
-        if (taskViewMode === 'self') {
+        const statusSource = pendingStatusChange.source || taskViewMode;
+
+        if (statusSource === 'self') {
           await handleStatusChange(
-            pendingStatusChange.taskId,
-            pendingStatusChange.status,
-            newRemark.trim() || "Status changed"
+            statusTaskId,
+            statusToApply,
+            "Status changed"
           );
-        } else if (taskViewMode === 'client') {
+        } else if (statusSource === 'client') {
           await handleClientTaskStatusChange(
-            pendingStatusChange.taskId,
-            pendingStatusChange.status,
-            newRemark.trim() || "Status changed"
+            statusTaskId,
+            statusToApply,
+            ""
           );
         } else {
           await handleAssignedTaskStatusChange(
-            pendingStatusChange.taskId,
-            pendingStatusChange.status,
-            newRemark.trim() || "Status changed"
+            statusTaskId,
+            statusToApply,
+            "Status changed"
           );
         }
-        setPendingStatusChange({ taskId: null, status: "" });
+        setPendingStatusChange({ taskId: null, status: "", source: null });
       }
 
-      await fetchTaskRemarks(remarksDialog.taskId);
-      
       setNewRemark("");
       remarkImages.forEach(image => {
         if (image.preview) URL.revokeObjectURL(image.preview);
       });
       setRemarkImages([]);
       
-      if (taskViewMode === 'self') {
+      if (taskViewMode === 'all') {
+        await Promise.all([fetchAllTasks(), fetchMyTasks(), fetchAssignedToMeTasks(), fetchClientTasks()]);
+      } else if (taskViewMode === 'self') {
         fetchMyTasks();
       } else if (taskViewMode === 'client') {
         await fetchClientTasks();
@@ -1288,26 +1271,27 @@ const UserCreateTask = () => {
         await fetchAssignedToMeTasks();
       }
       
-      if (pendingStatusChange.status) {
+      if (statusToApply) {
         showSnackbar('Status updated and remark added successfully', 'success');
-      } else if (newRemark.trim() || remarkImages.length > 0) {
+      } else if (hasRemarkContent) {
         showSnackbar('Remark added successfully', 'success');
       }
       
-      if (!pendingStatusChange.status) {
-        setRemarksDialog({ open: false, taskId: null, remarks: [] });
-      }
+      setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
       
     } catch (error) {
       console.error("Error saving remark:", error);
       showSnackbar('Failed to save remark', 'error');
+    } finally {
+      setIsSavingRemarkStatus(false);
     }
   };
 
   // Fetch activity logs
-  const fetchActivityLogs = async (taskId) => {
+  const fetchActivityLogs = async (taskId, taskSource = taskViewMode) => {
     try {
-      const endpoint = taskViewMode === 'client'
+      const isClientTask = taskSource === 'client';
+      const endpoint = isClientTask 
         ? `/tasks/${taskId}/client-activity-logs`
         : `/task/${taskId}/activity-logs`;
       
@@ -1410,13 +1394,29 @@ const UserCreateTask = () => {
 
   // Filtered tasks
   const filteredTasks = useMemo(() => {
-    const tasksToFilter = taskViewMode === 'self'
-      ? myTasksGrouped
-      : taskViewMode === 'client'
-        ? clientTasksGrouped
-        : assignedToMeTasksGrouped;
+    const tasksToFilter = applyLocalFilters(getActiveTasksGrouped());
     return applyDateFilter(tasksToFilter);
-  }, [myTasksGrouped, assignedToMeTasksGrouped, clientTasksGrouped, taskViewMode, applyDateFilter]);
+  }, [getActiveTasksGrouped, applyLocalFilters, applyDateFilter]);
+
+  const filteredTaskStats = useMemo(() => {
+    return calculateUnifiedStatsFromTasks(filteredTasks);
+  }, [filteredTasks, calculateUnifiedStatsFromTasks]);
+
+  const getOverdueCount = useMemo(() => {
+    let count = 0;
+
+    Object.values(filteredTasks).forEach(tasks => {
+      tasks.forEach(task => {
+        const status = getStatusForTask(task);
+        const dueDate = getDueDateForTask(task);
+        if (isOverdue(dueDate, status) || status === 'overdue') {
+          count++;
+        }
+      });
+    });
+
+    return count;
+  }, [filteredTasks, getStatusForTask, getDueDateForTask, isOverdue]);
 
   // Handle status change for self tasks
   const handleStatusChange = async (taskId, newStatus, remarks = '') => {
@@ -1431,6 +1431,7 @@ const UserCreateTask = () => {
         remarks: remarks || `Status changed to ${newStatus}`
       });
 
+      fetchAllTasks();
       fetchMyTasks();
       fetchOverdueTasks();
       
@@ -1458,18 +1459,15 @@ const UserCreateTask = () => {
       const normalizedStatus = normalizeStatus(newStatus);
       console.log(`🔄 Updating assigned task ${taskId} status to: ${normalizedStatus}`);
       
-      const statusPayload = {
+      // Normal assigned tasks use the standard task status endpoint.
+      const response = await axios.patch(`/task/${taskId}/status`, {
         status: normalizedStatus,
         remarks: remarks || `Status changed to ${normalizedStatus}`
-      };
-      
-      console.log('📤 Sending status update payload:', statusPayload);
-      
-      const response = await axios.patch(`/task/${taskId}/status`, statusPayload);
+      });
       
       console.log('✅ Assigned task status updated:', response.data);
       
-      // IMPORTANT: Refresh tasks to update UI
+      await fetchAllTasks();
       await fetchAssignedToMeTasks();
       await fetchOverdueTasks();
       
@@ -1498,42 +1496,36 @@ const UserCreateTask = () => {
 
     try {
       const normalizedStatus = normalizeStatus(newStatus);
-
       if (remarks && remarks.trim()) {
         await axios.post(`/tasks/${taskId}/client-remarks`, { text: remarks });
       }
 
-      const statusPayload = { status: normalizedStatus };
+      let statusPayload = { status: normalizedStatus };
       if (normalizedStatus === 'completed') {
         statusPayload.completed = true;
       }
 
       await axios.patch(`/tasks/assigned/${taskId}/status`, statusPayload);
+      await fetchAllTasks();
       await fetchClientTasks();
       await fetchOverdueTasks();
-
-      showSnackbar(`Client task status changed to ${normalizedStatus} successfully`, 'success');
+      showSnackbar(`Task status changed to ${normalizedStatus} successfully`, 'success');
     } catch (err) {
-      console.error('❌ Error updating client task:', err);
+      console.error("❌ Error updating client task:", err);
       showSnackbar(err.response?.data?.message || err.response?.data?.error || 'Failed to update client task status', 'error');
     }
   };
 
   // Mark task as overdue
-  const markTaskAsOverdue = async (taskId, remarks = '') => {
+  const markTaskAsOverdue = async (taskId, remarks = '', taskSource = taskViewMode) => {
     if (authError || !userId) {
       showSnackbar('Please log in to mark task as overdue', 'error');
       return;
     }
 
     try {
-      if (taskViewMode === 'client') {
-        await axios.patch(`/tasks/assigned/${taskId}/status`, {
-          status: 'overdue',
-          remarks: remarks || 'Manually marked as overdue'
-        });
-      } else if (taskViewMode === 'assigned') {
-        await axios.patch(`/task/${taskId}/status`, { 
+      if (taskSource === 'client') {
+        await axios.patch(`/tasks/assigned/${taskId}/status`, { 
           status: 'overdue',
           remarks: remarks || 'Manually marked as overdue'
         });
@@ -1543,7 +1535,12 @@ const UserCreateTask = () => {
         });
       }
 
-      if (taskViewMode === 'self') {
+      if (taskViewMode === 'all') {
+        fetchAllTasks();
+        fetchMyTasks();
+        fetchAssignedToMeTasks();
+        fetchClientTasks();
+      } else if (taskViewMode === 'self') {
         fetchMyTasks();
       } else if (taskViewMode === 'client') {
         fetchClientTasks();
@@ -1692,172 +1689,6 @@ const UserCreateTask = () => {
     navigate('/login');
   };
 
-  const AssignedTaskMeta = ({ task }) => {
-    if (taskViewMode !== 'assigned') return null;
-
-    return (
-      <div className="user-create-task-assigned-meta">
-        <div className="user-create-task-assigned-by">
-          <FiUser size={12} />
-          <span>Assigned by: {getTaskAssignedByName(task)}</span>
-        </div>
-        <div className="user-create-task-overall-status">
-          <span>Creator overall:</span>
-          <StatusChip status={getTaskOverallStatus(task)} label={getTaskOverallStatus(task)} />
-        </div>
-      </div>
-    );
-  };
-
-  const AssignedUsersStatusList = ({ task, limit = 3 }) => {
-    if (taskViewMode !== 'assigned') return null;
-
-    const assignedUsers = getAssignedUsersWithStatus(task);
-
-    if (assignedUsers.length === 0) {
-      return (
-        <div className="user-create-task-assigned-users-status">
-          <span className="user-create-task-assigned-users-label">Users:</span>
-          <span className="user-create-task-muted">No users found</span>
-        </div>
-      );
-    }
-
-    const visibleUsers = assignedUsers.slice(0, limit);
-    const hiddenCount = assignedUsers.length - visibleUsers.length;
-
-    return (
-      <div className="user-create-task-assigned-users-status">
-        <span className="user-create-task-assigned-users-label">Users:</span>
-        <div className="user-create-task-assigned-user-chips">
-          {visibleUsers.map((assignedUser) => (
-            <div key={assignedUser.id || assignedUser.name} className="user-create-task-assigned-user-chip">
-              <span className="user-create-task-assigned-user-name">{assignedUser.name}</span>
-              <StatusChip status={assignedUser.status} label={assignedUser.status} />
-            </div>
-          ))}
-          {hiddenCount > 0 && (
-            <span className="user-create-task-more-users">+{hiddenCount} more</span>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const getGroupedTasksForMode = () => {
-    if (taskViewMode === 'self') return myTasksGrouped;
-    if (taskViewMode === 'client') return clientTasksGrouped;
-    return assignedToMeTasksGrouped;
-  };
-
-  const getStatsForMode = () => {
-    if (taskViewMode === 'self') return taskStats;
-    if (taskViewMode === 'client') return clientTaskStats;
-    return assignedTaskStats;
-  };
-
-  const getTaskCount = (groupedTasks) => Object.values(groupedTasks || {}).flat().length;
-
-  const currentStats = getStatsForMode();
-
-  const getAllTasksFromGrouped = useCallback((groupedTasks, source) => {
-    return Object.values(groupedTasks || {})
-      .flat()
-      .map(task => ({ ...task, taskSource: source }));
-  }, []);
-
-  const getStatusUpdatedToday = useCallback((task) => {
-    const statusDates = [
-      ...(Array.isArray(task.statusByUser) ? task.statusByUser.map(status => status.updatedAt) : []),
-      ...(Array.isArray(task.statusInfo) ? task.statusInfo.map(status => status.updatedAt) : []),
-      ...(Array.isArray(task.statusHistory) ? task.statusHistory.map(status => status.changedAt) : []),
-      task.updatedAt
-    ];
-
-    return statusDates.some(date => isSameLocalDay(date));
-  }, []);
-
-  const getTodayReason = useCallback((task) => {
-    const reasons = [];
-    if (isSameLocalDay(task.createdAt)) reasons.push('Created today');
-    if (isSameLocalDay(task.dueDate || task.dueDateTime)) reasons.push('Due today');
-    if (getStatusUpdatedToday(task)) reasons.push('Updated today');
-    return reasons.join(', ');
-  }, [getStatusUpdatedToday]);
-
-  const todayTasks = useMemo(() => {
-    const allTasks = [
-      ...getAllTasksFromGrouped(myTasksGrouped, 'Personal'),
-      ...getAllTasksFromGrouped(assignedToMeTasksGrouped, 'Assigned'),
-      ...getAllTasksFromGrouped(clientTasksGrouped, 'Client')
-    ];
-
-    const uniqueTasks = new Map();
-
-    allTasks.forEach(task => {
-      const matchesToday =
-        isSameLocalDay(task.createdAt) ||
-        isSameLocalDay(task.dueDate || task.dueDateTime) ||
-        getStatusUpdatedToday(task);
-
-      if (!matchesToday) return;
-
-      const taskId = normalizeId(task._id || task.id);
-      const key = `${task.taskSource}-${taskId || task.title || task.name}`;
-
-      if (!uniqueTasks.has(key)) {
-        uniqueTasks.set(key, {
-          ...task,
-          todayReason: getTodayReason(task)
-        });
-      }
-    });
-
-    return Array.from(uniqueTasks.values()).sort((a, b) => {
-      const aDate = new Date(a.dueDate || a.dueDateTime || a.createdAt || 0);
-      const bDate = new Date(b.dueDate || b.dueDateTime || b.createdAt || 0);
-      return aDate - bDate;
-    });
-  }, [myTasksGrouped, assignedToMeTasksGrouped, clientTasksGrouped, getAllTasksFromGrouped, getStatusUpdatedToday, getTodayReason]);
-
-  const exportTodayTasksPDF = () => {
-    if (todayTasks.length === 0) {
-      showSnackbar('No today tasks to export', 'warning');
-      return;
-    }
-
-    const doc = new jsPDF('portrait', 'mm', 'a4');
-    const todayLabel = new Date().toLocaleDateString('en-IN');
-
-    doc.setFontSize(16);
-    doc.text('Today Tasks', 14, 18);
-    doc.setFontSize(10);
-    doc.text(`Date: ${todayLabel}`, 14, 26);
-
-    autoTable(doc, {
-      startY: 34,
-      head: [['Date', 'Task']],
-      body: todayTasks.map(task => [
-        formatTaskDate(task.dueDate || task.dueDateTime || task.createdAt),
-        task.title || task.name || 'Untitled'
-      ]),
-      styles: {
-        fontSize: 9,
-        cellPadding: 3
-      },
-      headStyles: {
-        fillColor: [25, 118, 210]
-      },
-      columnStyles: {
-        0: { cellWidth: 35 },
-        1: { cellWidth: 145 }
-      }
-    });
-
-    doc.save(`today_tasks_${new Date().toISOString().split('T')[0]}.pdf`);
-    showSnackbar('Today tasks PDF exported successfully', 'success');
-  };
-
   // LOAD INITIAL DATA
   useEffect(() => {
     const loadData = async () => {
@@ -1884,14 +1715,7 @@ const UserCreateTask = () => {
             setUserName(userNameFromStorage);
             setAuthError(false);
             
-            console.log('📡 Fetching tasks for user:', userIdFromStorage);
-            
-            await Promise.all([
-              fetchMyTasks(),
-              fetchAssignedToMeTasks(),
-              fetchClientTasks(),
-              fetchOverdueTasks()
-            ]);
+            console.log('📡 User ready, task fetch will start after state sync:', userIdFromStorage);
           } else {
             console.error('❌ Invalid user data in localStorage');
             setAuthError(true);
@@ -1916,29 +1740,14 @@ const UserCreateTask = () => {
   // Fetch when user ID becomes available
   useEffect(() => {
     if (userId && !authError && !pageLoading) {
-      console.log('👤 User ID available, fetching assigned and client tasks...');
+      console.log('👤 User ID available, fetching tasks...');
+      fetchAllTasks();
+      fetchMyTasks();
       fetchAssignedToMeTasks();
       fetchClientTasks();
+      fetchOverdueTasks();
     }
-  }, [userId, authError, pageLoading]);
-
-  // Fetch when filters change
-  useEffect(() => {
-    if (!authError && userId && !pageLoading) {
-      const timer = setTimeout(() => {
-        console.log('🔄 Filters changed, refetching data');
-        if (taskViewMode === 'self') {
-          fetchMyTasks();
-        } else if (taskViewMode === 'client') {
-          fetchClientTasks();
-        } else {
-          fetchAssignedToMeTasks();
-        }
-      }, 500);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [statusFilter, searchTerm, timeFilter, authError, userId, taskViewMode, pageLoading]);
+  }, [userId, authError, pageLoading, fetchAllTasks, fetchMyTasks, fetchAssignedToMeTasks, fetchClientTasks, fetchOverdueTasks]);
 
   // Cleanup effect
   useEffect(() => {
@@ -1984,6 +1793,8 @@ const UserCreateTask = () => {
     return <CIISLoader />;
   }
 
+  const activeStats = filteredTaskStats;
+
   // MAIN RENDER
   return (
     <div className="user-create-task-container">
@@ -2022,21 +1833,21 @@ const UserCreateTask = () => {
               <div className="user-create-task-stat-indicator">
                 <div className="user-create-task-stat-dot" style={{ backgroundColor: '#4caf50' }}></div>
                 <div className="user-create-task-stat-label" style={{ fontSize: isMobile ? '12px' : '14px' }}>
-                  {currentStats.completed.count} Completed
+                  {activeStats.completed.count} Completed
                 </div>
               </div>
 
               <div className="user-create-task-stat-indicator">
                 <div className="user-create-task-stat-dot" style={{ backgroundColor: '#2196f3' }}></div>
                 <div className="user-create-task-stat-label" style={{ fontSize: isMobile ? '12px' : '14px' }}>
-                  {currentStats.inProgress.count} In Progress
+                  {activeStats.inProgress.count} In Progress
                 </div>
               </div>
 
               <div className="user-create-task-stat-indicator">
                 <div className="user-create-task-stat-dot" style={{ backgroundColor: '#f44336' }}></div>
                 <div className="user-create-task-stat-label" style={{ fontSize: isMobile ? '12px' : '14px' }}>
-                  {currentStats.overdue.count} Overdue
+                  {activeStats.overdue.count} Overdue
                 </div>
               </div>
             </div>
@@ -2063,12 +1874,24 @@ const UserCreateTask = () => {
         <div className="user-create-task-paper-content">
           <div className="user-create-task-view-toggle">
             <button
+              className={`user-create-task-view-toggle-btn ${taskViewMode === 'all' ? 'active' : ''}`}
+              onClick={() => handleViewModeChange('all')}
+            >
+              <FiGlobe size={16} />
+              All Tasks
+              {taskViewMode === 'all' && Object.keys(allTasksGrouped).length > 0 && (
+                <span className="view-toggle-count">{Object.values(allTasksGrouped).flat().length}</span>
+              )}
+            </button>
+            <button
               className={`user-create-task-view-toggle-btn ${taskViewMode === 'self' ? 'active' : ''}`}
               onClick={() => handleViewModeChange('self')}
             >
               <FiUser size={16} />
               My Personal Tasks
-              <span className="view-toggle-count">{getTaskCount(myTasksGrouped)}</span>
+              {taskViewMode === 'self' && Object.keys(myTasksGrouped).length > 0 && (
+                <span className="view-toggle-count">{Object.values(myTasksGrouped).flat().length}</span>
+              )}
             </button>
             <button
               className={`user-create-task-view-toggle-btn ${taskViewMode === 'assigned' ? 'active' : ''}`}
@@ -2076,15 +1899,19 @@ const UserCreateTask = () => {
             >
               <FiUsers size={16} />
               Assigned to Me
-              <span className="view-toggle-count">{getTaskCount(assignedToMeTasksGrouped)}</span>
+              {taskViewMode === 'assigned' && Object.keys(assignedToMeTasksGrouped).length > 0 && (
+                <span className="view-toggle-count">{Object.values(assignedToMeTasksGrouped).flat().length}</span>
+              )}
             </button>
             <button
               className={`user-create-task-view-toggle-btn ${taskViewMode === 'client' ? 'active' : ''}`}
               onClick={() => handleViewModeChange('client')}
             >
-              <FiBriefcase size={16} />
+              <FiUsers size={16} />
               Client Tasks
-              <span className="view-toggle-count">{getTaskCount(clientTasksGrouped)}</span>
+              {taskViewMode === 'client' && Object.keys(clientTasksGrouped).length > 0 && (
+                <span className="view-toggle-count">{Object.values(clientTasksGrouped).flat().length}</span>
+              )}
             </button>
           </div>
         </div>
@@ -2094,11 +1921,7 @@ const UserCreateTask = () => {
       <div className="user-create-task-paper">
         <div className="user-create-task-paper-content">
           <div style={{ marginBottom: '16px', fontWeight: 600, fontSize: isMobile ? '16px' : '18px' }}>
-            {taskViewMode === 'self'
-              ? 'Personal Task Statistics'
-              : taskViewMode === 'client'
-                ? 'Client Task Statistics'
-                : 'Assigned Task Statistics'}
+            {taskViewMode === 'all' ? 'All Task Statistics' : taskViewMode === 'self' ? 'Personal Task Statistics' : taskViewMode === 'client' ? 'Client Task Statistics' : 'Assigned Task Statistics'}
           </div>
           
           <div className="user-create-task-time-filter">
@@ -2107,7 +1930,7 @@ const UserCreateTask = () => {
                 <div className="user-create-task-time-filter-title">Filter by Time Period</div>
                 <div className="user-create-task-time-filter-subtitle">Select a timeframe to view task statistics</div>
               </div>
-              {timeFilter !== 'today' && (
+              {timeFilter !== 'all' && (
                 <button
                   className="user-create-task-button user-create-task-button-text"
                   onClick={() => handleTimeFilterChange('all')}
@@ -2146,7 +1969,7 @@ const UserCreateTask = () => {
 
           <div className="user-create-task-grid-container">
             {(() => {
-              const statsToShow = currentStats;
+              const statsToShow = activeStats;
               const statsData = taskViewMode === 'self' 
                 ? [
                     { title: 'Total Tasks', value: statsToShow.total, icon: FiList, color: 'primary', description: `All tasks (${timeFilter})`, clickable: false, status: null },
@@ -2156,7 +1979,7 @@ const UserCreateTask = () => {
                     { title: 'Overdue', value: statsToShow.overdue.count, percentage: statsToShow.overdue.percentage, icon: FiAlertCircle, color: 'error', description: `${statsToShow.overdue.percentage}% of total`, status: 'overdue', clickable: true }
                   ]
                 : [
-                    { title: 'Total Tasks', value: statsToShow.total, icon: FiList, color: 'primary', description: `All ${taskViewMode === 'client' ? 'client' : 'assigned'} tasks (${timeFilter})`, clickable: false, status: null },
+                    { title: 'Total Tasks', value: statsToShow.total, icon: FiList, color: 'primary', description: `${taskViewMode === 'all' ? 'All tasks' : taskViewMode === 'client' ? 'All client tasks' : 'All assigned tasks'} (${timeFilter})`, clickable: false, status: null },
                     { title: 'Completed', value: statsToShow.completed.count, percentage: statsToShow.completed.percentage, icon: FiCheckCircle, color: 'success', description: `${statsToShow.completed.percentage}% of total`, status: 'completed', clickable: true },
                     { title: 'In Progress', value: statsToShow.inProgress.count, percentage: statsToShow.inProgress.percentage, icon: FiTrendingUp, color: 'info', description: `${statsToShow.inProgress.percentage}% of total`, status: 'in-progress', clickable: true },
                     { title: 'Pending', value: statsToShow.pending.count, percentage: statsToShow.pending.percentage, icon: FiClock, color: 'warning', description: `${statsToShow.pending.percentage}% of total`, status: 'pending', clickable: true },
@@ -2268,60 +2091,6 @@ const UserCreateTask = () => {
         </div>
       </div>
 
-      {/* Today Tasks Section */}
-      <div className="user-create-task-paper user-create-task-today-section">
-        <div className="user-create-task-today-header">
-          <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1.5">
-            <FiSun size={isMobile ? 18 : 20} />
-            <div>
-              <div className="user-create-task-today-title">Today Tasks</div>
-              <div className="user-create-task-today-subtitle">
-                Created, updated, or due today across personal, assigned, and client tasks
-              </div>
-            </div>
-            <span className="view-toggle-count">{todayTasks.length}</span>
-          </div>
-
-          <button
-            className="user-create-task-button user-create-task-button-outlined"
-            onClick={exportTodayTasksPDF}
-            disabled={todayTasks.length === 0}
-          >
-            <FiDownload size={14} />
-            Export PDF
-          </button>
-        </div>
-
-        <div className="user-create-task-paper-content">
-          {todayTasks.length > 0 ? (
-            <div className="user-create-task-today-list">
-              {todayTasks.map((task) => (
-                <div key={`${task.taskSource}-${task._id || task.id || task.title}`} className="user-create-task-today-item">
-                  <div className="user-create-task-today-main">
-                    <div className="user-create-task-today-task-title">
-                      {task.title || task.name || 'Untitled'}
-                    </div>
-                    <div className="user-create-task-today-meta">
-                      <span>{formatTaskDate(task.dueDate || task.dueDateTime || task.createdAt)}</span>
-                      <span>{task.taskSource}</span>
-                      {task.todayReason && <span>{task.todayReason}</span>}
-                    </div>
-                  </div>
-                  <StatusChip
-                    status={task.taskSource === 'Personal' ? getUserStatusForTask(task, userId) : getAssignedTaskStatus(task)}
-                    label={task.taskSource === 'Assigned' ? getAssignedTaskStatus(task) : undefined}
-                  />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="user-create-task-today-empty">
-              No tasks created, updated, or due today.
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Overdue Tasks Section */}
       {getOverdueCount > 0 && (
         <div className="user-create-task-paper" style={{ 
@@ -2345,18 +2114,12 @@ const UserCreateTask = () => {
           </div>
 
           <div className="user-create-task-paper-content">
-            {Object.keys(getGroupedTasksForMode()).map(dateKey => {
-              const tasksToCheck = getGroupedTasksForMode();
+            {Object.keys(filteredTasks).map(dateKey => {
+              const tasksToCheck = filteredTasks;
               
               const overdueTasksForDate = tasksToCheck[dateKey]?.filter(task => {
-                if (taskViewMode === 'self') {
-                  const myStatus = getUserStatusForTask(task, userId);
-                  return isOverdue(task.dueDateTime, myStatus);
-                } else {
-                  const status = getAssignedTaskStatus(task);
-                  const dueDate = task.dueDate || task.dueDateTime;
-                  return isOverdue(dueDate, status);
-                }
+                const status = getStatusForTask(task);
+                return isOverdue(getDueDateForTask(task), status);
               }) || [];
 
               if (overdueTasksForDate.length === 0) return null;
@@ -2375,13 +2138,9 @@ const UserCreateTask = () => {
                   </div>
                   <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2" style={{ marginTop: '8px' }}>
                     {overdueTasksForDate.map(task => {
-                      const status = taskViewMode === 'self' 
-                        ? getUserStatusForTask(task, userId)
-                        : getAssignedTaskStatus(task);
-                      
-                      const dueDate = taskViewMode === 'self' 
-                        ? task.dueDateTime 
-                        : (task.dueDate || task.dueDateTime);
+                      const taskSource = getTaskSource(task);
+                      const status = getStatusForTask(task);
+                      const dueDate = getDueDateForTask(task);
                       
                       return (
                         <div 
@@ -2404,7 +2163,7 @@ const UserCreateTask = () => {
                                   ? (task.description || '').substring(0, 80) + '...' 
                                   : task.description || ''}
                               </div>
-                              {taskViewMode === 'client' && getClientNameFromTask(task) !== 'N/A' && (
+                              {taskSource === 'client' && getClientNameFromTask(task) !== 'N/A' && (
                                 <div style={{ 
                                   fontSize: isMobile ? '11px' : '12px', 
                                   color: '#1976d2', 
@@ -2422,9 +2181,9 @@ const UserCreateTask = () => {
                               <button
                                 className="user-create-task-button user-create-task-button-contained"
                                 onClick={() => {
-                                  if (taskViewMode === 'self') {
+                                  if (taskSource === 'self') {
                                     handleStatusChange(task._id, 'in-progress', 'Working on overdue task');
-                                  } else if (taskViewMode === 'client') {
+                                  } else if (taskSource === 'client') {
                                     handleClientTaskStatusChange(task._id, 'in-progress', 'Working on overdue task');
                                   } else {
                                     handleAssignedTaskStatusChange(task._id, 'in-progress', 'Working on overdue task');
@@ -2440,7 +2199,7 @@ const UserCreateTask = () => {
                               </button>
                               <button
                                 className="user-create-task-button user-create-task-button-outlined"
-                                onClick={() => markTaskAsOverdue(task._id, 'Manual overdue marking')}
+                                onClick={() => markTaskAsOverdue(task._id, 'Manual overdue marking', taskSource)}
                                 style={{
                                   padding: isMobile ? '6px 8px' : '8px 12px',
                                   borderColor: '#f44336',
@@ -2477,17 +2236,9 @@ const UserCreateTask = () => {
         }}>
           <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2">
             <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1.5">
-              {taskViewMode === 'self'
-                ? <FiUser size={isMobile ? 18 : 20} />
-                : taskViewMode === 'client'
-                  ? <FiBriefcase size={isMobile ? 18 : 20} />
-                  : <FiUsers size={isMobile ? 18 : 20} />}
+              {taskViewMode === 'self' ? <FiUser size={isMobile ? 18 : 20} /> : taskViewMode === 'all' ? <FiGlobe size={isMobile ? 18 : 20} /> : <FiUsers size={isMobile ? 18 : 20} />}
               <div style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: 700 }}>
-                {taskViewMode === 'self'
-                  ? 'My Personal Tasks'
-                  : taskViewMode === 'client'
-                    ? 'Client Tasks'
-                    : 'Tasks Assigned to Me'}
+                {taskViewMode === 'all' ? 'All Tasks' : taskViewMode === 'self' ? 'My Personal Tasks' : taskViewMode === 'client' ? 'Client Tasks' : 'Tasks Assigned to Me'}
               </div>
               {getOverdueCount > 0 && (
                 <div style={{
@@ -2551,11 +2302,20 @@ const UserCreateTask = () => {
 
                 <button
                   className="user-create-task-action-button"
-                  onClick={taskViewMode === 'self'
-                    ? fetchMyTasks
-                    : taskViewMode === 'client'
-                      ? fetchClientTasks
-                      : fetchAssignedToMeTasks}
+                  onClick={() => {
+                    if (taskViewMode === 'all') {
+                      fetchAllTasks();
+                      fetchMyTasks();
+                      fetchAssignedToMeTasks();
+                      fetchClientTasks();
+                    } else if (taskViewMode === 'self') {
+                      fetchMyTasks();
+                    } else if (taskViewMode === 'client') {
+                      fetchClientTasks();
+                    } else {
+                      fetchAssignedToMeTasks();
+                    }
+                  }}
                 >
                   <FiRefreshCw size={isMobile ? 14 : 16} />
                 </button>
@@ -2576,27 +2336,21 @@ const UserCreateTask = () => {
         </div>
 
         <div className="user-create-task-paper-content">
-          {((taskViewMode === 'assigned' && loadingAssigned) || (taskViewMode === 'client' && loadingClientTasks)) ? (
+          {((taskViewMode === 'all' && loadingAllTasks) || (taskViewMode === 'self' && loading) || (taskViewMode === 'assigned' && loadingAssigned) || (taskViewMode === 'client' && loadingClientTasks)) ? (
             <div className="user-create-task-loading">
               <div className="spinner"></div>
-              <p>Loading {taskViewMode === 'client' ? 'client' : 'assigned'} tasks...</p>
+              <p>Loading {taskViewMode === 'all' ? 'all' : taskViewMode === 'self' ? 'personal' : taskViewMode === 'client' ? 'client' : 'assigned'} tasks...</p>
             </div>
           ) : (
             (() => {
-              let tasksToDisplay = getGroupedTasksForMode();
+              let tasksToDisplay = filteredTasks;
               
               if (showOverdueOnly) {
                 const filtered = {};
                 Object.entries(tasksToDisplay).forEach(([dateKey, tasks]) => {
                   const overdueTasks = tasks.filter(task => {
-                    if (taskViewMode === 'self') {
-                      const myStatus = getUserStatusForTask(task, userId);
-                      return isOverdue(task.dueDateTime, myStatus);
-                    } else {
-                      const status = getAssignedTaskStatus(task);
-                      const dueDate = task.dueDate || task.dueDateTime;
-                      return isOverdue(dueDate, status);
-                    }
+                    const status = getStatusForTask(task);
+                    return isOverdue(getDueDateForTask(task), status);
                   });
                   if (overdueTasks.length > 0) {
                     filtered[dateKey] = overdueTasks;
@@ -2605,25 +2359,21 @@ const UserCreateTask = () => {
                 tasksToDisplay = filtered;
               }
               
-              tasksToDisplay = applyDateFilter(tasksToDisplay);
-              
               const hasData = tasksToDisplay && Object.keys(tasksToDisplay).length > 0;
               
               if (!hasData) {
                 return (
                   <div className="user-create-task-empty-state">
                     <div className="user-create-task-empty-state-icon">
-                      {taskViewMode === 'self'
-                        ? <FiUser size={48} />
-                        : taskViewMode === 'client'
-                          ? <FiBriefcase size={48} />
-                          : <FiUsers size={48} />}
+                      {taskViewMode === 'self' ? <FiUser size={48} /> : <FiUsers size={48} />}
                     </div>
                     <div className="user-create-task-empty-state-title">
                       {taskViewMode === 'self' 
                         ? 'No personal tasks found' 
                         : showOverdueOnly 
                           ? 'No overdue tasks found'
+                          : taskViewMode === 'all'
+                            ? 'No tasks found'
                           : taskViewMode === 'client'
                             ? 'No client tasks found'
                             : 'No tasks assigned to you'}
@@ -2633,9 +2383,11 @@ const UserCreateTask = () => {
                         ? 'Create a personal task to get started'
                         : showOverdueOnly
                           ? 'Great job! You have no overdue tasks.'
+                          : taskViewMode === 'all'
+                            ? 'No personal, assigned, or client tasks are available'
                           : taskViewMode === 'client'
-                            ? 'You have no client tasks assigned.'
-                            : 'You have no tasks assigned by other users'}
+                            ? 'You have no tasks assigned from clients'
+                            : 'You have no assigned tasks right now'}
                     </div>
                   </div>
                 );
@@ -2656,13 +2408,9 @@ const UserCreateTask = () => {
                     </div>
                     <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2">
                       {tasks.map((task) => {
-                        const status = taskViewMode === 'self'
-                          ? getUserStatusForTask(task, userId)
-                          : getAssignedTaskStatus(task);
-                        
-                        const dueDate = taskViewMode === 'self'
-                          ? task.dueDateTime
-                          : (task.dueDate || task.dueDateTime);
+                        const taskSource = getTaskSource(task);
+                        const status = getStatusForTask(task);
+                        const dueDate = getDueDateForTask(task);
                         
                         const taskIsOverdue = isOverdue(dueDate, status);
                         const priority = task.priority || 'medium';
@@ -2687,9 +2435,7 @@ const UserCreateTask = () => {
                                     <div className="user-create-task-mobile-card-description">
                                       {task.description || ''}
                                     </div>
-                                    <AssignedTaskMeta task={task} />
-                                    <AssignedUsersStatusList task={task} limit={2} />
-                                    {taskViewMode === 'client' && clientName !== 'N/A' && (
+                                    {taskSource === 'client' && clientName !== 'N/A' && (
                                       <div className="user-create-task-mobile-card-client" style={{ 
                                         fontSize: '12px', 
                                         color: '#1976d2', 
@@ -2703,12 +2449,7 @@ const UserCreateTask = () => {
                                       </div>
                                     )}
                                   </div>
-                                  <div className="user-create-task-mobile-status-stack">
-                                    <StatusChip status={status} label={status} />
-                                    {taskViewMode === 'assigned' && (
-                                      <StatusChip status={getTaskOverallStatus(task)} label={getTaskOverallStatus(task)} />
-                                    )}
-                                  </div>
+                                  <StatusChip status={status} label={status} />
                                 </div>
 
                                 <div className="user-create-task-mobile-card-details">
@@ -2744,7 +2485,7 @@ const UserCreateTask = () => {
                                   <div className="user-create-task-flex user-create-task-gap-1">
                                     <button 
                                       className="user-create-task-action-button"
-                                      onClick={() => fetchTaskRemarks(task._id)}
+                                      onClick={() => fetchTaskRemarks(task._id, taskSource)}
                                       title="View Remarks"
                                     >
                                       <FiMessageSquare size={14} />
@@ -2752,7 +2493,7 @@ const UserCreateTask = () => {
 
                                     <button 
                                       className="user-create-task-action-button"
-                                      onClick={() => fetchActivityLogs(task._id)}
+                                      onClick={() => fetchActivityLogs(task._id, taskSource)}
                                       title="Activity Logs"
                                     >
                                       <FiActivity size={14} />
@@ -2779,17 +2520,17 @@ const UserCreateTask = () => {
                                         
                                         if (selectedStatus === 'in-progress') {
                                           // Direct status update (NO POPUP)
-                                          if (taskViewMode === 'self') {
+                                          if (taskSource === 'self') {
                                             handleStatusChange(currentTaskId, 'in-progress', 'Started working');
-                                          } else if (taskViewMode === 'client') {
+                                          } else if (taskSource === 'client') {
                                             handleClientTaskStatusChange(currentTaskId, 'in-progress', 'Started working');
                                           } else {
                                             handleAssignedTaskStatusChange(currentTaskId, 'in-progress', 'Started working');
                                           }
                                         } else {
                                           // Other statuses will open popup
-                                          setPendingStatusChange({ taskId: currentTaskId, status: selectedStatus });
-                                          setRemarksDialog({ open: true, taskId: currentTaskId, remarks: [] });
+                                          setPendingStatusChange({ taskId: currentTaskId, status: selectedStatus, source: taskSource });
+                                          setRemarksDialog({ open: true, taskId: currentTaskId, remarks: [], source: taskSource });
                                         }
                                       }}
                                       className="user-create-task-select"
@@ -2800,23 +2541,12 @@ const UserCreateTask = () => {
                                         fontWeight: taskIsOverdue ? '600' : undefined
                                       }}
                                     >
-                                      {taskViewMode === 'client' ? (
+                                      {taskSource !== 'self' ? (
                                         <>
                                           <option value="pending">Pending</option>
                                           <option value="in-progress">In Progress</option>
                                           <option value="completed">Completed</option>
                                           <option value="overdue">Overdue</option>
-                                        </>
-                                      ) : taskViewMode === 'self' ? (
-                                        <>
-                                          <option value="pending">Pending</option>
-                                          <option value="in-progress">In Progress</option>
-                                          <option value="completed">Completed</option>
-                                          <option value="overdue">Overdue</option>
-                                          <option value="rejected">Rejected</option>
-                                          <option value="onhold">On Hold</option>
-                                          <option value="reopen">Reopen</option>
-                                          <option value="cancelled">Cancelled</option>
                                         </>
                                       ) : (
                                         <>
@@ -2827,6 +2557,7 @@ const UserCreateTask = () => {
                                           <option value="rejected">Rejected</option>
                                           <option value="onhold">On Hold</option>
                                           <option value="reopen">Reopen</option>
+                                          <option value="cancelled">Cancelled</option>
                                         </>
                                       )}
                                     </select>
@@ -2864,10 +2595,7 @@ const UserCreateTask = () => {
                           <th style={{ padding: isMobile ? '8px' : '12px' }}>Due Date</th>
                           <th style={{ padding: isMobile ? '8px' : '12px' }}>Priority</th>
                           <th style={{ padding: isMobile ? '8px' : '12px' }}>Status</th>
-                          {taskViewMode === 'assigned' && <th style={{ padding: isMobile ? '8px' : '12px' }}>Assigned By</th>}
-                          {taskViewMode === 'assigned' && <th style={{ padding: isMobile ? '8px' : '12px' }}>Overall Status</th>}
-                          {taskViewMode === 'assigned' && <th style={{ padding: isMobile ? '8px' : '12px' }}>Users Status</th>}
-                          {taskViewMode === 'client' && <th style={{ padding: isMobile ? '8px' : '12px' }}>Client</th>}
+                          {(taskViewMode === 'client' || taskViewMode === 'all') && <th style={{ padding: isMobile ? '8px' : '12px' }}>Type</th>}
                           <th style={{ padding: isMobile ? '8px' : '12px' }}>Files</th>
                           <th style={{ padding: isMobile ? '8px' : '12px' }}>Actions</th>
                           <th style={{ padding: isMobile ? '8px' : '12px' }}>Change Status</th>
@@ -2875,13 +2603,9 @@ const UserCreateTask = () => {
                       </thead>
                       <tbody>
                         {tasks.map((task) => {
-                          const status = taskViewMode === 'self'
-                            ? getUserStatusForTask(task, userId)
-                            : getAssignedTaskStatus(task);
-                          
-                          const dueDate = taskViewMode === 'self'
-                            ? task.dueDateTime
-                            : (task.dueDate || task.dueDateTime);
+                          const taskSource = getTaskSource(task);
+                          const status = getStatusForTask(task);
+                          const dueDate = getDueDateForTask(task);
                           
                           const taskIsOverdue = isOverdue(dueDate, status);
                           const priority = task.priority || 'medium';
@@ -2951,7 +2675,7 @@ const UserCreateTask = () => {
                                 <StatusChip status={status} label={status} />
                               </td>
                               
-                              {taskViewMode === 'assigned' && (
+                              {(taskViewMode === 'client' || taskViewMode === 'all') && (
                                 <td style={{ padding: isMobile ? '8px' : '12px' }}>
                                   <div style={{ 
                                     display: 'flex', 
@@ -2959,32 +2683,9 @@ const UserCreateTask = () => {
                                     gap: '4px',
                                     color: '#1976d2'
                                   }}>
-                                    <FiUser size={12} />
-                                    {getTaskAssignedByName(task)}
+                                    {taskSource === 'self' ? <FiUser size={12} /> : <FiUsers size={12} />}
+                                    {taskSource === 'client' ? clientName : taskSource === 'self' ? 'Personal' : 'Assigned'}
                                   </div>
-                                </td>
-                              )}
-                              {taskViewMode === 'client' && (
-                                <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                                  <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    color: '#1976d2'
-                                  }}>
-                                    <FiBriefcase size={12} />
-                                    {clientName}
-                                  </div>
-                                </td>
-                              )}
-                              {taskViewMode === 'assigned' && (
-                                <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                                  <StatusChip status={getTaskOverallStatus(task)} label={getTaskOverallStatus(task)} />
-                                </td>
-                              )}
-                              {taskViewMode === 'assigned' && (
-                                <td style={{ padding: isMobile ? '8px' : '12px', minWidth: '220px' }}>
-                                  <AssignedUsersStatusList task={task} />
                                 </td>
                               )}
                               
@@ -3006,7 +2707,7 @@ const UserCreateTask = () => {
                                 <div className="user-create-task-action-buttons">
                                   <button 
                                     className="user-create-task-action-button"
-                                    onClick={() => fetchTaskRemarks(task._id)}
+                                    onClick={() => fetchTaskRemarks(task._id, taskSource)}
                                     title="View Remarks"
                                   >
                                     <FiMessageSquare size={isMobile ? 14 : 16} />
@@ -3014,7 +2715,7 @@ const UserCreateTask = () => {
 
                                   <button 
                                     className="user-create-task-action-button"
-                                    onClick={() => fetchActivityLogs(task._id)}
+                                    onClick={() => fetchActivityLogs(task._id, taskSource)}
                                     title="Activity Logs"
                                   >
                                     <FiActivity size={isMobile ? 14 : 16} />
@@ -3042,14 +2743,14 @@ const UserCreateTask = () => {
                                     
                                     if (selectedStatus === 'completed' || selectedStatus === 'pending') {
                                       // Open remarks dialog for status change
-                                      setPendingStatusChange({ taskId: currentTaskId, status: selectedStatus });
-                                      setRemarksDialog({ open: true, taskId: currentTaskId, remarks: [] });
+                                      setPendingStatusChange({ taskId: currentTaskId, status: selectedStatus, source: taskSource });
+                                      setRemarksDialog({ open: true, taskId: currentTaskId, remarks: [], source: taskSource });
                                     } 
                                     else if (selectedStatus === 'in-progress') {
                                       // Direct status update for in-progress (no popup needed)
-                                      if (taskViewMode === 'self') {
+                                      if (taskSource === 'self') {
                                         handleStatusChange(currentTaskId, 'in-progress', 'Started working on task');
-                                      } else if (taskViewMode === 'client') {
+                                      } else if (taskSource === 'client') {
                                         handleClientTaskStatusChange(currentTaskId, 'in-progress', 'Started working on task');
                                       } else {
                                         handleAssignedTaskStatusChange(currentTaskId, 'in-progress', 'Started working on task');
@@ -3058,8 +2759,8 @@ const UserCreateTask = () => {
                                     else {
                                       // For other statuses (overdue, rejected, onhold, reopen, cancelled)
                                       // Open remarks dialog with pending status change
-                                      setPendingStatusChange({ taskId: currentTaskId, status: selectedStatus });
-                                      setRemarksDialog({ open: true, taskId: currentTaskId, remarks: [] });
+                                      setPendingStatusChange({ taskId: currentTaskId, status: selectedStatus, source: taskSource });
+                                      setRemarksDialog({ open: true, taskId: currentTaskId, remarks: [], source: taskSource });
                                     }
                                   }}
                                   className="user-create-task-select"
@@ -3070,23 +2771,12 @@ const UserCreateTask = () => {
                                     fontWeight: taskIsOverdue ? '600' : undefined
                                   }}
                                 >
-                                  {taskViewMode === 'client' ? (
+                                  {taskSource !== 'self' ? (
                                     <>
                                       <option value="pending">Pending</option>
                                       <option value="in-progress">In Progress</option>
                                       <option value="completed">Completed</option>
                                       <option value="overdue">Overdue</option>
-                                    </>
-                                  ) : taskViewMode === 'self' ? (
-                                    <>
-                                      <option value="pending">Pending</option>
-                                      <option value="in-progress">In Progress</option>
-                                      <option value="completed">Completed</option>
-                                      <option value="overdue">Overdue</option>
-                                      <option value="rejected">Rejected</option>
-                                      <option value="onhold">On Hold</option>
-                                      <option value="reopen">Reopen</option>
-                                      <option value="cancelled">Cancelled</option>
                                     </>
                                   ) : (
                                     <>
@@ -3097,6 +2787,7 @@ const UserCreateTask = () => {
                                       <option value="rejected">Rejected</option>
                                       <option value="onhold">On Hold</option>
                                       <option value="reopen">Reopen</option>
+                                      <option value="cancelled">Cancelled</option>
                                     </>
                                   )}
                                 </select>
@@ -3428,7 +3119,7 @@ const UserCreateTask = () => {
                   <div style={{ marginBottom: isMobile ? '12px' : '16px' }}>
                     <div style={{ marginBottom: isMobile ? '6px' : '8px', fontWeight: 600 }}>
                       Attach Images (Optional)
-                      {taskViewMode === 'client' && (
+                      {(remarksDialog.source === 'client' || taskViewMode === 'client') && (
                         <span style={{ fontSize: isMobile ? '10px' : '11px', color: '#666', marginLeft: '8px' }}>
                           (Multiple images supported)
                         </span>
@@ -3455,7 +3146,7 @@ const UserCreateTask = () => {
                           Drag and drop images here, or click to select
                         </div>
                         <div style={{ fontSize: isMobile ? '10px' : '12px', color: '#999' }}>
-                          {taskViewMode === 'client' 
+                          {(remarksDialog.source === 'client' || taskViewMode === 'client')
                             ? 'Supports JPG, PNG, GIF (up to 5MB each)'
                             : 'Supports JPG, PNG, GIF (single image)'}
                         </div>
@@ -3472,7 +3163,7 @@ const UserCreateTask = () => {
                         id="remark-image-upload"
                         type="file"
                         accept="image/*"
-                        multiple={taskViewMode === 'client'}
+                        multiple={remarksDialog.source === 'client' || taskViewMode === 'client'}
                         onChange={handleRemarkImageUpload}
                         style={{ display: 'none' }}
                       />
@@ -3775,15 +3466,15 @@ const UserCreateTask = () => {
               <button
                 className="user-create-task-button user-create-task-button-contained"
                 onClick={handleSaveRemarkWithStatus}
-                disabled={isUploadingRemark}
+                disabled={isUploadingRemark || isSavingRemarkStatus}
                 style={{ 
                   padding: isMobile ? '8px 12px' : '10px 16px',
                   minWidth: isMobile ? '120px' : '160px',
                   marginRight: 'auto'
                 }}
               >
-                {isUploadingRemark ? (
-                  "Uploading..."
+                {isUploadingRemark || isSavingRemarkStatus ? (
+                  "Saving..."
                 ) : pendingStatusChange.status ? (
                   isMobile ? "Save & Update" : "Save Remark & Update Status"
                 ) : (
@@ -3797,13 +3488,13 @@ const UserCreateTask = () => {
               <button
                 className="user-create-task-button user-create-task-button-outlined"
                 onClick={() => {
-                  setRemarksDialog({ open: false, taskId: null, remarks: [] });
+                  setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
                   remarkImages.forEach(image => {
                     if (image.preview) URL.revokeObjectURL(image.preview);
                   });
                   setRemarkImages([]);
                   setNewRemark('');
-                  setPendingStatusChange({ taskId: null, status: "" });
+                  setPendingStatusChange({ taskId: null, status: "", source: null });
                 }}
                 style={{ 
                   padding: isMobile ? '8px 12px' : '10px 16px',

@@ -30,10 +30,13 @@ import {
   Task as TaskIcon,
   MeetingRoom as MeetingRoomIcon,
   Groups as GroupsIcon,
+  Chat as ChatIcon,
   VideoCall as VideoCallIcon,
   ListAlt as ListAltIcon,
   ExpandMore,
   ExpandLess,
+  CreditCard as CreditCardIcon,
+  Folder as FolderIcon,
 } from '@mui/icons-material';
 import Swal from "sweetalert2";
 import axiosInstance from '../utils/axiosConfig';
@@ -149,7 +152,7 @@ const CollapsedHeading = styled(Box)(({ theme }) => ({
   justifyContent: 'center',
 }));
 
-// ✅ COMPREHENSIVE ICON MAPPING
+// ✅ ICON MAPPING
 const iconMap = {
   'Dashboard': DashboardIcon,
   'dashboard': DashboardIcon,
@@ -181,6 +184,8 @@ const iconMap = {
   'meeting': VideoCallIcon,
   'Groups': GroupsIcon,
   'groups': GroupsIcon,
+  'Chat': ChatIcon,
+  'chat': ChatIcon,
   'ProjectIcon': GroupsIcon,
   'projecticon': GroupsIcon,
   'Project': GroupsIcon,
@@ -189,9 +194,17 @@ const iconMap = {
   'settings': SettingsIcon,
   'Logout': LogoutOutlined,
   'logout': LogoutOutlined,
+  'CreditCard': CreditCardIcon,
+  'creditcard': CreditCardIcon,
+  'Payment': CreditCardIcon,
+  'payment': CreditCardIcon,
+  'Folder': FolderIcon,
+  'folder': FolderIcon,
+  'Services': FolderIcon,
+  'services': FolderIcon,
 };
 
-// ✅ Get icon component - case insensitive aur fallback
+// ✅ Get icon component
 const getIconComponent = (iconName) => {
   if (!iconName) {
     return <DashboardIcon />;
@@ -229,6 +242,10 @@ const getIconComponent = (iconName) => {
       IconComponent = GroupsIcon;
     } else if (iconName.toLowerCase().includes('settings') || iconName.toLowerCase().includes('password')) {
       IconComponent = SettingsIcon;
+    } else if (iconName.toLowerCase().includes('credit') || iconName.toLowerCase().includes('payment')) {
+      IconComponent = CreditCardIcon;
+    } else if (iconName.toLowerCase().includes('folder') || iconName.toLowerCase().includes('service')) {
+      IconComponent = FolderIcon;
     } else {
       IconComponent = DashboardIcon;
     }
@@ -278,6 +295,42 @@ const fixedDefaultItems = [
     path: '/ciisUser/change-password',
     category: 'main',
     order: 5
+  },
+  {
+    id: 'chat',
+    name: 'Chat',
+    icon: 'Chat',
+    path: '/ciisUser/chat',
+    category: 'communication',
+    order: 6
+  }
+];
+
+// ✅ CLIENT MENU ITEMS - Sirf 3 pages client ke liye
+const clientMenuItems = [
+  {
+    id: 'client-dashboard',
+    name: 'Dashboard',
+    icon: 'Dashboard',
+    path: '/client/dashboard',
+    category: 'main',
+    order: 1
+  },
+  {
+    id: 'client-payment',
+    name: 'Payment',
+    icon: 'CreditCard',
+    path: '/client/payment',
+    category: 'main',
+    order: 2
+  },
+  {
+    id: 'client-services-tasks',
+    name: 'Services & Tasks',
+    icon: 'Folder',
+    path: '/client/services-tasks',
+    category: 'main',
+    order: 3
   }
 ];
 
@@ -291,15 +344,6 @@ const allPagesItems = [
     category: 'main',
     order: 1
   },
-  {
-  id: 'create-alert',
-  name: 'Create Alert',
-  icon: 'Notifications',
-  path: '/ciisUser/create-alert',
-  category: 'communication',
-  order: 6
-},
-
   {
     id: 'attendance',
     name: 'Attendance',
@@ -389,12 +433,20 @@ const allPagesItems = [
     order: 12
   },
   {
+    id: 'manage-groups',
+    name: 'Manage Groups',
+    icon: 'Groups',
+    path: '/ciisUser/manage-groups',
+    category: 'administration',
+    order: 13
+  },
+  {
     id: 'employee-meeting',
     name: 'Employee Meeting',
     icon: 'VideoCall',
     path: '/ciisUser/employee-meeting',
     category: 'meetings',
-    order: 13
+    order: 14
   },
   {
     id: 'client-meeting',
@@ -402,7 +454,7 @@ const allPagesItems = [
     icon: 'VideoCall',
     path: '/ciisUser/client-meeting',
     category: 'meetings',
-    order: 14
+    order: 15
   },
   {
     id: 'create-employee-meeting',
@@ -410,7 +462,7 @@ const allPagesItems = [
     icon: 'VideoCall',
     path: '/ciisUser/admin-meeting',
     category: 'meetings',
-    order: 15
+    order: 16
   },
   {
     id: 'admin-projects',
@@ -418,7 +470,7 @@ const allPagesItems = [
     icon: 'Groups',
     path: '/ciisUser/adminproject',
     category: 'projects',
-    order: 16
+    order: 17
   },
   {
     id: 'company-all-tasks',
@@ -426,23 +478,23 @@ const allPagesItems = [
     icon: 'Task',
     path: '/ciisUser/company-all-task',
     category: 'tasks',
-    order: 17
+    order: 18
   },
-  // {
-  //   id: 'department-all-tasks',
-  //   name: 'Department All Tasks',
-  //   icon: 'Task',
-  //   path: '/ciisUser/department-all-task',
-  //   category: 'tasks',
-  //   order: 18
-  // },
+  {
+    id: 'department-all-tasks',
+    name: 'Department All Tasks',
+    icon: 'Task',
+    path: '/ciisUser/department-all-task',
+    category: 'tasks',
+    order: 19
+  },
   {
     id: 'client-management',
     name: 'Client Management',
     icon: 'Person',
     path: '/ciisUser/emp-client',
     category: 'clients',
-    order: 19
+    order: 20
   },
   {
     id: 'change-password',
@@ -450,42 +502,17 @@ const allPagesItems = [
     icon: 'Settings',
     path: '/ciisUser/change-password',
     category: 'main',
-    order: 20
+    order: 21
+  },
+  {
+    id: 'chat',
+    name: 'Chat',
+    icon: 'Chat',
+    path: '/ciisUser/chat',
+    category: 'communication',
+    order: 22
   }
 ];
-
-// ✅ CLIENT MENU ITEMS - EMPTY ARRAY (so nothing shows)
-const clientMenuItems = []; // Empty array means no menu items for clients
-
-const categoryDisplayOrder = [
-  'main',
-  'communication',
-  'projects',
-  'administration',
-  'tasks',
-  'meetings',
-  'clients'
-];
-
-const getCategoryOrder = (category) => {
-  const index = categoryDisplayOrder.indexOf(category || 'main');
-  return index === -1 ? 99 : index;
-};
-
-const sortMenuItems = (items) => {
-  return [...items].sort((a, b) => {
-    const categoryA = getCategoryOrder(a.category);
-    const categoryB = getCategoryOrder(b.category);
-
-    if (categoryA !== categoryB) {
-      return categoryA - categoryB;
-    }
-
-    const orderA = a.order ?? 99;
-    const orderB = b.order ?? 99;
-    return orderA - orderB;
-  });
-};
 
 // ✅ Path mapping helper
 const getPathFromName = (name) => {
@@ -503,6 +530,7 @@ const getPathFromName = (name) => {
     'Employee Attendance': '/ciisUser/emp-attendance',
     'Create Task': '/ciisUser/task-management',
     'Admin Create Task': '/ciisUser/admin-task-create',
+    'Manage Groups': '/ciisUser/manage-groups',
     'Employee Meeting': '/ciisUser/employee-meeting',
     'Client Meeting': '/ciisUser/client-meeting',
     'Create Employee Meeting': '/ciisUser/admin-meeting',
@@ -511,7 +539,10 @@ const getPathFromName = (name) => {
     'Department All Tasks': '/ciisUser/department-all-task',
     'Client Management': '/ciisUser/emp-client',
     'Change Password': '/ciisUser/change-password',
-    'Client Dashboard': '/ciisUser/client-dashboard'
+    'Chat': '/ciisUser/chat',
+    'Client Dashboard': '/client/dashboard',
+    'Payment': '/client/payment',
+    'Services & Tasks': '/client/services-tasks'
   };
   
   return pathMap[name] || '/ciisUser/user-dashboard';
@@ -715,7 +746,7 @@ const Sidebar = ({ isMobile = false }) => {
         timer: 2000,
       });
 
-      setTimeout(() => navigate("/login"), 1800);
+      setTimeout(() => navigate("/"), 1800);
     }
   };
 
@@ -734,16 +765,16 @@ const Sidebar = ({ isMobile = false }) => {
     console.log('Is client user:', isClientUser);
     console.log('Is super_admin with Management:', isSuperAdminWithManagement);
 
-    // If user is client, show empty array (no menu items)
+    // ✅ If user is client, show client menu items (3 pages)
     if (isClientUser) {
-      console.log('Client user detected - showing empty menu');
-      return []; // Return empty array so nothing renders
+      console.log('Client user detected - showing client menu items (3 pages)');
+      return clientMenuItems;
     }
 
     // If user is super_admin with Management department, show all pages
     if (isSuperAdminWithManagement) {
       console.log('Showing all pages for super_admin with Management department');
-      return sortMenuItems(allPagesItems);
+      return allPagesItems;
     }
 
     let items = [];
@@ -777,13 +808,26 @@ const Sidebar = ({ isMobile = false }) => {
       items = [...fixedDefaultItems];
     }
 
-    const sortedItems = sortMenuItems(items);
+    const sortedItems = [...items].sort((a, b) => {
+      const categoryOrder = ['main', 'administration', 'tasks', 'projects', 'meetings', 'communication', 'clients'];
+      const categoryA = categoryOrder.indexOf(a.category) || 99;
+      const categoryB = categoryOrder.indexOf(b.category) || 99;
+      
+      if (categoryA !== categoryB) {
+        return categoryA - categoryB;
+      }
+      
+      const orderA = a.order || 99;
+      const orderB = b.order || 99;
+      return orderA - orderB;
+    });
 
     console.log('Sorted menu items:', sortedItems.map(item => ({ 
       name: item.name, 
       order: item.order,
       category: item.category,
-      icon: item.icon
+      icon: item.icon,
+      path: item.path
     })));
 
     return sortedItems;
@@ -924,10 +968,89 @@ const Sidebar = ({ isMobile = false }) => {
     );
   }
 
-  // ✅ KEY CHANGE: If client user, return null (don't render sidebar at all)
+  // ✅ For client users, render the sidebar with client menu items
   if (isClientUser) {
-    console.log('Client user detected - hiding sidebar completely');
-    return null; // This completely removes the sidebar for client users
+    console.log('Client user detected - rendering sidebar with client menu items');
+    // Client sidebar renders but with limited menu items
+    return (
+      <Container
+        ref={sidebarRef}
+        onMouseEnter={isMobile ? undefined : handleMouseEnter}
+        onMouseLeave={isMobile ? undefined : handleMouseLeave}
+        sx={!isMobile ? {
+          width: isSidebarOpen ? drawerWidthOpen : drawerWidthClosed,
+        } : undefined}
+      >
+        {/* Client User Info */}
+        {isSidebarOpen && (
+          <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
+            <Typography variant="subtitle2" fontWeight={600} noWrap>
+              {userData?.name || 'Client User'}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" noWrap>
+              Client Portal
+            </Typography>
+          </Box>
+        )}
+
+        {/* Menu Items */}
+        <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', mt: 2 }}>
+          <List sx={{ py: 0 }}>
+            {menuItems.map((item) => (
+              <StyledListItem key={item.id} disablePadding>
+                {renderMenuItem(item, isSidebarOpen)}
+              </StyledListItem>
+            ))}
+          </List>
+        </Box>
+
+        {/* Logout Button */}
+        <Box sx={{ px: 2, py: 2 }}>
+          {isSidebarOpen ? (
+            <StyledListItemButton
+              onClick={handleLogout}
+              sx={{
+                color: 'error.main',
+                '&:hover': { 
+                  backgroundColor: 'error.light',
+                  color: 'error.dark'
+                }
+              }}
+            >
+              <StyledListItemIcon>
+                <LogoutOutlined />
+              </StyledListItemIcon>
+              <ListItemText
+                primary="Logout"
+                primaryTypographyProps={{ 
+                  variant: 'body2', 
+                  fontWeight: 600 
+                }}
+              />
+            </StyledListItemButton>
+          ) : (
+            <Tooltip title="Logout" placement="right">
+              <IconButton
+                onClick={handleLogout}
+                sx={{
+                  width: '100%',
+                  justifyContent: 'center',
+                  color: 'error.main',
+                  padding: '8px',
+                  borderRadius: 2,
+                  '&:hover': { 
+                    color: 'error.dark',
+                    backgroundColor: 'error.light'
+                  }
+                }}
+              >
+                <LogoutOutlined />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
+      </Container>
+    );
   }
 
   // If menuItems is empty and not loading, show empty state
@@ -955,7 +1078,7 @@ const Sidebar = ({ isMobile = false }) => {
     );
   }
 
-  // Render category headings
+  // Render category headings for non-client users
   const renderCategoryHeading = (category) => {
     const categoryLabels = {
       'main': 'Main Menu',
@@ -1001,11 +1124,21 @@ const Sidebar = ({ isMobile = false }) => {
         width: isSidebarOpen ? drawerWidthOpen : drawerWidthClosed,
       } : undefined}
     >
+      {/* User Info (only when sidebar is open) */}
+      {isSidebarOpen && (
+        <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
+          <Typography variant="subtitle2" fontWeight={600} noWrap>
+            {userData?.name || 'User'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" noWrap>
+            {userData?.jobRole || 'Employee'}
+          </Typography>
+        </Box>
+      )}
+
       {/* Menu Items */}
       <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-        {Object.keys(groupedItems)
-          .sort((a, b) => getCategoryOrder(a) - getCategoryOrder(b))
-          .map(category => (
+        {Object.keys(groupedItems).map(category => (
           <Box key={category}>
             {renderCategoryHeading(category)}
             
@@ -1021,6 +1154,7 @@ const Sidebar = ({ isMobile = false }) => {
         ))}
       </Box>
 
+      {/* Logout Button */}
       <Box sx={{ px: 2, py: 2 }}>
         {isSidebarOpen ? (
           <StyledListItemButton

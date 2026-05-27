@@ -1,9 +1,19 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import tailwindcss from '@tailwindcss/vite'
+import { fileURLToPath, URL } from 'node:url'
 
 // https://vite.dev/config/
 export default defineConfig({
+  resolve: {
+    alias: [
+      {
+        find: /^@mui\/utils\/(.+)$/,
+        replacement: fileURLToPath(new URL('./node_modules/@mui/utils/esm/$1/index.js', import.meta.url)),
+      },
+    ],
+  },
+
   plugins: [
     react(),
     tailwindcss(),

@@ -80,7 +80,6 @@ const LeaveTypeFilter = ({ selected, onChange }) => {
     { value: 'Sick', label: 'Sick' },
     { value: 'Paid', label: 'Paid' },
     { value: 'Unpaid', label: 'Unpaid' },
-    { value: 'Halfday', label: 'Half Day' },
   ];
 
   return (
@@ -326,7 +325,6 @@ const EmployeeLeaves = () => {
     if (typeLower === 'sick') return 'EmppLeaves-leave-type-sick';
     if (typeLower === 'paid') return 'EmppLeaves-leave-type-paid';
     if (typeLower === 'unpaid') return 'EmppLeaves-leave-type-unpaid';
-    if (typeLower === 'halfday') return 'EmppLeaves-leave-type-halfday';
     return "";
   };
 
@@ -348,23 +346,11 @@ const EmployeeLeaves = () => {
     return "";
   };
 
-  const normalizeWhatsAppPhone = (phoneNumber) => {
-    const digits = String(phoneNumber || "").replace(/\D/g, "");
-
-    if (!digits) return "";
-    if (digits.length === 10) return `91${digits}`;
-    if (digits.length === 11 && digits.startsWith("0")) return `91${digits.slice(1)}`;
-
-    return digits;
-  };
-
   const getWhatsAppLink = (phoneNumber, userName, status, remarks) => {
-    const whatsappPhone = normalizeWhatsAppPhone(phoneNumber);
-    if (!whatsappPhone) return "";
-
+    if (!phoneNumber) return "#";
     const message = `Hello ${userName},\n\nYour leave request has been ${status?.toLowerCase() || 'updated'}.\n${remarks ? `Remarks: ${remarks}\n` : ''}\nThank you.`;
     const encodedMessage = encodeURIComponent(message);
-    return `https://wa.me/${whatsappPhone}?text=${encodedMessage}`;
+    return `https://wa.me/${phoneNumber.replace(/\D/g, '')}?text=${encodedMessage}`;
   };
 
   const normalizeRole = (role) => {
@@ -895,9 +881,6 @@ const EmployeeLeaves = () => {
       return;
     }
 
-    const whatsappLink = getWhatsAppLink(userPhone, userName, newStatus, remarks);
-    const whatsappWindow = whatsappLink ? window.open("", "_blank") : null;
-
     try {
       const res = await axios.patch(`/leaves/status/${leaveId}`, {
         status: newStatus,
@@ -910,19 +893,14 @@ const EmployeeLeaves = () => {
         await fetchLeaves();
         closeStatusDialog();
         
-        if (whatsappLink) {
-          if (whatsappWindow) {
-            whatsappWindow.location.href = whatsappLink;
-          } else {
-            window.location.href = whatsappLink;
-          }
+        if (userPhone) {
+          setTimeout(() => {
+            const whatsappLink = getWhatsAppLink(userPhone, userName, newStatus, remarks);
+            window.open(whatsappLink, '_blank');
+          }, 1000);
         }
       }
     } catch (err) {
-      if (whatsappWindow) {
-        whatsappWindow.close();
-      }
-
       console.error("Failed to update status", err);
       if (err.response?.status === 403) {
         showSnackbar(err.response.data.error || "You don't have permission", "error");

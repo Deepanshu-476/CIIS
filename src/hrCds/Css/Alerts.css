@@ -74,7 +74,7 @@
 
 /* ===== HEADER ===== */
 .Alerts-gradient-header {
-  background:  var(--gradient-primary) !important;
+  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
   padding: 32px 40px;
   color: var(--text-on-primary) !important;
   box-shadow: var(--shadow-md);

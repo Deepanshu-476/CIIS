@@ -72,7 +72,7 @@
 
 /* ===== HEADER SECTION ===== */
 .EmpAssets-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+  background: linear-gradient(135deg, #ffffff 0%, var(--gray-50) 100%);
   padding: 28px 32px;
   margin-bottom: 24px;
   border-radius: var(--radius-xl);
@@ -92,14 +92,12 @@
   margin: 0 0 4px 0;
   background: linear-gradient(135deg, var(--gray-900), var(--gray-700));
   -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   background-clip: text;
-  color:white;
-  
-  
 }
 
 .EmpAssets-header p {
-  color: white;
+  color: var(--gray-500);
   margin: 0;
   font-size: 14px;
   font-weight: 400;

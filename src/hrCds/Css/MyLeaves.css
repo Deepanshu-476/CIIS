@@ -61,7 +61,7 @@
 
 /* ===== HEADER ===== */
 .MyLeaves-header {
-  background: var(--gradient-primary) !important;
+  background: white;
   border-radius: 16px;
   padding: 24px 32px;
   margin-bottom: 24px;
@@ -86,17 +86,19 @@
   margin-bottom: 8px;
   background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
+<<<<<<< HEAD
   color: var(--text-on-primary) !important;
   ;
+=======
+  -webkit-text-fill-color: transparent;
+>>>>>>> 837f65bb33678a6ac89e0f2e0cca893cbd4dd02c
 }
 
 .MyLeaves-subtitle {
   font-size: 16px;
-  color:white;
+  color: #718096;
   margin-bottom: 20px;
 }
-
-
 
 .MyLeaves-user-info {
   display: flex;
@@ -120,14 +122,14 @@
   border-radius: 50px;
   font-size: 10px;
   font-weight: 500;
-  color: white;
+  color: #4a5568;
   border: 1px solid rgba(102, 126, 234, 0.2);
 }
 
 .MyLeaves-user-tag svg {
-     color: white ;
+  color: #667eea;
       height: 10px;
-      width: 10px;
+    width: 10px;
 }
 
 .MyLeaves-loading-dot {
@@ -896,12 +898,6 @@
   background: linear-gradient(135deg, #71809620 0%, #4a556820 100%);
   color: #4a5568;
   border: 1px solid rgba(74, 85, 104, 0.3);
-}
-
-.MyLeaves-type-halfday {
-  background: linear-gradient(135deg, #805ad520 0%, #6b46c120 100%);
-  color: #6b46c1;
-  border: 1px solid rgba(107, 70, 193, 0.3);
 }
 
 .MyLeaves-date-range {

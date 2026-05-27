@@ -5,6 +5,108 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
 }
 
+.TaskDetails-page-container {
+  width: min(1180px, calc(100vw - 48px));
+  margin: 0 auto;
+  padding: 1.5rem 0 2.5rem;
+}
+
+.TaskDetails-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.TaskDetails-page-title {
+  flex: 1;
+  min-width: 220px;
+}
+
+.TaskDetails-page-title h1 {
+  margin: 0 0 0.3rem;
+  color: #111827;
+  font-size: 1.6rem;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.TaskDetails-page-title p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.TaskDetails-page-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid #dbe3f0;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 0.65rem;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+  transition: all 0.2s ease;
+}
+
+.TaskDetails-page-back:hover {
+  border-color: #667eea;
+  color: #4f46e5;
+  transform: translateY(-1px);
+}
+
+.TaskDetails-page-panel {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  max-height: none;
+  min-height: auto;
+  animation: none;
+  border: 1px solid #e5eaf3;
+  border-radius: 1rem;
+  box-shadow: 0 16px 42px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+
+.TaskDetails-page-panel .TaskDetails-modal-header {
+  border-radius: 0;
+}
+
+.TaskDetails-page-panel .TaskDetails-modal-close-btn {
+  display: none;
+}
+
+.TaskDetails-page-panel .TaskDetails-modal-body {
+  max-height: none;
+  overflow: visible;
+}
+
+@media (max-width: 768px) {
+  .TaskDetails-page-container {
+    width: min(100% - 1.5rem, 1180px);
+    padding: 1rem 0 1.5rem;
+  }
+
+  .TaskDetails-page-header {
+    flex-direction: column;
+  }
+
+  .TaskDetails-page-title h1 {
+    font-size: 1.25rem;
+  }
+
+  .TaskDetails-page-back {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 /* ============================================ */
 /* MOBILE FIRST APPROACH (0px - 480px) */
 /* ============================================ */
@@ -14,7 +116,7 @@
   padding: 1rem;
   margin-bottom: 1rem;
   border-radius: 1rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.05) 100%);
   border: 1px solid rgba(102, 126, 234, 0.15);
   position: relative;
   overflow: hidden;
@@ -46,12 +148,12 @@
   font-size: 1.3rem;
   font-weight: 800;
   margin-bottom: 0.25rem;
-  color: white;
+  color: #111827;
   line-height: 1.3;
 }
 
 .TaskDetails-header-subtitle {
-  color: white;
+  color: #6b7280;
   font-weight: 500;
   font-size: 0.8rem;
 }
@@ -126,7 +228,7 @@
 .TaskDetails-overall-stats-header h4 {
   font-size: 0.9rem;
   font-weight: 700;
-  color: white;
+  color: #111827;
   margin: 0;
 }
 
@@ -1207,6 +1309,54 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.TaskDetails-modal-pagination {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+}
+
+.TaskDetails-modal-page-size,
+.TaskDetails-modal-page-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.TaskDetails-modal-page-size-btn,
+.TaskDetails-modal-page-btn {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  border-radius: 999px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.TaskDetails-modal-page-size-btn.active {
+  background: #667eea;
+  border-color: #667eea;
+  color: #ffffff;
+}
+
+.TaskDetails-modal-page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.TaskDetails-modal-page-info,
+.TaskDetails-modal-page-current {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 /* Task Card - Mobile */

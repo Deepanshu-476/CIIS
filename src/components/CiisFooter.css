@@ -16,6 +16,9 @@
   --ciis-gray-light: #e2e8f0;
   --ciis-white: #ffffff;
   
+
+
+  
   background: var(--ciis-dark);
   color: var(--ciis-light);
   padding: 4rem 0 0;

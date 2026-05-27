@@ -2,10 +2,17 @@
 import React, { useState } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
+import { openNotificationRoute } from '../utils/notificationNavigation';
 
 const NotificationBell = () => {
-  const { unreadCount, notifications, markAsRead } = useSocket();
+  const { notifications, markAsRead } = useSocket();
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+  const todayNotifications = notifications.filter(notification =>
+    new Date(notification.createdAt || notification.updatedAt || Date.now()).toDateString() === new Date().toDateString()
+  );
+  const todayUnreadCount = todayNotifications.filter(notification => !notification.isRead).length;
 
   const getNotificationIcon = (type) => {
     switch (type) {
@@ -24,6 +31,14 @@ const NotificationBell = () => {
     }
   };
 
+  const handleNotificationClick = async notification => {
+    if (!notification.isRead) {
+      await markAsRead(notification._id);
+    }
+    setIsOpen(false);
+    openNotificationRoute(navigate, notification);
+  };
+
   return (
     <div className="notification-bell-container">
       <button 
@@ -31,8 +46,8 @@ const NotificationBell = () => {
         onClick={() => setIsOpen(!isOpen)}
       >
         🔔
-        {unreadCount > 0 && (
-          <span className="notification-badge">{unreadCount}</span>
+        {todayUnreadCount > 0 && (
+          <span className="notification-badge">{todayUnreadCount}</span>
         )}
       </button>
 
@@ -44,14 +59,14 @@ const NotificationBell = () => {
           </div>
 
           <div className="notification-list">
-            {notifications.length === 0 ? (
-              <p className="no-notifications">No notifications</p>
+            {todayNotifications.length === 0 ? (
+              <p className="no-notifications">No notifications for today</p>
             ) : (
-              notifications.map((notification) => (
+              todayNotifications.map((notification) => (
                 <div
                   key={notification._id}
                   className={`notification-item ${!notification.isRead ? 'unread' : ''}`}
-                  onClick={() => !notification.isRead && markAsRead(notification._id)}
+                  onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="notification-icon">
                     {getNotificationIcon(notification.type)}

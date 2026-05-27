@@ -10,6 +10,24 @@ const genderOptions = ['male', 'female', 'other'];
 const maritalStatusOptions = ['single', 'married', 'divorced', 'widowed'];
 const employeeTypeOptions = ['permanent', 'probation', 'contract', 'intern', 'trainee'];
 
+const getId = (value) => {
+  if (!value) return '';
+  if (typeof value === 'object') return value._id || value.id || value.value || '';
+  return String(value);
+};
+
+const roleBelongsToDepartment = (role, departmentId) => {
+  if (!departmentId) return true;
+
+  const roleDepartmentId =
+    getId(role.department) ||
+    getId(role.departmentId) ||
+    getId(role.dept) ||
+    getId(role.deptId);
+
+  return !roleDepartmentId || roleDepartmentId === departmentId;
+};
+
 // Initial form state
 const initialFormState = {
   name: '', email: '', password: '', confirmPassword: '',
@@ -317,8 +335,10 @@ const CreateUser = () => {
       let response = null;
       let success = false;
       
-      // Try multiple endpoints
+      // Try company + department scoped endpoints first so only selected department roles load.
       const endpoints = [
+        companyId ? `/job-roles?company=${companyId}&department=${departmentId}` : null,
+        companyId ? `/job-roles?companyId=${companyId}&departmentId=${departmentId}` : null,
         `/job-roles?departmentId=${departmentId}`,
         `/job-roles?department=${departmentId}`,
         `/job-roles/department/${departmentId}`,
@@ -326,7 +346,7 @@ const CreateUser = () => {
         `/job-roles/by-department/${departmentId}`,
         `/job-roles/department-id/${departmentId}`,
         `/job-roles?dept=${departmentId}`
-      ];
+      ].filter(Boolean);
       
       for (const endpoint of endpoints) {
         try {
@@ -340,7 +360,7 @@ const CreateUser = () => {
         }
       }
       
-      if (!success) {
+      if (!success && companyId) {
         // Try with company context
         const companyEndpoints = [
           `/job-roles?companyId=${companyId}&departmentId=${departmentId}`,
@@ -392,9 +412,11 @@ const CreateUser = () => {
       }
       
       console.log("✅ Processed job roles:", jobRolesData);
-      setJobRoles(jobRolesData);
+      const departmentJobRoles = jobRolesData.filter(role => roleBelongsToDepartment(role, departmentId));
+      console.log("✅ Department filtered job roles:", departmentJobRoles);
+      setJobRoles(departmentJobRoles);
       
-      if (jobRolesData.length === 0) {
+      if (departmentJobRoles.length === 0) {
         toast.warning('No job roles found for this department');
       }
 

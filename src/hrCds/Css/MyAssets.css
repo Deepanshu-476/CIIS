@@ -10,9 +10,7 @@
 
 /* Header Section */
 .MyAssets-header {
-
-  background:var(--gradient-primary) !important;
-
+  background: white;
   border-radius: var(--border-radius-lg);
   padding: 24px;
   box-shadow: var(--shadow-md);
@@ -35,31 +33,19 @@
 .MyAssets-title {
   font-size: 32px;
   font-weight: 700;
-  color:white;
+  color: var(--gray-900);
   margin: 0 0 8px 0;
   background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue));
   -webkit-background-clip: text;
-  
+  -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .MyAssets-subtitle {
-  color: white;
+  color: var(--gray-600);
   font-size: 16px;
   margin: 0;
   font-weight: 400;
-}
-.MyAssets-user-badge {
-  color: #fff;              /* text color */
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.MyAssets-user-badge svg {
-  color: #fff;              /* icon color */
 }
 
 .MyAssets-header-actions {

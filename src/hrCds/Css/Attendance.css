@@ -142,7 +142,7 @@
 
 /* Header Section */
 .Attendance-header {
-  background: var(--header-gradient) !important;
+  background: white;
   border-radius: var(--border-radius-lg);
   padding: 24px;
   box-shadow: var(--shadow-md);
@@ -167,36 +167,19 @@
 .Attendance-title {
   font-size: 32px;
   font-weight: 700;
-  color: white;
+  color: var(--gray-900);
   margin: 0 0 8px 0;
   background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue));
   -webkit-background-clip: text;
-  
+  -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-.Attendance-join-info{
-  color:white
-}
-
 .Attendance-subtitle {
-  color: white;
+  color: var(--gray-600);
   font-size: 16px;
   margin: 0;
   font-weight: 400;
-}
-
-.Attendance-join-info {
-  color: white;              /* text color */
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-}
-
-.Attendance-join-info svg {
-  color: white;              /* icon color */
-  font-size: 16px;
 }
 
 .Attendance-header-actions {

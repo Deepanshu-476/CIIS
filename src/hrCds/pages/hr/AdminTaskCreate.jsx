@@ -133,7 +133,6 @@ const AdminTaskManagement = () => {
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [isUpdatingTask, setIsUpdatingTask] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
-  const [statusUpdatingTaskId, setStatusUpdatingTaskId] = useState('');
   const [activeTab, setActiveTab] = useState(0);
 
   // Search state for user dropdown
@@ -157,24 +156,6 @@ const AdminTaskManagement = () => {
   // Helper function to check if user is Owner
   const isOwner = () => {
     return companyRole === 'Owner' || userRole === 'Owner' || userRole === 'CAREER INFOWIS Admin';
-  };
-
-  const taskStatusOptions = [
-    { value: 'pending', label: 'Pending' },
-    { value: 'in-progress', label: 'In Progress' },
-    { value: 'completed', label: 'Completed' },
-    { value: 'rejected', label: 'Rejected' },
-    { value: 'onhold', label: 'On Hold' },
-    { value: 'reopen', label: 'Reopen' },
-    { value: 'overdue', label: 'Overdue' }
-  ];
-
-  const normalizeId = (value) => {
-    if (!value) return '';
-    if (typeof value === 'object') {
-      return String(value._id || value.id || '');
-    }
-    return String(value);
   };
 
   // Helper function to get company name from company object
@@ -900,25 +881,6 @@ const AdminTaskManagement = () => {
     }
   };
 
-  const handleCreatorOverallStatusChange = async (task, nextStatus) => {
-    if (!nextStatus || nextStatus === getTaskStatus(task)) return;
-
-    setStatusUpdatingTaskId(task._id);
-    try {
-      await apiCall('patch', `/task/${task._id}/status`, {
-        status: nextStatus,
-        remarks: 'Overall status updated by task creator'
-      });
-
-      showSnackbar('Overall status updated successfully', 'success');
-      fetchAllData(page, rowsPerPage);
-    } catch (error) {
-      console.error('Error updating overall status:', error);
-    } finally {
-      setStatusUpdatingTaskId('');
-    }
-  };
-
   // Function to fetch and show user statuses for a task
   const fetchUserStatuses = async (task) => {
     try {
@@ -1245,18 +1207,16 @@ const AdminTaskManagement = () => {
 
   // Get individual user status for a task
   const getUserStatusForTask = (task, userId) => {
-    const targetUserId = normalizeId(userId);
-
     if (task.statusInfo && Array.isArray(task.statusInfo)) {
       const userStatus = task.statusInfo.find(s => 
-        normalizeId(s.userId) === targetUserId || normalizeId(s.user) === targetUserId
+        s.userId === userId || s.userId?._id === userId || s.userId?.id === userId
       );
       return userStatus?.status || 'pending';
     }
     
     if (task.statusByUser && Array.isArray(task.statusByUser)) {
       const userStatus = task.statusByUser.find(s => 
-        normalizeId(s.user) === targetUserId
+        s.user === userId || s.user?._id === userId || s.user?.id === userId
       );
       return userStatus?.status || 'pending';
     }
@@ -1270,13 +1230,11 @@ const AdminTaskManagement = () => {
     
     if (task.assignedUsers && Array.isArray(task.assignedUsers)) {
       task.assignedUsers.forEach(user => {
-        const userId = normalizeId(user);
-        const userObj = users.find(u => normalizeId(u) === userId);
-        const displayUser = userObj || (typeof user === 'object' ? user : null);
-
-        if (displayUser) {
+        const userId = user.id || user._id || user;
+        const userObj = users.find(u => u.id === userId || u._id === userId);
+        if (userObj) {
           assignedUsers.push({
-            user: displayUser,
+            user: userObj,
             status: getUserStatusForTask(task, userId),
             type: 'direct'
           });
@@ -1285,20 +1243,16 @@ const AdminTaskManagement = () => {
     }
     
     if (task.assignedGroups && Array.isArray(task.assignedGroups)) {
-      task.assignedGroups.forEach(groupRef => {
-        const groupId = normalizeId(groupRef);
-        const group = groups.find(g => normalizeId(g) === groupId) || (typeof groupRef === 'object' ? groupRef : null);
+      task.assignedGroups.forEach(groupId => {
+        const group = groups.find(g => g._id === groupId || g.id === groupId);
         if (group && group.members) {
-          group.members.forEach(member => {
-            const memberId = normalizeId(member);
-            const userObj = users.find(u => normalizeId(u) === memberId);
-            const displayUser = userObj || (typeof member === 'object' ? member : null);
-
-            if (displayUser && !assignedUsers.some(u => 
-              normalizeId(u.user) === memberId
+          group.members.forEach(memberId => {
+            const userObj = users.find(u => u.id === memberId || u._id === memberId);
+            if (userObj && !assignedUsers.some(u => 
+              (u.user.id === userObj.id || u.user._id === userObj._id)
             )) {
               assignedUsers.push({
-                user: displayUser,
+                user: userObj,
                 status: getUserStatusForTask(task, memberId),
                 type: 'group'
               });
@@ -1335,9 +1289,9 @@ const AdminTaskManagement = () => {
               </span>
               <span className="AdminTaskManagement-user-info">
                 <span className="AdminTaskManagement-user-name">{assignedUser.user.name}</span>
-                <span className={`AdminTaskManagement-user-status AdminTaskManagement-user-status-${assignedUser.status}`}>
+                {/* <span className={`AdminTaskManagement-user-status AdminTaskManagement-user-status-${assignedUser.status}`}>
                   {assignedUser.status}
-                </span>
+                </span> */}
               </span>
             </div>
           ))}
@@ -1345,7 +1299,7 @@ const AdminTaskManagement = () => {
           {!showAllUsers && remainingCount > 0 && (
             <button 
               className="AdminTaskManagement-see-more-btn"
-              onClick={() => setShowAllUsers(true)}
+              // onClick={() => setShowAllUsers(true)}
               title={`Show all ${totalCount} users`}
             >
               +{remainingCount} more
@@ -1377,9 +1331,6 @@ const AdminTaskManagement = () => {
         case 'in-progress': return 'info';
         case 'completed': return 'success';
         case 'rejected': return 'error';
-        case 'overdue': return 'error';
-        case 'onhold': return 'warning';
-        case 'reopen': return 'info';
         default: return 'default';
       }
     };
@@ -1390,9 +1341,6 @@ const AdminTaskManagement = () => {
         case 'in-progress': return 'In Progress';
         case 'completed': return 'Completed';
         case 'rejected': return 'Rejected';
-        case 'overdue': return 'Overdue';
-        case 'onhold': return 'On Hold';
-        case 'reopen': return 'Reopen';
         default: return status;
       }
     };
@@ -1401,30 +1349,6 @@ const AdminTaskManagement = () => {
       <span className={`AdminTaskManagement-status-chip AdminTaskManagement-status-${getStatusColor()}`}>
         {getStatusText()}
       </span>
-    );
-  };
-
-  const CreatorOverallStatusControl = ({ task }) => {
-    const currentStatus = getTaskStatus(task);
-    const isUpdating = statusUpdatingTaskId === task._id;
-
-    return (
-      <div className="AdminTaskManagement-creator-status-control">
-        <AdminTaskManagementStatusChip status={currentStatus} />
-        <select
-          className="AdminTaskManagement-inline-status-select"
-          value={currentStatus}
-          disabled={isUpdating}
-          onChange={(e) => handleCreatorOverallStatusChange(task, e.target.value)}
-          title="Change overall task status"
-        >
-          {taskStatusOptions.map(option => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
     );
   };
 
@@ -2766,7 +2690,7 @@ const AdminTaskManagement = () => {
                   </div>
                 </td>
                 <td>
-                  <CreatorOverallStatusControl task={task} />
+                  <AdminTaskManagementStatusChip status={getTaskStatus(task)} />
                 </td>
                 <td>
                   <AdminTaskManagementPriorityChip priority={task.priority} />

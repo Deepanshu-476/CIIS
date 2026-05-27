@@ -5,19 +5,21 @@ import Swal from 'sweetalert2';
 import './SidebarManagement.css';
 import CIISLoader from '../../Loader/CIISLoader';
 
+// Your routes configuration
 const APP_ROUTES = [
   { path: 'emp-details', name: 'Employee Details', icon: 'Person', category: 'administration' },
   { path: 'emp-leaves', name: 'Employee Leaves', icon: 'EventNote', category: 'administration' },
   { path: 'emp-assets', name: 'Employee Assets', icon: 'Computer', category: 'administration' },
   { path: 'emp-attendance', name: 'Employee Attendance', icon: 'CalendarToday', category: 'administration' },
   { path: 'admin-task-create', name: 'Admin Create Task', icon: 'Task', category: 'administration' },
+  { path: 'manage-groups', name: 'Manage Groups', icon: 'GroupIcon', category: 'administration' },
   { path: 'create-user', name: 'Create User', icon: 'PersonAdd', category: 'administration' },
   { path: 'admin-meeting', name: 'Create Employee Meeting', icon: 'MeetingRoom', category: 'meetings' },
   { path: 'adminproject', name: 'Admin Projects', icon: 'ProjectIcon', category: 'projects' },
   { path: 'company-all-task', name: 'Company All Tasks', icon: 'ListAlt', category: 'tasks' },
-  { path: 'department-all-task', name: 'Department All Tasks', icon: 'ListAlt', category: 'tasks' },
+  // { path: 'department-all-task', name: 'Department All Tasks', icon: 'ListAlt', category: 'tasks' },
   { path: 'emp-client', name: 'Client Management', icon: 'ClientIcon', category: 'clients' },
-  // { path: 'ClienDashboard', name: 'Client Dashboard', icon: 'ClientIcon', category: 'clients' },
+  { path: 'ClienDashboard', name: 'Client Dashboard', icon: 'ClientIcon', category: 'clients' },
   { path: 'alert', name: 'Alerts', icon: 'Notifications', category: 'communication' },
   { path: 'attendance', name: 'My Attendance', icon: 'CalendarToday', category: 'main' },
   { path: 'my-assets', name: 'My Assets', icon: 'Computer', category: 'main' },
@@ -29,6 +31,7 @@ const APP_ROUTES = [
   { path: 'client-meeting', name: 'Client Meeting', icon: 'VideoCall', category: 'meetings' },
   { path: 'change-password', name: 'Change Password', icon: 'Key', category: 'main' },
   { path: 'create-alert' , name: 'Create Alert', icon: 'Notifications', category: 'communication' },
+  { path: 'chat', name: 'Chat', icon: 'Chat', category: 'communication' },
 ];
 
 // Helper function to get icon component as HTML string
@@ -40,6 +43,7 @@ const getIconHtml = (iconName) => {
     Computer: '💻',
     Task: '✅',
     Groups: '👥',
+    GroupIcon: '👫',
     Notifications: '🔔',
     VideoCall: '📹',
     Person: '👤',
@@ -57,6 +61,7 @@ const getIconHtml = (iconName) => {
     Work: '💼',
     People: '👥',
     Forum: '💬',
+    Chat: '💬',
     Analytics: '📊',
     Receipt: '🧾',
     Assessment: '📈',
@@ -90,6 +95,7 @@ const SidebarManagement = () => {
   const [company, setCompany] = useState(null);
   const [departments, setDepartments] = useState([]);
   const [jobRoles, setJobRoles] = useState([]);
+  const [companyRoles, setCompanyRoles] = useState([]);
   const [selectedDepartment, setSelectedDepartment] = useState('');
   const [selectedRole, setSelectedRole] = useState('');
   const [loading, setLoading] = useState({
@@ -234,6 +240,7 @@ const SidebarManagement = () => {
         setCompany(companyFromStorage);
         
         await fetchDepartments(companyFromStorage._id);
+        await fetchCompanyRoles(companyFromStorage._id);
         await fetchExistingConfigs(companyFromStorage._id);
         
         setSnackbar({
@@ -340,6 +347,37 @@ const SidebarManagement = () => {
     }
   };
 
+  const fetchCompanyRoles = async (companyId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axiosInstance.get(`/job-roles`, {
+        params: { company: companyId },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      let roles = [];
+      if (response.data?.jobRoles && Array.isArray(response.data.jobRoles)) {
+        roles = response.data.jobRoles;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        roles = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        roles = response.data;
+      }
+
+      setCompanyRoles(roles.map(role => ({
+        _id: role._id || role.id,
+        name: role.name || role.roleName || role.role || 'Role',
+        description: role.description || role.roleName || role.name || ''
+      })));
+    } catch (error) {
+      console.error('Error fetching company roles:', error);
+      setCompanyRoles([]);
+    }
+  };
+
   // Fetch existing configurations with null handling
   const fetchExistingConfigs = async (companyId) => {
     try {
@@ -404,7 +442,7 @@ const SidebarManagement = () => {
       if (roleId.role) return roleId.role;
     }
     
-    const jobRole = jobRoles.find(r => r._id === roleId);
+    const jobRole = [...jobRoles, ...companyRoles].find(r => r._id === roleId);
     if (jobRole) return jobRole.name;
     
     const customRole = customRoles.find(r => r._id === roleId);

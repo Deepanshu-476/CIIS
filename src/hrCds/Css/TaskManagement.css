@@ -1,3 +1,6 @@
+
+
+
 /* Enhanced CSS for Task Management */
 .user-create-task-container {
     padding: 16px;
@@ -47,9 +50,10 @@
     padding: 24px;
     margin-bottom: 32px;
     border-radius: 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    box-shadow: 0 8px 32px rgba(102, 126, 234, 0.2);
+    background: var(--gradient-primary) !important;
+    color: var(--text-on-primary) !important;
+    box-shadow: var(--shadow-primary) !important;
+
     position: relative;
     overflow: hidden;
 }
@@ -1415,16 +1419,17 @@
 }
 
 .user-create-task-button-contained {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    background: var(--gradient-primary) !important;
+    color: var(--text-on-primary) !important;
+    box-shadow: var(--shadow-primary) !important;
+    transition: var(--transition-default) !important;
+
 }
 
 .user-create-task-button-contained:hover {
-    background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
-}
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  background:   var(--gradient-primary-hover) !important;}
 
 .user-create-task-button-contained:active {
     transform: translateY(0);

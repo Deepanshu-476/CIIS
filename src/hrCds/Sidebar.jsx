@@ -292,6 +292,15 @@ const allPagesItems = [
     order: 1
   },
   {
+  id: 'create-alert',
+  name: 'Create Alert',
+  icon: 'Notifications',
+  path: '/ciisUser/create-alert',
+  category: 'communication',
+  order: 6
+},
+
+  {
     id: 'attendance',
     name: 'Attendance',
     icon: 'Calendar',
@@ -419,14 +428,14 @@ const allPagesItems = [
     category: 'tasks',
     order: 17
   },
-  {
-    id: 'department-all-tasks',
-    name: 'Department All Tasks',
-    icon: 'Task',
-    path: '/ciisUser/department-all-task',
-    category: 'tasks',
-    order: 18
-  },
+  // {
+  //   id: 'department-all-tasks',
+  //   name: 'Department All Tasks',
+  //   icon: 'Task',
+  //   path: '/ciisUser/department-all-task',
+  //   category: 'tasks',
+  //   order: 18
+  // },
   {
     id: 'client-management',
     name: 'Client Management',
@@ -447,6 +456,36 @@ const allPagesItems = [
 
 // ✅ CLIENT MENU ITEMS - EMPTY ARRAY (so nothing shows)
 const clientMenuItems = []; // Empty array means no menu items for clients
+
+const categoryDisplayOrder = [
+  'main',
+  'communication',
+  'projects',
+  'administration',
+  'tasks',
+  'meetings',
+  'clients'
+];
+
+const getCategoryOrder = (category) => {
+  const index = categoryDisplayOrder.indexOf(category || 'main');
+  return index === -1 ? 99 : index;
+};
+
+const sortMenuItems = (items) => {
+  return [...items].sort((a, b) => {
+    const categoryA = getCategoryOrder(a.category);
+    const categoryB = getCategoryOrder(b.category);
+
+    if (categoryA !== categoryB) {
+      return categoryA - categoryB;
+    }
+
+    const orderA = a.order ?? 99;
+    const orderB = b.order ?? 99;
+    return orderA - orderB;
+  });
+};
 
 // ✅ Path mapping helper
 const getPathFromName = (name) => {
@@ -704,7 +743,7 @@ const Sidebar = ({ isMobile = false }) => {
     // If user is super_admin with Management department, show all pages
     if (isSuperAdminWithManagement) {
       console.log('Showing all pages for super_admin with Management department');
-      return allPagesItems;
+      return sortMenuItems(allPagesItems);
     }
 
     let items = [];
@@ -738,19 +777,7 @@ const Sidebar = ({ isMobile = false }) => {
       items = [...fixedDefaultItems];
     }
 
-    const sortedItems = [...items].sort((a, b) => {
-      const categoryOrder = ['main', 'administration', 'tasks', 'projects', 'meetings', 'communication', 'clients'];
-      const categoryA = categoryOrder.indexOf(a.category) || 99;
-      const categoryB = categoryOrder.indexOf(b.category) || 99;
-      
-      if (categoryA !== categoryB) {
-        return categoryA - categoryB;
-      }
-      
-      const orderA = a.order || 99;
-      const orderB = b.order || 99;
-      return orderA - orderB;
-    });
+    const sortedItems = sortMenuItems(items);
 
     console.log('Sorted menu items:', sortedItems.map(item => ({ 
       name: item.name, 
@@ -976,7 +1003,9 @@ const Sidebar = ({ isMobile = false }) => {
     >
       {/* Menu Items */}
       <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-        {Object.keys(groupedItems).map(category => (
+        {Object.keys(groupedItems)
+          .sort((a, b) => getCategoryOrder(a) - getCategoryOrder(b))
+          .map(category => (
           <Box key={category}>
             {renderCategoryHeading(category)}
             

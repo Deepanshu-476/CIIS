@@ -1179,6 +1179,7 @@ const closeDetailModal = () => {
                     <option value="Sick">Sick</option>
                     <option value="Paid">Paid</option>
                     <option value="Unpaid">Unpaid</option>
+                    <option value="Halfday">Half Day</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>

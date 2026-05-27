@@ -96,7 +96,7 @@
 
 /* ===== HEADER SECTION ===== */
 .AdminTaskManagement-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+ background:  var(--gradient-primary) !important;
   padding: 20px;
   border-radius: var(--border-radius-xl);
   box-shadow: var(--shadow-lg);
@@ -256,10 +256,11 @@
   position: relative;
   overflow: hidden;
   letter-spacing: 0.3px;
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  color: white;
+  background: var(--gradient-primary) !important;
+  color: var(--text-on-primary) !important;
+  box-shadow: var(--shadow-primary) !important;
+  transition: var(--transition-default) !important;
 
-  box-shadow: var(--shadow-sm);
 }
 
 @media (min-width: 480px) {
@@ -289,14 +290,18 @@
 }
 
 .AdminTaskManagement-btn-primary {
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  color: var(--white);
+    background: var(--gradient-primary) !important;
+    color: var(--text-on-primary) !important;
+    box-shadow: var(--shadow-primary) !important;
+    transition: var(--transition-default) !important;
 }
 
 .AdminTaskManagement-btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(25, 118, 210, 0.4);
+    background: var(--gradient-primary-hover) !important;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-primary-hover) !important;
 }
+
 
 .AdminTaskManagement-btn-outline {
   background: var(--white);
@@ -604,7 +609,7 @@
   padding: 16px;
   border-radius: 20px;
   border: 1px solid var(--gray-200);
-  width: 55%;
+  width: 100%;
   transition: var(--transition);
 }
 

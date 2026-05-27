@@ -108,7 +108,8 @@
 
 /* ===== HEADER SECTION ===== */
 .EmppAttendence-attendance-header {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: var(--gradient-primary) !important;
+    color: var(--text-on-primary) !important;
     border-radius: var(--radius-2xl);
     padding: 28px 32px;
     margin-bottom: 24px;

@@ -210,6 +210,7 @@ import EmppAsset from "./hrCds/pages/hr/EmppAssets";
 import EmppAttendence from "./hrCds/pages/hr/EmppAttendence";
 import TaskDeatils from "./hrCds/pages/hr/TaskDetails";
 import EmpAllTask from "./hrCds/pages/hr/EmpAllTask";
+import CompanyAllTaskTasks from "./hrCds/pages/hr/CompanyAllTaskTasks";
 import EmpDepartmentAllTask from "./hrCds/pages/hr/EmpDepartmentAllTask.jsx";
 import AdminProject from "./hrCds/pages/AdminProject";
 import Client from "./hrCds/pages/hr/Client";
@@ -329,6 +330,9 @@ function App() {
           <Route path="admin-meeting" element={<AdminMeetingPage />} />
           <Route path="adminproject" element={<AdminProject />} />
           <Route path="company-all-task" element={<EmpAllTask />} />
+          <Route path="company-all-task/tasks" element={<CompanyAllTaskTasks />} />
+          <Route path="company-all-task/tasks/:userId" element={<CompanyAllTaskTasks />} />
+          <Route path="company-all-task/:userId/tasks" element={<CompanyAllTaskTasks />} />
           <Route path="emp-client" element={<Client />} />
           <Route path="alert" element={<Alerts />} />
           <Route path="attendance" element={<Attendance />} />

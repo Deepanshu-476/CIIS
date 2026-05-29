@@ -47,13 +47,6 @@ const getAuthToken = () => {
   return localStorage.getItem('token') || localStorage.getItem('authToken');
 };
 
-const getLocalDateStart = value => {
-  const date = value ? new Date(value) : new Date();
-  if (Number.isNaN(date.getTime())) return null;
-  date.setHours(0, 0, 0, 0);
-  return date;
-};
-
 const isClientTaskOverdue = taskOrDueDate => {
   const dueDateValue = typeof taskOrDueDate === 'object' && taskOrDueDate !== null
     ? taskOrDueDate.dueDate
@@ -61,11 +54,37 @@ const isClientTaskOverdue = taskOrDueDate => {
   const completed = typeof taskOrDueDate === 'object' && taskOrDueDate !== null
     ? taskOrDueDate.completed
     : false;
+  const status = typeof taskOrDueDate === 'object' && taskOrDueDate !== null
+    ? String(taskOrDueDate.status || 'pending').trim().toLowerCase()
+    : 'pending';
 
   if (!dueDateValue || completed) return false;
-  const dueDate = getLocalDateStart(dueDateValue);
-  const today = getLocalDateStart(new Date());
-  return Boolean(dueDate && today && dueDate < today);
+  if (status === 'overdue') return true;
+  if (status !== 'pending') return false;
+  const dueDate = new Date(dueDateValue);
+  if (Number.isNaN(dueDate.getTime())) return false;
+  return dueDate < new Date();
+};
+
+const formatDateTimeForInput = value => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const offsetMs = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+};
+
+const formatClientTaskDue = value => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 };
 
 // Clients API instance
@@ -629,7 +648,7 @@ const TaskDetailsModal = ({ task, open, onClose, projectManagers = [] }) => {
             <div className="ClientManagement-form-group">
               <label className="ClientManagement-form-label">Due Date</label>
               <div className="ClientManagement-flex-align-center ClientManagement-gap-1">
-                <p>{new Date(task.dueDate).toLocaleDateString()}</p>
+                <p>{formatClientTaskDue(task.dueDate)}</p>
                 {isOverdue(task.dueDate) && !task.completed && (
                   <div className="ClientManagement-badge ClientManagement-badge--error">Overdue</div>
                 )}
@@ -745,6 +764,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
         const response = await api.post(`/client/${clientId}/service/${encodedService}`, {
           name: newTask.name.trim(),
           dueDate: newTask.dueDate || null,
+          dueDateTime: newTask.dueDate || null,
           assignee: newTask.assignee,
           priority: newTask.priority
         });
@@ -788,6 +808,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
           const response = await api.put(`/${editTask._id}`, {
             name: editTask.name.trim(),
             dueDate: editTask.dueDate || null,
+            dueDateTime: editTask.dueDate || null,
             assignee: editTask.assignee,
             priority: editTask.priority
           });
@@ -970,9 +991,9 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
               <div className="ClientManagement-grid-2 ClientManagement-gap-2">
                 <div>
                   <input
-                    type="date"
+                    type="datetime-local"
                     className="ClientManagement-form-input"
-                    value={editTask ? (editTask.dueDate ? new Date(editTask.dueDate).toISOString().split('T')[0] : '') : newTask.dueDate}
+                    value={editTask ? formatDateTimeForInput(editTask.dueDate) : newTask.dueDate}
                     onChange={(e) => {
                       if (editTask) {
                         setEditTask({ ...editTask, dueDate: e.target.value });
@@ -1086,8 +1107,8 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
                       )}
                       
                       {task.dueDate && (
-                        <div className="ClientManagement-badge" title={`Due: ${new Date(task.dueDate).toLocaleDateString()}`}>
-                          {new Date(task.dueDate).toLocaleDateString()}
+                        <div className="ClientManagement-badge" title={`Due: ${formatClientTaskDue(task.dueDate)}`}>
+                          {formatClientTaskDue(task.dueDate)}
                         </div>
                       )}
                     </div>

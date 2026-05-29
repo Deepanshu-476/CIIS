@@ -23,18 +23,14 @@ const getAuthToken = () => {
   return localStorage.getItem('token') || localStorage.getItem('authToken');
 };
 
-const getLocalDateStart = value => {
-  const date = value ? new Date(value) : new Date();
-  if (Number.isNaN(date.getTime())) return null;
-  date.setHours(0, 0, 0, 0);
-  return date;
-};
-
 const isClientTaskOverdue = task => {
   if (!task?.dueDate || task.completed) return false;
-  const dueDate = getLocalDateStart(task.dueDate);
-  const today = getLocalDateStart(new Date());
-  return Boolean(dueDate && today && dueDate < today);
+  const status = String(task.status || 'pending').trim().toLowerCase();
+  if (status === 'overdue') return true;
+  if (status !== 'pending') return false;
+  const dueDate = new Date(task.dueDate);
+  if (Number.isNaN(dueDate.getTime())) return false;
+  return dueDate < new Date();
 };
 
 // ========== ANIMATED PROGRESS RING ==========
@@ -189,9 +185,10 @@ const ServiceProgressCard = ({ service, clientId, api }) => {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     
-    if (date.toDateString() === today.toDateString()) return 'Today';
-    if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const time = date.toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit'});
+    if (date.toDateString() === today.toDateString()) return `Today, ${time}`;
+    if (date.toDateString() === tomorrow.toDateString()) return `Tomorrow, ${time}`;
+    return date.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
   const getPriorityBadgeClass = (priority) => {

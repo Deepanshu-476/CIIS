@@ -59,6 +59,7 @@ import AboutUs from "./Pages/AboutUs";
 import ContactUs from "./Pages/ContactUs";
 import RegisterCompany from "./admin/components/CompanyRegister.jsx";
 
+
 // Super Admin
 import SuperAdminLogin from "./page/SuperAdminLogin";
 
@@ -71,6 +72,9 @@ import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
 
 import ChatPage from "./Pages/Chat/ChatPage";
+import ContactSupport from "./hrCds/pages/ContactSupport";
+
+
 
 
 function App() {
@@ -166,6 +170,11 @@ function App() {
             element={<ChatPage />}
           />
         </Route>
+
+        <Route
+          path="contact-support"
+          element={<ContactSupport />}
+        />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

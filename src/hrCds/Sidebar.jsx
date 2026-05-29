@@ -512,6 +512,16 @@ const allPagesItems = [
     category: 'communication',
     order: 22
   }
+
+  ,
+  {
+    id: 'contact-support',
+    name: 'Contact Support',
+    icon: 'Chat',
+    path: '/ciisUser/contact-support',
+    category: 'communication',
+    order: 23
+  }
 ];
 
 // ✅ Path mapping helper

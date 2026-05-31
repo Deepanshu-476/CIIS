@@ -242,6 +242,7 @@ import AboutUs from "./Pages/AboutUs";
 import ContactUs from "./Pages/ContactUs";
 import RegisterCompany from "./admin/components/CompanyRegister.jsx";
 
+
 // Super Admin
 import SuperAdminLogin from "./page/SuperAdminLogin";
 
@@ -374,6 +375,11 @@ function App() {
           {/* Redirect any unknown client routes to dashboard */}
           <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
         </Route>
+
+        <Route
+          path="contact-support"
+          element={<ContactSupport />}
+        />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

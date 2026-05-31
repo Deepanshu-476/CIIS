@@ -16,6 +16,7 @@ const ChatBox = ({
     currentUser,
     users,
     socket,
+    onlineUsers = [],
     onConversationChange
 }) => {
 
@@ -491,7 +492,11 @@ useEffect(() => {
                                 {selectedUser.isGroup ? getGroupName(selectedUser) : selectedUser.name}
                             </div>
                             <div className="chat-user-status">
-                                {typingUserId ? "Typing..." : selectedUser.isGroup ? "Group Chat" : selectedUser.status || "Online"}
+                                {typingUserId 
+                                    ? "Typing..." 
+                                    : selectedUser.isGroup 
+                                    ? "Group Chat" 
+                                    : (onlineUsers.includes((selectedUser._id || selectedUser.id || "").toString()) ? "Online" : "Offline")}
                             </div>
                     </div>
                 </div>

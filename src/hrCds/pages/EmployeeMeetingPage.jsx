@@ -374,6 +374,20 @@ export default function EmployeeMeetingPage() {
                           </div>
                         </div>
                       )}
+                      
+                      {meeting.link && (
+                        <div className="emp-meeting-detail-item" style={{ marginTop: '10px' }}>
+                          <span className="emp-meeting-detail-icon">🔗</span>
+                          <div>
+                            <div className="emp-meeting-detail-label">Meeting Link</div>
+                            <div className="emp-meeting-detail-value">
+                              <a href={meeting.link.startsWith('http') ? meeting.link : `https://${meeting.link}`} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline', fontWeight: '600' }}>
+                                Join Meeting
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Action Button */}

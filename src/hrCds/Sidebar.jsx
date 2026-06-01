@@ -512,6 +512,16 @@ const allPagesItems = [
     category: 'communication',
     order: 22
   }
+
+  ,
+  {
+    id: 'contact-support',
+    name: 'Contact Support',
+    icon: 'Chat',
+    path: '/ciisUser/contact-support',
+    category: 'communication',
+    order: 23
+  }
 ];
 
 // ✅ Path mapping helper
@@ -546,6 +556,20 @@ const getPathFromName = (name) => {
   };
   
   return pathMap[name] || '/ciisUser/user-dashboard';
+};
+
+const getMenuRouteKey = item => String(item?.path || '').split('/').filter(Boolean).pop();
+
+const filterItemsByCompanyAccess = (items, companyData) => {
+  const allowedPages = Array.isArray(companyData?.allowedPages) ? companyData.allowedPages : [];
+  if (allowedPages.length === 0) return items;
+
+  const allowedSet = new Set(allowedPages.map(item => String(item).trim()).filter(Boolean));
+  return items.filter(item => (
+    allowedSet.has(item.id) ||
+    allowedSet.has(item.path) ||
+    allowedSet.has(getMenuRouteKey(item))
+  ));
 };
 
 const Sidebar = ({ isMobile = false }) => {
@@ -774,7 +798,7 @@ const Sidebar = ({ isMobile = false }) => {
     // If user is super_admin with Management department, show all pages
     if (isSuperAdminWithManagement) {
       console.log('Showing all pages for super_admin with Management department');
-      return allPagesItems;
+      return filterItemsByCompanyAccess(allPagesItems, companyData);
     }
 
     let items = [];
@@ -808,7 +832,9 @@ const Sidebar = ({ isMobile = false }) => {
       items = [...fixedDefaultItems];
     }
 
-    const sortedItems = [...items].sort((a, b) => {
+    const accessFilteredItems = filterItemsByCompanyAccess(items, companyData);
+
+    const sortedItems = [...accessFilteredItems].sort((a, b) => {
       const categoryOrder = ['main', 'administration', 'tasks', 'projects', 'meetings', 'communication', 'clients'];
       const categoryA = categoryOrder.indexOf(a.category) || 99;
       const categoryB = categoryOrder.indexOf(b.category) || 99;
@@ -831,7 +857,7 @@ const Sidebar = ({ isMobile = false }) => {
     })));
 
     return sortedItems;
-  }, [sidebarConfig, loading, isSuperAdminWithManagement, isClientUser, userData]);
+  }, [sidebarConfig, loading, isSuperAdminWithManagement, isClientUser, userData, companyData]);
 
   const renderMenuItem = (item, showFull) => {
     const selected = location.pathname === item.path;

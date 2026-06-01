@@ -81,7 +81,7 @@ const AnimatedProgressRing = ({ percentage, size = 80, strokeWidth = 8 }) => {
 };
 
 // ========== SERVICE PROGRESS CARD ==========
-const ServiceProgressCard = ({ service, clientId, api }) => {
+const ServiceProgressCard = ({ service, clientId, api, startDate = null, endDate = null }) => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
@@ -91,7 +91,6 @@ const ServiceProgressCard = ({ service, clientId, api }) => {
 
   const isMounted = useRef(true);
   const pollingIntervalRef = useRef(null);
-  const initialFetchDone = useRef(false);
 
   useEffect(() => {
     isMounted.current = true;
@@ -113,7 +112,13 @@ const ServiceProgressCard = ({ service, clientId, api }) => {
       }
       
       const encodedService = encodeURIComponent(service);
-      const response = await api.get(`/client/${clientId}/service/${encodedService}`);
+      const params = {};
+      if (startDate && endDate) {
+        params.startDate = startDate;
+        params.endDate = endDate;
+      }
+      
+      const response = await api.get(`/client/${clientId}/service/${encodedService}`, { params });
       
       if (!isMounted.current) return;
       
@@ -145,11 +150,8 @@ const ServiceProgressCard = ({ service, clientId, api }) => {
   };
 
   useEffect(() => {
-    if (!initialFetchDone.current) {
-      initialFetchDone.current = true;
-      fetchTasks();
-    }
-  }, []);
+    fetchTasks();
+  }, [clientId, service, startDate, endDate]);
 
   useEffect(() => {
     if (pollingIntervalRef.current) {
@@ -167,7 +169,7 @@ const ServiceProgressCard = ({ service, clientId, api }) => {
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, []);
+  }, [clientId, service, startDate, endDate]);
 
   const completedTasks = tasks.filter(task => task.completed === true);
   const totalTasks = tasks.length;
@@ -362,6 +364,7 @@ const ServiceProgressCard = ({ service, clientId, api }) => {
 const ServicesTasks = () => {
   const [client, setClient] = useState(null);
   const [services, setServices] = useState([]);
+  const [selectedSubIndex, setSelectedSubIndex] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -557,16 +560,41 @@ const ServicesTasks = () => {
         </div>
       </div>
 
+      {client.subscription && client.subscription.length > 0 && (
+        <div className="ClientDashboard-subscription-filter-container" style={{ marginBottom: '2rem', maxWidth: '400px' }}>
+          <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563', marginBottom: '0.5rem' }}>
+            📅 Filter Tasks by Subscription Period:
+          </label>
+          <select
+            value={selectedSubIndex}
+            onChange={(e) => setSelectedSubIndex(e.target.value)}
+            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #d1d5db', background: '#fff', fontSize: '0.875rem', color: '#1f2937' }}
+          >
+            <option value="all">Show All Tasks (No Filter)</option>
+            {client.subscription.map((sub, idx) => (
+              <option key={idx} value={idx}>
+                Cycle {idx + 1}: {new Date(sub.startDate).toLocaleDateString()} to {new Date(sub.endDate).toLocaleDateString()} ({sub.status}){sub.extraTasks > 0 ? ` (+${sub.extraTasks} Tasks)` : ''}{sub.benefits ? ` - ${sub.benefits}` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {services.length > 0 ? (
         <div className="ClientDashboard-services-list">
-          {services.map((service, index) => (
-            <ServiceProgressCard
-              key={index}
-              service={service}
-              clientId={client._id}
-              api={tasksApi}
-            />
-          ))}
+          {services.map((service, index) => {
+            const selectedSub = selectedSubIndex !== 'all' ? client.subscription[selectedSubIndex] : null;
+            return (
+              <ServiceProgressCard
+                key={index}
+                service={service}
+                clientId={client._id}
+                api={tasksApi}
+                startDate={selectedSub ? selectedSub.startDate : null}
+                endDate={selectedSub ? selectedSub.endDate : null}
+              />
+            );
+          })}
         </div>
       ) : (
         <div className="ClientDashboard-empty-state">

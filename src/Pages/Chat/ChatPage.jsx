@@ -131,6 +131,7 @@ const ChatPage = () => {
         currentUser={currentUser}
         users={users}
         socket={socket}
+        onlineUsers={onlineUsers}
         onConversationChange={fetchConversations}
       />
     </div>

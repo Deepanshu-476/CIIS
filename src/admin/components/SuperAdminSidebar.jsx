@@ -22,6 +22,7 @@ import {
   PersonAdd as CreateUserIcon,
   ExitToApp as LogoutIcon,
   Inventory as AssetsIcon,
+  ManageAccounts as ManageAccountsIcon,
 } from '@mui/icons-material';
 
 // Styled components (same as before)
@@ -216,6 +217,12 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       // Ab sirf specific email ke liye show hoga
       // showForEmail: ['ashutoshrai130@gmail.com']
       showForAll: true
+    },
+    {
+      icon: <ManageAccountsIcon />,
+      name: 'Company Access',
+      route: '/Ciis-network/company-access',
+      showForEmail: ['ashutoshrai130@gmail.com']
     },
  
      { 

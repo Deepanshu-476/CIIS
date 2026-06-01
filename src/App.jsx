@@ -210,6 +210,7 @@ import EmppAsset from "./hrCds/pages/hr/EmppAssets";
 import EmppAttendence from "./hrCds/pages/hr/EmppAttendence";
 import TaskDeatils from "./hrCds/pages/hr/TaskDetails";
 import EmpAllTask from "./hrCds/pages/hr/EmpAllTask";
+import CompanyAllTaskTasks from "./hrCds/pages/hr/CompanyAllTaskTasks";
 import EmpDepartmentAllTask from "./hrCds/pages/hr/EmpDepartmentAllTask.jsx";
 import AdminProject from "./hrCds/pages/AdminProject";
 import Client from "./hrCds/pages/hr/Client";
@@ -231,6 +232,7 @@ import TaskManagement from "./hrCds/pages/TaskManagement";
 import EmployeeMeetingPage from "./hrCds/pages/EmployeeMeetingPage";
 import EmployeeProject from "./hrCds/pages/EmployeeProject";
 import ClientMeeting from "./hrCds/pages/ClientMeeting";
+import ContactSupport from "./hrCds/pages/ContactSupport";
 
 import CreateAlerts from "./hrCds/pages/CreateAlerts.jsx";
 import UserProfile from './page/UserProfile.jsx';
@@ -241,10 +243,12 @@ import AboutUs from "./Pages/AboutUs";
 import ContactUs from "./Pages/ContactUs";
 import RegisterCompany from "./admin/components/CompanyRegister.jsx";
 
+
 // Super Admin
 import SuperAdminLogin from "./page/SuperAdminLogin";
 
 import CompanyManagement from "./page/CompanyManagement.jsx";
+import CompanyAccessManagement from "./admin/page/CompanyAccessManagement.jsx";
 import JobRoleManagement from "./admin/page/JobRoleManagement.jsx";
 import SidebarManagement from "./admin/components/SidebarManagement.jsx";
 import CompanyDetails from "./admin/components/CompanyDetails.jsx";
@@ -253,6 +257,7 @@ import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
 
 import ChatPage from "./pages/Chat/ChatPage";
+import ContactSupport from "./hrCds/pages/ContactSupport.jsx";
 
 
 function App() {
@@ -301,6 +306,7 @@ function App() {
           <Route path="company-assets" element={<CompanyAssetManagement/>}/>
           <Route path="CompanyManagement" element={<CompanyManagement />} />
           <Route path="SidebarManagement" element={<SidebarManagement />} />
+          <Route path="company-access" element={<CompanyAccessManagement />} />
           <Route path="holiday" element={<Holiday />} />
         </Route>
 
@@ -329,6 +335,9 @@ function App() {
           <Route path="admin-meeting" element={<AdminMeetingPage />} />
           <Route path="adminproject" element={<AdminProject />} />
           <Route path="company-all-task" element={<EmpAllTask />} />
+          <Route path="company-all-task/tasks" element={<CompanyAllTaskTasks />} />
+          <Route path="company-all-task/tasks/:userId" element={<CompanyAllTaskTasks />} />
+          <Route path="company-all-task/:userId/tasks" element={<CompanyAllTaskTasks />} />
           <Route path="emp-client" element={<Client />} />
           <Route path="alert" element={<Alerts />} />
           <Route path="attendance" element={<Attendance />} />
@@ -344,6 +353,7 @@ function App() {
           <Route path="create-alert" element={<CreateAlerts />} />
           <Route path="user-profile" element={<UserProfile/>} />
           <Route path="chat" element={<ChatPage />} />
+          <Route path="contact-support" element={<ContactSupport />} />
         </Route>
 
         {/* ========== CLIENT SPECIFIC ROUTES (NEW) ========== */}

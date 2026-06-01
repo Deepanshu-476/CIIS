@@ -33,10 +33,16 @@ export default function AdminMeetingPage() {
     title: "",
     description: "",
     date: "",
+    dates: [], // Multi-date selection
     time: "",
     recurring: "No",
     attendees: [],
+    link: "", // Clickable join link
   });
+
+  const [currentDateInput, setCurrentDateInput] = useState("");
+  const [groups, setGroups] = useState([]);
+  const [editingMeeting, setEditingMeeting] = useState(null);
 
   const adminId = localStorage.getItem("userId");
 
@@ -201,6 +207,7 @@ export default function AdminMeetingPage() {
   useEffect(() => {
     const initializeData = async () => {
       await fetchUsers();
+      fetchGroups();
       setTimeout(() => {
         fetchMeetings();
       }, 100);
@@ -208,6 +215,83 @@ export default function AdminMeetingPage() {
     
     initializeData();
   }, []);
+
+  // Fetch groups
+  const fetchGroups = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/groups`);
+      setGroups(res.data?.groups || res.data || []);
+    } catch (err) {
+      console.error("Error fetching groups:", err);
+    }
+  };
+
+  // Toggle Group Selection (Create Form)
+  const toggleGroupSelection = (group) => {
+    if (!group.members || group.members.length === 0) return;
+    
+    const memberIds = group.members.map(m => (typeof m === 'object' ? (m._id || m.id) : m).toString());
+    const allSelected = memberIds.every(id => form.attendees.includes(id));
+    
+    setForm(prev => {
+      const updatedAttendees = allSelected
+        ? prev.attendees.filter(id => !memberIds.includes(id))
+        : [...new Set([...prev.attendees, ...memberIds])];
+      return { ...prev, attendees: updatedAttendees };
+    });
+  };
+
+  // Toggle Group Selection (Edit Form)
+  const toggleEditGroupSelection = (group) => {
+    if (!group.members || group.members.length === 0 || !editingMeeting) return;
+    
+    const memberIds = group.members.map(m => (typeof m === 'object' ? (m._id || m.id) : m).toString());
+    const allSelected = memberIds.every(id => editingMeeting.attendees.includes(id));
+    
+    setEditingMeeting(prev => {
+      const updatedAttendees = allSelected
+        ? prev.attendees.filter(id => !memberIds.includes(id))
+        : [...new Set([...prev.attendees, ...memberIds])];
+      return { ...prev, attendees: updatedAttendees };
+    });
+  };
+
+  // Add a date to multi-date selection
+  const addMeetingDate = () => {
+    if (!currentDateInput) return;
+    if (form.dates.includes(currentDateInput)) {
+      toast.warning("Date already added");
+      return;
+    }
+    setForm(prev => ({
+      ...prev,
+      dates: [...prev.dates, currentDateInput]
+    }));
+    setCurrentDateInput("");
+  };
+
+  // Remove a date from multi-date selection
+  const removeMeetingDate = (dateToRemove) => {
+    setForm(prev => ({
+      ...prev,
+      dates: prev.dates.filter(d => d !== dateToRemove)
+    }));
+  };
+
+  // Start editing meeting
+  const startEditing = (meeting) => {
+    const formattedDate = meeting.date ? new Date(meeting.date).toISOString().split('T')[0] : "";
+    setEditingMeeting({
+      _id: meeting._id,
+      title: meeting.title || "",
+      description: meeting.description || "",
+      date: formattedDate,
+      time: meeting.time || "",
+      recurring: meeting.recurring || "No",
+      attendees: Array.isArray(meeting.attendees) ? meeting.attendees.map(a => typeof a === 'object' ? (a._id || a.id) : a) : [],
+      link: meeting.link || "",
+    });
+  };
 
   // Retry fetching meetings if companyCode changes
   useEffect(() => {
@@ -233,7 +317,6 @@ export default function AdminMeetingPage() {
         : [...prev.attendees, id],
     }));
   };
-
   // 🟢 Select all attendees
   const selectAllAttendees = () => {
     const allUserIds = users.map(user => getUserId(user));
@@ -246,7 +329,8 @@ export default function AdminMeetingPage() {
   // 🟢 Create meeting
   const createMeeting = async (e) => {
     e.preventDefault();
-    if (!form.title || !form.date || !form.time || form.attendees.length === 0) {
+    const finalDates = form.dates.length > 0 ? form.dates : (form.date ? [form.date] : []);
+    if (!form.title || finalDates.length === 0 || !form.time || form.attendees.length === 0) {
       toast.warning("⚠️ Please fill all fields and select attendees");
       return;
     }
@@ -256,7 +340,14 @@ export default function AdminMeetingPage() {
       const currentCompanyCode = companyCode || localStorage.getItem("companyCode") || "CAREER";
       
       const payload = { 
-        ...form, 
+        title: form.title,
+        description: form.description,
+        date: finalDates[0],
+        dates: finalDates,
+        time: form.time,
+        recurring: form.recurring,
+        attendees: form.attendees,
+        link: form.link,
         createdBy: adminId,
         companyCode: currentCompanyCode,
         company: currentCompanyCode,
@@ -267,14 +358,14 @@ export default function AdminMeetingPage() {
       
       const res = await axios.post(`${API_URL}/meetings/create`, payload);
       if (res.data.success) {
-        toast.success("✅ Meeting created successfully!");
+        toast.success("✅ Meeting(s) scheduled successfully!");
         
         // Emit socket event if socket is available and has emit method
         if (socket && typeof socket.emit === 'function') {
           socket.emit("meeting-created", {
             meetingId: res.data.meeting?._id,
             title: form.title,
-            date: form.date,
+            date: finalDates[0],
             time: form.time,
             companyCode: currentCompanyCode
           });
@@ -286,7 +377,7 @@ export default function AdminMeetingPage() {
             socketInstance.emit("meeting-created", {
               meetingId: res.data.meeting?._id,
               title: form.title,
-              date: form.date,
+              date: finalDates[0],
               time: form.time,
               companyCode: currentCompanyCode
             });
@@ -297,10 +388,13 @@ export default function AdminMeetingPage() {
           title: "",
           description: "",
           date: "",
+          dates: [],
           time: "",
           recurring: "No",
           attendees: [],
+          link: "",
         });
+        setCurrentDateInput("");
         fetchMeetings();
         setActiveTab("manage");
       } else {
@@ -309,6 +403,58 @@ export default function AdminMeetingPage() {
     } catch (err) {
       console.error("Create meeting error:", err);
       toast.error(err.response?.data?.message || "❌ Failed to create meeting");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🟢 Edit / Update existing meeting
+  const handleUpdateMeeting = async (e) => {
+    e.preventDefault();
+    if (!editingMeeting.title || !editingMeeting.date || !editingMeeting.time || editingMeeting.attendees.length === 0) {
+      toast.warning("⚠️ Please fill all required fields and select attendees");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const currentCompanyCode = companyCode || localStorage.getItem("companyCode") || "CAREER";
+      
+      const payload = {
+        title: editingMeeting.title,
+        description: editingMeeting.description,
+        date: editingMeeting.date,
+        time: editingMeeting.time,
+        recurring: editingMeeting.recurring,
+        attendees: editingMeeting.attendees,
+        link: editingMeeting.link,
+        companyCode: currentCompanyCode,
+      };
+
+      console.log("Updating meeting with payload:", payload);
+
+      const res = await axios.put(`${API_URL}/meetings/${editingMeeting._id}`, payload);
+      if (res.data.success) {
+        toast.success("✅ Meeting updated successfully!");
+        
+        if (socket && typeof socket.emit === 'function') {
+          socket.emit("meeting-updated", {
+            meetingId: editingMeeting._id,
+            title: editingMeeting.title,
+            date: editingMeeting.date,
+            time: editingMeeting.time,
+            companyCode: currentCompanyCode
+          });
+        }
+
+        setEditingMeeting(null);
+        fetchMeetings();
+      } else {
+        toast.error(res.data.message || "❌ Failed to update meeting");
+      }
+    } catch (err) {
+      console.error("Update meeting error:", err);
+      toast.error(err.response?.data?.message || "❌ Failed to update meeting");
     } finally {
       setLoading(false);
     }
@@ -659,19 +805,53 @@ export default function AdminMeetingPage() {
 
                   <div className="amp-form-row">
                     <div className="amp-form-group">
-                      <label className="amp-label amp-required">Date</label>
-                      <div className="amp-input-icon-wrapper">
-                        <span className="amp-input-icon">📅</span>
-                        <input
-                          type="date"
-                          name="date"
-                          value={form.date}
-                          onChange={handleChange}
-                          className="amp-input amp-input-with-icon"
-                          min={new Date().toISOString().split('T')[0]}
-                          required
-                        />
+                      <label className="amp-label amp-required">Date(s)</label>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <div className="amp-input-icon-wrapper" style={{ flex: 1 }}>
+                          <span className="amp-input-icon">📅</span>
+                          <input
+                            type="date"
+                            value={currentDateInput}
+                            onChange={(e) => setCurrentDateInput(e.target.value)}
+                            className="amp-input amp-input-with-icon"
+                            min={new Date().toISOString().split('T')[0]}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={addMeetingDate}
+                          className="amp-btn amp-btn-primary"
+                          style={{ padding: '0px 16px', height: '42px', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          +
+                        </button>
                       </div>
+                      
+                      {/* Dates list/badges */}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
+                        {form.dates.map(d => (
+                          <span key={d} style={{ background: 'rgba(59, 130, 246, 0.2)', border: '1px solid rgba(59, 130, 246, 0.4)', padding: '4px 10px', borderRadius: '20px', color: '#fff', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {new Date(d).toLocaleDateString()}
+                            <button type="button" onClick={() => removeMeetingDate(d)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0px', fontWeight: 'bold' }}>✕</button>
+                          </span>
+                        ))}
+                      </div>
+                      
+                      {/* Fallback display if date picked but not added yet */}
+                      {form.dates.length === 0 && (
+                        <div className="amp-input-icon-wrapper" style={{ marginTop: '10px' }}>
+                          <span className="amp-input-icon">📅</span>
+                          <input
+                            type="date"
+                            name="date"
+                            value={form.date}
+                            onChange={handleChange}
+                            className="amp-input amp-input-with-icon"
+                            min={new Date().toISOString().split('T')[0]}
+                            required
+                          />
+                        </div>
+                      )}
                     </div>
 
                     <div className="amp-form-group">
@@ -706,6 +886,21 @@ export default function AdminMeetingPage() {
                       </select>
                     </div>
                   </div>
+
+                  <div className="amp-form-group" style={{ marginTop: '15px' }}>
+                    <label className="amp-label">Meeting Join Link (e.g. Google Meet, Zoom)</label>
+                    <div className="amp-input-icon-wrapper">
+                      <span className="amp-input-icon">🔗</span>
+                      <input
+                        type="url"
+                        name="link"
+                        placeholder="https://meet.google.com/abc-defg-hij"
+                        value={form.link}
+                        onChange={handleChange}
+                        className="amp-input amp-input-with-icon"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Right Column - Attendees */}
@@ -726,6 +921,48 @@ export default function AdminMeetingPage() {
                       {form.attendees.length === users.length ? "Deselect All" : "Select All"}
                     </button>
                   </div>
+
+                  {/* Quick-Select by Group list */}
+                  {groups.length > 0 && (
+                    <div className="amp-groups-select-section" style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: '8px' }}>
+                      <label className="amp-label" style={{ marginBottom: '8px', display: 'block', fontWeight: '600', fontSize: '13px' }}>👥 Select by Group</label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {groups.map(group => {
+                          const allMembersSelected = group.members && group.members.length > 0 && group.members.every(m => {
+                            const id = typeof m === 'object' ? (m._id || m.id) : m;
+                            return form.attendees.includes(id.toString());
+                          });
+                          
+                          return (
+                            <button
+                              key={group._id}
+                              type="button"
+                              onClick={() => toggleGroupSelection(group)}
+                              className="amp-btn"
+                              style={{
+                                padding: '6px 12px',
+                                fontSize: '11px',
+                                borderRadius: '20px',
+                                background: allMembersSelected ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'rgba(255,255,255,0.1)',
+                                color: '#fff',
+                                border: 'none',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              <span>{group.name}</span>
+                              <span style={{ background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: '10px', fontSize: '9px' }}>
+                                {group.members?.length || 0}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="amp-attendees-grid-container">
                     {users.length > 0 ? (
@@ -908,6 +1145,16 @@ export default function AdminMeetingPage() {
                           <span className="amp-detail-icon">👥</span>
                           <span className="amp-detail-text">{attendeeCount} attendees</span>
                         </div>
+                        {meeting.link && (
+                          <div className="amp-detail-item">
+                            <span className="amp-detail-icon">🔗</span>
+                            <span className="amp-detail-text">
+                              <a href={meeting.link.startsWith('http') ? meeting.link : `https://${meeting.link}`} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline', fontWeight: '600' }}>
+                                Join Meeting
+                              </a>
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="amp-meeting-footer">
@@ -927,6 +1174,14 @@ export default function AdminMeetingPage() {
                             title="View Attendance"
                           >
                             👁️
+                          </button>
+                          <button 
+                            onClick={() => startEditing(meeting)}
+                            className="amp-action-btn"
+                            style={{ background: '#f59e0b', color: 'white', marginRight: '6px' }}
+                            title="Edit Meeting"
+                          >
+                            ✏️
                           </button>
                           <button 
                             onClick={() => setDeleteConfirm({
@@ -1086,6 +1341,219 @@ export default function AdminMeetingPage() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Meeting Modal */}
+      {editingMeeting && (
+        <div className="amp-modal-overlay" onClick={() => setEditingMeeting(null)}>
+          <div className="amp-modal amp-modal-lg" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px' }}>
+            <div className="amp-modal-header">
+              <div className="amp-modal-title-wrapper">
+                <span className="amp-modal-icon">✏️</span>
+                <h3 className="amp-modal-title">Edit Meeting</h3>
+              </div>
+              <button 
+                onClick={() => setEditingMeeting(null)}
+                className="amp-modal-close"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <form onSubmit={handleUpdateMeeting}>
+              <div className="amp-modal-content" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                <div className="amp-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                  
+                  {/* Left Column */}
+                  <div>
+                    <div className="amp-form-group" style={{ marginBottom: '15px' }}>
+                      <label className="amp-label amp-required">Meeting Title</label>
+                      <input
+                        type="text"
+                        value={editingMeeting.title}
+                        onChange={(e) => setEditingMeeting({ ...editingMeeting, title: e.target.value })}
+                        className="amp-input"
+                        required
+                      />
+                    </div>
+
+                    <div className="amp-form-group" style={{ marginBottom: '15px' }}>
+                      <label className="amp-label">Description</label>
+                      <textarea
+                        value={editingMeeting.description}
+                        onChange={(e) => setEditingMeeting({ ...editingMeeting, description: e.target.value })}
+                        className="amp-textarea"
+                        rows="3"
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px' }}>
+                      <div className="amp-form-group">
+                        <label className="amp-label amp-required">Date</label>
+                        <input
+                          type="date"
+                          value={editingMeeting.date}
+                          onChange={(e) => setEditingMeeting({ ...editingMeeting, date: e.target.value })}
+                          className="amp-input"
+                          min={new Date().toISOString().split('T')[0]}
+                          required
+                        />
+                      </div>
+
+                      <div className="amp-form-group">
+                        <label className="amp-label amp-required">Time</label>
+                        <input
+                          type="time"
+                          value={editingMeeting.time}
+                          onChange={(e) => setEditingMeeting({ ...editingMeeting, time: e.target.value })}
+                          className="amp-input"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="amp-form-group" style={{ marginBottom: '15px' }}>
+                      <label className="amp-label">Recurrence</label>
+                      <select
+                        value={editingMeeting.recurring}
+                        onChange={(e) => setEditingMeeting({ ...editingMeeting, recurring: e.target.value })}
+                        className="amp-select"
+                      >
+                        <option value="No">No Recurrence</option>
+                        <option value="Daily">Daily</option>
+                        <option value="Weekly">Weekly</option>
+                        <option value="Monthly">Monthly</option>
+                      </select>
+                    </div>
+
+                    <div className="amp-form-group">
+                      <label className="amp-label">Meeting Join Link (e.g. Google Meet, Zoom)</label>
+                      <input
+                        type="url"
+                        placeholder="https://meet.google.com/abc-defg-hij"
+                        value={editingMeeting.link}
+                        onChange={(e) => setEditingMeeting({ ...editingMeeting, link: e.target.value })}
+                        className="amp-input"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Right Column - Attendees */}
+                  <div>
+                    <div className="amp-attendees-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <label className="amp-label amp-required">Select Attendees</label>
+                      <span className="amp-attendees-count" style={{ fontSize: '12px', color: '#9ca3af' }}>
+                        {editingMeeting.attendees.length} / {users.length} selected
+                      </span>
+                    </div>
+
+                    {/* Quick-Select by Group list for Editing */}
+                    {groups.length > 0 && (
+                      <div className="amp-groups-select-section" style={{ marginBottom: '1rem', background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '8px' }}>
+                        <label className="amp-label" style={{ marginBottom: '6px', display: 'block', fontWeight: '600', fontSize: '12px' }}>👥 Select by Group</label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          {groups.map(group => {
+                            const allMembersSelected = group.members && group.members.length > 0 && group.members.every(m => {
+                              const id = typeof m === 'object' ? (m._id || m.id) : m;
+                              return editingMeeting.attendees.includes(id.toString());
+                            });
+                            
+                            return (
+                              <button
+                                key={group._id}
+                                type="button"
+                                onClick={() => toggleEditGroupSelection(group)}
+                                className="amp-btn"
+                                style={{
+                                  padding: '4px 10px',
+                                  fontSize: '10px',
+                                  borderRadius: '20px',
+                                  background: allMembersSelected ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'rgba(255,255,255,0.1)',
+                                  color: '#fff',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  transition: 'all 0.2s'
+                                }}
+                              >
+                                <span>{group.name}</span>
+                                <span style={{ background: 'rgba(255,255,255,0.2)', padding: '0px 4px', borderRadius: '10px', fontSize: '8px' }}>
+                                  {group.members?.length || 0}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="amp-attendees-grid-container" style={{ maxHeight: '350px', overflowY: 'auto', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
+                      {users.length > 0 ? (
+                        <div className="amp-attendees-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px' }}>
+                          {users.map((u) => {
+                            const userId = getUserId(u);
+                            const isSelected = editingMeeting.attendees.includes(userId);
+                            return (
+                              <label 
+                                key={userId} 
+                                className={`amp-attendee-card ${isSelected ? 'amp-attendee-selected' : ''}`}
+                                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderRadius: '6px', cursor: 'pointer', background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255,255,255,0.02)', border: isSelected ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid rgba(255,255,255,0.05)' }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {
+                                    setEditingMeeting(prev => {
+                                      const updated = prev.attendees.includes(userId)
+                                        ? prev.attendees.filter(a => a !== userId)
+                                        : [...prev.attendees, userId];
+                                      return { ...prev, attendees: updated };
+                                    });
+                                  }}
+                                  className="amp-attendee-checkbox"
+                                />
+                                <div className="amp-attendee-avatar" style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#4f46e5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>
+                                  {u.name?.charAt(0).toUpperCase() || 'U'}
+                                </div>
+                                <div className="amp-attendee-info" style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                                  <span className="amp-attendee-name" style={{ fontSize: '13px', fontWeight: '600' }}>{u.name || "Unknown User"}</span>
+                                  <span className="amp-attendee-email" style={{ fontSize: '11px', color: '#9ca3af' }}>{u.email || "No email"}</span>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p style={{ color: '#9ca3af', textAlign: 'center', padding: '20px' }}>No users available</p>
+                      )}
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <div className="amp-modal-footer">
+                <button 
+                  type="button"
+                  onClick={() => setEditingMeeting(null)}
+                  className="amp-btn amp-btn-secondary"
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="amp-btn amp-btn-primary"
+                  disabled={loading}
+                >
+                  {loading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

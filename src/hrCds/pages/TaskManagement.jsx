@@ -121,6 +121,25 @@ const isSameLocalDay = (left, right) => {
   return leftDate.getTime() === rightDate.getTime();
 };
 
+const formatDueDateTime = (dueDate) => {
+  if (!dueDate) return '—';
+  const dateObj = new Date(dueDate);
+  if (Number.isNaN(dateObj.getTime())) return '—';
+  
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const year = dateObj.getFullYear();
+  
+  let hours = dateObj.getHours();
+  const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const strHours = String(hours).padStart(2, '0');
+  
+  return `${day}/${month}/${year} ${strHours}:${minutes} ${ampm}`;
+};
+
 const StatCard = ({ color = 'primary', clickable = true, active = false, children, onClick }) => {
   return (
     <div 
@@ -2213,7 +2232,7 @@ const UserCreateTask = () => {
                           </div>
                           <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center" style={{ marginTop: '8px' }}>
                             <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#666' }}>
-                              Due: {dueDate ? new Date(dueDate).toLocaleDateString() : 'No date'}
+                              Due: {dueDate ? formatDueDateTime(dueDate) : 'No date'}
                             </div>
                             <StatusChip status={status} label={status} />
                           </div>
@@ -2460,7 +2479,7 @@ const UserCreateTask = () => {
                                       color: taskIsOverdue ? '#f44336' : '#333',
                                       fontWeight: taskIsOverdue ? '600' : '400'
                                     }}>
-                                      {dueDate ? new Date(dueDate).toLocaleDateString() : 'No date'}
+                                      {dueDate ? formatDueDateTime(dueDate) : 'No date'}
                                     </div>
                                     {taskIsOverdue && (
                                       <div 
@@ -2647,9 +2666,7 @@ const UserCreateTask = () => {
                                     color: taskIsOverdue ? '#f44336' : '#333',
                                     fontWeight: taskIsOverdue ? '600' : '500'
                                   }}>
-                                    {dueDate
-                                      ? new Date(dueDate).toLocaleDateString()
-                                      : '—'}
+                                    {formatDueDateTime(dueDate)}
                                   </div>
                                   {taskIsOverdue && (
                                     <div 

@@ -5,7 +5,6 @@ import {
   Paper,
   Button,
 } from "@mui/material";
-import SupportAgentIcon from "@mui/icons-material/SupportAgent";
 import ChatIcon from "@mui/icons-material/Chat";
 import { useNavigate } from "react-router-dom";
 
@@ -37,7 +36,7 @@ const ContactSupport = () => {
           textAlign: "center",
         }}
       >
-        <SupportAgentIcon
+        <ChatIcon
           sx={{
             fontSize: 80,
             color: "#1976d2",

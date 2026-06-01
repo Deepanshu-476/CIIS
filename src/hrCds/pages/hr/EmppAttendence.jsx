@@ -937,6 +937,18 @@ const getRowClass = (status) => {
   return "";
 };
 
+const getStatusFilterLabel = (statusFilter) => {
+  const labels = {
+    all: "All Status",
+    present: "PRESENT",
+    late: "LATE",
+    halfday: "HALF DAY",
+    absent: "ABSENT",
+    ontime: "ON TIME",
+  };
+  return labels[statusFilter] || String(statusFilter || "").toUpperCase();
+};
+
 const calculateHoursWorked = (inTime, outTime) => {
   if (!inTime || !outTime) return { hours: 0, formatted: "00:00:00" };
   
@@ -1605,7 +1617,12 @@ const EmployeeAttendance = () => {
     }
 
     if (statusFilter !== "all") {
-      filtered = filtered.filter((rec) => rec.status === statusFilter);
+      filtered = filtered.filter((rec) => {
+        if (statusFilter === "ontime") {
+          return rec.calculatedStatus === "present";
+        }
+        return rec.status === statusFilter;
+      });
     }
 
     if (searchTerm) {
@@ -2394,6 +2411,7 @@ const EmployeeAttendance = () => {
         {[
           { 
             label: "Total Employees", 
+            filterValue: "all",
             count: stats.total, 
             icon: <FiUsers />,
             description: dateRangeMode ? `Across ${dateRangeStats.totalDays} days` : "Total tracked employees",
@@ -2402,6 +2420,7 @@ const EmployeeAttendance = () => {
           },
           { 
             label: "Present", 
+            filterValue: "present",
             count: stats.present, 
             icon: <FiCheckCircle />,
             description: dateRangeMode ? `Avg: ${dateRangeStats.averagePresent}%` : "Before 9:10 AM",
@@ -2410,6 +2429,7 @@ const EmployeeAttendance = () => {
           },
           { 
             label: "Late", 
+            filterValue: "late",
             count: stats.late, 
             icon: <FiClock />,
             description: dateRangeMode ? `Avg: ${dateRangeStats.averageLate}%` : "9:10 AM - 9:30 AM",
@@ -2418,6 +2438,7 @@ const EmployeeAttendance = () => {
           },
           { 
             label: "Half Day", 
+            filterValue: "halfday",
             count: stats.halfDay, 
             icon: <FiAlertCircle />,
             description: dateRangeMode ? `Avg: ${dateRangeStats.averageHalfDay}%` : "After 9:30 AM",
@@ -2426,6 +2447,7 @@ const EmployeeAttendance = () => {
           },
           { 
             label: "Absent", 
+            filterValue: "absent",
             count: stats.absent, 
             icon: <FiUserX />,
             description: dateRangeMode ? `Avg: ${dateRangeStats.averageAbsent}%` : "No login recorded",
@@ -2434,6 +2456,7 @@ const EmployeeAttendance = () => {
           },
           { 
             label: "On Time", 
+            filterValue: "ontime",
             count: stats.onTime, 
             icon: <FiUserCheck />,
             description: "Arrived before 9:10 AM",
@@ -2445,10 +2468,10 @@ const EmployeeAttendance = () => {
           .map((stat) => (
             <div 
               key={stat.label}
-              className={`EmppAttendence-stat-card ${stat.statClass} ${statusFilter === stat.label.toLowerCase() ? 'EmppAttendence-stat-card-active' : ''}`}
+              className={`EmppAttendence-stat-card ${stat.statClass} ${statusFilter === stat.filterValue ? 'EmppAttendence-stat-card-active' : ''}`}
               onClick={() =>
                 setStatusFilter((prev) =>
-                  prev === stat.label.toLowerCase() ? "all" : stat.label.toLowerCase()
+                  prev === stat.filterValue ? "all" : stat.filterValue
                 )
               }
               style={{ cursor: 'pointer' }}
@@ -2523,7 +2546,7 @@ const EmployeeAttendance = () => {
                 }
               </span>
               <span style={{ marginLeft: '16px', color: '#666' }}>
-                Showing: {statusFilter === 'all' ? 'All Status' : statusFilter.toUpperCase()}
+                Showing: {getStatusFilterLabel(statusFilter)}
               </span>
             </div>
           </div>

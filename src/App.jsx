@@ -232,6 +232,7 @@ import TaskManagement from "./hrCds/pages/TaskManagement";
 import EmployeeMeetingPage from "./hrCds/pages/EmployeeMeetingPage";
 import EmployeeProject from "./hrCds/pages/EmployeeProject";
 import ClientMeeting from "./hrCds/pages/ClientMeeting";
+import ContactSupport from "./hrCds/pages/ContactSupport";
 
 import CreateAlerts from "./hrCds/pages/CreateAlerts.jsx";
 import UserProfile from './page/UserProfile.jsx';
@@ -257,7 +258,7 @@ import Holiday from "./page/Holidays.jsx";
 import BranchManagement from "./admin/page/BranchManagement.jsx";
 
 import ChatPage from "./pages/Chat/ChatPage";
-import ContactSupport from "./hrCds/pages/ContactSupport.jsx";
+// import ContactSupport from "./hrCds/pages/ContactSupport.jsx";
 
 
 function App() {

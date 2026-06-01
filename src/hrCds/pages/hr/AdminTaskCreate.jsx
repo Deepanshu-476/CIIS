@@ -46,9 +46,12 @@ const AdminTaskManagement = () => {
   const [totalTasks, setTotalTasks] = useState(0);
   
   // Date Range Filter State
-  const [dateRange, setDateRange] = useState({
-    startDate: null,
-    endDate: null
+  const [dateRange, setDateRange] = useState(() => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    return { startDate: start, endDate: end };
   });
 
   // Filtered Stats State

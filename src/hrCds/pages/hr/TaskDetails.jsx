@@ -237,6 +237,8 @@ const UserCreateTask = () => {
     return count;
   };
 
+  const getTaskDueDate = (task) => task?.dueDateTime || task?.dueDate;
+
   // Fixed date grouping function
   const groupTasksByCreatedDate = (tasks) => {
     const grouped = {};
@@ -249,14 +251,16 @@ const UserCreateTask = () => {
       let dateObj;
       
       // Try different date fields with proper fallback
-      if (task.createdAt) {
+      const dueDate = getTaskDueDate(task);
+
+      if (dueDate) {
+        dateObj = new Date(dueDate);
+      } else if (task.createdAt) {
         dateObj = new Date(task.createdAt);
       } else if (task.createdDate) {
         dateObj = new Date(task.createdDate);
       } else if (task.updatedAt) {
         dateObj = new Date(task.updatedAt);
-      } else if (task.dueDateTime) {
-        dateObj = new Date(task.dueDateTime);
       } else {
         dateObj = new Date(); // Final fallback
       }
@@ -603,7 +607,8 @@ const UserCreateTask = () => {
         let taskDate;
         
         if (dateFilterType === 'dueDate') {
-          taskDate = task.dueDateTime ? new Date(task.dueDateTime) : null;
+          const dueDate = getTaskDueDate(task);
+          taskDate = dueDate ? new Date(dueDate) : null;
         } else {
           taskDate = task.createdAt ? new Date(task.createdAt) : null;
         }
@@ -837,9 +842,10 @@ const UserCreateTask = () => {
     navigate('/login');
   };
 
-  const isOverdue = (dueDateTime) => {
-    if (!dueDateTime) return false;
-    return new Date(dueDateTime) < new Date();
+  const isOverdue = (taskOrDate) => {
+    const dueDate = typeof taskOrDate === 'object' ? getTaskDueDate(taskOrDate) : taskOrDate;
+    if (!dueDate) return false;
+    return new Date(dueDate) < new Date();
   };
 
   // Enhanced table cell with new action buttons
@@ -1043,6 +1049,7 @@ const UserCreateTask = () => {
                 if (!task || typeof task !== 'object') return null;
                 
                 const myStatus = getUserStatusForTask(task, userId);
+                const dueDate = getTaskDueDate(task);
 
                 return (
                   <TableRow key={task._id} sx={{ 
@@ -1081,19 +1088,19 @@ const UserCreateTask = () => {
                         <FiCalendar size={14} color={theme.palette.text.secondary} />
                         <Typography
                           variant="body2"
-                          color={isOverdue(task?.dueDateTime) ? 'error' : 'text.primary'}
+                          color={isOverdue(dueDate) ? 'error' : 'text.primary'}
                           fontWeight={500}
                           sx={{ fontSize: isSmallMobile ? '0.8rem' : '0.875rem' }}
                         >
-                          {task?.dueDateTime
-                            ? new Date(task.dueDateTime).toLocaleDateString('en-IN', {
+                          {dueDate
+                            ? new Date(dueDate).toLocaleDateString('en-IN', {
                                 day: 'numeric',
                                 month: 'short',
                                 year: 'numeric'
                               })
                             : '—'}
                         </Typography>
-                        {isOverdue(task?.dueDateTime) && (
+                        {isOverdue(dueDate) && (
                           <FiAlertCircle size={14} color={theme.palette.error.main} />
                         )}
                       </Stack>
@@ -1182,6 +1189,7 @@ const UserCreateTask = () => {
             if (!task || typeof task !== 'object') return null;
             
             const myStatus = getUserStatusForTask(task, userId);
+            const dueDate = getTaskDueDate(task);
 
             return (
               <MobileTaskCard key={task._id} status={myStatus}>
@@ -1219,8 +1227,8 @@ const UserCreateTask = () => {
                     <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
                       <Stack direction="row" alignItems="center" spacing={1}>
                         <FiCalendar size={14} color={theme.palette.text.secondary} />
-                        <Typography variant="body2" color={isOverdue(task?.dueDateTime) ? 'error' : 'text.primary'} fontWeight={500}>
-                          {task?.dueDateTime ? new Date(task.dueDateTime).toLocaleDateString() : 'No date'}
+                        <Typography variant="body2" color={isOverdue(dueDate) ? 'error' : 'text.primary'} fontWeight={500}>
+                          {dueDate ? new Date(dueDate).toLocaleDateString() : 'No date'}
                         </Typography>
                       </Stack>
                       <PriorityChip

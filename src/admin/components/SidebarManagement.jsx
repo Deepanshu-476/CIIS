@@ -86,6 +86,16 @@ const getIconHtml = (iconName) => {
   return icons[iconName] || '📌';
 };
 
+const getRouteKey = (path = '') => String(path).split('/').filter(Boolean).pop();
+
+const isRouteAllowedForCompany = (route, company) => {
+  const allowedPages = Array.isArray(company?.allowedPages) ? company.allowedPages : [];
+  if (allowedPages.length === 0) return true;
+
+  const allowedSet = new Set(allowedPages.map(item => String(item).trim()).filter(Boolean));
+  return allowedSet.has(route.id) || allowedSet.has(route.path) || allowedSet.has(getRouteKey(route.path));
+};
+
 const SidebarManagement = () => {
   // State for responsive design
   const [isMobile, setIsMobile] = useState(window.innerWidth < 600);
@@ -200,7 +210,8 @@ const SidebarManagement = () => {
           createdAt: companyData.createdAt,
           updatedAt: companyData.updatedAt,
           dbIdentifier: companyData.dbIdentifier,
-          loginUrl: companyData.loginUrl
+          loginUrl: companyData.loginUrl,
+          allowedPages: Array.isArray(companyData.allowedPages) ? companyData.allowedPages : []
         };
       }
       
@@ -217,8 +228,8 @@ const SidebarManagement = () => {
     initializeCompanyFromLocalStorage();
   }, []);
 
-  const initializePages = () => {
-    const pages = APP_ROUTES.map(route => ({
+  const initializePages = (companyOverride = company) => {
+    const pages = APP_ROUTES.filter(route => isRouteAllowedForCompany(route, companyOverride)).map(route => ({
       id: route.path,
       name: route.name,
       path: `/ciisUser/${route.path}`,
@@ -237,15 +248,34 @@ const SidebarManagement = () => {
       
       if (companyFromStorage && companyFromStorage._id) {
         console.log('🎯 Company ID found:', companyFromStorage._id);
-        setCompany(companyFromStorage);
+        let activeCompany = companyFromStorage;
+
+        try {
+          const latestCompanyResponse = await axiosInstance.get(`/company/${companyFromStorage._id}`);
+          const latestCompany = latestCompanyResponse.data?.company;
+
+          if (latestCompany?._id) {
+            activeCompany = {
+              ...companyFromStorage,
+              ...latestCompany,
+              allowedPages: Array.isArray(latestCompany.allowedPages) ? latestCompany.allowedPages : []
+            };
+            localStorage.setItem('company', JSON.stringify(activeCompany));
+          }
+        } catch (latestCompanyError) {
+          console.warn('Could not refresh company access, using stored company data:', latestCompanyError.message);
+        }
+
+        setCompany(activeCompany);
+        initializePages(activeCompany);
         
-        await fetchDepartments(companyFromStorage._id);
-        await fetchCompanyRoles(companyFromStorage._id);
-        await fetchExistingConfigs(companyFromStorage._id);
+        await fetchDepartments(activeCompany._id);
+        await fetchCompanyRoles(activeCompany._id);
+        await fetchExistingConfigs(activeCompany._id);
         
         setSnackbar({
           open: true,
-          message: `Loaded company: ${companyFromStorage.companyName}`,
+          message: `Loaded company: ${activeCompany.companyName}`,
           severity: 'success'
         });
         

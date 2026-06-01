@@ -247,6 +247,7 @@ import RegisterCompany from "./admin/components/CompanyRegister.jsx";
 import SuperAdminLogin from "./page/SuperAdminLogin";
 
 import CompanyManagement from "./page/CompanyManagement.jsx";
+import CompanyAccessManagement from "./admin/page/CompanyAccessManagement.jsx";
 import JobRoleManagement from "./admin/page/JobRoleManagement.jsx";
 import SidebarManagement from "./admin/components/SidebarManagement.jsx";
 import CompanyDetails from "./admin/components/CompanyDetails.jsx";
@@ -255,6 +256,7 @@ import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
 
 import ChatPage from "./pages/Chat/ChatPage";
+import ContactSupport from "./hrCds/pages/ContactSupport.jsx";
 
 
 function App() {
@@ -303,6 +305,7 @@ function App() {
           <Route path="company-assets" element={<CompanyAssetManagement/>}/>
           <Route path="CompanyManagement" element={<CompanyManagement />} />
           <Route path="SidebarManagement" element={<SidebarManagement />} />
+          <Route path="company-access" element={<CompanyAccessManagement />} />
           <Route path="holiday" element={<Holiday />} />
         </Route>
 
@@ -349,6 +352,7 @@ function App() {
           <Route path="create-alert" element={<CreateAlerts />} />
           <Route path="user-profile" element={<UserProfile/>} />
           <Route path="chat" element={<ChatPage />} />
+          <Route path="contact-support" element={<ContactSupport />} />
         </Route>
 
         {/* ========== CLIENT SPECIFIC ROUTES (NEW) ========== */}
@@ -375,11 +379,6 @@ function App() {
           {/* Redirect any unknown client routes to dashboard */}
           <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
         </Route>
-
-        <Route
-          path="contact-support"
-          element={<ContactSupport />}
-        />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

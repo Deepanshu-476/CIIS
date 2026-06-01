@@ -190,6 +190,12 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       showForAll: true
     },
     { 
+      icon: <CompanyIcon />, 
+      name: 'Manage Branches', 
+      route: '/Ciis-network/branch',
+      showForAll: true
+    },
+    { 
       icon: <JobRoleIcon />, 
       name: 'Job Roles', 
       route: '/Ciis-network/JobRoleManagement',

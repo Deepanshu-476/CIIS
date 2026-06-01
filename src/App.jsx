@@ -232,6 +232,7 @@ import TaskManagement from "./hrCds/pages/TaskManagement";
 import EmployeeMeetingPage from "./hrCds/pages/EmployeeMeetingPage";
 import EmployeeProject from "./hrCds/pages/EmployeeProject";
 import ClientMeeting from "./hrCds/pages/ClientMeeting";
+import ContactSupport from "./hrCds/pages/ContactSupport";
 
 import CreateAlerts from "./hrCds/pages/CreateAlerts.jsx";
 import UserProfile from './page/UserProfile.jsx';
@@ -349,6 +350,7 @@ function App() {
           <Route path="create-alert" element={<CreateAlerts />} />
           <Route path="user-profile" element={<UserProfile/>} />
           <Route path="chat" element={<ChatPage />} />
+          <Route path="contact-support" element={<ContactSupport />} />
         </Route>
 
         {/* ========== CLIENT SPECIFIC ROUTES (NEW) ========== */}
@@ -375,11 +377,6 @@ function App() {
           {/* Redirect any unknown client routes to dashboard */}
           <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
         </Route>
-
-        <Route
-          path="contact-support"
-          element={<ContactSupport />}
-        />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

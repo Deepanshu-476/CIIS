@@ -19,10 +19,16 @@
 .navbar {
   background-color: var(--bg-color);
   box-shadow: var(--shadow);
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 1000;
+  left: 0;
+  right: 0;
+  z-index: 9999;
   width: 100%;
+}
+
+.navbar + * {
+  padding-top: 65px;
 }
 
 .navbar-container {
@@ -142,6 +148,10 @@
 
 /* Responsive Design */
 @media screen and (max-width: 768px) {
+  .navbar + * {
+    padding-top: 60px;
+  }
+
   .navbar-container {
     padding: 0 15px;
     height: 60px;

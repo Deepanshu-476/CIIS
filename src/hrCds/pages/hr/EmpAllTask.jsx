@@ -478,7 +478,7 @@ const TaskDetails = () => {
     let todayTasksCount = 0;
 
     tasksList.forEach(task => {
-      const taskDate = new Date(task.createdAt);
+      const taskDate = new Date(getTaskDueDate(task) || task.createdAt);
       taskDate.setHours(0, 0, 0, 0);
 
       if (taskDate.getTime() === today.getTime()) {
@@ -961,8 +961,10 @@ const TaskDetails = () => {
   const filteredTasks = useMemo(() => {
     if (!Array.isArray(tasks)) return [];
     return [...tasks].sort((a, b) => {
-      const aDate = a.createdAt ? new Date(a.createdAt) : new Date(0);
-      const bDate = b.createdAt ? new Date(b.createdAt) : new Date(0);
+      const aDateValue = getTaskDueDate(a) || a.createdAt;
+      const bDateValue = getTaskDueDate(b) || b.createdAt;
+      const aDate = aDateValue ? new Date(aDateValue) : new Date(0);
+      const bDate = bDateValue ? new Date(bDateValue) : new Date(0);
       return bDate - aDate;
     });
   }, [tasks]);

@@ -603,7 +603,8 @@ const UserCreateTask = () => {
   }, []);
 
   const getTaskTimeFilterDates = useCallback((task) => {
-    return [getDueDateForTask(task), task?.createdAt, task?.updatedAt]
+    const dateToFilter = getDueDateForTask(task) || task?.createdAt;
+    return [dateToFilter]
       .map(date => getLocalDateStart(date))
       .filter(Boolean);
   }, [getDueDateForTask]);

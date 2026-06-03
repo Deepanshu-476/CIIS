@@ -1,92 +1,79 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import axiosInstance from "../../utils/axiosConfig";
 import Swal from "sweetalert2";
 import {
-  Box,
-  Typography,
-  Button,
-  Grid,
-  Card,
-  CardContent,
-  IconButton,
-  TextField,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Chip,
-  Tooltip,
-  Paper,
-  InputBase,
-  CircularProgress,
-  Zoom,
-  Fade,
-} from "@mui/material";
-import {
   Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Search as SearchIcon,
+  Apartment as ApartmentIcon,
   Business as BranchIcon,
+  Delete as DeleteIcon,
+  Download as DownloadIcon,
+  Edit as EditIcon,
+  Email as EmailIcon,
+  FilterList as FilterIcon,
+  Groups as GroupsIcon,
+  Inventory as AssetIcon,
   Phone as PhoneIcon,
-  LocationOn as AddressIcon,
-  Star as DefaultIcon,
-  ToggleOn as ActiveIcon,
-  ToggleOff as InactiveIcon,
+  Search as SearchIcon,
+  ShieldOutlined as ActiveBranchesIcon,
+  AccountTree as DepartmentIcon,
 } from "@mui/icons-material";
+import {
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Grid,
+  IconButton,
+  InputBase,
+  Paper,
+  TextField,
+  Tooltip,
+  Typography,
+} from "@mui/material";
+
+const getBranchUsers = (branch) => Number(branch.totalUsers || branch.employeeCount || branch.usersCount || 0);
 
 const BranchManagement = () => {
+  const navigate = useNavigate();
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("name-asc");
   const [companyId, setCompanyId] = useState("");
-  
-  // Dialog State
   const [openDialog, setOpenDialog] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedBranchId, setSelectedBranchId] = useState(null);
-  
-  // Form State
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     branchCode: "",
     address: "",
     phone: "",
   });
-  
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    // Fetch company ID from localstorage
     try {
       const companyStr = localStorage.getItem("company");
       if (companyStr) {
         const companyObj = JSON.parse(companyStr);
-        if (companyObj && companyObj._id) {
+        if (companyObj?._id) {
           setCompanyId(companyObj._id);
           fetchBranches(companyObj._id);
+          return;
         }
       }
+      setLoading(false);
     } catch (err) {
       console.error("Error reading company from storage:", err);
       setLoading(false);
     }
   }, []);
-
-  const fetchBranches = async (cId) => {
-    try {
-      setLoading(true);
-      const response = await axiosInstance.get(`/branches/company/${cId}`);
-      if (response.data && response.data.success) {
-        setBranches(response.data.branches || []);
-      }
-    } catch (error) {
-      console.error("Error fetching branches:", error);
-      toastAlert("error", "Failed to load branches");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const toastAlert = (icon, title) => {
     Swal.fire({
@@ -100,18 +87,98 @@ const BranchManagement = () => {
     });
   };
 
-  // Auto-generate short branch code
+  const fetchBranches = async (cId) => {
+    try {
+      setLoading(true);
+      const response = await axiosInstance.get(`/branches/company/${cId}`);
+      if (response.data?.success) {
+        setBranches(response.data.branches || []);
+      }
+    } catch (error) {
+      console.error("Error fetching branches:", error);
+      toastAlert("error", "Failed to load branches");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const activeBranches = useMemo(
+    () => branches.filter((branch) => branch.isActive !== false).length,
+    [branches]
+  );
+  const defaultBranches = useMemo(
+    () => branches.filter((branch) => branch.isDefault).length,
+    [branches]
+  );
+  const totalEmployees = useMemo(
+    () => branches.reduce((sum, branch) => sum + getBranchUsers(branch), 0),
+    [branches]
+  );
+
+  const filteredBranches = useMemo(() => {
+    return branches
+      .filter((branch) => {
+        const query = searchQuery.trim().toLowerCase();
+        const matchesSearch =
+          !query ||
+          branch.name?.toLowerCase().includes(query) ||
+          branch.branchCode?.toLowerCase().includes(query) ||
+          branch.address?.toLowerCase().includes(query) ||
+          branch.phone?.toLowerCase().includes(query);
+
+        const matchesStatus =
+          statusFilter === "all" ||
+          (statusFilter === "active" && branch.isActive !== false) ||
+          (statusFilter === "inactive" && branch.isActive === false);
+
+        return matchesSearch && matchesStatus;
+      })
+      .sort((a, b) => {
+        if (sortBy === "name-desc") return (b.name || "").localeCompare(a.name || "");
+        if (sortBy === "employees-desc") return getBranchUsers(b) - getBranchUsers(a);
+        if (sortBy === "employees-asc") return getBranchUsers(a) - getBranchUsers(b);
+        return (a.name || "").localeCompare(b.name || "");
+      });
+  }, [branches, searchQuery, sortBy, statusFilter]);
+
+  const stats = [
+    {
+      label: "Total Branches",
+      value: branches.length,
+      chip: "All locations",
+      icon: <BranchIcon />,
+      className: "total",
+    },
+    {
+      label: "Active Branches",
+      value: activeBranches,
+      chip: `${branches.length ? Math.round((activeBranches / branches.length) * 100) : 0}%`,
+      icon: <ActiveBranchesIcon />,
+      className: "active",
+    },
+    {
+      label: "Default Branch",
+      value: defaultBranches,
+      chip: "Head office",
+      icon: <ApartmentIcon />,
+      className: "warning",
+    },
+    {
+      label: "Total Employees",
+      value: totalEmployees,
+      chip: "All branches",
+      icon: <GroupsIcon />,
+      className: "people",
+    },
+  ];
+
   const handleNameChange = (e) => {
     const name = e.target.value;
     setFormData((prev) => {
+      const previousAutoCode = prev.name.replace(/[^a-zA-Z0-9]/g, "").substring(0, 3).toUpperCase();
       const updates = { ...prev, name };
-      
-      // Auto generate code only if in add mode and code hasn't been manually typed yet
-      if (!isEditMode && (!prev.branchCode || prev.branchCode === prev.name.replace(/[^a-zA-Z0-9]/g, "").substring(0, 3).toUpperCase())) {
-        updates.branchCode = name
-          .replace(/[^a-zA-Z0-9]/g, "")
-          .substring(0, 3)
-          .toUpperCase();
+      if (!isEditMode && (!prev.branchCode || prev.branchCode === previousAutoCode)) {
+        updates.branchCode = name.replace(/[^a-zA-Z0-9]/g, "").substring(0, 3).toUpperCase();
       }
       return updates;
     });
@@ -120,12 +187,7 @@ const BranchManagement = () => {
   const handleOpenAddDialog = () => {
     setIsEditMode(false);
     setSelectedBranchId(null);
-    setFormData({
-      name: "",
-      branchCode: "",
-      address: "",
-      phone: "",
-    });
+    setFormData({ name: "", branchCode: "", address: "", phone: "" });
     setOpenDialog(true);
   };
 
@@ -133,8 +195,8 @@ const BranchManagement = () => {
     setIsEditMode(true);
     setSelectedBranchId(branch._id);
     setFormData({
-      name: branch.name,
-      branchCode: branch.branchCode,
+      name: branch.name || "",
+      branchCode: branch.branchCode || "",
       address: branch.address || "",
       phone: branch.phone || "",
     });
@@ -143,17 +205,11 @@ const BranchManagement = () => {
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
-    setFormData({
-      name: "",
-      branchCode: "",
-      address: "",
-      phone: "",
-    });
+    setFormData({ name: "", branchCode: "", address: "", phone: "" });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     if (!formData.name.trim() || !formData.branchCode.trim()) {
       toastAlert("warning", "Name and Branch Code are required");
       return;
@@ -161,40 +217,25 @@ const BranchManagement = () => {
 
     try {
       setSubmitting(true);
-      if (isEditMode) {
-        // Update Branch
-        const response = await axiosInstance.put(`/branches/${selectedBranchId}`, {
-          name: formData.name,
-          branchCode: formData.branchCode,
-          address: formData.address,
-          phone: formData.phone,
-        });
+      const payload = {
+        name: formData.name.trim(),
+        branchCode: formData.branchCode.trim(),
+        address: formData.address,
+        phone: formData.phone,
+      };
 
-        if (response.data && response.data.success) {
-          toastAlert("success", "Branch updated successfully 🎉");
-          handleCloseDialog();
-          fetchBranches(companyId);
-        }
-      } else {
-        // Create Branch
-        const response = await axiosInstance.post("/branches", {
-          name: formData.name,
-          branchCode: formData.branchCode,
-          companyId,
-          address: formData.address,
-          phone: formData.phone,
-        });
+      const response = isEditMode
+        ? await axiosInstance.put(`/branches/${selectedBranchId}`, payload)
+        : await axiosInstance.post("/branches", { ...payload, companyId });
 
-        if (response.data && response.data.success) {
-          toastAlert("success", "Branch added successfully 🎉");
-          handleCloseDialog();
-          fetchBranches(companyId);
-        }
+      if (response.data?.success) {
+        toastAlert("success", isEditMode ? "Branch updated successfully" : "Branch added successfully");
+        handleCloseDialog();
+        fetchBranches(companyId);
       }
     } catch (error) {
       console.error("Submit branch error:", error);
-      const msg = error.response?.data?.message || "Failed to save branch";
-      Swal.fire("Error", msg, "error");
+      Swal.fire("Error", error.response?.data?.message || "Failed to save branch", "error");
     } finally {
       setSubmitting(false);
     }
@@ -212,17 +253,13 @@ const BranchManagement = () => {
         isActive: nextActiveState,
       });
 
-      if (response.data && response.data.success) {
-        toastAlert(
-          "success",
-          `Branch ${nextActiveState ? "activated" : "deactivated"} successfully`
-        );
+      if (response.data?.success) {
+        toastAlert("success", `Branch ${nextActiveState ? "activated" : "deactivated"} successfully`);
         fetchBranches(companyId);
       }
     } catch (error) {
       console.error("Toggle branch error:", error);
-      const msg = error.response?.data?.message || "Failed to update status";
-      toastAlert("error", msg);
+      toastAlert("error", error.response?.data?.message || "Failed to update status");
     }
   };
 
@@ -234,382 +271,424 @@ const BranchManagement = () => {
 
     Swal.fire({
       title: `Delete Branch: ${branch.name}?`,
-      text: "You won't be able to revert this! Users and departments associated with this branch will prevent deletion.",
+      text: "You won't be able to revert this. Users and departments associated with this branch will prevent deletion.",
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#d33",
       cancelButtonColor: "#3085d6",
-      confirmButtonText: "Yes, delete it!",
+      confirmButtonText: "Yes, delete it",
     }).then(async (result) => {
-      if (result.isConfirmed) {
-        try {
-          const response = await axiosInstance.delete(`/branches/${branch._id}`);
-          if (response.data && response.data.success) {
-            Swal.fire("Deleted!", "Branch has been deleted.", "success");
-            fetchBranches(companyId);
-          }
-        } catch (error) {
-          console.error("Delete branch error:", error);
-          const msg = error.response?.data?.message || "Failed to delete branch";
-          Swal.fire("Restriction", msg, "error");
+      if (!result.isConfirmed) return;
+
+      try {
+        const response = await axiosInstance.delete(`/branches/${branch._id}`);
+        if (response.data?.success) {
+          Swal.fire("Deleted", "Branch has been deleted.", "success");
+          fetchBranches(companyId);
         }
+      } catch (error) {
+        console.error("Delete branch error:", error);
+        Swal.fire("Restriction", error.response?.data?.message || "Failed to delete branch", "error");
       }
     });
   };
 
-  // Filter list by search query
-  const filteredBranches = branches.filter(
-    (b) =>
-      b.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.branchCode.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleExportBranches = () => {
+    const headers = ["Branch", "Branch Code", "Phone", "Address", "Employees", "Status"];
+    const rows = filteredBranches.map((branch) => [
+      branch.name || "",
+      branch.branchCode || "",
+      branch.phone || "",
+      branch.address || "",
+      getBranchUsers(branch),
+      branch.isActive !== false ? "Active" : "Inactive",
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "branches.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
-    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
-      {/* 🚀 Header section with Premium design */}
-      <Box
-        sx={{
-          mb: 4,
-          p: 3,
-          borderRadius: "16px",
-          background: "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)",
-          color: "white",
-          boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.2)",
-          display: "flex",
-          flexDirection: { xs: "column", sm: "row" },
-          justifyContent: "space-between",
-          alignItems: { xs: "flex-start", sm: "center" },
-          gap: 2,
-        }}
-      >
-        <Box>
-          <Typography variant="h4" fontWeight="700" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <BranchIcon fontSize="large" /> Manage Branches
-          </Typography>
-          <Typography variant="body2" sx={{ opacity: 0.8, mt: 0.5 }}>
-            Create and manage company branches. Add branch codes to customize login urls and separate departments.
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleOpenAddDialog}
-          sx={{
-            bgcolor: "white",
-            color: "#1e3c72",
-            fontWeight: "bold",
-            borderRadius: "8px",
-            textTransform: "none",
-            boxShadow: "0 4px 15px rgba(255,255,255,0.2)",
-            "&:hover": {
-              bgcolor: "#f1f1f1",
-              transform: "translateY(-2px)",
-              boxShadow: "0 6px 20px rgba(255,255,255,0.3)",
-            },
-            transition: "all 0.2s ease-in-out",
-          }}
-        >
-          Add New Branch
-        </Button>
+    <Box sx={styles.page}>
+      <Box sx={styles.statsGrid}>
+        {stats.map((stat) => (
+          <Paper key={stat.label} elevation={0} sx={{ ...styles.statCard, ...styles[`stat_${stat.className}`] }}>
+            <Box sx={styles.statIcon}>{stat.icon}</Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography sx={styles.statLabel}>{stat.label}</Typography>
+              <Box sx={styles.statValueRow}>
+                <Typography sx={styles.statValue}>{stat.value}</Typography>
+                <Chip label={stat.chip} size="small" sx={styles.statChip} />
+              </Box>
+            </Box>
+          </Paper>
+        ))}
       </Box>
 
-      {/* 🔍 Search bar with Glassmorphic design */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: "4px 8px",
-          display: "flex",
-          alignItems: "center",
-          width: { xs: "100%", sm: 400 },
-          mb: 4,
-          borderRadius: "12px",
-          border: "1px solid rgba(0,0,0,0.1)",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-          bgcolor: "rgba(255, 255, 255, 0.85)",
-          backdropFilter: "blur(10px)",
-        }}
-      >
-        <IconButton sx={{ p: "10px" }} aria-label="search">
-          <SearchIcon />
-        </IconButton>
-        <InputBase
-          sx={{ ml: 1, flex: 1, fontSize: "0.95rem" }}
-          placeholder="Search by branch name or code..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+      <Paper elevation={0} sx={styles.paper}>
+        <Box sx={styles.header}>
+          <Box sx={styles.titleSection}>
+            <Box sx={styles.titleIcon}>
+              <BranchIcon />
+            </Box>
+            <Box>
+              <Typography sx={styles.title}>Manage Branches</Typography>
+              <Typography sx={styles.subtitle}>Create, edit and manage all company branches</Typography>
+            </Box>
+          </Box>
+
+          <Box sx={styles.headerActions}>
+            <Box sx={styles.searchBox}>
+              <SearchIcon sx={{ fontSize: 20, color: "#64748b" }} />
+              <InputBase
+                sx={styles.searchInput}
+                placeholder="Search branches..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </Box>
+            <Box component="select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} sx={styles.select}>
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </Box>
+            <Box component="select" value={sortBy} onChange={(e) => setSortBy(e.target.value)} sx={styles.select}>
+              <option value="name-asc">Name (A-Z)</option>
+              <option value="name-desc">Name (Z-A)</option>
+              <option value="employees-desc">Employees (High)</option>
+              <option value="employees-asc">Employees (Low)</option>
+            </Box>
+            <Tooltip title="Export branches">
+              <IconButton sx={styles.toolButton} onClick={handleExportBranches}>
+                <DownloadIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Filters">
+              <IconButton sx={styles.toolButton}>
+                <FilterIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenAddDialog} sx={styles.primaryButton}>
+              Add Branch
+            </Button>
+          </Box>
+        </Box>
+
+        {loading ? (
+          <Box sx={styles.loadingState}>
+            <CircularProgress size={34} sx={{ color: "#1976d2" }} />
+          </Box>
+        ) : (
+          <Box sx={styles.tableWrap}>
+            <Box component="table" sx={styles.table}>
+              <Box component="thead">
+                <Box component="tr">
+                  {["Branch", "Code", "Contact", "Employees", "Status", "Actions"].map((heading) => (
+                    <Box component="th" key={heading} sx={styles.th}>
+                      {heading}
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+              <Box component="tbody">
+                {filteredBranches.length === 0 ? (
+                  <Box component="tr">
+                    <Box component="td" colSpan={6} sx={styles.emptyCell}>
+                      <BranchIcon sx={{ fontSize: 54, color: "#cbd5e1", mb: 1 }} />
+                      <Typography sx={{ fontWeight: 800, color: "#334155" }}>No Branches Found</Typography>
+                      <Typography sx={{ color: "#64748b", fontSize: 13, mt: 0.5 }}>
+                        {searchQuery ? "No branches match your search." : "Create your first branch to get started."}
+                      </Typography>
+                    </Box>
+                  </Box>
+                ) : (
+                  filteredBranches.map((branch) => {
+                    const active = branch.isActive !== false;
+                    return (
+                      <Box component="tr" key={branch._id} sx={styles.tr}>
+                        <Box component="td" sx={styles.td}>
+                          <Box sx={styles.branchCell}>
+                            <Box sx={{ ...styles.branchIcon, ...(branch.isDefault ? styles.branchIconDefault : active ? styles.branchIconActive : styles.branchIconInactive) }}>
+                              <BranchIcon fontSize="small" />
+                            </Box>
+                            <Box sx={{ minWidth: 0 }}>
+                              <Box sx={styles.branchNameRow}>
+                                <Typography sx={styles.branchName}>{branch.name}</Typography>
+                                {branch.isDefault && <Chip label="Default" size="small" sx={styles.defaultChip} />}
+                              </Box>
+                              <Typography sx={styles.branchAddress}>{branch.address || "Address not available"}</Typography>
+                            </Box>
+                          </Box>
+                        </Box>
+                        <Box component="td" sx={styles.td}>
+                          <Chip label={branch.branchCode || "N/A"} size="small" sx={styles.codeChip} />
+                        </Box>
+                        <Box component="td" sx={styles.td}>
+                          <Box sx={styles.contactStack}>
+                            <Box sx={styles.contactLine}>
+                              <PhoneIcon sx={styles.contactIcon} />
+                              {branch.phone || "Not set"}
+                            </Box>
+                            <Box sx={styles.contactLine}>
+                              <EmailIcon sx={styles.contactIcon} />
+                              {branch.email || branch.contactEmail || "Not set"}
+                            </Box>
+                          </Box>
+                        </Box>
+                        <Box component="td" sx={styles.td}>
+                          <Box sx={styles.employeeCell}>
+                            <GroupsIcon sx={{ fontSize: 16 }} />
+                            {getBranchUsers(branch)}
+                          </Box>
+                        </Box>
+                        <Box component="td" sx={styles.td}>
+                          <Chip
+                            label={active ? "Active" : "Inactive"}
+                            size="small"
+                            onClick={() => handleToggleStatus(branch)}
+                            sx={active ? styles.activeChip : styles.inactiveChip}
+                          />
+                        </Box>
+                        <Box component="td" sx={styles.td}>
+                          <Box sx={styles.actions}>
+                            <Tooltip title="Edit branch">
+                              <IconButton size="small" sx={styles.actionButton} onClick={() => handleOpenEditDialog(branch)}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Manage departments">
+                              <IconButton
+                                size="small"
+                                sx={styles.actionButton}
+                                onClick={() => navigate(`/Ciis-network/department?branch=${branch._id}`)}
+                              >
+                                <DepartmentIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Manage assets">
+                              <IconButton
+                                size="small"
+                                sx={styles.actionButton}
+                                onClick={() => navigate(`/Ciis-network/company-assets?branch=${branch._id}`)}
+                              >
+                                <AssetIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            {!branch.isDefault && (
+                              <Tooltip title="Delete branch">
+                                <IconButton size="small" sx={styles.deleteButton} onClick={() => handleDeleteBranch(branch)}>
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Box>
+                        </Box>
+                      </Box>
+                    );
+                  })
+                )}
+              </Box>
+            </Box>
+          </Box>
+        )}
       </Paper>
 
-      {/* ⏳ Loader */}
-      {loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 8 }}>
-          <CircularProgress size={50} sx={{ color: "#1e3c72" }} />
-        </Box>
-      ) : filteredBranches.length === 0 ? (
-        // Empty State
-        <Fade in={true}>
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              py: 8,
-              textAlign: "center",
-              bgcolor: "rgba(0,0,0,0.02)",
-              borderRadius: "16px",
-              p: 4,
-            }}
-          >
-            <BranchIcon sx={{ fontSize: 80, color: "text.disabled", mb: 2 }} />
-            <Typography variant="h6" fontWeight="bold" color="text.secondary">
-              No Branches Found
-            </Typography>
-            <Typography variant="body2" color="text.disabled" sx={{ mt: 1, maxWidth: 300 }}>
-              {searchQuery ? "Try refining your search query." : "Click 'Add New Branch' to create your first company branch."}
-            </Typography>
-          </Box>
-        </Fade>
-      ) : (
-        // 🗂️ Branch Cards Grid
-        <Grid container spacing={3}>
-          {filteredBranches.map((branch, index) => (
-            <Grid item xs={12} sm={6} md={4} key={branch._id}>
-              <Zoom in={true} style={{ transitionDelay: `${index * 50}ms` }}>
-                <Card
-                  sx={{
-                    borderRadius: "16px",
-                    boxShadow: "0 6px 20px rgba(0,0,0,0.06)",
-                    border: "1px solid rgba(0,0,0,0.05)",
-                    position: "relative",
-                    overflow: "visible",
-                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                    "&:hover": {
-                      transform: "translateY(-6px)",
-                      boxShadow: "0 12px 30px rgba(0,0,0,0.12)",
-                      "& .settings-overlay": { opacity: 1 },
-                    },
-                    bgcolor: branch.isActive ? "white" : "rgba(0,0,0,0.02)",
-                  }}
-                >
-                  {/* Default (Head Office) Badge */}
-                  {branch.isDefault && (
-                    <Chip
-                      icon={<DefaultIcon sx={{ color: "#ffd700 !important" }} />}
-                      label="Head Office"
-                      size="small"
-                      sx={{
-                        position: "absolute",
-                        top: -12,
-                        left: 20,
-                        zIndex: 2,
-                        bgcolor: "#1e3c72",
-                        color: "white",
-                        fontWeight: "bold",
-                        boxShadow: "0 4px 10px rgba(30,60,114,0.3)",
-                        "& .MuiChip-icon": { color: "#ffd700" },
-                      }}
-                    />
-                  )}
-
-                  <CardContent sx={{ pt: branch.isDefault ? 3 : 2, pb: "16px !important" }}>
-                    {/* Header */}
-                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2 }}>
-                      <Box>
-                        <Typography variant="h6" fontWeight="bold" sx={{ color: branch.isActive ? "#1e3c72" : "text.secondary" }}>
-                          {branch.name}
-                        </Typography>
-                        <Chip
-                          label={branch.branchCode}
-                          size="small"
-                          sx={{
-                            mt: 0.5,
-                            fontWeight: "700",
-                            bgcolor: "rgba(30, 60, 114, 0.1)",
-                            color: "#1e3c72",
-                          }}
-                        />
-                      </Box>
-                      
-                      {/* Active Status Toggle */}
-                      <Tooltip title={branch.isDefault ? "HQ is always Active" : branch.isActive ? "Deactivate Branch" : "Activate Branch"}>
-                        <IconButton
-                          onClick={() => handleToggleStatus(branch)}
-                          disabled={branch.isDefault}
-                          sx={{
-                            color: branch.isActive ? "#2e7d32" : "#d32f2f",
-                          }}
-                        >
-                          {branch.isActive ? <ActiveIcon fontSize="large" /> : <InactiveIcon fontSize="large" />}
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-
-                    {/* Stats & Info */}
-                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, my: 2 }}>
-                      {branch.phone && (
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
-                          <PhoneIcon sx={{ fontSize: 18 }} />
-                          <Typography variant="body2">{branch.phone}</Typography>
-                        </Box>
-                      )}
-                      
-                      {branch.address && (
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1, color: "text.secondary" }}>
-                          <AddressIcon sx={{ fontSize: 18, mt: 0.2 }} />
-                          <Typography variant="body2" sx={{ lineBreak: "anywhere" }}>
-                            {branch.address}
-                          </Typography>
-                        </Box>
-                      )}
-                    </Box>
-
-                    {/* Footer Actions */}
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        borderTop: "1px solid rgba(0,0,0,0.06)",
-                        pt: 1.5,
-                        mt: 2,
-                      }}
-                    >
-                      <Typography variant="caption" sx={{ fontWeight: "600", color: "#1e3c72" }}>
-                        👤 {branch.totalUsers || 0} Active Users
-                      </Typography>
-
-                      <Box sx={{ display: "flex", gap: 1 }}>
-                        <Tooltip title="Edit Details">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleOpenEditDialog(branch)}
-                            sx={{
-                              bgcolor: "rgba(0,0,0,0.03)",
-                              color: "#1976d2",
-                              "&:hover": { bgcolor: "rgba(25, 118, 210, 0.1)" },
-                            }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-
-                        {!branch.isDefault && (
-                          <Tooltip title="Delete Branch">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDeleteBranch(branch)}
-                              sx={{
-                                bgcolor: "rgba(0,0,0,0.03)",
-                                color: "#d32f2f",
-                                "&:hover": { bgcolor: "rgba(211, 47, 47, 0.1)" },
-                              }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Zoom>
-            </Grid>
-          ))}
-        </Grid>
-      )}
-
-      {/* 📝 Dialog Modal for Add/Edit */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="xs" fullWidth borderRadius="16px">
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="xs" fullWidth PaperProps={{ sx: styles.dialogPaper }}>
         <form onSubmit={handleSubmit}>
-          <DialogTitle
-            sx={{
-              background: "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)",
-              color: "white",
-              fontWeight: "bold",
-            }}
-          >
-            {isEditMode ? "Edit Branch Details" : "Create New Branch"}
-          </DialogTitle>
-          
+          <DialogTitle sx={styles.dialogTitle}>{isEditMode ? "Edit Branch" : "Create Branch"}</DialogTitle>
           <DialogContent sx={{ pt: 3 }}>
             <Grid container spacing={2.5} sx={{ mt: 0.5 }}>
               <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Branch Name"
-                  placeholder="e.g. Noida Branch"
-                  value={formData.name}
-                  onChange={handleNameChange}
-                  required
-                  variant="outlined"
-                />
+                <TextField fullWidth label="Branch Name" value={formData.name} onChange={handleNameChange} required />
               </Grid>
-
               <Grid item xs={12}>
                 <TextField
                   fullWidth
                   label="Branch Login Code"
-                  placeholder="e.g. NOIDA"
                   value={formData.branchCode}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, branchCode: e.target.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase() }))
+                    setFormData((prev) => ({
+                      ...prev,
+                      branchCode: e.target.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase(),
+                    }))
                   }
                   required
-                  disabled={isEditMode && formData.branchCode === `${branches.find(b => b._id === selectedBranchId)?.companyCode}-HQ`}
                   helperText="Appended to company code for login (e.g. TCS-NOIDA)"
-                  variant="outlined"
                 />
               </Grid>
-
               <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Phone Number"
-                  placeholder="Contact number"
-                  value={formData.phone}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
-                  variant="outlined"
-                />
+                <TextField fullWidth label="Phone Number" value={formData.phone} onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))} />
               </Grid>
-
               <Grid item xs={12}>
                 <TextField
                   fullWidth
                   label="Address"
-                  placeholder="Branch address"
                   value={formData.address}
                   onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))}
                   multiline
                   rows={3}
-                  variant="outlined"
                 />
               </Grid>
             </Grid>
           </DialogContent>
-
           <DialogActions sx={{ p: 2.5, pt: 1.5 }}>
-            <Button onClick={handleCloseDialog} sx={{ color: "text.secondary", textTransform: "none", fontWeight: "bold" }}>
+            <Button onClick={handleCloseDialog} sx={{ color: "text.secondary", textTransform: "none", fontWeight: 700 }}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={submitting}
-              sx={{
-                bgcolor: "#1e3c72",
-                textTransform: "none",
-                fontWeight: "bold",
-                "&:hover": { bgcolor: "#2a5298" },
-              }}
-            >
-              {submitting ? <CircularProgress size={24} color="inherit" /> : isEditMode ? "Save Changes" : "Create Branch"}
+            <Button type="submit" variant="contained" disabled={submitting} sx={styles.primaryButton}>
+              {submitting ? <CircularProgress size={22} color="inherit" /> : isEditMode ? "Update Branch" : "Create Branch"}
             </Button>
           </DialogActions>
         </form>
       </Dialog>
     </Box>
   );
+};
+
+const styles = {
+  page: {
+    p: { xs: 1.5, sm: 2, md: 3 },
+    minHeight: "100vh",
+    bgcolor: "#f8fafc",
+  },
+  statsGrid: {
+    display: "grid",
+    gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" },
+    gap: 2,
+    mb: 3,
+  },
+  statCard: {
+    p: 2.5,
+    borderRadius: "16px",
+    border: "1px solid #e2e8f0",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+    display: "flex",
+    gap: 2,
+    alignItems: "center",
+    position: "relative",
+    overflow: "hidden",
+    "&::before": {
+      content: '""',
+      position: "absolute",
+      left: 0,
+      right: 0,
+      top: 0,
+      height: 4,
+      bgcolor: "#2196f3",
+    },
+  },
+  stat_total: { "&::before": { bgcolor: "#2196f3" }, "& .MuiBox-root:first-of-type": { bgcolor: "#e3f2fd", color: "#1976d2" } },
+  stat_active: { "&::before": { bgcolor: "#4caf50" }, "& .MuiBox-root:first-of-type": { bgcolor: "#e8f5e9", color: "#2e7d32" } },
+  stat_warning: { "&::before": { bgcolor: "#ff9800" }, "& .MuiBox-root:first-of-type": { bgcolor: "#fff3e0", color: "#ef6c00" } },
+  stat_people: { "&::before": { bgcolor: "#7c3aed" }, "& .MuiBox-root:first-of-type": { bgcolor: "#f3e8ff", color: "#7c3aed" } },
+  statIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: "12px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    "& svg": { fontSize: 28 },
+  },
+  statLabel: { fontSize: 12, fontWeight: 700, color: "#546e7a", textTransform: "uppercase", letterSpacing: 0.5 },
+  statValueRow: { display: "flex", alignItems: "center", gap: 1 },
+  statValue: { fontSize: 28, fontWeight: 800, color: "#263238", lineHeight: 1 },
+  statChip: { height: 22, bgcolor: "#f1f5f9", color: "#475569", fontSize: 11, fontWeight: 700 },
+  paper: {
+    borderRadius: "16px",
+    border: "1px solid #e2e8f0",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+    overflow: "hidden",
+  },
+  header: {
+    p: 2.5,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: { xs: "stretch", lg: "center" },
+    gap: 2,
+    flexDirection: { xs: "column", lg: "row" },
+    borderBottom: "1px solid #e2e8f0",
+  },
+  titleSection: { display: "flex", alignItems: "center", gap: 1.5 },
+  titleIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: "12px",
+    bgcolor: "linear-gradient(135deg, #1976d2, #42a5f5)",
+    background: "linear-gradient(135deg, #1976d2, #42a5f5)",
+    color: "#fff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  title: { fontSize: 24, fontWeight: 800, color: "#263238", lineHeight: 1.1 },
+  subtitle: { fontSize: 13, color: "#607d8b", mt: 0.5 },
+  headerActions: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1 },
+  searchBox: {
+    height: 42,
+    minWidth: { xs: "100%", sm: 260 },
+    px: 1.5,
+    border: "2px solid #e2e8f0",
+    borderRadius: "12px",
+    display: "flex",
+    alignItems: "center",
+    gap: 1,
+    bgcolor: "#fff",
+  },
+  searchInput: { flex: 1, fontSize: 14 },
+  select: {
+    height: 42,
+    minWidth: 140,
+    px: 1.5,
+    border: "2px solid #e2e8f0",
+    borderRadius: "12px",
+    bgcolor: "#fff",
+    color: "#334155",
+    fontWeight: 700,
+  },
+  primaryButton: {
+    borderRadius: "12px",
+    textTransform: "none",
+    fontWeight: 800,
+    bgcolor: "#1976d2",
+    "&:hover": { bgcolor: "#1565c0" },
+  },
+  toolButton: { width: 42, height: 42, border: "2px solid #e2e8f0", borderRadius: "12px", color: "#475569" },
+  tableWrap: { overflowX: "auto" },
+  table: { width: "100%", minWidth: 940, borderCollapse: "collapse" },
+  th: { px: 2, py: 1.75, bgcolor: "#f8fafc", color: "#546e7a", fontSize: 12, fontWeight: 800, textAlign: "left", textTransform: "uppercase" },
+  tr: { "&:hover": { bgcolor: "#f8fafc" } },
+  td: { px: 2, py: 1.8, borderTop: "1px solid #f1f5f9", color: "#334155", fontSize: 14 },
+  branchCell: { display: "flex", alignItems: "center", gap: 1.5 },
+  branchIcon: { width: 42, height: 42, borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center" },
+  branchIconDefault: { bgcolor: "#e3f2fd", color: "#1976d2" },
+  branchIconActive: { bgcolor: "#e8f5e9", color: "#2e7d32" },
+  branchIconInactive: { bgcolor: "#ffebee", color: "#c62828" },
+  branchNameRow: { display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" },
+  branchName: { color: "#263238", fontSize: 14, fontWeight: 800 },
+  branchAddress: { color: "#64748b", fontSize: 12, mt: 0.25, maxWidth: 360 },
+  defaultChip: { height: 20, bgcolor: "#e3f2fd", color: "#1976d2", fontSize: 11, fontWeight: 800 },
+  codeChip: { height: 24, bgcolor: "#eef2ff", color: "#2563eb", fontWeight: 800 },
+  contactStack: { display: "flex", flexDirection: "column", gap: 0.75 },
+  contactLine: { display: "flex", alignItems: "center", gap: 0.75, color: "#334155", fontSize: 13 },
+  contactIcon: { fontSize: 15, color: "#1976d2" },
+  employeeCell: { display: "flex", alignItems: "center", gap: 0.75, color: "#7c3aed", fontSize: 13, fontWeight: 800 },
+  activeChip: { height: 24, bgcolor: "#dcfce7", color: "#15803d", fontWeight: 800, cursor: "pointer" },
+  inactiveChip: { height: 24, bgcolor: "#fee2e2", color: "#dc2626", fontWeight: 800, cursor: "pointer" },
+  actions: { display: "flex", gap: 0.75 },
+  actionButton: { border: "1px solid #e2e8f0", borderRadius: "10px", color: "#334155" },
+  deleteButton: { border: "1px solid #fecaca", borderRadius: "10px", color: "#dc2626" },
+  emptyCell: { py: 8, textAlign: "center", borderTop: "1px solid #f1f5f9" },
+  loadingState: { display: "flex", justifyContent: "center", alignItems: "center", py: 8 },
+  dialogPaper: { borderRadius: "16px" },
+  dialogTitle: { bgcolor: "#1976d2", color: "#fff", fontWeight: 800 },
 };
 
 export default BranchManagement;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
 import API_URL from "../../config";
@@ -8,6 +8,8 @@ import CIISLoader from '../../Loader/CIISLoader';
 
 const CompanyDetails = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedBranchId = searchParams.get("branch") || searchParams.get("branchId") || "";
   const [pageLoading, setPageLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [company, setCompany] = useState(null);
@@ -24,6 +26,9 @@ const CompanyDetails = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
   const [weeklyLogins, setWeeklyLogins] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [loadingBranches, setLoadingBranches] = useState(false);
+  const [selectedBranchId, setSelectedBranchId] = useState(requestedBranchId);
   
   // Modal States
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -154,6 +159,29 @@ const CompanyDetails = () => {
     }
   };
 
+  const getCompanyLoginPath = (companyData = company) => {
+    const companyCode = companyData?.companyCode || companyData?.code || "COMPANY";
+    const fallbackPath = `/company/${companyCode}/login`;
+    const rawLoginUrl = companyData?.loginUrl || fallbackPath;
+
+    if (/^https?:\/\//i.test(rawLoginUrl)) {
+      try {
+        const parsedUrl = new URL(rawLoginUrl);
+        return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}` || fallbackPath;
+      } catch (error) {
+        console.warn("Invalid company login URL:", rawLoginUrl, error);
+        return fallbackPath;
+      }
+    }
+
+    return rawLoginUrl.startsWith("/") ? rawLoginUrl : `/${rawLoginUrl}`;
+  };
+
+  const getCompanyLoginUrl = (companyData = company) => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return `${origin}${getCompanyLoginPath(companyData)}`;
+  };
+
   // Handle window resize
   useEffect(() => {
     const handleResize = () => {
@@ -166,7 +194,7 @@ const CompanyDetails = () => {
 
   // Handle copy URL
   const handleCopy = () => {
-    const url = `${window.location.origin}${company?.loginUrl || `/company/${company?.companyCode}/login`}`;
+    const url = getCompanyLoginUrl(company);
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -288,26 +316,77 @@ const CompanyDetails = () => {
     return [];
   };
 
-  const fetchCompanyUsers = async (companyId, headers) => {
+  const getRecordId = value => {
+    if (!value) return "";
+    if (typeof value === "object") {
+      return String(value._id || value.id || value.value || "");
+    }
+    return String(value);
+  };
+
+  const getUserBranchId = user => (
+    getRecordId(user?.branch) ||
+    getRecordId(user?.branchId) ||
+    getRecordId(user?.branch_id) ||
+    getRecordId(user?.branchDetails)
+  );
+
+  const filterUsersByBranch = users => {
+    if (!selectedBranchId) return users;
+    return users.filter(user => getUserBranchId(user) === selectedBranchId);
+  };
+
+  const getBranchLabel = branchValue => {
+    const branchId = getRecordId(branchValue);
+    const branch = branches.find(br => getRecordId(br) === branchId) || (typeof branchValue === "object" ? branchValue : null);
+    if (!branch) return branchId ? "Assigned Branch" : "No Branch";
+    return branch.branchCode ? `${branch.name} (${branch.branchCode})` : branch.name;
+  };
+
+  const fetchBranches = async (companyId, headers) => {
+    if (!companyId) return [];
+
     try {
+      setLoadingBranches(true);
+      const response = await axios.get(`${API_URL}/branches/company/${companyId}`, { headers });
+      const companyBranches = response.data?.branches || response.data?.data || [];
+      setBranches(companyBranches);
+      return companyBranches;
+    } catch (error) {
+      console.error("Error fetching company branches:", error);
+      return [];
+    } finally {
+      setLoadingBranches(false);
+    }
+  };
+
+  const fetchCompanyUsers = async (companyId, headers, branchId = selectedBranchId) => {
+    try {
+      const params = companyId ? { companyId } : {};
+      if (branchId) {
+        params.branch = branchId;
+        params.branchId = branchId;
+      }
+
       const response = await axios.get(
         `${API_URL}/users/company-users`,
         {
           headers,
-          params: companyId ? { companyId } : {}
+          params
         }
       );
 
       const users = processUsers(extractUsersFromResponse(response.data));
-      setRecentUsers(users);
+      const visibleUsers = branchId ? users.filter(user => getUserBranchId(user) === branchId) : users;
+      setRecentUsers(visibleUsers);
 
       setStats(prev => ({
         ...prev,
-        totalUsers: response.data?.count || response.data?.message?.count || users.length,
-        activeUsers: users.filter(user => user.isActive !== false).length
+        totalUsers: visibleUsers.length,
+        activeUsers: visibleUsers.filter(user => user.isActive !== false).length
       }));
 
-      return users;
+      return visibleUsers;
     } catch (error) {
       console.error("Error fetching company users:", error);
       toast.error(error.response?.data?.message || "Failed to load company users");
@@ -672,7 +751,8 @@ const CompanyDetails = () => {
             logo: companyData.logo || ""
           });
           
-          await fetchCompanyUsers(companyId, headers);
+          await fetchBranches(companyId, headers);
+          await fetchCompanyUsers(companyId, headers, selectedBranchId);
           
           if (data.currentUser) {
             setUserRole(data.currentUser.role || data.currentUser.name || "user");
@@ -765,9 +845,10 @@ const CompanyDetails = () => {
         });
         
         if (fullCompanyData._id) {
+          await fetchBranches(fullCompanyData._id, headers);
           await fetchDepartments(fullCompanyData._id);
           await fetchJobRoles(fullCompanyData._id);
-          await fetchCompanyUsers(fullCompanyData._id, headers);
+          await fetchCompanyUsers(fullCompanyData._id, headers, selectedBranchId);
           await fetchTodayLoginCount(headers);
           await fetchWeeklyLoginAnalytics(headers);
         }
@@ -899,6 +980,26 @@ const CompanyDetails = () => {
   const handleRefresh = () => {
     toast.info("Refreshing data...");
     fetchCurrentUserCompany();
+  };
+
+  const handleBranchFilterChange = async (branchId) => {
+    setSelectedBranchId(branchId);
+
+    const nextParams = new URLSearchParams(searchParams);
+    if (branchId) {
+      nextParams.set("branch", branchId);
+      nextParams.delete("branchId");
+    } else {
+      nextParams.delete("branch");
+      nextParams.delete("branchId");
+    }
+    setSearchParams(nextParams);
+
+    if (company?._id) {
+      const token = localStorage.getItem("token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      await fetchCompanyUsers(company._id, headers, branchId);
+    }
   };
 
   // Handle company edit - Open modal
@@ -1570,12 +1671,40 @@ const CompanyDetails = () => {
     );
   }
 
+  const selectedBranch = branches.find(branch => getRecordId(branch) === selectedBranchId);
+  const selectedBranchLabel = selectedBranchId
+    ? (selectedBranch?.name || "Selected Branch")
+    : "All Branches";
+  const branchFilterControl = (
+    <div className="CompanyDetails-branch-filter">
+      <label className="CompanyDetails-branch-filter-label" htmlFor="CompanyDetails-branch-filter-select">
+        Branch
+      </label>
+      <select
+        id="CompanyDetails-branch-filter-select"
+        className="CompanyDetails-branch-filter-select"
+        value={selectedBranchId}
+        onChange={(event) => handleBranchFilterChange(event.target.value)}
+        disabled={loadingBranches || branches.length === 0}
+      >
+        <option value="">
+          {loadingBranches ? "Loading branches..." : "All Branches"}
+        </option>
+        {branches.map(branch => (
+          <option key={getRecordId(branch)} value={getRecordId(branch)}>
+            {branch.name} {branch.branchCode ? `(${branch.branchCode})` : ""}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
   const statsData = [
     {
       icon: 'people',
       value: stats.totalUsers,
       label: 'TOTAL USERS',
-      chip: 'All users',
+      chip: selectedBranchLabel,
       tone: 'blue',
       color: '#2196f3',
       gradient: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)'
@@ -1739,7 +1868,7 @@ const CompanyDetails = () => {
                   <div className="CompanyDetails-url-container-desktop">
                     <div className="CompanyDetails-url-display-desktop">
                       <span className="CompanyDetails-url-text-desktop">
-                        {window.location.origin}{company.loginUrl || `/company/${company.companyCode}/login`}
+                        {getCompanyLoginUrl(company)}
                       </span>
                     </div>
                     <button className={`CompanyDetails-copy-btn-desktop ${copied ? 'CompanyDetails-copied' : ''}`} onClick={handleCopy}>
@@ -1788,7 +1917,7 @@ const CompanyDetails = () => {
               <div className="CompanyDetails-url-container">
                 <div className="CompanyDetails-url-display">
                   <span className="CompanyDetails-url-text">
-                    {window.location.origin}{company.loginUrl || `/company/${company.companyCode}/login`}
+                    {getCompanyLoginUrl(company)}
                   </span>
                 </div>
                 <button className={`CompanyDetails-copy-btn ${copied ? 'CompanyDetails-copied' : ''}`} onClick={handleCopy}>
@@ -2028,6 +2157,7 @@ const CompanyDetails = () => {
                   </div>
                   <h3 className="CompanyDetails-card-title">Recent Users</h3>
                   <span className="CompanyDetails-badge">{recentUsers.length}</span>
+                  {branchFilterControl}
                 </div>
 
                 <div className="CompanyDetails-users-list">
@@ -2043,6 +2173,7 @@ const CompanyDetails = () => {
                       } else if (user.department) {
                         deptDisplay = getDepartmentName(user.department);
                       }
+                      const branchDisplay = getBranchLabel(user.branch || user.branchId || user.branch_id || user.branchDetails);
                       
                       return (
                         <div key={user.id || user._id || index} className="CompanyDetails-user-item">
@@ -2061,6 +2192,9 @@ const CompanyDetails = () => {
                               )}
                               <span className="CompanyDetails-tag CompanyDetails-department">
                                 {deptDisplay}
+                              </span>
+                              <span className="CompanyDetails-tag CompanyDetails-branch">
+                                {branchDisplay}
                               </span>
                             </div>
                           </div>
@@ -2176,6 +2310,7 @@ const CompanyDetails = () => {
                   </div>
                   <h3 className="CompanyDetails-card-title">Recent Users</h3>
                   <span className="CompanyDetails-badge">{recentUsers.length}</span>
+                  {branchFilterControl}
                 </div>
 
                 <div className="CompanyDetails-users-list">
@@ -2191,6 +2326,7 @@ const CompanyDetails = () => {
                       } else if (user.department) {
                         deptDisplay = getDepartmentName(user.department);
                       }
+                      const branchDisplay = getBranchLabel(user.branch || user.branchId || user.branch_id || user.branchDetails);
                       
                       return (
                         <div key={user.id || user._id || index} className="CompanyDetails-user-item">
@@ -2209,6 +2345,9 @@ const CompanyDetails = () => {
                               )}
                               <span className="CompanyDetails-tag CompanyDetails-department">
                                 {deptDisplay}
+                              </span>
+                              <span className="CompanyDetails-tag CompanyDetails-branch">
+                                {branchDisplay}
                               </span>
                             </div>
                           </div>

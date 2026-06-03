@@ -300,10 +300,12 @@ function App() {
         >
           <Route path="company-details" element={<CompanyDetails />} />
           <Route path="department" element={<Department />} />
+          <Route path="department/branch/:branchId" element={<Department />} />
           <Route path="JobRoleManagement" element={<JobRoleManagement />} />
           <Route path="create-user" element={<CreateUser />} />
           <Route path="all-company" element={<AllCompany />} />
           <Route path="company-assets" element={<CompanyAssetManagement/>}/>
+          <Route path="company-assets/branch/:branchId" element={<CompanyAssetManagement/>}/>
           <Route path="CompanyManagement" element={<CompanyManagement />} />
           <Route path="SidebarManagement" element={<SidebarManagement />} />
           <Route path="company-access" element={<CompanyAccessManagement />} />

@@ -11,6 +11,10 @@ const MessageBubble = ({
     onForward
 }) => {
 
+
+
+
+    
     const [showMenu, setShowMenu] = useState(false);
     const [showForwardModal, setShowForwardModal] = useState(false);
     const [selectedTargets, setSelectedTargets] = useState([]);

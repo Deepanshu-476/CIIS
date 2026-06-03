@@ -86,12 +86,7 @@
   margin-bottom: 8px;
   background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
-<<<<<<< HEAD
-  color: var(--text-on-primary) !important;
-  ;
-=======
   -webkit-text-fill-color: transparent;
->>>>>>> 837f65bb33678a6ac89e0f2e0cca893cbd4dd02c
 }
 
 .MyLeaves-subtitle {

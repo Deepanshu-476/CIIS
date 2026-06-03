@@ -256,7 +256,6 @@ import AllCompany from "./page/AllCompany.jsx";
 import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
 import BranchManagement from "./admin/page/BranchManagement.jsx";
-
 import ChatPage from "./pages/Chat/ChatPage";
 // import ContactSupport from "./hrCds/pages/ContactSupport.jsx";
 

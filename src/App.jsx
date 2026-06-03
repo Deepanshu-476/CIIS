@@ -255,7 +255,6 @@ import CompanyDetails from "./admin/components/CompanyDetails.jsx";
 import AllCompany from "./page/AllCompany.jsx";
 import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
-
 import ChatPage from "./pages/Chat/ChatPage";
 // import ContactSupport from "./hrCds/pages/ContactSupport.jsx";
 

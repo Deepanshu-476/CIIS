@@ -255,6 +255,7 @@ import CompanyDetails from "./admin/components/CompanyDetails.jsx";
 import AllCompany from "./page/AllCompany.jsx";
 import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
+import BranchManagement from "./admin/page/BranchManagement.jsx"; 
 import ChatPage from "./pages/Chat/ChatPage";
 // import ContactSupport from "./hrCds/pages/ContactSupport.jsx";
 
@@ -307,6 +308,7 @@ function App() {
           <Route path="SidebarManagement" element={<SidebarManagement />} />
           <Route path="company-access" element={<CompanyAccessManagement />} />
           <Route path="holiday" element={<Holiday />} />
+          <Route path="branch" element={<BranchManagement />} />
         </Route>
 
         {/* ========== CDS USER ROUTES (HR, Employee, etc.) ========== */}

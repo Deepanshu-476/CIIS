@@ -106,6 +106,8 @@ const SidebarManagement = () => {
 
   const [company, setCompany] = useState(null);
   const [departments, setDepartments] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [selectedBranch, setSelectedBranch] = useState('');
   const [jobRoles, setJobRoles] = useState([]);
   const [companyRoles, setCompanyRoles] = useState([]);
   const [selectedDepartment, setSelectedDepartment] = useState('');
@@ -271,7 +273,7 @@ const SidebarManagement = () => {
         setCompany(activeCompany);
         initializePages(activeCompany);
         
-        await fetchDepartments(activeCompany._id);
+        await fetchBranches(activeCompany._id);
         await fetchCompanyRoles(activeCompany._id);
         await fetchExistingConfigs(activeCompany._id);
         
@@ -294,12 +296,56 @@ const SidebarManagement = () => {
     }
   };
 
-  // Fetch departments
-  const fetchDepartments = async (companyId) => {
+  const fetchBranches = async (companyId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axiosInstance.get(`/branches/company/${companyId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (response.data && response.data.success) {
+        setBranches(response.data.branches || []);
+        // Automatically select default branch
+        const defaultBr = response.data.branches?.find(b => b.isDefault);
+        if (defaultBr) {
+          setSelectedBranch(defaultBr._id);
+          await fetchDepartments(companyId, defaultBr._id);
+        } else if (response.data.branches?.length > 0) {
+          setSelectedBranch(response.data.branches[0]._id);
+          await fetchDepartments(companyId, response.data.branches[0]._id);
+        } else {
+          await fetchDepartments(companyId);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching branches:', error);
+    }
+  };
+
+  const handleBranchChange = async (branchId) => {
+    setSelectedBranch(branchId);
+    setSelectedDepartment('');
+    setSelectedRole('');
+    setSelectedItems([]);
+    setJobRoles([]);
+    if (company && company._id) {
+      await fetchDepartments(company._id, branchId);
+      await fetchExistingConfigs(company._id, branchId);
+    }
+  };
+
+  // Fetch departments scoped by company and optionally branch
+  const fetchDepartments = async (companyId, branchId = null) => {
     try {
       setLoading(prev => ({ ...prev, departments: true }));
       const token = localStorage.getItem('token');
-      const response = await axiosInstance.get(`/departments?company=${companyId}`, {
+      let url = `/departments?company=${companyId}`;
+      if (branchId) {
+        url += `&branch=${branchId}`;
+      }
+      const response = await axiosInstance.get(url, {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -411,15 +457,21 @@ const SidebarManagement = () => {
   };
 
   // Fetch existing configurations with null handling
-  const fetchExistingConfigs = async (companyId) => {
+  const fetchExistingConfigs = async (companyId, branchId = null) => {
     try {
       setLoading(prev => ({ ...prev, fetching: true }));
       const token = localStorage.getItem('token');
       
       console.log('🔍 Fetching existing configs for company:', companyId);
       
+      const params = { companyId };
+      const activeBranchId = branchId || selectedBranch;
+      if (activeBranchId) {
+        params.branchId = activeBranchId;
+      }
+      
       const response = await axiosInstance.get(`/sidebar`, {
-        params: { companyId },
+        params,
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -545,12 +597,16 @@ const SidebarManagement = () => {
   const loadExistingConfig = async (companyId, departmentId, roleId) => {
     try {
       const token = localStorage.getItem('token');
+      const params = { 
+        companyId, 
+        departmentId, 
+        role: roleId 
+      };
+      if (selectedBranch) {
+        params.branchId = selectedBranch;
+      }
       const response = await axiosInstance.get(`/sidebar/config`, {
-        params: { 
-          companyId, 
-          departmentId, 
-          role: roleId 
-        },
+        params,
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -674,6 +730,7 @@ const SidebarManagement = () => {
       
       const configData = {
         companyId: company._id,
+        branchId: selectedBranch || null,
         departmentId: selectedDepartment,
         role: selectedRole,
         menuItems: selectedItems.map(id => {
@@ -690,12 +747,17 @@ const SidebarManagement = () => {
 
       console.log('Saving config data:', configData);
 
+      const checkParams = { 
+        companyId: company._id, 
+        departmentId: selectedDepartment, 
+        role: selectedRole 
+      };
+      if (selectedBranch) {
+        checkParams.branchId = selectedBranch;
+      }
+
       const checkResponse = await axiosInstance.get(`/sidebar/config`, {
-        params: { 
-          companyId: company._id, 
-          departmentId: selectedDepartment, 
-          role: selectedRole 
-        },
+        params: checkParams,
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -1066,7 +1128,7 @@ const SidebarManagement = () => {
                     <div className="SidebarManagement-step-indicator">
                       {activeStep > 0 ? '✓' : '1'}
                     </div>
-                    <div className="SidebarManagement-step-label">Select Department</div>
+                    <div className="SidebarManagement-step-label">Branch & Dept</div>
                   </div>
                   <div className={`SidebarManagement-step-connector ${activeStep >= 1 ? 'SidebarManagement-step-connector-active' : ''}`}></div>
                   
@@ -1087,6 +1149,39 @@ const SidebarManagement = () => {
 
               {/* Selection Cards */}
               <div className="SidebarManagement-cards-grid">
+                {/* Branch Selection */}
+                <div className={`SidebarManagement-card ${selectedBranch ? 'SidebarManagement-card-selected' : ''}`}>
+                  <div className="SidebarManagement-card-content">
+                    <div className="SidebarManagement-card-header">
+                      <div className="SidebarManagement-card-icon-bg" style={{ backgroundColor: 'rgba(30, 60, 114, 0.1)', color: '#1e3c72' }}>
+                        <span className="SidebarManagement-card-icon">🏢</span>
+                      </div>
+                      <h3 className="SidebarManagement-card-title">Branch</h3>
+                    </div>
+                    
+                    <div className="SidebarManagement-dropdown-container">
+                      <div className="SidebarManagement-input-wrapper">
+                        <span className="SidebarManagement-input-icon">🏢</span>
+                        <select
+                          className="SidebarManagement-input"
+                          value={selectedBranch}
+                          onChange={(e) => handleBranchChange(e.target.value)}
+                          disabled={!company || branches.length === 0}
+                          style={{ appearance: 'none', background: 'transparent', outline: 'none' }}
+                        >
+                          <option value="">Select Branch</option>
+                          {branches.map(br => (
+                            <option key={br._id || br.id} value={br._id || br.id}>
+                              {br.name} ({br.branchCode})
+                            </option>
+                          ))}
+                        </select>
+                        <span className="SidebarManagement-dropdown-arrow">▼</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Department Selection */}
                 <div className={`SidebarManagement-card ${selectedDepartment ? 'SidebarManagement-card-selected' : ''}`}>
                   <div className="SidebarManagement-card-content">

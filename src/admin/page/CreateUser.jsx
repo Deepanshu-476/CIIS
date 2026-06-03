@@ -31,7 +31,7 @@ const roleBelongsToDepartment = (role, departmentId) => {
 // Initial form state
 const initialFormState = {
   name: '', email: '', password: '', confirmPassword: '',
-  department: '', jobRole: '',
+  branch: '', department: '', jobRole: '',
   phone: '', address: '', gender: '', maritalStatus: '', dob: '', salary: '',
   accountNumber: '', ifsc: '', bankName: '', bankHolderName: '',
   employeeType: '', properties: [], propertyOwned: '', additionalDetails: '',
@@ -47,8 +47,10 @@ const CreateUser = () => {
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState([]);
   const [jobRoles, setJobRoles] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [loadingDepartments, setLoadingDepartments] = useState(false);
   const [loadingJobRoles, setLoadingJobRoles] = useState(false);
+  const [loadingBranches, setLoadingBranches] = useState(false);
   const navigate = useNavigate();
 
   // LocalStorage se company data
@@ -134,12 +136,15 @@ const CreateUser = () => {
     fetchDataFromLocalStorage();
   }, [navigate]);
 
-  // ✅ FIXED: Departments fetch with better company ID handling
+  // ✅ FIXED: Departments and Branches fetch with better company ID handling
   useEffect(() => {
-    const loadDepartments = async () => {
+    const loadData = async () => {
       if (companyId) {
-        console.log("🔍 Company ID found, fetching departments for:", companyId);
-        await fetchDepartments();
+        console.log("🔍 Company ID found, fetching departments & branches for:", companyId);
+        await Promise.all([
+          fetchDepartments(),
+          fetchBranches()
+        ]);
       } else if (companyCode) {
         console.log("🔍 Company Code found, fetching departments by code:", companyCode);
         await fetchDepartmentsByCode();
@@ -157,7 +162,7 @@ const CreateUser = () => {
       }
     };
     
-    loadDepartments();
+    loadData();
   }, [companyId, companyCode]);
 
   // Department change pe job roles fetch karna
@@ -264,6 +269,22 @@ const CreateUser = () => {
       
     } finally {
       setLoadingDepartments(false);
+    }
+  };
+
+  const fetchBranches = async () => {
+    try {
+      if (!companyId) return;
+      setLoadingBranches(true);
+      console.log("📡 Fetching branches for company ID:", companyId);
+      const response = await axios.get(`/branches/company/${companyId}`);
+      if (response.data && response.data.success) {
+        setBranches(response.data.branches || []);
+      }
+    } catch (err) {
+      console.error("❌ Failed to load branches:", err);
+    } finally {
+      setLoadingBranches(false);
     }
   };
 
@@ -475,6 +496,10 @@ const CreateUser = () => {
     }
     if (form.password !== form.confirmPassword) {
       toast.error('Passwords do not match');
+      return false;
+    }
+    if (!form.branch) {
+      toast.error('Please select a branch');
       return false;
     }
     if (!form.department) {
@@ -698,8 +723,45 @@ const CreateUser = () => {
               </div>
             </div>
 
-            {/* ROW 3: Department & Job Role */}
+            {/* ROW 3: Branch & Department */}
             <div className="CreateUser-form-row">
+              <div className="CreateUser-form-group">
+                <label htmlFor="branch" className="CreateUser-label">
+                  Branch <span className="CreateUser-required-star">*</span>
+                </label>
+                <div className="CreateUser-select-wrapper">
+                  <span className="CreateUser-select-icon">🏢</span>
+                  <select
+                    id="branch"
+                    name="branch"
+                    value={form.branch}
+                    onChange={handleSelectChange}
+                    className="CreateUser-select"
+                    disabled={loadingBranches || branches.length === 0}
+                    required
+                  >
+                    <option value="">
+                      {loadingBranches 
+                        ? "Loading branches..." 
+                        : branches.length === 0 
+                          ? "No branches available" 
+                          : "Select Branch"}
+                    </option>
+                    {branches.map(br => (
+                      <option key={br._id || br.id} value={br._id || br.id}>
+                        {br.name} ({br.branchCode})
+                      </option>
+                    ))}
+                  </select>
+                  <span className="CreateUser-select-arrow">▼</span>
+                </div>
+                {branches.length === 0 && !loadingBranches && (
+                  <small className="CreateUser-helper-text CreateUser-helper-text-error">
+                    No branches available. Please create branches first.
+                  </small>
+                )}
+              </div>
+
               <div className="CreateUser-form-group">
                 <label htmlFor="department" className="CreateUser-label">
                   Department <span className="CreateUser-required-star">*</span>
@@ -736,7 +798,10 @@ const CreateUser = () => {
                   </small>
                 )}
               </div>
+            </div>
 
+            {/* ROW 3.5: Job Role & Empty Column for Alignment */}
+            <div className="CreateUser-form-row">
               <div className="CreateUser-form-group">
                 <label htmlFor="jobRole" className="CreateUser-label">
                   Job Role <span className="CreateUser-required-star">*</span>
@@ -774,6 +839,13 @@ const CreateUser = () => {
                     No job roles defined for this department
                   </small>
                 )}
+              </div>
+
+              <div className="CreateUser-form-group" style={{ visibility: 'hidden' }}>
+                <label className="CreateUser-label">Spacer</label>
+                <div className="CreateUser-input-wrapper">
+                  <input type="text" className="CreateUser-input" disabled />
+                </div>
               </div>
             </div>
 

@@ -215,6 +215,14 @@ const UserCreateTask = () => {
   const [assignedToMeTasksGrouped, setAssignedToMeTasksGrouped] = useState({});
   const [clientTasksGrouped, setClientTasksGrouped] = useState({});
   const [allTasksGrouped, setAllTasksGrouped] = useState({});
+  const [allTasksPagination, setAllTasksPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    pages: 1,
+    hasNext: false,
+    hasPrev: false
+  });
   
   // Task view mode
   const [taskViewMode, setTaskViewMode] = useState('all');
@@ -252,7 +260,7 @@ const UserCreateTask = () => {
     overdue: { count: 0, percentage: 0 }
   });
 
-  const [timeFilter, setTimeFilter] = useState("all");
+  const [timeFilter, setTimeFilter] = useState("today");
   const [notifications, setNotifications] = useState([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [remarksDialog, setRemarksDialog] = useState({ open: false, taskId: null, remarks: [], source: null });
@@ -411,6 +419,14 @@ const UserCreateTask = () => {
   // Helper function to group tasks by date
   const groupTasksByDate = useCallback((tasks) => {
     const grouped = {};
+    const getTaskSortTime = task => {
+      const taskSource = task?.__taskSource || task?.taskSource || task?.source;
+      const dateToUse = taskSource === 'client'
+        ? (task?.dueDate || task?.dueDateTime || task?.createdAt)
+        : (task?.dueDateTime || task?.dueDate || task?.createdAt);
+      const date = new Date(dateToUse || 0);
+      return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+    };
     
     tasks.forEach(task => {
       const dateToUse = task.dueDateTime || task.dueDate || task.createdAt;
@@ -440,10 +456,14 @@ const UserCreateTask = () => {
       .sort((a, b) => {
         if (a === 'No Date') return 1;
         if (b === 'No Date') return -1;
-        return new Date(a) - new Date(b);
+        return new Date(b) - new Date(a);
       })
       .forEach(key => {
-        sortedGrouped[key] = grouped[key];
+        sortedGrouped[key] = [...grouped[key]].sort((a, b) => {
+          const dateDiff = getTaskSortTime(b) - getTaskSortTime(a);
+          if (dateDiff !== 0) return dateDiff;
+          return new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0);
+        });
       });
     
     return sortedGrouped;
@@ -583,7 +603,8 @@ const UserCreateTask = () => {
   }, []);
 
   const getTaskTimeFilterDates = useCallback((task) => {
-    return [getDueDateForTask(task), task?.createdAt, task?.updatedAt]
+    const dateToFilter = getDueDateForTask(task) || task?.createdAt;
+    return [dateToFilter]
       .map(date => getLocalDateStart(date))
       .filter(Boolean);
   }, [getDueDateForTask]);
@@ -749,11 +770,13 @@ const UserCreateTask = () => {
   }, []);
 
   const getActiveTasksGrouped = useCallback(() => {
-    if (taskViewMode === 'all') return combinedTasksGrouped;
+    if (taskViewMode === 'all') {
+      return Object.keys(allTasksGrouped).length > 0 ? allTasksGrouped : combinedTasksGrouped;
+    }
     if (taskViewMode === 'self') return myTasksGrouped;
     if (taskViewMode === 'client') return clientTasksGrouped;
     return assignedToMeTasksGrouped;
-  }, [taskViewMode, combinedTasksGrouped, myTasksGrouped, clientTasksGrouped, assignedToMeTasksGrouped]);
+  }, [taskViewMode, allTasksGrouped, combinedTasksGrouped, myTasksGrouped, clientTasksGrouped, assignedToMeTasksGrouped]);
 
   // Function to enrich tasks with proper client names and normalize status
   const enrichAssignedTasks = useCallback((tasks) => {
@@ -798,8 +821,10 @@ const UserCreateTask = () => {
     const params = new URLSearchParams();
     if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
     if (searchTerm.trim()) params.append('search', searchTerm.trim());
+    if (timeFilter === 'today') params.append('period', 'today');
+    if (timeFilter === 'this-week') params.append('period', 'week');
     return params.toString();
-  }, [statusFilter, searchTerm]);
+  }, [statusFilter, searchTerm, timeFilter]);
 
   const getUserTaskApiPeriod = useCallback(() => {
     if (timeFilter === 'today') return 'today';
@@ -937,24 +962,35 @@ const UserCreateTask = () => {
     setLoadingAllTasks(true);
     try {
       const query = buildTaskQueryParams();
-      const url = `/task/all${query ? `?${query}` : ''}`;
+      const params = new URLSearchParams(query);
+      params.set('page', String(allTasksPagination.page));
+      params.set('limit', String(allTasksPagination.limit));
+      const url = `/task/all?${params.toString()}`;
       const res = await axios.get(url);
-      const tasksArray = extractTasksFromResponse(res.data).map(task => ({
+      const responseTasks = Array.isArray(res.data?.tasks) ? res.data.tasks : extractTasksFromResponse(res.data);
+      const tasksArray = responseTasks.map(task => ({
         ...task,
         __taskSource: task.__taskSource || task.taskSource || (task.clientId ? 'client' : 'assigned')
       }));
       const groupedTasks = groupTasksByDate(tasksArray);
       setAllTasksGrouped(groupedTasks);
+      setAllTasksPagination(prev => ({
+        ...prev,
+        ...(res.data?.pagination || {}),
+        total: res.data?.pagination?.total ?? res.data?.total ?? tasksArray.length,
+        pages: res.data?.pagination?.pages ?? 1
+      }));
     } catch (err) {
       console.error('❌ Error in fetchAllTasks:', err);
       setAllTasksGrouped({});
+      setAllTasksPagination(prev => ({ ...prev, total: 0, pages: 1, hasNext: false, hasPrev: false }));
       if (err.response?.status !== 404) {
         showSnackbar('Failed to load all tasks', 'error');
       }
     } finally {
       setLoadingAllTasks(false);
     }
-  }, [authError, userId, buildTaskQueryParams, extractTasksFromResponse, groupTasksByDate]);
+  }, [authError, userId, buildTaskQueryParams, extractTasksFromResponse, groupTasksByDate, allTasksPagination.page, allTasksPagination.limit]);
 
   // Fetch self tasks
   const fetchMyTasks = useCallback(async () => {
@@ -1017,7 +1053,14 @@ const UserCreateTask = () => {
   const handleViewModeChange = (mode) => {
     setTaskViewMode(mode);
     setStatusFilter('');
+    if (mode === 'all') {
+      setAllTasksPagination(prev => ({ ...prev, page: 1 }));
+    }
   };
+
+  useEffect(() => {
+    setAllTasksPagination(prev => ({ ...prev, page: 1 }));
+  }, [statusFilter, searchTerm, timeFilter]);
 
   // Handle stats card click
   const handleStatsCardClick = (status) => {
@@ -1939,8 +1982,8 @@ const UserCreateTask = () => {
             >
               <FiGlobe size={16} />
               All Tasks
-              {taskViewMode === 'all' && countGroupedTasks(combinedTasksGrouped) > 0 && (
-                <span className="view-toggle-count">{countGroupedTasks(combinedTasksGrouped)}</span>
+              {taskViewMode === 'all' && allTasksPagination.total > 0 && (
+                <span className="view-toggle-count">{allTasksPagination.total}</span>
               )}
             </button>
             <button
@@ -2861,6 +2904,28 @@ const UserCreateTask = () => {
                 </div>
               ));
             })()
+          )}
+
+          {taskViewMode === 'all' && !loadingAllTasks && allTasksPagination.total > allTasksPagination.limit && (
+            <div className="user-create-task-pagination">
+              <button
+                className="user-create-task-button user-create-task-button-outlined"
+                disabled={!allTasksPagination.hasPrev}
+                onClick={() => setAllTasksPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+              >
+                Previous
+              </button>
+              <div className="user-create-task-pagination-info">
+                Page {allTasksPagination.page} of {allTasksPagination.pages} • {allTasksPagination.total} tasks
+              </div>
+              <button
+                className="user-create-task-button user-create-task-button-outlined"
+                disabled={!allTasksPagination.hasNext}
+                onClick={() => setAllTasksPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+              >
+                Next
+              </button>
+            </div>
           )}
         </div>
       </div>

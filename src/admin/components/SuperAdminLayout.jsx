@@ -10,7 +10,7 @@ import { Outlet } from 'react-router-dom';
 
 import Header from './SuperAdminHeader';
 import Sidebar from './SuperAdminSidebar';
- 
+  
 const drawerWidthOpen = 260;
 const drawerWidthClosed = 70;
 

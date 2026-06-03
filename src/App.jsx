@@ -350,6 +350,7 @@ function App() {
           <Route path="employee-meeting" element={<EmployeeMeetingPage />} />
           <Route path="client-meeting" element={<ClientMeeting />} />
           <Route path="create-user" element={<CreateUser />} />
+          <Route path="SidebarManagement" element={<SidebarManagement />} />
           <Route path="create-alert" element={<CreateAlerts />} />
           <Route path="user-profile" element={<UserProfile/>} />
           <Route path="chat" element={<ChatPage />} />

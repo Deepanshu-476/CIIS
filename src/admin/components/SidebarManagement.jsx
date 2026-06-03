@@ -14,6 +14,7 @@ const APP_ROUTES = [
   { path: 'admin-task-create', name: 'Admin Create Task', icon: 'Task', category: 'administration' },
   { path: 'manage-groups', name: 'Manage Groups', icon: 'GroupIcon', category: 'administration' },
   { path: 'create-user', name: 'Create User', icon: 'PersonAdd', category: 'administration' },
+  { path: 'SidebarManagement', name: 'Sidebar Management', icon: 'Settings', category: 'administration' },
   { path: 'admin-meeting', name: 'Create Employee Meeting', icon: 'MeetingRoom', category: 'meetings' },
   { path: 'adminproject', name: 'Admin Projects', icon: 'ProjectIcon', category: 'projects' },
   { path: 'company-all-task', name: 'Company All Tasks', icon: 'ListAlt', category: 'tasks' },
@@ -24,6 +25,7 @@ const APP_ROUTES = [
   { path: 'attendance', name: 'My Attendance', icon: 'CalendarToday', category: 'main' },
   { path: 'my-assets', name: 'My Assets', icon: 'Computer', category: 'main' },
   { path: 'my-leaves', name: 'My Leaves', icon: 'EventNote', category: 'main' },
+  { path: 'profile', name: 'My Details', icon: 'Person', category: 'main' },
   { path: 'user-dashboard', name: 'Dashboard', icon: 'Dashboard', category: 'main' },
   { path: 'project', name: 'Projects', icon: 'Groups', category: 'projects' },
   { path: 'task-management', name: 'Create Task', icon: 'Task', category: 'tasks' },
@@ -190,7 +192,7 @@ const SidebarManagement = () => {
   // Get company from localStorage
   const getCompanyFromLocalStorage = () => {
     try {
-      const companyDetailsStr = localStorage.getItem('company');
+      const companyDetailsStr = localStorage.getItem('company') || localStorage.getItem('companyDetails');
       
       if (companyDetailsStr) {
         const companyData = JSON.parse(companyDetailsStr);

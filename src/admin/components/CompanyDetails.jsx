@@ -23,6 +23,7 @@ const CompanyDetails = () => {
   const [apiDebug, setApiDebug] = useState({});
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
+  const [weeklyLogins, setWeeklyLogins] = useState([]);
   
   // Modal States
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -95,6 +96,63 @@ const CompanyDetails = () => {
   const DEFAULT_COMPANY_LOGO = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";;
   // Default user avatar - ORIGINAL USER ICON
   const DEFAULT_USER_AVATAR = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";;
+
+  const getLoggedCompanyFromStorage = () => {
+    const storageKeys = ["company", "companyDetails"];
+    let companyData = null;
+
+    for (const key of storageKeys) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          companyData = parsed;
+          break;
+        }
+      } catch (error) {
+        console.warn(`Unable to parse ${key} from localStorage`, error);
+      }
+    }
+
+    try {
+      const rawAdmin = localStorage.getItem("superAdmin") || localStorage.getItem("user");
+      const adminData = rawAdmin ? JSON.parse(rawAdmin) : null;
+
+      if (adminData && typeof adminData === "object") {
+        return {
+          ...(companyData || {}),
+          companyName: adminData.companyName || companyData?.companyName || companyData?.name,
+          companyCode: adminData.companyCode || companyData?.companyCode || companyData?.code || localStorage.getItem("companyCode"),
+          ownerName: companyData?.ownerName || companyData?.owner,
+          companyEmail: adminData.email || companyData?.companyEmail || companyData?.email,
+        };
+      }
+    } catch (error) {
+      console.warn("Unable to parse logged user from localStorage", error);
+    }
+
+    return companyData;
+  };
+
+  const getCompanyDisplayName = data => (
+    data?.companyName ||
+    data?.name ||
+    data?.company?.companyName ||
+    data?.company?.name ||
+    "Company"
+  );
+
+  const getLoggedUserName = () => {
+    try {
+      const rawUser = localStorage.getItem("superAdmin") || localStorage.getItem("user");
+      const user = rawUser ? JSON.parse(rawUser) : null;
+      return user?.name || user?.username || user?.fullName || "";
+    } catch (error) {
+      console.warn("Unable to parse logged user name", error);
+      return "";
+    }
+  };
 
   // Handle window resize
   useEffect(() => {
@@ -220,8 +278,155 @@ const CompanyDetails = () => {
     }
   };
 
+  const extractUsersFromResponse = responseData => {
+    if (Array.isArray(responseData)) return responseData;
+    if (Array.isArray(responseData?.users)) return responseData.users;
+    if (Array.isArray(responseData?.data)) return responseData.data;
+    if (Array.isArray(responseData?.companyUsers)) return responseData.companyUsers;
+    if (Array.isArray(responseData?.message?.users)) return responseData.message.users;
+    if (Array.isArray(responseData?.message?.data)) return responseData.message.data;
+    return [];
+  };
+
+  const fetchCompanyUsers = async (companyId, headers) => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/users/company-users`,
+        {
+          headers,
+          params: companyId ? { companyId } : {}
+        }
+      );
+
+      const users = processUsers(extractUsersFromResponse(response.data));
+      setRecentUsers(users);
+
+      setStats(prev => ({
+        ...prev,
+        totalUsers: response.data?.count || response.data?.message?.count || users.length,
+        activeUsers: users.filter(user => user.isActive !== false).length
+      }));
+
+      return users;
+    } catch (error) {
+      console.error("Error fetching company users:", error);
+      toast.error(error.response?.data?.message || "Failed to load company users");
+      return [];
+    }
+  };
+
+  const getAttendanceRecordsFromResponse = responseData => {
+    if (Array.isArray(responseData?.data)) return responseData.data;
+    if (Array.isArray(responseData?.attendance)) return responseData.attendance;
+    if (Array.isArray(responseData?.records)) return responseData.records;
+    if (Array.isArray(responseData?.message?.data)) return responseData.message.data;
+    if (Array.isArray(responseData?.message?.attendance)) return responseData.message.attendance;
+    if (Array.isArray(responseData)) return responseData;
+    return [];
+  };
+
+  const getLoginCountFromAttendance = attendanceRecords => {
+    const loginRecords = attendanceRecords.filter(record => (
+      record?.inTime ||
+      record?.loginTime ||
+      record?.checkInTime ||
+      record?.isClockedIn
+    ));
+
+    const loggedInUserIds = new Set(
+      loginRecords
+        .map(record => (
+          record?.user?._id ||
+          record?.user?.id ||
+          record?.user ||
+          record?.userId ||
+          record?.employeeId ||
+          record?.employee?._id ||
+          record?.employee?.id
+        ))
+        .filter(Boolean)
+        .map(String)
+    );
+
+    return loggedInUserIds.size || loginRecords.length;
+  };
+
+  const fetchTodayLoginCount = async (headers) => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const response = await axios.get(
+        `${API_URL}/attendance/all`,
+        {
+          headers,
+          params: { date: today }
+        }
+      );
+
+      const attendanceRecords = getAttendanceRecordsFromResponse(response.data);
+      const todayLoginCount = getLoginCountFromAttendance(attendanceRecords);
+
+      setStats(prev => ({
+        ...prev,
+        todayLogins: todayLoginCount
+      }));
+    } catch (error) {
+      console.error("Error fetching today's login count:", error);
+    }
+  };
+
+  const formatDateKey = date => date.toISOString().split("T")[0];
+
+  const fetchWeeklyLoginAnalytics = async (headers) => {
+    try {
+      const today = new Date();
+      const days = Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(today);
+        date.setDate(today.getDate() - (6 - index));
+        return date;
+      });
+
+      const weeklyData = await Promise.all(days.map(async date => {
+        const dateKey = formatDateKey(date);
+        try {
+          const response = await axios.get(
+            `${API_URL}/attendance/all`,
+            {
+              headers,
+              params: { date: dateKey }
+            }
+          );
+
+          const records = getAttendanceRecordsFromResponse(response.data);
+          return {
+            date: dateKey,
+            day: date.toLocaleDateString("en-US", { weekday: "short" }),
+            count: getLoginCountFromAttendance(records)
+          };
+        } catch (error) {
+          console.error(`Error fetching login analytics for ${dateKey}:`, error);
+          return {
+            date: dateKey,
+            day: date.toLocaleDateString("en-US", { weekday: "short" }),
+            count: 0
+          };
+        }
+      }));
+
+      setWeeklyLogins(weeklyData);
+      const todayCount = weeklyData[weeklyData.length - 1]?.count ?? 0;
+      setStats(prev => ({
+        ...prev,
+        todayLogins: todayCount
+      }));
+    } catch (error) {
+      console.error("Error fetching weekly login analytics:", error);
+    }
+  };
+
   // Process users to ensure department names are properly set
   const processUsers = (users) => {
+    if (!Array.isArray(users)) return [];
+
     return users.map(user => {
       const processedUser = { ...user };
       
@@ -256,6 +461,7 @@ const CompanyDetails = () => {
       setLoading(true);
       
       const token = localStorage.getItem("token");
+      const loggedCompany = getLoggedCompanyFromStorage();
       
       if (!token) {
         toast.error("Please login to view company details");
@@ -280,7 +486,7 @@ const CompanyDetails = () => {
           
           let companyId = "";
           let companyDetails = {};
-          let companyName = "Company"; // Default fallback
+          let companyName = getCompanyDisplayName(loggedCompany); // Default fallback
           
           // 🔥 FIXED: Extract company details properly
           // First try to get from company.id object
@@ -323,6 +529,15 @@ const CompanyDetails = () => {
           } else if (data.company?.name) {
             companyName = data.company.name;
           }
+
+          if (loggedCompany) {
+            companyName = getCompanyDisplayName(loggedCompany);
+          }
+
+          if (!companyId && (loggedCompany?._id || loggedCompany?.id)) {
+            companyId = loggedCompany._id || loggedCompany.id;
+            companyDetails = loggedCompany;
+          }
           
           console.log("✅ Extracted company details:", {
             companyId,
@@ -355,24 +570,33 @@ const CompanyDetails = () => {
           const companyData = {
             _id: companyId,
             companyName: companyName, // 🔥 FIXED: Use extracted company name
-            companyCode: companyDetails.companyCode || 
+            companyCode: loggedCompany?.companyCode ||
+                        loggedCompany?.code ||
+                        companyDetails.companyCode || 
                         companyDetails.code || 
                         data.company?.companyCode || 
                         "",
-            logo: companyLogo || DEFAULT_COMPANY_LOGO,
-            isActive: companyDetails.isActive ?? 
+            logo: loggedCompany?.logo || loggedCompany?.logoUrl || companyLogo || DEFAULT_COMPANY_LOGO,
+            isActive: loggedCompany?.isActive ??
+                      loggedCompany?.active ??
+                      companyDetails.isActive ?? 
                       companyDetails.active ?? 
                       data.company?.isActive ?? 
                       true,
             
-            companyEmail: companyDetails.email || 
+            companyEmail: loggedCompany?.companyEmail ||
+                         loggedCompany?.email ||
+                         companyDetails.email || 
                          companyDetails.companyEmail || 
                          companyDetails.contactEmail || 
                          data.company?.email || 
                          data.company?.companyEmail ||
                          "Not provided",
             
-            companyPhone: companyDetails.phone || 
+            companyPhone: loggedCompany?.companyPhone ||
+                         loggedCompany?.phone ||
+                         loggedCompany?.mobile ||
+                         companyDetails.phone || 
                          companyDetails.companyPhone || 
                          companyDetails.contactPhone || 
                          companyDetails.mobile || 
@@ -380,43 +604,55 @@ const CompanyDetails = () => {
                          data.company?.companyPhone ||
                          "Not provided",
             
-            companyAddress: companyDetails.address || 
+            companyAddress: loggedCompany?.companyAddress ||
+                           loggedCompany?.address ||
+                           loggedCompany?.location ||
+                           companyDetails.address || 
                            companyDetails.companyAddress || 
                            companyDetails.location || 
                            data.company?.address || 
                            data.company?.companyAddress ||
                            "Not provided",
             
-            companyDomain: companyDetails.domain || 
+            companyDomain: loggedCompany?.companyDomain ||
+                          loggedCompany?.domain ||
+                          companyDetails.domain || 
                           companyDetails.companyDomain || 
                           data.company?.domain || 
                           data.company?.companyDomain ||
                           "gmail.com",
             
-            ownerName: companyDetails.ownerName || 
+            ownerName: loggedCompany?.ownerName ||
+                      loggedCompany?.owner ||
+                      companyDetails.ownerName || 
                       companyDetails.owner || 
                       companyDetails.ownerId?.name ||
                       data.company?.ownerName || 
                       data.company?.owner ||
                       "Administrator",
             
-            loginUrl: companyDetails.loginUrl || 
+            loginUrl: loggedCompany?.loginUrl ||
+                     companyDetails.loginUrl || 
                      data.company?.loginUrl || 
-                     `/company/${companyDetails.companyCode || "COMPANY"}/login`,
+                     `/company/${loggedCompany?.companyCode || companyDetails.companyCode || "COMPANY"}/login`,
             
-            dbIdentifier: companyDetails.dbIdentifier || 
+            dbIdentifier: loggedCompany?.dbIdentifier ||
+                         companyDetails.dbIdentifier || 
                          data.company?.dbIdentifier || 
                          `company_${companyId}`,
             
-            createdAt: companyDetails.createdAt || 
+            createdAt: loggedCompany?.createdAt ||
+                      companyDetails.createdAt || 
                       data.company?.createdAt || 
                       new Date().toISOString(),
             
-            updatedAt: companyDetails.updatedAt || 
+            updatedAt: loggedCompany?.updatedAt ||
+                      companyDetails.updatedAt || 
                       data.company?.updatedAt || 
                       new Date().toISOString(),
             
-            subscriptionExpiry: companyDetails.subscriptionExpiry || 
+            subscriptionExpiry: loggedCompany?.subscriptionExpiry ||
+                               companyDetails.subscriptionExpiry || 
                                data.company?.subscriptionExpiry || 
                                new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
           };
@@ -436,19 +672,7 @@ const CompanyDetails = () => {
             logo: companyData.logo || ""
           });
           
-          const users = data.users || [];
-          console.log("Users fetched:", users.length);
-          
-          setRecentUsers(users);
-          
-          const activeUsers = users.filter(user => user.isActive).length;
-          
-          setStats(prev => ({
-            ...prev,
-            totalUsers: data.count || users.length,
-            activeUsers,
-            todayLogins: Math.floor(Math.random() * 50) + 10
-          }));
+          await fetchCompanyUsers(companyId, headers);
           
           if (data.currentUser) {
             setUserRole(data.currentUser.role || data.currentUser.name || "user");
@@ -464,6 +688,8 @@ const CompanyDetails = () => {
           // Fetch departments and job roles
           await fetchDepartments(companyId);
           await fetchJobRoles(companyId);
+          await fetchTodayLoginCount(headers);
+          await fetchWeeklyLoginAnalytics(headers);
           
           return;
         }
@@ -492,15 +718,14 @@ const CompanyDetails = () => {
   // Fetch company from localStorage (fallback)
   const fetchCompanyFromLocalStorage = async (headers) => {
     try {
-      const companyData = localStorage.getItem("company");
+      const companyInfo = getLoggedCompanyFromStorage();
       
-      if (companyData) {
-        const companyInfo = JSON.parse(companyData);
+      if (companyInfo) {
         console.log("Company from localStorage:", companyInfo);
         
         const fullCompanyData = {
           ...companyInfo,
-          companyName: companyInfo.companyName || companyInfo.name || "Company",
+          companyName: getCompanyDisplayName(companyInfo),
           companyCode: companyInfo.companyCode || companyInfo.code || "",
           logo: companyInfo.logo || DEFAULT_COMPANY_LOGO,
           companyEmail: companyInfo.companyEmail || 
@@ -542,27 +767,9 @@ const CompanyDetails = () => {
         if (fullCompanyData._id) {
           await fetchDepartments(fullCompanyData._id);
           await fetchJobRoles(fullCompanyData._id);
-          
-          try {
-            const usersRes = await axios.get(
-              `${API_URL}/superAdmin/company/${fullCompanyData._id}/users`,
-              { headers }
-            );
-            
-            const users = usersRes.data || [];
-            setRecentUsers(users);
-            
-            const activeUsers = users.filter(user => user.isActive).length;
-            
-            setStats({
-              totalUsers: users.length,
-              activeUsers,
-              departments: 0,
-              todayLogins: Math.floor(Math.random() * 50) + 10
-            });
-          } catch (usersError) {
-            console.error("Error fetching users:", usersError);
-          }
+          await fetchCompanyUsers(fullCompanyData._id, headers);
+          await fetchTodayLoginCount(headers);
+          await fetchWeeklyLoginAnalytics(headers);
         }
       } else {
         // Create default company data
@@ -597,6 +804,8 @@ const CompanyDetails = () => {
         });
         
         localStorage.setItem("company", JSON.stringify(defaultCompany));
+        await fetchTodayLoginCount(headers);
+        await fetchWeeklyLoginAnalytics(headers);
       }
     } catch (error) {
       console.error("Error in fallback method:", error);
@@ -1366,6 +1575,8 @@ const CompanyDetails = () => {
       icon: 'people',
       value: stats.totalUsers,
       label: 'TOTAL USERS',
+      chip: 'All users',
+      tone: 'blue',
       color: '#2196f3',
       gradient: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)'
     },
@@ -1373,6 +1584,8 @@ const CompanyDetails = () => {
       icon: 'check',
       value: stats.activeUsers,
       label: 'ACTIVE USERS',
+      chip: `${stats.totalUsers ? Math.round((stats.activeUsers / stats.totalUsers) * 100) : 0}%`,
+      tone: 'green',
       color: '#4caf50',
       gradient: 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)'
     },
@@ -1380,6 +1593,8 @@ const CompanyDetails = () => {
       icon: 'building',
       value: stats.departments,
       label: 'DEPARTMENTS',
+      chip: `${stats.departments} total`,
+      tone: 'blue',
       color: '#ff9800',
       gradient: 'linear-gradient(135deg, #ff9800 0%, #ed6c02 100%)'
     },
@@ -1387,6 +1602,8 @@ const CompanyDetails = () => {
       icon: 'calendar',
       value: stats.todayLogins,
       label: "TODAY'S LOGINS",
+      chip: `${stats.totalUsers ? Math.round((stats.todayLogins / stats.totalUsers) * 100) : 0}%`,
+      tone: 'red',
       color: '#9c27b0',
       gradient: 'linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%)'
     }
@@ -1444,6 +1661,24 @@ const CompanyDetails = () => {
     }
   };
 
+  const fallbackWeeklyLogins = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(day => ({
+    day,
+    count: 0
+  }));
+  const weeklyLoginData = weeklyLogins.length ? weeklyLogins : fallbackWeeklyLogins;
+  const weeklyMaxLogin = Math.max(...weeklyLoginData.map(item => item.count), 1);
+  const chartWidth = 558;
+  const chartPoints = weeklyLoginData.map((item, index) => {
+    const x = 42 + (index * (chartWidth / Math.max(weeklyLoginData.length - 1, 1)));
+    const y = 198 - ((item.count / weeklyMaxLogin) * 140);
+    return { ...item, x, y };
+  });
+  const weeklyLoginPath = chartPoints
+    .map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
+    .join(" ");
+  const weeklyLoginAreaPath = `${weeklyLoginPath} L600 210 L42 210 Z`;
+  const weeklyLoginTotal = weeklyLoginData.reduce((total, item) => total + item.count, 0);
+
   return (
     <div className="CompanyDetails">
       {/* Animated Background */}
@@ -1490,6 +1725,10 @@ const CompanyDetails = () => {
                       Joined {formatRelativeTime(company.createdAt)}
                     </span>
                   </div>
+                  <h1 className="CompanyDetails-company-name">{company.companyName}</h1>
+                  <p className="CompanyDetails-company-subtitle">
+                    Manage employees, departments, attendance, assets and subscription from one premium workspace.
+                  </p>
                 </div>
               </div>
 
@@ -1617,16 +1856,93 @@ const CompanyDetails = () => {
         {/* Stats Grid */}
         <div className="CompanyDetails-stats-grid">
           {statsData.map((stat, index) => (
-            <div key={index} className="CompanyDetails-stat-card">
-              <div className="CompanyDetails-stat-icon" style={{ background: stat.gradient }}>
+            <div key={index} className={`CompanyDetails-stat-card CompanyDetails-stat-${stat.tone}`}>
+              <div className="CompanyDetails-stat-icon">
                 {getIconSvg(stat.icon)}
               </div>
-              <div className="CompanyDetails-stat-value" style={{ color: stat.color }}>
-                {stat.value}
+              <div className="CompanyDetails-stat-main">
+                <div className="CompanyDetails-stat-label">{stat.label}</div>
+                <div className="CompanyDetails-stat-value">
+                  {stat.value}
+                </div>
               </div>
-              <div className="CompanyDetails-stat-label">{stat.label}</div>
+              <div className="CompanyDetails-stat-chip">{stat.chip}</div>
             </div>
           ))}
+        </div>
+
+        <div className="CompanyDetails-analytics-grid">
+          <div className="CompanyDetails-chart-card CompanyDetails-login-chart">
+            <div className="CompanyDetails-chart-header">
+              <div>
+                <h3>Weekly Login Analytics</h3>
+                <p>{weeklyLoginTotal} logins in the last 7 days</p>
+              </div>
+              <span className="CompanyDetails-trend-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4L19.71 9.7 22 12V6h-6z"/>
+                </svg>
+              </span>
+            </div>
+            <div className="CompanyDetails-line-chart">
+              <svg viewBox="0 0 620 230" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="CompanyDetailsAreaFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#22c55e" stopOpacity="0.22" />
+                    <stop offset="100%" stopColor="#22c55e" stopOpacity="0.04" />
+                  </linearGradient>
+                </defs>
+                {[0, 1, 2, 3].map(line => (
+                  <line
+                    key={line}
+                    x1="42"
+                    x2="600"
+                    y1={32 + line * 46}
+                    y2={32 + line * 46}
+                    className="CompanyDetails-chart-grid-line"
+                  />
+                ))}
+                <path
+                  d={weeklyLoginAreaPath}
+                  fill="url(#CompanyDetailsAreaFill)"
+                />
+                <path
+                  d={weeklyLoginPath}
+                  className="CompanyDetails-chart-line CompanyDetails-chart-line-green"
+                />
+                {chartPoints.map(point => (
+                  <g key={`${point.day}-${point.x}`}>
+                    <circle cx={point.x} cy={point.y} r="5" className="CompanyDetails-chart-point" />
+                    <text x={point.x} y={point.y - 12} textAnchor="middle" className="CompanyDetails-chart-value">
+                      {point.count}
+                    </text>
+                  </g>
+                ))}
+              </svg>
+              <div className="CompanyDetails-chart-days">
+                {weeklyLoginData.map(item => (
+                  <span key={`${item.day}-${item.date || ""}`}>{item.day}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="CompanyDetails-chart-card">
+            <div className="CompanyDetails-chart-header">
+              <div>
+                <h3>Department Split</h3>
+                <p>Users by department</p>
+              </div>
+              <span className="CompanyDetails-more-dot">...</span>
+            </div>
+            <div className="CompanyDetails-donut-wrap">
+              <div className="CompanyDetails-donut-chart"></div>
+              <div className="CompanyDetails-donut-center">
+                <strong>{stats.totalUsers}</strong>
+                <span>Users</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Conditional Rendering based on tab for mobile */}
@@ -1928,6 +2244,26 @@ const CompanyDetails = () => {
             </div>
           </div>
         )}
+
+        <div className="CompanyDetails-feature-strip">
+          {[
+            { icon: "M12 20V4m0 16l-4-4m4 4l4-4", title: "Smart Activity Timeline", text: "Track every user action clearly." },
+            { icon: "M12 2l7 4v6c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-4z", title: "Role Based Access", text: "Secure access for every department." },
+            { icon: "M7 2v3M17 2v3M4 9h16M5 5h14a1 1 0 011 1v15H4V6a1 1 0 011-1z", title: "Attendance & Leave Ready", text: "Connect modules in one dashboard." },
+          ].map(item => (
+            <div className="CompanyDetails-feature-item" key={item.title}>
+              <span className="CompanyDetails-feature-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d={item.icon} />
+                </svg>
+              </span>
+              <div>
+                <h4>{item.title}</h4>
+                <p>{item.text}</p>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Mobile Bottom Navigation */}

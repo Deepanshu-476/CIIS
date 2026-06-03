@@ -8,13 +8,11 @@ import {
   FiBarChart2,
   FiBell,
   FiBriefcase,
-  FiCalendar,
   FiCheck,
   FiClock,
   FiGlobe,
   FiGrid,
   FiMonitor,
-  FiPlay,
   FiRefreshCw,
   FiSearch,
   FiShield,
@@ -38,15 +36,6 @@ const powerfulFeatures = [
   { title: 'Lightning Fast', description: 'Optimized performance with instant updates and seamless navigation.', icon: FiZap, color: 'green' },
   { title: 'Enterprise Security', description: 'Military-grade encryption and compliance with industry standards.', icon: FiShield, color: 'blue' },
   { title: 'Automated Workflows', description: 'Streamline operations with customizable automation rules.', icon: FiRefreshCw, color: 'orange' }
-];
-
-const keyFeatures = [
-  { title: 'Attendance Management', description: 'Mark IN/OUT, track login/logout, and view total work hours with precision analytics.', icon: FiClock, color: 'blue' },
-  { title: 'Task Management', description: 'Create, assign, and monitor task progress with real-time status updates and deadlines.', icon: FiCheck, color: 'orange' },
-  { title: 'Leave Management', description: 'Apply, approve, and track employee leaves with automated workflows and notifications.', icon: FiUmbrella, color: 'green' },
-  { title: 'System Alerts', description: 'Get instant notifications and important announcements with smart prioritization.', icon: FiBell, color: 'red' },
-  { title: 'Asset Management', description: 'Request and manage company assets with tracking, maintenance alerts, and inventory control.', icon: FiMonitor, color: 'purple' },
-  { title: 'Employee Directory', description: 'View, search, and manage employee profiles with advanced filtering and analytics.', icon: FiUsers, color: 'blue' }
 ];
 
 const overviewStats = [
@@ -216,12 +205,8 @@ const Home = () => {
                   </div>
                 ))}
               </div>
-              <div className="home-hero-actions">
-                <button className="home-primary-btn">Start Free Trial <FiArrowRight /></button>
-                <button className="home-secondary-btn"><FiPlay />Watch Demo</button>
-              </div>
-              <div className="home-trust">
-                <div className="home-avatar-stack">
+            <div className="home-trust">
+              <div className="home-avatar-stack">
                   <span></span><span></span><span></span><span></span><span></span>
                 </div>
                 <div>
@@ -258,37 +243,6 @@ const Home = () => {
                   <p>{feature.description}</p>
                 </article>
               ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="home-key-section">
-          <div className="home-shell home-key-grid">
-            <div className="home-key-copy">
-              <div className="home-left-title">
-                <span>Key Features</span>
-                <h2>Explore the essential tools that make our platform <em>smart, seamless, and efficient.</em></h2>
-              </div>
-              <div className="home-key-list">
-                {keyFeatures.map((feature) => (
-                  <article className="home-key-item" key={feature.title}>
-                    <IconBox icon={feature.icon} color={feature.color} />
-                    <div>
-                      <h3>{feature.title}</h3>
-                      <p>{feature.description}</p>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </div>
-            <div className="home-device-art">
-              <div className="home-laptop">
-                <MiniDashboard compact />
-              </div>
-              <div className="home-phone">
-                <div className="home-phone-notch"></div>
-                <MiniDashboard compact />
-              </div>
             </div>
           </div>
         </section>
@@ -366,17 +320,13 @@ const Home = () => {
 
             <div className="home-cta">
               <div className="home-rocket"><FiActivity /></div>
-              <div>
-                <h2>Ready to Transform<br />Your Workforce Management?</h2>
-                <p>Join thousands of companies already using our platform to streamline their operations.</p>
-              </div>
-              <div className="home-cta-actions">
-                <button>Get Started Now <FiArrowRight /></button>
-                <button>Schedule Demo</button>
-              </div>
+            <div>
+              <h2>Ready to Transform<br />Your Workforce Management?</h2>
+              <p>Join thousands of companies already using our platform to streamline their operations.</p>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
       </main>
       <Footer />
     </>

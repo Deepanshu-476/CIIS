@@ -73,8 +73,9 @@ const UserProfile = styled(Box)(({ theme }) => ({
 const SuperAdminHeader = ({ toggleSidebar, isSidebarOpen }) => {
     const [isScrolled, setIsScrolled] = useState(false);
     const [userData, setUserData] = useState({
-        name: 'Admin',
+        name: 'CIIS',
         companyName: 'CIIS',
+        loginType: 'Company',
         logo: logo
     });
     
@@ -89,12 +90,14 @@ const SuperAdminHeader = ({ toggleSidebar, isSidebarOpen }) => {
         try {
             // Get superAdmin data from localStorage
             const superAdminStr = localStorage.getItem('superAdmin');
-            let name = 'Admin';
+            let name = '';
+            let loginType = 'Company';
             
             if (superAdminStr) {
                 const superAdminData = JSON.parse(superAdminStr);
-                if (superAdminData && superAdminData.name) {
-                    name = superAdminData.name;
+                if (superAdminData) {
+                    name = superAdminData.companyName || superAdminData.company || '';
+                    loginType = superAdminData.companyRole || superAdminData.loginType || superAdminData.role || 'Company';
                 }
             }
 
@@ -108,6 +111,7 @@ const SuperAdminHeader = ({ toggleSidebar, isSidebarOpen }) => {
                 if (companyData) {
                     if (companyData.companyName) {
                         companyName = companyData.companyName;
+                        if (!name) name = companyData.companyName;
                     }
                     if (companyData.logo) {
                         companyLogo = companyData.logo;
@@ -115,12 +119,13 @@ const SuperAdminHeader = ({ toggleSidebar, isSidebarOpen }) => {
                 }
             }
 
-            return { name, companyName, logo: companyLogo };
+            return { name: name || companyName, companyName, loginType, logo: companyLogo };
         } catch (error) {
             console.error('Error parsing localStorage data:', error);
             return {
-                name: 'Admin',
+                name: 'CIIS',
                 companyName: 'CIIS',
+                loginType: 'Company',
                 logo: logo
             };
         }
@@ -220,7 +225,7 @@ const SuperAdminHeader = ({ toggleSidebar, isSidebarOpen }) => {
                                     {userData.name}
                                 </Typography>
                                 <Typography variant="caption" noWrap sx={{ color: 'text.secondary' }}>
-                                    {userData.companyName}
+                                    {userData.loginType}
                                 </Typography>
                             </Box>
                         )}

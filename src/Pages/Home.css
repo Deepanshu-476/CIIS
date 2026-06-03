@@ -1180,7 +1180,7 @@ body {
 
 .home-cta {
   display: grid;
-  grid-template-columns: 120px 1fr auto;
+  grid-template-columns: 120px 1fr;
   align-items: center;
   gap: 30px;
   margin: 26px 0 18px;
@@ -1384,5 +1384,763 @@ body {
 
   .home-cta {
     padding: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .home-page {
+    overflow-x: hidden;
+  }
+
+  .home-shell {
+    width: 90%;
+    max-width: 560px;
+  }
+
+  .home-hero {
+    padding: 84px 0 42px;
+    background:
+      radial-gradient(circle at 96% -8%, rgba(0, 147, 255, 0.56) 0 115px, transparent 116px),
+      linear-gradient(135deg, #f8fcff 0%, #eef8ff 100%);
+  }
+
+  .home-hero::after {
+    display: none;
+  }
+
+  .home-hero-grid {
+    gap: 30px;
+  }
+
+  .home-pill {
+    margin-bottom: 20px;
+    padding: 8px 13px;
+    font-size: 12px;
+  }
+
+  .home-hero h1 {
+    font-size: clamp(32px, 9vw, 42px);
+    line-height: 1.12;
+  }
+
+  .home-hero-copy > p {
+    margin: 18px 0 22px;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  .home-feature-chips {
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .home-feature-chip {
+    min-height: 66px;
+    padding: 12px;
+  }
+
+  .home-trust {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .home-dashboard {
+    min-height: auto;
+    border-radius: 15px;
+  }
+
+  .home-dashboard-main {
+    padding: 16px;
+  }
+
+  .home-metric-card,
+  .home-panel {
+    padding: 16px;
+  }
+
+  .home-chart {
+    height: 130px;
+  }
+
+  .home-donut {
+    width: 126px;
+    height: 126px;
+  }
+
+  .home-section {
+    padding: 34px 0;
+  }
+
+  .home-section-title {
+    margin-bottom: 22px;
+  }
+
+  .home-section-title h2,
+  .home-key-copy h2 {
+    font-size: 26px;
+    line-height: 1.25;
+  }
+
+  .home-power-card,
+  .home-overview-card,
+  .home-benefit-card {
+    min-height: auto;
+    padding: 20px;
+  }
+
+  .home-device-art {
+    min-height: auto;
+    transform: none;
+  }
+
+  .home-laptop {
+    width: 100%;
+    min-height: 240px;
+  }
+
+  .home-phone {
+    display: none;
+  }
+
+  .home-cta {
+    margin: 18px 0 8px;
+    padding: 24px 18px;
+    border-radius: 12px;
+  }
+
+  .home-cta h2 {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-shell {
+    width: 90%;
+  }
+
+  .home-hero {
+    padding-top: 78px;
+  }
+
+  .home-icon-box {
+    width: 40px;
+    height: 40px;
+  }
+
+  .home-feature-chip strong {
+    font-size: 13px;
+  }
+
+  .home-dashboard-topbar {
+    gap: 12px;
+  }
+
+  .home-user {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .home-metric-card {
+    grid-template-columns: 42px 1fr;
+  }
+
+  .home-stat-number,
+  .home-metric-card strong {
+    font-size: 22px;
+  }
+
+  .home-stats-strip {
+    padding: 10px 18px;
+    border-radius: 14px;
+  }
+
+  .home-key-list {
+    gap: 14px;
+  }
+
+  .home-key-item {
+    grid-template-columns: 42px 1fr;
+    gap: 12px;
+  }
+
+  .home-role-card,
+  .home-overview-card {
+    border-radius: 12px;
+  }
+
+  .home-rocket {
+    width: 76px;
+    height: 76px;
+  }
+
+  .home-rocket svg {
+    width: 42px;
+    height: 42px;
+  }
+}
+
+@media (max-width: 768px) {
+  .home-feature-chips,
+  .home-metric-grid,
+  .home-dashboard-panels,
+  .home-lower-panels,
+  .home-stats-strip,
+  .home-power-grid,
+  .home-key-list,
+  .home-overview-grid,
+  .home-role-grid,
+  .home-benefit-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-feature-chip,
+  .home-metric-card,
+  .home-panel,
+  .home-power-card,
+  .home-key-item,
+  .home-overview-card,
+  .home-role-card,
+  .home-benefit-card {
+    min-height: auto;
+    padding: 14px;
+  }
+
+  .home-icon-box,
+  .home-stats-strip .home-icon-box {
+    width: 38px;
+    height: 38px;
+  }
+
+  .home-icon-box svg,
+  .home-stats-strip .home-icon-box svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .home-feature-chip,
+  .home-metric-card,
+  .home-key-item,
+  .home-benefit-card {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .home-power-card h3,
+  .home-overview-card h3,
+  .home-benefit-card h3,
+  .home-role-content h3,
+  .home-key-item h3 {
+    font-size: 14px;
+  }
+
+  .home-power-card p,
+  .home-benefit-card p,
+  .home-key-item p,
+  .home-role-content li,
+  .home-role-content p {
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .home-role-card {
+    grid-template-columns: 1fr;
+  }
+
+  .home-person {
+    display: none;
+  }
+
+  .home-role-content button {
+    width: 100%;
+    min-width: 0;
+    padding: 0 12px;
+  }
+
+  .home-stats-strip div {
+    border-right: 0;
+    border-bottom: 0;
+    padding: 12px 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-feature-chips,
+  .home-metric-grid,
+  .home-dashboard-panels,
+  .home-lower-panels,
+  .home-stats-strip,
+  .home-power-grid,
+  .home-key-list,
+  .home-overview-grid,
+  .home-role-grid,
+  .home-benefit-grid {
+    gap: 10px;
+  }
+
+  .home-feature-chip,
+  .home-metric-card,
+  .home-panel,
+  .home-power-card,
+  .home-key-item,
+  .home-overview-card,
+  .home-role-card,
+  .home-benefit-card {
+    padding: 12px;
+  }
+
+  .home-panel {
+    overflow: hidden;
+  }
+
+  .home-donut {
+    width: 96px;
+    height: 96px;
+  }
+
+  .home-chart {
+    height: 104px;
+  }
+
+  .home-stats-strip div,
+  .home-overview-card {
+    text-align: left;
+  }
+
+  .home-stat-number,
+  .home-overview-card strong,
+  .home-metric-card strong {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .home-dashboard {
+    width: 100%;
+    max-width: 100%;
+    min-height: auto;
+  }
+
+  .home-dashboard-main {
+    padding: 14px;
+  }
+
+  .home-dashboard h3 {
+    margin-bottom: 12px;
+    font-size: 16px;
+  }
+
+  .home-dashboard-panels,
+  .home-lower-panels {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .home-chart-card,
+  .home-donut-card,
+  .home-activity-card,
+  .home-task-card {
+    min-height: auto;
+    padding: 14px;
+  }
+
+  .home-line-chart {
+    height: 120px;
+    gap: 14px;
+  }
+
+  .home-donut-row {
+    align-items: center;
+    flex-direction: row;
+    gap: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-dashboard-main {
+    padding: 12px;
+  }
+
+  .home-dashboard-topbar {
+    align-items: stretch;
+  }
+
+  .home-dashboard h3 {
+    font-size: 15px;
+  }
+
+  .home-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-metric-card {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .home-metric-card .home-icon-box {
+    width: 34px;
+    height: 34px;
+  }
+
+  .home-metric-card span,
+  .home-metric-card small {
+    font-size: 8px;
+  }
+
+  .home-line-chart {
+    height: 100px;
+    gap: 10px;
+  }
+
+  .home-donut {
+    width: 88px;
+    height: 88px;
+  }
+
+  .home-donut::after {
+    inset: 18px;
+  }
+
+  .home-legend {
+    gap: 9px;
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 768px) {
+  .home-page,
+  .home-page * {
+    overflow-wrap: break-word;
+  }
+
+  .home-feature-chip > *,
+  .home-metric-card > *,
+  .home-stats-strip div > *,
+  .home-power-card > *,
+  .home-key-item > *,
+  .home-overview-card > *,
+  .home-role-card > *,
+  .home-benefit-card > *,
+  .home-panel > * {
+    min-width: 0;
+  }
+
+  .home-feature-chip strong,
+  .home-power-card h3,
+  .home-key-item h3,
+  .home-overview-card h3,
+  .home-benefit-card h3,
+  .home-role-content h3,
+  .home-card-head strong,
+  .home-donut-card > strong,
+  .home-activity-card > strong,
+  .home-progress-task span {
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .home-feature-chip,
+  .home-power-card,
+  .home-key-item,
+  .home-overview-card,
+  .home-role-card,
+  .home-benefit-card,
+  .home-metric-card,
+  .home-panel {
+    overflow: visible;
+  }
+
+  .home-search span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .home-activity-card span {
+    align-items: flex-start;
+    line-height: 1.35;
+  }
+
+  .home-activity-card small {
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 520px) {
+  .home-shell {
+    width: 92%;
+    max-width: 420px;
+  }
+
+  .home-hero {
+    padding-top: 76px;
+  }
+
+  .home-hero h1 {
+    font-size: 30px;
+  }
+
+  .home-hero-copy > p {
+    font-size: 14px;
+  }
+
+  .home-hero-visual {
+    padding: 8px;
+    border-radius: 18px;
+    background: #071427;
+    box-shadow: 0 18px 42px rgba(7, 20, 39, 0.18);
+  }
+
+  .home-dashboard {
+    border-radius: 12px;
+    box-shadow: none;
+  }
+
+  .home-dashboard-topbar {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .home-user-mini {
+    display: none;
+  }
+
+  .home-search {
+    height: 34px;
+    font-size: 10px;
+  }
+
+  .home-metric-card {
+    grid-template-columns: 32px minmax(0, 1fr);
+    align-items: center;
+  }
+
+  .home-metric-card .home-icon-box {
+    width: 32px;
+    height: 32px;
+  }
+
+  .home-metric-card strong {
+    margin: 4px 0 2px;
+    font-size: 18px;
+  }
+
+  .home-metric-card span {
+    display: block;
+    max-width: 100%;
+    font-size: 8px;
+    line-height: 1.2;
+  }
+
+  .home-card-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .home-card-head strong,
+  .home-donut-card > strong,
+  .home-activity-card > strong {
+    font-size: 11px;
+    line-height: 1.25;
+  }
+
+  .home-donut-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .home-line-chart {
+    gap: 7px;
+  }
+
+  .home-line-chart span {
+    width: 7px;
+  }
+
+  .home-feature-chip {
+    align-items: flex-start;
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .home-feature-chip strong {
+    font-size: 12px;
+    line-height: 1.25;
+  }
+
+  .home-power-card,
+  .home-key-item,
+  .home-overview-card,
+  .home-role-card,
+  .home-benefit-card {
+    border-radius: 10px;
+  }
+
+  .home-power-card p,
+  .home-key-item p,
+  .home-benefit-card p,
+  .home-role-content p,
+  .home-role-content li {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+  }
+}
+
+@media (max-width: 520px) {
+  .home-hero-visual {
+    display: none;
+  }
+
+  .home-hero-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-role-content {
+    padding-top: 0;
+  }
+
+  .home-role-content ul {
+    margin: 12px 0 14px;
+    gap: 8px;
+  }
+
+  .home-role-content button {
+    width: 100%;
+    height: 38px;
+    min-width: 0;
+    padding: 0 10px;
+    gap: 7px;
+    white-space: nowrap;
+    font-size: 11px;
+    line-height: 1;
+  }
+
+  .home-role-content button svg {
+    width: 13px;
+    height: 13px;
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 380px) {
+  .home-role-content button {
+    font-size: 10px;
+    padding: 0 8px;
+  }
+}
+
+@media (max-width: 520px) {
+  .home-overview {
+    padding: 22px 12px;
+    border-radius: 14px;
+  }
+
+  .home-overview-grid {
+    gap: 12px;
+  }
+
+  .home-overview-card {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    min-height: 118px;
+    padding: 14px 12px;
+    text-align: left;
+  }
+
+  .home-overview-card .home-icon-box {
+    width: 38px;
+    height: 38px;
+  }
+
+  .home-overview-card h3 {
+    margin: 0 0 6px;
+    font-size: 13px;
+    line-height: 1.25;
+  }
+
+  .home-overview-card strong {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  .home-overview-card small {
+    align-items: flex-start;
+    gap: 3px;
+    font-size: 10px;
+    line-height: 1.25;
+  }
+
+  .home-overview-card small svg {
+    margin-top: 1px;
+    flex: 0 0 auto;
+  }
+
+  .home-role-grid {
+    gap: 12px;
+  }
+
+  .home-role-card {
+    padding: 16px 12px;
+    border-radius: 12px;
+  }
+
+  .home-role-content span {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .home-role-content h3 {
+    margin: 6px 0 10px;
+    font-size: 16px;
+    line-height: 1.2;
+  }
+
+  .home-role-content strong {
+    display: block;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .home-role-content li {
+    gap: 6px;
+    font-size: 10.5px;
+    line-height: 1.35;
+  }
+
+  .home-role-content li svg {
+    width: 12px;
+    height: 12px;
+    flex: 0 0 auto;
+    margin-top: 2px;
+  }
+
+  .home-role-content button {
+    height: 36px;
+    margin-top: 2px;
+    border-radius: 7px;
+    font-size: 10.5px;
+    font-weight: 900;
+  }
+}
+
+@media (max-width: 380px) {
+  .home-overview-card {
+    grid-template-columns: 1fr;
+    justify-items: start;
+    min-height: 132px;
+  }
+
+  .home-role-content button {
+    font-size: 9.5px;
   }
 }

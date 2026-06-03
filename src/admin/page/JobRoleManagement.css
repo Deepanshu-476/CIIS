@@ -1492,3 +1492,93 @@ input:checked + .JobRoleManagement-slider:before {
   font-size: 0.75rem;
   color: #757575;
 }
+
+/* Company Access accordion layout */
+.CompanyAccessManagement-company-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+
+@media (min-width: 900px) {
+  .CompanyAccessManagement-company-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+.CompanyAccessManagement-company-row {
+  display: grid;
+  gap: 0;
+}
+
+.CompanyAccessManagement-company-row > .JobRoleManagement-mobile-card {
+  margin-bottom: 0;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.CompanyAccessManagement-company-row > .JobRoleManagement-mobile-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(25, 118, 210, 0.12);
+}
+
+.CompanyAccessManagement-access-panel {
+  margin-top: 22px;
+  padding: 18px;
+  border: 1px solid #d7e9fb;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
+}
+
+.CompanyAccessManagement-select-empty {
+  margin-top: 22px;
+}
+
+.CompanyAccessManagement-access-header {
+  margin-bottom: 16px;
+}
+
+.CompanyAccessManagement-access-panel .JobRoleManagement-super-admin-panel {
+  margin-bottom: 18px;
+}
+
+.CompanyAccessManagement-access-panel .JobRoleManagement-mobile-card {
+  margin-bottom: 0;
+}
+
+.CompanyAccessManagement-access-panel .JobRoleManagement-menu-item {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .CompanyAccessManagement-company-list {
+    gap: 14px;
+  }
+
+  .CompanyAccessManagement-access-panel {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .CompanyAccessManagement-access-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .CompanyAccessManagement-access-header .JobRoleManagement-header-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .CompanyAccessManagement-access-header .JobRoleManagement-btn-outline,
+  .CompanyAccessManagement-access-header .JobRoleManagement-btn-secondary {
+    width: 100%;
+  }
+
+  .CompanyAccessManagement-access-panel .JobRoleManagement-mobile-card-header {
+    align-items: flex-start;
+  }
+}

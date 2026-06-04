@@ -1156,6 +1156,52 @@
   justify-content: center;
 }
 
+.EmployeeProject-file-dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  width: 100%;
+  min-height: 96px;
+  padding: 1rem;
+  border: 2px dashed #c8d2f4;
+  border-radius: 10px;
+  background: #f8faff;
+  color: #4f5f83;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.EmployeeProject-file-dropzone:hover,
+.EmployeeProject-file-dropzone:focus {
+  outline: none;
+  border-color: #667eea;
+  background: #f1f4ff;
+}
+
+.EmployeeProject-file-dropzone-active {
+  border-color: #667eea;
+  background: #eef2ff;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.12);
+}
+
+.EmployeeProject-file-dropzone-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-align: left;
+}
+
+.EmployeeProject-file-dropzone-text strong {
+  color: #23304d;
+  font-size: 0.95rem;
+}
+
+.EmployeeProject-file-dropzone-text span {
+  color: #697899;
+  font-size: 0.82rem;
+}
+
 .EmployeeProject-file-info {
   display: flex;
   align-items: center;
@@ -1163,6 +1209,27 @@
   margin-top: 0.5rem;
   color: #666;
   font-size: 0.875rem;
+}
+
+.EmployeeProject-file-info span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.EmployeeProject-file-remove {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: #EF5350;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.EmployeeProject-file-remove:hover,
+.EmployeeProject-file-remove:focus {
+  outline: none;
+  color: #d32f2f;
 }
 
 /* Status Form */

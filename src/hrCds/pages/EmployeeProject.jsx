@@ -14,6 +14,7 @@ const EmployeeProject = () => {
   const [loading, setLoading] = useState({ projects: false, tasks: false });
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState("");
+  const [isTaskFileDragging, setIsTaskFileDragging] = useState(false);
   const [openTaskDialog, setOpenTaskDialog] = useState(false);
   const [openStatusDialog, setOpenStatusDialog] = useState(false);
   const [openActivityDrawer, setOpenActivityDrawer] = useState(false);
@@ -161,11 +162,8 @@ const EmployeeProject = () => {
 
   // Validate task form
   const validateTaskForm = () => {
-    const errors = {};
-    if (!newTask.title.trim()) errors.title = "Task title is required";
-    if (!newTask.assignedTo) errors.assignedTo = "Please assign task to a user";
-    setTaskErrors(errors);
-    return Object.keys(errors).length === 0;
+    setTaskErrors({});
+    return true;
   };
 
   // Update Task Status
@@ -358,16 +356,28 @@ const EmployeeProject = () => {
     document.body.removeChild(link);
   };
 
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
+  const handleTaskFileSelect = (selectedFile) => {
     if (selectedFile) {
-      if (selectedFile.type !== "application/pdf") {
-        showSnackbar("Only PDF files are allowed", "error");
+      const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/gif"];
+      if (!allowedTypes.includes(selectedFile.type)) {
+        showSnackbar("Only PDF or image files are allowed", "error");
+        setIsTaskFileDragging(false);
         return;
       }
       setFile(selectedFile);
       setFileName(selectedFile.name);
     }
+  };
+
+  const handleFileChange = (e) => {
+    handleTaskFileSelect(e.target.files[0]);
+    e.target.value = "";
+  };
+
+  const handleTaskFileDrop = (e) => {
+    e.preventDefault();
+    setIsTaskFileDragging(false);
+    handleTaskFileSelect(e.dataTransfer.files[0]);
   };
 
   const showSnackbar = (message, severity) => {
@@ -1464,7 +1474,7 @@ const EmployeeProject = () => {
                 </div>
 
                 <div className="EmployeeProject-form-group">
-                  <label>Assign To *</label>
+                  <label>Assign To</label>
                   <select
                     className={`EmployeeProject-select ${taskErrors.assignedTo ? 'EmployeeProject-input-error' : ''}`}
                     value={newTask.assignedTo}
@@ -1485,9 +1495,9 @@ const EmployeeProject = () => {
                 </div>
 
                 <div className="EmployeeProject-form-group">
-                  <label>Due Date</label>
+                  <label>Due Date & Time</label>
                   <input
-                    type="date"
+                    type="datetime-local"
                     className="EmployeeProject-input"
                     value={newTask.dueDate}
                     onChange={(e) =>
@@ -1531,24 +1541,59 @@ const EmployeeProject = () => {
                 </div>
 
                 <div className="EmployeeProject-form-group">
-                  <button
-                    className="EmployeeProject-button EmployeeProject-button-outline EmployeeProject-file-upload"
+                  <div
+                    className={`EmployeeProject-file-dropzone ${isTaskFileDragging ? 'EmployeeProject-file-dropzone-active' : ''}`}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => document.getElementById('task-file-input').click()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        document.getElementById('task-file-input').click();
+                      }
+                    }}
+                    onDragEnter={(e) => {
+                      e.preventDefault();
+                      setIsTaskFileDragging(true);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsTaskFileDragging(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      if (e.currentTarget === e.target) setIsTaskFileDragging(false);
+                    }}
+                    onDrop={handleTaskFileDrop}
                   >
                     <Icons.CloudUpload />
-                    Upload Task File (PDF)
-                  </button>
+                    <div className="EmployeeProject-file-dropzone-text">
+                      <strong>Upload Task File</strong>
+                      <span>Drag & drop PDF or image here, or click to browse</span>
+                    </div>
+                  </div>
                   <input
                     id="task-file-input"
                     type="file"
                     hidden
-                    accept=".pdf"
+                    accept=".pdf,image/jpeg,image/png,image/webp,image/gif"
                     onChange={handleFileChange}
                   />
                   {fileName && (
                     <div className="EmployeeProject-file-info">
                       <Icons.PictureAsPdf />
                       <span>Selected: {fileName}</span>
+                      <button
+                        type="button"
+                        className="EmployeeProject-file-remove"
+                        onClick={() => {
+                          setFile(null);
+                          setFileName("");
+                        }}
+                        aria-label="Remove selected file"
+                      >
+                        Remove
+                      </button>
                     </div>
                   )}
                 </div>

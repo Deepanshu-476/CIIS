@@ -219,7 +219,6 @@ import Client from "./hrCds/pages/hr/Client";
 import ClientDashboard from "./hrCds/pages/Dashboard.jsx";
 import ClientPaymentSection from "./hrCds/pages/ClientPaymentSection.jsx";
 import ClientServicesTasks from "./hrCds/pages/ClientServicesTasks.jsx";
-import ClientLayout from "./hrCds/layouts/ClientLayout.jsx";
 
 // User Pages
 import Alerts from "./hrCds/pages/Alerts";
@@ -366,7 +365,7 @@ function App() {
           element={
             <ThemeContextProvider>
               <ProtectedRoute>
-                <ClientLayout />
+                <Layout2 />
               </ProtectedRoute>
             </ThemeContextProvider>
           }

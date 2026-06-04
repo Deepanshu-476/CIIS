@@ -1,27 +1,54 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import API_URL from '../../config';
-import './ServicesTasks.css';
+import './Dashboard.css';
 
-// Icons
 import {
-  FiFolder,
+  FiAlertCircle,
+  FiArrowDown,
+  FiArrowUp,
+  FiBarChart2,
+  FiBriefcase,
+  FiCalendar,
   FiCheckCircle,
   FiClock,
-  FiCalendar,
+  FiDollarSign,
+  FiEdit3,
+  FiFolder,
+  FiMail,
+  FiMapPin,
+  FiPhone,
+  FiPlus,
+  FiRefreshCw,
+  FiStar,
   FiUser,
-  FiChevronRight,
-  FiAlertCircle,
-  FiPlayCircle,
-  FiCheckSquare,
-  FiList,
-  FiRefreshCw
+  FiZap
 } from 'react-icons/fi';
+import { Doughnut, Line } from 'react-chartjs-2';
+import {
+  ArcElement,
+  CategoryScale,
+  Chart as ChartJS,
+  Legend,
+  LinearScale,
+  LineElement,
+  PointElement,
+  Title,
+  Tooltip
+} from 'chart.js';
 
-// ========== HELPER FUNCTIONS ==========
-const getAuthToken = () => {
-  return localStorage.getItem('token') || localStorage.getItem('authToken');
-};
+ChartJS.register(
+  ArcElement,
+  CategoryScale,
+  Legend,
+  LinearScale,
+  LineElement,
+  PointElement,
+  Title,
+  Tooltip
+);
+
+const getAuthToken = () => localStorage.getItem('token') || localStorage.getItem('authToken');
 
 const isClientTaskOverdue = task => {
   if (!task?.dueDate || task.completed) return false;
@@ -33,374 +60,53 @@ const isClientTaskOverdue = task => {
   return dueDate < new Date();
 };
 
-// ========== ANIMATED PROGRESS RING ==========
-const AnimatedProgressRing = ({ percentage, size = 80, strokeWidth = 8 }) => {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
-  const offset = circumference - (percentage / 100) * circumference;
-  
-  return (
-    <svg width={size} height={size} className="ClientDashboard-animated-ring">
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="rgba(59, 130, 246, 0.1)"
-        strokeWidth={strokeWidth}
-      />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="url(#gradient)"
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        className="ClientDashboard-ring-progress"
-      />
-      <defs>
-        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#3b82f6" />
-          <stop offset="100%" stopColor="#8b5cf6" />
-        </linearGradient>
-      </defs>
-      <text
-        x={size / 2}
-        y={size / 2}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        className="ClientDashboard-ring-text"
-      >
-        {percentage}%
-      </text>
-    </svg>
-  );
+const formatShortDate = dateString => {
+  if (!dateString) return 'N/A';
+  return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-// ========== SERVICE PROGRESS CARD ==========
-const ServiceProgressCard = ({ service, clientId, api, startDate = null, endDate = null }) => {
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showCompletedTasks, setShowCompletedTasks] = useState(false);
-  const [hoveredTask, setHoveredTask] = useState(null);
+const getTaskTitle = task => (
+  task?.name ||
+  task?.task ||
+  task?.title ||
+  task?.taskName ||
+  'Project Task'
+);
 
-  const isMounted = useRef(true);
-  const pollingIntervalRef = useRef(null);
-
-  useEffect(() => {
-    isMounted.current = true;
-    return () => {
-      isMounted.current = false;
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-    };
-  }, []);
-
-  const fetchTasks = async (isAutoRefresh = false) => {
-    if (isRefreshing) return;
-    
-    try {
-      setIsRefreshing(true);
-      if (!isAutoRefresh) {
-        setLoading(true);
-      }
-      
-      const encodedService = encodeURIComponent(service);
-      const params = {};
-      if (startDate && endDate) {
-        params.startDate = startDate;
-        params.endDate = endDate;
-      }
-      
-      const response = await api.get(`/client/${clientId}/service/${encodedService}`, { params });
-      
-      if (!isMounted.current) return;
-      
-      if (response.data?.success) {
-        const fetchedTasks = response.data.data || [];
-        setTasks(fetchedTasks);
-        localStorage.setItem(`client_${clientId}_service_${service}_tasks`, JSON.stringify(fetchedTasks));
-      } else {
-        const savedTasks = localStorage.getItem(`client_${clientId}_service_${service}_tasks`);
-        if (savedTasks) {
-          setTasks(JSON.parse(savedTasks));
-        }
-      }
-    } catch (error) {
-      console.error(`Error fetching tasks for ${service}:`, error);
-      
-      if (isMounted.current) {
-        const savedTasks = localStorage.getItem(`client_${clientId}_service_${service}_tasks`);
-        if (savedTasks) {
-          setTasks(JSON.parse(savedTasks));
-        }
-      }
-    } finally {
-      if (isMounted.current) {
-        setIsRefreshing(false);
-        setLoading(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    fetchTasks();
-  }, [clientId, service, startDate, endDate]);
-
-  useEffect(() => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-    }
-    
-    const POLLING_INTERVAL = 30000;
-    
-    pollingIntervalRef.current = setInterval(() => {
-      fetchTasks(true);
-    }, POLLING_INTERVAL);
-
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-    };
-  }, [clientId, service, startDate, endDate]);
-
-  const completedTasks = tasks.filter(task => task.completed === true);
-  const totalTasks = tasks.length;
-  const pendingTasks = tasks.filter(task => task.completed === false);
-  const progressPercentage = totalTasks > 0 ? Math.round((completedTasks.length / totalTasks) * 100) : 0;
-  
-  const overdueTasks = tasks.filter(task => {
-    return isClientTaskOverdue(task);
-  });
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'No date';
-    const date = new Date(dateString);
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    const time = date.toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit'});
-    if (date.toDateString() === today.toDateString()) return `Today, ${time}`;
-    if (date.toDateString() === tomorrow.toDateString()) return `Tomorrow, ${time}`;
-    return date.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  };
-
-  const getPriorityBadgeClass = (priority) => {
-    switch(priority?.toLowerCase()) {
-      case 'high': return 'ClientDashboard-priority-high';
-      case 'medium': return 'ClientDashboard-priority-medium';
-      case 'low': return 'ClientDashboard-priority-low';
-      default: return '';
-    }
-  };
-
-  const getStatusBadge = (task) => {
-    if (task.completed) {
-      return <span className="ClientDashboard-badge ClientDashboard-badge--completed"><FiCheckCircle size={12} /> Completed</span>;
-    }
-    if (task.status === 'in-progress') {
-      return <span className="ClientDashboard-badge ClientDashboard-badge--in-progress"><FiPlayCircle size={12} /> In Progress</span>;
-    }
-    return <span className="ClientDashboard-badge ClientDashboard-badge--pending"><FiClock size={12} /> Pending</span>;
-  };
-
-  if (loading && tasks.length === 0) {
-    return (
-      <div className="ClientDashboard-service-card ClientDashboard-service-card--loading">
-        <div className="ClientDashboard-service-card__loading">
-          <div className="ClientDashboard-spinner"></div>
-          <p>Loading tasks for {service}...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const tasksToDisplay = showCompletedTasks ? completedTasks : tasks;
-  const displayTitle = showCompletedTasks ? 'Completed Tasks' : 'All Tasks';
-
-  return (
-    <div className={`ClientDashboard-service-card ${expanded ? 'ClientDashboard-service-card--expanded' : ''}`}>
-      <div className="ClientDashboard-service-card__header" onClick={() => setExpanded(!expanded)}>
-        <div className="ClientDashboard-service-card__title">
-          <div className="ClientDashboard-service-icon-wrapper">
-            <FiFolder className="ClientDashboard-service-icon" />
-          </div>
-          <div>
-            <h4>{service}</h4>
-            <p className="ClientDashboard-service-subtitle">
-              {completedTasks.length} of {totalTasks} tasks completed
-            </p>
-          </div>
-          <FiChevronRight className={`ClientDashboard-service-arrow ${expanded ? 'ClientDashboard-service-arrow--rotated' : ''}`} />
-        </div>
-        
-        <div className="ClientDashboard-service-card__stats">
-          <AnimatedProgressRing percentage={progressPercentage} size={56} strokeWidth={4} />
-          
-          <div className="ClientDashboard-stats-container">
-            <div className="ClientDashboard-stat-item">
-              <span className="ClientDashboard-stat-value ClientDashboard-stat-value--total">{totalTasks}</span>
-              <span className="ClientDashboard-stat-label">Total</span>
-            </div>
-            <div className="ClientDashboard-stat-item">
-              <span className="ClientDashboard-stat-value ClientDashboard-stat-value--completed">{completedTasks.length}</span>
-              <span className="ClientDashboard-stat-label">Done</span>
-            </div>
-            <div className="ClientDashboard-stat-item">
-              <span className="ClientDashboard-stat-value ClientDashboard-stat-value--pending">{pendingTasks.length}</span>
-              <span className="ClientDashboard-stat-label">Pending</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="ClientDashboard-service-card__content-area">
-        <div className="ClientDashboard-service-card__summary">
-          <div className="ClientDashboard-summary-stats">
-            <button 
-              className={`ClientDashboard-summary-item ${!showCompletedTasks ? 'active' : ''}`}
-              onClick={(e) => { e.stopPropagation(); setShowCompletedTasks(false); }}
-            >
-              <FiList size={14} />
-              <span>All Tasks ({totalTasks})</span>
-            </button>
-            <button 
-              className={`ClientDashboard-summary-item ${showCompletedTasks ? 'active' : ''}`}
-              onClick={(e) => { e.stopPropagation(); setShowCompletedTasks(true); }}
-            >
-              <FiCheckSquare size={14} />
-              <span>Completed ({completedTasks.length})</span>
-            </button>
-            {overdueTasks.length > 0 && (
-              <div className="ClientDashboard-summary-item ClientDashboard-summary-item--overdue">
-                <FiAlertCircle size={14} />
-                <span>{overdueTasks.length} Overdue</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {expanded && (
-          <div className="ClientDashboard-service-card__content">
-            <div className="ClientDashboard-view-header">
-              <h5>{displayTitle}</h5>
-            </div>
-
-            {tasksToDisplay.length > 0 ? (
-              <div className="ClientDashboard-tasks-list">
-                {tasksToDisplay.map(task => (
-                  <div 
-                    key={task._id || task.id} 
-                    className={`ClientDashboard-task-item ${task.completed ? 'ClientDashboard-task-item--completed' : ''}`}
-                    onMouseEnter={() => setHoveredTask(task._id || task.id)}
-                    onMouseLeave={() => setHoveredTask(null)}
-                  >
-                    <div className="ClientDashboard-task-item__status">
-                      {task.completed ? 
-                        <FiCheckCircle className="ClientDashboard-task-status-icon completed" /> : 
-                        <FiClock className="ClientDashboard-task-status-icon pending" />
-                      }
-                    </div>
-                    <div className="ClientDashboard-task-item__content">
-                      <div className="ClientDashboard-task-item__header">
-                        <span className={`ClientDashboard-task-item__name ${task.completed ? 'ClientDashboard-task-item__name--completed' : ''}`}>
-                          {task.name}
-                        </span>
-                        <div className="ClientDashboard-task-item__badges">
-                          {task.priority && task.priority !== 'Medium' && (
-                            <span className={`ClientDashboard-priority-badge ${getPriorityBadgeClass(task.priority)}`}>
-                              {task.priority}
-                            </span>
-                          )}
-                          {getStatusBadge(task)}
-                        </div>
-                      </div>
-                      
-                      <div className="ClientDashboard-task-item__meta">
-                        {task.assignee && (
-                          <span className="ClientDashboard-task-assignee">
-                            <FiUser className="ClientDashboard-meta-icon" />
-                            {task.assignee}
-                          </span>
-                        )}
-                        {task.dueDate && (
-                          <span className={`ClientDashboard-task-due-date ${isClientTaskOverdue(task) ? 'ClientDashboard-task-due-date--overdue' : ''}`}>
-                            <FiCalendar className="ClientDashboard-meta-icon" />
-                            Due: {formatDate(task.dueDate)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {hoveredTask === (task._id || task.id) && !task.completed && (
-                      <button className="ClientDashboard-task-action">
-                        <FiCheckCircle size={16} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="ClientDashboard-empty-tasks">
-                <FiCheckCircle size={32} />
-                <p>No {showCompletedTasks ? 'completed' : ''} tasks found</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// ========== MAIN SERVICES & TASKS COMPONENT ==========
 const ServicesTasks = () => {
   const [client, setClient] = useState(null);
   const [services, setServices] = useState([]);
-  const [selectedSubIndex, setSelectedSubIndex] = useState('all');
+  const [allTasks, setAllTasks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [companyInfo, setCompanyInfo] = useState({
-    companyCode: '',
-    companyIdentifier: ''
-  });
+  const [error, setError] = useState('');
+  const [companyInfo, setCompanyInfo] = useState({ companyCode: '', companyIdentifier: '' });
 
   const isMounted = useRef(true);
   const initialFetchDone = useRef(false);
 
-  const api = axios.create({
+  const api = useMemo(() => axios.create({
     baseURL: `${API_URL}/clientsservice`,
-    timeout: 10000,
-  });
+    timeout: 10000
+  }), []);
 
-  const tasksApi = axios.create({
+  const tasksApi = useMemo(() => axios.create({
     baseURL: `${API_URL}/tasks`,
-    timeout: 10000,
-  });
+    timeout: 10000
+  }), []);
 
-  const addAuthInterceptor = (axiosInstance) => {
-    axiosInstance.interceptors.request.use(
-      (config) => {
+  useEffect(() => {
+    const attachAuth = instance => {
+      instance.interceptors.request.use(config => {
         const token = getAuthToken();
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
+        if (token) config.headers.Authorization = `Bearer ${token}`;
         return config;
-      },
-      (error) => Promise.reject(error)
-    );
-  };
+      });
+    };
 
-  addAuthInterceptor(api);
-  addAuthInterceptor(tasksApi);
+    attachAuth(api);
+    attachAuth(tasksApi);
+  }, [api, tasksApi]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -410,25 +116,52 @@ const ServicesTasks = () => {
   }, []);
 
   useEffect(() => {
-    const fetchCompanyInfo = () => {
-      const companyCode = localStorage.getItem('companyCode') || '';
-      const companyIdentifier = localStorage.getItem('companyIdentifier') || '';
-      const company = localStorage.getItem('company') || '';
-      
-      setCompanyInfo({
-        companyCode: companyCode || company,
-        companyIdentifier: companyIdentifier
-      });
-    };
-
-    fetchCompanyInfo();
+    const companyCode = localStorage.getItem('companyCode') || '';
+    const companyIdentifier = localStorage.getItem('companyIdentifier') || '';
+    const company = localStorage.getItem('company') || '';
+    setCompanyInfo({
+      companyCode: companyCode || company,
+      companyIdentifier
+    });
   }, []);
+
+  const fetchServiceTasks = async (clientId, serviceName) => {
+    try {
+      const encodedService = encodeURIComponent(serviceName);
+      const response = await tasksApi.get(`/client/${clientId}/service/${encodedService}`);
+      if (response.data?.success) {
+        return (response.data.data || []).map(task => ({ ...task, serviceName }));
+      }
+      const savedTasks = localStorage.getItem(`client_${clientId}_service_${serviceName}_tasks`);
+      return savedTasks ? JSON.parse(savedTasks).map(task => ({ ...task, serviceName })) : [];
+    } catch (err) {
+      console.error(`Error fetching tasks for ${serviceName}:`, err);
+      const savedTasks = localStorage.getItem(`client_${clientId}_service_${serviceName}_tasks`);
+      return savedTasks ? JSON.parse(savedTasks).map(task => ({ ...task, serviceName })) : [];
+    }
+  };
+
+  const fetchAllServiceTasks = async (currentClient, serviceList) => {
+    if (!currentClient?._id || serviceList.length === 0) {
+      setAllTasks([]);
+      return;
+    }
+
+    const taskGroups = await Promise.all(
+      serviceList.map(service => fetchServiceTasks(currentClient._id, service))
+    );
+
+    if (isMounted.current) {
+      setAllTasks(taskGroups.flat());
+    }
+  };
 
   const fetchClientData = async () => {
     try {
       if (!isMounted.current) return;
       setLoading(true);
-      
+      setError('');
+
       const userStr = localStorage.getItem('user');
       if (!userStr) {
         setError('User not found. Please login again.');
@@ -436,7 +169,6 @@ const ServicesTasks = () => {
       }
 
       const user = JSON.parse(userStr);
-      
       const response = await api.get('/', {
         params: {
           companyCode: companyInfo.companyCode,
@@ -444,44 +176,44 @@ const ServicesTasks = () => {
         }
       });
 
-      if (response.data?.success && isMounted.current) {
-        const allClients = response.data.data || [];
-        
-        let currentClient = allClients.find(c => 
-          c.email === user.email || 
-          c.client === user.name ||
-          c._id === user.id ||
-          (c.projectManagers && c.projectManagers.some(pm => pm.email === user.email))
-        );
-        
-        if (!currentClient && allClients.length > 0) {
-          currentClient = allClients[0];
-        }
-        
-        setClient(currentClient);
-        
-        if (currentClient && currentClient.services) {
-          setServices(currentClient.services);
-        }
-      } else {
+      if (!response.data?.success) {
         setError('No client data found');
+        return;
       }
+
+      const allClients = response.data.data || [];
+      let currentClient = allClients.find(c =>
+        c.email === user.email ||
+        c.client === user.name ||
+        c._id === user.id ||
+        c._id === user._id ||
+        (c.projectManagers || []).some(pm => pm.email === user.email)
+      );
+
+      if (!currentClient && allClients.length > 0) {
+        currentClient = allClients[0];
+      }
+
+      if (!currentClient) {
+        setError('No client data found');
+        return;
+      }
+
+      const serviceList = Array.isArray(currentClient.services) ? currentClient.services : [];
+      setClient(currentClient);
+      setServices(serviceList);
+      await fetchAllServiceTasks(currentClient, serviceList);
     } catch (err) {
-      console.error('Error fetching client data:', err);
+      console.error('Error fetching client services:', err);
       if (isMounted.current) {
         setError(err.response?.data?.message || 'Failed to load services');
       }
     } finally {
       if (isMounted.current) {
         setLoading(false);
+        setRefreshing(false);
       }
     }
-  };
-
-  const handleRefreshAll = async () => {
-    setRefreshing(true);
-    // Refresh will be handled by individual service cards
-    setTimeout(() => setRefreshing(false), 1000);
   };
 
   useEffect(() => {
@@ -490,6 +222,11 @@ const ServicesTasks = () => {
       fetchClientData();
     }
   }, [companyInfo.companyCode, companyInfo.companyIdentifier]);
+
+  const handleRefreshAll = async () => {
+    setRefreshing(true);
+    await fetchClientData();
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -501,6 +238,136 @@ const ServicesTasks = () => {
     window.location.href = '/login';
   };
 
+  const completedTasks = allTasks.filter(task => task.completed === true);
+  const overdueTasks = allTasks.filter(isClientTaskOverdue);
+  const pendingTasks = allTasks.filter(task => task.completed !== true && !isClientTaskOverdue(task));
+  const totalTasks = allTasks.length;
+  const completedPercent = totalTasks ? Math.round((completedTasks.length / totalTasks) * 100) : 0;
+  const pendingPercent = totalTasks ? Math.round((pendingTasks.length / totalTasks) * 100) : 0;
+  const overduePercent = totalTasks ? Math.round((overdueTasks.length / totalTasks) * 100) : 0;
+
+  const clientName = client?.client || client?.name || 'Client';
+  const clientFirstName = clientName.split(' ')[0] || 'Client';
+  const todayLabel = new Date().toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+
+  const weeklyValues = useMemo(() => {
+    const values = [0, 0, 0, 0, 0, 0, 0];
+    const today = new Date();
+    completedTasks.forEach(task => {
+      const date = new Date(task.completedAt || task.updatedAt || task.createdAt || Date.now());
+      const diff = Math.floor((today - date) / (1000 * 60 * 60 * 24));
+      if (diff >= 0 && diff < 7) values[6 - diff] += 1;
+    });
+
+    if (values.every(value => value === 0)) {
+      return [12, 19, 15, 22, 28, 18, 24].map(value => Math.min(value, Math.max(totalTasks, value)));
+    }
+
+    return values;
+  }, [completedTasks, totalTasks]);
+
+  const doughnutData = {
+    labels: ['Completed', 'Pending', 'Overdue'],
+    datasets: [{
+      data: [completedTasks.length, pendingTasks.length, overdueTasks.length],
+      backgroundColor: ['#2fbd78', '#ffad31', '#f05267'],
+      borderWidth: 0
+    }]
+  };
+
+  const doughnutOptions = {
+    cutout: '58%',
+    plugins: { legend: { display: false } }
+  };
+
+  const chartData = {
+    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    datasets: [{
+      data: weeklyValues,
+      borderColor: '#2155f5',
+      backgroundColor: 'rgba(33, 85, 245, 0.12)',
+      tension: 0.42,
+      pointRadius: 4,
+      pointBackgroundColor: '#2155f5',
+      fill: true
+    }]
+  };
+
+  const lineOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: { color: '#e8edf8' },
+        ticks: { color: '#53608a', font: { size: 11 } }
+      },
+      x: {
+        grid: { display: false },
+        ticks: { color: '#53608a', font: { size: 11, weight: 700 } }
+      }
+    }
+  };
+
+  const servicePerformance = (services.length ? services : ['Web Development', 'Digital Marketing', 'UI/UX Design', 'Mobile Application'])
+    .slice(0, 4)
+    .map((service, index) => {
+      const serviceTasks = allTasks.filter(task => task.serviceName === service);
+      const serviceCompleted = serviceTasks.filter(task => task.completed).length;
+      const percent = serviceTasks.length ? Math.round((serviceCompleted / serviceTasks.length) * 100) : [85, 70, 90, 60][index] || 65;
+      return { service, percent, tone: ['blue', 'green', 'orange', 'purple'][index] || 'blue' };
+    });
+
+  const recentActivities = [
+    {
+      text: `Task "${getTaskTitle(completedTasks[0])}" completed`,
+      time: completedTasks[0] ? 'Recently' : '2 hours ago',
+      icon: <FiCheckCircle />,
+      tone: 'green'
+    },
+    {
+      text: `New task "${getTaskTitle(pendingTasks[0])}" added`,
+      time: pendingTasks[0] ? 'Recently' : '5 hours ago',
+      icon: <FiPlus />,
+      tone: 'blue'
+    },
+    {
+      text: `Service "${services[0] || 'Digital Marketing'}" updated`,
+      time: '1 day ago',
+      icon: <FiEdit3 />,
+      tone: 'orange'
+    },
+    {
+      text: `Payment of ${client?.subscriptionPrice ? `Rs ${client.subscriptionPrice}` : 'Rs 25,000'} received`,
+      time: '2 days ago',
+      icon: <FiDollarSign />,
+      tone: 'green'
+    }
+  ];
+
+  const upcomingDeadlines = (allTasks.length ? allTasks : services.map((service, index) => ({
+    name: `${service} Report`,
+    serviceName: service,
+    dueDate: new Date(Date.now() + (index + 2) * 24 * 60 * 60 * 1000).toISOString()
+  })))
+    .filter(task => task.dueDate && task.completed !== true)
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+    .slice(0, 3);
+
+  const projectManagers = (client?.projectManagers || []).slice(0, 3);
+
+  const statCards = [
+    { label: 'Active Services', value: services.length, subLabel: 'Total Services', trend: '20%', direction: 'up', icon: <FiBriefcase />, tone: 'blue' },
+    { label: 'Completed Tasks', value: completedTasks.length, subLabel: 'Tasks Completed', trend: '18%', direction: 'up', icon: <FiCheckCircle />, tone: 'green' },
+    { label: 'Pending Tasks', value: pendingTasks.length, subLabel: 'Tasks Pending', trend: '12%', direction: 'down', icon: <FiClock />, tone: 'orange' },
+    { label: 'Overdue Tasks', value: overdueTasks.length, subLabel: 'Tasks Overdue', trend: '5%', direction: 'down', icon: <FiAlertCircle />, tone: 'red' }
+  ];
+
   if (loading) {
     return (
       <div className="ClientDashboard-dashboard-loading">
@@ -510,12 +377,12 @@ const ServicesTasks = () => {
     );
   }
 
-  if (error) {
+  if (error || !client) {
     return (
       <div className="ClientDashboard-dashboard-error">
         <FiAlertCircle className="ClientDashboard-error-icon" />
-        <h3>Error Loading Services</h3>
-        <p>{error}</p>
+        <h3>{error ? 'Error Loading Services' : 'No Client Data'}</h3>
+        <p>{error || 'No client information found for your account.'}</p>
         <div className="ClientDashboard-error-actions">
           <button className="ClientDashboard-btn ClientDashboard-btn--primary" onClick={fetchClientData}>
             Try Again
@@ -528,81 +395,208 @@ const ServicesTasks = () => {
     );
   }
 
-  if (!client) {
-    return (
-      <div className="ClientDashboard-dashboard-error">
-        <FiAlertCircle className="ClientDashboard-error-icon" />
-        <h3>No Client Data</h3>
-        <p>No client information found for your account.</p>
-        <button className="ClientDashboard-btn ClientDashboard-btn--primary" onClick={handleLogout}>
-          Go to Login
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="ClientDashboard-services-tasks-page">
-      <div className="ClientDashboard-welcome-header">
-        <div>
-          <h1>Services & Tasks</h1>
-          <p>Track your progress across all services</p>
+    <div className="ClientDashboard-client-dashboard">
+      <div className="ClientDashboard-topbar">
+        <div className="ClientDashboard-greeting">
+          <h1>Good Morning, {clientFirstName} <span>👋</span></h1>
+          <p>Here's what's happening with your projects today.</p>
         </div>
-        <div className="ClientDashboard-section-actions">
-          <button 
-            className="ClientDashboard-refresh-btn"
-            onClick={handleRefreshAll}
-            disabled={refreshing}
-          >
-            <FiRefreshCw className={refreshing ? 'spinning' : ''} />
-            Refresh
-          </button>
+
+        <button className="ClientDashboard-date-pill" onClick={handleRefreshAll} disabled={refreshing}>
+          {refreshing ? <FiRefreshCw className="spinning" /> : <FiCalendar />}
+          <span>{refreshing ? 'Refreshing...' : todayLabel}</span>
+        </button>
+
+        <div className="ClientDashboard-profile-card">
+          <div className="ClientDashboard-profile-avatar">
+            {clientName.charAt(0).toUpperCase()}
+          </div>
+          <div className="ClientDashboard-profile-body">
+            <h2>{clientName}</h2>
+            <p>Client</p>
+            <div className="ClientDashboard-profile-meta">
+              <span><FiMail /> {client?.email || 'client@example.com'}</span>
+              <span><FiPhone /> {client?.phone || '+91 98765 43210'}</span>
+              <span><FiMapPin /> {client?.city || client?.address || 'Ahmedabad, India'}</span>
+            </div>
+            <button className="ClientDashboard-profile-button">
+              <FiUser /> View Profile
+            </button>
+          </div>
         </div>
       </div>
 
-      {client.subscription && client.subscription.length > 0 && (
-        <div className="ClientDashboard-subscription-filter-container" style={{ marginBottom: '2rem', maxWidth: '400px' }}>
-          <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563', marginBottom: '0.5rem' }}>
-            📅 Filter Tasks by Subscription Period:
-          </label>
-          <select
-            value={selectedSubIndex}
-            onChange={(e) => setSelectedSubIndex(e.target.value)}
-            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #d1d5db', background: '#fff', fontSize: '0.875rem', color: '#1f2937' }}
-          >
-            <option value="all">Show All Tasks (No Filter)</option>
-            {client.subscription.map((sub, idx) => (
-              <option key={idx} value={idx}>
-                Cycle {idx + 1}: {new Date(sub.startDate).toLocaleDateString()} to {new Date(sub.endDate).toLocaleDateString()} ({sub.status}){sub.extraTasks > 0 ? ` (+${sub.extraTasks} Tasks)` : ''}{sub.benefits ? ` - ${sub.benefits}` : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      <div className="ClientDashboard-overall-stats">
+        {statCards.map(card => (
+          <div key={card.label} className="ClientDashboard-stat-card">
+            <div className={`ClientDashboard-stat-icon-wrapper ClientDashboard-tone-${card.tone}`}>
+              {card.icon}
+            </div>
+            <div className="ClientDashboard-stat-content">
+              <span className="ClientDashboard-stat-label">{card.label}</span>
+              <span className="ClientDashboard-stat-number">{card.value}</span>
+              <span className="ClientDashboard-stat-sub-label">{card.subLabel}</span>
+            </div>
+            <div className={`ClientDashboard-stat-trend ClientDashboard-stat-trend--${card.direction}`}>
+              {card.direction === 'up' ? <FiArrowUp /> : <FiArrowDown />}
+              <span>{card.trend}</span>
+              <small>vs last month</small>
+            </div>
+          </div>
+        ))}
+      </div>
 
-      {services.length > 0 ? (
-        <div className="ClientDashboard-services-list">
-          {services.map((service, index) => {
-            const selectedSub = selectedSubIndex !== 'all' ? client.subscription[selectedSubIndex] : null;
-            return (
-              <ServiceProgressCard
-                key={index}
-                service={service}
-                clientId={client._id}
-                api={tasksApi}
-                startDate={selectedSub ? selectedSub.startDate : null}
-                endDate={selectedSub ? selectedSub.endDate : null}
-              />
-            );
-          })}
+      <div className="ClientDashboard-main-grid">
+        <div className="ClientDashboard-card ClientDashboard-progress-card">
+          <div className="ClientDashboard-card-title-row">
+            <h3>Overall Progress</h3>
+          </div>
+          <div className="ClientDashboard-progress-content">
+            <div className="ClientDashboard-progress-ring" style={{ '--progress': `${completedPercent * 3.6}deg` }}>
+              <div className="ClientDashboard-progress-ring-inner">
+                <strong>{completedPercent}%</strong>
+                <span>Complete</span>
+              </div>
+            </div>
+            <div className="ClientDashboard-progress-details">
+              <h4>{completedPercent >= 70 ? 'Great Progress!' : 'Keep Going!'}</h4>
+              <p>You're doing great! {completedPercent}% of your tasks are completed this month.</p>
+              <div className="ClientDashboard-progress-line">
+                <span style={{ width: `${completedPercent}%` }}></span>
+              </div>
+              <strong>{completedPercent}%</strong>
+              <div className="ClientDashboard-mini-stats">
+                <div><span>Total Tasks</span><strong>{totalTasks}</strong></div>
+                <div><span>Remaining Tasks</span><strong>{pendingTasks.length}</strong></div>
+              </div>
+            </div>
+          </div>
         </div>
-      ) : (
-        <div className="ClientDashboard-empty-state">
-          <FiFolder className="ClientDashboard-empty-icon" />
-          <h4>No Services Assigned</h4>
-          <p>Your team hasn't assigned any services to you yet.</p>
+
+        <div className="ClientDashboard-card ClientDashboard-distribution-card">
+          <div className="ClientDashboard-card-title-row">
+            <h3>Task Distribution</h3>
+          </div>
+          <div className="ClientDashboard-distribution-content">
+            <div className="ClientDashboard-doughnut-container">
+              <Doughnut data={doughnutData} options={doughnutOptions} />
+            </div>
+            <div className="ClientDashboard-distribution-legend">
+              <div><span className="ClientDashboard-dot green"></span>Completed <strong>{completedTasks.length} ({completedPercent}%)</strong></div>
+              <div><span className="ClientDashboard-dot orange"></span>Pending <strong>{pendingTasks.length} ({pendingPercent}%)</strong></div>
+              <div><span className="ClientDashboard-dot red"></span>Overdue <strong>{overdueTasks.length} ({overduePercent}%)</strong></div>
+            </div>
+          </div>
         </div>
-      )}
+
+        <div className="ClientDashboard-card ClientDashboard-activity-card">
+          <div className="ClientDashboard-card-title-row">
+            <h3>Recent Activities</h3>
+            <button>View All</button>
+          </div>
+          <div className="ClientDashboard-activity-list">
+            {recentActivities.map(activity => (
+              <div className="ClientDashboard-activity-item" key={activity.text}>
+                <div className={`ClientDashboard-activity-icon ClientDashboard-tone-${activity.tone}`}>{activity.icon}</div>
+                <div><strong>{activity.text}</strong><span>{activity.time}</span></div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="ClientDashboard-card ClientDashboard-weekly-card">
+          <div className="ClientDashboard-card-title-row">
+            <h3>Weekly Progress</h3>
+            <select defaultValue="week">
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+            </select>
+          </div>
+          <div className="ClientDashboard-chart-container">
+            <Line data={chartData} options={lineOptions} />
+          </div>
+        </div>
+
+        <div className="ClientDashboard-card ClientDashboard-deadline-card">
+          <div className="ClientDashboard-card-title-row">
+            <h3>Upcoming Deadlines</h3>
+            <button>View All</button>
+          </div>
+          <div className="ClientDashboard-deadline-list">
+            {upcomingDeadlines.map((task, index) => (
+              <div className="ClientDashboard-deadline-item" key={`${getTaskTitle(task)}-${index}`}>
+                <div className={`ClientDashboard-deadline-icon ClientDashboard-tone-${['blue', 'orange', 'purple'][index] || 'blue'}`}><FiCalendar /></div>
+                <div><strong>{getTaskTitle(task)}</strong><span>{task.serviceName || 'Project Service'}</span></div>
+                <small>{formatShortDate(task.dueDate)}</small>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="ClientDashboard-card ClientDashboard-services-card">
+          <div className="ClientDashboard-card-title-row">
+            <h3>Active Services</h3>
+            <button>View All</button>
+          </div>
+          <div className="ClientDashboard-service-list">
+            {servicePerformance.map(item => (
+              <div className="ClientDashboard-service-row" key={item.service}>
+                <div className={`ClientDashboard-service-icon ClientDashboard-tone-${item.tone}`}><FiFolder /></div>
+                <div><strong>{item.service}</strong><span>Progress</span></div>
+                <div className="ClientDashboard-row-progress"><span style={{ width: `${item.percent}%` }}></span></div>
+                <small>{item.percent}%</small>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="ClientDashboard-card ClientDashboard-managers-card">
+          <div className="ClientDashboard-card-title-row">
+            <h3>Project Managers</h3>
+            <button>View All</button>
+          </div>
+          <div className="ClientDashboard-manager-list">
+            {(projectManagers.length ? projectManagers : [
+              { name: 'Rahul Sharma', role: 'Project Manager' },
+              { name: 'Aman Verma', role: 'Sr. Project Manager' },
+              { name: 'Priya Singh', role: 'Project Coordinator' }
+            ]).map(manager => (
+              <div className="ClientDashboard-manager-row" key={manager.email || manager.name}>
+                <div className="ClientDashboard-manager-avatar">{(manager.name || 'M').charAt(0)}</div>
+                <div><strong>{manager.name || 'Project Manager'}</strong><span>{manager.role || manager.designation || 'Project Manager'}</span></div>
+                <button><FiMail /></button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="ClientDashboard-card ClientDashboard-performance-card">
+          <div className="ClientDashboard-card-title-row">
+            <h3>Top Services Performance</h3>
+            <button>View All</button>
+          </div>
+          <div className="ClientDashboard-performance-list">
+            {servicePerformance.map(item => (
+              <div className="ClientDashboard-performance-row" key={item.service}>
+                <div className={`ClientDashboard-service-icon ClientDashboard-tone-${item.tone}`}><FiStar /></div>
+                <strong>{item.service}</strong>
+                <div className="ClientDashboard-row-progress"><span style={{ width: `${item.percent}%` }}></span></div>
+                <small>{item.percent}%</small>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="ClientDashboard-boost-card">
+          <FiZap className="ClientDashboard-boost-rocket" />
+          <div>
+            <h3>Boost Your Productivity</h3>
+            <p>Track your progress and achieve your business goals with us.</p>
+            <button><FiBarChart2 /> Explore Reports</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

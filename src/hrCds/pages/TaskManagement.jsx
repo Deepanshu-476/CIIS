@@ -458,25 +458,24 @@ const UserCreateTask = () => {
   // Helper function to group tasks by date
   const groupTasksByDate = useCallback((tasks) => {
     const grouped = {};
-    const getTaskSortTime = task => {
+    const getSourceAwareDate = task => {
       const taskSource = task?.__taskSource || task?.taskSource || task?.source;
-      let dateToUse;
       if (taskSource === 'client') {
-        dateToUse = task?.dueDate || task?.dueDateTime || task?.createdAt;
-      } else if (taskSource === 'project') {
-        dateToUse = task?.lastActivityAt || task?.updatedAt || task?.createdAt;
-      } else {
-        dateToUse = task?.dueDateTime || task?.dueDate || task?.createdAt;
+        return task?.dueDate || task?.dueDateTime || task?.createdAt;
       }
+      if (taskSource === 'project') {
+        return task?.createdAt;
+      }
+      return task?.dueDateTime || task?.dueDate || task?.createdAt;
+    };
+    const getTaskSortTime = task => {
+      const dateToUse = getSourceAwareDate(task);
       const date = new Date(dateToUse || 0);
       return Number.isNaN(date.getTime()) ? 0 : date.getTime();
     };
     
     tasks.forEach(task => {
-      const taskSource = task?.__taskSource || task?.taskSource || task?.source;
-      const dateToUse = taskSource === 'project'
-        ? (task.lastActivityAt || task.updatedAt || task.createdAt)
-        : (task.dueDateTime || task.dueDate || task.createdAt);
+      const dateToUse = getSourceAwareDate(task);
       
       if (dateToUse) {
         const dateKey = new Date(dateToUse).toLocaleDateString('en-IN', {
@@ -696,15 +695,23 @@ const UserCreateTask = () => {
     return task?.dueDateTime || task?.dueDate;
   }, []);
 
-  const getTaskTimeFilterDates = useCallback((task) => {
+  const getSourceAwareDateForTask = useCallback((task) => {
     const source = task?.__taskSource || task?.taskSource || task?.source;
-    const dateToFilter = source === 'project'
-      ? (task?.lastActivityAt || task?.updatedAt || task?.createdAt)
-      : (getDueDateForTask(task) || task?.createdAt);
+    if (source === 'client') {
+      return task?.dueDate || task?.dueDateTime || task?.createdAt;
+    }
+    if (source === 'project') {
+      return task?.createdAt;
+    }
+    return getDueDateForTask(task) || task?.createdAt;
+  }, [getDueDateForTask]);
+
+  const getTaskTimeFilterDates = useCallback((task) => {
+    const dateToFilter = getSourceAwareDateForTask(task);
     return [dateToFilter]
       .map(date => getLocalDateStart(date))
       .filter(Boolean);
-  }, [getDueDateForTask]);
+  }, [getSourceAwareDateForTask]);
 
   const matchesTimeFilter = useCallback((task) => {
     if (!timeFilter || timeFilter === 'all') return true;
@@ -1013,7 +1020,7 @@ const UserCreateTask = () => {
     
     try {
       const query = buildTaskQueryParams();
-      const url = `/task/assigned-to-me${query ? `?${query}` : ''}`;
+      const url = `/tasks/assigned/to-me${query ? `?${query}` : ''}`;
       
       console.log('📡 Fetching assigned tasks from:', url);
       
@@ -1092,7 +1099,7 @@ const UserCreateTask = () => {
     setLoadingClientTasks(true);
     try {
       const query = buildTaskQueryParams();
-      const url = `/tasks/assigned-to-me${query ? `?${query}` : ''}`;
+      const url = `/tasks/client-tasks/assigned-to-me${query ? `?${query}` : ''}`;
       const res = await axios.get(url);
       const tasksArray = tagTasksWithSource(enrichAssignedTasks(extractTasksFromResponse(res.data)), 'client');
       const groupedTasks = groupTasksByDate(tasksArray);
@@ -1116,7 +1123,7 @@ const UserCreateTask = () => {
     setLoadingProjectTasks(true);
     try {
       const query = buildTaskQueryParams();
-      const url = `/task/project-assigned${query ? `?${query}` : ''}`;
+      const url = `/tasks/project/assigned-to-me${query ? `?${query}` : ''}`;
       const res = await axios.get(url);
       let tasksArray = tagTasksWithSource(extractTasksFromResponse(res.data), 'project');
 
@@ -1152,7 +1159,7 @@ const UserCreateTask = () => {
       const params = new URLSearchParams(query);
       params.set('page', String(allTasksPagination.page));
       params.set('limit', String(allTasksPagination.limit));
-      const url = `/task/all?${params.toString()}`;
+      const url = `/tasks/all?${params.toString()}`;
       const res = await axios.get(url);
       const responseTasks = Array.isArray(res.data?.tasks) ? res.data.tasks : extractTasksFromResponse(res.data);
       const tasksArray = responseTasks.map(task => ({
@@ -1189,20 +1196,11 @@ const UserCreateTask = () => {
     setLoading(true);
     try {
       const query = buildUserTaskQueryParams(getUserTaskApiPeriod());
-      const url = `/task/user/${userId}/all-tasks?${query}`;
+      const url = `/tasks/self?${query}`;
       console.log('📡 Fetching my tasks from:', url);
       
       const res = await axios.get(url);
-      const selfTasks = extractTasksFromResponse(res.data).filter(task => {
-        const source = task?.__taskSource || task?.taskSource || task?.source;
-        if (source) return source === 'self';
-
-        const createdBy = typeof task?.createdBy === 'object'
-          ? task.createdBy?._id || task.createdBy?.id
-          : task?.createdBy;
-
-        return task?.taskFor === 'self' || createdBy?.toString() === userId.toString();
-      });
+      const selfTasks = extractTasksFromResponse(res.data);
       const tasks = groupTasksByDate(tagTasksWithSource(selfTasks, 'self'));
       
       console.log('✅ My tasks received:', Object.keys(tasks).length, 'groups');
@@ -1291,10 +1289,17 @@ const UserCreateTask = () => {
       const source = taskSource || getTaskSource(task);
       const isClientTask = source === 'client';
       const isProjectTask = source === 'project';
+      const isSelfTask = source === 'self';
+      const isAssignedTask = source === 'assigned';
+
       const endpoint = isProjectTask
-        ? `/projects/${projectId}/tasks/${taskId}/remarks`
+        ? `/tasks/project/${projectId}/tasks/${taskId}/remarks`
         : isClientTask 
-        ? `/tasks/${taskId}/client-remarks`
+        ? `/tasks/client-tasks/${taskId}/client-remarks`
+        : isSelfTask
+        ? `/tasks/self/${taskId}/remarks`
+        : isAssignedTask
+        ? `/tasks/assigned/${taskId}/remarks`
         : `/task/${taskId}/remarks`;
 
       if (isProjectTask && !projectId) {
@@ -1423,8 +1428,10 @@ const UserCreateTask = () => {
     try {
       const { task, taskId, projectId } = getProjectTaskContext(taskOrId);
       const source = taskSource || getTaskSource(task);
-      const isAssignedTask = source === 'client';
+      const isClientTask = source === 'client';
       const isProjectTask = source === 'project';
+      const isSelfTask = source === 'self';
+      const isAssignedTask = source === 'assigned';
       
       let endpoint;
       let formData = new FormData();
@@ -1435,7 +1442,7 @@ const UserCreateTask = () => {
           return false;
         }
 
-        endpoint = `/projects/${projectId}/tasks/${taskId}/remarks`;
+        endpoint = `/tasks/project/${projectId}/tasks/${taskId}/remarks`;
         const response = await axios.post(endpoint, { text: newRemark.trim() }, {
           headers: {
             'Content-Type': 'application/json',
@@ -1450,13 +1457,13 @@ const UserCreateTask = () => {
         setRemarkImages([]);
         showSnackbar('Remark added successfully', 'success');
         return true;
-      } else if (isAssignedTask) {
+      } else if (isClientTask) {
         if (remarkImages.length > 0) {
-          endpoint = `/tasks/${taskId}/client-remarks/upload-images`;
+          endpoint = `/tasks/client-tasks/${taskId}/client-remarks/upload-images`;
           formData.append('text', newRemark.trim());
           
           remarkImages.forEach((image) => {
-            console.log('📤 Uploading image for assigned task:', image.file.name);
+            console.log('📤 Uploading image for client task:', image.file.name);
             formData.append('images', image.file);
           });
           
@@ -1477,7 +1484,7 @@ const UserCreateTask = () => {
           showSnackbar('Remark added successfully with images', 'success');
           return true;
         } else {
-          endpoint = `/tasks/${taskId}/client-remarks`;
+          endpoint = `/tasks/client-tasks/${taskId}/client-remarks`;
           console.log('📡 Adding remark to endpoint:', endpoint);
           console.log('📝 Remark text:', newRemark.trim());
           
@@ -1499,7 +1506,13 @@ const UserCreateTask = () => {
           return true;
         }
       } else {
-        endpoint = `/task/${taskId}/remarks`;
+        if (isSelfTask) {
+          endpoint = `/tasks/self/${taskId}/remarks`;
+        } else if (isAssignedTask) {
+          endpoint = `/tasks/assigned/${taskId}/remarks`;
+        } else {
+          endpoint = `/task/${taskId}/remarks`;
+        }
         formData.append('text', newRemark.trim());
         
         if (remarkImages.length > 0) {
@@ -1636,9 +1649,9 @@ const UserCreateTask = () => {
       const isClientTask = source === 'client';
       const isProjectTask = source === 'project';
       const endpoint = isProjectTask
-        ? `/projects/${projectId}/tasks/${taskId}/activity`
+        ? `/tasks/project/${projectId}/tasks/${taskId}/activity`
         : isClientTask 
-        ? `/tasks/${taskId}/client-activity-logs`
+        ? `/tasks/client-tasks/${taskId}/client-activity-logs`
         : `/task/${taskId}/activity-logs`;
 
       if (isProjectTask && !projectId) {
@@ -1779,7 +1792,7 @@ const UserCreateTask = () => {
     }
 
     try {
-      await axios.patch(`/task/${taskId}/status`, { 
+      await axios.patch(`/tasks/self/${taskId}/status`, { 
         status: newStatus, 
         remarks: remarks || `Status changed to ${newStatus}`
       });
@@ -1813,7 +1826,7 @@ const UserCreateTask = () => {
       console.log(`🔄 Updating assigned task ${taskId} status to: ${normalizedStatus}`);
       
       // Normal assigned tasks use the standard task status endpoint.
-      const response = await axios.patch(`/task/${taskId}/status`, {
+      const response = await axios.patch(`/tasks/assigned/${taskId}/status`, {
         status: normalizedStatus,
         remarks: remarks || `Status changed to ${normalizedStatus}`
       });
@@ -1850,7 +1863,7 @@ const UserCreateTask = () => {
     try {
       const normalizedStatus = normalizeStatus(newStatus);
       if (remarks && remarks.trim()) {
-        await axios.post(`/tasks/${taskId}/client-remarks`, { text: remarks });
+        await axios.post(`/tasks/client-tasks/${taskId}/client-remarks`, { text: remarks });
       }
 
       let statusPayload = { status: normalizedStatus };
@@ -1858,7 +1871,7 @@ const UserCreateTask = () => {
         statusPayload.completed = true;
       }
 
-      await axios.patch(`/tasks/assigned/${taskId}/status`, statusPayload);
+      await axios.patch(`/tasks/client-tasks/assigned/${taskId}/status`, statusPayload);
       await fetchAllTasks();
       await fetchClientTasks();
       await fetchOverdueTasks();
@@ -1890,7 +1903,7 @@ const UserCreateTask = () => {
 
     try {
       const statusForApi = toProjectApiStatus(newStatus);
-      await axios.patch(`/projects/${projectId}/tasks/${taskId}/status`, {
+      await axios.patch(`/tasks/project/${projectId}/tasks/${taskId}/status`, {
         status: statusForApi,
         remark: remarks || `Status changed to ${statusForApi}`
       });
@@ -1914,13 +1927,23 @@ const UserCreateTask = () => {
 
     try {
       if (taskSource === 'client') {
-        await axios.patch(`/tasks/assigned/${taskId}/status`, { 
+        await axios.patch(`/tasks/client-tasks/assigned/${taskId}/status`, { 
           status: 'overdue',
           remarks: remarks || 'Manually marked as overdue'
         });
       } else if (taskSource === 'project') {
         await handleProjectTaskStatusChange(taskId, 'onhold', remarks || 'Marked for review after overdue');
         return;
+      } else if (taskSource === 'self') {
+        await axios.patch(`/tasks/self/${taskId}/status`, { 
+          status: 'overdue',
+          remarks: remarks || 'Manually marked as overdue'
+        });
+      } else if (taskSource === 'assigned') {
+        await axios.patch(`/tasks/assigned/${taskId}/status`, { 
+          status: 'overdue',
+          remarks: remarks || 'Manually marked as overdue'
+        });
       } else {
         await axios.patch(`/task/${taskId}/overdue`, { 
           remarks: remarks || 'Manually marked as overdue'
@@ -2046,7 +2069,7 @@ const UserCreateTask = () => {
         formData.append('voiceNote', newTask.voiceNote);
       }
 
-      const response = await axios.post('/task/create-self', formData, {
+      const response = await axios.post('/tasks/self/create', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         }

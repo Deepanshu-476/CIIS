@@ -208,7 +208,7 @@ const Dashboard = () => {
   });
 
   const tasksApi = axios.create({
-    baseURL: `${API_URL}/tasks`,
+    baseURL: `${API_URL}/tasks/client-tasks`,
     timeout: 10000,
   });
 

@@ -73,42 +73,11 @@ const isTaskOverdueByDate = (dueDate, status) => {
 
 const getTaskDueDate = task => task?.dueDateTime || task?.dueDate;
 
-const calculateTaskStatsFromList = tasks => {
-  const statusCounts = {
-    pending: 0,
-    'in-progress': 0,
-    completed: 0,
-    rejected: 0,
-    overdue: 0,
-    onhold: 0,
-    reopen: 0,
-    cancelled: 0,
-  };
-
-  (tasks || []).forEach(task => {
-    let status = normalizeStatus(task.userStatus || task.status || task.overallStatus || 'pending');
-    if (isTaskOverdueByDate(getTaskDueDate(task), status)) {
-      status = 'overdue';
-    }
-    if (statusCounts[status] !== undefined) {
-      statusCounts[status] += 1;
-    }
-  });
-
-  const total = (tasks || []).length;
-  const completed = statusCounts.completed;
-  return {
-    total,
-    completed,
-    completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
-    pending: statusCounts.pending,
-    inProgress: statusCounts['in-progress'],
-    rejected: statusCounts.rejected,
-    overdue: statusCounts.overdue,
-    onhold: statusCounts.onhold,
-    reopen: statusCounts.reopen,
-    cancelled: statusCounts.cancelled,
-  };
+const getSourceAwareTaskDate = task => {
+  const source = String(task?.__taskSource || task?.taskSource || task?.source || '').toLowerCase();
+  if (source === 'client') return task?.dueDate || task?.dueDateTime || task?.createdAt;
+  if (source === 'project') return task?.createdAt;
+  return getTaskDueDate(task) || task?.createdAt;
 };
 
 // Get complete status object with color and bgColor
@@ -478,7 +447,7 @@ const TaskDetails = () => {
     let todayTasksCount = 0;
 
     tasksList.forEach(task => {
-      const taskDate = new Date(getTaskDueDate(task) || task.createdAt);
+      const taskDate = new Date(getSourceAwareTaskDate(task));
       taskDate.setHours(0, 0, 0, 0);
 
       if (taskDate.getTime() === today.getTime()) {
@@ -500,18 +469,19 @@ const TaskDetails = () => {
   
   // Fetch logs for a single task based on its type
   const fetchTaskLogsByType = useCallback(async (task) => {
-    const taskType = getTaskType(task);
+    const source = task.__taskSource || task.taskSource || task.source || getTaskType(task);
     const taskId = task._id;
     
     try {
       let response;
       
-      if (taskType === 'assigned') {
-        // Assigned task - use client endpoints
-        console.log(`📤 Fetching assigned task logs for task ${taskId} using client-activity-logs`);
-        response = await axios.get(`/tasks/${taskId}/client-activity-logs`);
+      if (source === 'client') {
+        console.log(`📤 Fetching client task logs for task ${taskId} using client-activity-logs`);
+        response = await axios.get(`/tasks/client-tasks/${taskId}/client-activity-logs`);
+      } else if (source === 'project') {
+        console.log(`📤 Fetching project task logs for task ${taskId} using activity`);
+        response = await axios.get(`/tasks/project/${task.projectId}/tasks/${taskId}/activity`);
       } else {
-        // Personal task - use personal endpoints
         console.log(`📤 Fetching personal task logs for task ${taskId} using activity-logs`);
         response = await axios.get(`/task/${taskId}/activity-logs`);
       }
@@ -521,7 +491,7 @@ const TaskDetails = () => {
       }
       return [];
     } catch (error) {
-      console.error(`❌ Failed to fetch logs for task ${taskId} (${taskType}):`, error);
+      console.error(`❌ Failed to fetch logs for task ${taskId} (${source}):`, error);
       return [];
     }
   }, []);
@@ -842,18 +812,31 @@ const TaskDetails = () => {
             };
 
             try {
-              const tasksRes = await axios.get(`/task/user/${userId}/all-tasks`, {
+              const statsRes = await axios.get(`/tasks/all/user/${userId}/stats`, {
                 params: {
-                  page: 1,
-                  limit: 50,
                   period: 'today',
                   status: 'all',
                   priority: 'all',
                 },
               });
 
-              const userTasks = tasksRes.data?.tasks || tasksRes.data?.data || [];
-              taskStats = calculateTaskStatsFromList(userTasks);
+              const statusCounts = statsRes.data?.statusCounts;
+              if (statusCounts) {
+                const completed = statusCounts.completed?.count || 0;
+                const total = statusCounts.total || 0;
+                taskStats = {
+                  total,
+                  completed,
+                  completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+                  pending: statusCounts.pending?.count || 0,
+                  inProgress: statusCounts.inProgress?.count || 0,
+                  rejected: statusCounts.rejected?.count || 0,
+                  overdue: statusCounts.overdue?.count || 0,
+                  onhold: statusCounts.onhold?.count || statusCounts.onHold?.count || 0,
+                  reopen: statusCounts.reopen?.count || 0,
+                  cancelled: statusCounts.cancelled?.count || 0
+                };
+              }
             } catch (err) {
               console.log("Task stats fetch failed for user:", userId);
             }
@@ -961,8 +944,8 @@ const TaskDetails = () => {
   const filteredTasks = useMemo(() => {
     if (!Array.isArray(tasks)) return [];
     return [...tasks].sort((a, b) => {
-      const aDateValue = getTaskDueDate(a) || a.createdAt;
-      const bDateValue = getTaskDueDate(b) || b.createdAt;
+      const aDateValue = getSourceAwareTaskDate(a);
+      const bDateValue = getSourceAwareTaskDate(b);
       const aDate = aDateValue ? new Date(aDateValue) : new Date(0);
       const bDate = bDateValue ? new Date(bDateValue) : new Date(0);
       return bDate - aDate;
@@ -1065,7 +1048,7 @@ const TaskDetails = () => {
         statusParam = statusParam === 'all' ? 'overdue' : `${statusParam},overdue`;
       }
 
-      const response = await axios.get(`/task/user/${userId}/stats`, {
+      const response = await axios.get(`/tasks/all/user/${userId}/stats`, {
         params: {
           period: fromDate || toDate || dateFilter === 'overdue' ? 'all' : dateFilter,
           fromDate,
@@ -1243,7 +1226,7 @@ const TaskDetails = () => {
         statusParam = statusParam === 'all' ? 'overdue' : `${statusParam},overdue`;
       }
 
-      const response = await axios.get(`/task/user/${userId}/all-tasks`, {
+      const response = await axios.get(`/tasks/all/user/${userId}`, {
         params: {
           page,
           limit: taskLimit,
@@ -1476,13 +1459,21 @@ const TaskDetails = () => {
     try {
       let response;
       
-      if (taskType === 'assigned') {
-        // Assigned task - use client-remarks endpoint
-        console.log(`📤 Fetching assigned task remarks for task ${taskId} using client-remarks`);
-        response = await axios.get(`/tasks/${taskId}/client-remarks`);
-      } else {
-        // Personal task - use personal remarks endpoint
+      const source = task.__taskSource || task.taskSource || task.source || getTaskType(task);
+      if (source === 'client') {
+        console.log(`📤 Fetching client task remarks for task ${taskId} using client-remarks`);
+        response = await axios.get(`/tasks/client-tasks/${taskId}/client-remarks`);
+      } else if (source === 'project') {
+        console.log(`📤 Fetching project task remarks for task ${taskId} using remarks`);
+        response = await axios.get(`/tasks/project/${task.projectId}/tasks/${taskId}/remarks`);
+      } else if (source === 'self' || source === 'personal') {
         console.log(`📤 Fetching personal task remarks for task ${taskId} using remarks`);
+        response = await axios.get(`/tasks/self/${taskId}/remarks`);
+      } else if (source === 'assigned') {
+        console.log(`📤 Fetching assigned task remarks for task ${taskId} using remarks`);
+        response = await axios.get(`/tasks/assigned/${taskId}/remarks`);
+      } else {
+        console.log(`📤 Fetching task remarks for task ${taskId}`);
         response = await axios.get(`/task/${taskId}/remarks`);
       }
       
@@ -1538,18 +1529,19 @@ const TaskDetails = () => {
       return;
     }
 
-    const taskType = getTaskType(task);
+    const source = task.__taskSource || task.taskSource || task.source || getTaskType(task);
     setLoadingActivity(true);
     
     try {
       let response;
       
-      if (taskType === 'assigned') {
-        // Assigned task - use client-activity-logs endpoint
-        console.log(`📤 Fetching assigned task activity logs for task ${taskId} using client-activity-logs`);
-        response = await axios.get(`/tasks/${taskId}/client-activity-logs`);
+      if (source === 'client') {
+        console.log(`📤 Fetching client task activity logs for task ${taskId} using client-activity-logs`);
+        response = await axios.get(`/tasks/client-tasks/${taskId}/client-activity-logs`);
+      } else if (source === 'project') {
+        console.log(`📤 Fetching project task activity logs for task ${taskId} using activity`);
+        response = await axios.get(`/tasks/project/${task.projectId}/tasks/${taskId}/activity`);
       } else {
-        // Personal task - use personal activity-logs endpoint
         console.log(`📤 Fetching personal task activity logs for task ${taskId} using activity-logs`);
         response = await axios.get(`/task/${taskId}/activity-logs`);
       }
@@ -2973,7 +2965,7 @@ const TaskDetails = () => {
                   // Get complete status object with color and bgColor
                   const statusObject = getStatusObject(status);
                   
-                  const isToday = isSameDay(dueDate || task.createdAt, today);
+                  const isToday = isSameDay(getSourceAwareTaskDate(task), today);
                   const isOverdue = isTaskOverdueByDate(dueDate, status);
 
                   const taskLogs = allTaskLogs[task._id] || [];
@@ -3499,7 +3491,7 @@ const TaskDetails = () => {
                     // Get complete status object with color and bgColor
                     const statusObject = getStatusObject(status);
                     
-                    const isToday = isSameDay(dueDate || task.createdAt, today);
+                    const isToday = isSameDay(getSourceAwareTaskDate(task), today);
                     const isOverdue = isTaskOverdueByDate(dueDate, status);
 
                     const taskLogs = allTaskLogs[task._id] || [];

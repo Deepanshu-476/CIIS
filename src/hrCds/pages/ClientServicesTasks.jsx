@@ -91,7 +91,7 @@ const ServicesTasks = () => {
   }), []);
 
   const tasksApi = useMemo(() => axios.create({
-    baseURL: `${API_URL}/tasks`,
+    baseURL: `${API_URL}/tasks/client-tasks`,
     timeout: 10000
   }), []);
 

@@ -74,6 +74,12 @@ const formatDateTimeForInput = value => {
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 };
 
+const convertToISODateString = (val) => {
+  if (!val) return null;
+  const date = new Date(val);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+};
+
 const formatClientTaskDue = value => {
   if (!value) return '';
   const date = new Date(value);
@@ -106,7 +112,7 @@ api.interceptors.request.use(
 
 // Tasks API instance
 const tasksApi = axios.create({
-  baseURL: `${API_URL}/tasks`,
+  baseURL: `${API_URL}/tasks/client-tasks`,
   timeout: 10000,
 });
 
@@ -838,8 +844,8 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
 
         const response = await api.post(`/client/${clientId}/service/${encodedService}`, {
           name: newTask.name.trim(),
-          dueDate: newTask.dueDate || null,
-          dueDateTime: newTask.dueDate || null,
+          dueDate: convertToISODateString(newTask.dueDate),
+          dueDateTime: convertToISODateString(newTask.dueDate),
           assignee: newTask.assignee,
           assigneeId: assigneeId,
           priority: newTask.priority
@@ -858,7 +864,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
         const newTaskObj = {
           id: Date.now(),
           name: newTask.name.trim(),
-          dueDate: newTask.dueDate || null,
+          dueDate: convertToISODateString(newTask.dueDate),
           assignee: newTask.assignee,
           priority: newTask.priority,
           completed: false,
@@ -886,8 +892,8 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
 
           const response = await api.put(`/${editTask._id}`, {
             name: editTask.name.trim(),
-            dueDate: editTask.dueDate || null,
-            dueDateTime: editTask.dueDate || null,
+            dueDate: convertToISODateString(editTask.dueDate),
+            dueDateTime: convertToISODateString(editTask.dueDate),
             assignee: editTask.assignee,
             assigneeId: assigneeId,
             priority: editTask.priority

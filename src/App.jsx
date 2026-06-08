@@ -242,6 +242,7 @@ import UserProfile from './page/UserProfile.jsx';
 import Home from "./Pages/Home";
 import AboutUs from "./Pages/AboutUs";
 import ContactUs from "./Pages/ContactUs";
+import PrivacyPolicy from "./Pages/PrivacyPolicy";
 import RegisterCompany from "./admin/components/CompanyRegister.jsx";
 
 
@@ -284,6 +285,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<AboutUs />} />
         <Route path="/contact" element={<ContactUs />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/SuperAdminLogin" element={<SuperAdminLogin />} />
         <Route path="company/:companyCode/login" element={<Login />} />
         <Route path="/RegisterCompany" element={<RegisterCompany />} />

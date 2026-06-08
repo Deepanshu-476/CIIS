@@ -45,6 +45,14 @@ import axiosInstance from '../utils/axiosConfig';
 const drawerWidthOpen = 260;
 const drawerWidthClosed = 70;
 
+const getRecordId = value => {
+  if (!value) return '';
+  if (typeof value === 'object') {
+    return value._id || value.id || value.value || '';
+  }
+  return value;
+};
+
 const SidebarContainer = styled(Box)(({ theme }) => ({
   flexShrink: 0,
   whiteSpace: 'nowrap',
@@ -740,17 +748,24 @@ const Sidebar = ({ isMobile = false }) => {
       
       const token = localStorage.getItem("token");
       
+      const companyId = getRecordId(userData.company || userData.companyId || companyData?._id || companyData?.id);
+      const departmentId = getRecordId(userData.department || userData.departmentId);
+      const branchId = getRecordId(userData.branch || userData.branchId || userData.branchDetails);
+      const role = getRecordId(userData.jobRole || userData.role || userData.roleId);
+
       console.log('Fetching sidebar config with:', {
-        companyId: userData.company,
-        departmentId: userData.department,
-        role: userData.jobRole
+        companyId,
+        branchId,
+        departmentId,
+        role
       });
 
       const response = await axiosInstance.get(`/sidebar/config`, {
         params: {
-          companyId: userData.company,
-          departmentId: userData.department,
-          role: userData.jobRole
+          companyId,
+          ...(branchId ? { branchId } : {}),
+          departmentId,
+          role
         },
         headers: { 
           Authorization: `Bearer ${token}`,

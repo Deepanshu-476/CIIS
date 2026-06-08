@@ -169,7 +169,7 @@ const SubscriptionRenewal = ({ clientId, onRenewalSuccess, api, currentSubscript
       });
 
       if (response.data?.success) {
-        setMessage({ type: 'success', text: 'Receipt uploaded successfully! Owner has been notified.' });
+        setMessage({ type: 'success', text: 'Receipt uploaded successfully! It has been submitted for review.' });
         
         setRenewAmount('');
         setTransactionId('');

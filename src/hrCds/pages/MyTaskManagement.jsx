@@ -145,7 +145,9 @@ const MyTaskManagement = () => {
 
   const fetchTaskRemarks = async (taskId) => {
     try {
-      const res = await axios.get(`/task/${taskId}/remarks`);
+      const isSelf = Object.values(myTasksGrouped).flat().some(t => t._id === taskId);
+      const endpoint = isSelf ? `/tasks/self/${taskId}/remarks` : `/tasks/assigned/${taskId}/remarks`;
+      const res = await axios.get(endpoint);
       setRemarksDialog({ 
         open: true, 
         taskId, 
@@ -164,7 +166,9 @@ const MyTaskManagement = () => {
     }
     
     try {
-      await axios.post(`/task/${taskId}/remarks`, { text: newRemark });
+      const isSelf = Object.values(myTasksGrouped).flat().some(t => t._id === taskId);
+      const endpoint = isSelf ? `/tasks/self/${taskId}/remarks` : `/tasks/assigned/${taskId}/remarks`;
+      await axios.post(endpoint, { text: newRemark });
       setNewRemark('');
       fetchTaskRemarks(taskId);
       setSnackbar({ open: true, message: 'Remark added successfully', severity: 'success' });
@@ -211,7 +215,7 @@ const MyTaskManagement = () => {
         formData.append('voiceNote', updateData.voiceNote);
       }
 
-      const response = await axios.put(`/task/${taskId}`, formData, {
+      const response = await axios.put(`/tasks/self/${taskId}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         }
@@ -239,7 +243,7 @@ const MyTaskManagement = () => {
     }
 
     try {
-      const response = await axios.delete(`/task/${taskId}`);
+      const response = await axios.delete(`/tasks/self/${taskId}`);
       setTaskManagementDialog({ open: false, task: null });
       fetchMyTasks();
       fetchAssignedTasks();
@@ -323,7 +327,10 @@ const MyTaskManagement = () => {
         return;
       }
 
-      await axios.patch(`/task/${taskId}/status`, { 
+      const isSelf = Object.values(myTasksGrouped).flat().some(t => t._id === taskId);
+      const endpoint = isSelf ? `/tasks/self/${taskId}/status` : `/tasks/assigned/${taskId}/status`;
+
+      await axios.patch(endpoint, { 
         status: newStatus, 
         remarks: finalRemarks,
         userId: finalUserId
@@ -453,7 +460,7 @@ const MyTaskManagement = () => {
 
     setLoading(true);
     try {
-      const url = statusFilter ? `/task?status=${statusFilter}` : '/task/my';
+      const url = statusFilter ? `/tasks/self?status=${statusFilter}` : '/tasks/self';
       const res = await axios.get(url);
       setMyTasksGrouped(res.data.groupedTasks || {});
       if (tab === 0) calculateStats(res.data.groupedTasks || {});
@@ -478,7 +485,7 @@ const MyTaskManagement = () => {
     if (authError || !userId) return;
 
     try {
-      const res = await axios.get('/task/assigned');
+      const res = await axios.get('/tasks/assigned/to-me');
       setAssignedTasksGrouped(res.data.groupedTasks || {});
       if (tab === 1) calculateStats(res.data.groupedTasks || {});
     } catch (err) {
@@ -550,7 +557,10 @@ const MyTaskManagement = () => {
         formData.append('voiceNote', newTask.voiceNote);
       }
 
-      const response = await axios.post('/task/create', formData, {
+      const isSelfTask = finalAssignedUsers.length === 1 && finalAssignedUsers[0] === userId;
+      const endpoint = isSelfTask ? '/tasks/self/create' : '/tasks/assigned/create';
+
+      const response = await axios.post(endpoint, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         }

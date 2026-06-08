@@ -232,6 +232,8 @@ import EmployeeMeetingPage from "./hrCds/pages/EmployeeMeetingPage";
 import EmployeeProject from "./hrCds/pages/EmployeeProject";
 import ClientMeeting from "./hrCds/pages/ClientMeeting";
 import ContactSupport from "./hrCds/pages/ContactSupport";
+import DepartmentSupportDesk from "./hrCds/pages/DepartmentSupportDesk";
+import SupportOperations from "./admin/page/SupportOperations.jsx";
 
 import CreateAlerts from "./hrCds/pages/CreateAlerts.jsx";
 import UserProfile from './page/UserProfile.jsx';
@@ -310,6 +312,7 @@ function App() {
           <Route path="company-access" element={<CompanyAccessManagement />} />
           <Route path="holiday" element={<Holiday />} />
           <Route path="branch" element={<BranchManagement />} />
+          <Route path="support-operations" element={<SupportOperations />} />
         </Route>
 
         {/* ========== CDS USER ROUTES (HR, Employee, etc.) ========== */}
@@ -357,6 +360,8 @@ function App() {
           <Route path="user-profile" element={<UserProfile/>} />
           <Route path="chat" element={<ChatPage />} />
           <Route path="contact-support" element={<ContactSupport />} />
+          <Route path="support-desk" element={<DepartmentSupportDesk />} />
+          <Route path="support-operations" element={<SupportOperations />} />
         </Route>
 
         {/* ========== CLIENT SPECIFIC ROUTES (NEW) ========== */}

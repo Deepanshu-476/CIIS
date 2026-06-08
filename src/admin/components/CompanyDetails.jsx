@@ -95,11 +95,7 @@ const CompanyDetails = () => {
   const genderOptions = ["male", "female", "other"];
   const maritalStatusOptions = ["single", "married", "divorced", "widowed"];
   const employeeTypeOptions = ["permanent", "contract", "intern", "trainee", "consultant", "part-time", "freelance"];
-
- 
-  // Default company logo (building icon)
   const DEFAULT_COMPANY_LOGO = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";;
-  // Default user avatar - ORIGINAL USER ICON
   const DEFAULT_USER_AVATAR = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";;
 
   const getLoggedCompanyFromStorage = () => {

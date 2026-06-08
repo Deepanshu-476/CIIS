@@ -2,4 +2,21 @@
 > ciisnetwork@0.0.0 dev
 > vite --host 0.0.0.0 --port 5173
 
-[2m11:45:34 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Forced re-optimization of dependencies
+[2m12:33:26 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Forced re-optimization of dependencies
+
+  [32m[1mVITE[22m v7.3.3[39m  [2mready in [0m[1m1420[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.68.106:[1m5173[22m/[39m
+[2m1:59:05 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.jsx, /src/index.css[22m
+[2m1:59:05 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/admin/components/SidebarManagement.jsx, /src/index.css[22m
+[2m1:59:05 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/admin/page/CompanyAccessManagement.jsx, /src/index.css[22m
+[2m1:59:23 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hrCds/Sidebar.jsx, /src/index.css[22m
+[2m2:00:06 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/admin/components/SidebarManagement.jsx, /src/index.css[22m
+[2m2:00:28 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/admin/page/CompanyAccessManagement.jsx, /src/index.css[22m
+[2m2:01:43 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mdist-support-check/index.html[22m
+[2m2:01:55 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mdist-support-check/index.html[22m
+[2m2:24:50 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hrCds/pages/ContactSupport.jsx, /src/index.css[22m
+[2m2:25:35 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hrCds/pages/SupportCenter.css, /src/index.css[22m
+[2m2:26:32 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mdist-support-check/index.html[22m
+[2m2:26:45 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mdist-support-check/index.html[22m

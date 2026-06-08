@@ -23,6 +23,7 @@ import {
   ExitToApp as LogoutIcon,
   Inventory as AssetsIcon,
   ManageAccounts as ManageAccountsIcon,
+  SupportAgent as SupportAgentIcon,
 } from '@mui/icons-material';
 
 // Styled components (same as before)
@@ -229,6 +230,12 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       name: 'Company Access',
       route: '/Ciis-network/company-access',
       showForEmail: ['ashutoshrai130@gmail.com']
+    },
+    {
+      icon: <SupportAgentIcon />,
+      name: 'Support Operations',
+      route: '/Ciis-network/support-operations',
+      showForAll: true
     },
  
      { 

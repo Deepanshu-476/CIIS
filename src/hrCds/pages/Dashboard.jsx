@@ -70,6 +70,122 @@ const getPersonRole = person => (
     : 'Project Team'
 );
 
+const normalizeMatchValue = value => String(value || '').trim().toLowerCase();
+
+const normalizePhoneValue = value => String(value || '').replace(/\D/g, '');
+
+const getIdValues = value => {
+  if (!value) return [];
+  if (typeof value === 'object') {
+    return [
+      value._id,
+      value.id,
+      value.userId,
+      value.clientId,
+      value.clientUserId
+    ].map(normalizeMatchValue).filter(Boolean);
+  }
+  return [normalizeMatchValue(value)].filter(Boolean);
+};
+
+const getClientMatchValues = client => ({
+  ids: [
+    ...getIdValues(client?._id),
+    ...getIdValues(client?.id),
+    ...getIdValues(client?.userId),
+    ...getIdValues(client?.clientId),
+    ...getIdValues(client?.clientUserId),
+    ...getIdValues(client?.user),
+    ...getIdValues(client?.clientUser)
+  ],
+  emails: [
+    client?.email,
+    client?.clientEmail,
+    client?.userEmail,
+    client?.contactEmail,
+    client?.companyEmail,
+    client?.user?.email,
+    client?.clientUser?.email
+  ].map(normalizeMatchValue).filter(Boolean),
+  names: [
+    client?.client,
+    client?.name,
+    client?.clientName,
+    client?.fullName,
+    client?.company,
+    client?.companyName,
+    client?.contactName,
+    client?.username,
+    client?.user?.name,
+    client?.user?.fullName,
+    client?.clientUser?.name
+  ].map(normalizeMatchValue).filter(Boolean),
+  phones: [
+    client?.phone,
+    client?.mobile,
+    client?.contactPhone,
+    client?.contactMobile,
+    client?.user?.phone,
+    client?.clientUser?.phone
+  ].map(normalizePhoneValue).filter(Boolean)
+});
+
+const getUserMatchValues = user => ({
+  ids: [
+    ...getIdValues(user?._id),
+    ...getIdValues(user?.id),
+    ...getIdValues(user?.userId),
+    ...getIdValues(user?.clientId),
+    ...getIdValues(user?.clientUserId),
+    ...getIdValues(user?.client),
+    ...getIdValues(user?.clientUser)
+  ],
+  emails: [
+    user?.email,
+    user?.clientEmail,
+    user?.userEmail,
+    user?.companyEmail,
+    user?.client?.email,
+    user?.clientUser?.email
+  ].map(normalizeMatchValue).filter(Boolean),
+  names: [
+    user?.name,
+    user?.fullName,
+    user?.client,
+    user?.clientName,
+    user?.company,
+    user?.companyName,
+    user?.organizationName,
+    user?.username,
+    user?.client?.name,
+    user?.client?.client,
+    user?.client?.company,
+    user?.clientUser?.name
+  ].map(normalizeMatchValue).filter(Boolean),
+  phones: [
+    user?.phone,
+    user?.mobile,
+    user?.clientPhone,
+    user?.clientMobile,
+    user?.client?.phone,
+    user?.clientUser?.phone
+  ].map(normalizePhoneValue).filter(Boolean)
+});
+
+const hasIntersection = (left = [], right = []) => left.some(value => right.includes(value));
+
+const isClientForLoggedInUser = (client, user) => {
+  const clientValues = getClientMatchValues(client);
+  const userValues = getUserMatchValues(user);
+
+  return (
+    hasIntersection(clientValues.ids, userValues.ids) ||
+    hasIntersection(clientValues.emails, userValues.emails) ||
+    hasIntersection(clientValues.names, userValues.names) ||
+    hasIntersection(clientValues.phones, userValues.phones)
+  );
+};
+
 const normalizeProjectMember = person => {
   const name = getPersonName(person).trim();
   if (!name) return null;
@@ -358,17 +474,24 @@ const Dashboard = () => {
       if (response.data?.success && isMounted.current) {
         const allClients = response.data.data || [];
         
-        let currentClient = allClients.find(c => 
-          c.email === user.email || 
-          c.client === user.name ||
-          c._id === user.id ||
-          (c.projectManagers && c.projectManagers.some(pm => pm.email === user.email))
-        );
+        const currentClient = allClients.find(client => isClientForLoggedInUser(client, user));
         
-        if (!currentClient && allClients.length > 0) {
-          currentClient = allClients[0];
+        if (!currentClient) {
+          setClient(null);
+          setServices([]);
+          setProjectManagers([]);
+          setServiceTasks([]);
+          setOverallStats({
+            totalTasks: 0,
+            completedTasks: 0,
+            pendingTasks: 0,
+            overdueTasks: 0
+          });
+          setError('No client data found for this login.');
+          return;
         }
         
+        setError('');
         setClient(currentClient);
         setProjectManagers(collectProjectMembers(currentClient, companyUsers));
         

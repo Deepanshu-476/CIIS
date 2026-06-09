@@ -352,6 +352,7 @@ function App() {
           <Route path="my-leaves" element={<MyLeaves />} />
           <Route path="profile" element={<Profile />} />
           <Route path="user-dashboard" element={<UserDashboard />} />
+          <Route path="ClientDashboard" element={<Navigate to="/client/dashboard" replace />} />
           <Route path="project" element={<EmployeeProject />} />
           <Route path="task-management" element={<TaskManagement />} />
           <Route path="employee-meeting" element={<EmployeeMeetingPage />} />

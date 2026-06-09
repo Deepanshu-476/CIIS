@@ -3,7 +3,7 @@ const normalize = value => String(value || '').trim().toLowerCase().replace(/[^a
 const PATH_TO_ROUTE = {
   'user-dashboard': '/ciisUser/user-dashboard',
   dashboard: '/ciisUser/user-dashboard',
-  'client-dashboard': '/ciisUser/ClientDashboard',
+  'client-dashboard': '/client/dashboard',
   'my-leaves': '/ciisUser/my-leaves',
   leaves: '/ciisUser/my-leaves',
   'my-assets': '/ciisUser/my-assets',
@@ -52,7 +52,7 @@ const TYPE_TO_ROUTE = {
   task_remark_added: '/ciisUser/task-management',
   task_status_updated: '/ciisUser/admin-task-create',
   status_updated: '/ciisUser/company-all-task',
-  task_client: '/ciisUser/ClientDashboard',
+  task_client: '/client/dashboard',
   leave_applied: '/ciisUser/emp-leaves',
   leave_status_changed: '/ciisUser/my-leaves',
   leave_deleted: '/ciisUser/my-leaves',

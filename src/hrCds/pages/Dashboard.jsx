@@ -11,15 +11,20 @@ import {
   FiClock,
   FiStar,
   FiBarChart2,
+  FiChevronRight,
   FiFolder,
   FiCalendar,
   FiMail,
   FiMapPin,
   FiPhone,
+  FiShield,
+  FiHeadphones,
   FiZap,
   FiArrowUp,
   FiArrowDown,
-  FiUser
+  FiUser,
+  FiUsers,
+  FiMoreHorizontal
 } from 'react-icons/fi';
 import { Line, Doughnut } from 'react-chartjs-2';
 import {
@@ -545,26 +550,24 @@ const Dashboard = () => {
     datasets: [
       {
         data: [overallStats.completedTasks, overallStats.pendingTasks, overallStats.overdueTasks],
-        backgroundColor: ['#10b981', '#f97316', '#ef4444'],
-        borderWidth: 0,
+        backgroundColor: ['#24c06f', '#ff9b0f', '#ff4055'],
+        borderColor: '#ffffff',
+        borderWidth: 2,
+        hoverOffset: 0,
       },
     ],
   };
 
   const doughnutOptions = {
-    cutout: '60%',
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '58%',
     plugins: {
       legend: {
-        position: 'bottom',
-        labels: {
-          usePointStyle: true,
-          boxWidth: 10,
-          font: {
-            family: dashboardFontFamily,
-            size: 11,
-            weight: 500
-          }
-        }
+        display: false
+      },
+      tooltip: {
+        enabled: true
       }
     }
   };
@@ -626,7 +629,7 @@ const Dashboard = () => {
       trend: '20%',
       direction: 'up',
       icon: <FiBriefcase />,
-      tone: 'blue'
+      tone: 'purple'
     },
     {
       label: 'Completed Tasks',
@@ -641,8 +644,8 @@ const Dashboard = () => {
       label: 'Pending Tasks',
       value: overallStats.pendingTasks,
       subLabel: 'Tasks Pending',
-      trend: '12%',
-      direction: 'down',
+      trend: '5%',
+      direction: 'up',
       icon: <FiClock />,
       tone: 'orange'
     },
@@ -679,8 +682,46 @@ const Dashboard = () => {
       const tasks = serviceTasks.filter(task => task.serviceName === service);
       const completed = tasks.filter(task => task.completed).length;
       const percent = tasks.length ? Math.round((completed / tasks.length) * 100) : [90, 85, 70, 60][index] || 65;
-      return { service, percent, tone: ['green', 'blue', 'orange', 'purple'][index] || 'blue' };
+      return { service, percent, tone: ['purple', 'blue', 'green', 'orange'][index] || 'blue' };
     });
+
+  const recentActivities = (serviceTasks.length ? serviceTasks : [
+    { task: 'Homepage Redesign', serviceName: 'UI/UX Design', completed: true, updatedAt: Date.now() - 2 * 60 * 60 * 1000 },
+    { task: 'API Integration', serviceName: 'Web Development', status: 'in-progress', updatedAt: Date.now() - 5 * 60 * 60 * 1000 },
+    { task: 'Marketing Campaign Setup', serviceName: 'Digital Marketing', status: 'in-progress', updatedAt: Date.now() - 24 * 60 * 60 * 1000 },
+    { task: 'Mobile App Testing', serviceName: 'Mobile Application', status: 'overdue', updatedAt: Date.now() - 2 * 24 * 60 * 60 * 1000 }
+  ]).slice(0, 4).map((task, index) => {
+    const status = getTaskStatus(task);
+    return {
+      id: task._id || task.id || `${getTaskName(task)}-${index}`,
+      name: getTaskName(task),
+      service: task.serviceName || 'Project Service',
+      status,
+      time: ['2h ago', '5h ago', '1d ago', '2d ago'][index] || 'Today'
+    };
+  });
+
+  const sidebarManagers = (projectManagers.length ? projectManagers : [
+    { name: 'Amit Verma', role: 'Lead Manager' },
+    { name: 'Neha Kapoor', role: 'Design Manager' },
+    { name: 'Rohan Mehta', role: 'Development Manager' }
+  ]).slice(0, 3);
+
+  const summaryCards = [
+    { label: 'Invoices', value: '₹1,24,500', note: '2 Overdue', tone: 'purple', icon: <FiBriefcase /> },
+    { label: 'Support Tickets', value: '3', note: '1 Open', tone: 'green', icon: <FiHeadphones /> },
+    { label: 'Upcoming Meetings', value: '2', note: 'Next: May 23, 2026', tone: 'blue', icon: <FiCalendar /> },
+    { label: 'Team Availability', value: '85%', note: 'Available this week', tone: 'purple', icon: <FiUsers /> }
+  ];
+
+  const reportBullets = ['Custom Reports', 'Performance Analytics', 'Export & Share'];
+
+  const cardSparkline = {
+    purple: 'M4 31 L18 20 L31 25 L45 14 L60 24 L74 18 L88 27 L103 12',
+    green: 'M4 26 L18 18 L31 23 L45 12 L60 20 L74 16 L88 24 L103 10',
+    orange: 'M4 24 L18 13 L31 22 L45 18 L60 28 L74 21 L88 25 L103 14',
+    red: 'M4 14 L18 20 L31 17 L45 29 L60 22 L74 31 L88 24 L103 15'
+  };
 
   if (loading) {
     return (
@@ -724,243 +765,246 @@ const Dashboard = () => {
 
   return (
     <div className="ClientDashboard-client-dashboard">
-      <div className="ClientDashboard-topbar">
-        <div className="ClientDashboard-greeting">
-          <h1>Good Morning, {clientFirstName} <span>👋</span></h1>
-          <p>Here's what's happening with your projects today.</p>
-        </div>
-
-        <div className="ClientDashboard-date-pill">
-          <FiCalendar />
-          <span>{todayLabel}</span>
-        </div>
-
-        <div className="ClientDashboard-profile-card">
-          <div className="ClientDashboard-profile-avatar">
-            {clientName.charAt(0).toUpperCase()}
+      <main className="ClientDashboard-main">
+        <header className="ClientDashboard-header">
+          <div className="ClientDashboard-greeting">
+            <h1>Welcome back, {clientFirstName}! <span>{'\uD83D\uDC4B'}</span></h1>
+            <p>Here's what's happening with your projects today.</p>
           </div>
-          <div className="ClientDashboard-profile-body">
-            <h2>{clientName}</h2>
-            <p>Client</p>
-            <div className="ClientDashboard-profile-meta">
-              <span><FiMail /> {client?.email || 'client@example.com'}</span>
-              <span><FiPhone /> {client?.phone || '+91 98765 43210'}</span>
-              <span><FiMapPin /> {client?.city || client?.address || 'Ahmedabad, India'}</span>
-            </div>
-            <button className="ClientDashboard-profile-button">
-              <FiUser /> View Profile
-            </button>
-          </div>
-        </div>
-      </div>
+        </header>
 
-      <div className="ClientDashboard-overall-stats">
-        {statCards.map(card => (
-          <div key={card.label} className="ClientDashboard-stat-card">
-            <div className={`ClientDashboard-stat-icon-wrapper ClientDashboard-tone-${card.tone}`}>
-              {card.icon}
-            </div>
-            <div className="ClientDashboard-stat-content">
-              <span className="ClientDashboard-stat-label">{card.label}</span>
-              <span className="ClientDashboard-stat-number">{card.value}</span>
-              <span className="ClientDashboard-stat-sub-label">{card.subLabel}</span>
-            </div>
-            <div className={`ClientDashboard-stat-trend ClientDashboard-stat-trend--${card.direction}`}>
-              {card.direction === 'up' ? <FiArrowUp /> : <FiArrowDown />}
-              <span>{card.trend}</span>
-              <small>vs last month</small>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="ClientDashboard-main-grid">
-        <div className="ClientDashboard-card ClientDashboard-progress-card">
-          <div className="ClientDashboard-card-title-row">
-            <h3>Overall Progress</h3>
-          </div>
-          <div className="ClientDashboard-progress-content">
-            <div className="ClientDashboard-progress-ring" style={{ '--progress': `${completedPercent * 3.6}deg` }}>
-              <div className="ClientDashboard-progress-ring-inner">
-                <strong>{completedPercent}%</strong>
-                <span>Complete</span>
+        <section className="ClientDashboard-overall-stats">
+          {statCards.map(card => (
+            <article key={card.label} className="ClientDashboard-stat-card">
+              <div className={`ClientDashboard-stat-icon-wrapper ClientDashboard-tone-${card.tone}`}>
+                {card.icon}
               </div>
-            </div>
-            <div className="ClientDashboard-progress-details">
-              <h4>{completedPercent >= 70 ? 'Great Progress!' : 'Keep Going!'}</h4>
-              <p>You're doing great! {completedPercent}% of your tasks are completed this month.</p>
-              <div className="ClientDashboard-progress-line">
-                <span style={{ width: `${completedPercent}%` }}></span>
+              <div className="ClientDashboard-stat-content">
+                <span className="ClientDashboard-stat-label">{card.label}</span>
+                <strong className="ClientDashboard-stat-number">{card.value}</strong>
+                <span className={`ClientDashboard-stat-trend ClientDashboard-stat-trend--${card.direction}`}>
+                  {card.direction === 'up' ? <FiArrowUp /> : <FiArrowDown />}
+                  {card.trend}
+                </span>
               </div>
-              <strong>{completedPercent}%</strong>
-              <div className="ClientDashboard-mini-stats">
-                <div>
-                  <span>Total Tasks</span>
-                  <strong>{totalTasks}</strong>
-                </div>
-                <div>
-                  <span>Remaining Tasks</span>
-                  <strong>{overallStats.pendingTasks}</strong>
+              <svg className={`ClientDashboard-sparkline ClientDashboard-sparkline--${card.tone}`} viewBox="0 0 108 42" aria-hidden="true">
+                <path d={cardSparkline[card.tone] || cardSparkline.purple} />
+              </svg>
+            </article>
+          ))}
+        </section>
+
+        <section className="ClientDashboard-grid">
+          <article className="ClientDashboard-card ClientDashboard-progress-card">
+            <div className="ClientDashboard-card-title-row">
+              <h3>Overall Progress <span>i</span></h3>
+              <button type="button" aria-label="More options"><FiMoreHorizontal /></button>
+            </div>
+            <div className="ClientDashboard-progress-content">
+              <div className="ClientDashboard-progress-ring" style={{ '--progress': `${completedPercent * 3.6}deg` }}>
+                <div className="ClientDashboard-progress-ring-inner">
+                  <strong>{completedPercent}%</strong>
+                  <span>Completed</span>
                 </div>
               </div>
+              <p><strong>+8%</strong> increase from last week</p>
             </div>
-          </div>
-        </div>
+          </article>
 
-        <div className="ClientDashboard-card ClientDashboard-distribution-card">
-          <div className="ClientDashboard-card-title-row">
-            <h3>Task Distribution</h3>
-          </div>
-          <div className="ClientDashboard-distribution-content">
-            <div className="ClientDashboard-doughnut-container">
-              <Doughnut data={doughnutData} options={doughnutOptions} />
+          <article className="ClientDashboard-card ClientDashboard-distribution-card">
+            <div className="ClientDashboard-card-title-row">
+              <h3>Task Distribution <span>i</span></h3>
+              <button type="button" aria-label="More options"><FiMoreHorizontal /></button>
             </div>
-            <div className="ClientDashboard-distribution-legend">
-              <div><span className="ClientDashboard-dot green"></span>Completed <strong>{overallStats.completedTasks} ({completedPercent}%)</strong></div>
-              <div><span className="ClientDashboard-dot orange"></span>Pending <strong>{overallStats.pendingTasks} ({pendingPercent}%)</strong></div>
-              <div><span className="ClientDashboard-dot red"></span>Overdue <strong>{overallStats.overdueTasks} ({overduePercent}%)</strong></div>
+            <div className="ClientDashboard-distribution-content">
+              <div className="ClientDashboard-doughnut-container">
+                <Doughnut data={doughnutData} options={doughnutOptions} />
+              </div>
+              <div className="ClientDashboard-distribution-legend">
+                <div><span className="ClientDashboard-dot green"></span><span>Completed</span><strong>{overallStats.completedTasks} ({completedPercent}%)</strong></div>
+                <div><span className="ClientDashboard-dot orange"></span><span>Pending</span><strong>{overallStats.pendingTasks} ({pendingPercent}%)</strong></div>
+                <div><span className="ClientDashboard-dot red"></span><span>Overdue</span><strong>{overallStats.overdueTasks} ({overduePercent}%)</strong></div>
+                <footer>Total Tasks <strong>{totalTasks}</strong></footer>
+              </div>
             </div>
-          </div>
-        </div>
+          </article>
 
-        <div className="ClientDashboard-card ClientDashboard-activity-card">
-          <div className="ClientDashboard-card-title-row">
-            <h3>Recent Activities</h3>
-          </div>
-          <div className="ClientDashboard-activity-list">
-            {assignedTaskStatusRows.length ? assignedTaskStatusRows.map(task => (
-              <div className="ClientDashboard-activity-item" key={task.id}>
-                <div className={`ClientDashboard-activity-icon ClientDashboard-tone-${task.status.tone}`}>
-                  {task.status.icon}
-                </div>
-                <div className="ClientDashboard-activity-task">
-                  <strong>{task.name}</strong>
+          <article className="ClientDashboard-card ClientDashboard-activity-card">
+            <div className="ClientDashboard-card-title-row">
+              <h3>Recent Activities</h3>
+              <button type="button" aria-label="More options"><FiMoreHorizontal /></button>
+            </div>
+            <div className="ClientDashboard-activity-list">
+              {recentActivities.map(task => (
+                <div className="ClientDashboard-activity-item" key={task.id}>
+                  <div className={`ClientDashboard-activity-icon ClientDashboard-tone-${task.status.tone}`}>{task.status.icon}</div>
+                  <div className="ClientDashboard-activity-copy">
+                    <strong>{task.name}</strong>
+                    <span>{task.service}</span>
+                  </div>
                   <span className={`ClientDashboard-task-status ClientDashboard-task-status--${task.status.tone}`}>
                     {task.status.label}
                   </span>
+                  <small>{task.time}</small>
                 </div>
-              </div>
-            )) : (
-              <div className="ClientDashboard-empty-row">
-                <span>No assigned tasks found</span>
-              </div>
-            )}
-          </div>
-        </div>
+              ))}
+            </div>
+          </article>
 
-        <div className="ClientDashboard-card ClientDashboard-weekly-card">
-          <div className="ClientDashboard-card-title-row">
-            <h3>Weekly Progress</h3>
-            <select defaultValue="week">
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-            </select>
-          </div>
-          <div className="ClientDashboard-chart-container">
-            <Line data={chartData} options={lineOptions} />
-          </div>
-        </div>
+          <article className="ClientDashboard-card ClientDashboard-weekly-card">
+            <div className="ClientDashboard-card-title-row">
+              <h3>Weekly Progress Overview <span>i</span></h3>
+              <button type="button" aria-label="More options"><FiMoreHorizontal /></button>
+            </div>
+            <div className="ClientDashboard-chart-container">
+              <Line data={chartData} options={lineOptions} />
+            </div>
+          </article>
 
-        <div className="ClientDashboard-card ClientDashboard-deadline-card">
-          <div className="ClientDashboard-card-title-row">
-            <h3>Upcoming Deadlines</h3>
-            <button>View All</button>
-          </div>
-          <div className="ClientDashboard-deadline-list">
-            {upcomingDeadlines.map((task, index) => (
-              <div className="ClientDashboard-deadline-item" key={`${task.task || task.title}-${index}`}>
-                <div className={`ClientDashboard-deadline-icon ClientDashboard-tone-${['blue', 'orange', 'purple'][index] || 'blue'}`}>
-                  <FiCalendar />
+          <article className="ClientDashboard-card ClientDashboard-deadline-card">
+            <div className="ClientDashboard-card-title-row">
+              <h3>Upcoming Deadlines</h3>
+              <button type="button" aria-label="More options"><FiMoreHorizontal /></button>
+            </div>
+            <div className="ClientDashboard-deadline-list">
+              {upcomingDeadlines.slice(0, 4).map((task, index) => (
+                <div className="ClientDashboard-deadline-item" key={`${task.task || task.title}-${index}`}>
+                  <div className="ClientDashboard-deadline-icon ClientDashboard-tone-blue"><FiCalendar /></div>
+                  <div>
+                    <strong>{task.task || task.title || 'Project Deadline'}</strong>
+                    <span>{task.serviceName || 'Project Service'}</span>
+                  </div>
+                  <small>{new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</small>
                 </div>
-                <div>
-                  <strong>{task.task || task.title || 'Project Deadline'}</strong>
-                  <span>{task.serviceName || 'Project Service'}</span>
-                </div>
-                <small>{new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</small>
-              </div>
-            ))}
-          </div>
-        </div>
+              ))}
+            </div>
+          </article>
 
-        <div className="ClientDashboard-card ClientDashboard-services-card">
-          <div className="ClientDashboard-card-title-row">
-            <h3>Active Services</h3>
-            <button>View All</button>
-          </div>
-          <div className="ClientDashboard-service-list">
-            {servicePerformance.map(item => (
-              <div className="ClientDashboard-service-row" key={item.service}>
-                <div className={`ClientDashboard-service-icon ClientDashboard-tone-${item.tone}`}>
-                  <FiFolder />
+          <article className="ClientDashboard-card ClientDashboard-services-card">
+            <div className="ClientDashboard-card-title-row">
+              <h3>Active Services</h3>
+              <button type="button" aria-label="More options"><FiMoreHorizontal /></button>
+            </div>
+            <div className="ClientDashboard-service-list">
+              {servicePerformance.map(item => (
+                <div className="ClientDashboard-service-row" key={item.service}>
+                  <div className={`ClientDashboard-service-icon ClientDashboard-tone-${item.tone}`}><FiFolder /></div>
+                  <div>
+                    <strong>{item.service}</strong>
+                    <div className="ClientDashboard-row-progress"><span style={{ width: `${item.percent}%` }}></span></div>
+                  </div>
+                  <small>{item.percent}%</small>
                 </div>
-                <div>
+              ))}
+            </div>
+          </article>
+
+          <article className="ClientDashboard-card ClientDashboard-performance-card">
+            <div className="ClientDashboard-card-title-row">
+              <h3>Top Services Performance</h3>
+              <button type="button" aria-label="More options"><FiMoreHorizontal /></button>
+            </div>
+            <div className="ClientDashboard-performance-list">
+              {servicePerformance.map((item, index) => (
+                <div className="ClientDashboard-performance-row" key={item.service}>
+                  <div className={`ClientDashboard-service-icon ClientDashboard-tone-${item.tone}`}><FiFolder /></div>
                   <strong>{item.service}</strong>
-                  <span>Progress</span>
+                  <span className="ClientDashboard-stars">{'★'.repeat(4)}<i>★</i></span>
+                  <div className="ClientDashboard-row-progress"><span style={{ width: `${item.percent}%` }}></span></div>
+                  <small>{(4.8 - index * 0.2).toFixed(1)}/5</small>
                 </div>
-                <div className="ClientDashboard-row-progress">
-                  <span style={{ width: `${item.percent}%` }}></span>
-                </div>
-                <small>{item.percent}%</small>
-              </div>
-            ))}
-          </div>
-        </div>
+              ))}
+            </div>
+          </article>
 
-        <div className="ClientDashboard-card ClientDashboard-managers-card">
+          <article className="ClientDashboard-reports-card">
+            <div className="ClientDashboard-report-art" aria-hidden="true">
+              <div className="ClientDashboard-report-sheet">
+                <span></span><span></span><span></span>
+                <i></i>
+              </div>
+              <div className="ClientDashboard-report-bars"><b></b><b></b><b></b></div>
+            </div>
+            <div className="ClientDashboard-report-copy">
+              <h3>Reports & Analytics</h3>
+              <p>Get detailed insights into your projects, performance and growth.</p>
+              {reportBullets.map(item => (
+                <span key={item}><FiCheckCircle /> {item}</span>
+              ))}
+              <button type="button">View Reports <FiChevronRight /></button>
+            </div>
+          </article>
+
+          <section className="ClientDashboard-summary-cards">
+            {summaryCards.map(card => (
+              <article className="ClientDashboard-summary-card" key={card.label}>
+                <div className={`ClientDashboard-summary-icon ClientDashboard-tone-${card.tone}`}>{card.icon}</div>
+                <div>
+                  <span>{card.label}</span>
+                  <strong>{card.value}</strong>
+                  <small>{card.note}</small>
+                </div>
+                <button type="button" aria-label={`Open ${card.label}`}><FiChevronRight /></button>
+              </article>
+            ))}
+          </section>
+        </section>
+      </main>
+
+      <aside className="ClientDashboard-sidebar">
+        <section className="ClientDashboard-side-card ClientDashboard-profile-card">
+          <div className="ClientDashboard-card-title-row">
+            <h3>Client Profile</h3>
+            <button type="button" aria-label="More options"><FiMoreHorizontal /></button>
+          </div>
+          <div className="ClientDashboard-profile-avatar-wrap">
+            <div className="ClientDashboard-profile-avatar">{clientName.charAt(0).toUpperCase()}</div>
+            <span><FiShield /></span>
+          </div>
+          <div className="ClientDashboard-premium-badge"><FiStar /> Premium Client</div>
+          <h2>{clientName}</h2>
+          <div className="ClientDashboard-profile-meta">
+            <span><FiMail /> {client?.email || 'rahul.sharma@email.com'}</span>
+            <span><FiPhone /> {client?.phone || '+91 98765 43210'}</span>
+            <span><FiMapPin /> {client?.city || client?.address || 'Bangalore, India'}</span>
+          </div>
+        </section>
+
+        <section className="ClientDashboard-side-card ClientDashboard-managers-card">
           <div className="ClientDashboard-card-title-row">
             <h3>Project Managers</h3>
-            <button>View All</button>
+            <button type="button" aria-label="More options"><FiMoreHorizontal /></button>
           </div>
           <div className="ClientDashboard-manager-list">
-            {projectManagers.length ? projectManagers.slice(0, 3).map(manager => (
+            {sidebarManagers.map(manager => (
               <div className="ClientDashboard-manager-row" key={manager.email || manager.name}>
                 <div className="ClientDashboard-manager-avatar">{(manager.name || 'M').charAt(0)}</div>
                 <div>
                   <strong>{manager.name || 'Project Manager'}</strong>
-                  <span>{manager.email || manager.role || manager.designation || 'Project Team'}</span>
+                  <span>{manager.role || manager.designation || 'Project Manager'}</span>
                 </div>
-                <button><FiMail /></button>
-              </div>
-            )) : (
-              <div className="ClientDashboard-empty-row">
-                <span>No project team assigned</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="ClientDashboard-card ClientDashboard-performance-card">
-          <div className="ClientDashboard-card-title-row">
-            <h3>Top Services Performance</h3>
-            <button>View All</button>
-          </div>
-          <div className="ClientDashboard-performance-list">
-            {servicePerformance.map(item => (
-              <div className="ClientDashboard-performance-row" key={item.service}>
-                <div className={`ClientDashboard-service-icon ClientDashboard-tone-${item.tone}`}>
-                  <FiStar />
-                </div>
-                <strong>{item.service}</strong>
-                <div className="ClientDashboard-row-progress">
-                  <span style={{ width: `${item.percent}%` }}></span>
-                </div>
-                <small>{item.percent}%</small>
+                <i></i>
               </div>
             ))}
           </div>
-        </div>
+          <button className="ClientDashboard-view-managers" type="button">View all managers <FiChevronRight /></button>
+        </section>
 
-        <div className="ClientDashboard-boost-card">
-          <FiZap className="ClientDashboard-boost-rocket" />
-          <div>
-            <h3>Boost Your Productivity</h3>
-            <p>Track your progress and achieve your business goals with us.</p>
-            <button><FiBarChart2 /> Explore Reports</button>
+        <section className="ClientDashboard-side-card ClientDashboard-progress-summary">
+          <div className="ClientDashboard-card-title-row">
+            <h3>Progress Summary</h3>
+            <button type="button" aria-label="More options"><FiMoreHorizontal /></button>
           </div>
-        </div>
-      </div>
+          <div className="ClientDashboard-summary-top">
+            <span>Overall Progress<br /><strong>+8% from last week</strong></span>
+            <b>{completedPercent}%</b>
+          </div>
+          <div className="ClientDashboard-mini-chart">
+            <Line data={chartData} options={lineOptions} />
+          </div>
+        </section>
+      </aside>
     </div>
   );
 };
-
 export default Dashboard;

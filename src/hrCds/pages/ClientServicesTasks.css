@@ -1,0 +1,528 @@
+.ClientServicesTasks-page {
+  min-height: 100vh;
+  padding: 22px 24px;
+  background: linear-gradient(135deg, #fbfcff 0%, #f7f9fd 55%, #f1f5fb 100%);
+  color: #0f1538;
+  font-family: "Roboto", "Helvetica", "Arial", sans-serif;
+}
+
+.ClientServicesTasks-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.ClientServicesTasks-titleBlock,
+.ClientServicesTasks-actions,
+.ClientServicesTasks-clientSelect,
+.ClientServicesTasks-refresh,
+.ClientServicesTasks-panelHeader,
+.ClientServicesTasks-serviceName,
+.ClientServicesTasks-taskService,
+.ClientServicesTasks-dueDate,
+.ClientServicesTasks-wideAction {
+  display: flex;
+  align-items: center;
+}
+
+.ClientServicesTasks-titleBlock {
+  gap: 16px;
+}
+
+.ClientServicesTasks-titleIcon,
+.ClientServicesTasks-panelIcon,
+.ClientServicesTasks-statIcon,
+.ClientServicesTasks-miniIcon,
+.ClientServicesTasks-taskServiceIcon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.ClientServicesTasks-titleIcon {
+  width: 58px;
+  height: 58px;
+  border-radius: 22px;
+  background: #efe8ff;
+  color: #743dff;
+  font-size: 28px;
+}
+
+.ClientServicesTasks-titleBlock h1 {
+  margin: 0 0 6px;
+  font-size: 28px;
+  line-height: 1.1;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.ClientServicesTasks-titleBlock p,
+.ClientServicesTasks-panelHeader p {
+  margin: 0;
+  color: #687391;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ClientServicesTasks-actions {
+  gap: 16px;
+}
+
+.ClientServicesTasks-clientSelect,
+.ClientServicesTasks-refresh {
+  height: 46px;
+  gap: 10px;
+  border: 1px solid #dfe5f2;
+  border-radius: 10px;
+  background: #fff;
+  color: #161b45;
+  font-size: 14px;
+  font-weight: 900;
+  box-shadow: 0 12px 28px rgba(34, 45, 94, 0.06);
+  cursor: pointer;
+}
+
+.ClientServicesTasks-clientSelect {
+  min-width: 224px;
+  justify-content: space-between;
+  padding: 0 16px;
+}
+
+.ClientServicesTasks-clientSelect svg:first-child,
+.ClientServicesTasks-refresh svg {
+  color: #743dff;
+}
+
+.ClientServicesTasks-refresh {
+  padding: 0 22px;
+  background: #f2eaff;
+  color: #6034ea;
+}
+
+.spinning {
+  animation: ClientServicesTasks-spin 0.8s linear infinite;
+}
+
+@keyframes ClientServicesTasks-spin {
+  to { transform: rotate(360deg); }
+}
+
+.ClientServicesTasks-stats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 24px;
+  padding: 22px;
+  border: 1px solid #dfe5f2;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(34, 45, 94, 0.07);
+}
+
+.ClientServicesTasks-statCard {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+  min-height: 94px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #ffffff 0%, #fbfcff 100%);
+}
+
+.ClientServicesTasks-statIcon {
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  font-size: 27px;
+}
+
+.ClientServicesTasks-statCard span,
+.ClientServicesTasks-statCard small {
+  display: block;
+  color: #667193;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ClientServicesTasks-statCard strong {
+  display: block;
+  margin: 8px 0;
+  color: #10163c;
+  font-size: 29px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-statCard small {
+  position: relative;
+  padding-left: 14px;
+}
+
+.ClientServicesTasks-statCard small::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  transform: translateY(-50%);
+}
+
+.ClientServicesTasks-content {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.64fr) minmax(560px, 1fr);
+  gap: 24px;
+}
+
+.ClientServicesTasks-panel {
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid #dfe5f2;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(34, 45, 94, 0.07);
+}
+
+.ClientServicesTasks-panelHeader {
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.ClientServicesTasks-panelIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #efe8ff;
+  color: #743dff;
+  font-size: 21px;
+}
+
+.ClientServicesTasks-panelHeader h2 {
+  margin: 0 0 6px;
+  color: #11163e;
+  font-size: 21px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-servicesTable,
+.ClientServicesTasks-taskTable {
+  display: grid;
+}
+
+.ClientServicesTasks-servicesHead,
+.ClientServicesTasks-serviceRow {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.7fr) minmax(100px, 1fr) 70px 92px 20px;
+  gap: 16px;
+  align-items: center;
+}
+
+.ClientServicesTasks-servicesHead,
+.ClientServicesTasks-taskHead {
+  min-height: 42px;
+  color: #697392;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-serviceRow {
+  min-height: 72px;
+  border-top: 1px solid #edf1f8;
+}
+
+.ClientServicesTasks-serviceName {
+  gap: 12px;
+  min-width: 0;
+}
+
+.ClientServicesTasks-serviceName strong,
+.ClientServicesTasks-taskRow strong,
+.ClientServicesTasks-taskService strong {
+  overflow: hidden;
+  color: #12183f;
+  font-size: 13px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ClientServicesTasks-miniIcon,
+.ClientServicesTasks-taskServiceIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 16px;
+}
+
+.ClientServicesTasks-progressCell span {
+  display: block;
+  margin-bottom: 8px;
+  color: #586280;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-progressCell div {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf0f7;
+}
+
+.ClientServicesTasks-progressCell i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #743dff, #4337f4);
+}
+
+.ClientServicesTasks-taskCount {
+  color: #14193f;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-status,
+.ClientServicesTasks-taskStatus,
+.ClientServicesTasks-priority {
+  justify-self: start;
+  padding: 7px 11px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.ClientServicesTasks-status-ontrack,
+.ClientServicesTasks-status-completed,
+.ClientServicesTasks-taskStatus-completed,
+.ClientServicesTasks-priority-low {
+  color: #11a766;
+  background: #e8fbf2;
+}
+
+.ClientServicesTasks-status-atrisk,
+.ClientServicesTasks-taskStatus-pending,
+.ClientServicesTasks-priority-medium {
+  color: #f08a00;
+  background: #fff4df;
+}
+
+.ClientServicesTasks-taskStatus-overdue,
+.ClientServicesTasks-priority-high {
+  color: #f0445f;
+  background: #ffe9ee;
+}
+
+.ClientServicesTasks-rowArrow {
+  justify-self: end;
+  color: #2f3658;
+}
+
+.ClientServicesTasks-wideAction {
+  width: 100%;
+  justify-content: center;
+  gap: 9px;
+  height: 38px;
+  margin-top: 18px;
+  border: 1px solid #e1e6f2;
+  border-radius: 10px;
+  background: #fff;
+  color: #743dff;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.ClientServicesTasks-tasksTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.ClientServicesTasks-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(82px, 1fr));
+  overflow: hidden;
+  border: 1px solid #dde4f1;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.ClientServicesTasks-tabs button {
+  height: 42px;
+  border: 0;
+  border-right: 1px solid #edf1f8;
+  background: transparent;
+  color: #65708f;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.ClientServicesTasks-tabs button:last-child {
+  border-right: 0;
+}
+
+.ClientServicesTasks-tabs button.active {
+  background: #efe8ff;
+  color: #743dff;
+}
+
+.ClientServicesTasks-taskHead,
+.ClientServicesTasks-taskRow {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.35fr) minmax(130px, 0.95fr) minmax(132px, 0.85fr) 96px 86px;
+  gap: 18px;
+  align-items: center;
+}
+
+.ClientServicesTasks-taskRow {
+  min-height: 70px;
+  border-top: 1px solid #edf1f8;
+}
+
+.ClientServicesTasks-taskRow span {
+  display: block;
+  margin-top: 5px;
+  overflow: hidden;
+  color: #687391;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ClientServicesTasks-taskService,
+.ClientServicesTasks-dueDate {
+  gap: 9px;
+  min-width: 0;
+}
+
+.ClientServicesTasks-dueDate {
+  color: #f0445f;
+}
+
+.ClientServicesTasks-dueDate span {
+  margin: 0;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-taskStatus,
+.ClientServicesTasks-priority {
+  margin: 0;
+}
+
+.ClientServicesTasks-tone-purple { color: #743dff; background: #efe8ff; }
+.ClientServicesTasks-tone-blue { color: #3267f6; background: #eaf0ff; }
+.ClientServicesTasks-tone-green { color: #15a86a; background: #e7fbf2; }
+.ClientServicesTasks-tone-orange { color: #ff8a00; background: #fff1df; }
+.ClientServicesTasks-tone-red { color: #f0445f; background: #ffe9ee; }
+
+.ClientDashboard-dashboard-loading,
+.ClientDashboard-dashboard-error {
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: #f8fafc;
+}
+
+.ClientDashboard-loading-spinner {
+  width: 42px;
+  height: 42px;
+  margin-bottom: 16px;
+  border: 3px solid #e1e7f3;
+  border-top-color: #743dff;
+  border-radius: 50%;
+  animation: ClientServicesTasks-spin 0.7s linear infinite;
+}
+
+.ClientDashboard-error-icon {
+  margin-bottom: 16px;
+  color: #f0445f;
+  font-size: 48px;
+}
+
+.ClientDashboard-error-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.ClientDashboard-btn {
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ClientDashboard-btn--primary {
+  border: 0;
+  background: #743dff;
+  color: white;
+}
+
+.ClientDashboard-btn--outlined {
+  border: 1px solid #dce3f2;
+  background: white;
+  color: #12183f;
+}
+
+@media (max-width: 1280px) {
+  .ClientServicesTasks-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ClientServicesTasks-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 820px) {
+  .ClientServicesTasks-page {
+    padding: 16px;
+  }
+
+  .ClientServicesTasks-header,
+  .ClientServicesTasks-tasksTop {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ClientServicesTasks-actions {
+    flex-direction: column;
+  }
+
+  .ClientServicesTasks-clientSelect,
+  .ClientServicesTasks-refresh {
+    width: 100%;
+  }
+
+  .ClientServicesTasks-stats {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+
+  .ClientServicesTasks-panel {
+    overflow-x: auto;
+  }
+
+  .ClientServicesTasks-servicesTable,
+  .ClientServicesTasks-taskTable {
+    min-width: 760px;
+  }
+}

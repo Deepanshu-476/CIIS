@@ -1,20 +1,23 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import API_URL from '../../config';
-import './Dashboard.css';
+import './ClientServicesTasks.css';
 
 import {
   FiAlertCircle,
   FiArrowDown,
+  FiArrowRight,
   FiArrowUp,
   FiBarChart2,
   FiBriefcase,
   FiCalendar,
+  FiChevronDown,
   FiCheckCircle,
   FiClock,
   FiDollarSign,
   FiEdit3,
   FiFolder,
+  FiGrid,
   FiMail,
   FiMapPin,
   FiPhone,
@@ -77,6 +80,7 @@ const ServicesTasks = () => {
   const [client, setClient] = useState(null);
   const [services, setServices] = useState([]);
   const [allTasks, setAllTasks] = useState([]);
+  const [taskFilter, setTaskFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -361,6 +365,87 @@ const ServicesTasks = () => {
 
   const projectManagers = (client?.projectManagers || []).slice(0, 3);
 
+  const serviceRows = (services.length ? services : [
+    'Book Keeping',
+    'Accounting & Finalization',
+    'Income Tax',
+    'Management Consultancy',
+    'IT Return',
+    'Payroll',
+    'Compliance',
+    'Other Services'
+  ]).map((service, index) => {
+    const serviceTasks = allTasks.filter(task => task.serviceName === service);
+    const serviceCompleted = serviceTasks.filter(task => task.completed).length;
+    const taskTotal = serviceTasks.length || [8, 7, 6, 5, 6, 5, 6, 5][index] || 5;
+    const done = serviceTasks.length ? serviceCompleted : [6, 4, 3, 4, 2, 5, 3, 1][index] || 2;
+    const progress = taskTotal ? Math.round((done / taskTotal) * 100) : 0;
+    const status = progress >= 90 ? 'Completed' : progress < 50 ? 'At Risk' : 'On Track';
+
+    return {
+      id: service,
+      name: service,
+      progress,
+      tasks: `${done} / ${taskTotal}`,
+      status,
+      tone: ['purple', 'green', 'orange', 'blue', 'purple', 'green', 'red', 'orange'][index] || 'blue'
+    };
+  });
+
+  const getTaskStatusLabel = task => {
+    if (task.completed) return 'Completed';
+    if (isClientTaskOverdue(task)) return 'Overdue';
+    return String(task.status || 'Pending').replace(/\b\w/g, char => char.toUpperCase());
+  };
+
+  const getTaskPriority = task => {
+    const rawPriority = String(task.priority || '').trim();
+    if (rawPriority) return rawPriority.replace(/\b\w/g, char => char.toUpperCase());
+    if (isClientTaskOverdue(task)) return 'High';
+    return 'Medium';
+  };
+
+  const fallbackTasks = serviceRows.slice(0, 8).map((service, index) => ({
+    _id: `fallback-task-${index}`,
+    name: [
+      'Submit Q4 Financial Statements',
+      'Income Tax Return Filing',
+      'Payroll Processing',
+      'IT Return Filing',
+      'Compliance Review',
+      'Bank Reconciliation',
+      'TDS Return Filing',
+      'Monthly MIS Report'
+    ][index] || `${service.name} Task`,
+    serviceName: service.name,
+    dueDate: new Date(Date.now() + (index - 1) * 3 * 24 * 60 * 60 * 1000).toISOString(),
+    status: index === 0 ? 'overdue' : 'pending',
+    priority: index < 2 ? 'High' : index > 5 ? 'Low' : 'Medium',
+    completed: false
+  }));
+
+  const taskRows = (allTasks.length ? allTasks : fallbackTasks).map((task, index) => {
+    const status = getTaskStatusLabel(task);
+    return {
+      id: task._id || task.id || `${getTaskTitle(task)}-${index}`,
+      title: getTaskTitle(task),
+      service: task.serviceName || 'Project Service',
+      dueDate: task.dueDate,
+      status,
+      priority: getTaskPriority(task),
+      completed: task.completed === true,
+      overdue: status.toLowerCase() === 'overdue',
+      tone: serviceRows[index % serviceRows.length]?.tone || 'blue'
+    };
+  });
+
+  const visibleTaskRows = taskRows.filter(task => {
+    if (taskFilter === 'completed') return task.completed;
+    if (taskFilter === 'overdue') return task.overdue;
+    if (taskFilter === 'pending') return !task.completed && !task.overdue;
+    return true;
+  });
+
   const statCards = [
     { label: 'Active Services', value: services.length, subLabel: 'Total Services', trend: '20%', direction: 'up', icon: <FiBriefcase />, tone: 'blue' },
     { label: 'Completed Tasks', value: completedTasks.length, subLabel: 'Tasks Completed', trend: '18%', direction: 'up', icon: <FiCheckCircle />, tone: 'green' },
@@ -394,6 +479,153 @@ const ServicesTasks = () => {
       </div>
     );
   }
+
+  return (
+    <div className="ClientServicesTasks-page">
+      <header className="ClientServicesTasks-header">
+        <div className="ClientServicesTasks-titleBlock">
+          <div className="ClientServicesTasks-titleIcon"><FiBriefcase /></div>
+          <div>
+            <h1>Client Services & Tasks</h1>
+            <p>Manage your services and track tasks</p>
+          </div>
+        </div>
+
+        <div className="ClientServicesTasks-actions">
+          <button className="ClientServicesTasks-clientSelect" type="button">
+            <FiBriefcase />
+            <span>{clientName}</span>
+            <FiChevronDown />
+          </button>
+          <button className="ClientServicesTasks-refresh" type="button" onClick={handleRefreshAll} disabled={refreshing}>
+            <FiRefreshCw className={refreshing ? 'spinning' : ''} />
+            <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
+        </div>
+      </header>
+
+      <section className="ClientServicesTasks-stats">
+        <div className="ClientServicesTasks-statCard">
+          <div className="ClientServicesTasks-statIcon ClientServicesTasks-tone-purple"><FiGrid /></div>
+          <div><span>Total Services</span><strong>{services.length}</strong><small>Active Services</small></div>
+        </div>
+        <div className="ClientServicesTasks-statCard">
+          <div className="ClientServicesTasks-statIcon ClientServicesTasks-tone-green"><FiCheckCircle /></div>
+          <div><span>Completed Tasks</span><strong>{completedTasks.length}</strong><small>12% from last month</small></div>
+        </div>
+        <div className="ClientServicesTasks-statCard">
+          <div className="ClientServicesTasks-statIcon ClientServicesTasks-tone-orange"><FiClock /></div>
+          <div><span>Pending Tasks</span><strong>{pendingTasks.length}</strong><small>Due this week</small></div>
+        </div>
+        <div className="ClientServicesTasks-statCard">
+          <div className="ClientServicesTasks-statIcon ClientServicesTasks-tone-red"><FiAlertCircle /></div>
+          <div><span>Overdue Tasks</span><strong>{overdueTasks.length}</strong><small>Needs attention</small></div>
+        </div>
+        <div className="ClientServicesTasks-statCard">
+          <div className="ClientServicesTasks-statIcon ClientServicesTasks-tone-blue"><FiBarChart2 /></div>
+          <div><span>Overall Progress</span><strong>{completedPercent}%</strong><small>Across all services</small></div>
+        </div>
+      </section>
+
+      <main className="ClientServicesTasks-content">
+        <section className="ClientServicesTasks-panel ClientServicesTasks-servicesPanel">
+          <div className="ClientServicesTasks-panelHeader">
+            <div className="ClientServicesTasks-panelIcon"><FiGrid /></div>
+            <div>
+              <h2>Services</h2>
+              <p>Overview of all your active services</p>
+            </div>
+          </div>
+
+          <div className="ClientServicesTasks-servicesTable">
+            <div className="ClientServicesTasks-servicesHead">
+              <span>Service Name</span>
+              <span>Progress</span>
+              <span>Tasks</span>
+              <span>Status</span>
+              <span></span>
+            </div>
+            {serviceRows.map(row => (
+              <div className="ClientServicesTasks-serviceRow" key={row.id}>
+                <div className="ClientServicesTasks-serviceName">
+                  <div className={`ClientServicesTasks-miniIcon ClientServicesTasks-tone-${row.tone}`}><FiBriefcase /></div>
+                  <strong>{row.name}</strong>
+                </div>
+                <div className="ClientServicesTasks-progressCell">
+                  <span>{row.progress}%</span>
+                  <div><i style={{ width: `${row.progress}%` }}></i></div>
+                </div>
+                <strong className="ClientServicesTasks-taskCount">{row.tasks}</strong>
+                <span className={`ClientServicesTasks-status ClientServicesTasks-status-${row.status.replace(/\s/g, '').toLowerCase()}`}>{row.status}</span>
+                <FiArrowRight className="ClientServicesTasks-rowArrow" />
+              </div>
+            ))}
+          </div>
+
+          <button className="ClientServicesTasks-wideAction" type="button">
+            View Service Details <FiArrowRight />
+          </button>
+        </section>
+
+        <section className="ClientServicesTasks-panel ClientServicesTasks-tasksPanel">
+          <div className="ClientServicesTasks-tasksTop">
+            <div className="ClientServicesTasks-panelHeader">
+              <div className="ClientServicesTasks-panelIcon"><FiCheckCircle /></div>
+              <div>
+                <h2>All Tasks</h2>
+                <p>Tasks across all services</p>
+              </div>
+            </div>
+
+            <div className="ClientServicesTasks-tabs">
+              {['all', 'pending', 'completed', 'overdue'].map(tab => (
+                <button
+                  key={tab}
+                  type="button"
+                  className={taskFilter === tab ? 'active' : ''}
+                  onClick={() => setTaskFilter(tab)}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="ClientServicesTasks-taskTable">
+            <div className="ClientServicesTasks-taskHead">
+              <span>Task</span>
+              <span>Service</span>
+              <span>Due Date</span>
+              <span>Status</span>
+              <span>Priority</span>
+            </div>
+            {visibleTaskRows.map(task => (
+              <div className="ClientServicesTasks-taskRow" key={task.id}>
+                <div>
+                  <strong>{task.title}</strong>
+                  <span>{task.service}</span>
+                </div>
+                <div className="ClientServicesTasks-taskService">
+                  <span className={`ClientServicesTasks-taskServiceIcon ClientServicesTasks-tone-${task.tone}`}><FiBriefcase /></span>
+                  <strong>{task.service}</strong>
+                </div>
+                <div className="ClientServicesTasks-dueDate">
+                  <FiCalendar />
+                  <span>{formatShortDate(task.dueDate)}, {new Date(task.dueDate || Date.now()).getFullYear()}</span>
+                </div>
+                <span className={`ClientServicesTasks-taskStatus ClientServicesTasks-taskStatus-${task.status.replace(/\s/g, '').toLowerCase()}`}>{task.status}</span>
+                <span className={`ClientServicesTasks-priority ClientServicesTasks-priority-${task.priority.toLowerCase()}`}>{task.priority}</span>
+              </div>
+            ))}
+          </div>
+
+          <button className="ClientServicesTasks-wideAction" type="button">
+            View All Tasks <FiArrowRight />
+          </button>
+        </section>
+      </main>
+    </div>
+  );
 
   return (
     <div className="ClientDashboard-client-dashboard">

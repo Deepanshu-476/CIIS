@@ -19,7 +19,7 @@ const AllCompany = () => {
   const [bottomNavValue, setBottomNavValue] = useState(0);
 
   // State variables
-  const [pageLoading, setPageLoading] = useState(true); // ✅ Page loading state
+  const [pageLoading, setPageLoading] = useState(true); 
   const [loading, setLoading] = useState(false);
   const [companies, setCompanies] = useState([]);
   const [filteredCompanies, setFilteredCompanies] = useState([]);
@@ -39,7 +39,6 @@ const AllCompany = () => {
     { id: 3, message: 'User limit reached', time: '2 hours ago', read: true, type: 'alert' },
   ]);
   
-  // Popup states
   const [usersPopupOpen, setUsersPopupOpen] = useState(false);
   const [companyDetailsPopupOpen, setCompanyDetailsPopupOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(null);
@@ -49,6 +48,8 @@ const AllCompany = () => {
   const [companyDetailsLoading, setCompanyDetailsLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editedCompany, setEditedCompany] = useState(null);
+  const [departmentNamesById, setDepartmentNamesById] = useState({});
+  const [jobRoleNamesById, setJobRoleNamesById] = useState({});
 
   // Menu state
   const [anchorEl, setAnchorEl] = useState(null);
@@ -203,7 +204,7 @@ const AllCompany = () => {
         return {
           ...company,
           userCount: companyUsers.length,
-          users: companyUsers.slice(0, isMobile ? 1 : 2)
+          users: companyUsers
         };
       });
 
@@ -296,27 +297,18 @@ const AllCompany = () => {
       
       const token = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
+      const allUsersRes = await axios.get(
+        `${API_URL}/superAdmin/users`,
+        { headers }
+      );
+      const allUsers = extractList(allUsersRes.data, ["users", "companyUsers"]);
+      const users = allUsers.filter(user => {
+        const userCompanyId = getEntityId(user.company || user.companyId);
+        return userCompanyId?.toString() === companyId?.toString();
+      });
       
-      let users = [];
-      
-      try {
-        const response = await axios.get(
-          `${API_URL}/superAdmin/company/${companyId}/users`,
-          { headers }
-        );
-        users = response.data;
-      } catch (error) {
-        const allUsersRes = await axios.get(
-          `${API_URL}/superAdmin/users`,
-          { headers }
-        );
-        
-        users = allUsersRes.data.filter(user => 
-          user.company?._id === companyId || user.company === companyId
-        );
-      }
-      
-      setCompanyUsers(users);
+      const { departmentMap, jobRoleMap } = await fetchCompanyLookups(companyId, headers);
+      setCompanyUsers(enrichUsersWithLookupNames(users, departmentMap, jobRoleMap));
     } catch (error) {
       console.error("❌ Error fetching company users:", error);
       toast.error("Failed to load users");
@@ -457,6 +449,111 @@ const AllCompany = () => {
       case 'employee': return '#0a5e0a';
       default: return '#64748b';
     }
+  };
+
+  const getEntityId = (value) => {
+    if (!value) return "";
+    if (typeof value === "object") return value._id || value.id || "";
+    return value;
+  };
+
+  const looksLikeObjectId = (value) => {
+    return typeof value === "string" && /^[0-9a-fA-F]{24}$/.test(value);
+  };
+
+  const extractList = (data, keys = []) => {
+    if (Array.isArray(data)) return data;
+    for (const key of keys) {
+      if (Array.isArray(data?.[key])) return data[key];
+    }
+    if (Array.isArray(data?.data)) return data.data;
+    if (Array.isArray(data?.message)) return data.message;
+    if (Array.isArray(data?.message?.data)) return data.message.data;
+    return [];
+  };
+
+  const fetchCompanyLookups = async (companyId, headers) => {
+    if (!companyId) return { departmentMap: {}, jobRoleMap: {} };
+
+    const [departmentsRes, jobRolesRes] = await Promise.allSettled([
+      axios.get(`${API_URL}/departments`, { headers, params: { company: companyId } }),
+      axios.get(`${API_URL}/job-roles`, { headers, params: { company: companyId } })
+    ]);
+
+    const departments = departmentsRes.status === "fulfilled"
+      ? extractList(departmentsRes.value.data, ["departments"])
+      : [];
+    const jobRoles = jobRolesRes.status === "fulfilled"
+      ? extractList(jobRolesRes.value.data, ["jobRoles", "roles"])
+      : [];
+
+    const departmentMap = {};
+    departments.forEach(dept => {
+      const id = dept?._id || dept?.id;
+      const name = dept?.name || dept?.departmentName || dept?.title;
+      if (id && name) departmentMap[id] = name;
+    });
+
+    const jobRoleMap = {};
+    jobRoles.forEach(role => {
+      const id = role?._id || role?.id;
+      const name = role?.name || role?.jobRoleName || role?.roleName || role?.title;
+      if (id && name) jobRoleMap[id] = name;
+    });
+
+    setDepartmentNamesById(prev => ({ ...prev, ...departmentMap }));
+    setJobRoleNamesById(prev => ({ ...prev, ...jobRoleMap }));
+
+    return { departmentMap, jobRoleMap };
+  };
+
+  const enrichUsersWithLookupNames = (users, departmentMap = {}, jobRoleMap = {}) => {
+    return (Array.isArray(users) ? users : []).map(user => {
+      const departmentId = getEntityId(user.department || user.departmentId || user.deptId);
+      const jobRoleId = getEntityId(user.jobRole || user.jobRoleId || user.companyRole || user.designation);
+
+      return {
+        ...user,
+        departmentName: user.departmentName || user.deptName || departmentMap[departmentId] || departmentNamesById[departmentId],
+        jobRoleName: user.jobRoleName || user.companyRoleName || user.designationName || jobRoleMap[jobRoleId] || jobRoleNamesById[jobRoleId]
+      };
+    });
+  };
+
+  const getUserDepartment = (user) => {
+    const department = user?.department;
+    if (user?.departmentName) return user.departmentName;
+    if (user?.deptName) return user.deptName;
+    if (department && typeof department === "object") {
+      const departmentId = getEntityId(department);
+      return department.name || department.departmentName || department.title || departmentNamesById[departmentId] || "Not assigned";
+    }
+    const departmentId = getEntityId(department || user?.departmentId || user?.deptId);
+    if (departmentNamesById[departmentId]) return departmentNamesById[departmentId];
+    return looksLikeObjectId(departmentId) ? "Not assigned" : departmentId || "Not assigned";
+  };
+
+  const getUserPhone = (user) => {
+    return user?.mobile || user?.phone || user?.contact || user?.contactNumber || user?.phoneNumber || "N/A";
+  };
+
+  const getUserJobRole = (user) => {
+    if (user?.jobRoleName) return user.jobRoleName;
+    if (user?.companyRoleName) return user.companyRoleName;
+    if (user?.designationName) return user.designationName;
+
+    const jobRole = user?.jobRole || user?.jobRoleId || user?.companyRole || user?.designation || user?.employeeType;
+    if (jobRole && typeof jobRole === "object") {
+      const jobRoleId = getEntityId(jobRole);
+      return jobRole.name || jobRole.title || jobRole.roleName || jobRoleNamesById[jobRoleId] || "N/A";
+    }
+    const jobRoleId = getEntityId(jobRole);
+    if (jobRoleNamesById[jobRoleId]) return jobRoleNamesById[jobRoleId];
+    return looksLikeObjectId(jobRoleId) ? "N/A" : jobRoleId || "N/A";
+  };
+
+  const getUserRole = (user) => {
+    return user?.role || user?.userRole || "User";
   };
 
   // Handle menu actions
@@ -1026,18 +1123,23 @@ const AllCompany = () => {
 
                       {company.userCount > 0 ? (
                         <div className="AllCompany-team-grid">
-                          {(company.users || []).map((user, idx) => (
+                          {(expandedCompany === company._id
+                            ? (company.users || [])
+                            : (company.users || []).slice(0, isMobile ? 2 : 4)
+                          ).map((user, idx) => (
                             <div key={idx} className="AllCompany-team-member-card">
                               <div className="AllCompany-team-member-content">
                                 <div className="AllCompany-member-avatar-container">
-                                  <div className="AllCompany-member-avatar" style={{background: `linear-gradient(135deg, ${getRoleColor(user.role)} 0%, ${getRoleColor(user.role)}80 100%)`}}>
+                                  <div className="AllCompany-member-avatar" style={{background: `linear-gradient(135deg, ${getRoleColor(getUserRole(user))} 0%, ${getRoleColor(getUserRole(user))}80 100%)`}}>
                                     {user.name?.charAt(0) || 'U'}
                                   </div>
-                                  <span className={`AllCompany-member-status ${user.isActive ? 'AllCompany-active' : 'AllCompany-inactive'}`}></span>
+                                  <span className={`AllCompany-member-status ${user.isActive !== false ? 'AllCompany-active' : 'AllCompany-inactive'}`}></span>
                                 </div>
                                 <div className="AllCompany-member-info">
                                   <span className="AllCompany-member-name">{user.name || "User"}</span>
-                                  <span className="AllCompany-member-role" style={{color: getRoleColor(user.role)}}>{user.role || "User"}</span>
+                                  <span className="AllCompany-member-role" style={{color: getRoleColor(getUserRole(user))}}>{getUserRole(user)}</span>
+                                  <span className="AllCompany-member-meta">{getUserDepartment(user)}</span>
+                                  <span className="AllCompany-member-meta">{getUserPhone(user)}</span>
                                 </div>
                               </div>
                             </div>
@@ -1048,6 +1150,14 @@ const AllCompany = () => {
                           <span className="material-icons AllCompany-empty-team-icon">person_add</span>
                           <span className="AllCompany-empty-team-text">No team members yet</span>
                         </div>
+                      )}
+                      {(company.userCount || 0) > (isMobile ? 2 : 4) && (
+                        <button className="AllCompany-show-more-users-btn" onClick={() => toggleCompanyExpansion(company._id)}>
+                          <span>{expandedCompany === company._id ? "Show less users" : `Show all ${company.userCount} users`}</span>
+                          <span className="material-icons">
+                            {expandedCompany === company._id ? "keyboard_arrow_up" : "keyboard_arrow_down"}
+                          </span>
+                        </button>
                       )}
                     </div>
                   </div>
@@ -1375,7 +1485,7 @@ const AllCompany = () => {
                   <h3 className="AllCompany-modal-company-name">{selectedCompany?.companyName}</h3>
                   <div className="AllCompany-modal-subtitle">
                     <span>{companyUsers.length} team members</span>
-                    <span className="AllCompany-active-percent">{companyUsers.length > 0 ? `${Math.round((companyUsers.filter(u => u.isActive).length / companyUsers.length) * 100)}% active` : '0% active'}</span>
+                    <span className="AllCompany-active-percent">{companyUsers.length > 0 ? `${Math.round((companyUsers.filter(u => u.isActive !== false).length / companyUsers.length) * 100)}% active` : '0% active'}</span>
                   </div>
                 </div>
               </div>
@@ -1396,31 +1506,42 @@ const AllCompany = () => {
                     <thead>
                       <tr>
                         <th>Member</th>
+                        <th>Mobile</th>
                         <th>Email</th>
+                        <th>Department</th>
+                        <th>Job Role</th>
                         <th>Role</th>
                         <th>Status</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {companyUsers.map((user) => (
-                        <tr key={user._id}>
+                      {companyUsers.map((user, index) => (
+                        <tr key={user._id || user.id || index}>
                           <td>
                             <div className="AllCompany-user-cell">
-                              <div className="AllCompany-user-avatar" style={{background: `linear-gradient(135deg, ${getRoleColor(user.role)} 0%, ${getRoleColor(user.role)}80 100%)`}}>
-                                {user.name?.charAt(0)}
+                              <div className="AllCompany-user-avatar" style={{background: `linear-gradient(135deg, ${getRoleColor(getUserRole(user))} 0%, ${getRoleColor(getUserRole(user))}80 100%)`}}>
+                                {user.name?.charAt(0) || 'U'}
                               </div>
-                              <span className="AllCompany-user-name">{user.name}</span>
+                              <div className="AllCompany-user-primary-info">
+                                <span className="AllCompany-user-name">{user.name || "User"}</span>
+                                <span className="AllCompany-user-id">{user.employeeId || user.empId || user.userCode || ""}</span>
+                              </div>
                             </div>
                           </td>
-                          <td>{user.email}</td>
+                          <td>{getUserPhone(user)}</td>
+                          <td>{user.email || "N/A"}</td>
                           <td>
-                            <span className="AllCompany-role-badge" style={{color: getRoleColor(user.role)}}>
-                              {user.role || 'User'}
+                            <span className="AllCompany-info-chip">{getUserDepartment(user)}</span>
+                          </td>
+                          <td>{getUserJobRole(user)}</td>
+                          <td>
+                            <span className="AllCompany-role-badge" style={{color: getRoleColor(getUserRole(user))}}>
+                              {getUserRole(user)}
                             </span>
                           </td>
                           <td>
-                            <span className={`AllCompany-status-badge-small ${user.isActive ? 'AllCompany-active' : 'AllCompany-inactive'}`}>
-                              {user.isActive ? 'Active' : 'Inactive'}
+                            <span className={`AllCompany-status-badge-small ${user.isActive !== false ? 'AllCompany-active' : 'AllCompany-inactive'}`}>
+                              {user.isActive !== false ? 'Active' : 'Inactive'}
                             </span>
                           </td>
                         </tr>

@@ -4,7 +4,7 @@ import React, {
     useState
 } from "react";
 import "../Pages/Chat/chat.css";
-import { Paperclip, SendHorizontal } from "lucide-react";
+import { Mic, Paperclip, SendHorizontal, Square, Video } from "lucide-react";
 
 import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage } from "../services/chatService";
 
@@ -34,7 +34,15 @@ const ChatBox = ({
 
     const [isSendingAction, setIsSendingAction] = useState(false);
     const [typingUserId, setTypingUserId] = useState(null);
+    const [recorderMode, setRecorderMode] = useState(null);
+    const [recordingSeconds, setRecordingSeconds] = useState(0);
+    const [recordingError, setRecordingError] = useState("");
     const typingTimerRef = useRef(null);
+    const mediaRecorderRef = useRef(null);
+    const recordingChunksRef = useRef([]);
+    const recordingStreamRef = useRef(null);
+    const recordingTimerRef = useRef(null);
+    const recordingPreviewRef = useRef(null);
 
 
     const [currentConversationId, setCurrentConversationId] =
@@ -74,6 +82,19 @@ const ChatBox = ({
             }
         };
     }, [currentConversationId]);
+
+    useEffect(() => {
+        if (recorderMode === "video" && recordingPreviewRef.current && recordingStreamRef.current) {
+            recordingPreviewRef.current.srcObject = recordingStreamRef.current;
+        }
+    }, [recorderMode]);
+
+    useEffect(() => {
+        return () => {
+            stopRecordingTracks();
+            window.clearInterval(recordingTimerRef.current);
+        };
+    }, []);
 
     useEffect(() => {
         if (socket && conversation?._id) {
@@ -289,6 +310,164 @@ useEffect(() => {
         }
     };
 
+    const appendSentMessages = (messagesToAppend) => {
+        setMessages((prev) => {
+            const combined = [...prev];
+
+            messagesToAppend.forEach((message) => {
+                if (!combined.some((msg) => msg._id === message._id)) {
+                    combined.push({ ...message, seen: false });
+                }
+            });
+
+            return combined;
+        });
+    };
+
+    const emitSentMessage = (newMessage) => {
+        socket?.emit(
+            "chat:send-message",
+            {
+                ...newMessage,
+                conversationId:
+                    conversation._id
+            }
+        );
+    };
+
+    const stopRecordingTracks = () => {
+        recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+        recordingStreamRef.current = null;
+
+        if (recordingPreviewRef.current) {
+            recordingPreviewRef.current.srcObject = null;
+        }
+    };
+
+    const getSupportedMimeType = (mode) => {
+        const candidates = mode === "video"
+            ? ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"]
+            : ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/mpeg"];
+
+        return candidates.find((type) => window.MediaRecorder?.isTypeSupported(type)) || "";
+    };
+
+    const getRecordingExtension = (mimeType, mode) => {
+        if (mimeType.includes("mp4")) return "mp4";
+        if (mimeType.includes("mpeg")) return "mp3";
+        if (mimeType.includes("wav")) return "wav";
+        if (mimeType.includes("ogg")) return "ogg";
+        return mode === "video" ? "webm" : "webm";
+    };
+
+    const formatRecordingTime = (seconds) => {
+        const minutes = Math.floor(seconds / 60).toString().padStart(2, "0");
+        const remainingSeconds = (seconds % 60).toString().padStart(2, "0");
+        return `${minutes}:${remainingSeconds}`;
+    };
+
+    const sendRecordedFile = async (blob, mode, mimeType) => {
+        if (!conversation || !blob?.size) return;
+
+        const extension = getRecordingExtension(mimeType, mode);
+        const fileName = `${mode}-recording-${Date.now()}.${extension}`;
+        const file = new File([blob], fileName, { type: mimeType || blob.type || `${mode}/webm` });
+        const formData = new FormData();
+
+        formData.append(
+            "conversationId",
+            conversation._id
+        );
+
+        formData.append(
+            "file",
+            file
+        );
+
+        const res =
+            await sendMessage(formData);
+
+        const newMessage =
+            res.data.message;
+
+        emitSentMessage(newMessage);
+        appendSentMessages([newMessage]);
+        onConversationChange?.();
+    };
+
+    const startRecording = async (mode) => {
+        if (!conversation || recorderMode) return;
+
+        if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+            setRecordingError("Recording is not supported in this browser.");
+            return;
+        }
+
+        try {
+            setRecordingError("");
+
+            const stream = await navigator.mediaDevices.getUserMedia(
+                mode === "video"
+                    ? { audio: true, video: true }
+                    : { audio: true }
+            );
+
+            const mimeType = getSupportedMimeType(mode);
+            const recorder = new MediaRecorder(
+                stream,
+                mimeType ? { mimeType } : undefined
+            );
+
+            recordingChunksRef.current = [];
+            recordingStreamRef.current = stream;
+            mediaRecorderRef.current = recorder;
+
+            recorder.ondataavailable = (event) => {
+                if (event.data?.size) {
+                    recordingChunksRef.current.push(event.data);
+                }
+            };
+
+            recorder.onstop = async () => {
+                const blob = new Blob(recordingChunksRef.current, {
+                    type: recorder.mimeType || mimeType || `${mode}/webm`
+                });
+
+                recordingChunksRef.current = [];
+                mediaRecorderRef.current = null;
+                window.clearInterval(recordingTimerRef.current);
+                setRecordingSeconds(0);
+                setRecorderMode(null);
+                stopRecordingTracks();
+
+                try {
+                    await sendRecordedFile(blob, mode, recorder.mimeType || mimeType);
+                } catch (error) {
+                    console.log(error);
+                    setRecordingError("Recording send nahi ho paayi. Please try again.");
+                }
+            };
+
+            recorder.start();
+            setRecorderMode(mode);
+            setRecordingSeconds(0);
+            recordingTimerRef.current = window.setInterval(() => {
+                setRecordingSeconds((prev) => prev + 1);
+            }, 1000);
+        } catch (error) {
+            console.log(error);
+            stopRecordingTracks();
+            setRecorderMode(null);
+            setRecordingError("Mic/camera permission allow karke phir try karein.");
+        }
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorderRef.current?.state === "recording") {
+            mediaRecorderRef.current.stop();
+        }
+    };
+
 
 
     const handleSend =
@@ -336,14 +515,7 @@ useEffect(() => {
 
                     messagesToAppend.push(newMessage);
 
-                    socket?.emit(
-                        "chat:send-message",
-                        {
-                            ...newMessage,
-                            conversationId:
-                                conversation._id
-                        }
-                    );
+                    emitSentMessage(newMessage);
                 }
             } else {
                 const formData = new FormData();
@@ -361,27 +533,10 @@ useEffect(() => {
                 const res = await sendMessage(formData);
                 messagesToAppend.push(res.data.message);
 
-                socket?.emit(
-                    "chat:send-message",
-                    {
-                        ...res.data.message,
-                        conversationId:
-                            conversation._id
-                    }
-                );
+                emitSentMessage(res.data.message);
             }
 
-            setMessages((prev) => {
-                const combined = [...prev];
-
-                messagesToAppend.forEach((message) => {
-                    if (!combined.some((msg) => msg._id === message._id)) {
-                        combined.push({ ...message, seen: false });
-                    }
-                });
-
-                return combined;
-            });
+            appendSentMessages(messagesToAppend);
 
             setText("");
             setFiles([]);
@@ -525,7 +680,7 @@ useEffect(() => {
                 <label className="file-upload-btn">
                     <input
                         type="file"
-                        accept="image/*,video/*"
+                        accept="image/*,video/*,audio/*"
                         multiple
                         onChange={(e) =>
                             setFiles(
@@ -541,6 +696,27 @@ useEffect(() => {
                         <div className="selected-file-info">
                             {files.length === 1 ? files[0].name : `${files.length} files selected`}
                         </div>
+                    )}
+                    {recorderMode && (
+                        <div className="recording-panel">
+                            {recorderMode === "video" && (
+                                <video
+                                    ref={recordingPreviewRef}
+                                    className="recording-preview"
+                                    autoPlay
+                                    muted
+                                    playsInline
+                                />
+                            )}
+                            <div className="recording-status">
+                                <span className="recording-dot" />
+                                {recorderMode === "video" ? "Video recording" : "Voice recording"}
+                                <strong>{formatRecordingTime(recordingSeconds)}</strong>
+                            </div>
+                        </div>
+                    )}
+                    {recordingError && (
+                        <div className="recording-error">{recordingError}</div>
                     )}
                     <input
                         type="text"
@@ -566,6 +742,26 @@ useEffect(() => {
                         }}
                     />
                 </div>
+
+                <button
+                    className={recorderMode === "audio" ? "recording-btn active" : "recording-btn"}
+                    onClick={() => recorderMode === "audio" ? stopRecording() : startRecording("audio")}
+                    disabled={isSendingAction || Boolean(recorderMode && recorderMode !== "audio")}
+                    title={recorderMode === "audio" ? "Stop voice recording" : "Start voice recording"}
+                    type="button"
+                >
+                    {recorderMode === "audio" ? <Square size={17} /> : <Mic size={18} />}
+                </button>
+
+                <button
+                    className={recorderMode === "video" ? "recording-btn active" : "recording-btn"}
+                    onClick={() => recorderMode === "video" ? stopRecording() : startRecording("video")}
+                    disabled={isSendingAction || Boolean(recorderMode && recorderMode !== "video")}
+                    title={recorderMode === "video" ? "Stop video recording" : "Start video recording"}
+                    type="button"
+                >
+                    {recorderMode === "video" ? <Square size={17} /> : <Video size={18} />}
+                </button>
 
                 <button
                     className="send-btn"

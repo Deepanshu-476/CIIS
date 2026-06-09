@@ -370,6 +370,14 @@ const clientMenuItems = [
     path: '/client/services-tasks',
     category: 'main',
     order: 3
+  },
+  {
+    id: 'change-password',
+    name: 'Change Password',
+    icon: 'Key',
+    path: '/client/change-password',
+    category: 'main',
+    order: 4
   }
 ];
 

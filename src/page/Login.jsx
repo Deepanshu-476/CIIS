@@ -419,8 +419,10 @@ else {
     setLoading(true);
 
     try {
+      const resetContext = companyIdentifier ? { companyCode: companyIdentifier } : {};
       const response = await axios.post('/auth/forgot-password', {
-        email: forgotPasswordEmail
+        email: forgotPasswordEmail,
+        ...resetContext
       });
 
       if (response.data.success) {
@@ -454,10 +456,12 @@ else {
     setLoading(true);
 
     try {
+      const resetContext = companyIdentifier ? { companyCode: companyIdentifier } : {};
       const response = await axios.post('/auth/reset-password', {
         email: forgotPasswordEmail,
         otp: otpCode,
-        newPassword: newPassword
+        newPassword: newPassword,
+        ...resetContext
       });
 
       toast.success("Password reset successful!");

@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { Check, CheckCheck, FileText, Forward, MoreVertical, Trash2 } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Check, CheckCheck, FileText, Forward, MoreVertical, Trash2, X } from "lucide-react";
 import { API_URL_IMG } from "../config";
 
 const MessageBubble = ({
@@ -18,6 +18,7 @@ const MessageBubble = ({
     const [showMenu, setShowMenu] = useState(false);
     const [showForwardModal, setShowForwardModal] = useState(false);
     const [selectedTargets, setSelectedTargets] = useState([]);
+    const [previewMedia, setPreviewMedia] = useState(null);
 
     const currentUserId = (currentUser?._id || currentUser?.id || "").toString();
     const senderId = (message.sender?._id || message.sender || "").toString();
@@ -31,6 +32,11 @@ const MessageBubble = ({
             ? rawMediaUrl
             : `${API_URL_IMG.replace(/\/$/, "")}${rawMediaUrl.startsWith("/") ? rawMediaUrl : `/${rawMediaUrl}`}`
         : "";
+    const normalizedMediaType = (mediaType || "").toLowerCase();
+    const mediaPath = (mediaUrl || "").split("?")[0].toLowerCase();
+    const isImageMedia = normalizedMediaType.startsWith("image") || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(mediaPath);
+    const isVideoMedia = normalizedMediaType.startsWith("video") || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i.test(mediaPath);
+    const isAudioMedia = normalizedMediaType.startsWith("audio") || /\.(mp3|wav|webm|ogg|m4a|aac)$/i.test(mediaPath);
 
     const forwardCandidates = useMemo(() => (
         users.filter((user) => user._id !== currentUser?._id)
@@ -51,15 +57,61 @@ const MessageBubble = ({
         setSelectedTargets([]);
     };
 
+    useEffect(() => {
+        if (!previewMedia) return undefined;
+
+        const handleKeyDown = (event) => {
+            if (event.key === "Escape") {
+                setPreviewMedia(null);
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [previewMedia]);
+
+    const openMediaPreview = (kind) => {
+        setPreviewMedia({ kind, url: mediaUrl });
+    };
+
     const renderMedia = () => {
         if (!mediaUrl) return null;
 
-        if (mediaType?.startsWith("image")) {
-            return <img src={mediaUrl} alt="attachment" className="chat-media chat-media-image" />;
+        if (isImageMedia) {
+            return (
+                <button
+                    type="button"
+                    className="chat-media-open"
+                    onClick={() => openMediaPreview("image")}
+                    aria-label="Open image attachment"
+                >
+                    <img src={mediaUrl} alt="attachment" className="chat-media chat-media-image" />
+                </button>
+            );
         }
 
-        if (mediaType?.startsWith("video")) {
-            return <video src={mediaUrl} controls className="chat-media chat-media-video" />;
+        if (isVideoMedia) {
+            return (
+                <button
+                    type="button"
+                    className="chat-media-open"
+                    onClick={() => openMediaPreview("video")}
+                    aria-label="Open video attachment"
+                >
+                    <video src={mediaUrl} className="chat-media chat-media-video" muted playsInline />
+                    <span className="chat-video-open-label">Open video</span>
+                </button>
+            );
+        }
+
+        if (isAudioMedia) {
+            return (
+                <audio
+                    src={mediaUrl}
+                    controls
+                    className="chat-media-audio"
+                />
+            );
         }
 
         const labelMap = {
@@ -147,6 +199,26 @@ const MessageBubble = ({
                         ))}
                     </div>
                     <button className="forward-confirm-btn" onClick={handleForward}>Forward</button>
+                </div>
+            </div>
+        )}
+
+        {previewMedia && (
+            <div className="chat-media-preview-overlay" onClick={() => setPreviewMedia(null)}>
+                <div className="chat-media-preview" onClick={(e) => e.stopPropagation()}>
+                    <button
+                        type="button"
+                        className="chat-media-preview-close"
+                        onClick={() => setPreviewMedia(null)}
+                        aria-label="Close media preview"
+                    >
+                        <X size={22} />
+                    </button>
+                    {previewMedia.kind === "image" ? (
+                        <img src={previewMedia.url} alt="attachment preview" />
+                    ) : (
+                        <video src={previewMedia.url} controls autoPlay className="chat-media-preview-video" />
+                    )}
                 </div>
             </div>
         )}

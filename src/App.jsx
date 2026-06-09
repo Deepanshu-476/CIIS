@@ -386,6 +386,9 @@ function App() {
           
           {/* Client Services & Tasks */}
           <Route path="services-tasks" element={<ClientServicesTasks />} />
+
+          {/* Client Change Password */}
+          <Route path="change-password" element={<ChangePassword />} />
           
           {/* Redirect any unknown client routes to dashboard */}
           <Route path="*" element={<Navigate to="/client/dashboard" replace />} />

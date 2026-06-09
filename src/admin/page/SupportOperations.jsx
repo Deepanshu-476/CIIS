@@ -54,6 +54,28 @@ const fallbackInsights = [
 ];
 
 const statusClass = value => String(value || "Open").toLowerCase().replace(/\s+/g, "-");
+const extractList = (payload, keys = []) => {
+  if (Array.isArray(payload)) return payload;
+  for (const key of keys) {
+    if (Array.isArray(payload?.[key])) return payload[key];
+  }
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.data?.users)) return payload.data.users;
+  if (Array.isArray(payload?.data?.departments)) return payload.data.departments;
+  return [];
+};
+
+const getEntityId = value => {
+  if (!value) return "";
+  if (typeof value === "object") return String(value._id || value.id || value.name || "");
+  return String(value);
+};
+
+const getEntityName = value => {
+  if (!value) return "";
+  if (typeof value === "object") return value.name || value.departmentName || value.title || getEntityId(value);
+  return String(value);
+};
 
 const mapTicket = ticket => ({
   id: ticket.ticketNumber || ticket.id,
@@ -69,7 +91,7 @@ const mapTicket = ticket => ({
 });
 
 const mapDepartment = department => ({
-  id: department.id || department._id,
+  id: getEntityId(department.id || department._id || department.name),
   name: department.name || "Department",
   description: department.description || "",
   employeeCount: department.employeeCount || 0,
@@ -84,7 +106,19 @@ const mapEmployee = employee => ({
   email: employee.email,
   jobRole: employee.jobRole || "employee",
   employeeId: employee.employeeId,
+  department: employee.department,
+  departmentName: employee.departmentName || getEntityName(employee.department),
 });
+
+const employeeBelongsToDepartment = (employee, department) => {
+  if (!department) return true;
+  const employeeDepartmentId = getEntityId(employee.department);
+  const employeeDepartmentName = getEntityName(employee.department).toLowerCase();
+  const departmentId = getEntityId(department.id || department._id);
+  const departmentName = String(department.name || "").toLowerCase();
+
+  return employeeDepartmentId === departmentId || employeeDepartmentName === departmentName;
+};
 
 const SupportOperations = () => {
   const [query, setQuery] = useState("");
@@ -131,16 +165,27 @@ const SupportOperations = () => {
   };
 
   const fetchDepartments = async () => {
+    let mapped = [];
     try {
       const response = await axiosInstance.get("/support/admin/departments", { _skipErrorNotify: true });
       if (response.data?.success) {
-        const mapped = (response.data.departments || []).map(mapDepartment);
-        setDepartments(mapped);
-        setSelectedDepartmentId(current => current || mapped[0]?.id || "");
+        mapped = (response.data.departments || []).map(mapDepartment);
       }
     } catch (error) {
       console.warn("Support department management fallback active:", error.message);
     }
+
+    if (!mapped.length) {
+      try {
+        const response = await axiosInstance.get("/departments", { _skipErrorNotify: true });
+        mapped = extractList(response.data, ["departments"]).map(mapDepartment);
+      } catch (error) {
+        console.warn("Department fallback endpoint failed:", error.message);
+      }
+    }
+
+    setDepartments(mapped);
+    setSelectedDepartmentId(current => mapped.some(department => department.id === current) ? current : mapped[0]?.id || "");
   };
 
   const fetchDepartmentEmployees = async departmentId => {
@@ -149,16 +194,43 @@ const SupportOperations = () => {
       return;
     }
 
+    const selected = departments.find(department => department.id === departmentId);
+
+    try {
+      const response = await axiosInstance.get(`/users/department-users?department=${encodeURIComponent(departmentId)}`, { _skipErrorNotify: true });
+      const users = extractList(response.data, ["users"]).map(mapEmployee);
+      const filteredUsers = users.filter(employee => employeeBelongsToDepartment(employee, selected));
+      const mapped = filteredUsers.length ? filteredUsers : users;
+      setDepartmentEmployees(mapped);
+      setSelectedEmployeeId(mapped[0]?.id || "");
+      if (mapped.length) return;
+    } catch (error) {
+      console.warn("Department users endpoint failed:", error.message);
+    }
+
     try {
       const response = await axiosInstance.get(`/support/admin/departments/${departmentId}/employees`, { _skipErrorNotify: true });
       if (response.data?.success) {
         const mapped = (response.data.employees || []).map(mapEmployee);
         setDepartmentEmployees(mapped);
         setSelectedEmployeeId(response.data.department?.supportHead?.id || mapped[0]?.id || "");
+        if (mapped.length) return;
       }
     } catch (error) {
       console.warn("Support department employees fallback active:", error.message);
+    }
+
+    try {
+      const response = await axiosInstance.get("/users/company-users", { _skipErrorNotify: true });
+      const users = extractList(response.data, ["users"]).map(mapEmployee);
+      const filteredUsers = users.filter(employee => employeeBelongsToDepartment(employee, selected));
+      const mapped = filteredUsers.length ? filteredUsers : users;
+      setDepartmentEmployees(mapped);
+      setSelectedEmployeeId(mapped[0]?.id || "");
+    } catch (error) {
+      console.warn("Company users fallback failed:", error.message);
       setDepartmentEmployees([]);
+      setSelectedEmployeeId("");
     }
   };
 
@@ -304,7 +376,7 @@ const SupportOperations = () => {
 
         <div className="support-department-layout">
           <div className="support-department-list">
-            {departments.map(department => (
+            {departments.length ? departments.map(department => (
               <button
                 className={`support-department-card ${selectedDepartmentId === department.id ? "active" : ""}`}
                 key={department.id}
@@ -314,7 +386,12 @@ const SupportOperations = () => {
                 <span>{department.employeeCount} employees - {department.openTickets} open chats</span>
                 <small>Head: {department.supportHeadName}</small>
               </button>
-            ))}
+            )) : (
+              <div className="support-empty-state">
+                <Building2 size={20} />
+                <span>No departments found for this company.</span>
+              </div>
+            )}
           </div>
 
           <div className="support-employee-assignment">
@@ -341,7 +418,7 @@ const SupportOperations = () => {
             </div>
 
             <div className="support-employee-list">
-              {departmentEmployees.map(employee => (
+              {departmentEmployees.length ? departmentEmployees.map(employee => (
                 <div className="support-employee-row" key={employee.id}>
                   <div>
                     <strong>{employee.name}</strong>
@@ -349,7 +426,12 @@ const SupportOperations = () => {
                   </div>
                   <small>{employee.employeeId || employee.jobRole}</small>
                 </div>
-              ))}
+              )) : (
+                <div className="support-empty-state">
+                  <Users size={20} />
+                  <span>No employees found for the selected department.</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

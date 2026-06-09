@@ -76,6 +76,7 @@ const pickTaskRecords = data => {
   return [];
 };
 
+
 const mapTaskToActivity = task => ({
   ...task,
   type: 'task',

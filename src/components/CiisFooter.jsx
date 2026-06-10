@@ -86,7 +86,7 @@ const CiisFooter = () => {
         <div className="ciis-footer-bottom">
           <div className="ciis-bottom-content">
 
- <Link to="https://cds.ciisnetwork.in/company/CAREER/login">
+              <Link to="https://cds.ciisnetwork.in/company/CAREER/login">
               <p className="ciis-copyright">
               
               © 2025 CIIS Network. All rights reserved.

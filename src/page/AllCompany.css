@@ -1535,7 +1535,7 @@
 .AllCompany-team-member-content {
   display: flex;
   gap: 12px;
-  align-items: center;
+  align-items: flex-start;
 }
 
 @media (max-width: 768px) {
@@ -1600,6 +1600,7 @@
 
 .AllCompany-member-info {
   overflow: hidden;
+  min-width: 0;
 }
 
 .AllCompany-member-name {
@@ -1633,10 +1634,53 @@
   max-width: 70px;
 }
 
+.AllCompany-member-meta {
+  display: block;
+  color: #64748b;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  margin-top: 4px;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.AllCompany-show-more-users-btn {
+  margin-top: 14px;
+  width: 100%;
+  border: 1px dashed rgba(37, 99, 235, 0.35);
+  background: rgba(37, 99, 235, 0.04);
+  color: #2563eb;
+  border-radius: 16px;
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.AllCompany-show-more-users-btn:hover {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: #2563eb;
+}
+
+.AllCompany-show-more-users-btn .material-icons {
+  font-size: 20px;
+}
+
 @media (max-width: 768px) {
   .AllCompany-member-role {
     font-size: 0.55rem;
     padding: 2px 6px;
+  }
+
+  .AllCompany-member-meta {
+    font-size: 0.6rem;
+    max-width: 82px;
   }
 }
 
@@ -1960,7 +2004,7 @@
 .AllCompany-modal-content {
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   border-radius: 8px;
-  max-width: 800px;
+  max-width: 1100px;
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;
@@ -2657,12 +2701,13 @@
 .AllCompany-users-table-container {
   border-radius: 32px;
   border: 1px solid rgba(226, 232, 240, 0.6);
-  overflow: hidden;
+  overflow-x: auto;
   background: white;
 }
 
 .AllCompany-users-table {
   width: 100%;
+  min-width: 980px;
   border-collapse: collapse;
 }
 
@@ -2704,6 +2749,33 @@
 .AllCompany-user-name {
   font-weight: 600;
   color: #0f172a;
+}
+
+.AllCompany-user-primary-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.AllCompany-user-id {
+  color: #94a3b8;
+  font-size: 0.72rem;
+  margin-top: 2px;
+}
+
+.AllCompany-info-chip {
+  display: inline-block;
+  max-width: 180px;
+  color: #0f766e;
+  background: rgba(20, 184, 166, 0.1);
+  border: 1px solid rgba(20, 184, 166, 0.18);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .AllCompany-role-badge {

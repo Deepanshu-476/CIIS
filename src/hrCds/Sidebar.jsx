@@ -37,6 +37,7 @@ import {
   ExpandLess,
   CreditCard as CreditCardIcon,
   Folder as FolderIcon,
+  SupportAgent as SupportAgentIcon,
 } from '@mui/icons-material';
 import Swal from "sweetalert2";
 import axiosInstance from '../utils/axiosConfig';
@@ -210,6 +211,10 @@ const iconMap = {
   'folder': FolderIcon,
   'Services': FolderIcon,
   'services': FolderIcon,
+  'Support': SupportAgentIcon,
+  'support': SupportAgentIcon,
+  'SupportAgent': SupportAgentIcon,
+  'supportagent': SupportAgentIcon,
 };
 
 // ✅ Get icon component
@@ -254,6 +259,8 @@ const getIconComponent = (iconName) => {
       IconComponent = CreditCardIcon;
     } else if (iconName.toLowerCase().includes('folder') || iconName.toLowerCase().includes('service')) {
       IconComponent = FolderIcon;
+    } else if (iconName.toLowerCase().includes('support')) {
+      IconComponent = SupportAgentIcon;
     } else {
       IconComponent = DashboardIcon;
     }
@@ -319,6 +326,22 @@ const fixedDefaultItems = [
     path: '/ciisUser/chat',
     category: 'communication',
     order: 7
+  },
+  {
+    id: 'contact-support',
+    name: 'Support Center',
+    icon: 'Support',
+    path: '/ciisUser/contact-support',
+    category: 'communication',
+    order: 8
+  },
+  {
+    id: 'support-desk',
+    name: 'Support Desk',
+    icon: 'Support',
+    path: '/ciisUser/support-desk',
+    category: 'communication',
+    order: 9
   }
 ];
 
@@ -347,6 +370,14 @@ const clientMenuItems = [
     path: '/client/services-tasks',
     category: 'main',
     order: 3
+  },
+  {
+    id: 'change-password',
+    name: 'Change Password',
+    icon: 'Key',
+    path: '/client/change-password',
+    category: 'main',
+    order: 4
   }
 ];
 
@@ -548,11 +579,27 @@ const allPagesItems = [
   ,
   {
     id: 'contact-support',
-    name: 'Contact Support',
-    icon: 'Chat',
+    name: 'Support Center',
+    icon: 'Support',
     path: '/ciisUser/contact-support',
     category: 'communication',
     order: 25
+  },
+  {
+    id: 'support-operations',
+    name: 'Support Operations',
+    icon: 'Support',
+    path: '/ciisUser/support-operations',
+    category: 'administration',
+    order: 26
+  },
+  {
+    id: 'support-desk',
+    name: 'Support Desk',
+    icon: 'Support',
+    path: '/ciisUser/support-desk',
+    category: 'communication',
+    order: 27
   }
 ];
 
@@ -585,6 +632,10 @@ const getPathFromName = (name) => {
     'Client Management': '/ciisUser/emp-client',
     'Change Password': '/ciisUser/change-password',
     'Chat': '/ciisUser/chat',
+    'Support Center': '/ciisUser/contact-support',
+    'Contact Support': '/ciisUser/contact-support',
+    'Support Desk': '/ciisUser/support-desk',
+    'Support Operations': '/ciisUser/support-operations',
     'Client Dashboard': '/client/dashboard',
     'Payment': '/client/payment',
     'Services & Tasks': '/client/services-tasks'

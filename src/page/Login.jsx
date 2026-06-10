@@ -211,20 +211,17 @@ const Login = () => {
 
       toast.success("Login successful!");
 
-let redirectPath = '/ciisUser/user-dashboard';
+      const companyRole = String(res.data.user?.companyRole || '').toLowerCase();
+      const userRole = String(res.data.user?.role || '').toLowerCase();
+      let redirectPath = '/ciisUser/user-dashboard';
 
-if (res.data.redirectTo) {
-  redirectPath = res.data.redirectTo;
-} 
-else if (res.data.user?.companyRole === 'client') {
-  redirectPath = '/ciisUser/ClientDashboard';
-}
-else if (res.data.user?.role === 'admin') {
-  redirectPath = '/admin/dashboard';
-}
-else {
-  redirectPath = '/ciisUser/user-dashboard';
-}
+      if (companyRole === 'client') {
+        redirectPath = '/client/dashboard';
+      } else if (res.data.redirectTo) {
+        redirectPath = res.data.redirectTo;
+      } else if (userRole === 'admin') {
+        redirectPath = '/admin/dashboard';
+      }
 
       console.log('Redirecting to:', redirectPath);
       navigate(redirectPath);
@@ -352,17 +349,17 @@ else {
         toast.success('Login successful!');
 
         // Redirect based on role
-      let redirectPath = '/ciisUser/user-dashboard';
+        const companyRole = String(response.data.user?.companyRole || '').toLowerCase();
+        const userRole = String(response.data.user?.role || '').toLowerCase();
+        let redirectPath = '/ciisUser/user-dashboard';
 
-if (response.data.user?.companyRole === 'client') {
-  redirectPath = '/ciisUser/ClientDashboard';
-}
-else if (response.data.user?.role === 'admin') {
-  redirectPath = '/admin/dashboard';
-}
-else {
-  redirectPath = '/ciisUser/user-dashboard';
-}
+        if (companyRole === 'client') {
+          redirectPath = '/client/dashboard';
+        } else if (response.data.redirectTo) {
+          redirectPath = response.data.redirectTo;
+        } else if (userRole === 'admin') {
+          redirectPath = '/admin/dashboard';
+        }
         
         navigate(redirectPath);
       }
@@ -419,8 +416,10 @@ else {
     setLoading(true);
 
     try {
+      const resetContext = companyIdentifier ? { companyCode: companyIdentifier } : {};
       const response = await axios.post('/auth/forgot-password', {
-        email: forgotPasswordEmail
+        email: forgotPasswordEmail,
+        ...resetContext
       });
 
       if (response.data.success) {
@@ -454,10 +453,12 @@ else {
     setLoading(true);
 
     try {
+      const resetContext = companyIdentifier ? { companyCode: companyIdentifier } : {};
       const response = await axios.post('/auth/reset-password', {
         email: forgotPasswordEmail,
         otp: otpCode,
-        newPassword: newPassword
+        newPassword: newPassword,
+        ...resetContext
       });
 
       toast.success("Password reset successful!");

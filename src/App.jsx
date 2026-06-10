@@ -232,6 +232,8 @@ import EmployeeMeetingPage from "./hrCds/pages/EmployeeMeetingPage";
 import EmployeeProject from "./hrCds/pages/EmployeeProject";
 import ClientMeeting from "./hrCds/pages/ClientMeeting";
 import ContactSupport from "./hrCds/pages/ContactSupport";
+import DepartmentSupportDesk from "./hrCds/pages/DepartmentSupportDesk";
+import SupportOperations from "./admin/page/SupportOperations.jsx";
 
 import CreateAlerts from "./hrCds/pages/CreateAlerts.jsx";
 import UserProfile from './page/UserProfile.jsx';
@@ -312,6 +314,7 @@ function App() {
           <Route path="company-access" element={<CompanyAccessManagement />} />
           <Route path="holiday" element={<Holiday />} />
           <Route path="branch" element={<BranchManagement />} />
+          <Route path="support-operations" element={<SupportOperations />} />
         </Route>
 
         {/* ========== CDS USER ROUTES (HR, Employee, etc.) ========== */}
@@ -349,6 +352,7 @@ function App() {
           <Route path="my-leaves" element={<MyLeaves />} />
           <Route path="profile" element={<Profile />} />
           <Route path="user-dashboard" element={<UserDashboard />} />
+          <Route path="ClientDashboard" element={<Navigate to="/client/dashboard" replace />} />
           <Route path="project" element={<EmployeeProject />} />
           <Route path="task-management" element={<TaskManagement />} />
           <Route path="employee-meeting" element={<EmployeeMeetingPage />} />
@@ -359,6 +363,8 @@ function App() {
           <Route path="user-profile" element={<UserProfile/>} />
           <Route path="chat" element={<ChatPage />} />
           <Route path="contact-support" element={<ContactSupport />} />
+          <Route path="support-desk" element={<DepartmentSupportDesk />} />
+          <Route path="support-operations" element={<SupportOperations />} />
         </Route>
 
         {/* ========== CLIENT SPECIFIC ROUTES (NEW) ========== */}
@@ -381,6 +387,9 @@ function App() {
           
           {/* Client Services & Tasks */}
           <Route path="services-tasks" element={<ClientServicesTasks />} />
+
+          {/* Client Change Password */}
+          <Route path="change-password" element={<ChangePassword />} />
           
           {/* Redirect any unknown client routes to dashboard */}
           <Route path="*" element={<Navigate to="/client/dashboard" replace />} />

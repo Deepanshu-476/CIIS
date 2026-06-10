@@ -10,6 +10,7 @@ import { Outlet } from 'react-router-dom';
 
 import Header from './Header';
 import Sidebar from './Sidebar';
+import SupportChatWidget from './pages/SupportChatWidget';
 
 const drawerWidthOpen = 260;
 const drawerWidthClosed = 70;
@@ -178,6 +179,7 @@ const UserLayout = () => {
           <Outlet />
         </Box>
       </MainContent>
+      <SupportChatWidget />
     </LayoutContainer>
   );
 };

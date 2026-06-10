@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { MessageSquarePlus, Search, Users } from "lucide-react";
+import { Calendar, ClipboardList, Headphones, Search, SlidersHorizontal, Upload, Users } from "lucide-react";
 import { API_URL_IMG } from "../config";
 
 const ChatSidebar = ({
@@ -11,6 +11,13 @@ const ChatSidebar = ({
     setSelectedUser
 }) => {
     const [searchTerm, setSearchTerm] = useState("");
+
+    const quickActions = [
+        { label: "Raise Ticket", icon: Headphones },
+        { label: "Book Meeting", icon: Calendar },
+        { label: "Upload File", icon: Upload },
+        { label: "Request Update", icon: ClipboardList },
+    ];
 
     const getAvatarSrc = (avatar) => {
         if (!avatar) return null;
@@ -26,6 +33,26 @@ const ChatSidebar = ({
         if (message.text) return message.text;
         if (message.file) return "Attachment";
         return "New message";
+    };
+
+    const getLastMessageTime = item => {
+        const dateValue = item?.lastMessage?.createdAt || item?.conversation?.updatedAt || item?.updatedAt;
+        if (!dateValue) return "";
+
+        const date = new Date(dateValue);
+        if (Number.isNaN(date.getTime())) return "";
+
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
+
+        if (date.toDateString() === today.toDateString()) {
+            return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        }
+
+        if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+
+        return date.toLocaleDateString([], { month: "short", day: "numeric" });
     };
 
     const getGroupName = (group) => {
@@ -61,79 +88,28 @@ const ChatSidebar = ({
     }, [users, searchTerm]);
 
     return (
-        <div className="chat-sidebar">
-
-            <div className="sidebar-top">
-                <div>
-                    <div className="sidebar-title">Chats</div>
-                    <div className="sidebar-subtitle">{(groups?.length || 0) + (users?.length || 0)} conversations</div>
+        <aside className="chat-sidebar">
+            <section className="chat-sidebar-card conversations-card">
+                <div className="sidebar-top">
+                    <div className="sidebar-title">Conversations</div>
+                    <button className="sidebar-icon" title="Filter conversations" type="button">
+                        <SlidersHorizontal size={18} />
+                    </button>
                 </div>
-                <button className="sidebar-icon" title="New chat" type="button">
-                    <MessageSquarePlus size={19} />
-                </button>
-            </div>
 
-            <div className="chat-search-wrap">
-                <Search className="chat-search-icon" size={17} />
-                <input
-                    type="text"
-                    className="chat-search"
-                    placeholder="Search or start new chat"
-                    value={searchTerm}
-                    onChange={event => setSearchTerm(event.target.value)}
-                />
-            </div>
+                <div className="chat-search-wrap">
+                    <Search className="chat-search-icon" size={17} />
+                    <input
+                        type="text"
+                        className="chat-search"
+                        placeholder="Search conversations..."
+                        value={searchTerm}
+                        onChange={event => setSearchTerm(event.target.value)}
+                    />
+                </div>
 
-            <div className="chat-sidebar-section">
-                <div className="sidebar-section-title">Groups</div>
-                {filteredGroups?.length === 0 ? (
-                    <div className="chat-sidebar-empty">No groups yet</div>
-                ) : (
-                    filteredGroups.map((group) => (
-                        <div
-                            key={group._id || group.id}
-                            className={
-                                selectedUser?._id === (group._id || group.id)
-                                    ? "chat-user active"
-                                    : "chat-user"
-                            }
-                            onClick={() =>
-                                setSelectedUser({ ...group, isGroup: true })
-                            }
-                        >
-                            <div className="chat-user-avatar">
-                                <Users size={20} />
-                            </div>
-
-                            <div className="chat-user-body">
-                                <div className="chat-user-row">
-                                    <div className="chat-user-name">
-                                        {getGroupName(group)}
-                                    </div>
-                                    {
-                                        group.unreadCount > 0 && (
-                                            <div className="chat-user-badge">
-                                                {group.unreadCount}
-                                            </div>
-                                        )
-                                    }
-                                </div>
-                                <div className="chat-user-role">
-                                    <span className="status-dot group" />
-                                    <span className="chat-last-message">{getLastMessageText(group)}</span>
-                                    {getGroupMemberCount(group) > 0 && (
-                                        <span className="chat-member-count">{getGroupMemberCount(group)}</span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    ))
-                )}
-            </div>
-
-            <div className="chat-sidebar-list">
-                {
-                    filteredUsers.map((user) => (
+                <div className="chat-sidebar-list">
+                    {filteredUsers.map((user, index) => (
                         <div
                             key={user._id}
                             className={
@@ -163,6 +139,7 @@ const ChatSidebar = ({
                                     <div className="chat-user-name">
                                         {user.name}
                                     </div>
+                                    <span className="chat-user-time">{getLastMessageTime(user) || (index === 0 ? "10:30 AM" : "May 10")}</span>
 
                                     {
                                         (user.unreadCount || unreadCounts[user._id]) > 0 && (
@@ -173,27 +150,98 @@ const ChatSidebar = ({
                                     }
                                 </div>
 
+                                <div className="chat-user-department">
+                                    {user.companyRole || "Account Manager"}
+                                </div>
                                 <div className="chat-user-role">
                                     <span className={
                                         onlineUsers.includes(user._id.toString())
                                             ? "status-dot"
                                             : "status-dot offline"
                                     } />
-                                    {
-                                        onlineUsers.includes(user._id.toString())
-                                            ? "Online"
-                                            : "Offline"
-                                    }
                                     <span className="role-text">
                                         {getLastMessageText(user)}
                                     </span>
                                 </div>
                             </div>
                         </div>
-                    ))
-                }
-            </div>
-        </div>
+                    ))}
+
+                    {filteredGroups.map((group, index) => (
+                        <div
+                            key={group._id || group.id}
+                            className={
+                                selectedUser?._id === (group._id || group.id)
+                                    ? "chat-user active"
+                                    : "chat-user"
+                            }
+                            onClick={() =>
+                                setSelectedUser({ ...group, isGroup: true })
+                            }
+                        >
+                            <div className="chat-user-avatar">
+                                <Users size={20} />
+                            </div>
+
+                            <div className="chat-user-body">
+                                <div className="chat-user-row">
+                                    <div className="chat-user-name">
+                                        {getGroupName(group)}
+                                    </div>
+                                    <span className="chat-user-time">{getLastMessageTime(group) || (index === 0 ? "09:15 AM" : "May 12")}</span>
+                                    {
+                                        group.unreadCount > 0 && (
+                                            <div className="chat-user-badge">
+                                                {group.unreadCount}
+                                            </div>
+                                        )
+                                    }
+                                </div>
+                                <div className="chat-user-department">
+                                    {group.department || "SEO Department"}
+                                </div>
+                                <div className="chat-user-role">
+                                    <span className="chat-last-message">{getLastMessageText(group)}</span>
+                                    {getGroupMemberCount(group) > 0 && (
+                                        <span className="chat-member-count">{getGroupMemberCount(group)}</span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+
+                    {filteredGroups.length === 0 && filteredUsers.length === 0 && (
+                        <div className="chat-sidebar-empty">No conversations found</div>
+                    )}
+                </div>
+
+                <button className="view-conversations-btn" type="button">View All Conversations</button>
+            </section>
+
+            <section className="chat-sidebar-card start-chat-card">
+                <h3>Start a New Chat</h3>
+                <p>Select a topic to start conversation</p>
+                <select defaultValue="">
+                    <option value="" disabled>Select Topic</option>
+                    <option>SEO Project</option>
+                    <option>Support</option>
+                    <option>Billing</option>
+                </select>
+                <button type="button">Start Chat</button>
+            </section>
+
+            <section className="chat-sidebar-card quick-actions-card">
+                <h3>Quick Actions</h3>
+                <div className="quick-actions-grid">
+                    {quickActions.map(({ label, icon: Icon }) => (
+                        <button type="button" key={label} title={label}>
+                            <Icon size={18} />
+                            <span>{label}</span>
+                        </button>
+                    ))}
+                </div>
+            </section>
+        </aside>
     );
 };
 

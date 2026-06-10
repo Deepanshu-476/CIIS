@@ -1270,6 +1270,46 @@
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
 }
 
+.user-create-task-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    transform: none;
+    box-shadow: none;
+}
+
+.user-create-task-button:disabled:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.user-create-task-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-top: 20px;
+    margin-top: 20px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.user-create-task-pagination-info {
+    color: #475569;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+    .user-create-task-pagination {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .user-create-task-pagination .user-create-task-button {
+        width: auto;
+    }
+}
+
 .user-create-task-button-text {
     background: none;
     color: #667eea;

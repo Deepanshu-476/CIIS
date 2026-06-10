@@ -254,7 +254,7 @@ import CompanyDetails from "./admin/components/CompanyDetails.jsx";
 import AllCompany from "./page/AllCompany.jsx";
 import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
-
+import BranchManagement from "./admin/page/BranchManagement.jsx"; 
 import ChatPage from "./pages/Chat/ChatPage";
 import ContactSupport from "./hrCds/pages/ContactSupport.jsx";
 
@@ -299,14 +299,17 @@ function App() {
         >
           <Route path="company-details" element={<CompanyDetails />} />
           <Route path="department" element={<Department />} />
+          <Route path="department/branch/:branchId" element={<Department />} />
           <Route path="JobRoleManagement" element={<JobRoleManagement />} />
           <Route path="create-user" element={<CreateUser />} />
           <Route path="all-company" element={<AllCompany />} />
           <Route path="company-assets" element={<CompanyAssetManagement/>}/>
+          <Route path="company-assets/branch/:branchId" element={<CompanyAssetManagement/>}/>
           <Route path="CompanyManagement" element={<CompanyManagement />} />
           <Route path="SidebarManagement" element={<SidebarManagement />} />
           <Route path="company-access" element={<CompanyAccessManagement />} />
           <Route path="holiday" element={<Holiday />} />
+          <Route path="branch" element={<BranchManagement />} />
         </Route>
 
         {/* ========== CDS USER ROUTES (HR, Employee, etc.) ========== */}
@@ -349,6 +352,7 @@ function App() {
           <Route path="employee-meeting" element={<EmployeeMeetingPage />} />
           <Route path="client-meeting" element={<ClientMeeting />} />
           <Route path="create-user" element={<CreateUser />} />
+          <Route path="SidebarManagement" element={<SidebarManagement />} />
           <Route path="create-alert" element={<CreateAlerts />} />
           <Route path="user-profile" element={<UserProfile/>} />
           <Route path="chat" element={<ChatPage />} />

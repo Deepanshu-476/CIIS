@@ -71,7 +71,7 @@ const pickTaskRecords = data => {
 const mapTaskToActivity = task => ({
   ...task,
   type: 'task',
-  date: task.updatedAt || task.createdAt || task.dueDateTime || task.dueDate,
+  date: task.dueDateTime || task.dueDate || task.updatedAt || task.createdAt,
   title: task.title || task.name || 'Task activity',
   status: task.userStatus || task.overallStatus || task.status || (task.completed ? 'completed' : 'pending'),
   assignedTo: Array.isArray(task.assignedUsers)

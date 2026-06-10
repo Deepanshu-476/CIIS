@@ -82,6 +82,18 @@ const Header = ({ toggleSidebar, isMobile }) => {
     localStorage.setItem(getDismissedNotificationKey(), JSON.stringify(nextIds));
   };
 
+  const formatSystemNotification = (notification = {}) => ({
+    ...notification,
+    id: notification._id || notification.id,
+    msg: notification.message || notification.title || "New notification",
+    time: notification.createdAt || notification.updatedAt || new Date(),
+    type: notification.type || "system",
+    category: notification.priority === "high" ? "system-high" : "system",
+    read: notification.isRead === true,
+    targetPath: notification.targetPath || notification.data?.targetPath,
+    targetScreen: notification.targetScreen || notification.data?.targetScreen,
+  });
+
   // Helper function to combine dueDate and dueTime
   const combineDateTime = (dueDate, dueTime) => {
     if (!dueDate) return null;
@@ -188,11 +200,10 @@ const Header = ({ toggleSidebar, isMobile }) => {
             return newCount;
           });
 
-          const formattedNotification = {
+          const formattedNotification = formatSystemNotification({
             ...notification,
-            id: notification._id || notification.id,
-            read: false,
-          };
+            isRead: false,
+          });
           
           return [formattedNotification, ...prev];
         }
@@ -268,17 +279,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
           : undefined;
 
       backendNotifications.forEach((item) => {
-        all.push({
-          ...item,
-          id: item._id || item.id,
-          msg: item.message || item.title || "New notification",
-          time: item.createdAt || item.updatedAt || new Date(),
-          type: item.type || "system",
-          category: item.priority === "high" ? "system-high" : "system",
-          read: item.isRead === true,
-          targetPath: item.targetPath,
-          targetScreen: item.targetScreen,
-        });
+        all.push(formatSystemNotification(item));
       });
 
       const formatTime = (dateStr) => {

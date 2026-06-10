@@ -1,24 +1,32 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import axios from '../../utils/axiosConfig';
 import './DepartmentManagement.css';
 import CIISLoader from '../../Loader/CIISLoader'; // ✅ Import CIISLoader
 
 const DepartmentManagement = () => {
+  const { branchId: routeBranchId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedBranchId = routeBranchId || searchParams.get('branch') || searchParams.get('branchId') || '';
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
   const [pageLoading, setPageLoading] = useState(true); // ✅ Page loading state
   
   const [departments, setDepartments] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [selectedBranchId, setSelectedBranchId] = useState(requestedBranchId);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingDept, setEditingDept] = useState(null);
   const [formData, setFormData] = useState({ 
     name: '', 
     description: '',
     company: '',  
-    companyCode: '' 
+    companyCode: '',
+    branch: '' // NEW: Branch ID
   });
   const [loading, setLoading] = useState(false);
+  const [loadingBranches, setLoadingBranches] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(isMobile ? 5 : 10);
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,16 +35,49 @@ const DepartmentManagement = () => {
   const [showAllCompanies, setShowAllCompanies] = useState(false);
   const [selectedDeptMenu, setSelectedDeptMenu] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [stats, setStats] = useState({
-    total: 0,
-    active: 0,
-    inactive: 0
-  });
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const [showMenu, setShowMenu] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
+
+  const getRecordId = (record) => {
+    if (!record) return '';
+    if (typeof record === 'object') return record._id || record.id || '';
+    return record;
+  };
+
+  const getCompanyFromStorage = () => {
+    try {
+      const companyStr = localStorage.getItem('company') || localStorage.getItem('companyDetails');
+      return companyStr ? JSON.parse(companyStr) : null;
+    } catch (error) {
+      console.error('Error parsing company data:', error);
+      return null;
+    }
+  };
+
+  const resolveCompanyId = (user) => (
+    getRecordId(user?.company) ||
+    getRecordId(user?.companyDetails) ||
+    getRecordId(getCompanyFromStorage())
+  );
+
+  const resolveCompanyCode = (user) => (
+    user?.companyCode ||
+    user?.companyDetails?.companyCode ||
+    getCompanyFromStorage()?.companyCode ||
+    ''
+  );
+
+  const getDepartmentBranchId = (dept) => getRecordId(dept?.branch || dept?.branchId);
+
+  const getBranchLabel = (branchValue) => {
+    const branchId = getRecordId(branchValue);
+    const branch = branches.find(br => getRecordId(br) === branchId) || (typeof branchValue === 'object' ? branchValue : null);
+    if (!branch) return 'Unassigned';
+    return branch.branchCode ? `${branch.name} (${branch.branchCode})` : branch.name;
+  };
 
   // Handle window resize
   useEffect(() => {
@@ -83,6 +124,11 @@ const DepartmentManagement = () => {
 
   // ✅ Load initial data with page loader
   useEffect(() => {
+    setSelectedBranchId(requestedBranchId);
+    setPage(0);
+  }, [requestedBranchId]);
+
+  useEffect(() => {
     const loadData = async () => {
       setPageLoading(true);
       try {
@@ -91,13 +137,17 @@ const DepartmentManagement = () => {
           setUserInfo(user);
           const isSuper = checkSuperAdminStatus(user);
           setIsSuperAdmin(isSuper);
+          const companyId = resolveCompanyId(user);
+          const companyCode = resolveCompanyCode(user);
           
-          if (user.company && user.companyCode) {
+          if (companyId) {
             setFormData(prev => ({
               ...prev,
-              company: user.company,
-              companyCode: user.companyCode
+              company: companyId,
+              companyCode
             }));
+            // Fetch company branches
+            await fetchBranches(companyId);
           }
           
           await fetchDepartments(user, isSuper);
@@ -116,7 +166,7 @@ const DepartmentManagement = () => {
     };
     
     loadData();
-  }, [refreshKey, showAllCompanies]);
+  }, [refreshKey, showAllCompanies, selectedBranchId]);
 
   const fetchDepartments = async (user = null, isSuper = false) => {
     try {
@@ -130,13 +180,17 @@ const DepartmentManagement = () => {
         isSuper = checkSuperAdminStatus(user);
       }
       
-      let url = '/departments';
       let params = {};
+      const companyId = resolveCompanyId(user);
       
       if (!isSuper && !showAllCompanies) {
-        if (user.company) {
-          params.company = user.company;
+        if (companyId) {
+          params.company = companyId;
         }
+      }
+
+      if (selectedBranchId) {
+        params.branch = selectedBranchId;
       }
       
       console.log('Fetching departments with params:', params);
@@ -144,13 +198,6 @@ const DepartmentManagement = () => {
       const response = await axios.get('/departments', { params });
       const depts = response.data.departments || [];
       setDepartments(depts);
-      
-      // Calculate stats
-      setStats({
-        total: depts.length,
-        active: depts.filter(d => d.isActive !== false).length,
-        inactive: depts.filter(d => d.isActive === false).length
-      });
       
       console.log('Departments fetched:', depts.length);
     } catch (err) {
@@ -160,10 +207,28 @@ const DepartmentManagement = () => {
       setLoading(false);
     }
   };
-
+  const fetchBranches = async (companyId) => {
+    try {
+      if (!companyId) return;
+      setLoadingBranches(true);
+      const response = await axios.get(`/branches/company/${companyId}`);
+      if (response.data && response.data.success) {
+        setBranches(response.data.branches || []);
+      }
+    } catch (err) {
+      console.error('Error fetching branches:', err);
+    } finally {
+      setLoadingBranches(false);
+    }
+  };
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
       toast.error('Department name is required');
+      return;
+    }
+
+    if (!formData.branch) {
+      toast.error('Please select a branch');
       return;
     }
 
@@ -176,15 +241,18 @@ const DepartmentManagement = () => {
       }
       
       const isSuper = checkSuperAdminStatus(user);
+      const companyId = resolveCompanyId(user);
+      const companyCode = resolveCompanyCode(user);
       
       const submitData = {
         name: formData.name.trim(),
-        description: formData.description.trim()
+        description: formData.description.trim(),
+        branch: formData.branch
       };
       
       if (!isSuper || formData.company) {
-        submitData.company = formData.company || user.company;
-        submitData.companyCode = formData.companyCode || user.companyCode;
+        submitData.company = formData.company || companyId;
+        submitData.companyCode = formData.companyCode || companyCode;
       }
       
       console.log('Submitting department data:', submitData);
@@ -223,8 +291,9 @@ const DepartmentManagement = () => {
       setFormData({ 
         name: '', 
         description: '',
-        company: user.company || '',
-        companyCode: user.companyCode || ''
+        company: companyId || '',
+        companyCode: companyCode || '',
+        branch: selectedBranchId || ''
       });
       setEditingDept(null);
       setRefreshKey(prev => prev + 1);
@@ -272,8 +341,9 @@ const DepartmentManagement = () => {
     setFormData({ 
       name: dept.name, 
       description: dept.description || '',
-      company: dept.company || user?.company || '',
-      companyCode: dept.companyCode || user?.companyCode || ''
+      company: getRecordId(dept.company) || resolveCompanyId(user) || '',
+      companyCode: dept.companyCode || resolveCompanyCode(user) || '',
+      branch: getDepartmentBranchId(dept) || ''
     });
     setOpenDialog(true);
     setShowMenu(false);
@@ -306,6 +376,19 @@ const DepartmentManagement = () => {
     setSearchTerm('');
   };
 
+  const handleBranchFilterChange = (branchId) => {
+    setSelectedBranchId(branchId);
+    setPage(0);
+    const nextParams = new URLSearchParams(searchParams);
+    if (branchId) {
+      nextParams.set('branch', branchId);
+    } else {
+      nextParams.delete('branch');
+      nextParams.delete('branchId');
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
   // Sort departments
   const sortDepartments = (depts) => {
     return [...depts].sort((a, b) => {
@@ -334,9 +417,14 @@ const DepartmentManagement = () => {
     const isSuper = checkSuperAdminStatus(user);
     
     if (!isSuper && !showAllCompanies) {
+      const companyId = resolveCompanyId(user);
       filtered = departments.filter(dept => 
-        !dept.company || dept.company === user?.company
+        !dept.company || getRecordId(dept.company) === companyId
       );
+    }
+
+    if (selectedBranchId) {
+      filtered = filtered.filter(dept => getDepartmentBranchId(dept) === selectedBranchId);
     }
     
     if (searchTerm) {
@@ -351,6 +439,11 @@ const DepartmentManagement = () => {
   };
 
   const filteredDepartments = getFilteredDepartments();
+  const visibleStats = {
+    total: filteredDepartments.length,
+    active: filteredDepartments.filter(d => d.isActive !== false).length,
+    inactive: filteredDepartments.filter(d => d.isActive === false).length
+  };
 
   // Format date
   const formatDate = (dateString) => {
@@ -399,6 +492,9 @@ const DepartmentManagement = () => {
               {dept.companyCode && (
                 <span className="DepartmentManagement-tag DepartmentManagement-tag-code">{dept.companyCode}</span>
               )}
+              <span className="DepartmentManagement-tag DepartmentManagement-tag-code">
+                {getBranchLabel(dept.branch || dept.branchId)}
+              </span>
               <span className={`DepartmentManagement-tag ${dept.isActive !== false ? 'DepartmentManagement-tag-active' : 'DepartmentManagement-tag-inactive'}`}>
                 {dept.isActive !== false ? 'Active' : 'Inactive'}
               </span>
@@ -475,6 +571,9 @@ const DepartmentManagement = () => {
               {dept.companyCode && (
                 <span className="DepartmentManagement-tag DepartmentManagement-tag-code">{dept.companyCode}</span>
               )}
+              <span className="DepartmentManagement-tag DepartmentManagement-tag-code">
+                {getBranchLabel(dept.branch || dept.branchId)}
+              </span>
               <span className={`DepartmentManagement-tag ${dept.isActive !== false ? 'DepartmentManagement-tag-active' : 'DepartmentManagement-tag-inactive'}`}>
                 {dept.isActive !== false ? 'Active' : 'Inactive'}
               </span>
@@ -612,7 +711,7 @@ const DepartmentManagement = () => {
             <div className="DepartmentManagement-stat-content">
               <div className="DepartmentManagement-stat-label">Total</div>
               <div className="DepartmentManagement-stat-value-wrapper">
-                <span className="DepartmentManagement-stat-value">{stats.total}</span>
+                <span className="DepartmentManagement-stat-value">{visibleStats.total}</span>
                 {!isMobile && <span className="DepartmentManagement-stat-badge">All</span>}
               </div>
             </div>
@@ -626,10 +725,10 @@ const DepartmentManagement = () => {
             <div className="DepartmentManagement-stat-content">
               <div className="DepartmentManagement-stat-label">Active</div>
               <div className="DepartmentManagement-stat-value-wrapper">
-                <span className="DepartmentManagement-stat-value">{stats.active}</span>
+                <span className="DepartmentManagement-stat-value">{visibleStats.active}</span>
                 {!isMobile && (
                   <span className="DepartmentManagement-stat-badge">
-                    {stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0}%
+                    {visibleStats.total > 0 ? Math.round((visibleStats.active / visibleStats.total) * 100) : 0}%
                   </span>
                 )}
               </div>
@@ -644,10 +743,10 @@ const DepartmentManagement = () => {
             <div className="DepartmentManagement-stat-content">
               <div className="DepartmentManagement-stat-label">Inactive</div>
               <div className="DepartmentManagement-stat-value-wrapper">
-                <span className="DepartmentManagement-stat-value">{stats.inactive}</span>
+                <span className="DepartmentManagement-stat-value">{visibleStats.inactive}</span>
                 {!isMobile && (
                   <span className="DepartmentManagement-stat-badge">
-                    {stats.total > 0 ? Math.round((stats.inactive / stats.total) * 100) : 0}%
+                    {visibleStats.total > 0 ? Math.round((visibleStats.inactive / visibleStats.total) * 100) : 0}%
                   </span>
                 )}
               </div>
@@ -710,6 +809,27 @@ const DepartmentManagement = () => {
                 </button>
               )}
             </div>
+
+            <select
+              className="DepartmentManagement-filter-select"
+              value={selectedBranchId}
+              onChange={(e) => handleBranchFilterChange(e.target.value)}
+              disabled={loadingBranches || branches.length === 0}
+              title="Filter by branch"
+            >
+              <option value="">
+                {loadingBranches
+                  ? 'Loading branches...'
+                  : branches.length === 0
+                    ? 'No branches'
+                    : 'All Branches'}
+              </option>
+              {branches.map(branch => (
+                <option key={branch._id || branch.id} value={branch._id || branch.id}>
+                  {branch.name} ({branch.branchCode})
+                </option>
+              ))}
+            </select>
             
             {/* Mobile Filter Button */}
             {isMobile && (
@@ -735,8 +855,9 @@ const DepartmentManagement = () => {
                   setFormData({ 
                     name: '', 
                     description: '',
-                    company: user.company || '',
-                    companyCode: user.companyCode || ''
+                    company: resolveCompanyId(user) || '',
+                    companyCode: resolveCompanyCode(user) || '',
+                    branch: selectedBranchId || ''
                   });
                   setOpenDialog(true);
                 }}
@@ -868,6 +989,7 @@ const DepartmentManagement = () => {
                 <tr>
                   <th>Department Name</th>
                   <th>Description</th>
+                  <th>Branch</th>
                   {isSuperAdmin && showAllCompanies && <th>Company Code</th>}
                   <th>Created By</th>
                   <th>Created On</th>
@@ -878,7 +1000,7 @@ const DepartmentManagement = () => {
               <tbody>
                 {filteredDepartments.length === 0 ? (
                   <tr>
-                    <td colSpan={isSuperAdmin && showAllCompanies ? 7 : 6} className="DepartmentManagement-empty-cell">
+                    <td colSpan={isSuperAdmin && showAllCompanies ? 8 : 7} className="DepartmentManagement-empty-cell">
                       <div className="DepartmentManagement-empty-state">
                         <div className="DepartmentManagement-empty-icon">
                           {getIconSvg('corporate', 50)}
@@ -906,6 +1028,11 @@ const DepartmentManagement = () => {
                         <td>
                           <span className="DepartmentManagement-description-text">
                             {dept.description || '—'}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="DepartmentManagement-chip DepartmentManagement-chip-code">
+                            {getBranchLabel(dept.branch || dept.branchId)}
                           </span>
                         </td>
                         {isSuperAdmin && showAllCompanies && (
@@ -1018,8 +1145,9 @@ const DepartmentManagement = () => {
               setFormData({ 
                 name: '', 
                 description: '',
-                company: user?.company || '',
-                companyCode: user?.companyCode || ''
+                company: resolveCompanyId(user) || '',
+                companyCode: resolveCompanyCode(user) || '',
+                branch: selectedBranchId || ''
               });
               setOpenDialog(true);
             }}
@@ -1136,6 +1264,37 @@ const DepartmentManagement = () => {
                   </div>
                 </div>
               )}
+
+              {/* NEW: Branch Dropdown */}
+              <div className="DepartmentManagement-form-group">
+                <label className="DepartmentManagement-form-label">Branch *</label>
+                <div className="DepartmentManagement-input-wrapper">
+                  <span className="DepartmentManagement-input-icon">
+                    {getIconSvg('business', isMobile ? 18 : 20)}
+                  </span>
+                  <select
+                    className="DepartmentManagement-form-input"
+                    value={formData.branch}
+                    onChange={(e) => setFormData({...formData, branch: e.target.value})}
+                    disabled={loadingBranches || branches.length === 0}
+                    required
+                    style={{ appearance: 'none', background: 'transparent', outline: 'none' }}
+                  >
+                    <option value="">
+                      {loadingBranches 
+                        ? "Loading branches..." 
+                        : branches.length === 0 
+                          ? "No branches available" 
+                          : "Select Branch"}
+                    </option>
+                    {branches.map(br => (
+                      <option key={br._id || br.id} value={br._id || br.id}>
+                        {br.name} ({br.branchCode})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
               <div className="DepartmentManagement-form-group">
                 <label className="DepartmentManagement-form-label">Name *</label>

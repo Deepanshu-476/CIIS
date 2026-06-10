@@ -289,12 +289,20 @@ const fixedDefaultItems = [
     order: 4
   },
   {
+    id: 'profile',
+    name: 'My Details',
+    icon: 'Person',
+    path: '/ciisUser/profile',
+    category: 'main',
+    order: 5
+  },
+  {
     id: 'change-password',
     name: 'Change Password',
     icon: 'Settings',
     path: '/ciisUser/change-password',
     category: 'main',
-    order: 5
+    order: 6
   },
   {
     id: 'chat',
@@ -302,7 +310,7 @@ const fixedDefaultItems = [
     icon: 'Chat',
     path: '/ciisUser/chat',
     category: 'communication',
-    order: 6
+    order: 7
   }
 ];
 
@@ -377,12 +385,20 @@ const allPagesItems = [
     order: 5
   },
   {
+    id: 'profile',
+    name: 'My Details',
+    icon: 'Person',
+    path: '/ciisUser/profile',
+    category: 'main',
+    order: 6
+  },
+  {
     id: 'projects',
     name: 'Projects',
     icon: 'Groups',
     path: '/ciisUser/project',
     category: 'projects',
-    order: 6
+    order: 7
   },
   {
     id: 'employee-details',
@@ -390,7 +406,15 @@ const allPagesItems = [
     icon: 'Person',
     path: '/ciisUser/emp-details',
     category: 'administration',
-    order: 7
+    order: 8
+  },
+  {
+    id: 'SidebarManagement',
+    name: 'Sidebar Management',
+    icon: 'Settings',
+    path: '/ciisUser/SidebarManagement',
+    category: 'administration',
+    order: 9
   },
   {
     id: 'employee-leaves',
@@ -398,7 +422,7 @@ const allPagesItems = [
     icon: 'Event',
     path: '/ciisUser/emp-leaves',
     category: 'administration',
-    order: 8
+    order: 10
   },
   {
     id: 'employee-assets',
@@ -406,7 +430,7 @@ const allPagesItems = [
     icon: 'Computer',
     path: '/ciisUser/emp-assets',
     category: 'administration',
-    order: 9
+    order: 11
   },
   {
     id: 'employee-attendance',
@@ -414,7 +438,7 @@ const allPagesItems = [
     icon: 'Calendar',
     path: '/ciisUser/emp-attendance',
     category: 'administration',
-    order: 10
+    order: 12
   },
   {
     id: 'create-task',
@@ -422,7 +446,7 @@ const allPagesItems = [
     icon: 'Task',
     path: '/ciisUser/task-management',
     category: 'tasks',
-    order: 11
+    order: 13
   },
   {
     id: 'admin-create-task',
@@ -430,7 +454,7 @@ const allPagesItems = [
     icon: 'Task',
     path: '/ciisUser/admin-task-create',
     category: 'tasks',
-    order: 12
+    order: 14
   },
   {
     id: 'manage-groups',
@@ -438,7 +462,7 @@ const allPagesItems = [
     icon: 'Groups',
     path: '/ciisUser/manage-groups',
     category: 'administration',
-    order: 13
+    order: 15
   },
   {
     id: 'employee-meeting',
@@ -446,7 +470,7 @@ const allPagesItems = [
     icon: 'VideoCall',
     path: '/ciisUser/employee-meeting',
     category: 'meetings',
-    order: 14
+    order: 16
   },
   {
     id: 'client-meeting',
@@ -454,7 +478,7 @@ const allPagesItems = [
     icon: 'VideoCall',
     path: '/ciisUser/client-meeting',
     category: 'meetings',
-    order: 15
+    order: 17
   },
   {
     id: 'create-employee-meeting',
@@ -462,7 +486,7 @@ const allPagesItems = [
     icon: 'VideoCall',
     path: '/ciisUser/admin-meeting',
     category: 'meetings',
-    order: 16
+    order: 18
   },
   {
     id: 'admin-projects',
@@ -470,7 +494,7 @@ const allPagesItems = [
     icon: 'Groups',
     path: '/ciisUser/adminproject',
     category: 'projects',
-    order: 17
+    order: 19
   },
   {
     id: 'company-all-tasks',
@@ -478,7 +502,7 @@ const allPagesItems = [
     icon: 'Task',
     path: '/ciisUser/company-all-task',
     category: 'tasks',
-    order: 18
+    order: 20
   },
   {
     id: 'department-all-tasks',
@@ -486,7 +510,7 @@ const allPagesItems = [
     icon: 'Task',
     path: '/ciisUser/department-all-task',
     category: 'tasks',
-    order: 19
+    order: 21
   },
   {
     id: 'client-management',
@@ -494,7 +518,7 @@ const allPagesItems = [
     icon: 'Person',
     path: '/ciisUser/emp-client',
     category: 'clients',
-    order: 20
+    order: 22
   },
   {
     id: 'change-password',
@@ -502,7 +526,7 @@ const allPagesItems = [
     icon: 'Settings',
     path: '/ciisUser/change-password',
     category: 'main',
-    order: 21
+    order: 23
   },
   {
     id: 'chat',
@@ -510,7 +534,7 @@ const allPagesItems = [
     icon: 'Chat',
     path: '/ciisUser/chat',
     category: 'communication',
-    order: 22
+    order: 24
   }
 
   ,
@@ -520,7 +544,7 @@ const allPagesItems = [
     icon: 'Chat',
     path: '/ciisUser/contact-support',
     category: 'communication',
-    order: 23
+    order: 25
   }
 ];
 
@@ -532,9 +556,12 @@ const getPathFromName = (name) => {
     'Attendance': '/ciisUser/attendance',
     'My Leaves': '/ciisUser/my-leaves',
     'My Assets': '/ciisUser/my-assets',
+    'My Details': '/ciisUser/profile',
+    'Profile': '/ciisUser/profile',
     'Alerts': '/ciisUser/alert',
     'Projects': '/ciisUser/project',
     'Employee Details': '/ciisUser/emp-details',
+    'Sidebar Management': '/ciisUser/SidebarManagement',
     'Employee Leaves': '/ciisUser/emp-leaves',
     'Employee Assets': '/ciisUser/emp-assets',
     'Employee Attendance': '/ciisUser/emp-attendance',
@@ -564,11 +591,12 @@ const filterItemsByCompanyAccess = (items, companyData) => {
   const allowedPages = Array.isArray(companyData?.allowedPages) ? companyData.allowedPages : [];
   if (allowedPages.length === 0) return items;
 
-  const allowedSet = new Set(allowedPages.map(item => String(item).trim()).filter(Boolean));
+  const normalizeKey = value => String(value || '').trim().toLowerCase();
+  const allowedSet = new Set(allowedPages.map(item => normalizeKey(item)).filter(Boolean));
   return items.filter(item => (
-    allowedSet.has(item.id) ||
-    allowedSet.has(item.path) ||
-    allowedSet.has(getMenuRouteKey(item))
+    allowedSet.has(normalizeKey(item.id)) ||
+    allowedSet.has(normalizeKey(item.path)) ||
+    allowedSet.has(normalizeKey(getMenuRouteKey(item)))
   ));
 };
 
@@ -601,18 +629,51 @@ const Sidebar = ({ isMobile = false }) => {
 
   // LocalStorage se user data aur company details fetch karo
   useEffect(() => {
-    const fetchLocalData = () => {
+    const fetchLocalData = async () => {
       try {
         const user = localStorage.getItem("user");
         const companyDetails = localStorage.getItem("companyDetails");
+        let parsedUser = null;
+        let parsedCompany = null;
         
         if (user) {
-          const parsedUser = JSON.parse(user);
+          parsedUser = JSON.parse(user);
           setUserData(parsedUser);
         }
         
         if (companyDetails) {
-          const parsedCompany = JSON.parse(companyDetails);
+          parsedCompany = JSON.parse(companyDetails);
+        }
+
+        const companyId =
+          parsedCompany?._id ||
+          parsedCompany?.id ||
+          parsedUser?.companyDetails?._id ||
+          parsedUser?.companyDetails?.id ||
+          parsedUser?.companyId ||
+          (typeof parsedUser?.company === "object" ? parsedUser.company?._id || parsedUser.company?.id : parsedUser?.company);
+
+        if (companyId) {
+          try {
+            const response = await axiosInstance.get(`/company/${companyId}`);
+            const latestCompany = response.data?.company || response.data?.data || response.data;
+
+            if (latestCompany?._id || latestCompany?.id) {
+              parsedCompany = {
+                ...parsedCompany,
+                ...latestCompany,
+                allowedPages: Array.isArray(latestCompany.allowedPages)
+                  ? latestCompany.allowedPages
+                  : parsedCompany?.allowedPages || []
+              };
+              localStorage.setItem("companyDetails", JSON.stringify(parsedCompany));
+            }
+          } catch (companyError) {
+            console.warn("Could not refresh company access, using stored company details:", companyError.message);
+          }
+        }
+
+        if (parsedCompany) {
           setCompanyData(parsedCompany);
         }
       } catch (error) {

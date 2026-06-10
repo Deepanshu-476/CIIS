@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import axios from '../utils/axiosConfig';
 import './CompanyAssetManagement.css';
 
 const CompanyAssetManagement = () => {
+  const { branchId: routeBranchId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedBranchId = routeBranchId || searchParams.get('branch') || searchParams.get('branchId') || '';
   const [assets, setAssets] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [selectedBranchId, setSelectedBranchId] = useState(requestedBranchId);
+  const [loadingBranches, setLoadingBranches] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,11 +31,65 @@ const CompanyAssetManagement = () => {
   const [animateIn, setAnimateIn] = useState(false);
 
   useEffect(() => {
+    const user = getUser();
+    const companyId = resolveCompanyId(user);
     fetchAssets();
     fetchRequests();
-    getCompanyInfo();
+    getCompanyInfo(user);
+    fetchBranches(companyId);
     setAnimateIn(true);
-  }, []);
+  }, [selectedBranchId]);
+
+  useEffect(() => {
+    setSelectedBranchId(requestedBranchId);
+  }, [requestedBranchId]);
+
+  const getRecordId = (record) => {
+    if (!record) return '';
+    if (typeof record === 'object') return record._id || record.id || '';
+    return record;
+  };
+
+  const getCompanyFromStorage = () => {
+    try {
+      const companyStr = localStorage.getItem('company') || localStorage.getItem('companyDetails');
+      return companyStr ? JSON.parse(companyStr) : null;
+    } catch (error) {
+      console.error('Error parsing company data:', error);
+      return null;
+    }
+  };
+
+  const resolveCompanyId = (user) => (
+    getRecordId(user?.company) ||
+    getRecordId(user?.companyDetails) ||
+    getRecordId(getCompanyFromStorage())
+  );
+
+  const resolveCompanyName = (user) => (
+    user?.companyName ||
+    user?.companyDetails?.companyName ||
+    getCompanyFromStorage()?.companyName ||
+    'Your Company'
+  );
+
+  const resolveCompanyCode = (user) => (
+    user?.companyCode ||
+    user?.companyDetails?.companyCode ||
+    getCompanyFromStorage()?.companyCode ||
+    'N/A'
+  );
+
+  const getBranchId = (record) => getRecordId(record?.branch || record?.branchId);
+
+  const getBranchLabel = (branchValue) => {
+    const branchId = getRecordId(branchValue);
+    const branch = branches.find(br => getRecordId(br) === branchId) || (typeof branchValue === 'object' ? branchValue : null);
+    if (!branch) return 'Unassigned';
+    return branch.branchCode ? `${branch.name} (${branch.branchCode})` : branch.name;
+  };
+
+  const selectedBranchLabel = selectedBranchId ? getBranchLabel(selectedBranchId) : 'All Branches';
 
   // Get user from storage
   const getUser = () => {
@@ -50,14 +111,29 @@ const CompanyAssetManagement = () => {
   };
 
   // Get company info
-  const getCompanyInfo = () => {
-    const user = getUser();
+  const getCompanyInfo = (currentUser = null) => {
+    const user = currentUser || getUser();
     if (user) {
       setCompanyInfo({
-        name: user.companyName || user.company || 'Your Company',
-        code: user.companyCode || 'N/A',
-        id: user._id
+        name: resolveCompanyName(user),
+        code: resolveCompanyCode(user),
+        id: resolveCompanyId(user)
       });
+    }
+  };
+
+  const fetchBranches = async (companyId) => {
+    if (!companyId) return;
+    try {
+      setLoadingBranches(true);
+      const response = await axios.get(`/branches/company/${companyId}`);
+      if (response.data?.success) {
+        setBranches(response.data.branches || []);
+      }
+    } catch (err) {
+      console.error('Error fetching branches:', err);
+    } finally {
+      setLoadingBranches(false);
     }
   };
 
@@ -65,7 +141,8 @@ const CompanyAssetManagement = () => {
   const fetchAssets = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/company-assets');
+      const params = selectedBranchId ? { branch: selectedBranchId } : {};
+      const response = await axios.get('/company-assets', { params });
       if (response.data.success) {
         // Ensure each asset has a status field
         const assetsWithStatus = (response.data.assets || []).map(asset => ({
@@ -85,7 +162,8 @@ const CompanyAssetManagement = () => {
 
   const fetchRequests = async () => {
     try {
-      const res = await axios.get('/asset-requests/all');
+      const params = selectedBranchId ? { branch: selectedBranchId } : {};
+      const res = await axios.get('/asset-requests/all', { params });
       setRequests(res.data.requests || []);
     } catch (err) {
       console.error(err);
@@ -121,12 +199,18 @@ const CompanyAssetManagement = () => {
       return;
     }
 
+    if (!selectedBranchId) {
+      toast.error('Please select a branch');
+      return;
+    }
+
     try {
       setLoading(true);
       const response = await axios.post('/company-assets', {
         name: name.trim(),
         description: description.trim(),
-        quantity: quantity
+        quantity: quantity,
+        branch: selectedBranchId
       });
       
       if (response.data.success) {
@@ -219,6 +303,10 @@ const CompanyAssetManagement = () => {
   // Filter and search assets
   const getFilteredAssets = () => {
     let filtered = [...assets];
+
+    if (selectedBranchId) {
+      filtered = filtered.filter(asset => getBranchId(asset) === selectedBranchId);
+    }
     
     if (statusFilter !== 'all') {
       filtered = filtered.filter(asset => asset.status === statusFilter);
@@ -242,7 +330,22 @@ const CompanyAssetManagement = () => {
   };
 
   const filteredAssets = getFilteredAssets();
+  const filteredRequests = selectedBranchId
+    ? requests.filter(req => getBranchId(req) === selectedBranchId || getBranchId(req.user) === selectedBranchId)
+    : requests;
   const user = getUser();
+
+  const handleBranchFilterChange = (branchId) => {
+    setSelectedBranchId(branchId);
+    const nextParams = new URLSearchParams(searchParams);
+    if (branchId) {
+      nextParams.set('branch', branchId);
+    } else {
+      nextParams.delete('branch');
+      nextParams.delete('branchId');
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
 
   // If no user, show login message
   if (!user) {
@@ -262,13 +365,6 @@ const CompanyAssetManagement = () => {
 
   return (
     <div className={`ca-container-enhanced ${animateIn ? 'fade-in' : ''}`}>
-      {/* Animated Background */}
-      <div className="animated-bg">
-        <div className="gradient-orb orb-1"></div>
-        <div className="gradient-orb orb-2"></div>
-        <div className="gradient-orb orb-3"></div>
-      </div>
-
       {/* Header Section */}
       <div className="ca-header-enhanced">
         <div className="ca-header-content-enhanced">
@@ -286,6 +382,13 @@ const CompanyAssetManagement = () => {
             </div>
           </div>
           <div className="ca-header-right-enhanced">
+            <div className="ca-branch-badge-enhanced">
+              <span className="ca-branch-dot-enhanced"></span>
+              <div>
+                <div className="ca-branch-label-enhanced">Branch</div>
+                <div className="ca-branch-name-enhanced">{selectedBranchLabel}</div>
+              </div>
+            </div>
             <div className="ca-company-badge-enhanced">
               <span className="ca-company-icon-enhanced">🏢</span>
               <div>
@@ -316,7 +419,7 @@ const CompanyAssetManagement = () => {
             </svg>
           </div>
           <div className="ca-stat-info-enhanced">
-            <div className="ca-stat-value-enhanced">{assets.length}</div>
+            <div className="ca-stat-value-enhanced">{filteredAssets.length}</div>
             <div className="ca-stat-label-enhanced">Total Assets</div>
           </div>
           <div className="stat-progress">
@@ -331,11 +434,11 @@ const CompanyAssetManagement = () => {
             </svg>
           </div>
           <div className="ca-stat-info-enhanced">
-            <div className="ca-stat-value-enhanced">{assets.filter(a => a.status === 'Available').length}</div>
+            <div className="ca-stat-value-enhanced">{filteredAssets.filter(a => a.status === 'Available').length}</div>
             <div className="ca-stat-label-enhanced">Available</div>
           </div>
           <div className="stat-progress">
-            <div className="progress-bar" style={{ width: `${assets.length ? (assets.filter(a => a.status === 'Available').length / assets.length) * 100 : 0}%` }}></div>
+            <div className="progress-bar" style={{ width: `${filteredAssets.length ? (filteredAssets.filter(a => a.status === 'Available').length / filteredAssets.length) * 100 : 0}%` }}></div>
           </div>
         </div>
         <div className="ca-stat-card-enhanced stat-assigned">
@@ -346,11 +449,11 @@ const CompanyAssetManagement = () => {
             </svg>
           </div>
           <div className="ca-stat-info-enhanced">
-            <div className="ca-stat-value-enhanced">{assets.filter(a => a.status === 'Assigned').length}</div>
+            <div className="ca-stat-value-enhanced">{filteredAssets.filter(a => a.status === 'Assigned').length}</div>
             <div className="ca-stat-label-enhanced">Assigned</div>
           </div>
           <div className="stat-progress">
-            <div className="progress-bar" style={{ width: `${assets.length ? (assets.filter(a => a.status === 'Assigned').length / assets.length) * 100 : 0}%` }}></div>
+            <div className="progress-bar" style={{ width: `${filteredAssets.length ? (filteredAssets.filter(a => a.status === 'Assigned').length / filteredAssets.length) * 100 : 0}%` }}></div>
           </div>
         </div>
         <div className="ca-stat-card-enhanced stat-maintenance">
@@ -361,11 +464,11 @@ const CompanyAssetManagement = () => {
             </svg>
           </div>
           <div className="ca-stat-info-enhanced">
-            <div className="ca-stat-value-enhanced">{assets.filter(a => a.status === 'Maintenance').length}</div>
+            <div className="ca-stat-value-enhanced">{filteredAssets.filter(a => a.status === 'Maintenance').length}</div>
             <div className="ca-stat-label-enhanced">Maintenance</div>
           </div>
           <div className="stat-progress">
-            <div className="progress-bar" style={{ width: `${assets.length ? (assets.filter(a => a.status === 'Maintenance').length / assets.length) * 100 : 0}%` }}></div>
+            <div className="progress-bar" style={{ width: `${filteredAssets.length ? (filteredAssets.filter(a => a.status === 'Maintenance').length / filteredAssets.length) * 100 : 0}%` }}></div>
           </div>
         </div>
       </div>
@@ -429,6 +532,26 @@ const CompanyAssetManagement = () => {
             )}
           </div>
           
+          <select
+            className="ca-filter-select-enhanced"
+            value={selectedBranchId}
+            onChange={(e) => handleBranchFilterChange(e.target.value)}
+            disabled={loadingBranches || branches.length === 0}
+          >
+            <option value="">
+              {loadingBranches
+                ? 'Loading branches...'
+                : branches.length === 0
+                  ? 'No branches'
+                  : 'All Branches'}
+            </option>
+            {branches.map(branch => (
+              <option key={branch._id || branch.id} value={branch._id || branch.id}>
+                {branch.name} ({branch.branchCode})
+              </option>
+            ))}
+          </select>
+
           <select 
             className="ca-filter-select-enhanced"
             value={statusFilter}
@@ -456,6 +579,31 @@ const CompanyAssetManagement = () => {
               <button className="ca-close-btn-enhanced" onClick={() => setShowForm(false)}>✕</button>
             </div>
             <form onSubmit={handleSubmit}>
+              <div className="ca-form-group-enhanced">
+                <label>
+                  Branch <span className="ca-required-enhanced">*</span>
+                </label>
+                <select
+                  value={selectedBranchId}
+                  onChange={(e) => handleBranchFilterChange(e.target.value)}
+                  disabled={loading || loadingBranches || branches.length === 0}
+                  className="ca-form-input-enhanced"
+                  required
+                >
+                  <option value="">
+                    {loadingBranches
+                      ? 'Loading branches...'
+                      : branches.length === 0
+                        ? 'No branches available'
+                        : 'Select Branch'}
+                  </option>
+                  {branches.map(branch => (
+                    <option key={branch._id || branch.id} value={branch._id || branch.id}>
+                      {branch.name} ({branch.branchCode})
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="ca-form-group-enhanced">
                 <label>
                   Asset Name <span className="ca-required-enhanced">*</span>
@@ -544,7 +692,7 @@ const CompanyAssetManagement = () => {
           <div className="ca-assets-count-enhanced">
             {viewMode === 'table' 
               ? `Showing ${filteredAssets.length} of ${assets.length} assets`
-              : `${requests.length} total requests`
+              : `${filteredRequests.length} of ${requests.length} requests`
             }
           </div>
         </div>
@@ -585,6 +733,7 @@ const CompanyAssetManagement = () => {
                       <th>#</th>
                       <th>Asset Name</th>
                       <th>Description</th>
+                      <th>Branch</th>
                       <th>Quantity</th>
                       <th>Status</th>
                       <th>Created Date</th>
@@ -605,6 +754,9 @@ const CompanyAssetManagement = () => {
                         </td>
                         <td data-label="Description" className="ca-description-cell-enhanced">
                           {asset.description || '—'}
+                        </td>
+                        <td data-label="Branch">
+                          <span className="department-badge">{getBranchLabel(asset.branch || asset.branchId)}</span>
                         </td>
                         <td data-label="Quantity">
                           <span className="quantity-badge">{asset.quantity || 0}</span>
@@ -653,6 +805,7 @@ const CompanyAssetManagement = () => {
                   <th>Employee</th>
                   <th>Email</th>
                   <th>Asset</th>
+                  <th>Branch</th>
                   <th>Department</th>
                   <th>Status</th>
                   <th>Comments</th>
@@ -660,8 +813,8 @@ const CompanyAssetManagement = () => {
                 </tr>
               </thead>
               <tbody>
-                {requests.length > 0 ? (
-                  requests.map((req, index) => (
+                {filteredRequests.length > 0 ? (
+                  filteredRequests.map((req, index) => (
                     <tr key={req._id} className="ca-table-row-enhanced">
                       <td>{index + 1}</td>
                       <td>
@@ -674,6 +827,7 @@ const CompanyAssetManagement = () => {
                       </td>
                       <td>{req.user?.email}</td>
                       <td><span className="asset-name-cell">{req.assetName}</span></td>
+                      <td><span className="department-badge">{getBranchLabel(req.branch || req.branchId || req.user?.branch || req.user?.branchId)}</span></td>
                       <td><span className="department-badge">{req.department || 'N/A'}</span></td>
                       <td>
                         <span className={`request-status-badge status-${req.status?.toLowerCase() || 'pending'}`}>
@@ -704,7 +858,7 @@ const CompanyAssetManagement = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="8" className="empty-row">
+                    <td colSpan="9" className="empty-row">
                       <div className="empty-requests">
                         <span>📭</span>
                         <p>No asset requests found</p>
@@ -740,6 +894,10 @@ const CompanyAssetManagement = () => {
                 <div className="ca-detail-item-enhanced">
                   <label>Quantity</label>
                   <div className="ca-detail-value-enhanced highlight">{selectedAsset.quantity || 0}</div>
+                </div>
+                <div className="ca-detail-item-enhanced">
+                  <label>Branch</label>
+                  <div className="ca-detail-value-enhanced">{getBranchLabel(selectedAsset.branch || selectedAsset.branchId)}</div>
                 </div>
                 <div className="ca-detail-item-enhanced">
                   <label>Created By</label>

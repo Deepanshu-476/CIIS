@@ -215,6 +215,14 @@ const UserCreateTask = () => {
   const [assignedToMeTasksGrouped, setAssignedToMeTasksGrouped] = useState({});
   const [clientTasksGrouped, setClientTasksGrouped] = useState({});
   const [allTasksGrouped, setAllTasksGrouped] = useState({});
+  const [allTasksPagination, setAllTasksPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    pages: 1,
+    hasNext: false,
+    hasPrev: false
+  });
   
   // Task view mode
   const [taskViewMode, setTaskViewMode] = useState('all');
@@ -411,12 +419,17 @@ const UserCreateTask = () => {
   // Helper function to group tasks by date
   const groupTasksByDate = useCallback((tasks) => {
     const grouped = {};
+    const getTaskSortTime = task => {
+      const taskSource = task?.__taskSource || task?.taskSource || task?.source;
+      const dateToUse = taskSource === 'client'
+        ? (task?.dueDate || task?.dueDateTime || task?.createdAt)
+        : (task?.dueDateTime || task?.dueDate || task?.createdAt);
+      const date = new Date(dateToUse || 0);
+      return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+    };
     
     tasks.forEach(task => {
-      const source = String(task?.__taskSource || task?.taskSource || '').toLowerCase();
-      const dateToUse = source === 'client'
-        ? (task.dueDate || task.dueDateTime || task.createdAt)
-        : (task.createdAt || task.dueDateTime || task.dueDate);
+      const dateToUse = task.dueDateTime || task.dueDate || task.createdAt;
       
       if (dateToUse) {
         const dateKey = new Date(dateToUse).toLocaleDateString('en-IN', {
@@ -443,10 +456,14 @@ const UserCreateTask = () => {
       .sort((a, b) => {
         if (a === 'No Date') return 1;
         if (b === 'No Date') return -1;
-        return new Date(a) - new Date(b);
+        return new Date(b) - new Date(a);
       })
       .forEach(key => {
-        sortedGrouped[key] = grouped[key];
+        sortedGrouped[key] = [...grouped[key]].sort((a, b) => {
+          const dateDiff = getTaskSortTime(b) - getTaskSortTime(a);
+          if (dateDiff !== 0) return dateDiff;
+          return new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0);
+        });
       });
     
     return sortedGrouped;
@@ -490,7 +507,7 @@ const UserCreateTask = () => {
           statusCounts[myStatus]++;
         }
 
-        if (isOverdue(task.dueDateTime, myStatus) && myStatus !== 'overdue') {
+        if (isOverdue(task.dueDateTime || task.dueDate, myStatus) && myStatus !== 'overdue') {
           statusCounts.overdue++;
         }
       });
@@ -582,22 +599,21 @@ const UserCreateTask = () => {
   }, [getTaskSource, getUserStatusForTask, getAssignedTaskStatus, userId]);
 
   const getDueDateForTask = useCallback((task) => {
-    return getTaskSource(task) === 'self'
-      ? task?.dueDateTime
-      : (task?.dueDate || task?.dueDateTime);
-  }, [getTaskSource]);
+    return task?.dueDateTime || task?.dueDate;
+  }, []);
 
-  const getTaskTimeFilterDate = useCallback((task) => {
-    return getTaskSource(task) === 'client'
-      ? (getDueDateForTask(task) || task?.createdAt)
-      : (task?.createdAt || getDueDateForTask(task));
-  }, [getDueDateForTask, getTaskSource]);
+  const getTaskTimeFilterDates = useCallback((task) => {
+    const dateToFilter = getDueDateForTask(task) || task?.createdAt;
+    return [dateToFilter]
+      .map(date => getLocalDateStart(date))
+      .filter(Boolean);
+  }, [getDueDateForTask]);
 
   const matchesTimeFilter = useCallback((task) => {
     if (!timeFilter || timeFilter === 'all') return true;
 
-    const taskDate = getLocalDateStart(getTaskTimeFilterDate(task));
-    if (!taskDate) return false;
+    const taskDates = getTaskTimeFilterDates(task);
+    if (taskDates.length === 0) return false;
 
     const today = getLocalDateStart();
     const startOfThisWeek = new Date(today);
@@ -621,24 +637,24 @@ const UserCreateTask = () => {
 
     switch (timeFilter) {
       case 'today':
-        return isSameLocalDay(taskDate, today);
+        return taskDates.some(taskDate => isSameLocalDay(taskDate, today));
       case 'yesterday': {
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
-        return isSameLocalDay(taskDate, yesterday);
+        return taskDates.some(taskDate => isSameLocalDay(taskDate, yesterday));
       }
       case 'this-week':
-        return taskDate >= startOfThisWeek && taskDate <= endOfThisWeek;
+        return taskDates.some(taskDate => taskDate >= startOfThisWeek && taskDate <= endOfThisWeek);
       case 'last-week':
-        return taskDate >= startOfLastWeek && taskDate <= endOfLastWeek;
+        return taskDates.some(taskDate => taskDate >= startOfLastWeek && taskDate <= endOfLastWeek);
       case 'this-month':
-        return taskDate >= startOfThisMonth && taskDate < startOfNextMonth;
+        return taskDates.some(taskDate => taskDate >= startOfThisMonth && taskDate < startOfNextMonth);
       case 'last-month':
-        return taskDate >= startOfLastMonth && taskDate < startOfThisMonth;
+        return taskDates.some(taskDate => taskDate >= startOfLastMonth && taskDate < startOfThisMonth);
       default:
         return true;
     }
-  }, [timeFilter, getTaskTimeFilterDate]);
+  }, [timeFilter, getTaskTimeFilterDates]);
 
   const matchesStatusFilter = useCallback((task) => {
     if (!statusFilter || statusFilter === 'all') return true;
@@ -725,12 +741,42 @@ const UserCreateTask = () => {
     };
   }, [getStatusForTask, getDueDateForTask, isOverdue]);
 
+  const mergeGroupedTasks = useCallback((...groups) => {
+    const mergedById = new Map();
+    const tasksWithoutId = [];
+
+    groups.forEach(group => {
+      Object.values(group || {}).forEach(dateTasks => {
+        (dateTasks || []).forEach(task => {
+          const taskId = task?._id || task?.id;
+          if (taskId) {
+            mergedById.set(taskId, task);
+          } else if (task) {
+            tasksWithoutId.push(task);
+          }
+        });
+      });
+    });
+
+    return groupTasksByDate([...mergedById.values(), ...tasksWithoutId]);
+  }, [groupTasksByDate]);
+
+  const combinedTasksGrouped = useMemo(() => {
+    return mergeGroupedTasks(myTasksGrouped, assignedToMeTasksGrouped, clientTasksGrouped);
+  }, [mergeGroupedTasks, myTasksGrouped, assignedToMeTasksGrouped, clientTasksGrouped]);
+
+  const countGroupedTasks = useCallback((tasksGrouped) => {
+    return Object.values(tasksGrouped || {}).reduce((count, dateTasks) => count + (dateTasks?.length || 0), 0);
+  }, []);
+
   const getActiveTasksGrouped = useCallback(() => {
-    if (taskViewMode === 'all') return allTasksGrouped;
+    if (taskViewMode === 'all') {
+      return Object.keys(allTasksGrouped).length > 0 ? allTasksGrouped : combinedTasksGrouped;
+    }
     if (taskViewMode === 'self') return myTasksGrouped;
     if (taskViewMode === 'client') return clientTasksGrouped;
     return assignedToMeTasksGrouped;
-  }, [taskViewMode, allTasksGrouped, myTasksGrouped, clientTasksGrouped, assignedToMeTasksGrouped]);
+  }, [taskViewMode, allTasksGrouped, combinedTasksGrouped, myTasksGrouped, clientTasksGrouped, assignedToMeTasksGrouped]);
 
   // Function to enrich tasks with proper client names and normalize status
   const enrichAssignedTasks = useCallback((tasks) => {
@@ -766,6 +812,7 @@ const UserCreateTask = () => {
   const extractTasksFromResponse = useCallback((data) => {
     if (data?.groupedTasks) return Object.values(data.groupedTasks).flat();
     if (Array.isArray(data?.tasks)) return data.tasks;
+    if (Array.isArray(data?.data)) return data.data;
     if (Array.isArray(data)) return data;
     return [];
   }, []);
@@ -773,6 +820,25 @@ const UserCreateTask = () => {
   const buildTaskQueryParams = useCallback(() => {
     const params = new URLSearchParams();
     if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
+    if (searchTerm.trim()) params.append('search', searchTerm.trim());
+    if (timeFilter === 'today') params.append('period', 'today');
+    if (timeFilter === 'this-week') params.append('period', 'week');
+    return params.toString();
+  }, [statusFilter, searchTerm, timeFilter]);
+
+  const getUserTaskApiPeriod = useCallback(() => {
+    if (timeFilter === 'today') return 'today';
+    if (timeFilter === 'this-week') return 'week';
+    return 'all';
+  }, [timeFilter]);
+
+  const buildUserTaskQueryParams = useCallback((period = 'all') => {
+    const params = new URLSearchParams();
+    params.append('page', '1');
+    params.append('limit', '100');
+    params.append('period', period);
+    params.append('status', statusFilter && statusFilter !== 'all' ? statusFilter : 'all');
+    params.append('priority', 'all');
     if (searchTerm.trim()) params.append('search', searchTerm.trim());
     return params.toString();
   }, [statusFilter, searchTerm]);
@@ -896,24 +962,35 @@ const UserCreateTask = () => {
     setLoadingAllTasks(true);
     try {
       const query = buildTaskQueryParams();
-      const url = `/task/all${query ? `?${query}` : ''}`;
+      const params = new URLSearchParams(query);
+      params.set('page', String(allTasksPagination.page));
+      params.set('limit', String(allTasksPagination.limit));
+      const url = `/task/all?${params.toString()}`;
       const res = await axios.get(url);
-      const tasksArray = extractTasksFromResponse(res.data).map(task => ({
+      const responseTasks = Array.isArray(res.data?.tasks) ? res.data.tasks : extractTasksFromResponse(res.data);
+      const tasksArray = responseTasks.map(task => ({
         ...task,
         __taskSource: task.__taskSource || task.taskSource || (task.clientId ? 'client' : 'assigned')
       }));
       const groupedTasks = groupTasksByDate(tasksArray);
       setAllTasksGrouped(groupedTasks);
+      setAllTasksPagination(prev => ({
+        ...prev,
+        ...(res.data?.pagination || {}),
+        total: res.data?.pagination?.total ?? res.data?.total ?? tasksArray.length,
+        pages: res.data?.pagination?.pages ?? 1
+      }));
     } catch (err) {
       console.error('❌ Error in fetchAllTasks:', err);
       setAllTasksGrouped({});
+      setAllTasksPagination(prev => ({ ...prev, total: 0, pages: 1, hasNext: false, hasPrev: false }));
       if (err.response?.status !== 404) {
         showSnackbar('Failed to load all tasks', 'error');
       }
     } finally {
       setLoadingAllTasks(false);
     }
-  }, [authError, userId, buildTaskQueryParams, extractTasksFromResponse, groupTasksByDate]);
+  }, [authError, userId, buildTaskQueryParams, extractTasksFromResponse, groupTasksByDate, allTasksPagination.page, allTasksPagination.limit]);
 
   // Fetch self tasks
   const fetchMyTasks = useCallback(async () => {
@@ -924,8 +1001,8 @@ const UserCreateTask = () => {
 
     setLoading(true);
     try {
-      const query = buildTaskQueryParams();
-      const url = `/task/personal${query ? `?${query}` : ''}`;
+      const query = buildUserTaskQueryParams(getUserTaskApiPeriod());
+      const url = `/task/user/${userId}/all-tasks?${query}`;
       console.log('📡 Fetching my tasks from:', url);
       
       const res = await axios.get(url);
@@ -948,7 +1025,7 @@ const UserCreateTask = () => {
     } finally {
       setLoading(false);
     }
-  }, [authError, userId, calculateStatsFromTasks, extractTasksFromResponse, groupTasksByDate, tagTasksWithSource, buildTaskQueryParams]);
+  }, [authError, userId, calculateStatsFromTasks, extractTasksFromResponse, groupTasksByDate, tagTasksWithSource, buildUserTaskQueryParams, getUserTaskApiPeriod]);
 
   // Fetch overdue tasks
   const fetchOverdueTasks = useCallback(async () => {
@@ -976,7 +1053,14 @@ const UserCreateTask = () => {
   const handleViewModeChange = (mode) => {
     setTaskViewMode(mode);
     setStatusFilter('');
+    if (mode === 'all') {
+      setAllTasksPagination(prev => ({ ...prev, page: 1 }));
+    }
   };
+
+  useEffect(() => {
+    setAllTasksPagination(prev => ({ ...prev, page: 1 }));
+  }, [statusFilter, searchTerm, timeFilter]);
 
   // Handle stats card click
   const handleStatsCardClick = (status) => {
@@ -1898,8 +1982,8 @@ const UserCreateTask = () => {
             >
               <FiGlobe size={16} />
               All Tasks
-              {taskViewMode === 'all' && Object.keys(allTasksGrouped).length > 0 && (
-                <span className="view-toggle-count">{Object.values(allTasksGrouped).flat().length}</span>
+              {taskViewMode === 'all' && allTasksPagination.total > 0 && (
+                <span className="view-toggle-count">{allTasksPagination.total}</span>
               )}
             </button>
             <button
@@ -1909,7 +1993,7 @@ const UserCreateTask = () => {
               <FiUser size={16} />
               My Personal Tasks
               {taskViewMode === 'self' && Object.keys(myTasksGrouped).length > 0 && (
-                <span className="view-toggle-count">{Object.values(myTasksGrouped).flat().length}</span>
+                <span className="view-toggle-count">{countGroupedTasks(myTasksGrouped)}</span>
               )}
             </button>
             <button
@@ -1919,7 +2003,7 @@ const UserCreateTask = () => {
               <FiUsers size={16} />
               Assigned to Me
               {taskViewMode === 'assigned' && Object.keys(assignedToMeTasksGrouped).length > 0 && (
-                <span className="view-toggle-count">{Object.values(assignedToMeTasksGrouped).flat().length}</span>
+                <span className="view-toggle-count">{countGroupedTasks(assignedToMeTasksGrouped)}</span>
               )}
             </button>
             <button
@@ -1929,7 +2013,7 @@ const UserCreateTask = () => {
               <FiUsers size={16} />
               Client Tasks
               {taskViewMode === 'client' && Object.keys(clientTasksGrouped).length > 0 && (
-                <span className="view-toggle-count">{Object.values(clientTasksGrouped).flat().length}</span>
+                <span className="view-toggle-count">{countGroupedTasks(clientTasksGrouped)}</span>
               )}
             </button>
           </div>
@@ -2111,7 +2195,7 @@ const UserCreateTask = () => {
       </div>
 
       {/* Overdue Tasks Section */}
-      {getOverdueCount > 0 && (
+      {(statusFilter === 'overdue' || showOverdueOnly) && getOverdueCount > 0 && (
         <div className="user-create-task-paper" style={{ 
           marginTop: '16px',
           borderLeft: '4px solid #f44336'
@@ -2432,14 +2516,15 @@ const UserCreateTask = () => {
                         const dueDate = getDueDateForTask(task);
                         
                         const taskIsOverdue = isOverdue(dueDate, status);
+                        const shouldHighlightOverdue = (statusFilter === 'overdue' || showOverdueOnly) && taskIsOverdue;
                         const priority = task.priority || 'medium';
                         const clientName = getClientNameFromTask(task);
 
                         return (
                           <div 
                             key={task._id} 
-                            className={`user-create-task-mobile-card ${taskIsOverdue ? 'overdue-task' : ''}`}
-                            style={taskIsOverdue ? { 
+                            className={`user-create-task-mobile-card ${shouldHighlightOverdue ? 'overdue-task' : ''}`}
+                            style={shouldHighlightOverdue ? { 
                               borderLeft: '4px solid #f44336',
                               backgroundColor: '#fff5f5'
                             } : {}}
@@ -2476,12 +2561,12 @@ const UserCreateTask = () => {
                                     <FiCalendar size={12} />
                                     <div style={{ 
                                       fontSize: '13px', 
-                                      color: taskIsOverdue ? '#f44336' : '#333',
-                                      fontWeight: taskIsOverdue ? '600' : '400'
+                                      color: shouldHighlightOverdue ? '#f44336' : '#333',
+                                      fontWeight: shouldHighlightOverdue ? '600' : '400'
                                     }}>
                                       {dueDate ? formatDueDateTime(dueDate) : 'No date'}
                                     </div>
-                                    {taskIsOverdue && (
+                                    {shouldHighlightOverdue && (
                                       <div 
                                         style={{
                                           backgroundColor: '#f44336',
@@ -2555,9 +2640,9 @@ const UserCreateTask = () => {
                                       className="user-create-task-select"
                                       style={{ 
                                         minWidth: '90px',
-                                        borderColor: taskIsOverdue ? '#f44336' : undefined,
-                                        color: taskIsOverdue ? '#f44336' : undefined,
-                                        fontWeight: taskIsOverdue ? '600' : undefined
+                                        borderColor: shouldHighlightOverdue ? '#f44336' : undefined,
+                                        color: shouldHighlightOverdue ? '#f44336' : undefined,
+                                        fontWeight: shouldHighlightOverdue ? '600' : undefined
                                       }}
                                     >
                                       {taskSource !== 'self' ? (
@@ -2627,14 +2712,15 @@ const UserCreateTask = () => {
                           const dueDate = getDueDateForTask(task);
                           
                           const taskIsOverdue = isOverdue(dueDate, status);
+                          const shouldHighlightOverdue = (statusFilter === 'overdue' || showOverdueOnly) && taskIsOverdue;
                           const priority = task.priority || 'medium';
                           const clientName = getClientNameFromTask(task);
 
                           return (
                             <tr 
                               key={task._id} 
-                              className={`user-create-task-table-row ${taskIsOverdue ? 'overdue-task' : ''}`}
-                              style={taskIsOverdue ? { 
+                              className={`user-create-task-table-row ${shouldHighlightOverdue ? 'overdue-task' : ''}`}
+                              style={shouldHighlightOverdue ? { 
                                 borderLeft: '4px solid #f44336',
                                 backgroundColor: '#fff5f5'
                               } : {}}
@@ -2663,12 +2749,12 @@ const UserCreateTask = () => {
                                   <FiCalendar size={isMobile ? 12 : 14} />
                                   <div style={{
                                     fontSize: isMobile ? '13px' : '14px',
-                                    color: taskIsOverdue ? '#f44336' : '#333',
-                                    fontWeight: taskIsOverdue ? '600' : '500'
+                                    color: shouldHighlightOverdue ? '#f44336' : '#333',
+                                    fontWeight: shouldHighlightOverdue ? '600' : '500'
                                   }}>
                                     {formatDueDateTime(dueDate)}
                                   </div>
-                                  {taskIsOverdue && (
+                                  {shouldHighlightOverdue && (
                                     <div 
                                       className="user-create-task-overdue-badge"
                                       style={{
@@ -2783,9 +2869,9 @@ const UserCreateTask = () => {
                                   className="user-create-task-select"
                                   style={{ 
                                     minWidth: isMobile ? '90px' : '100px',
-                                    borderColor: taskIsOverdue ? '#f44336' : undefined,
-                                    color: taskIsOverdue ? '#f44336' : undefined,
-                                    fontWeight: taskIsOverdue ? '600' : undefined
+                                    borderColor: shouldHighlightOverdue ? '#f44336' : undefined,
+                                    color: shouldHighlightOverdue ? '#f44336' : undefined,
+                                    fontWeight: shouldHighlightOverdue ? '600' : undefined
                                   }}
                                 >
                                   {taskSource !== 'self' ? (
@@ -2818,6 +2904,28 @@ const UserCreateTask = () => {
                 </div>
               ));
             })()
+          )}
+
+          {taskViewMode === 'all' && !loadingAllTasks && allTasksPagination.total > allTasksPagination.limit && (
+            <div className="user-create-task-pagination">
+              <button
+                className="user-create-task-button user-create-task-button-outlined"
+                disabled={!allTasksPagination.hasPrev}
+                onClick={() => setAllTasksPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+              >
+                Previous
+              </button>
+              <div className="user-create-task-pagination-info">
+                Page {allTasksPagination.page} of {allTasksPagination.pages} • {allTasksPagination.total} tasks
+              </div>
+              <button
+                className="user-create-task-button user-create-task-button-outlined"
+                disabled={!allTasksPagination.hasNext}
+                onClick={() => setAllTasksPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+              >
+                Next
+              </button>
+            </div>
           )}
         </div>
       </div>

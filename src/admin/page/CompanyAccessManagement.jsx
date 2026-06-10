@@ -8,34 +8,44 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  LinearProgress,
   FormControlLabel,
   Grid,
   InputAdornment,
+  Paper,
   Stack,
   Switch,
   TextField,
   Typography,
+  alpha,
 } from "@mui/material";
 import {
   Business as BusinessIcon,
   CalendarMonth as CalendarIcon,
   CheckCircle as CheckCircleIcon,
+  Apps as AppsIcon,
+  Bolt as BoltIcon,
+  FactCheck as FactCheckIcon,
+  LockOpen as LockOpenIcon,
   ManageAccounts as ManageAccountsIcon,
   Search as SearchIcon,
 } from "@mui/icons-material";
 import axiosInstance from "../../utils/axiosConfig";
+import "./JobRoleManagement.css";
 
 const APP_ROUTES = [
   { id: "user-dashboard", path: "user-dashboard", name: "Dashboard", category: "main" },
   { id: "attendance", path: "attendance", name: "My Attendance", category: "main" },
   { id: "my-leaves", path: "my-leaves", name: "My Leaves", category: "main" },
   { id: "my-assets", path: "my-assets", name: "My Assets", category: "main" },
+  { id: "profile", path: "profile", name: "My Details", category: "main" },
   { id: "change-password", path: "change-password", name: "Change Password", category: "main" },
   { id: "emp-details", path: "emp-details", name: "Employee Details", category: "administration" },
   { id: "emp-leaves", path: "emp-leaves", name: "Employee Leaves", category: "administration" },
   { id: "emp-assets", path: "emp-assets", name: "Employee Assets", category: "administration" },
   { id: "emp-attendance", path: "emp-attendance", name: "Employee Attendance", category: "administration" },
   { id: "create-user", path: "create-user", name: "Create User", category: "administration" },
+  { id: "SidebarManagement", path: "SidebarManagement", name: "Sidebar Management", category: "administration" },
   { id: "manage-groups", path: "manage-groups", name: "Manage Groups", category: "administration" },
   { id: "task-management", path: "task-management", name: "Create Task", category: "tasks" },
   { id: "admin-task-create", path: "admin-task-create", name: "Admin Create Task", category: "tasks" },
@@ -60,6 +70,16 @@ const categoryNames = {
   meetings: "Meetings",
   clients: "Clients",
   communication: "Communication",
+};
+
+const categoryColors = {
+  main: "#2563eb",
+  administration: "#7c3aed",
+  tasks: "#f97316",
+  projects: "#16a34a",
+  meetings: "#0891b2",
+  clients: "#db2777",
+  communication: "#475569",
 };
 
 const getStoredAdminId = () => {
@@ -100,6 +120,15 @@ export default function CompanyAccessManagement() {
     [companies, selectedCompanyId]
   );
 
+  const activeCompanyCount = useMemo(
+    () => companies.filter(company => company.isActive).length,
+    [companies]
+  );
+
+  const selectedPercent = APP_ROUTES.length
+    ? Math.round((selectedPages.length / APP_ROUTES.length) * 100)
+    : 0;
+
   const groupedRoutes = useMemo(() => {
     const cleanSearch = search.trim().toLowerCase();
     return APP_ROUTES.filter(route => {
@@ -118,11 +147,6 @@ export default function CompanyAccessManagement() {
       const response = await axiosInstance.get("/company");
       const fetchedCompanies = response.data?.companies || response.data?.data || [];
       setCompanies(fetchedCompanies);
-
-      const firstCompany = fetchedCompanies[0];
-      if (firstCompany && !selectedCompanyId) {
-        selectCompany(firstCompany);
-      }
     } catch (error) {
       setNotice({
         severity: "error",
@@ -196,28 +220,216 @@ export default function CompanyAccessManagement() {
     }
   };
 
+  const renderAccessPanel = () => {
+    if (!selectedCompany) return null;
+
+    return (
+      <div className="CompanyAccessManagement-access-panel">
+        <div className="JobRoleManagement-super-admin-panel">
+          <div className="JobRoleManagement-super-admin-content">
+            <div className="JobRoleManagement-super-admin-left">
+              <div className="JobRoleManagement-super-admin-avatar">
+                <CheckCircleIcon />
+              </div>
+              <div>
+                <div className="JobRoleManagement-super-admin-title">{selectedCompany.companyName}</div>
+                <div className="JobRoleManagement-super-admin-subtitle">
+                  {selectedCompany.companyEmail} / {selectedCompany.companyCode}
+                </div>
+              </div>
+            </div>
+            <div className="JobRoleManagement-super-admin-toggle">
+              <label className="JobRoleManagement-switch">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={event => setIsActive(event.target.checked)}
+                />
+                <span className="JobRoleManagement-slider"></span>
+              </label>
+              <span className="JobRoleManagement-toggle-label">
+                {isActive ? "Access Active" : "Access Inactive"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <Grid container spacing={2} sx={{ mb: 2.5 }}>
+          <Grid item xs={12} sm={4}>
+            <div className="JobRoleManagement-form-group">
+              <label className="JobRoleManagement-form-label">Active days</label>
+              <div className="JobRoleManagement-input-wrapper">
+                <CalendarIcon className="JobRoleManagement-input-icon" />
+                <input
+                  type="number"
+                  min="1"
+                  className="JobRoleManagement-form-input"
+                  value={activeDays}
+                  onChange={event => setActiveDays(event.target.value)}
+                />
+              </div>
+            </div>
+          </Grid>
+          <Grid item xs={12} sm={8}>
+            <div className="JobRoleManagement-info-banner" style={{ marginBottom: 0 }}>
+              <LockOpenIcon className="JobRoleManagement-info-icon" />
+              <div style={{ width: "100%" }}>
+                <div className="JobRoleManagement-info-title">
+                  {selectedPages.length} pages selected / {selectedPercent}% enabled
+                </div>
+                <LinearProgress
+                  variant="determinate"
+                  value={selectedPercent}
+                  sx={{ height: 7, mt: 1, borderRadius: 99, bgcolor: "#d7e9fb" }}
+                />
+              </div>
+            </div>
+          </Grid>
+        </Grid>
+
+        <div className="JobRoleManagement-header CompanyAccessManagement-access-header">
+          <div className="JobRoleManagement-user-info">
+            <span className="JobRoleManagement-user-chip JobRoleManagement-chip-primary">
+              Page Access
+            </span>
+            <span className="JobRoleManagement-user-chip">
+              Changes will be available in Sidebar Management
+            </span>
+          </div>
+          <div className="JobRoleManagement-header-actions">
+            <button
+              className="JobRoleManagement-btn-outline"
+              onClick={() => setSelectedPages(APP_ROUTES.map(route => route.id))}
+            >
+              Select All
+            </button>
+            <button className="JobRoleManagement-btn-secondary" onClick={() => setSelectedPages([])}>
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <Stack spacing={2.5}>
+          {Object.entries(groupedRoutes).map(([category, routes]) => {
+            const selectedCount = routes.filter(route => selectedPages.includes(route.id)).length;
+            const categoryColor = categoryColors[category] || "#1976d2";
+            return (
+              <div className="JobRoleManagement-mobile-card" key={category}>
+                <div className="JobRoleManagement-mobile-card-content">
+                  <div className="JobRoleManagement-mobile-card-header">
+                    <div className="JobRoleManagement-mobile-card-avatar" style={{ color: categoryColor }}>
+                      <AppsIcon className="JobRoleManagement-mobile-card-avatar-icon" />
+                    </div>
+                    <div className="JobRoleManagement-mobile-card-title-section">
+                      <div className="JobRoleManagement-mobile-card-title">
+                        {categoryNames[category] || category}
+                      </div>
+                      <div className="JobRoleManagement-mobile-card-badges">
+                        <span className="JobRoleManagement-mobile-card-badge JobRoleManagement-badge-primary">
+                          {selectedCount}/{routes.length} selected
+                        </span>
+                      </div>
+                    </div>
+                    <button className="JobRoleManagement-btn-outline" onClick={() => toggleCategory(routes)}>
+                      {selectedCount === routes.length ? "Deselect" : "Select"}
+                    </button>
+                  </div>
+
+                  <Grid container spacing={1.2}>
+                    {routes.map(route => {
+                      const selected = selectedPages.includes(route.id);
+                      return (
+                        <Grid item xs={12} sm={6} lg={4} key={route.id}>
+                          <button
+                            className="JobRoleManagement-menu-item"
+                            onClick={() => togglePage(route.id)}
+                            style={{
+                              border: `1px solid ${selected ? categoryColor : "#e0e0e0"}`,
+                              background: selected ? alpha(categoryColor, 0.08) : "#fff",
+                            }}
+                          >
+                            <span className="JobRoleManagement-menu-icon">
+                              {selected ? <CheckCircleIcon fontSize="small" /> : <AppsIcon fontSize="small" />}
+                            </span>
+                            <span className="JobRoleManagement-menu-text">
+                              <span className="JobRoleManagement-menu-title">{route.name}</span>
+                              <span className="JobRoleManagement-menu-subtitle">/{route.path}</span>
+                            </span>
+                          </button>
+                        </Grid>
+                      );
+                    })}
+                  </Grid>
+                </div>
+              </div>
+            );
+          })}
+        </Stack>
+
+        <div className="JobRoleManagement-modal-footer" style={{ marginTop: 24, borderRadius: 24 }}>
+          <button className="JobRoleManagement-btn-primary" onClick={saveAccess} disabled={saving}>
+            {saving ? (
+              <>
+                <span className="JobRoleManagement-spinner"></span>
+                <span>Saving...</span>
+              </>
+            ) : (
+              "Save Access"
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
-      <Box sx={{ minHeight: 360, display: "grid", placeItems: "center" }}>
-        <CircularProgress />
-      </Box>
+      <div className="JobRoleManagement-container">
+        <div className="JobRoleManagement-loading-overlay">
+          <div className="JobRoleManagement-progress-bar">
+            <div className="JobRoleManagement-progress-fill"></div>
+          </div>
+        </div>
+        <Box sx={{ minHeight: 360, display: "grid", placeItems: "center" }}>
+          <CircularProgress />
+        </Box>
+      </div>
     );
   }
 
   return (
-    <Box sx={{ maxWidth: 1280, mx: "auto" }}>
-      <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between" sx={{ mb: 3 }}>
-        <Box>
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            <ManageAccountsIcon color="primary" />
-            <Typography variant="h4" fontWeight={700}>Company Access</Typography>
-          </Stack>
-          <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            Activate new companies, set validity days, and choose the pages their owner can distribute to users.
-          </Typography>
-        </Box>
-        <Button variant="outlined" onClick={fetchCompanies}>Refresh</Button>
-      </Stack>
+    <div className="JobRoleManagement-container">
+      {saving && (
+        <div className="JobRoleManagement-loading-overlay">
+          <div className="JobRoleManagement-progress-bar">
+            <div className="JobRoleManagement-progress-fill"></div>
+          </div>
+        </div>
+      )}
+
+      <div className="JobRoleManagement-stats-grid">
+        {[
+          { label: "Companies", value: companies.length, chip: "Total", icon: <BusinessIcon />, color: "JobRoleManagement-stat-blue" },
+          { label: "Active", value: activeCompanyCount, chip: `${companies.length ? Math.round((activeCompanyCount / companies.length) * 100) : 0}%`, icon: <BoltIcon />, color: "JobRoleManagement-stat-green" },
+          { label: "Selected Pages", value: selectedPages.length, chip: `${selectedPercent}%`, icon: <FactCheckIcon />, color: "JobRoleManagement-stat-blue" },
+          { label: "Available Pages", value: APP_ROUTES.length, chip: "Routes", icon: <AppsIcon />, color: "JobRoleManagement-stat-red" },
+        ].map(card => (
+          <div className={`JobRoleManagement-stat-card ${card.color}`} key={card.label}>
+            <div className="JobRoleManagement-stat-content">
+              <div className="JobRoleManagement-stat-icon-box">
+                <span className="JobRoleManagement-stat-icon">{card.icon}</span>
+              </div>
+              <div className="JobRoleManagement-stat-info">
+                <span className="JobRoleManagement-stat-label">{card.label}</span>
+                <div className="JobRoleManagement-stat-value-wrapper">
+                  <span className="JobRoleManagement-stat-value">{card.value}</span>
+                  <span className="JobRoleManagement-stat-chip">{card.chip}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
 
       {notice && (
         <Alert severity={notice.severity} sx={{ mb: 2 }} onClose={() => setNotice(null)}>
@@ -225,147 +437,142 @@ export default function CompanyAccessManagement() {
         </Alert>
       )}
 
-      <Grid container spacing={2.5}>
-        <Grid item xs={12} md={4}>
-          <Card sx={{ borderRadius: 2 }}>
-            <CardContent>
-              <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>Companies</Typography>
-              <Stack spacing={1.2}>
-                {companies.map(company => {
-                  const selected = company._id === selectedCompanyId;
-                  return (
-                    <Button
-                      key={company._id}
-                      onClick={() => selectCompany(company)}
-                      variant={selected ? "contained" : "outlined"}
-                      sx={{ justifyContent: "flex-start", textAlign: "left", p: 1.5 }}
-                    >
-                      <Stack spacing={0.5} sx={{ width: "100%" }}>
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <BusinessIcon fontSize="small" />
-                          <Typography fontWeight={700} noWrap>{company.companyName}</Typography>
-                        </Stack>
-                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                          {company.companyCode} | {company.isActive ? "Active" : "Inactive"} | Exp: {formatDate(company.subscriptionExpiry)}
-                        </Typography>
-                      </Stack>
-                    </Button>
-                  );
-                })}
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
+      <div className="JobRoleManagement-paper">
+        <div className="JobRoleManagement-header">
+          <div className="JobRoleManagement-header-left">
+            <div className="JobRoleManagement-header-icon-box">
+              <ManageAccountsIcon className="JobRoleManagement-header-icon" />
+            </div>
+            <div>
+              <h2 className="JobRoleManagement-header-title">Company Access</h2>
+              <div className="JobRoleManagement-user-info">
+                <span className="JobRoleManagement-user-chip JobRoleManagement-chip-primary">
+                  Assign pages for Sidebar Management
+                </span>
+                {selectedCompany && (
+                  <span className="JobRoleManagement-user-chip">
+                    {selectedCompany.companyCode}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
 
-        <Grid item xs={12} md={8}>
-          <Card sx={{ borderRadius: 2 }}>
-            <CardContent>
-              {selectedCompany ? (
-                <>
-                  <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="space-between" sx={{ mb: 2 }}>
-                    <Box>
-                      <Typography variant="h5" fontWeight={700}>{selectedCompany.companyName}</Typography>
-                      <Typography color="text.secondary">
-                        {selectedCompany.companyEmail} | {selectedCompany.companyCode}
-                      </Typography>
-                    </Box>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Chip
-                        icon={selectedCompany.isActive ? <CheckCircleIcon /> : undefined}
-                        color={selectedCompany.isActive ? "success" : "default"}
-                        label={selectedCompany.isActive ? "Active" : "Inactive"}
-                      />
-                      <Chip icon={<CalendarIcon />} label={`Expiry: ${formatDate(selectedCompany.subscriptionExpiry)}`} />
-                    </Stack>
-                  </Stack>
-
-                  <Grid container spacing={2} sx={{ mb: 2 }}>
-                    <Grid item xs={12} sm={4}>
-                      <TextField
-                        fullWidth
-                        type="number"
-                        label="Active days"
-                        value={activeDays}
-                        onChange={event => setActiveDays(event.target.value)}
-                        inputProps={{ min: 1 }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <FormControlLabel
-                        control={<Switch checked={isActive} onChange={event => setIsActive(event.target.checked)} />}
-                        label={isActive ? "Activate login" : "Keep inactive"}
-                        sx={{ height: "100%", alignItems: "center" }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <TextField
-                        fullWidth
-                        label="Search pages"
-                        value={search}
-                        onChange={event => setSearch(event.target.value)}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <SearchIcon />
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                    </Grid>
-                  </Grid>
-
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                    <Chip color="primary" label={`${selectedPages.length} selected`} />
-                    <Button size="small" onClick={() => setSelectedPages(APP_ROUTES.map(route => route.id))}>Select All</Button>
-                    <Button size="small" onClick={() => setSelectedPages([])}>Clear</Button>
-                  </Stack>
-
-                  <Divider sx={{ mb: 2 }} />
-
-                  <Stack spacing={2}>
-                    {Object.entries(groupedRoutes).map(([category, routes]) => {
-                      const selectedCount = routes.filter(route => selectedPages.includes(route.id)).length;
-                      return (
-                        <Box key={category}>
-                          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-                            <Typography fontWeight={700}>{categoryNames[category] || category}</Typography>
-                            <Button size="small" onClick={() => toggleCategory(routes)}>
-                              {selectedCount === routes.length ? "Deselect" : "Select"} ({selectedCount}/{routes.length})
-                            </Button>
-                          </Stack>
-                          <Stack direction="row" flexWrap="wrap" gap={1}>
-                            {routes.map(route => {
-                              const selected = selectedPages.includes(route.id);
-                              return (
-                                <Chip
-                                  key={route.id}
-                                  clickable
-                                  color={selected ? "primary" : "default"}
-                                  variant={selected ? "filled" : "outlined"}
-                                  label={route.name}
-                                  onClick={() => togglePage(route.id)}
-                                />
-                              );
-                            })}
-                          </Stack>
-                        </Box>
-                      );
-                    })}
-                  </Stack>
-
-                  <Stack direction="row" justifyContent="flex-end" sx={{ mt: 3 }}>
-                    <Button variant="contained" onClick={saveAccess} disabled={saving}>
-                      {saving ? "Saving..." : "Save Access"}
-                    </Button>
-                  </Stack>
-                </>
-              ) : (
-                <Alert severity="info">No company selected.</Alert>
+          <div className="JobRoleManagement-header-actions">
+            <div className="JobRoleManagement-search-container">
+              <SearchIcon className="JobRoleManagement-search-icon" />
+              <input
+                type="text"
+                className="JobRoleManagement-search-input"
+                placeholder="Search pages..."
+                value={search}
+                onChange={event => setSearch(event.target.value)}
+              />
+              {search && (
+                <button className="JobRoleManagement-clear-search" onClick={() => setSearch("")}>
+                  <span className="JobRoleManagement-clear-icon">x</span>
+                </button>
               )}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-    </Box>
+            </div>
+            <button className="JobRoleManagement-btn-outline" onClick={fetchCompanies}>
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <div className="JobRoleManagement-info-banner">
+          <BusinessIcon className="JobRoleManagement-info-icon" />
+          <div>
+            <div className="JobRoleManagement-info-title">Companies</div>
+            <div className="JobRoleManagement-info-subtitle">Click a company to open page access below it</div>
+          </div>
+        </div>
+
+        <div className="CompanyAccessManagement-company-list">
+          {companies.length > 0 ? (
+            companies.map(company => {
+              const selected = company._id === selectedCompanyId;
+              const companyPercent = Math.min(100, Math.round(((company.allowedPages?.length || 0) / APP_ROUTES.length) * 100));
+              return (
+                <div className="CompanyAccessManagement-company-row" key={company._id}>
+                  <div
+                    className="JobRoleManagement-mobile-card"
+                    onClick={() => selectCompany(company)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={event => {
+                      if (event.key === "Enter" || event.key === " ") selectCompany(company);
+                    }}
+                    style={{
+                      cursor: "pointer",
+                      borderColor: selected ? "#90caf9" : "#e0e0e0",
+                      background: selected ? "linear-gradient(145deg, #ffffff 0%, #e3f2fd 100%)" : "#ffffff",
+                    }}
+                  >
+                    <div
+                      className="JobRoleManagement-mobile-card-status"
+                      style={{ backgroundColor: company.isActive ? "#4caf50" : "#f44336" }}
+                    ></div>
+                    <div className="JobRoleManagement-mobile-card-content">
+                      <div className="JobRoleManagement-mobile-card-header">
+                        <div className="JobRoleManagement-mobile-card-avatar">
+                          <BusinessIcon className="JobRoleManagement-mobile-card-avatar-icon" />
+                        </div>
+                        <div className="JobRoleManagement-mobile-card-title-section">
+                          <div className="JobRoleManagement-mobile-card-title">{company.companyName}</div>
+                          <div className="JobRoleManagement-mobile-card-badges">
+                            <span className="JobRoleManagement-mobile-card-badge JobRoleManagement-badge-primary">
+                              {company.companyCode || "Company"}
+                            </span>
+                            <span className={`JobRoleManagement-mobile-card-badge JobRoleManagement-badge-${company.isActive ? "success" : "error"}`}>
+                              {company.isActive ? "Active" : "Inactive"}
+                            </span>
+                            <span className="JobRoleManagement-mobile-card-badge">
+                              {company.allowedPages?.length || 0}/{APP_ROUTES.length} pages
+                            </span>
+                          </div>
+                        </div>
+                        <Chip
+                          size="small"
+                          label={selected ? "Opened" : "Open"}
+                          color={selected ? "primary" : "default"}
+                        />
+                      </div>
+                      <div className="JobRoleManagement-mobile-card-description">
+                        <CalendarIcon className="JobRoleManagement-description-icon" />
+                        <span className="JobRoleManagement-description-text">
+                          Expiry: {formatDate(company.subscriptionExpiry)}
+                        </span>
+                      </div>
+                      <LinearProgress
+                        variant="determinate"
+                        value={companyPercent}
+                        sx={{ height: 6, borderRadius: 99, bgcolor: "#edf2f7" }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="JobRoleManagement-empty-state">
+              <AppsIcon className="JobRoleManagement-empty-icon" />
+              <h3 className="JobRoleManagement-empty-title">No Companies Found</h3>
+              <p className="JobRoleManagement-empty-text">Companies will appear here once they are available.</p>
+            </div>
+          )}
+        </div>
+
+        {selectedCompany ? (
+          renderAccessPanel()
+        ) : companies.length > 0 && (
+          <div className="JobRoleManagement-empty-state CompanyAccessManagement-select-empty">
+            <AppsIcon className="JobRoleManagement-empty-icon" />
+            <h3 className="JobRoleManagement-empty-title">Select a Company</h3>
+            <p className="JobRoleManagement-empty-text">Click any company card above to open its page access settings.</p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

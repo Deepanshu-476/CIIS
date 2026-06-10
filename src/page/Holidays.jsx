@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
 import './Holidays.css';
 import API_URL, { API_URL_IMG } from "../config"; // Import both if needed
 
@@ -8,6 +9,7 @@ const Holidays = () => {
     const [holidays, setHolidays] = useState([]);
     const [filteredHolidays, setFilteredHolidays] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [uploadingExcel, setUploadingExcel] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     
@@ -23,6 +25,8 @@ const Holidays = () => {
     
     // Filter states
     const [selectedMonth, setSelectedMonth] = useState('');
+    const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
+    const [selectedType, setSelectedType] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     
     // Months array
@@ -35,6 +39,148 @@ const Holidays = () => {
     const getCurrentMonth = () => {
         const date = new Date();
         return months[date.getMonth()];
+    };
+
+    const formatInputDate = (date) => {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const parseExcelDate = (value) => {
+        if (!value) return null;
+
+        if (value instanceof Date) {
+            return Number.isNaN(value.getTime()) ? null : value;
+        }
+
+        if (typeof value === 'number') {
+            const parsed = XLSX.SSF.parse_date_code(value);
+            if (!parsed) return null;
+            return new Date(parsed.y, parsed.m - 1, parsed.d);
+        }
+
+        const text = String(value).trim();
+        if (!text) return null;
+
+        const slashDate = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+        if (slashDate) {
+            const day = Number(slashDate[1]);
+            const month = Number(slashDate[2]);
+            const rawYear = Number(slashDate[3]);
+            const year = rawYear < 100 ? 2000 + rawYear : rawYear;
+            const date = new Date(year, month - 1, day);
+            return Number.isNaN(date.getTime()) ? null : date;
+        }
+
+        const date = new Date(text);
+        return Number.isNaN(date.getTime()) ? null : date;
+    };
+
+    const getCellValue = (row, keys) => {
+        const normalizedRow = Object.entries(row).reduce((acc, [key, value]) => {
+            acc[String(key).trim().toLowerCase()] = value;
+            return acc;
+        }, {});
+
+        for (const key of keys) {
+            const value = normalizedRow[key.toLowerCase()];
+            if (value !== undefined && value !== null && String(value).trim() !== '') {
+                return value;
+            }
+        }
+        return '';
+    };
+
+    const handleExcelUpload = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+
+        try {
+            setUploadingExcel(true);
+            setError('');
+            setSuccess('');
+
+            const buffer = await file.arrayBuffer();
+            const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+            if (!rows.length) {
+                setError('Excel file empty hai. Please valid holiday rows upload karo.');
+                return;
+            }
+
+            const parsedHolidays = rows
+                .map((row) => {
+                    const title = String(getCellValue(row, ['title', 'holiday', 'holiday title', 'name', 'occasion'])).trim();
+                    const rawDate = getCellValue(row, ['date', 'holiday date', 'day']);
+                    const description = String(getCellValue(row, ['description', 'details', 'remark', 'remarks'])).trim();
+                    const date = parseExcelDate(rawDate);
+                    const formattedDate = formatInputDate(date);
+
+                    if (!title || !formattedDate) return null;
+
+                    return {
+                        title,
+                        date: formattedDate,
+                        month: months[date.getMonth()],
+                        description,
+                    };
+                })
+                .filter(Boolean);
+
+            if (!parsedHolidays.length) {
+                setError('Excel me valid holiday data nahi mila. Columns: Title/Holiday/Name aur Date required hain.');
+                return;
+            }
+
+            const existingKeys = new Set(
+                holidays.map(holiday => `${holiday.title?.trim().toLowerCase()}|${formatInputDate(new Date(holiday.date))}`)
+            );
+            const uniqueHolidays = parsedHolidays.filter(holiday => {
+                const key = `${holiday.title.toLowerCase()}|${holiday.date}`;
+                if (existingKeys.has(key)) return false;
+                existingKeys.add(key);
+                return true;
+            });
+
+            if (!uniqueHolidays.length) {
+                setError('Excel ke sab holidays already added hain.');
+                return;
+            }
+
+            const token = localStorage.getItem('token');
+            let added = 0;
+            let skipped = parsedHolidays.length - uniqueHolidays.length;
+
+            for (const holiday of uniqueHolidays) {
+                try {
+                    const response = await axios.post(`${API_URL}/holidays/add`, holiday, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    if (response.data?.success) added += 1;
+                } catch (err) {
+                    if (err.response?.status === 409) {
+                        skipped += 1;
+                    } else {
+                        throw err;
+                    }
+                }
+            }
+
+            await fetchHolidays();
+            setSuccess(`${added} holidays Excel se add ho gaye${skipped ? `, ${skipped} duplicate/invalid skip hue` : ''}.`);
+            setTimeout(() => setSuccess(''), 5000);
+        } catch (err) {
+            console.error('Excel upload error:', err);
+            setError(err.response?.data?.message || 'Excel upload karte time error aa gaya');
+        } finally {
+            setUploadingExcel(false);
+        }
     };
 
     // ==================== FETCH HOLIDAYS ====================
@@ -73,16 +219,20 @@ const Holidays = () => {
 
     // ==================== SEARCH FILTER ====================
     useEffect(() => {
-        if (searchTerm.trim() === '') {
-            setFilteredHolidays(holidays);
-        } else {
-            const filtered = holidays.filter(holiday =>
-                holiday.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                holiday.description?.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-            setFilteredHolidays(filtered);
-        }
-    }, [searchTerm, holidays]);
+        const cleanSearch = searchTerm.trim().toLowerCase();
+        const filtered = holidays.filter(holiday => {
+            const holidayDate = new Date(holiday.date);
+            const holidayYear = String(holidayDate.getFullYear());
+            const holidayType = getHolidayType(holiday);
+            const matchesSearch = !cleanSearch ||
+                holiday.title.toLowerCase().includes(cleanSearch) ||
+                holiday.description?.toLowerCase().includes(cleanSearch);
+            const matchesYear = !selectedYear || holidayYear === selectedYear;
+            const matchesType = !selectedType || holidayType === selectedType;
+            return matchesSearch && matchesYear && matchesType;
+        });
+        setFilteredHolidays(filtered);
+    }, [searchTerm, holidays, selectedYear, selectedType]);
 
     // ==================== HANDLE INPUT CHANGE ====================
     const handleInputChange = (e) => {
@@ -213,12 +363,49 @@ const Holidays = () => {
         return new Date(dateString).toLocaleDateString('en-IN', options);
     };
 
+    const formatTableDate = (dateString) => {
+        const options = { day: '2-digit', month: 'short', year: 'numeric' };
+        return new Date(dateString).toLocaleDateString('en-IN', options);
+    };
+
+    const getHolidayType = (holiday) => {
+        const text = `${holiday.title || ''} ${holiday.description || ''}`.toLowerCase();
+        return text.includes('optional') ? 'Optional Holiday' : 'Public Holiday';
+    };
+
+    const getHolidayYears = () => {
+        const years = holidays
+            .map(holiday => new Date(holiday.date).getFullYear())
+            .filter(year => !Number.isNaN(year));
+        return [...new Set([new Date().getFullYear(), ...years])].sort((a, b) => b - a);
+    };
+
+    const currentYear = new Date().getFullYear();
+    const yearHolidays = holidays.filter(holiday => new Date(holiday.date).getFullYear() === Number(selectedYear || currentYear));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const upcomingCount = holidays.filter(holiday => new Date(holiday.date) >= today).length;
+    const optionalCount = holidays.filter(holiday => getHolidayType(holiday) === 'Optional Holiday').length;
+
     // ==================== RENDER ====================
     return (
         <div className="holidays-container">
             {/* Header */}
             <div className="holidays-header">
                 <h1>Holiday Management</h1>
+                <div className="holiday-breadcrumb">
+                    <span>Dashboard</span>
+                    <span>Holiday Management</span>
+                </div>
+                <label className={`excel-upload-btn ${uploadingExcel ? 'disabled' : ''}`}>
+                    <input
+                        type="file"
+                        accept=".xlsx,.xls,.csv"
+                        onChange={handleExcelUpload}
+                        disabled={uploadingExcel}
+                    />
+                    {uploadingExcel ? 'Uploading...' : 'Upload Excel'}
+                </label>
                 <button 
                     className="add-btn"
                     onClick={() => {
@@ -228,6 +415,41 @@ const Holidays = () => {
                 >
                     {showForm ? '✖ Cancel' : '➕ Add Holiday'}
                 </button>
+            </div>
+
+            <div className="holiday-summary-grid">
+                <div className="holiday-summary-card blue">
+                    <span className="holiday-summary-icon">Cal</span>
+                    <div>
+                        <strong>{holidays.length}</strong>
+                        <p>Total Holidays</p>
+                        <small>All Time</small>
+                    </div>
+                </div>
+                <div className="holiday-summary-card green">
+                    <span className="holiday-summary-icon">Up</span>
+                    <div>
+                        <strong>{upcomingCount}</strong>
+                        <p>Upcoming Holidays</p>
+                        <small>This Year</small>
+                    </div>
+                </div>
+                <div className="holiday-summary-card orange">
+                    <span className="holiday-summary-icon">Re</span>
+                    <div>
+                        <strong>{yearHolidays.length}</strong>
+                        <p>Recurring Holidays</p>
+                        <small>Every Year</small>
+                    </div>
+                </div>
+                <div className="holiday-summary-card purple">
+                    <span className="holiday-summary-icon">Dep</span>
+                    <div>
+                        <strong>{optionalCount}</strong>
+                        <p>Optional Holidays</p>
+                        <small>Configured</small>
+                    </div>
+                </div>
             </div>
 
             {/* Success/Error Messages */}
@@ -301,6 +523,127 @@ const Holidays = () => {
                     </form>
                 </div>
             )}
+
+            <section className="holiday-table-card">
+                <div className="holiday-table-header">
+                    <h2>Holiday List</h2>
+                    <div className="holiday-toolbar">
+                        <select
+                            value={selectedYear}
+                            onChange={(event) => setSelectedYear(event.target.value)}
+                            className="holiday-control"
+                        >
+                            <option value="">All Years</option>
+                            {getHolidayYears().map(year => (
+                                <option key={year} value={year}>{year}</option>
+                            ))}
+                        </select>
+                        <select
+                            value={selectedType}
+                            onChange={(event) => setSelectedType(event.target.value)}
+                            className="holiday-control"
+                        >
+                            <option value="">All Types</option>
+                            <option value="Public Holiday">Public Holiday</option>
+                            <option value="Optional Holiday">Optional Holiday</option>
+                        </select>
+                        <label className={`holiday-table-upload ${uploadingExcel ? 'disabled' : ''}`}>
+                            <input
+                                type="file"
+                                accept=".xlsx,.xls,.csv"
+                                onChange={handleExcelUpload}
+                                disabled={uploadingExcel}
+                            />
+                            {uploadingExcel ? 'Uploading...' : 'Upload Excel'}
+                        </label>
+                        <button
+                            className="holiday-add-table-btn"
+                            onClick={() => {
+                                resetForm();
+                                setShowForm(!showForm);
+                            }}
+                        >
+                            + Add Holiday
+                        </button>
+                    </div>
+                </div>
+
+                <div className="holiday-table-search">
+                    <input
+                        type="text"
+                        placeholder="Search holidays..."
+                        value={searchTerm}
+                        onChange={(event) => setSearchTerm(event.target.value)}
+                    />
+                </div>
+
+                {loading ? (
+                    <div className="holiday-table-empty">Loading holidays...</div>
+                ) : filteredHolidays.length === 0 ? (
+                    <div className="holiday-table-empty">
+                        <p>No holidays found</p>
+                        <button onClick={() => setShowForm(true)} className="holiday-add-table-btn">
+                            Add First Holiday
+                        </button>
+                    </div>
+                ) : (
+                    <>
+                        <div className="holiday-table-wrap">
+                            <table className="holiday-management-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Holiday Name</th>
+                                        <th>Date</th>
+                                        <th>Day</th>
+                                        <th>Type</th>
+                                        <th>Repeat</th>
+                                        <th>Departments</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredHolidays.map((holiday, index) => {
+                                        const holidayType = getHolidayType(holiday);
+                                        const date = new Date(holiday.date);
+                                        return (
+                                            <tr key={holiday._id}>
+                                                <td>{index + 1}</td>
+                                                <td className="holiday-name-cell">{holiday.title}</td>
+                                                <td>{formatTableDate(holiday.date)}</td>
+                                                <td>{date.toLocaleDateString('en-IN', { weekday: 'long' })}</td>
+                                                <td>
+                                                    <span className={`holiday-type-pill ${holidayType === 'Optional Holiday' ? 'optional' : 'public'}`}>
+                                                        {holidayType}
+                                                    </span>
+                                                </td>
+                                                <td><span className="holiday-repeat-pill">Yes</span></td>
+                                                <td>All Departments</td>
+                                                <td>
+                                                    <div className="holiday-action-buttons">
+                                                        <button className="holiday-icon-action edit" onClick={() => handleEdit(holiday)}>Edit</button>
+                                                        <button className="holiday-icon-action delete" onClick={() => handleDelete(holiday._id, holiday.title)}>Delete</button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="holiday-table-footer">
+                            <span>Showing 1 to {filteredHolidays.length} of {holidays.length} entries</span>
+                            <div className="holiday-pagination">
+                                <button disabled>&lt;</button>
+                                <button className="active">1</button>
+                                <button>2</button>
+                                <button>3</button>
+                                <button>&gt;</button>
+                            </div>
+                        </div>
+                    </>
+                )}
+            </section>
 
             {/* Filters */}
             <div className="filters-section">

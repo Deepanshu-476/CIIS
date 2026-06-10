@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import './index.css';
+import './utils/axiosConfig'; // Centralized error handler and global axios configuration
 import App from './App.jsx';
 
 // Contexts

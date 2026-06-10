@@ -1,11 +1,24 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Mic, MicOff, Phone, PhoneOff, Video, VideoOff } from "lucide-react";
-import { API_URL_IMG } from "../config";
+import { API_URL_IMG, TURN_URL, TURN_USERNAME, TURN_CREDENTIAL } from "../config";
 
-const iceServers = [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-];
+const getIceServers = () => {
+    const servers = [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+    ];
+
+    if (TURN_URL) {
+        const turnServer = { urls: TURN_URL };
+        if (TURN_USERNAME) turnServer.username = TURN_USERNAME;
+        if (TURN_CREDENTIAL) turnServer.credential = TURN_CREDENTIAL;
+        servers.push(turnServer);
+    }
+
+    return servers;
+};
+
+const logCall = (...args) => console.log('[CallOverlay]', ...args);
 
 const getUserId = (user) => (user?._id || user?.id || "").toString();
 
@@ -31,6 +44,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
     const activeCallRef = useRef(null);
 
     const attachLocalStream = (stream) => {
+        logCall('Attaching local stream', stream);
         localStreamRef.current = stream;
         if (localVideoRef.current) {
             localVideoRef.current.srcObject = stream;
@@ -38,6 +52,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
     };
 
     const attachRemoteStream = (stream) => {
+        logCall('Attaching remote stream', stream);
         remoteStreamRef.current = stream;
         if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = stream;
@@ -85,20 +100,27 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
 
     const emitToPeer = (eventName, payload = {}) => {
         const activeCall = activeCallRef.current;
-        if (!socket || !activeCall?.peerUserId) return;
+        if (!socket || !activeCall?.peerUserId) {
+            logCall('emitToPeer skipped, missing socket or peerUserId', { eventName, activeCall });
+            return;
+        }
 
-        socket.emit(eventName, {
+        const payloadWithMeta = {
             ...payload,
             callId: activeCall.callId,
             toUserId: activeCall.peerUserId,
             callType: activeCall.type,
-        });
+        };
+        logCall('Emitting to peer', eventName, payloadWithMeta);
+        socket.emit(eventName, payloadWithMeta);
     };
 
     const createPeerConnection = () => {
-        const peerConnection = new RTCPeerConnection({ iceServers });
+        logCall('Creating RTCPeerConnection', getIceServers());
+        const peerConnection = new RTCPeerConnection({ iceServers: getIceServers() });
 
         peerConnection.onicecandidate = (event) => {
+            logCall('Peer connection ICE candidate', event.candidate);
             if (event.candidate) {
                 emitToPeer("call:ice-candidate", { candidate: event.candidate });
             }
@@ -106,12 +128,14 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
 
         peerConnection.ontrack = (event) => {
             const [stream] = event.streams;
+            logCall('Peer connection ontrack', event);
             if (stream) {
                 attachRemoteStream(stream);
             }
         };
 
         peerConnection.onconnectionstatechange = () => {
+            logCall('Peer connection state change', peerConnection.connectionState);
             if (["failed", "disconnected", "closed"].includes(peerConnection.connectionState)) {
                 if (activeCallRef.current?.status === "active") {
                     setError("Call disconnected.");
@@ -120,6 +144,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
         };
 
         localStreamRef.current?.getTracks().forEach((track) => {
+            logCall('Adding local track to peer connection', track.kind);
             peerConnection.addTrack(track, localStreamRef.current);
         });
 
@@ -177,12 +202,14 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
 
         try {
             await getMediaStream(callType);
+            logCall('Sending call:invite', { callId: nextCall.callId, peerUserId, callType });
             socket.emit("call:invite", {
                 callId: nextCall.callId,
                 toUserId: peerUserId,
                 callType,
             });
         } catch (mediaError) {
+            logCall('startCall media error', mediaError);
             resetCall();
         }
     };
@@ -200,12 +227,14 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
             const acceptedCall = { ...activeCall, status: "connecting" };
             activeCallRef.current = acceptedCall;
             setCall(acceptedCall);
+            logCall('Sending call:accept', { callId: activeCall.callId, peerUserId: activeCall.peerUserId, callType: activeCall.type });
             socket.emit("call:accept", {
                 callId: activeCall.callId,
                 toUserId: activeCall.peerUserId,
                 callType: activeCall.type,
             });
         } catch (mediaError) {
+            logCall('acceptCall media error', mediaError);
             socket.emit("call:reject", {
                 callId: activeCall.callId,
                 toUserId: activeCall.peerUserId,
@@ -215,11 +244,13 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
     };
 
     const rejectCall = () => {
+        logCall('Sending call:reject', activeCallRef.current);
         emitToPeer("call:reject");
         resetCall();
     };
 
     const endCall = () => {
+        logCall('Sending call:end', activeCallRef.current);
         emitToPeer("call:end");
         resetCall();
     };
@@ -244,7 +275,9 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
         if (!socket) return undefined;
 
         const handleIncoming = (data) => {
+            logCall('Received call:incoming', data);
             if (activeCallRef.current) {
+                logCall('Rejecting incoming call because another call is active', data.callId);
                 socket.emit("call:reject", {
                     callId: data.callId,
                     toUserId: data.fromUserId,
@@ -267,8 +300,12 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
         };
 
         const handleAccepted = async (data) => {
+            logCall('Received call:accepted', data);
             const activeCall = activeCallRef.current;
-            if (!activeCall || activeCall.callId !== data.callId) return;
+            if (!activeCall || activeCall.callId !== data.callId) {
+                logCall('call:accepted ignored: no active call or mismatched callId', data.callId);
+                return;
+            }
 
             const connectingCall = { ...activeCall, status: "connecting" };
             activeCallRef.current = connectingCall;
@@ -276,6 +313,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
 
             const peerConnection = createPeerConnection();
             const offer = await peerConnection.createOffer();
+            logCall('Created offer for call:offer', offer);
             await peerConnection.setLocalDescription(offer);
 
             socket.emit("call:offer", {
@@ -286,14 +324,20 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
         };
 
         const handleOffer = async (data) => {
+            logCall('Received call:offer', data);
             const activeCall = activeCallRef.current;
-            if (!activeCall || activeCall.callId !== data.callId) return;
+            if (!activeCall || activeCall.callId !== data.callId) {
+                logCall('call:offer ignored: no active call or mismatched callId', data.callId);
+                return;
+            }
 
             const peerConnection = peerConnectionRef.current || createPeerConnection();
+            logCall('Setting remote description for offer');
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
             await flushCandidateQueue();
 
             const answer = await peerConnection.createAnswer();
+            logCall('Created answer for call:answer', answer);
             await peerConnection.setLocalDescription(answer);
 
             const activeNextCall = { ...activeCall, status: "active" };
@@ -308,9 +352,13 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
         };
 
         const handleAnswer = async (data) => {
+            logCall('Received call:answer', data);
             const activeCall = activeCallRef.current;
             const peerConnection = peerConnectionRef.current;
-            if (!activeCall || activeCall.callId !== data.callId || !peerConnection) return;
+            if (!activeCall || activeCall.callId !== data.callId || !peerConnection) {
+                logCall('call:answer ignored: no active call or missing peerConnection', data.callId);
+                return;
+            }
 
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
             await flushCandidateQueue();
@@ -321,21 +369,32 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
         };
 
         const handleIceCandidate = async (data) => {
+            logCall('Received call:ice-candidate', data);
             const activeCall = activeCallRef.current;
             const peerConnection = peerConnectionRef.current;
-            if (!activeCall || activeCall.callId !== data.callId || !data.candidate) return;
+            if (!activeCall || activeCall.callId !== data.callId || !data.candidate) {
+                logCall('call:ice-candidate ignored: mismatched call or missing candidate', data);
+                return;
+            }
 
             if (!peerConnection?.remoteDescription) {
+                logCall('Queueing ICE candidate until remote description is set');
                 candidateQueueRef.current.push(data.candidate);
                 return;
             }
 
-            await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(() => {});
+            await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate)).catch((error) => {
+                logCall('Failed to add ICE candidate', error);
+            });
         };
 
         const handleCallClosed = (data) => {
+            logCall('Received call closed event', data);
             const activeCall = activeCallRef.current;
-            if (!activeCall || activeCall.callId !== data.callId) return;
+            if (!activeCall || activeCall.callId !== data.callId) {
+                logCall('call closed ignored: no active call or mismatched callId', data.callId);
+                return;
+            }
             resetCall();
         };
 

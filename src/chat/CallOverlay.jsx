@@ -42,6 +42,61 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
     const remoteStreamRef = useRef(null);
     const candidateQueueRef = useRef([]);
     const activeCallRef = useRef(null);
+    const audioContextRef = useRef(null);
+    const ringtoneTimerRef = useRef(null);
+
+    const stopRingtone = () => {
+        if (ringtoneTimerRef.current) {
+            clearInterval(ringtoneTimerRef.current);
+            ringtoneTimerRef.current = null;
+        }
+
+        const audioCtx = audioContextRef.current;
+        if (audioCtx && audioCtx.state !== "closed") {
+            try {
+                audioCtx.suspend();
+            } catch (error) {
+                console.warn("Failed to suspend ringtone audio context", error);
+            }
+        }
+    };
+
+    const startRingtone = () => {
+        stopRingtone();
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+
+        let audioCtx = audioContextRef.current;
+        if (!audioCtx || audioCtx.state === "closed") {
+            audioCtx = new AudioContext();
+            audioContextRef.current = audioCtx;
+        }
+
+        const createTone = () => {
+            const oscillator = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            oscillator.type = "sine";
+            oscillator.frequency.value = 440;
+            gain.gain.value = 0.25;
+            oscillator.connect(gain);
+            gain.connect(audioCtx.destination);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.25);
+            oscillator.onended = () => {
+                oscillator.disconnect();
+                gain.disconnect();
+            };
+        };
+
+        if (audioCtx.state === "suspended") {
+            audioCtx.resume().catch(() => {});
+        }
+
+        createTone();
+        ringtoneTimerRef.current = window.setInterval(() => {
+            createTone();
+        }, 1100);
+    };
 
     const attachLocalStream = (stream) => {
         logCall('Attaching local stream', stream);
@@ -89,6 +144,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
     };
 
     const resetCall = () => {
+        stopRingtone();
         resetPeer();
         stopStreams();
         activeCallRef.current = null;
@@ -202,6 +258,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
 
         try {
             await getMediaStream(callType);
+            startRingtone();
             logCall('Sending call:invite', { callId: nextCall.callId, peerUserId, callType });
             socket.emit("call:invite", {
                 callId: nextCall.callId,
@@ -227,6 +284,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
             const acceptedCall = { ...activeCall, status: "connecting" };
             activeCallRef.current = acceptedCall;
             setCall(acceptedCall);
+            stopRingtone();
             logCall('Sending call:accept', { callId: activeCall.callId, peerUserId: activeCall.peerUserId, callType: activeCall.type });
             socket.emit("call:accept", {
                 callId: activeCall.callId,
@@ -297,6 +355,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
             activeCallRef.current = incomingCall;
             setCall(incomingCall);
             setError("");
+            startRingtone();
         };
 
         const handleAccepted = async (data) => {
@@ -310,6 +369,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
             const connectingCall = { ...activeCall, status: "connecting" };
             activeCallRef.current = connectingCall;
             setCall(connectingCall);
+            stopRingtone();
 
             const peerConnection = createPeerConnection();
             const offer = await peerConnection.createOffer();
@@ -366,6 +426,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
             const activeNextCall = { ...activeCall, status: "active" };
             activeCallRef.current = activeNextCall;
             setCall(activeNextCall);
+            stopRingtone();
         };
 
         const handleIceCandidate = async (data) => {
@@ -395,6 +456,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
                 logCall('call closed ignored: no active call or mismatched callId', data.callId);
                 return;
             }
+            stopRingtone();
             resetCall();
         };
 
@@ -417,7 +479,10 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
         };
     }, [socket]);
 
-    useEffect(() => () => resetCall(), []);
+    useEffect(() => () => {
+        stopRingtone();
+        resetCall();
+    }, []);
 
     if (!call) {
         return error ? <div className="call-toast">{error}</div> : null;

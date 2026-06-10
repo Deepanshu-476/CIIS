@@ -216,9 +216,15 @@ import AdminProject from "./hrCds/pages/AdminProject";
 import Client from "./hrCds/pages/hr/Client";
 
 // ========== CLIENT PAGES (NEW) ==========
-import ClientDashboard from "./hrCds/pages/Dashboard.jsx";
-import ClientPaymentSection from "./hrCds/pages/ClientPaymentSection.jsx";
-import ClientServicesTasks from "./hrCds/pages/ClientServicesTasks.jsx";
+import ClientDashboardPage from "./hrCds/pages/client/ClientDashboardPage.jsx";
+import MyServicesPage from "./hrCds/pages/client/MyServicesPage.jsx";
+import ServiceMarketplacePage from "./hrCds/pages/client/ServiceMarketplacePage.jsx";
+import SupportTicketsPage from "./hrCds/pages/client/SupportTicketsPage.jsx";
+import AIAssistantPage from "./hrCds/pages/client/AIAssistantPage.jsx";
+import DocumentsPage from "./hrCds/pages/client/DocumentsPage.jsx";
+import PaymentsInvoicesPage from "./hrCds/pages/client/PaymentsInvoicesPage.jsx";
+import AccountSettingsPage from "./hrCds/pages/client/AccountSettingsPage.jsx";
+import NotificationsPage from "./hrCds/pages/client/NotificationsPage.jsx";
 
 // User Pages
 import Alerts from "./hrCds/pages/Alerts";
@@ -378,20 +384,17 @@ function App() {
             </ThemeContextProvider>
           }
         >
-          {/* Client Dashboard - Main landing page for clients */}
-          <Route index element={<ClientDashboard />} />
-          <Route path="dashboard" element={<ClientDashboard />} />
-          
-          {/* Client Payment Section */}
-          <Route path="payment" element={<ClientPaymentSection />} />
-          
-          {/* Client Services & Tasks */}
-          <Route path="services-tasks" element={<ClientServicesTasks />} />
-
-          {/* Client Change Password */}
+          <Route index element={<ClientDashboardPage />} />
+          <Route path="dashboard" element={<ClientDashboardPage />} />
+          <Route path="my-services" element={<MyServicesPage />} />
+          <Route path="marketplace" element={<ServiceMarketplacePage />} />
+          <Route path="support-tickets" element={<SupportTicketsPage />} />
+          <Route path="ai-assistant" element={<AIAssistantPage />} />
+          <Route path="documents" element={<DocumentsPage />} />
+          <Route path="payments" element={<PaymentsInvoicesPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="settings" element={<AccountSettingsPage />} />
           <Route path="change-password" element={<ChangePassword />} />
-          
-          {/* Redirect any unknown client routes to dashboard */}
           <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
         </Route>
 

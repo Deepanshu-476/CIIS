@@ -345,7 +345,7 @@ const fixedDefaultItems = [
   }
 ];
 
-// ✅ CLIENT MENU ITEMS - Sirf 3 pages client ke liye
+// ✅ CLIENT MENU ITEMS - All client pages now included
 const clientMenuItems = [
   {
     id: 'client-dashboard',
@@ -356,28 +356,76 @@ const clientMenuItems = [
     order: 1
   },
   {
-    id: 'client-payment',
-    name: 'Payment',
-    icon: 'CreditCard',
-    path: '/client/payment',
+    id: 'client-my-services',
+    name: 'My Services',
+    icon: 'Folder',
+    path: '/client/my-services',
     category: 'main',
     order: 2
   },
   {
-    id: 'client-services-tasks',
-    name: 'Services & Tasks',
+    id: 'client-marketplace',
+    name: 'Service Marketplace',
     icon: 'Folder',
-    path: '/client/services-tasks',
+    path: '/client/marketplace',
     category: 'main',
     order: 3
   },
   {
-    id: 'change-password',
-    name: 'Change Password',
-    icon: 'Key',
-    path: '/client/change-password',
+    id: 'client-support-tickets',
+    name: 'Support Tickets',
+    icon: 'Support',
+    path: '/client/support-tickets',
     category: 'main',
     order: 4
+  },
+  {
+    id: 'client-ai-assistant',
+    name: 'AI Assistant',
+    icon: 'Computer',
+    path: '/client/ai-assistant',
+    category: 'main',
+    order: 5
+  },
+  {
+    id: 'client-documents',
+    name: 'Documents',
+    icon: 'Folder',
+    path: '/client/documents',
+    category: 'main',
+    order: 6
+  },
+  {
+    id: 'client-payments',
+    name: 'Payments',
+    icon: 'CreditCard',
+    path: '/client/payments',
+    category: 'main',
+    order: 7
+  },
+  {
+    id: 'client-notifications',
+    name: 'Notifications',
+    icon: 'Notifications',
+    path: '/client/notifications',
+    category: 'main',
+    order: 8
+  },
+  {
+    id: 'client-settings',
+    name: 'Account Settings',
+    icon: 'Settings',
+    path: '/client/settings',
+    category: 'main',
+    order: 9
+  },
+  {
+    id: 'change-password',
+    name: 'Change Password',
+    icon: 'Settings',
+    path: '/client/change-password',
+    category: 'main',
+    order: 10
   }
 ];
 
@@ -637,7 +685,15 @@ const getPathFromName = (name) => {
     'Support Desk': '/ciisUser/support-desk',
     'Support Operations': '/ciisUser/support-operations',
     'Client Dashboard': '/client/dashboard',
-    'Payment': '/client/payment',
+'Payment': '/client/payments',
+  'Payments': '/client/payments',
+  'My Services': '/client/my-services',
+  'Service Marketplace': '/client/marketplace',
+  'Support Tickets': '/client/support-tickets',
+  'AI Assistant': '/client/ai-assistant',
+  'Documents': '/client/documents',
+  'Notifications': '/client/notifications',
+  'Account Settings': '/client/settings',
     'Services & Tasks': '/client/services-tasks'
   };
   

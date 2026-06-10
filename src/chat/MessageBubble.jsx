@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Check, CheckCheck, FileText, Forward, MoreVertical, Trash2, X } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Check, CheckCheck, FileText, Forward, Mic, MoreVertical, Pause, Play, Trash2, X } from "lucide-react";
 import { API_URL_IMG } from "../config";
 
 const MessageBubble = ({
@@ -19,6 +19,10 @@ const MessageBubble = ({
     const [showForwardModal, setShowForwardModal] = useState(false);
     const [selectedTargets, setSelectedTargets] = useState([]);
     const [previewMedia, setPreviewMedia] = useState(null);
+    const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+    const [audioCurrentTime, setAudioCurrentTime] = useState(0);
+    const [audioDuration, setAudioDuration] = useState(0);
+    const audioRef = useRef(null);
 
     const currentUserId = (currentUser?._id || currentUser?.id || "").toString();
     const senderId = (message.sender?._id || message.sender || "").toString();
@@ -35,8 +39,13 @@ const MessageBubble = ({
     const normalizedMediaType = (mediaType || "").toLowerCase();
     const mediaPath = (mediaUrl || "").split("?")[0].toLowerCase();
     const isImageMedia = normalizedMediaType.startsWith("image") || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(mediaPath);
-    const isVideoMedia = normalizedMediaType.startsWith("video") || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i.test(mediaPath);
-    const isAudioMedia = normalizedMediaType.startsWith("audio") || /\.(mp3|wav|webm|ogg|m4a|aac)$/i.test(mediaPath);
+    const isAudioMedia = normalizedMediaType.startsWith("audio")
+        || mediaPath.includes("audio-recording")
+        || /\.(mp3|wav|webm|ogg|m4a|aac)$/i.test(mediaPath);
+    const isVideoMedia = !isAudioMedia && (
+        normalizedMediaType.startsWith("video") || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i.test(mediaPath)
+    );
+    const isAudioOnly = Boolean(isAudioMedia && mediaUrl && !message.text && !isDeletedForEveryone);
 
     const forwardCandidates = useMemo(() => (
         users.filter((user) => user._id !== currentUser?._id)
@@ -74,6 +83,83 @@ const MessageBubble = ({
         setPreviewMedia({ kind, url: mediaUrl });
     };
 
+    const formatAudioTime = (seconds) => {
+        if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = Math.floor(seconds % 60).toString().padStart(2, "0");
+        return `${minutes}:${remainingSeconds}`;
+    };
+
+    const toggleAudioPlayback = () => {
+        const audio = audioRef.current;
+        if (!audio) return;
+
+        if (audio.paused) {
+            audio.play().catch(() => setIsAudioPlaying(false));
+        } else {
+            audio.pause();
+        }
+    };
+
+    const renderAudioWaveform = () => {
+        const bars = [8, 13, 17, 11, 22, 26, 18, 30, 34, 21, 28, 37, 32, 24, 18, 31, 36, 26, 20, 29, 35, 24, 16, 12];
+        const progress = audioDuration ? audioCurrentTime / audioDuration : 0;
+
+        return (
+            <div className="voice-waveform" aria-hidden="true">
+                {bars.map((height, index) => (
+                    <span
+                        key={`${height}-${index}`}
+                        className={index / bars.length <= progress ? "played" : ""}
+                        style={{ height: `${height}px` }}
+                    />
+                ))}
+            </div>
+        );
+    };
+
+    const renderVoiceNote = () => (
+        <div className="voice-note-player">
+            <audio
+                ref={audioRef}
+                src={mediaUrl}
+                preload="metadata"
+                onLoadedMetadata={(event) => setAudioDuration(event.currentTarget.duration || 0)}
+                onTimeUpdate={(event) => setAudioCurrentTime(event.currentTarget.currentTime || 0)}
+                onPlay={() => setIsAudioPlaying(true)}
+                onPause={() => setIsAudioPlaying(false)}
+                onEnded={() => {
+                    setIsAudioPlaying(false);
+                    setAudioCurrentTime(0);
+                }}
+            />
+            <div className="voice-avatar">
+                <span>{message.sender?.name?.charAt(0).toUpperCase() || "U"}</span>
+                <Mic size={16} />
+            </div>
+            <button
+                type="button"
+                className="voice-play-btn"
+                onClick={toggleAudioPlayback}
+                aria-label={isAudioPlaying ? "Pause voice recording" : "Play voice recording"}
+            >
+                {isAudioPlaying ? <Pause size={18} /> : <Play size={18} fill="currentColor" />}
+            </button>
+            <div className="voice-note-body">
+                {renderAudioWaveform()}
+                <div className="voice-note-meta">
+                    <span>{formatAudioTime(audioDuration || audioCurrentTime)}</span>
+                    <span>
+                        {new Date(message.createdAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        {isOwn && (
+                            message.seen ? <CheckCheck size={14} /> : <Check size={14} />
+                        )}
+                    </span>
+                </div>
+            </div>
+        </div>
+    );
+
     const renderMedia = () => {
         if (!mediaUrl) return null;
 
@@ -90,6 +176,10 @@ const MessageBubble = ({
             );
         }
 
+        if (isAudioMedia) {
+            return renderVoiceNote();
+        }
+
         if (isVideoMedia) {
             return (
                 <button
@@ -101,16 +191,6 @@ const MessageBubble = ({
                     <video src={mediaUrl} className="chat-media chat-media-video" muted playsInline />
                     <span className="chat-video-open-label">Open video</span>
                 </button>
-            );
-        }
-
-        if (isAudioMedia) {
-            return (
-                <audio
-                    src={mediaUrl}
-                    controls
-                    className="chat-media-audio"
-                />
             );
         }
 
@@ -138,15 +218,17 @@ const MessageBubble = ({
         }
     >
 
-        <div className="message-bubble">
+        <div className={isAudioOnly ? "message-bubble voice-message-bubble" : "message-bubble"}>
 
-            <div className="message-top-row">
-                <span className="message-sender">{message.sender?.name || "Unknown"}</span>
-                <span className="message-time">{new Date(message.createdAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                <button className="message-menu-btn" onClick={() => setShowMenu((prev) => !prev)} title="Message options">
-                    <MoreVertical size={16} />
-                </button>
-            </div>
+            {!isAudioOnly && (
+                <div className="message-top-row">
+                    <span className="message-sender">{message.sender?.name || "Unknown"}</span>
+                    <span className="message-time">{new Date(message.createdAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                    <button className="message-menu-btn" onClick={() => setShowMenu((prev) => !prev)} title="Message options">
+                        <MoreVertical size={16} />
+                    </button>
+                </div>
+            )}
 
             {message.isForwarded && <div className="forwarded-label">Forwarded</div>}
 
@@ -159,6 +241,12 @@ const MessageBubble = ({
                 </>
             )}
 
+            {isAudioOnly && (
+                <button className="message-menu-btn voice-message-menu-btn" onClick={() => setShowMenu((prev) => !prev)} title="Message options">
+                    <MoreVertical size={16} />
+                </button>
+            )}
+
             {showMenu && !isDeletedForEveryone && (
                 <div className="message-menu">
                     <button onClick={() => { onDeleteForMe(message); setShowMenu(false); }}><Trash2 size={13} />Delete For Me</button>
@@ -168,7 +256,7 @@ const MessageBubble = ({
             )}
 
             {
-    isOwn && (
+    isOwn && !isAudioOnly && (
 
         <div
             className={message.seen ? "message-status seen" : "message-status"}

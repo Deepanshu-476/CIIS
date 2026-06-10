@@ -4,11 +4,12 @@ import React, {
     useState
 } from "react";
 import "../Pages/Chat/chat.css";
-import { Mic, Paperclip, SendHorizontal, Square, Video } from "lucide-react";
+import { Mic, MoreHorizontal, Paperclip, Phone, SendHorizontal, Smile, Square, Video } from "lucide-react";
 
 import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage } from "../services/chatService";
 
 import MessageBubble from "./MessageBubble";
+import CallOverlay from "./CallOverlay";
 import { API_URL_IMG } from "../config";
 
 const ChatBox = ({
@@ -43,6 +44,13 @@ const ChatBox = ({
     const recordingStreamRef = useRef(null);
     const recordingTimerRef = useRef(null);
     const recordingPreviewRef = useRef(null);
+    const callOverlayRef = useRef(null);
+    const quickReplies = [
+        "Please share the report",
+        "What's the next plan?",
+        "Any keyword updates?",
+        "Thank you!"
+    ];
 
 
     const [currentConversationId, setCurrentConversationId] =
@@ -622,9 +630,18 @@ useEffect(() => {
         return group.name || group.groupName || group.group_name || group.title || "Unnamed Group";
     };
 
+    const getCurrentTopic = () => (
+        selectedUser?.isGroup ? getGroupName(selectedUser) : selectedUser?.companyRole || "SEO Project"
+    );
+
+    const startDirectCall = (callType) => {
+        callOverlayRef.current?.startCall(callType, selectedUser);
+    };
+
     return (
 
         <div className="chat-box">
+            <CallOverlay ref={callOverlayRef} socket={socket} currentUser={currentUser} />
 
             <div className="chat-header">
                 <div className="chat-header-left">
@@ -655,9 +672,47 @@ useEffect(() => {
                             </div>
                     </div>
                 </div>
+                <div className="chat-header-actions">
+                    <button
+                        type="button"
+                        title={selectedUser.isGroup ? "Group calling coming soon" : "Start voice call"}
+                        onClick={() => startDirectCall("audio")}
+                        disabled={selectedUser.isGroup}
+                    >
+                        <Phone size={18} />
+                    </button>
+                    <button
+                        type="button"
+                        title={selectedUser.isGroup ? "Group calling coming soon" : "Start video call"}
+                        onClick={() => startDirectCall("video")}
+                        disabled={selectedUser.isGroup}
+                    >
+                        <Video size={18} />
+                    </button>
+                    <button type="button" className="chat-more-btn" title="More options">
+                        <span>More</span>
+                        <MoreHorizontal size={18} />
+                    </button>
+                </div>
+            </div>
+
+            <div className="chat-topic-bar">
+                <strong>Chat Topic: {getCurrentTopic()}</strong>
+                <button type="button">Change Topic</button>
             </div>
 
             <div className="chat-messages">
+                {messages.length > 0 && (
+                    <div className="chat-date-separator">
+                        <span>
+                            {new Date(messages[0]?.createdAt || Date.now()).toLocaleDateString([], {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric"
+                            })}
+                        </span>
+                    </div>
+                )}
 
                 {
                     messages.map((message) => (
@@ -677,100 +732,105 @@ useEffect(() => {
             </div>
 
             <div className="chat-input-area">
-                <label className="file-upload-btn">
-                    <input
-                        type="file"
-                        accept="image/*,video/*,audio/*"
-                        multiple
-                        onChange={(e) =>
-                            setFiles(
-                                Array.from(e.target.files || [])
-                            )
-                        }
-                    />
-                    <Paperclip size={19} />
-                </label>
-
-                <div className="chat-input-wrapper">
-                    {files.length > 0 && (
-                        <div className="selected-file-info">
-                            {files.length === 1 ? files[0].name : `${files.length} files selected`}
-                        </div>
-                    )}
-                    {recorderMode && (
-                        <div className="recording-panel">
-                            {recorderMode === "video" && (
-                                <video
-                                    ref={recordingPreviewRef}
-                                    className="recording-preview"
-                                    autoPlay
-                                    muted
-                                    playsInline
-                                />
-                            )}
-                            <div className="recording-status">
-                                <span className="recording-dot" />
-                                {recorderMode === "video" ? "Video recording" : "Voice recording"}
-                                <strong>{formatRecordingTime(recordingSeconds)}</strong>
-                            </div>
-                        </div>
-                    )}
-                    {recordingError && (
-                        <div className="recording-error">{recordingError}</div>
-                    )}
-                    <input
-                        type="text"
-                        className="chat-input"
-                        value={text}
-                        onChange={(e) =>
-                            {
-                                setText(e.target.value);
-                                if (conversation?._id) {
-                                    socket?.emit("chat:typing", { conversationId: conversation._id });
-                                    clearTimeout(typingTimerRef.current);
-                                    typingTimerRef.current = setTimeout(() => {
-                                        socket?.emit("chat:stop-typing", { conversationId: conversation._id });
-                                    }, 900);
-                                }
-                            }
-                        }
-                        placeholder="Type a message"
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                                handleSend();
-                            }
-                        }}
-                    />
+                <div className="chat-quick-replies">
+                    {quickReplies.map(reply => (
+                        <button type="button" key={reply} onClick={() => setText(reply)}>
+                            {reply}
+                        </button>
+                    ))}
                 </div>
 
-                <button
-                    className={recorderMode === "audio" ? "recording-btn active" : "recording-btn"}
-                    onClick={() => recorderMode === "audio" ? stopRecording() : startRecording("audio")}
-                    disabled={isSendingAction || Boolean(recorderMode && recorderMode !== "audio")}
-                    title={recorderMode === "audio" ? "Stop voice recording" : "Start voice recording"}
-                    type="button"
-                >
-                    {recorderMode === "audio" ? <Square size={17} /> : <Mic size={18} />}
-                </button>
+                <div className="chat-composer">
+                    <label className="file-upload-btn" title="Attach file">
+                        <input
+                            type="file"
+                            accept="image/*,video/*,audio/*"
+                            multiple
+                            onChange={(e) =>
+                                setFiles(
+                                    Array.from(e.target.files || [])
+                                )
+                            }
+                        />
+                        <Paperclip size={19} />
+                    </label>
 
-                <button
-                    className={recorderMode === "video" ? "recording-btn active" : "recording-btn"}
-                    onClick={() => recorderMode === "video" ? stopRecording() : startRecording("video")}
-                    disabled={isSendingAction || Boolean(recorderMode && recorderMode !== "video")}
-                    title={recorderMode === "video" ? "Stop video recording" : "Start video recording"}
-                    type="button"
-                >
-                    {recorderMode === "video" ? <Square size={17} /> : <Video size={18} />}
-                </button>
+                    <div className="chat-input-wrapper">
+                        {files.length > 0 && (
+                            <div className="selected-file-info">
+                                {files.length === 1 ? files[0].name : `${files.length} files selected`}
+                            </div>
+                        )}
+                        {recorderMode && (
+                            <div className="recording-panel">
+                                {recorderMode === "video" && (
+                                    <video
+                                        ref={recordingPreviewRef}
+                                        className="recording-preview"
+                                        autoPlay
+                                        muted
+                                        playsInline
+                                    />
+                                )}
+                                <div className="recording-status">
+                                    <span className="recording-dot" />
+                                    {recorderMode === "video" ? "Video recording" : "Voice recording"}
+                                    <strong>{formatRecordingTime(recordingSeconds)}</strong>
+                                </div>
+                            </div>
+                        )}
+                        {recordingError && (
+                            <div className="recording-error">{recordingError}</div>
+                        )}
+                        <input
+                            type="text"
+                            className="chat-input"
+                            value={text}
+                            onChange={(e) =>
+                                {
+                                    setText(e.target.value);
+                                    if (conversation?._id) {
+                                        socket?.emit("chat:typing", { conversationId: conversation._id });
+                                        clearTimeout(typingTimerRef.current);
+                                        typingTimerRef.current = setTimeout(() => {
+                                            socket?.emit("chat:stop-typing", { conversationId: conversation._id });
+                                        }, 900);
+                                    }
+                                }
+                            }
+                            placeholder="Type your message..."
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    handleSend();
+                                }
+                            }}
+                        />
+                    </div>
 
-                <button
-                    className="send-btn"
-                    onClick={handleSend}
-                    disabled={isSendingAction}
-                >
-                    <SendHorizontal size={18} />
-                    <span>Send</span>
-                </button>
+                    <button type="button" className="emoji-btn" title="Emoji">
+                        <Smile size={20} />
+                    </button>
+
+                    <button
+                        className={recorderMode === "audio" ? "recording-btn active" : "recording-btn"}
+                        onClick={() => recorderMode === "audio" ? stopRecording() : startRecording("audio")}
+                        disabled={isSendingAction || Boolean(recorderMode && recorderMode !== "audio")}
+                        title={recorderMode === "audio" ? "Stop voice recording" : "Start voice recording"}
+                        type="button"
+                    >
+                        {recorderMode === "audio" ? <Square size={17} /> : <Mic size={18} />}
+                    </button>
+
+                    <button
+                        className="send-btn"
+                        onClick={handleSend}
+                        disabled={isSendingAction}
+                        title="Send message"
+                        type="button"
+                    >
+                        <SendHorizontal size={20} />
+                    </button>
+                </div>
             </div>
 
         </div>

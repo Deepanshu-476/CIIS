@@ -2,4 +2,44 @@
 > ciisnetwork@0.0.0 dev
 > vite --host 0.0.0.0 --port 5173
 
-[2m11:45:34 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Forced re-optimization of dependencies
+[2m10:07:24 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Forced re-optimization of dependencies
+
+  [32m[1mVITE[22m v7.3.3[39m  [2mready in [0m[1m1291[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.68.131:[1m5173[22m/[39m
+[2m10:33:54 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/hrCds/Header.jsx[22m
+[2m10:33:54 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/chat/MessageBubble.jsx[22m
+[2m10:33:54 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hrCds/UserLayout.jsx, /src/index.css[22m
+[2m10:33:54 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/page/Login.jsx, /src/index.css[22m
+[2m10:33:54 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hrCds/Sidebar.jsx, /src/index.css[22m
+[2m10:33:54 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/page/AllCompany.css, /src/index.css[22m
+[2m10:33:54 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/admin/components/CompanyDetails.jsx, /src/index.css[22m
+[2m10:33:54 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/chat/ChatBox.jsx, /src/index.css[22m
+[2m10:33:54 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/chat/ChatSidebar.jsx, /src/index.css[22m
+[2m10:33:54 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hrCds/pages/PaymentSection.css, /src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hrCds/pages/ClientPaymentSection.jsx, /src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/CiisFooter.jsx, /src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hrCds/pages/Dashboard.css, /src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/admin/page/CompanyAccessManagement.jsx, /src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/page/AllCompany.jsx, /src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/config.js[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/admin/components/SidebarManagement.jsx, /src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.jsx, /src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hrCds/pages/Dashboard.jsx, /src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hrCds/pages/ClientServicesTasks.jsx, /src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/Pages/Chat/chat.css, /src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hrCds/pages/ContactSupport.jsx, /src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/admin/components/SuperAdminSidebar.jsx, /src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hrCds/pages/SupportChatWidget.jsx, /src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/admin/page/SupportOperations.jsx, /src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hrCds/pages/DepartmentSupportDesk.jsx, /src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hrCds/pages/ClientServicesTasks.css, /src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/chat/CallOverlay.jsx[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hrCds/pages/SupportCenter.css, /src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[2m10:33:55 am[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+[2m10:33:57 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Forced re-optimization of dependencies
+[2m10:33:57 am[22m [36m[1m[vite][22m[39m server restarted.

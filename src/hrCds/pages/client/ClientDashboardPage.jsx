@@ -9,8 +9,6 @@ import {
   FiCheckCircle,
   FiAlertCircle,
   FiClock,
-  FiStar,
-  FiBarChart2,
   FiChevronRight,
   FiFolder,
   FiCalendar,
@@ -18,13 +16,20 @@ import {
   FiMapPin,
   FiPhone,
   FiShield,
+  FiStar,
   FiHeadphones,
-  FiZap,
+  FiFileText,
+  FiDollarSign,
+  FiUpload,
+  FiCreditCard,
+  FiGrid,
   FiArrowUp,
   FiArrowDown,
   FiUser,
   FiUsers,
-  FiMoreHorizontal
+  FiMoreHorizontal,
+  FiPackage,
+  FiInbox
 } from 'react-icons/fi';
 import { Line, Doughnut } from 'react-chartjs-2';
 import {
@@ -49,8 +54,6 @@ ChartJS.register(
   Legend,
   ArcElement
 );
-
-const dashboardFontFamily = '"Roboto", "Helvetica", "Arial", sans-serif';
 
 // ========== HELPER FUNCTIONS ==========
 const getAuthToken = () => {
@@ -261,39 +264,12 @@ const getUsersArrayFromResponse = responseData => {
   return [];
 };
 
-const getTaskName = task => (
-  task?.task ||
-  task?.title ||
-  task?.name ||
-  task?.taskName ||
-  'Project Task'
-);
-
-const getTaskStatus = task => {
-  const rawStatus = String(task?.status || '').trim().toLowerCase();
-
-  if (task?.completed || rawStatus === 'completed' || rawStatus === 'done') {
-    return { label: 'Completed', tone: 'green', icon: <FiCheckCircle /> };
-  }
-
-  const dueDate = task?.dueDate ? new Date(task.dueDate) : null;
-  if (rawStatus === 'overdue' || (dueDate && !Number.isNaN(dueDate.getTime()) && dueDate < new Date())) {
-    return { label: 'Overdue', tone: 'red', icon: <FiAlertCircle /> };
-  }
-
-  if (rawStatus === 'in-progress' || rawStatus === 'in progress' || rawStatus === 'progress') {
-    return { label: 'In Progress', tone: 'blue', icon: <FiClock /> };
-  }
-
-  return { label: rawStatus ? rawStatus.replace(/\b\w/g, char => char.toUpperCase()) : 'Pending', tone: 'orange', icon: <FiClock /> };
-};
-
 // ========== MAIN DASHBOARD COMPONENT ==========
 const Dashboard = () => {
   const [client, setClient] = useState(null);
   const [services, setServices] = useState([]);
   const [projectManagers, setProjectManagers] = useState([]);
-  const [serviceTasks, setServiceTasks] = useState([]);
+  const [, setServiceTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [companyInfo, setCompanyInfo] = useState({
@@ -536,23 +512,15 @@ const Dashboard = () => {
     window.location.href = '/login';
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Active': return 'ClientDashboard-status-badge ClientDashboard-status-badge--success';
-      case 'On Hold': return 'ClientDashboard-status-badge ClientDashboard-status-badge--warning';
-      case 'Inactive': return 'ClientDashboard-status-badge ClientDashboard-status-badge--error';
-      default: return 'ClientDashboard-status-badge';
-    }
-  };
-
   const doughnutData = {
-    labels: ['Completed', 'Pending', 'Overdue'],
+    labels: ['Completed', 'In Progress', 'Pending', 'Overdue'],
     datasets: [
       {
-        data: [overallStats.completedTasks, overallStats.pendingTasks, overallStats.overdueTasks],
-        backgroundColor: ['#24c06f', '#ff9b0f', '#ff4055'],
+        data: [24, 12, 5, 1],
+        backgroundColor: ['#35c985', '#4a90f3', '#ffc25a', '#f65470'],
         borderColor: '#ffffff',
-        borderWidth: 2,
+        borderWidth: 0,
+        spacing: 0,
         hoverOffset: 0,
       },
     ],
@@ -561,7 +529,8 @@ const Dashboard = () => {
   const doughnutOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    cutout: '58%',
+    cutout: '64%',
+    animation: false,
     plugins: {
       legend: {
         display: false
@@ -572,133 +541,11 @@ const Dashboard = () => {
     }
   };
 
-  const lineOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false
-      }
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: {
-          font: {
-            family: dashboardFontFamily,
-            size: 11,
-            weight: 500
-          }
-        },
-        grid: {
-          color: '#e2e8f0'
-        }
-      },
-      x: {
-        ticks: {
-          font: {
-            family: dashboardFontFamily,
-            size: 11,
-            weight: 500
-          }
-        },
-        grid: {
-          display: false
-        }
-      }
-    }
-  };
-
-  const totalTasks = overallStats.totalTasks || 0;
-  const completedPercent = totalTasks ? Math.round((overallStats.completedTasks / totalTasks) * 100) : 0;
-  const pendingPercent = totalTasks ? Math.round((overallStats.pendingTasks / totalTasks) * 100) : 0;
-  const overduePercent = totalTasks ? Math.round((overallStats.overdueTasks / totalTasks) * 100) : 0;
-  const clientFirstName = client?.client?.split(' ')[0] || client?.name?.split(' ')[0] || 'Client';
   const clientName = client?.client || client?.name || 'Client';
   const todayLabel = new Date().toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric'
-  });
-
-  const statCards = [
-    {
-      label: 'Active Services',
-      value: services.length,
-      subLabel: 'Total Services',
-      trend: '20%',
-      direction: 'up',
-      icon: <FiBriefcase />,
-      tone: 'purple'
-    },
-    {
-      label: 'Completed Tasks',
-      value: overallStats.completedTasks,
-      subLabel: 'Tasks Completed',
-      trend: '18%',
-      direction: 'up',
-      icon: <FiCheckCircle />,
-      tone: 'green'
-    },
-    {
-      label: 'Pending Tasks',
-      value: overallStats.pendingTasks,
-      subLabel: 'Tasks Pending',
-      trend: '5%',
-      direction: 'up',
-      icon: <FiClock />,
-      tone: 'orange'
-    },
-    {
-      label: 'Overdue Tasks',
-      value: overallStats.overdueTasks,
-      subLabel: 'Tasks Overdue',
-      trend: '5%',
-      direction: 'down',
-      icon: <FiAlertCircle />,
-      tone: 'red'
-    }
-  ];
-
-  const assignedTaskStatusRows = serviceTasks.slice(0, 4).map(task => ({
-    id: task._id || task.id || `${getTaskName(task)}-${task.serviceName || ''}`,
-    name: getTaskName(task),
-    status: getTaskStatus(task)
-  }));
-
-  const upcomingDeadlines = (serviceTasks.length ? serviceTasks : services.map((service, index) => ({
-    task: `${service} Report`,
-    title: `${service} Report`,
-    serviceName: service,
-    dueDate: new Date(Date.now() + (index + 2) * 24 * 60 * 60 * 1000).toISOString()
-  })))
-    .filter(task => task.dueDate && !task.completed)
-    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-    .slice(0, 3);
-
-  const servicePerformance = (services.length ? services : ['UI/UX Design', 'Web Development', 'Digital Marketing', 'Mobile Application'])
-    .slice(0, 4)
-    .map((service, index) => {
-      const tasks = serviceTasks.filter(task => task.serviceName === service);
-      const completed = tasks.filter(task => task.completed).length;
-      const percent = tasks.length ? Math.round((completed / tasks.length) * 100) : [90, 85, 70, 60][index] || 65;
-      return { service, percent, tone: ['purple', 'blue', 'green', 'orange'][index] || 'blue' };
-    });
-
-  const recentActivities = (serviceTasks.length ? serviceTasks : [
-    { task: 'Homepage Redesign', serviceName: 'UI/UX Design', completed: true, updatedAt: Date.now() - 2 * 60 * 60 * 1000 },
-    { task: 'API Integration', serviceName: 'Web Development', status: 'in-progress', updatedAt: Date.now() - 5 * 60 * 60 * 1000 },
-    { task: 'Marketing Campaign Setup', serviceName: 'Digital Marketing', status: 'in-progress', updatedAt: Date.now() - 24 * 60 * 60 * 1000 },
-    { task: 'Mobile App Testing', serviceName: 'Mobile Application', status: 'overdue', updatedAt: Date.now() - 2 * 24 * 60 * 60 * 1000 }
-  ]).slice(0, 4).map((task, index) => {
-    const status = getTaskStatus(task);
-    return {
-      id: task._id || task.id || `${getTaskName(task)}-${index}`,
-      name: getTaskName(task),
-      service: task.serviceName || 'Project Service',
-      status,
-      time: ['2h ago', '5h ago', '1d ago', '2d ago'][index] || 'Today'
-    };
   });
 
   const sidebarManagers = (projectManagers.length ? projectManagers : [
@@ -707,6 +554,7 @@ const Dashboard = () => {
     { name: 'Rohan Mehta', role: 'Development Manager' }
   ]).slice(0, 3);
 
+  /*
   const summaryCards = [
     { label: 'Invoices', value: '₹1,24,500', note: '2 Overdue', tone: 'purple', icon: <FiBriefcase /> },
     { label: 'Support Tickets', value: '3', note: '1 Open', tone: 'green', icon: <FiHeadphones /> },
@@ -722,6 +570,8 @@ const Dashboard = () => {
     orange: 'M4 24 L18 13 L31 22 L45 18 L60 28 L74 21 L88 25 L103 14',
     red: 'M4 14 L18 20 L31 17 L45 29 L60 22 L74 31 L88 24 L103 15'
   };
+
+  */
 
   if (loading) {
     return (
@@ -763,6 +613,238 @@ const Dashboard = () => {
     );
   }
 
+  return (
+    <div className="ClientDashboard-client-dashboard">
+      <section className="ClientDashboard-hero-card ClientDashboard-greeting-card">
+        <div>
+          <h1>Good morning! <span>☀</span></h1>
+          <p>Stay on top of your services, tasks, and payments.</p>
+        </div>
+        <div className="ClientDashboard-hero-stats">
+          {[
+            { label: 'Active Services', value: services.length || 6, icon: <FiBriefcase />, tone: 'blue' },
+            { label: 'Pending Invoices', value: 2, icon: <FiFileText />, tone: 'orange' },
+            { label: 'Open Tickets', value: 3, icon: <FiInbox />, tone: 'teal' },
+            { label: 'Recent Updates', value: 5, icon: <FiCreditCard />, tone: 'purple' }
+          ].map(item => (
+            <div className="ClientDashboard-hero-stat" key={item.label}>
+              <span className={`ClientDashboard-icon ClientDashboard-icon--${item.tone}`}>{item.icon}</span>
+              <small>{item.label}</small>
+              <strong>{item.value}</strong>
+            </div>
+          ))}
+        </div>
+        <div className="ClientDashboard-update-strip">
+          <span><FiArrowUp /></span>
+          <p><strong>Recent update:</strong> Website Redesign project milestone completed.</p>
+          <button type="button">View All Updates <FiChevronRight /></button>
+        </div>
+      </section>
+
+      <section className="ClientDashboard-hero-card ClientDashboard-profile-summary">
+        <button type="button" className="ClientDashboard-date-pill"><FiCalendar /> {todayLabel}</button>
+        <div className="ClientDashboard-profile-glow" aria-hidden="true"></div>
+        <div className="ClientDashboard-profile-avatar">{clientName.charAt(0).toUpperCase()}</div>
+        <div className="ClientDashboard-profile-info">
+          <div className="ClientDashboard-name-row">
+            <h2>{clientName}</h2>
+            <span>Client</span>
+          </div>
+          <p><FiMail /> {client?.email || 'test123@demo.com'}</p>
+          <p><FiPhone /> {client?.phone || '+91 95678 76545'}</p>
+          <p><FiMapPin /> {client?.city || client?.address || 'Bhinga, Uttar Pradesh, India'}</p>
+          <p><FiCalendar /> Client ID: CLT-{String(client?._id || client?.id || '2026-00123').slice(-9).toUpperCase()}</p>
+          <p><FiUser /> Account Manager: {sidebarManagers[0]?.name || 'Rahul Sharma'}</p>
+        </div>
+        <div className="ClientDashboard-profile-actions">
+          <button type="button" className="ClientDashboard-btn-light"><FiUser /> View Profile</button>
+          <button type="button" className="ClientDashboard-btn-solid">Contact Support</button>
+        </div>
+      </section>
+
+      <section className="ClientDashboard-kpi-row">
+        {[
+          { label: 'Active Services', value: services.length || 6, trend: '+20%', dir: 'up', icon: <FiPackage />, tone: 'blue' },
+          { label: 'Completed Tasks', value: overallStats.completedTasks || 24, trend: '+18%', dir: 'up', icon: <FiCheckCircle />, tone: 'green' },
+          { label: 'Pending Tasks', value: overallStats.pendingTasks || 7, trend: '+12%', dir: 'up', icon: <FiClock />, tone: 'orange' },
+          { label: 'Overdue Tasks', value: overallStats.overdueTasks || 2, trend: '-8%', dir: 'down', icon: <FiAlertCircle />, tone: 'red' },
+          { label: 'Open Tickets', value: 3, trend: '-14%', dir: 'down', icon: <FiHeadphones />, tone: 'purple' },
+          { label: 'Total Paid', value: '₹1,24,500', trend: '+22%', dir: 'up', icon: <FiDollarSign />, tone: 'green' }
+        ].map(card => (
+          <article className={`ClientDashboard-kpi-card ClientDashboard-kpi-card--${card.tone}`} key={card.label}>
+            <div className={`ClientDashboard-icon ClientDashboard-icon--${card.tone}`}>{card.icon}</div>
+            <div className="ClientDashboard-kpi-copy">
+              <span>{card.label}</span>
+              <strong>{card.value}</strong>
+            </div>
+            <div className={`ClientDashboard-kpi-trend ClientDashboard-kpi-trend--${card.dir}`}>
+              <b>{card.trend}</b> {card.dir === 'up' ? <FiArrowUp /> : <FiArrowDown />}
+            </div>
+            <small>vs last month</small>
+          </article>
+        ))}
+      </section>
+
+      <section className="ClientDashboard-content-grid">
+        <article className="ClientDashboard-card ClientDashboard-progress-overview">
+          <h3>Service Progress Overview</h3>
+          <div className="ClientDashboard-progress-layout">
+            <div className="ClientDashboard-progress-ring" style={{ '--progress': '245deg' }}>
+              <div>
+                <strong>68%</strong>
+                <span>Overall Progress</span>
+              </div>
+            </div>
+            <div className="ClientDashboard-progress-legend">
+              <div className="ClientDashboard-progress-legend-row">
+                <span><i className="green"></i>Completed</span>
+                <b><em style={{ width: '68%' }}></em></b>
+                <strong>24 (68%)</strong>
+              </div>
+              <div className="ClientDashboard-progress-legend-row">
+                <span><i className="blue"></i>In Progress</span>
+                <b><em style={{ width: '23%' }}></em></b>
+                <strong>8 (23%)</strong>
+              </div>
+              <div className="ClientDashboard-progress-legend-row">
+                <span><i className="orange"></i>Not Started</span>
+                <b><em style={{ width: '9%' }}></em></b>
+                <strong>3 (9%)</strong>
+              </div>
+              <button type="button">View All Projects <FiChevronRight /></button>
+            </div>
+          </div>
+        </article>
+
+        <article className="ClientDashboard-card ClientDashboard-active-services">
+          <div className="ClientDashboard-card-head">
+            <h3>Active Services</h3>
+            <button type="button">View All <span>⌄</span></button>
+          </div>
+          <div className="ClientDashboard-service-table">
+            <div className="ClientDashboard-table-head">
+              <span>Service / Project</span><span>Assigned Team</span><span>Start Date</span><span>Deadline</span><span>Progress</span><span></span>
+            </div>
+            {[
+              ['Website Redesign', 'Design Team', 'May 10, 2026', 'Jun 30, 2026', 75, 'In Progress'],
+              ['Mobile App Development', 'Dev Team', 'Apr 15, 2026', 'Jul 15, 2026', 60, 'In Progress'],
+              ['SEO & Digital Marketing', 'Marketing Team', 'May 01, 2026', 'Jun 30, 2026', 40, 'In Progress'],
+              ['Cloud Migration', 'Infra Team', 'May 20, 2026', 'Jul 10, 2026', 30, 'In Progress'],
+              ['IT Support & Maintenance', 'Support Team', 'Jan 01, 2026', 'Dec 31, 2026', 90, 'Active']
+            ].map(([service, team, startDate, deadline, percent, status]) => {
+              return (
+                <div className="ClientDashboard-service-table-row" key={service}>
+                  <strong>{service}</strong>
+                  <span className="ClientDashboard-team-cell"><i></i><i></i><i></i>{team}</span>
+                  <span>{startDate}</span>
+                  <span>{deadline}</span>
+                  <span className="ClientDashboard-progress-cell">{percent}% <b><em style={{ width: `${percent}%` }}></em></b></span>
+                  <span className={`ClientDashboard-pill ${status === 'Active' ? 'ClientDashboard-pill--green' : ''}`}>{status}</span>
+                  <button type="button" aria-label="More"><FiMoreHorizontal /></button>
+                </div>
+              );
+            })}
+          </div>
+        </article>
+
+        <article className="ClientDashboard-card ClientDashboard-task-distribution">
+          <div className="ClientDashboard-card-head">
+            <h3>Task Distribution</h3>
+            <button type="button">This Month <span>⌄</span></button>
+          </div>
+          <div className="ClientDashboard-distribution-content">
+            <div className="ClientDashboard-doughnut-container">
+              <Doughnut data={doughnutData} options={doughnutOptions} />
+            </div>
+            <div className="ClientDashboard-distribution-legend">
+              <p><span className="ClientDashboard-dot green"></span>Completed <strong>24 (57%)</strong></p>
+              <p><span className="ClientDashboard-dot blue"></span>In Progress <strong>12 (29%)</strong></p>
+              <p><span className="ClientDashboard-dot orange"></span>Pending <strong>5 (12%)</strong></p>
+              <p><span className="ClientDashboard-dot red"></span>Overdue <strong>1 (2%)</strong></p>
+            </div>
+          </div>
+        </article>
+
+        <article className="ClientDashboard-card ClientDashboard-recent-activity">
+          <div className="ClientDashboard-card-head">
+            <h3>Recent Activities</h3>
+            <button type="button">View All</button>
+          </div>
+          <div className="ClientDashboard-timeline">
+            {[
+              ['Payment received for Invoice #INV-2026-045', 'Today, 10:30 AM', <FiDollarSign />],
+              ['Task "UI Design Review" completed', 'Today, 09:15 AM', <FiCheckCircle />],
+              ['Document "Project Proposal.pdf" uploaded', 'Yesterday, 04:45 PM', <FiFileText />],
+              ['Support ticket #TK-2026-018 replied', 'Yesterday, 02:30 PM', <FiHeadphones />],
+              ['Meeting scheduled with Rahul Sharma', 'Jun 8, 2026, 11:00 AM', <FiCalendar />]
+            ].map(([title, time, icon], index) => (
+              <div className="ClientDashboard-timeline-item" key={title}>
+                <span className={`ClientDashboard-icon ClientDashboard-icon--${['green', 'green', 'blue', 'purple', 'blue'][index]}`}>{icon}</span>
+                <p><strong>{title}</strong><small>{time}</small></p>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="ClientDashboard-card ClientDashboard-payment-summary">
+          <h3>Payment Summary</h3>
+          <div className="ClientDashboard-payment-line"><span><FiCreditCard /> Total Paid</span><strong>₹1,24,500</strong></div>
+          <div className="ClientDashboard-payment-line due"><span><FiFileText /> Total Due</span><strong>₹32,000</strong></div>
+          <div className="ClientDashboard-payment-line"><span><FiCalendar /> Next Due Date</span><strong>Jun 25, 2026</strong></div>
+          <div className="ClientDashboard-due-box">
+            <small>Due Soon</small>
+            <p>Invoice #INV-2026-067 <strong>₹18,000</strong></p>
+            <button type="button">Pay Now</button>
+          </div>
+          <button type="button" className="ClientDashboard-link-button">View All Invoices <FiChevronRight /></button>
+        </article>
+
+        <article className="ClientDashboard-card ClientDashboard-support-card">
+          <div className="ClientDashboard-card-head">
+            <h3>Support Tickets</h3>
+            <button type="button">View All</button>
+          </div>
+          <div className="ClientDashboard-ticket-stats">
+            <div><FiHeadphones /><span>Open Tickets</span><strong>3</strong></div>
+            <div><FiCheckCircle /><span>Resolved Tickets</span><strong>27</strong></div>
+          </div>
+          <h4>Recent Tickets</h4>
+          {[
+            ['#TK-2026-021', 'Email not syncing on mobile', 'Open'],
+            ['#TK-2026-018', 'Website loading issue', 'In Progress'],
+            ['#TK-2026-015', 'Request for SSL Certificate', 'Resolved']
+          ].map(ticket => (
+            <div className="ClientDashboard-ticket-row" key={ticket[0]}>
+              <FiFileText />
+              <p><strong>{ticket[0]}</strong><span>{ticket[1]}</span></p>
+              <em className={`ClientDashboard-ticket-${ticket[2].toLowerCase().replace(' ', '-')}`}>{ticket[2]}</em>
+            </div>
+          ))}
+        </article>
+
+        <article className="ClientDashboard-card ClientDashboard-actions-card">
+          <h3>Quick Actions</h3>
+          <div className="ClientDashboard-action-grid">
+            {[
+              ['Pay Invoice', 'Secure payments', <FiCreditCard />, 'green'],
+              ['Upload Document', 'Share important files', <FiUpload />, 'blue'],
+              ['Book Meeting', 'Schedule with team', <FiCalendar />, 'purple'],
+              ['Raise Ticket', 'Get support', <FiHeadphones />, 'orange']
+            ].map(([title, desc, icon, tone]) => (
+              <button type="button" key={title} className="ClientDashboard-action-tile">
+                <span className={`ClientDashboard-icon ClientDashboard-icon--${tone}`}>{icon}</span>
+                <strong>{title}</strong>
+                <small>{desc}</small>
+              </button>
+            ))}
+          </div>
+          <button type="button" className="ClientDashboard-all-services"><FiGrid /> View All Services <FiChevronRight /></button>
+        </article>
+      </section>
+    </div>
+  );
+
+  /*
   return (
     <div className="ClientDashboard-client-dashboard">
       <main className="ClientDashboard-main">
@@ -1006,5 +1088,6 @@ const Dashboard = () => {
       </aside>
     </div>
   );
+  */
 };
 export default Dashboard;

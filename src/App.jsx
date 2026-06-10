@@ -217,14 +217,12 @@ import Client from "./hrCds/pages/hr/Client";
 
 // ========== CLIENT PAGES (NEW) ==========
 import ClientDashboardPage from "./hrCds/pages/client/ClientDashboardPage.jsx";
+import ClientTasksUpdatesPage from "./hrCds/pages/client/ClientTasksUpdatesPage.jsx";
 import MyServicesPage from "./hrCds/pages/client/MyServicesPage.jsx";
 import ServiceMarketplacePage from "./hrCds/pages/client/ServiceMarketplacePage.jsx";
 import SupportTicketsPage from "./hrCds/pages/client/SupportTicketsPage.jsx";
-import AIAssistantPage from "./hrCds/pages/client/AIAssistantPage.jsx";
 import DocumentsPage from "./hrCds/pages/client/DocumentsPage.jsx";
 import PaymentsInvoicesPage from "./hrCds/pages/client/PaymentsInvoicesPage.jsx";
-import AccountSettingsPage from "./hrCds/pages/client/AccountSettingsPage.jsx";
-import NotificationsPage from "./hrCds/pages/client/NotificationsPage.jsx";
 
 // User Pages
 import Alerts from "./hrCds/pages/Alerts";
@@ -386,14 +384,12 @@ function App() {
         >
           <Route index element={<ClientDashboardPage />} />
           <Route path="dashboard" element={<ClientDashboardPage />} />
+          <Route path="tasks-updates" element={<ClientTasksUpdatesPage />} />
           <Route path="my-services" element={<MyServicesPage />} />
           <Route path="marketplace" element={<ServiceMarketplacePage />} />
           <Route path="support-tickets" element={<SupportTicketsPage />} />
-          <Route path="ai-assistant" element={<AIAssistantPage />} />
           <Route path="documents" element={<DocumentsPage />} />
           <Route path="payments" element={<PaymentsInvoicesPage />} />
-          <Route path="notifications" element={<NotificationsPage />} />
-          <Route path="settings" element={<AccountSettingsPage />} />
           <Route path="change-password" element={<ChangePassword />} />
           <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
         </Route>

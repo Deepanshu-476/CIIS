@@ -1,514 +1,291 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
+  FiBarChart2,
+  FiBriefcase,
+  FiCalendar,
+  FiCheck,
+  FiCheckCircle,
+  FiChevronDown,
   FiChevronRight,
   FiClock,
-  FiCheckCircle,
-  FiUser,
-  FiSearch,
-  FiFilter,
-  FiSliders,
-  FiPlus,
-  FiMessageCircle,
-  FiUsers,
-  FiCalendar,
   FiFileText,
-  FiAlertCircle,
-  FiActivity
+  FiHeadphones,
+  FiMail,
+  FiMessageSquare,
+  FiPhone,
+  FiPlus,
+  FiRefreshCw,
+  FiSearch,
+  FiSend,
+  FiShare2,
+  FiSmartphone,
+  FiTarget,
+  FiUsers
 } from 'react-icons/fi';
+import { MdOutlinePalette, MdOutlineWeb } from 'react-icons/md';
 import './MyServicesPage.css';
 
+const people = [
+  { name: 'Rahul Sharma', role: 'Project Manager', photo: 'https://i.pravatar.cc/80?img=12' },
+  { name: 'Priya Mehta', role: 'UI/UX Designer', photo: 'https://i.pravatar.cc/80?img=47' },
+  { name: 'Amit Verma', role: 'Frontend Developer', photo: 'https://i.pravatar.cc/80?img=11' },
+  { name: 'Karan Singh', role: 'Backend Developer', photo: 'https://i.pravatar.cc/80?img=32' }
+];
+
+const services = [
+  {
+    title: 'Website Redesign',
+    description: 'Redesigning corporate website with modern UI/UX and CMS.',
+    status: 'In Progress', type: 'Web Development', tone: 'blue', icon: <MdOutlineWeb />,
+    start: 'May 10, 2026', end: 'Jun 30, 2026', progress: 60, team: [0, 1, 2, 3], more: 2, updated: 6
+  },
+  {
+    title: 'SEO Optimization',
+    description: 'Improving website visibility and ranking across target keywords.',
+    status: 'Active', type: 'Digital Marketing', tone: 'green', icon: <FiBarChart2 />,
+    start: 'Apr 15, 2026', end: 'Aug 15, 2026', progress: 75, team: [1, 0, 2], more: 1, updated: 5
+  },
+  {
+    title: 'Social Media Management',
+    description: 'Managing social channels and content strategy.',
+    status: 'Active', type: 'Digital Marketing', tone: 'coral', icon: <FiShare2 />,
+    start: 'Apr 20, 2026', end: 'Ongoing', progress: 80, team: [0, 2, 1], more: 1, updated: 4
+  },
+  {
+    title: 'Mobile App Development',
+    description: 'Building cross-platform mobile app for iOS and Android.',
+    status: 'In Progress', type: 'App Development', tone: 'violet', icon: <FiSmartphone />,
+    start: 'May 15, 2026', end: 'Aug 30, 2026', progress: 40, team: [0, 1, 2, 3], more: 3, updated: 3
+  },
+  {
+    title: 'IT Support & Maintenance',
+    description: 'Ongoing IT support, monitoring and maintenance.',
+    status: 'Active', type: 'IT Support', tone: 'sky', icon: <FiHeadphones />,
+    start: 'Jan 01, 2026', end: 'Dec 31, 2026', progress: 90, team: [0], more: 0, updated: 2,
+    taskLabel: 'View Tickets'
+  },
+  {
+    title: 'Branding & Creatives',
+    description: 'Brand identity, creatives and marketing collaterals.',
+    status: 'On Hold', type: 'Design', tone: 'rose', icon: <MdOutlinePalette />,
+    start: 'Mar 10, 2026', end: 'On Hold', progress: 25, team: [1, 0, 2], more: 1, updated: 1
+  }
+];
+
+const stats = [
+  { label: 'Active Services', value: 6, icon: <FiBriefcase />, tone: 'blue' },
+  { label: 'Completed Services', value: 3, icon: <FiCheckCircle />, tone: 'green' },
+  { label: 'In Progress', value: 4, icon: <FiRefreshCw />, tone: 'orange' },
+  { label: 'Support Retainers', value: 2, icon: <FiHeadphones />, tone: 'purple' }
+];
+
+const deliverables = [
+  { month: 'Jun', day: '10', title: 'Website Redesign', text: 'Homepage UI Concepts', due: 'In 2 days' },
+  { month: 'Jun', day: '15', title: 'SEO Optimization', text: 'Technical Audit Report', due: 'In 7 days' },
+  { month: 'Jun', day: '20', title: 'Mobile App Development', text: 'Beta Build v1.0', due: 'In 12 days' }
+];
+
+const updates = [
+  { title: 'Website Redesign', text: 'UI Design phase completed', date: 'Jun 8, 2026', tone: 'blue' },
+  { title: 'SEO Optimization', text: 'Keyword research updated', date: 'Jun 7, 2026', tone: 'green' },
+  { title: 'IT Support & Maintenance', text: 'Monthly maintenance completed', date: 'Jun 6, 2026', tone: 'blue' }
+];
+
+const timeline = [
+  { title: 'Discovery', date: 'May 10, 2026', state: 'Completed', tone: 'done', icon: <FiCheck /> },
+  { title: 'UI Design', date: 'May 28, 2026', state: 'Completed', tone: 'done', icon: <FiCheck /> },
+  { title: 'Development', date: 'Jun 1 - Jun 22', state: 'In Progress', tone: 'active', icon: <FiBarChart2 /> },
+  { title: 'Testing', date: 'Jun 23 - Jun 28', state: 'Upcoming', tone: 'next', icon: <FiClock /> },
+  { title: 'Launch', date: 'Jun 30, 2026', state: 'Upcoming', tone: 'next', icon: <FiSend /> }
+];
+
+const serviceTypes = [...new Set(services.map((service) => service.type))];
+
 const MyServicesPage = () => {
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState('All Status');
+  const [serviceType, setServiceType] = useState('All Types');
+  const [sortBy, setSortBy] = useState('Recently Updated');
+
+  const filteredServices = useMemo(() => {
+    const text = query.trim().toLowerCase();
+    return services
+      .filter((service) => (
+        (!text || `${service.title} ${service.description} ${service.type}`.toLowerCase().includes(text))
+        && (status === 'All Status' || service.status === status)
+        && (serviceType === 'All Types' || service.type === serviceType)
+      ))
+      .sort((a, b) => {
+        if (sortBy === 'Progress: High to Low') return b.progress - a.progress;
+        if (sortBy === 'Progress: Low to High') return a.progress - b.progress;
+        if (sortBy === 'Name: A to Z') return a.title.localeCompare(b.title);
+        return b.updated - a.updated;
+      });
+  }, [query, serviceType, sortBy, status]);
+
   return (
-    <div className="dashboard-container">
-      {/* Welcome Header */}
-      <div className="welcome-header">
-        <div>
-          <h2>Welcome back, Test123</h2>
-          <p>Search services, invoices, tickets.</p>
-        </div>
-        <button className="quick-action-btn">Quick Action</button>
-      </div>
-
-      {/* Stats Row */}
-      <div className="stats-row">
-        <div className="stat-card blue">
-          <div className="stat-value">6</div>
-          <div className="stat-label">Active Services</div>
-        </div>
-        <div className="stat-card green">
-          <div className="stat-value">3</div>
-          <div className="stat-label">Completed Services</div>
-        </div>
-        <div className="stat-card purple">
-          <div className="stat-value">4</div>
-          <div className="stat-label">In Progress</div>
-        </div>
-        <div className="stat-card orange">
-          <div className="stat-value">2</div>
-          <div className="stat-label">Support Retainers</div>
-        </div>
-      </div>
-
-      {/* My Services Section */}
-      <div className="section-header">
-        <div>
-          <h3>My Services</h3>
-          <p>Track all your active services, progress, timelines and assigned teams.</p>
-        </div>
-        <button className="view-all-btn">View All</button>
-      </div>
-
-      {/* Search and Filters */}
-      <div className="filters-bar">
-        <div className="search-box">
-          <FiSearch />
-          <input type="text" placeholder="Search services by name or keyword..." />
-        </div>
-        <div className="filter-group">
-          <select className="filter-select">
-            <option>All Status</option>
-            <option>Active</option>
-            <option>In Progress</option>
-            <option>On Hold</option>
-            <option>Completed</option>
-          </select>
-          <select className="filter-select">
-            <option>All Types</option>
-            <option>Design</option>
-            <option>Development</option>
-            <option>Marketing</option>
-          </select>
-          <select className="filter-select">
-            <option>Recently Updated</option>
-            <option>Oldest</option>
-            <option>A-Z</option>
-          </select>
-          <button className="sort-btn">
-            <FiSliders /> Sort By
-          </button>
-        </div>
-        <button className="request-service-btn">
-          <FiPlus /> Request New Service
-        </button>
-      </div>
-
-      {/* Service Cards Grid */}
-      <div className="services-grid">
-        {/* Card 1 - Website Redesign */}
-        <div className="service-card">
-          <div className="card-header">
-            <div>
-              <span className="service-type">Website Redesign</span>
-              <div className="status-badge in-progress">In Progress</div>
-            </div>
-            <div className="date-badge">
-              <FiCalendar /> <span>In 2 days</span>
-            </div>
+    <div className="MyServices-shell">
+      <div className="MyServices-dashboard">
+        <header className="MyServices-heading">
+          <div>
+            <h1>My Services</h1>
+            <p>Track all your active services, progress, timelines and assigned teams.</p>
           </div>
-          <p className="service-desc">Redesigning corporate website with modern UI/UX and CMS.</p>
-          <div className="progress-section">
-            <div className="progress-label">
-              <span>60%</span>
-              <span>Complete</span>
-            </div>
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: '60%' }}></div>
-            </div>
-          </div>
-          <div className="date-info">
-            <div>
-              <span>Start Date</span>
-              <strong>May 10, 2026</strong>
-            </div>
-            <div>
-              <span>End Date</span>
-              <strong>Jun 30, 2026</strong>
-            </div>
-          </div>
-          <div className="card-actions">
-            <button className="action-link">View Details</button>
-            <button className="action-link">View Tasks</button>
-            <button className="action-link">Contact Team</button>
-          </div>
-        </div>
-
-        {/* Card 2 - SEO Optimization */}
-        <div className="service-card">
-          <div className="card-header">
-            <div>
-              <span className="service-type">SEO Optimization</span>
-              <div className="status-badge active">Active</div>
-            </div>
-            <div className="date-badge">
-              <FiCalendar /> <span>In 7 days</span>
-            </div>
-          </div>
-          <p className="service-desc">Improving website visibility and ranking across target keywords.</p>
-          <div className="progress-section">
-            <div className="progress-label">
-              <span>75%</span>
-              <span>Complete</span>
-            </div>
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: '75%' }}></div>
-            </div>
-          </div>
-          <div className="date-info">
-            <div>
-              <span>Start Date</span>
-              <strong>Apr 15, 2026</strong>
-            </div>
-            <div>
-              <span>End Date</span>
-              <strong>Aug 15, 2026</strong>
-            </div>
-          </div>
-          <div className="card-actions">
-            <button className="action-link">View Details</button>
-            <button className="action-link">View Tasks</button>
-            <button className="action-link">Contact Team</button>
-          </div>
-        </div>
-
-        {/* Card 3 - Social Media Management */}
-        <div className="service-card">
-          <div className="card-header">
-            <div>
-              <span className="service-type">Social Media Management</span>
-              <div className="status-badge active">Active</div>
-            </div>
-            <div className="date-badge">
-              <FiCalendar /> <span>In 15 days</span>
-            </div>
-          </div>
-          <p className="service-desc">Managing social channels and content strategy.</p>
-          <div className="progress-section">
-            <div className="progress-label">
-              <span>80%</span>
-              <span>Complete</span>
-            </div>
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: '80%' }}></div>
-            </div>
-          </div>
-          <div className="date-info">
-            <div>
-              <span>Start Date</span>
-              <strong>Apr 20, 2026</strong>
-            </div>
-            <div>
-              <span>End Date</span>
-              <strong>Ongoing</strong>
-            </div>
-          </div>
-          <div className="card-actions">
-            <button className="action-link">View Details</button>
-            <button className="action-link">View Tasks</button>
-            <button className="action-link">Contact Team</button>
-          </div>
-        </div>
-
-        {/* Card 4 - Mobile App Development */}
-        <div className="service-card">
-          <div className="card-header">
-            <div>
-              <span className="service-type">Mobile App Development</span>
-              <div className="status-badge in-progress">In Progress</div>
-            </div>
-            <div className="date-badge">
-              <FiCalendar /> <span>In 12 days</span>
-            </div>
-          </div>
-          <p className="service-desc">Building cross-platform mobile app for iOS and Android.</p>
-          <div className="progress-section">
-            <div className="progress-label">
-              <span>40%</span>
-              <span>Complete</span>
-            </div>
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: '40%' }}></div>
-            </div>
-          </div>
-          <div className="date-info">
-            <div>
-              <span>Start Date</span>
-              <strong>May 15, 2026</strong>
-            </div>
-            <div>
-              <span>End Date</span>
-              <strong>Aug 30, 2026</strong>
-            </div>
-          </div>
-          <div className="card-actions">
-            <button className="action-link">View Details</button>
-            <button className="action-link">View Tasks</button>
-            <button className="action-link">Contact Team</button>
-          </div>
-        </div>
-
-        {/* Card 5 - IT Support & Maintenance */}
-        <div className="service-card">
-          <div className="card-header">
-            <div>
-              <span className="service-type">IT Support & Maintenance</span>
-              <div className="status-badge active">Active</div>
-            </div>
-            <div className="date-badge">
-              <FiCalendar /> <span>Ongoing</span>
-            </div>
-          </div>
-          <p className="service-desc">Ongoing IT support, monitoring and maintenance.</p>
-          <div className="progress-section">
-            <div className="progress-label">
-              <span>90%</span>
-              <span>Complete</span>
-            </div>
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: '90%' }}></div>
-            </div>
-          </div>
-          <div className="date-info">
-            <div>
-              <span>Start Date</span>
-              <strong>Jun 01, 2026</strong>
-            </div>
-            <div>
-              <span>End Date</span>
-              <strong>Dec 31, 2026</strong>
-            </div>
-          </div>
-          <div className="card-actions">
-            <button className="action-link">View Details</button>
-            <button className="action-link">View Tasks</button>
-            <button className="action-link">Contact Team</button>
-          </div>
-        </div>
-
-        {/* Card 6 - Branding & Creatives */}
-        <div className="service-card">
-          <div className="card-header">
-            <div>
-              <span className="service-type">Branding & Creatives</span>
-              <div className="status-badge on-hold">On Hold</div>
-            </div>
-            <div className="date-badge">
-              <FiCalendar /> <span>Paused</span>
-            </div>
-          </div>
-          <p className="service-desc">Brand identity, creatives and marketing collaterals.</p>
-          <div className="progress-section">
-            <div className="progress-label">
-              <span>25%</span>
-              <span>Complete</span>
-            </div>
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: '25%' }}></div>
-            </div>
-          </div>
-          <div className="date-info">
-            <div>
-              <span>Start Date</span>
-              <strong>Mar 10, 2026</strong>
-            </div>
-            <div>
-              <span>End Date</span>
-              <strong>On Hold</strong>
-            </div>
-          </div>
-          <div className="card-actions">
-            <button className="action-link">View Details</button>
-            <button className="action-link">View Tasks</button>
-            <button className="action-link">Contact Team</button>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom Section: Recent Updates & Billing */}
-      <div className="bottom-section">
-        {/* Recent Service Updates */}
-        <div className="recent-updates">
-          <div className="section-header small">
-            <h4>Recent Service Updates</h4>
-            <button className="view-all-text">View All</button>
-          </div>
-          <div className="updates-list">
-            <div className="update-item">
-              <div className="update-dot blue"></div>
-              <div className="update-content">
-                <p><strong>Website Redesign</strong> - UI Design phase completed</p>
-                <span>Jun 8, 2026</span>
+          <div className="MyServices-stats">
+            {stats.map((item) => (
+              <div className="MyServices-stat" key={item.label}>
+                <span className={item.tone}>{item.icon}</span>
+                <div><small>{item.label}</small><strong>{item.value}</strong></div>
               </div>
-            </div>
-            <div className="update-item">
-              <div className="update-dot green"></div>
-              <div className="update-content">
-                <p><strong>SEO Optimization</strong> - Keyword research updated</p>
-                <span>Jun 7, 2026</span>
-              </div>
-            </div>
-            <div className="update-item">
-              <div className="update-dot purple"></div>
-              <div className="update-content">
-                <p><strong>Mobile App Development</strong> - In Progress</p>
-                <span>Jun 6, 2026</span>
-              </div>
-            </div>
-            <div className="update-item">
-              <div className="update-dot orange"></div>
-              <div className="update-content">
-                <p><strong>IT Support & Maintenance</strong> - Monthly maintenance completed</p>
-                <span>Jun 6, 2026</span>
-              </div>
-            </div>
+            ))}
           </div>
-        </div>
+        </header>
 
-        {/* Billing Snapshot */}
-        <div className="billing-snapshot">
-          <div className="section-header small">
-            <h4>Billing Snapshot</h4>
-            <button className="view-all-text">View All Invoices</button>
-          </div>
-          <div className="billing-stats">
-            <div className="billing-item">
-              <div className="billing-value">₹1,24,500</div>
-              <div className="billing-label">Total Outstanding</div>
-            </div>
-            <div className="billing-item">
-              <div className="billing-value">3</div>
-              <div className="billing-label">Unpaid Invoices</div>
-            </div>
-          </div>
-          <div className="invoice-breakdown">
-            <div className="breakdown-item overdue">
-              <span>Overdue</span>
-              <strong>₹32,000</strong>
-            </div>
-            <div className="breakdown-item due-this-month">
-              <span>Due This Month</span>
-              <strong>₹18,000</strong>
-            </div>
-            <div className="breakdown-item not-due">
-              <span>Not Due Yet</span>
-              <strong>₹74,500</strong>
-            </div>
-          </div>
-          <button className="view-all-services">View All Services</button>
-        </div>
+        <div className="MyServices-content">
+          <div className="MyServices-left">
+            <section className="MyServices-services-panel">
+              <div className="MyServices-filterbar">
+                <label className="MyServices-service-search">
+                  <input aria-label="Search services" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search services by name or keyword..." />
+                  <FiSearch />
+                </label>
+                <label className="MyServices-filter">
+                  <span>Status</span>
+                  <select value={status} onChange={(e) => setStatus(e.target.value)}>
+                    <option>All Status</option><option>Active</option><option>In Progress</option><option>On Hold</option>
+                  </select>
+                  <FiChevronDown />
+                </label>
+                <label className="MyServices-filter">
+                  <span>Service Type</span>
+                  <select value={serviceType} onChange={(e) => setServiceType(e.target.value)}>
+                    <option>All Types</option>{serviceTypes.map((type) => <option key={type}>{type}</option>)}
+                  </select>
+                  <FiChevronDown />
+                </label>
+                <label className="MyServices-filter">
+                  <span>Sort By</span>
+                  <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                    <option>Recently Updated</option><option>Progress: High to Low</option>
+                    <option>Progress: Low to High</option><option>Name: A to Z</option>
+                  </select>
+                  <FiChevronDown />
+                </label>
+                <button className="MyServices-request" type="button"><FiPlus /> Request New Service</button>
+              </div>
 
-        {/* Service Timeline Section */}
-        <div className="timeline-section">
-          <div className="timeline-header">
-            <div>
-              <h4>Service Timeline: Website Redesign</h4>
-              <div className="timeline-status in-progress">In Progress</div>
-            </div>
-            <button className="view-all-text">View All</button>
-          </div>
-          <div className="timeline-steps">
-            <div className="timeline-step completed">
-              <div className="step-icon"><FiCheckCircle /></div>
-              <div className="step-info">
-                <strong>Discovery</strong>
-                <span>May 10, 2026</span>
-              </div>
-              <div className="step-status">Completed</div>
-            </div>
-            <div className="timeline-step completed">
-              <div className="step-icon"><FiCheckCircle /></div>
-              <div className="step-info">
-                <strong>UI Design</strong>
-                <span>May 28, 2026</span>
-              </div>
-              <div className="step-status">Completed</div>
-            </div>
-            <div className="timeline-step active">
-              <div className="step-icon"><FiActivity /></div>
-              <div className="step-info">
-                <strong>Development</strong>
-                <span>Jun 1 - Jun 22</span>
-              </div>
-              <div className="step-status">In Progress</div>
-            </div>
-            <div className="timeline-step upcoming">
-              <div className="step-icon"><FiClock /></div>
-              <div className="step-info">
-                <strong>Testing</strong>
-                <span>Jun 23 - Jun 28</span>
-              </div>
-              <div className="step-status">Upcoming</div>
-            </div>
-            <div className="timeline-step upcoming">
-              <div className="step-icon"><FiClock /></div>
-              <div className="step-info">
-                <strong>Launch</strong>
-                <span>Jun 30, 2026</span>
-              </div>
-              <div className="step-status">Upcoming</div>
-            </div>
-          </div>
-        </div>
-      </div>
+              {filteredServices.length ? (
+                <div className="MyServices-grid">
+                  {filteredServices.map((service) => (
+                    <article className="MyServices-card" key={service.title}>
+                      <div className="MyServices-card-top">
+                        <span className={`MyServices-service-icon ${service.tone}`}>{service.icon}</span>
+                        <div className="MyServices-card-copy"><h2>{service.title}</h2><p>{service.description}</p></div>
+                        <span className={`MyServices-badge ${service.status.replace(/\s/g, '-').toLowerCase()}`}>{service.status}</span>
+                      </div>
+                      <div className="MyServices-dates">
+                        <span><FiCalendar /><strong>Start Date</strong></span><time>{service.start}</time>
+                        <span><FiCalendar /></span><time>{service.end}</time>
+                      </div>
+                      <div className="MyServices-progress-row">
+                        <div className="MyServices-avatars">
+                          {service.team.map((index) => <img key={`${service.title}-${index}`} src={people[index].photo} alt={people[index].name} />)}
+                          {service.more > 0 && <span>+{service.more}</span>}
+                        </div>
+                        <strong>{service.progress}%</strong>
+                      </div>
+                      <div className={`MyServices-progress ${service.tone}`}><span style={{ width: `${service.progress}%` }} /></div>
+                      <footer>
+                        <button type="button"><FiFileText /> View Details</button>
+                        <button type="button"><FiFileText /> {service.taskLabel || 'View Tasks'}</button>
+                        <button type="button"><FiMessageSquare /> Contact Team</button>
+                      </footer>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="MyServices-empty"><FiSearch /><strong>No services found</strong><span>Try changing your search or filters.</span></div>
+              )}
+              <button className="MyServices-view-all" type="button">View All Services <FiChevronRight /></button>
+            </section>
 
-      {/* Team Assigned Section */}
-      <div className="team-section">
-        <div className="team-header">
-          <h4>Team Assigned</h4>
-          <button className="view-all-text">View All</button>
-        </div>
-        <div className="team-members">
-          <div className="member-card">
-            <div className="member-avatar">RS</div>
-            <div className="member-info">
-              <strong>Rahul Sharma</strong>
-              <span>Project Manager</span>
-            </div>
-          </div>
-          <div className="member-card">
-            <div className="member-avatar">PM</div>
-            <div className="member-info">
-              <strong>Priya Mehta</strong>
-              <span>UI/UX Designer</span>
-            </div>
-          </div>
-          <div className="member-card">
-            <div className="member-avatar">AV</div>
-            <div className="member-info">
-              <strong>Amit Verma</strong>
-              <span>Frontend Developer</span>
-            </div>
-          </div>
-          <div className="member-card">
-            <div className="member-avatar">KS</div>
-            <div className="member-info">
-              <strong>Karan Singh</strong>
-              <span>Backend Developer</span>
-            </div>
-          </div>
-          <div className="member-card more-members">
-            <div className="member-avatar">+2</div>
-            <div className="member-info">
-              <strong>More Members</strong>
-              <span>Support Team</span>
-            </div>
-          </div>
-        </div>
-      </div>
+            <div className="MyServices-bottom">
+              <section className="MyServices-timeline">
+                <header><h3>Service Timeline: Website Redesign</h3><span>In Progress</span></header>
+                <div className="MyServices-timeline-track">
+                  {timeline.map((step) => (
+                    <div className={`MyServices-step ${step.tone}`} key={step.title}>
+                      <i>{step.icon}</i><strong>{step.title}</strong><time>{step.date}</time><small>{step.state}</small>
+                    </div>
+                  ))}
+                </div>
+              </section>
 
-      {/* Account Manager Section */}
-      <div className="account-manager">
-        <div className="manager-info">
-          <div className="manager-avatar">RS</div>
-          <div className="manager-details">
-            <p>Your Account Manager</p>
-            <h4>Rahul Sharma</h4>
-            <span>rahul.sharma@ciisnetwork.com</span>
-            <span>+919876787645</span>
+              <section className="MyServices-team-panel">
+                <header><h3>Team Assigned</h3><button type="button">View All</button></header>
+                {people.map((person) => (
+                  <div className="MyServices-team-row" key={person.name}>
+                    <img src={person.photo} alt={person.name} /><strong>{person.name}</strong><span>{person.role}</span>
+                  </div>
+                ))}
+                <div className="MyServices-team-row">
+                  <i>+2</i><strong>+2 More Members</strong><span>Support Team</span>
+                </div>
+              </section>
+            </div>
           </div>
+
+          <aside className="MyServices-sidebar">
+            <section className="MyServices-side-panel MyServices-deliverables">
+              <header><h3><FiCalendar /> Upcoming Deliverables</h3><button type="button">View All</button></header>
+              {deliverables.map((item) => (
+                <div className="MyServices-deliverable" key={item.day}>
+                  <time><span>{item.month}</span><strong>{item.day}</strong></time>
+                  <div><strong>{item.title}</strong><p>{item.text}</p></div>
+                  <em>{item.due}</em>
+                </div>
+              ))}
+              <button className="MyServices-side-link" type="button">View All Deliverables <FiChevronRight /></button>
+            </section>
+
+            <section className="MyServices-side-panel MyServices-updates">
+              <header><h3><FiClock /> Recent Service Updates</h3><button type="button">View All</button></header>
+              {updates.map((item) => (
+                <div className="MyServices-update" key={item.title}>
+                  <i className={item.tone}><FiTarget /></i>
+                  <div><strong>{item.title}</strong><p>{item.text}</p></div>
+                  <time>{item.date}</time><b className={item.tone} />
+                </div>
+              ))}
+            </section>
+
+            <section className="MyServices-side-panel MyServices-billing">
+              <header><h3><FiCalendar /> Billing Snapshot</h3><button type="button">View All Invoices</button></header>
+              <div className="MyServices-bill-main">
+                <strong>₹1,24,500<small>Total Outstanding</small></strong>
+                <strong>3<small>Unpaid Invoices</small></strong>
+              </div>
+              <div className="MyServices-bill-details">
+                <span>Overdue<strong>₹32,000</strong></span>
+                <span>Due This Month<strong>₹18,000</strong></span>
+                <span>Not Due Yet<strong>₹74,500</strong></span>
+              </div>
+            </section>
+
+            <section className="MyServices-side-panel MyServices-manager">
+              <header><h3><FiUsers /> Your Account Manager</h3><button type="button">View Profile</button></header>
+              <div className="MyServices-manager-info">
+                <div className="MyServices-manager-photo"><img src={people[0].photo} alt="Rahul Sharma" /><span /></div>
+                <div>
+                  <strong>Rahul Sharma</strong><p>Account Manager</p>
+                  <a href="mailto:rahul.sharma@ciisnetwork.com"><FiMail /> rahul.sharma@ciisnetwork.com</a>
+                  <a href="tel:+919876787645"><FiPhone /> +91 98767 87645</a>
+                </div>
+              </div>
+              <button className="MyServices-message" type="button"><FiMessageSquare /> Message Rahul</button>
+            </section>
+          </aside>
         </div>
-        <button className="message-btn">
-          <FiMessageCircle /> Message Rahul
-        </button>
       </div>
     </div>
   );

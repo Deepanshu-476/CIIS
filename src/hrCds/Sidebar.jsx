@@ -364,26 +364,26 @@ const clientMenuItems = [
     order: 2
   },
   {
+    id: 'client-tasks-updates',
+    name: 'Tasks & Updates',
+    icon: 'Task',
+    path: '/client/tasks-updates',
+    category: 'main',
+    order: 3
+  },
+  {
     id: 'client-marketplace',
     name: 'Service Marketplace',
     icon: 'Folder',
     path: '/client/marketplace',
     category: 'main',
-    order: 3
+    order: 4
   },
   {
     id: 'client-support-tickets',
     name: 'Support Tickets',
     icon: 'Support',
     path: '/client/support-tickets',
-    category: 'main',
-    order: 4
-  },
-  {
-    id: 'client-ai-assistant',
-    name: 'AI Assistant',
-    icon: 'Computer',
-    path: '/client/ai-assistant',
     category: 'main',
     order: 5
   },
@@ -402,22 +402,6 @@ const clientMenuItems = [
     path: '/client/payments',
     category: 'main',
     order: 7
-  },
-  {
-    id: 'client-notifications',
-    name: 'Notifications',
-    icon: 'Notifications',
-    path: '/client/notifications',
-    category: 'main',
-    order: 8
-  },
-  {
-    id: 'client-settings',
-    name: 'Account Settings',
-    icon: 'Settings',
-    path: '/client/settings',
-    category: 'main',
-    order: 9
   },
   {
     id: 'change-password',
@@ -688,12 +672,10 @@ const getPathFromName = (name) => {
 'Payment': '/client/payments',
   'Payments': '/client/payments',
   'My Services': '/client/my-services',
+  'Tasks & Updates': '/client/tasks-updates',
   'Service Marketplace': '/client/marketplace',
   'Support Tickets': '/client/support-tickets',
-  'AI Assistant': '/client/ai-assistant',
   'Documents': '/client/documents',
-  'Notifications': '/client/notifications',
-  'Account Settings': '/client/settings',
     'Services & Tasks': '/client/services-tasks'
   };
   

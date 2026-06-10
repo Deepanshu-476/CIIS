@@ -2,6 +2,7 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   FiGrid,
+  FiCheckSquare,
   FiPackage,
   FiShoppingBag,
   FiLifeBuoy,
@@ -26,6 +27,7 @@ const ClientLayout = () => {
   const menuItems = [
     { path: '/client/dashboard', name: 'Dashboard', icon: <FiGrid size={18} /> },
     { path: '/client/my-services', name: 'My Services', icon: <FiPackage size={18} /> },
+    { path: '/client/tasks-updates', name: 'Tasks & Updates', icon: <FiCheckSquare size={18} /> },
     { path: '/client/marketplace', name: 'Service Marketplace', icon: <FiShoppingBag size={18} /> },
     { path: '/client/support-tickets', name: 'Support Tickets', icon: <FiLifeBuoy size={18} /> },
     { path: '/client/ai-assistant', name: 'AI Assistant', icon: <FiCpu size={18} /> },

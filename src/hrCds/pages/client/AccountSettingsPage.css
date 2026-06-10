@@ -1,0 +1,74 @@
+.ClientPageBase-root {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.ClientPageBase-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 26px 28px;
+  border-radius: 22px;
+  background: white;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+}
+
+.ClientPageBase-header p {
+  margin: 0 0 10px;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ClientPageBase-header h1 {
+  margin: 0;
+  font-size: 30px;
+}
+
+.ClientPageBase-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ClientPageBase-card {
+  background: white;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.08);
+  display: grid;
+  gap: 16px;
+}
+
+.ClientPageBase-card-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.ClientPageBase-card span {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.ClientPageBase-card h2 {
+  margin: 0;
+}
+
+.ClientPageBase-card p {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.7;
+}
+
+@media (max-width: 1080px) {
+  .ClientPageBase-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -30,12 +30,23 @@ const MessageBubble = ({
 
     const isDeletedForEveryone = Boolean(message.deletedForEveryone);
     const mediaType = message.mediaType || message.type || message.fileType;
-    const rawMediaUrl = message.mediaUrl || message.fileUrl || message.attachmentUrl || message.file;
-    const mediaUrl = rawMediaUrl
-        ? rawMediaUrl.startsWith("http")
-            ? rawMediaUrl
-            : `${API_URL_IMG.replace(/\/$/, "")}${rawMediaUrl.startsWith("/") ? rawMediaUrl : `/${rawMediaUrl}`}`
-        : "";
+    const getRawMediaUrl = () => {
+        const raw = message.mediaUrl || message.fileUrl || message.attachmentUrl || message.file;
+        if (!raw) return "";
+        if (typeof raw === "string") return raw;
+        if (typeof raw === "object") {
+            return raw.url || raw.path || raw.fileUrl || raw.attachmentUrl || "";
+        }
+        return "";
+    };
+    const rawMediaUrl = getRawMediaUrl();
+    const normalizeMediaUrl = (url) => {
+        if (!url) return "";
+        return url.startsWith("http")
+            ? url
+            : `${API_URL_IMG.replace(/\/$/, "")}${url.startsWith("/") ? url : `/${url}`}`;
+    };
+    const mediaUrl = normalizeMediaUrl(rawMediaUrl);
     const normalizedMediaType = (mediaType || "").toLowerCase();
     const mediaPath = (mediaUrl || "").split("?")[0].toLowerCase();
     const isImageMedia = normalizedMediaType.startsWith("image") || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(mediaPath);
@@ -46,6 +57,12 @@ const MessageBubble = ({
         normalizedMediaType.startsWith("video") || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i.test(mediaPath)
     );
     const isAudioOnly = Boolean(isAudioMedia && mediaUrl && !message.text && !isDeletedForEveryone);
+
+    useEffect(() => {
+        setIsAudioPlaying(false);
+        setAudioCurrentTime(0);
+        setAudioDuration(0);
+    }, [mediaUrl]);
 
     const forwardCandidates = useMemo(() => (
         users.filter((user) => user._id !== currentUser?._id)
@@ -95,7 +112,10 @@ const MessageBubble = ({
         if (!audio) return;
 
         if (audio.paused) {
-            audio.play().catch(() => setIsAudioPlaying(false));
+            audio.play().catch((error) => {
+                console.warn("Voice note playback failed", error);
+                setIsAudioPlaying(false);
+            });
         } else {
             audio.pause();
         }
@@ -124,6 +144,7 @@ const MessageBubble = ({
                 ref={audioRef}
                 src={mediaUrl}
                 preload="metadata"
+                controls
                 onLoadedMetadata={(event) => setAudioDuration(event.currentTarget.duration || 0)}
                 onTimeUpdate={(event) => setAudioCurrentTime(event.currentTarget.currentTime || 0)}
                 onPlay={() => setIsAudioPlaying(true)}
@@ -131,6 +152,9 @@ const MessageBubble = ({
                 onEnded={() => {
                     setIsAudioPlaying(false);
                     setAudioCurrentTime(0);
+                }}
+                onError={(event) => {
+                    console.warn("Voice note load error", event);
                 }}
             />
             <div className="voice-avatar">
@@ -161,7 +185,9 @@ const MessageBubble = ({
     );
 
     const renderMedia = () => {
-        if (!mediaUrl) return null;
+        if (!mediaUrl) {
+            return null;
+        }
 
         if (isImageMedia) {
             return (

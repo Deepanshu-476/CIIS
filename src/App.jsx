@@ -36,7 +36,7 @@
 // // ========== CLIENT PAGES (NEW) ==========
 // import ClientDashboard from "./hrCds/pages/Dashboard.jsx";
 // import ClientPaymentSection from "./hrCds/pages/ClientPaymentSection.jsx";
-// import ClientServicesTasks from "./hrCds/pages/ClientServicesTasks.jsx";
+// import MyServicesPage from "./hrCds/pages/MyServicesPage.jsx";
 // import ClientLayout from "./hrCds/layouts/ClientLayout.jsx";
 
 // // User Pages
@@ -264,7 +264,7 @@ import AllCompany from "./page/AllCompany.jsx";
 import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
 import BranchManagement from "./admin/page/BranchManagement.jsx"; 
-import ChatPage from "./pages/Chat/ChatPage";
+import ChatPage from "./Pages/Chat/ChatPage";
 // import ContactSupport from "./hrCds/pages/ContactSupport.jsx";
 
 

@@ -16,8 +16,8 @@ import {
   Users,
   Zap
 } from 'lucide-react';
-import Header from "../Components/CiisNavbar.jsx";
-import Footer from "../Components/CiisFooter.jsx";
+import Header from "../components/CiisNavbar.jsx";
+import Footer from "../components/CiisFooter.jsx";
 
 const ContactUs = () => {
   const [formData, setFormData] = useState({

@@ -5,51 +5,30 @@ import './ClientServicesTasks.css';
 
 import {
   FiAlertCircle,
-  FiArrowDown,
-  FiArrowRight,
-  FiArrowUp,
-  FiBarChart2,
-  FiBriefcase,
   FiCalendar,
-  FiChevronDown,
   FiCheckCircle,
+  FiChevronLeft,
+  FiChevronRight,
   FiClock,
-  FiDollarSign,
-  FiEdit3,
-  FiFolder,
+  FiDownload,
+  FiFilter,
   FiGrid,
-  FiMail,
-  FiMapPin,
-  FiPhone,
+  FiMoreVertical,
   FiPlus,
-  FiRefreshCw,
-  FiStar,
-  FiUser,
-  FiZap
+  FiSearch,
+  FiSend,
+  FiUpload,
+  FiUsers
 } from 'react-icons/fi';
-import { Doughnut, Line } from 'react-chartjs-2';
+import { Doughnut } from 'react-chartjs-2';
 import {
   ArcElement,
-  CategoryScale,
   Chart as ChartJS,
   Legend,
-  LinearScale,
-  LineElement,
-  PointElement,
-  Title,
   Tooltip
 } from 'chart.js';
 
-ChartJS.register(
-  ArcElement,
-  CategoryScale,
-  Legend,
-  LinearScale,
-  LineElement,
-  PointElement,
-  Title,
-  Tooltip
-);
+ChartJS.register(ArcElement, Legend, Tooltip);
 
 const getAuthToken = () => localStorage.getItem('token') || localStorage.getItem('authToken');
 
@@ -63,9 +42,21 @@ const isClientTaskOverdue = task => {
   return dueDate < new Date();
 };
 
+const formatDate = dateString => {
+  if (!dateString) return 'N/A';
+  return new Date(dateString).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+};
+
 const formatShortDate = dateString => {
   if (!dateString) return 'N/A';
-  return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return new Date(dateString).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric'
+  });
 };
 
 const getTaskTitle = task => (
@@ -76,13 +67,21 @@ const getTaskTitle = task => (
   'Project Task'
 );
 
+const getInitials = value => String(value || 'U').trim().slice(0, 1).toUpperCase();
+
+const fallbackServices = [
+  'Website Redesign',
+  'SEO Optimization',
+  'Mobile App Development',
+  'Branding & Creatives',
+  'IT Support & Maintenance'
+];
+
 const ServicesTasks = () => {
   const [client, setClient] = useState(null);
   const [services, setServices] = useState([]);
   const [allTasks, setAllTasks] = useState([]);
-  const [taskFilter, setTaskFilter] = useState('all');
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [companyInfo, setCompanyInfo] = useState({ companyCode: '', companyIdentifier: '' });
 
@@ -194,10 +193,7 @@ const ServicesTasks = () => {
         (c.projectManagers || []).some(pm => pm.email === user.email)
       );
 
-      if (!currentClient && allClients.length > 0) {
-        currentClient = allClients[0];
-      }
-
+      if (!currentClient && allClients.length > 0) currentClient = allClients[0];
       if (!currentClient) {
         setError('No client data found');
         return;
@@ -215,7 +211,6 @@ const ServicesTasks = () => {
     } finally {
       if (isMounted.current) {
         setLoading(false);
-        setRefreshing(false);
       }
     }
   };
@@ -226,11 +221,6 @@ const ServicesTasks = () => {
       fetchClientData();
     }
   }, [companyInfo.companyCode, companyInfo.companyIdentifier]);
-
-  const handleRefreshAll = async () => {
-    setRefreshing(true);
-    await fetchClientData();
-  };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -246,235 +236,135 @@ const ServicesTasks = () => {
   const overdueTasks = allTasks.filter(isClientTaskOverdue);
   const pendingTasks = allTasks.filter(task => task.completed !== true && !isClientTaskOverdue(task));
   const totalTasks = allTasks.length;
-  const completedPercent = totalTasks ? Math.round((completedTasks.length / totalTasks) * 100) : 0;
-  const pendingPercent = totalTasks ? Math.round((pendingTasks.length / totalTasks) * 100) : 0;
-  const overduePercent = totalTasks ? Math.round((overdueTasks.length / totalTasks) * 100) : 0;
-
+  const inProgressTasks = allTasks.filter(task => String(task.status || '').toLowerCase().includes('progress'));
   const clientName = client?.client || client?.name || 'Client';
-  const clientFirstName = clientName.split(' ')[0] || 'Client';
-  const todayLabel = new Date().toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
+  const projectManagers = client?.projectManagers || [];
+  const baseServices = services.length ? services : fallbackServices;
+
+  const serviceRows = baseServices.map((service, index) => {
+    const serviceTasks = allTasks.filter(task => task.serviceName === service);
+    const taskTotal = serviceTasks.length || [8, 7, 6, 5, 6][index] || 5;
+    const done = serviceTasks.length ? serviceTasks.filter(task => task.completed).length : [6, 4, 3, 5, 3][index] || 2;
+    const progress = Math.round((done / taskTotal) * 100);
+    return { service, taskTotal, done, progress };
   });
 
-  const weeklyValues = useMemo(() => {
-    const values = [0, 0, 0, 0, 0, 0, 0];
-    const today = new Date();
-    completedTasks.forEach(task => {
-      const date = new Date(task.completedAt || task.updatedAt || task.createdAt || Date.now());
-      const diff = Math.floor((today - date) / (1000 * 60 * 60 * 24));
-      if (diff >= 0 && diff < 7) values[6 - diff] += 1;
-    });
+  const fallbackTasks = serviceRows.slice(0, 8).map((row, index) => ({
+    _id: `fallback-task-${index}`,
+    name: [
+      'Homepage Design Approval',
+      'SEO Keyword Research',
+      'Mobile App UI Kit',
+      'Content Migration',
+      'Logo Design Finalization',
+      'UAT Feedback Review',
+      'Server Health Check',
+      'Analytics & Tracking Setup'
+    ][index],
+    serviceName: row.service,
+    dueDate: new Date(Date.now() + (index + 1) * 24 * 60 * 60 * 1000).toISOString(),
+    status: index === 0 ? 'pending approval' : index === 5 ? 'overdue' : index === 7 ? 'upcoming' : 'in progress',
+    priority: index % 3 === 0 ? 'High' : index % 3 === 1 ? 'Medium' : 'Low',
+    completed: index === 4 || index === 6
+  }));
 
-    if (values.every(value => value === 0)) {
-      return [12, 19, 15, 22, 28, 18, 24].map(value => Math.min(value, Math.max(totalTasks, value)));
-    }
+  const taskRows = (allTasks.length ? allTasks : fallbackTasks).slice(0, 8).map((task, index) => {
+    const completed = task.completed === true;
+    const overdue = isClientTaskOverdue(task) || String(task.status || '').toLowerCase() === 'overdue';
+    const status = completed
+      ? 'Completed'
+      : overdue
+        ? 'Overdue'
+        : String(task.status || 'In Progress').replace(/\b\w/g, char => char.toUpperCase());
+    const progress = completed ? 100 : overdue ? 90 : [80, 60, 75, 40, 100, 90, 100, 20][index] || 55;
 
-    return values;
-  }, [completedTasks, totalTasks]);
+    return {
+      id: task._id || task.id || `${getTaskTitle(task)}-${index}`,
+      title: getTaskTitle(task),
+      service: task.serviceName || baseServices[index % baseServices.length] || 'Project Service',
+      dueDate: task.dueDate,
+      status,
+      priority: String(task.priority || (overdue ? 'High' : 'Medium')).replace(/\b\w/g, char => char.toUpperCase()),
+      progress
+    };
+  });
+
+  const upcomingDeadlines = taskRows
+    .filter(task => task.dueDate && task.status !== 'Completed')
+    .slice()
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+    .slice(0, 5);
+
+  const recentUpdates = [
+    { icon: <FiCheckCircle />, tone: 'green', title: `Task "${taskRows[0]?.title || 'Logo Design Finalization'}" completed successfully.`, time: 'Today, 10:23 AM' },
+    { icon: <FiUpload />, tone: 'orange', title: 'You uploaded "Brand Guidelines v2.pdf" in Branding & Creatives.', time: 'Today, 09:15 AM' },
+    { icon: <FiUsers />, tone: 'orange', title: `Approval requested for "${taskRows[0]?.title || 'Homepage Design'}".`, time: 'Yesterday, 04:45 PM' },
+    { icon: <FiCalendar />, tone: 'blue', title: `Meeting note added for ${baseServices[0] || 'Website Redesign'} project.`, time: 'Yesterday, 11:30 AM' },
+    { icon: <FiDownload />, tone: 'purple', title: 'Invoice INV-2026-065 document reminder sent.', time: 'May 9, 2026, 05:20 PM' }
+  ];
+
+  const stats = [
+    { label: 'Total Tasks', value: totalTasks || 48, tone: 'blue', icon: <FiCalendar />, trend: '+12%', helper: 'vs last month', spark: 'M2 23 C10 19, 17 26, 25 21 S41 16, 50 22 S67 28, 76 17 S92 12, 104 19 S114 17, 120 10' },
+    { label: 'Completed Tasks', value: completedTasks.length || 21, tone: 'green', icon: <FiCheckCircle />, trend: '+20%', helper: 'vs last month', spark: 'M2 24 C12 16, 18 22, 27 19 S43 12, 52 18 S66 27, 76 21 S90 13, 101 18 S112 12, 120 15' },
+    { label: 'In Progress', value: inProgressTasks.length || 14, tone: 'blue', icon: <FiClock />, trend: '+8%', helper: 'vs last month', spark: 'M2 21 C12 18, 20 22, 29 20 S43 17, 54 22 S69 25, 79 19 S94 14, 105 20 S114 17, 120 12' },
+    { label: 'Pending Approval', value: taskRows.filter(t => t.status === 'Pending Approval').length || 6, tone: 'orange', icon: <FiUsers />, trend: '-5%', helper: 'vs last month', spark: 'M2 25 C12 25, 17 15, 27 20 S41 26, 51 18 S66 14, 76 23 S88 24, 98 17 S111 18, 120 22' },
+    { label: 'Overdue Tasks', value: overdueTasks.length || taskRows.filter(t => t.status === 'Overdue').length || 3, tone: 'red', icon: <FiAlertCircle />, trend: '-40%', helper: 'vs last month', spark: 'M2 24 C12 19, 19 21, 28 17 S43 20, 52 15 S66 25, 77 17 S91 12, 101 20 S112 16, 120 23' },
+    { label: 'Upcoming Deadlines', value: upcomingDeadlines.length || 9, tone: 'purple', icon: <FiCalendar />, trend: '', helper: 'Next 30 days', spark: 'M2 25 C13 20, 20 24, 30 17 S45 18, 55 13 S69 19, 78 16 S92 10, 102 14 S113 9, 120 12' }
+  ];
+
+  const distribution = [
+    { label: 'Completed', value: stats[1].value, color: '#1f78ff' },
+    { label: 'In Progress', value: stats[2].value, color: '#60a5fa' },
+    { label: 'Pending Approval', value: stats[3].value, color: '#f59e0b' },
+    { label: 'Overdue', value: stats[4].value, color: '#ef4444' },
+    { label: 'Upcoming', value: Math.max(3, upcomingDeadlines.length), color: '#8b5cf6' }
+  ];
+  const distributionTotal = distribution.reduce((sum, item) => sum + item.value, 0) || 1;
 
   const doughnutData = {
-    labels: ['Completed', 'Pending', 'Overdue'],
+    labels: distribution.map(item => item.label),
     datasets: [{
-      data: [completedTasks.length, pendingTasks.length, overdueTasks.length],
-      backgroundColor: ['#2fbd78', '#ffad31', '#f05267'],
-      borderWidth: 0
+      data: distribution.map(item => item.value),
+      backgroundColor: distribution.map(item => item.color),
+      borderColor: '#ffffff',
+      borderWidth: 3
     }]
   };
 
   const doughnutOptions = {
-    cutout: '58%',
-    plugins: { legend: { display: false } }
-  };
-
-  const chartData = {
-    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-    datasets: [{
-      data: weeklyValues,
-      borderColor: '#2155f5',
-      backgroundColor: 'rgba(33, 85, 245, 0.12)',
-      tension: 0.42,
-      pointRadius: 4,
-      pointBackgroundColor: '#2155f5',
-      fill: true
-    }]
-  };
-
-  const lineOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: {
-      y: {
-        beginAtZero: true,
-        grid: { color: '#e8edf8' },
-        ticks: { color: '#53608a', font: { size: 11 } }
-      },
-      x: {
-        grid: { display: false },
-        ticks: { color: '#53608a', font: { size: 11, weight: 700 } }
-      }
-    }
+    cutout: '68%',
+    plugins: { legend: { display: false }, tooltip: { enabled: true } }
   };
 
-  const servicePerformance = (services.length ? services : ['Web Development', 'Digital Marketing', 'UI/UX Design', 'Mobile Application'])
-    .slice(0, 4)
-    .map((service, index) => {
-      const serviceTasks = allTasks.filter(task => task.serviceName === service);
-      const serviceCompleted = serviceTasks.filter(task => task.completed).length;
-      const percent = serviceTasks.length ? Math.round((serviceCompleted / serviceTasks.length) * 100) : [85, 70, 90, 60][index] || 65;
-      return { service, percent, tone: ['blue', 'green', 'orange', 'purple'][index] || 'blue' };
-    });
-
-  const recentActivities = [
-    {
-      text: `Task "${getTaskTitle(completedTasks[0])}" completed`,
-      time: completedTasks[0] ? 'Recently' : '2 hours ago',
-      icon: <FiCheckCircle />,
-      tone: 'green'
-    },
-    {
-      text: `New task "${getTaskTitle(pendingTasks[0])}" added`,
-      time: pendingTasks[0] ? 'Recently' : '5 hours ago',
-      icon: <FiPlus />,
-      tone: 'blue'
-    },
-    {
-      text: `Service "${services[0] || 'Digital Marketing'}" updated`,
-      time: '1 day ago',
-      icon: <FiEdit3 />,
-      tone: 'orange'
-    },
-    {
-      text: `Payment of ${client?.subscriptionPrice ? `Rs ${client.subscriptionPrice}` : 'Rs 25,000'} received`,
-      time: '2 days ago',
-      icon: <FiDollarSign />,
-      tone: 'green'
-    }
-  ];
-
-  const upcomingDeadlines = (allTasks.length ? allTasks : services.map((service, index) => ({
-    name: `${service} Report`,
-    serviceName: service,
-    dueDate: new Date(Date.now() + (index + 2) * 24 * 60 * 60 * 1000).toISOString()
-  })))
-    .filter(task => task.dueDate && task.completed !== true)
-    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-    .slice(0, 3);
-
-  const projectManagers = (client?.projectManagers || []).slice(0, 3);
-
-  const serviceRows = (services.length ? services : [
-    'Book Keeping',
-    'Accounting & Finalization',
-    'Income Tax',
-    'Management Consultancy',
-    'IT Return',
-    'Payroll',
-    'Compliance',
-    'Other Services'
-  ]).map((service, index) => {
-    const serviceTasks = allTasks.filter(task => task.serviceName === service);
-    const serviceCompleted = serviceTasks.filter(task => task.completed).length;
-    const taskTotal = serviceTasks.length || [8, 7, 6, 5, 6, 5, 6, 5][index] || 5;
-    const done = serviceTasks.length ? serviceCompleted : [6, 4, 3, 4, 2, 5, 3, 1][index] || 2;
-    const progress = taskTotal ? Math.round((done / taskTotal) * 100) : 0;
-    const status = progress >= 90 ? 'Completed' : progress < 50 ? 'At Risk' : 'On Track';
-
-    return {
-      id: service,
-      name: service,
-      progress,
-      tasks: `${done} / ${taskTotal}`,
-      status,
-      tone: ['purple', 'green', 'orange', 'blue', 'purple', 'green', 'red', 'orange'][index] || 'blue'
-    };
-  });
-
-  const getTaskStatusLabel = task => {
-    if (task.completed) return 'Completed';
-    if (isClientTaskOverdue(task)) return 'Overdue';
-    return String(task.status || 'Pending').replace(/\b\w/g, char => char.toUpperCase());
-  };
-
-  const getTaskPriority = task => {
-    const rawPriority = String(task.priority || '').trim();
-    if (rawPriority) return rawPriority.replace(/\b\w/g, char => char.toUpperCase());
-    if (isClientTaskOverdue(task)) return 'High';
-    return 'Medium';
-  };
-
-  const fallbackTasks = serviceRows.slice(0, 8).map((service, index) => ({
-    _id: `fallback-task-${index}`,
-    name: [
-      'Submit Q4 Financial Statements',
-      'Income Tax Return Filing',
-      'Payroll Processing',
-      'IT Return Filing',
-      'Compliance Review',
-      'Bank Reconciliation',
-      'TDS Return Filing',
-      'Monthly MIS Report'
-    ][index] || `${service.name} Task`,
-    serviceName: service.name,
-    dueDate: new Date(Date.now() + (index - 1) * 3 * 24 * 60 * 60 * 1000).toISOString(),
-    status: index === 0 ? 'overdue' : 'pending',
-    priority: index < 2 ? 'High' : index > 5 ? 'Low' : 'Medium',
-    completed: false
-  }));
-
-  const taskRows = (allTasks.length ? allTasks : fallbackTasks).map((task, index) => {
-    const status = getTaskStatusLabel(task);
-    return {
-      id: task._id || task.id || `${getTaskTitle(task)}-${index}`,
-      title: getTaskTitle(task),
-      service: task.serviceName || 'Project Service',
-      dueDate: task.dueDate,
-      status,
-      priority: getTaskPriority(task),
-      completed: task.completed === true,
-      overdue: status.toLowerCase() === 'overdue',
-      tone: serviceRows[index % serviceRows.length]?.tone || 'blue'
-    };
-  });
-
-  const visibleTaskRows = taskRows.filter(task => {
-    if (taskFilter === 'completed') return task.completed;
-    if (taskFilter === 'overdue') return task.overdue;
-    if (taskFilter === 'pending') return !task.completed && !task.overdue;
-    return true;
-  });
-
-  const statCards = [
-    { label: 'Active Services', value: services.length, subLabel: 'Total Services', trend: '20%', direction: 'up', icon: <FiBriefcase />, tone: 'blue' },
-    { label: 'Completed Tasks', value: completedTasks.length, subLabel: 'Tasks Completed', trend: '18%', direction: 'up', icon: <FiCheckCircle />, tone: 'green' },
-    { label: 'Pending Tasks', value: pendingTasks.length, subLabel: 'Tasks Pending', trend: '12%', direction: 'down', icon: <FiClock />, tone: 'orange' },
-    { label: 'Overdue Tasks', value: overdueTasks.length, subLabel: 'Tasks Overdue', trend: '5%', direction: 'down', icon: <FiAlertCircle />, tone: 'red' }
-  ];
+  const projectProgress = serviceRows[0] || { service: 'Website Redesign', progress: 68 };
+  const manager = projectManagers[0] || { name: 'Rahul Sharma', email: 'rahul.sharma@ciisnetwork.com', phone: '+91 98765 43221' };
+  const teamMembers = (projectManagers.length ? projectManagers : [
+    { name: 'Aman Verma' },
+    { name: 'Neha Kapoor' },
+    { name: 'Isha Mehta' },
+    { name: 'Dev Patel' }
+  ]).slice(0, 4);
 
   if (loading) {
     return (
-      <div className="ClientDashboard-dashboard-loading">
-        <div className="ClientDashboard-loading-spinner"></div>
-        <p>Loading your services...</p>
+      <div className="ClientServicesTasks-loading">
+        <div className="ClientServicesTasks-spinner"></div>
+        <p>Loading your tasks...</p>
       </div>
     );
   }
 
   if (error || !client) {
     return (
-      <div className="ClientDashboard-dashboard-error">
-        <FiAlertCircle className="ClientDashboard-error-icon" />
+      <div className="ClientServicesTasks-error">
+        <FiAlertCircle />
         <h3>{error ? 'Error Loading Services' : 'No Client Data'}</h3>
         <p>{error || 'No client information found for your account.'}</p>
-        <div className="ClientDashboard-error-actions">
-          <button className="ClientDashboard-btn ClientDashboard-btn--primary" onClick={fetchClientData}>
-            Try Again
-          </button>
-          <button className="ClientDashboard-btn ClientDashboard-btn--outlined" onClick={handleLogout}>
-            Go to Login
-          </button>
+        <div>
+          <button type="button" onClick={fetchClientData}>Try Again</button>
+          <button type="button" onClick={handleLogout}>Go to Login</button>
         </div>
       </div>
     );
@@ -482,353 +372,235 @@ const ServicesTasks = () => {
 
   return (
     <div className="ClientServicesTasks-page">
-      <header className="ClientServicesTasks-header">
-        <div className="ClientServicesTasks-titleBlock">
-          <div className="ClientServicesTasks-titleIcon"><FiBriefcase /></div>
-          <div>
-            <h1>Client Services & Tasks</h1>
-            <p>Manage your services and track tasks</p>
-          </div>
-        </div>
-
-        <div className="ClientServicesTasks-actions">
-          <button className="ClientServicesTasks-clientSelect" type="button">
-            <FiBriefcase />
-            <span>{clientName}</span>
-            <FiChevronDown />
-          </button>
-          <button className="ClientServicesTasks-refresh" type="button" onClick={handleRefreshAll} disabled={refreshing}>
-            <FiRefreshCw className={refreshing ? 'spinning' : ''} />
-            <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
-          </button>
-        </div>
-      </header>
-
-      <section className="ClientServicesTasks-stats">
-        <div className="ClientServicesTasks-statCard">
-          <div className="ClientServicesTasks-statIcon ClientServicesTasks-tone-purple"><FiGrid /></div>
-          <div><span>Total Services</span><strong>{services.length}</strong><small>Active Services</small></div>
-        </div>
-        <div className="ClientServicesTasks-statCard">
-          <div className="ClientServicesTasks-statIcon ClientServicesTasks-tone-green"><FiCheckCircle /></div>
-          <div><span>Completed Tasks</span><strong>{completedTasks.length}</strong><small>12% from last month</small></div>
-        </div>
-        <div className="ClientServicesTasks-statCard">
-          <div className="ClientServicesTasks-statIcon ClientServicesTasks-tone-orange"><FiClock /></div>
-          <div><span>Pending Tasks</span><strong>{pendingTasks.length}</strong><small>Due this week</small></div>
-        </div>
-        <div className="ClientServicesTasks-statCard">
-          <div className="ClientServicesTasks-statIcon ClientServicesTasks-tone-red"><FiAlertCircle /></div>
-          <div><span>Overdue Tasks</span><strong>{overdueTasks.length}</strong><small>Needs attention</small></div>
-        </div>
-        <div className="ClientServicesTasks-statCard">
-          <div className="ClientServicesTasks-statIcon ClientServicesTasks-tone-blue"><FiBarChart2 /></div>
-          <div><span>Overall Progress</span><strong>{completedPercent}%</strong><small>Across all services</small></div>
-        </div>
-      </section>
-
-      <main className="ClientServicesTasks-content">
-        <section className="ClientServicesTasks-panel ClientServicesTasks-servicesPanel">
-          <div className="ClientServicesTasks-panelHeader">
-            <div className="ClientServicesTasks-panelIcon"><FiGrid /></div>
+      <main className="ClientServicesTasks-shell">
+        <section className="ClientServicesTasks-main">
+          <div className="ClientServicesTasks-titleRow">
             <div>
-              <h2>Services</h2>
-              <p>Overview of all your active services</p>
+              <h2>Tasks & Updates</h2>
+              <p>Track tasks, milestones, approvals and latest project activity.</p>
             </div>
           </div>
 
-          <div className="ClientServicesTasks-servicesTable">
-            <div className="ClientServicesTasks-servicesHead">
-              <span>Service Name</span>
-              <span>Progress</span>
-              <span>Tasks</span>
-              <span>Status</span>
-              <span></span>
-            </div>
-            {serviceRows.map(row => (
-              <div className="ClientServicesTasks-serviceRow" key={row.id}>
-                <div className="ClientServicesTasks-serviceName">
-                  <div className={`ClientServicesTasks-miniIcon ClientServicesTasks-tone-${row.tone}`}><FiBriefcase /></div>
-                  <strong>{row.name}</strong>
+          <section className="ClientServicesTasks-stats">
+            {stats.map(stat => (
+              <article className={`ClientServicesTasks-statCard tone-${stat.tone}`} key={stat.label}>
+                <div className={`ClientServicesTasks-statIcon is-${stat.tone}`}>{stat.icon}</div>
+                <div>
+                  <span>{stat.label}</span>
+                  <strong>{stat.value}</strong>
                 </div>
-                <div className="ClientServicesTasks-progressCell">
-                  <span>{row.progress}%</span>
-                  <div><i style={{ width: `${row.progress}%` }}></i></div>
-                </div>
-                <strong className="ClientServicesTasks-taskCount">{row.tasks}</strong>
-                <span className={`ClientServicesTasks-status ClientServicesTasks-status-${row.status.replace(/\s/g, '').toLowerCase()}`}>{row.status}</span>
-                <FiArrowRight className="ClientServicesTasks-rowArrow" />
-              </div>
+                {stat.trend && <small className={String(stat.trend).startsWith('-') ? 'down' : ''}>{stat.trend}</small>}
+                <em>{stat.helper}</em>
+                <svg viewBox="0 0 120 34" aria-hidden="true">
+                  <path d={stat.spark} />
+                </svg>
+              </article>
             ))}
-          </div>
+          </section>
 
-          <button className="ClientServicesTasks-wideAction" type="button">
-            View Service Details <FiArrowRight />
-          </button>
+          <section className="ClientServicesTasks-tablePanel">
+            <div className="ClientServicesTasks-toolbar">
+              <label className="ClientServicesTasks-tableSearch">
+                <FiSearch />
+                <input type="search" placeholder="Search tasks by name or keyword..." />
+              </label>
+              <select defaultValue="all"><option value="all">All Status</option></select>
+              <select defaultValue="all"><option value="all">All Priority</option></select>
+              <select defaultValue="all"><option value="all">All Services</option></select>
+              <select defaultValue="any"><option value="any">Anytime</option></select>
+              <button type="button" className="ClientServicesTasks-filter"><FiFilter /> Filters</button>
+              <button type="button" className="ClientServicesTasks-add"><FiPlus /> Add Task</button>
+            </div>
+
+            <div className="ClientServicesTasks-tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th><input type="checkbox" aria-label="Select all tasks" /></th>
+                    <th>Task Name</th>
+                    <th>Related Service / Project</th>
+                    <th>Assigned Team</th>
+                    <th>Priority</th>
+                    <th>Due Date</th>
+                    <th>Progress</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {taskRows.map((task, index) => (
+                    <tr key={task.id}>
+                      <td><input type="checkbox" aria-label={`Select ${task.title}`} /></td>
+                      <td>
+                        <div className="ClientServicesTasks-taskName">
+                          <span>{index + 1}</span>
+                          <strong>{task.title}</strong>
+                        </div>
+                      </td>
+                      <td>{task.service}</td>
+                      <td>
+                        <div className="ClientServicesTasks-avatars">
+                          {[0, 1, 2].map(item => <i key={item}>{getInitials(teamMembers[item]?.name || clientName)}</i>)}
+                          {index % 2 === 0 && <b>+1</b>}
+                        </div>
+                      </td>
+                      <td><span className={`ClientServicesTasks-priority ${task.priority.toLowerCase()}`}>{task.priority}</span></td>
+                      <td>
+                        {formatDate(task.dueDate)}
+                        {task.status === 'Overdue' && <small>Overdue</small>}
+                      </td>
+                      <td>
+                        <div className="ClientServicesTasks-progress">
+                          <span>{task.progress}%</span>
+                          <div><i style={{ width: `${task.progress}%` }}></i></div>
+                        </div>
+                      </td>
+                      <td><span className={`ClientServicesTasks-status ${task.status.replace(/\s/g, '').toLowerCase()}`}>{task.status}</span></td>
+                      <td><button className="ClientServicesTasks-review" type="button">{index === 0 ? 'Review' : 'View Details'}</button></td>
+                      <td><FiMoreVertical /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="ClientServicesTasks-pagination">
+              <span>Showing 1 to {taskRows.length} of {taskRows.length} tasks</span>
+              <div>
+                <button type="button"><FiChevronLeft /></button>
+                <button className="active" type="button">1</button>
+                <button type="button">2</button>
+                <button type="button">3</button>
+                <button type="button">4</button>
+                <button type="button">5</button>
+                <button type="button">...</button>
+                <button type="button">6</button>
+                <button type="button"><FiChevronRight /></button>
+              </div>
+              <select defaultValue="10"><option value="10">10 / page</option></select>
+            </div>
+          </section>
         </section>
 
-        <section className="ClientServicesTasks-panel ClientServicesTasks-tasksPanel">
-          <div className="ClientServicesTasks-tasksTop">
-            <div className="ClientServicesTasks-panelHeader">
-              <div className="ClientServicesTasks-panelIcon"><FiCheckCircle /></div>
-              <div>
-                <h2>All Tasks</h2>
-                <p>Tasks across all services</p>
-              </div>
+        <aside className="ClientServicesTasks-side">
+          <section className="ClientServicesTasks-sideCard">
+            <div className="ClientServicesTasks-cardHead">
+              <h3>Recent Updates</h3>
+              <button type="button">View All</button>
             </div>
+            <div className="ClientServicesTasks-updateList">
+              {recentUpdates.map(update => (
+                <article key={update.title}>
+                  <div className={`ClientServicesTasks-updateIcon is-${update.tone}`}>{update.icon}</div>
+                  <div>
+                    <strong>{update.title}</strong>
+                    <span>{update.time}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
 
-            <div className="ClientServicesTasks-tabs">
-              {['all', 'pending', 'completed', 'overdue'].map(tab => (
-                <button
-                  key={tab}
-                  type="button"
-                  className={taskFilter === tab ? 'active' : ''}
-                  onClick={() => setTaskFilter(tab)}
-                >
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </button>
+          <section className="ClientServicesTasks-sideCard">
+            <div className="ClientServicesTasks-cardHead">
+              <h3>Upcoming Deadlines</h3>
+              <button type="button">View All</button>
+            </div>
+            <div className="ClientServicesTasks-deadlineList">
+              {upcomingDeadlines.map((task, index) => (
+                <article key={`${task.id}-deadline`}>
+                  <time>{formatShortDate(task.dueDate)}</time>
+                  <div>
+                    <strong>{task.title}</strong>
+                    <span>{task.service}</span>
+                  </div>
+                  <i className={`dot-${index % 3}`}></i>
+                </article>
+              ))}
+            </div>
+          </section>
+        </aside>
+      </main>
+
+      <section className="ClientServicesTasks-bottomGrid">
+        <article className="ClientServicesTasks-widget ClientServicesTasks-distribution">
+          <h3>Task Distribution</h3>
+          <div className="ClientServicesTasks-donutBox">
+            <div className="ClientServicesTasks-donut">
+              <Doughnut data={doughnutData} options={doughnutOptions} />
+              <div><strong>{totalTasks || taskRows.length}</strong><span>Total Tasks</span></div>
+            </div>
+            <div className="ClientServicesTasks-legend">
+              {distribution.map(item => (
+                <p key={item.label}>
+                  <i style={{ background: item.color }}></i>
+                  <span>{item.label}</span>
+                  <strong>{item.value} ({Math.round((item.value / distributionTotal) * 100)}%)</strong>
+                </p>
               ))}
             </div>
           </div>
+          <button type="button">View All Tasks <FiChevronRight /></button>
+        </article>
 
-          <div className="ClientServicesTasks-taskTable">
-            <div className="ClientServicesTasks-taskHead">
-              <span>Task</span>
-              <span>Service</span>
-              <span>Due Date</span>
-              <span>Status</span>
-              <span>Priority</span>
-            </div>
-            {visibleTaskRows.map(task => (
-              <div className="ClientServicesTasks-taskRow" key={task.id}>
-                <div>
-                  <strong>{task.title}</strong>
-                  <span>{task.service}</span>
-                </div>
-                <div className="ClientServicesTasks-taskService">
-                  <span className={`ClientServicesTasks-taskServiceIcon ClientServicesTasks-tone-${task.tone}`}><FiBriefcase /></span>
-                  <strong>{task.service}</strong>
-                </div>
-                <div className="ClientServicesTasks-dueDate">
-                  <FiCalendar />
-                  <span>{formatShortDate(task.dueDate)}, {new Date(task.dueDate || Date.now()).getFullYear()}</span>
-                </div>
-                <span className={`ClientServicesTasks-taskStatus ClientServicesTasks-taskStatus-${task.status.replace(/\s/g, '').toLowerCase()}`}>{task.status}</span>
-                <span className={`ClientServicesTasks-priority ClientServicesTasks-priority-${task.priority.toLowerCase()}`}>{task.priority}</span>
+        <article className="ClientServicesTasks-widget ClientServicesTasks-project">
+          <div className="ClientServicesTasks-cardHead">
+            <h3>Project Progress Overview</h3>
+            <span>In Progress</span>
+          </div>
+          <strong>{projectProgress.service}</strong>
+          <p>Redesign corporate website with modern UI/UX and performance improvements.</p>
+          <div className="ClientServicesTasks-milestones">
+            {['Discovery', 'Design', 'Development', 'Testing', 'Launch'].map((step, index) => (
+              <div key={step} className={index < 3 ? 'done' : ''}>
+                <i>{index < 3 ? <FiCheckCircle /> : index + 1}</i>
+                <span>{step}</span>
+                <small>{index < 3 ? 'Completed' : 'Upcoming'}</small>
               </div>
             ))}
           </div>
-
-          <button className="ClientServicesTasks-wideAction" type="button">
-            View All Tasks <FiArrowRight />
-          </button>
-        </section>
-      </main>
-    </div>
-  );
-
-  return (
-    <div className="ClientDashboard-client-dashboard">
-      <div className="ClientDashboard-topbar">
-        <div className="ClientDashboard-greeting">
-          <h1>Good Morning, {clientFirstName} <span>👋</span></h1>
-          <p>Here's what's happening with your projects today.</p>
-        </div>
-
-        <button className="ClientDashboard-date-pill" onClick={handleRefreshAll} disabled={refreshing}>
-          {refreshing ? <FiRefreshCw className="spinning" /> : <FiCalendar />}
-          <span>{refreshing ? 'Refreshing...' : todayLabel}</span>
-        </button>
-
-        <div className="ClientDashboard-profile-card">
-          <div className="ClientDashboard-profile-avatar">
-            {clientName.charAt(0).toUpperCase()}
+          <div className="ClientServicesTasks-overall">
+            <span>Overall Progress</span>
+            <strong>{projectProgress.progress}%</strong>
+            <div><i style={{ width: `${projectProgress.progress}%` }}></i></div>
           </div>
-          <div className="ClientDashboard-profile-body">
-            <h2>{clientName}</h2>
-            <p>Client</p>
-            <div className="ClientDashboard-profile-meta">
-              <span><FiMail /> {client?.email || 'client@example.com'}</span>
-              <span><FiPhone /> {client?.phone || '+91 98765 43210'}</span>
-              <span><FiMapPin /> {client?.city || client?.address || 'Ahmedabad, India'}</span>
-            </div>
-            <button className="ClientDashboard-profile-button">
-              <FiUser /> View Profile
-            </button>
-          </div>
-        </div>
-      </div>
+          <button type="button">View Project Details <FiChevronRight /></button>
+        </article>
 
-      <div className="ClientDashboard-overall-stats">
-        {statCards.map(card => (
-          <div key={card.label} className="ClientDashboard-stat-card">
-            <div className={`ClientDashboard-stat-icon-wrapper ClientDashboard-tone-${card.tone}`}>
-              {card.icon}
-            </div>
-            <div className="ClientDashboard-stat-content">
-              <span className="ClientDashboard-stat-label">{card.label}</span>
-              <span className="ClientDashboard-stat-number">{card.value}</span>
-              <span className="ClientDashboard-stat-sub-label">{card.subLabel}</span>
-            </div>
-            <div className={`ClientDashboard-stat-trend ClientDashboard-stat-trend--${card.direction}`}>
-              {card.direction === 'up' ? <FiArrowUp /> : <FiArrowDown />}
-              <span>{card.trend}</span>
-              <small>vs last month</small>
+        <article className="ClientServicesTasks-widget ClientServicesTasks-team">
+          <div className="ClientServicesTasks-cardHead">
+            <h3>Assigned Team & Manager</h3>
+            <button type="button">View Profile</button>
+          </div>
+          <span>Account Manager</span>
+          <div className="ClientServicesTasks-manager">
+            <b>{getInitials(manager.name || clientName)}</b>
+            <div>
+              <strong>{manager.name || 'Rahul Sharma'}</strong>
+              <small>{manager.email || 'rahul.sharma@ciisnetwork.com'}</small>
+              <small>{manager.phone || '+91 98765 43221'}</small>
             </div>
           </div>
-        ))}
-      </div>
+          <span>Project Team</span>
+          <div className="ClientServicesTasks-teamAvatars">
+            {teamMembers.map(member => <i key={member.email || member.name}>{getInitials(member.name)}</i>)}
+            <b>+2</b>
+          </div>
+          <button type="button"><FiSend /> Message Rahul <FiChevronRight /></button>
+        </article>
 
-      <div className="ClientDashboard-main-grid">
-        <div className="ClientDashboard-card ClientDashboard-progress-card">
-          <div className="ClientDashboard-card-title-row">
-            <h3>Overall Progress</h3>
-          </div>
-          <div className="ClientDashboard-progress-content">
-            <div className="ClientDashboard-progress-ring" style={{ '--progress': `${completedPercent * 3.6}deg` }}>
-              <div className="ClientDashboard-progress-ring-inner">
-                <strong>{completedPercent}%</strong>
-                <span>Complete</span>
-              </div>
-            </div>
-            <div className="ClientDashboard-progress-details">
-              <h4>{completedPercent >= 70 ? 'Great Progress!' : 'Keep Going!'}</h4>
-              <p>You're doing great! {completedPercent}% of your tasks are completed this month.</p>
-              <div className="ClientDashboard-progress-line">
-                <span style={{ width: `${completedPercent}%` }}></span>
-              </div>
-              <strong>{completedPercent}%</strong>
-              <div className="ClientDashboard-mini-stats">
-                <div><span>Total Tasks</span><strong>{totalTasks}</strong></div>
-                <div><span>Remaining Tasks</span><strong>{pendingTasks.length}</strong></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="ClientDashboard-card ClientDashboard-distribution-card">
-          <div className="ClientDashboard-card-title-row">
-            <h3>Task Distribution</h3>
-          </div>
-          <div className="ClientDashboard-distribution-content">
-            <div className="ClientDashboard-doughnut-container">
-              <Doughnut data={doughnutData} options={doughnutOptions} />
-            </div>
-            <div className="ClientDashboard-distribution-legend">
-              <div><span className="ClientDashboard-dot green"></span>Completed <strong>{completedTasks.length} ({completedPercent}%)</strong></div>
-              <div><span className="ClientDashboard-dot orange"></span>Pending <strong>{pendingTasks.length} ({pendingPercent}%)</strong></div>
-              <div><span className="ClientDashboard-dot red"></span>Overdue <strong>{overdueTasks.length} ({overduePercent}%)</strong></div>
-            </div>
-          </div>
-        </div>
-
-        <div className="ClientDashboard-card ClientDashboard-activity-card">
-          <div className="ClientDashboard-card-title-row">
-            <h3>Recent Activities</h3>
-            <button>View All</button>
-          </div>
-          <div className="ClientDashboard-activity-list">
-            {recentActivities.map(activity => (
-              <div className="ClientDashboard-activity-item" key={activity.text}>
-                <div className={`ClientDashboard-activity-icon ClientDashboard-tone-${activity.tone}`}>{activity.icon}</div>
-                <div><strong>{activity.text}</strong><span>{activity.time}</span></div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="ClientDashboard-card ClientDashboard-weekly-card">
-          <div className="ClientDashboard-card-title-row">
-            <h3>Weekly Progress</h3>
-            <select defaultValue="week">
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-            </select>
-          </div>
-          <div className="ClientDashboard-chart-container">
-            <Line data={chartData} options={lineOptions} />
-          </div>
-        </div>
-
-        <div className="ClientDashboard-card ClientDashboard-deadline-card">
-          <div className="ClientDashboard-card-title-row">
-            <h3>Upcoming Deadlines</h3>
-            <button>View All</button>
-          </div>
-          <div className="ClientDashboard-deadline-list">
-            {upcomingDeadlines.map((task, index) => (
-              <div className="ClientDashboard-deadline-item" key={`${getTaskTitle(task)}-${index}`}>
-                <div className={`ClientDashboard-deadline-icon ClientDashboard-tone-${['blue', 'orange', 'purple'][index] || 'blue'}`}><FiCalendar /></div>
-                <div><strong>{getTaskTitle(task)}</strong><span>{task.serviceName || 'Project Service'}</span></div>
-                <small>{formatShortDate(task.dueDate)}</small>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="ClientDashboard-card ClientDashboard-services-card">
-          <div className="ClientDashboard-card-title-row">
-            <h3>Active Services</h3>
-            <button>View All</button>
-          </div>
-          <div className="ClientDashboard-service-list">
-            {servicePerformance.map(item => (
-              <div className="ClientDashboard-service-row" key={item.service}>
-                <div className={`ClientDashboard-service-icon ClientDashboard-tone-${item.tone}`}><FiFolder /></div>
-                <div><strong>{item.service}</strong><span>Progress</span></div>
-                <div className="ClientDashboard-row-progress"><span style={{ width: `${item.percent}%` }}></span></div>
-                <small>{item.percent}%</small>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="ClientDashboard-card ClientDashboard-managers-card">
-          <div className="ClientDashboard-card-title-row">
-            <h3>Project Managers</h3>
-            <button>View All</button>
-          </div>
-          <div className="ClientDashboard-manager-list">
-            {(projectManagers.length ? projectManagers : [
-              { name: 'Rahul Sharma', role: 'Project Manager' },
-              { name: 'Aman Verma', role: 'Sr. Project Manager' },
-              { name: 'Priya Singh', role: 'Project Coordinator' }
-            ]).map(manager => (
-              <div className="ClientDashboard-manager-row" key={manager.email || manager.name}>
-                <div className="ClientDashboard-manager-avatar">{(manager.name || 'M').charAt(0)}</div>
-                <div><strong>{manager.name || 'Project Manager'}</strong><span>{manager.role || manager.designation || 'Project Manager'}</span></div>
-                <button><FiMail /></button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="ClientDashboard-card ClientDashboard-performance-card">
-          <div className="ClientDashboard-card-title-row">
-            <h3>Top Services Performance</h3>
-            <button>View All</button>
-          </div>
-          <div className="ClientDashboard-performance-list">
-            {servicePerformance.map(item => (
-              <div className="ClientDashboard-performance-row" key={item.service}>
-                <div className={`ClientDashboard-service-icon ClientDashboard-tone-${item.tone}`}><FiStar /></div>
-                <strong>{item.service}</strong>
-                <div className="ClientDashboard-row-progress"><span style={{ width: `${item.percent}%` }}></span></div>
-                <small>{item.percent}%</small>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="ClientDashboard-boost-card">
-          <FiZap className="ClientDashboard-boost-rocket" />
+        <article className="ClientServicesTasks-widget ClientServicesTasks-quick">
+          <h3>Quick Actions</h3>
           <div>
-            <h3>Boost Your Productivity</h3>
-            <p>Track your progress and achieve your business goals with us.</p>
-            <button><FiBarChart2 /> Explore Reports</button>
+            <button type="button"><FiGrid /><span>View Service</span><small>See project details</small></button>
+            <button type="button"><FiUpload /><span>Upload Feedback</span><small>Share your feedback</small></button>
+            <button type="button"><FiCalendar /><span>Book Meeting</span><small>Schedule with team</small></button>
+            <button type="button"><FiAlertCircle /><span>Raise Ticket</span><small>Get support</small></button>
           </div>
-        </div>
-      </div>
+          <button type="button"><FiGrid /> View All Services <FiChevronRight /></button>
+        </article>
+      </section>
     </div>
   );
 };

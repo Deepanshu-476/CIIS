@@ -292,16 +292,16 @@
 
 .ClientDashboard-distribution-content {
   display: grid;
-  grid-template-columns: minmax(150px, 0.95fr) minmax(126px, 0.8fr);
+  grid-template-columns: minmax(112px, 0.9fr) minmax(118px, 1fr);
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   height: calc(100% - 34px);
   min-width: 0;
 }
 
 .ClientDashboard-doughnut-container {
-  width: 158px;
-  height: 158px;
+  width: min(148px, 100%);
+  height: 148px;
   justify-self: center;
   min-width: 0;
 }
@@ -445,12 +445,23 @@
   gap: 12px;
 }
 
+.ClientDashboard-deadline-item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  min-width: 0;
+}
+
+.ClientDashboard-deadline-item > div:nth-child(2) {
+  min-width: 0;
+}
+
 .ClientDashboard-deadline-item small {
   margin-left: auto;
   color: #ff4a33;
   font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
+  justify-self: end;
 }
 
 .ClientDashboard-service-row > div:nth-child(2) {
@@ -462,6 +473,7 @@
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) 34px;
   gap: 10px;
+  min-width: 0;
 }
 
 .ClientDashboard-row-progress {
@@ -501,13 +513,15 @@
 
 .ClientDashboard-performance-row {
   display: grid;
-  grid-template-columns: 34px minmax(92px, 1fr) 76px minmax(74px, 1fr) 42px;
+  grid-template-columns: 34px minmax(0, 1fr) 62px minmax(46px, 0.7fr) 38px;
+  gap: 8px;
   min-width: 0;
 }
 
 .ClientDashboard-stars {
   color: #ff930b;
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1;
   white-space: nowrap;
 }
 
@@ -940,9 +954,9 @@
 
 @media (max-width: 980px) {
   .ClientDashboard-grid,
-  .ClientDashboard-summary-cards,
-  .ClientDashboard-sidebar,
-  .ClientDashboard-overall-stats { grid-template-columns: 1fr; }
+  .ClientDashboard-sidebar { grid-template-columns: 1fr; }
+  .ClientDashboard-overall-stats,
+  .ClientDashboard-summary-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ClientDashboard-progress-card,
   .ClientDashboard-distribution-card,
   .ClientDashboard-activity-card,
@@ -957,7 +971,44 @@
 @media (max-width: 640px) {
   .ClientDashboard-client-dashboard { padding: 12px; }
   .ClientDashboard-greeting h1 { font-size: 23px; }
-  .ClientDashboard-stat-card { grid-template-columns: 52px minmax(0, 1fr); }
+  .ClientDashboard-overall-stats,
+  .ClientDashboard-summary-cards { gap: 10px; }
+  .ClientDashboard-stat-card {
+    min-height: 96px;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+  }
+  .ClientDashboard-stat-icon-wrapper {
+    width: 42px;
+    height: 42px;
+    font-size: 21px;
+  }
+  .ClientDashboard-stat-label {
+    margin-bottom: 6px;
+    font-size: 11px;
+  }
+  .ClientDashboard-stat-number { font-size: 22px; }
+  .ClientDashboard-stat-trend {
+    margin-left: 4px;
+    font-size: 10px;
+  }
+  .ClientDashboard-summary-card {
+    min-height: 86px;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 11px;
+  }
+  .ClientDashboard-summary-icon {
+    width: 30px;
+    height: 30px;
+    font-size: 15px;
+    flex: 0 0 30px;
+  }
+  .ClientDashboard-summary-card strong { font-size: 16px; }
+  .ClientDashboard-summary-card span,
+  .ClientDashboard-summary-card small { font-size: 11px; }
+  .ClientDashboard-summary-card button { display: none; }
   .ClientDashboard-sparkline { display: none; }
   .ClientDashboard-distribution-content,
   .ClientDashboard-reports-card { grid-template-columns: 1fr; }

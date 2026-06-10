@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -59,7 +60,9 @@ const APP_ROUTES = [
   { id: "alert", path: "alert", name: "Alerts", category: "communication" },
   { id: "create-alert", path: "create-alert", name: "Create Alert", category: "communication" },
   { id: "chat", path: "chat", name: "Chat", category: "communication" },
-  { id: "contact-support", path: "contact-support", name: "Contact Support", category: "communication" },
+  { id: "contact-support", path: "contact-support", name: "Support Center", category: "communication" },
+  { id: "support-desk", path: "support-desk", name: "Support Desk", category: "communication" },
+  { id: "support-operations", path: "support-operations", name: "Support Operations", category: "administration" },
 ];
 
 const categoryNames = {
@@ -105,6 +108,7 @@ const formatDate = value => {
 };
 
 export default function CompanyAccessManagement() {
+  const navigate = useNavigate();
   const [companies, setCompanies] = useState([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [selectedPages, setSelectedPages] = useState([]);
@@ -206,10 +210,13 @@ export default function CompanyAccessManagement() {
       setCompanies(prev => prev.map(company => (
         company._id === updatedCompany._id ? updatedCompany : company
       )));
+      localStorage.setItem("company", JSON.stringify(updatedCompany));
+      localStorage.setItem("companyDetails", JSON.stringify(updatedCompany));
       setNotice({
         severity: "success",
-        message: response.data.message || "Company access saved successfully",
+        message: response.data.message || "Company access saved successfully. Opening Sidebar Management...",
       });
+      setTimeout(() => navigate("/Ciis-network/SidebarManagement"), 700);
     } catch (error) {
       setNotice({
         severity: "error",

@@ -219,7 +219,6 @@ import Client from "./hrCds/pages/hr/Client";
 import ClientDashboard from "./hrCds/pages/Dashboard.jsx";
 import ClientPaymentSection from "./hrCds/pages/ClientPaymentSection.jsx";
 import ClientServicesTasks from "./hrCds/pages/ClientServicesTasks.jsx";
-import ClientLayout from "./hrCds/layouts/ClientLayout.jsx";
 
 // User Pages
 import Alerts from "./hrCds/pages/Alerts";
@@ -232,6 +231,9 @@ import TaskManagement from "./hrCds/pages/TaskManagement";
 import EmployeeMeetingPage from "./hrCds/pages/EmployeeMeetingPage";
 import EmployeeProject from "./hrCds/pages/EmployeeProject";
 import ClientMeeting from "./hrCds/pages/ClientMeeting";
+//import ContactSupport from "./hrCds/pages/ContactSupport";
+import DepartmentSupportDesk from "./hrCds/pages/DepartmentSupportDesk";
+import SupportOperations from "./admin/page/SupportOperations.jsx";
 
 import CreateAlerts from "./hrCds/pages/CreateAlerts.jsx";
 import UserProfile from './page/UserProfile.jsx';
@@ -240,6 +242,7 @@ import UserProfile from './page/UserProfile.jsx';
 import Home from "./Pages/Home";
 import AboutUs from "./Pages/AboutUs";
 import ContactUs from "./Pages/ContactUs";
+import PrivacyPolicy from "./Pages/PrivacyPolicy";
 import RegisterCompany from "./admin/components/CompanyRegister.jsx";
 
 
@@ -282,6 +285,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<AboutUs />} />
         <Route path="/contact" element={<ContactUs />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/SuperAdminLogin" element={<SuperAdminLogin />} />
         <Route path="company/:companyCode/login" element={<Login />} />
         <Route path="/RegisterCompany" element={<RegisterCompany />} />
@@ -310,6 +314,7 @@ function App() {
           <Route path="company-access" element={<CompanyAccessManagement />} />
           <Route path="holiday" element={<Holiday />} />
           <Route path="branch" element={<BranchManagement />} />
+          <Route path="support-operations" element={<SupportOperations />} />
         </Route>
 
         {/* ========== CDS USER ROUTES (HR, Employee, etc.) ========== */}
@@ -347,6 +352,7 @@ function App() {
           <Route path="my-leaves" element={<MyLeaves />} />
           <Route path="profile" element={<Profile />} />
           <Route path="user-dashboard" element={<UserDashboard />} />
+          <Route path="ClientDashboard" element={<Navigate to="/client/dashboard" replace />} />
           <Route path="project" element={<EmployeeProject />} />
           <Route path="task-management" element={<TaskManagement />} />
           <Route path="employee-meeting" element={<EmployeeMeetingPage />} />
@@ -357,6 +363,8 @@ function App() {
           <Route path="user-profile" element={<UserProfile/>} />
           <Route path="chat" element={<ChatPage />} />
           <Route path="contact-support" element={<ContactSupport />} />
+          <Route path="support-desk" element={<DepartmentSupportDesk />} />
+          <Route path="support-operations" element={<SupportOperations />} />
         </Route>
 
         {/* ========== CLIENT SPECIFIC ROUTES (NEW) ========== */}
@@ -365,7 +373,7 @@ function App() {
           element={
             <ThemeContextProvider>
               <ProtectedRoute>
-                <ClientLayout />
+                <Layout2 />
               </ProtectedRoute>
             </ThemeContextProvider>
           }
@@ -379,6 +387,9 @@ function App() {
           
           {/* Client Services & Tasks */}
           <Route path="services-tasks" element={<ClientServicesTasks />} />
+
+          {/* Client Change Password */}
+          <Route path="change-password" element={<ChangePassword />} />
           
           {/* Redirect any unknown client routes to dashboard */}
           <Route path="*" element={<Navigate to="/client/dashboard" replace />} />

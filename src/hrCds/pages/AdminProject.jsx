@@ -50,6 +50,33 @@ const Icons = {
 const getUserId = (user) => user?._id || user?.id;
 const getProjectId = (p) => p?._id || p?.id;
 
+const getProjectsFromResponse = (data) => {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.projects)) return data.projects;
+  if (Array.isArray(data?.message?.projects)) return data.message.projects;
+  return [];
+};
+
+const getProjectFromResponse = (data) => data?.project || data?.data || data?.item || null;
+
+const toProjectPriorityValue = (value = "Medium") => {
+  const normalized = value.toString().trim().toLowerCase();
+  if (normalized === "low") return "Low";
+  if (normalized === "high") return "High";
+  return "Medium";
+};
+
+const toProjectStatusValue = (value = "Active") => {
+  const normalized = value.toString().trim().toLowerCase().replace(/[_\s]+/g, " ");
+  if (normalized === "on hold" || normalized === "onhold") return "On Hold";
+  if (normalized === "completed") return "Completed";
+  if (normalized === "planning") return "Planning";
+  if (normalized === "cancelled") return "Cancelled";
+  return "Active";
+};
+
 export const AdminProject = () => {
   // FORM STATES
   const [projectId, setProjectId] = useState(null);
@@ -104,13 +131,11 @@ export const AdminProject = () => {
   }, []);
 
   useEffect(() => {
-    if (projects.length > 0) {
-      const active = projects.filter(p => p.status?.toLowerCase() === "active").length;
-      const completed = projects.filter(p => p.status?.toLowerCase() === "completed").length;
-      const onHold = projects.filter(p => p.status?.toLowerCase() === "on hold" || p.status?.toLowerCase() === "onhold").length;
-      const highPriority = projects.filter(p => p.priority?.toLowerCase() === "high").length;
-      setStats({ total: projects.length, active, completed, onHold, highPriority });
-    }
+    const active = projects.filter(p => p.status?.toLowerCase() === "active").length;
+    const completed = projects.filter(p => p.status?.toLowerCase() === "completed").length;
+    const onHold = projects.filter(p => p.status?.toLowerCase() === "on hold" || p.status?.toLowerCase() === "onhold").length;
+    const highPriority = projects.filter(p => p.priority?.toLowerCase() === "high").length;
+    setStats({ total: projects.length, active, completed, onHold, highPriority });
   }, [projects]);
 
   useEffect(() => {
@@ -151,6 +176,20 @@ export const AdminProject = () => {
 
   const getSelectedUsers = () => users.filter(u => members.includes(getUserId(u)));
 
+  const upsertProject = (project) => {
+    const updatedProjectId = getProjectId(project);
+    if (!updatedProjectId) return;
+
+    setProjects((currentProjects) => {
+      const projectExists = currentProjects.some((item) => getProjectId(item) === updatedProjectId);
+      if (!projectExists) return [project, ...currentProjects];
+
+      return currentProjects.map((item) => (
+        getProjectId(item) === updatedProjectId ? project : item
+      ));
+    });
+  };
+
   const fetchUsers = async () => {
     try {
       // Add timeout to axios request
@@ -184,12 +223,8 @@ export const AdminProject = () => {
       const res = await axios.get("/projects", {
         timeout: 10000 // 10 seconds timeout
       });
-      
-      if (Array.isArray(res.data)) setProjects(res.data);
-      else if (res.data?.data) setProjects(res.data.data);
-      else if (res.data?.projects) setProjects(res.data.projects);
-      else if (res.data?.success && res.data.data) setProjects(res.data.data);
-      else setProjects([]);
+
+      setProjects(getProjectsFromResponse(res.data));
     } catch (error) {
       console.error("Error fetching projects:", error);
       
@@ -231,9 +266,9 @@ export const AdminProject = () => {
     if (!projectName.trim()) newErrors.projectName = "Project name required";
     if (!description.trim()) newErrors.description = "Description required";
     if (!startDate) newErrors.startDate = "Start date required";
-    else if (new Date(startDate) < new Date().toISOString().split('T')[0]) newErrors.startDate = "Start date cannot be in the past";
+    else if (!projectId && startDate < new Date().toISOString().split('T')[0]) newErrors.startDate = "Start date cannot be in the past";
     if (!endDate) newErrors.endDate = "End date required";
-    else if (startDate && new Date(endDate) < new Date(startDate)) newErrors.endDate = "End date must be after start date";
+    else if (startDate && endDate < startDate) newErrors.endDate = "End date must be after start date";
     if (members.length === 0) newErrors.members = "Select at least one member";
     
     // File validation
@@ -299,6 +334,7 @@ export const AdminProject = () => {
       // Check for successful response
       if (response.status === 200 || response.status === 201) {
         showSnackbar(projectId ? "Project updated successfully!" : "Project created successfully!", "success");
+        upsertProject(getProjectFromResponse(response.data));
         resetForm();
         await fetchProjects(); // Refresh the project list
       } else {
@@ -360,9 +396,9 @@ export const AdminProject = () => {
     setDescription(p.description || "");
     setStartDate(p.startDate ? new Date(p.startDate).toISOString().split('T')[0] : "");
     setEndDate(p.endDate ? new Date(p.endDate).toISOString().split('T')[0] : "");
-    setPriority((p.priority || "Medium").charAt(0).toUpperCase() + (p.priority || "Medium").slice(1).toLowerCase());
-    setStatus((p.status || "Active").charAt(0).toUpperCase() + (p.status || "Active").slice(1).toLowerCase());
-    const userIDs = (p.users || []).map(u => getUserId(u));
+    setPriority(toProjectPriorityValue(p.priority));
+    setStatus(toProjectStatusValue(p.status));
+    const userIDs = (p.users || []).map(u => getUserId(u)).filter(Boolean);
     setMembers(userIDs);
     setFile(null);
     setFileName("");

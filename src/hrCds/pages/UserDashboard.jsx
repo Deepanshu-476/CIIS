@@ -58,6 +58,14 @@ const getValueId = value => {
   return String(value);
 };
 
+const getDisplayName = value => {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) return value.map(getDisplayName).filter(Boolean).join(', ');
+  if (typeof value === 'object') return value.name || value.email || value.title || getValueId(value);
+  return String(value);
+};
+
 const getCurrentUserId = user => getValueId(user?._id || user?.id || user?.userId || user?.user?._id || user?.user?.id);
 
 const pickTaskRecords = data => {
@@ -68,6 +76,7 @@ const pickTaskRecords = data => {
   return [];
 };
 
+
 const mapTaskToActivity = task => ({
   ...task,
   type: 'task',
@@ -76,7 +85,7 @@ const mapTaskToActivity = task => ({
   status: task.userStatus || task.overallStatus || task.status || (task.completed ? 'completed' : 'pending'),
   assignedTo: Array.isArray(task.assignedUsers)
     ? task.assignedUsers.map(item => item?.name || item?.email).filter(Boolean).join(', ')
-    : task.assignee || task.assignedTo || '',
+    : getDisplayName(task.assignee || task.assignedTo || ''),
 });
 
 // ✅ Loader Components

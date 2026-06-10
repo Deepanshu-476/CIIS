@@ -1,6 +1,5 @@
-[31merror when starting dev server:
-Error: listen EACCES: permission denied 0.0.0.0:5173
-    at Server.setupListenHandle [as _listen2] (node:net:1918:21)
-    at listenInCluster (node:net:1997:12)
-    at node:net:2206:7
-    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)[39m
+[33mAssets in public directory cannot be imported from JavaScript.
+If you intend to import that asset, put the file in the src directory, and use [36m/src/logoo.png[33m instead of [36m/public/logoo.png[33m.
+If you intend to use the URL of that asset, use [36m/logoo.png?url[33m.[39m
+[33mFiles in the public directory are served at the root path.
+Instead of [36m/public/logoo.png[33m, use [36m/logoo.png[33m.[39m

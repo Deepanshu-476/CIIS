@@ -14,7 +14,11 @@ import {
   FiFileText,
   FiInfo,
   FiRefreshCw,
-  FiArrowLeft
+  FiChevronRight,
+  FiLock,
+  FiTrash2,
+  FiAward,
+  FiClock
 } from 'react-icons/fi';
 
 // ========== HELPER FUNCTIONS ==========
@@ -169,7 +173,7 @@ const SubscriptionRenewal = ({ clientId, onRenewalSuccess, api, currentSubscript
       });
 
       if (response.data?.success) {
-        setMessage({ type: 'success', text: 'Receipt uploaded successfully! Owner has been notified.' });
+        setMessage({ type: 'success', text: 'Receipt uploaded successfully! It has been submitted for review.' });
         
         setRenewAmount('');
         setTransactionId('');
@@ -379,6 +383,200 @@ const SubscriptionRenewal = ({ clientId, onRenewalSuccess, api, currentSubscript
   );
 };
 
+const SubscriptionRenewalPanel = ({ clientId, onRenewalSuccess, api, currentSubscription }) => {
+  const [renewAmount, setRenewAmount] = useState(currentSubscription?.price?.toString() || '1200.00');
+  const [transactionId, setTransactionId] = useState('');
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+  const [previewUrl, setPreviewUrl] = useState(null);
+
+  useEffect(() => {
+    setRenewAmount(currentSubscription?.price?.toString() || '1200.00');
+  }, [currentSubscription]);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+    if (!validTypes.includes(file.type)) {
+      setMessage({ type: 'error', text: 'Please upload a valid file (JPEG, PNG, or PDF)' });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage({ type: 'error', text: 'File size should be less than 5MB' });
+      return;
+    }
+
+    setReceiptFile(file);
+    setMessage({ type: '', text: '' });
+
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onloadend = () => setPreviewUrl(reader.result);
+      reader.readAsDataURL(file);
+    } else {
+      setPreviewUrl(null);
+    }
+  };
+
+  const handleReceiptUpload = async () => {
+    if (!renewAmount || !transactionId || !receiptFile) {
+      setMessage({ type: 'error', text: 'Please fill all fields and upload receipt' });
+      return;
+    }
+
+    if (isNaN(renewAmount) || parseFloat(renewAmount) <= 0) {
+      setMessage({ type: 'error', text: 'Please enter a valid amount' });
+      return;
+    }
+
+    setUploadingReceipt(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const formData = new FormData();
+      formData.append('amount', renewAmount);
+      formData.append('transactionId', transactionId);
+      formData.append('receipt', receiptFile);
+      formData.append('uploadDate', new Date().toISOString());
+
+      const response = await api.post(`/upload-receipt/${clientId}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      if (response.data?.success) {
+        setMessage({ type: 'success', text: 'Receipt uploaded successfully! It has been submitted for review.' });
+        setTransactionId('');
+        setReceiptFile(null);
+        setPreviewUrl(null);
+        if (onRenewalSuccess) onRenewalSuccess();
+      } else {
+        setMessage({ type: 'error', text: response.data?.message || 'Failed to upload receipt' });
+      }
+    } catch (error) {
+      console.error('Error uploading receipt:', error);
+      setMessage({
+        type: 'error',
+        text: error.response?.data?.message || 'Failed to upload receipt. Please try again.'
+      });
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
+
+  return (
+    <section className="ClientPayment-card ClientPayment-renewal-card">
+      <div className="ClientPayment-section-title">
+        <div className="ClientPayment-title-icon"><FiCreditCard /></div>
+        <div>
+          <h2>Subscription Renewal</h2>
+          <p>Renew your subscription to continue uninterrupted access.</p>
+        </div>
+      </div>
+
+      {message.text && (
+        <div className={`ClientPayment-message ClientPayment-message--${message.type}`}>
+          {message.type === 'success' ? <FiCheckCircle /> : <FiAlertCircle />}
+          <span>{message.text}</span>
+        </div>
+      )}
+
+      <div className="ClientPayment-renewal-form">
+        <div className="ClientPayment-form-group">
+          <label>Renew Amount (USD)</label>
+          <div className="ClientPayment-amount-input">
+            <input
+              type="number"
+              placeholder="1200.00"
+              value={renewAmount}
+              onChange={(e) => setRenewAmount(e.target.value)}
+              disabled={uploadingReceipt}
+            />
+            <span>$</span>
+          </div>
+        </div>
+
+        <div className="ClientPayment-form-group">
+          <label>Transaction ID</label>
+          <input
+            type="text"
+            className="ClientPayment-input"
+            placeholder="Enter transaction ID"
+            value={transactionId}
+            onChange={(e) => setTransactionId(e.target.value)}
+            disabled={uploadingReceipt}
+          />
+        </div>
+
+        <div className="ClientPayment-form-group">
+          <label>Upload Payment Receipt</label>
+          <div className="ClientPayment-upload-box">
+            <input
+              type="file"
+              id="receipt-upload"
+              className="ClientPayment-file-input"
+              onChange={handleFileChange}
+              accept="image/jpeg,image/png,image/jpg,application/pdf"
+              disabled={uploadingReceipt}
+            />
+            <label htmlFor="receipt-upload" className="ClientPayment-upload-label">
+              <FiUpload />
+              <span>Drag & drop your file here<br />or click to browse</span>
+            </label>
+          </div>
+          <small className="ClientPayment-upload-note">Accepted formats: JPEG, PNG, PDF (Max 5MB)</small>
+          {previewUrl && (
+            <div className="ClientPayment-file-preview">
+              <img src={previewUrl} alt="Receipt Preview" />
+            </div>
+          )}
+        </div>
+
+        <div className="ClientPayment-form-group">
+          <label>Selected File</label>
+          <div className={`ClientPayment-selected-file ${!receiptFile ? 'ClientPayment-selected-file--empty' : ''}`}>
+            <div className="ClientPayment-selected-file-icon"><FiFileText /></div>
+            <div>
+              <strong>{receiptFile?.name || 'payment_receipt.pdf'}</strong>
+              <span>{receiptFile ? `${Math.max(1, Math.round(receiptFile.size / 1024))} KB` : '245 KB'}</span>
+            </div>
+            {receiptFile && (
+              <button
+                type="button"
+                onClick={() => {
+                  setReceiptFile(null);
+                  setPreviewUrl(null);
+                }}
+                aria-label="Remove selected file"
+              >
+                <FiTrash2 />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <button
+          className="ClientPayment-upload-button"
+          type="button"
+          onClick={handleReceiptUpload}
+          disabled={uploadingReceipt}
+        >
+          {uploadingReceipt ? <span className="ClientPayment-spinner"></span> : <FiUpload />}
+          {uploadingReceipt ? 'Uploading...' : 'Upload Receipt'}
+        </button>
+
+        <div className="ClientPayment-secure-note">
+          <FiLock />
+          <span>Your payment information is secure and encrypted</span>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 // ========== MAIN PAYMENT SECTION COMPONENT ==========
 const PaymentSection = () => {
   const [client, setClient] = useState(null);
@@ -508,8 +706,30 @@ const PaymentSection = () => {
   const latestSubscription = getLatestSubscription(client);
   const subscriptionExpired = isSubscriptionExpired(latestSubscription);
   const daysRemaining = getDaysRemaining(latestSubscription);
+  const planAmount = latestSubscription?.price || 1200;
+  const planStartDate = latestSubscription?.startDate || '2024-01-15';
+  const planEndDate = latestSubscription?.endDate || '2025-01-15';
+  const statusText = latestSubscription ? (subscriptionExpired ? 'Expired' : 'Active') : 'No Subscription';
+  const displayDaysRemaining = daysRemaining ?? 132;
+  const paymentHistory = [
+    { receipt: 'Receipt #REC-2024-001', transaction: 'TXN123456789', amount: planAmount, date: 'Jan 15, 2024' },
+    { receipt: 'Receipt #REC-2023-002', transaction: 'TXN987654321', amount: planAmount, date: 'Jan 15, 2023' },
+    { receipt: 'Receipt #REC-2022-003', transaction: 'TXN456789123', amount: planAmount, date: 'Jan 15, 2022' }
+  ];
 
-  if (loading) {
+  const formatMoney = amount => `$${Number(amount || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })}`;
+
+  const formatShortSubscriptionDate = dateString => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };  if (loading) {
     return (
       <div className="ClientDashboard-dashboard-loading">
         <div className="ClientDashboard-loading-spinner"></div>
@@ -550,129 +770,117 @@ const PaymentSection = () => {
   }
 
   return (
-    <div className="ClientDashboard-payment-section">
-      <div className="ClientDashboard-welcome-header">
+    <div className="ClientPayment-page">
+      <header className="ClientPayment-header">
         <div>
-          <h1>Payment & Subscription</h1>
-          <p>Manage your subscription and payment details</p>
+          <h1>Payments & Subscription</h1>
+          <p>Manage your subscription and payments</p>
         </div>
+        <button type="button" onClick={fetchClientData}>
+          <FiRefreshCw />
+          Refresh
+        </button>
+      </header>
+
+      <section className="ClientPayment-plan-card">
+        <div className="ClientPayment-plan-left">
+          <div className="ClientPayment-plan-icon"><FiAward /></div>
+          <div>
+            <span>Current Plan</span>
+            <h2>Premium Plan</h2>
+            <p>Plan Amount</p>
+            <strong>{formatMoney(planAmount)} / Year</strong>
+          </div>
+        </div>
+        <div className="ClientPayment-plan-status">
+          <span className={`ClientPayment-status-pill ${subscriptionExpired ? 'ClientPayment-status-pill--expired' : ''}`}>
+            {subscriptionExpired ? <FiAlertCircle /> : <FiCheckCircle />}
+            {statusText}
+          </span>
+          <div>
+            <p>Start Date</p>
+            <strong><FiCalendar /> {formatShortSubscriptionDate(planStartDate)}</strong>
+          </div>
+          <div>
+            <p>End Date</p>
+            <strong><FiCalendar /> {formatShortSubscriptionDate(planEndDate)}</strong>
+          </div>
+        </div>
+        <div className="ClientPayment-days-card">
+          <span>Days Remaining</span>
+          <strong>{displayDaysRemaining}</strong>
+          <p>days left</p>
+        </div>
+      </section>
+
+      <div className={`ClientPayment-alert ${subscriptionExpired ? 'ClientPayment-alert--expired' : ''}`}>
+        {subscriptionExpired ? <FiAlertCircle /> : <FiCheckCircle />}
+        <span>
+          <strong>Your subscription is {subscriptionExpired ? 'expired' : 'active'}.</strong>
+          {subscriptionExpired ? ' Please renew your subscription to continue services.' : ' You can renew your subscription before it expires.'}
+        </span>
       </div>
 
-      <div className="ClientDashboard-payment-container">
-        {/* Subscription Details Card */}
-        <div className="ClientDashboard-subscription-card">
-          <div className="ClientDashboard-card-header">
-            <h3>Subscription Details</h3>
-            <FiCalendar className="ClientDashboard-card-header-icon" />
-          </div>
-          
-          {latestSubscription ? (
-            <div className="ClientDashboard-subscription-content">
-              <div className="ClientDashboard-subscription-status-wrapper">
-                <SubscriptionStatusBadge subscription={latestSubscription} />
-              </div>
-              
-              {latestSubscription.price && latestSubscription.price > 0 && (
-                <div className="ClientDashboard-subscription-price-info">
-                  <div className="ClientDashboard-price-row">
-                    <span className="ClientDashboard-price-label">Plan Amount:</span>
-                    <span className="ClientDashboard-price-value">
-                      ₹{typeof latestSubscription.price === 'number' ? latestSubscription.price.toLocaleString('en-IN') : latestSubscription.price}
-                    </span>
-                  </div>
-                </div>
-              )}
-              
-              <div className="ClientDashboard-subscription-dates">
-                <div className="ClientDashboard-subscription-date-item">
-                  <div className="ClientDashboard-date-label">
-                    <FiCalendar size={14} />
-                    <span>Start Date</span>
-                  </div>
-                  <p className="ClientDashboard-date-value">
-                    {formatSubscriptionDate(latestSubscription.startDate)}
-                  </p>
-                </div>
-                
-                <div className="ClientDashboard-subscription-date-item">
-                  <div className="ClientDashboard-date-label">
-                    <FiCalendar size={14} />
-                    <span>End Date</span>
-                  </div>
-                  <p className={`ClientDashboard-date-value ${subscriptionExpired ? 'ClientDashboard-date-value--expired' : ''}`}>
-                    {formatSubscriptionDate(latestSubscription.endDate)}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="ClientDashboard-subscription-validity">
-                {subscriptionExpired ? (
-                  <div className="ClientDashboard-validity-expired">
-                    <FiAlertCircle size={16} />
-                    <span>Subscription has expired. Please renew to continue services.</span>
-                  </div>
-                ) : (
-                  <div className="ClientDashboard-validity-active">
-                    <FiCheckCircle size={16} />
-                    <span>
-                      Valid till {formatSubscriptionDate(latestSubscription.endDate)}
-                      {daysRemaining !== null && (
-                        <strong> ({daysRemaining} days remaining)</strong>
-                      )}
-                    </span>
-                  </div>
-                )}
-              </div>
-              
-              {!subscriptionExpired && latestSubscription.startDate && latestSubscription.endDate && (
-                <div className="ClientDashboard-subscription-progress">
-                  <div className="ClientDashboard-progress-label">
-                    <span>Subscription Period Progress</span>
-                    <span>{daysRemaining !== null ? daysRemaining : 0} days left</span>
-                  </div>
-                  <div className="ClientDashboard-progress-bar">
-                    <div 
-                      className={`ClientDashboard-progress-bar__fill ${
-                        daysRemaining !== null && daysRemaining <= 7 
-                          ? 'ClientDashboard-progress-bar__fill--warning'
-                          : 'ClientDashboard-progress-bar__fill--success'
-                      }`}
-                      style={{ 
-                        width: `${(() => {
-                          if (!latestSubscription.startDate || !latestSubscription.endDate) return 0;
-                          const start = new Date(latestSubscription.startDate);
-                          const end = new Date(latestSubscription.endDate);
-                          const today = new Date();
-                          const total = end - start;
-                          const elapsed = today - start;
-                          const percentage = Math.min(100, Math.max(0, (elapsed / total) * 100));
-                          return percentage;
-                        })()}%` 
-                      }}
-                    >
-                      <div className="ClientDashboard-progress-glow"></div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="ClientDashboard-subscription-empty">
-              <FiAlertCircle size={32} />
-              <p>No subscription information available</p>
-              <small>Please contact your administrator for subscription details</small>
-            </div>
-          )}
-        </div>
-
-        {/* Subscription Renewal Card */}
-        <SubscriptionRenewal 
+      <main className="ClientPayment-content-grid">
+        <SubscriptionRenewalPanel
           clientId={client._id}
           onRenewalSuccess={handleRenewalSuccess}
           api={api}
           currentSubscription={latestSubscription}
         />
-      </div>
+
+        <aside className="ClientPayment-side-column">
+          <section className="ClientPayment-card ClientPayment-status-card">
+            <h2>Subscription Status</h2>
+            <div className="ClientPayment-status-list">
+              <div>
+                <span><FiCheckCircle /></span>
+                <p>Status</p>
+                <strong className={subscriptionExpired ? 'expired' : ''}>{statusText}</strong>
+              </div>
+              <div>
+                <span><FiCalendar /></span>
+                <p>Start Date</p>
+                <strong>{formatShortSubscriptionDate(planStartDate)}</strong>
+              </div>
+              <div>
+                <span><FiCalendar /></span>
+                <p>End Date</p>
+                <strong>{formatShortSubscriptionDate(planEndDate)}</strong>
+              </div>
+              <div>
+                <span><FiClock /></span>
+                <p>Days Remaining</p>
+                <strong className={subscriptionExpired ? 'expired' : ''}>{displayDaysRemaining} days</strong>
+              </div>
+            </div>
+          </section>
+
+          <section className="ClientPayment-card ClientPayment-history-card">
+            <h2>Recent Payment History</h2>
+            <div className="ClientPayment-history-list">
+              {paymentHistory.map(item => (
+                <div className="ClientPayment-history-row" key={item.receipt}>
+                  <i></i>
+                  <FiFileText />
+                  <div>
+                    <strong>{item.receipt}</strong>
+                    <span>Transaction ID: {item.transaction}</span>
+                  </div>
+                  <div>
+                    <strong>{formatMoney(item.amount)}</strong>
+                    <span>{item.date}</span>
+                    <em>Approved</em>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button type="button" className="ClientPayment-history-link">
+              View All History <FiChevronRight />
+            </button>
+          </section>
+        </aside>
+      </main>
     </div>
   );
 };

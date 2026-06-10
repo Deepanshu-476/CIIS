@@ -1,8 +1,7 @@
 import React from 'react';
 import { FaTwitter, FaFacebookF, FaInstagram, FaLinkedinIn, FaMapMarkerAlt, FaPhone, FaEnvelope } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
 import './CiisFooter.css';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const CiisFooter = () => {
   const navigate = useNavigate();
@@ -58,7 +57,7 @@ const CiisFooter = () => {
           <div className="ciis-footer-section">
             <h4 className="ciis-footer-title">Legal</h4>
             <ul className="ciis-footer-list">
-              <li><a href="#privacy" className="ciis-footer-link">Privacy Policy</a></li>
+              <li><Link to="/privacy-policy" className="ciis-footer-link">Privacy Policy</Link></li>
               <li><a href="#terms" className="ciis-footer-link">Terms of Service</a></li>
               <li><a href="#cookies" className="ciis-footer-link">Cookie Policy</a></li>
             </ul>
@@ -87,7 +86,7 @@ const CiisFooter = () => {
         <div className="ciis-footer-bottom">
           <div className="ciis-bottom-content">
 
- <Link to="https://cds.ciisnetwork.in/company/CAREER/login">
+              <Link to="https://cds.ciisnetwork.in/company/CAREER/login">
               <p className="ciis-copyright">
               
               © 2025 CIIS Network. All rights reserved.
@@ -98,7 +97,7 @@ const CiisFooter = () => {
             
             
             <div className="ciis-legal-links">
-              <a href="#privacy" className="ciis-legal-link">Privacy</a>
+              <Link to="/privacy-policy" className="ciis-legal-link">Privacy</Link>
               <span className="ciis-link-separator">•</span>
               <a href="#terms" className="ciis-legal-link">Terms</a>
               <span className="ciis-link-separator">•</span>

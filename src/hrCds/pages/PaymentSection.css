@@ -1,635 +1,669 @@
-/* PaymentSection.css - Only for Payment Section Page */
-
-/* ===== Payment Section Container ===== */
-.ClientDashboard-payment-section {
-  max-width: 1200px;
-  margin: 0 auto;
-  background: linear-gradient(135deg, #f5f7fb 0%, #f8fafc 100%);
+.ClientPayment-page {
   min-height: 100vh;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  padding: 18px 28px 36px;
+  background: #f8faff;
+  color: #111642;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
 }
 
-.ClientDashboard-payment-container {
-  padding: 0 32px 32px;
+.ClientPayment-header {
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 28px;
+}
+
+.ClientPayment-header h1 {
+  margin: 0 0 6px;
+  color: #121633;
+  font-size: 28px;
+  line-height: 1.05;
+  font-weight: 700;
+}
+
+.ClientPayment-header p {
+  margin: 0;
+  color: #56607f;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.ClientPayment-header button {
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  border: 1px solid #e3e8f4;
+  border-radius: 12px;
+  background: #fff;
+  color: #653dff;
+  box-shadow: 0 8px 24px rgba(22, 34, 84, 0.08);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ClientPayment-plan-card,
+.ClientPayment-card,
+.ClientPayment-alert {
+  border: 1px solid #e5eaf5;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(28, 39, 86, 0.06);
+}
+
+.ClientPayment-plan-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(250px, 1.2fr) minmax(360px, 1.35fr) 180px;
+  align-items: center;
+  gap: 28px;
+  min-height: 170px;
+  padding: 28px 34px;
+  overflow: hidden;
+}
+
+.ClientPayment-plan-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #b98cff, #653dff);
+}
+
+.ClientPayment-plan-left,
+.ClientPayment-plan-status,
+.ClientPayment-section-title {
+  display: flex;
+  align-items: center;
+}
+
+.ClientPayment-plan-left {
   gap: 24px;
 }
 
-/* ===== Welcome Header ===== */
-.ClientDashboard-welcome-header {
-  padding: 32px 32px 24px;
+.ClientPayment-plan-icon,
+.ClientPayment-title-icon {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #efe7ff;
+  color: #653dff;
 }
 
-.ClientDashboard-welcome-header h1 {
-  font-size: 32px;
-  font-weight: 700;
-  color: #0f172a;
-  margin: 0 0 8px 0;
-  letter-spacing: -0.02em;
+.ClientPayment-plan-icon {
+  width: 88px;
+  height: 88px;
+  font-size: 44px;
 }
 
-.ClientDashboard-welcome-header p {
-  font-size: 15px;
-  color: #475569;
+.ClientPayment-plan-left span,
+.ClientPayment-plan-left p,
+.ClientPayment-plan-status p,
+.ClientPayment-days-card span,
+.ClientPayment-days-card p {
   margin: 0;
+  color: #5d6684;
+  font-size: 13px;
+  font-weight: 500;
 }
 
-/* ===== Subscription Card ===== */
-.ClientDashboard-subscription-card {
-  background: white;
-  border-radius: 24px;
-  padding: 28px;
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  transition: all 0.3s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-}
-
-.ClientDashboard-subscription-card:hover {
-  border-color: rgba(59, 130, 246, 0.4);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
-}
-
-.ClientDashboard-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.ClientDashboard-card-header h3 {
-  font-size: 20px;
-  font-weight: 600;
-  color: #0f172a;
-  margin: 0;
-}
-
-.ClientDashboard-card-header-icon {
+.ClientPayment-plan-left h2 {
+  margin: 8px 0 14px;
+  color: #121633;
   font-size: 24px;
-  color: #3b82f6;
+  font-weight: 700;
 }
 
-.ClientDashboard-subscription-content {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+.ClientPayment-plan-left strong {
+  display: block;
+  margin-top: 6px;
+  color: #653dff;
+  font-size: 16px;
+  font-weight: 700;
 }
 
-.ClientDashboard-subscription-status-wrapper {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 8px;
+.ClientPayment-plan-status {
+  min-height: 110px;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 0 30px;
+  border-left: 1px solid #e5eaf5;
+  border-right: 1px solid #e5eaf5;
 }
 
-.ClientDashboard-subscription-badge {
+.ClientPayment-status-pill {
+  align-self: start;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 20px;
-  border-radius: 40px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: #dff8ea;
+  color: #18a85f;
   font-size: 14px;
-  font-weight: 600;
-}
-
-.ClientDashboard-subscription-badge--active {
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: white;
-}
-
-.ClientDashboard-subscription-badge--expired {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  color: white;
-}
-
-.ClientDashboard-subscription-badge--none {
-  background: linear-gradient(135deg, #6b7280, #4b5563);
-  color: white;
-}
-
-.ClientDashboard-subscription-warning {
-  background: rgba(255, 255, 255, 0.2);
-  padding: 2px 8px;
-  border-radius: 20px;
-  font-size: 11px;
-  margin-left: 6px;
-}
-
-/* Subscription Price Info */
-.ClientDashboard-subscription-price-info {
-  background: linear-gradient(135deg, #eff6ff, #dbeafe);
-  border-radius: 16px;
-  padding: 16px 20px;
-  text-align: center;
-}
-
-.ClientDashboard-price-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
-}
-
-.ClientDashboard-price-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #475569;
-}
-
-.ClientDashboard-price-value {
-  font-size: 24px;
   font-weight: 700;
-  color: #3b82f6;
 }
 
-/* Subscription Dates */
-.ClientDashboard-subscription-dates {
+.ClientPayment-status-pill--expired {
+  background: #ffe6ea;
+  color: #e53f55;
+}
+
+.ClientPayment-plan-status strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: #121633;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ClientPayment-plan-status strong svg {
+  color: #653dff;
+}
+
+.ClientPayment-days-card {
+  justify-self: center;
+  text-align: center;
+}
+
+.ClientPayment-days-card strong {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  padding: 20px;
-  background: #f8fafc;
-  border-radius: 16px;
-}
-
-.ClientDashboard-subscription-date-item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.ClientDashboard-date-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #64748b;
-}
-
-.ClientDashboard-date-value {
-  font-size: 16px;
-  font-weight: 600;
-  color: #0f172a;
-  margin: 0;
-}
-
-.ClientDashboard-date-value--expired {
-  color: #ef4444;
-  text-decoration: line-through;
-}
-
-/* Subscription Validity */
-.ClientDashboard-subscription-validity {
-  margin-top: 8px;
-}
-
-.ClientDashboard-validity-active {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 18px;
-  background: #ecfdf5;
-  border-radius: 12px;
-  color: #065f46;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.ClientDashboard-validity-expired {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 18px;
-  background: #fef2f2;
-  border-radius: 12px;
-  color: #991b1b;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-/* Subscription Progress */
-.ClientDashboard-subscription-progress {
-  margin-top: 16px;
-}
-
-.ClientDashboard-progress-label {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  color: #64748b;
-  margin-bottom: 10px;
-}
-
-.ClientDashboard-progress-bar {
-  height: 8px;
-  background: #e2e8f0;
+  place-items: center;
+  width: 72px;
+  height: 58px;
+  margin: 12px auto 8px;
   border-radius: 10px;
-  overflow: hidden;
-}
-
-.ClientDashboard-progress-bar__fill {
-  height: 100%;
-  border-radius: 10px;
-  transition: width 0.5s ease;
-}
-
-.ClientDashboard-progress-bar__fill--success {
-  background: linear-gradient(90deg, #10b981, #34d399);
-}
-
-.ClientDashboard-progress-bar__fill--warning {
-  background: linear-gradient(90deg, #f59e0b, #fbbf24);
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-.ClientDashboard-progress-glow {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  animation: shimmer 2s infinite;
-}
-
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
-/* Empty Subscription */
-.ClientDashboard-subscription-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 60px 20px;
-  text-align: center;
-}
-
-.ClientDashboard-subscription-empty svg {
-  color: #94a3b8;
-}
-
-.ClientDashboard-subscription-empty p {
-  margin: 0;
-  font-size: 16px;
-  color: #475569;
-}
-
-.ClientDashboard-subscription-empty small {
-  font-size: 13px;
-  color: #94a3b8;
-}
-
-/* ===== Renewal Card ===== */
-.ClientDashboard-renewal-card {
-  background: white;
-  border-radius: 24px;
-  padding: 28px;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-}
-
-.ClientDashboard-renewal-description {
-  font-size: 14px;
-  color: #64748b;
-  margin-bottom: 24px;
-  line-height: 1.5;
-}
-
-/* Current Price Card */
-.ClientDashboard-current-price-info {
-  margin-bottom: 24px;
-}
-
-.ClientDashboard-price-card {
-  background: linear-gradient(135deg, #eff6ff, #dbeafe);
-  border-radius: 16px;
-  padding: 20px;
-  text-align: center;
-}
-
-.ClientDashboard-price-label {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #475569;
-  margin-bottom: 12px;
-}
-
-.ClientDashboard-price-amount {
-  font-size: 32px;
+  background: #dff8d8;
+  color: #08772d;
+  font-size: 34px;
   font-weight: 800;
-  color: #3b82f6;
-  margin-bottom: 12px;
 }
 
-.ClientDashboard-price-note {
+.ClientPayment-alert {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #64748b;
-  padding: 8px;
+  gap: 12px;
+  min-height: 52px;
+  margin: 26px 0;
+  padding: 0 24px;
+  border-color: #aeeec9;
+  background: #ebfff4;
+  color: #16a05a;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.ClientPayment-alert--expired {
+  border-color: #ffc8d0;
+  background: #fff0f2;
+  color: #d53348;
+}
+
+.ClientPayment-alert svg {
+  width: 24px;
+  height: 24px;
+  padding: 4px;
+  border-radius: 50%;
+  background: #d7f8e6;
+}
+
+.ClientPayment-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(430px, 0.98fr);
+  gap: 22px;
+}
+
+.ClientPayment-card {
+  padding: 28px;
+}
+
+.ClientPayment-section-title {
+  gap: 16px;
+  margin-bottom: 26px;
+}
+
+.ClientPayment-title-icon {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 58px;
+  border-radius: 18px;
+  font-size: 28px;
+}
+
+.ClientPayment-section-title h2,
+.ClientPayment-status-card h2,
+.ClientPayment-history-card h2 {
+  margin: 0 0 8px;
+  color: #121633;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.ClientPayment-section-title p {
+  margin: 0;
+  color: #56607f;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.ClientPayment-renewal-form,
+.ClientPayment-side-column {
+  display: grid;
+  gap: 18px;
+}
+
+.ClientPayment-form-group {
+  display: grid;
+  gap: 10px;
+}
+
+.ClientPayment-form-group label {
+  color: #2d365c;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ClientPayment-input,
+.ClientPayment-amount-input input {
+  width: 100%;
+  height: 46px;
+  border: 1px solid #d9e0ef;
+  border-radius: 8px;
+  background: #fff;
+  color: #121633;
+  font: inherit;
+  font-size: 14px;
+  padding: 0 16px;
+  outline: none;
+}
+
+.ClientPayment-amount-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+}
+
+.ClientPayment-amount-input input {
+  border-radius: 8px 0 0 8px;
+}
+
+.ClientPayment-amount-input span {
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d9e0ef;
+  border-left: 0;
+  border-radius: 0 8px 8px 0;
+  color: #121633;
+  font-weight: 700;
+}
+
+.ClientPayment-upload-box {
+  position: relative;
+}
+
+.ClientPayment-file-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ClientPayment-upload-label {
+  min-height: 136px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  border: 1px dashed #b996ff;
+  border-radius: 8px;
+  background: #fbf8ff;
+  color: #653dff;
+  text-align: center;
+  cursor: pointer;
+}
+
+.ClientPayment-upload-label svg {
+  width: 34px;
+  height: 34px;
+}
+
+.ClientPayment-upload-label span {
+  color: #59617f;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.ClientPayment-upload-note {
+  display: block;
+  margin-top: -6px;
+  text-align: center;
+  color: #7b84a4;
+  font-size: 10px;
+}
+
+.ClientPayment-file-preview img {
+  max-width: 100%;
+  max-height: 180px;
   border-radius: 8px;
 }
 
-.ClientDashboard-price-note--success {
-  background: #ecfdf5;
-  color: #065f46;
-}
-
-/* Renewal Message */
-.ClientDashboard-renewal-message {
+.ClientPayment-selected-file {
+  min-height: 76px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   padding: 14px 18px;
-  border-radius: 12px;
-  margin-bottom: 24px;
-  font-size: 14px;
-  animation: slideDown 0.3s ease;
+  border-radius: 8px;
+  background: #f4f6fc;
 }
 
-.ClientDashboard-renewal-message--success {
-  background: #ecfdf5;
-  color: #065f46;
-  border-left: 4px solid #10b981;
+.ClientPayment-selected-file-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #fff;
+  color: #56607f;
 }
 
-.ClientDashboard-renewal-message--error {
-  background: #fef2f2;
-  color: #991b1b;
-  border-left: 4px solid #ef4444;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Renewal Form */
-.ClientDashboard-renewal-form {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.ClientDashboard-form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.ClientDashboard-form-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
-}
-
-.ClientDashboard-form-icon {
-  color: #3b82f6;
-  font-size: 18px;
-}
-
-.ClientDashboard-form-input {
-  padding: 12px 16px;
-  border: 2px solid #e5e7eb;
-  border-radius: 12px;
-  font-size: 14px;
-  transition: all 0.2s ease;
-  background: white;
-}
-
-.ClientDashboard-form-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.ClientDashboard-form-input:disabled {
-  background: #f9fafb;
-  cursor: not-allowed;
-}
-
-.ClientDashboard-form-hint {
-  font-size: 12px;
-  color: #94a3b8;
-  margin-top: 4px;
-}
-
-/* File Upload */
-.ClientDashboard-file-upload-area {
-  position: relative;
-}
-
-.ClientDashboard-file-input {
-  position: absolute;
-  opacity: 0;
-  width: 0.1px;
-  height: 0.1px;
-  overflow: hidden;
-}
-
-.ClientDashboard-file-upload-label {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 40px 20px;
-  border: 2px dashed #d1d5db;
-  border-radius: 16px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background: #f9fafb;
-  text-align: center;
-  position: relative;
-}
-
-.ClientDashboard-file-upload-label:hover {
-  border-color: #3b82f6;
-  background: #eff6ff;
-}
-
-.ClientDashboard-file-upload-label svg {
-  font-size: 40px;
-  color: #9ca3af;
-}
-
-.ClientDashboard-file-upload-label span {
-  font-size: 14px;
-  color: #374151;
-}
-
-.ClientDashboard-file-upload-label small {
-  font-size: 11px;
-  color: #9ca3af;
-}
-
-.ClientDashboard-file-clear {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: #ef4444;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 16px;
-  transition: all 0.2s ease;
-}
-
-.ClientDashboard-file-clear:hover {
-  background: #dc2626;
-  transform: scale(1.1);
-}
-
-/* File Preview */
-.ClientDashboard-file-preview {
-  margin-top: 12px;
-  text-align: center;
-}
-
-.ClientDashboard-file-preview img {
-  max-width: 100%;
-  max-height: 200px;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  padding: 4px;
-}
-
-/* Renewal Actions */
-.ClientDashboard-renewal-actions {
-  display: flex;
-  gap: 16px;
-  margin-top: 8px;
-}
-
-.ClientDashboard-btn {
+.ClientPayment-selected-file div:nth-child(2) {
+  min-width: 0;
   flex: 1;
-  padding: 12px 24px;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 600;
+}
+
+.ClientPayment-selected-file strong,
+.ClientPayment-history-row strong {
+  display: block;
+  color: #121633;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ClientPayment-selected-file span,
+.ClientPayment-history-row span {
+  color: #697292;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.ClientPayment-selected-file button {
+  border: 0;
+  background: transparent;
+  color: #697292;
   cursor: pointer;
-  transition: all 0.2s ease;
+}
+
+.ClientPayment-upload-button {
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #7339ff, #5127e9);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ClientPayment-upload-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.ClientPayment-secure-note {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: none;
+  color: #56607f;
+  font-size: 11px;
 }
 
-.ClientDashboard-btn--primary {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
-}
-
-.ClientDashboard-btn--primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-}
-
-.ClientDashboard-btn--primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.ClientDashboard-btn--outlined {
-  background: white;
-  color: #374151;
-  border: 2px solid #e5e7eb;
-}
-
-.ClientDashboard-btn--outlined:hover:not(:disabled) {
-  border-color: #3b82f6;
-  color: #3b82f6;
-  background: #eff6ff;
-}
-
-/* Renewal Info */
-.ClientDashboard-renewal-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 18px;
-  background: #fef3c7;
-  border-radius: 12px;
-  margin-top: 24px;
-  font-size: 13px;
-  color: #92400e;
-}
-
-/* Spinner */
-.ClientDashboard-spinner-small {
-  width: 18px;
-  height: 18px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
+.ClientPayment-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
   border-radius: 50%;
-  animation: spin 0.6s linear infinite;
+  animation: ClientPayment-spin 0.7s linear infinite;
 }
 
-@keyframes spin {
+@keyframes ClientPayment-spin {
   to { transform: rotate(360deg); }
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .ClientDashboard-payment-container {
-    padding: 0 20px 20px;
+.ClientPayment-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.ClientPayment-message--success {
+  background: #ebfff4;
+  color: #16a05a;
+}
+
+.ClientPayment-message--error {
+  background: #fff0f2;
+  color: #d53348;
+}
+
+.ClientPayment-status-card,
+.ClientPayment-history-card {
+  min-height: 264px;
+}
+
+.ClientPayment-status-list {
+  display: grid;
+  gap: 12px;
+}
+
+.ClientPayment-status-list > div {
+  min-height: 50px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: #fbfcff;
+}
+
+.ClientPayment-status-list span {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #e7f8ee;
+  color: #20b96f;
+}
+
+.ClientPayment-status-list > div:nth-child(n+2) span {
+  background: #f0effb;
+  color: #7c83a5;
+}
+
+.ClientPayment-status-list p {
+  margin: 0;
+  color: #3c4464;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ClientPayment-status-list strong {
+  color: #16a05a;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ClientPayment-status-list strong.expired {
+  color: #d53348;
+}
+
+.ClientPayment-history-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 20px;
+}
+
+.ClientPayment-history-row {
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: 10px 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 0 18px;
+  border-radius: 8px;
+  background: #fbfcff;
+}
+
+.ClientPayment-history-row i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #48d386;
+}
+
+.ClientPayment-history-row > svg {
+  color: #7b84a4;
+}
+
+.ClientPayment-history-row > div:last-child {
+  text-align: right;
+}
+
+.ClientPayment-history-row em {
+  display: inline-flex;
+  margin-top: 4px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: #dff8ea;
+  color: #18a85f;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.ClientPayment-history-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px auto 0;
+  border: 0;
+  background: transparent;
+  color: #653dff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ClientDashboard-dashboard-loading,
+.ClientDashboard-dashboard-error {
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: #f8fafc;
+}
+
+.ClientDashboard-loading-spinner {
+  width: 42px;
+  height: 42px;
+  margin-bottom: 16px;
+  border: 3px solid #e1e7f3;
+  border-top-color: #653dff;
+  border-radius: 50%;
+  animation: ClientPayment-spin 0.7s linear infinite;
+}
+
+.ClientDashboard-error-icon {
+  margin-bottom: 16px;
+  color: #ff4059;
+  font-size: 48px;
+}
+
+.ClientDashboard-error-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.ClientDashboard-btn {
+  min-height: 40px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 8px;
+  background: #653dff;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ClientDashboard-btn--outlined {
+  border: 1px solid #d9e0ef;
+  background: #fff;
+  color: #121633;
+}
+
+@media (max-width: 1180px) {
+  .ClientPayment-plan-card,
+  .ClientPayment-content-grid {
+    grid-template-columns: 1fr;
   }
-  
-  .ClientDashboard-welcome-header {
-    padding: 24px 20px;
+
+  .ClientPayment-plan-status {
+    border: 0;
+    padding: 0;
   }
-  
-  .ClientDashboard-subscription-card,
-  .ClientDashboard-renewal-card {
+
+  .ClientPayment-days-card {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 720px) {
+  .ClientPayment-page {
+    padding: 16px;
+  }
+
+  .ClientPayment-header,
+  .ClientPayment-plan-status {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ClientPayment-card,
+  .ClientPayment-plan-card {
     padding: 20px;
   }
-  
-  .ClientDashboard-subscription-dates {
-    grid-template-columns: 1fr;
-    gap: 16px;
+
+  .ClientPayment-history-row {
+    grid-template-columns: 10px 24px minmax(0, 1fr);
   }
-  
-  .ClientDashboard-renewal-actions {
-    flex-direction: column;
-    gap: 12px;
-  }
-  
-  .ClientDashboard-price-amount {
-    font-size: 28px;
-  }
-  
-  .ClientDashboard-file-upload-label {
-    padding: 30px 16px;
+
+  .ClientPayment-history-row > div:last-child {
+    grid-column: 3;
+    text-align: left;
   }
 }

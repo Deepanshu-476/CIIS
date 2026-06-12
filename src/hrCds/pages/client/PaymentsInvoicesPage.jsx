@@ -15,6 +15,7 @@ import {
   FiSearch,
   FiUser,
 } from "react-icons/fi";
+import CIISLoader from "../../../Loader/CIISLoader";
 import {
   calculatePaymentSummary,
   formatDate,
@@ -58,7 +59,7 @@ const PaymentsInvoicesPage = () => {
   ];
 
   if (loading) {
-    return <section className="PaymentsPage-root"><div className="PaymentsPage-panel">Loading payments...</div></section>;
+    return <CIISLoader />;
   }
 
   if (error || !client) {

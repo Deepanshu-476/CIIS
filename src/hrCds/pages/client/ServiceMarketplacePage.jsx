@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import CIISLoader from "../../../Loader/CIISLoader";
 import {
   FiAward,
   FiBriefcase,
@@ -124,7 +125,7 @@ const defaultMarketplaceServices = [
 ];
 
 const ServiceMarketplacePage = () => {
-  const { client, services: clientServices, projectManagers, user } = useClientPortalData();
+  const { client, services: clientServices, projectManagers, user, loading } = useClientPortalData();
   const [companyServices, setCompanyServices] = useState([]);
   const [servicesLoading, setServicesLoading] = useState(true);
   const [servicesError, setServicesError] = useState("");
@@ -271,6 +272,10 @@ const ServiceMarketplacePage = () => {
       setSubmitLoading(false);
     }
   };
+
+  if (loading) {
+    return <CIISLoader />;
+  }
 
   return (
     <section className="ServiceMarketplacePage-root">

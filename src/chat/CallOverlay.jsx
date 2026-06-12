@@ -44,6 +44,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
     const activeCallRef = useRef(null);
     const audioContextRef = useRef(null);
     const ringtoneTimerRef = useRef(null);
+    const callTimeoutRef = useRef(null);
 
     const stopRingtone = () => {
         if (ringtoneTimerRef.current) {
@@ -145,6 +146,8 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
 
     const resetCall = () => {
         stopRingtone();
+        window.clearTimeout(callTimeoutRef.current);
+        callTimeoutRef.current = null;
         resetPeer();
         stopStreams();
         activeCallRef.current = null;
@@ -210,6 +213,10 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
 
     const getMediaStream = async (callType) => {
         try {
+            if (!navigator.mediaDevices?.getUserMedia) {
+                throw new Error("Media devices are not supported.");
+            }
+
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: true,
                 video: callType === "video",
@@ -240,6 +247,11 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
             return;
         }
 
+        if (!socket.connected) {
+            setError("Socket connect nahi hai. Please refresh karke phir call try karein.");
+            return;
+        }
+
         const peerUserId = getUserId(user);
         if (!peerUserId) return;
 
@@ -265,6 +277,13 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
                 toUserId: peerUserId,
                 callType,
             });
+            callTimeoutRef.current = window.setTimeout(() => {
+                if (activeCallRef.current?.callId === nextCall.callId && activeCallRef.current?.status === "outgoing") {
+                    emitToPeer("call:end");
+                    resetCall();
+                    setError("Call answer nahi hua.");
+                }
+            }, 45000);
         } catch (mediaError) {
             logCall('startCall media error', mediaError);
             resetCall();
@@ -285,6 +304,8 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
             activeCallRef.current = acceptedCall;
             setCall(acceptedCall);
             stopRingtone();
+            window.clearTimeout(callTimeoutRef.current);
+            callTimeoutRef.current = null;
             logCall('Sending call:accept', { callId: activeCall.callId, peerUserId: activeCall.peerUserId, callType: activeCall.type });
             socket.emit("call:accept", {
                 callId: activeCall.callId,
@@ -358,75 +379,110 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
             startRingtone();
         };
 
-        const handleAccepted = async (data) => {
-            logCall('Received call:accepted', data);
+        const handleRinging = (data) => {
+            logCall('Received call:ringing', data);
             const activeCall = activeCallRef.current;
-            if (!activeCall || activeCall.callId !== data.callId) {
-                logCall('call:accepted ignored: no active call or mismatched callId', data.callId);
-                return;
+            if (!activeCall || activeCall.callId !== data.callId) return;
+            setError("");
+        };
+
+        const handleUnavailable = (data) => {
+            logCall('Received call:unavailable', data);
+            const activeCall = activeCallRef.current;
+            if (activeCall && data.callId && activeCall.callId !== data.callId) return;
+            resetCall();
+            setError(data.reason || "User call ke liye available nahi hai.");
+        };
+
+        const handleAccepted = async (data) => {
+            try {
+                logCall('Received call:accepted', data);
+                const activeCall = activeCallRef.current;
+                if (!activeCall || activeCall.callId !== data.callId) {
+                    logCall('call:accepted ignored: no active call or mismatched callId', data.callId);
+                    return;
+                }
+
+                const connectingCall = { ...activeCall, status: "connecting" };
+                activeCallRef.current = connectingCall;
+                setCall(connectingCall);
+                stopRingtone();
+                window.clearTimeout(callTimeoutRef.current);
+                callTimeoutRef.current = null;
+
+                const peerConnection = createPeerConnection();
+                const offer = await peerConnection.createOffer();
+                logCall('Created offer for call:offer', offer);
+                await peerConnection.setLocalDescription(offer);
+
+                socket.emit("call:offer", {
+                    callId: activeCall.callId,
+                    toUserId: activeCall.peerUserId,
+                    offer,
+                });
+            } catch (error) {
+                logCall("call:accepted failed", error);
+                setError("Call connect nahi ho paayi.");
+                emitToPeer("call:end");
             }
-
-            const connectingCall = { ...activeCall, status: "connecting" };
-            activeCallRef.current = connectingCall;
-            setCall(connectingCall);
-            stopRingtone();
-
-            const peerConnection = createPeerConnection();
-            const offer = await peerConnection.createOffer();
-            logCall('Created offer for call:offer', offer);
-            await peerConnection.setLocalDescription(offer);
-
-            socket.emit("call:offer", {
-                callId: activeCall.callId,
-                toUserId: activeCall.peerUserId,
-                offer,
-            });
         };
 
         const handleOffer = async (data) => {
-            logCall('Received call:offer', data);
-            const activeCall = activeCallRef.current;
-            if (!activeCall || activeCall.callId !== data.callId) {
-                logCall('call:offer ignored: no active call or mismatched callId', data.callId);
-                return;
+            try {
+                logCall('Received call:offer', data);
+                const activeCall = activeCallRef.current;
+                if (!activeCall || activeCall.callId !== data.callId) {
+                    logCall('call:offer ignored: no active call or mismatched callId', data.callId);
+                    return;
+                }
+
+                const peerConnection = peerConnectionRef.current || createPeerConnection();
+                logCall('Setting remote description for offer');
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                await flushCandidateQueue();
+
+                const answer = await peerConnection.createAnswer();
+                logCall('Created answer for call:answer', answer);
+                await peerConnection.setLocalDescription(answer);
+
+                const activeNextCall = { ...activeCall, status: "active" };
+                activeCallRef.current = activeNextCall;
+                setCall(activeNextCall);
+
+                socket.emit("call:answer", {
+                    callId: activeCall.callId,
+                    toUserId: activeCall.peerUserId,
+                    answer,
+                });
+            } catch (error) {
+                logCall("call:offer failed", error);
+                setError("Call connect nahi ho paayi.");
+                emitToPeer("call:end");
             }
-
-            const peerConnection = peerConnectionRef.current || createPeerConnection();
-            logCall('Setting remote description for offer');
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-            await flushCandidateQueue();
-
-            const answer = await peerConnection.createAnswer();
-            logCall('Created answer for call:answer', answer);
-            await peerConnection.setLocalDescription(answer);
-
-            const activeNextCall = { ...activeCall, status: "active" };
-            activeCallRef.current = activeNextCall;
-            setCall(activeNextCall);
-
-            socket.emit("call:answer", {
-                callId: activeCall.callId,
-                toUserId: activeCall.peerUserId,
-                answer,
-            });
         };
 
         const handleAnswer = async (data) => {
-            logCall('Received call:answer', data);
-            const activeCall = activeCallRef.current;
-            const peerConnection = peerConnectionRef.current;
-            if (!activeCall || activeCall.callId !== data.callId || !peerConnection) {
-                logCall('call:answer ignored: no active call or missing peerConnection', data.callId);
-                return;
+            try {
+                logCall('Received call:answer', data);
+                const activeCall = activeCallRef.current;
+                const peerConnection = peerConnectionRef.current;
+                if (!activeCall || activeCall.callId !== data.callId || !peerConnection) {
+                    logCall('call:answer ignored: no active call or missing peerConnection', data.callId);
+                    return;
+                }
+
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+                await flushCandidateQueue();
+
+                const activeNextCall = { ...activeCall, status: "active" };
+                activeCallRef.current = activeNextCall;
+                setCall(activeNextCall);
+                stopRingtone();
+            } catch (error) {
+                logCall("call:answer failed", error);
+                setError("Call connect nahi ho paayi.");
+                emitToPeer("call:end");
             }
-
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-            await flushCandidateQueue();
-
-            const activeNextCall = { ...activeCall, status: "active" };
-            activeCallRef.current = activeNextCall;
-            setCall(activeNextCall);
-            stopRingtone();
         };
 
         const handleIceCandidate = async (data) => {
@@ -461,6 +517,8 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
         };
 
         socket.on("call:incoming", handleIncoming);
+        socket.on("call:ringing", handleRinging);
+        socket.on("call:unavailable", handleUnavailable);
         socket.on("call:accepted", handleAccepted);
         socket.on("call:offer", handleOffer);
         socket.on("call:answer", handleAnswer);
@@ -470,6 +528,8 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
 
         return () => {
             socket.off("call:incoming", handleIncoming);
+            socket.off("call:ringing", handleRinging);
+            socket.off("call:unavailable", handleUnavailable);
             socket.off("call:accepted", handleAccepted);
             socket.off("call:offer", handleOffer);
             socket.off("call:answer", handleAnswer);
@@ -504,7 +564,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
                 <audio ref={remoteAudioRef} autoPlay playsInline />
                 <div className="call-remote-stage">
                     {isVideoCall ? (
-                        <video ref={remoteVideoRef} autoPlay playsInline className="call-remote-video" />
+                        <video ref={remoteVideoRef} autoPlay muted playsInline className="call-remote-video" />
                     ) : (
                         <div className="call-avatar-large">
                             {avatarSrc ? <img src={avatarSrc} alt={call.peerUser?.name} /> : call.peerUser?.name?.charAt(0).toUpperCase() || "U"}

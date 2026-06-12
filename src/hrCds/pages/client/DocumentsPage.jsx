@@ -18,6 +18,7 @@ import {
   FiTrash2,
   FiUploadCloud,
 } from "react-icons/fi";
+import CIISLoader from "../../../Loader/CIISLoader";
 import {
   buildClientDocuments,
   getClientDisplayName,
@@ -49,7 +50,7 @@ const DocumentsPage = () => {
   const recentCount = documents.filter(doc => doc.date !== 'N/A').length;
 
   if (loading) {
-    return <section className="DocumentsPage-root"><div className="DocumentsPage-mainPanel">Loading documents...</div></section>;
+    return <CIISLoader />;
   }
 
   if (error || !client) {

@@ -124,11 +124,32 @@
   box-shadow: 0 4px 20px rgba(0,0,0,0.08);
   transition: all 0.3s ease;
   height: 100%;
+  width: 100%;
+  text-align: left;
 }
 
 .EmployeeProject-stat-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.EmployeeProject-stat-card-clickable {
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.EmployeeProject-stat-card-active {
+  box-shadow: 0 12px 30px rgba(102, 126, 234, 0.18);
+  outline: 2px solid rgba(102, 126, 234, 0.18);
+  outline-offset: 2px;
+}
+
+.EmployeeProject-stat-card-clickable:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 3px;
 }
 
 .EmployeeProject-stat-content {

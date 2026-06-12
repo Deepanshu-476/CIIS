@@ -10,6 +10,7 @@ import {
   FiUser,
 } from "react-icons/fi";
 import { SiGooglemeet, SiZoom } from "react-icons/si";
+import CIISLoader from "../../../Loader/CIISLoader";
 import axiosInstance from "../../../utils/axiosConfig";
 import {
   formatDate,
@@ -227,7 +228,7 @@ const SupportTicketsPage = () => {
   const nextMeeting = upcomingMeetings[0];
 
   if (loading) {
-    return <section className="ClientMeetings-root">Loading meetings...</section>;
+    return <CIISLoader />;
   }
 
   if (error || !client) {

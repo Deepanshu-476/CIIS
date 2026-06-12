@@ -1,5 +1,6 @@
 import React from 'react';
 import { FiBell, FiCheckCircle, FiClock, FiCreditCard, FiFileText } from 'react-icons/fi';
+import CIISLoader from '../../../Loader/CIISLoader';
 import {
   calculatePaymentSummary,
   formatDate,
@@ -34,7 +35,7 @@ const NotificationsPage = () => {
   ].slice(0, 8);
 
   if (loading) {
-    return <section className="ClientPageBase-root">Loading notifications...</section>;
+    return <CIISLoader />;
   }
 
   if (error || !client) {

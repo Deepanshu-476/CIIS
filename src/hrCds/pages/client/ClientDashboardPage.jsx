@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import CIISLoader from '../../../Loader/CIISLoader';
 import API_URL from '../../../config';
 import {
   calculatePaymentSummary,
@@ -273,6 +275,7 @@ const getUsersArrayFromResponse = responseData => {
 
 // ========== MAIN DASHBOARD COMPONENT ==========
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [client, setClient] = useState(null);
   const [services, setServices] = useState([]);
   const [projectManagers, setProjectManagers] = useState([]);
@@ -606,12 +609,7 @@ const Dashboard = () => {
   */
 
   if (loading) {
-    return (
-      <div className="ClientDashboard-dashboard-loading">
-        <div className="ClientDashboard-loading-spinner"></div>
-        <p>Loading your dashboard...</p>
-      </div>
-    );
+    return <CIISLoader />;
   }
 
   if (error) {
@@ -669,7 +667,7 @@ const Dashboard = () => {
         <div className="ClientDashboard-update-strip">
           <span><FiArrowUp /></span>
           <p><strong>Recent update:</strong> {recentActivities[0]?.[0] || 'No recent task updates found.'}</p>
-          <button type="button">View All Updates <FiChevronRight /></button>
+          <button type="button" onClick={() => navigate('/client/tasks-updates')}>View All Updates <FiChevronRight /></button>
         </div>
       </section>
 
@@ -689,7 +687,7 @@ const Dashboard = () => {
           <p><FiUser /> Account Manager: {sidebarManagers[0]?.name || 'Not assigned'}</p>
         </div>
         <div className="ClientDashboard-profile-actions">
-          <button type="button" className="ClientDashboard-btn-light"><FiUser /> View Profile</button>
+          {/* <button type="button" className="ClientDashboard-btn-light"><FiUser /> View Profile</button> */}
           <button type="button" className="ClientDashboard-btn-solid">Contact Support</button>
         </div>
       </section>

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import CIISLoader from '../../../Loader/CIISLoader';
 import API_URL from '../../../config';
 import { isClientForLoggedInUser } from '../../utils/clientPortalData';
 import './ClientTasksUpdatesPage.css';
@@ -313,12 +314,7 @@ const ServicesTasks = () => {
   const teamMembers = projectManagers.slice(0, 4);
 
   if (loading) {
-    return (
-      <div className="ClientTasksUpdatesPage-loading">
-        <div className="ClientTasksUpdatesPage-spinner"></div>
-        <p>Loading your tasks...</p>
-      </div>
-    );
+    return <CIISLoader />;
   }
 
   if (error || !client) {

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import CIISLoader from '../../../Loader/CIISLoader';
 import {
   FiBarChart2,
   FiBriefcase,
@@ -139,7 +140,7 @@ const MyServicesPage = () => {
   const getServiceTasks = serviceName => tasks.filter(task => task.serviceName === serviceName);
 
   if (loading) {
-    return <div className="MyServices-empty"><FiRefreshCw /><strong>Loading services...</strong></div>;
+    return <CIISLoader />;
   }
 
   if (error || !client) {

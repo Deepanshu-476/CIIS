@@ -858,12 +858,10 @@ const UserDashboard = () => {
       setShowClockOutConfirm(false);
       toast.success("Clocked out successfully!");
 
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      localStorage.removeItem("companyDetails");
-      delete axios.defaults.headers.common["Authorization"];
-      
-      setTimeout(() => navigate("/login"), 1500);
+      setTimeout(() => {
+        fetchCurrentStatus();
+        fetchAttendanceData(true);
+      }, 500);
 
     } catch (error) {
       toast.error("Clock-out failed");

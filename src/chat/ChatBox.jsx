@@ -45,11 +45,48 @@ const ChatBox = ({
     const recordingTimerRef = useRef(null);
     const recordingPreviewRef = useRef(null);
     const callOverlayRef = useRef(null);
+    const emojiPickerRef = useRef(null);
+    const chatInputRef = useRef(null);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const quickReplies = [
         "Please share the report",
         "What's the next plan?",
         "Any keyword updates?",
         "Thank you!"
+    ];
+    const emojiGroups = [
+        {
+            label: "Smileys",
+            emojis: ["😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇", "🙂", "🙃", "😉", "😍", "🥰", "😘", "😗", "😋", "😜", "🤪", "😎", "🤩", "🥳", "😏", "😒", "😔", "😢", "😭", "😤", "😡", "🤯", "😳", "🥺", "😴", "🤒", "🤕", "🤐", "🤫", "🤔", "🫡"]
+        },
+        {
+            label: "Gestures",
+            emojis: ["👍", "👎", "👌", "✌️", "🤞", "🤟", "🤘", "🤙", "👋", "🤚", "🖐️", "✋", "👏", "🙌", "🫶", "🙏", "🤝", "💪", "👀", "🧠", "🗣️", "👑"]
+        },
+        {
+            label: "Hearts",
+            emojis: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💯", "🔥", "✨", "⭐"]
+        },
+        {
+            label: "Work",
+            emojis: ["✅", "❌", "⚠️", "📌", "📍", "📎", "📄", "📁", "📊", "📈", "📉", "📝", "💼", "💻", "⌨️", "🖥️", "📱", "☎️", "📧", "📅", "⏰", "⏳", "🚀", "🎯"]
+        },
+        {
+            label: "Objects",
+            emojis: ["🎉", "🎊", "🎁", "🏆", "🥇", "🔔", "🔒", "🔓", "🔑", "💡", "🔎", "📢", "📣", "💰", "💳", "🧾", "🛠️", "⚙️", "🔧", "🧰", "🧲", "🪄"]
+        },
+        {
+            label: "Food",
+            emojis: ["☕", "🍵", "🥤", "🍰", "🍫", "🍪", "🍕", "🍔", "🍟", "🌮", "🍜", "🍱", "🍎", "🍌", "🍇", "🍓", "🥭", "🍉"]
+        },
+        {
+            label: "Travel",
+            emojis: ["🚗", "🚕", "🚌", "🚆", "✈️", "🚁", "🚲", "🏢", "🏠", "🏥", "🏦", "🗺️", "🌍", "🌙", "☀️", "⛅", "🌧️", "🌈"]
+        },
+        {
+            label: "Flags",
+            emojis: ["🇮🇳", "🇺🇸", "🇬🇧", "🇦🇪", "🇨🇦", "🇦🇺", "🇸🇬", "🇯🇵", "🇩🇪", "🇫🇷", "🇮🇹", "🇪🇸"]
+        }
     ];
 
 
@@ -101,6 +138,20 @@ const ChatBox = ({
         return () => {
             stopRecordingTracks();
             window.clearInterval(recordingTimerRef.current);
+        };
+    }, []);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target)) {
+                setShowEmojiPicker(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
         };
     }, []);
 
@@ -601,20 +652,28 @@ useEffect(() => {
         }
     };
 
+    const handleEmojiSelect = (emoji) => {
+        setText((prev) => `${prev}${emoji}`);
+        chatInputRef.current?.focus();
+    };
+
 
 
     if (!selectedUser) {
 
         return (
-            <div
-                className="chat-empty"
-            >
-                <div className="chat-empty-card">
-                    <div className="chat-empty-icon">C</div>
-                    <h2>Choose a conversation</h2>
-                    <p>Messages, files, and group chats will appear here.</p>
+            <>
+                <CallOverlay ref={callOverlayRef} socket={socket} currentUser={currentUser} />
+                <div
+                    className="chat-empty"
+                >
+                    <div className="chat-empty-card">
+                        <div className="chat-empty-icon">C</div>
+                        <h2>Choose a conversation</h2>
+                        <p>Messages, files, and group chats will appear here.</p>
+                    </div>
                 </div>
-            </div>
+            </>
         );
     }
 
@@ -783,6 +842,7 @@ useEffect(() => {
                             <div className="recording-error">{recordingError}</div>
                         )}
                         <input
+                            ref={chatInputRef}
                             type="text"
                             className="chat-input"
                             value={text}
@@ -807,9 +867,38 @@ useEffect(() => {
                         />
                     </div>
 
-                    <button type="button" className="emoji-btn" title="Emoji">
-                        <Smile size={20} />
-                    </button>
+                    <div className="emoji-picker-wrap" ref={emojiPickerRef}>
+                        <button
+                            type="button"
+                            className="emoji-btn"
+                            title="Emoji"
+                            onClick={() => setShowEmojiPicker((prev) => !prev)}
+                        >
+                            <Smile size={20} />
+                        </button>
+                        {showEmojiPicker && (
+                            <div className="emoji-picker-panel">
+                                {emojiGroups.map((group) => (
+                                    <div className="emoji-picker-section" key={group.label}>
+                                        <div className="emoji-picker-title">{group.label}</div>
+                                        <div className="emoji-picker-grid">
+                                            {group.emojis.map((emoji) => (
+                                                <button
+                                                    type="button"
+                                                    key={`${group.label}-${emoji}`}
+                                                    className="emoji-picker-item"
+                                                    onClick={() => handleEmojiSelect(emoji)}
+                                                    aria-label={`Add ${emoji}`}
+                                                >
+                                                    {emoji}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
 
                     <button
                         className={recorderMode === "audio" ? "recording-btn active" : "recording-btn"}

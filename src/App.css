@@ -40,7 +40,7 @@ body::before {
 }
 
 .integration-container {
-  background-image: url(/src/image/home-integration.webp);
+  background-image: url('/image.png');
   height: 29.25rem;
   max-width: 64.0625rem;
   background-size: contain;
@@ -50,7 +50,7 @@ body::before {
 }
 
 .back-main {
-  background-image: url(/src/image/ciis/background-cta.webp);
+  background-image: url('/image.png');
   height: 23.3125rem;
   max-width: 78.5625rem;
   background-size: cover;
@@ -162,7 +162,7 @@ body::before {
 /* Pricing Section */
 .p-section {
   padding: 0 10%;
-  background-image: url('../src/image/ciis/banner.jpg');
+  background-image: url('/image.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;

@@ -5,8 +5,7 @@ import API_URL from '../config';
 import { toast } from 'react-toastify';
 import './SuperAdminLogin.css';
 
-// Import your company logo
-import companyLogo from '../../public/logoo.png'; 
+const companyLogo = '/logoo.png';
 
 const SuperAdminLogin = () => {
   const navigate = useNavigate();

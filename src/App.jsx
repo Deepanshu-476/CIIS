@@ -379,7 +379,7 @@ function App() {
               </ProtectedRoute>
             </ThemeContextProvider>
           }
-        >/..
+        >
           <Route index element={<ClientDashboardPage />} />
           <Route path="dashboard" element={<ClientDashboardPage />} />
           <Route path="tasks-updates" element={<ClientTasksUpdatesPage />} />

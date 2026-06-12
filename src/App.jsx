@@ -235,7 +235,7 @@ import TaskManagement from "./hrCds/pages/TaskManagement";
 import EmployeeMeetingPage from "./hrCds/pages/EmployeeMeetingPage";
 import EmployeeProject from "./hrCds/pages/EmployeeProject";
 import ClientMeeting from "./hrCds/pages/ClientMeeting";
-//import ContactSupport from "./hrCds/pages/ContactSupport";
+import ContactSupport from "./hrCds/pages/ContactSupport";
 import DepartmentSupportDesk from "./hrCds/pages/DepartmentSupportDesk";
 import SupportOperations from "./admin/page/SupportOperations.jsx";
 
@@ -263,8 +263,6 @@ import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
 import BranchManagement from "./admin/page/BranchManagement.jsx"; 
 import ChatPage from "./Pages/Chat/ChatPage";
-// import ContactSupport from "./hrCds/pages/ContactSupport.jsx";
-
 
 function App() {
 
@@ -381,7 +379,7 @@ function App() {
               </ProtectedRoute>
             </ThemeContextProvider>
           }
-        >
+        >/..
           <Route index element={<ClientDashboardPage />} />
           <Route path="dashboard" element={<ClientDashboardPage />} />
           <Route path="tasks-updates" element={<ClientTasksUpdatesPage />} />

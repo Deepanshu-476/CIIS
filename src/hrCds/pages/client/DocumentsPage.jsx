@@ -3,7 +3,7 @@ import { FiFileText, FiDownload, FiCheckCircle, FiClock } from 'react-icons/fi';
 import './DocumentsPage.css';
 
 const documents = [
-  { name: 'Monthly Performance Report', type: 'PDF', date: 'Jun 04, 2026', status: 'Ready' },
+  { name: 'Monthly Performance Report',   type: 'PDF', date: 'Jun 04, 2026', status: 'Ready' },
   { name: 'Contract Amendment', type: 'DOCX', date: 'May 22, 2026', status: 'Pending' },
   { name: 'Invoice #1028', type: 'PDF', date: 'May 26, 2026', status: 'Paid' },
   { name: 'Strategy Proposal', type: 'PPTX', date: 'May 14, 2026', status: 'Ready' }

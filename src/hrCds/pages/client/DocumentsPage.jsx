@@ -26,19 +26,11 @@ import {
 } from "../../utils/clientPortalData";
 import "./DocumentsPage.css";
 
-<<<<<<< HEAD
-const documents = [
-  { name: 'Monthly Performance Report',   type: 'PDF', date: 'Jun 04, 2026', status: 'Ready' },
-  { name: 'Contract Amendment', type: 'DOCX', date: 'May 22, 2026', status: 'Pending' },
-  { name: 'Invoice #1028', type: 'PDF', date: 'May 26, 2026', status: 'Paid' },
-  { name: 'Strategy Proposal', type: 'PPTX', date: 'May 14, 2026', status: 'Ready' }
-=======
 const quickActions = [
   { icon: <FiUploadCloud />, title: "Upload Document", text: "Upload files to your account" },
   { icon: <FiFileText />, title: "Request Document", text: "Request documents from our team" },
   { icon: <FiShare2 />, title: "Shared Documents", text: "View documents shared with you" },
   { icon: <FiTrash2 />, title: "Trash", text: "View and restore deleted files" },
->>>>>>> 39aafa9046b5762ab4003153abdd7f0e3ef4ee61
 ];
 
 const iconMap = {

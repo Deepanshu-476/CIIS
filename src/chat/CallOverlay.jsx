@@ -241,6 +241,25 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
         )));
     };
 
+    const checkCallAvailability = (peerUserId) => new Promise((resolve) => {
+        if (!socket?.connected) {
+            resolve({ success: false, reason: "Socket connect nahi hai. Please refresh karke phir call try karein." });
+            return;
+        }
+
+        let settled = false;
+        const finish = (response) => {
+            if (settled) return;
+            settled = true;
+            resolve(response || { success: false, reason: "User call ke liye available nahi hai." });
+        };
+
+        socket.emit("call:check-availability", { toUserId: peerUserId }, finish);
+        window.setTimeout(() => {
+            finish({ success: false, reason: "Call availability check timeout." });
+        }, 3000);
+    });
+
     const startCall = async (callType, user) => {
         if (!socket || !user || user.isGroup) {
             setError(user?.isGroup ? "Group calling abhi available nahi hai." : "Call start nahi ho paayi.");
@@ -254,6 +273,12 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
 
         const peerUserId = getUserId(user);
         if (!peerUserId) return;
+
+        const availability = await checkCallAvailability(peerUserId);
+        if (!availability.success) {
+            setError(availability.reason || "User is offline");
+            return;
+        }
 
         const nextCall = {
             callId: `${getUserId(currentUser)}-${peerUserId}-${Date.now()}`,

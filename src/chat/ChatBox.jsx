@@ -693,7 +693,11 @@ useEffect(() => {
         selectedUser?.isGroup ? getGroupName(selectedUser) : selectedUser?.companyRole || "SEO Project"
     );
 
+    const selectedUserId = (selectedUser?._id || selectedUser?.id || "").toString();
+    const isSelectedUserOnline = selectedUser?.isGroup ? false : onlineUsers.includes(selectedUserId);
+
     const startDirectCall = (callType) => {
+        if (!isSelectedUserOnline) return;
         callOverlayRef.current?.startCall(callType, selectedUser);
     };
 
@@ -727,24 +731,24 @@ useEffect(() => {
                                     ? "Typing..." 
                                     : selectedUser.isGroup 
                                     ? "Group Chat" 
-                                    : (onlineUsers.includes((selectedUser._id || selectedUser.id || "").toString()) ? "Online" : "Offline")}
+                                    : (isSelectedUserOnline ? "Online" : "Offline")}
                             </div>
                     </div>
                 </div>
                 <div className="chat-header-actions">
                     <button
                         type="button"
-                        title={selectedUser.isGroup ? "Group calling coming soon" : "Start voice call"}
+                        title={selectedUser.isGroup ? "Group calling coming soon" : isSelectedUserOnline ? "Start voice call" : "User is offline"}
                         onClick={() => startDirectCall("audio")}
-                        disabled={selectedUser.isGroup}
+                        disabled={selectedUser.isGroup || !isSelectedUserOnline}
                     >
                         <Phone size={18} />
                     </button>
                     <button
                         type="button"
-                        title={selectedUser.isGroup ? "Group calling coming soon" : "Start video call"}
+                        title={selectedUser.isGroup ? "Group calling coming soon" : isSelectedUserOnline ? "Start video call" : "User is offline"}
                         onClick={() => startDirectCall("video")}
-                        disabled={selectedUser.isGroup}
+                        disabled={selectedUser.isGroup || !isSelectedUserOnline}
                     >
                         <Video size={18} />
                     </button>

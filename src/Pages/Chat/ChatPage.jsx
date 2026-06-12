@@ -35,23 +35,39 @@ const ChatPage = () => {
     return secondTime - firstTime;
   });
 
+  const getUnreadOverride = (...keys) => {
+    for (const key of keys) {
+      if (key && Object.prototype.hasOwnProperty.call(unreadCounts, key)) {
+        return unreadCounts[key];
+      }
+    }
+
+    return undefined;
+  };
+
   const enrichedUsers = sortByConversation(users.map(user => {
     const conversation = findDirectConversation(user);
+    const userId = (user._id || user.id || "").toString();
+    const conversationId = conversation?._id?.toString();
+    const unreadOverride = getUnreadOverride(conversationId, userId);
     return {
       ...user,
       conversation,
-      unreadCount: conversation?.unreadCount || unreadCounts[conversation?._id] || unreadCounts[user._id] || 0,
+      unreadCount: unreadOverride ?? conversation?.unreadCount ?? 0,
       lastMessage: conversation?.lastMessage,
     };
   }), user => user.conversation);
 
   const enrichedGroups = sortByConversation(groups.map(group => {
     const conversation = findGroupConversation(group);
+    const conversationId = conversation?._id?.toString();
+    const groupId = (group._id || group.id || "").toString();
+    const unreadOverride = getUnreadOverride(conversationId, groupId);
     return {
       ...group,
       isGroup: true,
       conversation,
-      unreadCount: conversation?.unreadCount || unreadCounts[conversation?._id] || 0,
+      unreadCount: unreadOverride ?? conversation?.unreadCount ?? 0,
       lastMessage: conversation?.lastMessage,
     };
   }), group => group.conversation);
@@ -93,26 +109,60 @@ const ChatPage = () => {
   useEffect(() => {
     if (!socket) return undefined;
 
+    const selectedUserId = (selectedUser?._id || selectedUser?.id || "").toString();
+    const selectedConversationId = selectedUser?.conversation?._id?.toString();
+
     const handleOnline = nextUsers => {
-      setOnlineUsers(nextUsers);
+      setOnlineUsers(Array.isArray(nextUsers) ? nextUsers.map(userId => userId.toString()) : []);
+    };
+
+    const refreshOnlineUsers = () => {
+      socket.emit("chat:get-online-users", users => {
+        handleOnline(users);
+      });
     };
 
     const handleUnread = data => {
+      const conversationId = data.conversationId?.toString();
+      const senderId = data.senderId?.toString();
+      const nextCount = conversationId === selectedConversationId || senderId === selectedUserId
+        ? 0
+        : data.count || 0;
+
       setUnreadCounts(prev => ({
         ...prev,
-        [data.conversationId || data.senderId]: data.count || 0,
+        ...(conversationId ? {[conversationId]: nextCount} : {}),
+        ...(senderId ? {[senderId]: nextCount} : {}),
       }));
       fetchConversations();
     };
 
     socket.on("chat:online-users", handleOnline);
     socket.on("chat:unread-update", handleUnread);
+    socket.on("connect", refreshOnlineUsers);
+    socket.io?.on("reconnect", refreshOnlineUsers);
+    refreshOnlineUsers();
 
     return () => {
       socket.off("chat:online-users", handleOnline);
       socket.off("chat:unread-update", handleUnread);
+      socket.off("connect", refreshOnlineUsers);
+      socket.io?.off("reconnect", refreshOnlineUsers);
     };
-  }, [socket]);
+  }, [socket, selectedUser]);
+
+  useEffect(() => {
+    if (!selectedUser) return;
+
+    const selectedUserId = (selectedUser._id || selectedUser.id || "").toString();
+    const conversationId = selectedUser.conversation?._id?.toString();
+
+    setUnreadCounts(prev => ({
+      ...prev,
+      ...(selectedUserId ? {[selectedUserId]: 0} : {}),
+      ...(conversationId ? {[conversationId]: 0} : {}),
+    }));
+  }, [selectedUser]);
 
   return (
     <div className="chat-page">

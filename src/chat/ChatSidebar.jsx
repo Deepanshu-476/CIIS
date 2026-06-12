@@ -67,6 +67,21 @@ const ChatSidebar = ({
         return group.memberCount || group.count || 0;
     };
 
+    const getBadgeCount = (item) => {
+        const conversationId = item?.conversation?._id?.toString();
+        const itemId = (item?._id || item?.id || "").toString();
+
+        if (conversationId && Object.prototype.hasOwnProperty.call(unreadCounts, conversationId)) {
+            return Number(unreadCounts[conversationId]) || 0;
+        }
+
+        if (itemId && Object.prototype.hasOwnProperty.call(unreadCounts, itemId)) {
+            return Number(unreadCounts[itemId]) || 0;
+        }
+
+        return Number(item?.unreadCount) || 0;
+    };
+
     const filteredGroups = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();
         if (!query) return groups || [];
@@ -141,13 +156,11 @@ const ChatSidebar = ({
                                     </div>
                                     <span className="chat-user-time">{getLastMessageTime(user) || (index === 0 ? "10:30 AM" : "May 10")}</span>
 
-                                    {
-                                        (user.unreadCount || unreadCounts[user._id]) > 0 && (
-                                            <div className="chat-user-badge">
-                                                {user.unreadCount || unreadCounts[user._id]}
-                                            </div>
-                                        )
-                                    }
+                                    {getBadgeCount(user) > 0 && (
+                                        <div className="chat-user-badge">
+                                            {getBadgeCount(user)}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="chat-user-department">
@@ -189,13 +202,11 @@ const ChatSidebar = ({
                                         {getGroupName(group)}
                                     </div>
                                     <span className="chat-user-time">{getLastMessageTime(group) || (index === 0 ? "09:15 AM" : "May 12")}</span>
-                                    {
-                                        group.unreadCount > 0 && (
-                                            <div className="chat-user-badge">
-                                                {group.unreadCount}
-                                            </div>
-                                        )
-                                    }
+                                    {getBadgeCount(group) > 0 && (
+                                        <div className="chat-user-badge">
+                                            {getBadgeCount(group)}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="chat-user-department">
                                     {group.department || "SEO Department"}

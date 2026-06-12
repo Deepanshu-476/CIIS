@@ -345,7 +345,7 @@ const fixedDefaultItems = [
   }
 ];
 
-// ✅ CLIENT MENU ITEMS - Sirf 3 pages client ke liye
+// ✅ CLIENT MENU ITEMS - All client pages now included
 const clientMenuItems = [
   {
     id: 'client-dashboard',
@@ -356,28 +356,60 @@ const clientMenuItems = [
     order: 1
   },
   {
-    id: 'client-payment',
-    name: 'Payment',
-    icon: 'CreditCard',
-    path: '/client/payment',
+    id: 'client-my-services',
+    name: 'My Services',
+    icon: 'Folder',
+    path: '/client/my-services',
     category: 'main',
     order: 2
   },
   {
-    id: 'client-services-tasks',
-    name: 'Services & Tasks',
-    icon: 'Folder',
-    path: '/client/services-tasks',
+    id: 'client-tasks-updates',
+    name: 'Tasks & Updates',
+    icon: 'Task',
+    path: '/client/tasks-updates',
     category: 'main',
     order: 3
   },
   {
-    id: 'change-password',
-    name: 'Change Password',
-    icon: 'Key',
-    path: '/client/change-password',
+    id: 'client-marketplace',
+    name: 'Explore Services',
+    icon: 'Folder',
+    path: '/client/marketplace',
     category: 'main',
     order: 4
+  },
+  {
+    id: 'client-support-tickets',
+    name: 'Meetings',
+    icon: 'VideoCall',
+    path: '/client/support-tickets',
+    category: 'main',
+    order: 5
+  },
+  {
+    id: 'client-documents',
+    name: 'Documents',
+    icon: 'Folder',
+    path: '/client/documents',
+    category: 'main',
+    order: 6
+  },
+  {
+    id: 'client-payments',
+    name: 'Payments',
+    icon: 'CreditCard',
+    path: '/client/payments',
+    category: 'main',
+    order: 7
+  },
+  {
+    id: 'change-password',
+    name: 'Change Password',
+    icon: 'Settings',
+    path: '/client/change-password',
+    category: 'main',
+    order: 10
   }
 ];
 
@@ -637,7 +669,15 @@ const getPathFromName = (name) => {
     'Support Desk': '/ciisUser/support-desk',
     'Support Operations': '/ciisUser/support-operations',
     'Client Dashboard': '/client/dashboard',
-    'Payment': '/client/payment',
+'Payment': '/client/payments',
+  'Payments': '/client/payments',
+  'My Services': '/client/my-services',
+  'Tasks & Updates': '/client/tasks-updates',
+  'Explore Services': '/client/marketplace',
+  'Service Marketplace': '/client/marketplace',
+  'Meetings': '/client/support-tickets',
+  'Support Tickets': '/client/support-tickets',
+  'Documents': '/client/documents',
     'Services & Tasks': '/client/services-tasks'
   };
   

@@ -1,0 +1,85 @@
+.ClientPageBase-root {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.ClientPageBase-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 26px 28px;
+  border-radius: 22px;
+  background: white;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+}
+
+.ClientPageBase-header p {
+  margin: 0 0 10px;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ClientPageBase-header h1 {
+  margin: 0;
+  font-size: 30px;
+}
+
+.ClientPageBase-header button {
+  border: none;
+  background: #2563eb;
+  color: white;
+  padding: 14px 22px;
+  border-radius: 16px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.ClientPageBase-notifications-card {
+  display: grid;
+  gap: 14px;
+  background: white;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.08);
+}
+
+.ClientPageBase-notification-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: #f8fafc;
+}
+
+.ClientPageBase-notification-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: #2563eb;
+  color: white;
+}
+
+.ClientPageBase-notification-item strong {
+  margin: 0 0 6px;
+}
+
+.ClientPageBase-notification-item p {
+  margin: 0;
+  color: #64748b;
+}
+
+@media (max-width: 720px) {
+  .ClientPageBase-notification-item {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: left;
+  }
+}

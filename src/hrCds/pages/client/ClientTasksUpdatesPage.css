@@ -1,0 +1,1056 @@
+.ClientTasksUpdatesPage-page {
+  min-height: 100vh;
+  padding: 14px 16px 20px;
+  background: #f7f9fc;
+  color: #17213b;
+  font-family: "Roboto", "Helvetica", "Arial", sans-serif;
+  overflow-x: hidden;
+}
+
+.ClientTasksUpdatesPage-topbar,
+.ClientTasksUpdatesPage-shell,
+.ClientTasksUpdatesPage-titleRow,
+.ClientTasksUpdatesPage-topActions,
+.ClientTasksUpdatesPage-cardHead,
+.ClientTasksUpdatesPage-toolbar,
+.ClientTasksUpdatesPage-pagination,
+.ClientTasksUpdatesPage-taskName,
+.ClientTasksUpdatesPage-progress,
+.ClientTasksUpdatesPage-avatars,
+.ClientTasksUpdatesPage-donutBox,
+.ClientTasksUpdatesPage-overall,
+.ClientTasksUpdatesPage-manager,
+.ClientTasksUpdatesPage-teamAvatars {
+  display: flex;
+  align-items: center;
+}
+
+.ClientTasksUpdatesPage-topbar {
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.ClientTasksUpdatesPage-topbar h1 {
+  margin: 0 0 5px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.ClientTasksUpdatesPage-topbar p,
+.ClientTasksUpdatesPage-titleRow p {
+  margin: 0;
+  color: #6b7690;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ClientTasksUpdatesPage-topActions {
+  justify-content: flex-end;
+  gap: 16px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ClientTasksUpdatesPage-search,
+.ClientTasksUpdatesPage-tableSearch {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 38px;
+  border: 1px solid #dfe6f1;
+  border-radius: 8px;
+  background: #fff;
+  color: #92a0b5;
+}
+
+.ClientTasksUpdatesPage-search {
+  width: min(430px, 42vw);
+  padding: 0 13px;
+  box-shadow: 0 4px 13px rgba(24, 39, 75, 0.04);
+}
+
+.ClientTasksUpdatesPage-search input,
+.ClientTasksUpdatesPage-tableSearch input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  color: #25324d;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ClientTasksUpdatesPage-primary,
+.ClientTasksUpdatesPage-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  border: 0;
+  border-radius: 8px;
+  background: #0b72f0;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(11, 114, 240, 0.22);
+}
+
+.ClientTasksUpdatesPage-primary {
+  padding: 0 17px;
+}
+
+.ClientTasksUpdatesPage-primary:disabled {
+  opacity: 0.72;
+}
+
+.ClientTasksUpdatesPage-iconButton,
+.ClientTasksUpdatesPage-profileButton,
+.ClientTasksUpdatesPage-filter,
+.ClientTasksUpdatesPage-review,
+.ClientTasksUpdatesPage-pagination button,
+.ClientTasksUpdatesPage-cardHead button,
+.ClientTasksUpdatesPage-widget button,
+.ClientTasksUpdatesPage-error button {
+  border: 1px solid #dfe6f1;
+  background: #fff;
+  color: #1d4ed8;
+  cursor: pointer;
+}
+
+.ClientTasksUpdatesPage-iconButton {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  color: #2563eb;
+  font-size: 17px;
+}
+
+.ClientTasksUpdatesPage-iconButton span {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 18px;
+  text-align: center;
+}
+
+.ClientTasksUpdatesPage-profileButton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 12px;
+  border-color: transparent;
+  border-radius: 8px;
+  color: #1f2937;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ClientTasksUpdatesPage-profileButton b,
+.ClientTasksUpdatesPage-manager b,
+.ClientTasksUpdatesPage-avatars i,
+.ClientTasksUpdatesPage-avatars b,
+.ClientTasksUpdatesPage-teamAvatars i,
+.ClientTasksUpdatesPage-teamAvatars b {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-profileButton b {
+  width: 34px;
+  height: 34px;
+  background: linear-gradient(135deg, #9b8cff, #6d5dfc);
+}
+
+.ClientTasksUpdatesPage-shell {
+  align-items: stretch;
+  gap: 12px;
+}
+
+.ClientTasksUpdatesPage-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.ClientTasksUpdatesPage-side {
+  width: 300px;
+  flex: 0 0 300px;
+  display: grid;
+  gap: 12px;
+}
+
+.ClientTasksUpdatesPage-titleRow {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.ClientTasksUpdatesPage-titleRow h2 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  line-height: 1.1;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ClientTasksUpdatesPage-statCard,
+.ClientTasksUpdatesPage-tablePanel,
+.ClientTasksUpdatesPage-sideCard,
+.ClientTasksUpdatesPage-widget {
+  border: 1px solid #e3e9f3;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(24, 39, 75, 0.05);
+}
+
+.ClientTasksUpdatesPage-statCard {
+  position: relative;
+  min-height: 82px;
+  padding: 10px 10px 8px 42px;
+  border-color: #e7edf6;
+  overflow: hidden;
+  box-shadow: 0 5px 15px rgba(20, 35, 70, 0.045);
+}
+
+.ClientTasksUpdatesPage-statIcon,
+.ClientTasksUpdatesPage-updateIcon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 15px;
+}
+
+.ClientTasksUpdatesPage-statCard .ClientTasksUpdatesPage-statIcon {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  font-size: 0;
+  line-height: 1;
+}
+
+.ClientTasksUpdatesPage-statCard .ClientTasksUpdatesPage-statIcon svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.ClientTasksUpdatesPage-is-blue { color: #1769e8; background: #eaf2ff; }
+.ClientTasksUpdatesPage-is-green { color: #13a45e; background: #e8f9f0; }
+.ClientTasksUpdatesPage-is-orange { color: #f59e0b; background: #fff4df; }
+.ClientTasksUpdatesPage-is-red { color: #ef4444; background: #ffecef; }
+.ClientTasksUpdatesPage-is-purple { color: #7c3aed; background: #f0eafd; }
+
+.ClientTasksUpdatesPage-statCard span {
+  display: block;
+  margin-top: 0;
+  color: #25314d;
+  font-size: 9px;
+  line-height: 1.15;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-statCard strong {
+  display: block;
+  margin-top: 4px;
+  color: #101828;
+  font-size: 19px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-statCard small {
+  position: absolute;
+  left: 10px;
+  bottom: 22px;
+  color: #11a36a;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-statCard small.ClientTasksUpdatesPage-down {
+  color: #ef4444;
+}
+
+.ClientTasksUpdatesPage-statCard em {
+  position: absolute;
+  left: 10px;
+  bottom: 9px;
+  color: #8a97aa;
+  font-size: 8.5px;
+  line-height: 1;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.ClientTasksUpdatesPage-statCard svg {
+  position: absolute;
+  right: 8px;
+  bottom: 10px;
+  width: 62px;
+  height: 22px;
+  fill: none;
+  stroke: #8fb8ff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.7;
+}
+
+.ClientTasksUpdatesPage-statCard.ClientTasksUpdatesPage-tone-green svg { stroke: #8bd9bd; }
+.ClientTasksUpdatesPage-statCard.ClientTasksUpdatesPage-tone-orange svg { stroke: #efc078; }
+.ClientTasksUpdatesPage-statCard.ClientTasksUpdatesPage-tone-red svg { stroke: #f2a3ad; }
+.ClientTasksUpdatesPage-statCard.ClientTasksUpdatesPage-tone-purple svg { stroke: #a78bfa; }
+
+.ClientTasksUpdatesPage-tablePanel {
+  overflow: hidden;
+}
+
+.ClientTasksUpdatesPage-toolbar {
+  gap: 7px;
+  padding: 9px;
+  border-bottom: 1px solid #edf1f7;
+}
+
+.ClientTasksUpdatesPage-tableSearch {
+  flex: 1;
+  min-width: 180px;
+  padding: 0 10px;
+}
+
+.ClientTasksUpdatesPage-toolbar select,
+.ClientTasksUpdatesPage-pagination select {
+  height: 36px;
+  border: 1px solid #dfe6f1;
+  border-radius: 8px;
+  background: #fff;
+  color: #25324d;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.ClientTasksUpdatesPage-toolbar select {
+  width: 108px;
+  padding: 0 7px;
+}
+
+.ClientTasksUpdatesPage-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.ClientTasksUpdatesPage-add {
+  height: 36px;
+  padding: 0 12px;
+}
+
+.ClientTasksUpdatesPage-tableWrap {
+  overflow-x: auto;
+}
+
+.ClientTasksUpdatesPage-tableWrap table {
+  width: 100%;
+  min-width: 1040px;
+  border-collapse: collapse;
+}
+
+.ClientTasksUpdatesPage-tableWrap th,
+.ClientTasksUpdatesPage-tableWrap td {
+  border-bottom: 1px solid #edf1f7;
+  padding: 9px 7px;
+  text-align: left;
+  vertical-align: middle;
+  font-size: 10.5px;
+}
+
+.ClientTasksUpdatesPage-tableWrap th {
+  color: #71809a;
+  background: #fbfcff;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-tableWrap td {
+  color: #344054;
+  font-weight: 700;
+}
+
+.ClientTasksUpdatesPage-tableWrap td small {
+  display: block;
+  margin-top: 3px;
+  color: #ef4444;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-taskName {
+  gap: 8px;
+  min-width: 0;
+}
+
+.ClientTasksUpdatesPage-taskName span {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-taskName strong {
+  overflow: hidden;
+  color: #17213b;
+  font-size: 11px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ClientTasksUpdatesPage-avatars i,
+.ClientTasksUpdatesPage-avatars b {
+  width: 20px;
+  height: 20px;
+  margin-left: -5px;
+  border: 2px solid #fff;
+  background: #1f2937;
+  font-size: 8px;
+}
+
+.ClientTasksUpdatesPage-avatars i:first-child {
+  margin-left: 0;
+  background: #f97316;
+}
+
+.ClientTasksUpdatesPage-avatars i:nth-child(2) {
+  background: #2563eb;
+}
+
+.ClientTasksUpdatesPage-avatars i:nth-child(3) {
+  background: #111827;
+}
+
+.ClientTasksUpdatesPage-avatars b {
+  color: #475467;
+  background: #eef2f7;
+}
+
+.ClientTasksUpdatesPage-priority,
+.ClientTasksUpdatesPage-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.ClientTasksUpdatesPage-priority::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.ClientTasksUpdatesPage-priority.ClientTasksUpdatesPage-high { color: #ef4444; }
+.ClientTasksUpdatesPage-priority.ClientTasksUpdatesPage-medium { color: #f59e0b; }
+.ClientTasksUpdatesPage-priority.ClientTasksUpdatesPage-low { color: #10b981; }
+
+.ClientTasksUpdatesPage-progress {
+  gap: 8px;
+}
+
+.ClientTasksUpdatesPage-progress span {
+  width: 34px;
+  color: #344054;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-progress div {
+  width: 58px;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8eef7;
+}
+
+.ClientTasksUpdatesPage-progress i,
+.ClientTasksUpdatesPage-overall i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #0b72f0;
+}
+
+.ClientTasksUpdatesPage-status {
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-status.ClientTasksUpdatesPage-inprogress {
+  color: #1769e8;
+  background: #eaf2ff;
+}
+
+.ClientTasksUpdatesPage-status.ClientTasksUpdatesPage-pendingapproval,
+.ClientTasksUpdatesPage-status.ClientTasksUpdatesPage-upcoming {
+  color: #f59e0b;
+  background: #fff4df;
+}
+
+.ClientTasksUpdatesPage-status.ClientTasksUpdatesPage-completed {
+  color: #13a45e;
+  background: #e8f9f0;
+}
+
+.ClientTasksUpdatesPage-status.ClientTasksUpdatesPage-overdue {
+  color: #ef4444;
+  background: #ffecef;
+}
+
+.ClientTasksUpdatesPage-review {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 6px;
+  color: #0b72f0;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-pagination {
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  color: #71809a;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.ClientTasksUpdatesPage-pagination div {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ClientTasksUpdatesPage-pagination button {
+  display: grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: #344054;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-pagination button.ClientTasksUpdatesPage-active {
+  border-color: #0b72f0;
+  background: #0b72f0;
+  color: #fff;
+}
+
+.ClientTasksUpdatesPage-sideCard {
+  padding: 13px;
+}
+
+.ClientTasksUpdatesPage-cardHead {
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.ClientTasksUpdatesPage-cardHead h3,
+.ClientTasksUpdatesPage-widget h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-cardHead button {
+  border: 0;
+  color: #0b72f0;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-cardHead span {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #eaf2ff;
+  color: #0b72f0;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-updateList,
+.ClientTasksUpdatesPage-deadlineList {
+  display: grid;
+  gap: 10px;
+}
+
+.ClientTasksUpdatesPage-updateList article,
+.ClientTasksUpdatesPage-deadlineList article {
+  display: grid;
+  align-items: start;
+  gap: 10px;
+}
+
+.ClientTasksUpdatesPage-updateList article {
+  grid-template-columns: 28px 1fr;
+}
+
+.ClientTasksUpdatesPage-updateList strong,
+.ClientTasksUpdatesPage-deadlineList strong,
+.ClientTasksUpdatesPage-project > strong,
+.ClientTasksUpdatesPage-manager strong {
+  display: block;
+  color: #17213b;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-updateList span,
+.ClientTasksUpdatesPage-deadlineList span,
+.ClientTasksUpdatesPage-project p,
+.ClientTasksUpdatesPage-manager small,
+.ClientTasksUpdatesPage-team > span,
+.ClientTasksUpdatesPage-quick small {
+  display: block;
+  margin-top: 3px;
+  color: #7b879b;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.ClientTasksUpdatesPage-deadlineList article {
+  grid-template-columns: 72px 1fr 8px;
+}
+
+.ClientTasksUpdatesPage-deadlineList time {
+  color: #ef4444;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-deadlineList i {
+  width: 7px;
+  height: 7px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: #ef4444;
+}
+
+.ClientTasksUpdatesPage-deadlineList .ClientTasksUpdatesPage-dot-1 { background: #0b72f0; }
+.ClientTasksUpdatesPage-deadlineList .ClientTasksUpdatesPage-dot-2 { background: #10b981; }
+
+.ClientTasksUpdatesPage-bottomGrid {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.9fr) minmax(320px, 1.25fr) minmax(230px, 0.82fr) minmax(250px, 0.9fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.ClientTasksUpdatesPage-widget {
+  min-width: 0;
+  padding: 13px;
+}
+
+.ClientTasksUpdatesPage-donutBox {
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+}
+
+.ClientTasksUpdatesPage-donut {
+  position: relative;
+  width: 116px;
+  height: 116px;
+  flex: 0 0 116px;
+}
+
+.ClientTasksUpdatesPage-donut > div:last-child {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.ClientTasksUpdatesPage-donut strong {
+  color: #17213b;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-donut span {
+  color: #7b879b;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.ClientTasksUpdatesPage-legend {
+  flex: 1;
+  display: grid;
+  gap: 6px;
+}
+
+.ClientTasksUpdatesPage-legend p {
+  display: grid;
+  grid-template-columns: 9px 1fr auto;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: #4b5563;
+  font-size: 9.5px;
+  font-weight: 800;
+}
+
+.ClientTasksUpdatesPage-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+}
+
+.ClientTasksUpdatesPage-widget > button,
+.ClientTasksUpdatesPage-team > button,
+.ClientTasksUpdatesPage-quick > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 34px;
+  border-radius: 7px;
+  color: #0b72f0;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-project p {
+  margin: 5px 0 10px;
+}
+
+.ClientTasksUpdatesPage-milestones {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.ClientTasksUpdatesPage-milestones div {
+  position: relative;
+  text-align: center;
+}
+
+.ClientTasksUpdatesPage-milestones div::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  left: -50%;
+  width: 100%;
+  height: 2px;
+  background: #dfe6f1;
+}
+
+.ClientTasksUpdatesPage-milestones div:first-child::before {
+  display: none;
+}
+
+.ClientTasksUpdatesPage-milestones div.ClientTasksUpdatesPage-done::before {
+  background: #10b981;
+}
+
+.ClientTasksUpdatesPage-milestones i {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin: 0 auto 5px;
+  border-radius: 50%;
+  background: #eaf2ff;
+  color: #0b72f0;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-milestones .ClientTasksUpdatesPage-done i {
+  background: #10b981;
+  color: #fff;
+}
+
+.ClientTasksUpdatesPage-milestones span,
+.ClientTasksUpdatesPage-milestones small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ClientTasksUpdatesPage-milestones span {
+  color: #17213b;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-milestones small {
+  margin-top: 3px;
+  color: #7b879b;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.ClientTasksUpdatesPage-overall {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 10px;
+  margin-bottom: 13px;
+  color: #475467;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-overall div {
+  grid-column: 1 / -1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8eef7;
+}
+
+.ClientTasksUpdatesPage-manager {
+  gap: 10px;
+  margin: 7px 0 10px;
+}
+
+.ClientTasksUpdatesPage-manager b {
+  width: 42px;
+  height: 42px;
+  background: #d97706;
+}
+
+.ClientTasksUpdatesPage-teamAvatars {
+  margin: 7px 0 11px;
+}
+
+.ClientTasksUpdatesPage-teamAvatars i,
+.ClientTasksUpdatesPage-teamAvatars b {
+  width: 30px;
+  height: 30px;
+  margin-left: -6px;
+  border: 2px solid #fff;
+  background: #0b72f0;
+  font-size: 10px;
+}
+
+.ClientTasksUpdatesPage-teamAvatars i:first-child {
+  margin-left: 0;
+  background: #111827;
+}
+
+.ClientTasksUpdatesPage-teamAvatars i:nth-child(2) { background: #d97706; }
+.ClientTasksUpdatesPage-teamAvatars i:nth-child(3) { background: #be123c; }
+.ClientTasksUpdatesPage-teamAvatars i:nth-child(4) { background: #047857; }
+.ClientTasksUpdatesPage-teamAvatars b {
+  color: #475467;
+  background: #eef2f7;
+}
+
+.ClientTasksUpdatesPage-quick > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.ClientTasksUpdatesPage-quick > div button {
+  display: grid;
+  place-items: center;
+  min-height: 68px;
+  padding: 8px 5px;
+  border-radius: 8px;
+  color: #17213b;
+  text-align: center;
+}
+
+.ClientTasksUpdatesPage-quick svg {
+  color: #0b72f0;
+  font-size: 19px;
+}
+
+.ClientTasksUpdatesPage-quick span {
+  display: block;
+  margin-top: 6px;
+  color: #17213b;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-loading,
+.ClientTasksUpdatesPage-error {
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: #f7f9fc;
+}
+
+.ClientTasksUpdatesPage-spinner {
+  width: 42px;
+  height: 42px;
+  margin-bottom: 14px;
+  border: 3px solid #dfe6f1;
+  border-top-color: #0b72f0;
+  border-radius: 50%;
+  animation: ClientTasksUpdatesPage-spin 0.8s linear infinite;
+}
+
+@keyframes ClientTasksUpdatesPage-spin {
+  to { transform: rotate(360deg); }
+}
+
+.ClientTasksUpdatesPage-error svg {
+  color: #ef4444;
+  font-size: 46px;
+}
+
+.ClientTasksUpdatesPage-error h3 {
+  margin: 14px 0 6px;
+  font-size: 20px;
+}
+
+.ClientTasksUpdatesPage-error p {
+  margin: 0;
+  color: #667085;
+}
+
+.ClientTasksUpdatesPage-error div {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.ClientTasksUpdatesPage-error button {
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.ClientTasksUpdatesPage-error button:first-child {
+  border-color: #0b72f0;
+  background: #0b72f0;
+  color: #fff;
+}
+
+@media (max-width: 1450px) {
+  .ClientTasksUpdatesPage-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ClientTasksUpdatesPage-shell {
+    display: block;
+  }
+
+  .ClientTasksUpdatesPage-side {
+    width: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 18px;
+  }
+
+  .ClientTasksUpdatesPage-bottomGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 920px) {
+  .ClientTasksUpdatesPage-page {
+    padding: 14px;
+  }
+
+  .ClientTasksUpdatesPage-topbar,
+  .ClientTasksUpdatesPage-topActions,
+  .ClientTasksUpdatesPage-toolbar,
+  .ClientTasksUpdatesPage-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ClientTasksUpdatesPage-topActions,
+  .ClientTasksUpdatesPage-search,
+  .ClientTasksUpdatesPage-primary,
+  .ClientTasksUpdatesPage-profileButton,
+  .ClientTasksUpdatesPage-toolbar select,
+  .ClientTasksUpdatesPage-filter,
+  .ClientTasksUpdatesPage-add {
+    width: 100%;
+  }
+
+  .ClientTasksUpdatesPage-iconButton {
+    width: 100%;
+  }
+
+  .ClientTasksUpdatesPage-stats,
+  .ClientTasksUpdatesPage-side,
+  .ClientTasksUpdatesPage-bottomGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .ClientTasksUpdatesPage-donutBox {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ClientTasksUpdatesPage-milestones {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

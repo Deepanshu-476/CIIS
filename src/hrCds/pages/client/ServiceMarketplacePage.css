@@ -1,0 +1,662 @@
+.ServiceMarketplacePage-root {
+  min-height: 100vh;
+  padding: 18px 20px 26px;
+  background: #fbfcff;
+  color: #111827;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.ServiceMarketplacePage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e8edf5;
+}
+
+.ServiceMarketplacePage-title h1,
+.ServiceMarketplacePage-panel h2,
+.ServiceMarketplacePage-sidePanel h2,
+.ServiceMarketplacePage-modal h2 {
+  margin: 0;
+  color: #101827;
+  font-weight: 900;
+}
+
+.ServiceMarketplacePage-title h1 {
+  font-size: 26px;
+  line-height: 1.15;
+}
+
+.ServiceMarketplacePage-title p {
+  margin: 7px 0 0;
+  color: #5f6b7e;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ServiceMarketplacePage-primaryButton,
+.ServiceMarketplacePage-serviceCard button,
+.ServiceMarketplacePage-moreButton,
+.ServiceMarketplacePage-customPanel button,
+.ServiceMarketplacePage-modal button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.ServiceMarketplacePage-primaryButton {
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #0f5bea;
+  border-radius: 6px;
+  padding: 0 18px;
+  background: #0f5bea;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  box-shadow: 0 8px 16px rgba(15, 91, 234, 0.16);
+}
+
+.ServiceMarketplacePage-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 310px;
+  gap: 18px;
+  align-items: start;
+  margin-top: 14px;
+}
+
+.ServiceMarketplacePage-main {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.ServiceMarketplacePage-panel,
+.ServiceMarketplacePage-sidePanel {
+  background: #fff;
+  border: 1px solid #e4eaf2;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.ServiceMarketplacePage-panel {
+  padding: 14px;
+}
+
+.ServiceMarketplacePage-panelTitle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.ServiceMarketplacePage-panel h2,
+.ServiceMarketplacePage-sidePanel h2 {
+  font-size: 15px;
+}
+
+.ServiceMarketplacePage-panelTitle span {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: #eaf4ff;
+  color: #0f5bea;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ServiceMarketplacePage-recommendedPanel > p,
+.ServiceMarketplacePage-sectionHeader p,
+.ServiceMarketplacePage-sidePanel p {
+  margin: 6px 0 0;
+  color: #5f6b7e;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ServiceMarketplacePage-recommendedGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.ServiceMarketplacePage-servicesPanel {
+  padding-bottom: 12px;
+}
+
+.ServiceMarketplacePage-sectionHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ServiceMarketplacePage-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 12px 0;
+}
+
+.ServiceMarketplacePage-tabs button {
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0 10px;
+  background: transparent;
+  color: #111827;
+  font-size: 10px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.ServiceMarketplacePage-tabs button.active {
+  background: #0f5bea;
+  border-color: #0f5bea;
+  color: #fff;
+}
+
+.ServiceMarketplacePage-servicesGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.ServiceMarketplacePage-serviceCard {
+  min-height: 118px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  gap: 7px 8px;
+  padding: 10px;
+  border: 1px solid #e3e9f1;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.ServiceMarketplacePage-featureCard {
+  min-height: 150px;
+}
+
+.ServiceMarketplacePage-cardIcon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 18px;
+}
+
+.ServiceMarketplacePage-green {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.ServiceMarketplacePage-blue {
+  background: #e0ecff;
+  color: #2563eb;
+}
+
+.ServiceMarketplacePage-purple {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.ServiceMarketplacePage-pink {
+  background: #ffe4ef;
+  color: #ec4899;
+}
+
+.ServiceMarketplacePage-orange {
+  background: #ffedd5;
+  color: #f97316;
+}
+
+.ServiceMarketplacePage-yellow {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.ServiceMarketplacePage-slate {
+  background: #e8eef6;
+  color: #475569;
+}
+
+.ServiceMarketplacePage-cardContent {
+  min-width: 0;
+}
+
+.ServiceMarketplacePage-cardContent h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 900;
+}
+
+.ServiceMarketplacePage-cardContent span {
+  display: inline-flex;
+  margin-top: 2px;
+  border-radius: 999px;
+  padding: 1px 6px;
+  background: #dcfce7;
+  color: #16a34a;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.ServiceMarketplacePage-cardContent p {
+  margin: 7px 0 0;
+  color: #5f6b7e;
+  font-size: 10px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.ServiceMarketplacePage-serviceCard button {
+  grid-column: 1 / -1;
+  height: 25px;
+  border: 1px solid #0f5bea;
+  border-radius: 4px;
+  background: #fff;
+  color: #0f5bea;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ServiceMarketplacePage-moreButton {
+  width: 200px;
+  height: 30px;
+  display: block;
+  margin: 13px auto 0;
+  border: 1px solid #0f5bea;
+  border-radius: 4px;
+  background: #fff;
+  color: #0f5bea;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ServiceMarketplacePage-sidebar {
+  display: grid;
+  gap: 14px;
+}
+
+.ServiceMarketplacePage-sidePanel {
+  padding: 16px;
+}
+
+.ServiceMarketplacePage-managerPanel .ServiceMarketplacePage-primaryButton {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.ServiceMarketplacePage-manager {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0 12px;
+}
+
+.ServiceMarketplacePage-managerPhoto {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f59e0b, #0f5bea);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.ServiceMarketplacePage-manager strong {
+  display: block;
+  color: #111827;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.ServiceMarketplacePage-manager span,
+.ServiceMarketplacePage-managerPanel a {
+  color: #5f6b7e;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ServiceMarketplacePage-managerPanel a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 9px;
+  text-decoration: none;
+}
+
+.ServiceMarketplacePage-checkList {
+  display: grid;
+  gap: 12px;
+  padding: 0;
+  margin: 14px 0 0;
+  list-style: none;
+}
+
+.ServiceMarketplacePage-checkList li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #263143;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ServiceMarketplacePage-checkList svg {
+  width: 17px;
+  height: 17px;
+  padding: 3px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.ServiceMarketplacePage-customPanel {
+  background: #f0fff6;
+  border-color: #ccefd9;
+}
+
+.ServiceMarketplacePage-customPanel button {
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  border: 1px solid #16a34a;
+  border-radius: 5px;
+  padding: 0 14px;
+  background: #fff;
+  color: #15803d;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ServiceMarketplacePage-enquiriesPanel {
+  padding-bottom: 12px;
+}
+
+.ServiceMarketplacePage-enquiryHeader,
+.ServiceMarketplacePage-enquiryRow {
+  display: grid;
+  grid-template-columns: 1fr 82px 76px;
+  gap: 8px;
+  align-items: center;
+}
+
+.ServiceMarketplacePage-enquiryHeader {
+  margin-top: 13px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #edf1f6;
+  color: #5f6b7e;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ServiceMarketplacePage-enquiryRow {
+  min-height: 34px;
+  border-bottom: 1px solid #edf1f6;
+}
+
+.ServiceMarketplacePage-enquiryRow strong,
+.ServiceMarketplacePage-enquiryRow span {
+  overflow: hidden;
+  color: #111827;
+  font-size: 10px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ServiceMarketplacePage-enquiryRow span {
+  color: #5f6b7e;
+}
+
+.ServiceMarketplacePage-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  height: 20px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.ServiceMarketplacePage-status-open {
+  background: #ffedd5;
+  color: #f97316;
+}
+
+.ServiceMarketplacePage-status-pending {
+  background: #ffedd5;
+  color: #f97316;
+}
+
+.ServiceMarketplacePage-status-approved {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.ServiceMarketplacePage-status-proposal-sent {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.ServiceMarketplacePage-status-contacted {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.ServiceMarketplacePage-status-converted {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.ServiceMarketplacePage-enquiriesPanel > a {
+  display: block;
+  margin-top: 12px;
+  color: #0f5bea;
+  text-align: center;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ServiceMarketplacePage-modalLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  pointer-events: none;
+}
+
+.ServiceMarketplacePage-modal {
+  width: min(470px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid #e3e9f1;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.18);
+  pointer-events: auto;
+}
+
+.ServiceMarketplacePage-modal header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ServiceMarketplacePage-modal h2 {
+  font-size: 15px;
+}
+
+.ServiceMarketplacePage-modal header button {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #5f6b7e;
+}
+
+.ServiceMarketplacePage-modal label,
+.ServiceMarketplacePage-contactGroup {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.ServiceMarketplacePage-modal label span,
+.ServiceMarketplacePage-contactGroup > span {
+  color: #374151;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ServiceMarketplacePage-modal input,
+.ServiceMarketplacePage-modal textarea {
+  width: 100%;
+  border: 1px solid #dfe5ef;
+  border-radius: 5px;
+  padding: 8px 10px;
+  background: #f8fafc;
+  color: #111827;
+  font: inherit;
+  font-size: 12px;
+  outline: 0;
+}
+
+.ServiceMarketplacePage-modal textarea {
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.ServiceMarketplacePage-contactGroup > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ServiceMarketplacePage-contactGroup button {
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #dfe5ef;
+  border-radius: 5px;
+  background: #fff;
+  color: #374151;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ServiceMarketplacePage-contactGroup button.active {
+  border-color: #16a34a;
+  background: #ecfdf5;
+  color: #16a34a;
+}
+
+.ServiceMarketplacePage-submitButton {
+  width: 100%;
+  height: 38px;
+  margin-top: 13px;
+  border: 1px solid #0f5bea;
+  border-radius: 5px;
+  background: #0f5bea;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ServiceMarketplacePage-submitButton:disabled {
+  cursor: not-allowed;
+  opacity: .7;
+}
+
+.ServiceMarketplacePage-formMessage {
+  margin: 10px 0 0;
+  padding: 9px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.ServiceMarketplacePage-formMessage-success {
+  background: #ecfdf5;
+  color: #15803d;
+}
+
+.ServiceMarketplacePage-formMessage-error {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+@media (max-width: 1380px) {
+  .ServiceMarketplacePage-recommendedGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ServiceMarketplacePage-servicesGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1180px) {
+  .ServiceMarketplacePage-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ServiceMarketplacePage-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .ServiceMarketplacePage-sidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 840px) {
+  .ServiceMarketplacePage-root {
+    padding: 16px 12px 24px;
+  }
+
+  .ServiceMarketplacePage-title h1 {
+    font-size: 23px;
+  }
+
+  .ServiceMarketplacePage-recommendedGrid,
+  .ServiceMarketplacePage-servicesGrid,
+  .ServiceMarketplacePage-sidebar {
+    grid-template-columns: 1fr;
+  }
+
+  .ServiceMarketplacePage-primaryButton {
+    width: 100%;
+  }
+
+  .ServiceMarketplacePage-contactGroup > div {
+    grid-template-columns: 1fr;
+  }
+}

@@ -216,9 +216,13 @@ import AdminProject from "./hrCds/pages/AdminProject";
 import Client from "./hrCds/pages/hr/Client";
 
 // ========== CLIENT PAGES (NEW) ==========
-import ClientDashboard from "./hrCds/pages/Dashboard.jsx";
-import ClientPaymentSection from "./hrCds/pages/ClientPaymentSection.jsx";
-import MyServicesPage from "./hrCds/pages/MyServicesPage.jsx";
+import ClientDashboardPage from "./hrCds/pages/client/ClientDashboardPage.jsx";
+import ClientTasksUpdatesPage from "./hrCds/pages/client/ClientTasksUpdatesPage.jsx";
+import MyServicesPage from "./hrCds/pages/client/MyServicesPage.jsx";
+import ServiceMarketplacePage from "./hrCds/pages/client/ServiceMarketplacePage.jsx";
+import SupportTicketsPage from "./hrCds/pages/client/SupportTicketsPage.jsx";
+import DocumentsPage from "./hrCds/pages/client/DocumentsPage.jsx";
+import PaymentsInvoicesPage from "./hrCds/pages/client/PaymentsInvoicesPage.jsx";
 
 // User Pages
 import Alerts from "./hrCds/pages/Alerts";
@@ -259,8 +263,6 @@ import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
 import BranchManagement from "./admin/page/BranchManagement.jsx"; 
 import ChatPage from "./Pages/Chat/ChatPage";
-// import ContactSupport from "./hrCds/pages/ContactSupport.jsx";
-
 
 function App() {
 
@@ -300,7 +302,7 @@ function App() {
               </ProtectedRoute>
             </ThemeContextProvider>
           }
-        > 
+        >
           <Route path="company-details" element={<CompanyDetails />} />
           <Route path="department" element={<Department />} />
           <Route path="department/branch/:branchId" element={<Department />} />
@@ -377,21 +379,16 @@ function App() {
               </ProtectedRoute>
             </ThemeContextProvider>
           }
-        >
-          {/* Client Dashboard - Main landing page for clients */}
-          <Route index element={<ClientDashboard />} />
-          <Route path="dashboard" element={<ClientDashboard />} />
-          
-          {/* Client Payment Section */}
-          <Route path="payment" element={<ClientPaymentSection />} />
-          
-          {/* Client Services & Tasks */}
-          <Route path="services-tasks" element={<MyServicesPage />} />
-
-          {/* Client Change Password */}
+        >/..
+          <Route index element={<ClientDashboardPage />} />
+          <Route path="dashboard" element={<ClientDashboardPage />} />
+          <Route path="tasks-updates" element={<ClientTasksUpdatesPage />} />
+          <Route path="my-services" element={<MyServicesPage />} />
+          <Route path="marketplace" element={<ServiceMarketplacePage />} />
+          <Route path="support-tickets" element={<SupportTicketsPage />} />
+          <Route path="documents" element={<DocumentsPage />} />
+          <Route path="payments" element={<PaymentsInvoicesPage />} />
           <Route path="change-password" element={<ChangePassword />} />
-          
-          {/* Redirect any unknown client routes to dashboard */}
           <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
         </Route>
 

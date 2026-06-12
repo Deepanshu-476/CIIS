@@ -257,6 +257,31 @@
   background: rgba(255, 255, 255, 0.3);
 }
 
+.amp-client-attendees-scroll {
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.amp-client-attendees-scroll .amp-attendee-card {
+  min-height: auto;
+  padding: 10px 12px;
+}
+
+.amp-client-attendees-scroll .amp-attendee-avatar {
+  width: 34px;
+  height: 34px;
+  font-size: 0.9rem;
+}
+
+.amp-client-attendees-scroll .amp-attendee-name {
+  font-size: 0.9rem;
+}
+
+.amp-client-attendees-scroll .amp-attendee-email {
+  font-size: 0.75rem;
+}
+
 /* ----- Form Card ----- */
 .amp-create-section {
   animation: amp-fade-in 0.5s ease;

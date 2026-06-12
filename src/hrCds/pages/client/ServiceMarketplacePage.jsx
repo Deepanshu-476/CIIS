@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import axios from "axios";
 import {
   FiAward,
-  FiBell,
+  FiBriefcase,
   FiCheck,
-  FiChevronDown,
   FiCode,
   FiCreditCard,
   FiEdit3,
@@ -15,20 +15,25 @@ import {
   FiMessageCircle,
   FiPackage,
   FiPhone,
-  FiSearch,
   FiSend,
   FiShield,
   FiShoppingCart,
   FiSmartphone,
   FiTarget,
   FiTrendingUp,
-  FiUser,
   FiUsers,
   FiVideo,
   FiX,
   FiZap,
 } from "react-icons/fi";
 import { FaAmazon, FaFacebookF, FaGoogle, FaWhatsapp } from "react-icons/fa";
+import {
+  getClientDisplayName,
+  getAuthToken,
+  getInitials,
+  useClientPortalData,
+} from "../../utils/clientPortalData";
+import API_URL from "../../../config";
 import "./ServiceMarketplacePage.css";
 
 const rupee = "\u20b9";
@@ -86,7 +91,7 @@ const recommendedServices = [
   },
 ];
 
-const services = [
+const defaultMarketplaceServices = [
   { title: "SEO", tag: "Popular", copy: "Improve rankings and organic traffic.", icon: <FiTrendingUp />, tone: "green", category: "Digital Marketing", action: "Get Proposal" },
   { title: "Google Ads Management", tag: "Popular", copy: "Drive qualified leads with search ads.", icon: <FaGoogle />, tone: "blue", category: "Digital Marketing", action: "Get Proposal" },
   { title: "Meta Ads", tag: "Popular", copy: "Reach more customers on Facebook & Instagram.", icon: <FiTarget />, tone: "blue", category: "Digital Marketing", action: "Get Proposal" },
@@ -118,29 +123,153 @@ const services = [
   { title: "Lead Management System", tag: "Recommended", copy: "Track and manage leads from one place.", icon: <FiTarget />, tone: "blue", category: "Software", action: "Get Proposal" },
 ];
 
-const enquiries = [
-  { service: "WhatsApp Marketing", id: "ENQ-2026-018", status: "Open" },
-  { service: "Google Ads", id: "ENQ-2026-017", status: "Proposal Sent" },
-  { service: "Website Development", id: "ENQ-2026-015", status: "Contacted" },
-  { service: "SEO", id: "ENQ-2026-014", status: "Converted" },
-];
-
 const ServiceMarketplacePage = () => {
+  const { client, services: clientServices, projectManagers, user } = useClientPortalData();
+  const [companyServices, setCompanyServices] = useState([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+  const [servicesError, setServicesError] = useState("");
   const [activeCategory, setActiveCategory] = useState("All Services");
   const [openModal, setOpenModal] = useState(true);
-  const [selectedService, setSelectedService] = useState("WhatsApp Marketing");
+  const [selectedService, setSelectedService] = useState(clientServices[0] || "WhatsApp Marketing");
+  const [enquiries, setEnquiries] = useState([]);
+  const [enquiriesLoading, setEnquiriesLoading] = useState(false);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState({ type: "", text: "" });
   const [formValues, setFormValues] = useState({
     requirement:
-      "We want to automate customer follow-ups on WhatsApp including offers, order updates and payment reminders. Please share the process and pricing.",
+      `We want to improve ${getClientDisplayName(client)} with a service plan. Please share the process and pricing.`,
     budget: `${rupee}20,000 - ${rupee}30,000`,
     contact: "WhatsApp",
   });
 
-  const visibleServices = services.filter((service) => activeCategory === "All Services" || service.category === activeCategory);
+  const manager = projectManagers[0] || {};
+  const managerName = manager.name || 'Account Manager';
+  const companyCode = localStorage.getItem("companyCode") || localStorage.getItem("company") || client?.companyCode || "";
+  const companyIdentifier = localStorage.getItem("companyIdentifier") || client?.companyIdentifier || "";
+
+  useEffect(() => {
+    const fetchCompanyServices = async () => {
+      try {
+        setServicesLoading(true);
+        setServicesError("");
+
+        const response = await axios.get(`${API_URL}/clientsservice/services`, {
+          params: {
+            companyCode: companyCode || undefined,
+            companyIdentifier: companyIdentifier || undefined,
+          },
+          headers: getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : undefined,
+        });
+
+        if (response.data?.success) {
+          setCompanyServices(response.data.data || []);
+        } else {
+          setCompanyServices([]);
+          setServicesError(response.data?.message || "No company services found");
+        }
+      } catch (error) {
+        console.error("Error fetching company services for marketplace:", error);
+        setCompanyServices([]);
+        setServicesError(error.response?.data?.message || "Failed to load company services");
+      } finally {
+        setServicesLoading(false);
+      }
+    };
+
+    fetchCompanyServices();
+  }, [client?.companyCode, client?.companyIdentifier, companyCode, companyIdentifier]);
+
+  const fetchEnquiries = async () => {
+    try {
+      setEnquiriesLoading(true);
+      const response = await axios.get(`${API_URL}/clientsservice/service-enquiries`, {
+        params: {
+          companyCode: companyCode || undefined,
+          companyIdentifier: companyIdentifier || undefined,
+        },
+        headers: getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : undefined,
+      });
+      if (response.data?.success) {
+        const allEnquiries = response.data.data || [];
+        const currentClientId = String(client?._id || "");
+        setEnquiries(currentClientId ? allEnquiries.filter(item => String(item.clientId || "") === currentClientId) : allEnquiries);
+      } else {
+        setEnquiries([]);
+      }
+    } catch (error) {
+      console.error("Error fetching service enquiries:", error);
+      setEnquiries([]);
+    } finally {
+      setEnquiriesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEnquiries();
+  }, [client?._id, companyCode, companyIdentifier]);
+
+  const companyMarketplaceServices = useMemo(() => (
+    companyServices.map((service, index) => {
+      const title = service.servicename || service.name || service.title || "Company Service";
+      return {
+        title,
+        tag: clientServices.includes(title) ? "Active" : "Available",
+        copy: service.description || service.details || `${title} is available from your company service catalog.`,
+        icon: [<FiBriefcase />, <FiCode />, <FiTarget />, <FiShield />, <FiGrid />, <FiPackage />][index % 6],
+        tone: ["blue", "green", "purple", "orange", "slate", "pink"][index % 6],
+        category: service.category || service.serviceCategory || "Company Services",
+        action: clientServices.includes(title) ? "View Service" : "Get Proposal",
+      };
+    })
+  ), [companyServices, clientServices]);
+
+  const marketplaceServices = companyMarketplaceServices;
+  const dynamicCategories = ["All Services", ...new Set(marketplaceServices.map(service => service.category).filter(Boolean))];
+  const activeServiceNames = clientServices.map(service => String(service).toLowerCase());
+  const recommendedDynamicServices = marketplaceServices.filter(service => (
+    !activeServiceNames.some(active => service.title.toLowerCase().includes(active) || active.includes(service.title.toLowerCase()))
+  )).slice(0, 5);
+  const visibleServices = marketplaceServices.filter((service) => activeCategory === "All Services" || service.category === activeCategory);
 
   const openEnquiry = (serviceTitle) => {
     setSelectedService(serviceTitle);
+    setSubmitMessage({ type: "", text: "" });
     setOpenModal(true);
+  };
+
+  const submitEnquiry = async () => {
+    try {
+      setSubmitLoading(true);
+      setSubmitMessage({ type: "", text: "" });
+
+      const response = await axios.post(`${API_URL}/clientsservice/service-enquiries`, {
+        serviceName: selectedService,
+        requirement: formValues.requirement,
+        budget: formValues.budget,
+        contactMethod: formValues.contact,
+        clientId: client?._id || null,
+        clientName: getClientDisplayName(client),
+        companyName: client?.company || "",
+        companyCode,
+        companyIdentifier,
+        requestedBy: user?._id || user?.id || null,
+      }, {
+        headers: getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : undefined,
+      });
+
+      if (response.data?.success) {
+        setSubmitMessage({ type: "success", text: "Enquiry submitted successfully." });
+        await fetchEnquiries();
+        setOpenModal(false);
+      } else {
+        setSubmitMessage({ type: "error", text: response.data?.message || "Unable to submit enquiry." });
+      }
+    } catch (error) {
+      console.error("Error submitting service enquiry:", error);
+      setSubmitMessage({ type: "error", text: error.response?.data?.message || "Unable to submit enquiry." });
+    } finally {
+      setSubmitLoading(false);
+    }
   };
 
   return (
@@ -149,27 +278,6 @@ const ServiceMarketplacePage = () => {
         <div className="ServiceMarketplacePage-title">
           <h1>Explore Services</h1>
           <p>Discover more services to grow your business with CIIS Network.</p>
-        </div>
-        <div className="ServiceMarketplacePage-headerActions">
-          <label className="ServiceMarketplacePage-search">
-            <FiSearch />
-            <input type="search" placeholder="Search services..." />
-            <FiTarget />
-          </label>
-          <button type="button" className="ServiceMarketplacePage-selectButton">
-            All Categories
-            <FiChevronDown />
-          </button>
-          <button type="button" className="ServiceMarketplacePage-primaryButton">Discuss with Manager</button>
-          <button type="button" className="ServiceMarketplacePage-notificationButton" aria-label="Notifications">
-            <FiBell />
-            <span>4</span>
-          </button>
-          <button type="button" className="ServiceMarketplacePage-userButton">
-            <span><FiUser /></span>
-            <strong>Test123</strong>
-            <FiChevronDown />
-          </button>
         </div>
       </header>
 
@@ -182,7 +290,8 @@ const ServiceMarketplacePage = () => {
             </div>
             <p>These services can help you get more leads, sales and growth.</p>
             <div className="ServiceMarketplacePage-recommendedGrid">
-              {recommendedServices.map((service) => (
+              {!servicesLoading && recommendedDynamicServices.length === 0 && <p>No recommendations available yet.</p>}
+              {recommendedDynamicServices.map((service) => (
                 <article className="ServiceMarketplacePage-serviceCard ServiceMarketplacePage-featureCard" key={service.title}>
                   <div className={`ServiceMarketplacePage-cardIcon ServiceMarketplacePage-${service.tone}`}>{service.icon}</div>
                   <div className="ServiceMarketplacePage-cardContent">
@@ -204,7 +313,7 @@ const ServiceMarketplacePage = () => {
               </div>
             </div>
             <div className="ServiceMarketplacePage-tabs">
-              {categories.map((category) => (
+              {dynamicCategories.map((category) => (
                 <button
                   type="button"
                   key={category}
@@ -216,7 +325,10 @@ const ServiceMarketplacePage = () => {
               ))}
             </div>
             <div className="ServiceMarketplacePage-servicesGrid">
-              {visibleServices.map((service) => (
+              {servicesLoading && <p>Loading company services...</p>}
+              {!servicesLoading && servicesError && <p>{servicesError}</p>}
+              {!servicesLoading && !servicesError && visibleServices.length === 0 && <p>No company services found for this company code.</p>}
+              {!servicesLoading && visibleServices.map((service) => (
                 <article className="ServiceMarketplacePage-serviceCard" key={`${service.title}-${service.category}-${service.tone}`}>
                   <div className={`ServiceMarketplacePage-cardIcon ServiceMarketplacePage-${service.tone}`}>{service.icon}</div>
                   <div className="ServiceMarketplacePage-cardContent">
@@ -237,15 +349,15 @@ const ServiceMarketplacePage = () => {
             <h2>Need help choosing the right service?</h2>
             <p>Our experts are here to help you find the best solutions for your business.</p>
             <div className="ServiceMarketplacePage-manager">
-              <div className="ServiceMarketplacePage-managerPhoto">RS</div>
+              <div className="ServiceMarketplacePage-managerPhoto">{getInitials(managerName)}</div>
               <div>
-                <strong>Rahul Sharma</strong>
-                <span>Account Manager</span>
+                <strong>{managerName}</strong>
+                <span>{manager.role || 'Account Manager'}</span>
               </div>
             </div>
-            <a href="mailto:rahul.sharma@ciisnetwork.com"><FiMail /> rahul.sharma@ciisnetwork.com</a>
-            <a href="tel:+9191876543210"><FiPhone /> +91 98765 43210</a>
-            <button type="button" className="ServiceMarketplacePage-primaryButton">Discuss with Rahul</button>
+            {manager.email && <a href={`mailto:${manager.email}`}><FiMail /> {manager.email}</a>}
+            {manager.phone && <a href={`tel:${manager.phone}`}><FiPhone /> {manager.phone}</a>}
+            <button type="button" className="ServiceMarketplacePage-primaryButton">Discuss with {manager.name ? managerName.split(' ')[0] : 'Manager'}</button>
           </section>
 
           <section className="ServiceMarketplacePage-sidePanel">
@@ -272,12 +384,14 @@ const ServiceMarketplacePage = () => {
               <span>Enquiry ID</span>
               <span>Status</span>
             </div>
-            {enquiries.map((enquiry) => (
-              <div className="ServiceMarketplacePage-enquiryRow" key={enquiry.id}>
-                <strong>{enquiry.service}</strong>
-                <span>{enquiry.id}</span>
-                <em className={`ServiceMarketplacePage-status ServiceMarketplacePage-status-${enquiry.status.toLowerCase().replace(" ", "-")}`}>
-                  {enquiry.status}
+            {enquiriesLoading && <p>Loading enquiries...</p>}
+            {!enquiriesLoading && enquiries.length === 0 && <p>No active enquiries.</p>}
+            {!enquiriesLoading && enquiries.slice(0, 4).map((enquiry) => (
+              <div className="ServiceMarketplacePage-enquiryRow" key={enquiry._id}>
+                <strong>{enquiry.serviceName}</strong>
+                <span>{`ENQ-${String(enquiry._id).slice(-6).toUpperCase()}`}</span>
+                <em className={`ServiceMarketplacePage-status ServiceMarketplacePage-status-${String(enquiry.status || 'Pending').toLowerCase().replace(" ", "-")}`}>
+                  {enquiry.status || 'Pending'}
                 </em>
               </div>
             ))}
@@ -335,7 +449,14 @@ const ServiceMarketplacePage = () => {
                 ))}
               </div>
             </div>
-            <button type="button" className="ServiceMarketplacePage-submitButton">Submit Enquiry</button>
+            {submitMessage.text && (
+              <p className={`ServiceMarketplacePage-formMessage ServiceMarketplacePage-formMessage-${submitMessage.type}`}>
+                {submitMessage.text}
+              </p>
+            )}
+            <button type="button" className="ServiceMarketplacePage-submitButton" onClick={submitEnquiry} disabled={submitLoading}>
+              {submitLoading ? "Submitting..." : "Submit Enquiry"}
+            </button>
           </section>
         </div>
       )}

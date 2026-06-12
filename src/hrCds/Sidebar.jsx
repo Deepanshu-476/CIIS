@@ -373,7 +373,7 @@ const clientMenuItems = [
   },
   {
     id: 'client-marketplace',
-    name: 'Service Marketplace',
+    name: 'Explore Services',
     icon: 'Folder',
     path: '/client/marketplace',
     category: 'main',
@@ -381,8 +381,8 @@ const clientMenuItems = [
   },
   {
     id: 'client-support-tickets',
-    name: 'Support Tickets',
-    icon: 'Support',
+    name: 'Meetings',
+    icon: 'VideoCall',
     path: '/client/support-tickets',
     category: 'main',
     order: 5
@@ -673,7 +673,9 @@ const getPathFromName = (name) => {
   'Payments': '/client/payments',
   'My Services': '/client/my-services',
   'Tasks & Updates': '/client/tasks-updates',
+  'Explore Services': '/client/marketplace',
   'Service Marketplace': '/client/marketplace',
+  'Meetings': '/client/support-tickets',
   'Support Tickets': '/client/support-tickets',
   'Documents': '/client/documents',
     'Services & Tasks': '/client/services-tasks'

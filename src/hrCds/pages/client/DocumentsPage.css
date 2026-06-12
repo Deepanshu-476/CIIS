@@ -1,129 +1,585 @@
-.ClientPageBase-root {
+.DocumentsPage-root {
+  min-height: 100vh;
+  padding: 24px 26px 32px;
+  background: #fcfdff;
+  color: #111827;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.DocumentsPage-header {
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 26px;
+}
+
+.DocumentsPage-title h1 {
+  margin: 0;
+  color: #111827;
+  font-size: 25px;
+  line-height: 1.15;
+  font-weight: 900;
+}
+
+.DocumentsPage-title p {
+  margin: 12px 0 0;
+  color: #5b677c;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.DocumentsPage-topActions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+
+.DocumentsPage-searchTop {
+  width: 430px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  border: 1px solid #dfe5ee;
+  border-radius: 8px;
+  background: #fff;
+  color: #7a8799;
+}
+
+.DocumentsPage-searchTop input,
+.DocumentsPage-docSearch input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #172033;
+  font: inherit;
+  font-size: 12px;
+}
+
+.DocumentsPage-bell,
+.DocumentsPage-user,
+.DocumentsPage-toolbar button,
+.DocumentsPage-upload,
+.DocumentsPage-more,
+.DocumentsPage-pagination button,
+.DocumentsPage-quick button,
+.DocumentsPage-storage button,
+.DocumentsPage-help button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.DocumentsPage-bell {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  font-size: 21px;
+}
+
+.DocumentsPage-bell span {
+  position: absolute;
+  top: -5px;
+  right: -1px;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #ef233c;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.DocumentsPage-user {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  color: #101827;
+}
+
+.DocumentsPage-user b {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #7454f6;
+  color: #fff;
+  font-size: 17px;
+}
+
+.DocumentsPage-user strong {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.DocumentsPage-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1.55fr;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.DocumentsPage-stat,
+.DocumentsPage-storageStat,
+.DocumentsPage-mainPanel,
+.DocumentsPage-sideCard {
+  border: 1px solid #e3e8f0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.025);
+}
+
+.DocumentsPage-stat {
+  min-height: 116px;
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  column-gap: 14px;
+  padding: 22px 18px;
+}
+
+.DocumentsPage-statIcon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 24px;
+}
+
+.DocumentsPage-blue {
+  background: #eef6ff;
+  color: #1266e3;
+}
+
+.DocumentsPage-green {
+  background: #eafbf1;
+  color: #22b865;
+}
+
+.DocumentsPage-purple {
+  background: #f1ecff;
+  color: #8156ff;
+}
+
+.DocumentsPage-orange {
+  background: #fff0df;
+  color: #ff881a;
+}
+
+.DocumentsPage-stat p,
+.DocumentsPage-storageStat p {
+  margin: 0 0 10px;
+  color: #172033;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.DocumentsPage-stat strong,
+.DocumentsPage-storageStat strong {
+  display: block;
+  color: #111827;
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.DocumentsPage-stat small {
+  grid-column: 2;
+  align-self: end;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.DocumentsPage-storageStat {
+  min-height: 116px;
+  display: grid;
+  grid-template-columns: 52px 1fr 190px;
+  align-items: center;
+  gap: 18px;
+  padding: 22px 18px;
+}
+
+.DocumentsPage-storageStat em {
+  font-size: 17px;
+  font-style: normal;
+}
+
+.DocumentsPage-storageStat small {
+  display: block;
+  margin-top: 14px;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.DocumentsPage-storageMini span,
+.DocumentsPage-progress {
+  height: 6px;
+  display: block;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e6e9ef;
+}
+
+.DocumentsPage-storageMini i,
+.DocumentsPage-progress i {
+  display: block;
+  width: 2%;
+  height: 100%;
+  border-radius: inherit;
+  background: #0067ff;
+}
+
+.DocumentsPage-storageMini b {
+  display: block;
+  margin-top: 8px;
+  color: #1f2937;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.DocumentsPage-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2.75fr) minmax(280px, 0.86fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.DocumentsPage-mainPanel,
+.DocumentsPage-side {
+  min-width: 0;
+}
+
+.DocumentsPage-mainPanel {
+  overflow: hidden;
+}
+
+.DocumentsPage-tabs {
+  height: 50px;
+  display: flex;
+  align-items: flex-end;
+  gap: 28px;
+  padding: 0 18px;
+  border-bottom: 1px solid #e5eaf1;
+}
+
+.DocumentsPage-tabs button {
+  height: 100%;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #43516a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.DocumentsPage-tabs button.active {
+  border-color: #0867e8;
+  color: #0867e8;
+}
+
+.DocumentsPage-toolbar {
+  display: grid;
+  grid-template-columns: 210px 120px 100px 120px 110px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 20px 14px;
+  border-bottom: 1px solid #e8edf4;
+}
+
+.DocumentsPage-docSearch,
+.DocumentsPage-toolbar button {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #dfe5ee;
+  border-radius: 5px;
+  padding: 0 12px;
+  background: #fff;
+  color: #4c5a70;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.DocumentsPage-toolbar .DocumentsPage-upload {
+  justify-self: end;
+  border-color: #0867e8;
+  background: #0867e8;
+  color: #fff;
+  font-weight: 900;
+}
+
+.DocumentsPage-tableWrap {
+  overflow-x: auto;
+}
+
+.DocumentsPage-tableWrap table {
+  width: 100%;
+  min-width: 940px;
+  border-collapse: collapse;
+}
+
+.DocumentsPage-tableWrap th {
+  padding: 14px 14px;
+  border-bottom: 1px solid #e8edf4;
+  color: #46566e;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: left;
+}
+
+.DocumentsPage-tableWrap td {
+  padding: 15px 14px;
+  border-bottom: 1px solid #e8edf4;
+  color: #25324a;
+  font-size: 12px;
+  font-weight: 650;
+  vertical-align: middle;
+}
+
+.DocumentsPage-tableWrap input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #0867e8;
+}
+
+.DocumentsPage-nameCell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.DocumentsPage-nameCell strong {
+  color: #111827;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.DocumentsPage-docIcon {
+  width: 16px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 3px;
+  color: #fff;
+  font-size: 7px;
+  font-weight: 900;
+}
+
+.DocumentsPage-pdf {
+  background: #e11d22;
+}
+
+.DocumentsPage-word {
+  background: #185bd8;
+}
+
+.DocumentsPage-excel {
+  background: #17984a;
+}
+
+.DocumentsPage-folderIcon {
+  color: #f7ad10;
+  font-size: 19px;
+}
+
+.DocumentsPage-more {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: #38506f;
+}
+
+.DocumentsPage-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px 18px 26px;
+  color: #4b5d76;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.DocumentsPage-pagination div {
+  display: flex;
+  gap: 10px;
+}
+
+.DocumentsPage-pagination button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dfe5ee;
+  border-radius: 5px;
+  background: #fff;
+  color: #25324a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.DocumentsPage-pagination button.active {
+  border-color: #0867e8;
+  background: #0867e8;
+  color: #fff;
+}
+
+.DocumentsPage-side {
+  display: grid;
   gap: 24px;
 }
 
-.ClientPageBase-header {
+.DocumentsPage-sideCard {
+  padding: 18px;
+}
+
+.DocumentsPage-sideCard h2 {
+  margin: 0 0 22px;
+  color: #111827;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.DocumentsPage-quick button {
+  width: 100%;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 18px;
-  padding: 26px 28px;
-  border-radius: 22px;
-  background: white;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
-}
-
-.ClientPageBase-header p {
-  margin: 0 0 10px;
-  color: #2563eb;
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.ClientPageBase-header h1 {
-  margin: 0;
-  font-size: 30px;
-}
-
-.ClientPageBase-header button {
-  border: none;
-  background: #2563eb;
-  color: white;
-  padding: 14px 22px;
-  border-radius: 16px;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.ClientPageBase-documents-card {
-  background: white;
-  border-radius: 24px;
-  padding: 24px;
-  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.08);
-}
-
-.ClientPageBase-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 18px;
-}
-
-.ClientPageBase-card-header span {
-  color: #64748b;
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.ClientPageBase-card-header h2 {
-  margin: 0;
-  font-size: 22px;
-}
-
-.ClientPageBase-documents-list {
-  display: grid;
+  align-items: center;
   gap: 14px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #111827;
+  text-align: left;
 }
 
-.ClientPageBase-document-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
-  padding: 18px 20px;
-  border-radius: 18px;
-  background: #f8fafc;
+.DocumentsPage-quick button + button {
+  margin-top: 24px;
 }
 
-.ClientPageBase-document-meta {
-  display: flex;
-  gap: 18px;
-  align-items: center;
-}
-
-.ClientPageBase-card-icon {
-  width: 44px;
-  height: 44px;
+.DocumentsPage-quick button span {
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
-  border-radius: 14px;
-  background: #eff6ff;
-  color: #2563eb;
+  color: #0867e8;
+  font-size: 20px;
 }
 
-.ClientPageBase-document-meta strong {
-  font-size: 16px;
+.DocumentsPage-quick strong {
+  display: block;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 900;
 }
 
-.ClientPageBase-document-meta p {
-  margin: 4px 0 0;
-  color: #64748b;
+.DocumentsPage-quick small,
+.DocumentsPage-help p,
+.DocumentsPage-storage p {
+  color: #5f6c80;
+  font-size: 11px;
+  font-weight: 600;
 }
 
-.ClientPageBase-document-actions {
+.DocumentsPage-storage p {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.DocumentsPage-storage p strong {
+  color: #111827;
+}
+
+.DocumentsPage-progress {
+  margin-bottom: 28px;
+}
+
+.DocumentsPage-storage button,
+.DocumentsPage-help button {
+  width: 100%;
+  height: 38px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid #dfe5ee;
+  border-radius: 5px;
+  background: #fff;
+  color: #0867e8;
+  font-size: 12px;
+  font-weight: 900;
 }
 
-.ClientPageBase-document-actions button {
-  border: none;
-  background: #2563eb;
-  color: white;
-  padding: 12px;
-  border-radius: 14px;
-  cursor: pointer;
+.DocumentsPage-help p {
+  margin: 0 0 22px;
+  line-height: 1.8;
 }
 
-@media (max-width: 720px) {
-  .ClientPageBase-document-item {
+@media (max-width: 1280px) {
+  .DocumentsPage-header,
+  .DocumentsPage-topActions {
+    flex-wrap: wrap;
+  }
+
+  .DocumentsPage-searchTop {
+    width: min(100%, 460px);
+  }
+
+  .DocumentsPage-stats,
+  .DocumentsPage-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .DocumentsPage-root {
+    padding: 18px 14px 24px;
+  }
+
+  .DocumentsPage-topActions,
+  .DocumentsPage-searchTop {
+    width: 100%;
+  }
+
+  .DocumentsPage-stats,
+  .DocumentsPage-storageStat {
+    grid-template-columns: 1fr;
+  }
+
+  .DocumentsPage-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .DocumentsPage-toolbar .DocumentsPage-upload {
+    justify-self: stretch;
+  }
+
+  .DocumentsPage-pagination {
+    align-items: flex-start;
     flex-direction: column;
-    align-items: stretch;
-    text-align: left;
   }
 }

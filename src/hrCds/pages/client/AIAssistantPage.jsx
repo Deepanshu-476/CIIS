@@ -1,23 +1,39 @@
 import React, { useState } from 'react';
 import { FiSend, FiZap, FiSmartphone, FiMessageCircle } from 'react-icons/fi';
+import {
+  calculateTaskStats,
+  getClientDisplayName,
+  getTaskTitle,
+  useClientPortalData
+} from '../../utils/clientPortalData';
 import './AIAssistantPage.css';
 
-const prompts = [
-  'Draft a campaign brief for my upcoming launch',
-  'Summarize the current SEO performance',
-  'Suggest priorities for the next quarter',
-  'Create a client feedback email template'
-];
-
 const AIAssistantPage = () => {
+  const { client, services, tasks } = useClientPortalData();
+  const clientName = getClientDisplayName(client);
+  const stats = calculateTaskStats(tasks);
+  const prompts = [
+    `Summarize ${clientName} current services`,
+    `Create a status update for ${services[0] || 'my service'}`,
+    `List overdue and pending task priorities`,
+    `Draft a client email about ${getTaskTitle(tasks[0])}`
+  ];
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState([
-    { role: 'assistant', text: 'Hi there! I can help with strategy, copy, reports, and recommendations.' }
+    { role: 'assistant', text: `Hi ${clientName}! I can help with your ${services.length} services, ${stats.totalTasks} tasks, reports, and recommendations.` }
   ]);
 
   const handleSend = () => {
     if (!query.trim()) return;
-    setMessages((current) => [...current, { role: 'user', text: query }, { role: 'assistant', text: 'Here is a polished response based on your input.' }]);
+    const serviceSummary = services.length ? services.join(', ') : 'no active services found';
+    setMessages((current) => [
+      ...current,
+      { role: 'user', text: query },
+      {
+        role: 'assistant',
+        text: `For ${clientName}: active services are ${serviceSummary}. Current task summary is ${stats.completedTasks} completed, ${stats.pendingTasks} pending, and ${stats.overdueTasks} overdue.`
+      }
+    ]);
     setQuery('');
   };
 
@@ -26,7 +42,7 @@ const AIAssistantPage = () => {
       <div className="ClientPageBase-header">
         <div>
           <p>AI Assistant</p>
-          <h1>Collaborate with an intelligent business partner</h1>
+          <h1>Collaborate with an intelligent business partner for {clientName}</h1>
         </div>
       </div>
 
@@ -58,10 +74,7 @@ const AIAssistantPage = () => {
       <section className="ClientPageBase-card ClientPageBase-insight-card">
         <h2>Some ways to use AI today</h2>
         <ul>
-          <li>Optimize campaign messaging for high-conversion audiences</li>
-          <li>Translate insights into action plans</li>
-          <li>Generate monthly status updates</li>
-          <li>Create onboarding and client communication copy</li>
+          {prompts.map(prompt => <li key={prompt}>{prompt}</li>)}
         </ul>
       </section>
     </section>

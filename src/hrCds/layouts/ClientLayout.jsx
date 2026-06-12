@@ -23,6 +23,7 @@ const ClientLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
+  const hideHeaderTools = location.pathname === '/client/support-tickets';
 
   const menuItems = [
     { path: '/client/dashboard', name: 'Dashboard', icon: <FiGrid size={18} /> },
@@ -111,7 +112,7 @@ const ClientLayout = () => {
       </aside>
 
       <div className="ClientLayout-main">
-        <header className="ClientLayout-header">
+        <header className={`ClientLayout-header ${hideHeaderTools ? 'ClientLayout-header--minimal' : ''}`}>
           <div className="ClientLayout-header-left">
             <button
               className="ClientLayout-toggle-btn"
@@ -120,26 +121,30 @@ const ClientLayout = () => {
               {sidebarOpen ? <FiX size={20} /> : <FiMenu size={20} />}
             </button>
 
-            <div className="ClientLayout-search-bar">
-              <FiSearch size={18} className="ClientLayout-search-icon" />
-              <input placeholder="Search services, tickets, invoices..." />
-            </div>
+            {!hideHeaderTools && (
+              <div className="ClientLayout-search-bar">
+                <FiSearch size={18} className="ClientLayout-search-icon" />
+                <input placeholder="Search services, tickets, invoices..." />
+              </div>
+            )}
           </div>
 
-          <div className="ClientLayout-header-right">
-            <button className="ClientLayout-quick-action">Request Service</button>
-            <button className="ClientLayout-icon-button">
-              <FiBell size={20} />
-              <span>4</span>
-            </button>
-            <div className="ClientLayout-profile-chip">
-              <FiUser size={18} />
-              <div>
-                <span>{getClientName()}</span>
-                <small>Business Lead</small>
+          {!hideHeaderTools && (
+            <div className="ClientLayout-header-right">
+              <button className="ClientLayout-quick-action">Request Service</button>
+              <button className="ClientLayout-icon-button">
+                <FiBell size={20} />
+                <span>4</span>
+              </button>
+              <div className="ClientLayout-profile-chip">
+                <FiUser size={18} />
+                <div>
+                  <span>{getClientName()}</span>
+                  <small>Business Lead</small>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </header>
 
         <main className="ClientLayout-content">

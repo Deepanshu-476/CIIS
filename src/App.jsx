@@ -263,8 +263,6 @@ import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
 import BranchManagement from "./admin/page/BranchManagement.jsx"; 
 import ChatPage from "./Pages/Chat/ChatPage";
-// import ContactSupport from "./hrCds/pages/ContactSupport.jsx";
-
 
 function App() {
 
@@ -304,7 +302,7 @@ function App() {
               </ProtectedRoute>
             </ThemeContextProvider>
           }
-        > 
+        >
           <Route path="company-details" element={<CompanyDetails />} />
           <Route path="department" element={<Department />} />
           <Route path="department/branch/:branchId" element={<Department />} />
@@ -381,7 +379,7 @@ function App() {
               </ProtectedRoute>
             </ThemeContextProvider>
           }
-        >
+        >/..
           <Route index element={<ClientDashboardPage />} />
           <Route path="dashboard" element={<ClientDashboardPage />} />
           <Route path="tasks-updates" element={<ClientTasksUpdatesPage />} />

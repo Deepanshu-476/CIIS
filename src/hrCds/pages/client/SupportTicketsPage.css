@@ -1,166 +1,659 @@
-.ClientPageBase-root {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+.ClientMeetings-root {
+  min-height: 100vh;
+  padding: 22px 26px 30px;
+  background: #fcfdff;
+  color: #111827;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  transform: scale(1);
+  transform-origin: top left;
+  width: 100%;
 }
 
-.ClientPageBase-header {
+.ClientMeetings-header {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  gap: 18px;
-  padding: 26px 28px;
-  border-radius: 22px;
-  background: white;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 20px;
 }
 
-.ClientPageBase-header p {
-  margin: 0 0 10px;
-  color: #2563eb;
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.ClientPageBase-header h1 {
+.ClientMeetings-title h1 {
   margin: 0;
-  font-size: 30px;
+  font-size: 25px;
+  line-height: 1.15;
+  font-weight: 900;
+  color: #0f172a;
 }
 
-.ClientPageBase-header button {
-  border: none;
-  background: #2563eb;
-  color: white;
-  padding: 14px 22px;
-  border-radius: 16px;
+.ClientMeetings-title p {
+  margin: 12px 0 0;
+  color: #58657a;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ClientMeetings-row button,
+.ClientMeetings-nextCard button,
+.ClientMeetings-quick button,
+.ClientMeetings-manager button,
+.ClientMeetings-slots button {
+  font: inherit;
   cursor: pointer;
-  font-weight: 700;
 }
 
-.ClientPageBase-grid {
+.ClientMeetings-stats {
   display: grid;
-  gap: 20px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.ClientPageBase-card {
-  background: white;
-  border-radius: 24px;
-  padding: 24px;
-  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.08);
-}
-
-.ClientPageBase-card-icon {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border-radius: 14px;
-  background: #eff6ff;
-  color: #2563eb;
+  grid-template-columns: 1fr 1fr 1fr 1.08fr;
+  gap: 16px;
   margin-bottom: 18px;
 }
 
-.ClientPageBase-card span,
-.ClientPageBase-card p {
-  color: #64748b;
+.ClientMeetings-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1e40af;
   font-size: 13px;
+  font-weight: 800;
 }
 
-.ClientPageBase-card h2 {
-  margin: 0;
-  font-size: 30px;
+.ClientMeetings-notice button {
+  border: 0;
+  background: transparent;
+  color: #0867e8;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
 }
 
-.ClientPageBase-table-card {
+.ClientMeetings-statCard,
+.ClientMeetings-nextCard,
+.ClientMeetings-panel {
+  border: 1px solid #e4e8f0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.025);
+}
+
+.ClientMeetings-statCard {
+  position: relative;
+  min-height: 118px;
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  gap: 18px;
+  padding: 23px 18px 18px;
   overflow: hidden;
 }
 
-.ClientPageBase-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 18px;
+.ClientMeetings-statIcon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  font-size: 27px;
 }
 
-.ClientPageBase-card-header span {
-  color: #64748b;
+.ClientMeetings-blue {
+  background: #eef6ff;
+  color: #1463f3;
+}
+
+.ClientMeetings-green {
+  background: #ecfff4;
+  color: #20c66b;
+}
+
+.ClientMeetings-orange {
+  background: #fff3e7;
+  color: #ff8a1f;
+}
+
+.ClientMeetings-purple {
+  background: #f3eefe;
+  color: #7d4bf2;
+}
+
+.ClientMeetings-statCard p,
+.ClientMeetings-nextCard p {
+  margin: 0 0 10px;
+  color: #172033;
   font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-weight: 850;
 }
 
-.ClientPageBase-card-header h2 {
-  margin: 0;
-  font-size: 22px;
+.ClientMeetings-statCard strong {
+  display: block;
+  color: #101827;
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 900;
 }
 
-.ClientPageBase-table {
+.ClientMeetings-statCard small {
+  position: absolute;
+  left: 18px;
+  bottom: 19px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.ClientMeetings-statCard small.up {
+  color: #22c55e;
+}
+
+.ClientMeetings-statCard small.down {
+  color: #ef4444;
+}
+
+.ClientMeetings-statCard small em {
+  color: #667085;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.ClientMeetings-spark {
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  width: 104px;
+  height: 32px;
+  fill: none;
+  stroke-width: 2;
+}
+
+.ClientMeetings-spark path {
+  stroke: currentColor;
+}
+
+.ClientMeetings-nextCard {
+  min-height: 118px;
   display: grid;
-  gap: 2px;
+  grid-template-columns: 58px 1fr 56px;
+  align-items: center;
+  gap: 18px;
+  padding: 20px 18px;
 }
 
-.ClientPageBase-table-row {
+.ClientMeetings-nextCard strong {
+  display: block;
+  margin-bottom: 16px;
+  color: #101827;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.ClientMeetings-nextCard small {
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ClientMeetings-nextCard button,
+.ClientMeetings-row button {
+  min-height: 32px;
+  border: 1px solid #0867e8;
+  border-radius: 4px;
+  padding: 0 16px;
+  background: #0867e8;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ClientMeetings-layout {
   display: grid;
-  grid-template-columns: 1.2fr 1.8fr 1fr 1fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(360px, 0.9fr);
   gap: 16px;
-  align-items: center;
-  padding: 16px 20px;
-  background: #f8fafc;
-  border-radius: 18px;
+  align-items: start;
 }
 
-.ClientPageBase-table-heading {
-  background: transparent;
+.ClientMeetings-main,
+.ClientMeetings-side {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.ClientMeetings-side {
+  margin-top: 24px;
+  gap: 22px;
+}
+
+.ClientMeetings-panel {
+  min-width: 0;
+  padding: 18px;
+}
+
+.ClientMeetings-panel h2 {
+  margin: 0 0 14px;
+  color: #111827;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.ClientMeetings-table,
+.ClientMeetings-history {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid #e6eaf1;
+  border-radius: 4px;
+}
+
+.ClientMeetings-inlineState {
+  margin: -4px 0 12px;
+  color: #59667a;
+  font-size: 13px;
   font-weight: 700;
-  color: #334155;
 }
 
-.ClientPageBase-table-row:not(.ClientPageBase-table-heading) {
-  background: #ffffff;
+.ClientMeetings-inlineState.error {
+  color: #dc2626;
 }
 
-.status {
-  display: inline-flex;
+.ClientMeetings-emptyRow {
+  color: #667085;
+}
+
+.ClientMeetings-emptyRow span:first-child {
+  grid-column: 1 / -1;
+}
+
+.ClientMeetings-tableHead,
+.ClientMeetings-row {
+  display: grid;
+  grid-template-columns: 1.75fr 1.35fr 0.9fr 0.85fr 1.05fr 0.9fr 0.9fr;
   align-items: center;
-  justify-content: center;
-  padding: 8px 14px;
-  border-radius: 999px;
+  gap: 14px;
+  min-width: 870px;
+}
+
+.ClientMeetings-tableHead,
+.ClientMeetings-historyHead {
+  background: #f8fafc;
+  color: #1f2a44;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ClientMeetings-tableHead span,
+.ClientMeetings-row span {
+  min-width: 0;
+}
+
+.ClientMeetings-tableHead {
+  padding: 11px 16px;
+}
+
+.ClientMeetings-row {
+  padding: 13px 16px;
+  border-top: 1px solid #e8ecf3;
+  color: #1c2940;
   font-size: 12px;
   font-weight: 700;
 }
 
-.status-open {
-  background: rgba(37, 99, 235, 0.12);
-  color: #2563eb;
+.ClientMeetings-meetingTitle,
+.ClientMeetings-member,
+.ClientMeetings-type {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.status-pending {
-  background: rgba(245, 158, 11, 0.12);
-  color: #b45309;
+.ClientMeetings-meetingTitle i {
+  display: grid;
+  place-items: center;
+  color: #1463f3;
+  font-size: 16px;
 }
 
-.status-resolved,
-.status-paid,
-.status-ready,
-.status-scheduled {
-  background: rgba(22, 163, 74, 0.12);
-  color: #15803d;
+.ClientMeetings-member b {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #111827, #64748b);
+  color: #fff;
+  font-size: 10px;
 }
 
-.status-due {
-  background: rgba(239, 68, 68, 0.12);
+.ClientMeetings-type i {
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+}
+
+.type-googlemeet {
+  color: #10b981;
+}
+
+.type-zoom {
+  color: #1689ff;
+}
+
+.type-call {
+  color: #8b5cf6;
+}
+
+.ClientMeetings-status,
+.ClientMeetings-historyStatus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  border-radius: 4px;
+  padding: 0 12px;
+  background: #eaf3ff;
+  color: #1266e3;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.ClientMeetings-row button.outline {
+  background: #fff;
+  color: #0867e8;
+}
+
+.ClientMeetings-panel > a,
+.ClientMeetings-slots > a {
+  display: inline-flex;
+  margin-top: 18px;
+  color: #0867e8;
+  font-size: 13px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.ClientMeetings-historyHead,
+.ClientMeetings-historyRow {
+  display: grid;
+  grid-template-columns: 1.45fr 0.8fr 1.9fr 0.7fr;
+  gap: 18px;
+  min-width: 760px;
+  align-items: center;
+}
+
+.ClientMeetings-ticketHead,
+.ClientMeetings-ticketRow {
+  display: grid;
+  grid-template-columns: 1.5fr 0.8fr 0.8fr 0.7fr;
+  gap: 18px;
+  min-width: 760px;
+  align-items: center;
+}
+
+.ClientMeetings-ticketHead {
+  padding: 10px 16px;
+  background: #f8fafc;
+  color: #1f2a44;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ClientMeetings-ticketRow {
+  padding: 10px 16px;
+  border-top: 1px solid #edf0f5;
+  color: #314058;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.ClientMeetings-ticketRow strong {
+  display: block;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ClientMeetings-ticketRow small {
+  display: block;
+  margin-top: 3px;
+  color: #59667a;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.ClientMeetings-historyHead {
+  padding: 10px 16px;
+}
+
+.ClientMeetings-historyRow {
+  padding: 10px 16px;
+  border-top: 1px solid #edf0f5;
+  color: #314058;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.ClientMeetings-historyStatus.completed {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.ClientMeetings-historyStatus.missed {
+  background: #fee2e2;
   color: #dc2626;
 }
 
-@media (max-width: 1080px) {
-  .ClientPageBase-grid {
-    grid-template-columns: 1fr;
+.ClientMeetings-historyStatus.open,
+.ClientMeetings-historyStatus.inprogress,
+.ClientMeetings-historyStatus.waiting {
+  background: #eaf3ff;
+  color: #1266e3;
+}
+
+.ClientMeetings-historyStatus.resolved,
+.ClientMeetings-historyStatus.closed {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.ClientMeetings-historyStatus.escalated {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.ClientMeetings-quick {
+  padding-bottom: 14px;
+}
+
+.ClientMeetings-quick button {
+  width: 100%;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 34px 1fr 18px;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #e6eaf1;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: #fff;
+  text-align: left;
+}
+
+.ClientMeetings-quick button:disabled,
+.ClientMeetings-slots button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.ClientMeetings-quick button + button {
+  margin-top: 10px;
+}
+
+.ClientMeetings-quick button > span {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  font-size: 22px;
+}
+
+.ClientMeetings-quick button > span.blue {
+  color: #1463f3;
+}
+
+.ClientMeetings-quick button > span.green {
+  color: #22c55e;
+}
+
+.ClientMeetings-quick button > span.purple {
+  color: #7d4bf2;
+}
+
+.ClientMeetings-quick strong,
+.ClientMeetings-managerInfo strong {
+  display: block;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.ClientMeetings-quick small,
+.ClientMeetings-managerInfo span,
+.ClientMeetings-slots p {
+  color: #59667a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ClientMeetings-managerInfo {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.ClientMeetings-managerPhoto {
+  width: 92px;
+  height: 92px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #d1d5db, #6b7280);
+  color: #fff;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.ClientMeetings-managerInfo strong {
+  font-size: 18px;
+}
+
+.ClientMeetings-managerInfo a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 9px;
+  color: #344054;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.ClientMeetings-manager button {
+  width: 100%;
+  min-height: 37px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 24px;
+  border: 1px solid #0867e8;
+  border-radius: 4px;
+  background: #fff;
+  color: #0867e8;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.ClientMeetings-slots p {
+  margin: -4px 0 18px;
+}
+
+.ClientMeetings-slots > div {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.ClientMeetings-slots button {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #0867e8;
+  border-radius: 5px;
+  background: #fff;
+  color: #1f2a44;
+  padding: 8px 10px;
+}
+
+.ClientMeetings-slots button svg {
+  flex: 0 0 auto;
+  color: #0867e8;
+  font-size: 18px;
+}
+
+.ClientMeetings-slots button strong {
+  display: block;
+  font-size: 11px;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.ClientMeetings-slots button span {
+  display: block;
+}
+
+@media (max-width: 1280px) {
+  .ClientMeetings-header {
+    flex-wrap: wrap;
   }
 
-  .ClientPageBase-table-row {
+  .ClientMeetings-stats,
+  .ClientMeetings-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .ClientMeetings-root {
+    padding: 18px 14px 24px;
+  }
+
+  .ClientMeetings-title h1 {
+    font-size: 23px;
+  }
+
+  .ClientMeetings-statCard,
+  .ClientMeetings-nextCard {
+    grid-template-columns: 52px 1fr;
+  }
+
+  .ClientMeetings-nextCard button {
+    grid-column: 2;
+    width: max-content;
+  }
+
+  .ClientMeetings-panel {
+    overflow-x: auto;
+    padding: 15px;
+  }
+
+  .ClientMeetings-slots > div {
     grid-template-columns: 1fr;
   }
 }

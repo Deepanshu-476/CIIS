@@ -85,7 +85,7 @@
 .MyServices-services-panel { padding: 13px 9px 6px; }
 .MyServices-filterbar {
   display: grid;
-  grid-template-columns: minmax(230px, 1.55fr) minmax(115px, .66fr) minmax(125px, .75fr) minmax(135px, .79fr) auto;
+  grid-template-columns: minmax(230px, 1.55fr) minmax(115px, .66fr) minmax(125px, .75fr) minmax(135px, .79fr);
   gap: 9px;
   margin: 0 2px 15px;
 }
@@ -118,14 +118,6 @@
   appearance: none; background: transparent; color: #253149; font: inherit; font-size: 9px; font-weight: 700;
 }
 .MyServices-filter svg { grid-column: 2; grid-row: 1 / 3; align-self: center; color: #758196; pointer-events: none; }
-
-.MyServices-request {
-  min-height: 37px; padding: 0 15px; border: 0; border-radius: 6px;
-  background: #0863ef; color: #fff; display: flex; align-items: center; justify-content: center;
-  gap: 8px; font-size: 9px; font-weight: 800; white-space: nowrap; cursor: pointer;
-  box-shadow: 0 5px 12px rgba(8, 99, 239, .2);
-}
-.MyServices-request svg { width: 15px; height: 15px; }
 
 .MyServices-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; }
 .MyServices-card {
@@ -173,7 +165,7 @@
 .MyServices-progress.blue span, .MyServices-progress.violet span, .MyServices-progress.sky span { background: #1268ed; }
 .MyServices-progress.green span, .MyServices-progress.coral span { background: #20b86d; }
 .MyServices-progress.rose span { background: #ff811f; }
-.MyServices-card footer { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 10px -12px 0; border-top: 1px solid #e8ecf2; }
+.MyServices-card footer { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 10px -12px 0; border-top: 1px solid #e8ecf2; }
 .MyServices-card footer button {
   min-width: 0; min-height: 31px; padding: 0 4px; border: 0; border-right: 1px solid #edf0f5;
   background: #fff; color: #245bc5; display: flex; align-items: center; justify-content: center;
@@ -285,6 +277,195 @@
 .MyServices-team-row strong { color: #253047; font-size: 8px; }
 .MyServices-team-row span { color: #627089; font-size: 7px; text-align: right; white-space: nowrap; }
 
+.MyServices-modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(15, 23, 42, .52);
+  backdrop-filter: blur(4px);
+}
+
+.MyServices-modal {
+  width: min(520px, 100%);
+  max-height: calc(100vh - 42px);
+  overflow: auto;
+  border-radius: 8px;
+  border: 1px solid #dfe5ee;
+  background: #fff;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, .22);
+}
+
+.MyServices-modalLarge { width: min(720px, 100%); }
+
+.MyServices-modal > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 48px;
+  padding: 12px 15px;
+  border-bottom: 1px solid #e6ebf2;
+}
+
+.MyServices-modal > header h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.MyServices-modal > header button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #e1e6ee;
+  border-radius: 6px;
+  background: #fff;
+  color: #41516a;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.MyServices-modalBody {
+  padding: 15px;
+}
+
+.MyServices-modalBody label {
+  display: grid;
+  gap: 7px;
+  color: #354156;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.MyServices-modalBody input {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #dfe5ee;
+  border-radius: 6px;
+  padding: 0 11px;
+  color: #111827;
+  font-size: 12px;
+  outline: 0;
+}
+
+.MyServices-modal > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 15px;
+  border-top: 1px solid #e6ebf2;
+  background: #f8fafc;
+}
+
+.MyServices-modal > footer button {
+  min-height: 34px;
+  padding: 0 13px;
+  border: 1px solid #dfe5ee;
+  border-radius: 6px;
+  background: #fff;
+  color: #1f2d44;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.MyServices-modal > footer button[type="submit"] {
+  border-color: #0863ef;
+  background: #0863ef;
+  color: #fff;
+}
+
+.MyServices-detailGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.MyServices-detailGrid span {
+  min-height: 58px;
+  padding: 10px;
+  border: 1px solid #e4e9f1;
+  border-radius: 7px;
+  background: #f8fafc;
+  color: #5d6a80;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.MyServices-detailGrid strong {
+  display: block;
+  margin-top: 6px;
+  color: #111827;
+  font-size: 12px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.MyServices-detailText {
+  margin: 12px 0 0;
+  min-height: auto;
+  color: #4b5870;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.MyServices-taskList {
+  display: grid;
+  gap: 8px;
+}
+
+.MyServices-taskRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #e4e9f1;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.MyServices-taskRow strong {
+  display: block;
+  color: #172033;
+  font-size: 10px;
+}
+
+.MyServices-taskRow span {
+  display: block;
+  margin-top: 4px;
+  color: #647188;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.MyServices-taskRow em,
+.MyServices-taskRow time {
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: #edf3ff;
+  color: #2864d3;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.MyServices-taskRow time {
+  background: #f5f7fb;
+  color: #536078;
+}
+
+.MyServices-emptyCompact { min-height: 180px; }
+
 @media (max-width: 1100px) {
   .MyServices-content { grid-template-columns: 1fr; }
   .MyServices-sidebar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -294,7 +475,7 @@
 @media (max-width: 980px) {
   .MyServices-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .MyServices-filterbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .MyServices-service-search, .MyServices-request { grid-column: 1 / -1; width: 100%; }
+  .MyServices-service-search { grid-column: 1 / -1; width: 100%; }
   .MyServices-bottom { grid-template-columns: 1fr; }
 }
 
@@ -303,7 +484,8 @@
   .MyServices-stats, .MyServices-sidebar, .MyServices-grid { grid-template-columns: 1fr; }
   .MyServices-stat { border-right: 0; border-bottom: 1px solid #edf0f4; }
   .MyServices-filterbar { grid-template-columns: 1fr; }
-  .MyServices-filter, .MyServices-service-search, .MyServices-request { grid-column: 1; }
+  .MyServices-filter, .MyServices-service-search { grid-column: 1; }
+  .MyServices-detailGrid, .MyServices-taskRow { grid-template-columns: 1fr; }
   .MyServices-timeline-track { grid-template-columns: 1fr; gap: 12px; }
   .MyServices-timeline-track::before { display: none; }
 }

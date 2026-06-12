@@ -1,49 +1,87 @@
 import React from 'react';
-import { FiUser, FiShield, FiBell, FiMail, FiSmartphone } from 'react-icons/fi';
+import { FiBell, FiBriefcase, FiMail, FiShield, FiSmartphone, FiUser } from 'react-icons/fi';
+import {
+  calculatePaymentSummary,
+  formatDate,
+  getClientDisplayName,
+  getUserDisplayName,
+  useClientPortalData
+} from '../../utils/clientPortalData';
 import './AccountSettingsPage.css';
 
-const AccountSettingsPage = () => (
-  <section className="ClientPageBase-root">
-    <div className="ClientPageBase-header">
-      <div>
-        <p>Account Settings</p>
-        <h1>Manage your profile, security, and notifications</h1>
-      </div>
-    </div>
+const AccountSettingsPage = () => {
+  const { client, services, projectManagers, user, loading, error, refetch } = useClientPortalData();
+  const payment = calculatePaymentSummary(client);
+  const manager = projectManagers[0] || {};
 
-    <div className="ClientPageBase-grid ClientPageBase-settings-grid">
-      <article className="ClientPageBase-card">
-        <div className="ClientPageBase-card-icon"><FiUser /></div>
-        <span>Profile</span>
-        <h2>Update your contact details</h2>
-        <p>Manage your name, email, and company profile in one place.</p>
-      </article>
-      <article className="ClientPageBase-card">
-        <div className="ClientPageBase-card-icon"><FiShield /></div>
-        <span>Security</span>
-        <h2>Protect your client account</h2>
-        <p>Enable stronger security, session control, and password preferences.</p>
-      </article>
-      <article className="ClientPageBase-card">
-        <div className="ClientPageBase-card-icon"><FiBell /></div>
-        <span>Notifications</span>
-        <h2>Control alert preferences</h2>
-        <p>Choose how you receive updates for tickets, invoices, and services.</p>
-      </article>
-      <article className="ClientPageBase-card">
-        <div className="ClientPageBase-card-icon"><FiMail /></div>
-        <span>Communication</span>
-        <h2>Set your preferred contact channels</h2>
-        <p>Email, phone, or WhatsApp options for fast engagement.</p>
-      </article>
-      <article className="ClientPageBase-card">
-        <div className="ClientPageBase-card-icon"><FiSmartphone /></div>
-        <span>Integrations</span>
-        <h2>Connect with your business tools</h2>
-        <p>Link your account to apps for seamless updates and reporting.</p>
-      </article>
-    </div>
-  </section>
-);
+  if (loading) {
+    return <section className="ClientPageBase-root">Loading account settings...</section>;
+  }
+
+  if (error || !client) {
+    return <section className="ClientPageBase-root"><p>{error || 'No client data found.'}</p><button type="button" onClick={refetch}>Try Again</button></section>;
+  }
+
+  const cards = [
+    {
+      icon: <FiUser />,
+      label: 'Profile',
+      title: getClientDisplayName(client),
+      text: `${client.email || user?.email || 'No email'}${client.phone ? ` • ${client.phone}` : ''}`
+    },
+    {
+      icon: <FiBriefcase />,
+      label: 'Company',
+      title: client.company || client.companyName || 'Company profile',
+      text: `${services.length} active service${services.length === 1 ? '' : 's'} assigned.`
+    },
+    {
+      icon: <FiShield />,
+      label: 'Subscription',
+      title: payment.planName,
+      text: `Renewal: ${formatDate(payment.nextDueDate)} • Price: ${payment.subscriptionPrice || 0}`
+    },
+    {
+      icon: <FiBell />,
+      label: 'Notifications',
+      title: 'Service and billing alerts',
+      text: 'Updates are based on your active tasks, payments, and services.'
+    },
+    {
+      icon: <FiMail />,
+      label: 'Account Manager',
+      title: manager.name || 'Not assigned',
+      text: `${manager.email || 'No email assigned'}${manager.phone ? ` • ${manager.phone}` : ''}`
+    },
+    {
+      icon: <FiSmartphone />,
+      label: 'Login User',
+      title: getUserDisplayName(user),
+      text: user?.companyRole || user?.role || 'Client account'
+    }
+  ];
+
+  return (
+    <section className="ClientPageBase-root">
+      <div className="ClientPageBase-header">
+        <div>
+          <p>Account Settings</p>
+          <h1>Manage {getClientDisplayName(client)} profile, security, and notifications</h1>
+        </div>
+      </div>
+
+      <div className="ClientPageBase-grid ClientPageBase-settings-grid">
+        {cards.map(card => (
+          <article className="ClientPageBase-card" key={card.label}>
+            <div className="ClientPageBase-card-icon">{card.icon}</div>
+            <span>{card.label}</span>
+            <h2>{card.title}</h2>
+            <p>{card.text}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+};
 
 export default AccountSettingsPage;

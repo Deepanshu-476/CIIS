@@ -176,6 +176,10 @@
   z-index: 95;
 }
 
+.ClientLayout-header--minimal {
+  justify-content: flex-start;
+}
+
 .ClientLayout-header-left {
   display: flex;
   align-items: center;

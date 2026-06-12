@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import API_URL from '../../../config';
+import {
+  calculatePaymentSummary,
+  calculateTaskStats,
+  formatDate,
+  formatMoney,
+  getTaskTitle
+} from '../../utils/clientPortalData';
 import './ClientDashboardPage.css';
 
 // Icons
@@ -269,7 +276,7 @@ const Dashboard = () => {
   const [client, setClient] = useState(null);
   const [services, setServices] = useState([]);
   const [projectManagers, setProjectManagers] = useState([]);
-  const [, setServiceTasks] = useState([]);
+  const [serviceTasks, setServiceTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [companyInfo, setCompanyInfo] = useState({
@@ -512,11 +519,40 @@ const Dashboard = () => {
     window.location.href = '/login';
   };
 
+  const taskStats = calculateTaskStats(serviceTasks);
+  const paymentSummary = calculatePaymentSummary(client);
+  const serviceRows = services.map(serviceName => {
+    const tasks = serviceTasks.filter(task => task.serviceName === serviceName);
+    const completed = tasks.filter(task => task.completed === true).length;
+    const percent = tasks.length ? Math.round((completed / tasks.length) * 100) : 0;
+    const latestSub = client?.subscription?.[client?.subscription?.length - 1];
+    return [
+      serviceName,
+      projectManagers[0]?.role || projectManagers[0]?.name || 'Assigned Team',
+      formatDate(client?.subscription?.[0]?.startDate || client?.subscriptionStartDate || client?.createdAt),
+      formatDate(latestSub?.endDate || client?.subscriptionEndDate),
+      percent,
+      tasks.length && percent === 100 ? 'Completed' : tasks.length ? 'In Progress' : 'Active'
+    ];
+  });
+  const completedPercent = taskStats.totalTasks ? Math.round((taskStats.completedTasks / taskStats.totalTasks) * 100) : 0;
+  const inProgressPercent = taskStats.totalTasks ? Math.round((taskStats.inProgressTasks / taskStats.totalTasks) * 100) : 0;
+  const pendingPercent = taskStats.totalTasks ? Math.round((taskStats.pendingTasks / taskStats.totalTasks) * 100) : 0;
+  const overduePercent = taskStats.totalTasks ? Math.round((taskStats.overdueTasks / taskStats.totalTasks) * 100) : 0;
+  const recentActivities = [
+    ...serviceTasks.slice(0, 4).map(task => [
+      `${getTaskTitle(task)} - ${task.completed ? 'completed' : 'updated'}`,
+      formatDate(task.updatedAt || task.createdAt || task.dueDate),
+      task.completed ? <FiCheckCircle /> : <FiFileText />
+    ]),
+    ...(paymentSummary.receipts[0] ? [[`Payment received for ${formatMoney(paymentSummary.receipts[0].amount || paymentSummary.subscriptionPrice)}`, formatDate(paymentSummary.receipts[0].createdAt || paymentSummary.receipts[0].paymentDate), <FiDollarSign />]] : [])
+  ].slice(0, 5);
+
   const doughnutData = {
     labels: ['Completed', 'In Progress', 'Pending', 'Overdue'],
     datasets: [
       {
-        data: [24, 12, 5, 1],
+        data: [taskStats.completedTasks, taskStats.inProgressTasks, taskStats.pendingTasks, taskStats.overdueTasks],
         backgroundColor: ['#35c985', '#4a90f3', '#ffc25a', '#f65470'],
         borderColor: '#ffffff',
         borderWidth: 0,
@@ -548,11 +584,7 @@ const Dashboard = () => {
     year: 'numeric'
   });
 
-  const sidebarManagers = (projectManagers.length ? projectManagers : [
-    { name: 'Amit Verma', role: 'Lead Manager' },
-    { name: 'Neha Kapoor', role: 'Design Manager' },
-    { name: 'Rohan Mehta', role: 'Development Manager' }
-  ]).slice(0, 3);
+  const sidebarManagers = projectManagers.slice(0, 3);
 
   /*
   const summaryCards = [
@@ -622,10 +654,10 @@ const Dashboard = () => {
         </div>
         <div className="ClientDashboard-hero-stats">
           {[
-            { label: 'Active Services', value: services.length || 6, icon: <FiBriefcase />, tone: 'blue' },
-            { label: 'Pending Invoices', value: 2, icon: <FiFileText />, tone: 'orange' },
-            { label: 'Open Tickets', value: 3, icon: <FiInbox />, tone: 'teal' },
-            { label: 'Recent Updates', value: 5, icon: <FiCreditCard />, tone: 'purple' }
+            { label: 'Active Services', value: services.length, icon: <FiBriefcase />, tone: 'blue' },
+            { label: 'Pending Invoices', value: paymentSummary.unpaidInvoices, icon: <FiFileText />, tone: 'orange' },
+            { label: 'Open Tasks', value: taskStats.pendingTasks + taskStats.overdueTasks, icon: <FiInbox />, tone: 'teal' },
+            { label: 'Recent Updates', value: recentActivities.length, icon: <FiCreditCard />, tone: 'purple' }
           ].map(item => (
             <div className="ClientDashboard-hero-stat" key={item.label}>
               <span className={`ClientDashboard-icon ClientDashboard-icon--${item.tone}`}>{item.icon}</span>
@@ -636,7 +668,7 @@ const Dashboard = () => {
         </div>
         <div className="ClientDashboard-update-strip">
           <span><FiArrowUp /></span>
-          <p><strong>Recent update:</strong> Website Redesign project milestone completed.</p>
+          <p><strong>Recent update:</strong> {recentActivities[0]?.[0] || 'No recent task updates found.'}</p>
           <button type="button">View All Updates <FiChevronRight /></button>
         </div>
       </section>
@@ -650,11 +682,11 @@ const Dashboard = () => {
             <h2>{clientName}</h2>
             <span>Client</span>
           </div>
-          <p><FiMail /> {client?.email || 'test123@demo.com'}</p>
-          <p><FiPhone /> {client?.phone || '+91 95678 76545'}</p>
-          <p><FiMapPin /> {client?.city || client?.address || 'Bhinga, Uttar Pradesh, India'}</p>
-          <p><FiCalendar /> Client ID: CLT-{String(client?._id || client?.id || '2026-00123').slice(-9).toUpperCase()}</p>
-          <p><FiUser /> Account Manager: {sidebarManagers[0]?.name || 'Rahul Sharma'}</p>
+          <p><FiMail /> {client?.email || 'No email available'}</p>
+          <p><FiPhone /> {client?.phone || 'No phone available'}</p>
+          <p><FiMapPin /> {client?.city || client?.address || 'No address available'}</p>
+          <p><FiCalendar /> Client ID: CLT-{String(client?._id || client?.id || 'UNKNOWN').slice(-9).toUpperCase()}</p>
+          <p><FiUser /> Account Manager: {sidebarManagers[0]?.name || 'Not assigned'}</p>
         </div>
         <div className="ClientDashboard-profile-actions">
           <button type="button" className="ClientDashboard-btn-light"><FiUser /> View Profile</button>
@@ -664,12 +696,12 @@ const Dashboard = () => {
 
       <section className="ClientDashboard-kpi-row">
         {[
-          { label: 'Active Services', value: services.length || 6, trend: '+20%', dir: 'up', icon: <FiPackage />, tone: 'blue' },
-          { label: 'Completed Tasks', value: overallStats.completedTasks || 24, trend: '+18%', dir: 'up', icon: <FiCheckCircle />, tone: 'green' },
-          { label: 'Pending Tasks', value: overallStats.pendingTasks || 7, trend: '+12%', dir: 'up', icon: <FiClock />, tone: 'orange' },
-          { label: 'Overdue Tasks', value: overallStats.overdueTasks || 2, trend: '-8%', dir: 'down', icon: <FiAlertCircle />, tone: 'red' },
-          { label: 'Open Tickets', value: 3, trend: '-14%', dir: 'down', icon: <FiHeadphones />, tone: 'purple' },
-          { label: 'Total Paid', value: '₹1,24,500', trend: '+22%', dir: 'up', icon: <FiDollarSign />, tone: 'green' }
+          { label: 'Active Services', value: services.length, trend: 'Live', dir: 'up', icon: <FiPackage />, tone: 'blue' },
+          { label: 'Completed Tasks', value: overallStats.completedTasks, trend: 'Live', dir: 'up', icon: <FiCheckCircle />, tone: 'green' },
+          { label: 'Pending Tasks', value: overallStats.pendingTasks, trend: 'Live', dir: 'up', icon: <FiClock />, tone: 'orange' },
+          { label: 'Overdue Tasks', value: overallStats.overdueTasks, trend: 'Live', dir: 'down', icon: <FiAlertCircle />, tone: 'red' },
+          { label: 'Open Tasks', value: taskStats.pendingTasks + taskStats.overdueTasks, trend: 'Live', dir: 'down', icon: <FiHeadphones />, tone: 'purple' },
+          { label: 'Total Paid', value: formatMoney(paymentSummary.paidAmount), trend: 'Live', dir: 'up', icon: <FiDollarSign />, tone: 'green' }
         ].map(card => (
           <article className={`ClientDashboard-kpi-card ClientDashboard-kpi-card--${card.tone}`} key={card.label}>
             <div className={`ClientDashboard-icon ClientDashboard-icon--${card.tone}`}>{card.icon}</div>
@@ -680,7 +712,7 @@ const Dashboard = () => {
             <div className={`ClientDashboard-kpi-trend ClientDashboard-kpi-trend--${card.dir}`}>
               <b>{card.trend}</b> {card.dir === 'up' ? <FiArrowUp /> : <FiArrowDown />}
             </div>
-            <small>vs last month</small>
+            <small>from real client data</small>
           </article>
         ))}
       </section>
@@ -689,27 +721,27 @@ const Dashboard = () => {
         <article className="ClientDashboard-card ClientDashboard-progress-overview">
           <h3>Service Progress Overview</h3>
           <div className="ClientDashboard-progress-layout">
-            <div className="ClientDashboard-progress-ring" style={{ '--progress': '245deg' }}>
+            <div className="ClientDashboard-progress-ring" style={{ '--progress': `${completedPercent * 3.6}deg` }}>
               <div>
-                <strong>68%</strong>
+                <strong>{completedPercent}%</strong>
                 <span>Overall Progress</span>
               </div>
             </div>
             <div className="ClientDashboard-progress-legend">
               <div className="ClientDashboard-progress-legend-row">
                 <span><i className="green"></i>Completed</span>
-                <b><em style={{ width: '68%' }}></em></b>
-                <strong>24 (68%)</strong>
+                <b><em style={{ width: `${completedPercent}%` }}></em></b>
+                <strong>{taskStats.completedTasks} ({completedPercent}%)</strong>
               </div>
               <div className="ClientDashboard-progress-legend-row">
                 <span><i className="blue"></i>In Progress</span>
-                <b><em style={{ width: '23%' }}></em></b>
-                <strong>8 (23%)</strong>
+                <b><em style={{ width: `${inProgressPercent}%` }}></em></b>
+                <strong>{taskStats.inProgressTasks} ({inProgressPercent}%)</strong>
               </div>
               <div className="ClientDashboard-progress-legend-row">
                 <span><i className="orange"></i>Not Started</span>
-                <b><em style={{ width: '9%' }}></em></b>
-                <strong>3 (9%)</strong>
+                <b><em style={{ width: `${pendingPercent}%` }}></em></b>
+                <strong>{taskStats.pendingTasks} ({pendingPercent}%)</strong>
               </div>
               <button type="button">View All Projects <FiChevronRight /></button>
             </div>
@@ -725,13 +757,7 @@ const Dashboard = () => {
             <div className="ClientDashboard-table-head">
               <span>Service / Project</span><span>Assigned Team</span><span>Start Date</span><span>Deadline</span><span>Progress</span><span></span>
             </div>
-            {[
-              ['Website Redesign', 'Design Team', 'May 10, 2026', 'Jun 30, 2026', 75, 'In Progress'],
-              ['Mobile App Development', 'Dev Team', 'Apr 15, 2026', 'Jul 15, 2026', 60, 'In Progress'],
-              ['SEO & Digital Marketing', 'Marketing Team', 'May 01, 2026', 'Jun 30, 2026', 40, 'In Progress'],
-              ['Cloud Migration', 'Infra Team', 'May 20, 2026', 'Jul 10, 2026', 30, 'In Progress'],
-              ['IT Support & Maintenance', 'Support Team', 'Jan 01, 2026', 'Dec 31, 2026', 90, 'Active']
-            ].map(([service, team, startDate, deadline, percent, status]) => {
+            {serviceRows.map(([service, team, startDate, deadline, percent, status]) => {
               return (
                 <div className="ClientDashboard-service-table-row" key={service}>
                   <strong>{service}</strong>
@@ -757,10 +783,10 @@ const Dashboard = () => {
               <Doughnut data={doughnutData} options={doughnutOptions} />
             </div>
             <div className="ClientDashboard-distribution-legend">
-              <p><span className="ClientDashboard-dot green"></span>Completed <strong>24 (57%)</strong></p>
-              <p><span className="ClientDashboard-dot blue"></span>In Progress <strong>12 (29%)</strong></p>
-              <p><span className="ClientDashboard-dot orange"></span>Pending <strong>5 (12%)</strong></p>
-              <p><span className="ClientDashboard-dot red"></span>Overdue <strong>1 (2%)</strong></p>
+              <p><span className="ClientDashboard-dot green"></span>Completed <strong>{taskStats.completedTasks} ({completedPercent}%)</strong></p>
+              <p><span className="ClientDashboard-dot blue"></span>In Progress <strong>{taskStats.inProgressTasks} ({inProgressPercent}%)</strong></p>
+              <p><span className="ClientDashboard-dot orange"></span>Pending <strong>{taskStats.pendingTasks} ({pendingPercent}%)</strong></p>
+              <p><span className="ClientDashboard-dot red"></span>Overdue <strong>{taskStats.overdueTasks} ({overduePercent}%)</strong></p>
             </div>
           </div>
         </article>
@@ -771,13 +797,7 @@ const Dashboard = () => {
             <button type="button">View All</button>
           </div>
           <div className="ClientDashboard-timeline">
-            {[
-              ['Payment received for Invoice #INV-2026-045', 'Today, 10:30 AM', <FiDollarSign />],
-              ['Task "UI Design Review" completed', 'Today, 09:15 AM', <FiCheckCircle />],
-              ['Document "Project Proposal.pdf" uploaded', 'Yesterday, 04:45 PM', <FiFileText />],
-              ['Support ticket #TK-2026-018 replied', 'Yesterday, 02:30 PM', <FiHeadphones />],
-              ['Meeting scheduled with Rahul Sharma', 'Jun 8, 2026, 11:00 AM', <FiCalendar />]
-            ].map(([title, time, icon], index) => (
+            {recentActivities.map(([title, time, icon], index) => (
               <div className="ClientDashboard-timeline-item" key={title}>
                 <span className={`ClientDashboard-icon ClientDashboard-icon--${['green', 'green', 'blue', 'purple', 'blue'][index]}`}>{icon}</span>
                 <p><strong>{title}</strong><small>{time}</small></p>
@@ -788,12 +808,12 @@ const Dashboard = () => {
 
         <article className="ClientDashboard-card ClientDashboard-payment-summary">
           <h3>Payment Summary</h3>
-          <div className="ClientDashboard-payment-line"><span><FiCreditCard /> Total Paid</span><strong>₹1,24,500</strong></div>
-          <div className="ClientDashboard-payment-line due"><span><FiFileText /> Total Due</span><strong>₹32,000</strong></div>
-          <div className="ClientDashboard-payment-line"><span><FiCalendar /> Next Due Date</span><strong>Jun 25, 2026</strong></div>
+          <div className="ClientDashboard-payment-line"><span><FiCreditCard /> Total Paid</span><strong>{formatMoney(paymentSummary.paidAmount)}</strong></div>
+          <div className="ClientDashboard-payment-line due"><span><FiFileText /> Total Due</span><strong>{formatMoney(paymentSummary.outstanding)}</strong></div>
+          <div className="ClientDashboard-payment-line"><span><FiCalendar /> Next Due Date</span><strong>{formatDate(paymentSummary.nextDueDate)}</strong></div>
           <div className="ClientDashboard-due-box">
-            <small>Due Soon</small>
-            <p>Invoice #INV-2026-067 <strong>₹18,000</strong></p>
+            <small>{paymentSummary.outstanding > 0 ? 'Due Soon' : 'No Due'}</small>
+            <p>{paymentSummary.planName} <strong>{formatMoney(paymentSummary.outstanding)}</strong></p>
             <button type="button">Pay Now</button>
           </div>
           <button type="button" className="ClientDashboard-link-button">View All Invoices <FiChevronRight /></button>

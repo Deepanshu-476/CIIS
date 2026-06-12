@@ -1,200 +1,463 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from "react";
+import axios from "axios";
 import {
-  FiSearch,
-  FiArrowRight,
-  FiCheckCircle,
-  FiMessageSquare,
-  FiUser,
-  FiShield,
-  FiStar,
-  FiPlus,
-  FiPhone,
+  FiAward,
+  FiBriefcase,
+  FiCheck,
+  FiCode,
+  FiCreditCard,
+  FiEdit3,
+  FiFileText,
+  FiGlobe,
+  FiGrid,
+  FiHeadphones,
   FiMail,
-  FiArrowDown
-} from 'react-icons/fi';
-import './ServiceMarketplacePage.css';
+  FiMessageCircle,
+  FiPackage,
+  FiPhone,
+  FiSend,
+  FiShield,
+  FiShoppingCart,
+  FiSmartphone,
+  FiTarget,
+  FiTrendingUp,
+  FiUsers,
+  FiVideo,
+  FiX,
+  FiZap,
+} from "react-icons/fi";
+import { FaAmazon, FaFacebookF, FaGoogle, FaWhatsapp } from "react-icons/fa";
+import {
+  getClientDisplayName,
+  getAuthToken,
+  getInitials,
+  useClientPortalData,
+} from "../../utils/clientPortalData";
+import API_URL from "../../../config";
+import "./ServiceMarketplacePage.css";
 
-const categories = ['All Services', 'Digital Marketing', 'Website & App Development', 'E-commerce Growth', 'Creative & Branding', 'Software'];
-const recommended = [
-  { title: 'WhatsApp Marketing', tag: 'Recommended' },
-  { title: 'Google Ads', tag: 'Popular' },
-  { title: 'Website Maintenance', tag: 'Essential' },
-  { title: 'Social Media Marketing', tag: 'Popular' },
-  { title: 'Lead Generation', tag: 'Recommended' }
+const rupee = "\u20b9";
+
+const categories = [
+  "All Services",
+  "Digital Marketing",
+  "Website & App Development",
+  "E-commerce Growth",
+  "Creative & Branding",
+  "Software",
+  "Content",
 ];
-const services = [
-  { title: 'SEO', label: 'Improve rankings and organic traffic', badge: 'Popular' },
-  { title: 'Google Ads Management', label: 'Drive qualified leads with search ads', badge: 'Popular' },
-  { title: 'Meta Ads', label: 'Reach more customers on Facebook & Instagram', badge: 'Popular' },
-  { title: 'Social Media Marketing', label: 'Grow your brand on social platforms', badge: 'Popular' },
-  { title: 'Lead Generation', label: 'Get quality business leads every month.', badge: 'Recommended' },
-  { title: 'Website Development', label: 'Build fast, responsive business websites.', badge: 'Popular' },
-  { title: 'E-commerce Website Development', label: 'Sell more with powerful e-commerce stores.', badge: 'Popular' },
-  { title: 'Mobile App Development', label: 'iOS & Android apps for your business.', badge: 'New' }
+
+const recommendedServices = [
+  {
+    title: "WhatsApp Marketing",
+    tag: "Recommended",
+    copy: "Automate offers, reminders and customer follow-ups.",
+    icon: <FaWhatsapp />,
+    tone: "green",
+    action: "Discuss Now",
+  },
+  {
+    title: "Google Ads",
+    tag: "Popular",
+    copy: "Generate high-intent leads from search ads.",
+    icon: <FaGoogle />,
+    tone: "blue",
+    action: "Get Proposal",
+  },
+  {
+    title: "Website Maintenance",
+    tag: "Essential",
+    copy: "Keep your website secure, fast and updated.",
+    icon: <FiShield />,
+    tone: "purple",
+    action: "Discuss Now",
+  },
+  {
+    title: "Social Media Marketing",
+    tag: "Popular",
+    copy: "Grow your brand on Instagram and Facebook.",
+    icon: <FaFacebookF />,
+    tone: "pink",
+    action: "Get Proposal",
+  },
+  {
+    title: "Lead Generation",
+    tag: "Recommended",
+    copy: "Get quality business leads every month.",
+    icon: <FiTarget />,
+    tone: "green",
+    action: "Discuss Now",
+  },
+];
+
+const defaultMarketplaceServices = [
+  { title: "SEO", tag: "Popular", copy: "Improve rankings and organic traffic.", icon: <FiTrendingUp />, tone: "green", category: "Digital Marketing", action: "Get Proposal" },
+  { title: "Google Ads Management", tag: "Popular", copy: "Drive qualified leads with search ads.", icon: <FaGoogle />, tone: "blue", category: "Digital Marketing", action: "Get Proposal" },
+  { title: "Meta Ads", tag: "Popular", copy: "Reach more customers on Facebook & Instagram.", icon: <FiTarget />, tone: "blue", category: "Digital Marketing", action: "Get Proposal" },
+  { title: "Social Media Marketing", tag: "Popular", copy: "Grow your brand on social platforms.", icon: <FaFacebookF />, tone: "pink", category: "Digital Marketing", action: "Get Proposal" },
+  { title: "Content Marketing", tag: "New", copy: "Create content that attracts and converts.", icon: <FiEdit3 />, tone: "orange", category: "Content", action: "Get Proposal" },
+  { title: "Lead Generation", tag: "Recommended", copy: "Get quality business leads every month.", icon: <FiTarget />, tone: "green", category: "Digital Marketing", action: "Discuss Now" },
+  { title: "Website Development", tag: "Popular", copy: "Build fast, responsive business websites.", icon: <FiCode />, tone: "blue", category: "Website & App Development", action: "Get Proposal" },
+  { title: "E-commerce Website Development", tag: "Popular", copy: "Sell more with powerful e-commerce stores.", icon: <FiShoppingCart />, tone: "blue", category: "E-commerce Growth", action: "Get Proposal" },
+  { title: "Mobile App Development", tag: "New", copy: "iOS & Android apps for your business.", icon: <FiSmartphone />, tone: "slate", category: "Website & App Development", action: "Get Proposal" },
+  { title: "Website Maintenance", tag: "Essential", copy: "Keep your website secure and up to date.", icon: <FiShield />, tone: "purple", category: "Website & App Development", action: "Discuss Now" },
+  { title: "UI/UX Design", tag: "New", copy: "Beautiful, user-friendly designs that engage.", icon: <FiGrid />, tone: "slate", category: "Creative & Branding", action: "Discuss Now" },
+  { title: "Amazon Account Management", tag: "Popular", copy: "Manage and grow your Amazon business.", icon: <FaAmazon />, tone: "orange", category: "E-commerce Growth", action: "Get Proposal" },
+  { title: "Flipkart Account Management", tag: "Popular", copy: "Boost sales on Flipkart marketplace.", icon: <FiZap />, tone: "yellow", category: "E-commerce Growth", action: "Get Proposal" },
+  { title: "Product Listing & Optimization", tag: "Optimization", copy: "Optimized listings that increase conversions.", icon: <FiPackage />, tone: "orange", category: "E-commerce Growth", action: "Discuss Now" },
+  { title: "Store Optimization", tag: "Optimization", copy: "Improve store performance and customer experience.", icon: <FiShoppingCart />, tone: "pink", category: "E-commerce Growth", action: "Discuss Now" },
+  { title: "Inventory Support", tag: "New", copy: "Manage inventory and avoid stockouts.", icon: <FiPackage />, tone: "orange", category: "Software", action: "Discuss Now" },
+  { title: "Graphic Design", tag: "Design", copy: "Creative designs that represent your brand.", icon: <FiEdit3 />, tone: "purple", category: "Creative & Branding", action: "Discuss Now" },
+  { title: "Logo Design", tag: "Design", copy: "Unique logos that make your brand stand out.", icon: <FiAward />, tone: "blue", category: "Creative & Branding", action: "Discuss Now" },
+  { title: "Video Editing", tag: "Popular", copy: "Professional videos that tell your story.", icon: <FiVideo />, tone: "purple", category: "Content", action: "Discuss Now" },
+  { title: "Reels / Shorts", tag: "New", copy: "Short videos that grab attention and engage.", icon: <FiVideo />, tone: "blue", category: "Content", action: "Discuss Now" },
+  { title: "Brand Identity", tag: "Popular", copy: "Build a strong identity for your brand.", icon: <FiAward />, tone: "purple", category: "Creative & Branding", action: "Discuss Now" },
+  { title: "Brand Identity", tag: "New", copy: "Build a strong identity for your brand.", icon: <FiAward />, tone: "green", category: "Creative & Branding", action: "Discuss Now" },
+  { title: "Company Profile Design", tag: "New", copy: "Professional profiles that build trust.", icon: <FiFileText />, tone: "blue", category: "Creative & Branding", action: "Discuss Now" },
+  { title: "CRM Software", tag: "Popular", copy: "Manage customers and improve relationships.", icon: <FiUsers />, tone: "blue", category: "Software", action: "Get Proposal" },
+  { title: "ERP Software", tag: "Popular", copy: "Streamline operations with ERP solutions.", icon: <FiGrid />, tone: "blue", category: "Software", action: "Get Proposal" },
+  { title: "Custom Dashboard", tag: "New", copy: "Real-time dashboards for better decision-making.", icon: <FiGlobe />, tone: "blue", category: "Software", action: "Get Proposal" },
+  { title: "WhatsApp Automation", tag: "Popular", copy: "Automate chats, replies and notifications.", icon: <FaWhatsapp />, tone: "green", category: "Software", action: "Get Proposal" },
+  { title: "Email Automation", tag: "New", copy: "Automate emails and nurture leads.", icon: <FiMail />, tone: "blue", category: "Software", action: "Get Proposal" },
+  { title: "Lead Management System", tag: "Recommended", copy: "Track and manage leads from one place.", icon: <FiTarget />, tone: "blue", category: "Software", action: "Get Proposal" },
 ];
 
 const ServiceMarketplacePage = () => {
-  const [activeCategory, setActiveCategory] = useState('All Services');
-  const [openModal, setOpenModal] = useState(false);
-  const [selectedService, setSelectedService] = useState('WhatsApp Marketing');
-  const [formValues, setFormValues] = useState({ requirement: '', budget: '', contact: 'Phone' });
+  const { client, services: clientServices, projectManagers, user } = useClientPortalData();
+  const [companyServices, setCompanyServices] = useState([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+  const [servicesError, setServicesError] = useState("");
+  const [activeCategory, setActiveCategory] = useState("All Services");
+  const [openModal, setOpenModal] = useState(true);
+  const [selectedService, setSelectedService] = useState(clientServices[0] || "WhatsApp Marketing");
+  const [enquiries, setEnquiries] = useState([]);
+  const [enquiriesLoading, setEnquiriesLoading] = useState(false);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState({ type: "", text: "" });
+  const [formValues, setFormValues] = useState({
+    requirement:
+      `We want to improve ${getClientDisplayName(client)} with a service plan. Please share the process and pricing.`,
+    budget: `${rupee}20,000 - ${rupee}30,000`,
+    contact: "WhatsApp",
+  });
 
-  const filteredServices = services.filter((service) => activeCategory === 'All Services' || service.badge === activeCategory || service.title.includes(activeCategory));
+  const manager = projectManagers[0] || {};
+  const managerName = manager.name || 'Account Manager';
+  const companyCode = localStorage.getItem("companyCode") || localStorage.getItem("company") || client?.companyCode || "";
+  const companyIdentifier = localStorage.getItem("companyIdentifier") || client?.companyIdentifier || "";
 
-  const handleInquiry = (title) => {
-    setSelectedService(title);
+  useEffect(() => {
+    const fetchCompanyServices = async () => {
+      try {
+        setServicesLoading(true);
+        setServicesError("");
+
+        const response = await axios.get(`${API_URL}/clientsservice/services`, {
+          params: {
+            companyCode: companyCode || undefined,
+            companyIdentifier: companyIdentifier || undefined,
+          },
+          headers: getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : undefined,
+        });
+
+        if (response.data?.success) {
+          setCompanyServices(response.data.data || []);
+        } else {
+          setCompanyServices([]);
+          setServicesError(response.data?.message || "No company services found");
+        }
+      } catch (error) {
+        console.error("Error fetching company services for marketplace:", error);
+        setCompanyServices([]);
+        setServicesError(error.response?.data?.message || "Failed to load company services");
+      } finally {
+        setServicesLoading(false);
+      }
+    };
+
+    fetchCompanyServices();
+  }, [client?.companyCode, client?.companyIdentifier, companyCode, companyIdentifier]);
+
+  const fetchEnquiries = async () => {
+    try {
+      setEnquiriesLoading(true);
+      const response = await axios.get(`${API_URL}/clientsservice/service-enquiries`, {
+        params: {
+          companyCode: companyCode || undefined,
+          companyIdentifier: companyIdentifier || undefined,
+        },
+        headers: getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : undefined,
+      });
+      if (response.data?.success) {
+        const allEnquiries = response.data.data || [];
+        const currentClientId = String(client?._id || "");
+        setEnquiries(currentClientId ? allEnquiries.filter(item => String(item.clientId || "") === currentClientId) : allEnquiries);
+      } else {
+        setEnquiries([]);
+      }
+    } catch (error) {
+      console.error("Error fetching service enquiries:", error);
+      setEnquiries([]);
+    } finally {
+      setEnquiriesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEnquiries();
+  }, [client?._id, companyCode, companyIdentifier]);
+
+  const companyMarketplaceServices = useMemo(() => (
+    companyServices.map((service, index) => {
+      const title = service.servicename || service.name || service.title || "Company Service";
+      return {
+        title,
+        tag: clientServices.includes(title) ? "Active" : "Available",
+        copy: service.description || service.details || `${title} is available from your company service catalog.`,
+        icon: [<FiBriefcase />, <FiCode />, <FiTarget />, <FiShield />, <FiGrid />, <FiPackage />][index % 6],
+        tone: ["blue", "green", "purple", "orange", "slate", "pink"][index % 6],
+        category: service.category || service.serviceCategory || "Company Services",
+        action: clientServices.includes(title) ? "View Service" : "Get Proposal",
+      };
+    })
+  ), [companyServices, clientServices]);
+
+  const marketplaceServices = companyMarketplaceServices;
+  const dynamicCategories = ["All Services", ...new Set(marketplaceServices.map(service => service.category).filter(Boolean))];
+  const activeServiceNames = clientServices.map(service => String(service).toLowerCase());
+  const recommendedDynamicServices = marketplaceServices.filter(service => (
+    !activeServiceNames.some(active => service.title.toLowerCase().includes(active) || active.includes(service.title.toLowerCase()))
+  )).slice(0, 5);
+  const visibleServices = marketplaceServices.filter((service) => activeCategory === "All Services" || service.category === activeCategory);
+
+  const openEnquiry = (serviceTitle) => {
+    setSelectedService(serviceTitle);
+    setSubmitMessage({ type: "", text: "" });
     setOpenModal(true);
+  };
+
+  const submitEnquiry = async () => {
+    try {
+      setSubmitLoading(true);
+      setSubmitMessage({ type: "", text: "" });
+
+      const response = await axios.post(`${API_URL}/clientsservice/service-enquiries`, {
+        serviceName: selectedService,
+        requirement: formValues.requirement,
+        budget: formValues.budget,
+        contactMethod: formValues.contact,
+        clientId: client?._id || null,
+        clientName: getClientDisplayName(client),
+        companyName: client?.company || "",
+        companyCode,
+        companyIdentifier,
+        requestedBy: user?._id || user?.id || null,
+      }, {
+        headers: getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : undefined,
+      });
+
+      if (response.data?.success) {
+        setSubmitMessage({ type: "success", text: "Enquiry submitted successfully." });
+        await fetchEnquiries();
+        setOpenModal(false);
+      } else {
+        setSubmitMessage({ type: "error", text: response.data?.message || "Unable to submit enquiry." });
+      }
+    } catch (error) {
+      console.error("Error submitting service enquiry:", error);
+      setSubmitMessage({ type: "error", text: error.response?.data?.message || "Unable to submit enquiry." });
+    } finally {
+      setSubmitLoading(false);
+    }
   };
 
   return (
     <section className="ServiceMarketplacePage-root">
-      <div className="ServiceMarketplacePage-header">
-        <div>
-          <p>Explore Services</p>
-          <h1>Discover the right service for your growth</h1>
+      <header className="ServiceMarketplacePage-header">
+        <div className="ServiceMarketplacePage-title">
+          <h1>Explore Services</h1>
+          <p>Discover more services to grow your business with CIIS Network.</p>
         </div>
-        <div className="ServiceMarketplacePage-search">
-          <FiSearch />
-          <input placeholder="Search services, categories, or keywords" />
-        </div>
-      </div>
+      </header>
 
-      <div className="ServiceMarketplacePage-recommended">
-        {recommended.map((item) => (
-          <article key={item.title} className="ServiceMarketplacePage-reco-card">
-            <div>
-              <strong>{item.title}</strong>
-              <span>{item.tag}</span>
+      <div className="ServiceMarketplacePage-layout">
+        <main className="ServiceMarketplacePage-main">
+          <section className="ServiceMarketplacePage-panel ServiceMarketplacePage-recommendedPanel">
+            <div className="ServiceMarketplacePage-panelTitle">
+              <h2>Recommended For You</h2>
+              <span>Based on your current services</span>
             </div>
-            <button onClick={() => handleInquiry(item.title)}>Discuss Now</button>
-          </article>
-        ))}
-      </div>
+            <p>These services can help you get more leads, sales and growth.</p>
+            <div className="ServiceMarketplacePage-recommendedGrid">
+              {!servicesLoading && recommendedDynamicServices.length === 0 && <p>No recommendations available yet.</p>}
+              {recommendedDynamicServices.map((service) => (
+                <article className="ServiceMarketplacePage-serviceCard ServiceMarketplacePage-featureCard" key={service.title}>
+                  <div className={`ServiceMarketplacePage-cardIcon ServiceMarketplacePage-${service.tone}`}>{service.icon}</div>
+                  <div className="ServiceMarketplacePage-cardContent">
+                    <h3>{service.title}</h3>
+                    <span>{service.tag}</span>
+                    <p>{service.copy}</p>
+                  </div>
+                  <button type="button" onClick={() => openEnquiry(service.title)}>{service.action}</button>
+                </article>
+              ))}
+            </div>
+          </section>
 
-      <div className="ServiceMarketplacePage-grid">
-        <div className="ServiceMarketplacePage-main">
-          <div className="ServiceMarketplacePage-tabs">
-            {categories.map((category) => (
-              <button
-                key={category}
-                className={activeCategory === category ? 'active' : ''}
-                onClick={() => setActiveCategory(category)}
-              >
-                {category}
-              </button>
-            ))}
-          </div>
-
-          <div className="ServiceMarketplacePage-services">
-            {filteredServices.map((service) => (
-              <article key={service.title} className="ServiceMarketplacePage-service-card">
-                <div>
-                  <h3>{service.title}</h3>
-                  <p>{service.label}</p>
-                </div>
-                <div>
-                  <span>{service.badge}</span>
-                  <button onClick={() => handleInquiry(service.title)}>Get Proposal</button>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
+          <section className="ServiceMarketplacePage-panel ServiceMarketplacePage-servicesPanel">
+            <div className="ServiceMarketplacePage-sectionHeader">
+              <div>
+                <h2>All Services</h2>
+                <p>Browse our complete range of services across different categories.</p>
+              </div>
+            </div>
+            <div className="ServiceMarketplacePage-tabs">
+              {dynamicCategories.map((category) => (
+                <button
+                  type="button"
+                  key={category}
+                  className={activeCategory === category ? "active" : ""}
+                  onClick={() => setActiveCategory(category)}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+            <div className="ServiceMarketplacePage-servicesGrid">
+              {servicesLoading && <p>Loading company services...</p>}
+              {!servicesLoading && servicesError && <p>{servicesError}</p>}
+              {!servicesLoading && !servicesError && visibleServices.length === 0 && <p>No company services found for this company code.</p>}
+              {!servicesLoading && visibleServices.map((service) => (
+                <article className="ServiceMarketplacePage-serviceCard" key={`${service.title}-${service.category}-${service.tone}`}>
+                  <div className={`ServiceMarketplacePage-cardIcon ServiceMarketplacePage-${service.tone}`}>{service.icon}</div>
+                  <div className="ServiceMarketplacePage-cardContent">
+                    <h3>{service.title}</h3>
+                    <span>{service.tag}</span>
+                    <p>{service.copy}</p>
+                  </div>
+                  <button type="button" onClick={() => openEnquiry(service.title)}>{service.action}</button>
+                </article>
+              ))}
+            </div>
+            <button type="button" className="ServiceMarketplacePage-moreButton">View More Services</button>
+          </section>
+        </main>
 
         <aside className="ServiceMarketplacePage-sidebar">
-          <article className="ServiceMarketplacePage-info-card">
-            <div className="ServiceMarketplacePage-info-avatar">R</div>
-            <div>
-              <span>Account Manager</span>
-              <strong>Rahul Sharma</strong>
+          <section className="ServiceMarketplacePage-sidePanel ServiceMarketplacePage-managerPanel">
+            <h2>Need help choosing the right service?</h2>
+            <p>Our experts are here to help you find the best solutions for your business.</p>
+            <div className="ServiceMarketplacePage-manager">
+              <div className="ServiceMarketplacePage-managerPhoto">{getInitials(managerName)}</div>
+              <div>
+                <strong>{managerName}</strong>
+                <span>{manager.role || 'Account Manager'}</span>
+              </div>
             </div>
-          </article>
+            {manager.email && <a href={`mailto:${manager.email}`}><FiMail /> {manager.email}</a>}
+            {manager.phone && <a href={`tel:${manager.phone}`}><FiPhone /> {manager.phone}</a>}
+            <button type="button" className="ServiceMarketplacePage-primaryButton">Discuss with {manager.name ? managerName.split(' ')[0] : 'Manager'}</button>
+          </section>
 
-          <article className="ServiceMarketplacePage-info-panel">
+          <section className="ServiceMarketplacePage-sidePanel">
             <h2>Why Choose CIIS Network?</h2>
-            <ul>
-              <li><FiCheckCircle />10+ Years Experience</li>
-              <li><FiCheckCircle />Result Driven Approach</li>
-              <li><FiCheckCircle />Dedicated Support</li>
-              <li><FiCheckCircle />Transparent Process</li>
-              <li><FiCheckCircle />Affordable Pricing</li>
+            <ul className="ServiceMarketplacePage-checkList">
+              <li><FiCheck />10+ Years Experience</li>
+              <li><FiCheck />Result Driven Approach</li>
+              <li><FiCheck />Dedicated Support</li>
+              <li><FiCheck />Transparent Process</li>
+              <li><FiCheck />Affordable Pricing</li>
             </ul>
-          </article>
+          </section>
 
-          <article className="ServiceMarketplacePage-info-panel ServiceMarketplacePage-custom-card">
+          <section className="ServiceMarketplacePage-sidePanel ServiceMarketplacePage-customPanel">
             <h2>Have a custom requirement?</h2>
-            <p>Share what you need and we will create a tailored plan for your business.</p>
-            <button>Share Requirement</button>
-          </article>
+            <p>Tell us what you need. We'll create a solution tailored for your business.</p>
+            <button type="button"><FiSend /> Share Requirement</button>
+          </section>
 
-          <article className="ServiceMarketplacePage-info-panel">
-            <div className="ServiceMarketplacePage-info-panel-heading">
-              <span>Recent Enquiries</span>
-              <FiArrowRight />
+          <section className="ServiceMarketplacePage-sidePanel ServiceMarketplacePage-enquiriesPanel">
+            <h2>My Service Enquiries</h2>
+            <div className="ServiceMarketplacePage-enquiryHeader">
+              <span>Service</span>
+              <span>Enquiry ID</span>
+              <span>Status</span>
             </div>
-            <div className="ServiceMarketplacePage-enquiry-item">
-              <div>
-                <strong>WhatsApp Marketing</strong>
-                <span>ENQ-2026-018</span>
+            {enquiriesLoading && <p>Loading enquiries...</p>}
+            {!enquiriesLoading && enquiries.length === 0 && <p>No active enquiries.</p>}
+            {!enquiriesLoading && enquiries.slice(0, 4).map((enquiry) => (
+              <div className="ServiceMarketplacePage-enquiryRow" key={enquiry._id}>
+                <strong>{enquiry.serviceName}</strong>
+                <span>{`ENQ-${String(enquiry._id).slice(-6).toUpperCase()}`}</span>
+                <em className={`ServiceMarketplacePage-status ServiceMarketplacePage-status-${String(enquiry.status || 'Pending').toLowerCase().replace(" ", "-")}`}>
+                  {enquiry.status || 'Pending'}
+                </em>
               </div>
-              <span className="status status-open">Open</span>
-            </div>
-            <div className="ServiceMarketplacePage-enquiry-item">
-              <div>
-                <strong>Google Ads</strong>
-                <span>ENQ-2026-017</span>
-              </div>
-              <span className="status status-sent">Proposal Sent</span>
-            </div>
-            <div className="ServiceMarketplacePage-enquiry-item">
-              <div>
-                <strong>Website Development</strong>
-                <span>ENQ-2026-015</span>
-              </div>
-              <span className="status status-contacted">Contacted</span>
-            </div>
-          </article>
+            ))}
+            <a href="/client/marketplace">View All Enquiries</a>
+          </section>
         </aside>
       </div>
 
       {openModal && (
-        <div className="ServiceMarketplacePage-modal-backdrop">
-          <div className="ServiceMarketplacePage-modal">
-            <div className="ServiceMarketplacePage-modal-header">
-              <div>
-                <span>Service Enquiry</span>
-                <h2>{selectedService}</h2>
-              </div>
-              <button onClick={() => setOpenModal(false)}>×</button>
-            </div>
-            <div className="ServiceMarketplacePage-modal-body">
-              <label>Requirement</label>
+        <div className="ServiceMarketplacePage-modalLayer">
+          <section className="ServiceMarketplacePage-modal" role="dialog" aria-modal="true" aria-labelledby="service-enquiry-title">
+            <header>
+              <h2 id="service-enquiry-title">Service Enquiry</h2>
+              <button type="button" aria-label="Close" onClick={() => setOpenModal(false)}>
+                <FiX />
+              </button>
+            </header>
+            <label>
+              <span>Selected Service</span>
+              <input type="text" value={selectedService} readOnly />
+            </label>
+            <label>
+              <span>Requirement</span>
               <textarea
                 value={formValues.requirement}
-                onChange={(e) => setFormValues({ ...formValues, requirement: e.target.value })}
-                placeholder="Describe your business need"
+                onChange={(event) => setFormValues({ ...formValues, requirement: event.target.value })}
               />
-              <label>Budget (optional)</label>
+            </label>
+            <label>
+              <span>Budget (optional)</span>
               <input
+                type="text"
                 value={formValues.budget}
-                onChange={(e) => setFormValues({ ...formValues, budget: e.target.value })}
-                placeholder="e.g., ₹20,000 - ₹30,000"
+                onChange={(event) => setFormValues({ ...formValues, budget: event.target.value })}
+                placeholder={`e.g., ${rupee}20,000 - ${rupee}30,000`}
               />
-              <div className="ServiceMarketplacePage-contact-options">
-                {['Phone', 'Email', 'WhatsApp'].map((option) => (
+            </label>
+            <div className="ServiceMarketplacePage-contactGroup">
+              <span>Preferred Contact Method</span>
+              <div>
+                {[
+                  ["Phone", <FiPhone />],
+                  ["Email", <FiMail />],
+                  ["WhatsApp", <FaWhatsapp />],
+                ].map(([label, icon]) => (
                   <button
                     type="button"
-                    key={option}
-                    className={formValues.contact === option ? 'active' : ''}
-                    onClick={() => setFormValues({ ...formValues, contact: option })}
+                    key={label}
+                    className={formValues.contact === label ? "active" : ""}
+                    onClick={() => setFormValues({ ...formValues, contact: label })}
                   >
-                    {option}
+                    {icon}
+                    {label}
                   </button>
                 ))}
               </div>
-              <button className="ServiceMarketplacePage-submit">Submit Enquiry</button>
             </div>
-          </div>
+            {submitMessage.text && (
+              <p className={`ServiceMarketplacePage-formMessage ServiceMarketplacePage-formMessage-${submitMessage.type}`}>
+                {submitMessage.text}
+              </p>
+            )}
+            <button type="button" className="ServiceMarketplacePage-submitButton" onClick={submitEnquiry} disabled={submitLoading}>
+              {submitLoading ? "Submitting..." : "Submit Enquiry"}
+            </button>
+          </section>
         </div>
       )}
     </section>

@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import API_URL from '../../../config';
+import { isClientForLoggedInUser } from '../../utils/clientPortalData';
 import './ClientTasksUpdatesPage.css';
 
 import {
@@ -16,7 +18,6 @@ import {
   FiMoreVertical,
   FiPlus,
   FiSearch,
-  FiSend,
   FiUpload,
   FiUsers
 } from 'react-icons/fi';
@@ -69,15 +70,8 @@ const getTaskTitle = task => (
 
 const getInitials = value => String(value || 'U').trim().slice(0, 1).toUpperCase();
 
-const fallbackServices = [
-  'Website Redesign',
-  'SEO Optimization',
-  'Mobile App Development',
-  'Branding & Creatives',
-  'IT Support & Maintenance'
-];
-
 const ServicesTasks = () => {
+  const navigate = useNavigate();
   const [client, setClient] = useState(null);
   const [services, setServices] = useState([]);
   const [allTasks, setAllTasks] = useState([]);
@@ -185,17 +179,13 @@ const ServicesTasks = () => {
       }
 
       const allClients = response.data.data || [];
-      let currentClient = allClients.find(c =>
-        c.email === user.email ||
-        c.client === user.name ||
-        c._id === user.id ||
-        c._id === user._id ||
-        (c.projectManagers || []).some(pm => pm.email === user.email)
-      );
+      const currentClient = allClients.find(c => isClientForLoggedInUser(c, user));
 
-      if (!currentClient && allClients.length > 0) currentClient = allClients[0];
       if (!currentClient) {
-        setError('No client data found');
+        setClient(null);
+        setServices([]);
+        setAllTasks([]);
+        setError('No client data found for this login.');
         return;
       }
 
@@ -239,36 +229,17 @@ const ServicesTasks = () => {
   const inProgressTasks = allTasks.filter(task => String(task.status || '').toLowerCase().includes('progress'));
   const clientName = client?.client || client?.name || 'Client';
   const projectManagers = client?.projectManagers || [];
-  const baseServices = services.length ? services : fallbackServices;
+  const baseServices = services;
 
   const serviceRows = baseServices.map((service, index) => {
     const serviceTasks = allTasks.filter(task => task.serviceName === service);
-    const taskTotal = serviceTasks.length || [8, 7, 6, 5, 6][index] || 5;
-    const done = serviceTasks.length ? serviceTasks.filter(task => task.completed).length : [6, 4, 3, 5, 3][index] || 2;
-    const progress = Math.round((done / taskTotal) * 100);
+    const taskTotal = serviceTasks.length;
+    const done = serviceTasks.filter(task => task.completed).length;
+    const progress = taskTotal ? Math.round((done / taskTotal) * 100) : 0;
     return { service, taskTotal, done, progress };
   });
 
-  const fallbackTasks = serviceRows.slice(0, 8).map((row, index) => ({
-    _id: `fallback-task-${index}`,
-    name: [
-      'Homepage Design Approval',
-      'SEO Keyword Research',
-      'Mobile App UI Kit',
-      'Content Migration',
-      'Logo Design Finalization',
-      'UAT Feedback Review',
-      'Server Health Check',
-      'Analytics & Tracking Setup'
-    ][index],
-    serviceName: row.service,
-    dueDate: new Date(Date.now() + (index + 1) * 24 * 60 * 60 * 1000).toISOString(),
-    status: index === 0 ? 'pending approval' : index === 5 ? 'overdue' : index === 7 ? 'upcoming' : 'in progress',
-    priority: index % 3 === 0 ? 'High' : index % 3 === 1 ? 'Medium' : 'Low',
-    completed: index === 4 || index === 6
-  }));
-
-  const taskRows = (allTasks.length ? allTasks : fallbackTasks).slice(0, 8).map((task, index) => {
+  const taskRows = allTasks.slice(0, 8).map((task) => {
     const completed = task.completed === true;
     const overdue = isClientTaskOverdue(task) || String(task.status || '').toLowerCase() === 'overdue';
     const status = completed
@@ -276,12 +247,12 @@ const ServicesTasks = () => {
       : overdue
         ? 'Overdue'
         : String(task.status || 'In Progress').replace(/\b\w/g, char => char.toUpperCase());
-    const progress = completed ? 100 : overdue ? 90 : [80, 60, 75, 40, 100, 90, 100, 20][index] || 55;
+    const progress = completed ? 100 : overdue ? 90 : Number(task.progress || task.percent || 0);
 
     return {
-      id: task._id || task.id || `${getTaskTitle(task)}-${index}`,
+      id: task._id || task.id || `${getTaskTitle(task)}-${task.serviceName || 'service'}`,
       title: getTaskTitle(task),
-      service: task.serviceName || baseServices[index % baseServices.length] || 'Project Service',
+      service: task.serviceName || 'Project Service',
       dueDate: task.dueDate,
       status,
       priority: String(task.priority || (overdue ? 'High' : 'Medium')).replace(/\b\w/g, char => char.toUpperCase()),
@@ -296,20 +267,19 @@ const ServicesTasks = () => {
     .slice(0, 5);
 
   const recentUpdates = [
-    { icon: <FiCheckCircle />, tone: 'green', title: `Task "${taskRows[0]?.title || 'Logo Design Finalization'}" completed successfully.`, time: 'Today, 10:23 AM' },
-    { icon: <FiUpload />, tone: 'orange', title: 'You uploaded "Brand Guidelines v2.pdf" in Branding & Creatives.', time: 'Today, 09:15 AM' },
-    { icon: <FiUsers />, tone: 'orange', title: `Approval requested for "${taskRows[0]?.title || 'Homepage Design'}".`, time: 'Yesterday, 04:45 PM' },
-    { icon: <FiCalendar />, tone: 'blue', title: `Meeting note added for ${baseServices[0] || 'Website Redesign'} project.`, time: 'Yesterday, 11:30 AM' },
-    { icon: <FiDownload />, tone: 'purple', title: 'Invoice INV-2026-065 document reminder sent.', time: 'May 9, 2026, 05:20 PM' }
-  ];
+    ...(taskRows[0] ? [{ icon: <FiCheckCircle />, tone: 'green', title: `Latest task: "${taskRows[0].title}" is ${taskRows[0].status}.`, time: formatDate(taskRows[0].dueDate) }] : []),
+    ...(taskRows[1] ? [{ icon: <FiUsers />, tone: 'orange', title: `Update available for "${taskRows[1].title}".`, time: formatDate(taskRows[1].dueDate) }] : []),
+    ...(baseServices[0] ? [{ icon: <FiCalendar />, tone: 'blue', title: `${baseServices[0]} service is active for your account.`, time: 'Current service' }] : []),
+    { icon: <FiDownload />, tone: 'purple', title: `${clientName} client portal synced with live records.`, time: 'Now' }
+  ].slice(0, 5);
 
   const stats = [
-    { label: 'Total Tasks', value: totalTasks || 48, tone: 'blue', icon: <FiCalendar />, trend: '+12%', helper: 'vs last month', spark: 'M2 23 C10 19, 17 26, 25 21 S41 16, 50 22 S67 28, 76 17 S92 12, 104 19 S114 17, 120 10' },
-    { label: 'Completed Tasks', value: completedTasks.length || 21, tone: 'green', icon: <FiCheckCircle />, trend: '+20%', helper: 'vs last month', spark: 'M2 24 C12 16, 18 22, 27 19 S43 12, 52 18 S66 27, 76 21 S90 13, 101 18 S112 12, 120 15' },
-    { label: 'In Progress', value: inProgressTasks.length || 14, tone: 'blue', icon: <FiClock />, trend: '+8%', helper: 'vs last month', spark: 'M2 21 C12 18, 20 22, 29 20 S43 17, 54 22 S69 25, 79 19 S94 14, 105 20 S114 17, 120 12' },
-    { label: 'Pending Approval', value: taskRows.filter(t => t.status === 'Pending Approval').length || 6, tone: 'orange', icon: <FiUsers />, trend: '-5%', helper: 'vs last month', spark: 'M2 25 C12 25, 17 15, 27 20 S41 26, 51 18 S66 14, 76 23 S88 24, 98 17 S111 18, 120 22' },
-    { label: 'Overdue Tasks', value: overdueTasks.length || taskRows.filter(t => t.status === 'Overdue').length || 3, tone: 'red', icon: <FiAlertCircle />, trend: '-40%', helper: 'vs last month', spark: 'M2 24 C12 19, 19 21, 28 17 S43 20, 52 15 S66 25, 77 17 S91 12, 101 20 S112 16, 120 23' },
-    { label: 'Upcoming Deadlines', value: upcomingDeadlines.length || 9, tone: 'purple', icon: <FiCalendar />, trend: '', helper: 'Next 30 days', spark: 'M2 25 C13 20, 20 24, 30 17 S45 18, 55 13 S69 19, 78 16 S92 10, 102 14 S113 9, 120 12' }
+    { label: 'Total Tasks', value: totalTasks, tone: 'blue', icon: <FiCalendar />, trend: '', helper: 'Live total', spark: 'M2 23 C10 19, 17 26, 25 21 S41 16, 50 22 S67 28, 76 17 S92 12, 104 19 S114 17, 120 10' },
+    { label: 'Completed Tasks', value: completedTasks.length, tone: 'green', icon: <FiCheckCircle />, trend: '', helper: 'Live total', spark: 'M2 24 C12 16, 18 22, 27 19 S43 12, 52 18 S66 27, 76 21 S90 13, 101 18 S112 12, 120 15' },
+    { label: 'In Progress', value: inProgressTasks.length, tone: 'blue', icon: <FiClock />, trend: '', helper: 'Live total', spark: 'M2 21 C12 18, 20 22, 29 20 S43 17, 54 22 S69 25, 79 19 S94 14, 105 20 S114 17, 120 12' },
+    { label: 'Pending Approval', value: taskRows.filter(t => t.status === 'Pending Approval').length, tone: 'orange', icon: <FiUsers />, trend: '', helper: 'Live total', spark: 'M2 25 C12 25, 17 15, 27 20 S41 26, 51 18 S66 14, 76 23 S88 24, 98 17 S111 18, 120 22' },
+    { label: 'Overdue Tasks', value: overdueTasks.length, tone: 'red', icon: <FiAlertCircle />, trend: '', helper: 'Live total', spark: 'M2 24 C12 19, 19 21, 28 17 S43 20, 52 15 S66 25, 77 17 S91 12, 101 20 S112 16, 120 23' },
+    { label: 'Upcoming Deadlines', value: upcomingDeadlines.length, tone: 'purple', icon: <FiCalendar />, trend: '', helper: 'Next 30 days', spark: 'M2 25 C13 20, 20 24, 30 17 S45 18, 55 13 S69 19, 78 16 S92 10, 102 14 S113 9, 120 12' }
   ];
 
   const distribution = [
@@ -317,7 +287,7 @@ const ServicesTasks = () => {
     { label: 'In Progress', value: stats[2].value, color: '#60a5fa' },
     { label: 'Pending Approval', value: stats[3].value, color: '#f59e0b' },
     { label: 'Overdue', value: stats[4].value, color: '#ef4444' },
-    { label: 'Upcoming', value: Math.max(3, upcomingDeadlines.length), color: '#8b5cf6' }
+    { label: 'Upcoming', value: upcomingDeadlines.length, color: '#8b5cf6' }
   ];
   const distributionTotal = distribution.reduce((sum, item) => sum + item.value, 0) || 1;
 
@@ -338,14 +308,9 @@ const ServicesTasks = () => {
     plugins: { legend: { display: false }, tooltip: { enabled: true } }
   };
 
-  const projectProgress = serviceRows[0] || { service: 'Website Redesign', progress: 68 };
-  const manager = projectManagers[0] || { name: 'Rahul Sharma', email: 'rahul.sharma@ciisnetwork.com', phone: '+91 98765 43221' };
-  const teamMembers = (projectManagers.length ? projectManagers : [
-    { name: 'Aman Verma' },
-    { name: 'Neha Kapoor' },
-    { name: 'Isha Mehta' },
-    { name: 'Dev Patel' }
-  ]).slice(0, 4);
+  const projectProgress = serviceRows[0] || { service: services[0] || 'No active service', progress: 0 };
+  const manager = projectManagers[0] || { name: 'Account Manager', email: '', phone: '' };
+  const teamMembers = projectManagers.slice(0, 4);
 
   if (loading) {
     return (
@@ -409,7 +374,7 @@ const ServicesTasks = () => {
               <select defaultValue="all"><option value="all">All Services</option></select>
               <select defaultValue="any"><option value="any">Anytime</option></select>
               <button type="button" className="ClientTasksUpdatesPage-filter"><FiFilter /> Filters</button>
-              <button type="button" className="ClientTasksUpdatesPage-add"><FiPlus /> Add Task</button>
+              {/* <button type="button" className="ClientTasksUpdatesPage-add"><FiPlus /> Add Task</button> */}
             </div>
 
             <div className="ClientTasksUpdatesPage-tableWrap">
@@ -577,28 +542,27 @@ const ServicesTasks = () => {
           <div className="ClientTasksUpdatesPage-manager">
             <b>{getInitials(manager.name || clientName)}</b>
             <div>
-              <strong>{manager.name || 'Rahul Sharma'}</strong>
-              <small>{manager.email || 'rahul.sharma@ciisnetwork.com'}</small>
-              <small>{manager.phone || '+91 98765 43221'}</small>
+              <strong>{manager.name || 'Account Manager'}</strong>
+              <small>{manager.email || 'No email assigned'}</small>
+              <small>{manager.phone || 'No phone assigned'}</small>
             </div>
           </div>
           <span>Project Team</span>
           <div className="ClientTasksUpdatesPage-teamAvatars">
             {teamMembers.map(member => <i key={member.email || member.name}>{getInitials(member.name)}</i>)}
-            <b>+2</b>
+            {projectManagers.length > teamMembers.length && <b>+{projectManagers.length - teamMembers.length}</b>}
           </div>
-          <button type="button"><FiSend /> Message Rahul <FiChevronRight /></button>
         </article>
 
         <article className="ClientTasksUpdatesPage-widget ClientTasksUpdatesPage-quick">
           <h3>Quick Actions</h3>
           <div>
-            <button type="button"><FiGrid /><span>View Service</span><small>See project details</small></button>
+            <button type="button" onClick={() => navigate('/client/marketplace')}><FiGrid /><span>View Service</span><small>See project details</small></button>
             <button type="button"><FiUpload /><span>Upload Feedback</span><small>Share your feedback</small></button>
-            <button type="button"><FiCalendar /><span>Book Meeting</span><small>Schedule with team</small></button>
-            <button type="button"><FiAlertCircle /><span>Raise Ticket</span><small>Get support</small></button>
+            <button type="button" onClick={() => navigate('/client/support-tickets')}><FiCalendar /><span>Book Meeting</span><small>Schedule with team</small></button>
+            <button type="button" onClick={() => navigate('/client/support-tickets')}><FiAlertCircle /><span>Raise Ticket</span><small>Get support</small></button>
           </div>
-          <button type="button"><FiGrid /> View All Services <FiChevronRight /></button>
+          <button type="button" onClick={() => navigate('/client/marketplace')}><FiGrid /> View All Services <FiChevronRight /></button>
         </article>
       </section>
     </div>

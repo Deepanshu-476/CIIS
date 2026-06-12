@@ -2084,6 +2084,9 @@ const ClientManagement = () => {
   const [overdueClientsModal, setOverdueClientsModal] = useState(false);
   const [taskCounts, setTaskCounts] = useState({});
   const [overdueClients, setOverdueClients] = useState([]);
+  const [serviceRequests, setServiceRequests] = useState([]);
+  const [serviceRequestsModal, setServiceRequestsModal] = useState(false);
+  const [approvingRequestId, setApprovingRequestId] = useState('');
   
   const [companyCode, setCompanyCode] = useState('');
   const [companyIdentifier, setCompanyIdentifier] = useState('');
@@ -2104,6 +2107,49 @@ const ClientManagement = () => {
     pendingTasks: 0,
     overdueTasks: 0
   });
+
+  const pendingServiceRequestsCount = serviceRequests.filter(request => (request.status || 'Pending') === 'Pending').length;
+
+  const loadServiceRequests = async (nextCompanyCode = companyCode, nextCompanyIdentifier = companyIdentifier) => {
+    try {
+      const response = await api.get('/service-enquiries', {
+        params: {
+          companyCode: nextCompanyCode || undefined,
+          companyIdentifier: nextCompanyIdentifier || undefined
+        }
+      });
+      if (response.data?.success) {
+        setServiceRequests(response.data.data || []);
+      } else {
+        setServiceRequests([]);
+      }
+    } catch (err) {
+      console.error('Error fetching service requests:', err);
+      setServiceRequests([]);
+    }
+  };
+
+  const handleApproveServiceRequest = async (requestId) => {
+    if (!requestId) return;
+    try {
+      setApprovingRequestId(requestId);
+      const response = await api.patch(`/service-enquiries/${requestId}/status`, { status: 'Approved' });
+      if (response.data?.success) {
+        setServiceRequests(prev => prev.map(request => (
+          request._id === requestId ? response.data.data : request
+        )));
+        setSuccess('Service request approved successfully!');
+        setError('');
+      } else {
+        setError(response.data?.message || 'Service request approve failed');
+      }
+    } catch (err) {
+      console.error('Approve service request error:', err);
+      setError(err.response?.data?.message || 'Service request approve failed');
+    } finally {
+      setApprovingRequestId('');
+    }
+  };
 
   const getLatestSubscriptionInfo = (client) => {
     if (!client.subscription || client.subscription.length === 0) {
@@ -2156,6 +2202,7 @@ const ClientManagement = () => {
         
         setCompanyCode(companyCodeFromStorage);
         setCompanyIdentifier(companyIdentifierFromStorage);
+        loadServiceRequests(companyCodeFromStorage, companyIdentifierFromStorage);
         
         if (!companyCodeFromStorage && !companyIdentifierFromStorage) {
           setError('Company information not found. Please login again.');
@@ -2170,6 +2217,15 @@ const ClientManagement = () => {
 
     fetchCompanyInfo();
   }, []);
+
+  useEffect(() => {
+    loadServiceRequests();
+    const handleFocus = () => loadServiceRequests();
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [companyCode, companyIdentifier]);
 
   const fetchProjectManagers = async () => {
     try {
@@ -2257,7 +2313,7 @@ const ClientManagement = () => {
         companyIdentifier: companyIdentifier || undefined
       };
       
-      const [clientsRes, servicesRes, statsRes] = await Promise.all([
+      const [clientsRes, servicesRes, statsRes, enquiriesRes] = await Promise.all([
         api.get('/', { params: apiParams }),
         api.get('/services', { 
           params: { 
@@ -2273,6 +2329,15 @@ const ClientManagement = () => {
         }).catch(err => {
           console.warn('Stats fetch failed:', err);
           return { data: { success: false } };
+        }),
+        api.get('/service-enquiries', {
+          params: {
+            companyCode: companyCode || undefined,
+            companyIdentifier: companyIdentifier || undefined
+          }
+        }).catch(err => {
+          console.warn('Service enquiries fetch failed:', err);
+          return { data: { success: false, data: [] } };
         })
       ]);
       
@@ -2308,6 +2373,10 @@ const ClientManagement = () => {
       } else {
         setTotalClientsCount(clientsRes.data.pagination?.totalItems || 0);
         setActiveClientsCount(0);
+      }
+
+      if (enquiriesRes.data?.success) {
+        setServiceRequests(enquiriesRes.data.data || []);
       }
       
       setError('');
@@ -2795,18 +2864,27 @@ const ClientManagement = () => {
           { label: 'Active Clients', value: activeClientsCount, color: 'success', icon: <FiCheckCircle /> },
           { label: 'Pending Tasks', value: tasksStats.pendingTasks, color: 'warning', icon: <FiClock /> },
           { label: 'Overdue Tasks', value: tasksStats.overdueTasks, color: 'error', icon: <FiAlertCircle /> },
-          { label: 'Services', value: services.length, color: 'info', icon: <FiBriefcase /> }
+          { label: 'Services', value: services.length, color: 'info', icon: <FiBriefcase /> },
+          { label: 'Service Requests', value: pendingServiceRequestsCount, color: 'purple', icon: <FiBell />, notify: pendingServiceRequestsCount > 0 }
         ].map((stat, index) => (
           <div
             key={index}
-            className={`ClientManagement-stat-card ClientManagement-stat-card--${stat.color} ${stat.label === 'Overdue Tasks' ? 'ClientManagement-stat-card--clickable' : ''}`}
-            onClick={stat.label === 'Overdue Tasks' ? () => setOverdueClientsModal(true) : undefined}
-            role={stat.label === 'Overdue Tasks' ? 'button' : undefined}
-            tabIndex={stat.label === 'Overdue Tasks' ? 0 : undefined}
-            onKeyDown={stat.label === 'Overdue Tasks' ? (e) => {
-              if (e.key === 'Enter' || e.key === ' ') setOverdueClientsModal(true);
+            className={`ClientManagement-stat-card ClientManagement-stat-card--${stat.color} ${['Overdue Tasks', 'Service Requests'].includes(stat.label) ? 'ClientManagement-stat-card--clickable' : ''} ${stat.notify ? 'ClientManagement-stat-card--notify' : ''}`}
+            onClick={stat.label === 'Overdue Tasks' ? () => setOverdueClientsModal(true) : stat.label === 'Service Requests' ? () => setServiceRequestsModal(true) : undefined}
+            role={['Overdue Tasks', 'Service Requests'].includes(stat.label) ? 'button' : undefined}
+            tabIndex={['Overdue Tasks', 'Service Requests'].includes(stat.label) ? 0 : undefined}
+            onKeyDown={['Overdue Tasks', 'Service Requests'].includes(stat.label) ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                if (stat.label === 'Overdue Tasks') setOverdueClientsModal(true);
+                if (stat.label === 'Service Requests') setServiceRequestsModal(true);
+              }
             } : undefined}
           >
+            {stat.notify && (
+              <span className="ClientManagement-stat-notification" aria-label={`${stat.value} new service requests`}>
+                {stat.value}
+              </span>
+            )}
             <div className="ClientManagement-card__content">
               <div className="ClientManagement-stat-card-content">
                 <div className={`ClientManagement-avatar ClientManagement-avatar--${stat.color}`}>
@@ -3851,6 +3929,70 @@ const ClientManagement = () => {
             </div>
             <div className="ClientManagement-modal__footer">
               <button className="ClientManagement-btn ClientManagement-btn--outlined" onClick={() => setOverdueClientsModal(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {serviceRequestsModal && (
+        <div className="ClientManagement-modal-overlay" onClick={() => setServiceRequestsModal(false)}>
+          <div className="ClientManagement-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ClientManagement-modal__header">
+              <h3>New Service Requests</h3>
+              <button className="ClientManagement-close-btn" onClick={() => setServiceRequestsModal(false)}>
+                <FiX />
+              </button>
+            </div>
+            <div className="ClientManagement-modal__content">
+              {serviceRequests.length > 0 ? (
+                <div className="ClientManagement-service-request-list">
+                  {serviceRequests.map((request) => (
+                    <div key={request._id} className="ClientManagement-service-request-item">
+                      <div>
+                        <p className="ClientManagement-service-request-name">{request.serviceName}</p>
+                        <small className="ClientManagement-text-muted">
+                          Requested by {request.clientName || 'Client'}{request.companyName ? ` • ${request.companyName}` : ''}
+                        </small>
+                        <small className="ClientManagement-text-muted ClientManagement-block ClientManagement-mt-1">
+                          {request.createdAt ? new Date(request.createdAt).toLocaleString() : 'Date not available'}
+                        </small>
+                        {request.requirement && (
+                          <small className="ClientManagement-text-muted ClientManagement-block ClientManagement-mt-1">
+                            Requirement: {request.requirement}
+                          </small>
+                        )}
+                        {(request.budget || request.contactMethod) && (
+                          <small className="ClientManagement-text-muted ClientManagement-block ClientManagement-mt-1">
+                            {request.budget ? `Budget: ${request.budget}` : ''}{request.budget && request.contactMethod ? ' • ' : ''}{request.contactMethod ? `Contact: ${request.contactMethod}` : ''}
+                          </small>
+                        )}
+                      </div>
+                      <div className="ClientManagement-service-request-actions">
+                        <span className={`ClientManagement-service-request-status ClientManagement-service-request-status--${String(request.status || 'Pending').toLowerCase().replace(/\s+/g, '-')}`}>
+                          {request.status || 'Pending'}
+                        </span>
+                        {(request.status || 'Pending') !== 'Approved' && (
+                          <button
+                            type="button"
+                            className="ClientManagement-btn ClientManagement-btn--success ClientManagement-service-request-approve"
+                            onClick={() => handleApproveServiceRequest(request._id)}
+                            disabled={approvingRequestId === request._id}
+                          >
+                            <FiCheckCircle /> {approvingRequestId === request._id ? 'Approving...' : 'Approve'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="ClientManagement-text-muted">No new service requests found.</p>
+              )}
+            </div>
+            <div className="ClientManagement-modal__footer">
+              <button className="ClientManagement-btn ClientManagement-btn--outlined" onClick={() => setServiceRequestsModal(false)}>
                 Close
               </button>
             </div>

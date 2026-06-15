@@ -23,7 +23,7 @@ const getImageUrl = (imagePath) => {
     return imagePath;
   }
 
-  const baseUrl = API_URL || 'http://localhost:3000';
+  const baseUrl = API_URL;
   const baseUrlWithoutApi = baseUrl.replace(/\/api$/, '');
 
   let cleanPath = imagePath.replace(/\\/g, '/').replace(/^\/+/, '');
@@ -3899,7 +3899,7 @@ const UserCreateTask = () => {
                                           }}
                                           onError={(e) => {
                                             const filename = imageUrl.split('/').pop();
-                                            const baseUrl = API_URL?.replace(/\/api$/, '') || 'http://localhost:3000';
+                                            const baseUrl = API_URL.replace(/\/api$/, '');
                                             const alternativeUrls = [
                                               `${baseUrl}/uploads/client-remarks/${filename}`,
                                               `${baseUrl}/uploads/remarks/client-remarks/${filename}`,
@@ -3979,7 +3979,7 @@ const UserCreateTask = () => {
                                     }}
                                     onError={(e) => {
                                       const filename = remark.image.split('/').pop();
-                                      const baseUrl = API_URL?.replace(/\/api$/, '') || 'http://localhost:3000';
+                                      const baseUrl = API_URL.replace(/\/api$/, '');
                                       const alternativeUrls = [
                                         `${baseUrl}/uploads/client-remarks/${filename}`,
                                         `${baseUrl}/uploads/${filename}`,

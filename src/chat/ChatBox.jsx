@@ -9,8 +9,8 @@ import { Mic, MoreHorizontal, Paperclip, Phone, SendHorizontal, Smile, Square, V
 import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage } from "../services/chatService";
 
 import MessageBubble from "./MessageBubble";
-import CallOverlay from "./CallOverlay";
 import { API_URL_IMG } from "../config";
+import { useCall } from "../context/CallContext";
 
 const ChatBox = ({
     selectedUser,
@@ -44,9 +44,9 @@ const ChatBox = ({
     const recordingStreamRef = useRef(null);
     const recordingTimerRef = useRef(null);
     const recordingPreviewRef = useRef(null);
-    const callOverlayRef = useRef(null);
     const emojiPickerRef = useRef(null);
     const chatInputRef = useRef(null);
+    const { startCall } = useCall();
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const quickReplies = [
         "Please share the report",
@@ -663,7 +663,6 @@ useEffect(() => {
 
         return (
             <>
-                <CallOverlay ref={callOverlayRef} socket={socket} currentUser={currentUser} />
                 <div
                     className="chat-empty"
                 >
@@ -698,14 +697,12 @@ useEffect(() => {
 
     const startDirectCall = (callType) => {
         if (!isSelectedUserOnline) return;
-        callOverlayRef.current?.startCall(callType, selectedUser);
+        startCall(callType, selectedUser);
     };
 
     return (
 
         <div className="chat-box">
-            <CallOverlay ref={callOverlayRef} socket={socket} currentUser={currentUser} />
-
             <div className="chat-header">
                 <div className="chat-header-left">
                     <div className="chat-avatar">

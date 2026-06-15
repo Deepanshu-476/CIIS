@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import axios from "../../../utils/axiosConfig";
+import API_URL from "../../../config";
 import { useNavigate, useParams } from "react-router-dom";
 import "./EmpAllTask.css";
 import {
@@ -127,9 +128,6 @@ const getTaskType = (task) => {
   return 'personal';
 };
 
-// API URL from config
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
-
 // Helper function to get correct image URL
 const getImageUrl = (imagePath) => {
   if (!imagePath) return '';
@@ -141,7 +139,7 @@ const getImageUrl = (imagePath) => {
     return imagePath;
   }
 
-  const baseUrl = API_URL || 'http://localhost:3000';
+  const baseUrl = API_URL;
   const baseUrlWithoutApi = baseUrl.replace(/\/api$/, ''); // Remove /api if present
 
   // Clean the path - replace backslashes and remove leading slashes
@@ -2504,7 +2502,7 @@ const TaskDetails = () => {
                             console.error('❌ Image failed to load:', e.target.src);
                             
                             // Get the base URL without /api
-                            const baseUrl = (API_URL || 'http://localhost:3000').replace(/\/api$/, '');
+                            const baseUrl = API_URL.replace(/\/api$/, '');
                             
                             // Get the filename from the original path
                             const originalPath = remark.image;

@@ -1,6 +1,7 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Mic, MicOff, Phone, PhoneOff, Video, VideoOff } from "lucide-react";
 import { API_URL_IMG, TURN_URL, TURN_USERNAME, TURN_CREDENTIAL } from "../config";
+import "../Pages/Chat/chat.css";
 
 const getIceServers = () => {
     const servers = [
@@ -27,6 +28,44 @@ const getAvatarSrc = (avatar) => {
     return avatar.startsWith("http")
         ? avatar
         : `${API_URL_IMG.replace(/\/$/, "")}${avatar.startsWith("/") ? avatar : `/${avatar}`}`;
+};
+
+const notifyIncomingCall = (incomingCall) => {
+    const callerName = incomingCall.peerUser?.name || "User";
+    const title = incomingCall.type === "video" ? "Incoming video call" : "Incoming voice call";
+    const body = `${callerName} is calling`;
+
+    window.electronAPI?.showIncomingCall?.({
+        title,
+        body,
+        callerName,
+        callType: incomingCall.type,
+    });
+
+    if (!("Notification" in window)) return;
+
+    if (Notification.permission === "granted") {
+        new Notification(title, {
+            body,
+            icon: "/logoo.png",
+            tag: `ciis-call-${incomingCall.callId}`,
+            requireInteraction: true,
+        });
+        return;
+    }
+
+    if (Notification.permission === "default") {
+        Notification.requestPermission().then((permission) => {
+            if (permission === "granted") {
+                new Notification(title, {
+                    body,
+                    icon: "/logoo.png",
+                    tag: `ciis-call-${incomingCall.callId}`,
+                    requireInteraction: true,
+                });
+            }
+        });
+    }
 };
 
 const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
@@ -401,6 +440,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
             activeCallRef.current = incomingCall;
             setCall(incomingCall);
             setError("");
+            notifyIncomingCall(incomingCall);
             startRingtone();
         };
 

@@ -12,6 +12,7 @@ files:
   - package.json
 
 win:
+  icon: icon.ico
   target:
     - target: nsis
       arch:

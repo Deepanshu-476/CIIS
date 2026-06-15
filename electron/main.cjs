@@ -1,10 +1,18 @@
-const { app, BrowserWindow, net, protocol, shell } = require('electron');
+const { app, BrowserWindow, Notification, ipcMain, net, protocol } = require('electron');
+const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
 const isDev = !app.isPackaged;
 const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 const appScheme = 'app';
+const remoteDebugPort = process.env.CIIS_REMOTE_DEBUG_PORT;
+let mainWindow;
+
+if (remoteDebugPort) {
+  app.commandLine.appendSwitch('remote-debugging-port', remoteDebugPort);
+  app.commandLine.appendSwitch('remote-allow-origins', '*');
+}
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -29,7 +37,7 @@ function resolveDistPath(requestUrl) {
     return path.join(distRoot, 'index.html');
   }
 
-  return filePath;
+  return fs.existsSync(filePath) ? filePath : path.join(distRoot, 'index.html');
 }
 
 function registerAppProtocol() {
@@ -40,11 +48,16 @@ function registerAppProtocol() {
 }
 
 function createMainWindow() {
-  const mainWindow = new BrowserWindow({
+  const iconPath = isDev
+    ? path.join(__dirname, '..', 'public', 'logoo.png')
+    : path.join(__dirname, '..', 'dist', 'logoo.png');
+
+  mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 1024,
     minHeight: 700,
+    icon: iconPath,
     show: false,
     backgroundColor: '#ffffff',
     autoHideMenuBar: true,
@@ -53,7 +66,7 @@ function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      webSecurity: true,
+      webSecurity: isDev,
     },
   });
 
@@ -62,7 +75,7 @@ function createMainWindow() {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    mainWindow.loadURL(url);
     return { action: 'deny' };
   });
 
@@ -74,7 +87,7 @@ function createMainWindow() {
 
     if (!allowedOrigins.includes(new URL(url).origin)) {
       event.preventDefault();
-      shell.openExternal(url);
+      mainWindow.loadURL(url);
     }
   });
 
@@ -85,6 +98,42 @@ function createMainWindow() {
     mainWindow.loadURL(`${appScheme}://ciis/`);
   }
 }
+
+ipcMain.on('ciis:incoming-call', (_event, payload = {}) => {
+  const callerName = payload.callerName || 'User';
+  const title = payload.title || 'Incoming call';
+  const body = payload.body || `${callerName} is calling`;
+
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+
+    if (process.platform === 'win32') {
+      mainWindow.flashFrame(true);
+    }
+  }
+
+  if (Notification.isSupported()) {
+    const notification = new Notification({
+      title,
+      body,
+      silent: false,
+    });
+
+    notification.on('click', () => {
+      if (!mainWindow) return;
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+      if (process.platform === 'win32') {
+        mainWindow.flashFrame(false);
+      }
+    });
+
+    notification.show();
+  }
+});
 
 app.whenReady().then(() => {
   registerAppProtocol();
@@ -98,6 +147,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  mainWindow = null;
   if (process.platform !== 'darwin') {
     app.quit();
   }

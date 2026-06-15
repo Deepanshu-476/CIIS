@@ -247,6 +247,7 @@ import Home from "./Pages/Home";
 import AboutUs from "./Pages/AboutUs";
 import ContactUs from "./Pages/ContactUs";
 import PrivacyPolicy from "./Pages/PrivacyPolicy";
+import LegalPage from "./Pages/LegalPage";
 import RegisterCompany from "./admin/components/CompanyRegister.jsx";
 
 
@@ -288,6 +289,8 @@ function App() {
         <Route path="/about" element={<AboutUs />} />
         <Route path="/contact" element={<ContactUs />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<LegalPage type="terms" />} />
+        <Route path="/cookies" element={<LegalPage type="cookies" />} />
         <Route path="/SuperAdminLogin" element={<SuperAdminLogin />} />
         <Route path="company/:companyCode/login" element={<Login />} />
         <Route path="/RegisterCompany" element={<RegisterCompany />} />

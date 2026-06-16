@@ -21,6 +21,22 @@ win:
   signAndEditExecutable: false
   verifyUpdateCodeSignature: false
 
+mac:
+  category: public.app-category.business
+  icon: ../public/logoo.png
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+  artifactName: ${productName}-${version}-mac-${arch}.${ext}
+  hardenedRuntime: false
+  gatekeeperAssess: false
+
 nsis:
   oneClick: false
   perMachine: false

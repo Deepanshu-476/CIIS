@@ -423,7 +423,9 @@ const Login = () => {
       });
 
       if (response.data.success) {
-        toast.success('OTP sent to your email!');
+        toast.success(response.data.devOtp
+          ? `OTP generated: ${response.data.devOtp}`
+          : 'OTP sent to your email!');
         setForgotPasswordStep('reset');
       }
 

@@ -4,19 +4,14 @@ import CIISLoader from "../../../Loader/CIISLoader";
 import {
   FiAward,
   FiBriefcase,
-  FiCheck,
   FiCode,
-  FiCreditCard,
   FiEdit3,
   FiFileText,
   FiGlobe,
   FiGrid,
-  FiHeadphones,
   FiMail,
-  FiMessageCircle,
   FiPackage,
   FiPhone,
-  FiSend,
   FiShield,
   FiShoppingCart,
   FiSmartphone,
@@ -31,7 +26,6 @@ import { FaAmazon, FaFacebookF, FaGoogle, FaWhatsapp } from "react-icons/fa";
 import {
   getClientDisplayName,
   getAuthToken,
-  getInitials,
   useClientPortalData,
 } from "../../utils/clientPortalData";
 import API_URL from "../../../config";
@@ -125,7 +119,7 @@ const defaultMarketplaceServices = [
 ];
 
 const ServiceMarketplacePage = () => {
-  const { client, services: clientServices, projectManagers, user, loading } = useClientPortalData();
+  const { client, services: clientServices, user, loading } = useClientPortalData();
   const [companyServices, setCompanyServices] = useState([]);
   const [servicesLoading, setServicesLoading] = useState(true);
   const [servicesError, setServicesError] = useState("");
@@ -143,8 +137,6 @@ const ServiceMarketplacePage = () => {
     contact: "WhatsApp",
   });
 
-  const manager = projectManagers[0] || {};
-  const managerName = manager.name || 'Account Manager';
   const companyCode = localStorage.getItem("companyCode") || localStorage.getItem("company") || client?.companyCode || "";
   const companyIdentifier = localStorage.getItem("companyIdentifier") || client?.companyIdentifier || "";
 
@@ -347,42 +339,7 @@ const ServiceMarketplacePage = () => {
             </div>
             <button type="button" className="ServiceMarketplacePage-moreButton">View More Services</button>
           </section>
-        </main>
-
-        <aside className="ServiceMarketplacePage-sidebar">
-          <section className="ServiceMarketplacePage-sidePanel ServiceMarketplacePage-managerPanel">
-            <h2>Need help choosing the right service?</h2>
-            <p>Our experts are here to help you find the best solutions for your business.</p>
-            <div className="ServiceMarketplacePage-manager">
-              <div className="ServiceMarketplacePage-managerPhoto">{getInitials(managerName)}</div>
-              <div>
-                <strong>{managerName}</strong>
-                <span>{manager.role || 'Account Manager'}</span>
-              </div>
-            </div>
-            {manager.email && <a href={`mailto:${manager.email}`}><FiMail /> {manager.email}</a>}
-            {manager.phone && <a href={`tel:${manager.phone}`}><FiPhone /> {manager.phone}</a>}
-            <button type="button" className="ServiceMarketplacePage-primaryButton">Discuss with {manager.name ? managerName.split(' ')[0] : 'Manager'}</button>
-          </section>
-
-          <section className="ServiceMarketplacePage-sidePanel">
-            <h2>Why Choose CIIS Network?</h2>
-            <ul className="ServiceMarketplacePage-checkList">
-              <li><FiCheck />10+ Years Experience</li>
-              <li><FiCheck />Result Driven Approach</li>
-              <li><FiCheck />Dedicated Support</li>
-              <li><FiCheck />Transparent Process</li>
-              <li><FiCheck />Affordable Pricing</li>
-            </ul>
-          </section>
-
-          <section className="ServiceMarketplacePage-sidePanel ServiceMarketplacePage-customPanel">
-            <h2>Have a custom requirement?</h2>
-            <p>Tell us what you need. We'll create a solution tailored for your business.</p>
-            <button type="button"><FiSend /> Share Requirement</button>
-          </section>
-
-          <section className="ServiceMarketplacePage-sidePanel ServiceMarketplacePage-enquiriesPanel">
+          <section className="ServiceMarketplacePage-panel ServiceMarketplacePage-enquiriesPanel">
             <h2>My Service Enquiries</h2>
             <div className="ServiceMarketplacePage-enquiryHeader">
               <span>Service</span>
@@ -402,7 +359,7 @@ const ServiceMarketplacePage = () => {
             ))}
             <a href="/client/marketplace">View All Enquiries</a>
           </section>
-        </aside>
+        </main>
       </div>
 
       {openModal && (

@@ -238,6 +238,7 @@ import ClientMeeting from "./hrCds/pages/ClientMeeting";
 import ContactSupport from "./hrCds/pages/ContactSupport";
 import DepartmentSupportDesk from "./hrCds/pages/DepartmentSupportDesk";
 import SupportOperations from "./admin/page/SupportOperations.jsx";
+import ActiveClientsOverview from "./hrCds/pages/ActiveClientsOverview.jsx";
 
 import CreateAlerts from "./hrCds/pages/CreateAlerts.jsx";
 import UserProfile from './page/UserProfile.jsx';
@@ -351,6 +352,7 @@ function App() {
           <Route path="company-all-task/tasks/:userId" element={<CompanyAllTaskTasks />} />
           <Route path="company-all-task/:userId/tasks" element={<CompanyAllTaskTasks />} />
           <Route path="emp-client" element={<Client />} />
+          <Route path="active-clients" element={<ActiveClientsOverview />} />
           <Route path="alert" element={<Alerts />} />
           <Route path="attendance" element={<Attendance />} />
           <Route path="my-assets" element={<MyAssets />} />

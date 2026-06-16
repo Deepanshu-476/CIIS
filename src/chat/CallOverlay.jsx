@@ -154,6 +154,9 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
         }
         if (remoteAudioRef.current) {
             remoteAudioRef.current.srcObject = stream;
+            remoteAudioRef.current.play?.().catch((error) => {
+                logCall('Remote audio autoplay failed', error);
+            });
         }
     };
 
@@ -168,6 +171,9 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
 
         if (remoteAudioRef.current && remoteStreamRef.current) {
             remoteAudioRef.current.srcObject = remoteStreamRef.current;
+            remoteAudioRef.current.play?.().catch((error) => {
+                logCall('Remote audio replay failed', error);
+            });
         }
     }, [call?.status, call?.type]);
 

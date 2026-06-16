@@ -336,12 +336,20 @@ const fixedDefaultItems = [
     order: 8
   },
   {
+    id: 'active-clients',
+    name: 'Active Clients',
+    icon: 'Folder',
+    path: '/ciisUser/active-clients',
+    category: 'clients',
+    order: 9
+  },
+  {
     id: 'support-desk',
     name: 'Support Desk',
     icon: 'Support',
     path: '/ciisUser/support-desk',
     category: 'communication',
-    order: 9
+    order: 10
   }
 ];
 
@@ -592,12 +600,20 @@ const allPagesItems = [
     order: 22
   },
   {
+    id: 'active-clients',
+    name: 'Active Clients',
+    icon: 'Folder',
+    path: '/ciisUser/active-clients',
+    category: 'clients',
+    order: 23
+  },
+  {
     id: 'change-password',
     name: 'Change Password',
     icon: 'Settings',
     path: '/ciisUser/change-password',
     category: 'main',
-    order: 23
+    order: 24
   },
   {
     id: 'chat',
@@ -605,7 +621,7 @@ const allPagesItems = [
     icon: 'Chat',
     path: '/ciisUser/chat',
     category: 'communication',
-    order: 24
+    order: 25
   }
 
   ,
@@ -615,7 +631,7 @@ const allPagesItems = [
     icon: 'Support',
     path: '/ciisUser/contact-support',
     category: 'communication',
-    order: 25
+    order: 26
   },
   {
     id: 'support-operations',
@@ -623,7 +639,7 @@ const allPagesItems = [
     icon: 'Support',
     path: '/ciisUser/support-operations',
     category: 'administration',
-    order: 26
+    order: 27
   },
   {
     id: 'support-desk',
@@ -631,7 +647,7 @@ const allPagesItems = [
     icon: 'Support',
     path: '/ciisUser/support-desk',
     category: 'communication',
-    order: 27
+    order: 28
   }
 ];
 
@@ -662,6 +678,7 @@ const getPathFromName = (name) => {
     'Company All Tasks': '/ciisUser/company-all-task',
     'Department All Tasks': '/ciisUser/department-all-task',
     'Client Management': '/ciisUser/emp-client',
+    'Active Clients': '/ciisUser/active-clients',
     'Change Password': '/ciisUser/change-password',
     'Chat': '/ciisUser/chat',
     'Support Center': '/ciisUser/contact-support',
@@ -686,6 +703,17 @@ const getPathFromName = (name) => {
 
 const getMenuRouteKey = item => String(item?.path || '').split('/').filter(Boolean).pop();
 
+const companyAccessFallbackItems = [
+  {
+    id: 'active-clients',
+    name: 'Active Clients',
+    icon: 'Folder',
+    path: '/ciisUser/active-clients',
+    category: 'clients',
+    order: 22.5
+  }
+];
+
 const filterItemsByCompanyAccess = (items, companyData) => {
   const allowedPages = Array.isArray(companyData?.allowedPages) ? companyData.allowedPages : [];
   if (allowedPages.length === 0) return items;
@@ -697,6 +725,32 @@ const filterItemsByCompanyAccess = (items, companyData) => {
     allowedSet.has(normalizeKey(item.path)) ||
     allowedSet.has(normalizeKey(getMenuRouteKey(item)))
   ));
+};
+
+const addCompanyAccessFallbackItems = (items, companyData) => {
+  const allowedPages = Array.isArray(companyData?.allowedPages) ? companyData.allowedPages : [];
+  if (allowedPages.length === 0) return items;
+
+  const normalizeKey = value => String(value || '').trim().toLowerCase();
+  const allowedSet = new Set(allowedPages.map(item => normalizeKey(item)).filter(Boolean));
+  const existingKeys = new Set(items.flatMap(item => [
+    normalizeKey(item.id),
+    normalizeKey(item.path),
+    normalizeKey(getMenuRouteKey(item))
+  ]).filter(Boolean));
+
+  const fallbackItems = companyAccessFallbackItems.filter(item => (
+    (
+      allowedSet.has(normalizeKey(item.id)) ||
+      allowedSet.has(normalizeKey(item.path)) ||
+      allowedSet.has(normalizeKey(getMenuRouteKey(item)))
+    ) &&
+    !existingKeys.has(normalizeKey(item.id)) &&
+    !existingKeys.has(normalizeKey(item.path)) &&
+    !existingKeys.has(normalizeKey(getMenuRouteKey(item)))
+  ));
+
+  return fallbackItems.length ? [...items, ...fallbackItems] : items;
 };
 
 const Sidebar = ({ isMobile = false }) => {
@@ -999,7 +1053,10 @@ const Sidebar = ({ isMobile = false }) => {
       items = [...fixedDefaultItems];
     }
 
-    const accessFilteredItems = filterItemsByCompanyAccess(items, companyData);
+    const accessFilteredItems = filterItemsByCompanyAccess(
+      addCompanyAccessFallbackItems(items, companyData),
+      companyData
+    );
 
     const sortedItems = [...accessFilteredItems].sort((a, b) => {
       const categoryOrder = ['main', 'administration', 'tasks', 'projects', 'meetings', 'communication', 'clients'];

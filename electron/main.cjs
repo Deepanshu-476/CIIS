@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Notification, ipcMain, net, protocol } = require('electron');
+const { app, BrowserWindow, Notification, ipcMain, net, protocol, session, Tray, Menu } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -6,8 +6,24 @@ const { pathToFileURL } = require('node:url');
 const isDev = !app.isPackaged;
 const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 const appScheme = 'app';
+const backendRequestFilter = {
+  urls: [
+    'https://backendcds.ciisnetwork.in/*',
+    'wss://backendcds.ciisnetwork.in/*',
+  ],
+};
 const remoteDebugPort = process.env.CIIS_REMOTE_DEBUG_PORT;
 let mainWindow;
+let tray;
+let isQuitting = false;
+
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!hasSingleInstanceLock) {
+  app.quit();
+}
 
 if (remoteDebugPort) {
   app.commandLine.appendSwitch('remote-debugging-port', remoteDebugPort);
@@ -47,10 +63,107 @@ function registerAppProtocol() {
   });
 }
 
-function createMainWindow() {
-  const iconPath = isDev
+function isAllowedAppOrigin(origin) {
+  if (!origin) return false;
+
+  let parsedOrigin;
+  try {
+    parsedOrigin = new URL(origin).origin;
+  } catch {
+    return false;
+  }
+
+  const allowedOrigins = [
+    devServerUrl,
+    `${appScheme}://ciis`,
+  ].filter(Boolean).map((value) => new URL(value).origin);
+
+  return allowedOrigins.includes(parsedOrigin);
+}
+
+function configureDesktopPermissions() {
+  const allowedPermissions = new Set([
+    'audioCapture',
+    'videoCapture',
+    'media',
+    'mediaKeySystem',
+    'notifications',
+  ]);
+
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission, requestingOrigin) => (
+    allowedPermissions.has(permission) && isAllowedAppOrigin(requestingOrigin)
+  ));
+
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details = {}) => {
+    const requestingOrigin = details.requestingOrigin || webContents.getURL();
+    callback(allowedPermissions.has(permission) && isAllowedAppOrigin(requestingOrigin));
+  });
+}
+
+function configureBackendRequestHeaders() {
+  session.defaultSession.webRequest.onBeforeSendHeaders(backendRequestFilter, (details, callback) => {
+    const requestHeaders = { ...details.requestHeaders };
+
+    delete requestHeaders.Origin;
+    delete requestHeaders.origin;
+
+    callback({ requestHeaders });
+  });
+}
+
+function getIconPath() {
+  return isDev
     ? path.join(__dirname, '..', 'public', 'logoo.png')
     : path.join(__dirname, '..', 'dist', 'logoo.png');
+}
+
+function showMainWindow() {
+  if (!mainWindow) {
+    createMainWindow();
+    return;
+  }
+
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+
+  if (process.platform === 'win32') {
+    mainWindow.flashFrame(false);
+  }
+}
+
+function createTray() {
+  if (tray) return;
+
+  tray = new Tray(getIconPath());
+  tray.setToolTip('CIIS Network');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    {
+      label: 'Open CIIS Network',
+      click: showMainWindow,
+    },
+    {
+      label: 'Quit',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]));
+  tray.on('double-click', showMainWindow);
+}
+
+function configureAutoLaunch() {
+  if (isDev || process.platform !== 'win32') return;
+
+  app.setLoginItemSettings({
+    openAtLogin: true,
+    path: process.execPath,
+  });
+}
+
+function createMainWindow() {
+  const iconPath = getIconPath();
 
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -72,6 +185,23 @@ function createMainWindow() {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+  });
+
+  mainWindow.on('close', (event) => {
+    if (isQuitting) return;
+
+    event.preventDefault();
+    mainWindow.hide();
+
+    if (process.platform === 'win32') {
+      mainWindow.setSkipTaskbar(true);
+    }
+  });
+
+  mainWindow.on('show', () => {
+    if (process.platform === 'win32') {
+      mainWindow.setSkipTaskbar(false);
+    }
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -105,9 +235,7 @@ ipcMain.on('ciis:incoming-call', (_event, payload = {}) => {
   const body = payload.body || `${callerName} is calling`;
 
   if (mainWindow) {
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.show();
-    mainWindow.focus();
+    showMainWindow();
 
     if (process.platform === 'win32') {
       mainWindow.flashFrame(true);
@@ -122,33 +250,55 @@ ipcMain.on('ciis:incoming-call', (_event, payload = {}) => {
     });
 
     notification.on('click', () => {
-      if (!mainWindow) return;
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.show();
-      mainWindow.focus();
-      if (process.platform === 'win32') {
-        mainWindow.flashFrame(false);
-      }
+      showMainWindow();
     });
 
     notification.show();
   }
 });
 
+ipcMain.on('ciis:show-notification', (_event, payload = {}) => {
+  const title = payload.title || 'CIIS Network';
+  const body = payload.body || payload.message || 'You have a new notification';
+
+  if (!Notification.isSupported()) return;
+
+  const notification = new Notification({
+    title,
+    body,
+    silent: false,
+  });
+
+  notification.on('click', () => {
+    showMainWindow();
+  });
+
+  notification.show();
+});
+
 app.whenReady().then(() => {
   registerAppProtocol();
+  configureDesktopPermissions();
+  configureBackendRequestHeaders();
+  configureAutoLaunch();
+  createTray();
   createMainWindow();
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow();
-    }
+    showMainWindow();
   });
 });
 
+app.on('second-instance', () => {
+  showMainWindow();
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
 app.on('window-all-closed', () => {
-  mainWindow = null;
-  if (process.platform !== 'darwin') {
-    app.quit();
+  if (isQuitting) {
+    mainWindow = null;
   }
 });

@@ -137,17 +137,23 @@ body {
 .home-icon-box {
   width: 44px;
   height: 44px;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 8px;
   flex: 0 0 auto;
+  line-height: 1;
+  overflow: hidden;
 }
 
 .home-icon-box svg {
   width: 22px;
   height: 22px;
+  display: block;
+  margin: 0;
+  vertical-align: middle;
   stroke-width: 2.5;
+  flex: 0 0 auto;
 }
 
 .home-icon-box.blue {
@@ -393,8 +399,9 @@ body {
 .home-metric-card {
   min-height: 94px;
   padding: 15px 13px;
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
   gap: 12px;
   border: 1px solid #dce7f5;
   border-radius: 8px;
@@ -405,11 +412,21 @@ body {
 .home-metric-card .home-icon-box {
   width: 34px;
   height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  justify-self: center;
 }
 
 .home-metric-card .home-icon-box svg {
   width: 17px;
   height: 17px;
+}
+
+.home-metric-card > div {
+  min-width: 0;
+  align-self: center;
 }
 
 .home-metric-card span,
@@ -418,13 +435,15 @@ body {
   color: #73819c;
   font-size: 9px;
   font-weight: 700;
+  line-height: 1.2;
 }
 
 .home-metric-card strong {
   display: block;
-  margin: 7px 0 3px;
+  margin: 6px 0 4px;
   color: #061945;
   font-size: 21px;
+  line-height: 1.1;
 }
 
 .up { color: #12b76a !important; }
@@ -558,22 +577,26 @@ body {
 
 .home-progress-task span {
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 12px;
   color: #1b2c56;
   font-size: 10px;
   font-weight: 800;
+  line-height: 1.25;
 }
 
 .home-progress-task span small {
+  flex: 0 0 auto;
   color: #0d1d46;
 }
 
-.home-progress-task::after {
-  content: "";
+.home-progress-track {
   display: block;
   width: 100%;
   height: 4px;
   margin-top: 7px;
+  overflow: hidden;
   border-radius: 999px;
   background: #e7edf8;
 }
@@ -581,7 +604,6 @@ body {
 .home-progress-task i {
   display: block;
   height: 4px;
-  margin-top: -4px;
   border-radius: 999px;
   background: var(--home-blue);
 }
@@ -617,6 +639,9 @@ body {
   grid-row: span 2;
   width: 54px;
   height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 50%;
 }
 

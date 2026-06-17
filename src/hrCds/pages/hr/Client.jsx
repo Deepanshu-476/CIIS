@@ -2304,7 +2304,12 @@ const ClientManagement = () => {
         setServiceRequests(prev => prev.map(request => (
           request._id === requestId ? response.data.data : request
         )));
-        setSuccess('Service request approved successfully!');
+        const approvalEmail = response.data?.approvalEmail;
+        setSuccess(
+          approvalEmail?.sent
+            ? 'Service request approved successfully! Approval email sent to client.'
+            : `Service request approved successfully! Approval email not sent${approvalEmail?.reason ? ` (${approvalEmail.reason})` : ''}.`
+        );
         setError('');
       } else {
         setError(response.data?.message || 'Service request approve failed');

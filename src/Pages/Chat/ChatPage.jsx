@@ -8,23 +8,29 @@ import { useSocket } from "../../context/SocketContext";
 const getEntityId = value => {
   if (!value) return "";
   if (typeof value === "object") {
-    return (value._id || value.id || value.userId || value.user?._id || value.user?.id || "").toString();
+    const id = value._id || value.id || value.userId || value.employeeId || value.user?._id || value.user?.id || value.data?._id || value.data?.id || value.data?.userId || "";
+    return id ? id.toString() : "";
   }
   return value.toString();
 };
 
 const normalizeOnlineUserIds = value => {
-  const source = Array.isArray(value)
-    ? value
-    : Array.isArray(value?.users)
-      ? value.users
-      : Array.isArray(value?.onlineUsers)
-        ? value.onlineUsers
-        : Array.isArray(value?.data)
-          ? value.data
-          : [];
+  const payload = value?.data && !Array.isArray(value) ? value.data : value;
+  let source = [];
 
-  return source.map(getEntityId).filter(Boolean);
+  if (Array.isArray(payload)) {
+    source = payload;
+  } else if (Array.isArray(payload?.users)) {
+    source = payload.users;
+  } else if (Array.isArray(payload?.onlineUsers)) {
+    source = payload.onlineUsers;
+  } else if (Array.isArray(payload?.onlineUserIds)) {
+    source = payload.onlineUserIds;
+  } else if (Array.isArray(payload?.userIds)) {
+    source = payload.userIds;
+  }
+
+  return [...new Set(source.map(getEntityId).filter(Boolean))];
 };
 
 const isTruthyOnline = value => (
@@ -47,6 +53,16 @@ const ChatPage = () => {
   const isSocketConnected = socketContext?.isConnected;
   const currentUser = JSON.parse(localStorage.getItem("user")) || {};
   const currentUserId = (currentUser._id || currentUser.id || "").toString();
+
+  const isIdOnline = id => {
+    const value = (id || "").toString();
+    return Boolean(value && onlineUsers.some(userId => userId?.toString() === value));
+  };
+
+  const getUserPresence = user => {
+    const userId = getEntityId(user);
+    return isIdOnline(userId) || isTruthyOnline(user?.isOnline ?? user?.online ?? user?.status);
+  };
 
   const findDirectConversation = user => conversations.find(conversation => {
     if (conversation.isGroup) return false;
@@ -83,6 +99,7 @@ const ChatPage = () => {
     const unreadOverride = getUnreadOverride(conversationId, userId);
     return {
       ...user,
+      isOnline: getUserPresence(user),
       conversation,
       unreadCount: unreadOverride ?? conversation?.unreadCount ?? 0,
       lastMessage: conversation?.lastMessage,
@@ -130,7 +147,7 @@ const ChatPage = () => {
         const userId = getEntityId(user);
         return {
           ...user,
-          isOnline: isTruthyOnline(user.isOnline || user.online || user.status) || onlineUsers.includes(userId),
+          isOnline: isTruthyOnline(user.isOnline ?? user.online ?? user.status) || isIdOnline(userId),
         };
       }));
       setSelectedUser(prev => {
@@ -139,7 +156,7 @@ const ChatPage = () => {
         const freshUser = nextUsers.find(user => (user._id || user.id || "").toString() === previousId);
         if (!freshUser) return prev;
 
-        const nextIsOnline = isTruthyOnline(freshUser.isOnline || freshUser.online || freshUser.status) || onlineUsers.includes(previousId);
+        const nextIsOnline = isTruthyOnline(freshUser.isOnline ?? freshUser.online ?? freshUser.status) || isIdOnline(previousId);
         if (Boolean(prev.isOnline) === nextIsOnline && prev.lastSeen === freshUser.lastSeen) {
           return prev;
         }
@@ -215,8 +232,8 @@ const ChatPage = () => {
         handleOnline([]);
         return;
       }
-      socket.emit("chat:get-online-users", users => {
-        handleOnline(users);
+      socket.emit("chat:get-online-users", response => {
+        handleOnline(response);
       });
     };
 

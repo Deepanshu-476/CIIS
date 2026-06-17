@@ -9,8 +9,9 @@ import { Mic, MoreHorizontal, Paperclip, Phone, SendHorizontal, Smile, Square, V
 import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage } from "../services/chatService";
 
 import MessageBubble from "./MessageBubble";
-import CallOverlay from "./CallOverlay";
 import { API_URL_IMG } from "../config";
+import { useCall } from "../context/CallContext";
+import { useNotification } from "../context/NotificationContext";
 
 const ChatBox = ({
     selectedUser,
@@ -44,52 +45,160 @@ const ChatBox = ({
     const recordingStreamRef = useRef(null);
     const recordingTimerRef = useRef(null);
     const recordingPreviewRef = useRef(null);
-    const callOverlayRef = useRef(null);
+    const emojiPickerRef = useRef(null);
+    const chatInputRef = useRef(null);
+    const activeConversationIdRef = useRef(null);
+    const { startCall } = useCall();
+    const { showToast } = useNotification();
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const quickReplies = [
         "Please share the report",
         "What's the next plan?",
         "Any keyword updates?",
         "Thank you!"
     ];
+    const emojiGroups = [
+        {
+            label: "Smileys",
+            emojis: ["😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇", "🙂", "🙃", "😉", "😍", "🥰", "😘", "😗", "😋", "😜", "🤪", "😎", "🤩", "🥳", "😏", "😒", "😔", "😢", "😭", "😤", "😡", "🤯", "😳", "🥺", "😴", "🤒", "🤕", "🤐", "🤫", "🤔", "🫡"]
+        },
+        {
+            label: "Gestures",
+            emojis: ["👍", "👎", "👌", "✌️", "🤞", "🤟", "🤘", "🤙", "👋", "🤚", "🖐️", "✋", "👏", "🙌", "🫶", "🙏", "🤝", "💪", "👀", "🧠", "🗣️", "👑"]
+        },
+        {
+            label: "Hearts",
+            emojis: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💯", "🔥", "✨", "⭐"]
+        },
+        {
+            label: "Work",
+            emojis: ["✅", "❌", "⚠️", "📌", "📍", "📎", "📄", "📁", "📊", "📈", "📉", "📝", "💼", "💻", "⌨️", "🖥️", "📱", "☎️", "📧", "📅", "⏰", "⏳", "🚀", "🎯"]
+        },
+        {
+            label: "Objects",
+            emojis: ["🎉", "🎊", "🎁", "🏆", "🥇", "🔔", "🔒", "🔓", "🔑", "💡", "🔎", "📢", "📣", "💰", "💳", "🧾", "🛠️", "⚙️", "🔧", "🧰", "🧲", "🪄"]
+        },
+        {
+            label: "Food",
+            emojis: ["☕", "🍵", "🥤", "🍰", "🍫", "🍪", "🍕", "🍔", "🍟", "🌮", "🍜", "🍱", "🍎", "🍌", "🍇", "🍓", "🥭", "🍉"]
+        },
+        {
+            label: "Travel",
+            emojis: ["🚗", "🚕", "🚌", "🚆", "✈️", "🚁", "🚲", "🏢", "🏠", "🏥", "🏦", "🗺️", "🌍", "🌙", "☀️", "⛅", "🌧️", "🌈"]
+        },
+        {
+            label: "Flags",
+            emojis: ["🇮🇳", "🇺🇸", "🇬🇧", "🇦🇪", "🇨🇦", "🇦🇺", "🇸🇬", "🇯🇵", "🇩🇪", "🇫🇷", "🇮🇹", "🇪🇸"]
+        }
+    ];
 
 
     const [currentConversationId, setCurrentConversationId] =
         useState(null);
+    const selectedUserKey = selectedUser
+        ? `${selectedUser?.isGroup ? "group" : "user"}:${selectedUser?._id || selectedUser?.id || selectedUser?.userId || ""}`
+        : "";
+
+    const getEntityId = (value) => {
+        if (!value) return "";
+        if (typeof value === "object") {
+            return (value._id || value.id || value.userId || value.user?._id || value.user?.id || "").toString();
+        }
+        return value.toString();
+    };
+
+    const getSenderName = (sender) => {
+        if (!sender) return "New message";
+        if (typeof sender === "object") {
+            return sender.name || sender.fullName || sender.username || sender.email || "New message";
+        }
+        return selectedUser?.name || "New message";
+    };
+
+    const getMessagePreview = (message) => {
+        if (message?.text) return message.text;
+        if (message?.file) return "Sent an attachment";
+        return "Sent a message";
+    };
+
+    const notifyIncomingMessage = (message) => {
+        const senderName = getSenderName(message.sender);
+        const preview = getMessagePreview(message);
+        const title = selectedUser?.isGroup ? `${senderName} in ${selectedUser.name || "Group"}` : senderName;
+
+        showToast(
+            {
+                title,
+                message: preview,
+            },
+            "info",
+            5000
+        );
+
+        window.electronAPI?.showNotification?.({
+            title,
+            body: preview,
+            type: "chat",
+            targetPath: "/ciisUser/chat",
+        });
+
+        if ("Notification" in window && document.visibilityState !== "visible") {
+            if (Notification.permission === "granted") {
+                new Notification(title, {
+                    body: preview,
+                    icon: "/logoo.png",
+                    tag: `ciis-chat-${message._id || message.conversationId || Date.now()}`,
+                });
+            } else if (Notification.permission === "default") {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        new Notification(title, {
+                            body: preview,
+                            icon: "/logoo.png",
+                            tag: `ciis-chat-${message._id || message.conversationId || Date.now()}`,
+                        });
+                    }
+                });
+            }
+        }
+    };
 
     useEffect(() => {
         if (!selectedUser) {
             return;
         }
 
-        if (currentConversationId) {
+        if (activeConversationIdRef.current) {
             socket?.emit(
                 "chat:leave-conversation",
                 {
                     conversationId:
-                        currentConversationId
+                        activeConversationIdRef.current
                 }
             );
+            activeConversationIdRef.current = null;
             setCurrentConversationId(null);
         }
 
         setConversation(null);
         setMessages([]);
         startConversation();
-    }, [selectedUser]);
+    }, [selectedUserKey]);
 
     useEffect(() => {
         return () => {
-            if (currentConversationId) {
+            if (activeConversationIdRef.current) {
                 socket?.emit(
                     "chat:leave-conversation",
                     {
                         conversationId:
-                            currentConversationId
+                            activeConversationIdRef.current
                     }
                 );
+                activeConversationIdRef.current = null;
             }
         };
-    }, [currentConversationId]);
+    }, [socket]);
 
     useEffect(() => {
         if (recorderMode === "video" && recordingPreviewRef.current && recordingStreamRef.current) {
@@ -105,6 +214,20 @@ const ChatBox = ({
     }, []);
 
     useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target)) {
+                setShowEmojiPicker(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
+    useEffect(() => {
         if (socket && conversation?._id) {
             joinConversationRoom(conversation._id);
         }
@@ -113,11 +236,9 @@ const ChatBox = ({
 useEffect(() => {
     if (!socket) return undefined;
 
-    socket.on(
-        "chat:receive-message",
-        (message) => {
-            const senderId = (message.sender?._id || message.sender || "").toString();
-            const currentUserId = (currentUser?._id || currentUser?.id || "").toString();
+    const handleReceiveMessage = (message) => {
+            const senderId = getEntityId(message.sender);
+            const currentUserId = getEntityId(currentUser);
             if (message?._id && senderId && senderId !== currentUserId) {
                 markMessageSeen(message._id).catch(() => {});
                 socket.emit(
@@ -130,6 +251,11 @@ useEffect(() => {
                         senderId
                     }
                 );
+
+                const incomingConversationId = (message.conversationId || message.conversation?._id || "").toString();
+                if (incomingConversationId !== currentConversationId || document.visibilityState !== "visible") {
+                    notifyIncomingMessage(message);
+                }
             }
 
             setMessages((prev) => {
@@ -151,60 +277,42 @@ useEffect(() => {
                     }
                 ];
             });
-        }
-    );
+        };
 
-    socket.on(
-        "chat:typing",
-        (data) => {
+    const handleTyping = (data) => {
             if (data?.conversationId === currentConversationId) {
                 setTypingUserId(data.senderId);
             }
-        }
-    );
+        };
 
-    socket.on(
-        "chat:stop-typing",
-        (data) => {
+    const handleStopTyping = (data) => {
             if (data?.conversationId === currentConversationId) {
                 setTypingUserId(null);
             }
-        }
-    );
+        };
 
-    socket.on(
-        "chat:message-deleted-for-me",
-        ({ messageId }) => {
+    const handleDeletedForMe = ({ messageId }) => {
             setMessages((prev) => prev.filter((msg) => msg._id !== messageId));
-        }
-    );
+        };
 
-    socket.on(
-        "chat:message-deleted-for-everyone",
-        ({ messageId }) => {
+    const handleDeletedForEveryone = ({ messageId }) => {
             setMessages((prev) => prev.map((msg) => (
                 msg._id === messageId
                     ? { ...msg, deletedForEveryone: true, text: "" }
                     : msg
             )));
-        }
-    );
+        };
 
-    socket.on(
-        "chat:message-forwarded",
-        (message) => {
+    const handleForwarded = (message) => {
             if (message?.conversationId !== currentConversationId) return;
             setMessages((prev) => (
                 prev.some(item => item._id === message._id)
                     ? prev
                     : [...prev, message]
             ));
-        }
-    );
+        };
 
-    socket.on(
-    "chat:message-seen",
-    (data) => {
+    const handleMessageSeen = (data) => {
 
         setMessages((prev) =>
 
@@ -221,30 +329,43 @@ useEffect(() => {
                 : msg
             )
         );
-    }
-);
+    };
+
+    socket.on("chat:receive-message", handleReceiveMessage);
+    socket.on("chat:typing", handleTyping);
+    socket.on("chat:stop-typing", handleStopTyping);
+    socket.on("chat:message-deleted-for-me", handleDeletedForMe);
+    socket.on("chat:message-deleted-for-everyone", handleDeletedForEveryone);
+    socket.on("chat:message-forwarded", handleForwarded);
+    socket.on("chat:message-seen", handleMessageSeen);
 
     return () => {
 
-    socket.off(
-        "chat:receive-message"
-    );
-
-    socket.off(
-        "chat:message-seen"
-    );
-    socket.off("chat:typing");
-    socket.off("chat:stop-typing");
-    socket.off("chat:message-deleted-for-me");
-    socket.off("chat:message-deleted-for-everyone");
-    socket.off("chat:message-forwarded");
+    socket.off("chat:receive-message", handleReceiveMessage);
+    socket.off("chat:message-seen", handleMessageSeen);
+    socket.off("chat:typing", handleTyping);
+    socket.off("chat:stop-typing", handleStopTyping);
+    socket.off("chat:message-deleted-for-me", handleDeletedForMe);
+    socket.off("chat:message-deleted-for-everyone", handleDeletedForEveryone);
+    socket.off("chat:message-forwarded", handleForwarded);
 };
 
-}, [socket, currentConversationId, currentUser?._id, currentUser?.id]);
+}, [socket, currentConversationId, currentUser?._id, currentUser?.id, selectedUser?._id, selectedUser?.id, showToast]);
 
     const joinConversationRoom =
     (conversationId) => {
         if (!conversationId) return;
+        if (activeConversationIdRef.current === conversationId) return;
+
+        if (activeConversationIdRef.current) {
+            socket?.emit(
+                "chat:leave-conversation",
+                {
+                    conversationId:
+                        activeConversationIdRef.current
+                }
+            );
+        }
 
         socket?.emit(
             "chat:join-conversation",
@@ -253,6 +374,7 @@ useEffect(() => {
             }
         );
 
+        activeConversationIdRef.current = conversationId;
         setCurrentConversationId(
             conversationId
         );
@@ -271,7 +393,7 @@ useEffect(() => {
                 );
             } else {
                 res = await createConversation(
-                    selectedUser._id
+                    selectedUser._id || selectedUser.id || selectedUser.userId
                 );
             }
 
@@ -284,9 +406,6 @@ useEffect(() => {
 
             if (conversationData?._id) {
                 fetchMessages(
-                    conversationData._id
-                );
-                joinConversationRoom(
                     conversationData._id
                 );
             }
@@ -601,20 +720,27 @@ useEffect(() => {
         }
     };
 
+    const handleEmojiSelect = (emoji) => {
+        setText((prev) => `${prev}${emoji}`);
+        chatInputRef.current?.focus();
+    };
+
 
 
     if (!selectedUser) {
 
         return (
-            <div
-                className="chat-empty"
-            >
-                <div className="chat-empty-card">
-                    <div className="chat-empty-icon">C</div>
-                    <h2>Choose a conversation</h2>
-                    <p>Messages, files, and group chats will appear here.</p>
+            <>
+                <div
+                    className="chat-empty"
+                >
+                    <div className="chat-empty-card">
+                        <div className="chat-empty-icon">C</div>
+                        <h2>Choose a conversation</h2>
+                        <p>Messages, files, and group chats will appear here.</p>
+                    </div>
                 </div>
-            </div>
+            </>
         );
     }
 
@@ -634,15 +760,51 @@ useEffect(() => {
         selectedUser?.isGroup ? getGroupName(selectedUser) : selectedUser?.companyRole || "SEO Project"
     );
 
+    const getMemberId = member => {
+        if (!member) return "";
+        if (typeof member === "object") {
+            return (member._id || member.id || member.userId || member.user?._id || member.user?.id || "").toString();
+        }
+
+        return member.toString();
+    };
+
+    const groupMembers = selectedUser?.isGroup
+        ? selectedUser.members || selectedUser.users || selectedUser.memberIds || selectedUser.membersIds || []
+        : [];
+    const currentUserId = (currentUser?._id || currentUser?.id || "").toString();
+    const isIdOnline = id => {
+        const value = (id || "").toString();
+        return Boolean(value && onlineUsers.some(userId => userId?.toString() === value));
+    };
+    const onlineGroupCount = Array.isArray(groupMembers)
+        ? groupMembers.filter(member => {
+            const memberId = getMemberId(member);
+            return memberId && memberId !== currentUserId && isIdOnline(memberId);
+        }).length
+        : 0;
+    const groupMemberCount = Array.isArray(groupMembers)
+        ? groupMembers.length
+        : Number(selectedUser?.memberCount || selectedUser?.count || 0);
+    const groupStatusLabel = groupMemberCount > 0
+        ? `${onlineGroupCount} online - ${groupMemberCount} members`
+        : "Group Chat";
+    const selectedUserId = (selectedUser?._id || selectedUser?.id || "").toString();
+    const isSelectedUserOnline = selectedUser?.isGroup
+        ? onlineGroupCount > 0
+        : Boolean(selectedUser?.isOnline) || isIdOnline(selectedUserId);
+    const canStartCall = selectedUser?.isGroup
+        ? onlineGroupCount > 0 || groupMemberCount === 0
+        : isSelectedUserOnline;
+
     const startDirectCall = (callType) => {
-        callOverlayRef.current?.startCall(callType, selectedUser);
+        if (!canStartCall) return;
+        startCall(callType, selectedUser);
     };
 
     return (
 
         <div className="chat-box">
-            <CallOverlay ref={callOverlayRef} socket={socket} currentUser={currentUser} />
-
             <div className="chat-header">
                 <div className="chat-header-left">
                     <div className="chat-avatar">
@@ -663,29 +825,29 @@ useEffect(() => {
                         <div className="chat-user-name">
                                 {selectedUser.isGroup ? getGroupName(selectedUser) : selectedUser.name}
                             </div>
-                            <div className="chat-user-status">
+                            <div className={`chat-user-status ${selectedUser.isGroup || isSelectedUserOnline ? "" : "offline"}`}>
                                 {typingUserId 
                                     ? "Typing..." 
                                     : selectedUser.isGroup 
-                                    ? "Group Chat" 
-                                    : (onlineUsers.includes((selectedUser._id || selectedUser.id || "").toString()) ? "Online" : "Offline")}
+                                    ? groupStatusLabel
+                                    : (isSelectedUserOnline ? "Online" : "Offline")}
                             </div>
                     </div>
                 </div>
                 <div className="chat-header-actions">
                     <button
                         type="button"
-                        title={selectedUser.isGroup ? "Group calling coming soon" : "Start voice call"}
+                        title={selectedUser.isGroup ? (canStartCall ? "Start group voice call" : "No group member online") : isSelectedUserOnline ? "Start voice call" : "User is offline"}
                         onClick={() => startDirectCall("audio")}
-                        disabled={selectedUser.isGroup}
+                        disabled={!canStartCall}
                     >
                         <Phone size={18} />
                     </button>
                     <button
                         type="button"
-                        title={selectedUser.isGroup ? "Group calling coming soon" : "Start video call"}
+                        title={selectedUser.isGroup ? (canStartCall ? "Start group video call" : "No group member online") : isSelectedUserOnline ? "Start video call" : "User is offline"}
                         onClick={() => startDirectCall("video")}
-                        disabled={selectedUser.isGroup}
+                        disabled={!canStartCall}
                     >
                         <Video size={18} />
                     </button>
@@ -783,6 +945,7 @@ useEffect(() => {
                             <div className="recording-error">{recordingError}</div>
                         )}
                         <input
+                            ref={chatInputRef}
                             type="text"
                             className="chat-input"
                             value={text}
@@ -807,9 +970,38 @@ useEffect(() => {
                         />
                     </div>
 
-                    <button type="button" className="emoji-btn" title="Emoji">
-                        <Smile size={20} />
-                    </button>
+                    <div className="emoji-picker-wrap" ref={emojiPickerRef}>
+                        <button
+                            type="button"
+                            className="emoji-btn"
+                            title="Emoji"
+                            onClick={() => setShowEmojiPicker((prev) => !prev)}
+                        >
+                            <Smile size={20} />
+                        </button>
+                        {showEmojiPicker && (
+                            <div className="emoji-picker-panel">
+                                {emojiGroups.map((group) => (
+                                    <div className="emoji-picker-section" key={group.label}>
+                                        <div className="emoji-picker-title">{group.label}</div>
+                                        <div className="emoji-picker-grid">
+                                            {group.emojis.map((emoji) => (
+                                                <button
+                                                    type="button"
+                                                    key={`${group.label}-${emoji}`}
+                                                    className="emoji-picker-item"
+                                                    onClick={() => handleEmojiSelect(emoji)}
+                                                    aria-label={`Add ${emoji}`}
+                                                >
+                                                    {emoji}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
 
                     <button
                         className={recorderMode === "audio" ? "recording-btn active" : "recording-btn"}

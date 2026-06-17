@@ -234,18 +234,6 @@
 .MyServices-bill-details span:nth-child(2) strong { color: #ed713d; }
 .MyServices-bill-details span:nth-child(3) strong { color: #172033; }
 
-.MyServices-manager-info { display: grid; grid-template-columns: 61px 1fr; gap: 11px; align-items: center; padding: 6px 0 8px; }
-.MyServices-manager-photo { position: relative; width: 58px; height: 58px; }
-.MyServices-manager-photo img { width: 58px; height: 58px; border-radius: 50%; object-fit: cover; }
-.MyServices-manager-photo span { position: absolute; right: 1px; bottom: 3px; width: 10px; height: 10px; border: 2px solid #fff; border-radius: 50%; background: #13ad60; }
-.MyServices-manager-info div > strong { color: #172033; font-size: 11px; }
-.MyServices-manager-info p { margin: 2px 0 7px; color: #69758a; font-size: 8px; }
-.MyServices-manager-info a { display: flex; align-items: center; gap: 5px; margin-top: 4px; color: #2862c5; font-size: 7.5px; text-decoration: none; }
-.MyServices-message {
-  width: 100%; min-height: 28px; border: 1px solid #e0e5ed; border-radius: 5px; background: #fff; color: #155bc6;
-  display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 8px; font-weight: 800; cursor: pointer;
-}
-
 .MyServices-bottom { display: grid; grid-template-columns: minmax(0, 1fr) 285px; gap: 10px; margin-top: 10px; }
 .MyServices-timeline, .MyServices-team-panel { min-height: 164px; padding: 12px 14px; }
 .MyServices-timeline header { margin-bottom: 14px; }

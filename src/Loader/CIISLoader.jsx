@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import logo from "../../public/logoo.png"; // yaha apna logo file rakho
 import "./CIISLOADER.css"; // CSS file for styling
+
+const logo = "/logoo.png";
 
 const loadingMessages = [
   "Connecting Intelligence...",

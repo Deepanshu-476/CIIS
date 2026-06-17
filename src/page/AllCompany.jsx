@@ -50,6 +50,19 @@ const AllCompany = () => {
   const [editedCompany, setEditedCompany] = useState(null);
   const [departmentNamesById, setDepartmentNamesById] = useState({});
   const [jobRoleNamesById, setJobRoleNamesById] = useState({});
+  const [statusSavingId, setStatusSavingId] = useState(null);
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
+  const [subscriptionCompany, setSubscriptionCompany] = useState(null);
+  const [subscriptionExpiryDate, setSubscriptionExpiryDate] = useState("");
+  const [subscriptionPlan, setSubscriptionPlan] = useState("Standard");
+  const [subscriptionAmount, setSubscriptionAmount] = useState("");
+  const [subscriptionPaymentStatus, setSubscriptionPaymentStatus] = useState("paid");
+  const [subscriptionPaymentMode, setSubscriptionPaymentMode] = useState("upi");
+  const [subscriptionTransactionId, setSubscriptionTransactionId] = useState("");
+  const [subscriptionPaymentDate, setSubscriptionPaymentDate] = useState("");
+  const [subscriptionNotes, setSubscriptionNotes] = useState("");
+  const [subscriptionActivateCompany, setSubscriptionActivateCompany] = useState(true);
+  const [subscriptionSaving, setSubscriptionSaving] = useState(false);
 
   // Menu state
   const [anchorEl, setAnchorEl] = useState(null);
@@ -80,6 +93,41 @@ const AllCompany = () => {
       return false;
     }
     return true;
+  };
+
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("token");
+    return { Authorization: `Bearer ${token}` };
+  };
+
+  const toDateInputValue = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toISOString().split("T")[0];
+  };
+
+  const getDateAfterDays = (days) => {
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    return toDateInputValue(date);
+  };
+
+  const updateCompanyEverywhere = (updatedCompany) => {
+    if (!updatedCompany?._id) return;
+    setCompanies(prev => prev.map(company =>
+      company._id === updatedCompany._id
+        ? { ...company, ...updatedCompany, users: company.users, userCount: company.userCount }
+        : company
+    ));
+    setFilteredCompanies(prev => prev.map(company =>
+      company._id === updatedCompany._id
+        ? { ...company, ...updatedCompany, users: company.users, userCount: company.userCount }
+        : company
+    ));
+    setSelectedCompany(prev => prev?._id === updatedCompany._id ? { ...prev, ...updatedCompany } : prev);
+    setCompanyDetails(prev => prev?._id === updatedCompany._id ? { ...prev, ...updatedCompany } : prev);
+    setEditedCompany(prev => prev?._id === updatedCompany._id ? { ...prev, ...updatedCompany } : prev);
   };
 
   // Fetch company details by ID
@@ -122,25 +170,37 @@ const AllCompany = () => {
     try {
       if (!checkAuth()) return;
       
-      const token = localStorage.getItem("token");
-      const headers = { Authorization: `Bearer ${token}` };
+      const headers = getAuthHeaders();
+      const previousCompany = companyDetails || selectedCompany;
+      let updatedCompany = null;
       
       const response = await axios.put(
         `${API_URL}/company/${editedCompany?._id}`,
         editedCompany,
         { headers }
       );
-      
-      if (response.data) {
-        toast.success("Company updated successfully!");
-        
-        const updatedCompanies = companies.map(company => 
-          company._id === editedCompany._id ? { ...company, ...editedCompany } : company
+
+      updatedCompany = response.data?.company || response.data;
+
+      if (previousCompany && previousCompany.isActive !== editedCompany.isActive) {
+        const statusEndpoint = editedCompany.isActive ? "activate" : "deactivate";
+        const statusResponse = await axios.patch(
+          `${API_URL}/company/${editedCompany._id}/${statusEndpoint}`,
+          {},
+          { headers }
         );
-        
-        setCompanies(updatedCompanies);
-        setFilteredCompanies(updatedCompanies);
-        setCompanyDetails(response.data);
+        updatedCompany = statusResponse.data?.company || {
+          ...updatedCompany,
+          isActive: editedCompany.isActive,
+          deactivatedAt: editedCompany.isActive ? null : new Date().toISOString()
+        };
+      }
+      
+      if (updatedCompany) {
+        toast.success("Company updated successfully!");
+        updateCompanyEverywhere(updatedCompany);
+        setCompanyDetails(updatedCompany);
+        setSelectedCompany(prev => prev ? { ...prev, ...updatedCompany } : updatedCompany);
         setEditMode(false);
         
         fetchCompaniesWithUsers();
@@ -345,6 +405,110 @@ const AllCompany = () => {
     setCompanyDetails(null);
     setEditMode(false);
     setEditedCompany(null);
+  };
+
+  const handleToggleCompanyStatus = async (company, nextActive = !company?.isActive) => {
+    if (!company?._id || !checkAuth()) return;
+
+    const action = nextActive ? "activate" : "deactivate";
+    const label = nextActive ? "activate" : "deactivate";
+    const confirmed = window.confirm(`Are you sure you want to ${label} ${company.companyName || "this company"}?`);
+    if (!confirmed) return;
+
+    try {
+      setStatusSavingId(company._id);
+      const response = await axios.patch(
+        `${API_URL}/company/${company._id}/${action}`,
+        {},
+        { headers: getAuthHeaders() }
+      );
+      const updatedCompany = response.data?.company || {
+        ...company,
+        isActive: nextActive,
+        deactivatedAt: nextActive ? null : new Date().toISOString()
+      };
+
+      updateCompanyEverywhere(updatedCompany);
+      toast.success(`Company ${nextActive ? "activated" : "deactivated"} successfully`);
+      fetchCompaniesWithUsers();
+    } catch (error) {
+      console.error("Company status update error:", error);
+      toast.error(error.response?.data?.message || `Failed to ${label} company`);
+    } finally {
+      setStatusSavingId(null);
+    }
+  };
+
+  const handleOpenSubscriptionModal = (company) => {
+    setSubscriptionCompany(company);
+    setSubscriptionExpiryDate(toDateInputValue(company?.subscriptionExpiry) || getDateAfterDays(30));
+    setSubscriptionPlan(company?.subscriptionPlan || "Standard");
+    setSubscriptionAmount(company?.subscriptionAmount ? String(company.subscriptionAmount) : "");
+    setSubscriptionPaymentStatus(company?.subscriptionPaymentStatus || "paid");
+    setSubscriptionPaymentMode(company?.subscriptionPayments?.[0]?.paymentMode || "upi");
+    setSubscriptionTransactionId("");
+    setSubscriptionPaymentDate(toDateInputValue(new Date()));
+    setSubscriptionNotes("");
+    setSubscriptionActivateCompany(company?.isActive !== false);
+    setSubscriptionModalOpen(true);
+  };
+
+  const handleCloseSubscriptionModal = () => {
+    setSubscriptionModalOpen(false);
+    setSubscriptionCompany(null);
+    setSubscriptionExpiryDate("");
+    setSubscriptionPlan("Standard");
+    setSubscriptionAmount("");
+    setSubscriptionPaymentStatus("paid");
+    setSubscriptionPaymentMode("upi");
+    setSubscriptionTransactionId("");
+    setSubscriptionPaymentDate("");
+    setSubscriptionNotes("");
+    setSubscriptionActivateCompany(true);
+  };
+
+  const handleSaveSubscriptionDate = async () => {
+    if (!subscriptionCompany?._id || !checkAuth()) return;
+    if (!subscriptionExpiryDate) {
+      toast.error("Please select subscription expiry date");
+      return;
+    }
+
+    try {
+      setSubscriptionSaving(true);
+      const response = await axios.patch(
+        `${API_URL}/company/${subscriptionCompany._id}/subscription`,
+        {
+          subscriptionExpiry: subscriptionExpiryDate,
+          planName: subscriptionPlan,
+          amount: Number(subscriptionAmount || 0),
+          paymentStatus: subscriptionPaymentStatus,
+          paymentMode: subscriptionPaymentMode,
+          transactionId: subscriptionTransactionId,
+          paymentDate: subscriptionPaymentDate || new Date().toISOString(),
+          notes: subscriptionNotes,
+          isActive: subscriptionActivateCompany
+        },
+        { headers: getAuthHeaders() }
+      );
+      const updatedCompany = response.data?.company || {
+        ...subscriptionCompany,
+        subscriptionExpiry: subscriptionExpiryDate,
+        subscriptionPlan,
+        subscriptionAmount: Number(subscriptionAmount || 0),
+        subscriptionPaymentStatus
+      };
+
+      updateCompanyEverywhere(updatedCompany);
+      toast.success("Company subscription payment updated successfully");
+      handleCloseSubscriptionModal();
+      fetchCompaniesWithUsers();
+    } catch (error) {
+      console.error("Subscription update error:", error);
+      toast.error(error.response?.data?.message || "Failed to update subscription date");
+    } finally {
+      setSubscriptionSaving(false);
+    }
   };
 
   // Handle edit field change
@@ -576,11 +740,16 @@ const AllCompany = () => {
         case 'users':
           handleOpenUsersPopup(selectedAction);
           break;
-        case 'deactivate':
-          toast.info('Deactivate functionality coming soon');
+        case 'status':
+          handleToggleCompanyStatus(selectedAction, !selectedAction.isActive);
+          break;
+        case 'subscription':
+          handleOpenSubscriptionModal(selectedAction);
           break;
         case 'delete':
           toast.info('Delete functionality coming soon');
+          break;
+        default:
           break;
       }
     }
@@ -1064,6 +1233,31 @@ const AllCompany = () => {
                               </div>
                             )}
 
+                            <div className="AllCompany-stat-item">
+                              <span className="material-icons AllCompany-schedule-icon">payments</span>
+                              <span className="AllCompany-stat-text">
+                                {company.subscriptionPaymentStatus || 'unpaid'} · ₹{Number(company.subscriptionAmount || 0).toLocaleString('en-IN')}
+                              </span>
+                            </div>
+
+                            <div className="AllCompany-company-admin-actions">
+                              <button
+                                className={`AllCompany-mini-action-btn ${company.isActive ? 'AllCompany-mini-warning' : 'AllCompany-mini-success'}`}
+                                onClick={() => handleToggleCompanyStatus(company, !company.isActive)}
+                                disabled={statusSavingId === company._id}
+                              >
+                                <span className="material-icons">{company.isActive ? 'block' : 'check_circle'}</span>
+                                {statusSavingId === company._id ? 'Saving...' : company.isActive ? 'Deactivate' : 'Activate'}
+                              </button>
+                              <button
+                                className="AllCompany-mini-action-btn AllCompany-mini-primary"
+                                onClick={() => handleOpenSubscriptionModal(company)}
+                              >
+                                <span className="material-icons">event_available</span>
+                                Extend
+                              </button>
+                            </div>
+
                             <div className="AllCompany-stat-item AllCompany-activity-item">
                               <span className="material-icons AllCompany-activity-icon">auto_graph</span>
                               <div className="AllCompany-activity-progress">
@@ -1437,7 +1631,34 @@ const AllCompany = () => {
                       <div className="AllCompany-system-info-card">
                         <span className="material-icons AllCompany-system-icon">schedule</span>
                         <span className="AllCompany-system-label">Subscription</span>
-                        <span className="AllCompany-system-value">{formatDate(companyDetails.subscriptionExpiry)}</span>
+                        {editMode ? (
+                          <input
+                            type="date"
+                            className="AllCompany-detail-input AllCompany-date-input"
+                            value={toDateInputValue(editedCompany?.subscriptionExpiry)}
+                            onChange={(e) => handleEditChange('subscriptionExpiry', e.target.value)}
+                          />
+                        ) : (
+                          <span className="AllCompany-system-value">{formatDate(companyDetails.subscriptionExpiry)}</span>
+                        )}
+                      </div>
+                      <div className="AllCompany-system-info-card">
+                        <span className="material-icons AllCompany-system-icon">toggle_on</span>
+                        <span className="AllCompany-system-label">Status</span>
+                        {editMode ? (
+                          <select
+                            className="AllCompany-detail-input AllCompany-status-select"
+                            value={editedCompany?.isActive === false ? 'inactive' : 'active'}
+                            onChange={(e) => handleEditChange('isActive', e.target.value === 'active')}
+                          >
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                          </select>
+                        ) : (
+                          <span className={`AllCompany-status-badge-small ${companyDetails.isActive ? 'AllCompany-active' : 'AllCompany-inactive'}`}>
+                            {companyDetails.isActive ? "Active" : "Inactive"}
+                          </span>
+                        )}
                       </div>
                       <div className="AllCompany-system-info-card">
                         <span className="material-icons AllCompany-system-icon">calendar_today</span>
@@ -1466,6 +1687,168 @@ const AllCompany = () => {
             <div className="AllCompany-modal-footer">
               <button className="AllCompany-btn-outline" onClick={handleCloseCompanyDetails}>
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Subscription Dialog */}
+      {subscriptionModalOpen && (
+        <div className="AllCompany-modal-overlay" onClick={handleCloseSubscriptionModal}>
+          <div className="AllCompany-subscription-modal" onClick={e => e.stopPropagation()}>
+            <div className="AllCompany-modal-header">
+              <div className="AllCompany-modal-header-left">
+                <div className="AllCompany-modal-avatar-small" style={{background: `linear-gradient(135deg, ${getCompanyColor(subscriptionCompany)} 0%, ${getCompanyColor(subscriptionCompany)}80 100%)`}}>
+                  <span className="material-icons">event_available</span>
+                </div>
+                <div className="AllCompany-modal-title">
+                  <h3 className="AllCompany-modal-company-name">Extend Subscription</h3>
+                  <div className="AllCompany-modal-subtitle">
+                    <span>{subscriptionCompany?.companyName}</span>
+                  </div>
+                </div>
+              </div>
+              <button className="AllCompany-icon-btn AllCompany-close-btn" onClick={handleCloseSubscriptionModal}>
+                <span className="material-icons">close</span>
+              </button>
+            </div>
+
+            <div className="AllCompany-modal-body">
+              <div className="AllCompany-subscription-current">
+                <span className="material-icons">schedule</span>
+                <div>
+                  <span>Current expiry</span>
+                  <strong>{formatDate(subscriptionCompany?.subscriptionExpiry)}</strong>
+                </div>
+              </div>
+
+              <label className="AllCompany-subscription-label" htmlFor="subscriptionExpiryDate">
+                New expiry date
+              </label>
+              <input
+                id="subscriptionExpiryDate"
+                type="date"
+                className="AllCompany-detail-input"
+                value={subscriptionExpiryDate}
+                onChange={(e) => setSubscriptionExpiryDate(e.target.value)}
+              />
+
+              <div className="AllCompany-subscription-presets">
+                <button type="button" onClick={() => setSubscriptionExpiryDate(getDateAfterDays(30))}>+30 days</button>
+                <button type="button" onClick={() => setSubscriptionExpiryDate(getDateAfterDays(90))}>+90 days</button>
+                <button type="button" onClick={() => setSubscriptionExpiryDate(getDateAfterDays(365))}>+1 year</button>
+              </div>
+
+              <div className="AllCompany-subscription-form-grid">
+                <div className="AllCompany-subscription-field">
+                  <label className="AllCompany-subscription-label" htmlFor="subscriptionPlan">Plan</label>
+                  <input
+                    id="subscriptionPlan"
+                    type="text"
+                    className="AllCompany-detail-input"
+                    value={subscriptionPlan}
+                    onChange={(e) => setSubscriptionPlan(e.target.value)}
+                    placeholder="Standard"
+                  />
+                </div>
+                <div className="AllCompany-subscription-field">
+                  <label className="AllCompany-subscription-label" htmlFor="subscriptionAmount">Amount</label>
+                  <input
+                    id="subscriptionAmount"
+                    type="number"
+                    min="0"
+                    className="AllCompany-detail-input"
+                    value={subscriptionAmount}
+                    onChange={(e) => setSubscriptionAmount(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="AllCompany-subscription-field">
+                  <label className="AllCompany-subscription-label" htmlFor="subscriptionPaymentStatus">Payment Status</label>
+                  <select
+                    id="subscriptionPaymentStatus"
+                    className="AllCompany-detail-input"
+                    value={subscriptionPaymentStatus}
+                    onChange={(e) => setSubscriptionPaymentStatus(e.target.value)}
+                  >
+                    <option value="paid">Paid</option>
+                    <option value="partial">Partial</option>
+                    <option value="unpaid">Unpaid</option>
+                    <option value="waived">Waived</option>
+                  </select>
+                </div>
+                <div className="AllCompany-subscription-field">
+                  <label className="AllCompany-subscription-label" htmlFor="subscriptionPaymentMode">Payment Mode</label>
+                  <select
+                    id="subscriptionPaymentMode"
+                    className="AllCompany-detail-input"
+                    value={subscriptionPaymentMode}
+                    onChange={(e) => setSubscriptionPaymentMode(e.target.value)}
+                  >
+                    <option value="upi">UPI</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                    <option value="cheque">Cheque</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div className="AllCompany-subscription-field">
+                  <label className="AllCompany-subscription-label" htmlFor="subscriptionPaymentDate">Payment Date</label>
+                  <input
+                    id="subscriptionPaymentDate"
+                    type="date"
+                    className="AllCompany-detail-input"
+                    value={subscriptionPaymentDate}
+                    onChange={(e) => setSubscriptionPaymentDate(e.target.value)}
+                  />
+                </div>
+                <div className="AllCompany-subscription-field">
+                  <label className="AllCompany-subscription-label" htmlFor="subscriptionTransactionId">Transaction ID</label>
+                  <input
+                    id="subscriptionTransactionId"
+                    type="text"
+                    className="AllCompany-detail-input"
+                    value={subscriptionTransactionId}
+                    onChange={(e) => setSubscriptionTransactionId(e.target.value)}
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+
+              <label className="AllCompany-subscription-toggle">
+                <input
+                  type="checkbox"
+                  checked={subscriptionActivateCompany}
+                  onChange={(e) => setSubscriptionActivateCompany(e.target.checked)}
+                />
+                <span>Keep company active after saving</span>
+              </label>
+
+              <label className="AllCompany-subscription-label" htmlFor="subscriptionNotes">
+                Notes
+              </label>
+              <textarea
+                id="subscriptionNotes"
+                className="AllCompany-detail-textarea AllCompany-subscription-notes"
+                rows="3"
+                value={subscriptionNotes}
+                onChange={(e) => setSubscriptionNotes(e.target.value)}
+                placeholder="Payment or renewal notes"
+              />
+            </div>
+
+            <div className="AllCompany-modal-footer">
+              <button className="AllCompany-btn-outline" onClick={handleCloseSubscriptionModal}>
+                Cancel
+              </button>
+              <button
+                className="AllCompany-btn-primary"
+                onClick={handleSaveSubscriptionDate}
+                disabled={subscriptionSaving}
+              >
+                {subscriptionSaving ? "Saving..." : "Save Date"}
               </button>
             </div>
           </div>
@@ -1645,10 +2028,16 @@ const AllCompany = () => {
               <span className="material-icons AllCompany-menu-icon" style={{color: '#8b5cf6'}}>groups</span>
               <span>View Users</span>
             </button>
+            <button className="AllCompany-menu-item" onClick={() => handleAction('subscription')}>
+              <span className="material-icons AllCompany-menu-icon" style={{color: '#2563eb'}}>event_available</span>
+              <span>Extend Subscription</span>
+            </button>
             <hr className="AllCompany-menu-divider" />
-            <button className="AllCompany-menu-item" onClick={() => handleAction('deactivate')}>
-              <span className="material-icons AllCompany-menu-icon" style={{color: '#f59e0b'}}>block</span>
-              <span>Deactivate</span>
+            <button className="AllCompany-menu-item" onClick={() => handleAction('status')}>
+              <span className="material-icons AllCompany-menu-icon" style={{color: selectedAction?.isActive ? '#f59e0b' : '#10b981'}}>
+                {selectedAction?.isActive ? 'block' : 'check_circle'}
+              </span>
+              <span>{selectedAction?.isActive ? 'Deactivate' : 'Activate'}</span>
             </button>
             <button className="AllCompany-menu-item" onClick={() => handleAction('delete')} style={{color: '#ef4444'}}>
               <span className="material-icons AllCompany-menu-icon" style={{color: '#ef4444'}}>delete</span>

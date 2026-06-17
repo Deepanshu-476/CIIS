@@ -233,7 +233,27 @@
   padding: 10px 10px 8px 42px;
   border-color: #e7edf6;
   overflow: hidden;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
   box-shadow: 0 5px 15px rgba(20, 35, 70, 0.045);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.ClientTasksUpdatesPage-statCard:hover,
+.ClientTasksUpdatesPage-statCard--active {
+  border-color: #8fb8ff;
+  box-shadow: 0 10px 24px rgba(23, 105, 232, 0.12);
+  transform: translateY(-1px);
+}
+
+.ClientTasksUpdatesPage-statCard--active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(23, 105, 232, 0.22);
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 .ClientTasksUpdatesPage-statIcon,
@@ -383,22 +403,23 @@
 }
 
 .ClientTasksUpdatesPage-tableWrap {
-  overflow-x: auto;
+  overflow-x: hidden;
 }
 
 .ClientTasksUpdatesPage-tableWrap table {
   width: 100%;
-  min-width: 1040px;
+  min-width: 0;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .ClientTasksUpdatesPage-tableWrap th,
 .ClientTasksUpdatesPage-tableWrap td {
   border-bottom: 1px solid #edf1f7;
-  padding: 9px 7px;
+  padding: 9px 5px;
   text-align: left;
   vertical-align: middle;
-  font-size: 10.5px;
+  font-size: 10px;
 }
 
 .ClientTasksUpdatesPage-tableWrap th {
@@ -409,8 +430,40 @@
 }
 
 .ClientTasksUpdatesPage-tableWrap td {
+  overflow: hidden;
   color: #344054;
   font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ClientTasksUpdatesPage-tableWrap th:nth-child(1),
+.ClientTasksUpdatesPage-tableWrap td:nth-child(1) { width: 3%; }
+.ClientTasksUpdatesPage-tableWrap th:nth-child(2),
+.ClientTasksUpdatesPage-tableWrap td:nth-child(2) { width: 15%; }
+.ClientTasksUpdatesPage-tableWrap th:nth-child(3),
+.ClientTasksUpdatesPage-tableWrap td:nth-child(3) { width: 16%; }
+.ClientTasksUpdatesPage-tableWrap th:nth-child(4),
+.ClientTasksUpdatesPage-tableWrap td:nth-child(4) { width: 11%; }
+.ClientTasksUpdatesPage-tableWrap th:nth-child(5),
+.ClientTasksUpdatesPage-tableWrap td:nth-child(5) { width: 9%; }
+.ClientTasksUpdatesPage-tableWrap th:nth-child(6),
+.ClientTasksUpdatesPage-tableWrap td:nth-child(6) { width: 11%; }
+.ClientTasksUpdatesPage-tableWrap th:nth-child(7),
+.ClientTasksUpdatesPage-tableWrap td:nth-child(7) { width: 12%; }
+.ClientTasksUpdatesPage-tableWrap th:nth-child(8),
+.ClientTasksUpdatesPage-tableWrap td:nth-child(8) { width: 12%; }
+.ClientTasksUpdatesPage-tableWrap th:nth-child(9),
+.ClientTasksUpdatesPage-tableWrap td:nth-child(9) { width: 10%; }
+.ClientTasksUpdatesPage-tableWrap th:nth-child(10),
+.ClientTasksUpdatesPage-tableWrap td:nth-child(10) { width: 1%; }
+
+.ClientTasksUpdatesPage-tableWrap td.ClientTasksUpdatesPage-emptyCell {
+  padding: 26px 12px;
+  color: #71809a;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .ClientTasksUpdatesPage-tableWrap td small {
@@ -422,11 +475,13 @@
 }
 
 .ClientTasksUpdatesPage-taskName {
-  gap: 8px;
+  gap: 6px;
+  width: 100%;
   min-width: 0;
 }
 
 .ClientTasksUpdatesPage-taskName span {
+  flex: 0 0 16px;
   display: grid;
   place-items: center;
   width: 16px;
@@ -439,9 +494,11 @@
 }
 
 .ClientTasksUpdatesPage-taskName strong {
+  min-width: 0;
+  flex: 1;
   overflow: hidden;
   color: #17213b;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 900;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -552,11 +609,13 @@
 
 .ClientTasksUpdatesPage-review {
   height: 26px;
-  padding: 0 10px;
+  width: 86px;
+  padding: 0 8px;
   border-radius: 6px;
   color: #0b72f0;
   font-size: 10px;
   font-weight: 900;
+  white-space: nowrap;
 }
 
 .ClientTasksUpdatesPage-pagination {
@@ -589,6 +648,11 @@
   border-color: #0b72f0;
   background: #0b72f0;
   color: #fff;
+}
+
+.ClientTasksUpdatesPage-pagination button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .ClientTasksUpdatesPage-sideCard {
@@ -933,6 +997,300 @@
   font-weight: 900;
 }
 
+.ClientTasksUpdatesPage-modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.ClientTasksUpdatesPage-modal {
+  width: min(900px, 100%);
+  max-height: min(78vh, 720px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid #e3e9f3;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+}
+
+.ClientTasksUpdatesPage-modalHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #edf1f7;
+}
+
+.ClientTasksUpdatesPage-modalHead span {
+  color: #71809a;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.ClientTasksUpdatesPage-modalHead h3 {
+  margin: 3px 0 0;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-modalHead button {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dfe6f1;
+  border-radius: 8px;
+  background: #fff;
+  color: #17213b;
+  cursor: pointer;
+}
+
+.ClientTasksUpdatesPage-modalList,
+.ClientTasksUpdatesPage-modalTable,
+.ClientTasksUpdatesPage-projectDetails,
+.ClientTasksUpdatesPage-taskDetails {
+  overflow: auto;
+  padding: 16px 20px 20px;
+}
+
+.ClientTasksUpdatesPage-modalList {
+  display: grid;
+  gap: 0;
+}
+
+.ClientTasksUpdatesPage-modalList article {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 10px 0;
+  border-top: 1px solid #edf1f7;
+}
+
+.ClientTasksUpdatesPage-modalDeadlineList article {
+  grid-template-columns: 72px minmax(0, 1fr) 8px;
+}
+
+.ClientTasksUpdatesPage-modalList article:first-child,
+.ClientTasksUpdatesPage-modalTableRow:first-of-type {
+  border-top: 0;
+}
+
+.ClientTasksUpdatesPage-modalList strong,
+.ClientTasksUpdatesPage-modalTableRow strong,
+.ClientTasksUpdatesPage-projectSummary strong {
+  display: block;
+  color: #17213b;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-modalList span,
+.ClientTasksUpdatesPage-modalTableRow span,
+.ClientTasksUpdatesPage-projectSummary p,
+.ClientTasksUpdatesPage-projectSummary small {
+  display: block;
+  margin-top: 3px;
+  color: #71809a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ClientTasksUpdatesPage-modalDeadlineList time {
+  color: #ef4444;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-modalDeadlineList i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ef4444;
+}
+
+.ClientTasksUpdatesPage-modalDeadlineList .ClientTasksUpdatesPage-dot-1 { background: #0b72f0; }
+.ClientTasksUpdatesPage-modalDeadlineList .ClientTasksUpdatesPage-dot-2 { background: #10b981; }
+
+.ClientTasksUpdatesPage-modalTableHead,
+.ClientTasksUpdatesPage-modalTableRow {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 0.75fr 0.8fr 0.65fr 0.8fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.ClientTasksUpdatesPage-modalTableHead {
+  padding-bottom: 10px;
+  color: #71809a;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-modalTableRow {
+  min-height: 50px;
+  padding: 9px 0;
+  border-top: 1px solid #edf1f7;
+}
+
+.ClientTasksUpdatesPage-modalTableRow em {
+  justify-self: start;
+  font-style: normal;
+}
+
+.ClientTasksUpdatesPage-projectSummary {
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid #e3e9f3;
+  border-radius: 8px;
+  background: #fbfcff;
+}
+
+.ClientTasksUpdatesPage-projectSummary > span {
+  display: inline-flex;
+  margin-top: 8px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #eaf2ff;
+  color: #0b72f0;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-projectSummary > div {
+  height: 7px;
+  margin: 12px 0 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8eef7;
+}
+
+.ClientTasksUpdatesPage-projectSummary i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #0b72f0;
+}
+
+.ClientTasksUpdatesPage-taskDetails {
+  display: grid;
+  gap: 14px;
+}
+
+.ClientTasksUpdatesPage-taskDetailsHero,
+.ClientTasksUpdatesPage-taskDetailsGrid > div,
+.ClientTasksUpdatesPage-taskAssignees {
+  border: 1px solid #e3e9f3;
+  border-radius: 8px;
+  background: #fbfcff;
+}
+
+.ClientTasksUpdatesPage-taskDetailsHero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 15px;
+}
+
+.ClientTasksUpdatesPage-taskDetailsHero span,
+.ClientTasksUpdatesPage-taskDetailsGrid span,
+.ClientTasksUpdatesPage-taskAssignees span {
+  display: block;
+  color: #71809a;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.ClientTasksUpdatesPage-taskDetailsHero h4 {
+  margin: 5px 0 7px;
+  color: #111827;
+  font-size: 18px;
+  line-height: 1.25;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-taskDetailsHero p,
+.ClientTasksUpdatesPage-taskAssignees p {
+  margin: 0;
+  color: #5f6b83;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 700;
+}
+
+.ClientTasksUpdatesPage-taskDetailsHero em {
+  flex: 0 0 auto;
+}
+
+.ClientTasksUpdatesPage-taskDetailsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ClientTasksUpdatesPage-taskDetailsGrid > div,
+.ClientTasksUpdatesPage-taskAssignees {
+  min-width: 0;
+  padding: 12px;
+}
+
+.ClientTasksUpdatesPage-taskDetailsGrid strong {
+  display: block;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  color: #17213b;
+  font-size: 13px;
+  line-height: 1.3;
+  font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-taskDetailsGrid small {
+  display: block;
+  margin-top: 4px;
+  color: #71809a;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ClientTasksUpdatesPage-taskDetailsProgress {
+  height: 6px;
+  margin-top: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8eef7;
+}
+
+.ClientTasksUpdatesPage-taskDetailsProgress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #0b72f0;
+}
+
+.ClientTasksUpdatesPage-modalEmpty {
+  margin: 0;
+  padding: 22px 0 4px;
+  border-top: 1px solid #edf1f7;
+  color: #71809a;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .ClientTasksUpdatesPage-loading,
 .ClientTasksUpdatesPage-error {
   min-height: 520px;
@@ -1052,5 +1410,28 @@
 
   .ClientTasksUpdatesPage-milestones {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ClientTasksUpdatesPage-modalBackdrop {
+    padding: 12px;
+  }
+
+  .ClientTasksUpdatesPage-modalTableHead {
+    display: none;
+  }
+
+  .ClientTasksUpdatesPage-modalTableRow {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 5px;
+    padding: 12px 0;
+  }
+
+  .ClientTasksUpdatesPage-modalDeadlineList article {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .ClientTasksUpdatesPage-modalDeadlineList i {
+    grid-column: 2;
   }
 }

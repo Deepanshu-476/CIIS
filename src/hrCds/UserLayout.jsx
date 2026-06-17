@@ -11,6 +11,7 @@ import { Outlet } from 'react-router-dom';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import SupportChatWidget from './pages/SupportChatWidget';
+import { CallProvider } from '../context/CallContext';
 
 const drawerWidthOpen = 260;
 const drawerWidthClosed = 70;
@@ -171,13 +172,15 @@ const UserLayout = () => {
           }),
         }}
       >
-        <Box sx={{ 
-          maxWidth: '100%', 
-          overflow: 'hidden',
-          padding: { xs: 1, sm: 2, md: 3 }
-        }}>
-          <Outlet />
-        </Box>
+        <CallProvider>
+          <Box sx={{ 
+            maxWidth: '100%', 
+            overflow: 'hidden',
+            padding: { xs: 1, sm: 2, md: 3 }
+          }}>
+            <Outlet />
+          </Box>
+        </CallProvider>
       </MainContent>
       <SupportChatWidget />
     </LayoutContainer>

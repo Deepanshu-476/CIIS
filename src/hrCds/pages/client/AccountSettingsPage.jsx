@@ -1,5 +1,6 @@
 import React from 'react';
 import { FiBell, FiBriefcase, FiMail, FiShield, FiSmartphone, FiUser } from 'react-icons/fi';
+import CIISLoader from '../../../Loader/CIISLoader';
 import {
   calculatePaymentSummary,
   formatDate,
@@ -15,7 +16,7 @@ const AccountSettingsPage = () => {
   const manager = projectManagers[0] || {};
 
   if (loading) {
-    return <section className="ClientPageBase-root">Loading account settings...</section>;
+    return <CIISLoader />;
   }
 
   if (error || !client) {

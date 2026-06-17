@@ -57,6 +57,7 @@ const APP_ROUTES = [
   { id: "client-meeting", path: "client-meeting", name: "Client Meeting", category: "meetings" },
   { id: "admin-meeting", path: "admin-meeting", name: "Create Employee Meeting", category: "meetings" },
   { id: "emp-client", path: "emp-client", name: "Client Management", category: "clients" },
+  { id: "active-clients", path: "active-clients", name: "Active Clients", category: "clients" },
   { id: "alert", path: "alert", name: "Alerts", category: "communication" },
   { id: "create-alert", path: "create-alert", name: "Create Alert", category: "communication" },
   { id: "chat", path: "chat", name: "Chat", category: "communication" },

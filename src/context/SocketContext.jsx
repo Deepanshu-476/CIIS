@@ -1,9 +1,59 @@
 // src/context/SocketContext.jsx - WITH COMPLETE CONSOLE LOGS + TOKEN RETRY
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import socketService from '../services/socket';
 import { useAuth } from './AuthContext';
 
 const SocketContext = createContext(null);
+
+const SYSTEM_NOTIFICATION_EVENTS = ['notification:new', 'new_notification'];
+const PORTAL_DESKTOP_EVENTS = [
+  'attendance:marked',
+  'leave:new',
+  'leave:status_changed',
+  'leave:deleted',
+  'client-meeting:new',
+  'client_meeting_new',
+  'client-meeting:updated',
+  'client-meeting:deleted',
+];
+
+const getDesktopNotificationContent = (payload = {}, eventName = '') => {
+  const titleByEvent = {
+    'attendance:marked': 'Attendance Update',
+    'leave:new': 'New Leave Request',
+    'leave:status_changed': 'Leave Status Updated',
+    'leave:deleted': 'Leave Deleted',
+    'client-meeting:new': 'New Client Meeting',
+    'client_meeting_new': 'New Client Meeting',
+    'client-meeting:updated': 'Client Meeting Updated',
+    'client-meeting:deleted': 'Client Meeting Deleted',
+  };
+
+  const data = payload.data || {};
+  const task = payload.task || payload.relatedTask || data.task || data.leave || {};
+  const title =
+    payload.title ||
+    payload.notificationTitle ||
+    titleByEvent[eventName] ||
+    (payload.type?.includes?.('task') ? 'Task Update' : 'CIIS Network');
+
+  const body =
+    payload.message ||
+    payload.body ||
+    payload.description ||
+    data.message ||
+    task.title ||
+    task.name ||
+    'You have a new notification';
+
+  return {
+    id: payload._id || payload.id || data._id || data.id,
+    title,
+    body,
+    type: payload.type || eventName,
+    targetPath: payload.targetPath || data.targetPath,
+  };
+};
 
 export const useSocket = () => {
   const context = useContext(SocketContext);
@@ -37,6 +87,44 @@ export const SocketProvider = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
   const [retryCount, setRetryCount] = useState(0);
+  const recentDesktopNotificationKeys = useRef(new Set());
+
+  const showDesktopNotification = useCallback((payload = {}, eventName = 'notification:new') => {
+    const desktopNotification = getDesktopNotificationContent(payload, eventName);
+    const dedupeKey = String(
+      desktopNotification.id ||
+      `${desktopNotification.type}:${desktopNotification.title}:${desktopNotification.body}`
+    );
+
+    if (recentDesktopNotificationKeys.current.has(dedupeKey)) {
+      return;
+    }
+
+    recentDesktopNotificationKeys.current.add(dedupeKey);
+    setTimeout(() => {
+      recentDesktopNotificationKeys.current.delete(dedupeKey);
+    }, 5000);
+
+    if (window.electronAPI?.showNotification) {
+      window.electronAPI.showNotification(desktopNotification);
+      return;
+    }
+
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      try {
+        const browserNotif = new Notification(desktopNotification.title, {
+          body: desktopNotification.body,
+          icon: '/vite.svg'
+        });
+
+        browserNotif.onclick = () => {
+          window.focus();
+        };
+      } catch (notifError) {
+        console.error('âŒ Failed to show browser notification:', notifError);
+      }
+    }
+  }, []);
 
   // Log auth state on mount and when it changes
   useEffect(() => {
@@ -113,6 +201,7 @@ export const SocketProvider = ({ children }) => {
         isConnected,
         retryCount
       });
+
       
       if (storedToken && !socketService.socket?.connected) {
         console.log('🔄 Force reconnect - Token exists but socket not connected');
@@ -244,7 +333,7 @@ export const SocketProvider = ({ children }) => {
       });
 
       // Listen for new notifications
-      socket.on('notification:new', (notification) => {
+      const handleSystemNotification = (notification = {}, eventName = 'notification:new') => {
         console.log('%c📢📢📢 NEW NOTIFICATION RECEIVED', 'color: purple; font-size: 14px');
         console.log('📨 Notification details:', {
           type: notification.type,
@@ -253,6 +342,8 @@ export const SocketProvider = ({ children }) => {
           id: notification._id,
           timestamp: new Date().toLocaleTimeString()
         });
+
+        showDesktopNotification(notification, eventName);
         
         setNotifications(prev => {
           const updated = [notification, ...prev];
@@ -266,25 +357,18 @@ export const SocketProvider = ({ children }) => {
           return newCount;
         });
         
-        // Show browser notification if permitted
-        if (Notification.permission === 'granted') {
-          try {
-            const browserNotif = new Notification(notification.title || 'New Notification', {
-              body: notification.message || '',
-              icon: '/vite.svg'
-            });
-            console.log('✅ Browser notification shown');
-            
-            browserNotif.onclick = () => {
-              console.log('🔔 Browser notification clicked');
-              window.focus();
-            };
-          } catch (notifError) {
-            console.error('❌ Failed to show browser notification:', notifError);
-          }
-        } else {
-          console.log('ℹ️ Browser notifications not permitted, status:', Notification.permission);
-        }
+      };
+
+      SYSTEM_NOTIFICATION_EVENTS.forEach((eventName) => {
+        socket.on(eventName, (notification) => handleSystemNotification(notification, eventName));
+      });
+
+      PORTAL_DESKTOP_EVENTS.forEach((eventName) => {
+        socket.on(eventName, (payload = {}) => {
+          console.log(`%cPortal event received: ${eventName}`, 'color: teal; font-size: 14px');
+          console.log('Portal event data:', payload);
+          showDesktopNotification(payload, eventName);
+        });
       });
 
       // Listen for unread count updates
@@ -321,12 +405,12 @@ export const SocketProvider = ({ children }) => {
         });
 
       // Request notification permission
-      if (Notification.permission === 'default') {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
         console.log('🔔 Requesting notification permission...');
         Notification.requestPermission().then(permission => {
           console.log('🔔 Notification permission result:', permission);
         });
-      } else {
+      } else if (typeof Notification !== 'undefined') {
         console.log('🔔 Notification permission already:', Notification.permission);
       }
 
@@ -367,7 +451,7 @@ export const SocketProvider = ({ children }) => {
       socketService.disconnect();
       setIsConnected(false);
     };
-  }, [isAuthenticated, user, token]);
+  }, [isAuthenticated, user, token, showDesktopNotification]);
 
   // ========== LEAVE EVENT LISTENERS ==========
   const handleNewLeave = useCallback((callback) => {

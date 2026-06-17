@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FiSend, FiZap, FiSmartphone, FiMessageCircle } from 'react-icons/fi';
+import CIISLoader from '../../../Loader/CIISLoader';
 import {
   calculateTaskStats,
   getClientDisplayName,
@@ -9,7 +10,7 @@ import {
 import './AIAssistantPage.css';
 
 const AIAssistantPage = () => {
-  const { client, services, tasks } = useClientPortalData();
+  const { client, services, tasks, loading } = useClientPortalData();
   const clientName = getClientDisplayName(client);
   const stats = calculateTaskStats(tasks);
   const prompts = [
@@ -22,6 +23,10 @@ const AIAssistantPage = () => {
   const [messages, setMessages] = useState([
     { role: 'assistant', text: `Hi ${clientName}! I can help with your ${services.length} services, ${stats.totalTasks} tasks, reports, and recommendations.` }
   ]);
+
+  if (loading) {
+    return <CIISLoader />;
+  }
 
   const handleSend = () => {
     if (!query.trim()) return;

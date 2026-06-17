@@ -20,6 +20,7 @@ const APP_ROUTES = [
   { path: 'company-all-task', name: 'Company All Tasks', icon: 'ListAlt', category: 'tasks' },
   // { path: 'department-all-task', name: 'Department All Tasks', icon: 'ListAlt', category: 'tasks' },
   { path: 'emp-client', name: 'Client Management', icon: 'ClientIcon', category: 'clients' },
+  { path: 'active-clients', name: 'Active Clients', icon: 'Folder', category: 'clients' },
   { path: 'ClienDashboard', name: 'Client Dashboard', icon: 'ClientIcon', category: 'clients' },
   { path: 'alert', name: 'Alerts', icon: 'Notifications', category: 'communication' },
   { path: 'attendance', name: 'My Attendance', icon: 'CalendarToday', category: 'main' },

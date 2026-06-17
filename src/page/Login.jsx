@@ -200,6 +200,12 @@ const Login = () => {
         setIsAuthenticated(true);
       }
 
+      if (res.data.client) {
+        localStorage.setItem('client', JSON.stringify(res.data.client));
+      } else {
+        localStorage.removeItem('client');
+      }
+
       if (companyIdentifier) {
         localStorage.setItem('companyIdentifier', companyIdentifier);
         localStorage.setItem('companyCode', companyIdentifier);
@@ -331,6 +337,12 @@ const Login = () => {
           setIsAuthenticated(true);
         }
 
+        if (response.data.client) {
+          localStorage.setItem('client', JSON.stringify(response.data.client));
+        } else {
+          localStorage.removeItem('client');
+        }
+
         // Save company info
         if (companyIdentifier) {
           localStorage.setItem('companyIdentifier', companyIdentifier);
@@ -423,7 +435,9 @@ const Login = () => {
       });
 
       if (response.data.success) {
-        toast.success('OTP sent to your email!');
+        toast.success(response.data.devOtp
+          ? `OTP generated: ${response.data.devOtp}`
+          : 'OTP sent to your email!');
         setForgotPasswordStep('reset');
       }
 
@@ -454,7 +468,7 @@ const Login = () => {
 
     try {
       const resetContext = companyIdentifier ? { companyCode: companyIdentifier } : {};
-      const response = await axios.post('/auth/reset-password', {
+      await axios.post('/auth/reset-password', {
         email: forgotPasswordEmail,
         otp: otpCode,
         newPassword: newPassword,

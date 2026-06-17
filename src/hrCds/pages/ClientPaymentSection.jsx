@@ -17,6 +17,7 @@ import {
 } from 'react-icons/fi';
 
 const PaymentSection = () => {
+<<<<<<< HEAD
   // Static data matching the image to achieve the exact UI
   const invoices = [
     { id: 'INV-2026-067', period: 'May 26 - Jun 25, 2026', amount: '₹32,000', date: 'Jun 25, 2026', status: 'Due Soon' },
@@ -24,6 +25,145 @@ const PaymentSection = () => {
     { id: 'INV-2026-065', period: 'Mar 26 - Apr 25, 2026', amount: '₹32,000', date: 'Apr 25, 2026', status: 'Paid' },
     { id: 'INV-2026-064', period: 'Feb 26 - Mar 25, 2026', amount: '₹32,000', date: 'Mar 25, 2026', status: 'Paid' },
     { id: 'INV-2026-063', period: 'Jan 26 - Feb 25, 2026', amount: '₹32,000', date: 'Feb 25, 2026', status: 'Paid' },
+=======
+  const [client, setClient] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [companyInfo, setCompanyInfo] = useState({
+    companyCode: '',
+    companyIdentifier: ''
+  });
+
+  const isMounted = useRef(true);
+  const initialFetchDone = useRef(false);
+
+  const api = axios.create({
+    baseURL: `${API_URL}/clientsservice`,
+    timeout: 10000,
+  });
+
+  const addAuthInterceptor = (axiosInstance) => {
+    axiosInstance.interceptors.request.use(
+      (config) => {
+        const token = getAuthToken();
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+  };
+
+  addAuthInterceptor(api);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const fetchCompanyInfo = () => {
+      const companyCode = localStorage.getItem('companyCode') || '';
+      const companyIdentifier = localStorage.getItem('companyIdentifier') || '';
+      const company = localStorage.getItem('company') || '';
+      
+      setCompanyInfo({
+        companyCode: companyCode || company,
+        companyIdentifier: companyIdentifier
+      });
+    };
+
+    fetchCompanyInfo();
+  }, []);
+
+  const fetchClientData = async () => {
+    try {
+      if (!isMounted.current) return;
+      setLoading(true);
+      
+      const userStr = localStorage.getItem('user');
+      if (!userStr) {
+        setError('User not found. Please login again.');
+        return;
+      }
+
+      const user = JSON.parse(userStr);
+      
+      const response = await api.get('/', {
+        params: {
+          companyCode: companyInfo.companyCode,
+          companyIdentifier: companyInfo.companyIdentifier,
+          limit: 1000
+        }
+      });
+
+      if (response.data?.success && isMounted.current) {
+        const allClients = response.data.data || [];
+        
+        let currentClient = allClients.find(c => 
+          c.email === user.email || 
+          c.client === user.name ||
+          c._id === user.id ||
+          (c.projectManagers && c.projectManagers.some(pm => pm.email === user.email))
+        );
+        
+        if (!currentClient && allClients.length > 0) {
+          currentClient = allClients[0];
+        }
+        
+        setClient(currentClient);
+      } else {
+        setError('No client data found');
+      }
+    } catch (err) {
+      console.error('Error fetching client data:', err);
+      if (isMounted.current) {
+        setError(err.response?.data?.message || 'Failed to load payment section');
+      }
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleRenewalSuccess = () => {
+    fetchClientData();
+  };
+
+  useEffect(() => {
+    if ((companyInfo.companyCode || companyInfo.companyIdentifier) && !initialFetchDone.current) {
+      initialFetchDone.current = true;
+      fetchClientData();
+    }
+  }, [companyInfo.companyCode, companyInfo.companyIdentifier]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('companyCode');
+    localStorage.removeItem('companyIdentifier');
+    localStorage.removeItem('company');
+    window.location.href = '/login';
+  };
+
+  const latestSubscription = getLatestSubscription(client);
+  const subscriptionExpired = isSubscriptionExpired(latestSubscription);
+  const daysRemaining = getDaysRemaining(latestSubscription);
+  const planAmount = latestSubscription?.price || 1200;
+  const planStartDate = latestSubscription?.startDate || '2024-01-15';
+  const planEndDate = latestSubscription?.endDate || '2025-01-15';
+  const statusText = latestSubscription ? (subscriptionExpired ? 'Expired' : 'Active') : 'No Subscription';
+  const displayDaysRemaining = daysRemaining ?? 132;
+  const paymentHistory = [
+    { receipt: 'Receipt #REC-2024-001', transaction: 'TXN123456789', amount: planAmount, date: 'Jan 15, 2024' },
+    { receipt: 'Receipt #REC-2023-002', transaction: 'TXN987654321', amount: planAmount, date: 'Jan 15, 2023' },
+    { receipt: 'Receipt #REC-2022-003', transaction: 'TXN456789123', amount: planAmount, date: 'Jan 15, 2022' }
+>>>>>>> fd780ecddc0cf3b551a3b417cb8aba38592dfb87
   ];
 
   return (

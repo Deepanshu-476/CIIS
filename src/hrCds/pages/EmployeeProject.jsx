@@ -27,6 +27,7 @@ const EmployeeProject = () => {
   const [selectedPdfUrl, setSelectedPdfUrl] = useState("");
   const [selectedPdfName, setSelectedPdfName] = useState("");
   const [tabValue, setTabValue] = useState(0);
+  const [taskFilter, setTaskFilter] = useState("all");
   const [stats, setStats] = useState({
     totalTasks: 0,
     completedTasks: 0,
@@ -94,6 +95,8 @@ const EmployeeProject = () => {
     NoProjects: () => <span className="EmployeeProject-icon">📭</span>
   };
 
+  const normalizeTaskStatus = (status) => String(status || "pending").trim().toLowerCase().replace(/-/g, " ");
+
   // ✅ Load all projects with page loader
   useEffect(() => {
     const loadData = async () => {
@@ -116,17 +119,15 @@ const EmployeeProject = () => {
   }, []);
 
   useEffect(() => {
-    if (tasks.length > 0) {
-      const completed = tasks.filter(t => t.status === "completed").length;
-      const pending = tasks.filter(t => t.status === "pending").length;
-      const inProgress = tasks.filter(t => t.status === "in progress").length;
-      setStats({
-        totalTasks: tasks.length,
-        completedTasks: completed,
-        pendingTasks: pending,
-        inProgressTasks: inProgress
-      });
-    }
+    const completed = tasks.filter(t => normalizeTaskStatus(t.status) === "completed").length;
+    const pending = tasks.filter(t => normalizeTaskStatus(t.status) === "pending").length;
+    const inProgress = tasks.filter(t => normalizeTaskStatus(t.status) === "in progress").length;
+    setStats({
+      totalTasks: tasks.length,
+      completedTasks: completed,
+      pendingTasks: pending,
+      inProgressTasks: inProgress
+    });
   }, [tasks]);
 
   const loadProjects = async () => {
@@ -151,6 +152,7 @@ const EmployeeProject = () => {
       setProjectDetails(res.data);
       setProjectUsers(res.data.users || []);
       setTasks(res.data.tasks || []);
+      setTaskFilter("all");
       setTabValue(0); // Reset to tasks tab
     } catch (error) {
       console.error("Error loading project details:", error);
@@ -187,7 +189,7 @@ const EmployeeProject = () => {
 
     } catch (error) {
       console.error("Error updating task status:", error);
-      showSnackbar("Error updating task status", "error");
+      showSnackbar(error.response?.data?.message || "Error updating task status", "error");
     } finally {
       setLoading(prev => ({ ...prev, tasks: false }));
     }
@@ -398,7 +400,7 @@ const EmployeeProject = () => {
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
+    switch (normalizeTaskStatus(status)) {
       case "completed": return "#66BB6A";
       case "in progress": return "#29B6F6";
       case "pending": return "#FFA726";
@@ -410,14 +412,26 @@ const EmployeeProject = () => {
 
   const getTaskProgress = () => {
     if (tasks.length === 0) return 0;
-    const completed = tasks.filter(t => t.status === "completed").length;
+    const completed = tasks.filter(t => normalizeTaskStatus(t.status) === "completed").length;
     return Math.round((completed / tasks.length) * 100);
   };
 
+  const filteredTasks = taskFilter === "all"
+    ? tasks
+    : tasks.filter(task => normalizeTaskStatus(task.status) === taskFilter);
+
   const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
 
-  const StatCard = ({ icon, value, label, color, subtext, trend }) => (
-    <div className="EmployeeProject-stat-card" style={{ borderLeftColor: color }}>
+  const StatCard = ({ icon, value, label, color, subtext, trend, filter, active }) => (
+    <button
+      type="button"
+      className={`EmployeeProject-stat-card EmployeeProject-stat-card-clickable ${active ? 'EmployeeProject-stat-card-active' : ''}`}
+      style={{ borderLeftColor: color }}
+      onClick={() => {
+        setTaskFilter(filter);
+        setTabValue(0);
+      }}
+    >
       <div className="EmployeeProject-stat-content">
         <div className="EmployeeProject-stat-text">
           <h3 className="EmployeeProject-stat-value" style={{ color }}>{value}</h3>
@@ -436,7 +450,7 @@ const EmployeeProject = () => {
           <span style={{ color }}>{trend}</span>
         </div>
       )}
-    </div>
+    </button>
   );
 
   const Chip = ({ label, color, icon, variant = "default" }) => (
@@ -604,6 +618,8 @@ const EmployeeProject = () => {
                 label="Total Tasks"
                 color="#667eea"
                 subtext="This project"
+                filter="all"
+                active={taskFilter === "all"}
               />
             </div>
             <div className="EmployeeProject-stat-item">
@@ -613,6 +629,8 @@ const EmployeeProject = () => {
                 label="Completed"
                 color="#66BB6A"
                 trend={`${getTaskProgress()}% of total`}
+                filter="completed"
+                active={taskFilter === "completed"}
               />
             </div>
             <div className="EmployeeProject-stat-item">
@@ -621,6 +639,8 @@ const EmployeeProject = () => {
                 value={stats.inProgressTasks}
                 label="In Progress"
                 color="#29B6F6"
+                filter="in progress"
+                active={taskFilter === "in progress"}
               />
             </div>
             <div className="EmployeeProject-stat-item">
@@ -629,6 +649,8 @@ const EmployeeProject = () => {
                 value={stats.pendingTasks}
                 label="Pending"
                 color="#FFA726"
+                filter="pending"
+                active={taskFilter === "pending"}
               />
             </div>
           </div>
@@ -841,9 +863,15 @@ const EmployeeProject = () => {
                       Create First Task
                     </button>
                   </div>
+                ) : filteredTasks.length === 0 ? (
+                  <div className="EmployeeProject-empty-state">
+                    <Icons.Task />
+                    <h3>No {taskFilter === "all" ? "" : taskFilter} tasks found</h3>
+                    <p>Click another status card to view different tasks.</p>
+                  </div>
                 ) : (
                   <div className="EmployeeProject-tasks-list">
-                    {tasks.map((t) => (
+                    {filteredTasks.map((t) => (
                       <div className="EmployeeProject-task-card" key={t._id} style={{ borderLeftColor: getStatusColor(t.status) }}>
                         <div className="EmployeeProject-task-content">
                           <div className="EmployeeProject-task-header">

@@ -29,27 +29,6 @@
   font-weight: 600;
 }
 
-.DocumentsPage-topActions {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  min-width: 0;
-}
-
-.DocumentsPage-searchTop {
-  width: 430px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 14px;
-  border: 1px solid #dfe5ee;
-  border-radius: 8px;
-  background: #fff;
-  color: #7a8799;
-}
-
-.DocumentsPage-searchTop input,
 .DocumentsPage-docSearch input {
   width: 100%;
   min-width: 0;
@@ -61,69 +40,13 @@
   font-size: 12px;
 }
 
-.DocumentsPage-bell,
-.DocumentsPage-user,
 .DocumentsPage-toolbar button,
 .DocumentsPage-upload,
 .DocumentsPage-more,
 .DocumentsPage-pagination button,
-.DocumentsPage-quick button,
-.DocumentsPage-storage button,
-.DocumentsPage-help button {
+.DocumentsPage-quick button {
   font: inherit;
   cursor: pointer;
-}
-
-.DocumentsPage-bell {
-  position: relative;
-  width: 36px;
-  height: 36px;
-  border: 0;
-  background: transparent;
-  color: #0f172a;
-  font-size: 21px;
-}
-
-.DocumentsPage-bell span {
-  position: absolute;
-  top: -5px;
-  right: -1px;
-  width: 20px;
-  height: 20px;
-  display: grid;
-  place-items: center;
-  border: 2px solid #fff;
-  border-radius: 999px;
-  background: #ef233c;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 900;
-}
-
-.DocumentsPage-user {
-  height: 40px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 0;
-  background: transparent;
-  color: #101827;
-}
-
-.DocumentsPage-user b {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: #7454f6;
-  color: #fff;
-  font-size: 17px;
-}
-
-.DocumentsPage-user strong {
-  font-size: 13px;
-  font-weight: 900;
 }
 
 .DocumentsPage-stats {
@@ -227,8 +150,7 @@
   font-weight: 600;
 }
 
-.DocumentsPage-storageMini span,
-.DocumentsPage-progress {
+.DocumentsPage-storageMini span {
   height: 6px;
   display: block;
   overflow: hidden;
@@ -236,8 +158,7 @@
   background: #e6e9ef;
 }
 
-.DocumentsPage-storageMini i,
-.DocumentsPage-progress i {
+.DocumentsPage-storageMini i {
   display: block;
   width: 2%;
   height: 100%;
@@ -303,7 +224,8 @@
 }
 
 .DocumentsPage-docSearch,
-.DocumentsPage-toolbar button {
+.DocumentsPage-toolbar button,
+.DocumentsPage-toolbar .DocumentsPage-upload {
   height: 36px;
   display: flex;
   align-items: center;
@@ -324,6 +246,27 @@
   background: #0867e8;
   color: #fff;
   font-weight: 900;
+}
+
+.DocumentsPage-toolbar .DocumentsPage-upload input {
+  display: none;
+}
+
+.DocumentsPage-inlineNotice {
+  margin: 0 14px 14px;
+  padding: 10px 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.DocumentsPage-inlineNotice.is-error {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #b91c1c;
 }
 
 .DocumentsPage-tableWrap {
@@ -412,6 +355,37 @@
   color: #38506f;
 }
 
+.DocumentsPage-rowActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.DocumentsPage-deleteAction {
+  color: #dc2626;
+}
+
+.DocumentsPage-trashBadge {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.DocumentsPage-emptyRow {
+  padding: 24px;
+  color: #64748b;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .DocumentsPage-pagination {
   display: flex;
   align-items: center;
@@ -496,57 +470,15 @@
 }
 
 .DocumentsPage-quick small,
-.DocumentsPage-help p,
-.DocumentsPage-storage p {
+.DocumentsPage-quick small {
   color: #5f6c80;
   font-size: 11px;
   font-weight: 600;
 }
 
-.DocumentsPage-storage p {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin: 0 0 16px;
-}
-
-.DocumentsPage-storage p strong {
-  color: #111827;
-}
-
-.DocumentsPage-progress {
-  margin-bottom: 28px;
-}
-
-.DocumentsPage-storage button,
-.DocumentsPage-help button {
-  width: 100%;
-  height: 38px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  border: 1px solid #dfe5ee;
-  border-radius: 5px;
-  background: #fff;
-  color: #0867e8;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.DocumentsPage-help p {
-  margin: 0 0 22px;
-  line-height: 1.8;
-}
-
 @media (max-width: 1280px) {
-  .DocumentsPage-header,
-  .DocumentsPage-topActions {
+  .DocumentsPage-header {
     flex-wrap: wrap;
-  }
-
-  .DocumentsPage-searchTop {
-    width: min(100%, 460px);
   }
 
   .DocumentsPage-stats,
@@ -558,11 +490,6 @@
 @media (max-width: 760px) {
   .DocumentsPage-root {
     padding: 18px 14px 24px;
-  }
-
-  .DocumentsPage-topActions,
-  .DocumentsPage-searchTop {
-    width: 100%;
   }
 
   .DocumentsPage-stats,

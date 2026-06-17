@@ -58,8 +58,8 @@ const CiisFooter = () => {
             <h4 className="ciis-footer-title">Legal</h4>
             <ul className="ciis-footer-list">
               <li><Link to="/privacy-policy" className="ciis-footer-link">Privacy Policy</Link></li>
-              <li><a href="#terms" className="ciis-footer-link">Terms of Service</a></li>
-              <li><a href="#cookies" className="ciis-footer-link">Cookie Policy</a></li>
+              <li><Link to="/terms" className="ciis-footer-link">Terms of Service</Link></li>
+              <li><Link to="/cookies" className="ciis-footer-link">Cookie Policy</Link></li>
             </ul>
           </div>
 
@@ -86,7 +86,7 @@ const CiisFooter = () => {
         <div className="ciis-footer-bottom">
           <div className="ciis-bottom-content">
 
-              <Link to="https://cds.ciisnetwork.in/company/CAREER/login">
+              <Link to="/company/CAREER/login">
               <p className="ciis-copyright">
               
               © 2025 CIIS Network. All rights reserved.
@@ -99,9 +99,9 @@ const CiisFooter = () => {
             <div className="ciis-legal-links">
               <Link to="/privacy-policy" className="ciis-legal-link">Privacy</Link>
               <span className="ciis-link-separator">•</span>
-              <a href="#terms" className="ciis-legal-link">Terms</a>
+              <Link to="/terms" className="ciis-legal-link">Terms</Link>
               <span className="ciis-link-separator">•</span>
-              <a href="#cookies" className="ciis-legal-link">Cookies</a>
+              <Link to="/cookies" className="ciis-legal-link">Cookies</Link>
             </div>
             
             <div className="ciis-social-links">

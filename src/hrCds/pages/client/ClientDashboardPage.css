@@ -98,7 +98,7 @@
 
 .ClientDashboard-update-strip {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
+  grid-template-columns: 24px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   padding-top: 16px;
@@ -277,8 +277,28 @@ button {
   column-gap: 12px;
   padding: 14px 14px 12px;
   overflow: hidden;
+  border: 1px solid #e7ebf4;
   border-radius: 10px;
+  text-align: left;
+  cursor: pointer;
   box-shadow: 0 8px 22px rgba(22, 34, 75, 0.06);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.ClientDashboard-kpi-card:hover,
+.ClientDashboard-kpi-card--active {
+  border-color: #8fb0ff;
+  box-shadow: 0 12px 26px rgba(37, 99, 235, 0.12);
+  transform: translateY(-1px);
+}
+
+.ClientDashboard-kpi-card--active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(37, 99, 235, 0.25);
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 .ClientDashboard-kpi-card .ClientDashboard-icon {
@@ -604,6 +624,14 @@ button {
 .ClientDashboard-service-table-row button {
   border: 0;
   background: transparent;
+}
+
+.ClientDashboard-empty-row {
+  padding: 18px 0 4px;
+  border-top: 1px solid #eef2f8;
+  color: #6a748e;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .ClientDashboard-team-cell {
@@ -934,6 +962,170 @@ button {
   color: #1d55d8;
 }
 
+.ClientDashboard-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(14, 23, 48, 0.46);
+}
+
+.ClientDashboard-details-modal {
+  width: min(860px, 100%);
+  max-height: min(78vh, 720px);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  border: 1px solid #e3e8f4;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+}
+
+.ClientDashboard-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e9edf5;
+}
+
+.ClientDashboard-modal-head span {
+  color: #66718b;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.ClientDashboard-modal-head h3 {
+  margin: 3px 0 0;
+  color: #111a36;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.ClientDashboard-modal-head button {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e2e8f3;
+  border-radius: 8px;
+  background: #fff;
+  color: #18223f;
+  cursor: pointer;
+}
+
+.ClientDashboard-modal-table,
+.ClientDashboard-modal-list {
+  overflow: auto;
+  padding: 16px 20px 20px;
+}
+
+.ClientDashboard-modal-table-head,
+.ClientDashboard-modal-table-row {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr 0.8fr 0.8fr 0.65fr 0.75fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.ClientDashboard-modal-table-head {
+  padding-bottom: 10px;
+  color: #66718b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.ClientDashboard-modal-table-row,
+.ClientDashboard-modal-list-item,
+.ClientDashboard-modal-ticket {
+  min-height: 48px;
+  border-top: 1px solid #eef2f8;
+}
+
+.ClientDashboard-modal-table-row {
+  color: #3b4662;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ClientDashboard-modal-table-row strong {
+  color: #111a36;
+  font-weight: 800;
+}
+
+.ClientDashboard-modal-table-row em {
+  justify-self: start;
+}
+
+.ClientDashboard-modal-list {
+  display: grid;
+  gap: 0;
+}
+
+.ClientDashboard-modal-list-item,
+.ClientDashboard-modal-ticket {
+  display: grid;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.ClientDashboard-modal-list-item {
+  grid-template-columns: 34px minmax(0, 1fr);
+}
+
+.ClientDashboard-modal-ticket {
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+}
+
+.ClientDashboard-modal-list-item p,
+.ClientDashboard-modal-ticket p {
+  margin: 0;
+}
+
+.ClientDashboard-modal-list-item strong,
+.ClientDashboard-modal-ticket strong {
+  display: block;
+  color: #18223f;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ClientDashboard-modal-list-item small,
+.ClientDashboard-modal-ticket span {
+  display: block;
+  margin-top: 3px;
+  color: #68738d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ClientDashboard-modal-ticket > svg {
+  color: #62708f;
+}
+
+.ClientDashboard-modal-ticket em {
+  padding: 6px 9px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.ClientDashboard-modal-empty {
+  margin: 0;
+  padding: 20px 0 4px;
+  border-top: 1px solid #eef2f8;
+  color: #6a748e;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .ClientDashboard-dashboard-loading,
 .ClientDashboard-dashboard-error {
   min-height: 500px;
@@ -1077,5 +1269,29 @@ button {
     position: static;
     width: max-content;
     margin-bottom: 12px;
+  }
+
+  .ClientDashboard-modal-backdrop {
+    padding: 12px;
+  }
+
+  .ClientDashboard-modal-table-head {
+    display: none;
+  }
+
+  .ClientDashboard-modal-table-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    align-items: start;
+    padding: 12px 0;
+  }
+
+  .ClientDashboard-modal-ticket {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  .ClientDashboard-modal-ticket em {
+    grid-column: 2;
+    justify-self: start;
   }
 }

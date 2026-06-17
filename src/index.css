@@ -55,7 +55,7 @@
 
 /* Integration Container (Merged with Previous) */
 .integration-container {
-  background-image: url(/src/image/home-integration.webp);
+  background-image: url('/image.png');
   height: 31.25rem;
   max-width: 62.5rem;
   background-size: contain !important;

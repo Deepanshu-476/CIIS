@@ -26,11 +26,8 @@ release/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
 <<<<<<< HEAD
 
-=======
 node_modules
 =======
 >>>>>>> b744a94ea0feb176435ea22549a1e43fa37cf38a
->>>>>>> efe6a93d35a5661b8cf9fd633b6d943928c54f03

@@ -129,7 +129,7 @@ function Ciis() {
                 
                 in action"
                 buttonText="Schedule Your Demo"
-                backgroundImage="/src/image/ciis/background-cta.webp"
+                backgroundImage="/image.png"
                 onClick={() => alert("Demo scheduled")}
             />
             {/*  */}

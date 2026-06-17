@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import CIISLoader from '../../../Loader/CIISLoader';
 import {
   FiBarChart2,
   FiBriefcase,
@@ -11,9 +12,6 @@ import {
   FiClock,
   FiFileText,
   FiHeadphones,
-  FiMail,
-  FiMessageSquare,
-  FiPhone,
   FiRefreshCw,
   FiSearch,
   FiSend,
@@ -35,7 +33,6 @@ import './MyServicesPage.css';
 
 const getInitials = value => String(value || 'U').trim().slice(0, 1).toUpperCase();
 const tones = ['blue', 'green', 'coral', 'violet', 'sky', 'rose'];
-
 const getServiceIcon = service => {
   const name = String(service || '').toLowerCase();
   if (name.includes('web')) return <MdOutlineWeb />;
@@ -64,6 +61,7 @@ const MyServicesPage = () => {
     const latestSubscription = client?.subscription?.[client?.subscription?.length - 1];
 
     return {
+      rawTitle: serviceName,
       title: serviceName,
       description: latestTask ? `Latest task: ${getTaskTitle(latestTask)}` : `${serviceName} service is active for your account.`,
       status: serviceTasks.length && progress === 100 ? 'Completed' : serviceTasks.length ? 'In Progress' : 'Active',
@@ -131,7 +129,7 @@ const MyServicesPage = () => {
 
   const timeline = filteredServices[0] ? [
     { title: 'Started', date: filteredServices[0].start, state: 'Completed', tone: 'done', icon: <FiCheck /> },
-    { title: 'Tasks', date: `${tasks.filter(task => task.serviceName === filteredServices[0].title).length} total`, state: 'Active', tone: 'active', icon: <FiBarChart2 /> },
+    { title: 'Tasks', date: `${tasks.filter(task => task.serviceName === filteredServices[0].rawTitle).length} total`, state: 'Active', tone: 'active', icon: <FiBarChart2 /> },
     { title: 'Progress', date: `${filteredServices[0].progress}%`, state: filteredServices[0].status, tone: 'active', icon: <FiClock /> },
     { title: 'Renewal', date: filteredServices[0].end, state: 'Upcoming', tone: 'next', icon: <FiSend /> }
   ] : [];
@@ -139,7 +137,7 @@ const MyServicesPage = () => {
   const getServiceTasks = serviceName => tasks.filter(task => task.serviceName === serviceName);
 
   if (loading) {
-    return <div className="MyServices-empty"><FiRefreshCw /><strong>Loading services...</strong></div>;
+    return <CIISLoader />;
   }
 
   if (error || !client) {
@@ -205,7 +203,7 @@ const MyServicesPage = () => {
               {filteredServices.length ? (
                 <div className="MyServices-grid">
                   {filteredServices.map(service => (
-                    <article className="MyServices-card" key={service.title}>
+                    <article className="MyServices-card" key={service.rawTitle}>
                       <div className="MyServices-card-top">
                         <span className={`MyServices-service-icon ${service.tone}`}>{service.icon}</span>
                         <div className="MyServices-card-copy"><h2>{service.title}</h2><p>{service.description}</p></div>
@@ -217,7 +215,7 @@ const MyServicesPage = () => {
                       </div>
                       <div className="MyServices-progress-row">
                         <div className="MyServices-avatars">
-                          {service.team.map(person => <span key={`${service.title}-${person.email || person.name}`}>{getInitials(person.name)}</span>)}
+                          {service.team.map(person => <span key={`${service.rawTitle}-${person.email || person.name}`}>{getInitials(person.name)}</span>)}
                           {service.more > 0 && <span>+{service.more}</span>}
                         </div>
                         <strong>{service.progress}%</strong>
@@ -248,15 +246,6 @@ const MyServicesPage = () => {
                 </div>
               </section>
 
-              <section className="MyServices-team-panel">
-                <header><h3>Team Assigned</h3><button type="button">View All</button></header>
-                {projectManagers.map(person => (
-                  <div className="MyServices-team-row" key={person.email || person.name}>
-                    <i>{getInitials(person.name)}</i><strong>{person.name}</strong><span>{person.role}</span>
-                  </div>
-                ))}
-                {projectManagers.length === 0 && <div className="MyServices-team-row"><i>0</i><strong>No team assigned</strong><span>Project Team</span></div>}
-              </section>
             </div>
           </div>
 
@@ -297,18 +286,6 @@ const MyServicesPage = () => {
               </div>
             </section>
 
-            <section className="MyServices-side-panel MyServices-manager">
-              <header><h3><FiUsers /> Your Account Manager</h3><button type="button">View Profile</button></header>
-              <div className="MyServices-manager-info">
-                <div className="MyServices-manager-photo"><i>{getInitials(projectManagers[0]?.name || client.client || client.name)}</i><span /></div>
-                <div>
-                  <strong>{projectManagers[0]?.name || 'Account Manager'}</strong><p>{projectManagers[0]?.role || 'Account Manager'}</p>
-                  {projectManagers[0]?.email && <a href={`mailto:${projectManagers[0].email}`}><FiMail /> {projectManagers[0].email}</a>}
-                  {projectManagers[0]?.phone && <a href={`tel:${projectManagers[0].phone}`}><FiPhone /> {projectManagers[0].phone}</a>}
-                </div>
-              </div>
-              <button className="MyServices-message" type="button"><FiMessageSquare /> Message Manager</button>
-            </section>
           </aside>
         </div>
       </div>
@@ -326,7 +303,7 @@ const MyServicesPage = () => {
                 <span>Progress<strong>{detailsService.progress}%</strong></span>
                 <span>Start Date<strong>{detailsService.start}</strong></span>
                 <span>End Date<strong>{detailsService.end}</strong></span>
-                <span>Total Tasks<strong>{getServiceTasks(detailsService.title).length}</strong></span>
+                <span>Total Tasks<strong>{getServiceTasks(detailsService.rawTitle).length}</strong></span>
                 <span>Team Members<strong>{projectManagers.length}</strong></span>
               </div>
               <p className="MyServices-detailText">{detailsService.description}</p>
@@ -343,9 +320,9 @@ const MyServicesPage = () => {
               <button type="button" onClick={() => setTasksService(null)} aria-label="Close"><FiX /></button>
             </header>
             <div className="MyServices-modalBody">
-              {getServiceTasks(tasksService.title).length ? (
+              {getServiceTasks(tasksService.rawTitle).length ? (
                 <div className="MyServices-taskList">
-                  {getServiceTasks(tasksService.title).map(task => (
+                  {getServiceTasks(tasksService.rawTitle).map(task => (
                     <div className="MyServices-taskRow" key={task._id || task.id || `${tasksService.title}-${getTaskTitle(task)}`}>
                       <div>
                         <strong>{getTaskTitle(task)}</strong>

@@ -15,6 +15,12 @@ class SocketService {
 
     console.log('🔌 Connecting to socket:', SOCKET_URL);
 
+    if (this.socket) {
+      this.socket.auth = { token };
+      this.socket.connect();
+      return this.socket;
+    }
+
     try {
       this.socket = io(SOCKET_URL, {
         auth: { token },
@@ -25,7 +31,7 @@ class SocketService {
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         timeout: 20000,
-        forceNew: true
+        forceNew: false
       });
 
       this.socket.on('connect', () => {

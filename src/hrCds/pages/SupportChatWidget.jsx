@@ -45,7 +45,7 @@ const mapTicket = ticket => ({
 });
 
 const SupportChatWidget = () => {
-  const [widgetOpen, setWidgetOpen] = useState(true);
+  const [widgetOpen, setWidgetOpen] = useState(false);
   const [widgetInput, setWidgetInput] = useState("");
   const [messages, setMessages] = useState(fallbackMessages);
   const [departments, setDepartments] = useState([]);

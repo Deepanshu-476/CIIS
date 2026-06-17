@@ -17,7 +17,6 @@
 
 .ServiceMarketplacePage-title h1,
 .ServiceMarketplacePage-panel h2,
-.ServiceMarketplacePage-sidePanel h2,
 .ServiceMarketplacePage-modal h2 {
   margin: 0;
   color: #101827;
@@ -36,34 +35,16 @@
   font-weight: 600;
 }
 
-.ServiceMarketplacePage-primaryButton,
 .ServiceMarketplacePage-serviceCard button,
 .ServiceMarketplacePage-moreButton,
-.ServiceMarketplacePage-customPanel button,
 .ServiceMarketplacePage-modal button {
   font: inherit;
   cursor: pointer;
 }
 
-.ServiceMarketplacePage-primaryButton {
-  height: 40px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 1px solid #0f5bea;
-  border-radius: 6px;
-  padding: 0 18px;
-  background: #0f5bea;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 900;
-  box-shadow: 0 8px 16px rgba(15, 91, 234, 0.16);
-}
-
 .ServiceMarketplacePage-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 310px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   align-items: start;
   margin-top: 14px;
@@ -76,7 +57,7 @@
 }
 
 .ServiceMarketplacePage-panel,
-.ServiceMarketplacePage-sidePanel {
+.ServiceMarketplacePage-enquiriesPanel {
   background: #fff;
   border: 1px solid #e4eaf2;
   border-radius: 10px;
@@ -93,8 +74,7 @@
   gap: 9px;
 }
 
-.ServiceMarketplacePage-panel h2,
-.ServiceMarketplacePage-sidePanel h2 {
+.ServiceMarketplacePage-panel h2 {
   font-size: 15px;
 }
 
@@ -110,8 +90,7 @@
 }
 
 .ServiceMarketplacePage-recommendedPanel > p,
-.ServiceMarketplacePage-sectionHeader p,
-.ServiceMarketplacePage-sidePanel p {
+.ServiceMarketplacePage-sectionHeader p {
   margin: 6px 0 0;
   color: #5f6b7e;
   font-size: 12px;
@@ -282,108 +261,8 @@
   font-weight: 900;
 }
 
-.ServiceMarketplacePage-sidebar {
-  display: grid;
-  gap: 14px;
-}
-
-.ServiceMarketplacePage-sidePanel {
-  padding: 16px;
-}
-
-.ServiceMarketplacePage-managerPanel .ServiceMarketplacePage-primaryButton {
-  width: 100%;
-  margin-top: 12px;
-}
-
-.ServiceMarketplacePage-manager {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 14px 0 12px;
-}
-
-.ServiceMarketplacePage-managerPhoto {
-  width: 58px;
-  height: 58px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #f59e0b, #0f5bea);
-  color: #fff;
-  font-size: 16px;
-  font-weight: 900;
-}
-
-.ServiceMarketplacePage-manager strong {
-  display: block;
-  color: #111827;
-  font-size: 15px;
-  font-weight: 900;
-}
-
-.ServiceMarketplacePage-manager span,
-.ServiceMarketplacePage-managerPanel a {
-  color: #5f6b7e;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.ServiceMarketplacePage-managerPanel a {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 9px;
-  text-decoration: none;
-}
-
-.ServiceMarketplacePage-checkList {
-  display: grid;
-  gap: 12px;
-  padding: 0;
-  margin: 14px 0 0;
-  list-style: none;
-}
-
-.ServiceMarketplacePage-checkList li {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: #263143;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.ServiceMarketplacePage-checkList svg {
-  width: 17px;
-  height: 17px;
-  padding: 3px;
-  border-radius: 999px;
-  background: #dcfce7;
-  color: #16a34a;
-}
-
-.ServiceMarketplacePage-customPanel {
-  background: #f0fff6;
-  border-color: #ccefd9;
-}
-
-.ServiceMarketplacePage-customPanel button {
-  height: 34px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-  border: 1px solid #16a34a;
-  border-radius: 5px;
-  padding: 0 14px;
-  background: #fff;
-  color: #15803d;
-  font-size: 12px;
-  font-weight: 900;
-}
-
 .ServiceMarketplacePage-enquiriesPanel {
+  padding: 14px 14px 12px;
   padding-bottom: 12px;
 }
 
@@ -632,9 +511,6 @@
     grid-template-columns: 1fr;
   }
 
-  .ServiceMarketplacePage-sidebar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 840px) {
@@ -647,13 +523,8 @@
   }
 
   .ServiceMarketplacePage-recommendedGrid,
-  .ServiceMarketplacePage-servicesGrid,
-  .ServiceMarketplacePage-sidebar {
+  .ServiceMarketplacePage-servicesGrid {
     grid-template-columns: 1fr;
-  }
-
-  .ServiceMarketplacePage-primaryButton {
-    width: 100%;
   }
 
   .ServiceMarketplacePage-contactGroup > div {

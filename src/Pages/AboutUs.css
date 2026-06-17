@@ -144,7 +144,17 @@
 .about-hero-stat {
   min-height: 138px;
   padding: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  border: 1px solid var(--about-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 16px 34px rgba(18, 48, 96, 0.06);
+  transition: 0.35s ease;
 }
+
 
 .about-hero-stat strong {
   display: block;
@@ -158,7 +168,7 @@
   color: #213458;
   font-size: 13px;
   font-weight: 700;
-}
+} 
 
 .about-dashboard-wrap {
   min-width: 0;
@@ -167,16 +177,20 @@
 .about-icon {
   width: 50px;
   height: 50px;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
   border-radius: 13px;
+  line-height: 1;
 }
 
 .about-icon svg {
+  display: block;
   width: 25px;
   height: 25px;
+  margin: 0;
+  vertical-align: middle;
   stroke-width: 2.4;
 }
 
@@ -357,7 +371,7 @@
 
 .about-metric-card span,
 .about-metric-card small {
-  display: block;
+  /* display: block; */ 
   color: #73819c;
   font-size: 9px;
   font-weight: 800;
@@ -373,7 +387,7 @@
 
 .about-dashboard .up {
   color: #12b76a !important;
-}
+ }
 
 .about-dashboard .down {
   color: #ef4444 !important;
@@ -509,6 +523,8 @@
 
 .about-progress-task {
   margin-top: 13px;
+  position: relative;
+
 }
 
 .about-progress-task span {
@@ -517,24 +533,55 @@
   color: #1b2c56;
   font-size: 10px;
   font-weight: 900;
+   margin-bottom: 6px;
+
 }
 
+/* 
 .about-progress-task::after {
   content: "";
   display: block;
   width: 100%;
   height: 4px;
-  margin-top: 7px;
+  /* margin-top: 7px; */
+  */
+
+
+
+/* .about-progress-task i {
+  display: block;
+  height: 4px;
+  width: 0%;
+  margin-top: -4px;
+  border-radius: 999px;
+  background: var(--about-blue);
+  margin-top: -4px;  
+  width: 0%;  /* default */
+
+ */
+.about-progress-task {
+  margin-top: 13px;
+  position: relative;
+}
+
+.about-progress-task::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
   border-radius: 999px;
   background: #e7edf8;
 }
 
 .about-progress-task i {
+  position: relative;
   display: block;
   height: 4px;
-  margin-top: -4px;
   border-radius: 999px;
   background: var(--about-blue);
+  z-index: 1;
 }
 
 .about-overview-card {
@@ -595,15 +642,24 @@
 
 .about-stat-card {
   min-height: 210px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
   padding: 34px 20px;
   text-align: center;
 }
 
 .about-stat-card .about-icon,
 .about-workflow-card .about-icon,
-.about-benefit-card .about-icon {
+.about-benefit-card .about-icon,
+.about-feature-card .about-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
   border-radius: 50%;
-  margin-bottom: 24px;
+  margin: 0 auto 24px;
 }
 
 .about-stat-card strong {
@@ -799,13 +855,15 @@
   display: grid;
   grid-template-columns: 74px 1fr;
   gap: 22px;
-  align-items: center;
+  align-items: flex-start;
   padding: 22px 26px;
 }
 
 .about-feature-card .about-icon {
   width: 58px;
   height: 58px;
+  margin-top: 2px;
+  align-self: flex-start;
 }
 
 .about-feature-card h3,
@@ -844,6 +902,10 @@
 .about-workflow-card,
 .about-benefit-card {
   min-height: 232px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
   padding: 24px 17px;
   text-align: center;
 }
@@ -956,7 +1018,8 @@
 
 @media (max-width: 900px) {
   .about-shell {
-    width: 90%;
+    width:min(96%,1600px);
+    margin:auto;
   }
 
   .about-hero-copy h1 {
@@ -1525,10 +1588,12 @@
 
   .about-role-content p {
     display: -webkit-box;
+    display: box;
     margin-bottom: 12px;
     overflow: hidden;
     font-size: 11px;
     line-height: 1.45;
+    line-clamp: 4;
     -webkit-line-clamp: 4;
     -webkit-box-orient: vertical;
   }

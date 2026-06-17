@@ -51,6 +51,66 @@ export const formatDateTime = value => {
   });
 };
 
+const mongoObjectIdPattern = /^[a-f\d]{24}$/i;
+
+const isMongoObjectId = value => mongoObjectIdPattern.test(String(value || ''));
+
+const getObjectIdDate = value => {
+  if (!isMongoObjectId(value)) return null;
+  const timestamp = parseInt(String(value).slice(0, 8), 16);
+  if (!Number.isFinite(timestamp)) return null;
+  return new Date(timestamp * 1000);
+};
+
+const compactPublicIdValue = value => String(value || '')
+  .trim()
+  .toUpperCase()
+  .replace(/[^A-Z0-9-]/g, '-')
+  .replace(/-+/g, '-')
+  .replace(/^-|-$/g, '');
+
+export const formatPublicId = (prefix, recordOrId, fallbackIndex = 0) => {
+  const record = typeof recordOrId === 'object' && recordOrId ? recordOrId : {};
+  const explicitId = [
+    record.publicId,
+    record.invoiceNumber,
+    record.receiptNumber,
+    record.enquiryNumber,
+    record.ticketNumber,
+    record.orderNumber,
+    record.orderId,
+    record.invoiceId,
+    record.receiptNo,
+  ].find(value => value && !isMongoObjectId(value));
+
+  if (explicitId) return compactPublicIdValue(explicitId);
+
+  const rawId = record._id || record.id || recordOrId || '';
+  const idDate = [
+    record.createdAt,
+    record.uploadDate,
+    record.paymentDate,
+    record.dueDate,
+    record.updatedAt,
+  ].map(value => (value ? new Date(value) : null)).find(date => date && !Number.isNaN(date.getTime()))
+    || getObjectIdDate(rawId)
+    || new Date();
+
+  const datePart = [
+    String(idDate.getFullYear()).slice(-2),
+    String(idDate.getMonth() + 1).padStart(2, '0'),
+    String(idDate.getDate()).padStart(2, '0'),
+  ].join('');
+
+  const rawText = String(rawId || `${prefix}-${fallbackIndex + 1}`).toUpperCase();
+  const suffixSource = isMongoObjectId(rawText)
+    ? parseInt(rawText.slice(-8), 16).toString(36).toUpperCase()
+    : compactPublicIdValue(rawText);
+  const suffix = (suffixSource || String(fallbackIndex + 1)).slice(-6).padStart(6, '0');
+
+  return `CIIS-${compactPublicIdValue(prefix || 'REF')}-${datePart}-${suffix}`;
+};
+
 export const getClientDisplayName = client => (
   client?.client || client?.name || client?.clientName || client?.company || 'Client'
 );
@@ -67,6 +127,16 @@ export const getInitials = value => {
 
 const normalizeMatchValue = value => String(value || '').trim().toLowerCase();
 const normalizePhoneValue = value => String(value || '').replace(/\D/g, '');
+
+const parseAdditionalDetails = value => {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return {};
+  }
+};
 
 const getIdValues = value => {
   if (!value) return [];
@@ -129,8 +199,10 @@ const getUserMatchValues = user => ({
     ...getIdValues(user?.userId),
     ...getIdValues(user?.clientId),
     ...getIdValues(user?.clientUserId),
+    ...getIdValues(user?.employeeType),
     ...getIdValues(user?.client),
-    ...getIdValues(user?.clientUser)
+    ...getIdValues(user?.clientUser),
+    ...getIdValues(parseAdditionalDetails(user?.additionalDetails)?.clientId)
   ],
   emails: [
     user?.email,
@@ -188,6 +260,10 @@ export const getPaymentReceipts = client => (
   Array.isArray(client?.paymentReceipts) ? client.paymentReceipts : []
 );
 
+export const getDueInvoices = client => (
+  Array.isArray(client?.dueInvoices) ? client.dueInvoices : []
+);
+
 export const getTaskTitle = task => (
   task?.name || task?.task || task?.title || task?.taskName || 'Project Task'
 );
@@ -227,21 +303,26 @@ export const calculateTaskStats = tasks => {
 export const calculatePaymentSummary = client => {
   const latest = getLatestSubscription(client);
   const receipts = getPaymentReceipts(client);
+  const dueInvoices = getDueInvoices(client).filter(invoice => (invoice?.status || 'Due') === 'Due');
   const subscriptionPrice = Number(latest?.price || client?.subscriptionPrice || 0);
-  const paidAmount = receipts.reduce((sum, receipt) => (
+  const paidAmount = receipts
+    .filter(receipt => String(receipt.status || '').toLowerCase() === 'approved' || !receipt.status)
+    .reduce((sum, receipt) => (
     sum + Number(receipt.amount || receipt.price || receipt.paidAmount || subscriptionPrice || 0)
   ), 0);
   const endDate = latest?.endDate || client?.subscriptionEndDate || '';
   const isExpired = endDate ? new Date(endDate) < new Date() : false;
-  const outstanding = isExpired ? subscriptionPrice : 0;
+  const dueAmount = dueInvoices.reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
+  const outstanding = dueAmount || (isExpired ? subscriptionPrice : 0);
 
   return {
     latest,
     receipts,
+    dueInvoices,
     paidAmount,
     outstanding,
-    unpaidInvoices: outstanding > 0 ? 1 : 0,
-    nextDueDate: endDate,
+    unpaidInvoices: dueInvoices.length || (outstanding > 0 ? 1 : 0),
+    nextDueDate: dueInvoices[0]?.dueDate || endDate,
     planName: latest?.plan || latest?.name || latest?.subscriptionName || client?.plan || 'Active Plan',
     billingCycle: latest?.billingCycle || latest?.cycle || `${latest?.months || 1} Month`,
     subscriptionPrice
@@ -432,11 +513,18 @@ export const useClientPortalData = () => {
       }
 
       const user = JSON.parse(userStr);
+      const storedClient = (() => {
+        try {
+          return JSON.parse(localStorage.getItem('client') || 'null');
+        } catch {
+          return null;
+        }
+      })();
       setUser(user);
       const companyCode = localStorage.getItem('companyCode') || localStorage.getItem('company') || '';
       const companyIdentifier = localStorage.getItem('companyIdentifier') || '';
       const [clientsResponse, companyUsers] = await Promise.all([
-        clientsApi.get('/', { params: { companyCode, companyIdentifier } }),
+        clientsApi.get('/', { params: { companyCode, companyIdentifier, limit: 1000 } }),
         fetchCompanyUsers(user)
       ]);
 
@@ -445,7 +533,13 @@ export const useClientPortalData = () => {
         return;
       }
 
-      const currentClient = (clientsResponse.data.data || []).find(item => isClientForLoggedInUser(item, user));
+      const allClients = clientsResponse.data.data || [];
+      const storedClientId = normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
+      const currentClient = (
+        storedClientId
+          ? allClients.find(item => normalizeMatchValue(item?._id || item?.id) === storedClientId)
+          : null
+      ) || allClients.find(item => isClientForLoggedInUser(item, user));
       if (!currentClient) {
         setClient(null);
         setServices([]);

@@ -40,7 +40,7 @@ const Login = () => {
   const [countdown, setCountdown] = useState(0);
 
   const navigate = useNavigate();
-  const { setUser, setIsAuthenticated } = useAuth();
+  const { setUser, setToken, setIsAuthenticated } = useAuth();
 
   // Extract company identifier from URL
   useEffect(() => {
@@ -191,6 +191,7 @@ const Login = () => {
       // Direct login without OTP (legacy flow - if any)
       if (res.data.token) {
         localStorage.setItem('token', res.data.token);
+        setToken?.(res.data.token);
       }
 
       if (res.data.user) {
@@ -198,6 +199,12 @@ const Login = () => {
         localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
         setIsAuthenticated(true);
+      }
+
+      if (res.data.client) {
+        localStorage.setItem('client', JSON.stringify(res.data.client));
+      } else {
+        localStorage.removeItem('client');
       }
 
       if (companyIdentifier) {
@@ -322,6 +329,7 @@ const Login = () => {
         // Save tokens and user data
         if (response.data.token) {
           localStorage.setItem('token', response.data.token);
+          setToken?.(response.data.token);
         }
 
         if (response.data.user) {
@@ -329,6 +337,12 @@ const Login = () => {
           localStorage.setItem('user', JSON.stringify(userData));
           setUser(userData);
           setIsAuthenticated(true);
+        }
+
+        if (response.data.client) {
+          localStorage.setItem('client', JSON.stringify(response.data.client));
+        } else {
+          localStorage.removeItem('client');
         }
 
         // Save company info
@@ -423,7 +437,9 @@ const Login = () => {
       });
 
       if (response.data.success) {
-        toast.success('OTP sent to your email!');
+        toast.success(response.data.devOtp
+          ? `OTP generated: ${response.data.devOtp}`
+          : 'OTP sent to your email!');
         setForgotPasswordStep('reset');
       }
 
@@ -454,7 +470,7 @@ const Login = () => {
 
     try {
       const resetContext = companyIdentifier ? { companyCode: companyIdentifier } : {};
-      const response = await axios.post('/auth/reset-password', {
+      await axios.post('/auth/reset-password', {
         email: forgotPasswordEmail,
         otp: otpCode,
         newPassword: newPassword,

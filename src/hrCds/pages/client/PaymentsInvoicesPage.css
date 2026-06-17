@@ -595,3 +595,29 @@
     padding: 20px 0 16px;
   }
 }
+
+.PaymentsPage-proofForm {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.PaymentsPage-proofForm h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.PaymentsPage-proofForm input,
+.PaymentsPage-proofForm select {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 700;
+}

@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import axios from "axios";
 import {
-  FiBell,
   FiBox,
   FiChevronDown,
   FiChevronLeft,
@@ -10,27 +10,43 @@ import {
   FiFileText,
   FiFilter,
   FiFolder,
-  FiHeadphones,
   FiMoreVertical,
   FiSearch,
-  FiSettings,
   FiShare2,
   FiTrash2,
   FiUploadCloud,
 } from "react-icons/fi";
+import CIISLoader from "../../../Loader/CIISLoader";
+import API_URL from "../../../config";
 import {
-  buildClientDocuments,
   getClientDisplayName,
-  getUserDisplayName,
   useClientPortalData,
 } from "../../utils/clientPortalData";
 import "./DocumentsPage.css";
+
+const clientDocumentsApi = axios.create({
+  baseURL: `${API_URL}/client-documents`,
+  timeout: 20000,
+});
+
+clientDocumentsApi.interceptors.request.use(config => {
+  const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
 const quickActions = [
   { icon: <FiUploadCloud />, title: "Upload Document", text: "Upload files to your account" },
   { icon: <FiFileText />, title: "Request Document", text: "Request documents from our team" },
   { icon: <FiShare2 />, title: "Shared Documents", text: "View documents shared with you" },
   { icon: <FiTrash2 />, title: "Trash", text: "View and restore deleted files" },
+];
+
+const documentTabs = [
+  { id: "all", label: "All Documents" },
+  { id: "shared", label: "Shared With You" },
+  { id: "uploads", label: "My Uploads" },
+  { id: "trash", label: "Trash" },
 ];
 
 const iconMap = {
@@ -40,16 +56,163 @@ const iconMap = {
   folder: <span className="DocumentsPage-folderIcon"><FiFolder /></span>,
 };
 
+const formatDate = value => {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const formatBytes = bytes => {
+  const size = Number(bytes || 0);
+  if (!size) return "0 KB";
+  if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const formatUploadedDocument = doc => ({
+  ...doc,
+  name: doc.name || doc.originalName || "Document",
+  type: doc.type || "Uploaded Document",
+  category: doc.category || "General",
+  date: formatDate(doc.updatedAt || doc.createdAt),
+  by: doc.uploadedBy || "User",
+  size: formatBytes(doc.size),
+  icon: "uploaded",
+  isUploaded: true,
+});
+
 const DocumentsPage = () => {
-  const { client, tasks, projectManagers, user, loading, error, refetch } = useClientPortalData();
-  const documents = buildClientDocuments({ client, tasks, projectManagers });
-  const visibleDocuments = documents.slice(0, 8);
+  const { client, tasks, user, loading, error, refetch } = useClientPortalData();
+  const [uploadedDocuments, setUploadedDocuments] = useState([]);
+  const [trashedDocuments, setTrashedDocuments] = useState([]);
+  const [documentLoading, setDocumentLoading] = useState(false);
+  const [documentError, setDocumentError] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState("all");
+  const documents = useMemo(() => uploadedDocuments.map(formatUploadedDocument), [uploadedDocuments]);
+  const trashDocuments = useMemo(() => trashedDocuments.map(formatUploadedDocument), [trashedDocuments]);
+  const currentTabDocuments = useMemo(() => {
+    if (activeTab === "shared") return documents.filter(doc => doc.uploadedByRole === "company");
+    if (activeTab === "uploads") return documents.filter(doc => doc.uploadedByRole === "client");
+    if (activeTab === "trash") return trashDocuments;
+    return documents;
+  }, [activeTab, documents, trashDocuments]);
+  const filteredDocuments = useMemo(() => (
+    currentTabDocuments.filter(doc => {
+      const query = search.trim().toLowerCase();
+      if (!query) return true;
+      return `${doc.name} ${doc.category} ${doc.type} ${doc.by}`.toLowerCase().includes(query);
+    })
+  ), [currentTabDocuments, search]);
+  const visibleDocuments = filteredDocuments.slice(0, 8);
   const clientName = getClientDisplayName(client);
-  const userName = getUserDisplayName(user);
   const recentCount = documents.filter(doc => doc.date !== 'N/A').length;
 
+  const loadUploadedDocuments = async () => {
+    if (!client?._id) return;
+
+    try {
+      setDocumentLoading(true);
+      setDocumentError("");
+      const response = await clientDocumentsApi.get("/", {
+        params: { clientId: client._id },
+      });
+      const trashResponse = await clientDocumentsApi.get("/", {
+        params: { clientId: client._id, trash: true },
+      });
+      setUploadedDocuments(response.data?.data || []);
+      setTrashedDocuments(trashResponse.data?.data || []);
+    } catch (err) {
+      console.error("Failed to load client documents", err);
+      setDocumentError(err.response?.data?.message || "Failed to load uploaded documents");
+    } finally {
+      setDocumentLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadUploadedDocuments();
+  }, [client?._id]);
+
+  const handleUploadDocument = async event => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !client?._id) return;
+
+    try {
+      setUploading(true);
+      setDocumentError("");
+
+      const formData = new FormData();
+      formData.append("clientId", client._id);
+      formData.append("category", "Client Upload");
+      formData.append("document", file);
+
+      const response = await clientDocumentsApi.post("/", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      if (response.data?.data) {
+        setUploadedDocuments(prev => [response.data.data, ...prev]);
+        setActiveTab("uploads");
+      }
+    } catch (err) {
+      console.error("Document upload failed", err);
+      setDocumentError(err.response?.data?.message || "Document upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDownloadDocument = async doc => {
+    if (!doc?._id) return;
+
+    try {
+      const response = await clientDocumentsApi.get(`/${doc._id}/download`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = doc.name || doc.originalName || "document";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Document download failed", err);
+      setDocumentError(err.response?.data?.message || "Document download failed");
+    }
+  };
+
+  const handleDeleteDocument = async doc => {
+    if (!doc?._id) return;
+    if (!doc.canDelete) {
+      setDocumentError("Only the uploader can delete this document");
+      return;
+    }
+
+    try {
+      setDocumentError("");
+      const response = await clientDocumentsApi.delete(`/${doc._id}`);
+      const deleted = response.data?.data || doc;
+      setUploadedDocuments(prev => prev.filter(item => item._id !== doc._id));
+      setTrashedDocuments(prev => [deleted, ...prev]);
+      setActiveTab("trash");
+    } catch (err) {
+      console.error("Document delete failed", err);
+      setDocumentError(err.response?.data?.message || "Document delete failed");
+    }
+  };
+
   if (loading) {
-    return <section className="DocumentsPage-root"><div className="DocumentsPage-mainPanel">Loading documents...</div></section>;
+    return <CIISLoader />;
   }
 
   if (error || !client) {
@@ -69,22 +232,6 @@ const DocumentsPage = () => {
       <div className="DocumentsPage-title">
         <h1>Documents</h1>
         <p>Access and manage all your documents in one place.</p>
-      </div>
-
-      <div className="DocumentsPage-topActions">
-        <label className="DocumentsPage-searchTop">
-          <FiSearch />
-          <input type="search" placeholder="Search services, invoices, tickets..." />
-        </label>
-        <button type="button" className="DocumentsPage-bell" aria-label="Notifications">
-          <FiBell />
-          <span>7</span>
-        </button>
-        <button type="button" className="DocumentsPage-user">
-          <b>T</b>
-          <strong>{userName}</strong>
-          <FiChevronDown />
-        </button>
       </div>
     </header>
 
@@ -121,23 +268,48 @@ const DocumentsPage = () => {
     <div className="DocumentsPage-layout">
       <main className="DocumentsPage-mainPanel">
         <nav className="DocumentsPage-tabs">
-          <button type="button" className="active">All Documents</button>
-          <button type="button">Shared With You</button>
-          <button type="button">My Uploads</button>
-          <button type="button">Trash</button>
+          {documentTabs.map(tab => (
+            <button
+              key={tab.id}
+              type="button"
+              className={activeTab === tab.id ? "active" : ""}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </nav>
 
         <div className="DocumentsPage-toolbar">
           <label className="DocumentsPage-docSearch">
             <FiSearch />
-            <input type="search" placeholder="Search documents..." />
+            <input
+              type="search"
+              placeholder="Search documents..."
+              value={search}
+              onChange={event => setSearch(event.target.value)}
+            />
           </label>
           <button type="button">Document Type <FiChevronDown /></button>
           <button type="button">Category <FiChevronDown /></button>
           <button type="button">Date Modified <FiChevronDown /></button>
           <button type="button"><FiFilter /> More Filters</button>
-          <button type="button" className="DocumentsPage-upload"><FiUploadCloud /> Upload Document</button>
+          <label className="DocumentsPage-upload">
+            <FiUploadCloud /> {uploading ? "Uploading..." : "Upload Document"}
+            <input
+              type="file"
+              onChange={handleUploadDocument}
+              disabled={uploading}
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.txt"
+            />
+          </label>
         </div>
+
+        {(documentError || documentLoading) && (
+          <div className={`DocumentsPage-inlineNotice ${documentError ? "is-error" : ""}`}>
+            {documentError || "Loading uploaded documents..."}
+          </div>
+        )}
 
         <div className="DocumentsPage-tableWrap">
           <table>
@@ -155,7 +327,7 @@ const DocumentsPage = () => {
             </thead>
             <tbody>
               {visibleDocuments.map(doc => (
-                <tr key={doc.name}>
+                <tr key={doc._id || doc.name}>
                   <td><input type="checkbox" aria-label={`Select ${doc.name}`} /></td>
                   <td>
                     <div className="DocumentsPage-nameCell">
@@ -168,15 +340,43 @@ const DocumentsPage = () => {
                   <td>{doc.date}</td>
                   <td>{doc.by}</td>
                   <td>{doc.size}</td>
-                  <td><button type="button" className="DocumentsPage-more" aria-label={`Open ${doc.name} actions`}><FiMoreVertical /></button></td>
+                  <td>
+                    <div className="DocumentsPage-rowActions">
+                      {doc.isUploaded && activeTab !== "trash" ? (
+                        <>
+                          <button type="button" className="DocumentsPage-more" aria-label={`Download ${doc.name}`} onClick={() => handleDownloadDocument(doc)}>
+                            <FiDownload />
+                          </button>
+                          {doc.canDelete && (
+                            <button type="button" className="DocumentsPage-more DocumentsPage-deleteAction" aria-label={`Move ${doc.name} to trash`} onClick={() => handleDeleteDocument(doc)}>
+                              <FiTrash2 />
+                            </button>
+                          )}
+                        </>
+                      ) : activeTab === "trash" ? (
+                        <span className="DocumentsPage-trashBadge">In Trash</span>
+                      ) : (
+                        <button type="button" className="DocumentsPage-more" aria-label={`Open ${doc.name} actions`}><FiMoreVertical /></button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
+              {visibleDocuments.length === 0 && (
+                <tr>
+                  <td colSpan="8">
+                    <div className="DocumentsPage-emptyRow">
+                      No documents found in {documentTabs.find(tab => tab.id === activeTab)?.label}.
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
 
         <footer className="DocumentsPage-pagination">
-          <span>Showing 1 to {visibleDocuments.length} of {documents.length} documents for {clientName}</span>
+          <span>Showing 1 to {visibleDocuments.length} of {filteredDocuments.length} documents for {clientName}</span>
           <div>
             <button type="button"><FiChevronLeft /></button>
             <button type="button" className="active">1</button>
@@ -197,19 +397,6 @@ const DocumentsPage = () => {
               <div><strong>{action.title}</strong><small>{action.text}</small></div>
             </button>
           ))}
-        </section>
-
-        <section className="DocumentsPage-sideCard DocumentsPage-storage">
-          <h2>Storage Overview</h2>
-          <p><strong>120 MB</strong> of 5 GB used <b>2%</b></p>
-          <div className="DocumentsPage-progress"><i></i></div>
-          <button type="button"><FiSettings /> Manage Storage</button>
-        </section>
-
-        <section className="DocumentsPage-sideCard DocumentsPage-help">
-          <h2>Need Help?</h2>
-          <p>If you can't find a document or need assistance, our support team is here to help.</p>
-          <button type="button"><FiHeadphones /> Contact Support</button>
         </section>
       </aside>
     </div>

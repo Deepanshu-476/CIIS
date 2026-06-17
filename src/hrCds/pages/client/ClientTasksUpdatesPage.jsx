@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import CIISLoader from '../../../Loader/CIISLoader';
 import API_URL from '../../../config';
 import { isClientForLoggedInUser } from '../../utils/clientPortalData';
 import './ClientTasksUpdatesPage.css';
@@ -19,7 +20,8 @@ import {
   FiPlus,
   FiSearch,
   FiUpload,
-  FiUsers
+  FiUsers,
+  FiX
 } from 'react-icons/fi';
 import { Doughnut } from 'react-chartjs-2';
 import {
@@ -32,6 +34,8 @@ import {
 ChartJS.register(ArcElement, Legend, Tooltip);
 
 const getAuthToken = () => localStorage.getItem('token') || localStorage.getItem('authToken');
+
+const normalizeMatchValue = value => String(value || '').trim().toLowerCase();
 
 const isClientTaskOverdue = task => {
   if (!task?.dueDate || task.completed) return false;
@@ -70,6 +74,72 @@ const getTaskTitle = task => (
 
 const getInitials = value => String(value || 'U').trim().slice(0, 1).toUpperCase();
 
+const getValueId = value => {
+  if (!value) return '';
+  if (typeof value === 'object') {
+    return String(value._id || value.id || value.userId || value.employeeId || '').trim();
+  }
+  return String(value).trim();
+};
+
+const getDisplayName = value => {
+  if (!value) return '';
+  if (typeof value === 'object') {
+    return value.name || value.fullName || value.employeeName || value.username || value.email || '';
+  }
+  return String(value).trim();
+};
+
+const getDisplayEmail = value => (
+  typeof value === 'object' && value
+    ? value.email || value.employeeEmail || value.userEmail || ''
+    : ''
+);
+
+const findMatchingMember = (value, members = []) => {
+  const rawId = getValueId(value).toLowerCase();
+  const rawName = getDisplayName(value).toLowerCase();
+  const rawEmail = getDisplayEmail(value).toLowerCase();
+
+  return members.find(member => {
+    const memberId = getValueId(member).toLowerCase();
+    const memberName = getDisplayName(member).toLowerCase();
+    const memberEmail = getDisplayEmail(member).toLowerCase();
+    return (
+      (rawId && [memberId, memberName, memberEmail].includes(rawId)) ||
+      (rawName && [memberId, memberName, memberEmail].includes(rawName)) ||
+      (rawEmail && memberEmail === rawEmail)
+    );
+  });
+};
+
+const getTaskAssignee = (task, members = []) => {
+  const assignedUsers = Array.isArray(task?.assignedUsers) ? task.assignedUsers : [];
+  const directCandidates = [
+    task?.assignedToName,
+    task?.assigneeName,
+    task?.assignedUserName,
+    task?.employeeName,
+    task?.assignee,
+    task?.assignedTo,
+    task?.assigneeId,
+    ...assignedUsers
+  ].filter(Boolean);
+
+  const matched = directCandidates
+    .map(candidate => findMatchingMember(candidate, members))
+    .find(Boolean);
+  const candidate = directCandidates.find(item => getDisplayName(item));
+  const name = getDisplayName(matched || candidate);
+  const email = getDisplayEmail(matched || candidate);
+
+  return {
+    name: name || 'Not assigned',
+    email,
+    allNames: directCandidates.map(item => getDisplayName(findMatchingMember(item, members) || item)).filter(Boolean)
+  };
+};
+
 const ServicesTasks = () => {
   const navigate = useNavigate();
   const [client, setClient] = useState(null);
@@ -78,6 +148,16 @@ const ServicesTasks = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [companyInfo, setCompanyInfo] = useState({ companyCode: '', companyIdentifier: '' });
+  const [activeTaskFilter, setActiveTaskFilter] = useState('total');
+  const [taskSearch, setTaskSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [serviceFilter, setServiceFilter] = useState('all');
+  const [dueFilter, setDueFilter] = useState('any');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [detailsModal, setDetailsModal] = useState(null);
+  const [selectedTask, setSelectedTask] = useState(null);
 
   const isMounted = useRef(true);
   const initialFetchDone = useRef(false);
@@ -166,10 +246,18 @@ const ServicesTasks = () => {
       }
 
       const user = JSON.parse(userStr);
+      const storedClient = (() => {
+        try {
+          return JSON.parse(localStorage.getItem('client') || 'null');
+        } catch {
+          return null;
+        }
+      })();
       const response = await api.get('/', {
         params: {
           companyCode: companyInfo.companyCode,
-          companyIdentifier: companyInfo.companyIdentifier
+          companyIdentifier: companyInfo.companyIdentifier,
+          limit: 1000
         }
       });
 
@@ -179,7 +267,14 @@ const ServicesTasks = () => {
       }
 
       const allClients = response.data.data || [];
-      const currentClient = allClients.find(c => isClientForLoggedInUser(c, user));
+      const storedClientId = normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
+      const currentClient = (
+        storedClientId
+          ? allClients.find(c => normalizeMatchValue(c?._id || c?.id) === storedClientId)
+          : null
+      ) || allClients.find(c => isClientForLoggedInUser(c, user)) || (
+        storedClient?._id || storedClient?.id ? storedClient : null
+      );
 
       if (!currentClient) {
         setClient(null);
@@ -222,11 +317,19 @@ const ServicesTasks = () => {
     window.location.href = '/login';
   };
 
+  const now = new Date();
+  const next30Days = new Date(now);
+  next30Days.setDate(now.getDate() + 30);
   const completedTasks = allTasks.filter(task => task.completed === true);
   const overdueTasks = allTasks.filter(isClientTaskOverdue);
-  const pendingTasks = allTasks.filter(task => task.completed !== true && !isClientTaskOverdue(task));
+  const inProgressTasks = allTasks.filter(task => task.completed !== true && !isClientTaskOverdue(task) && String(task.status || '').toLowerCase().includes('progress'));
+  const pendingApprovalTasks = allTasks.filter(task => String(task.status || '').trim().toLowerCase() === 'pending approval');
+  const upcomingDeadlineTasks = allTasks.filter(task => {
+    if (!task.dueDate || task.completed === true) return false;
+    const dueDate = new Date(task.dueDate);
+    return !Number.isNaN(dueDate.getTime()) && dueDate >= now && dueDate <= next30Days;
+  });
   const totalTasks = allTasks.length;
-  const inProgressTasks = allTasks.filter(task => String(task.status || '').toLowerCase().includes('progress'));
   const clientName = client?.client || client?.name || 'Client';
   const projectManagers = client?.projectManagers || [];
   const baseServices = services;
@@ -239,9 +342,10 @@ const ServicesTasks = () => {
     return { service, taskTotal, done, progress };
   });
 
-  const taskRows = allTasks.slice(0, 8).map((task) => {
+  const buildTaskRow = (task) => {
     const completed = task.completed === true;
     const overdue = isClientTaskOverdue(task) || String(task.status || '').toLowerCase() === 'overdue';
+    const assignee = getTaskAssignee(task, projectManagers);
     const status = completed
       ? 'Completed'
       : overdue
@@ -254,17 +358,85 @@ const ServicesTasks = () => {
       title: getTaskTitle(task),
       service: task.serviceName || 'Project Service',
       dueDate: task.dueDate,
+      createdDate: task.createdAt || task.created_at || task.createdDate || task.date || task.dueDate,
+      description: task.description || task.details || task.notes || task.remark || '',
+      assigneeName: assignee.name,
+      assigneeEmail: assignee.email,
+      assignedNames: assignee.allNames,
       status,
       priority: String(task.priority || (overdue ? 'High' : 'Medium')).replace(/\b\w/g, char => char.toUpperCase()),
       progress
     };
-  });
+  };
 
-  const upcomingDeadlines = taskRows
-    .filter(task => task.dueDate && task.status !== 'Completed')
+  const taskMatchesFilter = task => {
+    if (activeTaskFilter === 'completed') return task.completed === true;
+    if (activeTaskFilter === 'in-progress') return task.completed !== true && !isClientTaskOverdue(task) && String(task.status || '').toLowerCase().includes('progress');
+    if (activeTaskFilter === 'pending-approval') return String(task.status || '').trim().toLowerCase() === 'pending approval';
+    if (activeTaskFilter === 'overdue') return isClientTaskOverdue(task);
+    if (activeTaskFilter === 'upcoming') return upcomingDeadlineTasks.includes(task);
+    return true;
+  };
+
+  const taskMatchesToolbarFilters = task => {
+    const row = buildTaskRow(task);
+    const search = taskSearch.trim().toLowerCase();
+    const dueDate = task.dueDate ? new Date(task.dueDate) : null;
+    const dueThisMonth = dueDate && !Number.isNaN(dueDate.getTime())
+      ? dueDate.getMonth() === now.getMonth() && dueDate.getFullYear() === now.getFullYear()
+      : false;
+
+    const matchesSearch = !search || [
+      row.title,
+      row.service,
+      row.status,
+      row.priority
+    ].some(value => String(value || '').toLowerCase().includes(search));
+    const matchesStatus = statusFilter === 'all' || row.status.toLowerCase().replace(/\s/g, '-') === statusFilter;
+    const matchesPriority = priorityFilter === 'all' || row.priority.toLowerCase() === priorityFilter;
+    const matchesService = serviceFilter === 'all' || row.service === serviceFilter;
+    const matchesDue = (
+      dueFilter === 'any' ||
+      (dueFilter === 'overdue' && row.status === 'Overdue') ||
+      (dueFilter === 'upcoming' && upcomingDeadlineTasks.includes(task)) ||
+      (dueFilter === 'this-month' && dueThisMonth)
+    );
+
+    return matchesSearch && matchesStatus && matchesPriority && matchesService && matchesDue;
+  };
+
+  const filteredTaskSource = allTasks.filter(task => taskMatchesFilter(task) && taskMatchesToolbarFilters(task));
+  const totalFilteredTasks = filteredTaskSource.length;
+  const totalPages = Math.max(1, Math.ceil(totalFilteredTasks / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const pageStartIndex = (safeCurrentPage - 1) * pageSize;
+  const taskRows = filteredTaskSource.slice(pageStartIndex, pageStartIndex + pageSize).map(buildTaskRow);
+  const showingFrom = totalFilteredTasks ? pageStartIndex + 1 : 0;
+  const showingTo = Math.min(pageStartIndex + taskRows.length, totalFilteredTasks);
+  const pageWindowStart = Math.max(1, Math.min(safeCurrentPage - 2, totalPages - 4));
+  const visiblePageNumbers = Array.from(
+    { length: Math.min(5, totalPages) },
+    (_, index) => pageWindowStart + index
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTaskFilter, taskSearch, statusFilter, priorityFilter, serviceFilter, dueFilter, pageSize]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
+  const upcomingDeadlines = upcomingDeadlineTasks
     .slice()
     .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+    .map(buildTaskRow)
     .slice(0, 5);
+  const allUpcomingDeadlines = upcomingDeadlineTasks
+    .slice()
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+    .map(buildTaskRow);
+  const allFilteredTaskRows = filteredTaskSource.map(buildTaskRow);
 
   const recentUpdates = [
     ...(taskRows[0] ? [{ icon: <FiCheckCircle />, tone: 'green', title: `Latest task: "${taskRows[0].title}" is ${taskRows[0].status}.`, time: formatDate(taskRows[0].dueDate) }] : []),
@@ -272,14 +444,24 @@ const ServicesTasks = () => {
     ...(baseServices[0] ? [{ icon: <FiCalendar />, tone: 'blue', title: `${baseServices[0]} service is active for your account.`, time: 'Current service' }] : []),
     { icon: <FiDownload />, tone: 'purple', title: `${clientName} client portal synced with live records.`, time: 'Now' }
   ].slice(0, 5);
+  const allRecentUpdates = [
+    ...allTasks.map(task => ({
+      icon: task.completed ? <FiCheckCircle /> : <FiClock />,
+      tone: task.completed ? 'green' : isClientTaskOverdue(task) ? 'red' : 'blue',
+      title: `${getTaskTitle(task)} - ${task.completed ? 'Completed' : isClientTaskOverdue(task) ? 'Overdue' : 'Updated'}`,
+      time: formatDate(task.updatedAt || task.createdAt || task.dueDate),
+      service: task.serviceName || 'Project Service'
+    })),
+    { icon: <FiDownload />, tone: 'purple', title: `${clientName} client portal synced with live records.`, time: 'Now', service: 'Client Portal' }
+  ];
 
   const stats = [
-    { label: 'Total Tasks', value: totalTasks, tone: 'blue', icon: <FiCalendar />, trend: '', helper: 'Live total', spark: 'M2 23 C10 19, 17 26, 25 21 S41 16, 50 22 S67 28, 76 17 S92 12, 104 19 S114 17, 120 10' },
-    { label: 'Completed Tasks', value: completedTasks.length, tone: 'green', icon: <FiCheckCircle />, trend: '', helper: 'Live total', spark: 'M2 24 C12 16, 18 22, 27 19 S43 12, 52 18 S66 27, 76 21 S90 13, 101 18 S112 12, 120 15' },
-    { label: 'In Progress', value: inProgressTasks.length, tone: 'blue', icon: <FiClock />, trend: '', helper: 'Live total', spark: 'M2 21 C12 18, 20 22, 29 20 S43 17, 54 22 S69 25, 79 19 S94 14, 105 20 S114 17, 120 12' },
-    { label: 'Pending Approval', value: taskRows.filter(t => t.status === 'Pending Approval').length, tone: 'orange', icon: <FiUsers />, trend: '', helper: 'Live total', spark: 'M2 25 C12 25, 17 15, 27 20 S41 26, 51 18 S66 14, 76 23 S88 24, 98 17 S111 18, 120 22' },
-    { label: 'Overdue Tasks', value: overdueTasks.length, tone: 'red', icon: <FiAlertCircle />, trend: '', helper: 'Live total', spark: 'M2 24 C12 19, 19 21, 28 17 S43 20, 52 15 S66 25, 77 17 S91 12, 101 20 S112 16, 120 23' },
-    { label: 'Upcoming Deadlines', value: upcomingDeadlines.length, tone: 'purple', icon: <FiCalendar />, trend: '', helper: 'Next 30 days', spark: 'M2 25 C13 20, 20 24, 30 17 S45 18, 55 13 S69 19, 78 16 S92 10, 102 14 S113 9, 120 12' }
+    { label: 'Total Tasks', filter: 'total', value: totalTasks, tone: 'blue', icon: <FiCalendar />, trend: '', helper: 'Live total', spark: 'M2 23 C10 19, 17 26, 25 21 S41 16, 50 22 S67 28, 76 17 S92 12, 104 19 S114 17, 120 10' },
+    { label: 'Completed Tasks', filter: 'completed', value: completedTasks.length, tone: 'green', icon: <FiCheckCircle />, trend: '', helper: 'Live total', spark: 'M2 24 C12 16, 18 22, 27 19 S43 12, 52 18 S66 27, 76 21 S90 13, 101 18 S112 12, 120 15' },
+    { label: 'In Progress', filter: 'in-progress', value: inProgressTasks.length, tone: 'blue', icon: <FiClock />, trend: '', helper: 'Live total', spark: 'M2 21 C12 18, 20 22, 29 20 S43 17, 54 22 S69 25, 79 19 S94 14, 105 20 S114 17, 120 12' },
+    { label: 'Pending Approval', filter: 'pending-approval', value: pendingApprovalTasks.length, tone: 'orange', icon: <FiUsers />, trend: '', helper: 'Live total', spark: 'M2 25 C12 25, 17 15, 27 20 S41 26, 51 18 S66 14, 76 23 S88 24, 98 17 S111 18, 120 22' },
+    { label: 'Overdue Tasks', filter: 'overdue', value: overdueTasks.length, tone: 'red', icon: <FiAlertCircle />, trend: '', helper: 'Live total', spark: 'M2 24 C12 19, 19 21, 28 17 S43 20, 52 15 S66 25, 77 17 S91 12, 101 20 S112 16, 120 23' },
+    { label: 'Upcoming Deadlines', filter: 'upcoming', value: upcomingDeadlineTasks.length, tone: 'purple', icon: <FiCalendar />, trend: '', helper: 'Next 30 days', spark: 'M2 25 C13 20, 20 24, 30 17 S45 18, 55 13 S69 19, 78 16 S92 10, 102 14 S113 9, 120 12' }
   ];
 
   const distribution = [
@@ -287,7 +469,7 @@ const ServicesTasks = () => {
     { label: 'In Progress', value: stats[2].value, color: '#60a5fa' },
     { label: 'Pending Approval', value: stats[3].value, color: '#f59e0b' },
     { label: 'Overdue', value: stats[4].value, color: '#ef4444' },
-    { label: 'Upcoming', value: upcomingDeadlines.length, color: '#8b5cf6' }
+    { label: 'Upcoming', value: upcomingDeadlineTasks.length, color: '#8b5cf6' }
   ];
   const distributionTotal = distribution.reduce((sum, item) => sum + item.value, 0) || 1;
 
@@ -308,17 +490,33 @@ const ServicesTasks = () => {
     plugins: { legend: { display: false }, tooltip: { enabled: true } }
   };
 
-  const projectProgress = serviceRows[0] || { service: services[0] || 'No active service', progress: 0 };
+  const projectProgress = serviceRows[0] || { service: services[0] || 'No active service', progress: 0, taskTotal: 0, done: 0 };
+  const projectTasks = allTasks.filter(task => task.serviceName === projectProgress.service);
+  const projectStatus = projectProgress.taskTotal && projectProgress.progress === 100
+    ? 'Completed'
+    : projectProgress.taskTotal
+      ? 'In Progress'
+      : 'Active';
+  const projectDescription = projectTasks[0]
+    ? `Latest task: ${getTaskTitle(projectTasks[0])}`
+    : `${projectProgress.service} service is active for your account.`;
+  const fallbackMilestones = ['Discovery', 'Design', 'Development', 'Testing', 'Launch'].map((title, index) => ({
+    title,
+    completed: index < Math.round((projectProgress.progress / 100) * 5),
+    status: index < Math.round((projectProgress.progress / 100) * 5) ? 'Completed' : 'Upcoming'
+  }));
+  const projectMilestones = projectTasks.length
+    ? projectTasks.slice(0, 5).map(task => ({
+      title: getTaskTitle(task),
+      completed: task.completed === true,
+      status: task.completed === true ? 'Completed' : isClientTaskOverdue(task) ? 'Overdue' : 'Upcoming'
+    }))
+    : fallbackMilestones;
   const manager = projectManagers[0] || { name: 'Account Manager', email: '', phone: '' };
   const teamMembers = projectManagers.slice(0, 4);
 
   if (loading) {
-    return (
-      <div className="ClientTasksUpdatesPage-loading">
-        <div className="ClientTasksUpdatesPage-spinner"></div>
-        <p>Loading your tasks...</p>
-      </div>
-    );
+    return <CIISLoader />;
   }
 
   if (error || !client) {
@@ -348,7 +546,13 @@ const ServicesTasks = () => {
 
           <section className="ClientTasksUpdatesPage-stats">
             {stats.map(stat => (
-              <article className={`ClientTasksUpdatesPage-statCard ClientTasksUpdatesPage-tone-${stat.tone}`} key={stat.label}>
+              <button
+                type="button"
+                className={`ClientTasksUpdatesPage-statCard ClientTasksUpdatesPage-tone-${stat.tone} ${activeTaskFilter === stat.filter ? 'ClientTasksUpdatesPage-statCard--active' : ''}`}
+                key={stat.label}
+                onClick={() => setActiveTaskFilter(stat.filter)}
+                aria-pressed={activeTaskFilter === stat.filter}
+              >
                 <div className={`ClientTasksUpdatesPage-statIcon ClientTasksUpdatesPage-is-${stat.tone}`}>{stat.icon}</div>
                 <div>
                   <span>{stat.label}</span>
@@ -359,7 +563,7 @@ const ServicesTasks = () => {
                 <svg viewBox="0 0 120 34" aria-hidden="true">
                   <path d={stat.spark} />
                 </svg>
-              </article>
+              </button>
             ))}
           </section>
 
@@ -367,12 +571,36 @@ const ServicesTasks = () => {
             <div className="ClientTasksUpdatesPage-toolbar">
               <label className="ClientTasksUpdatesPage-tableSearch">
                 <FiSearch />
-                <input type="search" placeholder="Search tasks by name or keyword..." />
+                <input
+                  type="search"
+                  placeholder="Search tasks by name or keyword..."
+                  value={taskSearch}
+                  onChange={event => setTaskSearch(event.target.value)}
+                />
               </label>
-              <select defaultValue="all"><option value="all">All Status</option></select>
-              <select defaultValue="all"><option value="all">All Priority</option></select>
-              <select defaultValue="all"><option value="all">All Services</option></select>
-              <select defaultValue="any"><option value="any">Anytime</option></select>
+              <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)} aria-label="Filter by status">
+                <option value="all">All Status</option>
+                <option value="completed">Completed</option>
+                <option value="in-progress">In Progress</option>
+                <option value="pending-approval">Pending Approval</option>
+                <option value="overdue">Overdue</option>
+              </select>
+              <select value={priorityFilter} onChange={event => setPriorityFilter(event.target.value)} aria-label="Filter by priority">
+                <option value="all">All Priority</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+              <select value={serviceFilter} onChange={event => setServiceFilter(event.target.value)} aria-label="Filter by service">
+                <option value="all">All Services</option>
+                {baseServices.map(service => <option value={service} key={service}>{service}</option>)}
+              </select>
+              <select value={dueFilter} onChange={event => setDueFilter(event.target.value)} aria-label="Filter by due date">
+                <option value="any">Anytime</option>
+                <option value="this-month">This Month</option>
+                <option value="upcoming">Upcoming</option>
+                <option value="overdue">Overdue</option>
+              </select>
               <button type="button" className="ClientTasksUpdatesPage-filter"><FiFilter /> Filters</button>
               {/* <button type="button" className="ClientTasksUpdatesPage-add"><FiPlus /> Add Task</button> */}
             </div>
@@ -386,7 +614,7 @@ const ServicesTasks = () => {
                     <th>Related Service / Project</th>
                     <th>Assigned Team</th>
                     <th>Priority</th>
-                    <th>Due Date</th>
+                    <th>Created Date</th>
                     <th>Progress</th>
                     <th>Status</th>
                     <th>Action</th>
@@ -399,7 +627,7 @@ const ServicesTasks = () => {
                       <td><input type="checkbox" aria-label={`Select ${task.title}`} /></td>
                       <td>
                         <div className="ClientTasksUpdatesPage-taskName">
-                          <span>{index + 1}</span>
+                          <span>{pageStartIndex + index + 1}</span>
                           <strong>{task.title}</strong>
                         </div>
                       </td>
@@ -412,8 +640,7 @@ const ServicesTasks = () => {
                       </td>
                       <td><span className={`ClientTasksUpdatesPage-priority ClientTasksUpdatesPage-${task.priority.toLowerCase()}`}>{task.priority}</span></td>
                       <td>
-                        {formatDate(task.dueDate)}
-                        {task.status === 'Overdue' && <small>Overdue</small>}
+                        {formatDate(task.createdDate)}
                       </td>
                       <td>
                         <div className="ClientTasksUpdatesPage-progress">
@@ -422,28 +649,67 @@ const ServicesTasks = () => {
                         </div>
                       </td>
                       <td><span className={`ClientTasksUpdatesPage-status ClientTasksUpdatesPage-${task.status.replace(/\s/g, '').toLowerCase()}`}>{task.status}</span></td>
-                      <td><button className="ClientTasksUpdatesPage-review" type="button">{index === 0 ? 'Review' : 'View Details'}</button></td>
+                      <td>
+                        <button
+                          className="ClientTasksUpdatesPage-review"
+                          type="button"
+                          onClick={() => {
+                            setSelectedTask(task);
+                            setDetailsModal('task');
+                          }}
+                        >
+                          {pageStartIndex + index === 0 ? 'Review' : 'View Details'}
+                        </button>
+                      </td>
                       <td><FiMoreVertical /></td>
                     </tr>
                   ))}
+                  {!taskRows.length && (
+                    <tr>
+                      <td colSpan={10} className="ClientTasksUpdatesPage-emptyCell">No tasks match this filter.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
 
             <div className="ClientTasksUpdatesPage-pagination">
-              <span>Showing 1 to {taskRows.length} of {taskRows.length} tasks</span>
+              <span>Showing {showingFrom} to {showingTo} of {totalFilteredTasks} tasks</span>
               <div>
-                <button type="button"><FiChevronLeft /></button>
-                <button className="ClientTasksUpdatesPage-active" type="button">1</button>
-                <button type="button">2</button>
-                <button type="button">3</button>
-                <button type="button">4</button>
-                <button type="button">5</button>
-                <button type="button">...</button>
-                <button type="button">6</button>
-                <button type="button"><FiChevronRight /></button>
+                <button type="button" onClick={() => setCurrentPage(page => Math.max(1, page - 1))} disabled={safeCurrentPage === 1}>
+                  <FiChevronLeft />
+                </button>
+                {pageWindowStart > 1 && (
+                  <>
+                    <button type="button" onClick={() => setCurrentPage(1)}>1</button>
+                    {pageWindowStart > 2 && <span>...</span>}
+                  </>
+                )}
+                {visiblePageNumbers.map(page => (
+                  <button
+                    className={safeCurrentPage === page ? 'ClientTasksUpdatesPage-active' : ''}
+                    type="button"
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+                {pageWindowStart + visiblePageNumbers.length - 1 < totalPages && (
+                  <>
+                    {pageWindowStart + visiblePageNumbers.length < totalPages && <span>...</span>}
+                    <button type="button" onClick={() => setCurrentPage(totalPages)}>{totalPages}</button>
+                  </>
+                )}
+                <button type="button" onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))} disabled={safeCurrentPage === totalPages}>
+                  <FiChevronRight />
+                </button>
               </div>
-              <select defaultValue="10"><option value="10">10 / page</option></select>
+              <select value={pageSize} onChange={event => setPageSize(Number(event.target.value))} aria-label="Tasks per page">
+                <option value="10">10 / page</option>
+                <option value="20">20 / page</option>
+                <option value="50">50 / page</option>
+              </select>
             </div>
           </section>
         </section>
@@ -452,7 +718,7 @@ const ServicesTasks = () => {
           <section className="ClientTasksUpdatesPage-sideCard">
             <div className="ClientTasksUpdatesPage-cardHead">
               <h3>Recent Updates</h3>
-              <button type="button">View All</button>
+              <button type="button" onClick={() => setDetailsModal('updates')}>View All</button>
             </div>
             <div className="ClientTasksUpdatesPage-updateList">
               {recentUpdates.map(update => (
@@ -470,7 +736,7 @@ const ServicesTasks = () => {
           <section className="ClientTasksUpdatesPage-sideCard">
             <div className="ClientTasksUpdatesPage-cardHead">
               <h3>Upcoming Deadlines</h3>
-              <button type="button">View All</button>
+              <button type="button" onClick={() => setDetailsModal('deadlines')}>View All</button>
             </div>
             <div className="ClientTasksUpdatesPage-deadlineList">
               {upcomingDeadlines.map((task, index) => (
@@ -506,22 +772,22 @@ const ServicesTasks = () => {
               ))}
             </div>
           </div>
-          <button type="button">View All Tasks <FiChevronRight /></button>
+          <button type="button" onClick={() => setDetailsModal('tasks')}>View All Tasks <FiChevronRight /></button>
         </article>
 
         <article className="ClientTasksUpdatesPage-widget ClientTasksUpdatesPage-project">
           <div className="ClientTasksUpdatesPage-cardHead">
             <h3>Project Progress Overview</h3>
-            <span>In Progress</span>
+            <span>{projectStatus}</span>
           </div>
           <strong>{projectProgress.service}</strong>
-          <p>Redesign corporate website with modern UI/UX and performance improvements.</p>
+          <p>{projectDescription}</p>
           <div className="ClientTasksUpdatesPage-milestones">
-            {['Discovery', 'Design', 'Development', 'Testing', 'Launch'].map((step, index) => (
-              <div key={step} className={index < 3 ? 'ClientTasksUpdatesPage-done' : ''}>
-                <i>{index < 3 ? <FiCheckCircle /> : index + 1}</i>
-                <span>{step}</span>
-                <small>{index < 3 ? 'Completed' : 'Upcoming'}</small>
+            {projectMilestones.map((step, index) => (
+              <div key={`${step.title}-${index}`} className={step.completed ? 'ClientTasksUpdatesPage-done' : ''}>
+                <i>{step.completed ? <FiCheckCircle /> : index + 1}</i>
+                <span>{step.title}</span>
+                <small>{step.status}</small>
               </div>
             ))}
           </div>
@@ -530,7 +796,7 @@ const ServicesTasks = () => {
             <strong>{projectProgress.progress}%</strong>
             <div><i style={{ width: `${projectProgress.progress}%` }}></i></div>
           </div>
-          <button type="button">View Project Details <FiChevronRight /></button>
+          <button type="button" onClick={() => setDetailsModal('project')}>View Project Details <FiChevronRight /></button>
         </article>
 
         <article className="ClientTasksUpdatesPage-widget ClientTasksUpdatesPage-team">
@@ -565,6 +831,156 @@ const ServicesTasks = () => {
           <button type="button" onClick={() => navigate('/client/marketplace')}><FiGrid /> View All Services <FiChevronRight /></button>
         </article>
       </section>
+
+      {detailsModal && (
+        <div className="ClientTasksUpdatesPage-modalBackdrop" role="presentation" onClick={() => setDetailsModal(null)}>
+          <section
+            className="ClientTasksUpdatesPage-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ClientTasksUpdatesPage-modalTitle"
+            onClick={event => event.stopPropagation()}
+          >
+            <header className="ClientTasksUpdatesPage-modalHead">
+              <div>
+                <span>Tasks & Updates</span>
+                <h3 id="ClientTasksUpdatesPage-modalTitle">
+                  {detailsModal === 'updates' && 'All Recent Updates'}
+                  {detailsModal === 'deadlines' && 'All Upcoming Deadlines'}
+                  {detailsModal === 'tasks' && 'All Tasks'}
+                  {detailsModal === 'task' && 'Task Details'}
+                  {detailsModal === 'project' && 'Project Details'}
+                </h3>
+              </div>
+              <button type="button" aria-label="Close details" onClick={() => setDetailsModal(null)}>
+                <FiX />
+              </button>
+            </header>
+
+            {detailsModal === 'updates' && (
+              <div className="ClientTasksUpdatesPage-modalList">
+                {allRecentUpdates.map(update => (
+                  <article key={`${update.title}-${update.time}`}>
+                    <div className={`ClientTasksUpdatesPage-updateIcon ClientTasksUpdatesPage-is-${update.tone}`}>{update.icon}</div>
+                    <div>
+                      <strong>{update.title}</strong>
+                      <span>{update.service} - {update.time}</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+
+            {detailsModal === 'deadlines' && (
+              <div className="ClientTasksUpdatesPage-modalList ClientTasksUpdatesPage-modalDeadlineList">
+                {allUpcomingDeadlines.map((task, index) => (
+                  <article key={`${task.id}-all-deadline`}>
+                    <time>{formatShortDate(task.dueDate)}</time>
+                    <div>
+                      <strong>{task.title}</strong>
+                      <span>{task.service} - {task.priority}</span>
+                    </div>
+                    <i className={`ClientTasksUpdatesPage-dot-${index % 3}`}></i>
+                  </article>
+                ))}
+                {!allUpcomingDeadlines.length && <p className="ClientTasksUpdatesPage-modalEmpty">No upcoming deadlines found.</p>}
+              </div>
+            )}
+
+            {detailsModal === 'tasks' && (
+              <div className="ClientTasksUpdatesPage-modalTable">
+                <div className="ClientTasksUpdatesPage-modalTableHead">
+                  <span>Task</span><span>Service</span><span>Priority</span><span>Created Date</span><span>Progress</span><span>Status</span>
+                </div>
+                {allFilteredTaskRows.map(task => (
+                  <div className="ClientTasksUpdatesPage-modalTableRow" key={`${task.id}-modal`}>
+                    <strong>{task.title}</strong>
+                    <span>{task.service}</span>
+                    <span>{task.priority}</span>
+                    <span>{formatDate(task.createdDate)}</span>
+                    <span>{task.progress}%</span>
+                    <em className={`ClientTasksUpdatesPage-status ClientTasksUpdatesPage-${task.status.replace(/\s/g, '').toLowerCase()}`}>{task.status}</em>
+                  </div>
+                ))}
+                {!allFilteredTaskRows.length && <p className="ClientTasksUpdatesPage-modalEmpty">No tasks match this filter.</p>}
+              </div>
+            )}
+
+            {detailsModal === 'task' && selectedTask && (
+              <div className="ClientTasksUpdatesPage-taskDetails">
+                <div className="ClientTasksUpdatesPage-taskDetailsHero">
+                  <div>
+                    <span>{selectedTask.service}</span>
+                    <h4>{selectedTask.title}</h4>
+                    <p>{selectedTask.description || 'No description added for this task.'}</p>
+                  </div>
+                  <em className={`ClientTasksUpdatesPage-status ClientTasksUpdatesPage-${selectedTask.status.replace(/\s/g, '').toLowerCase()}`}>{selectedTask.status}</em>
+                </div>
+
+                <div className="ClientTasksUpdatesPage-taskDetailsGrid">
+                  <div>
+                    <span>Assigned To</span>
+                    <strong>{selectedTask.assigneeName}</strong>
+                    {selectedTask.assigneeEmail && <small>{selectedTask.assigneeEmail}</small>}
+                  </div>
+                  <div>
+                    <span>Created Date</span>
+                    <strong>{formatDate(selectedTask.createdDate)}</strong>
+                  </div>
+                  <div>
+                    <span>Due Date</span>
+                    <strong>{formatDate(selectedTask.dueDate)}</strong>
+                  </div>
+                  <div>
+                    <span>Priority</span>
+                    <strong>{selectedTask.priority}</strong>
+                  </div>
+                  <div>
+                    <span>Progress</span>
+                    <strong>{selectedTask.progress}%</strong>
+                    <div className="ClientTasksUpdatesPage-taskDetailsProgress"><i style={{ width: `${selectedTask.progress}%` }}></i></div>
+                  </div>
+                  <div>
+                    <span>Service</span>
+                    <strong>{selectedTask.service}</strong>
+                  </div>
+                </div>
+
+                {selectedTask.assignedNames.length > 1 && (
+                  <div className="ClientTasksUpdatesPage-taskAssignees">
+                    <span>All Assignees</span>
+                    <p>{selectedTask.assignedNames.join(', ')}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {detailsModal === 'project' && (
+              <div className="ClientTasksUpdatesPage-projectDetails">
+                <div className="ClientTasksUpdatesPage-projectSummary">
+                  <strong>{projectProgress.service}</strong>
+                  <span>{projectStatus}</span>
+                  <p>{projectDescription}</p>
+                  <div><i style={{ width: `${projectProgress.progress}%` }}></i></div>
+                  <small>{projectProgress.progress}% overall progress - {projectProgress.done || 0}/{projectProgress.taskTotal || 0} tasks complete</small>
+                </div>
+                <div className="ClientTasksUpdatesPage-modalTable">
+                  <div className="ClientTasksUpdatesPage-modalTableHead">
+                    <span>Milestone</span><span>Status</span><span></span><span></span><span></span><span></span>
+                  </div>
+                  {projectMilestones.map((step, index) => (
+                    <div className="ClientTasksUpdatesPage-modalTableRow" key={`${step.title}-project-${index}`}>
+                      <strong>{step.title}</strong>
+                      <em className={`ClientTasksUpdatesPage-status ClientTasksUpdatesPage-${step.status.replace(/\s/g, '').toLowerCase()}`}>{step.status}</em>
+                      <span></span><span></span><span></span><span></span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
     </div>
   );
 };

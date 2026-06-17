@@ -157,6 +157,10 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
   const [showRenewForm, setShowRenewForm] = useState(false);
   const [renewMessage, setRenewMessage] = useState({ type: '', text: '' });
   const [updating, setUpdating] = useState(false);
+  const [dueTitle, setDueTitle] = useState('Subscription Due');
+  const [dueAmount, setDueAmount] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [dueNote, setDueNote] = useState('');
 
   if (!open || !client) return null;
 
@@ -306,6 +310,64 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
     }
   };
 
+  const handleAddDueInvoice = async (e) => {
+    e.preventDefault();
+    if (!dueAmount || Number(dueAmount) <= 0) {
+      setRenewMessage({ type: 'error', text: 'Please enter a valid due amount' });
+      return;
+    }
+
+    setUpdating(true);
+    setRenewMessage({ type: '', text: '' });
+    try {
+      const response = await api.post(`/due-invoice/${client._id}`, {
+        title: dueTitle,
+        amount: Number(dueAmount),
+        dueDate: dueDate || new Date().toISOString(),
+        note: dueNote
+      });
+
+      if (response.data.success) {
+        setRenewMessage({ type: 'success', text: 'Due payment added for client portal' });
+        setDueTitle('Subscription Due');
+        setDueAmount('');
+        setDueDate('');
+        setDueNote('');
+        if (onRenewSubscription) onRenewSubscription();
+      }
+    } catch (error) {
+      setRenewMessage({ type: 'error', text: error.response?.data?.message || 'Failed to add due payment' });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleReceiptStatus = async (receipt, status) => {
+    setUpdating(true);
+    setRenewMessage({ type: '', text: '' });
+    try {
+      const response = await api.patch(`/${client._id}/receipt/${receipt._id}/status`, {
+        status,
+        activateClient: status === 'Approved',
+        notes: status === 'Approved' ? 'Payment verified by team' : 'Payment proof rejected'
+      });
+
+      if (response.data.success) {
+        setRenewMessage({
+          type: 'success',
+          text: status === 'Approved'
+            ? 'Payment approved. Due note removed and client activated.'
+            : 'Payment proof rejected. Due note is visible again.'
+        });
+        if (onRenewSubscription) onRenewSubscription();
+      }
+    } catch (error) {
+      setRenewMessage({ type: 'error', text: error.response?.data?.message || 'Failed to update receipt' });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const monthOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
   return (
@@ -380,6 +442,89 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
 
           {canRenewSubscription && (
             <>
+              <div className="ClientManagement-renewal-form-container">
+                <h4>Payment Due For Client Portal</h4>
+                <form className="ClientManagement-renewal-form" onSubmit={handleAddDueInvoice}>
+                  <div className="ClientManagement-form-group">
+                    <label className="ClientManagement-form-label">Due Title</label>
+                    <input
+                      type="text"
+                      className="ClientManagement-form-input"
+                      value={dueTitle}
+                      onChange={(e) => setDueTitle(e.target.value)}
+                      disabled={updating}
+                    />
+                  </div>
+                  <div className="ClientManagement-form-group">
+                    <label className="ClientManagement-form-label">Due Amount</label>
+                    <input
+                      type="number"
+                      className="ClientManagement-form-input"
+                      value={dueAmount}
+                      onChange={(e) => setDueAmount(e.target.value)}
+                      min="0"
+                      disabled={updating}
+                      placeholder="Enter amount"
+                    />
+                  </div>
+                  <div className="ClientManagement-form-group">
+                    <label className="ClientManagement-form-label">Due Date</label>
+                    <input
+                      type="date"
+                      className="ClientManagement-form-input"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      disabled={updating}
+                    />
+                  </div>
+                  <div className="ClientManagement-form-group">
+                    <label className="ClientManagement-form-label">Due Note</label>
+                    <input
+                      type="text"
+                      className="ClientManagement-form-input"
+                      value={dueNote}
+                      onChange={(e) => setDueNote(e.target.value)}
+                      disabled={updating}
+                      placeholder="Message shown to client"
+                    />
+                  </div>
+                  <div className="ClientManagement-renewal-actions">
+                    <button type="submit" className="ClientManagement-btn ClientManagement-btn--primary" disabled={updating}>
+                      <FiDollarSign /> Add Due Payment
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {(client.dueInvoices || []).filter(invoice => invoice.status !== 'Paid' && invoice.status !== 'Cancelled').length > 0 && (
+                <div className="ClientManagement-current-subscription-info">
+                  <h4>Active Due Notes</h4>
+                  <div className="ClientManagement-payment-receipts-list">
+                    {(client.dueInvoices || []).filter(invoice => invoice.status !== 'Paid' && invoice.status !== 'Cancelled').map(invoice => (
+                      <div key={invoice._id} className="ClientManagement-payment-receipt-card">
+                        <div className="ClientManagement-payment-receipt-header">
+                          <strong>{invoice.title || 'Subscription Due'}</strong>
+                          <span className="ClientManagement-badge ClientManagement-badge--warning">{invoice.status}</span>
+                        </div>
+                        <div className="ClientManagement-payment-detail-row">
+                          <div className="ClientManagement-payment-detail-label">Amount:</div>
+                          <div className="ClientManagement-payment-detail-value ClientManagement-amount-highlight">
+                            ₹{Number(invoice.amount || 0).toLocaleString('en-IN')}
+                          </div>
+                        </div>
+                        <div className="ClientManagement-payment-detail-row">
+                          <div className="ClientManagement-payment-detail-label">Due Date:</div>
+                          <div className="ClientManagement-payment-detail-value">
+                            {invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A'}
+                          </div>
+                        </div>
+                        {invoice.note && <div className="ClientManagement-text-muted">{invoice.note}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="ClientManagement-renewal-section">
                 <button 
                   type="button"
@@ -640,6 +785,27 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
                           )}
                           {receipt.notes && <div className="ClientManagement-verification-notes">📝 {receipt.notes}</div>}
                         </div>
+                      </div>
+                    )}
+
+                    {receipt.status === 'Pending' && canRenewSubscription && (
+                      <div className="ClientManagement-renewal-actions" style={{ marginTop: '1rem' }}>
+                        <button
+                          type="button"
+                          className="ClientManagement-btn ClientManagement-btn--primary"
+                          onClick={() => handleReceiptStatus(receipt, 'Approved')}
+                          disabled={updating}
+                        >
+                          <FiCheckCircle /> Approve & Activate
+                        </button>
+                        <button
+                          type="button"
+                          className="ClientManagement-btn ClientManagement-btn--outlined"
+                          onClick={() => handleReceiptStatus(receipt, 'Rejected')}
+                          disabled={updating}
+                        >
+                          <FiXCircle /> Reject
+                        </button>
                       </div>
                     )}
                   </div>
@@ -2138,7 +2304,12 @@ const ClientManagement = () => {
         setServiceRequests(prev => prev.map(request => (
           request._id === requestId ? response.data.data : request
         )));
-        setSuccess('Service request approved successfully!');
+        const approvalEmail = response.data?.approvalEmail;
+        setSuccess(
+          approvalEmail?.sent
+            ? 'Service request approved successfully! Approval email sent to client.'
+            : `Service request approved successfully! Approval email not sent${approvalEmail?.reason ? ` (${approvalEmail.reason})` : ''}.`
+        );
         setError('');
       } else {
         setError(response.data?.message || 'Service request approve failed');

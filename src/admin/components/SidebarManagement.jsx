@@ -102,6 +102,7 @@ const isRouteAllowedForCompany = (route, company) => {
   return allowedSet.has(route.id) || allowedSet.has(route.path) || allowedSet.has(getRouteKey(route.path));
 };
 
+
 const SidebarManagement = () => {
   // State for responsive design
   const [isMobile, setIsMobile] = useState(window.innerWidth < 600);

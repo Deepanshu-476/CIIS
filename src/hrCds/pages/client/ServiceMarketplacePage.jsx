@@ -26,6 +26,7 @@ import { FaAmazon, FaFacebookF, FaGoogle, FaWhatsapp } from "react-icons/fa";
 import {
   getClientDisplayName,
   getAuthToken,
+  formatPublicId,
   useClientPortalData,
 } from "../../utils/clientPortalData";
 import API_URL from "../../../config";
@@ -348,10 +349,10 @@ const ServiceMarketplacePage = () => {
             </div>
             {enquiriesLoading && <p>Loading enquiries...</p>}
             {!enquiriesLoading && enquiries.length === 0 && <p>No active enquiries.</p>}
-            {!enquiriesLoading && enquiries.slice(0, 4).map((enquiry) => (
+            {!enquiriesLoading && enquiries.slice(0, 4).map((enquiry, index) => (
               <div className="ServiceMarketplacePage-enquiryRow" key={enquiry._id}>
                 <strong>{enquiry.serviceName}</strong>
-                <span>{`ENQ-${String(enquiry._id).slice(-6).toUpperCase()}`}</span>
+                <span>{formatPublicId("ENQ", enquiry, index)}</span>
                 <em className={`ServiceMarketplacePage-status ServiceMarketplacePage-status-${String(enquiry.status || 'Pending').toLowerCase().replace(" ", "-")}`}>
                   {enquiry.status || 'Pending'}
                 </em>

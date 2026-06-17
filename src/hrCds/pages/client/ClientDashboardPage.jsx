@@ -8,6 +8,7 @@ import {
   calculateTaskStats,
   formatDate,
   formatMoney,
+  formatPublicId,
   getTaskTitle,
   isClientTaskOverdue
 } from '../../utils/clientPortalData';
@@ -81,6 +82,16 @@ const normalizeMatchValue = value => String(value || '').trim().toLowerCase();
 
 const normalizePhoneValue = value => String(value || '').replace(/\D/g, '');
 
+const parseAdditionalDetails = value => {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return {};
+  }
+};
+
 const getIdValues = value => {
   if (!value) return [];
   if (typeof value === 'object') {
@@ -144,8 +155,10 @@ const getUserMatchValues = user => ({
     ...getIdValues(user?.userId),
     ...getIdValues(user?.clientId),
     ...getIdValues(user?.clientUserId),
+    ...getIdValues(user?.employeeType),
     ...getIdValues(user?.client),
-    ...getIdValues(user?.clientUser)
+    ...getIdValues(user?.clientUser),
+    ...getIdValues(parseAdditionalDetails(user?.additionalDetails)?.clientId)
   ],
   emails: [
     user?.email,
@@ -401,19 +414,32 @@ const Dashboard = () => {
       }
 
       const user = JSON.parse(userStr);
+      const storedClient = (() => {
+        try {
+          return JSON.parse(localStorage.getItem('client') || 'null');
+        } catch {
+          return null;
+        }
+      })();
       const companyUsers = await fetchCompanyUsers(user);
       
       const response = await api.get('/', {
         params: {
           companyCode: companyInfo.companyCode,
-          companyIdentifier: companyInfo.companyIdentifier
+          companyIdentifier: companyInfo.companyIdentifier,
+          limit: 1000
         }
       });
 
       if (response.data?.success && isMounted.current) {
         const allClients = response.data.data || [];
+        const storedClientId = normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
         
-        const currentClient = allClients.find(client => isClientForLoggedInUser(client, user));
+        const currentClient = (
+          storedClientId
+            ? allClients.find(client => normalizeMatchValue(client?._id || client?.id) === storedClientId)
+            : null
+        ) || allClients.find(client => isClientForLoggedInUser(client, user));
         
         if (!currentClient) {
           setClient(null);
@@ -505,6 +531,7 @@ const Dashboard = () => {
       .filter(task => task.serviceName === service)
       .some(task => taskMatchesFilter(task, dashboardFilter));
   });
+  const previewServiceRows = visibleServiceRows.slice(0, 4);
   const completedPercent = visibleTaskStats.totalTasks ? Math.round((visibleTaskStats.completedTasks / visibleTaskStats.totalTasks) * 100) : 0;
   const inProgressPercent = visibleTaskStats.totalTasks ? Math.round((visibleTaskStats.inProgressTasks / visibleTaskStats.totalTasks) * 100) : 0;
   const pendingPercent = visibleTaskStats.totalTasks ? Math.round((visibleTaskStats.pendingTasks / visibleTaskStats.totalTasks) * 100) : 0;
@@ -669,7 +696,7 @@ const Dashboard = () => {
           <p><FiMail /> {client?.email || 'No email available'}</p>
           <p><FiPhone /> {client?.phone || 'No phone available'}</p>
           <p><FiMapPin /> {client?.city || client?.address || 'No address available'}</p>
-          <p><FiCalendar /> Client ID: CLT-{String(client?._id || client?.id || 'UNKNOWN').slice(-9).toUpperCase()}</p>
+          <p><FiCalendar /> Client ID: {formatPublicId('CLT', client)}</p>
           <p><FiUser /> Account Manager: {sidebarManagers[0]?.name || 'Not assigned'}</p>
         </div>
         <div className="ClientDashboard-profile-actions">
@@ -746,7 +773,7 @@ const Dashboard = () => {
             <div className="ClientDashboard-table-head">
               <span>Service / Project</span><span>Assigned Team</span><span>Start Date</span><span>Deadline</span><span>Progress</span><span></span>
             </div>
-            {visibleServiceRows.map(([service, team, startDate, deadline, percent, status]) => {
+            {previewServiceRows.map(([service, team, startDate, deadline, percent, status]) => {
               return (
                 <div className="ClientDashboard-service-table-row" key={service}>
                   <strong>{service}</strong>
@@ -759,7 +786,7 @@ const Dashboard = () => {
                 </div>
               );
             })}
-            {!visibleServiceRows.length && (
+            {!previewServiceRows.length && (
               <div className="ClientDashboard-empty-row">No services match this filter.</div>
             )}
           </div>

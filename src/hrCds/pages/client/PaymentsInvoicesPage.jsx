@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import axios from "axios";
 import {
   FiAlertCircle,
   FiArrowRight,
@@ -20,8 +21,10 @@ import {
   calculatePaymentSummary,
   formatDate,
   formatMoney,
+  formatPublicId,
   useClientPortalData,
 } from "../../utils/clientPortalData";
+import API_URL from "../../../config";
 import "./PaymentsInvoicesPage.css";
 
 const getInitials = value => String(value || "C").trim().slice(0, 1).toUpperCase();
@@ -31,24 +34,76 @@ const PaymentsInvoicesPage = () => {
   const payment = calculatePaymentSummary(client);
   const clientName = client?.client || client?.name || "Client";
   const manager = projectManagers[0] || {};
+  const [receiptAmount, setReceiptAmount] = useState("");
+  const [transactionId, setTransactionId] = useState("");
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [selectedDueId, setSelectedDueId] = useState("");
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+
+  const dueInvoiceRows = payment.dueInvoices.map((invoice, index) => ({
+    id: formatPublicId("INV", invoice, index),
+    rawId: invoice._id,
+    period: invoice.title || "Subscription Due",
+    amount: formatMoney(invoice.amount),
+    dueDate: formatDate(invoice.dueDate),
+    status: invoice.status || "Due",
+    isDue: true,
+  }));
 
   const invoices = payment.receipts.length
-    ? payment.receipts.map((receipt, index) => ({
-      id: receipt.invoiceId || receipt.receiptNo || receipt._id || `PAY-${index + 1}`,
+    ? [...dueInvoiceRows, ...payment.receipts.map((receipt, index) => ({
+      id: formatPublicId("PAY", receipt, index),
+      rawId: receipt._id,
       period: `${formatDate(receipt.startDate || payment.latest?.startDate)} - ${formatDate(receipt.endDate || payment.latest?.endDate)}`,
       amount: formatMoney(receipt.amount || receipt.price || receipt.paidAmount || payment.subscriptionPrice),
       dueDate: formatDate(receipt.paymentDate || receipt.createdAt || payment.nextDueDate),
       status: receipt.status || "Paid",
-    }))
+    }))]
     : payment.latest
-      ? [{
-        id: `SUB-${String(client?._id || "").slice(-6).toUpperCase() || "CURRENT"}`,
+      ? [...dueInvoiceRows, {
+        id: formatPublicId("SUB", { _id: client?._id, createdAt: payment.latest.startDate || client?.createdAt }, 0),
         period: `${formatDate(payment.latest.startDate)} - ${formatDate(payment.latest.endDate)}`,
         amount: formatMoney(payment.subscriptionPrice),
         dueDate: formatDate(payment.latest.endDate),
         status: payment.outstanding > 0 ? "Due Soon" : "Active",
       }]
-      : [];
+      : dueInvoiceRows;
+
+  const handleUploadReceipt = async (event) => {
+    event.preventDefault();
+    if (!client?._id) return;
+    if (!receiptFile) {
+      alert("Please select payment proof file");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("receipt", receiptFile);
+    formData.append("amount", receiptAmount || payment.outstanding || 0);
+    formData.append("transactionId", transactionId);
+    if (selectedDueId) formData.append("dueInvoiceId", selectedDueId);
+
+    try {
+      setUploadingReceipt(true);
+      const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+      await axios.post(`${API_URL}/clientsservice/upload-receipt/${client._id}`, formData, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      setReceiptAmount("");
+      setTransactionId("");
+      setReceiptFile(null);
+      setSelectedDueId("");
+      await refetch();
+      alert("Payment proof uploaded. Team will verify it.");
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to upload payment proof");
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
 
   const metricCards = [
     { label: "Total Paid", value: formatMoney(payment.paidAmount), note: `${payment.receipts.length} receipt(s)`, tone: "green", icon: <FiDollarSign /> },
@@ -184,7 +239,40 @@ const PaymentsInvoicesPage = () => {
               <hr />
               <div className="PaymentsPage-totalRow"><span>Total Outstanding</span><strong>{formatMoney(payment.outstanding)}</strong></div>
             </div>
-            <button type="button" className="PaymentsPage-primary PaymentsPage-fullButton">Pay Now</button>
+            <form className="PaymentsPage-proofForm" onSubmit={handleUploadReceipt}>
+              <h3>Upload Payment Proof</h3>
+              {payment.dueInvoices.length > 0 && (
+                <select value={selectedDueId} onChange={(e) => setSelectedDueId(e.target.value)}>
+                  <option value="">Select due invoice</option>
+                  {payment.dueInvoices.map((invoice, index) => (
+                    <option key={invoice._id} value={invoice._id}>
+                      {formatPublicId("INV", invoice, index)} - {invoice.title || 'Due'} - {formatMoney(invoice.amount)}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <input
+                type="number"
+                min="0"
+                placeholder="Amount paid"
+                value={receiptAmount}
+                onChange={(e) => setReceiptAmount(e.target.value)}
+              />
+              <input
+                type="text"
+                placeholder="Transaction ID"
+                value={transactionId}
+                onChange={(e) => setTransactionId(e.target.value)}
+              />
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+              />
+              <button type="submit" className="PaymentsPage-primary PaymentsPage-fullButton" disabled={uploadingReceipt}>
+                {uploadingReceipt ? "Uploading..." : "Upload Proof"}
+              </button>
+            </form>
           </section>
 
           <section className="PaymentsPage-panel PaymentsPage-supportPanel">

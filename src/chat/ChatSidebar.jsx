@@ -8,7 +8,8 @@ const ChatSidebar = ({
     onlineUsers,
     unreadCounts,
     selectedUser,
-    setSelectedUser
+    setSelectedUser,
+    currentUserId
 }) => {
     const [searchTerm, setSearchTerm] = useState("");
 
@@ -33,6 +34,34 @@ const ChatSidebar = ({
         if (message.text) return message.text;
         if (message.file) return "Attachment";
         return "New message";
+    };
+
+    const getItemId = item => (
+        item?._id ||
+        item?.id ||
+        item?.userId ||
+        item?.user?._id ||
+        item?.user?.id ||
+        ""
+    ).toString();
+
+    const getMemberId = member => {
+        if (!member) return "";
+        if (typeof member === "object") {
+            return (member._id || member.id || member.userId || member.user?._id || member.user?.id || "").toString();
+        }
+
+        return member.toString();
+    };
+
+    const isIdOnline = id => {
+        const value = (id || "").toString();
+        return Boolean(value && onlineUsers.some(userId => userId?.toString() === value));
+    };
+
+    const isUserOnline = user => {
+        const userId = getItemId(user);
+        return Boolean(user?.isOnline) || isIdOnline(userId);
     };
 
     const getLastMessageTime = item => {
@@ -65,6 +94,16 @@ const ChatSidebar = ({
         const members = group.members || group.users || group.memberIds || group.membersIds;
         if (Array.isArray(members)) return members.length;
         return group.memberCount || group.count || 0;
+    };
+
+    const getGroupOnlineCount = (group) => {
+        const members = group?.members || group?.users || group?.memberIds || group?.membersIds;
+        if (!Array.isArray(members)) return 0;
+
+        return members.filter(member => {
+            const memberId = getMemberId(member);
+            return memberId && memberId !== currentUserId && isIdOnline(memberId);
+        }).length;
     };
 
     const getBadgeCount = (item) => {
@@ -168,12 +207,12 @@ const ChatSidebar = ({
                                 </div>
                                 <div className="chat-user-role">
                                     <span className={
-                                        onlineUsers.includes(user._id.toString())
+                                        isUserOnline(user)
                                             ? "status-dot"
                                             : "status-dot offline"
                                     } />
                                     <span className="role-text">
-                                        {getLastMessageText(user)}
+                                        {isUserOnline(user) ? "Online" : "Offline"} - {getLastMessageText(user)}
                                     </span>
                                 </div>
                             </div>
@@ -212,9 +251,16 @@ const ChatSidebar = ({
                                     {group.department || "SEO Department"}
                                 </div>
                                 <div className="chat-user-role">
-                                    <span className="chat-last-message">{getLastMessageText(group)}</span>
+                                    <span className={getGroupOnlineCount(group) > 0 ? "status-dot" : "status-dot offline"} />
+                                    <span className="chat-last-message">
+                                        {getGroupOnlineCount(group) > 0
+                                            ? `${getGroupOnlineCount(group)} online`
+                                            : "Offline"}
+                                        {" - "}
+                                        {getLastMessageText(group)}
+                                    </span>
                                     {getGroupMemberCount(group) > 0 && (
-                                        <span className="chat-member-count">{getGroupMemberCount(group)}</span>
+                                        <span className="chat-member-count">{getGroupMemberCount(group)} members</span>
                                     )}
                                 </div>
                             </div>
@@ -244,9 +290,9 @@ const ChatSidebar = ({
             <section className="chat-sidebar-card quick-actions-card">
                 <h3>Quick Actions</h3>
                 <div className="quick-actions-grid">
-                    {quickActions.map(({ label, icon: Icon }) => (
+                    {quickActions.map(({ label, icon }) => (
                         <button type="button" key={label} title={label}>
-                            <Icon size={18} />
+                            {React.createElement(icon, { size: 18 })}
                             <span>{label}</span>
                         </button>
                     ))}

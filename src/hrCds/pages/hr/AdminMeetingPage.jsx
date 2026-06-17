@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import "./AdminMeetingPage.css"; 
 import { useSocket } from '../../../context/SocketContext';
 import { useNotification } from '../../../context/NotificationContext';
+import { useCall } from "../../../context/CallContext";
 
 export default function AdminMeetingPage() {
   const [meetingAudience, setMeetingAudience] = useState("employee");
@@ -31,6 +32,7 @@ export default function AdminMeetingPage() {
   } = useSocket();
   
   const { showToast } = useNotification();
+  const { startCall } = useCall();
 
   const [form, setForm] = useState({
     title: "",
@@ -362,6 +364,22 @@ export default function AdminMeetingPage() {
 
   // 🟢 Helper function to get user ID
   const getUserId = (user) => user._id || user.id;
+
+  const startInternalMeetingCall = (meeting) => {
+    const attendees = Array.isArray(meeting.attendees) ? meeting.attendees : [];
+    if (attendees.length === 0) {
+      toast.warning("Please add attendees before starting a video meeting");
+      return;
+    }
+
+    startCall("video", {
+      _id: meeting._id,
+      isGroup: true,
+      name: meeting.title || "Meeting",
+      title: meeting.title || "Meeting",
+      attendees,
+    });
+  };
 
   // 🟢 Handle attendee selection
   const handleAttendeeChange = (id) => {
@@ -1666,6 +1684,13 @@ export default function AdminMeetingPage() {
                         </div>
                         
                         <div className="amp-meeting-actions">
+                          <button
+                            onClick={() => startInternalMeetingCall(meeting)}
+                            className="amp-action-btn amp-action-call"
+                            title="Start Video Meeting"
+                          >
+                            Video
+                          </button>
                           <button 
                             onClick={() => showStatus(meetingId, meeting.title)}
                             className="amp-action-btn amp-action-view"

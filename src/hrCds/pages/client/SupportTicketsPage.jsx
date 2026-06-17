@@ -14,6 +14,7 @@ import CIISLoader from "../../../Loader/CIISLoader";
 import axiosInstance from "../../../utils/axiosConfig";
 import {
   formatDate,
+  formatPublicId,
   getClientDisplayName,
   getInitials,
   useClientPortalData,
@@ -328,10 +329,10 @@ const SupportTicketsPage = () => {
             <div className="ClientMeetings-ticketHead">
               <span>Ticket</span><span>Category</span><span>Updated</span><span>Status</span>
             </div>
-            {filteredTickets.length > 0 ? filteredTickets.map(ticket => (
+            {filteredTickets.length > 0 ? filteredTickets.map((ticket, index) => (
               <div className="ClientMeetings-ticketRow" key={ticket.id || ticket.ticketNumber}>
                 <span>
-                  <strong>{ticket.ticketNumber || 'Ticket'}</strong>
+                  <strong>{ticket.ticketNumber || formatPublicId('TKT', ticket, index)}</strong>
                   <small>{ticket.subject}</small>
                 </span>
                 <span>{ticket.category || 'General'}</span>

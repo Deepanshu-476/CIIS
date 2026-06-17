@@ -176,7 +176,8 @@ const ServicesTasks = () => {
       const response = await api.get('/', {
         params: {
           companyCode: companyInfo.companyCode,
-          companyIdentifier: companyInfo.companyIdentifier
+          companyIdentifier: companyInfo.companyIdentifier,
+          limit: 1000
         }
       });
 

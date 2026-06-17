@@ -623,6 +623,8 @@
   margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid var(--gray-200);
+  display: grid;
+  gap: 10px;
 }
 
 .emp-meeting-mark-seen-button {
@@ -646,6 +648,10 @@
 .emp-meeting-mark-seen-button:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
+}
+
+.emp-meeting-video-call-button {
+  background: linear-gradient(135deg, #16a34a, #15803d);
 }
 
 .emp-meeting-button-icon {

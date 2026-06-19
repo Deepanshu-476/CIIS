@@ -156,6 +156,7 @@ const CompanyRegister = () => {
   const [formErrors, setFormErrors] = useState({});
   const [apiErrors, setApiErrors] = useState({});
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [registeredCompany, setRegisteredCompany] = useState(null);
   const [logoLoading, setLogoLoading] = useState(false);
   const [logoPreview, setLogoPreview] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -170,6 +171,74 @@ const CompanyRegister = () => {
     setMsg("");
     setError("");
     setApiErrors({});
+  };
+
+  const normalizeCreatedCompany = (responseData, submittedData) => {
+    const companyData =
+      responseData?.company ||
+      responseData?.companyDetails ||
+      responseData?.companyInfo ||
+      responseData?.newCompany ||
+      responseData?.savedCompany ||
+      responseData?.data?.company ||
+      responseData?.data?.companyDetails ||
+      responseData?.data ||
+      responseData ||
+      {};
+
+    return {
+      ...companyData,
+      companyName: companyData.companyName || submittedData.companyName,
+      companyEmail: companyData.companyEmail || submittedData.companyEmail,
+      companyCode: companyData.companyCode || companyData.code || companyData.slug || "",
+      loginUrl: companyData.loginUrl || companyData.companyLoginUrl || companyData.loginURL || "",
+    };
+  };
+
+  const getCompanyLoginPath = (companyData = registeredCompany) => {
+    const companyCode = companyData?.companyCode || companyData?.code || companyData?.slug;
+    const rawLoginUrl = companyData?.loginUrl || (companyCode ? `/company/${companyCode}/login` : "");
+
+    if (!rawLoginUrl) return "";
+
+    if (/^https?:\/\//i.test(rawLoginUrl)) {
+      try {
+        const parsedUrl = new URL(rawLoginUrl);
+        return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}` || "";
+      } catch (error) {
+        console.warn("Invalid company login URL:", rawLoginUrl, error);
+        return companyCode ? `/company/${companyCode}/login` : "";
+      }
+    }
+
+    return rawLoginUrl.startsWith("/") ? rawLoginUrl : `/${rawLoginUrl}`;
+  };
+
+  const getCompanyLoginUrl = (companyData = registeredCompany) => {
+    const loginPath = getCompanyLoginPath(companyData);
+    if (!loginPath) return "";
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return `${origin}${loginPath}`;
+  };
+
+  const handleCopyLoginUrl = async () => {
+    const loginUrl = getCompanyLoginUrl();
+    if (!loginUrl) return;
+
+    try {
+      await navigator.clipboard.writeText(loginUrl);
+      setMsg("Company login URL copied.");
+    } catch (error) {
+      console.warn("Unable to copy company login URL", error);
+      setError("Login URL copy nahi ho paaya. Please manually copy karein.");
+    }
+  };
+
+  const handleOpenCompanyLogin = () => {
+    const loginPath = getCompanyLoginPath();
+    if (loginPath) {
+      navigate(loginPath);
+    }
   };
 
   const handleChange = useCallback((e) => {
@@ -404,14 +473,11 @@ const CompanyRegister = () => {
       });
 
       const res = await axios.post(`${API_URL}/company`, formData);
+      const createdCompany = normalizeCreatedCompany(res.data, formData);
       
       setMsg(res.data?.message || "Company registered successfully! 🎉");
+      setRegisteredCompany(createdCompany);
       setRegistrationSuccess(true);
-      
-      // Show success message and redirect
-      setTimeout(() => {
-        navigate("/SuperAdminLogin"); 
-      }, 3000);
       
       resetForm();
       
@@ -455,6 +521,7 @@ const CompanyRegister = () => {
 
       setError(errorMessage);
       setRegistrationSuccess(false);
+      setRegisteredCompany(null);
     } finally {
       setIsSubmitting(false);
       setUploadProgress(0);
@@ -691,11 +758,129 @@ const CompanyRegister = () => {
                       opacity: 0.95,
                       lineHeight: 1.4,
                     }}>
-                      {msg} Redirecting to login page...
+                      {msg}
                     </p>
+
+                    {registeredCompany && (
+                      <div style={{
+                        marginTop: 14,
+                        padding: isMobile ? "10px" : "12px",
+                        background: "rgba(255, 255, 255, 0.16)",
+                        border: "1px solid rgba(255, 255, 255, 0.28)",
+                        borderRadius: 8,
+                      }}>
+                        <div style={{
+                          display: "grid",
+                          gridTemplateColumns: isMobile ? "1fr" : "130px 1fr",
+                          gap: isMobile ? 6 : 10,
+                          alignItems: "center",
+                          marginBottom: 8,
+                        }}>
+                          <strong style={{ fontSize: "12px" }}>Company Code</strong>
+                          <span style={{
+                            fontSize: "12px",
+                            fontWeight: "700",
+                            wordBreak: "break-word",
+                          }}>
+                            {registeredCompany.companyCode || "Not received from server"}
+                          </span>
+                        </div>
+
+                        <div style={{
+                          display: "grid",
+                          gridTemplateColumns: isMobile ? "1fr" : "130px 1fr",
+                          gap: isMobile ? 6 : 10,
+                          alignItems: "center",
+                        }}>
+                          <strong style={{ fontSize: "12px" }}>Login URL</strong>
+                          {getCompanyLoginUrl() ? (
+                            <a
+                              href={getCompanyLoginPath()}
+                              style={{
+                                color: "#ffffff",
+                                fontSize: "12px",
+                                fontWeight: "700",
+                                wordBreak: "break-all",
+                                textDecoration: "underline",
+                              }}
+                            >
+                              {getCompanyLoginUrl()}
+                            </a>
+                          ) : (
+                            <span style={{ fontSize: "12px", fontWeight: "700" }}>
+                              Login URL server response me nahi aaya.
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{
+                          display: "flex",
+                          flexDirection: isMobile ? "column" : "row",
+                          gap: 8,
+                          marginTop: 12,
+                        }}>
+                          <button
+                            type="button"
+                            onClick={handleCopyLoginUrl}
+                            disabled={!getCompanyLoginUrl()}
+                            style={{
+                              padding: isMobile ? "8px 12px" : "7px 12px",
+                              background: "rgba(255, 255, 255, 0.24)",
+                              color: "#ffffff",
+                              border: "1px solid rgba(255, 255, 255, 0.35)",
+                              borderRadius: 6,
+                              cursor: getCompanyLoginUrl() ? "pointer" : "not-allowed",
+                              fontWeight: "700",
+                              fontSize: "12px",
+                              opacity: getCompanyLoginUrl() ? 1 : 0.6,
+                            }}
+                          >
+                            Copy Login URL
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleOpenCompanyLogin}
+                            disabled={!getCompanyLoginUrl()}
+                            style={{
+                              padding: isMobile ? "8px 12px" : "7px 12px",
+                              background: "#ffffff",
+                              color: "#047857",
+                              border: "1px solid rgba(255, 255, 255, 0.35)",
+                              borderRadius: 6,
+                              cursor: getCompanyLoginUrl() ? "pointer" : "not-allowed",
+                              fontWeight: "700",
+                              fontSize: "12px",
+                              opacity: getCompanyLoginUrl() ? 1 : 0.6,
+                            }}
+                          >
+                            Open Login Page
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => navigate("/SuperAdminLogin")}
+                            style={{
+                              padding: isMobile ? "8px 12px" : "7px 12px",
+                              background: "transparent",
+                              color: "#ffffff",
+                              border: "1px solid rgba(255, 255, 255, 0.35)",
+                              borderRadius: 6,
+                              cursor: "pointer",
+                              fontWeight: "700",
+                              fontSize: "12px",
+                            }}
+                          >
+                            Go to Admin Login
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     
                     <button 
-                      onClick={clearMessages}
+                      onClick={() => {
+                        clearMessages();
+                        setRegistrationSuccess(false);
+                        setRegisteredCompany(null);
+                      }}
                       style={{
                         marginTop: 12,
                         padding: isMobile ? "6px 12px" : "8px 16px",
@@ -711,7 +896,7 @@ const CompanyRegister = () => {
                         width: isMobile ? "100%" : "auto",
                       }}
                     >
-                      Continue
+                      Register Another Company
                     </button>
                   </div>
                 </div>

@@ -1,48 +1,73 @@
-// src/services/socket.js - Add at the bottom
 import { io } from 'socket.io-client';
-import { SOCKET_URL } from '../config'; 
+import { SOCKET_URL } from '../config';
+
+const isDev = import.meta.env.DEV;
 
 class SocketService {
   constructor() {
     this.socket = null;
+    this.token = null;
+    this.isConnecting = false;
   }
 
   connect(token) {
-    if (this.socket?.connected) {
-      console.log('✅ Socket already connected');
+    if (!token) return null;
+
+    if (this.socket && this.token === token) {
+      this.socket.auth = { token };
+
+      if (!this.socket.connected && !this.isConnecting) {
+        this.isConnecting = true;
+        this.socket.connect();
+      }
+
       return this.socket;
     }
 
-    console.log('🔌 Connecting to socket:', SOCKET_URL);
+    if (this.socket) {
+      this.socket.removeAllListeners();
+      this.socket.disconnect();
+      this.socket = null;
+      this.isConnecting = false;
+    }
+
+    this.token = token;
+    this.isConnecting = true;
 
     try {
       this.socket = io(SOCKET_URL, {
         auth: { token },
-        transports: ['websocket', 'polling'], 
+        transports: ['websocket', 'polling'],
         withCredentials: true,
         reconnection: true,
-        reconnectionAttempts: 10,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        timeout: 20000,
-        forceNew: true
+        reconnectionAttempts: 3,
+        reconnectionDelay: 1500,
+        reconnectionDelayMax: 6000,
+        timeout: 10000,
+        forceNew: false,
       });
 
       this.socket.on('connect', () => {
-        console.log('✅ Socket connected successfully! ID:', this.socket.id);
+        this.isConnecting = false;
       });
 
-      this.socket.on('disconnect', (reason) => {
-        console.log('❌ Socket disconnected:', reason);
+      this.socket.on('disconnect', () => {
+        this.isConnecting = false;
       });
 
       this.socket.on('connect_error', (error) => {
-        console.error('❌ Socket connection error:', error.message);
+        this.isConnecting = false;
+        if (isDev) {
+          console.warn('Socket connection failed:', error.message);
+        }
       });
 
       return this.socket;
     } catch (error) {
-      console.error('❌ Failed to create socket:', error);
+      this.isConnecting = false;
+      if (isDev) {
+        console.warn('Failed to create socket:', error);
+      }
       return null;
     }
   }
@@ -52,6 +77,8 @@ class SocketService {
       this.socket.disconnect();
       this.socket = null;
     }
+    this.token = null;
+    this.isConnecting = false;
   }
 
   removeAllListeners() {
@@ -60,7 +87,6 @@ class SocketService {
     }
   }
 
-  // Leave Events
   onNewLeave(callback) {
     if (!this.socket) return () => {};
     this.socket.on('leave:new', callback);
@@ -91,7 +117,6 @@ class SocketService {
     }
   }
 
-  // Notification Events
   onNewNotification(callback) {
     if (!this.socket) return () => {};
     this.socket.on('notification:new', callback);
@@ -153,8 +178,6 @@ class SocketService {
 const socketServiceInstance = new SocketService();
 export default socketServiceInstance;
 
-// ✅ Add this line to make it globally available
 if (typeof window !== 'undefined') {
   window.socketService = socketServiceInstance;
-  console.log('✅ Socket service attached to window');
 }

@@ -481,9 +481,16 @@
     flex-wrap: wrap;
   }
 
-  .DocumentsPage-stats,
   .DocumentsPage-layout {
     grid-template-columns: 1fr;
+  }
+
+  .DocumentsPage-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .DocumentsPage-storageStat {
+    grid-column: 1 / -1;
   }
 }
 
@@ -492,9 +499,92 @@
     padding: 18px 14px 24px;
   }
 
-  .DocumentsPage-stats,
+  .DocumentsPage-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .DocumentsPage-stat {
+    min-height: 120px;
+    grid-template-columns: 38px minmax(0, 1fr);
+    column-gap: 10px;
+    padding: 16px 10px;
+  }
+
+  .DocumentsPage-statIcon {
+    width: 38px;
+    height: 38px;
+    font-size: 21px;
+  }
+
+  .DocumentsPage-stat p {
+    margin-bottom: 8px;
+    font-size: 10px;
+    line-height: 1.25;
+  }
+
+  .DocumentsPage-stat strong {
+    font-size: 22px;
+  }
+
+  .DocumentsPage-stat small {
+    font-size: 10px;
+    line-height: 1.35;
+  }
+
   .DocumentsPage-storageStat {
-    grid-template-columns: 1fr;
+    grid-column: 1 / -1;
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 10px;
+    min-height: 112px;
+    padding: 16px 10px;
+  }
+
+  .DocumentsPage-storageMini {
+    grid-column: 1 / -1;
+  }
+
+  .DocumentsPage-quick {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 10px;
+  }
+
+  .DocumentsPage-quick h2 {
+    grid-column: 1 / -1;
+    margin-bottom: 4px;
+  }
+
+  .DocumentsPage-quick button {
+    min-width: 0;
+    min-height: 106px;
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    padding: 10px 8px;
+    border: 1px solid #e6eaf1;
+    border-radius: 8px;
+  }
+
+  .DocumentsPage-quick button + button {
+    margin-top: 0;
+  }
+
+  .DocumentsPage-quick button span {
+    width: 30px;
+    height: 30px;
+  }
+
+  .DocumentsPage-quick strong {
+    font-size: 11px;
+    line-height: 1.25;
+  }
+
+  .DocumentsPage-quick small {
+    display: block;
+    margin-top: 5px;
+    font-size: 10px;
+    line-height: 1.35;
   }
 
   .DocumentsPage-toolbar {

@@ -921,6 +921,7 @@ const UserDashboard = () => {
 
   const calendarDays = useMemo(() => getCalendarGrid(calendarYear, calendarMonth), [calendarYear, calendarMonth]);
   const isMobile = useIsMobile();
+  const shouldBlockMobileDashboard = false;
   const userJobRoleDisplay = getJobRoleDisplayName();
 
   // Show page loader while page is loading
@@ -949,7 +950,7 @@ const UserDashboard = () => {
     );
   }
 
-  if (isMobile) {
+  if (shouldBlockMobileDashboard && isMobile) {
     return (
       <div style={{
         height: "100vh",

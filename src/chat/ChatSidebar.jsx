@@ -9,7 +9,8 @@ const ChatSidebar = ({
     unreadCounts,
     selectedUser,
     setSelectedUser,
-    currentUserId
+    currentUserId,
+    className = ""
 }) => {
     const [searchTerm, setSearchTerm] = useState("");
 
@@ -142,7 +143,7 @@ const ChatSidebar = ({
     }, [users, searchTerm]);
 
     return (
-        <aside className="chat-sidebar">
+        <aside className={`chat-sidebar ${className}`.trim()}>
             <section className="chat-sidebar-card conversations-card">
                 <div className="sidebar-top">
                     <div className="sidebar-title">Conversations</div>

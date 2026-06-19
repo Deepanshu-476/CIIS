@@ -190,43 +190,6 @@ export const SocketProvider = ({ children }) => {
     }
   }, [isAuthenticated, user, token]);
 
-  // ========== FORCE RECONNECT IF TOKEN EXISTS ==========
-  useEffect(() => {
-    // Force reconnect if token exists but socket not connected
-    const checkAndConnect = () => {
-      const storedToken = localStorage.getItem('token');
-      console.log('🔍 Force reconnect check:', {
-        storedToken: !!storedToken,
-        socketConnected: socketService.socket?.connected,
-        isConnected,
-        retryCount
-      });
-
-      
-      if (storedToken && !socketService.socket?.connected) {
-        console.log('🔄 Force reconnect - Token exists but socket not connected');
-        console.log('📦 Using token:', storedToken.substring(0, 20) + '...');
-        socketService.connect(storedToken);
-      } else if (storedToken && socketService.socket?.connected) {
-        console.log('✅ Socket already connected, no force reconnect needed');
-        setIsConnected(true);
-      }
-    };
-    
-    // Check immediately
-    checkAndConnect();
-    
-    // Check after 1, 2, 3, and 5 seconds
-    const timeouts = [
-      setTimeout(checkAndConnect, 1000),
-      setTimeout(checkAndConnect, 2000),
-      setTimeout(checkAndConnect, 3000),
-      setTimeout(checkAndConnect, 5000)
-    ];
-    
-    return () => timeouts.forEach(t => clearTimeout(t));
-  }, [retryCount]);
-
   // Connect to socket when user is authenticated
   useEffect(() => {
     console.log('🔄 SocketProvider useEffect triggered with dependencies:', {

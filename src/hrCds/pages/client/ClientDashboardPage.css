@@ -7,7 +7,7 @@
   background: #f6f8fd;
   color: #101735;
   font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
-}
+} 
 
 .ClientDashboard-card,
 .ClientDashboard-hero-card,
@@ -1214,11 +1214,14 @@ button {
 }
 
 @media (max-width: 980px) {
-  .ClientDashboard-kpi-row,
   .ClientDashboard-content-grid,
-  .ClientDashboard-hero-stats,
   .ClientDashboard-profile-summary {
     grid-template-columns: 1fr;
+  }
+
+  .ClientDashboard-kpi-row,
+  .ClientDashboard-hero-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .ClientDashboard-progress-overview,
@@ -1259,10 +1262,13 @@ button {
   .ClientDashboard-update-strip,
   .ClientDashboard-profile-actions,
   .ClientDashboard-progress-layout,
-  .ClientDashboard-distribution-content,
+  .ClientDashboard-distribution-content {
+    grid-template-columns: 1fr;
+  }
+
   .ClientDashboard-ticket-stats,
   .ClientDashboard-action-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .ClientDashboard-date-pill {

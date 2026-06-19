@@ -584,7 +584,43 @@
 
   .PaymentsPage-metrics,
   .PaymentsPage-planGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .PaymentsPage-metrics {
+    gap: 12px;
+  }
+
+  .PaymentsPage-metricCard {
+    min-height: 122px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    padding: 15px 12px;
+  }
+
+  .PaymentsPage-metricIcon {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+    box-shadow: none;
+  }
+
+  .PaymentsPage-metricCard p {
+    font-size: 10px;
+    line-height: 1.25;
+  }
+
+  .PaymentsPage-metricCard h2 {
+    font-size: 20px;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+
+  .PaymentsPage-note,
+  .PaymentsPage-metricCard a {
+    font-size: 10px;
+    line-height: 1.3;
   }
 
   .PaymentsPage-panel {

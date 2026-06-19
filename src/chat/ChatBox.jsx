@@ -4,7 +4,7 @@ import React, {
     useState
 } from "react";
 import "../Pages/Chat/chat.css";
-import { Mic, MoreHorizontal, Paperclip, Phone, SendHorizontal, Smile, Square, Video } from "lucide-react";
+import { ArrowLeft, Mic, MoreHorizontal, Paperclip, Phone, SendHorizontal, Smile, Square, Video, X } from "lucide-react";
 
 import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage } from "../services/chatService";
 
@@ -19,7 +19,8 @@ const ChatBox = ({
     users,
     socket,
     onlineUsers = [],
-    onConversationChange
+    onConversationChange,
+    onBack
 }) => {
 
     const [conversation, setConversation] =
@@ -47,6 +48,7 @@ const ChatBox = ({
     const recordingPreviewRef = useRef(null);
     const emojiPickerRef = useRef(null);
     const chatInputRef = useRef(null);
+    const fileInputRef = useRef(null);
     const activeConversationIdRef = useRef(null);
     const { startCall } = useCall();
     const { showToast } = useNotification();
@@ -667,6 +669,9 @@ useEffect(() => {
 
             setText("");
             setFiles([]);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
             socket?.emit("chat:stop-typing", { conversationId: conversation._id });
             onConversationChange?.();
 
@@ -723,6 +728,13 @@ useEffect(() => {
     const handleEmojiSelect = (emoji) => {
         setText((prev) => `${prev}${emoji}`);
         chatInputRef.current?.focus();
+    };
+
+    const clearSelectedFiles = () => {
+        setFiles([]);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
     };
 
 
@@ -807,6 +819,14 @@ useEffect(() => {
         <div className="chat-box">
             <div className="chat-header">
                 <div className="chat-header-left">
+                    <button
+                        type="button"
+                        className="chat-mobile-back"
+                        title="Back to conversations"
+                        onClick={onBack}
+                    >
+                        <ArrowLeft size={20} />
+                    </button>
                     <div className="chat-avatar">
                         {
                             selectedUser.isGroup
@@ -905,6 +925,7 @@ useEffect(() => {
                 <div className="chat-composer">
                     <label className="file-upload-btn" title="Attach file">
                         <input
+                            ref={fileInputRef}
                             type="file"
                             accept="image/*,video/*,audio/*"
                             multiple
@@ -920,7 +941,15 @@ useEffect(() => {
                     <div className="chat-input-wrapper">
                         {files.length > 0 && (
                             <div className="selected-file-info">
-                                {files.length === 1 ? files[0].name : `${files.length} files selected`}
+                                <span>{files.length === 1 ? files[0].name : `${files.length} files selected`}</span>
+                                <button
+                                    type="button"
+                                    className="selected-file-remove"
+                                    title="Remove selected file"
+                                    onClick={clearSelectedFiles}
+                                >
+                                    <X size={14} />
+                                </button>
                             </div>
                         )}
                         {recorderMode && (

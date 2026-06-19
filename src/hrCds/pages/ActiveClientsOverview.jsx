@@ -19,6 +19,7 @@ import {
   FiX,
 } from 'react-icons/fi';
 import API_URL from '../../config';
+import CIISLoader from '../../Loader/CIISLoader';
 import {
   calculateTaskStats,
   getClientDisplayName,
@@ -573,7 +574,7 @@ const ActiveClientsOverview = () => {
       )}
 
       {loading ? (
-        <div className="ActiveClientsOverview-loading">Loading active clients...</div>
+        <CIISLoader />
       ) : (
         <div className="ActiveClientsOverview-layout">
           <aside className="ActiveClientsOverview-clientList">

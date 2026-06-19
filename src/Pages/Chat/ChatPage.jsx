@@ -168,6 +168,14 @@ const ChatPage = () => {
   }, []);
 
   useEffect(() => {
+    document.body.classList.add("chat-route-active");
+
+    return () => {
+      document.body.classList.remove("chat-route-active");
+    };
+  }, []);
+
+  useEffect(() => {
     if (!socket) return undefined;
 
     const selectedUserId = (selectedUser?._id || selectedUser?.id || "").toString();
@@ -289,7 +297,7 @@ const ChatPage = () => {
   }, [selectedUser]);
 
   return (
-    <div className="chat-page">
+    <div className={`chat-page ${selectedUser ? "has-selected-chat" : "is-chat-list"}`}>
       <ChatSidebar
         users={enrichedUsers}
         groups={enrichedGroups}
@@ -307,6 +315,7 @@ const ChatPage = () => {
         socket={socket}
         onlineUsers={onlineUsers}
         onConversationChange={fetchConversations}
+        onBack={() => setSelectedUser(null)}
       />
     </div>
   );

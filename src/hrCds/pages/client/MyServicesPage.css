@@ -238,7 +238,7 @@
 .MyServices-timeline, .MyServices-team-panel { min-height: 164px; padding: 12px 14px; }
 .MyServices-timeline header { margin-bottom: 14px; }
 .MyServices-timeline header > span { padding: 4px 8px; border-radius: 999px; background: #edf2ff; color: #3268d9; font-size: 7px; font-weight: 800; }
-.MyServices-timeline-track { position: relative; display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.MyServices-timeline-track { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
 .MyServices-timeline-track::before {
   content: ""; position: absolute; z-index: 0; top: 22px; left: 9%; right: 9%; height: 1px;
   background: linear-gradient(90deg, #2cc17b 0 42%, #3376ed 42% 55%, #cfd6e2 55%);
@@ -469,11 +469,18 @@
 
 @media (max-width: 700px) {
   .MyServices-shell { margin: -16px; padding: 12px; }
-  .MyServices-stats, .MyServices-sidebar, .MyServices-grid { grid-template-columns: 1fr; }
-  .MyServices-stat { border-right: 0; border-bottom: 1px solid #edf0f4; }
+  .MyServices-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .MyServices-sidebar, .MyServices-grid { grid-template-columns: 1fr; }
+  .MyServices-stat { border-right: 1px solid #edf0f4; border-bottom: 1px solid #edf0f4; }
+  .MyServices-stat:nth-child(2n) { border-right: 0; }
+  .MyServices-stat:nth-last-child(-n + 2) { border-bottom: 0; }
   .MyServices-filterbar { grid-template-columns: 1fr; }
   .MyServices-filter, .MyServices-service-search { grid-column: 1; }
   .MyServices-detailGrid, .MyServices-taskRow { grid-template-columns: 1fr; }
-  .MyServices-timeline-track { grid-template-columns: 1fr; gap: 12px; }
-  .MyServices-timeline-track::before { display: none; }
+  .MyServices-timeline { padding: 12px 8px; }
+  .MyServices-timeline-track { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .MyServices-timeline-track::before { left: 12%; right: 12%; }
+  .MyServices-step i { width: 36px; height: 36px; box-shadow: 0 0 0 4px #fff; }
+  .MyServices-step.done i,
+  .MyServices-step.active i { border-width: 5px; }
 }

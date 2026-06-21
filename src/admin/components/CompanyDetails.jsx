@@ -155,22 +155,30 @@ const CompanyDetails = () => {
     }
   };
 
-  const getCompanyLoginPath = (companyData = company) => {
-    const companyCode = companyData?.companyCode || companyData?.code || "COMPANY";
-    const fallbackPath = `/company/${companyCode}/login`;
+ const getCompanyLoginPath = (companyData = company) => {
+    const companyCode = companyData?.companyCode || companyData?.code || companyData?.slug || "";
+    const fallbackPath = companyCode ? `/company/${encodeURIComponent(companyCode)}/login` : "/company/COMPANY/login";
     const rawLoginUrl = companyData?.loginUrl || fallbackPath;
 
     if (/^https?:\/\//i.test(rawLoginUrl)) {
       try {
         const parsedUrl = new URL(rawLoginUrl);
-        return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}` || fallbackPath;
+        const parsedPath = `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}` || fallbackPath;
+        const parsedCode = parsedUrl.pathname.match(/^\/company\/([^/]+)\/login\/?$/i)?.[1];
+        return companyCode && parsedCode && decodeURIComponent(parsedCode) !== companyCode
+          ? fallbackPath
+          : parsedPath;
       } catch (error) {
         console.warn("Invalid company login URL:", rawLoginUrl, error);
         return fallbackPath;
       }
     }
 
-    return rawLoginUrl.startsWith("/") ? rawLoginUrl : `/${rawLoginUrl}`;
+    const normalizedPath = rawLoginUrl.startsWith("/") ? rawLoginUrl : `/${rawLoginUrl}`;
+    const pathCode = normalizedPath.match(/^\/company\/([^/]+)\/login\/?$/i)?.[1];
+    return companyCode && pathCode && decodeURIComponent(pathCode) !== companyCode
+      ? fallbackPath
+      : normalizedPath;
   };
 
   const getCompanyLoginUrl = (companyData = company) => {

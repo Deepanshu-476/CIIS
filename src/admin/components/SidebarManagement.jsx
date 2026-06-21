@@ -35,7 +35,6 @@ const APP_ROUTES = [
   { path: 'change-password', name: 'Change Password', icon: 'Key', category: 'main' },
   { path: 'create-alert' , name: 'Create Alert', icon: 'Notifications', category: 'communication' },
   { path: 'chat', name: 'Chat', icon: 'Chat', category: 'communication' },
-  { path: 'contact-support', name: 'Support Center', icon: 'SupportAgent', category: 'communication' },
   { path: 'support-desk', name: 'Support Desk', icon: 'SupportAgent', category: 'communication' },
   { path: 'support-operations', name: 'Support Operations', icon: 'SupportAgent', category: 'administration' },
 ];

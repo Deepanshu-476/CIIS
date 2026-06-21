@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import "./chat.css";
 import ChatSidebar from "../../chat/ChatSidebar";
 import ChatBox from "../../chat/ChatBox";
-import { getCompanyGroups, getCompanyUsers, getConversations } from "../../services/chatService";
+import { getAllCompanyUsers, getCompanyGroups, getCompanyUsers, getConversations } from "../../services/chatService";
 import { useSocket } from "../../context/SocketContext";
 
 const getEntityId = value => {
@@ -47,6 +47,7 @@ const ChatPage = () => {
   const [unreadCounts, setUnreadCounts] = useState({});
   const [groups, setGroups] = useState([]);
   const [conversations, setConversations] = useState([]);
+  const [companyUsers, setCompanyUsers] = useState([]);
 
   const socketContext = useSocket();
   const socket = socketContext?.socket;
@@ -172,15 +173,40 @@ const ChatPage = () => {
     }
   };
 
+  const fetchAllCompanyUsers = async () => {
+    try {
+      const res = await getAllCompanyUsers();
+      const payload = res.data?.data || res.data?.message || res.data || {};
+      const fetchedUsers = Array.isArray(payload)
+        ? payload
+        : (payload.users || res.data?.users || []);
+
+      setCompanyUsers(
+        (Array.isArray(fetchedUsers) ? fetchedUsers : [])
+          .map(user => ({
+            ...user,
+            _id: getEntityId(user),
+          }))
+          .filter(user => user._id && user._id !== currentUserId)
+      );
+    } catch (error) {
+      console.error("Company users fetch failed:", error);
+      setCompanyUsers([]);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
+    fetchAllCompanyUsers();
     fetchGroups();
     fetchConversations();
 
     const userRefreshTimer = window.setInterval(fetchUsers, 60000);
+    const companyUserRefreshTimer = window.setInterval(fetchAllCompanyUsers, 60000);
 
     return () => {
       window.clearInterval(userRefreshTimer);
+      window.clearInterval(companyUserRefreshTimer);
     };
   }, []);
 
@@ -315,6 +341,7 @@ const ChatPage = () => {
         selectedUser={selectedUser}
         setSelectedUser={setSelectedUser}
         currentUserId={currentUserId}
+        companyUsers={companyUsers}
       />
 
       <ChatBox

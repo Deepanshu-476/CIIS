@@ -195,6 +195,40 @@ const taskMatchesFilter = (task, filter) => {
   return true;
 };
 
+const normalizePlanText = value => String(value || '').trim().toLowerCase();
+
+const getTaskSubscription = (client, task) => {
+  const subscriptions = Array.isArray(client?.subscription) ? client.subscription : [];
+  if (!subscriptions.length) return null;
+
+  const taskSubscriptionId = normalizePlanText(task.subscriptionId?._id || task.subscriptionId);
+  if (taskSubscriptionId) {
+    const match = subscriptions.find(sub => normalizePlanText(sub._id || sub.id) === taskSubscriptionId);
+    if (match) return match;
+  }
+
+  if (task.subscriptionNo) {
+    const match = subscriptions.find(sub => Number(sub.subscriptionNo) === Number(task.subscriptionNo));
+    if (match) return match;
+  }
+
+  return subscriptions.find(sub => String(sub.status || '').toLowerCase() === 'active') || subscriptions[subscriptions.length - 1];
+};
+
+const isExtraClientTask = (client, task) => {
+  if (task?.isPlanTask === false) return true;
+  if (task?.isPlanTask === true) return false;
+
+  const subscription = getTaskSubscription(client, task);
+  const serviceName = normalizePlanText(task.serviceName || task.service);
+  const taskName = normalizePlanText(getTaskTitle(task));
+  const serviceSnapshot = (subscription?.servicesSnapshot || []).find(item => normalizePlanText(item.service) === serviceName);
+
+  if (!serviceSnapshot) return Boolean(subscription?.servicesSnapshot?.length);
+
+  return !(serviceSnapshot.tasks || []).some(item => normalizePlanText(item.name) === taskName);
+};
+
 const normalizeTaskStats = (tasks, apiStats = null) => {
   const calculated = calculateTaskStats(tasks);
   if (!apiStats) return calculated;
@@ -750,9 +784,15 @@ const ActiveClientsOverview = () => {
                             {filteredSelectedTasks.slice(0, 5).map(task => {
                               const status = getTaskStatus(task);
                               const assigned = getAssignedName(task);
+                              const isExtra = isExtraClientTask(selectedClient.client, task);
                               return (
                                 <tr key={task._id || `${getTaskTitle(task)}-${task.createdAt}`}>
-                                  <td>{getTaskTitle(task)}</td>
+                                  <td>
+                                    <div className="ActiveClientsOverview-taskNameCell">
+                                      <span>{getTaskTitle(task)}</span>
+                                      {isExtra && <b>Extra</b>}
+                                    </div>
+                                  </td>
                                   <td><span className={`status-${getStatusClass(status)}`}>{status}</span></td>
                                   <td>{formatDate(getTaskDueDate(task))}</td>
                                   <td>
@@ -928,9 +968,15 @@ const ActiveClientsOverview = () => {
                   {filteredSelectedTasks.map(task => {
                     const status = getTaskStatus(task);
                     const assigned = getAssignedName(task);
+                    const isExtra = isExtraClientTask(selectedClient.client, task);
                     return (
                       <tr key={task._id || `${getTaskTitle(task)}-${task.createdAt}`}>
-                        <td>{getTaskTitle(task)}</td>
+                        <td>
+                          <div className="ActiveClientsOverview-taskNameCell">
+                            <span>{getTaskTitle(task)}</span>
+                            {isExtra && <b>Extra</b>}
+                          </div>
+                        </td>
                         <td><span className={`status-${getStatusClass(status)}`}>{status}</span></td>
                         <td>{formatDate(getTaskDueDate(task))}</td>
                         <td>{assigned}</td>

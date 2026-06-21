@@ -127,6 +127,22 @@ tasksApi.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+const clientPlansApi = axios.create({
+  baseURL: `${API_URL}/client-plans`,
+  timeout: 10000,
+});
+
+clientPlansApi.interceptors.request.use(
+  (config) => {
+    const token = getAuthToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 // Users API instance
 const usersApi = axios.create({
   baseURL: `${API_URL}/users`,
@@ -147,11 +163,12 @@ usersApi.interceptors.request.use(
 // ============================================
 //  PAYMENT RECEIPTS MODAL COMPONENT
 // ============================================
-const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, userRole }) => {
+const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, userRole, clientPlans = [] }) => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [price, setPrice] = useState('');
   const [months, setMonths] = useState(1);
+  const [clientPlanId, setClientPlanId] = useState('');
   const [extraTasks, setExtraTasks] = useState(0);
   const [benefits, setBenefits] = useState('');
   const [showRenewForm, setShowRenewForm] = useState(false);
@@ -191,6 +208,17 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
     if (date && months) {
       const calculatedEndDate = calculateEndDate(date, months);
       setEndDate(calculatedEndDate);
+    }
+  };
+
+  const handleRenewPlanChange = (planId) => {
+    const plan = clientPlans.find(item => item._id === planId);
+    setClientPlanId(planId);
+    if (!plan) return;
+    setPrice(String(plan.price || 0));
+    setMonths(plan.months || 1);
+    if (startDate) {
+      setEndDate(calculateEndDate(startDate, plan.months || 1));
     }
   };
 
@@ -237,6 +265,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
           startDate,
           endDate,
           price: price ? parseFloat(price) : undefined,
+          clientPlanId,
           extraTasks: extraTasks ? parseInt(extraTasks) : 0,
           benefits: benefits || ''
         }
@@ -252,6 +281,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
         setEndDate('');
         setPrice('');
         setMonths(1);
+        setClientPlanId('');
         setExtraTasks(0);
         setBenefits('');
 
@@ -560,6 +590,26 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
                   <div className="ClientManagement-renewal-form">
                     <div className="ClientManagement-form-group">
                       <label className="ClientManagement-form-label">
+                        <FiBriefcase /> Renewal Plan
+                      </label>
+                      <select
+                        className="ClientManagement-form-input"
+                        value={clientPlanId}
+                        onChange={(e) => handleRenewPlanChange(e.target.value)}
+                        disabled={updating}
+                      >
+                        <option value="">Manual renewal</option>
+                        {clientPlans.map(plan => (
+                          <option key={plan._id} value={plan._id}>
+                            {plan.name} - ₹{Number(plan.price || 0).toLocaleString('en-IN')} / {plan.months || 1} month
+                          </option>
+                        ))}
+                      </select>
+                      <small className="ClientManagement-text-muted">Plan select karne par fresh tasks next subscription me generate honge.</small>
+                    </div>
+
+                    <div className="ClientManagement-form-group">
+                      <label className="ClientManagement-form-label">
                         <FiCalendar /> Start Date
                       </label>
                       <input
@@ -865,7 +915,12 @@ const TaskDetailsModal = ({ task, open, onClose, projectManagers = [] }) => {
         <div className="ClientManagement-modal__content">
           <div className="ClientManagement-form-group">
             <label className="ClientManagement-form-label">Task Name</label>
-            <p className="ClientManagement-text-large">{task.name}</p>
+            <div className="ClientManagement-flex-align-center ClientManagement-gap-1 ClientManagement-flex-wrap">
+              <p className="ClientManagement-text-large">{task.name}</p>
+              {task.isPlanTask === false && (
+                <span className="ClientManagement-badge ClientManagement-badge--warning">Extra</span>
+              )}
+            </div>
           </div>
 
           <div className="ClientManagement-grid-2">
@@ -947,7 +1002,7 @@ const TaskDetailsModal = ({ task, open, onClose, projectManagers = [] }) => {
 // ============================================
 //  SERVICE PROGRESS CARD COMPONENT
 // ============================================
-const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], onTaskUpdate, api, startDate = null, endDate = null }) => {
+const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], onTaskUpdate, api, startDate = null, endDate = null, subscriptionId = null, subscriptionNo = null }) => {
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState({
     name: '',
@@ -969,6 +1024,8 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
         params.startDate = startDate;
         params.endDate = endDate;
       }
+      if (subscriptionId) params.subscriptionId = subscriptionId;
+      if (subscriptionNo) params.subscriptionNo = subscriptionNo;
       const response = await api.get(`/client/${clientId}/service/${encodedService}`, { params });
       const tasksData = response.data?.data || [];
       setTasks(Array.isArray(tasksData) ? tasksData : []);
@@ -995,7 +1052,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
 
   useEffect(() => {
     fetchTasks();
-  }, [clientId, service, startDate, endDate]);
+  }, [clientId, service, startDate, endDate, subscriptionId, subscriptionNo]);
 
   const completedTasks = tasks.filter(task => task.completed).length;
   const totalTasks = tasks.length;
@@ -1014,7 +1071,9 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
           dueDateTime: convertToISODateString(newTask.dueDate),
           assignee: newTask.assignee,
           assigneeId: assigneeId,
-          priority: newTask.priority
+          priority: newTask.priority,
+          subscriptionId,
+          subscriptionNo
         });
 
         if (response.data.success) {
@@ -1033,6 +1092,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
           dueDate: convertToISODateString(newTask.dueDate),
           assignee: newTask.assignee,
           priority: newTask.priority,
+          isPlanTask: false,
           completed: false,
           createdAt: new Date().toISOString(),
           completedAt: null
@@ -1345,6 +1405,12 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
                       <p className={task.completed ? 'ClientManagement-text-line-through ClientManagement-text-muted' : ''}>
                         {task.name}
                       </p>
+
+                      {task.isPlanTask === false && (
+                        <div className="ClientManagement-badge ClientManagement-badge--warning">
+                          Extra
+                        </div>
+                      )}
                       
                       {task.priority && task.priority !== 'Medium' && (
                         <div className={`ClientManagement-badge ${getPriorityColor(task.priority)}`}>
@@ -1538,6 +1604,272 @@ const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService,
   );
 };
 
+const ClientPlansModal = ({ open, onClose, plans, services, companyCode, onSavePlan }) => {
+  const [form, setForm] = useState({
+    name: '',
+    price: '',
+    months: 1,
+    description: '',
+    services: []
+  });
+  const [taskDrafts, setTaskDrafts] = useState({});
+
+  useEffect(() => {
+    if (open) {
+      setForm({ name: '', price: '', months: 1, description: '', services: [] });
+      setTaskDrafts({});
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  const availableServices = companyCode
+    ? services.filter(service => service.companyCode === companyCode)
+    : services;
+
+  const toggleServiceInPlan = serviceName => {
+    if (!serviceName) return;
+    setForm(prev => ({
+      ...prev,
+      services: prev.services.some(item => item.service === serviceName)
+        ? prev.services.filter(item => item.service !== serviceName)
+        : [...prev.services, { service: serviceName, tasks: [] }]
+    }));
+  };
+
+  const updateTaskDraft = (serviceName, key, value) => {
+    setTaskDrafts(prev => ({
+      ...prev,
+      [serviceName]: {
+        name: '',
+        description: '',
+        priority: 'Medium',
+        dueInDays: 0,
+        ...(prev[serviceName] || {}),
+        [key]: value
+      }
+    }));
+  };
+
+  const addTaskToService = serviceName => {
+    const draft = taskDrafts[serviceName] || {};
+    const name = draft.name || '';
+    if (!name?.trim()) return;
+    setForm(prev => ({
+      ...prev,
+      services: prev.services.map(item => item.service === serviceName
+        ? {
+          ...item,
+          tasks: [...item.tasks, {
+            name: name.trim(),
+            description: (draft.description || name).trim(),
+            priority: draft.priority || 'Medium',
+            dueInDays: Number(draft.dueInDays || 0)
+          }]
+        }
+        : item)
+    }));
+    setTaskDrafts(prev => ({
+      ...prev,
+      [serviceName]: { name: '', description: '', priority: 'Medium', dueInDays: 0 }
+    }));
+  };
+
+  const removeTask = (serviceName, taskIndex) => {
+    setForm(prev => ({
+      ...prev,
+      services: prev.services.map(item => item.service === serviceName
+        ? { ...item, tasks: item.tasks.filter((_, idx) => idx !== taskIndex) }
+        : item)
+    }));
+  };
+
+  const submitPlan = e => {
+    e.preventDefault();
+    onSavePlan({
+      ...form,
+      companyCode,
+      price: Number(form.price || 0),
+      months: Number(form.months || 1)
+    });
+  };
+
+  return (
+    <div className="ClientManagement-modal-overlay" onClick={onClose}>
+      <div className="ClientManagement-modal ClientManagement-modal-lg" onClick={e => e.stopPropagation()}>
+        <div className="ClientManagement-modal__header">
+          <h3>Client Plans</h3>
+          <small className="ClientManagement-text-muted">Plan me services aur default tasks add karo.</small>
+          <button className="ClientManagement-action-button" onClick={onClose}><FiX /></button>
+        </div>
+        <div className="ClientManagement-modal__content">
+          <form onSubmit={submitPlan}>
+            <div className="ClientManagement-grid-2 ClientManagement-gap-2">
+              <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">Plan Name *</label>
+                <input className="ClientManagement-form-input" value={form.name} onChange={e => setForm(prev => ({...prev, name: e.target.value}))} required />
+              </div>
+              <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">Price</label>
+                <input className="ClientManagement-form-input" type="number" min="0" value={form.price} onChange={e => setForm(prev => ({...prev, price: e.target.value}))} />
+              </div>
+              <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">Months</label>
+                <input className="ClientManagement-form-input" type="number" min="1" value={form.months} onChange={e => setForm(prev => ({...prev, months: e.target.value}))} />
+              </div>
+            </div>
+            <div className="ClientManagement-form-group">
+              <label className="ClientManagement-form-label">Description</label>
+              <textarea className="ClientManagement-form-input" value={form.description} onChange={e => setForm(prev => ({...prev, description: e.target.value}))} />
+            </div>
+
+            <div className="ClientManagement-form-group">
+              <label className="ClientManagement-form-label">Select Services</label>
+              {availableServices.length === 0 ? (
+                <div className="ClientManagement-alert ClientManagement-alert--info">
+                  <FiInfo /> No services available. Please add services first.
+                </div>
+              ) : (
+                <div className="ClientManagement-services-list">
+                  {availableServices.map(service => {
+                    const checked = form.services.some(item => item.service === service.servicename);
+                    return (
+                      <div key={service._id} className="ClientManagement-service-checkbox-item">
+                        <input
+                          type="checkbox"
+                          id={`plan-service-${service._id}`}
+                          checked={checked}
+                          onChange={() => toggleServiceInPlan(service.servicename)}
+                        />
+                        <label htmlFor={`plan-service-${service._id}`}>{service.servicename}</label>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="ClientManagement-service-list">
+              {form.services.map((service) => {
+                const draft = taskDrafts[service.service] || { name: '', description: '', priority: 'Medium', dueInDays: 0 };
+                return (
+                <div className="ClientManagement-service-item" key={service.service}>
+                  <div className="ClientManagement-service-item__content">
+                    <p className="ClientManagement-font-bold">{service.service}</p>
+                    <small className="ClientManagement-text-muted">{service.tasks.length} tasks</small>
+                    <div className="ClientManagement-grid-2 ClientManagement-gap-2 ClientManagement-mt-2">
+                      <input
+                        className="ClientManagement-form-input"
+                        placeholder="Default task name"
+                        value={draft.name}
+                        onChange={e => updateTaskDraft(service.service, 'name', e.target.value)}
+                      />
+                      <input
+                        className="ClientManagement-form-input"
+                        type="number"
+                        min="0"
+                        placeholder="Due in days"
+                        value={draft.dueInDays}
+                        onChange={e => updateTaskDraft(service.service, 'dueInDays', e.target.value)}
+                      />
+                      <select
+                        className="ClientManagement-form-input"
+                        value={draft.priority}
+                        onChange={e => updateTaskDraft(service.service, 'priority', e.target.value)}
+                      >
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                      </select>
+                      <button type="button" className="ClientManagement-btn ClientManagement-btn--outlined" onClick={() => addTaskToService(service.service)}>
+                        <FiPlus /> Add Default Task
+                      </button>
+                    </div>
+                    <textarea
+                      className="ClientManagement-form-input ClientManagement-mt-2"
+                      placeholder="Task description (optional)"
+                      value={draft.description}
+                      onChange={e => updateTaskDraft(service.service, 'description', e.target.value)}
+                    />
+                    <div className="ClientManagement-task-list">
+                      {service.tasks.map((task, taskIndex) => (
+                        <div className="ClientManagement-task-item" key={`${task.name}-${taskIndex}`}>
+                          <span>{task.name} · {task.priority || 'Medium'} · due in {task.dueInDays || 0} days</span>
+                          <button type="button" className="ClientManagement-action-button ClientManagement-action-button--error" onClick={() => removeTask(service.service, taskIndex)}>
+                            <FiTrash2 />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );})}
+            </div>
+            <div className="ClientManagement-modal__footer">
+              <button type="button" className="ClientManagement-btn ClientManagement-btn--outlined" onClick={onClose}>Close</button>
+              <button type="submit" className="ClientManagement-btn ClientManagement-btn--primary">Save Plan</button>
+            </div>
+          </form>
+          <h4 className="ClientManagement-mt-3">Existing Plans</h4>
+          <div className="ClientManagement-service-list">
+            {plans.map(plan => {
+              const planServices = plan.services || [];
+              const totalTasks = planServices.reduce((sum, item) => sum + (item.tasks?.length || 0), 0);
+
+              return (
+                <div key={plan._id} className="ClientManagement-service-item">
+                  <div className="ClientManagement-service-item__content">
+                    <p className="ClientManagement-font-bold">{plan.name} - ₹{Number(plan.price || 0).toLocaleString('en-IN')}</p>
+                    <small className="ClientManagement-text-muted">
+                      {plan.months || 1} month / {planServices.length} services / {totalTasks} tasks
+                    </small>
+
+                    {planServices.length > 0 && (
+                      <div className="ClientManagement-service-list ClientManagement-mt-2">
+                        {planServices.map((serviceItem, serviceIndex) => {
+                          const serviceTasks = serviceItem.tasks || [];
+
+                          return (
+                            <div
+                              key={`${plan._id}-${serviceItem.service || serviceIndex}`}
+                              className="ClientManagement-service-item"
+                            >
+                              <div className="ClientManagement-service-item__content">
+                                <p className="ClientManagement-font-bold">
+                                  {serviceItem.service || `Service ${serviceIndex + 1}`}
+                                </p>
+                                <small className="ClientManagement-text-muted">
+                                  {serviceTasks.length} {serviceTasks.length === 1 ? 'task' : 'tasks'}
+                                </small>
+                                {serviceTasks.length > 0 && (
+                                  <div className="ClientManagement-selected-items-preview ClientManagement-mt-2">
+                                    {serviceTasks.map((task, taskIndex) => (
+                                      <span
+                                        key={`${plan._id}-${serviceItem.service || serviceIndex}-${task.name || taskIndex}`}
+                                        className="ClientManagement-selected-item ClientManagement-selected-item--info"
+                                      >
+                                        {task.name || `Task ${taskIndex + 1}`}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ============================================
 //  ADD CLIENT MODAL COMPONENT WITH PER MONTH SUBSCRIPTION
 // ============================================
@@ -1546,6 +1878,7 @@ const AddClientModal = ({
   onClose, 
   onAddClient, 
   services, 
+  clientPlans = [],
   projectManagers,
   loading = false,
   companyCode 
@@ -1563,10 +1896,8 @@ const AddClientModal = ({
     address: '',
     description: '',
     notes: '',
-    subscriptionStartDate: '',
-    subscriptionEndDate: '',
-    subscriptionPrice: '',
-    subscriptionMonths: 1
+    clientPlanId: '',
+    subscriptionStartDate: ''
   });
 
   const [managerSearch, setManagerSearch] = useState('');
@@ -1575,21 +1906,33 @@ const AddClientModal = ({
   const [formError, setFormError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const [dateError, setDateError] = useState('');
-  const [priceError, setPriceError] = useState('');
 
   const filteredServices = companyCode 
     ? services.filter(service => service.companyCode === companyCode)
     : services;
 
-  const monthOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  const selectedClientPlan = clientPlans.find(item => item._id === newClient.clientPlanId);
+  const selectedPlanServices = selectedClientPlan
+    ? selectedClientPlan.services.map(item => item.service)
+    : [];
+  const isExtraSelectedService = serviceName => (
+    Boolean(selectedClientPlan) && !selectedPlanServices.includes(serviceName)
+  );
+
+  const handlePlanSelect = (planId) => {
+    const plan = clientPlans.find(item => item._id === planId);
+    setNewClient(prev => ({
+      ...prev,
+      clientPlanId: planId,
+      services: plan ? plan.services.map(item => item.service) : prev.services
+    }));
+  };
 
   useEffect(() => {
     if (open) {
       setFormError('');
       setFieldErrors({});
       setDateError('');
-      setPriceError('');
-      setNewClient(prev => ({ ...prev, subscriptionMonths: 1 }));
     }
   }, [open]);
 
@@ -1630,36 +1973,13 @@ const AddClientModal = ({
     return true;
   };
 
-  const validatePrice = (price) => {
-    if (price && (isNaN(price) || parseFloat(price) <= 0)) {
-      setPriceError('Price must be a positive number');
-      return false;
-    }
-    setPriceError('');
-    return true;
-  };
-
   const handleStartDateChange = (date) => {
     setNewClient(prev => ({...prev, subscriptionStartDate: date}));
-    if (date && newClient.subscriptionMonths) {
-      const calculatedEndDate = calculateEndDate(date, newClient.subscriptionMonths);
-      setNewClient(prev => ({...prev, subscriptionEndDate: calculatedEndDate}));
+    const selectedPlan = clientPlans.find(item => item._id === newClient.clientPlanId);
+    if (date && selectedPlan) {
+      const calculatedEndDate = calculateEndDate(date, selectedPlan.months || 1);
       validateSubscriptionDates(date, calculatedEndDate);
     }
-  };
-
-  const handleMonthsChange = (months) => {
-    setNewClient(prev => ({...prev, subscriptionMonths: months}));
-    if (newClient.subscriptionStartDate && months) {
-      const calculatedEndDate = calculateEndDate(newClient.subscriptionStartDate, months);
-      setNewClient(prev => ({...prev, subscriptionEndDate: calculatedEndDate}));
-      validateSubscriptionDates(newClient.subscriptionStartDate, calculatedEndDate);
-    }
-  };
-
-  const handlePriceChange = (price) => {
-    setNewClient(prev => ({...prev, subscriptionPrice: price}));
-    validatePrice(price);
   };
 
   const handleSubmit = async (e) => {
@@ -1667,36 +1987,34 @@ const AddClientModal = ({
     setFormError('');
     setFieldErrors({});
     setDateError('');
-    setPriceError('');
 
     const nextFieldErrors = {};
+    const selectedPlan = clientPlans.find(item => item._id === newClient.clientPlanId);
     if (!newClient.client.trim()) nextFieldErrors.client = 'Client name is required';
     if (!newClient.company.trim()) nextFieldErrors.company = 'Company is required';
     if (!newClient.city.trim()) nextFieldErrors.city = 'City is required';
     if (newClient.projectManagers.length === 0) nextFieldErrors.projectManagers = 'Select at least one team member';
     if (!companyCode) nextFieldErrors.companyCode = 'Company code is missing. Please login again.';
     if (filteredServices.length === 0) nextFieldErrors.services = 'Add at least one service before creating a client.';
+    if (selectedPlan && !newClient.subscriptionStartDate) nextFieldErrors.subscriptionStartDate = 'Select subscription start date';
     if (newClient.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newClient.email.trim())) {
       nextFieldErrors.email = 'Enter a valid email address';
     }
 
-    if (newClient.subscriptionPrice && !validatePrice(newClient.subscriptionPrice)) {
-      nextFieldErrors.subscriptionPrice = 'Please enter a valid price';
-    }
-
     let subscriptionArray = [];
-    if (newClient.subscriptionStartDate && newClient.subscriptionEndDate) {
+    if (selectedPlan && newClient.subscriptionStartDate) {
+      const calculatedEndDate = calculateEndDate(newClient.subscriptionStartDate, selectedPlan.months || 1);
       const start = new Date(newClient.subscriptionStartDate);
-      const end = new Date(newClient.subscriptionEndDate);
+      const end = new Date(calculatedEndDate);
       if (end <= start) {
         nextFieldErrors.subscriptionDates = 'End date must be greater than start date';
       } else {
         subscriptionArray = [{
           startDate: newClient.subscriptionStartDate,
-          endDate: newClient.subscriptionEndDate,
-          price: newClient.subscriptionPrice ? parseFloat(newClient.subscriptionPrice) : undefined,
+          endDate: calculatedEndDate,
+          price: Number(selectedPlan.price || 0),
           status: 'Active',
-          months: newClient.subscriptionMonths
+          months: selectedPlan.months || 1
         }];
       }
     }
@@ -1731,6 +2049,7 @@ const AddClientModal = ({
         description: newClient.description,
         notes: newClient.notes,
         companyCode: companyCode,
+        clientPlanId: newClient.clientPlanId,
         subscription: subscriptionArray
       };
 
@@ -1748,10 +2067,8 @@ const AddClientModal = ({
         address: '',
         description: '',
         notes: '',
-        subscriptionStartDate: '',
-        subscriptionEndDate: '',
-        subscriptionPrice: '',
-        subscriptionMonths: 1
+        clientPlanId: '',
+        subscriptionStartDate: ''
       });
     } catch (error) {
       console.error("Error adding client:", error);
@@ -1794,12 +2111,6 @@ const AddClientModal = ({
           {dateError && (
             <div className="ClientManagement-alert ClientManagement-alert--error ClientManagement-mb-3">
               <FiAlertCircle /> {dateError}
-            </div>
-          )}
-
-          {priceError && (
-            <div className="ClientManagement-alert ClientManagement-alert--error ClientManagement-mb-3">
-              <FiAlertCircle /> {priceError}
             </div>
           )}
 
@@ -1874,6 +2185,24 @@ const AddClientModal = ({
               </div>
 
               <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">Client Plan</label>
+                <select
+                  className="ClientManagement-form-input"
+                  value={newClient.clientPlanId}
+                  onChange={(e) => handlePlanSelect(e.target.value)}
+                  disabled={loading}
+                >
+                  <option value="">Select plan manually</option>
+                  {clientPlans.map(plan => (
+                    <option key={plan._id} value={plan._id}>
+                      {plan.name} - ₹{Number(plan.price || 0).toLocaleString('en-IN')} / {plan.months || 1} month
+                    </option>
+                  ))}
+                </select>
+                <small className="ClientManagement-text-muted">Plan select karte hi services, price aur tasks auto add honge.</small>
+              </div>
+
+              <div className="ClientManagement-form-group">
                 <label className="ClientManagement-form-label">
                   <FiCalendar className="ClientManagement-icon-inline" /> Subscription Start Date
                 </label>
@@ -1885,58 +2214,12 @@ const AddClientModal = ({
                   disabled={loading}
                 />
                 <small className="ClientManagement-text-muted">Select start date</small>
-              </div>
-
-              <div className="ClientManagement-form-group">
-                <label className="ClientManagement-form-label">
-                  <FiCalendar className="ClientManagement-icon-inline" /> Subscription Period
-                </label>
-                <select
-                  className="ClientManagement-form-input"
-                  value={newClient.subscriptionMonths}
-                  onChange={(e) => handleMonthsChange(parseInt(e.target.value))}
-                  disabled={loading}
-                >
-                  {monthOptions.map(month => (
-                    <option key={month} value={month}>{month} {month === 1 ? 'Month' : 'Months'}</option>
-                  ))}
-                </select>
-                <small className="ClientManagement-text-muted">Select number of months</small>
-              </div>
-
-              <div className="ClientManagement-form-group">
-                <label className="ClientManagement-form-label">
-                  <FiCalendar className="ClientManagement-icon-inline" /> Subscription End Date
-                </label>
-                <input
-                  type="date"
-                  className="ClientManagement-form-input"
-                  value={newClient.subscriptionEndDate}
-                  disabled
-                  style={{ backgroundColor: '#f3f4f6' }}
-                />
-                <small className="ClientManagement-text-muted">Auto-calculated based on start date and months</small>
+                {fieldErrors.subscriptionStartDate && (
+                  <small className="ClientManagement-text-danger">{fieldErrors.subscriptionStartDate}</small>
+                )}
                 {fieldErrors.subscriptionDates && (
                   <small className="ClientManagement-text-danger">{fieldErrors.subscriptionDates}</small>
                 )}
-              </div>
-
-              <div className="ClientManagement-form-group">
-                <label className="ClientManagement-form-label">
-                  <FiDollarSign className="ClientManagement-icon-inline" /> Subscription Price (₹)
-                </label>
-                <input
-                  type="number"
-                  className="ClientManagement-form-input"
-                  placeholder="Enter subscription amount"
-                  value={newClient.subscriptionPrice}
-                  onChange={(e) => handlePriceChange(e.target.value)}
-                  disabled={loading}
-                  step="0.01"
-                  min="0"
-                />
-                <small className="ClientManagement-text-muted">Enter the subscription amount</small>
-                {priceError && <small className="ClientManagement-text-danger">{priceError}</small>}
               </div>
 
               {/* Team Selection */}
@@ -2113,6 +2396,9 @@ const AddClientModal = ({
                     {newClient.services.map((serviceName, index) => (
                       <div key={index} className="ClientManagement-selected-item ClientManagement-selected-item--info">
                         <span>{serviceName}</span>
+                        {isExtraSelectedService(serviceName) && (
+                          <span className="ClientManagement-badge ClientManagement-badge--warning">Extra</span>
+                        )}
                         <button
                           type="button"
                           className="ClientManagement-selected-item-remove"
@@ -2210,8 +2496,7 @@ const AddClientModal = ({
               newClient.projectManagers.length === 0 ||
               filteredServices.length === 0 ||
               !companyCode ||
-              !!dateError ||
-              !!priceError
+              !!dateError
             }
           >
             {loading ? 'Adding Client...' : 
@@ -2230,6 +2515,7 @@ const AddClientModal = ({
 const ClientManagement = () => {
   const [clients, setClients] = useState([]);
   const [services, setServices] = useState([]);
+  const [clientPlans, setClientPlans] = useState([]);
   const [projectManagers, setProjectManagers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addLoading, setAddLoading] = useState(false);
@@ -2245,6 +2531,7 @@ const ClientManagement = () => {
   const [viewDialog, setViewDialog] = useState({ open: false, client: null });
   const [selectedSubIndex, setSelectedSubIndex] = useState('all');
   const [servicesModal, setServicesModal] = useState(false);
+  const [clientPlansModal, setClientPlansModal] = useState(false);
   const [addClientModal, setAddClientModal] = useState(false);
   const [paymentReceiptsModal, setPaymentReceiptsModal] = useState({ open: false, client: null });
   const [overdueClientsModal, setOverdueClientsModal] = useState(false);
@@ -2484,13 +2771,22 @@ const ClientManagement = () => {
         companyIdentifier: companyIdentifier || undefined
       };
       
-      const [clientsRes, servicesRes, statsRes, enquiriesRes] = await Promise.all([
+      const [clientsRes, servicesRes, plansRes, statsRes, enquiriesRes] = await Promise.all([
         api.get('/', { params: apiParams }),
         api.get('/services', { 
           params: { 
             companyCode: companyCode || undefined,
             companyIdentifier: companyIdentifier || undefined
           } 
+        }),
+        clientPlansApi.get('/', {
+          params: {
+            companyCode: companyCode || undefined,
+            includeInactive: true
+          }
+        }).catch(err => {
+          console.warn('Client plans fetch failed:', err);
+          return { data: { success: false, data: [] } };
         }),
         api.get('/stats', {
           params: {
@@ -2517,6 +2813,12 @@ const ClientManagement = () => {
         setServices(allServices);
       } else {
         setServices([]);
+      }
+
+      if (plansRes.data?.success) {
+        setClientPlans(plansRes.data.data || plansRes.data.plans || []);
+      } else {
+        setClientPlans([]);
       }
       
       if (clientsRes.data?.success) {
@@ -2691,6 +2993,29 @@ const ClientManagement = () => {
     }
   };
 
+  const handleSaveClientPlan = async (planData) => {
+    if (!planData.name?.trim()) {
+      setError('Plan name is required');
+      return;
+    }
+    if (!planData.services?.length) {
+      setError('Select at least one service for plan');
+      return;
+    }
+    try {
+      const response = await clientPlansApi.post('/', planData);
+      if (response.data?.success) {
+        setSuccess('Client plan created successfully');
+        setClientPlans(prev => [response.data.data || response.data.plan, ...prev].filter(Boolean));
+        setClientPlansModal(false);
+      }
+    } catch (err) {
+      console.error('Save client plan error:', err);
+      setError(err.response?.data?.message || 'Failed to save client plan');
+      throw err;
+    }
+  };
+
   const handleAddClient = async (clientData) => {
     try {
       setAddLoading(true);
@@ -2712,6 +3037,7 @@ const ClientManagement = () => {
         description: clientData.description,
         notes: clientData.notes,
         companyCode: clientData.companyCode,
+        clientPlanId: clientData.clientPlanId,
         subscription: clientData.subscription || []
       };
       
@@ -3010,6 +3336,13 @@ const ClientManagement = () => {
                 disabled={!companyCode && !companyIdentifier}
               >
                 <FiBriefcase /> Services ({services.length})
+              </button>
+              <button
+                className="ClientManagement-btn ClientManagement-btn--outlined"
+                onClick={() => setClientPlansModal(true)}
+                disabled={services.length === 0 || (!companyCode && !companyIdentifier)}
+              >
+                <FiBriefcase /> Client Plans ({clientPlans.length})
               </button>
               <button
                 className="ClientManagement-btn ClientManagement-btn--primary"
@@ -3448,6 +3781,7 @@ const ClientManagement = () => {
         onClose={() => setAddClientModal(false)}
         onAddClient={handleAddClient}
         services={services}
+        clientPlans={clientPlans}
         projectManagers={projectManagers}
         loading={addLoading}
         companyCode={companyCode}
@@ -3460,6 +3794,15 @@ const ClientManagement = () => {
         onAddService={handleAddService}
         onDeleteService={(id, name) => handleDeleteClick('service', id, name)}
         companyCode={companyCode}
+      />
+
+      <ClientPlansModal
+        open={clientPlansModal}
+        onClose={() => setClientPlansModal(false)}
+        plans={clientPlans}
+        services={services}
+        companyCode={companyCode}
+        onSavePlan={handleSaveClientPlan}
       />
 
       {deleteDialog.open && (
@@ -3608,7 +3951,7 @@ const ClientManagement = () => {
                           <option value="all">Show All Tasks (No Filter)</option>
                           {viewDialog.client.subscription.map((sub, idx) => (
                             <option key={idx} value={idx}>
-                              Cycle {idx + 1}: {new Date(sub.startDate).toLocaleDateString()} to {new Date(sub.endDate).toLocaleDateString()} ({sub.status}){sub.extraTasks > 0 ? ` (+${sub.extraTasks} Tasks)` : ''}{sub.benefits ? ` - ${sub.benefits}` : ''}
+                              Subscription {sub.subscriptionNo || idx + 1}: {sub.planName ? `${sub.planName} - ` : ''}{new Date(sub.startDate).toLocaleDateString()} to {new Date(sub.endDate).toLocaleDateString()} ({sub.status}){sub.extraTasks > 0 ? ` (+${sub.extraTasks} Tasks)` : ''}{sub.benefits ? ` - ${sub.benefits}` : ''}
                             </option>
                           ))}
                         </select>
@@ -3619,11 +3962,17 @@ const ClientManagement = () => {
                       {viewDialog.client.services.map((service, index) => {
                         const clientProjectManagers = getProjectManagersDetails(viewDialog.client);
                         const selectedSub = selectedSubIndex !== 'all' ? viewDialog.client.subscription[selectedSubIndex] : null;
+                        const referenceSub = selectedSub || (viewDialog.client.subscription || []).find(sub => sub.status === 'Active') || (viewDialog.client.subscription || [])[viewDialog.client.subscription.length - 1];
+                        const planServiceNames = (referenceSub?.servicesSnapshot || []).map(item => item.service);
+                        const isExtraService = planServiceNames.length > 0 && !planServiceNames.includes(service);
                         return (
                           <div key={index} className="ClientManagement-service-card-wrapper">
                             <div className="ClientManagement-service-card-header">
                               <span className="ClientManagement-service-icon">📊</span>
                               <h5 className="ClientManagement-service-title">{service}</h5>
+                              {isExtraService && (
+                                <span className="ClientManagement-badge ClientManagement-badge--warning">Extra</span>
+                              )}
                             </div>
                             <div className="ClientManagement-service-card-body">
                               <ServiceProgressCard
@@ -3634,6 +3983,8 @@ const ClientManagement = () => {
                                 api={tasksApi}
                                 startDate={selectedSub ? selectedSub.startDate : null}
                                 endDate={selectedSub ? selectedSub.endDate : null}
+                                subscriptionId={selectedSub ? selectedSub._id : null}
+                                subscriptionNo={selectedSub ? selectedSub.subscriptionNo : null}
                               />
                             </div>
                           </div>
@@ -4177,6 +4528,7 @@ const ClientManagement = () => {
         client={paymentReceiptsModal.client}
         onRenewSubscription={fetchData}
         userRole={userRole}
+        clientPlans={clientPlans}
       />
     </div>
   );

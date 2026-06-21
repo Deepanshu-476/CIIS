@@ -19,6 +19,17 @@ export const getCompanyUsers = async () => {
     );
 };
 
+export const getAllCompanyUsers = async () => {
+    return axios.get(
+        `${API_URL}/users/company-users`,
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
 export const getConversations = async () => {
 
     return axios.get(

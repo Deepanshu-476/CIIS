@@ -148,8 +148,11 @@ const CompanyRegister = () => {
     logoFile: null,
     ownerEmail: "",
     ownerPassword: "",
+    planId: "",
   });
 
+  const [plans, setPlans] = useState([]);
+  const [plansLoading, setPlansLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
@@ -161,6 +164,25 @@ const CompanyRegister = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const loadPlans = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/plans`);
+        const activePlans = response.data?.plans || response.data?.data || [];
+        setPlans(activePlans);
+        if (activePlans.length === 1) {
+          setForm(prev => ({ ...prev, planId: activePlans[0]._id }));
+        }
+      } catch (plansError) {
+        setError(plansError.response?.data?.message || "Failed to load plans. Please try again.");
+      } finally {
+        setPlansLoading(false);
+      }
+    };
+
+    loadPlans();
+  }, []);
 
   const handleBackToHome = () => {
     navigate("/");
@@ -242,6 +264,7 @@ const CompanyRegister = () => {
       ownerName,
       ownerEmail,
       ownerPassword,
+      planId,
     } = form;
 
     if (!companyName?.trim()) errors.companyName = "Company name is required";
@@ -251,6 +274,7 @@ const CompanyRegister = () => {
     if (!ownerName?.trim()) errors.ownerName = "Owner name is required";
     if (!ownerEmail?.trim()) errors.ownerEmail = "Owner email is required";
     if (!ownerPassword?.trim()) errors.ownerPassword = "Owner password is required";
+    if (!planId) errors.planId = "Please select a plan";
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (companyEmail && !emailRegex.test(companyEmail)) {
@@ -284,6 +308,7 @@ const CompanyRegister = () => {
       logoFile: null,
       ownerEmail: "",
       ownerPassword: "",
+      planId: "",
     });
     setLogoPreview("");
     setFormErrors({});
@@ -1133,6 +1158,72 @@ const CompanyRegister = () => {
                       )}
                     </div>
                   </div>
+                </div>
+
+                <div style={{ marginBottom: isMobile ? 20 : 24 }}>
+                  <div style={{ display: "flex", alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+                    <label style={{ display: "block", fontWeight: "700", color: "#1f2937", fontSize: "14px", marginRight: 6 }}>
+                      Select Plan
+                    </label>
+                    <span style={{ color: "#ef4444", fontSize: "10px", fontWeight: "600" }}>• Required</span>
+                  </div>
+
+                  {plansLoading ? (
+                    <div style={{ padding: 14, border: "1px solid #e5e7eb", borderRadius: 8, color: "#6b7280", fontWeight: 600 }}>
+                      Loading plans...
+                    </div>
+                  ) : plans.length ? (
+                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+                      {plans.map(plan => {
+                        const selected = form.planId === plan._id;
+                        return (
+                          <button
+                            type="button"
+                            key={plan._id}
+                            onClick={() => handleChange({ target: { name: "planId", value: plan._id } })}
+                            style={{
+                              textAlign: "left",
+                              border: selected ? "2px solid #2563eb" : "1px solid #e5e7eb",
+                              background: selected ? "#eff6ff" : "#ffffff",
+                              borderRadius: 10,
+                              padding: 14,
+                              cursor: "pointer",
+                              boxShadow: selected ? "0 8px 18px rgba(37, 99, 235, 0.14)" : "0 1px 3px rgba(0,0,0,0.06)",
+                            }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
+                              <div style={{ fontSize: 15, fontWeight: 800, color: "#111827" }}>{plan.name}</div>
+                              <div style={{ color: "#2563eb", fontWeight: 900 }}>₹{Number(plan.price || 0).toLocaleString("en-IN")}</div>
+                            </div>
+                            <div style={{ marginTop: 6, color: "#4b5563", fontSize: 12, fontWeight: 700 }}>
+                              {plan.durationDays} days / {plan.allowedPages?.length || 0} pages
+                            </div>
+                            {!!plan.description && (
+                              <div style={{ marginTop: 8, color: "#6b7280", fontSize: 12, lineHeight: 1.5 }}>{plan.description}</div>
+                            )}
+                            {!!plan.features?.length && (
+                              <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                {plan.features.slice(0, 3).map(feature => (
+                                  <span key={feature} style={{ background: "#dbeafe", color: "#1d4ed8", borderRadius: 999, padding: "4px 8px", fontSize: 11, fontWeight: 700 }}>
+                                    {feature}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div style={{ padding: 14, border: "1px solid #fecaca", borderRadius: 8, color: "#b91c1c", background: "#fef2f2", fontWeight: 700 }}>
+                      No active plans available. Please ask super admin to create a plan first.
+                    </div>
+                  )}
+                  {getFieldError("planId") && (
+                    <div style={{ color: "#dc2626", fontSize: "12px", marginTop: 8, fontWeight: 700 }}>
+                      {getFieldError("planId")}
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ marginBottom: isMobile ? 20 : 24 }}>

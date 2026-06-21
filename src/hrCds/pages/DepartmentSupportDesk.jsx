@@ -63,7 +63,7 @@ const DepartmentSupportDesk = () => {
       }
     } catch (error) {
       console.warn("Department support desk could not load tickets:", error.message);
-      toast.error("Assigned support chats load nahi ho paaye");
+      toast.error("Assigned support chats could not be loaded");
     } finally {
       setLoading(false);
     }
@@ -148,7 +148,7 @@ const DepartmentSupportDesk = () => {
           </div>
           <h1>Assigned user issues.</h1>
           <p>
-            Chatbot se jo issue aapke department ko assign hota hai, yahan uska conversation thread open hoga.
+            Issues assigned to your department by the chatbot will appear here with their complete conversation threads.
           </p>
         </div>
         <aside className="support-notification-card">
@@ -269,7 +269,7 @@ const DepartmentSupportDesk = () => {
             <div className="support-empty-state support-desk-empty">
               <CheckCircle2 size={34} />
               <strong>No support chat selected</strong>
-              <span>Assigned chatbot issues yahan show honge.</span>
+              <span>Assigned chatbot issues will appear here.</span>
             </div>
           )}
         </section>

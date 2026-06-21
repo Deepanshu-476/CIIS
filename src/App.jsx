@@ -235,7 +235,6 @@ import TaskManagement from "./hrCds/pages/TaskManagement";
 import EmployeeMeetingPage from "./hrCds/pages/EmployeeMeetingPage";
 import EmployeeProject from "./hrCds/pages/EmployeeProject";
 import ClientMeeting from "./hrCds/pages/ClientMeeting";
-import ContactSupport from "./hrCds/pages/ContactSupport";
 import DepartmentSupportDesk from "./hrCds/pages/DepartmentSupportDesk";
 import SupportOperations from "./admin/page/SupportOperations.jsx";
 import ActiveClientsOverview from "./hrCds/pages/ActiveClientsOverview.jsx";
@@ -369,7 +368,7 @@ function App() {
           <Route path="create-alert" element={<CreateAlerts />} />
           <Route path="user-profile" element={<UserProfile/>} />
           <Route path="chat" element={<ChatPage />} />
-          <Route path="contact-support" element={<ContactSupport />} />
+          <Route path="contact-support" element={<Navigate to="/ciisUser/dashboard" replace />} />
           <Route path="support-desk" element={<DepartmentSupportDesk />} />
           <Route path="support-operations" element={<SupportOperations />} />
         </Route>

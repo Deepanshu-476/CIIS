@@ -1,14 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  CheckCheck,
   ChevronDown,
   ChevronLeft,
   Clock3,
+  Info,
   Menu,
   MessageCircle,
-  Paperclip,
   Send,
-  Smile,
-  ThumbsUp,
   UserRound,
 } from "lucide-react";
 import axiosInstance from "../../utils/axiosConfig";
@@ -19,6 +18,7 @@ const fallbackMessages = [
 ];
 
 const activeStatuses = new Set(["Open", "In Progress", "Waiting", "Escalated"]);
+const closedStatuses = new Set(["Resolved", "Closed"]);
 
 const statusClass = value => String(value || "Open").toLowerCase().replace(/\s+/g, "-");
 
@@ -33,6 +33,13 @@ const formatRelative = value => {
   return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
 };
 
+const formatMessageTime = value => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+};
+
 const mapTicket = ticket => ({
   id: ticket.id || ticket._id,
   ticketNumber: ticket.ticketNumber,
@@ -44,63 +51,91 @@ const mapTicket = ticket => ({
   messages: Array.isArray(ticket.messages) ? ticket.messages : [],
 });
 
+const getEntityId = value => {
+  if (!value) return "";
+  if (typeof value === "object") {
+    return String(value._id || value.id || value.userId || "");
+  }
+  return String(value);
+};
+
 const SupportChatWidget = () => {
   const [widgetOpen, setWidgetOpen] = useState(false);
   const [widgetInput, setWidgetInput] = useState("");
   const [messages, setMessages] = useState(fallbackMessages);
   const [departments, setDepartments] = useState([]);
+  const [selectedDepartment, setSelectedDepartment] = useState(null);
   const [pendingQuestion, setPendingQuestion] = useState("");
-  const [activeTicket, setActiveTicket] = useState(null);
+  const [tickets, setTickets] = useState([]);
+  const [selectedTicketId, setSelectedTicketId] = useState("");
+  const [view, setView] = useState("chat");
   const [loading, setLoading] = useState(false);
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const currentUserId = getEntityId(currentUser);
+  const currentUserName = String(currentUser.name || currentUser.fullName || "").trim().toLowerCase();
 
-  const fetchActiveTicket = async () => {
+  const selectedTicket = tickets.find(ticket => ticket.id === selectedTicketId) || null;
+  const activeTicket = tickets.find(ticket => activeStatuses.has(ticket.status)) || null;
+  const selectedTicketClosed = Boolean(selectedTicket && closedStatuses.has(selectedTicket.status));
+
+  const fetchTickets = async () => {
     try {
       const response = await axiosInstance.get("/support/tickets/my", { _skipErrorNotify: true });
       if (response.data?.success) {
-        const tickets = (response.data.tickets || []).map(mapTicket);
-        const current = tickets.find(ticket => activeStatuses.has(ticket.status));
-
-        if (current) {
-          setActiveTicket(current);
-          setDepartments([]);
-          setPendingQuestion("");
-          return;
-        }
-
-        setActiveTicket(previousTicket => {
-          if (previousTicket) {
-            setMessages(fallbackMessages);
-            setDepartments([]);
-            setPendingQuestion("");
-          }
-          return null;
-        });
+        setTickets((response.data.tickets || []).map(mapTicket));
       }
     } catch (error) {
       console.warn("Support widget ticket sync failed:", error.message);
     }
   };
 
+  const fetchDepartments = async () => {
+    try {
+      const response = await axiosInstance.get("/support/departments", { _skipErrorNotify: true });
+      if (response.data?.success) {
+        setDepartments(response.data.departments || []);
+      }
+    } catch (error) {
+      console.warn("Support departments fetch failed:", error.message);
+    }
+  };
+
   useEffect(() => {
-    fetchActiveTicket();
-    const interval = window.setInterval(fetchActiveTicket, 30000);
+    fetchTickets();
+    fetchDepartments();
+    const interval = window.setInterval(fetchTickets, 30000);
     return () => window.clearInterval(interval);
   }, []);
 
   const activeThread = useMemo(() => {
-    if (!activeTicket?.messages?.length) return [];
-    return activeTicket.messages.slice(-3).map(message => ({
-      from: message.senderRole === "employee" ? "user" : "bot",
-      text: message.message,
-      senderName: message.senderName,
-    }));
-  }, [activeTicket]);
+    if (!selectedTicket?.messages?.length) return [];
+    return selectedTicket.messages.map(message => {
+      const senderRole = String(message.senderRole || "").toLowerCase();
+      const senderId = getEntityId(message.sender);
+      const senderName = String(message.senderName || "").trim().toLowerCase();
+      const isCurrentUser = senderRole === "agent" || senderRole === "system"
+        ? false
+        : senderId && currentUserId
+          ? senderId === currentUserId
+          : senderName && currentUserName
+            ? senderName === currentUserName
+            : senderRole === "employee";
+
+      return {
+        from: isCurrentUser ? "user" : "bot",
+        text: message.message,
+        senderName: message.senderName,
+        createdAt: message.createdAt,
+      };
+    });
+  }, [selectedTicket, currentUserId, currentUserName]);
 
   const submitQuestion = async (question, departmentId = null) => {
     if (!question || activeTicket || loading) return;
     setLoading(true);
 
-    if (!departmentId) {
+    const continuingPendingQuestion = Boolean(departmentId && pendingQuestion === question);
+    if (!continuingPendingQuestion) {
       setMessages(prev => [...prev, { from: "user", text: question }]);
       setWidgetInput("");
     }
@@ -119,9 +154,12 @@ const SupportChatWidget = () => {
 
       setMessages(prev => [...prev, { from: "bot", text: answer }]);
       if (response.data?.ticket) {
-        setActiveTicket(mapTicket(response.data.ticket));
+        const ticket = mapTicket(response.data.ticket);
+        setTickets(prev => [ticket, ...prev.filter(item => item.id !== ticket.id)]);
+        setSelectedTicketId(ticket.id);
+        setView("thread");
       }
-    } catch (error) {
+    } catch {
       setMessages(prev => [...prev, { from: "bot", text: "Support assistant is not reachable right now. Please try again." }]);
     } finally {
       setLoading(false);
@@ -129,18 +167,43 @@ const SupportChatWidget = () => {
   };
 
   const handleDepartmentSelect = async department => {
-    if (!pendingQuestion || !department?.id) return;
+    if (!department?.id) return;
+    setSelectedDepartment(department);
     setMessages(prev => [...prev, { from: "user", text: `Department: ${department.name}` }]);
-    await submitQuestion(pendingQuestion, department.id);
+    if (pendingQuestion) {
+      await submitQuestion(pendingQuestion, department.id);
+    }
   };
 
   const handleSubmit = async () => {
-    await submitQuestion(widgetInput.trim());
+    if (view === "thread" && selectedTicket) {
+      if (selectedTicketClosed) return;
+      const message = widgetInput.trim();
+      if (!message || loading) return;
+      setLoading(true);
+      try {
+        const response = await axiosInstance.post(`/support/tickets/${selectedTicket.id}/messages`, { message });
+        if (response.data?.success) {
+          const ticket = mapTicket(response.data.ticket);
+          setTickets(prev => prev.map(item => item.id === ticket.id ? ticket : item));
+          setWidgetInput("");
+        }
+      } catch (replyError) {
+        console.error("Support ticket reply failed:", replyError);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+    if (!selectedDepartment) return;
+    await submitQuestion(widgetInput.trim(), selectedDepartment?.id || null);
   };
 
-  const inputPlaceholder = activeTicket
-    ? `Ticket ${activeTicket.status}. Resolve hone ke baad new chat start hogi.`
-    : "Type here and press enter..";
+  const inputPlaceholder = view === "thread"
+    ? "Reply to Department Head..."
+    : activeTicket
+      ? `Active ticket ${activeTicket.ticketNumber || ""} is open`
+      : "Type here and press enter..";
 
   if (!widgetOpen) {
     return (
@@ -153,73 +216,135 @@ const SupportChatWidget = () => {
   return (
     <aside className="portal-chat-widget" aria-label="Customer support chat widget">
       <div className="portal-chat-header">
-        <button className="portal-chat-icon-btn" aria-label="Back">
+        <button
+          className="portal-chat-icon-btn"
+          aria-label="Back"
+          onClick={() => {
+            if (view === "thread") setView("tickets");
+            else if (view === "tickets") setView("chat");
+            else setWidgetOpen(false);
+          }}
+        >
           <ChevronLeft size={26} />
         </button>
-        <strong>Customer Support</strong>
-        <button className="portal-chat-icon-btn" aria-label="Menu">
+        <strong>{view === "tickets" ? "My Tickets" : view === "thread" ? selectedTicket?.ticketNumber || "Ticket" : "Customer Support"}</strong>
+        <button className="portal-chat-icon-btn" aria-label="View tickets" onClick={() => setView("tickets")}>
           <Menu size={24} />
         </button>
       </div>
 
       <div className="portal-chat-body">
-        <div className="portal-chat-spacer" />
-        <div className="portal-chat-agent-label">Customer Support</div>
-        <div className="portal-chat-row">
-          <div className="portal-chat-avatar">
-            <UserRound size={28} />
+        {view === "tickets" ? (
+          <div className="portal-ticket-list">
+            <button className="portal-new-support-chat" onClick={() => setView("chat")}>
+              <MessageCircle size={17} /> New support chat
+            </button>
+            {tickets.length ? tickets.map(ticket => (
+              <button
+                className="portal-ticket-item"
+                key={ticket.id}
+                onClick={() => {
+                  setSelectedTicketId(ticket.id);
+                  setView("thread");
+                }}
+              >
+                <span>
+                  <strong>{ticket.subject}</strong>
+                  <small>{ticket.ticketNumber} · {ticket.department}</small>
+                </span>
+                <span className={`support-badge ${statusClass(ticket.status)}`}>{ticket.status}</span>
+              </button>
+            )) : <div className="portal-ticket-empty">There are no support tickets yet.</div>}
           </div>
-          <div className="portal-chat-greeting">Hi! How can we help?</div>
-        </div>
-
-        {activeTicket ? (
-          <div className="portal-chat-status-card">
-            <div>
-              <span className={`support-badge ${statusClass(activeTicket.status)}`}>{activeTicket.status}</span>
-              <strong>{activeTicket.subject}</strong>
-              <small>{activeTicket.ticketNumber} - {activeTicket.department}</small>
+        ) : view === "thread" && selectedTicket ? (
+          <>
+            <div className="portal-ticket-thread-head">
+              <div className="portal-ticket-thread-status">
+                <span className={`support-badge ${statusClass(selectedTicket.status)}`}>{selectedTicket.status}</span>
+                <span className="portal-ticket-info"><Info size={15} /></span>
+              </div>
+              <strong>{selectedTicket.subject}</strong>
+              <small><UserRound size={14} /> {selectedTicket.department} · {selectedTicket.assignedToName}</small>
             </div>
-            <p><Clock3 size={15} /> Last update {formatRelative(activeTicket.updated)}</p>
-          </div>
+            <div className="portal-chat-mini-thread portal-full-thread">
+              {activeThread.length ? activeThread.map((message, index) => (
+                <div className={`portal-ticket-message ${message.from}`} key={`${message.from}-${index}`}>
+                  {message.from === "user" && (
+                    <div className="portal-ticket-message-meta">
+                      {formatMessageTime(message.createdAt)} <CheckCheck size={14} />
+                    </div>
+                  )}
+                  <div className={`portal-chat-mini-bubble ${message.from}`}>{message.text}</div>
+                  {message.from === "bot" && (
+                    <div className="portal-ticket-message-meta">{formatMessageTime(message.createdAt)}</div>
+                  )}
+                </div>
+              )) : <div className="portal-ticket-empty">No conversation yet.</div>}
+            </div>
+          </>
         ) : (
-          <div className="portal-chat-query-card">
-            Type your query, then select a department for handoff
-          </div>
-        )}
-
-        <div className="portal-chat-mini-thread">
-          {(activeTicket ? activeThread : messages.slice(-3)).map((message, index) => (
-            <div className={`portal-chat-mini-bubble ${message.from}`} key={`${message.from}-${index}`}>
-              {message.text}
+          <>
+            <div className="portal-chat-spacer" />
+            <div className="portal-chat-agent-label">Customer Support</div>
+            <div className="portal-chat-row">
+              <div className="portal-chat-avatar"><UserRound size={28} /></div>
+              <div className="portal-chat-greeting">Hi! How can we help?</div>
             </div>
-          ))}
-          {!activeTicket && departments.length > 0 && (
-            <div className="portal-chat-departments">
-              {departments.map(department => (
-                <button key={department.id} onClick={() => handleDepartmentSelect(department)}>
-                  {department.name}
-                </button>
+            {activeTicket && (
+              <button
+                className="portal-chat-status-card"
+                onClick={() => {
+                  setSelectedTicketId(activeTicket.id);
+                  setView("thread");
+                }}
+              >
+                <div>
+                  <span className={`support-badge ${statusClass(activeTicket.status)}`}>{activeTicket.status}</span>
+                  <strong>{activeTicket.subject}</strong>
+                  <small>{activeTicket.ticketNumber} - {activeTicket.department}</small>
+                </div>
+                <p><Clock3 size={15} /> Last update {formatRelative(activeTicket.updated)}</p>
+              </button>
+            )}
+            {!activeTicket && (
+              <div className="portal-chat-query-card">
+                {selectedDepartment
+                  ? `${selectedDepartment.name} selected. Please type your query.`
+                  : "Please select a department first"}
+              </div>
+            )}
+            <div className="portal-chat-mini-thread">
+              {messages.slice(-3).map((message, index) => (
+                <div className={`portal-chat-mini-bubble ${message.from}`} key={`${message.from}-${index}`}>{message.text}</div>
               ))}
+              {!activeTicket && departments.length > 0 && !selectedDepartment && (
+                <div className="portal-chat-departments">
+                  {departments.map(department => (
+                    <button key={department.id} onClick={() => handleDepartmentSelect(department)}>{department.name}</button>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
 
-      <div className="portal-chat-inputbar">
+      {view !== "tickets" && !(view === "thread" && selectedTicketClosed) && <div className="portal-chat-inputbar">
         <input
           value={widgetInput}
           onChange={event => setWidgetInput(event.target.value)}
           onKeyDown={event => event.key === "Enter" && handleSubmit()}
           placeholder={inputPlaceholder}
-          disabled={Boolean(activeTicket)}
+          disabled={loading || (view === "chat" && (Boolean(activeTicket) || !selectedDepartment))}
         />
-        <button aria-label="Send support query" onClick={handleSubmit} disabled={Boolean(activeTicket)}>
+        <button
+          aria-label="Send support query"
+          onClick={handleSubmit}
+          disabled={loading || (view === "chat" && (Boolean(activeTicket) || !selectedDepartment))}
+        >
           <Send size={21} />
         </button>
-        <button aria-label="Helpful"><ThumbsUp size={21} /></button>
-        <button aria-label="Attach file"><Paperclip size={21} /></button>
-        <button aria-label="Emoji"><Smile size={21} /></button>
-      </div>
+      </div>}
 
       <button className="portal-chat-powered">Powered by CIIS</button>
       <button className="portal-chat-minimize" onClick={() => setWidgetOpen(false)} aria-label="Minimize chat">

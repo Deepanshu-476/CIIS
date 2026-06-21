@@ -63,7 +63,6 @@ export const websiteAppScreenMap = [
       {webUrl: '/ciisUser/create-user', webPage: 'Create User', appScreen: 'Create User', status: 'available'},
       {webUrl: '/ciisUser/SidebarManagement', webPage: 'Sidebar Management', appScreen: 'Sidebar Management', status: 'available'},
       {webUrl: '/ciisUser/chat', webPage: 'Chat', appScreen: 'Chat', status: 'available'},
-      {webUrl: '/ciisUser/contact-support', webPage: 'Contact Support', appScreen: 'Contact Support', status: 'available'},
       {webUrl: '/ciisUser/support-desk', webPage: 'Department Support Desk', appScreen: 'Support Desk', status: 'available'},
       {webUrl: '/ciisUser/support-operations', webPage: 'Support Operations', appScreen: 'Support Operations', status: 'available'},
       {webUrl: '/ciisUser/ClientDashboard', webPage: 'Redirect To Client Dashboard', appScreen: 'Dashboard', status: 'redirect/web-only'},

@@ -33,10 +33,11 @@ const CompanyAssetManagement = () => {
   useEffect(() => {
     const user = getUser();
     const companyId = resolveCompanyId(user);
+    const companyCode = resolveCompanyCode(user);
     fetchAssets();
     fetchRequests();
     getCompanyInfo(user);
-    fetchBranches(companyId);
+    fetchBranches(companyId, companyCode, user);
     setAnimateIn(true);
   }, [selectedBranchId]);
 
@@ -61,26 +62,81 @@ const CompanyAssetManagement = () => {
   };
 
   const resolveCompanyId = (user) => (
+    getRecordId(getCompanyFromStorage()) ||
+    getRecordId(getCompanyFromStorage()?.company) ||
+    getRecordId(getCompanyFromStorage()?.companyId) ||
     getRecordId(user?.company) ||
+    getRecordId(user?.companyId) ||
+    getRecordId(user?.company_id) ||
     getRecordId(user?.companyDetails) ||
-    getRecordId(getCompanyFromStorage())
+    getRecordId(user?.companyDetails?.company) ||
+    getRecordId(user?.companyDetails?.companyId) ||
+    getRecordId(user?.companyDetails?._id) ||
+    getRecordId(user?.companyDetails?.id)
   );
 
   const resolveCompanyName = (user) => (
+    getCompanyFromStorage()?.companyName ||
+    getCompanyFromStorage()?.name ||
     user?.companyName ||
     user?.companyDetails?.companyName ||
-    getCompanyFromStorage()?.companyName ||
     'Your Company'
   );
 
   const resolveCompanyCode = (user) => (
+    getCompanyFromStorage()?.companyCode ||
+    getCompanyFromStorage()?.code ||
     user?.companyCode ||
     user?.companyDetails?.companyCode ||
-    getCompanyFromStorage()?.companyCode ||
     'N/A'
   );
 
   const getBranchId = (record) => getRecordId(record?.branch || record?.branchId);
+
+  const normalizeBranch = (branchValue) => {
+    const branchId = getRecordId(branchValue);
+    if (!branchId) return null;
+
+    if (typeof branchValue === 'object') {
+      return {
+        ...branchValue,
+        _id: branchId,
+        id: branchValue.id || branchId,
+        name: branchValue.name || branchValue.branchName || branchValue.title || 'Assigned Branch',
+        branchCode: branchValue.branchCode || branchValue.code || '',
+      };
+    }
+
+    return {
+      _id: branchId,
+      id: branchId,
+      name: 'Assigned Branch',
+      branchCode: '',
+    };
+  };
+
+  const getFallbackBranches = (user) => {
+    const companyData = getCompanyFromStorage();
+    const branchSources = [
+      user?.branchDetails,
+      user?.branch,
+      user?.branchId,
+      user?.branch_id,
+      user?.companyDetails?.branchDetails,
+      user?.companyDetails?.branch,
+      user?.companyDetails?.branchId,
+      companyData?.branchDetails,
+      companyData?.branch,
+      companyData?.branchId,
+    ];
+
+    return branchSources
+      .map(normalizeBranch)
+      .filter(Boolean)
+      .filter((branch, index, list) => (
+        list.findIndex(item => getRecordId(item) === getRecordId(branch)) === index
+      ));
+  };
 
   const getBranchLabel = (branchValue) => {
     const branchId = getRecordId(branchValue);
@@ -94,10 +150,10 @@ const CompanyAssetManagement = () => {
   // Get user from storage
   const getUser = () => {
     try {
-      let userStr = localStorage.getItem('user');
-      if (!userStr) userStr = localStorage.getItem('superAdmin');
-      if (!userStr) userStr = sessionStorage.getItem('user');
+      let userStr = localStorage.getItem('superAdmin');
+      if (!userStr) userStr = localStorage.getItem('user');
       if (!userStr) userStr = sessionStorage.getItem('superAdmin');
+      if (!userStr) userStr = sessionStorage.getItem('user');
       
       if (userStr) {
         const user = JSON.parse(userStr);
@@ -122,16 +178,54 @@ const CompanyAssetManagement = () => {
     }
   };
 
-  const fetchBranches = async (companyId) => {
-    if (!companyId) return;
+  const fetchBranches = async (companyId, companyCode = '', currentUser = null) => {
+    if (!companyId && !companyCode) {
+      setBranches(getFallbackBranches(currentUser || getUser()));
+      return;
+    }
+
     try {
       setLoadingBranches(true);
-      const response = await axios.get(`/branches/company/${companyId}`);
-      if (response.data?.success) {
-        setBranches(response.data.branches || []);
+      const attempts = [
+        companyId ? { url: `/branches/company/${companyId}` } : null,
+      ].filter(Boolean);
+
+      let branchData = [];
+      let lastError = null;
+
+      for (const attempt of attempts) {
+        try {
+          const response = await axios.get(attempt.url, {
+            ...(attempt.config || {}),
+            _skipErrorNotify: true,
+          });
+          branchData =
+            response.data?.branches ||
+            response.data?.data ||
+            (Array.isArray(response.data) ? response.data : []);
+
+          if (Array.isArray(branchData) && branchData.length > 0) break;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      const resolvedBranches = Array.isArray(branchData) && branchData.length > 0
+        ? branchData
+        : getFallbackBranches(currentUser || getUser());
+
+      setBranches(resolvedBranches);
+
+      if (!selectedBranchId && resolvedBranches.length === 1) {
+        setSelectedBranchId(getRecordId(resolvedBranches[0]));
+      }
+
+      if ((!branchData || branchData.length === 0) && lastError) {
+        console.error('Error fetching branches:', lastError);
       }
     } catch (err) {
       console.error('Error fetching branches:', err);
+      setBranches(getFallbackBranches(currentUser || getUser()));
     } finally {
       setLoadingBranches(false);
     }

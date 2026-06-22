@@ -1828,6 +1828,481 @@
   font-size: 12px;
   font-weight: 500;
 }
+
+/* Mobile responsive hardening for /ciisUser/user-dashboard */
+.dashboard-container,
+.dashboard-container * {
+  box-sizing: border-box;
+}
+
+.dashboard-container {
+  overflow-x: hidden;
+}
+
+@media (max-width: 900px) {
+  .dashboard-container {
+    max-width: 100% !important;
+  }
+
+  .dashboard-header-content {
+    align-items: stretch;
+  }
+
+  .dashboard-user-details,
+  .dashboard-clock-section,
+  .dashboard-timer-display {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .dashboard-user-name,
+  .dashboard-user-welcome {
+    width: auto;
+    max-width: 100%;
+    margin: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .dashboard-clock-section {
+    align-items: stretch;
+  }
+
+  .dashboard-timer-display {
+    min-width: 0;
+  }
+
+  .dashboard-clock-buttons {
+    width: 100%;
+  }
+
+  .dashboard-content-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-container {
+    width: 100%;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  .dashboard-header,
+  .dashboard-calendar-card,
+  .dashboard-activity-card,
+  .dashboard-month-info {
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .dashboard-header-content {
+    gap: 16px;
+    text-align: left;
+  }
+
+  .dashboard-user-details {
+    text-align: left;
+  }
+
+  .dashboard-user-name {
+    font-size: 21px;
+    line-height: 1.25;
+  }
+
+  .dashboard-user-welcome {
+    margin-top: 6px;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .dashboard-user-tags {
+    justify-content: flex-start;
+    margin-top: 12px;
+  }
+
+  .dashboard-tag {
+    max-width: 100%;
+    min-width: 0;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  .dashboard-tag svg {
+    flex: 0 0 auto;
+  }
+
+  .dashboard-date-info {
+    margin-top: 10px;
+    align-items: flex-start;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .dashboard-timer-display {
+    padding: 18px 16px;
+  }
+
+  .dashboard-timer-value {
+    font-size: 28px;
+  }
+
+  .dashboard-clock-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .dashboard-btn {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    padding: 12px 10px;
+    font-size: 13px;
+  }
+
+  .dashboard-stats-grid,
+  .stats-loader-container {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .dashboard-stat-card,
+  .stat-skeleton-card {
+    min-width: 0;
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .stat-card-header {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .stat-icon-container {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+  }
+
+  .stat-icon {
+    font-size: 20px;
+  }
+
+  .stat-current-month {
+    max-width: 92px;
+    font-size: 10px;
+    text-align: center;
+    line-height: 1.15;
+  }
+
+  .stat-value {
+    font-size: 28px;
+  }
+
+  .stat-label {
+    min-height: 34px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+
+  .stat-footer {
+    align-items: flex-start;
+    gap: 6px;
+    padding-top: 10px;
+  }
+
+  .stat-month-text {
+    min-width: 0;
+    font-size: 10px;
+    line-height: 1.25;
+  }
+
+  .dashboard-content-grid {
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .calendar-header,
+  .activity-header {
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .calendar-title-section,
+  .activity-title-section {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .calendar-title,
+  .activity-title {
+    font-size: 18px;
+    line-height: 1.2;
+  }
+
+  .calendar-subtitle,
+  .activity-subtitle {
+    font-size: 12px;
+  }
+
+  .calendar-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .calendar-nav-btn,
+  .calendar-today-btn,
+  .activity-refresh-btn {
+    height: 38px;
+  }
+
+  .calendar-today-btn {
+    flex: 1;
+  }
+
+  .calendar-body {
+    margin-bottom: 16px;
+  }
+
+  .calendar-week-header,
+  .calendar-week {
+    gap: 3px;
+  }
+
+  .calendar-day-wrapper,
+  .calendar-day,
+  .calendar-empty-day {
+    min-height: 38px;
+    height: 38px;
+  }
+
+  .calendar-day {
+    width: auto;
+    border-radius: 8px;
+    border-width: 1px;
+  }
+
+  .day-number {
+    font-size: 12px;
+  }
+
+  .day-status-icon {
+    font-size: 8px;
+  }
+
+  .calendar-legend {
+    justify-content: flex-start;
+    gap: 8px 12px;
+    padding-top: 14px;
+  }
+
+  .legend-item {
+    font-size: 10px;
+  }
+
+  .activity-list {
+    gap: 10px;
+  }
+
+  .activity-item {
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .activity-item-content {
+    min-width: 0;
+    flex: 1 1 auto;
+    gap: 10px;
+  }
+
+  .activity-details {
+    min-width: 0;
+  }
+
+  .activity-date {
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 12px;
+    line-height: 1.25;
+  }
+
+  .activity-title,
+  .activity-time {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .activity-status-icon {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+  }
+
+  .activity-status {
+    flex: 0 0 auto;
+    padding: 5px 8px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  .month-info-content {
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .month-info-left {
+    min-width: 0;
+  }
+
+  .month-info-title {
+    align-items: flex-start;
+  }
+
+  .month-info-title h3 {
+    font-size: 17px;
+    line-height: 1.25;
+  }
+
+  .month-info-description {
+    font-size: 12px;
+  }
+
+  .month-info-right {
+    width: 100%;
+    min-width: 0;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.22);
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-header,
+  .dashboard-calendar-card,
+  .dashboard-activity-card,
+  .dashboard-month-info {
+    padding: 14px;
+  }
+
+  .dashboard-user-name {
+    font-size: 19px;
+  }
+
+  .dashboard-user-tags {
+    gap: 6px;
+  }
+
+  .dashboard-tag {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .dashboard-clock-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-stats-grid,
+  .stats-loader-container {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-stat-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 14px;
+    align-items: center;
+  }
+
+  .stat-card-header {
+    grid-row: 1 / span 3;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 0;
+  }
+
+  .stat-label {
+    min-height: 0;
+  }
+
+  .stat-footer {
+    grid-column: 2;
+  }
+
+  .calendar-title-section,
+  .activity-title-section {
+    gap: 10px;
+  }
+
+  .calendar-icon-container,
+  .activity-icon-container {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+  }
+
+  .calendar-day-wrapper,
+  .calendar-day,
+  .calendar-empty-day {
+    min-height: 34px;
+    height: 34px;
+  }
+
+  .calendar-day-header {
+    padding: 6px 0;
+    font-size: 10px;
+  }
+
+  .activity-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .activity-status {
+    width: fit-content;
+    align-self: flex-start;
+  }
+
+  .confirmation-popup {
+    width: calc(100% - 28px);
+    padding: 24px 18px;
+  }
+
+  .confirmation-buttons {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 360px) {
+  .dashboard-timer-value {
+    font-size: 24px;
+  }
+
+  .dashboard-timer-status {
+    font-size: 12px;
+  }
+
+  .dashboard-header,
+  .dashboard-calendar-card,
+  .dashboard-activity-card,
+  .dashboard-month-info {
+    padding: 12px;
+  }
+
+  .calendar-day-wrapper,
+  .calendar-day,
+  .calendar-empty-day {
+    min-height: 30px;
+    height: 30px;
+  }
+
+  .day-number {
+    font-size: 11px;
+  }
+}
 /* Add these styles at the end of your existing UserDashboard.css */
 
 /* Holiday status color */

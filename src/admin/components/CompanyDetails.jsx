@@ -313,9 +313,11 @@ const CompanyDetails = () => {
   const extractUsersFromResponse = responseData => {
     if (Array.isArray(responseData)) return responseData;
     if (Array.isArray(responseData?.users)) return responseData.users;
+    if (Array.isArray(responseData?.employees)) return responseData.employees;
     if (Array.isArray(responseData?.data)) return responseData.data;
     if (Array.isArray(responseData?.companyUsers)) return responseData.companyUsers;
     if (Array.isArray(responseData?.message?.users)) return responseData.message.users;
+    if (Array.isArray(responseData?.message?.employees)) return responseData.message.employees;
     if (Array.isArray(responseData?.message?.data)) return responseData.message.data;
     return [];
   };
@@ -328,6 +330,32 @@ const CompanyDetails = () => {
     return String(value);
   };
 
+  const normalizeBranchValue = value => String(value || "").trim().toLowerCase();
+
+  const getBranchValues = branchValue => {
+    const values = new Set();
+    const addValue = value => {
+      const normalized = normalizeBranchValue(value);
+      if (normalized) values.add(normalized);
+    };
+
+    if (Array.isArray(branchValue)) {
+      branchValue.forEach(item => getBranchValues(item).forEach(value => values.add(value)));
+    } else if (branchValue && typeof branchValue === "object") {
+      addValue(branchValue._id);
+      addValue(branchValue.id);
+      addValue(branchValue.value);
+      addValue(branchValue.name);
+      addValue(branchValue.branchName);
+      addValue(branchValue.branchCode);
+      addValue(branchValue.code);
+    } else {
+      addValue(branchValue);
+    }
+
+    return values;
+  };
+
   const getUserBranchId = user => (
     getRecordId(user?.branch) ||
     getRecordId(user?.branchId) ||
@@ -335,14 +363,58 @@ const CompanyDetails = () => {
     getRecordId(user?.branchDetails)
   );
 
-  const filterUsersByBranch = users => {
-    if (!selectedBranchId) return users;
-    return users.filter(user => getUserBranchId(user) === selectedBranchId);
+  const getSelectedBranchValues = branchId => {
+    const values = getBranchValues(branchId);
+    const branch = branches.find(item => getBranchValues(item).has(normalizeBranchValue(branchId)));
+    if (branch) {
+      getBranchValues(branch).forEach(value => values.add(value));
+    }
+    return values;
+  };
+
+  const getUserBranchValues = user => {
+    const values = new Set();
+    [
+      user?.branch,
+      user?.branchId,
+      user?.branch_id,
+      user?.branchDetails,
+      user?.branchName,
+      user?.branchCode,
+      user?.branches,
+      user?.branchIds,
+      user?.assignedBranches,
+    ].forEach(value => getBranchValues(value).forEach(branchValue => values.add(branchValue)));
+    return values;
+  };
+
+  const getSelectedBranchRecord = branchId => (
+    branches.find(item => getBranchValues(item).has(normalizeBranchValue(branchId)))
+  );
+
+  const isDefaultBranch = branch => {
+    if (!branch) return false;
+    const code = normalizeBranchValue(branch.branchCode || branch.code);
+    const name = normalizeBranchValue(branch.name || branch.branchName);
+    return Boolean(branch.isDefault || code.includes("hq") || code.includes("head") || name.includes("head office"));
+  };
+
+  const filterUsersByBranch = (users, branchId = selectedBranchId) => {
+    if (!branchId) return users;
+    const selectedValues = getSelectedBranchValues(branchId);
+    const selectedBranchRecord = getSelectedBranchRecord(branchId);
+    return users.filter(user => {
+      if (getUserBranchId(user) === branchId) return true;
+      const userValues = getUserBranchValues(user);
+      if ([...selectedValues].some(value => userValues.has(value))) return true;
+      return userValues.size === 0 && isDefaultBranch(selectedBranchRecord);
+    });
   };
 
   const getBranchLabel = branchValue => {
     const branchId = getRecordId(branchValue);
-    const branch = branches.find(br => getRecordId(br) === branchId) || (typeof branchValue === "object" ? branchValue : null);
+    const branchValues = getBranchValues(branchValue);
+    const branch = branches.find(br => [...getBranchValues(br)].some(value => branchValues.has(value))) || (typeof branchValue === "object" ? branchValue : null);
     if (!branch) return branchId ? "Assigned Branch" : "No Branch";
     return branch.branchCode ? `${branch.name} (${branch.branchCode})` : branch.name;
   };
@@ -366,7 +438,7 @@ const CompanyDetails = () => {
 
   const fetchCompanyUsers = async (companyId, headers, branchId = selectedBranchId) => {
     try {
-      const params = companyId ? { companyId } : {};
+      const params = companyId ? { companyId, populate: "department branch" } : { populate: "department branch" };
       if (branchId) {
         params.branch = branchId;
         params.branchId = branchId;
@@ -380,8 +452,25 @@ const CompanyDetails = () => {
         }
       );
 
-      const users = processUsers(extractUsersFromResponse(response.data));
-      const visibleUsers = branchId ? users.filter(user => getUserBranchId(user) === branchId) : users;
+      let users = processUsers(extractUsersFromResponse(response.data));
+      let visibleUsers = branchId ? filterUsersByBranch(users, branchId) : users;
+
+      if (branchId && visibleUsers.length === 0) {
+        const fallbackResponse = await axios.get(
+          `${API_URL}/users/company-users`,
+          {
+            headers,
+            params: companyId ? { companyId, populate: "department branch" } : { populate: "department branch" }
+          }
+        );
+        users = processUsers(extractUsersFromResponse(fallbackResponse.data));
+        visibleUsers = filterUsersByBranch(users, branchId);
+      }
+
+      if (branchId && visibleUsers.length === 0) {
+        visibleUsers = await fetchBranchUsers(companyId, headers, branchId);
+      }
+
       setRecentUsers(visibleUsers);
 
       setStats(prev => ({
@@ -396,6 +485,39 @@ const CompanyDetails = () => {
       toast.error(error.response?.data?.message || "Failed to load company users");
       return [];
     }
+  };
+
+  const fetchBranchUsers = async (companyId, headers, branchId) => {
+    const commonParams = {
+      ...(companyId ? { companyId } : {}),
+      populate: "department branch"
+    };
+    const requests = [
+      { url: `${API_URL}/users/company-users`, params: { ...commonParams, branch: branchId } },
+      { url: `${API_URL}/users/company-users`, params: { ...commonParams, branchId } },
+      { url: `${API_URL}/users/company-users`, params: { ...commonParams, branch_id: branchId } },
+      { url: `${API_URL}/users/company-users`, params: { ...commonParams, branchDetails: branchId } },
+      { url: `${API_URL}/users/branch/${branchId}`, params: commonParams },
+      { url: `${API_URL}/branches/${branchId}/users`, params: commonParams },
+      { url: `${API_URL}/branches/${branchId}/employees`, params: commonParams },
+    ];
+
+    for (const request of requests) {
+      try {
+        const response = await axios.get(request.url, { headers, params: request.params });
+        const users = processUsers(extractUsersFromResponse(response.data));
+        const verifiedUsers = filterUsersByBranch(users, branchId);
+        if (verifiedUsers.length) {
+          return verifiedUsers;
+        }
+      } catch (error) {
+        if (error.response?.status && error.response.status !== 404) {
+          console.warn("Branch user lookup failed:", request.url, error.message);
+        }
+      }
+    }
+
+    return [];
   };
 
   const getAttendanceRecordsFromResponse = responseData => {
@@ -1675,7 +1797,7 @@ const CompanyDetails = () => {
     );
   }
 
-  const selectedBranch = branches.find(branch => getRecordId(branch) === selectedBranchId);
+  const selectedBranch = branches.find(branch => getBranchValues(branch).has(normalizeBranchValue(selectedBranchId)));
   const selectedBranchLabel = selectedBranchId
     ? (selectedBranch?.name || "Selected Branch")
     : "All Branches";
@@ -1999,7 +2121,6 @@ const CompanyDetails = () => {
                   {stat.value}
                 </div>
               </div>
-              <div className="CompanyDetails-stat-chip">{stat.chip}</div>
             </div>
           ))}
         </div>
@@ -2060,20 +2181,33 @@ const CompanyDetails = () => {
             </div>
           </div>
 
-          <div className="CompanyDetails-chart-card">
+          <div className="CompanyDetails-chart-card CompanyDetails-department-split-card">
             <div className="CompanyDetails-chart-header">
               <div>
                 <h3>Department Split</h3>
-                <p>Users by department</p>
+                <p>Company user activity</p>
               </div>
               <span className="CompanyDetails-more-dot">...</span>
             </div>
-            <div className="CompanyDetails-donut-wrap">
-              <div className="CompanyDetails-donut-chart"></div>
+            <div className="CompanyDetails-donut-wrap CompanyDetails-activity-donut-wrap">
+              <div className="CompanyDetails-donut-chart CompanyDetails-activity-donut-chart"></div>
               <div className="CompanyDetails-donut-center">
                 <strong>{stats.totalUsers}</strong>
                 <span>Users</span>
               </div>
+            </div>
+            <div className="CompanyDetails-split-metrics">
+              {[
+                { label: "Total Users", value: stats.totalUsers, tone: "blue" },
+                { label: "Active Users", value: stats.activeUsers, tone: "green" },
+                { label: "Today Logins", value: stats.todayLogins, tone: "orange" },
+              ].map(item => (
+                <div className={`CompanyDetails-split-metric CompanyDetails-split-${item.tone}`} key={item.label}>
+                  <span className="CompanyDetails-split-dot"></span>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -2160,7 +2294,6 @@ const CompanyDetails = () => {
                     </svg>
                   </div>
                   <h3 className="CompanyDetails-card-title">Recent Users</h3>
-                  <span className="CompanyDetails-badge">{recentUsers.length}</span>
                   {branchFilterControl}
                 </div>
 
@@ -2313,7 +2446,6 @@ const CompanyDetails = () => {
                     </svg>
                   </div>
                   <h3 className="CompanyDetails-card-title">Recent Users</h3>
-                  <span className="CompanyDetails-badge">{recentUsers.length}</span>
                   {branchFilterControl}
                 </div>
 

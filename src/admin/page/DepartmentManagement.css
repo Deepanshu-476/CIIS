@@ -13,7 +13,7 @@
   background-color: #f8fafc;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
   position: relative;
-}
+}   
 
 /* Mobile Styles (up to 767px) */
 @media (max-width: 767px) {
@@ -2247,5 +2247,191 @@ tr:hover .DepartmentManagement-action-buttons {
 @media (max-width: 767px) {
   .DepartmentManagement-loading-text {
     font-size: 0.9rem;
+  }
+}
+
+/* Mobile responsive hardening */
+@media (max-width: 767px) {
+  .DepartmentManagement {
+    width: 100%;
+    overflow-x: hidden;
+    padding: 12px;
+  }
+
+  .DepartmentManagement-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .DepartmentManagement-stat-card {
+    min-height: 82px;
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .DepartmentManagement-stat-icon {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+  }
+
+  .DepartmentManagement-stat-content {
+    min-width: 0;
+  }
+
+  .DepartmentManagement-stat-label {
+    font-size: 0.72rem;
+    line-height: 1.2;
+  }
+
+  .DepartmentManagement-stat-value {
+    font-size: 1.55rem;
+  }
+
+  .DepartmentManagement-paper {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .DepartmentManagement-title-section {
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .DepartmentManagement-title-icon {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+  }
+
+  .DepartmentManagement-title {
+    font-size: 1.28rem;
+    line-height: 1.2;
+  }
+
+  .DepartmentManagement-header-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 42px;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .DepartmentManagement-search-wrapper {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .DepartmentManagement-header-actions > .DepartmentManagement-filter-select {
+    grid-column: 1;
+    width: 100%;
+    min-width: 0;
+    height: 40px;
+  }
+
+  .DepartmentManagement-filter-btn {
+    grid-column: 2;
+    width: 42px;
+    height: 40px;
+  }
+
+  .DepartmentManagement-mobile-view {
+    margin-top: 12px;
+  }
+
+  .DepartmentManagement-mobile-card {
+    margin-bottom: 12px;
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .DepartmentManagement-mobile-card:hover {
+    transform: translateY(-1px);
+  }
+
+  .DepartmentManagement-card-content {
+    padding: 14px;
+  }
+
+  .DepartmentManagement-card-header {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    margin-bottom: 12px;
+  }
+
+  .DepartmentManagement-card-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+  }
+
+  .DepartmentManagement-card-info {
+    min-width: 0;
+  }
+
+  .DepartmentManagement-card-title {
+    font-size: 1rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+
+  .DepartmentManagement-card-tags {
+    gap: 6px;
+  }
+
+  .DepartmentManagement-tag {
+    max-width: 100%;
+    height: auto;
+    min-height: 22px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+
+  .DepartmentManagement-description {
+    padding: 10px;
+    margin-bottom: 12px;
+    font-size: 0.8rem;
+  }
+
+  .DepartmentManagement-card-footer {
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .DepartmentManagement-meta {
+    width: 100%;
+    gap: 8px;
+  }
+
+  .DepartmentManagement-meta-item {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .DepartmentManagement-meta-item span {
+    overflow-wrap: anywhere;
+  }
+
+  .DepartmentManagement-card-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .DepartmentManagement-pagination {
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .DepartmentManagement-pagination-controls {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .DepartmentManagement-pagination-buttons {
+    flex: 1;
+    justify-content: flex-end;
   }
 }

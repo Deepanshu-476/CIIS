@@ -1421,10 +1421,12 @@
 /* Responsive utilities */
 @media (max-width: 480px) {
     .user-create-task-stat-card-content {
+        position: relative;
         display: flex;
         flex-direction: column;
         align-items: flex-start;
-        gap: 4px;           
+        gap: 4px;
+        min-height: 100%;
         padding: 8px 0;
     }
 
@@ -1438,17 +1440,24 @@
     }
     
     .user-create-task-stat-card-header {
-        flex-direction: column;
+        width: 100%;
+        min-width: 0;
+        flex-direction: row;
         align-items: flex-start;
         gap: 8px;
         margin-bottom: 8px;
+        padding-right: 34px;
     }
     
     .user-create-task-stat-card-icon {
-        width: 25px;
-        height: 25px;
-        margin-left: 70px;
-        margin-top: -55px;        
+        position: absolute;
+        top: 8px;
+        right: 0;
+        width: 28px;
+        height: 28px;
+        margin: 0;
+        padding: 6px;
+        border-radius: 10px;
     }
     .user-create-task-stat-card-description{
         font-size: 10px;
@@ -2225,8 +2234,8 @@
     }
     
     .user-create-task-stat-card-icon {
-        width: 32px;
-        height: 32px;
+        width: 28px;
+        height: 28px;
     }
     
     .user-create-task-stat-card-value {

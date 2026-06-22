@@ -687,7 +687,7 @@ const getPathFromName = (name) => {
     'Support Desk': '/ciisUser/support-desk',
     'Support Operations': '/ciisUser/support-operations',
     'Client Dashboard': '/client/dashboard',
-'Payment': '/client/payments',
+    'Payment': '/client/payments',
   'Payments': '/client/payments',
   'My Services': '/client/my-services',
   'Tasks & Updates': '/client/tasks-updates',

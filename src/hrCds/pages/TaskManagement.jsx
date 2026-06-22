@@ -227,6 +227,29 @@ const emptyExternalStats = () => ({
   overdue: { count: 0, percentage: 0 }
 });
 
+const getTaskSourceAwareDate = (task) => {
+  if (!task) return null;
+  const source = String(task.__taskSource || task.taskSource || task.source || '').toLowerCase();
+  if (source === 'client') {
+    return task.dueDate || task.dueDateTime || task.createdAt;
+  }
+  if (source === 'project') {
+    let statusUpdateDate = null;
+    if (task.activityLogs && task.activityLogs.length > 0) {
+      const statusLogs = task.activityLogs.filter(log => log.type === 'status_change' || log.type === 'status_changed');
+      if (statusLogs.length > 0) {
+        const sortedLogs = [...statusLogs].sort((a, b) => new Date(b.performedAt || b.createdAt || 0) - new Date(a.performedAt || a.createdAt || 0));
+        statusUpdateDate = sortedLogs[0].performedAt || sortedLogs[0].createdAt;
+      }
+    }
+    return statusUpdateDate || task.updatedAt || task.createdAt;
+  }
+  if (source === 'self' || source === 'personal') {
+    return task.createdAt;
+  }
+  return task.dueDateTime || task.dueDate || task.createdAt;
+};
+
 const UserCreateTask = () => {
   // State declarations
   const [openDialog, setOpenDialog] = useState(false);
@@ -465,24 +488,14 @@ const UserCreateTask = () => {
   // Helper function to group tasks by date
   const groupTasksByDate = useCallback((tasks) => {
     const grouped = {};
-    const getSourceAwareDate = task => {
-      const taskSource = task?.__taskSource || task?.taskSource || task?.source;
-      if (taskSource === 'client') {
-        return task?.dueDate || task?.dueDateTime || task?.createdAt;
-      }
-      if (taskSource === 'project') {
-        return task?.createdAt;
-      }
-      return task?.dueDateTime || task?.dueDate || task?.createdAt;
-    };
     const getTaskSortTime = task => {
-      const dateToUse = getSourceAwareDate(task);
+      const dateToUse = getTaskSourceAwareDate(task);
       const date = new Date(dateToUse || 0);
       return Number.isNaN(date.getTime()) ? 0 : date.getTime();
     };
     
     tasks.forEach(task => {
-      const dateToUse = getSourceAwareDate(task);
+      const dateToUse = getTaskSourceAwareDate(task);
       
       if (dateToUse) {
         const dateKey = new Date(dateToUse).toLocaleDateString('en-IN', {
@@ -703,15 +716,8 @@ const UserCreateTask = () => {
   }, []);
 
   const getSourceAwareDateForTask = useCallback((task) => {
-    const source = task?.__taskSource || task?.taskSource || task?.source;
-    if (source === 'client') {
-      return task?.dueDate || task?.dueDateTime || task?.createdAt;
-    }
-    if (source === 'project') {
-      return task?.createdAt;
-    }
-    return getDueDateForTask(task) || task?.createdAt;
-  }, [getDueDateForTask]);
+    return getTaskSourceAwareDate(task);
+  }, []);
 
   const getTaskTimeFilterDates = useCallback((task) => {
     const dateToFilter = getSourceAwareDateForTask(task);

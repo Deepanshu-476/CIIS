@@ -227,8 +227,8 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
     },
     {
       icon: <ManageAccountsIcon />,
-      name: 'Company Access',
-      route: '/Ciis-network/company-access',
+      name: 'Plans',
+      route: '/Ciis-network/plans',
       showForEmail: ['ashutoshrai130@gmail.com']
     },
     {

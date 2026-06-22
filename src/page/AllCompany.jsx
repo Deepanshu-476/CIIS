@@ -53,6 +53,8 @@ const AllCompany = () => {
   const [statusSavingId, setStatusSavingId] = useState(null);
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
   const [subscriptionCompany, setSubscriptionCompany] = useState(null);
+  const [plans, setPlans] = useState([]);
+  const [subscriptionPlanId, setSubscriptionPlanId] = useState("");
   const [subscriptionExpiryDate, setSubscriptionExpiryDate] = useState("");
   const [subscriptionPlan, setSubscriptionPlan] = useState("Standard");
   const [subscriptionAmount, setSubscriptionAmount] = useState("");
@@ -111,6 +113,38 @@ const AllCompany = () => {
     const date = new Date();
     date.setDate(date.getDate() + days);
     return toDateInputValue(date);
+  };
+
+  const getPlanId = (company) => {
+    if (!company?.selectedPlan) return "";
+    return typeof company.selectedPlan === "object" ? company.selectedPlan._id : company.selectedPlan;
+  };
+
+  const getPlanName = (company) => {
+    if (company?.selectedPlan && typeof company.selectedPlan === "object") {
+      return company.selectedPlan.name || company.subscriptionPlan || "No Plan";
+    }
+    return company?.subscriptionPlan || "No Plan";
+  };
+
+  const getSubscriptionStatus = (company) => {
+    if (company?.isActive === false) return { label: "Inactive", className: "AllCompany-status-inactive" };
+    if (!company?.subscriptionExpiry) return { label: "No Expiry", className: "AllCompany-status-pending" };
+    const daysLeft = Math.ceil((new Date(company.subscriptionExpiry) - new Date()) / (1000 * 60 * 60 * 24));
+    if (daysLeft <= 0) return { label: "Expired", className: "AllCompany-status-inactive" };
+    if (daysLeft <= 7) return { label: "Critical", className: "AllCompany-status-pending" };
+    if (daysLeft <= 15) return { label: "Expiring Soon", className: "AllCompany-status-pending" };
+    return { label: "Active", className: "AllCompany-status-active" };
+  };
+
+  const fetchPlans = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/plans?includeInactive=true`, { headers: getAuthHeaders() });
+      setPlans(response.data?.plans || []);
+    } catch (error) {
+      console.error("❌ ERROR fetching plans:", error);
+      toast.error(error.response?.data?.message || "Failed to load plans");
+    }
   };
 
   const updateCompanyEverywhere = (updatedCompany) => {
@@ -335,7 +369,7 @@ const AllCompany = () => {
     const loadData = async () => {
       setPageLoading(true);
       try {
-        await fetchCompaniesWithUsers();
+        await Promise.all([fetchCompaniesWithUsers(), fetchPlans()]);
       } catch (error) {
         console.error("Error loading companies:", error);
         toast.error("Failed to load companies");
@@ -440,10 +474,13 @@ const AllCompany = () => {
   };
 
   const handleOpenSubscriptionModal = (company) => {
+    const selectedPlanId = getPlanId(company);
+    const selectedPlan = plans.find(plan => plan._id === selectedPlanId);
     setSubscriptionCompany(company);
-    setSubscriptionExpiryDate(toDateInputValue(company?.subscriptionExpiry) || getDateAfterDays(30));
-    setSubscriptionPlan(company?.subscriptionPlan || "Standard");
-    setSubscriptionAmount(company?.subscriptionAmount ? String(company.subscriptionAmount) : "");
+    setSubscriptionPlanId(selectedPlanId);
+    setSubscriptionExpiryDate(toDateInputValue(company?.subscriptionExpiry) || getDateAfterDays(selectedPlan?.durationDays || 30));
+    setSubscriptionPlan(selectedPlan?.name || company?.subscriptionPlan || "Standard");
+    setSubscriptionAmount(String(selectedPlan?.price ?? company?.subscriptionAmount ?? ""));
     setSubscriptionPaymentStatus(company?.subscriptionPaymentStatus || "paid");
     setSubscriptionPaymentMode(company?.subscriptionPayments?.[0]?.paymentMode || "upi");
     setSubscriptionTransactionId("");
@@ -453,9 +490,19 @@ const AllCompany = () => {
     setSubscriptionModalOpen(true);
   };
 
+  const handleSubscriptionPlanChange = (planId) => {
+    const selectedPlan = plans.find(plan => plan._id === planId);
+    setSubscriptionPlanId(planId);
+    if (!selectedPlan) return;
+    setSubscriptionPlan(selectedPlan.name || "Standard");
+    setSubscriptionAmount(String(selectedPlan.price ?? 0));
+    setSubscriptionExpiryDate(getDateAfterDays(selectedPlan.durationDays || 30));
+  };
+
   const handleCloseSubscriptionModal = () => {
     setSubscriptionModalOpen(false);
     setSubscriptionCompany(null);
+    setSubscriptionPlanId("");
     setSubscriptionExpiryDate("");
     setSubscriptionPlan("Standard");
     setSubscriptionAmount("");
@@ -473,6 +520,10 @@ const AllCompany = () => {
       toast.error("Please select subscription expiry date");
       return;
     }
+    if (!subscriptionPlanId) {
+      toast.error("Please select a plan");
+      return;
+    }
 
     try {
       setSubscriptionSaving(true);
@@ -480,6 +531,7 @@ const AllCompany = () => {
         `${API_URL}/company/${subscriptionCompany._id}/subscription`,
         {
           subscriptionExpiry: subscriptionExpiryDate,
+          planId: subscriptionPlanId || undefined,
           planName: subscriptionPlan,
           amount: Number(subscriptionAmount || 0),
           paymentStatus: subscriptionPaymentStatus,
@@ -1234,6 +1286,13 @@ const AllCompany = () => {
                             )}
 
                             <div className="AllCompany-stat-item">
+                              <span className="material-icons AllCompany-schedule-icon">workspace_premium</span>
+                              <span className="AllCompany-stat-text">
+                                {getPlanName(company)} · {getSubscriptionStatus(company).label}
+                              </span>
+                            </div>
+
+                            <div className="AllCompany-stat-item">
                               <span className="material-icons AllCompany-schedule-icon">payments</span>
                               <span className="AllCompany-stat-text">
                                 {company.subscriptionPaymentStatus || 'unpaid'} · ₹{Number(company.subscriptionAmount || 0).toLocaleString('en-IN')}
@@ -1254,7 +1313,7 @@ const AllCompany = () => {
                                 onClick={() => handleOpenSubscriptionModal(company)}
                               >
                                 <span className="material-icons">event_available</span>
-                                Extend
+                                Upgrade / Renew
                               </button>
                             </div>
 
@@ -1288,6 +1347,10 @@ const AllCompany = () => {
                             <span className="AllCompany-mobile-text">{formatDate(company.subscriptionExpiry)}</span>
                           </div>
                         )}
+                        <div className="AllCompany-mobile-metric">
+                          <span className="material-icons AllCompany-mobile-icon AllCompany-schedule-icon">workspace_premium</span>
+                          <span className="AllCompany-mobile-text">{getPlanName(company)} · {getSubscriptionStatus(company).label}</span>
+                        </div>
                       </div>
                     )}
 
@@ -1643,6 +1706,18 @@ const AllCompany = () => {
                         )}
                       </div>
                       <div className="AllCompany-system-info-card">
+                        <span className="material-icons AllCompany-system-icon">workspace_premium</span>
+                        <span className="AllCompany-system-label">Plan</span>
+                        <span className="AllCompany-system-value">
+                          {getPlanName(companyDetails)} · ₹{Number(companyDetails.subscriptionAmount || 0).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                      <div className="AllCompany-system-info-card">
+                        <span className="material-icons AllCompany-system-icon">verified</span>
+                        <span className="AllCompany-system-label">Subscription Status</span>
+                        <span className="AllCompany-system-value">{getSubscriptionStatus(companyDetails).label}</span>
+                      </div>
+                      <div className="AllCompany-system-info-card">
                         <span className="material-icons AllCompany-system-icon">toggle_on</span>
                         <span className="AllCompany-system-label">Status</span>
                         {editMode ? (
@@ -1703,7 +1778,7 @@ const AllCompany = () => {
                   <span className="material-icons">event_available</span>
                 </div>
                 <div className="AllCompany-modal-title">
-                  <h3 className="AllCompany-modal-company-name">Extend Subscription</h3>
+                  <h3 className="AllCompany-modal-company-name">Upgrade / Renew Plan</h3>
                   <div className="AllCompany-modal-subtitle">
                     <span>{subscriptionCompany?.companyName}</span>
                   </div>
@@ -1720,6 +1795,14 @@ const AllCompany = () => {
                 <div>
                   <span>Current expiry</span>
                   <strong>{formatDate(subscriptionCompany?.subscriptionExpiry)}</strong>
+                </div>
+              </div>
+
+              <div className="AllCompany-subscription-current">
+                <span className="material-icons">workspace_premium</span>
+                <div>
+                  <span>Current plan</span>
+                  <strong>{getPlanName(subscriptionCompany)} · {getSubscriptionStatus(subscriptionCompany).label}</strong>
                 </div>
               </div>
 
@@ -1743,14 +1826,19 @@ const AllCompany = () => {
               <div className="AllCompany-subscription-form-grid">
                 <div className="AllCompany-subscription-field">
                   <label className="AllCompany-subscription-label" htmlFor="subscriptionPlan">Plan</label>
-                  <input
+                  <select
                     id="subscriptionPlan"
-                    type="text"
                     className="AllCompany-detail-input"
-                    value={subscriptionPlan}
-                    onChange={(e) => setSubscriptionPlan(e.target.value)}
-                    placeholder="Standard"
-                  />
+                    value={subscriptionPlanId}
+                    onChange={(e) => handleSubscriptionPlanChange(e.target.value)}
+                  >
+                    <option value="">Select plan</option>
+                    {plans.filter(plan => plan.isActive !== false).map(plan => (
+                      <option key={plan._id} value={plan._id}>
+                        {plan.name} - ₹{Number(plan.price || 0).toLocaleString('en-IN')} / {plan.durationDays} days
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="AllCompany-subscription-field">
                   <label className="AllCompany-subscription-label" htmlFor="subscriptionAmount">Amount</label>
@@ -2030,7 +2118,7 @@ const AllCompany = () => {
             </button>
             <button className="AllCompany-menu-item" onClick={() => handleAction('subscription')}>
               <span className="material-icons AllCompany-menu-icon" style={{color: '#2563eb'}}>event_available</span>
-              <span>Extend Subscription</span>
+              <span>Upgrade / Renew Plan</span>
             </button>
             <hr className="AllCompany-menu-divider" />
             <button className="AllCompany-menu-item" onClick={() => handleAction('status')}>

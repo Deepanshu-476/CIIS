@@ -24,7 +24,7 @@ export const websiteAppScreenMap = [
       {webUrl: '/Ciis-network/company-assets', webPage: 'Company Assets', appScreen: 'Assets Management', status: 'available'},
       {webUrl: '/Ciis-network/company-assets/branch/:branchId', webPage: 'Branch Company Assets', appScreen: 'Assets Management', status: 'partial'},
       {webUrl: '/Ciis-network/SidebarManagement', webPage: 'Sidebar Management', appScreen: 'Sidebar Management', status: 'available'},
-      {webUrl: '/Ciis-network/company-access', webPage: 'Company Access Management', appScreen: 'Company Access', status: 'available'},
+      {webUrl: '/Ciis-network/plans', webPage: 'Plans', appScreen: 'Plans', status: 'available'},
       {webUrl: '/Ciis-network/holiday', webPage: 'Holidays', appScreen: 'Holiday', status: 'available'},
       {webUrl: '/Ciis-network/branch', webPage: 'Branch Management', appScreen: 'Manage Branches', status: 'available'},
       {webUrl: '/Ciis-network/support-operations', webPage: 'Support Operations', appScreen: 'Support Operations', status: 'available'},

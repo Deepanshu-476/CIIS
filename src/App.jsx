@@ -255,7 +255,7 @@ import RegisterCompany from "./admin/components/CompanyRegister.jsx";
 import SuperAdminLogin from "./page/SuperAdminLogin";
 
 import CompanyManagement from "./page/CompanyManagement.jsx";
-import CompanyAccessManagement from "./admin/page/CompanyAccessManagement.jsx";
+import PlanManagement from "./admin/page/PlanManagement.jsx";
 import JobRoleManagement from "./admin/page/JobRoleManagement.jsx";
 import SidebarManagement from "./admin/components/SidebarManagement.jsx";
 import CompanyDetails from "./admin/components/CompanyDetails.jsx";
@@ -316,7 +316,7 @@ function App() {
           <Route path="company-assets/branch/:branchId" element={<CompanyAssetManagement/>}/>
           <Route path="CompanyManagement" element={<CompanyManagement />} />
           <Route path="SidebarManagement" element={<SidebarManagement />} />
-          <Route path="company-access" element={<CompanyAccessManagement />} />
+          <Route path="plans" element={<PlanManagement />} />
           <Route path="holiday" element={<Holiday />} />
           <Route path="branch" element={<BranchManagement />} />
           <Route path="support-operations" element={<SupportOperations />} />

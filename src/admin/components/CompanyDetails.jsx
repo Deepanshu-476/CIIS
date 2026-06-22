@@ -147,14 +147,29 @@ const CompanyDetails = () => {
 
   const getLoggedUserName = () => {
     try {
-      const rawUser = localStorage.getItem("superAdmin") || localStorage.getItem("user");
-      const user = rawUser ? JSON.parse(rawUser) : null;
-      return user?.name || user?.username || user?.fullName || "";
+      const storageKeys = ["user", "superAdmin"];
+      for (const key of storageKeys) {
+        const rawUser = localStorage.getItem(key);
+        const user = rawUser ? JSON.parse(rawUser) : null;
+        const name = user?.name || user?.username || user?.fullName || user?.ownerName || "";
+        if (name) return name;
+      }
+      return "";
     } catch (error) {
       console.warn("Unable to parse logged user name", error);
       return "";
     }
   };
+
+  const getLoggedUserNameFromResponse = data => (
+    data?.currentUser?.name ||
+    data?.currentUser?.fullName ||
+    data?.currentUser?.username ||
+    data?.user?.name ||
+    data?.user?.fullName ||
+    data?.user?.username ||
+    getLoggedUserName()
+  );
 
  const getCompanyLoginPath = (companyData = company) => {
     const companyCode = companyData?.companyCode || companyData?.code || companyData?.slug || "";
@@ -649,6 +664,8 @@ const CompanyDetails = () => {
           } else if (data.company?.logoUrl) {
             companyLogo = data.company.logoUrl;
           }
+
+          const loggedUserName = getLoggedUserNameFromResponse(data);
           
           // Company data mapping with proper name
           const companyData = {
@@ -706,7 +723,8 @@ const CompanyDetails = () => {
                           data.company?.companyDomain ||
                           "gmail.com",
             
-            ownerName: loggedCompany?.ownerName ||
+            ownerName: loggedUserName ||
+                      loggedCompany?.ownerName ||
                       loggedCompany?.owner ||
                       companyDetails.ownerName || 
                       companyDetails.owner || 
@@ -738,7 +756,13 @@ const CompanyDetails = () => {
             subscriptionExpiry: loggedCompany?.subscriptionExpiry ||
                                companyDetails.subscriptionExpiry || 
                                data.company?.subscriptionExpiry || 
-                               new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+                               new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            selectedPlan: loggedCompany?.selectedPlan || companyDetails.selectedPlan || data.company?.selectedPlan || null,
+            subscriptionPlan: loggedCompany?.subscriptionPlan || companyDetails.subscriptionPlan || data.company?.subscriptionPlan || "Standard",
+            subscriptionAmount: loggedCompany?.subscriptionAmount ?? companyDetails.subscriptionAmount ?? data.company?.subscriptionAmount ?? 0,
+            planDurationDays: loggedCompany?.planDurationDays || companyDetails.planDurationDays || data.company?.planDurationDays || 30,
+            planFeatures: loggedCompany?.planFeatures || companyDetails.planFeatures || data.company?.planFeatures || [],
+            allowedPages: loggedCompany?.allowedPages || companyDetails.allowedPages || data.company?.allowedPages || []
           };
           
           console.log("✅ Mapped Company Data:", companyData);
@@ -825,7 +849,8 @@ const CompanyDetails = () => {
           companyDomain: companyInfo.companyDomain || 
                         companyInfo.domain || 
                         "gmail.com",
-          ownerName: companyInfo.ownerName || 
+          ownerName: getLoggedUserName() ||
+                    companyInfo.ownerName || 
                     companyInfo.owner || 
                     "Administrator",
           loginUrl: companyInfo.loginUrl || "/company/CIISNE/login",
@@ -834,6 +859,12 @@ const CompanyDetails = () => {
           updatedAt: companyInfo.updatedAt || new Date().toISOString(),
           subscriptionExpiry: companyInfo.subscriptionExpiry || 
                             new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          selectedPlan: companyInfo.selectedPlan || null,
+          subscriptionPlan: companyInfo.subscriptionPlan || "Standard",
+          subscriptionAmount: companyInfo.subscriptionAmount || 0,
+          planDurationDays: companyInfo.planDurationDays || 30,
+          planFeatures: companyInfo.planFeatures || [],
+          allowedPages: companyInfo.allowedPages || [],
           isActive: companyInfo.isActive ?? true
         };
         
@@ -867,7 +898,7 @@ const CompanyDetails = () => {
           companyPhone: "Not provided",
           companyAddress: "Not provided",
           companyDomain: "gmail.com",
-          ownerName: "Administrator",
+          ownerName: getLoggedUserName() || "Administrator",
           loginUrl: "/company/COMPANY/login",
           dbIdentifier: `company_${Date.now()}`,
           createdAt: new Date().toISOString(),
@@ -1638,7 +1669,13 @@ const CompanyDetails = () => {
 
   const daysRemaining = getDaysRemaining(company?.subscriptionExpiry);
   const subscriptionStatus = getSubscriptionStatus(daysRemaining);
-  const subscriptionProgress = Math.min((daysRemaining / 30) * 100, 100);
+  const currentPlan = company?.selectedPlan && typeof company.selectedPlan === "object" ? company.selectedPlan : null;
+  const planName = currentPlan?.name || company?.subscriptionPlan || "Standard";
+  const planAmount = currentPlan?.price ?? company?.subscriptionAmount ?? 0;
+  const planDurationDays = currentPlan?.durationDays || company?.planDurationDays || 30;
+  const planFeatures = currentPlan?.features || company?.planFeatures || [];
+  const allowedPagesCount = currentPlan?.allowedPages?.length || company?.allowedPages?.length || 0;
+  const subscriptionProgress = Math.min((daysRemaining / Math.max(planDurationDays || 30, 1)) * 100, 100);
 
   // Show CIISLoader while page is loading
   if (pageLoading) {
@@ -2190,6 +2227,12 @@ const CompanyDetails = () => {
                     <p className="CompanyDetails-expiry-text">
                       <strong>Expires on:</strong> {formatDate(company.subscriptionExpiry)}
                     </p>
+                    <p className="CompanyDetails-expiry-text">
+                      <strong>Plan:</strong> {planName} / ₹{Number(planAmount || 0).toLocaleString('en-IN')} / {planDurationDays} days
+                    </p>
+                    <p className="CompanyDetails-expiry-text">
+                      <strong>Includes:</strong> {allowedPagesCount} pages{planFeatures.length ? ` / ${planFeatures.slice(0, 3).join(", ")}` : ""}
+                    </p>
 
                     <div className="CompanyDetails-progress-container">
                       <div className="CompanyDetails-progress-header">
@@ -2208,6 +2251,13 @@ const CompanyDetails = () => {
                         ? `Your subscription will expire in ${daysRemaining} days.`
                         : 'Your subscription has expired.'}
                     </div>
+                    <button
+                      className="CompanyDetails-btn CompanyDetails-btn-primary"
+                      onClick={() => navigate("/Ciis-network/all-company")}
+                      style={{ marginTop: 14 }}
+                    >
+                      Upgrade / Renew Plan
+                    </button>
                   </div>
                 </div>
               </>
@@ -2344,6 +2394,12 @@ const CompanyDetails = () => {
                   <p className="CompanyDetails-expiry-text">
                     <strong>Expires on:</strong> {formatDate(company.subscriptionExpiry)}
                   </p>
+                  <p className="CompanyDetails-expiry-text">
+                    <strong>Plan:</strong> {planName} / ₹{Number(planAmount || 0).toLocaleString('en-IN')} / {planDurationDays} days
+                  </p>
+                  <p className="CompanyDetails-expiry-text">
+                    <strong>Includes:</strong> {allowedPagesCount} pages{planFeatures.length ? ` / ${planFeatures.slice(0, 3).join(", ")}` : ""}
+                  </p>
 
                   <div className="CompanyDetails-progress-container">
                     <div className="CompanyDetails-progress-header">
@@ -2362,6 +2418,13 @@ const CompanyDetails = () => {
                       ? `Your subscription will expire in ${daysRemaining} days.`
                       : 'Your subscription has expired.'}
                   </div>
+                  <button
+                    className="CompanyDetails-btn CompanyDetails-btn-primary"
+                    onClick={() => navigate("/Ciis-network/all-company")}
+                    style={{ marginTop: 14 }}
+                  >
+                    Upgrade / Renew Plan
+                  </button>
                 </div>
               </div>
             </div>

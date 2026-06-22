@@ -7,6 +7,19 @@ import './SuperAdminLogin.css';
 
 const companyLogo = '/logoo.png';
 
+const clearPreviousLoginStorage = () => {
+  [
+    'token',
+    'user',
+    'superAdmin',
+    'company',
+    'companyDetails',
+    'companyIdentifier',
+    'companyCode',
+    'client',
+  ].forEach(key => localStorage.removeItem(key));
+};
+
 const SuperAdminLogin = () => {
   const navigate = useNavigate();
   
@@ -116,6 +129,7 @@ const SuperAdminLogin = () => {
         toast.success('OTP sent to your email! Please verify.');
       } else if (response.data.success) {
         // Direct login (if OTP is disabled)
+        clearPreviousLoginStorage();
         localStorage.setItem('superAdmin', JSON.stringify(response.data.user));
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('company', JSON.stringify(response.data.companyDetails));
@@ -153,6 +167,7 @@ const SuperAdminLogin = () => {
       });
       
       if (response.data.success) {
+        clearPreviousLoginStorage();
         localStorage.setItem('superAdmin', JSON.stringify(response.data.user));
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('company', JSON.stringify(response.data.companyDetails));

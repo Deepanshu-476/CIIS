@@ -5,6 +5,19 @@ import { useAuth } from '../context/useAuth';
 import { toast } from 'react-toastify';
 import './Login.css'; // Create this CSS file
 
+const clearPreviousLoginStorage = () => {
+  [
+    'token',
+    'user',
+    'superAdmin',
+    'company',
+    'companyDetails',
+    'companyIdentifier',
+    'companyCode',
+    'client',
+  ].forEach(key => localStorage.removeItem(key));
+};
+
 const Login = () => {
   const [form, setForm] = useState({
     email: '',
@@ -189,6 +202,7 @@ const Login = () => {
       }
 
       // Direct login without OTP (legacy flow - if any)
+      clearPreviousLoginStorage();
       if (res.data.token) {
         localStorage.setItem('token', res.data.token);
         setToken?.(res.data.token);
@@ -327,6 +341,7 @@ const Login = () => {
 
       if (response.data.success) {
         // Save tokens and user data
+        clearPreviousLoginStorage();
         if (response.data.token) {
           localStorage.setItem('token', response.data.token);
           setToken?.(response.data.token);

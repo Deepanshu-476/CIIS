@@ -178,6 +178,37 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
   const [dueAmount, setDueAmount] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [dueNote, setDueNote] = useState('');
+  const [subscriptionTasks, setSubscriptionTasks] = useState([]);
+  const [subscriptionTasksLoading, setSubscriptionTasksLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open || !client?._id) {
+      setSubscriptionTasks([]);
+      return;
+    }
+
+    let cancelled = false;
+    const loadSubscriptionTasks = async () => {
+      try {
+        setSubscriptionTasksLoading(true);
+        const response = await tasksApi.get(`/client/${client._id}`);
+        const tasks = Array.isArray(response.data?.data)
+          ? response.data.data
+          : response.data?.data?.tasks || [];
+        if (!cancelled) setSubscriptionTasks(Array.isArray(tasks) ? tasks : []);
+      } catch (error) {
+        console.error('Error loading subscription tasks:', error);
+        if (!cancelled) setSubscriptionTasks([]);
+      } finally {
+        if (!cancelled) setSubscriptionTasksLoading(false);
+      }
+    };
+
+    loadSubscriptionTasks();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, client?._id]);
 
   if (!open || !client) return null;
 
@@ -187,6 +218,27 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
     : null;
 
   const canRenewSubscription = userRole === 'owner' || userRole === 'admin' || userRole === 'superadmin';
+  const subscriptions = client.subscription || [];
+  const getTaskStatusLabel = task => {
+    if (task.completed) return 'Completed';
+    if (isClientTaskOverdue(task)) return 'Overdue';
+    return task.status ? String(task.status).replace(/-/g, ' ') : 'Pending';
+  };
+  const getTaskStatusBadge = task => {
+    if (task.completed) return 'ClientManagement-badge--success';
+    if (isClientTaskOverdue(task)) return 'ClientManagement-badge--error';
+    const status = String(task.status || '').toLowerCase();
+    if (status.includes('progress')) return 'ClientManagement-badge--info';
+    return 'ClientManagement-badge--warning';
+  };
+  const getTasksForSubscription = subscription => {
+    const subscriptionId = String(subscription?._id || subscription?.id || '');
+    return subscriptionTasks.filter(task => {
+      const taskSubscriptionId = String(task.subscriptionId?._id || task.subscriptionId || '');
+      if (subscriptionId && taskSubscriptionId && taskSubscriptionId === subscriptionId) return true;
+      return subscription?.subscriptionNo && Number(task.subscriptionNo) === Number(subscription.subscriptionNo);
+    });
+  };
 
   const calculateEndDate = (startDateValue, monthsValue) => {
     if (!startDateValue || !monthsValue) return '';
@@ -286,7 +338,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
         setBenefits('');
 
         if (onRenewSubscription) {
-          onRenewSubscription();
+          await onRenewSubscription();
         }
 
         setTimeout(() => {
@@ -561,7 +613,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
                   className={`ClientManagement-renewal-toggle-btn ${showRenewForm ? 'active' : ''}`}
                   onClick={() => setShowRenewForm(!showRenewForm)}
                 >
-                  <FiPlus /> {showRenewForm ? 'Cancel' : 'Update Subscription'}
+                  <FiPlus /> {showRenewForm ? 'Cancel' : 'Upgrade / Renew Plan'}
                 </button>
 
                 {latestSubscription && (
@@ -578,7 +630,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
 
               {showRenewForm && (
                 <div className="ClientManagement-renewal-form-container">
-                  <h4>🔄 Update Subscription</h4>
+                  <h4>🔄 Upgrade / Renew Client Plan</h4>
                   
                   {renewMessage.text && (
                     <div className={`ClientManagement-renewal-message ClientManagement-renewal-message--${renewMessage.type}`}>
@@ -590,7 +642,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
                   <div className="ClientManagement-renewal-form">
                     <div className="ClientManagement-form-group">
                       <label className="ClientManagement-form-label">
-                        <FiBriefcase /> Renewal Plan
+                        <FiBriefcase /> Select Plan
                       </label>
                       <select
                         className="ClientManagement-form-input"
@@ -605,7 +657,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
                           </option>
                         ))}
                       </select>
-                      <small className="ClientManagement-text-muted">Plan select karne par fresh tasks next subscription me generate honge.</small>
+                      <small className="ClientManagement-text-muted">Selecting a plan will generate fresh tasks for the next subscription.</small>
                     </div>
 
                     <div className="ClientManagement-form-group">
@@ -730,7 +782,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
                           </>
                         ) : (
                           <>
-                            <FiCheckCircle /> Update Subscription
+                            <FiCheckCircle /> Save New Subscription
                           </>
                         )}
                       </button>
@@ -739,6 +791,111 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
                 </div>
               )}
             </>
+          )}
+
+          <h4 className="ClientManagement-receipts-title">📋 Subscription Task History ({subscriptions.length})</h4>
+          {subscriptions.length > 0 ? (
+            <div className="ClientManagement-payment-receipts-list">
+              {subscriptions.map((subscription, index) => {
+                const tasks = getTasksForSubscription(subscription);
+                const completedTasks = tasks.filter(task => task.completed).length;
+                const pendingTasks = tasks.filter(task => !task.completed && !isClientTaskOverdue(task)).length;
+                const overdueTasks = tasks.filter(task => isClientTaskOverdue(task)).length;
+
+                return (
+                  <div key={subscription._id || index} className="ClientManagement-payment-receipt-card">
+                    <div className="ClientManagement-payment-receipt-header">
+                      <div className="ClientManagement-payment-receipt-title">
+                        <span className="ClientManagement-payment-receipt-number">
+                          Subscription {subscription.subscriptionNo || index + 1}
+                        </span>
+                        <span className={`ClientManagement-badge ${
+                          String(subscription.status || '').toLowerCase() === 'expired'
+                            ? 'ClientManagement-badge--error'
+                            : 'ClientManagement-badge--success'
+                        }`}>
+                          {subscription.status || (new Date(subscription.endDate) < new Date() ? 'Expired' : 'Active')}
+                        </span>
+                      </div>
+                      <div className="ClientManagement-payment-receipt-date">
+                        <FiCalendar size={14} />
+                        {subscription.startDate ? new Date(subscription.startDate).toLocaleDateString() : 'N/A'} - {subscription.endDate ? new Date(subscription.endDate).toLocaleDateString() : 'N/A'}
+                      </div>
+                    </div>
+
+                    <div className="ClientManagement-payment-receipt-details">
+                      <div className="ClientManagement-payment-detail-row">
+                        <div className="ClientManagement-payment-detail-label">Plan:</div>
+                        <div className="ClientManagement-payment-detail-value">
+                          {subscription.planName || 'Manual Subscription'}
+                        </div>
+                      </div>
+                      <div className="ClientManagement-payment-detail-row">
+                        <div className="ClientManagement-payment-detail-label">Price:</div>
+                        <div className="ClientManagement-payment-detail-value ClientManagement-amount-highlight">
+                          ₹{Number(subscription.price || 0).toLocaleString('en-IN')}
+                        </div>
+                      </div>
+
+                      <div className="ClientManagement-selected-items-preview ClientManagement-mt-2">
+                        <span className="ClientManagement-selected-item ClientManagement-selected-item--info">{tasks.length} Tasks</span>
+                        <span className="ClientManagement-selected-item">{completedTasks} Completed</span>
+                        <span className="ClientManagement-selected-item ClientManagement-selected-item--info">{pendingTasks} Pending</span>
+                        {overdueTasks > 0 && (
+                          <span className="ClientManagement-badge ClientManagement-badge--error">{overdueTasks} Overdue</span>
+                        )}
+                      </div>
+
+                      {(subscription.servicesSnapshot || []).length > 0 && (
+                        <div className="ClientManagement-service-list ClientManagement-mt-2">
+                          {subscription.servicesSnapshot.map((serviceItem, serviceIndex) => (
+                            <div key={`${subscription._id || index}-${serviceItem.service || serviceIndex}`} className="ClientManagement-service-item">
+                              <div className="ClientManagement-service-item__content">
+                                <p className="ClientManagement-font-bold">{serviceItem.service || `Service ${serviceIndex + 1}`}</p>
+                                <small className="ClientManagement-text-muted">{serviceItem.tasks?.length || 0} default tasks in plan</small>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {subscriptionTasksLoading ? (
+                        <p className="ClientManagement-text-muted ClientManagement-mt-2">Loading tasks...</p>
+                      ) : tasks.length > 0 ? (
+                        <div className="ClientManagement-task-list ClientManagement-mt-2">
+                          {tasks.map(task => (
+                            <div key={task._id || `${task.service}-${task.name}`} className="ClientManagement-task-item">
+                              <div className="ClientManagement-task-item__content">
+                                <div className="ClientManagement-flex-align-center ClientManagement-gap-1 ClientManagement-flex-wrap">
+                                  <span className={task.completed ? 'ClientManagement-text-line-through ClientManagement-text-muted' : ''}>
+                                    {task.name || task.title || 'Task'}
+                                  </span>
+                                  {task.isPlanTask === false && (
+                                    <span className="ClientManagement-badge ClientManagement-badge--warning">Extra</span>
+                                  )}
+                                  <span className={`ClientManagement-badge ${getTaskStatusBadge(task)}`}>
+                                    {getTaskStatusLabel(task)}
+                                  </span>
+                                </div>
+                                <small className="ClientManagement-text-muted">
+                                  {task.service || 'Service'}
+                                  {task.assignee ? ` / ${task.assignee}` : ''}
+                                  {task.dueDate ? ` / Due: ${formatClientTaskDue(task.dueDate)}` : ''}
+                                </small>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="ClientManagement-text-muted ClientManagement-mt-2">No tasks generated for this subscription yet.</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="ClientManagement-text-muted">No subscriptions found yet.</p>
           )}
 
           <h4 className="ClientManagement-receipts-title">💰 Payment History ({paymentReceipts.length})</h4>
@@ -1699,7 +1856,7 @@ const ClientPlansModal = ({ open, onClose, plans, services, companyCode, onSaveP
       <div className="ClientManagement-modal ClientManagement-modal-lg" onClick={e => e.stopPropagation()}>
         <div className="ClientManagement-modal__header">
           <h3>Client Plans</h3>
-          <small className="ClientManagement-text-muted">Plan me services aur default tasks add karo.</small>
+          <small className="ClientManagement-text-muted">Add services and default tasks to this plan.</small>
           <button className="ClientManagement-action-button" onClick={onClose}><FiX /></button>
         </div>
         <div className="ClientManagement-modal__content">
@@ -2199,7 +2356,7 @@ const AddClientModal = ({
                     </option>
                   ))}
                 </select>
-                <small className="ClientManagement-text-muted">Plan select karte hi services, price aur tasks auto add honge.</small>
+                <small className="ClientManagement-text-muted">Selecting a plan will auto-fill services, price, and tasks.</small>
               </div>
 
               <div className="ClientManagement-form-group">
@@ -2869,6 +3026,14 @@ const ClientManagement = () => {
       fetchData();
     }
   }, [filters, companyCode, companyIdentifier]);
+
+  useEffect(() => {
+    if (!paymentReceiptsModal.open || !paymentReceiptsModal.client?._id) return;
+    const updatedClient = clients.find(client => client._id === paymentReceiptsModal.client._id);
+    if (updatedClient && updatedClient !== paymentReceiptsModal.client) {
+      setPaymentReceiptsModal(prev => ({ ...prev, client: updatedClient }));
+    }
+  }, [clients, paymentReceiptsModal.open, paymentReceiptsModal.client?._id]);
 
   const fetchClientTasks = async (clientId) => {
     try {

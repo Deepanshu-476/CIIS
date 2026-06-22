@@ -2470,17 +2470,38 @@ textarea.CompanyDetails-form-input {
 .CompanyDetails-donut-chart {
   width: 150px;
   height: 150px;
-  border-radius: 50%;
-  background: conic-gradient(#2f6df6 0 34%, #8b35e8 34% 53%, #ff7a18 53% 70%, #22c55e 70% 86%, #2f6df6 86% 100%);
   position: relative;
+  overflow: visible;
+  transform: rotate(-90deg);
 }
 
-.CompanyDetails-donut-chart::after {
-  content: "";
-  position: absolute;
-  inset: 36px;
-  border-radius: 50%;
-  background: #ffffff;
+.CompanyDetails-donut-track,
+.CompanyDetails-donut-segment {
+  fill: none;
+  stroke-width: 28;
+}
+
+.CompanyDetails-donut-track {
+  stroke: #edf1f7;
+}
+
+.CompanyDetails-donut-segment {
+  cursor: pointer;
+  transform-origin: 60px 60px;
+  transition: stroke-width 0.18s ease, filter 0.18s ease, opacity 0.18s ease;
+}
+
+.CompanyDetails-donut-chart:hover .CompanyDetails-donut-segment:not(.is-active) {
+  opacity: 0.72;
+}
+
+.CompanyDetails-donut-segment:hover,
+.CompanyDetails-donut-segment:focus,
+.CompanyDetails-donut-segment.is-active {
+  stroke-width: 32;
+  opacity: 1 !important;
+  filter: drop-shadow(0 3px 4px rgba(15, 23, 42, 0.22));
+  outline: none;
 }
 
 .CompanyDetails-donut-center {
@@ -2496,9 +2517,51 @@ textarea.CompanyDetails-form-input {
 }
 
 .CompanyDetails-donut-center span {
+  display: block;
+  max-width: 78px;
   color: #64748b;
   font-size: 0.72rem;
   font-weight: 700;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.CompanyDetails-donut-center small {
+  color: #2f6df6;
+  font-size: 0.65rem;
+  font-weight: 900;
+}
+
+.CompanyDetails-donut-tooltip {
+  position: absolute;
+  z-index: 3;
+  top: -4px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: max-content;
+  padding: 8px 11px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #334155;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.14);
+  font-size: 0.72rem;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.CompanyDetails-donut-tooltip i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.CompanyDetails-donut-tooltip strong {
+  color: #0f172a;
 }
 
 .CompanyDetails-info-card,

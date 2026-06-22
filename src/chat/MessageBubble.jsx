@@ -56,6 +56,16 @@ const MessageBubble = ({
     const isVideoMedia = !isAudioMedia && (
         normalizedMediaType.startsWith("video") || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i.test(mediaPath)
     );
+    const isPdfMedia = normalizedMediaType === "application/pdf" || /\.pdf$/i.test(mediaPath);
+    const getAttachmentName = () => {
+        const pathName = rawMediaUrl.split(/[\\/]/).pop() || "Attachment";
+        try {
+            return decodeURIComponent(pathName).replace(/^\d+-/, "") || "Attachment";
+        } catch {
+            return pathName.replace(/^\d+-/, "") || "Attachment";
+        }
+    };
+    const attachmentName = getAttachmentName();
     const isAudioOnly = Boolean(isAudioMedia && mediaUrl && !message.text && !isDeletedForEveryone);
 
     useEffect(() => {
@@ -220,16 +230,17 @@ const MessageBubble = ({
             );
         }
 
-        const labelMap = {
-            pdf: "PDF",
-            document: "Document",
-            file: "File"
-        };
-
         return (
-            <a className="chat-media-file" href={mediaUrl} target="_blank" rel="noreferrer">
+            <a
+                className="chat-media-file"
+                href={mediaUrl}
+                target="_blank"
+                rel="noreferrer"
+                title={`Open ${attachmentName}`}
+            >
                 <FileText size={16} />
-                {labelMap[mediaType] || "File"}
+                <span>{attachmentName}</span>
+                <small>{isPdfMedia ? "PDF Document" : "Document"}</small>
             </a>
         );
     };

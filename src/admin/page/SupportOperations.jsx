@@ -2,24 +2,15 @@ import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import axiosInstance from "../../utils/axiosConfig";
 import {
-  Activity,
-  BarChart3,
   Bell,
-  Bot,
   Building2,
   BriefcaseBusiness,
-  CheckCircle2,
-  Clock3,
   Download,
-  FileText,
   Filter,
-  Headphones,
   Inbox,
-  MessageSquareText,
   Search,
   ShieldAlert,
   TicketCheck,
-  TrendingUp,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -30,27 +21,6 @@ const fallbackTickets = [
   { id: "SUP-2204", employee: "Rahul Verma", company: "CIIS Network", issue: "VPN provisioning delay", queue: "IT", status: "In Progress", priority: "High", owner: "Akhil", age: "2h 45m" },
   { id: "SUP-2199", employee: "Meera Joshi", company: "North Branch", issue: "Leave policy question", queue: "HR Policy", status: "Open", priority: "Medium", owner: "Unassigned", age: "3h 05m" },
   { id: "SUP-2191", employee: "Karan Singh", company: "West Branch", issue: "Asset return confirmation", queue: "Assets", status: "Waiting", priority: "Low", owner: "Pooja", age: "1d 4h" },
-];
-
-const fallbackChatbotLogs = [
-  { intent: "Payroll deduction", confidence: "96%", outcome: "Resolved", count: 318 },
-  { intent: "Attendance regularization", confidence: "91%", outcome: "Article served", count: 276 },
-  { intent: "Asset repair", confidence: "87%", outcome: "Ticket created", count: 142 },
-  { intent: "Policy exception", confidence: "72%", outcome: "Agent handoff", count: 61 },
-];
-
-const fallbackAnalytics = [
-  { label: "HR Policy", value: 82 },
-  { label: "IT Helpdesk", value: 68 },
-  { label: "Payroll", value: 54 },
-  { label: "Assets", value: 46 },
-  { label: "Facilities", value: 31 },
-];
-
-const fallbackInsights = [
-  { title: "Payroll enquiries peaked after salary release", detail: "Create a proactive notification for payslip and deduction FAQs." },
-  { title: "IT queue breached SLA twice this week", detail: "Add one backup owner for VPN and device access requests." },
-  { title: "Chatbot deflected 91% of repetitive questions", detail: "Expand attendance article coverage to reduce live handoffs." },
 ];
 
 const statusClass = value => String(value || "Open").toLowerCase().replace(/\s+/g, "-");
@@ -124,9 +94,6 @@ const SupportOperations = () => {
   const [query, setQuery] = useState("");
   const [queue, setQueue] = useState("All");
   const [tickets, setTickets] = useState(fallbackTickets);
-  const [chatbotLogs, setChatbotLogs] = useState(fallbackChatbotLogs);
-  const [analytics, setAnalytics] = useState(fallbackAnalytics);
-  const [insights, setInsights] = useState(fallbackInsights);
   const [departments, setDepartments] = useState([]);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
   const [departmentEmployees, setDepartmentEmployees] = useState([]);
@@ -153,9 +120,6 @@ const SupportOperations = () => {
       if (data.success) {
         setStats(prev => ({ ...prev, ...(data.stats || {}) }));
         setTickets((data.tickets || []).map(mapTicket));
-        setChatbotLogs(data.chatbotLogs?.length ? data.chatbotLogs : fallbackChatbotLogs);
-        setAnalytics(data.queueLoad?.length ? data.queueLoad : fallbackAnalytics);
-        setInsights(data.insights?.length ? data.insights : fallbackInsights);
       }
     } catch (error) {
       console.warn("Support admin dashboard fallback active:", error.message);
@@ -305,10 +269,7 @@ const SupportOperations = () => {
   const adminStats = [
     { icon: Inbox, title: "Enquiries", value: String(stats.enquiries), note: `+${stats.newEnquiriesToday} today`, tone: "blue" },
     { icon: TicketCheck, title: "Open Tickets", value: String(stats.openTickets), note: `${stats.escalatedTickets} escalated`, tone: "green" },
-    { icon: Bot, title: "Chatbot Logs", value: String(stats.chatbotLogs), note: `${stats.chatbotDeflection}% answered`, tone: "violet" },
     { icon: ShieldAlert, title: "Employee Issues", value: String(stats.employeeIssues), note: `${stats.escalatedTickets} escalated`, tone: "rose" },
-    { icon: TrendingUp, title: "SLA Health", value: `${stats.slaHealth}%`, note: "Live company score", tone: "cyan" },
-    { icon: FileText, title: "Reports", value: String(stats.reportsReady), note: "Ready exports", tone: "amber" },
   ];
 
   const selectedDepartment = departments.find(department => department.id === selectedDepartmentId);
@@ -323,7 +284,7 @@ const SupportOperations = () => {
           </div>
           <h1>Unified support command center.</h1>
           <p>
-            Manage enquiries, ticket queues, chatbot performance, employee issue tracking, SLA analytics, and executive reports.
+            Manage enquiries, ticket queues, and employee issue tracking from one focused support workspace.
           </p>
           <div className="support-hero-actions">
             <button className="support-primary-btn" onClick={handleExportReport}>
@@ -336,7 +297,7 @@ const SupportOperations = () => {
             </button>
           </div>
         </div>
-        <aside className="support-notification-card">
+        {/* <aside className="support-notification-card">
           <div className="support-panel-header">
             <div>
               <span className="support-panel-kicker">Today</span>
@@ -349,7 +310,7 @@ const SupportOperations = () => {
             <div className="support-kpi"><strong>{stats.avgResponse}</strong><span>Avg response</span></div>
             <div className="support-kpi"><strong>{stats.escalatedTickets}</strong><span>Escalations</span></div>
           </div>
-        </aside>
+        </aside> */}
       </section>
 
       <section className="support-stats-grid">
@@ -437,7 +398,7 @@ const SupportOperations = () => {
         </div>
       </section>
 
-      <section className="support-workspace">
+      <section className="support-workspace support-status-workspace">
         <div className="support-panel glass-card support-ticket-panel">
           <div className="support-panel-header">
             <div>
@@ -478,19 +439,19 @@ const SupportOperations = () => {
               <tbody>
                 {filteredTickets.map(ticket => (
                   <tr key={ticket.id} onDoubleClick={() => handleUpdateTicket(ticket)}>
-                    <td>
+                    <td data-label="Issue">
                       <strong>{ticket.id}</strong>
                       <span>{ticket.issue}</span>
                     </td>
-                    <td>
+                    <td data-label="Employee">
                       <strong>{ticket.employee}</strong>
                       <span>{ticket.company}</span>
                     </td>
-                    <td>{ticket.queue}</td>
-                    <td><span className={`support-badge ${statusClass(ticket.status)}`}>{ticket.status}</span></td>
-                    <td><span className={`support-priority ${ticket.priority.toLowerCase()}`}>{ticket.priority}</span></td>
-                    <td>{ticket.owner}</td>
-                    <td>{ticket.age}</td>
+                    <td data-label="Queue">{ticket.queue}</td>
+                    <td data-label="Status"><span className={`support-badge ${statusClass(ticket.status)}`}>{ticket.status}</span></td>
+                    <td data-label="Priority"><span className={`support-priority ${ticket.priority.toLowerCase()}`}>{ticket.priority}</span></td>
+                    <td data-label="Owner">{ticket.owner}</td>
+                    <td data-label="Age">{ticket.age}</td>
                   </tr>
                 ))}
               </tbody>
@@ -498,108 +459,6 @@ const SupportOperations = () => {
           </div>
         </div>
 
-        <div className="support-panel glass-card">
-          <div className="support-panel-header">
-            <div>
-              <span className="support-panel-kicker">Chatbot Logs</span>
-              <h2>AI Deflection Monitor</h2>
-            </div>
-            <Bot size={20} />
-          </div>
-          <div className="support-table-wrap">
-            <table className="support-table">
-              <thead>
-                <tr>
-                  <th>Intent</th>
-                  <th>Confidence</th>
-                  <th>Outcome</th>
-                  <th>Volume</th>
-                </tr>
-              </thead>
-              <tbody>
-                {chatbotLogs.map(log => (
-                  <tr key={log.intent}>
-                    <td><strong>{log.intent}</strong></td>
-                    <td>{log.confidence}</td>
-                    <td><span className={`support-badge ${log.outcome === "Resolved" ? "resolved" : "in-progress"}`}>{log.outcome}</span></td>
-                    <td>{log.count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <section className="support-admin-grid">
-        <div className="support-panel glass-card">
-          <div className="support-panel-header">
-            <div>
-              <span className="support-panel-kicker">Analytics Dashboard</span>
-              <h2>Queue Load</h2>
-            </div>
-            <BarChart3 size={20} />
-          </div>
-          <div className="support-progress-list">
-            {analytics.map(item => (
-              <div key={item.label}>
-                <div className="support-progress-top">
-                  <span>{item.label}</span>
-                  <span>{item.value}%</span>
-                </div>
-                <div className="support-progress-track">
-                  <div className="support-progress-fill" style={{ width: `${item.value}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="support-panel glass-card">
-          <div className="support-panel-header">
-            <div>
-              <span className="support-panel-kicker">Reports & Insights</span>
-              <h2>Recommended Actions</h2>
-            </div>
-            <FileText size={20} />
-          </div>
-          <div className="support-insight-list">
-            {insights.map(item => (
-              <article className="support-insight" key={item.title}>
-                <strong>{item.title}</strong>
-                <span>{item.detail}</span>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="support-bottom-grid">
-        <div className="support-panel glass-card">
-          <div className="support-panel-header">
-            <div>
-              <span className="support-panel-kicker">Enquiries Management</span>
-              <h2>Intake Channels</h2>
-            </div>
-            <MessageSquareText size={20} />
-          </div>
-          <div className="support-sla-row"><span><Headphones size={16} /> Live chat enquiries</span><strong>{Math.round(stats.enquiries * 0.34)}</strong></div>
-          <div className="support-sla-row"><span><Users size={16} /> Employee portal forms</span><strong>{Math.round(stats.enquiries * 0.48)}</strong></div>
-          <div className="support-sla-row"><span><Clock3 size={16} /> Pending triage</span><strong>{stats.newEnquiriesToday}</strong></div>
-        </div>
-
-        <div className="support-panel glass-card">
-          <div className="support-panel-header">
-            <div>
-              <span className="support-panel-kicker">Employee Issues Tracking</span>
-              <h2>SLA Commitments</h2>
-            </div>
-            <CheckCircle2 size={20} />
-          </div>
-          <div className="support-sla-row"><span><ShieldAlert size={16} /> Critical issue SLA</span><strong>{stats.slaHealth}%</strong></div>
-          <div className="support-sla-row"><span><TicketCheck size={16} /> First contact resolution</span><strong>{stats.chatbotDeflection}%</strong></div>
-          <div className="support-sla-row"><span><Activity size={16} /> Satisfaction score</span><strong>4.7/5</strong></div>
-        </div>
       </section>
     </main>
   );

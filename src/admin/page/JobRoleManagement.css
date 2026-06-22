@@ -222,6 +222,125 @@
   }
 }
 
+@media (max-width: 480px) {
+  .JobRoleManagement-container {
+    padding: 12px;
+  }
+
+  .JobRoleManagement-stats-grid {
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+
+  .JobRoleManagement-stat-card {
+    padding: 12px 10px;
+    border-radius: 18px;
+    min-width: 0;
+  }
+
+  .JobRoleManagement-stat-content {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+  }
+
+  .JobRoleManagement-stat-icon-box {
+    width: 40px;
+    height: 40px;
+    border-radius: 16px;
+  }
+
+  .JobRoleManagement-stat-icon {
+    font-size: 22px;
+  }
+
+  .JobRoleManagement-stat-info {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .JobRoleManagement-stat-label {
+    min-height: 28px;
+    margin-bottom: 6px;
+    font-size: 0.66rem;
+    line-height: 1.2;
+  }
+
+  .JobRoleManagement-stat-value-wrapper {
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .JobRoleManagement-stat-value {
+    font-size: 1.35rem;
+  }
+
+  .JobRoleManagement-stat-chip {
+    height: auto;
+    min-height: 20px;
+    max-width: 64px;
+    padding: 2px 7px;
+    font-size: 0.6rem;
+    line-height: 1.15;
+    white-space: normal;
+  }
+
+  .JobRoleManagement-paper {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .JobRoleManagement-header-left {
+    align-items: flex-start;
+    min-width: 0;
+  }
+
+  .JobRoleManagement-header-text {
+    min-width: 0;
+  }
+
+  .JobRoleManagement-header-title {
+    font-size: 1.2rem;
+    line-height: 1.2;
+  }
+
+  .JobRoleManagement-user-info {
+    gap: 6px;
+  }
+
+  .JobRoleManagement-user-chip {
+    max-width: 100%;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .JobRoleManagement-mobile-card-content {
+    padding: 16px;
+  }
+
+  .JobRoleManagement-mobile-card-header {
+    gap: 12px;
+  }
+
+  .JobRoleManagement-mobile-card-title-section {
+    min-width: 0;
+  }
+
+  .JobRoleManagement-mobile-card-title {
+    overflow-wrap: anywhere;
+  }
+
+  .JobRoleManagement-mobile-card-badge {
+    max-width: 100%;
+    height: auto;
+    min-height: 22px;
+    overflow-wrap: anywhere;
+  }
+}
+
 /* Header */
 .JobRoleManagement-header {
   display: flex;

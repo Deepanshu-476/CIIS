@@ -101,7 +101,7 @@
 .myServices-empty { grid-column: 1 / -1; padding: 50px; text-align: center; color: var(--muted); }
 .myServices-viewAll { min-width: 145px; height: 27px; margin: 8px auto 0; display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid var(--border); border-radius: 6px; color: #2455b5; background: #fff; font-weight: 600; font-size: 9px; }
 
-.myServices-bottomGrid { display: grid; grid-template-columns: 2.1fr .95fr; gap: 12px; margin-top: 10px; }
+.myServices-bottomGrid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 10px; }
 .myServices-panel { padding: 13px; }
 .myServices-panelTitle { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .myServices-panelTitle h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 12px; }
@@ -120,9 +120,6 @@
 .myServices-timelineStep em { margin-top: 4px; color: #5a6a81; font-size: 8px; font-style: normal; }
 .myServices-timelineStep.done em { color: #28976e; }
 .myServices-timelineStep.active em { color: #2563d7; }
-.myServices-teamRow { display: grid; grid-template-columns: 23px 1fr 1fr; align-items: center; gap: 7px; min-height: 25px; }
-.myServices-teamRow strong { font-size: 8px; }
-.myServices-teamRow span:last-child { color: #667085; font-size: 7px; }
 
 .myServices-sidebar { display: flex; flex-direction: column; gap: 12px; padding-top: 0; }
 .myServices-deliverable { min-height: 56px; display: grid; grid-template-columns: 39px 1fr auto; align-items: center; gap: 10px; border-bottom: 1px solid #edf0f5; }

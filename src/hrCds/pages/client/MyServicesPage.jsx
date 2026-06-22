@@ -246,15 +246,6 @@ const MyServicesPage = () => {
                 </div>
               </section>
 
-              <section className="MyServices-team-panel">
-                <header><h3>Team Assigned</h3><button type="button">View All</button></header>
-                {projectManagers.map(person => (
-                  <div className="MyServices-team-row" key={person.email || person.name}>
-                    <i>{getInitials(person.name)}</i><strong>{person.name}</strong><span>{person.role}</span>
-                  </div>
-                ))}
-                {projectManagers.length === 0 && <div className="MyServices-team-row"><i>0</i><strong>No team assigned</strong><span>Project Team</span></div>}
-              </section>
             </div>
           </div>
 

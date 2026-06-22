@@ -363,10 +363,26 @@ export default function AdminMeetingPage() {
   };
 
   // 🟢 Helper function to get user ID
-  const getUserId = (user) => user._id || user.id;
+  const getUserId = (user) => {
+    if (!user) return "";
+    if (typeof user !== "object") return user.toString();
+
+    const rawId = user._id || user.id || user.userId || user.user?._id || user.user?.id;
+    if (!rawId) return "";
+
+    if (typeof rawId === "object") {
+      return getUserId(rawId);
+    }
+
+    return rawId.toString();
+  };
+
+  const normalizeAttendeeIds = (attendees = []) => (
+    [...new Set(attendees.map(getUserId).filter(Boolean))]
+  );
 
   const startInternalMeetingCall = (meeting) => {
-    const attendees = Array.isArray(meeting.attendees) ? meeting.attendees : [];
+    const attendees = normalizeAttendeeIds(Array.isArray(meeting.attendees) ? meeting.attendees : []);
     if (attendees.length === 0) {
       toast.warning("Please add attendees before starting a video meeting");
       return;

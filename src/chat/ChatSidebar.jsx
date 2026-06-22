@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Calendar, ClipboardList, Headphones, Search, SlidersHorizontal, Upload, Users } from "lucide-react";
+import { Search, SlidersHorizontal, Users } from "lucide-react";
 import { API_URL_IMG } from "../config";
 
 const ChatSidebar = ({
@@ -10,16 +10,11 @@ const ChatSidebar = ({
     selectedUser,
     setSelectedUser,
     currentUserId,
+    companyUsers = [],
     className = ""
 }) => {
     const [searchTerm, setSearchTerm] = useState("");
-
-    const quickActions = [
-        { label: "Raise Ticket", icon: Headphones },
-        { label: "Book Meeting", icon: Calendar },
-        { label: "Upload File", icon: Upload },
-        { label: "Request Update", icon: ClipboardList },
-    ];
+    const [newChatUserId, setNewChatUserId] = useState("");
 
     const getAvatarSrc = (avatar) => {
         if (!avatar) return null;
@@ -141,6 +136,18 @@ const ChatSidebar = ({
             getLastMessageText(user),
         ].some(value => String(value || "").toLowerCase().includes(query)));
     }, [users, searchTerm]);
+
+    const sortedCompanyUsers = useMemo(() => (
+        [...companyUsers].sort((first, second) => (
+            String(first?.name || "").localeCompare(String(second?.name || ""))
+        ))
+    ), [companyUsers]);
+
+    const startNewChat = () => {
+        const user = sortedCompanyUsers.find(item => getItemId(item) === newChatUserId);
+        if (!user) return;
+        setSelectedUser(user);
+    };
 
     return (
         <aside className={`chat-sidebar ${className}`.trim()}>
@@ -278,27 +285,28 @@ const ChatSidebar = ({
 
             <section className="chat-sidebar-card start-chat-card">
                 <h3>Start a New Chat</h3>
-                <p>Select a topic to start conversation</p>
-                <select defaultValue="">
-                    <option value="" disabled>Select Topic</option>
-                    <option>SEO Project</option>
-                    <option>Support</option>
-                    <option>Billing</option>
+                <p>Select a company user to start conversation</p>
+                <select
+                    value={newChatUserId}
+                    onChange={event => setNewChatUserId(event.target.value)}
+                >
+                    <option value="">Select User</option>
+                    {sortedCompanyUsers.map(user => (
+                        <option key={getItemId(user)} value={getItemId(user)}>
+                            {user.name || user.email || "Unnamed User"}
+                            {user.department?.name ? ` - ${user.department.name}` : ""}
+                        </option>
+                    ))}
                 </select>
-                <button type="button">Start Chat</button>
+                <button
+                    type="button"
+                    onClick={startNewChat}
+                    disabled={!newChatUserId}
+                >
+                    Start Chat
+                </button>
             </section>
 
-            <section className="chat-sidebar-card quick-actions-card">
-                <h3>Quick Actions</h3>
-                <div className="quick-actions-grid">
-                    {quickActions.map(({ label, icon }) => (
-                        <button type="button" key={label} title={label}>
-                            {React.createElement(icon, { size: 18 })}
-                            <span>{label}</span>
-                        </button>
-                    ))}
-                </div>
-            </section>
         </aside>
     );
 };

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   FiArrowRight,
   FiBarChart2,
@@ -22,6 +22,8 @@ import {
   FiUser,
   FiUsers,
 } from 'react-icons/fi';
+import CIISLoader from '../../Loader/CIISLoader';
+import { getClientDisplayName, useClientPortalData } from '../utils/clientPortalData';
 import './MyServicesPage.css';
 
 const team = {
@@ -180,31 +182,81 @@ const ServiceCard = ({ service }) => {
 };
 
 const MyServicesPage = () => {
+  const { client, services: activeServices, tasks, loading, error, refetch } = useClientPortalData();
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('All Status');
   const [serviceType, setServiceType] = useState('All Types');
   const [sortBy, setSortBy] = useState('Recently Updated');
 
-  const filteredServices = useMemo(() => services.filter(service => {
+  const serviceCards = useMemo(() => {
+    const iconPool = [FiBriefcase, FiCode, FiTarget, FiMonitor, FiSmartphone, FiHeadphones, FiPenTool, FiBarChart2];
+    const tonePool = ['blue', 'indigo', 'green', 'purple', 'coral', 'pink'];
+
+    return (activeServices || []).map((serviceName, index) => {
+      const serviceTasks = (tasks || []).filter(task => (
+        String(task.serviceName || task.service || '').trim().toLowerCase() === String(serviceName).trim().toLowerCase()
+      ));
+      const completedTasks = serviceTasks.filter(task => task.completed || String(task.status || '').toLowerCase() === 'completed').length;
+      const progress = serviceTasks.length ? Math.round((completedTasks / serviceTasks.length) * 100) : 5;
+      const latestTaskDate = serviceTasks
+        .map(task => task.updatedAt || task.createdAt || task.dueDate)
+        .filter(Boolean)
+        .sort((a, b) => new Date(b) - new Date(a))[0];
+
+      return {
+        title: serviceName,
+        description: `${serviceName} is active for your account.`,
+        icon: iconPool[index % iconPool.length],
+        tone: tonePool[index % tonePool.length],
+        status: serviceTasks.length && completedTasks === serviceTasks.length ? 'Completed' : 'Active',
+        start: latestTaskDate ? new Date(latestTaskDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently approved',
+        end: 'Ongoing',
+        progress,
+        members: ['rahul', 'priya', 'amit'].slice(0, Math.min(3, Math.max(1, serviceTasks.length || 1))),
+        taskLabel: serviceTasks.length ? 'View Tasks' : 'View Service',
+      };
+    });
+  }, [activeServices, tasks]);
+
+  const filteredServices = useMemo(() => serviceCards.filter(service => {
     const matchesQuery = `${service.title} ${service.description}`.toLowerCase().includes(query.toLowerCase());
     const matchesStatus = status === 'All Status' || service.status === status;
     const matchesType = serviceType === 'All Types' || service.title === serviceType;
     return matchesQuery && matchesStatus && matchesType;
-  }), [query, status, serviceType]);
+  }), [query, serviceCards, status, serviceType]);
+
+  const completedCount = serviceCards.filter(service => service.status === 'Completed').length;
+  const inProgressCount = serviceCards.filter(service => service.progress > 0 && service.progress < 100).length;
+  const supportCount = serviceCards.filter(service => /support|maintenance/i.test(service.title)).length;
+  const clientName = getClientDisplayName(client);
+
+  useEffect(() => {
+    const refreshOnFocus = () => refetch();
+    window.addEventListener('focus', refreshOnFocus);
+    const interval = window.setInterval(refetch, 30000);
+    return () => {
+      window.removeEventListener('focus', refreshOnFocus);
+      window.clearInterval(interval);
+    };
+  }, [refetch]);
+
+  if (loading) {
+    return <CIISLoader />;
+  }
 
   return (
     <div className="myServices-page">
       <section className="myServices-welcomeBar">
         <div>
-          <h2>Welcome back, Test123 <span>👋</span></h2>
+          <h2>Welcome back, {clientName}</h2>
           <p>Here&apos;s what&apos;s happening with your account today.</p>
         </div>
         <div className="myServices-welcomeActions">
           <label><FiSearch /><input aria-label="Global search" placeholder="Search services, invoices, tickets..." /></label>
           <button type="button"><FiPlus /> Quick Action <FiChevronDown /></button>
-          <span className="myServices-bell"><FiBell /><i>12</i></span>
-          <span className="myServices-userBadge">T</span>
-          <b>Test123</b><FiChevronDown />
+          <span className="myServices-bell"><FiBell /><i>{serviceCards.length}</i></span>
+          <span className="myServices-userBadge">{clientName.slice(0, 1).toUpperCase()}</span>
+          <b>{clientName}</b><FiChevronDown />
         </div>
       </section>
 
@@ -213,25 +265,25 @@ const MyServicesPage = () => {
           <header className="myServices-pageHeader">
             <div><h1>My Services</h1><p>Track all your active services, progress, timelines and assigned teams.</p></div>
             <div className="myServices-summary">
-              <SummaryItem icon={FiBriefcase} label="Active Services" value="6" tone="blue" />
-              <SummaryItem icon={FiCheckCircle} label="Completed Services" value="3" tone="green" />
-              <SummaryItem icon={FiClock} label="In Progress" value="4" tone="orange" />
-              <SummaryItem icon={FiHeadphones} label="Support Retainers" value="2" tone="purple" />
+              <SummaryItem icon={FiBriefcase} label="Active Services" value={serviceCards.length} tone="blue" />
+              <SummaryItem icon={FiCheckCircle} label="Completed Services" value={completedCount} tone="green" />
+              <SummaryItem icon={FiClock} label="In Progress" value={inProgressCount} tone="orange" />
+              <SummaryItem icon={FiHeadphones} label="Support Retainers" value={supportCount} tone="purple" />
             </div>
           </header>
 
           <section className="myServices-servicesPanel">
             <div className="myServices-filters">
               <label className="myServices-search"><FiSearch /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search services by name or keyword..." /></label>
-              <label><span>Status</span><select value={status} onChange={event => setStatus(event.target.value)}><option>All Status</option><option>Active</option><option>In Progress</option><option>On Hold</option></select></label>
-              <label><span>Service Type</span><select value={serviceType} onChange={event => setServiceType(event.target.value)}><option>All Types</option>{services.map(item => <option key={item.title}>{item.title}</option>)}</select></label>
+              <label><span>Status</span><select value={status} onChange={event => setStatus(event.target.value)}><option>All Status</option><option>Active</option><option>Completed</option><option>In Progress</option><option>On Hold</option></select></label>
+              <label><span>Service Type</span><select value={serviceType} onChange={event => setServiceType(event.target.value)}><option>All Types</option>{serviceCards.map(item => <option key={item.title}>{item.title}</option>)}</select></label>
               <label><span>Sort By</span><select value={sortBy} onChange={event => setSortBy(event.target.value)}><option>Recently Updated</option><option>Progress</option><option>Name</option></select></label>
               <button className="myServices-requestButton" type="button"><FiPlus /> Request New Service</button>
             </div>
 
             <div className="myServices-cardGrid">
               {filteredServices.map(service => <ServiceCard service={service} key={service.title} />)}
-              {!filteredServices.length && <div className="myServices-empty">No services match your filters.</div>}
+              {!filteredServices.length && <div className="myServices-empty">{error || 'No active services found yet.'}</div>}
             </div>
             <button className="myServices-viewAll" type="button">View All Services <FiArrowRight /></button>
           </section>
@@ -251,13 +303,6 @@ const MyServicesPage = () => {
               </div>
             </section>
 
-            <section className="myServices-panel myServices-teamPanel">
-              <div className="myServices-panelTitle"><h3>Team Assigned</h3><button type="button">View All</button></div>
-              {[['rahul', 'Rahul Sharma', 'Project Manager'], ['priya', 'Priya Mehta', 'UI/UX Designer'], ['amit', 'Amit Verma', 'Frontend Developer'], ['karan', 'Karan Singh', 'Backend Developer']].map(([member, name, role]) => (
-                <div className="myServices-teamRow" key={name}><Avatar member={member} /><strong>{name}</strong><span>{role}</span></div>
-              ))}
-              <div className="myServices-teamRow"><span className="myServices-avatar myServices-avatarMore">+2</span><strong>+2 More Members</strong><span>Support Team</span></div>
-            </section>
           </div>
         </main>
 

@@ -15,12 +15,14 @@ export const useAuth = () => {
 // 3. Provider
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(() => localStorage.getItem('token'));
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
-    if (storedUser && token) {
+    const storedToken = localStorage.getItem('token');
+    setToken(storedToken);
+    if (storedUser && storedToken) {
       try {
         const parsedUser = JSON.parse(storedUser);
         setUser(parsedUser);
@@ -44,7 +46,7 @@ export const AuthProvider = ({ children }) => {
   // }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, setUser, isAuthenticated, setIsAuthenticated }}>
+    <AuthContext.Provider value={{ user, setUser, token, setToken, isAuthenticated, setIsAuthenticated }}>
       {children}
     </AuthContext.Provider>
   );

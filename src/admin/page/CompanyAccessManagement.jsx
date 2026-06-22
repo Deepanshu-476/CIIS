@@ -61,7 +61,6 @@ const APP_ROUTES = [
   { id: "alert", path: "alert", name: "Alerts", category: "communication" },
   { id: "create-alert", path: "create-alert", name: "Create Alert", category: "communication" },
   { id: "chat", path: "chat", name: "Chat", category: "communication" },
-  { id: "contact-support", path: "contact-support", name: "Support Center", category: "communication" },
   { id: "support-desk", path: "support-desk", name: "Support Desk", category: "communication" },
   { id: "support-operations", path: "support-operations", name: "Support Operations", category: "administration" },
 ];

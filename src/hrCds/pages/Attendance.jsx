@@ -171,6 +171,21 @@ const Attendance = () => {
     return compareDate < joinDate;
   }, [userJoinDate]);
 
+  const isFutureDate = useCallback((date) => {
+    const compareDate = new Date(date);
+    if (Number.isNaN(compareDate.getTime())) return false;
+    compareDate.setHours(0, 0, 0, 0);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return compareDate > today;
+  }, []);
+
+  const isFutureAbsentRecord = useCallback((record) => (
+    String(record?.status || '').toUpperCase() === 'ABSENT' && isFutureDate(record?.date)
+  ), [isFutureDate]);
+
   // Check mobile viewport
   useEffect(() => {
     const checkMobile = () => {
@@ -249,6 +264,8 @@ const Attendance = () => {
         attendanceData = attendanceData.filter(record => !isBeforeJoinDate(record.date));
       }
 
+      attendanceData = attendanceData.filter(record => !isFutureAbsentRecord(record));
+
       setAttendance(attendanceData);
 
       if (showRefresh) {
@@ -262,19 +279,19 @@ const Attendance = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [token, userJoinDate, isBeforeJoinDate, timeRange]);
+  }, [token, userJoinDate, isBeforeJoinDate, isFutureAbsentRecord, timeRange]);
 
   // Combined data with holidays
   const processedAttendance = useMemo(() => {
     const attendanceMap = new Map();
-    attendance.forEach(record => {
+    attendance.filter(record => !isFutureAbsentRecord(record)).forEach(record => {
       const dateStr = new Date(record.date).toDateString();
       attendanceMap.set(dateStr, record);
     });
 
     const combined = [];
     
-    attendance.forEach(record => {
+    attendance.filter(record => !isFutureAbsentRecord(record)).forEach(record => {
       combined.push({ ...record, isHoliday: false });
     });
 
@@ -312,11 +329,13 @@ const Attendance = () => {
     });
 
     return combined.sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [attendance, holidays]);
+  }, [attendance, holidays, isFutureAbsentRecord]);
 
   // Calculate stats
   const calculateStats = useCallback((data) => {
-    const attendanceRecords = data.filter(record => !record.isHoliday || record.status !== 'HOLIDAY');
+    const attendanceRecords = data.filter(record => (
+      (!record.isHoliday || record.status !== 'HOLIDAY') && !isFutureAbsentRecord(record)
+    ));
     
     const present = attendanceRecords.filter((record) => record.status === "PRESENT").length;
     const late = attendanceRecords.filter((record) => record.status === "LATE").length;
@@ -335,12 +354,7 @@ const Attendance = () => {
       total,
       percentage,
     });
-  }, []);
-
-  // Update stats when data changes
-  useEffect(() => {
-    calculateStats(processedAttendance);
-  }, [processedAttendance, calculateStats]);
+  }, [isFutureAbsentRecord]);
 
   // Load data on mount
   const initialLoadRef = useRef(false);
@@ -498,6 +512,8 @@ const Attendance = () => {
   // 🔥 NEW: Apply Date Range Filter
   const filteredData = useMemo(() => {
     return processedAttendance.filter((record) => {
+      if (isFutureAbsentRecord(record)) return false;
+
       const matchesSearch =
         formatDate(record.date).toLowerCase().includes(search.toLowerCase()) ||
         (record.status && record.status.toLowerCase().includes(search.toLowerCase())) ||
@@ -558,7 +574,12 @@ const Attendance = () => {
 
       return matchesSearch && matchesStatus && matchesTimeRange;
     });
-  }, [processedAttendance, search, statusFilter, timeRange, isDateRangeActive, startDate, endDate]);
+  }, [processedAttendance, search, statusFilter, timeRange, isDateRangeActive, startDate, endDate, isFutureAbsentRecord]);
+
+  // Keep stats aligned with the currently selected date/time range.
+  useEffect(() => {
+    calculateStats(filteredData);
+  }, [filteredData, calculateStats]);
 
   // 🔥 NEW: Apply Date Range function
   const applyDateRange = () => {

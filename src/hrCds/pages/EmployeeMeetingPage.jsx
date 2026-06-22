@@ -136,9 +136,24 @@ export default function EmployeeMeetingPage() {
     }
   };
 
+  const getUserId = (user) => {
+    if (!user) return "";
+    if (typeof user !== "object") return user.toString();
+
+    const rawId = user._id || user.id || user.userId || user.user?._id || user.user?.id;
+    if (!rawId) return "";
+
+    if (typeof rawId === "object") {
+      return getUserId(rawId);
+    }
+
+    return rawId.toString();
+  };
+
   const getMeetingAttendees = (meeting) => {
     const attendees = Array.isArray(meeting.attendees) ? meeting.attendees : [];
-    return attendees.length > 0 ? attendees : [userId].filter(Boolean);
+    const attendeeIds = [...new Set(attendees.map(getUserId).filter(Boolean))];
+    return attendeeIds.length > 0 ? attendeeIds : [userId].filter(Boolean);
   };
 
   const startMeetingVideoCall = (meeting) => {

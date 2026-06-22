@@ -1,9 +1,9 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Mic, MicOff, Phone, PhoneOff, Video, VideoOff } from "lucide-react";
-import { API_URL_IMG, TURN_URL, TURN_USERNAME, TURN_CREDENTIAL } from "../config";
+import API_URL, { API_URL_IMG, TURN_URL, TURN_USERNAME, TURN_CREDENTIAL } from "../config";
 import "../Pages/Chat/chat.css";
 
-const getIceServers = () => {
+const getFallbackIceServers = () => {
     const servers = [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
@@ -21,7 +21,19 @@ const getIceServers = () => {
 
 const logCall = (...args) => console.log("[CallOverlay]", ...args);
 
-const getUserId = (user) => (user?._id || user?.id || user?.userId || "").toString();
+const getUserId = (user) => {
+    if (!user) return "";
+    if (typeof user !== "object") return user.toString();
+
+    const rawId = user._id || user.id || user.userId || user.user?._id || user.user?.id;
+    if (!rawId) return "";
+
+    if (typeof rawId === "object") {
+        return getUserId(rawId);
+    }
+
+    return rawId.toString();
+};
 
 const getAvatarSrc = (avatar) => {
     if (!avatar) return null;
@@ -146,7 +158,40 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
     const audioContextRef = useRef(null);
     const ringtoneTimerRef = useRef(null);
     const callTimeoutRef = useRef(null);
+    const iceServersRef = useRef(getFallbackIceServers());
+    const iceServersLoadedAtRef = useRef(0);
     const currentUserId = getUserId(currentUser);
+
+    const loadIceServers = async () => {
+        const cacheAge = Date.now() - iceServersLoadedAtRef.current;
+        if (iceServersLoadedAtRef.current && cacheAge < 5 * 60 * 1000) {
+            return iceServersRef.current;
+        }
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${API_URL}/chat/turn-credentials`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+
+            if (!response.ok) {
+                throw new Error(`TURN credentials request failed (${response.status})`);
+            }
+
+            const iceServers = await response.json();
+            if (!Array.isArray(iceServers) || iceServers.length === 0) {
+                throw new Error("TURN credentials response is empty");
+            }
+
+            iceServersRef.current = iceServers;
+            iceServersLoadedAtRef.current = Date.now();
+            return iceServers;
+        } catch (turnError) {
+            logCall("Using STUN fallback; TURN credentials unavailable", turnError);
+            iceServersRef.current = getFallbackIceServers();
+            return iceServersRef.current;
+        }
+    };
 
     const stopRingtone = () => {
         if (ringtoneTimerRef.current) {
@@ -273,7 +318,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
             return peerConnectionsRef.current.get(peerUserId);
         }
 
-        const peerConnection = new RTCPeerConnection({ iceServers: getIceServers() });
+        const peerConnection = new RTCPeerConnection({ iceServers: iceServersRef.current });
 
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
@@ -410,6 +455,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
         setError("");
 
         try {
+            await loadIceServers();
             await getMediaStream(callType);
             startRingtone();
             socket.emit("call:invite", {
@@ -441,6 +487,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
         if (!activeCall) return;
 
         try {
+            await loadIceServers();
             await getMediaStream(activeCall.type);
             const acceptedCall = { ...activeCall, status: "connecting" };
             activeCallRef.current = acceptedCall;

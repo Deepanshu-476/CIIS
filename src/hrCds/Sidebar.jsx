@@ -328,14 +328,6 @@ const fixedDefaultItems = [
     order: 7
   },
   {
-    id: 'contact-support',
-    name: 'Support Center',
-    icon: 'Support',
-    path: '/ciisUser/contact-support',
-    category: 'communication',
-    order: 8
-  },
-  {
     id: 'active-clients',
     name: 'Active Clients',
     icon: 'Folder',
@@ -622,16 +614,6 @@ const allPagesItems = [
     path: '/ciisUser/chat',
     category: 'communication',
     order: 25
-  }
-
-  ,
-  {
-    id: 'contact-support',
-    name: 'Support Center',
-    icon: 'Support',
-    path: '/ciisUser/contact-support',
-    category: 'communication',
-    order: 26
   },
   {
     id: 'support-operations',
@@ -682,8 +664,6 @@ const getPathFromName = (name) => {
     'Active Clients': '/ciisUser/active-clients',
     'Change Password': '/ciisUser/change-password',
     'Chat': '/ciisUser/chat',
-    'Support Center': '/ciisUser/contact-support',
-    'Contact Support': '/ciisUser/contact-support',
     'Support Desk': '/ciisUser/support-desk',
     'Support Operations': '/ciisUser/support-operations',
     'Client Dashboard': '/client/dashboard',
@@ -1011,6 +991,16 @@ const Sidebar = ({ isMobile = false }) => {
   const menuItems = useMemo(() => {
     if (loading) return [];
 
+    const removeSupportCenter = items => items.filter(item => {
+      const id = String(item?.id || "").toLowerCase();
+      const name = String(item?.name || "").toLowerCase();
+      const path = String(item?.path || "").toLowerCase();
+      return id !== "contact-support"
+        && name !== "support center"
+        && name !== "contact support"
+        && !path.includes("contact-support");
+    });
+
     console.log('Current user data:', userData);
     console.log('Is client user:', isClientUser);
     console.log('Is super_admin with Management:', isSuperAdminWithManagement);
@@ -1018,13 +1008,13 @@ const Sidebar = ({ isMobile = false }) => {
     // ✅ If user is client, show client menu items (3 pages)
     if (isClientUser) {
       console.log('Client user detected - showing client menu items (3 pages)');
-      return clientMenuItems;
+      return removeSupportCenter(clientMenuItems);
     }
 
     // If user is super_admin with Management department, show all pages
     if (isSuperAdminWithManagement) {
       console.log('Showing all pages for super_admin with Management department');
-      return filterItemsByCompanyAccess(allPagesItems, companyData);
+      return removeSupportCenter(filterItemsByCompanyAccess(allPagesItems, companyData));
     }
 
     let items = [];
@@ -1085,7 +1075,7 @@ const Sidebar = ({ isMobile = false }) => {
       path: item.path
     })));
 
-    return sortedItems;
+    return removeSupportCenter(sortedItems);
   }, [sidebarConfig, loading, isSuperAdminWithManagement, isClientUser, userData, companyData]);
 
   const renderMenuItem = (item, showFull) => {

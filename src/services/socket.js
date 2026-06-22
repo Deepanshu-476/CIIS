@@ -34,17 +34,23 @@ class SocketService {
     this.token = token;
     this.isConnecting = true;
 
+    if (this.socket) {
+      this.socket.auth = { token };
+      this.socket.connect();
+      return this.socket;
+    }
+
     try {
       this.socket = io(SOCKET_URL, {
         auth: { token },
         transports: ['websocket', 'polling'],
         withCredentials: true,
         reconnection: true,
-        reconnectionAttempts: 3,
-        reconnectionDelay: 1500,
-        reconnectionDelayMax: 6000,
-        timeout: 10000,
-        forceNew: false,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+        forceNew: false
       });
 
       this.socket.on('connect', () => {
@@ -180,4 +186,5 @@ export default socketServiceInstance;
 
 if (typeof window !== 'undefined') {
   window.socketService = socketServiceInstance;
+  console.log('✅ Socket service attached to window');
 }

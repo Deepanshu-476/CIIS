@@ -222,7 +222,7 @@ const DepartmentManagement = () => {
     }
   };
   const handleSubmit = async () => {
-    if (!f  ormData.name.trim()) {
+    if (!formData.name.trim()) {
       toast.error('Department name is required');
       return;
     }

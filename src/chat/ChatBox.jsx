@@ -4,7 +4,7 @@ import React, {
     useState
 } from "react";
 import "../Pages/Chat/chat.css";
-import { Mic, MoreHorizontal, Paperclip, Phone, SendHorizontal, Smile, Square, Video, X } from "lucide-react";
+import { Mic, Paperclip, Phone, SendHorizontal, Smile, Square, Video, X } from "lucide-react";
 
 import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage } from "../services/chatService";
 
@@ -858,10 +858,6 @@ useEffect(() => {
                         disabled={!canStartCall}
                     >
                         <Video size={18} />
-                    </button>
-                    <button type="button" className="chat-more-btn" title="More options">
-                        <span>More</span>
-                        <MoreHorizontal size={18} />
                     </button>
                 </div>
             </div>

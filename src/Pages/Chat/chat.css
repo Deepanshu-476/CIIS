@@ -1288,11 +1288,6 @@
     cursor: not-allowed;
 }
 
-.chat-header-actions .chat-more-btn {
-    min-width: 86px;
-    color: #172033;
-}
-
 .chat-topic-bar {
     display: flex;
     align-items: center;
@@ -1547,10 +1542,6 @@
 
     .chat-header {
         padding: 10px 12px;
-    }
-
-    .chat-header-actions .chat-more-btn span {
-        display: none;
     }
 
     .chat-header-actions {

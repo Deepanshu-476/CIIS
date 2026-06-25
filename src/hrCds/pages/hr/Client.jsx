@@ -216,6 +216,9 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
   const latestSubscription = client.subscription && client.subscription.length > 0 
     ? client.subscription[client.subscription.length - 1] 
     : null;
+  const latestPaymentReceipt = paymentReceipts.length > 0
+    ? paymentReceipts[paymentReceipts.length - 1]
+    : null;
 
   const canRenewSubscription = userRole === 'owner' || userRole === 'admin' || userRole === 'superadmin';
   const subscriptions = client.subscription || [];
@@ -428,11 +431,15 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
     setUpdating(true);
     setRenewMessage({ type: '', text: '' });
     try {
-      const response = await api.patch(`/${client._id}/receipt/${receipt._id}/status`, {
-        status,
-        activateClient: status === 'Approved',
-        notes: status === 'Approved' ? 'Payment verified by team' : 'Payment proof rejected'
-      });
+      const response = status === 'Approved'
+        ? await api.patch(`/${client._id}/receipt/${receipt._id}/payment-done`, {
+            notes: 'Payment status marked done by team'
+          })
+        : await api.patch(`/${client._id}/receipt/${receipt._id}/status`, {
+            status,
+            activateClient: false,
+            notes: 'Payment proof rejected'
+          });
 
       if (response.data.success) {
         setRenewMessage({
@@ -522,6 +529,45 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
             </div>
           )}
 
+          <div className="ClientManagement-current-subscription-info">
+            <h4>Payment Status</h4>
+            <div className="ClientManagement-subscription-details">
+              <span className={`ClientManagement-badge ${
+                latestPaymentReceipt?.status === 'Approved' ? 'ClientManagement-badge--success' :
+                latestPaymentReceipt?.status === 'Rejected' ? 'ClientManagement-badge--error' :
+                latestPaymentReceipt?.status === 'Pending' ? 'ClientManagement-badge--warning' :
+                'ClientManagement-badge--info'
+              }`}>
+                {latestPaymentReceipt?.status
+                  ? `Payment ${latestPaymentReceipt.status}`
+                  : 'No Payment Receipt'}
+              </span>
+              {latestPaymentReceipt?.amount && (
+                <strong>₹{Number(latestPaymentReceipt.amount || 0).toLocaleString('en-IN')}</strong>
+              )}
+              {canRenewSubscription && (
+                <button
+                  type="button"
+                  className="ClientManagement-btn ClientManagement-btn--primary"
+                  onClick={() => setShowRenewForm(!showRenewForm)}
+                  disabled={updating}
+                >
+                  <FiPlus /> {showRenewForm ? 'Cancel Renewal' : 'Renew Subscription'}
+                </button>
+              )}
+              {latestPaymentReceipt?.status === 'Pending' && canRenewSubscription && (
+                <button
+                  type="button"
+                  className="ClientManagement-btn ClientManagement-btn--primary"
+                  onClick={() => handleReceiptStatus(latestPaymentReceipt, 'Approved')}
+                  disabled={updating}
+                >
+                  <FiCheckCircle /> Payment Status Done
+                </button>
+              )}
+            </div>
+          </div>
+
           {canRenewSubscription && (
             <>
               <div className="ClientManagement-renewal-form-container">
@@ -608,14 +654,6 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
               )}
 
               <div className="ClientManagement-renewal-section">
-                <button 
-                  type="button"
-                  className={`ClientManagement-renewal-toggle-btn ${showRenewForm ? 'active' : ''}`}
-                  onClick={() => setShowRenewForm(!showRenewForm)}
-                >
-                  <FiPlus /> {showRenewForm ? 'Cancel' : 'Upgrade / Renew Plan'}
-                </button>
-
                 {latestSubscription && (
                   <button 
                     type="button"
@@ -1003,7 +1041,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
                           onClick={() => handleReceiptStatus(receipt, 'Approved')}
                           disabled={updating}
                         >
-                          <FiCheckCircle /> Approve & Activate
+                          <FiCheckCircle /> Payment Status Done
                         </button>
                         <button
                           type="button"

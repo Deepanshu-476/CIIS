@@ -1393,11 +1393,11 @@ const EmployeeDirectory = () => {
       
       if (canSeeAllCompanyUsers) {
         console.log("👑 Fetching ALL company users");
-        usersRes = await axios.get(`/users/company-users?companyId=${currentUserCompanyId}`, config);
+        usersRes = await axios.get(`/users/company-users?companyId=${currentUserCompanyId}&includeInactive=true`, config);
       } else {
         console.log("👤 Fetching department users only");
         usersRes = await axios.get(
-          `/users/department-users?department=${currentUserDepartmentId}`,
+          `/users/department-users?department=${currentUserDepartmentId}&includeInactive=true`,
           config
         );
       }

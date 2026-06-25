@@ -70,6 +70,11 @@ const getAttachmentPath = (file) => {
   return file.path || file.url || file.filename || '';
 };
 
+const formatFileSize = (bytes = 0) => {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(0.1, bytes / 1024).toFixed(1)} KB`;
+};
+
 const getAttachmentName = (file) => {
   if (!file) return 'Attachment';
   if (typeof file === 'string') return file.split('/').pop() || 'Attachment';
@@ -355,6 +360,8 @@ const UserCreateTask = () => {
 
   const [pendingStatusChange, setPendingStatusChange] = useState({ taskId: null, status: '', source: null });
   const [isRecording, setIsRecording] = useState(false);
+  const [voicePreviewUrl, setVoicePreviewUrl] = useState('');
+  const [filePreviews, setFilePreviews] = useState([]);
   const mediaRecorderRef = useRef(null);
   const chunks = useRef([]);
 
@@ -1630,6 +1637,14 @@ const UserCreateTask = () => {
       } else {
         await fetchAssignedToMeTasks();
       }
+
+      // Keep the remarks dialog in sync after a normal remark save. Previously the
+      // dialog was closed immediately, so the newly-added remark looked like it had
+      // not been saved. Re-fetching through the active source also guarantees that
+      // client, personal, assigned and project tasks all use their own remarks API.
+      if (remarkAdded && !statusToApply) {
+        await fetchTaskRemarks(taskId, activeRemarkSource);
+      }
       
       if (statusToApply) {
         showSnackbar('Status updated and remark added successfully', 'success');
@@ -1637,7 +1652,11 @@ const UserCreateTask = () => {
         showSnackbar('Remark added successfully', 'success');
       }
       
-      setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
+      // Status updates finish the workflow and close the dialog. For a standalone
+      // remark, leave it open so the saved entry is immediately visible in history.
+      if (statusToApply) {
+        setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
+      }
       
     } catch (error) {
       console.error("Error saving remark:", error);
@@ -1991,17 +2010,21 @@ const UserCreateTask = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
+      chunks.current = [];
+      setNewTask(prev => ({ ...prev, voiceNote: null }));
 
       mediaRecorderRef.current.ondataavailable = (e) => {
-        chunks.current.push(e.data);
+        if (e.data.size > 0) chunks.current.push(e.data);
       };
 
       mediaRecorderRef.current.onstop = () => {
-        const blob = new Blob(chunks.current, { type: "audio/webm" });
+        const mimeType = mediaRecorderRef.current?.mimeType || "audio/webm";
+        const blob = new Blob(chunks.current, { type: mimeType });
         chunks.current = [];
 
-        const file = new File([blob], "voice-note.webm", { type: "audio/webm" });
-        setNewTask({ ...newTask, voiceNote: file });
+        const extension = mimeType.includes('ogg') ? 'ogg' : 'webm';
+        const file = new File([blob], `voice-note.${extension}`, { type: mimeType });
+        setNewTask(prev => ({ ...prev, voiceNote: file }));
         
         stream.getTracks().forEach(track => track.stop());
       };
@@ -2012,6 +2035,39 @@ const UserCreateTask = () => {
       console.error("Error:", err);
       showSnackbar('Microphone access denied', 'error');
     }
+  };
+
+  useEffect(() => {
+    if (!newTask.voiceNote) {
+      setVoicePreviewUrl('');
+      return undefined;
+    }
+
+    const previewUrl = URL.createObjectURL(newTask.voiceNote);
+    setVoicePreviewUrl(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [newTask.voiceNote]);
+
+  useEffect(() => {
+    const files = Array.from(newTask.files || []);
+    const previews = files.map((file) => ({
+      file,
+      url: URL.createObjectURL(file),
+      isImage: file.type?.startsWith('image/'),
+      isPdf: file.type === 'application/pdf' || file.name?.toLowerCase().endsWith('.pdf'),
+      isAudio: file.type?.startsWith('audio/'),
+      isVideo: file.type?.startsWith('video/'),
+    }));
+
+    setFilePreviews(previews);
+    return () => previews.forEach(({ url }) => URL.revokeObjectURL(url));
+  }, [newTask.files]);
+
+  const removeSelectedFile = (fileIndex) => {
+    setNewTask(prev => ({
+      ...prev,
+      files: Array.from(prev.files || []).filter((_, index) => index !== fileIndex),
+    }));
   };
 
   // Stop recording
@@ -3500,13 +3556,17 @@ const UserCreateTask = () => {
                       type="file"
                       multiple
                       style={{ display: 'none' }}
-                      onChange={(e) => setNewTask({ ...newTask, files: e.target.files })}
+                      onChange={(e) => {
+                        setNewTask(prev => ({ ...prev, files: Array.from(e.target.files || []) }));
+                        e.target.value = '';
+                      }}
                     />
                   </button>
 
                   <button
                     className={`user-create-task-button ${isRecording ? 'user-create-task-button-contained' : 'user-create-task-button-outlined'}`}
                     onClick={isRecording ? stopRecording : startRecording}
+                    type="button"
                     style={{ 
                       flex: 1,
                       padding: isMobile ? '10px' : '12px',
@@ -3518,6 +3578,170 @@ const UserCreateTask = () => {
                     {isRecording ? "Stop" : (isMobile ? "Record" : "Record Voice")}
                   </button>
                 </div>
+
+                {filePreviews.length > 0 && (
+                  <div
+                    className="user-create-task-paper"
+                    style={{ marginTop: '12px', padding: isMobile ? '12px' : '16px' }}
+                  >
+                    <div style={{ marginBottom: '10px', fontWeight: 600 }}>
+                      Selected Files ({filePreviews.length})
+                    </div>
+                    <div style={{ display: 'grid', gap: '10px' }}>
+                      {filePreviews.map(({ file, url, isImage, isPdf, isAudio, isVideo }, index) => (
+                        <div
+                          key={`${file.name}-${file.lastModified}-${index}`}
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: isMobile ? '56px minmax(0, 1fr) auto' : '56px minmax(0, 1fr) auto auto',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '10px',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            background: '#fff',
+                          }}
+                        >
+                          {isImage ? (
+                            <img
+                              src={url}
+                              alt={file.name}
+                              style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '6px' }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: '56px',
+                                height: '56px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: '6px',
+                                background: '#f1f5f9',
+                              }}
+                            >
+                              <FiFileText size={24} />
+                            </div>
+                          )}
+
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div
+                              title={file.name}
+                              style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}
+                            >
+                              {file.name}
+                            </div>
+                            <div style={{ marginTop: '3px', color: '#64748b', fontSize: '12px' }}>
+                              {formatFileSize(file.size)}
+                            </div>
+                          </div>
+
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="user-create-task-button user-create-task-button-outlined"
+                            style={{ padding: '8px 10px', textDecoration: 'none', gridColumn: isMobile ? '1 / 3' : 'auto' }}
+                            title="Preview file"
+                          >
+                            <FiZoomIn /> {!isMobile && 'Preview'}
+                          </a>
+                          <button
+                            type="button"
+                            className="user-create-task-button user-create-task-button-outlined"
+                            onClick={() => removeSelectedFile(index)}
+                            style={{ padding: '8px 10px', color: '#dc2626' }}
+                            title="Remove file"
+                          >
+                            <FiTrash2 />
+                          </button>
+
+                          <div style={{ gridColumn: '1 / -1', marginTop: '4px' }}>
+                            {isImage && (
+                              <img
+                                src={url}
+                                alt={`${file.name} preview`}
+                                style={{
+                                  display: 'block',
+                                  width: '100%',
+                                  maxHeight: isMobile ? '240px' : '320px',
+                                  objectFit: 'contain',
+                                  borderRadius: '8px',
+                                  background: '#f8fafc',
+                                }}
+                              />
+                            )}
+                            {isPdf && (
+                              <iframe
+                                src={url}
+                                title={`${file.name} preview`}
+                                style={{
+                                  display: 'block',
+                                  width: '100%',
+                                  height: isMobile ? '280px' : '380px',
+                                  border: '1px solid #e2e8f0',
+                                  borderRadius: '8px',
+                                  background: '#fff',
+                                }}
+                              />
+                            )}
+                            {isAudio && (
+                              <audio controls preload="metadata" src={url} style={{ display: 'block', width: '100%' }}>
+                                Your browser does not support audio playback.
+                              </audio>
+                            )}
+                            {isVideo && (
+                              <video
+                                controls
+                                preload="metadata"
+                                src={url}
+                                style={{ display: 'block', width: '100%', maxHeight: '360px', borderRadius: '8px', background: '#000' }}
+                              >
+                                Your browser does not support video playback.
+                              </video>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {isRecording && (
+                  <div
+                    className="user-create-task-alert info"
+                    style={{ marginTop: '12px', padding: isMobile ? '10px' : '12px' }}
+                  >
+                    <FiMic /> Recording in progress... Press Stop to preview your voice note.
+                  </div>
+                )}
+
+                {!isRecording && voicePreviewUrl && (
+                  <div
+                    className="user-create-task-paper"
+                    style={{ marginTop: '12px', padding: isMobile ? '12px' : '16px' }}
+                  >
+                    <div style={{ marginBottom: '10px', fontWeight: 600 }}>
+                      Voice Note Preview
+                    </div>
+                    <audio
+                      controls
+                      preload="metadata"
+                      src={voicePreviewUrl}
+                      style={{ width: '100%', display: 'block' }}
+                    >
+                      Your browser does not support audio playback.
+                    </audio>
+                    <button
+                      type="button"
+                      className="user-create-task-button user-create-task-button-outlined"
+                      onClick={() => setNewTask(prev => ({ ...prev, voiceNote: null }))}
+                      style={{ marginTop: '10px', padding: isMobile ? '8px 10px' : '9px 12px' }}
+                    >
+                      <FiTrash2 /> Remove Voice Note
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -3534,7 +3758,7 @@ const UserCreateTask = () => {
             <button
               className="user-create-task-button user-create-task-button-contained"
               onClick={handleCreateTask}
-              disabled={!newTask.title || !newTask.description || !newTask.dueDateTime || isCreatingTask}
+              disabled={!newTask.title || !newTask.description || !newTask.dueDateTime || isCreatingTask || isRecording}
               style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
             >
               {isCreatingTask ? (

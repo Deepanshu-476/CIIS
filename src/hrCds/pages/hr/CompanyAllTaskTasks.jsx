@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "../../../utils/axiosConfig";
+import API_URL from "../../../config";
 import "./CompanyAllTaskTasks.css";
 import {
   FiActivity,
@@ -103,6 +104,47 @@ const getTaskType = (task) => {
   if (task?.clientId || task?.isClientTask || task?.assignedBy) return "assigned";
   if (task?.userStatus && !task?.status) return "assigned";
   return "personal";
+};
+
+const getTaskSource = (task) => {
+  const source = String(task?.__taskSource || task?.taskSource || task?.source || "").toLowerCase();
+  if (["client", "project", "self", "personal", "assigned"].includes(source)) {
+    return source === "personal" ? "self" : source;
+  }
+  return getTaskType(task) === "assigned" ? "assigned" : "self";
+};
+
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return "";
+  if (/^https?:\/\//i.test(imagePath)) return imagePath;
+
+  const baseUrl = API_URL.replace(/\/api\/?$/, "");
+  const cleanPath = String(imagePath).replace(/\\/g, "/").replace(/^\/+/, "");
+
+  if (cleanPath.startsWith("uploads/")) return `${baseUrl}/${cleanPath}`;
+  if (cleanPath.startsWith("client-remarks/") || cleanPath.startsWith("remarks/")) {
+    return `${baseUrl}/uploads/${cleanPath}`;
+  }
+  return `${baseUrl}/uploads/remarks/${cleanPath.split("/").pop()}`;
+};
+
+const getRemarkImages = (remark) => {
+  const images = Array.isArray(remark?.images) ? remark.images : [];
+  const paths = images
+    .map((image) => typeof image === "string" ? image : image?.url || image?.path)
+    .filter(Boolean);
+
+  if (remark?.image) paths.push(remark.image);
+  return [...new Set(paths)];
+};
+
+const extractRemarks = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.remarks)) return payload.remarks;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.data?.remarks)) return payload.data.remarks;
+  if (Array.isArray(payload?.data?.data)) return payload.data.data;
+  return [];
 };
 
 const formatDate = (value) => {
@@ -325,15 +367,23 @@ const CompanyAllTaskTasks = () => {
       return { remarks: [], activityLogs: [] };
     }
 
-    const type = getTaskType(task);
+    const source = getTaskSource(task);
 
     try {
-      const remarksUrl = type === "assigned"
-        ? `/tasks/${task._id}/client-remarks`
-        : `/task/${task._id}/remarks`;
-      const activityUrl = type === "assigned"
-        ? `/tasks/${task._id}/client-activity-logs`
-        : `/task/${task._id}/activity-logs`;
+      const remarksUrl = source === "client"
+        ? `/tasks/client-tasks/${task._id}/client-remarks`
+        : source === "project"
+          ? `/tasks/project/${task.projectId}/tasks/${task._id}/remarks`
+          : source === "self"
+            ? `/tasks/self/${task._id}/remarks`
+            : `/tasks/assigned/${task._id}/remarks`;
+      const activityUrl = source === "client"
+        ? `/tasks/client-tasks/${task._id}/client-activity-logs`
+        : source === "project"
+          ? `/tasks/project/${task.projectId}/tasks/${task._id}/activity`
+          : source === "self"
+            ? `/tasks/self/${task._id}/activity`
+            : `/tasks/assigned/${task._id}/activity`;
 
       const [remarksResponse, activityResponse] = await Promise.allSettled([
         axios.get(remarksUrl),
@@ -343,7 +393,9 @@ const CompanyAllTaskTasks = () => {
       const remarksPayload = remarksResponse.status === "fulfilled" ? remarksResponse.value.data : {};
       const activityPayload = activityResponse.status === "fulfilled" ? activityResponse.value.data : {};
       return {
-        remarks: remarksPayload.data || remarksPayload.remarks || [],
+        remarks: extractRemarks(remarksPayload).length > 0
+          ? extractRemarks(remarksPayload)
+          : (Array.isArray(task.remarks) ? task.remarks : []),
         activityLogs: activityPayload.logs || activityPayload.data || activityPayload.activityLogs || [],
       };
     } catch {
@@ -566,13 +618,37 @@ const CompanyAllTaskTasks = () => {
                           <p className="company-task-muted">No remarks yet.</p>
                         ) : (
                           <div className="company-task-remarks">
-                            {visibleRemarks.map((remark, index) => (
-                              <div className="company-task-remark" key={remark._id || index}>
-                                <strong>{remark.user?.name || remark.userName || "User"}</strong>
-                                <span>{formatDateTime(remark.createdAt)}</span>
-                                <p>{remark.text || remark.remark || remark.message || remark.remarks || "No remark text"}</p>
-                              </div>
-                            ))}
+                            {visibleRemarks.map((remark, index) => {
+                              const remarkImages = getRemarkImages(remark);
+                              const remarkText = remark.text || remark.remark || remark.message || remark.remarks;
+
+                              return (
+                                <div className="company-task-remark" key={remark._id || index}>
+                                  <strong>{remark.user?.name || remark.createdBy?.name || remark.userName || "User"}</strong>
+                                  <span>{formatDateTime(remark.createdAt)}</span>
+                                  {remarkText && <p>{remarkText}</p>}
+                                  {remarkImages.length > 0 && (
+                                    <div className="company-task-remark-images">
+                                      {remarkImages.map((imagePath, imageIndex) => (
+                                        <a
+                                          href={getImageUrl(imagePath)}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          key={`${imagePath}-${imageIndex}`}
+                                          title="Open remark image"
+                                        >
+                                          <img
+                                            src={getImageUrl(imagePath)}
+                                            alt={`Remark attachment ${imageIndex + 1}`}
+                                            loading="lazy"
+                                          />
+                                        </a>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>

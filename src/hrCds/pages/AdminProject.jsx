@@ -50,6 +50,58 @@ const Icons = {
 const getUserId = (user) => user?._id || user?.id;
 const getProjectId = (p) => p?._id || p?.id;
 
+const parseStoredJson = (key) => {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : null;
+  } catch {
+    return null;
+  }
+};
+
+const getCompanyContext = () => {
+  const user = parseStoredJson("user") || {};
+  const companyDetails = parseStoredJson("companyDetails") || {};
+  const storedCompany = parseStoredJson("company") || {};
+  const userCompany = typeof user.company === "object" && user.company ? user.company : {};
+  const rawCompany = localStorage.getItem("company") || "";
+
+  return {
+    companyCode: String(
+      localStorage.getItem("companyCode")
+      || user.companyCode
+      || userCompany.companyCode
+      || userCompany.code
+      || companyDetails.companyCode
+      || companyDetails.code
+      || storedCompany.companyCode
+      || storedCompany.code
+      || (!rawCompany.trim().startsWith("{") ? rawCompany : "")
+      || ""
+    ).trim(),
+    companyIdentifier: String(
+      user.companyId
+      || userCompany._id
+      || userCompany.id
+      || companyDetails._id
+      || companyDetails.id
+      || storedCompany._id
+      || storedCompany.id
+      || localStorage.getItem("companyIdentifier")
+      || ""
+    ).trim()
+  };
+};
+
+const getProjectCompanyCode = (project) => String(
+  project?.companyCode
+  || project?.company?.companyCode
+  || project?.company?.code
+  || project?.companyId?.companyCode
+  || project?.companyDetails?.companyCode
+  || ""
+).trim();
+
 const getProjectsFromResponse = (data) => {
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.items)) return data.items;
@@ -193,8 +245,15 @@ export const AdminProject = () => {
 
   const fetchUsers = async () => {
     try {
+      const { companyCode, companyIdentifier } = getCompanyContext();
+      if (!companyCode) {
+        setUsers([]);
+        return;
+      }
+
       // Add timeout to axios request
       const res = await axios.get("/users/company-users", {
+        params: { companyCode, companyIdentifier: companyIdentifier || undefined },
         timeout: 10000 // 10 seconds timeout
       });
       
@@ -220,12 +279,25 @@ export const AdminProject = () => {
 
   const fetchProjects = async () => {
     try {
+      const { companyCode, companyIdentifier } = getCompanyContext();
+      if (!companyCode) {
+        setProjects([]);
+        showSnackbar("Company code not found. Please login again from your company URL.", "error");
+        return;
+      }
+
       // Add timeout to axios request
       const res = await axios.get("/projects", {
+        params: { companyCode, companyIdentifier: companyIdentifier || undefined },
         timeout: 10000 // 10 seconds timeout
       });
 
-      setProjects(getProjectsFromResponse(res.data));
+      const normalizedCompanyCode = companyCode.toLowerCase();
+      const companyProjects = getProjectsFromResponse(res.data).filter(project => {
+        const projectCompanyCode = getProjectCompanyCode(project);
+        return !projectCompanyCode || projectCompanyCode.toLowerCase() === normalizedCompanyCode;
+      });
+      setProjects(companyProjects);
     } catch (error) {
       console.error("Error fetching projects:", error);
       
@@ -283,6 +355,12 @@ export const AdminProject = () => {
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
+
+    const { companyCode, companyIdentifier } = getCompanyContext();
+    if (!companyCode) {
+      showSnackbar("Company code not found. Please login again from your company URL.", "error");
+      return;
+    }
     
     setLoading(true);
     
@@ -302,6 +380,11 @@ export const AdminProject = () => {
     formData.append("priority", priority);
     formData.append("status", status);
     formData.append("users", JSON.stringify(members));
+    formData.append("companyCode", companyCode);
+    if (companyIdentifier) {
+      formData.append("companyIdentifier", companyIdentifier);
+      formData.append("companyId", companyIdentifier);
+    }
     
     if (file) {
       formData.append("pdfFile", file);
@@ -315,6 +398,7 @@ export const AdminProject = () => {
         headers: { 
           "Content-Type": "multipart/form-data"
         },
+        params: { companyCode, companyIdentifier: companyIdentifier || undefined },
         timeout: 60000, // 60 seconds timeout for file uploads
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -367,9 +451,16 @@ export const AdminProject = () => {
 
   const deleteProject = async (id, projectName) => {
     if (!window.confirm(`Are you sure you want to delete "${projectName}"?`)) return;
+
+    const { companyCode, companyIdentifier } = getCompanyContext();
+    if (!companyCode) {
+      showSnackbar("Company code not found. Please login again from your company URL.", "error");
+      return;
+    }
     
     try {
       const response = await axios.delete(`/projects/${id}`, {
+        params: { companyCode, companyIdentifier: companyIdentifier || undefined },
         timeout: 10000
       });
       

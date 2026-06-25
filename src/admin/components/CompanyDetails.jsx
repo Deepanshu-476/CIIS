@@ -90,6 +90,7 @@ const CompanyDetails = () => {
   const [loadingJobRoles, setLoadingJobRoles] = useState(false);
   const [copied, setCopied] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [hoveredDepartment, setHoveredDepartment] = useState(null);
 
   // Gender options
   const genderOptions = ["male", "female", "other"];
@@ -1971,6 +1972,27 @@ const CompanyDetails = () => {
   const weeklyLoginAreaPath = `${weeklyLoginPath} L600 210 L42 210 Z`;
   const weeklyLoginTotal = weeklyLoginData.reduce((total, item) => total + item.count, 0);
 
+  const departmentColors = ["#2f6df6", "#8b35e8", "#ff7a18", "#22c55e", "#06b6d4", "#ef4444"];
+  const departmentCounts = recentUsers.reduce((counts, user) => {
+    const departmentName = user.departmentName
+      || (typeof user.department === "object" ? user.department?.name : getDepartmentName(user.department))
+      || "No Department";
+    counts[departmentName] = (counts[departmentName] || 0) + 1;
+    return counts;
+  }, {});
+  const departmentSplit = Object.entries(departmentCounts)
+    .map(([name, count], index) => ({
+      name,
+      count,
+      color: departmentColors[index % departmentColors.length],
+      percentage: stats.totalUsers ? (count / stats.totalUsers) * 100 : 0
+    }));
+  const donutCircumference = 2 * Math.PI * 54;
+  let donutOffset = 0;
+  const activeDepartment = hoveredDepartment
+    ? departmentSplit.find(item => item.name === hoveredDepartment)
+    : null;
+
   return (
     <div className="CompanyDetails">
       {/* Animated Background */}
@@ -2226,12 +2248,52 @@ const CompanyDetails = () => {
               </div>
               <span className="CompanyDetails-more-dot">...</span>
             </div>
-            <div className="CompanyDetails-donut-wrap CompanyDetails-activity-donut-wrap">
-              <div className="CompanyDetails-donut-chart CompanyDetails-activity-donut-chart"></div>
+            <div className="CompanyDetails-donut-wrap">
+              <svg
+                className="CompanyDetails-donut-chart"
+                viewBox="0 0 120 120"
+                aria-label="Users grouped by department"
+                onMouseLeave={() => setHoveredDepartment(null)}
+              >
+                <circle className="CompanyDetails-donut-track" cx="60" cy="60" r="54" />
+                {departmentSplit.map(item => {
+                  const dashLength = (item.percentage / 100) * donutCircumference;
+                  const dashOffset = -donutOffset;
+                  donutOffset += dashLength;
+                  return (
+                    <circle
+                      key={item.name}
+                      className={`CompanyDetails-donut-segment ${hoveredDepartment === item.name ? "is-active" : ""}`}
+                      cx="60"
+                      cy="60"
+                      r="54"
+                      fill="none"
+                      stroke={item.color}
+                      strokeDasharray={`${dashLength} ${donutCircumference - dashLength}`}
+                      strokeDashoffset={dashOffset}
+                      tabIndex="0"
+                      role="button"
+                      aria-label={`${item.name}: ${item.count} users, ${Math.round(item.percentage)} percent`}
+                      onMouseEnter={() => setHoveredDepartment(item.name)}
+                      onFocus={() => setHoveredDepartment(item.name)}
+                      onBlur={() => setHoveredDepartment(null)}
+                      onClick={() => setHoveredDepartment(item.name)}
+                    />
+                  );
+                })}
+              </svg>
               <div className="CompanyDetails-donut-center">
-                <strong>{stats.totalUsers}</strong>
-                <span>Users</span>
+                <strong>{activeDepartment ? activeDepartment.count : stats.totalUsers}</strong>
+                <span>{activeDepartment ? activeDepartment.name : "Users"}</span>
+                {activeDepartment && <small>{Math.round(activeDepartment.percentage)}%</small>}
               </div>
+              {activeDepartment && (
+                <div className="CompanyDetails-donut-tooltip" role="status">
+                  <i style={{ backgroundColor: activeDepartment.color }} />
+                  <span>{activeDepartment.name}</span>
+                  <strong>{activeDepartment.count} users</strong>
+                </div>
+              )}
             </div>
             <div className="CompanyDetails-split-metrics">
               {[

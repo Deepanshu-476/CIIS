@@ -4,6 +4,69 @@ import axios from "../../utils/axiosConfig";
 import "../Css/EmployeeProject.css";
 import CIISLoader from '../../Loader/CIISLoader'; // ✅ Import CIISLoader
 
+const parseStoredJson = (key) => {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : null;
+  } catch {
+    return null;
+  }
+};
+
+const getCompanyContext = () => {
+  const user = parseStoredJson("user") || {};
+  const companyDetails = parseStoredJson("companyDetails") || {};
+  const storedCompany = parseStoredJson("company") || {};
+  const userCompany = typeof user.company === "object" && user.company ? user.company : {};
+  const rawCompany = localStorage.getItem("company") || "";
+
+  const companyCode = String(
+    localStorage.getItem("companyCode")
+    || user.companyCode
+    || userCompany.companyCode
+    || userCompany.code
+    || companyDetails.companyCode
+    || companyDetails.code
+    || storedCompany.companyCode
+    || storedCompany.code
+    || (!rawCompany.trim().startsWith("{") ? rawCompany : "")
+    || ""
+  ).trim();
+
+  const companyIdentifier = String(
+    user.companyId
+    || userCompany._id
+    || userCompany.id
+    || companyDetails._id
+    || companyDetails.id
+    || storedCompany._id
+    || storedCompany.id
+    || localStorage.getItem("companyIdentifier")
+    || ""
+  ).trim();
+
+  return { companyCode, companyIdentifier };
+};
+
+const getProjectsFromResponse = (data) => {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.projects)) return data.projects;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.data?.items)) return data.data.items;
+  if (Array.isArray(data?.data?.projects)) return data.data.projects;
+  return [];
+};
+
+const getProjectCompanyCode = (project) => String(
+  project?.companyCode
+  || project?.company?.companyCode
+  || project?.company?.code
+  || project?.companyId?.companyCode
+  || project?.companyDetails?.companyCode
+  || ""
+).trim();
+
 const EmployeeProject = () => {
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -133,8 +196,28 @@ const EmployeeProject = () => {
   const loadProjects = async () => {
     setLoading(prev => ({ ...prev, projects: true }));
     try {
-      const res = await axios.get("/projects");
-      setProjects(res.data.items || []);
+      const { companyCode, companyIdentifier } = getCompanyContext();
+
+      if (!companyCode) {
+        setProjects([]);
+        showSnackbar("Company code not found. Please login again from your company URL.", "error");
+        return;
+      }
+
+      const res = await axios.get("/projects", {
+        params: {
+          companyCode,
+          companyIdentifier: companyIdentifier || undefined
+        }
+      });
+      const loadedProjects = getProjectsFromResponse(res.data);
+      const normalizedCompanyCode = companyCode.toLowerCase();
+      const companyProjects = loadedProjects.filter(project => {
+        const projectCompanyCode = getProjectCompanyCode(project);
+        return !projectCompanyCode || projectCompanyCode.toLowerCase() === normalizedCompanyCode;
+      });
+
+      setProjects(companyProjects);
     } catch (error) {
       console.error("Error loading projects:", error);
       showSnackbar("Error loading projects", "error");

@@ -4,7 +4,7 @@ import React, {
     useState
 } from "react";
 import "../Pages/Chat/chat.css";
-import { ArrowLeft, Mic, MoreHorizontal, Paperclip, Phone, SendHorizontal, Smile, Square, Video, X } from "lucide-react";
+import { Mic, Paperclip, Phone, SendHorizontal, Smile, Square, Video, X } from "lucide-react";
 
 import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage } from "../services/chatService";
 
@@ -12,6 +12,14 @@ import MessageBubble from "./MessageBubble";
 import { API_URL_IMG } from "../config";
 import { useCall } from "../context/CallContext";
 import { useNotification } from "../context/NotificationContext";
+
+const CHAT_FILE_ACCEPT = [
+    "image/*", "video/*", "audio/*",
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv",
+    ".ppt", ".pptx", ".txt", ".rtf",
+    ".odt", ".ods", ".odp",
+    ".zip", ".rar", ".7z"
+].join(",");
 
 const ChatBox = ({
     selectedUser,
@@ -871,10 +879,6 @@ useEffect(() => {
                     >
                         <Video size={18} />
                     </button>
-                    <button type="button" className="chat-more-btn" title="More options">
-                        <span>More</span>
-                        <MoreHorizontal size={18} />
-                    </button>
                 </div>
             </div>
 
@@ -927,29 +931,49 @@ useEffect(() => {
                         <input
                             ref={fileInputRef}
                             type="file"
-                            accept="image/*,video/*,audio/*"
+                            accept={CHAT_FILE_ACCEPT}
                             multiple
-                            onChange={(e) =>
+                            onChange={(e) => {
                                 setFiles(
                                     Array.from(e.target.files || [])
-                                )
-                            }
+                                );
+                                e.target.value = "";
+                            }}
                         />
                         <Paperclip size={19} />
                     </label>
 
                     <div className="chat-input-wrapper">
                         {files.length > 0 && (
-                            <div className="selected-file-info">
-                                <span>{files.length === 1 ? files[0].name : `${files.length} files selected`}</span>
-                                <button
-                                    type="button"
-                                    className="selected-file-remove"
-                                    title="Remove selected file"
-                                    onClick={clearSelectedFiles}
-                                >
-                                    <X size={14} />
-                                </button>
+                            <div className="selected-files-wrap">
+                                <div className="selected-files-list">
+                                    {files.map((file, index) => (
+                                        <div
+                                            className="selected-file-info"
+                                            key={`${file.name}-${file.lastModified}-${index}`}
+                                            title={file.name}
+                                        >
+                                            <span>{file.name}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setFiles(prev => prev.filter((_, fileIndex) => fileIndex !== index))}
+                                                aria-label={`Deselect ${file.name}`}
+                                                title="Deselect file"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                                {files.length > 1 && (
+                                    <button
+                                        type="button"
+                                        className="selected-files-clear"
+                                        onClick={() => setFiles([])}
+                                    >
+                                        Clear all
+                                    </button>
+                                )}
                             </div>
                         )}
                         {recorderMode && (

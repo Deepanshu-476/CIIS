@@ -11,4 +11,4 @@ export const TURN_URL = import.meta.env.VITE_TURN_URL || ''
 export const TURN_USERNAME = import.meta.env.VITE_TURN_USERNAME || ''
 export const TURN_CREDENTIAL = import.meta.env.VITE_TURN_CREDENTIAL || ''
 
-export default API_URL; 
+export default API_URL;  

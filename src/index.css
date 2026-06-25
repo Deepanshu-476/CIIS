@@ -150,7 +150,7 @@
 /* CRITICAL FIXES - Remove horizontal overflow and black space */
 * {
   margin: 0;
-  padding: 0;
+  padding: 0; 
   box-sizing: border-box;
   max-width: 100%;
 }

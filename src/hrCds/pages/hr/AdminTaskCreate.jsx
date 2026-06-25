@@ -2503,7 +2503,7 @@ const AdminTaskManagement = () => {
           </button>
           <button
             className="AdminTaskManagement-btn AdminTaskManagement-btn-primary"
-            onClick={handleEditTask}
+            onClick={handleEditTask}  
             disabled={isUpdatingTask}
           >
             {isUpdatingTask ? 'Updating...' : 'Update Task'}

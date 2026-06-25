@@ -6,7 +6,7 @@ const API = `${API_URL}/chat`;
 const getToken = () => {
     return localStorage.getItem("token");
 };
-
+    
 export const getCompanyUsers = async () => {
 
     return axios.get(
@@ -37,6 +37,7 @@ export const getConversations = async () => {
         {
             headers: {
                 Authorization: `Bearer ${getToken()}`
+                
             }
         }
     );

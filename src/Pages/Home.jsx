@@ -292,14 +292,14 @@ const Home = () => {
                 <PersonArt type="employee" />
                 <div className="home-role-content">
                   <span>Employee</span>
-                  <h3>Employee Portal</h3>
+                  <h3>Employee Portal</h3> 
                   <strong>Streamlined daily operations</strong>
                   <ul>{employeeFeatures.map((item) => <li key={item}><FiCheck />{item}</li>)}</ul>
                   <button>Explore Employee Portal <FiArrowRight /></button>
                 </div>
               </article>
             </div>
-          </div>
+          </div>  
         </section>
 
         <section className="home-section home-benefit-section">

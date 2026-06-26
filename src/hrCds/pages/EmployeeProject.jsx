@@ -171,6 +171,14 @@ const EmployeeProject = () => {
 
   const normalizeTaskStatus = (status) => String(status || "pending").trim().toLowerCase().replace(/-/g, " ");
 
+  const getTaskRemarkCount = (task) => {
+    if (Array.isArray(task?.remarks)) return task.remarks.length;
+    if (typeof task?.remarksCount === "number") return task.remarksCount;
+    if (typeof task?.remarkCount === "number") return task.remarkCount;
+    if (typeof task?.commentsCount === "number") return task.commentsCount;
+    return 0;
+  };
+
   // ✅ Load all projects with page loader
   useEffect(() => {
     const loadData = async () => {
@@ -1121,7 +1129,13 @@ const EmployeeProject = () => {
                             </div>
                           </div>
 
-                          <p className="EmployeeProject-task-click-hint">View full details</p>
+                          <div className="EmployeeProject-task-card-footer">
+                            <p className="EmployeeProject-task-click-hint">View full details</p>
+                            <span className="EmployeeProject-task-remark-count">
+                              <Icons.Comment />
+                              {getTaskRemarkCount(t)} remarks
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))}

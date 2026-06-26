@@ -24,7 +24,7 @@ const AllCompany = () => {
   const [companies, setCompanies] = useState([]);
   const [filteredCompanies, setFilteredCompanies] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState("active");
   const [sortBy, setSortBy] = useState("name");
   const [sortOrder, setSortOrder] = useState("asc");
   const [expandedCompany, setExpandedCompany] = useState(null);
@@ -1096,13 +1096,7 @@ const AllCompany = () => {
             
             <div className="AllCompany-filter-actions">
               <div className="AllCompany-filter-toggle">
-                <button 
-                  className={`AllCompany-filter-btn ${filter === 'all' ? 'AllCompany-active' : ''}`}
-                  onClick={() => setFilter('all')}
-                >
-                  All
-                </button>
-                <button 
+                <button
                   className={`AllCompany-filter-btn ${filter === 'active' ? 'AllCompany-active' : ''}`}
                   onClick={() => setFilter('active')}
                 >

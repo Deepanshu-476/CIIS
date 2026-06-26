@@ -3,7 +3,6 @@ import axios from "../../utils/axiosConfig";
 import API_URL from "../../config";
 import { toast } from "react-toastify";
 import '../Css/EmployeeMeetingPage.css';
-import { useCall } from "../../context/CallContext";
 
 export default function EmployeeMeetingPage() {
   const [userId, setUserId] = useState(null);
@@ -12,7 +11,6 @@ export default function EmployeeMeetingPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState("all");
-  const { startCall } = useCall();
 
   // Load user data safely from localStorage
   useEffect(() => {
@@ -134,42 +132,6 @@ export default function EmployeeMeetingPage() {
         day: 'numeric'
       });
     }
-  };
-
-  const getUserId = (user) => {
-    if (!user) return "";
-    if (typeof user !== "object") return user.toString();
-
-    const rawId = user._id || user.id || user.userId || user.user?._id || user.user?.id;
-    if (!rawId) return "";
-
-    if (typeof rawId === "object") {
-      return getUserId(rawId);
-    }
-
-    return rawId.toString();
-  };
-
-  const getMeetingAttendees = (meeting) => {
-    const attendees = Array.isArray(meeting.attendees) ? meeting.attendees : [];
-    const attendeeIds = [...new Set(attendees.map(getUserId).filter(Boolean))];
-    return attendeeIds.length > 0 ? attendeeIds : [userId].filter(Boolean);
-  };
-
-  const startMeetingVideoCall = (meeting) => {
-    const attendees = getMeetingAttendees(meeting);
-    if (attendees.length === 0) {
-      toast.warning("No meeting attendees found for this call");
-      return;
-    }
-
-    startCall("video", {
-      _id: meeting._id,
-      isGroup: true,
-      name: meeting.title || "Meeting",
-      title: meeting.title || "Meeting",
-      attendees,
-    });
   };
 
   // Stats calculations
@@ -440,13 +402,6 @@ export default function EmployeeMeetingPage() {
                             Mark as Seen
                           </button>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => startMeetingVideoCall(meeting)}
-                          className="emp-meeting-mark-seen-button emp-meeting-video-call-button"
-                        >
-                          Start Video Meeting
-                        </button>
                       </div>
                     )}
 

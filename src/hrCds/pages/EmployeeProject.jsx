@@ -67,6 +67,12 @@ const getProjectCompanyCode = (project) => String(
   || ""
 ).trim();
 
+const getCurrentDateTimeInputValue = () => {
+  const now = new Date();
+  const timezoneOffsetMs = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
+};
+
 const EmployeeProject = () => {
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -91,11 +97,14 @@ const EmployeeProject = () => {
   const [selectedPdfName, setSelectedPdfName] = useState("");
   const [tabValue, setTabValue] = useState(0);
   const [taskFilter, setTaskFilter] = useState("all");
+  const [detailTaskId, setDetailTaskId] = useState(null);
   const [stats, setStats] = useState({
     totalTasks: 0,
     completedTasks: 0,
     pendingTasks: 0,
-    inProgressTasks: 0
+    inProgressTasks: 0,
+    onHoldTasks: 0,
+    cancelledTasks: 0
   });
 
   const [newTask, setNewTask] = useState({
@@ -185,11 +194,15 @@ const EmployeeProject = () => {
     const completed = tasks.filter(t => normalizeTaskStatus(t.status) === "completed").length;
     const pending = tasks.filter(t => normalizeTaskStatus(t.status) === "pending").length;
     const inProgress = tasks.filter(t => normalizeTaskStatus(t.status) === "in progress").length;
+    const onHold = tasks.filter(t => normalizeTaskStatus(t.status) === "on hold").length;
+    const cancelled = tasks.filter(t => normalizeTaskStatus(t.status) === "cancelled").length;
     setStats({
       totalTasks: tasks.length,
       completedTasks: completed,
       pendingTasks: pending,
-      inProgressTasks: inProgress
+      inProgressTasks: inProgress,
+      onHoldTasks: onHold,
+      cancelledTasks: cancelled
     });
   }, [tasks]);
 
@@ -247,8 +260,19 @@ const EmployeeProject = () => {
 
   // Validate task form
   const validateTaskForm = () => {
-    setTaskErrors({});
-    return true;
+    const errors = {};
+
+    if (newTask.dueDate) {
+      const selectedDueDate = new Date(newTask.dueDate);
+      const now = new Date();
+
+      if (Number.isNaN(selectedDueDate.getTime()) || selectedDueDate < now) {
+        errors.dueDate = "Back date/time select nahi kar sakte.";
+      }
+    }
+
+    setTaskErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   // Update Task Status
@@ -503,6 +527,10 @@ const EmployeeProject = () => {
     ? tasks
     : tasks.filter(task => normalizeTaskStatus(task.status) === taskFilter);
 
+  const detailTask = detailTaskId
+    ? tasks.find(task => task._id === detailTaskId)
+    : null;
+
   const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
 
   const StatCard = ({ icon, value, label, color, subtext, trend, filter, active }) => (
@@ -736,6 +764,26 @@ const EmployeeProject = () => {
                 active={taskFilter === "pending"}
               />
             </div>
+            <div className="EmployeeProject-stat-item">
+              <StatCard
+                icon={<Icons.Pause />}
+                value={stats.onHoldTasks}
+                label="On Hold"
+                color="#AB47BC"
+                filter="on hold"
+                active={taskFilter === "on hold"}
+              />
+            </div>
+            <div className="EmployeeProject-stat-item">
+              <StatCard
+                icon={<Icons.Cancel />}
+                value={stats.cancelledTasks}
+                label="Cancelled"
+                color="#EF5350"
+                filter="cancelled"
+                active={taskFilter === "cancelled"}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -835,30 +883,6 @@ const EmployeeProject = () => {
                         <Icons.PictureAsPdf />
                         <span className="EmployeeProject-pdf-text">Document attached</span>
                       </div>
-                      <div className="EmployeeProject-pdf-actions">
-                        <Tooltip title="View PDF">
-                          <button
-                            className="EmployeeProject-icon-button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              viewPdf(p.pdfFile.path, p.pdfFile.filename);
-                            }}
-                          >
-                            <Icons.Visibility />
-                          </button>
-                        </Tooltip>
-                        <Tooltip title="Download PDF">
-                          <button
-                            className="EmployeeProject-icon-button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              downloadPdf(p.pdfFile.path, p.pdfFile.filename);
-                            }}
-                          >
-                            <Icons.Download />
-                          </button>
-                        </Tooltip>
-                      </div>
                     </div>
                   )}
                 </div>
@@ -925,6 +949,7 @@ const EmployeeProject = () => {
                   <LinearProgress value={getTaskProgress()} />
                   <div className="EmployeeProject-progress-footer">
                     <span>{stats.completedTasks} of {stats.totalTasks} tasks completed</span>
+                    <span>{stats.onHoldTasks} on hold • {stats.cancelledTasks} cancelled</span>
                     <span>{stats.pendingTasks} pending • {stats.inProgressTasks} in progress</span>
                   </div>
                 </div>
@@ -955,7 +980,20 @@ const EmployeeProject = () => {
                 ) : (
                   <div className="EmployeeProject-tasks-list">
                     {filteredTasks.map((t) => (
-                      <div className="EmployeeProject-task-card" key={t._id} style={{ borderLeftColor: getStatusColor(t.status) }}>
+                      <div
+                        className="EmployeeProject-task-card"
+                        key={t._id}
+                        style={{ borderLeftColor: getStatusColor(t.status) }}
+                        onClick={() => setDetailTaskId(t._id)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setDetailTaskId(t._id);
+                          }
+                        }}
+                      >
                         <div className="EmployeeProject-task-content">
                           <div className="EmployeeProject-task-header">
                             <div className="EmployeeProject-task-title-section">
@@ -978,30 +1016,13 @@ const EmployeeProject = () => {
                               </div>
                             </div>
                             <div className="EmployeeProject-task-actions">
-                              {t.pdfFile?.path && (
-                                <div className="EmployeeProject-task-pdf-actions">
-                                  <Tooltip title="View PDF">
-                                    <button
-                                      className="EmployeeProject-icon-button"
-                                      onClick={() => viewPdf(t.pdfFile.path, t.pdfFile.filename)}
-                                    >
-                                      <Icons.Visibility />
-                                    </button>
-                                  </Tooltip>
-                                  <Tooltip title="Download PDF">
-                                    <button
-                                      className="EmployeeProject-icon-button"
-                                      onClick={() => downloadPdf(t.pdfFile.path, t.pdfFile.filename)}
-                                    >
-                                      <Icons.Download />
-                                    </button>
-                                  </Tooltip>
-                                </div>
-                              )}
                               <Tooltip title="Update Status">
                                 <button
                                   className="EmployeeProject-icon-button"
-                                  onClick={() => handleOpenStatusDialog(t)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenStatusDialog(t);
+                                  }}
                                 >
                                   <Icons.Update />
                                 </button>
@@ -1009,17 +1030,16 @@ const EmployeeProject = () => {
                               <Tooltip title="View Activity">
                                 <button
                                   className="EmployeeProject-icon-button"
-                                  onClick={() => handleLoadActivityLogs(t._id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleLoadActivityLogs(t._id);
+                                  }}
                                 >
                                   <Icons.History />
                                 </button>
                               </Tooltip>
                             </div>
                           </div>
-                          
-                          {t.description && (
-                            <p className="EmployeeProject-task-description">{t.description}</p>
-                          )}
                           
                           <div className="EmployeeProject-task-meta">
                             <div className="EmployeeProject-task-meta-item">
@@ -1038,68 +1058,7 @@ const EmployeeProject = () => {
                             </div>
                           </div>
 
-                          {/* Existing remarks */}
-                          {t.remarks?.length > 0 && (
-                            <div className="EmployeeProject-task-remarks">
-                              <h5 className="EmployeeProject-remarks-title">
-                                <Icons.Comment />
-                                Remarks ({t.remarks.length})
-                              </h5>
-                              <div className="EmployeeProject-remarks-list">
-                                {t.remarks.map((r, idx) => (
-                                  <div className="EmployeeProject-remark-item" key={idx}>
-                                    <p className="EmployeeProject-remark-text">{r.text}</p>
-                                    <div className="EmployeeProject-remark-footer">
-                                      <div className="EmployeeProject-remark-author">
-                                        <Avatar size="small">
-                                          {r.createdBy?.name?.charAt(0)}
-                                        </Avatar>
-                                        <span>{r.createdBy?.name}</span>
-                                      </div>
-                                      <span className="EmployeeProject-remark-date">
-                                        {new Date(r.createdAt).toLocaleString()}
-                                      </span>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Add New Remark */}
-                        <div className="EmployeeProject-add-remark">
-                          <div className="EmployeeProject-remark-input-row">
-                            <input
-                              type="text"
-                              className="EmployeeProject-remark-input"
-                              placeholder="Add a remark..."
-                              value={t._newRemark || ""}
-                              onChange={(e) =>
-                                setTasks((prev) =>
-                                  prev.map((x) =>
-                                    x._id === t._id
-                                      ? { ...x, _newRemark: e.target.value }
-                                      : x
-                                  )
-                                )
-                              }
-                              onKeyPress={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                  e.preventDefault();
-                                  handleAddRemark(t._id, t._newRemark);
-                                }
-                              }}
-                            />
-                            <button
-                              className="EmployeeProject-button EmployeeProject-button-primary"
-                              onClick={() => handleAddRemark(t._id, t._newRemark)}
-                              disabled={!t._newRemark?.trim()}
-                            >
-                              <Icons.Comment />
-                              Add
-                            </button>
-                          </div>
+                          <p className="EmployeeProject-task-click-hint">View full details</p>
                         </div>
                       </div>
                     ))}
@@ -1126,22 +1085,6 @@ const EmployeeProject = () => {
                           <h4>{projectDetails.pdfFile.filename || 'Project Document'}</h4>
                           <p>Main project document • Uploaded on: {new Date(projectDetails.createdAt).toLocaleDateString()}</p>
                         </div>
-                      </div>
-                      <div className="EmployeeProject-document-actions">
-                        <button
-                          className="EmployeeProject-button EmployeeProject-button-outline"
-                          onClick={() => viewPdf(projectDetails.pdfFile.path, projectDetails.pdfFile.filename)}
-                        >
-                          <Icons.Visibility />
-                          View
-                        </button>
-                        <button
-                          className="EmployeeProject-button EmployeeProject-button-primary"
-                          onClick={() => downloadPdf(projectDetails.pdfFile.path, projectDetails.pdfFile.filename)}
-                        >
-                          <Icons.Download />
-                          Download
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -1174,24 +1117,6 @@ const EmployeeProject = () => {
                                     />
                                   </p>
                                 </div>
-                              </div>
-                              <div className="EmployeeProject-task-document-buttons">
-                                <Tooltip title="View PDF">
-                                  <button
-                                    className="EmployeeProject-icon-button"
-                                    onClick={() => viewPdf(task.pdfFile.path, task.pdfFile.filename)}
-                                  >
-                                    <Icons.Visibility />
-                                  </button>
-                                </Tooltip>
-                                <Tooltip title="Download">
-                                  <button
-                                    className="EmployeeProject-icon-button"
-                                    onClick={() => downloadPdf(task.pdfFile.path, task.pdfFile.filename)}
-                                  >
-                                    <Icons.Download />
-                                  </button>
-                                </Tooltip>
                               </div>
                             </div>
                           </div>
@@ -1274,6 +1199,14 @@ const EmployeeProject = () => {
                           <span>Pending</span>
                           <strong style={{ color: "#FFA726" }}>{stats.pendingTasks}</strong>
                         </div>
+                        <div className="EmployeeProject-stat-row">
+                          <span>On Hold</span>
+                          <strong style={{ color: "#AB47BC" }}>{stats.onHoldTasks}</strong>
+                        </div>
+                        <div className="EmployeeProject-stat-row">
+                          <span>Cancelled</span>
+                          <strong style={{ color: "#EF5350" }}>{stats.cancelledTasks}</strong>
+                        </div>
                         <div className="EmployeeProject-stat-divider" />
                         <div className="EmployeeProject-stat-row">
                           <span>Team Members</span>
@@ -1317,6 +1250,129 @@ const EmployeeProject = () => {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* TASK DETAILS MODAL */}
+      {detailTask && (
+        <div className="EmployeeProject-modal">
+          <div className="EmployeeProject-modal-backdrop" onClick={() => setDetailTaskId(null)} />
+          <div className="EmployeeProject-modal-content EmployeeProject-modal-lg EmployeeProject-task-detail-modal">
+            <div className="EmployeeProject-modal-header EmployeeProject-modal-header-primary">
+              <h3>{detailTask.title}</h3>
+              <button
+                className="EmployeeProject-modal-close"
+                onClick={() => setDetailTaskId(null)}
+                aria-label="Close task details"
+              >
+                <Icons.Close />
+              </button>
+            </div>
+
+            <div className="EmployeeProject-modal-body">
+              <div className="EmployeeProject-task-detail-header">
+                <Chip
+                  icon={detailTask.status === "completed" ? <Icons.CheckCircle /> :
+                        detailTask.status === "in progress" ? <Icons.Update /> :
+                        detailTask.status === "pending" ? <Icons.Schedule /> :
+                        detailTask.status === "cancelled" ? <Icons.Cancel /> :
+                        detailTask.status === "on hold" ? <Icons.Pause /> : <Icons.Schedule />}
+                  label={detailTask.status?.replace(/_/g, ' ')}
+                  color={getStatusColor(detailTask.status)}
+                />
+                <Chip
+                  icon={<Icons.PriorityHigh />}
+                  label={`Priority: ${detailTask.priority}`}
+                  color={getPriorityColor(detailTask.priority)}
+                />
+              </div>
+
+              {detailTask.description && (
+                <div className="EmployeeProject-task-detail-section">
+                  <h4>Description</h4>
+                  <p className="EmployeeProject-task-description">{detailTask.description}</p>
+                </div>
+              )}
+
+              <div className="EmployeeProject-task-detail-grid">
+                <div className="EmployeeProject-task-meta-item">
+                  <Icons.Person />
+                  <span>{detailTask.assignedTo?.name || "Unassigned"}</span>
+                </div>
+                {detailTask.dueDate && (
+                  <div className="EmployeeProject-task-meta-item">
+                    <Icons.CalendarToday />
+                    <span>Due: {new Date(detailTask.dueDate).toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="EmployeeProject-task-meta-item">
+                  <Icons.AccessTime />
+                  <span>Created: {new Date(detailTask.createdAt).toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div className="EmployeeProject-task-remarks">
+                <h5 className="EmployeeProject-remarks-title">
+                  <Icons.Comment />
+                  Remarks ({detailTask.remarks?.length || 0})
+                </h5>
+                {detailTask.remarks?.length > 0 ? (
+                  <div className="EmployeeProject-remarks-list">
+                    {detailTask.remarks.map((r, idx) => (
+                      <div className="EmployeeProject-remark-item" key={idx}>
+                        <p className="EmployeeProject-remark-text">{r.text}</p>
+                        <div className="EmployeeProject-remark-footer">
+                          <div className="EmployeeProject-remark-author">
+                            <Avatar size="small">
+                              {r.createdBy?.name?.charAt(0)}
+                            </Avatar>
+                            <span>{r.createdBy?.name}</span>
+                          </div>
+                          <span className="EmployeeProject-remark-date">
+                            {new Date(r.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <Alert severity="info">No remarks yet.</Alert>
+                )}
+              </div>
+            </div>
+
+            <div className="EmployeeProject-modal-footer EmployeeProject-task-detail-footer">
+              <input
+                type="text"
+                className="EmployeeProject-remark-input"
+                placeholder="Add a remark..."
+                value={detailTask._newRemark || ""}
+                onChange={(e) =>
+                  setTasks((prev) =>
+                    prev.map((x) =>
+                      x._id === detailTask._id
+                        ? { ...x, _newRemark: e.target.value }
+                        : x
+                    )
+                  )
+                }
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleAddRemark(detailTask._id, detailTask._newRemark);
+                  }
+                }}
+              />
+              <button
+                className="EmployeeProject-button EmployeeProject-button-primary"
+                onClick={() => handleAddRemark(detailTask._id, detailTask._newRemark)}
+                disabled={!detailTask._newRemark?.trim()}
+              >
+                <Icons.Comment />
+                Add
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1609,12 +1665,16 @@ const EmployeeProject = () => {
                   <label>Due Date & Time</label>
                   <input
                     type="datetime-local"
-                    className="EmployeeProject-input"
+                    className={`EmployeeProject-input ${taskErrors.dueDate ? 'EmployeeProject-input-error' : ''}`}
                     value={newTask.dueDate}
+                    min={getCurrentDateTimeInputValue()}
                     onChange={(e) =>
                       setNewTask({ ...newTask, dueDate: e.target.value })
                     }
                   />
+                  {taskErrors.dueDate && (
+                    <span className="EmployeeProject-error-text">{taskErrors.dueDate}</span>
+                  )}
                 </div>
 
                 <div className="EmployeeProject-form-row">

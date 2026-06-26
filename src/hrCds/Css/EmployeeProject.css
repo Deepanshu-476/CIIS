@@ -744,15 +744,12 @@
   background: white;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   border: 1px solid rgba(0,0,0,0.06);
-<<<<<<< HEAD
   cursor: pointer;
   display: flex;
   flex-direction: column;
   min-height: 230px;
   height: 230px;
-=======
   min-width: 0;
->>>>>>> 8dc851e9ebb0cac90c029b340dbab82d747a27af
   overflow: hidden;
 }
 

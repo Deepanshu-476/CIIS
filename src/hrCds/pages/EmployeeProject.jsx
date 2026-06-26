@@ -529,21 +529,16 @@ const EmployeeProject = () => {
     ? tasks
     : tasks.filter(task => normalizeTaskStatus(task.status) === taskFilter);
 
-<<<<<<< HEAD
-  const detailTask = detailTaskId
-    ? tasks.find(task => task._id === detailTaskId)
-    : null;
-=======
   const normalizedProjectSearch = projectSearchTerm.trim().toLowerCase();
   const filteredProjects = normalizedProjectSearch
-    ? projects.filter((project) => {
+    ? projects.filter(project => {
         const searchableText = [
-          project?.projectName,
-          project?.title,
-          project?.name,
-          project?.description,
-          project?.status,
-          project?.priority,
+          project.projectName,
+          project.title,
+          project.name,
+          project.description,
+          project.status,
+          project.priority
         ]
           .filter(Boolean)
           .join(" ")
@@ -552,7 +547,10 @@ const EmployeeProject = () => {
         return searchableText.includes(normalizedProjectSearch);
       })
     : projects;
->>>>>>> 1605891a8006dc145dbc1c96a2217fa2721d82cc
+
+  const detailTask = detailTaskId
+    ? tasks.find(task => task._id === detailTaskId)
+    : null;
 
   const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
 

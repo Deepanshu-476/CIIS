@@ -373,7 +373,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
             attachLocalStream(stream);
             return stream;
         } catch (mediaError) {
-            setError("Mic/camera permission allow karke phir try karein.");
+            setError("Allow microphone/camera permission, then try again.");
             throw mediaError;
         }
     };
@@ -392,7 +392,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
 
     const checkCallAvailability = (participantIds) => new Promise((resolve) => {
         if (!socket?.connected) {
-            resolve({ success: false, reason: "Socket connect nahi hai. Please refresh karke phir call try karein." });
+            resolve({ success: false, reason: "Socket is not connected. Please refresh and try the call again." });
             return;
         }
 
@@ -400,7 +400,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
         const finish = (response) => {
             if (settled) return;
             settled = true;
-            resolve(response || { success: false, reason: "Users call ke liye available nahi hain." });
+            resolve(response || { success: false, reason: "Users are not available for the call." });
         };
 
         socket.emit("call:check-availability", { participantIds }, finish);
@@ -411,24 +411,24 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
 
     const startCall = async (callType, user) => {
         if (!socket || !user) {
-            setError("Call start nahi ho paayi.");
+            setError("Unable to start the call.");
             return;
         }
 
         if (!socket.connected) {
-            setError("Socket connect nahi hai. Please refresh karke phir call try karein.");
+            setError("Socket is not connected. Please refresh and try the call again.");
             return;
         }
 
         const participantIds = getCallParticipantIds(user, currentUserId);
         if (participantIds.length === 0) {
-            setError("Call ke liye koi participant nahi mila.");
+            setError("No participant found for the call.");
             return;
         }
 
         const availability = await checkCallAvailability(participantIds);
         if (!availability.success) {
-            setError(availability.reason || "Users offline hain");
+            setError(availability.reason || "Users are offline.");
             return;
         }
 
@@ -469,7 +469,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
                 if (activeCallRef.current?.callId === nextCall.callId && activeCallRef.current?.status === "outgoing") {
                     socket.emit("call:end", { callId: nextCall.callId });
                     resetCall();
-                    setError("Call answer nahi hua.");
+                    setError("The call was not answered.");
                 }
             }, 45000);
         } catch (mediaError) {
@@ -586,14 +586,14 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
         const handleRinging = (data) => {
             const activeCall = activeCallRef.current;
             if (!activeCall || activeCall.callId !== data.callId) return;
-            setError(data.unavailableIds?.length ? "Kuch participants offline hain; baaki ko ring ja rahi hai." : "");
+            setError(data.unavailableIds?.length ? "Some participants are offline; ringing the remaining participants." : "");
         };
 
         const handleUnavailable = (data) => {
             const activeCall = activeCallRef.current;
             if (activeCall && data.callId && activeCall.callId !== data.callId) return;
             resetCall();
-            setError(data.reason || "Users call ke liye available nahi hain.");
+            setError(data.reason || "Users are not available for the call.");
         };
 
         const handleJoined = (data) => {
@@ -629,7 +629,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
                 await createOfferForPeer(data.fromUserId, data.fromUser);
             } catch (error) {
                 logCall("call:participant-joined failed", error);
-                setError("Participant connect nahi ho paaya.");
+                setError("Unable to connect the participant.");
             }
         };
 
@@ -656,7 +656,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
                 emitToPeer(data.fromUserId, "call:answer", { answer });
             } catch (error) {
                 logCall("call:offer failed", error);
-                setError("Call connect nahi ho paayi.");
+                setError("Unable to connect the call.");
             }
         };
 
@@ -675,7 +675,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
                 stopRingtone();
             } catch (error) {
                 logCall("call:answer failed", error);
-                setError("Call connect nahi ho paayi.");
+                setError("Unable to connect the call.");
             }
         };
 

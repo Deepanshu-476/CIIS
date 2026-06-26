@@ -760,7 +760,7 @@ const Sidebar = ({ isMobile = false }) => {
     return userData?.department === "Management" && userData?.jobRole === "super_admin";
   }, [userData]);
 
-  // LocalStorage se user data aur company details fetch karo
+  // Fetch user data and company details from localStorage.
   useEffect(() => {
     const fetchLocalData = async () => {
       try {
@@ -1151,7 +1151,7 @@ const Sidebar = ({ isMobile = false }) => {
     return groups;
   }, [menuItems]);
 
-  // Mobile aur Desktop ke liye alag containers
+  // Separate containers for mobile and desktop.
   const Container = isMobile ? MobileSidebarContainer : SidebarContainer;
 
   // Loading state

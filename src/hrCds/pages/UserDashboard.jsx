@@ -147,7 +147,7 @@ const UserDashboard = () => {
   const [leaveData, setLeaveData] = useState([]);
   const [taskActivity, setTaskActivity] = useState([]);
   
-  // ✅ Holidays ke liye state
+  // Holiday state.
   const [holidays, setHolidays] = useState([]);
   const [holidaysLoading, setHolidaysLoading] = useState(false);
   
@@ -316,7 +316,7 @@ const UserDashboard = () => {
     }
   }, [getCompanyId, token, isUserInCurrentCompany]);
 
-  // ✅ Holidays fetch karne ke liye
+  // Fetch holidays.
   const fetchHolidays = useCallback(async () => {
     if (!isUserInCurrentCompany) return;
     if (fetchInProgress.current.holidays) return;
@@ -398,7 +398,7 @@ const UserDashboard = () => {
         
         setAttendanceData(data);
         
-        // ✅ Recent activity update karo
+        // Update recent activity.
         updateRecentActivity(data, holidays);
         
       } catch (error) {
@@ -547,10 +547,10 @@ const UserDashboard = () => {
 
   // ✅ Function to update recent activity (HOLIDAY优先)
   const updateRecentActivity = useCallback((attendance, holidayList, tasks = taskActivity) => {
-    // Pehle sab activities ko collect karo
+    // Collect all activities first.
     const allActivities = [];
     
-    // Attendance records add karo
+    // Add attendance records.
     attendance.forEach(record => {
       allActivities.push({
         ...record,
@@ -561,7 +561,7 @@ const UserDashboard = () => {
       });
     });
     
-    // Holidays add karo
+    // Add holidays.
     holidayList.forEach(holiday => {
       allActivities.push({
         ...holiday,
@@ -606,8 +606,8 @@ const UserDashboard = () => {
       
       try {
         await fetchJobRoles();
-        await fetchHolidays(); // ✅ Pehle holidays fetch karo
-        await fetchAttendanceData(true); // ✅ Phir attendance fetch karo
+        await fetchHolidays(); // Fetch holidays first.
+        await fetchAttendanceData(true); // Then fetch attendance.
         await fetchLeaveData();
         await fetchCurrentStatus();
         await fetchRecentTaskActivity();
@@ -726,7 +726,7 @@ const UserDashboard = () => {
     return [...new Set(dates)];
   }, [filteredLeaveData, isBeforeJoinDate]);
 
-  // ✅ Holiday dates calculate karo
+  // Calculate holiday dates.
   const holidayDates = useMemo(() => {
     return holidays.map(holiday => {
       const date = new Date(holiday.date);
@@ -774,7 +774,7 @@ const UserDashboard = () => {
     return { presentDays, lateDays, halfDays, absentDays, leavesTaken };
   }, [filteredAttendanceData, leaveDates, currentMonth, currentYear]);
 
-  // ✅ getDayStatus me holiday check (sabse pehle)
+  // Check holidays first in getDayStatus.
   const getDayStatus = useCallback((day) => {
     if (!day) return null;
     
@@ -783,7 +783,7 @@ const UserDashboard = () => {
     const dayOfWeek = dateObj.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     
-    // ✅ HOLIDAY CHECK - Pehle holiday check karo
+    // Holiday check first.
     if (holidayDates.includes(key)) return "holiday";
     
     if (isBeforeJoinDate(dateObj)) return "before-join";
@@ -1222,7 +1222,7 @@ const UserDashboard = () => {
             
             {/* Show actual data when not loading */}
             {!loading.attendance && recentActivity.map((item, index) => {
-              // ✅ Agar holiday hai to alag UI dikhao (HOLIDAY优先)
+              // Show a separate UI when the date is a holiday.
               if (item.type === 'holiday') {
                 const date = new Date(item.date);
                 return (
@@ -1270,7 +1270,7 @@ const UserDashboard = () => {
                 );
               }
               
-              // ✅ Attendance record - Ye tabhi show hoga jab holiday nahi hai
+              // Attendance records are shown only when the date is not a holiday.
               const date = new Date(item.date);
               const isCurrentMonth = date.getMonth() === currentMonth && date.getFullYear() === currentYear;
               return (

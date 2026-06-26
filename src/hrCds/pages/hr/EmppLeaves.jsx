@@ -171,6 +171,7 @@ const EmployeeLeaves = () => {
   const [currentUserName, setCurrentUserName] = useState("");
   const [allUsers, setAllUsers] = useState([]);
   const [usersMap, setUsersMap] = useState({});
+  const [deletePermissionUserIds, setDeletePermissionUserIds] = useState([]);
   
   // Department Related States
   const [departments, setDepartments] = useState([]);
@@ -394,6 +395,53 @@ const EmployeeLeaves = () => {
     return "System";
   };
 
+  const getApprovalUser = (step) => step?.user || {};
+
+  const getApprovalUserId = (step) => {
+    const user = getApprovalUser(step);
+    return String(user?._id || user?.id || user || "");
+  };
+
+  const hasApprovalWorkflow = (leave) => Array.isArray(leave?.approvalSteps) && leave.approvalSteps.length > 0;
+
+  const isCurrentUserPendingApprover = (leave) => {
+    if (!hasApprovalWorkflow(leave)) return false;
+    return leave.approvalSteps.some((step) =>
+      getApprovalUserId(step) === String(currentUserId) && (step.status || "Pending") === "Pending"
+    );
+  };
+
+  const ApprovalWorkflow = ({ leave }) => {
+    if (!hasApprovalWorkflow(leave)) {
+      const approvedByName = getUserName(leave?.approvedBy);
+      return (
+        <div className="EmppLeaves-approved-by">
+          {approvedByName}
+          {leave?.approvedBy?.role && approvedByName !== 'System' && (
+            <span className="EmppLeaves-approver-role">
+              ({normalizeRole(leave.approvedBy.role)})
+            </span>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="EmppLeaves-approval-flow">
+        {leave.approvalSteps.map((step, index) => {
+          const user = getApprovalUser(step);
+          const status = step.status || "Pending";
+          return (
+            <div className={`EmppLeaves-approval-step EmppLeaves-approval-step-${status.toLowerCase()}`} key={getApprovalUserId(step) || index}>
+              <span className="EmppLeaves-approval-name">{user?.name || "User"}</span>
+              <span className="EmppLeaves-approval-status">{status}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   // ============================================
   // PERMISSION CHECK FUNCTIONS
   // ============================================
@@ -402,13 +450,21 @@ const EmployeeLeaves = () => {
   }, [isOwner, isAdmin, isHR, isManager]);
 
   const canDeleteLeave = useCallback(() => {
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  return isOwner || isAdmin || isHR || isManager || user.jobRole === "superadmin";
-}, [isOwner, isAdmin, isHR, isManager]);
+    if (deletePermissionUserIds.length > 0) {
+      return deletePermissionUserIds.includes(String(currentUserId));
+    }
 
-  const canApproveLeave = useCallback(() => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    return isOwner || isAdmin || isHR || isManager || user.jobRole === "superadmin";
+  }, [deletePermissionUserIds, currentUserId, isOwner, isAdmin, isHR, isManager]);
+
+  const canApproveLeave = useCallback((leave = null) => {
+    if (leave && hasApprovalWorkflow(leave)) {
+      return isCurrentUserPendingApprover(leave);
+    }
+
     return isOwner || isAdmin || isHR || isManager;
-  }, [isOwner, isAdmin, isHR, isManager]);
+  }, [isOwner, isAdmin, isHR, isManager, currentUserId]);
 
   // ============================================
   // API CALL FUNCTIONS
@@ -595,6 +651,21 @@ const EmployeeLeaves = () => {
     }
   }, [currentUserCompanyId, currentUserDepartment, isOwner, showSnackbar]);
 
+  const fetchLeavePagePermissions = useCallback(async () => {
+    try {
+      const res = await axios.get("/page-permissions/by-path", {
+        params: { path: "/ciisUser/emp-leaves" }
+      });
+      const ids = (res.data?.page?.deleteUsers || [])
+        .map(user => String(user?._id || user?.id || user))
+        .filter(Boolean);
+      setDeletePermissionUserIds(ids);
+    } catch (error) {
+      console.error("Failed to load leave page permissions:", error);
+      setDeletePermissionUserIds([]);
+    }
+  }, []);
+
   const fetchLeaves = useCallback(async () => {
     if (!currentUserCompanyId) {
       setLoading(false);
@@ -688,8 +759,9 @@ const EmployeeLeaves = () => {
       fetchCompanyDetails();
       fetchDepartments();
       fetchCompanyUsers();
+      fetchLeavePagePermissions();
     }
-  }, [currentUserCompanyId, fetchCompanyDetails, fetchDepartments, fetchCompanyUsers]);
+  }, [currentUserCompanyId, fetchCompanyDetails, fetchDepartments, fetchCompanyUsers, fetchLeavePagePermissions]);
 
   useEffect(() => {
     if (currentUserCompanyId && currentUserDepartment !== undefined) {
@@ -840,8 +912,8 @@ const EmployeeLeaves = () => {
   // ============================================
   // DIALOG FUNCTIONS
   // ============================================
-  const openStatusDialog = (leaveId, newStatus, userEmail, userName, userPhone, userId, currentStatus) => {
-    if (!canApproveLeave()) {
+  const openStatusDialog = (leaveId, newStatus, userEmail, userName, userPhone, userId, currentStatus, leave = null) => {
+    if (!canApproveLeave(leave)) {
       showSnackbar("Access Denied: You don't have permission to update leave status", "error");
       return;
     }
@@ -888,7 +960,7 @@ const EmployeeLeaves = () => {
       });
       
       if (res.data.success || res.data.message) {
-        showSnackbar(`Leave ${newStatus.toLowerCase()} successfully`, "success");
+        showSnackbar(res.data.message || `Leave ${newStatus.toLowerCase()} successfully`, "success");
         
         await fetchLeaves();
         closeStatusDialog();
@@ -1262,14 +1334,17 @@ const EmployeeLeaves = () => {
                   </div>
                 )}
 
-                {leave.status !== 'Pending' && (
+                {(leave.status !== 'Pending' || hasApprovalWorkflow(leave)) && (
                   <div className="EmppLeaves-details-card EmppLeaves-approval-card">
                     <div className="EmppLeaves-card-header">
                       <FiCheckSquare size={18} color="#1976d2" />
-                      <h4>Decision Information</h4>
+                      <h4>Approval Information</h4>
                     </div>
                     <div className="EmppLeaves-card-content">
-                      <div className="EmppLeaves-info-rows">
+                      {hasApprovalWorkflow(leave) ? (
+                        <ApprovalWorkflow leave={leave} />
+                      ) : (
+                        <div className="EmppLeaves-info-rows">
                         <div className="EmppLeaves-info-row">
                           <FiUser size={14} className="EmppLeaves-info-icon" />
                           <span className="EmppLeaves-info-label">Decision By:</span>
@@ -1289,7 +1364,8 @@ const EmployeeLeaves = () => {
                           <span className="EmppLeaves-info-label">Decision At:</span>
                           <span className="EmppLeaves-info-value">{formatDateTime(leave.updatedAt)}</span>
                         </div>
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1322,7 +1398,7 @@ const EmployeeLeaves = () => {
             <button className="EmppLeaves-btn EmppLeaves-btn-outlined" onClick={onClose}>
               Close
             </button>
-            {leave.status === 'Pending' && canApproveLeave() && (
+            {leave.status === 'Pending' && canApproveLeave(leave) && (
               <div className="EmppLeaves-footer-actions">
                 <button 
                   className="EmppLeaves-btn EmppLeaves-btn-success"
@@ -1335,7 +1411,8 @@ const EmployeeLeaves = () => {
                       leave.user?.name,
                       leave.user?.phone,
                       leave.user?._id,
-                      leave.status
+                      leave.status,
+                      leave
                     );
                   }}
                 >
@@ -1353,7 +1430,8 @@ const EmployeeLeaves = () => {
                       leave.user?.name,
                       leave.user?.phone,
                       leave.user?._id,
-                      leave.status
+                      leave.status,
+                      leave
                     );
                   }}
                 >
@@ -1397,7 +1475,7 @@ const EmployeeLeaves = () => {
               <th>Leave Details</th>
               <th>Duration</th>
               {showStatusColumn && <th>Status</th>}
-              <th>Actioned By</th>
+              <th>Approval Status</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -1408,8 +1486,6 @@ const EmployeeLeaves = () => {
                 const userId = leave.user?._id || leave.user;
                 const isOwnLeave = userId === currentUserId;
                 const departmentName = getDepartmentName(leave.user?.department);
-                const approvedByName = getUserName(leave.approvedBy);
-                
                 const reasonPreview = leave.reason 
                   ? leave.reason.length > 40 
                     ? `${leave.reason.substring(0, 40)}...` 
@@ -1507,14 +1583,7 @@ const EmployeeLeaves = () => {
                       </td>
                     )}
                     <td>
-                      <div className="EmppLeaves-approved-by">
-                        {approvedByName}
-                        {leave.approvedBy?.role && approvedByName !== 'System' && (
-                          <span className="EmppLeaves-approver-role">
-                            ({normalizeRole(leave.approvedBy.role)})
-                          </span>
-                        )}
-                      </div>
+                      <ApprovalWorkflow leave={leave} />
                     </td>
                     <td>
                       <div className="EmppLeaves-actions-container">
@@ -1525,7 +1594,7 @@ const EmployeeLeaves = () => {
                           <FiList size={16} />
                         </button>
                         
-                        {leave.status === 'Pending' && canApproveLeave() && (
+                        {leave.status === 'Pending' && canApproveLeave(leave) && (
                           <>
                             <button
                               className="EmppLeaves-action-icon-button EmppLeaves-approve"
@@ -1536,7 +1605,8 @@ const EmployeeLeaves = () => {
                                 leave.user?.name,
                                 leave.user?.phone,
                                 userId,
-                                leave.status
+                                leave.status,
+                                leave
                               )}
                             >
                               <FiCheckCircle size={16} />
@@ -1550,7 +1620,8 @@ const EmployeeLeaves = () => {
                                 leave.user?.name,
                                 leave.user?.phone,
                                 userId,
-                                leave.status
+                                leave.status,
+                                leave
                               )}
                             >
                               <FiXCircle size={16} />

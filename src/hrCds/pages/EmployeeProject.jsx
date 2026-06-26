@@ -79,6 +79,7 @@ const EmployeeProject = () => {
   const [projectDetails, setProjectDetails] = useState(null);
   const [projectUsers, setProjectUsers] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [projectSearchTerm, setProjectSearchTerm] = useState("");
   const [pageLoading, setPageLoading] = useState(true); // ✅ Page loading state
   const [loading, setLoading] = useState({ projects: false, tasks: false });
   const [file, setFile] = useState(null);
@@ -164,6 +165,7 @@ const EmployeeProject = () => {
     CloudUpload: () => <span className="EmployeeProject-icon">☁️↑</span>,
     Bolt: () => <span className="EmployeeProject-icon">⚡</span>,
     Notifications: () => <span className="EmployeeProject-icon">🔔</span>,
+    Search: () => <span className="EmployeeProject-icon">🔍</span>,
     NoProjects: () => <span className="EmployeeProject-icon">📭</span>
   };
 
@@ -527,9 +529,30 @@ const EmployeeProject = () => {
     ? tasks
     : tasks.filter(task => normalizeTaskStatus(task.status) === taskFilter);
 
+<<<<<<< HEAD
   const detailTask = detailTaskId
     ? tasks.find(task => task._id === detailTaskId)
     : null;
+=======
+  const normalizedProjectSearch = projectSearchTerm.trim().toLowerCase();
+  const filteredProjects = normalizedProjectSearch
+    ? projects.filter((project) => {
+        const searchableText = [
+          project?.projectName,
+          project?.title,
+          project?.name,
+          project?.description,
+          project?.status,
+          project?.priority,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        return searchableText.includes(normalizedProjectSearch);
+      })
+    : projects;
+>>>>>>> 1605891a8006dc145dbc1c96a2217fa2721d82cc
 
   const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
 
@@ -719,6 +742,33 @@ const EmployeeProject = () => {
           </div>
         </div>
 
+        <div className="EmployeeProject-search-row">
+          <div className="EmployeeProject-search-box">
+            <Icons.Search />
+            <input
+              type="search"
+              className="EmployeeProject-search-input"
+              value={projectSearchTerm}
+              onChange={(e) => setProjectSearchTerm(e.target.value)}
+              placeholder="Search by project name or title"
+              aria-label="Search projects by name or title"
+            />
+            {projectSearchTerm && (
+              <button
+                type="button"
+                className="EmployeeProject-search-clear"
+                onClick={() => setProjectSearchTerm("")}
+                aria-label="Clear project search"
+              >
+                <Icons.Close />
+              </button>
+            )}
+          </div>
+          <span className="EmployeeProject-search-count">
+            {filteredProjects.length} of {projects.length} projects
+          </span>
+        </div>
+
         {/* Stats Cards - Only show if project is selected */}
         {selectedProject && (
           <div className="EmployeeProject-stats-grid">
@@ -811,9 +861,24 @@ const EmployeeProject = () => {
             </div>
           </div>
         </div>
+      ) : filteredProjects.length === 0 ? (
+        <div className="EmployeeProject-no-projects">
+          <div className="EmployeeProject-no-projects-content">
+            <div className="EmployeeProject-no-projects-icon">
+              <Icons.Search />
+            </div>
+            <h2 className="EmployeeProject-no-projects-title">No Matching Projects</h2>
+            <p className="EmployeeProject-no-projects-message">
+              No projects match "{projectSearchTerm}".
+            </p>
+            <p className="EmployeeProject-no-projects-submessage">
+              Try searching with another project name or title.
+            </p>
+          </div>
+        </div>
       ) : (
         <div className="EmployeeProject-grid">
-          {projects.map((p) => (
+          {filteredProjects.map((p) => (
             <div className="EmployeeProject-grid-item" key={p._id}>
               <div
                 className={`EmployeeProject-card ${selectedProject === p._id ? 'EmployeeProject-card-selected' : ''}`}

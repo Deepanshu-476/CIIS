@@ -579,7 +579,7 @@ useEffect(() => {
                     await sendRecordedFile(blob, mode, recorder.mimeType || mimeType);
                 } catch (error) {
                     console.log(error);
-                    setRecordingError("Recording send nahi ho paayi. Please try again.");
+                    setRecordingError("Unable to send the recording. Please try again.");
                 }
             };
 
@@ -593,7 +593,7 @@ useEffect(() => {
             console.log(error);
             stopRecordingTracks();
             setRecorderMode(null);
-            setRecordingError("Mic/camera permission allow karke phir try karein.");
+            setRecordingError("Allow microphone/camera permission, then try again.");
         }
     };
 

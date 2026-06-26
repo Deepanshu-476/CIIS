@@ -134,7 +134,7 @@ const getImageUrl = (imagePath) => {
 
   console.log('🔍 Original image path:', imagePath);
 
-  // अगर already full URL है
+  // If it is already a full URL.
   if (imagePath.startsWith('http')) {
     return imagePath;
   }

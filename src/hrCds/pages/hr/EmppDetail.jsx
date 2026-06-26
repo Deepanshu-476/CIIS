@@ -128,7 +128,7 @@ const useUser = () => {
   const canEditOtherEmployees = useMemo(() => {
     const jobRole = getCurrentUserJobRole();
     const companyRole = getCurrentUserCompanyRole();
-    // Sabko edit permission - Employee, Owner, HR, Manager, Admin, Super Admin sab edit kar sakte hain
+    // Edit permission is available for Employee, Owner, HR, Manager, Admin, and Super Admin.
     const allowedRoles = ['super_admin', 'admin', 'owner', 'hr', 'manager', 'employee'];
     return allowedRoles.includes(jobRole) || allowedRoles.includes(companyRole);
   }, [getCurrentUserJobRole, getCurrentUserCompanyRole]);

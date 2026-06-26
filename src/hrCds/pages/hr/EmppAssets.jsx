@@ -582,10 +582,10 @@ const EmpAssets = () => {
         adminComment: commentText,
       });
       setNotification({ message: 'Comment updated successfully', severity: 'success' });
-      // ✅ comment ko turant UI me show karo
+      // Show the comment in the UI immediately.
         await fetchRequests();
 
-        // textarea clear karo
+        // Clear the textarea.
         setCommentText('');
     } catch (err) {
       setNotification({ message: 'Failed to update comment', severity: 'error' });

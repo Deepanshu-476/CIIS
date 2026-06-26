@@ -110,7 +110,7 @@ const Holidays = () => {
             const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
             if (!rows.length) {
-                setError('Excel file empty hai. Please valid holiday rows upload karo.');
+                setError('The Excel file is empty. Please upload valid holiday rows.');
                 return;
             }
 
@@ -134,7 +134,7 @@ const Holidays = () => {
                 .filter(Boolean);
 
             if (!parsedHolidays.length) {
-                setError('Excel me valid holiday data nahi mila. Columns: Title/Holiday/Name aur Date required hain.');
+                setError('No valid holiday data found in Excel. Columns Title/Holiday/Name and Date are required.');
                 return;
             }
 
@@ -149,7 +149,7 @@ const Holidays = () => {
             });
 
             if (!uniqueHolidays.length) {
-                setError('Excel ke sab holidays already added hain.');
+                setError('All holidays in the Excel file are already added.');
                 return;
             }
 
@@ -173,11 +173,11 @@ const Holidays = () => {
             }
 
             await fetchHolidays();
-            setSuccess(`${added} holidays Excel se add ho gaye${skipped ? `, ${skipped} duplicate/invalid skip hue` : ''}.`);
+            setSuccess(`${added} holidays added from Excel${skipped ? `, ${skipped} duplicate/invalid rows skipped` : ''}.`);
             setTimeout(() => setSuccess(''), 5000);
         } catch (err) {
             console.error('Excel upload error:', err);
-            setError(err.response?.data?.message || 'Excel upload karte time error aa gaya');
+            setError(err.response?.data?.message || 'An error occurred while uploading the Excel file.');
         } finally {
             setUploadingExcel(false);
         }

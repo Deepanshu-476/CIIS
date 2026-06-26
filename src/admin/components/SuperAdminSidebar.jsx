@@ -24,6 +24,7 @@ import {
   Inventory as AssetsIcon,
   ManageAccounts as ManageAccountsIcon,
   SupportAgent as SupportAgentIcon,
+  Web as WebIcon,
 } from '@mui/icons-material';
 
 // Styled components (same as before)
@@ -172,7 +173,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       icon: <CompanyIcon />, 
       name: 'Company Details', 
       route: '/Ciis-network/company-details',
-      // Ab sirf specific email ke liye show hoga
+      // Show only for specific email if configured.
       // showForEmail: ['ashutoshrai130@gmail.com']
       showForAll: true
     },
@@ -180,14 +181,14 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       icon: <CompanyIcon />, 
       name: 'All Company', 
       route: '/Ciis-network/all-company',
-      // Ab sirf specific email ke liye show hoga
+      // Show only for specific email if configured.
       showForEmail: ['ashutoshrai130@gmail.com']
     },
     { 
       icon: <DepartmentIcon />, 
       name: 'Department', 
       route: '/Ciis-network/department',
-      // Ye sab users ke liye show hoga
+      // Show for all users.
       showForAll: true
     },
     { 
@@ -200,29 +201,35 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       icon: <JobRoleIcon />, 
       name: 'Job Roles', 
       route: '/Ciis-network/JobRoleManagement',
-      // Ye sab users ke liye show hoga
+      // Show for all users.
       showForAll: true
     },
     { 
       icon: <CreateUserIcon />, 
       name: 'Create User', 
       route: '/Ciis-network/create-user',
-      // Ye sab users ke liye show hoga
+      // Show for all users.
       showForAll: true
     },
     { 
       icon: <AssetsIcon />,
       name: 'Assets Management', 
       route: '/Ciis-network/company-assets',
-      // Ye sab users ke liye show hoga
+      // Show for all users.
       showForAll: true
     },
     { 
       icon: <DepartmentIcon />, 
       name: 'Sidebar Management', 
       route: '/Ciis-network/SidebarManagement',
-      // Ab sirf specific email ke liye show hoga
+      // Show only for specific email if configured.
       // showForEmail: ['ashutoshrai130@gmail.com']
+      showForAll: true
+    },
+    {
+      icon: <WebIcon />,
+      name: 'Page Management',
+      route: '/Ciis-network/page-management',
       showForAll: true
     },
     {
@@ -242,7 +249,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       icon: <CompanyIcon />, 
       name: 'Holiday', 
       route: '/Ciis-network/holiday',
-      // Ab sirf specific email ke liye show hoga
+      // Show only for specific email if configured.
       // showForEmail: ['ashutoshrai130@gmail.com']
       showForAll: true
     },
@@ -266,10 +273,10 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
         let shouldShow = false;
         
         if (item.showForAll) {
-          // Agar showForAll true hai to sabko dikhao
+          // Show to everyone when showForAll is enabled.
           shouldShow = true;
         } else if (item.showForEmail && item.showForEmail.includes(userEmail)) {
-          // Agar specific email match karta hai to dikhao
+          // Show when the configured email matches.
           shouldShow = true;
         }
         

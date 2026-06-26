@@ -96,7 +96,7 @@ const App = () => {
                   e.target.nextSibling.style.display = 'flex';
                 }}
               />
-              {/* Fallback text logo - अब यह केवल error case में दिखेगा */}
+              {/* Fallback text logo, shown only when the image fails to load. */}
               <div className="ciis-logo-fallback">
                 <span className="ciis-logo-text">CIIS NETWORK</span>
               </div>

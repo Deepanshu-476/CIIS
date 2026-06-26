@@ -27,7 +27,8 @@ const ChatBox = ({
     users,
     socket,
     onlineUsers = [],
-    onConversationChange
+    onConversationChange,
+    onBack
 }) => {
 
     const [conversation, setConversation] =
@@ -55,6 +56,7 @@ const ChatBox = ({
     const recordingPreviewRef = useRef(null);
     const emojiPickerRef = useRef(null);
     const chatInputRef = useRef(null);
+    const fileInputRef = useRef(null);
     const activeConversationIdRef = useRef(null);
     const { startCall } = useCall();
     const { showToast } = useNotification();
@@ -675,6 +677,9 @@ useEffect(() => {
 
             setText("");
             setFiles([]);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
             socket?.emit("chat:stop-typing", { conversationId: conversation._id });
             onConversationChange?.();
 
@@ -731,6 +736,13 @@ useEffect(() => {
     const handleEmojiSelect = (emoji) => {
         setText((prev) => `${prev}${emoji}`);
         chatInputRef.current?.focus();
+    };
+
+    const clearSelectedFiles = () => {
+        setFiles([]);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
     };
 
 
@@ -815,6 +827,14 @@ useEffect(() => {
         <div className="chat-box">
             <div className="chat-header">
                 <div className="chat-header-left">
+                    <button
+                        type="button"
+                        className="chat-mobile-back"
+                        title="Back to conversations"
+                        onClick={onBack}
+                    >
+                        <ArrowLeft size={20} />
+                    </button>
                     <div className="chat-avatar">
                         {
                             selectedUser.isGroup
@@ -909,6 +929,7 @@ useEffect(() => {
                 <div className="chat-composer">
                     <label className="file-upload-btn" title="Attach file">
                         <input
+                            ref={fileInputRef}
                             type="file"
                             accept={CHAT_FILE_ACCEPT}
                             multiple

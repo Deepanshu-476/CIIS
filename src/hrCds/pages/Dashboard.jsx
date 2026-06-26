@@ -546,12 +546,16 @@ const Dashboard = () => {
     }
   };
 
+  const distributionTotal = overallStats.completedTasks + overallStats.pendingTasks + overallStats.overdueTasks;
+  const hasDistributionData = distributionTotal > 0;
   const doughnutData = {
-    labels: ['Completed', 'Pending', 'Overdue'],
+    labels: hasDistributionData ? ['Completed', 'Pending', 'Overdue'] : ['No Tasks'],
     datasets: [
       {
-        data: [overallStats.completedTasks, overallStats.pendingTasks, overallStats.overdueTasks],
-        backgroundColor: ['#24c06f', '#ff9b0f', '#ff4055'],
+        data: hasDistributionData
+          ? [overallStats.completedTasks, overallStats.pendingTasks, overallStats.overdueTasks]
+          : [1],
+        backgroundColor: hasDistributionData ? ['#24c06f', '#ff9b0f', '#ff4055'] : ['#eef2f8'],
         borderColor: '#ffffff',
         borderWidth: 2,
         hoverOffset: 0,

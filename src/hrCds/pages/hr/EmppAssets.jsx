@@ -448,7 +448,78 @@ const EmpAssets = () => {
     }
   };
 
-  const handleStatusChange = async (reqId, newStatus) => {
+  const getRequestId = (request) => (
+    typeof request === 'object' ? request?._id || request?.id : request
+  );
+
+  const getRequestUserId = (request) => (
+    request?.user?._id ||
+    request?.user?.id ||
+    request?.userId?._id ||
+    request?.userId?.id ||
+    request?.userId ||
+    request?.requestedBy?._id ||
+    request?.requestedBy?.id ||
+    request?.requestedBy ||
+    ''
+  );
+
+  const getRequestAssetId = (request) => (
+    request?.assetId?._id ||
+    request?.assetId?.id ||
+    request?.asset?._id ||
+    request?.asset?.id ||
+    request?.companyAsset?._id ||
+    request?.companyAsset?.id ||
+    request?.assetId ||
+    request?.asset ||
+    request?.companyAsset ||
+    ''
+  );
+
+  const buildStatusPayload = (request, newStatus) => {
+    const actorField = newStatus === 'approved' ? 'approvedBy' : 'rejectedBy';
+
+    return {
+      status: newStatus,
+      requestStatus: newStatus,
+      [actorField]: currentUserId,
+      actionBy: currentUserId,
+      actionByName: currentUserName,
+      adminId: currentUserId,
+      adminName: currentUserName,
+      companyCode: request?.companyCode || currentUserCompanyCode || selectedCompany,
+      company: request?.company?._id || request?.company || currentUserCompanyId,
+      userId: getRequestUserId(request),
+      assetId: getRequestAssetId(request),
+    };
+  };
+
+  const patchStatusWithFallbacks = async (reqId, payload) => {
+    const attempts = [
+      { method: 'patch', url: `/asset-requests/update/${reqId}`, data: payload },
+      { method: 'patch', url: `/asset-requests/${reqId}/status`, data: payload },
+      { method: 'patch', url: `/asset-requests/${reqId}`, data: payload },
+      { method: 'put', url: `/asset-requests/update/${reqId}`, data: payload },
+    ];
+
+    let lastError;
+    for (const attempt of attempts) {
+      try {
+        return await axios[attempt.method](attempt.url, attempt.data, { _skipErrorNotify: true });
+      } catch (error) {
+        lastError = error;
+        const statusCode = error.response?.status;
+        if (![404, 405, 500].includes(statusCode)) {
+          throw error;
+        }
+      }
+    }
+
+    throw lastError;
+  };
+
+  const handleStatusChange = async (request, newStatus) => {
     if (!canApproveRequest()) {
       setNotification({ 
         message: '⛔ Access Denied: Only Owner, Admin, HR, or Manager can update status', 
@@ -456,15 +527,26 @@ const EmpAssets = () => {
       });
       return;
     }
-    
+
+    const reqId = getRequestId(request);
+    if (!reqId) {
+      setNotification({ message: 'Request ID missing. Please refresh and try again.', severity: 'error' });
+      return;
+    }
+
     setActionLoading(true);
     try {
       // ✅ FIXED: Use correct endpoint - /asset-requests/update/:id
-      await axios.patch(`/asset-requests/update/${reqId}`, { status: newStatus });
+      const payload = buildStatusPayload(request, newStatus);
+      await patchStatusWithFallbacks(reqId, payload);
       setNotification({ message: 'Status updated successfully', severity: 'success' });
       fetchRequests();
     } catch (err) {
-      setNotification({ message: 'Failed to update status', severity: 'error' });
+      const message =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        'Failed to update status';
+      setNotification({ message, severity: 'error' });
       console.error('Status update error:', err);
     } finally { 
       setActionLoading(false); 
@@ -909,14 +991,14 @@ const EmpAssets = () => {
                         <>
                           <button 
                             className="EmpAssets-status-btn EmpAssets-approve"
-                            onClick={() => handleStatusChange(req._id, 'approved')}
+                            onClick={() => handleStatusChange(req, 'approved')}
                             disabled={actionLoading}
                           >
                             Approve
                           </button>
                           <button 
                             className="EmpAssets-status-btn EmpAssets-reject"
-                            onClick={() => handleStatusChange(req._id, 'rejected')}
+                            onClick={() => handleStatusChange(req, 'rejected')}
                             disabled={actionLoading}
                           >
                             Reject
@@ -928,7 +1010,7 @@ const EmpAssets = () => {
                           <FiLock size={14} />
                         </span>
                       )}
-                      
+
                       {canEditComment() && (
                         <button 
                           className="EmpAssets-icon-button EmpAssets-edit"

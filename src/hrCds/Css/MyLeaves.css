@@ -65,7 +65,7 @@
   border-radius: 16px;
   padding: 24px 32px;
   margin-bottom: 24px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-primary) !important;
 }
 
 .MyLeaves-header-content {
@@ -82,7 +82,7 @@
 .MyLeaves-title {
   font-size: 32px;
   font-weight: 700;
-  color: #1a202c;
+
   margin-bottom: 8px;
   background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;

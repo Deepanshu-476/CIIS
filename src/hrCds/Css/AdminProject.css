@@ -67,6 +67,7 @@
   box-shadow: var(--ap-shadow-lg);
   border: 1px solid var(--ap-border-light);
   animation: ap-fade-in 0.5s ease;
+  color: var(--text-on-primary) !important;
 }
 
 @media (max-width: 768px) {

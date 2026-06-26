@@ -10,7 +10,7 @@ const CiisNavbar = () => {
 
   return (
     <nav className="navbar">
-      <div className="navbar-container">
+      <div className="navbar-container">  
 
         <div className="navbar-brand">
           <Link to="/" className="logo">

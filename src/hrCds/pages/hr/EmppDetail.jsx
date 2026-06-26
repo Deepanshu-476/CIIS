@@ -768,6 +768,26 @@ const EmploymentDetailsForm = ({
     { value: 'owner', label: 'Owner' }
   ];
 
+  const selectedDepartmentId = typeof formData.department === 'object'
+    ? formData.department?._id || formData.department?.id
+    : formData.department;
+
+  const getRoleDepartmentId = (role) => {
+    if (!role?.department) return '';
+    return typeof role.department === 'object'
+      ? role.department._id || role.department.id
+      : role.department;
+  };
+
+  const filteredJobRoles = selectedDepartmentId
+    ? jobRoles.filter(role => getRoleDepartmentId(role) === selectedDepartmentId)
+    : [];
+
+  const handleDepartmentChange = (departmentId) => {
+    onInputChange('department', departmentId);
+    onInputChange('jobRole', '');
+  };
+
   return (
     <div className="EmployeeDirectory-form-section">
       <h3 className="EmployeeDirectory-section-title">
@@ -784,15 +804,12 @@ const EmploymentDetailsForm = ({
           <label className="EmployeeDirectory-form-label">Employee ID</label>
           <input
             type="text"
-            className="EmployeeDirectory-form-input"
+            className="EmployeeDirectory-form-input EmployeeDirectory-form-input-disabled"
             value={formData.employeeId || ''}
-            onChange={(e) => onInputChange('employeeId', e.target.value)}
-            disabled={!canEditAllFields}
-            placeholder="Auto-generated if empty"
+            disabled
+            placeholder="Employee ID cannot be changed"
           />
-          {!canEditAllFields && (
-            <span className="EmployeeDirectory-field-note">You don't have permission to edit</span>
-          )}
+          <span className="EmployeeDirectory-field-note">Employee ID cannot be changed</span>
         </div>
         
         <div className="EmployeeDirectory-form-group">
@@ -801,12 +818,14 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-select"
             value={formData.jobRole || ''}
             onChange={(e) => onInputChange('jobRole', e.target.value)}
-            disabled={!canEditAllFields}
+            disabled={!canEditAllFields || !selectedDepartmentId}
           >
-            <option value="">Select Job Role</option>
-            {jobRoles.map(role => (
+            <option value="">
+              {selectedDepartmentId ? 'Select Job Role' : 'Select Department First'}
+            </option>
+            {filteredJobRoles.map(role => (
               <option key={role._id} value={role._id}>
-                {role.roleName} ({role.roleNumber})
+                {role.roleNumber ? `${role.roleName} (${role.roleNumber})` : role.roleName}
               </option>
             ))}
           </select>
@@ -820,7 +839,7 @@ const EmploymentDetailsForm = ({
           <select
             className="EmployeeDirectory-form-select"
             value={formData.department || ''}
-            onChange={(e) => onInputChange('department', e.target.value)}
+            onChange={(e) => handleDepartmentChange(e.target.value)}
             disabled={!canEditAllFields}
           >
             <option value="">Select Department</option>
@@ -903,21 +922,6 @@ const EmploymentDetailsForm = ({
         </div>
 
         <div className="EmployeeDirectory-form-group">
-          <label className="EmployeeDirectory-form-label">Reporting Manager</label>
-          <input
-            type="text"
-            className="EmployeeDirectory-form-input"
-            value={formData.reportingManager || ''}
-            onChange={(e) => onInputChange('reportingManager', e.target.value)}
-            disabled={!canEditAllFields}
-            placeholder="Manager ID or Name"
-          />
-          {!canEditAllFields && (
-            <span className="EmployeeDirectory-field-note">You don't have permission to edit</span>
-          )}
-        </div>
-
-        <div className="EmployeeDirectory-form-group">
           <label className="EmployeeDirectory-form-label">Date of Joining</label>
           <input
             type="date"
@@ -926,18 +930,6 @@ const EmploymentDetailsForm = ({
             onChange={(e) => onInputChange('dateOfJoining', e.target.value)}
             disabled={!canEditAllFields}
             placeholder="Date of joining"
-          />
-        </div>
-
-        <div className="EmployeeDirectory-form-group">
-          <label className="EmployeeDirectory-form-label">Work Location</label>
-          <input
-            type="text"
-            className="EmployeeDirectory-form-input"
-            value={formData.workLocation || ''}
-            onChange={(e) => onInputChange('workLocation', e.target.value)}
-            disabled={!canEditAllFields}
-            placeholder="Office location"
           />
         </div>
       </div>
@@ -1225,6 +1217,7 @@ const EmployeeDirectory = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [viewMode, setViewMode] = useState('grid');
   const [activeTab, setActiveTab] = useState('personal');
+  const isOverlayOpen = Boolean(selectedUser || editingUser || deleteConfirmOpen || menuAnchorEl);
   
   // Form handling
   const {
@@ -1289,8 +1282,9 @@ const EmployeeDirectory = () => {
         const formattedJobRoles = jobRolesData.map(role => ({
           _id: role._id || role.id,
           roleName: role.roleName || role.name || 'Unnamed Role',
-          roleNumber: role.roleNumber || role.roleNo || role.number || 'N/A',
+          roleNumber: role.roleNumber || role.roleNo || role.number || '',
           description: role.description || '',
+          department: role.department || role.departmentId || '',
           company: role.company || currentUserCompanyId
         }));
         
@@ -1310,19 +1304,25 @@ const EmployeeDirectory = () => {
   
   // Helper function to get job role name by ID
   const getJobRoleName = useCallback((jobRoleId) => {
-    if (!jobRoleId || jobRoles.length === 0) {
-      return 'N/A';
+    if (!jobRoleId) {
+      return 'Not assigned';
     }
     
-    const roleId = typeof jobRoleId === 'object' ? jobRoleId._id || jobRoleId.id : jobRoleId;
+    if (typeof jobRoleId === 'object') {
+      return jobRoleId.roleName || jobRoleId.name || 'Not assigned';
+    }
+    
+    const roleId = jobRoleId.toString();
     
     const jobRole = jobRoles.find(role => 
       role._id === roleId || 
       role.id === roleId ||
-      role.roleNumber === roleId
+      role.roleNumber === roleId ||
+      role.roleName === roleId ||
+      role.name === roleId
     );
     
-    return jobRole ? jobRole.roleName : 'N/A';
+    return jobRole ? jobRole.roleName : roleId;
   }, [jobRoles]);
   
   // Helper function to get job role details by ID
@@ -1368,6 +1368,23 @@ const EmployeeDirectory = () => {
     
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  useEffect(() => {
+    if (!isOverlayOpen) {
+      return undefined;
+    }
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, [isOverlayOpen]);
   
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -1489,10 +1506,23 @@ const EmployeeDirectory = () => {
     
     const isEditingSelf = currentUserId === (userData._id || userData.id);
     
+    const departmentId = userData.department?._id || userData.department || '';
+    const rawJobRole = userData.jobRole?._id || userData.jobRole || '';
+    const matchedJobRole = jobRoles.find(role => {
+      const roleDepartmentId = typeof role.department === 'object'
+        ? role.department?._id || role.department?.id
+        : role.department;
+
+      return (
+        (role._id === rawJobRole || role.id === rawJobRole || role.roleName === rawJobRole) &&
+        (!departmentId || roleDepartmentId === departmentId)
+      );
+    });
+
     let formDataToSet = { 
       ...userData,
-      department: userData.department?._id || userData.department || '',
-      jobRole: userData.jobRole || '',
+      department: departmentId,
+      jobRole: matchedJobRole?._id || rawJobRole,
       children: userData.children || [],
       documents: userData.documents || [],
       properties: userData.properties || [],
@@ -1506,14 +1536,14 @@ const EmployeeDirectory = () => {
           ...formDataToSet,
           ...latestUserData,
           department: latestUserData.department?._id || latestUserData.department || formDataToSet.department,
-          jobRole: latestUserData.jobRole || formDataToSet.jobRole,
+          jobRole: formDataToSet.jobRole,
         };
       }
     }
     
     resetEditForm(formDataToSet);
     handleMenuClose();
-  }, [resetEditForm, handleMenuClose, currentUserId, user]);
+  }, [resetEditForm, handleMenuClose, currentUserId, user, jobRoles]);
   
   const handleCancelEdit = useCallback(() => {
     setEditingUser(null);
@@ -1562,7 +1592,7 @@ const EmployeeDirectory = () => {
       
       // Remove system fields only
       const fieldsToDelete = [
-        '_id', 'id', '__v', 'createdAt', 'updatedAt', 
+        '_id', 'id', 'employeeId', '__v', 'createdAt', 'updatedAt', 
         'company', 'companyCode', 'companyId', 'createdBy',
         'resetToken', 'resetTokenExpiry', 'lastPasswordChange',
         'lastLogin', 'loginAttempts', 'lockUntil', 'verificationToken'
@@ -1965,12 +1995,18 @@ const EmployeeDirectory = () => {
       {!isMobile && (
         <div className="EmployeeDirectory-stats-container">
           {[
-            { label: 'Total Employees', count: stats.total, color: 'primary', icon: <FiUsers /> },
-            { label: 'Active', count: stats.active, color: 'success', icon: <FiCheckCircle /> },
-            { label: 'Inactive', count: stats.inactive, color: 'error', icon: <FiAlertTriangle /> },
+            { label: 'Total Employees', count: stats.total, color: 'primary', icon: <FiUsers />, filter: 'all' },
+            { label: 'Active', count: stats.active, color: 'success', icon: <FiCheckCircle />, filter: 'active' },
+            { label: 'Inactive', count: stats.inactive, color: 'error', icon: <FiAlertTriangle />, filter: 'inactive' },
           ]
           .map((stat, index) => (
-            <div key={index} className={`EmployeeDirectory-stat-card EmployeeDirectory-stat-card-${stat.color}`}>
+            <button
+              type="button"
+              key={index}
+              className={`EmployeeDirectory-stat-card EmployeeDirectory-stat-card-${stat.color} ${selectedFilter === stat.filter ? 'active' : ''}`}
+              onClick={() => setSelectedFilter(stat.filter)}
+              aria-pressed={selectedFilter === stat.filter}
+            >
               <div className="EmployeeDirectory-stat-card-header">
                 <div className={`EmployeeDirectory-stat-icon EmployeeDirectory-stat-icon-${stat.color}`}>
                   {stat.icon}
@@ -1978,7 +2014,7 @@ const EmployeeDirectory = () => {
               </div>
               <div className="EmployeeDirectory-stat-value">{stat.count}</div>
               <div className="EmployeeDirectory-stat-label">{stat.label}</div>
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -2265,22 +2301,10 @@ const EmployeeDirectory = () => {
                       <div className="EmployeeDirectory-detail-value">{formatDate(selectedUser.createdAt)}</div>
                     </div>
                     
-                    <div className="EmployeeDirectory-detail-item">
-                      <div className="EmployeeDirectory-detail-label">Reporting Manager</div>
-                      <div className="EmployeeDirectory-detail-value">{selectedUser.reportingManager || 'Not assigned'}</div>
-                    </div>
-
                     {selectedUser.dateOfJoining && (
                       <div className="EmployeeDirectory-detail-item">
                         <div className="EmployeeDirectory-detail-label">Date of Joining</div>
                         <div className="EmployeeDirectory-detail-value">{formatDate(selectedUser.dateOfJoining)}</div>
-                      </div>
-                    )}
-
-                    {selectedUser.workLocation && (
-                      <div className="EmployeeDirectory-detail-item">
-                        <div className="EmployeeDirectory-detail-label">Work Location</div>
-                        <div className="EmployeeDirectory-detail-value">{selectedUser.workLocation}</div>
                       </div>
                     )}
                   </div>
@@ -2534,6 +2558,8 @@ const EmployeeDirectory = () => {
             className="EmployeeDirectory-modal-overlay"
             style={{ background: 'transparent', zIndex: 1099 }}
             onClick={handleMenuClose}
+            onWheel={(event) => event.preventDefault()}
+            onTouchMove={(event) => event.preventDefault()}
           />
           <div 
             className="EmployeeDirectory-context-menu"
@@ -2544,11 +2570,6 @@ const EmployeeDirectory = () => {
               zIndex: 1100
             }}
           >
-            <button className="EmployeeDirectory-menu-item" onClick={() => handleOpenUser(selectedMenuUser)}>
-              <FiEye size={16} color="#0288d1" />
-              <span className="EmployeeDirectory-menu-item-text">View Details</span>
-            </button>
-            
             <button 
               className="EmployeeDirectory-menu-item" 
               onClick={() => handleEdit(selectedMenuUser)}

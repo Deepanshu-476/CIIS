@@ -386,7 +386,7 @@ function App() {
             </ThemeContextProvider>
           }
         >
-          <Route index element={<ClientDashboardPage />} />
+          <Route index element={<ClientDashboardPage />} />x
           <Route path="dashboard" element={<ClientDashboardPage />} />
           <Route path="tasks-updates" element={<ClientTasksUpdatesPage />} />
           <Route path="my-services" element={<MyServicesPage />} />

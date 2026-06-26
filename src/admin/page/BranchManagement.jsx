@@ -320,7 +320,7 @@ const BranchManagement = () => {
       <Box sx={styles.statsGrid}>
         {stats.map((stat) => (
           <Paper key={stat.label} elevation={0} sx={{ ...styles.statCard, ...styles[`stat_${stat.className}`] }}>
-            <Box sx={styles.statIcon}>{stat.icon}</Box>
+            <Box className="branch-stat-icon" sx={styles.statIcon}>{stat.icon}</Box>
             <Box sx={{ flex: 1 }}>
               <Typography sx={styles.statLabel}>{stat.label}</Typography>
               <Box sx={styles.statValueRow}>
@@ -568,7 +568,8 @@ const styles = {
     p: 2.5,
     borderRadius: "16px",
     border: "1px solid #e2e8f0",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+    bgcolor: "#fff",
+    boxShadow: "0 10px 28px rgba(15, 23, 42, 0.06)",
     display: "flex",
     gap: 2,
     alignItems: "center",
@@ -584,10 +585,10 @@ const styles = {
       bgcolor: "#2196f3",
     },
   },
-  stat_total: { "&::before": { bgcolor: "#2196f3" }, "& .MuiBox-root:first-of-type": { bgcolor: "#e3f2fd", color: "#1976d2" } },
-  stat_active: { "&::before": { bgcolor: "#4caf50" }, "& .MuiBox-root:first-of-type": { bgcolor: "#e8f5e9", color: "#2e7d32" } },
-  stat_warning: { "&::before": { bgcolor: "#ff9800" }, "& .MuiBox-root:first-of-type": { bgcolor: "#fff3e0", color: "#ef6c00" } },
-  stat_people: { "&::before": { bgcolor: "#7c3aed" }, "& .MuiBox-root:first-of-type": { bgcolor: "#f3e8ff", color: "#7c3aed" } },
+  stat_total: { "&::before": { bgcolor: "#2196f3" }, "& .branch-stat-icon": { bgcolor: "#e3f2fd", color: "#1976d2" } },
+  stat_active: { "&::before": { bgcolor: "#4caf50" }, "& .branch-stat-icon": { bgcolor: "#e8f5e9", color: "#2e7d32" } },
+  stat_warning: { "&::before": { bgcolor: "#ff9800" }, "& .branch-stat-icon": { bgcolor: "#fff3e0", color: "#ef6c00" } },
+  stat_people: { "&::before": { bgcolor: "#7c3aed" }, "& .branch-stat-icon": { bgcolor: "#f3e8ff", color: "#7c3aed" } },
   statIcon: {
     width: 52,
     height: 52,
@@ -598,9 +599,25 @@ const styles = {
     "& svg": { fontSize: 28 },
   },
   statLabel: { fontSize: 12, fontWeight: 700, color: "#546e7a", textTransform: "uppercase", letterSpacing: 0.5 },
-  statValueRow: { display: "flex", alignItems: "center", gap: 1 },
+  statValueRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 1,
+    mt: 0.6,
+    bgcolor: "transparent",
+    minWidth: 0,
+  },
   statValue: { fontSize: 28, fontWeight: 800, color: "#263238", lineHeight: 1 },
-  statChip: { height: 22, bgcolor: "#f1f5f9", color: "#475569", fontSize: 11, fontWeight: 700 },
+  statChip: {
+    height: 24,
+    borderRadius: "999px",
+    bgcolor: "rgba(241, 245, 249, 0.78)",
+    color: "#475569",
+    border: "1px solid #e2e8f0",
+    fontSize: 11,
+    fontWeight: 700,
+    "& .MuiChip-label": { px: 1.1 },
+  },
   paper: {
     borderRadius: "16px",
     border: "1px solid #e2e8f0",

@@ -222,7 +222,7 @@ const SuperAdminHeader = ({ toggleSidebar, isSidebarOpen }) => {
                         {!isMobile && (
                             <Box>
                                 <Typography variant="subtitle2" noWrap>
-                                    {userData.name}
+                                    {userData.name} 
                                 </Typography>
                                 <Typography variant="caption" noWrap sx={{ color: 'text.secondary' }}>
                                     {userData.loginType}

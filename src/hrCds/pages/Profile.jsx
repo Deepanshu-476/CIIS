@@ -227,7 +227,7 @@ const Profile = () => {
     <div className="UserDetails-page">
       <div className="UserDetails-header">
         <div>
-          <span className="UserDetails-eyebrow">My Details</span>
+          <span className="UserDetails-eyebrow">My Profile</span>
           <h1>Personal Information</h1>
           <p>View and update your name, mobile, bank details, and family details.</p>
         </div>

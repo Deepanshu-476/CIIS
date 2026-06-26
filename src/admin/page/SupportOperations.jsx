@@ -212,7 +212,7 @@ const SupportOperations = () => {
     const status = window.prompt("New status: Open, In Progress, Waiting, Resolved, Closed, Escalated", ticket.status);
     if (!status) return;
     const message = window.prompt("Add reply/comment for employee", `Ticket marked as ${status}`) || "";
-
+    
     try {
       const response = await axiosInstance.patch(`/support/admin/tickets/${ticket.dbId}`, { status, message });
       if (response.data?.success) {

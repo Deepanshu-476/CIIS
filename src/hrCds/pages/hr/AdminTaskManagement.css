@@ -288,14 +288,18 @@
 }
 
 .AdminTaskManagement-btn-primary {
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  color: var(--white);
+    background: var(--gradient-primary) !important;
+    color: var(--text-on-primary) !important;
+    box-shadow: var(--shadow-primary) !important;
+    transition: var(--transition-default) !important;
 }
 
 .AdminTaskManagement-btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(25, 118, 210, 0.4);
+    background: var(--gradient-primary-hover) !important;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-primary-hover) !important;
 }
+
 
 .AdminTaskManagement-btn-outline {
   background: var(--white);

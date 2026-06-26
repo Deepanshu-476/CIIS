@@ -164,7 +164,9 @@ const MiniDashboard = ({ compact = false }) => (
           ].map(([task, progress]) => (
             <div className="home-progress-task" key={task}>
               <span>{task}<small>{progress}</small></span>
-              <i style={{ width: progress }}></i>
+              <div className="home-progress-track">
+                <i style={{ width: progress }}></i>
+              </div>
             </div>
           ))}
         </div>
@@ -290,14 +292,14 @@ const Home = () => {
                 <PersonArt type="employee" />
                 <div className="home-role-content">
                   <span>Employee</span>
-                  <h3>Employee Portal</h3>
+                  <h3>Employee Portal</h3> 
                   <strong>Streamlined daily operations</strong>
                   <ul>{employeeFeatures.map((item) => <li key={item}><FiCheck />{item}</li>)}</ul>
                   <button>Explore Employee Portal <FiArrowRight /></button>
                 </div>
               </article>
             </div>
-          </div>
+          </div>  
         </section>
 
         <section className="home-section home-benefit-section">
@@ -320,7 +322,7 @@ const Home = () => {
 
             <div className="home-cta">
               <div className="home-rocket"><FiActivity /></div>
-            <div>
+            <div> 
               <h2>Ready to Transform<br />Your Workforce Management?</h2>
               <p>Join thousands of companies already using our platform to streamline their operations.</p>
             </div>

@@ -305,7 +305,7 @@ const fixedDefaultItems = [
   },
   {
     id: 'profile',
-    name: 'My Details',
+    name: 'My Profile',
     icon: 'Person',
     path: '/ciisUser/profile',
     category: 'main',
@@ -457,7 +457,7 @@ const allPagesItems = [
   },
   {
     id: 'profile',
-    name: 'My Details',
+    name: 'My Profile',
     icon: 'Person',
     path: '/ciisUser/profile',
     category: 'main',
@@ -642,6 +642,7 @@ const getPathFromName = (name) => {
     'My Leaves': '/ciisUser/my-leaves',
     'My Assets': '/ciisUser/my-assets',
     'My Details': '/ciisUser/profile',
+    'My Profile': '/ciisUser/profile',
     'Profile': '/ciisUser/profile',
     'Alerts': '/ciisUser/alert',
     'Projects': '/ciisUser/project',
@@ -666,7 +667,7 @@ const getPathFromName = (name) => {
     'Support Desk': '/ciisUser/support-desk',
     'Support Operations': '/ciisUser/support-operations',
     'Client Dashboard': '/client/dashboard',
-'Payment': '/client/payments',
+    'Payment': '/client/payments',
   'Payments': '/client/payments',
   'My Services': '/client/my-services',
   'Tasks & Updates': '/client/tasks-updates',
@@ -679,6 +680,10 @@ const getPathFromName = (name) => {
   };
   
   return pathMap[name] || '/ciisUser/user-dashboard';
+};
+
+const getMenuDisplayName = (name) => {
+  return name === 'My Details' ? 'My Profile' : name;
 };
 
 const getMenuRouteKey = item => String(item?.path || '').split('/').filter(Boolean).pop();
@@ -1021,7 +1026,7 @@ const Sidebar = ({ isMobile = false }) => {
         .map(item => {
           const processedItem = {
             id: item.id || item._id || Math.random().toString(36).substr(2, 9),
-            name: item.name || 'Unnamed Item',
+            name: getMenuDisplayName(item.name || 'Unnamed Item'),
             icon: item.icon || 'Dashboard',
             category: item.category || 'main',
             order: item.order || 99,

@@ -286,12 +286,12 @@
   align-items: center;
   gap: 8px;
   padding: 12px 20px;
-  background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue));
-  color: white;
+  background: var(--gradient-primary) !important;
+  color: var(--text-on-primary) !important;
   border: none;
   border-radius: 50px;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 14px;  
   cursor: pointer;
   transition: var(--transition);
   box-shadow: var(--shadow-sm);
@@ -300,7 +300,8 @@
 .Attendance-export-button:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
-  background: linear-gradient(135deg, var(--primary-dark-blue), var(--primary-blue));
+  background:   var(--gradient-primary-hover) !important;
+
 }
 
 .Attendance-export-button:disabled {

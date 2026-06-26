@@ -1397,10 +1397,13 @@
     width: 100%;
   }
 
-  .ClientTasksUpdatesPage-stats,
   .ClientTasksUpdatesPage-side,
   .ClientTasksUpdatesPage-bottomGrid {
     grid-template-columns: 1fr;
+  }
+
+  .ClientTasksUpdatesPage-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .ClientTasksUpdatesPage-donutBox {
@@ -1408,8 +1411,44 @@
     flex-direction: column;
   }
 
+  .ClientTasksUpdatesPage-updateList {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ClientTasksUpdatesPage-updateList article {
+    min-width: 0;
+    grid-template-columns: 26px minmax(0, 1fr);
+    gap: 8px;
+  }
+
   .ClientTasksUpdatesPage-milestones {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .ClientTasksUpdatesPage-milestones div {
+    min-height: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .ClientTasksUpdatesPage-milestones div::before {
+    display: block;
+    top: 16px;
+  }
+
+  .ClientTasksUpdatesPage-milestones i {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 6px;
+  }
+
+  .ClientTasksUpdatesPage-milestones span,
+  .ClientTasksUpdatesPage-milestones small {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .ClientTasksUpdatesPage-modalBackdrop {
@@ -1433,5 +1472,147 @@
 
   .ClientTasksUpdatesPage-modalDeadlineList i {
     grid-column: 2;
+  }
+}
+
+@media (max-width: 520px) {
+  .ClientTasksUpdatesPage-page {
+    padding: 10px;
+  }
+
+  .ClientTasksUpdatesPage-statCard {
+    min-height: 86px;
+    padding: 10px 8px 8px 38px;
+  }
+
+  .ClientTasksUpdatesPage-statIcon {
+    left: 8px;
+  }
+
+  .ClientTasksUpdatesPage-statCard strong {
+    font-size: 21px;
+  }
+
+  .ClientTasksUpdatesPage-statCard span {
+    font-size: 9px;
+    line-height: 1.2;
+    white-space: normal;
+  }
+
+  .ClientTasksUpdatesPage-statCard em {
+    display: none;
+  }
+
+  .ClientTasksUpdatesPage-project {
+    padding: 14px;
+  }
+
+  .ClientTasksUpdatesPage-project .ClientTasksUpdatesPage-cardHead {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .ClientTasksUpdatesPage-project .ClientTasksUpdatesPage-cardHead h3 {
+    line-height: 1.25;
+  }
+
+  .ClientTasksUpdatesPage-milestones {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .ClientTasksUpdatesPage-milestones div::before {
+    top: 14px;
+  }
+
+  .ClientTasksUpdatesPage-milestones i {
+    width: 28px;
+    height: 28px;
+    margin-bottom: 5px;
+    font-size: 9px;
+  }
+
+  .ClientTasksUpdatesPage-milestones span {
+    font-size: 8px;
+    line-height: 1.25;
+  }
+
+  .ClientTasksUpdatesPage-milestones small {
+    font-size: 7.5px;
+    line-height: 1.25;
+  }
+
+  .ClientTasksUpdatesPage-overall {
+    margin-top: 4px;
+  }
+}
+
+@media (max-width: 640px) {
+  .ClientTasksUpdatesPage-tablePanel {
+    overflow: hidden;
+  }
+
+  .ClientTasksUpdatesPage-tableWrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ClientTasksUpdatesPage-tableWrap table {
+    min-width: 760px;
+    table-layout: fixed;
+  }
+
+  .ClientTasksUpdatesPage-tableWrap th,
+  .ClientTasksUpdatesPage-tableWrap td {
+    padding: 9px 6px;
+    font-size: 9.5px;
+  }
+
+  .ClientTasksUpdatesPage-tableWrap th:nth-child(1),
+  .ClientTasksUpdatesPage-tableWrap td:nth-child(1) { width: 34px; }
+  .ClientTasksUpdatesPage-tableWrap th:nth-child(2),
+  .ClientTasksUpdatesPage-tableWrap td:nth-child(2) { width: 120px; }
+  .ClientTasksUpdatesPage-tableWrap th:nth-child(3),
+  .ClientTasksUpdatesPage-tableWrap td:nth-child(3) { width: 112px; }
+  .ClientTasksUpdatesPage-tableWrap th:nth-child(4),
+  .ClientTasksUpdatesPage-tableWrap td:nth-child(4) { width: 86px; }
+  .ClientTasksUpdatesPage-tableWrap th:nth-child(5),
+  .ClientTasksUpdatesPage-tableWrap td:nth-child(5) { width: 70px; }
+  .ClientTasksUpdatesPage-tableWrap th:nth-child(6),
+  .ClientTasksUpdatesPage-tableWrap td:nth-child(6) { width: 86px; }
+  .ClientTasksUpdatesPage-tableWrap th:nth-child(7),
+  .ClientTasksUpdatesPage-tableWrap td:nth-child(7) { width: 90px; }
+  .ClientTasksUpdatesPage-tableWrap th:nth-child(8),
+  .ClientTasksUpdatesPage-tableWrap td:nth-child(8) { width: 88px; }
+  .ClientTasksUpdatesPage-tableWrap th:nth-child(9),
+  .ClientTasksUpdatesPage-tableWrap td:nth-child(9) { width: 92px; }
+  .ClientTasksUpdatesPage-tableWrap th:nth-child(10),
+  .ClientTasksUpdatesPage-tableWrap td:nth-child(10) { width: 24px; }
+
+  .ClientTasksUpdatesPage-taskName strong {
+    font-size: 10px;
+  }
+
+  .ClientTasksUpdatesPage-progress {
+    gap: 5px;
+  }
+
+  .ClientTasksUpdatesPage-progress span {
+    width: 32px;
+    font-size: 10px;
+  }
+
+  .ClientTasksUpdatesPage-progress div {
+    width: 42px;
+  }
+
+  .ClientTasksUpdatesPage-status {
+    padding: 5px 7px;
+    font-size: 8.5px;
+  }
+
+  .ClientTasksUpdatesPage-review {
+    width: 78px;
+    padding: 0 6px;
+    font-size: 9px;
   }
 }

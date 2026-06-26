@@ -1,107 +1,994 @@
 .ClientServicesTasks-page {
   min-height: 100vh;
-  padding: 22px 24px;
-  background: linear-gradient(135deg, #fbfcff 0%, #f7f9fd 55%, #f1f5fb 100%);
-  color: #0f1538;
+  padding: 18px 22px 24px;
+  background: #f7f9fc;
+  color: #17213b;
   font-family: "Roboto", "Helvetica", "Arial", sans-serif;
 }
 
-.ClientServicesTasks-header {
+.ClientServicesTasks-topbar,
+.ClientServicesTasks-shell,
+.ClientServicesTasks-titleRow, 
+.ClientServicesTasks-topActions,
+.ClientServicesTasks-cardHead,
+.ClientServicesTasks-toolbar,
+.ClientServicesTasks-pagination,
+.ClientServicesTasks-taskName,
+.ClientServicesTasks-progress,
+.ClientServicesTasks-avatars,
+.ClientServicesTasks-donutBox,
+.ClientServicesTasks-overall,
+.ClientServicesTasks-manager,
+.ClientServicesTasks-teamAvatars {
   display: flex;
   align-items: center;
+}
+
+.ClientServicesTasks-topbar {
   justify-content: space-between;
-  gap: 18px;
+  gap: 24px;
   margin-bottom: 24px;
 }
 
-.ClientServicesTasks-titleBlock,
-.ClientServicesTasks-actions,
-.ClientServicesTasks-clientSelect,
-.ClientServicesTasks-refresh,
-.ClientServicesTasks-panelHeader,
-.ClientServicesTasks-serviceName,
-.ClientServicesTasks-taskService,
-.ClientServicesTasks-dueDate,
-.ClientServicesTasks-wideAction {
-  display: flex;
-  align-items: center;
-}
-
-.ClientServicesTasks-titleBlock {
-  gap: 16px;
-}
-
-.ClientServicesTasks-titleIcon,
-.ClientServicesTasks-panelIcon,
-.ClientServicesTasks-statIcon,
-.ClientServicesTasks-miniIcon,
-.ClientServicesTasks-taskServiceIcon {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-}
-
-.ClientServicesTasks-titleIcon {
-  width: 58px;
-  height: 58px;
-  border-radius: 22px;
-  background: #efe8ff;
-  color: #743dff;
-  font-size: 28px;
-}
-
-.ClientServicesTasks-titleBlock h1 {
-  margin: 0 0 6px;
-  font-size: 28px;
-  line-height: 1.1;
-  font-weight: 900;
+.ClientServicesTasks-topbar h1 {
+  margin: 0 0 5px;
+  font-size: 22px;
+  font-weight: 800;
   letter-spacing: 0;
 }
 
-.ClientServicesTasks-titleBlock p,
-.ClientServicesTasks-panelHeader p {
+.ClientServicesTasks-topbar p,
+.ClientServicesTasks-titleRow p {
   margin: 0;
-  color: #687391;
-  font-size: 13px;
-  font-weight: 700;
+  color: #6b7690;
+  font-size: 12px;
+  font-weight: 600;
 }
 
-.ClientServicesTasks-actions {
+.ClientServicesTasks-topActions {
+  justify-content: flex-end;
   gap: 16px;
+  min-width: 0;
+  flex: 1;
 }
 
-.ClientServicesTasks-clientSelect,
-.ClientServicesTasks-refresh {
-  height: 46px;
-  gap: 10px;
-  border: 1px solid #dfe5f2;
-  border-radius: 10px;
+.ClientServicesTasks-search,
+.ClientServicesTasks-tableSearch {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 38px;
+  border: 1px solid #dfe6f1;
+  border-radius: 8px;
   background: #fff;
-  color: #161b45;
-  font-size: 14px;
-  font-weight: 900;
-  box-shadow: 0 12px 28px rgba(34, 45, 94, 0.06);
+  color: #92a0b5;
+}
+
+.ClientServicesTasks-search {
+  width: min(430px, 42vw);
+  padding: 0 13px;
+  box-shadow: 0 4px 13px rgba(24, 39, 75, 0.04);
+}
+
+.ClientServicesTasks-search input,
+.ClientServicesTasks-tableSearch input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  color: #25324d;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ClientServicesTasks-primary,
+.ClientServicesTasks-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  border: 0;
+  border-radius: 8px;
+  background: #0b72f0;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(11, 114, 240, 0.22);
+}
+
+.ClientServicesTasks-primary {
+  padding: 0 17px;
+}
+
+.ClientServicesTasks-primary:disabled {
+  opacity: 0.72;
+}
+
+.ClientServicesTasks-iconButton,
+.ClientServicesTasks-profileButton,
+.ClientServicesTasks-filter,
+.ClientServicesTasks-review,
+.ClientServicesTasks-pagination button,
+.ClientServicesTasks-cardHead button,
+.ClientServicesTasks-widget button,
+.ClientServicesTasks-error button {
+  border: 1px solid #dfe6f1;
+  background: #fff;
+  color: #1d4ed8;
   cursor: pointer;
 }
 
-.ClientServicesTasks-clientSelect {
-  min-width: 224px;
+.ClientServicesTasks-iconButton {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  color: #2563eb;
+  font-size: 17px;
+}
+
+.ClientServicesTasks-iconButton span {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 18px;
+  text-align: center;
+}
+
+.ClientServicesTasks-profileButton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 12px;
+  border-color: transparent;
+  border-radius: 8px;
+  color: #1f2937;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ClientServicesTasks-profileButton b,
+.ClientServicesTasks-manager b,
+.ClientServicesTasks-avatars i,
+.ClientServicesTasks-avatars b,
+.ClientServicesTasks-teamAvatars i,
+.ClientServicesTasks-teamAvatars b {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-profileButton b {
+  width: 34px;
+  height: 34px;
+  background: linear-gradient(135deg, #9b8cff, #6d5dfc);
+}
+
+.ClientServicesTasks-shell {
+  align-items: stretch;
+  gap: 18px;
+}
+
+.ClientServicesTasks-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.ClientServicesTasks-side {
+  width: 338px;
+  flex: 0 0 338px;
+  display: grid;
+  gap: 18px;
+}
+
+.ClientServicesTasks-titleRow {
   justify-content: space-between;
-  padding: 0 16px;
+  margin-bottom: 16px;
 }
 
-.ClientServicesTasks-clientSelect svg:first-child,
-.ClientServicesTasks-refresh svg {
-  color: #743dff;
+.ClientServicesTasks-titleRow h2 {
+  margin: 0 0 4px;
+  font-size: 24px;
+  line-height: 1.1;
+  font-weight: 900;
 }
 
-.ClientServicesTasks-refresh {
-  padding: 0 22px;
-  background: #f2eaff;
-  color: #6034ea;
+.ClientServicesTasks-stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 15px;
 }
 
-.spinning {
+.ClientServicesTasks-statCard,
+.ClientServicesTasks-tablePanel,
+.ClientServicesTasks-sideCard,
+.ClientServicesTasks-widget {
+  border: 1px solid #e3e9f3;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(24, 39, 75, 0.05);
+}
+
+.ClientServicesTasks-statCard {
+  position: relative;
+  min-height: 92px;
+  padding: 12px 13px 9px 48px;
+  border-color: #e7edf6;
+  overflow: hidden;
+  box-shadow: 0 5px 15px rgba(20, 35, 70, 0.045);
+}
+
+.ClientServicesTasks-statIcon,
+.ClientServicesTasks-updateIcon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+.ClientServicesTasks-statCard .ClientServicesTasks-statIcon {
+  position: absolute;
+  top: 12px;
+  left: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  font-size: 0;
+  line-height: 1;
+}
+
+.ClientServicesTasks-statCard .ClientServicesTasks-statIcon svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+
+.is-blue { color: #1769e8; background: #eaf2ff; }
+.is-green { color: #13a45e; background: #e8f9f0; }
+.is-orange { color: #f59e0b; background: #fff4df; }
+.is-red { color: #ef4444; background: #ffecef; }
+.is-purple { color: #7c3aed; background: #f0eafd; }
+
+.ClientServicesTasks-statCard span {
+  display: block;
+  margin-top: 0;
+  color: #25314d;
+  font-size: 9.5px;
+  line-height: 1.15;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-statCard strong {
+  display: block;
+  margin-top: 4px;
+  color: #101828;
+  font-size: 21px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-statCard small {
+  position: absolute;
+  left: 13px;
+  bottom: 24px;
+  color: #11a36a;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-statCard small.down {
+  color: #ef4444;
+}
+
+.ClientServicesTasks-statCard em {
+  position: absolute;
+  left: 13px;
+  bottom: 10px;
+  color: #8a97aa;
+  font-size: 9px;
+  line-height: 1;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.ClientServicesTasks-statCard svg {
+  position: absolute;
+  right: 10px;
+  bottom: 12px;
+  width: 76px;
+  height: 25px;
+  fill: none;
+  stroke: #8fb8ff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.7;
+}
+
+.ClientServicesTasks-statCard.tone-green svg { stroke: #8bd9bd; }
+.ClientServicesTasks-statCard.tone-orange svg { stroke: #efc078; }
+.ClientServicesTasks-statCard.tone-red svg { stroke: #f2a3ad; }
+.ClientServicesTasks-statCard.tone-purple svg { stroke: #a78bfa; }
+
+.ClientServicesTasks-tablePanel {
+  overflow: hidden;
+}
+
+.ClientServicesTasks-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.45fr) repeat(4, minmax(118px, 0.72fr)) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid #edf1f7;
+}
+
+.ClientServicesTasks-tableSearch {
+  min-width: 0;
+  padding: 0 11px;
+}
+
+.ClientServicesTasks-toolbar select,
+.ClientServicesTasks-pagination select {
+  height: 36px;
+  border: 1px solid #dfe6f1;
+  border-radius: 8px;
+  background: #fff;
+  color: #25324d;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.ClientServicesTasks-toolbar select {
+  width: 100%;
+  min-width: 0;
+  padding: 0 9px;
+}
+
+.ClientServicesTasks-filter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 36px;
+  min-width: 90px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ClientServicesTasks-add {
+  height: 36px;
+  min-width: 104px;
+  padding: 0 14px;
+  white-space: nowrap;
+}
+
+.ClientServicesTasks-tableWrap {
+  overflow-x: hidden;
+}
+
+.ClientServicesTasks-tableWrap table {
+  width: 100%;
+  min-width: 0;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.ClientServicesTasks-tableWrap th:nth-child(1),
+.ClientServicesTasks-tableWrap td:nth-child(1) { width: 3%; }
+.ClientServicesTasks-tableWrap th:nth-child(2),
+.ClientServicesTasks-tableWrap td:nth-child(2) { width: 21%; }
+.ClientServicesTasks-tableWrap th:nth-child(3),
+.ClientServicesTasks-tableWrap td:nth-child(3) { width: 16%; }
+.ClientServicesTasks-tableWrap th:nth-child(4),
+.ClientServicesTasks-tableWrap td:nth-child(4) { width: 10%; }
+.ClientServicesTasks-tableWrap th:nth-child(5),
+.ClientServicesTasks-tableWrap td:nth-child(5) { width: 8%; }
+.ClientServicesTasks-tableWrap th:nth-child(6),
+.ClientServicesTasks-tableWrap td:nth-child(6) { width: 10%; }
+.ClientServicesTasks-tableWrap th:nth-child(7),
+.ClientServicesTasks-tableWrap td:nth-child(7) { width: 11%; }
+.ClientServicesTasks-tableWrap th:nth-child(8),
+.ClientServicesTasks-tableWrap td:nth-child(8) { width: 12%; }
+.ClientServicesTasks-tableWrap th:nth-child(9),
+.ClientServicesTasks-tableWrap td:nth-child(9) { width: 7%; }
+.ClientServicesTasks-tableWrap th:nth-child(10),
+.ClientServicesTasks-tableWrap td:nth-child(10) { width: 2%; }
+
+.ClientServicesTasks-tableWrap th,
+.ClientServicesTasks-tableWrap td {
+  border-bottom: 1px solid #edf1f7;
+  overflow: hidden;
+  padding: 11px 8px;
+  text-align: left;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.ClientServicesTasks-tableWrap th {
+  color: #71809a;
+  background: #fbfcff;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-tableWrap td {
+  color: #344054;
+  font-weight: 700;
+}
+
+.ClientServicesTasks-tableWrap td small {
+  display: block;
+  margin-top: 3px;
+  color: #ef4444;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-taskName {
+  gap: 8px;
+  min-width: 0;
+}
+
+.ClientServicesTasks-taskName span {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-taskName strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #17213b;
+  font-size: 11px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ClientServicesTasks-avatars i,
+.ClientServicesTasks-avatars b {
+  width: 20px;
+  height: 20px;
+  margin-left: -5px;
+  border: 2px solid #fff;
+  background: #1f2937;
+  font-size: 8px;
+}
+
+.ClientServicesTasks-avatars i:first-child {
+  margin-left: 0;
+  background: #f97316;
+}
+
+.ClientServicesTasks-avatars i:nth-child(2) {
+  background: #2563eb;
+}
+
+.ClientServicesTasks-avatars i:nth-child(3) {
+  background: #111827;
+}
+
+.ClientServicesTasks-avatars b {
+  color: #475467;
+  background: #eef2f7;
+}
+
+.ClientServicesTasks-priority,
+.ClientServicesTasks-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.ClientServicesTasks-priority::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.ClientServicesTasks-priority.high { color: #ef4444; }
+.ClientServicesTasks-priority.medium { color: #f59e0b; }
+.ClientServicesTasks-priority.low { color: #10b981; }
+
+.ClientServicesTasks-progress {
+  gap: 8px;
+}
+
+.ClientServicesTasks-progress span {
+  width: 34px;
+  color: #344054;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-progress div {
+  width: min(72px, 100%);
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8eef7;
+}
+
+.ClientServicesTasks-progress i,
+.ClientServicesTasks-overall i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #0b72f0;
+}
+
+.ClientServicesTasks-status {
+  max-width: 100%;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-status.inprogress {
+  color: #1769e8;
+  background: #eaf2ff;
+}
+
+.ClientServicesTasks-status.pendingapproval,
+.ClientServicesTasks-status.upcoming {
+  color: #f59e0b;
+  background: #fff4df;
+}
+
+.ClientServicesTasks-status.completed {
+  color: #13a45e;
+  background: #e8f9f0;
+}
+
+.ClientServicesTasks-status.overdue {
+  color: #ef4444;
+  background: #ffecef;
+}
+
+.ClientServicesTasks-review {
+  height: 26px;
+  max-width: 100%;
+  padding: 0 8px;
+  border-radius: 6px;
+  color: #0b72f0;
+  font-size: 10px;
+  font-weight: 900;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ClientServicesTasks-pagination {
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  color: #71809a;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ClientServicesTasks-pagination div {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ClientServicesTasks-pagination button {
+  display: grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: #344054;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-pagination button.active {
+  border-color: #0b72f0;
+  background: #0b72f0;
+  color: #fff;
+}
+
+.ClientServicesTasks-sideCard {
+  padding: 16px;
+}
+
+.ClientServicesTasks-cardHead {
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.ClientServicesTasks-cardHead h3,
+.ClientServicesTasks-widget h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-cardHead button {
+  border: 0;
+  color: #0b72f0;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-cardHead span {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #eaf2ff;
+  color: #0b72f0;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-updateList,
+.ClientServicesTasks-deadlineList {
+  display: grid;
+  gap: 13px;
+}
+
+.ClientServicesTasks-updateList article,
+.ClientServicesTasks-deadlineList article {
+  display: grid;
+  align-items: start;
+  gap: 10px;
+}
+
+.ClientServicesTasks-updateList article {
+  grid-template-columns: 32px 1fr;
+}
+
+.ClientServicesTasks-updateList strong,
+.ClientServicesTasks-deadlineList strong,
+.ClientServicesTasks-project > strong,
+.ClientServicesTasks-manager strong {
+  display: block;
+  color: #17213b;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-updateList span,
+.ClientServicesTasks-deadlineList span,
+.ClientServicesTasks-project p,
+.ClientServicesTasks-manager small,
+.ClientServicesTasks-team > span,
+.ClientServicesTasks-quick small {
+  display: block;
+  margin-top: 3px;
+  color: #7b879b;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.ClientServicesTasks-deadlineList article {
+  grid-template-columns: 72px 1fr 8px;
+}
+
+.ClientServicesTasks-deadlineList time {
+  color: #ef4444;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-deadlineList i {
+  width: 7px;
+  height: 7px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: #ef4444;
+}
+
+.ClientServicesTasks-deadlineList .dot-1 { background: #0b72f0; }
+.ClientServicesTasks-deadlineList .dot-2 { background: #10b981; }
+
+.ClientServicesTasks-bottomGrid {
+  display: grid;
+  grid-template-columns: 0.95fr 1.24fr 0.82fr 0.96fr;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.ClientServicesTasks-widget {
+  min-width: 0;
+  padding: 16px;
+}
+
+.ClientServicesTasks-donutBox {
+  align-items: center;
+  gap: 16px;
+  margin: 12px 0;
+}
+
+.ClientServicesTasks-donut {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  flex: 0 0 132px;
+}
+
+.ClientServicesTasks-donut > div:last-child {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.ClientServicesTasks-donut strong {
+  color: #17213b;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-donut span {
+  color: #7b879b;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.ClientServicesTasks-legend {
+  flex: 1;
+  display: grid;
+  gap: 8px;
+}
+
+.ClientServicesTasks-legend p {
+  display: grid;
+  grid-template-columns: 9px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #4b5563;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.ClientServicesTasks-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+}
+
+.ClientServicesTasks-widget > button,
+.ClientServicesTasks-team > button,
+.ClientServicesTasks-quick > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 34px;
+  border-radius: 7px;
+  color: #0b72f0;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-project p {
+  margin: 5px 0 13px;
+}
+
+.ClientServicesTasks-milestones {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.ClientServicesTasks-milestones div {
+  position: relative;
+  text-align: center;
+}
+
+.ClientServicesTasks-milestones div::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  left: -50%;
+  width: 100%;
+  height: 2px;
+  background: #dfe6f1;
+}
+
+.ClientServicesTasks-milestones div:first-child::before {
+  display: none;
+}
+
+.ClientServicesTasks-milestones div.done::before {
+  background: #10b981;
+}
+
+.ClientServicesTasks-milestones i {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  margin: 0 auto 6px;
+  border-radius: 50%;
+  background: #eaf2ff;
+  color: #0b72f0;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-milestones .done i {
+  background: #10b981;
+  color: #fff;
+}
+
+.ClientServicesTasks-milestones span,
+.ClientServicesTasks-milestones small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ClientServicesTasks-milestones span {
+  color: #17213b;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-milestones small {
+  margin-top: 3px;
+  color: #7b879b;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.ClientServicesTasks-overall {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 10px;
+  margin-bottom: 13px;
+  color: #475467;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-overall div {
+  grid-column: 1 / -1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8eef7;
+}
+
+.ClientServicesTasks-manager {
+  gap: 10px;
+  margin: 8px 0 13px;
+}
+
+.ClientServicesTasks-manager b {
+  width: 48px;
+  height: 48px;
+  background: #d97706;
+}
+
+.ClientServicesTasks-teamAvatars {
+  margin: 8px 0 14px;
+}
+
+.ClientServicesTasks-teamAvatars i,
+.ClientServicesTasks-teamAvatars b {
+  width: 30px;
+  height: 30px;
+  margin-left: -6px;
+  border: 2px solid #fff;
+  background: #0b72f0;
+  font-size: 10px;
+}
+
+.ClientServicesTasks-teamAvatars i:first-child {
+  margin-left: 0;
+  background: #111827;
+}
+
+.ClientServicesTasks-teamAvatars i:nth-child(2) { background: #d97706; }
+.ClientServicesTasks-teamAvatars i:nth-child(3) { background: #be123c; }
+.ClientServicesTasks-teamAvatars i:nth-child(4) { background: #047857; }
+.ClientServicesTasks-teamAvatars b {
+  color: #475467;
+  background: #eef2f7;
+}
+
+.ClientServicesTasks-quick > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 13px 0;
+}
+
+.ClientServicesTasks-quick > div button {
+  display: grid;
+  place-items: center;
+  min-height: 78px;
+  padding: 9px 6px;
+  border-radius: 8px;
+  color: #17213b;
+  text-align: center;
+}
+
+.ClientServicesTasks-quick svg {
+  color: #0b72f0;
+  font-size: 19px;
+}
+
+.ClientServicesTasks-quick span {
+  display: block;
+  margin-top: 6px;
+  color: #17213b;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ClientServicesTasks-loading,
+.ClientServicesTasks-error {
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: #f7f9fc;
+}
+
+.ClientServicesTasks-spinner {
+  width: 42px;
+  height: 42px;
+  margin-bottom: 14px;
+  border: 3px solid #dfe6f1;
+  border-top-color: #0b72f0;
+  border-radius: 50%;
   animation: ClientServicesTasks-spin 0.8s linear infinite;
 }
 
@@ -109,420 +996,158 @@
   to { transform: rotate(360deg); }
 }
 
-.ClientServicesTasks-stats {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 18px;
-  margin-bottom: 24px;
-  padding: 22px;
-  border: 1px solid #dfe5f2;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 14px 34px rgba(34, 45, 94, 0.07);
+.ClientServicesTasks-error svg {
+  color: #ef4444;
+  font-size: 46px;
 }
 
-.ClientServicesTasks-statCard {
-  display: grid;
-  grid-template-columns: 62px minmax(0, 1fr);
-  gap: 18px;
-  align-items: center;
-  min-height: 94px;
-  padding: 16px 18px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #ffffff 0%, #fbfcff 100%);
+.ClientServicesTasks-error h3 {
+  margin: 14px 0 6px;
+  font-size: 20px;
 }
 
-.ClientServicesTasks-statIcon {
-  width: 58px;
-  height: 58px;
-  border-radius: 18px;
-  font-size: 27px;
+.ClientServicesTasks-error p {
+  margin: 0;
+  color: #667085;
 }
 
-.ClientServicesTasks-statCard span,
-.ClientServicesTasks-statCard small {
-  display: block;
-  color: #667193;
-  font-size: 12px;
+.ClientServicesTasks-error div {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.ClientServicesTasks-error button {
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 8px;
   font-weight: 800;
 }
 
-.ClientServicesTasks-statCard strong {
-  display: block;
-  margin: 8px 0;
-  color: #10163c;
-  font-size: 29px;
-  line-height: 1;
-  font-weight: 900;
+.ClientServicesTasks-error button:first-child {
+  border-color: #0b72f0;
+  background: #0b72f0;
+  color: #fff;
 }
 
-.ClientServicesTasks-statCard small {
-  position: relative;
-  padding-left: 14px;
-}
-
-.ClientServicesTasks-statCard small::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-  transform: translateY(-50%);
-}
-
-.ClientServicesTasks-content {
-  display: grid;
-  grid-template-columns: minmax(360px, 0.64fr) minmax(560px, 1fr);
-  gap: 24px;
-}
-
-.ClientServicesTasks-panel {
-  min-width: 0;
-  padding: 24px;
-  border: 1px solid #dfe5f2;
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 14px 34px rgba(34, 45, 94, 0.07);
-}
-
-.ClientServicesTasks-panelHeader {
-  gap: 14px;
-  margin-bottom: 28px;
-}
-
-.ClientServicesTasks-panelIcon {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  background: #efe8ff;
-  color: #743dff;
-  font-size: 21px;
-}
-
-.ClientServicesTasks-panelHeader h2 {
-  margin: 0 0 6px;
-  color: #11163e;
-  font-size: 21px;
-  font-weight: 900;
-}
-
-.ClientServicesTasks-servicesTable,
-.ClientServicesTasks-taskTable {
-  display: grid;
-}
-
-.ClientServicesTasks-servicesHead,
-.ClientServicesTasks-serviceRow {
-  display: grid;
-  grid-template-columns: minmax(140px, 1.7fr) minmax(100px, 1fr) 70px 92px 20px;
-  gap: 16px;
-  align-items: center;
-}
-
-.ClientServicesTasks-servicesHead,
-.ClientServicesTasks-taskHead {
-  min-height: 42px;
-  color: #697392;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.ClientServicesTasks-serviceRow {
-  min-height: 72px;
-  border-top: 1px solid #edf1f8;
-}
-
-.ClientServicesTasks-serviceName {
-  gap: 12px;
-  min-width: 0;
-}
-
-.ClientServicesTasks-serviceName strong,
-.ClientServicesTasks-taskRow strong,
-.ClientServicesTasks-taskService strong {
-  overflow: hidden;
-  color: #12183f;
-  font-size: 13px;
-  font-weight: 900;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ClientServicesTasks-miniIcon,
-.ClientServicesTasks-taskServiceIcon {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  font-size: 16px;
-}
-
-.ClientServicesTasks-progressCell span {
-  display: block;
-  margin-bottom: 8px;
-  color: #586280;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.ClientServicesTasks-progressCell div {
-  height: 6px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #edf0f7;
-}
-
-.ClientServicesTasks-progressCell i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #743dff, #4337f4);
-}
-
-.ClientServicesTasks-taskCount {
-  color: #14193f;
-  font-size: 13px;
-  font-weight: 900;
-}
-
-.ClientServicesTasks-status,
-.ClientServicesTasks-taskStatus,
-.ClientServicesTasks-priority {
-  justify-self: start;
-  padding: 7px 11px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 900;
-  white-space: nowrap;
-}
-
-.ClientServicesTasks-status-ontrack,
-.ClientServicesTasks-status-completed,
-.ClientServicesTasks-taskStatus-completed,
-.ClientServicesTasks-priority-low {
-  color: #11a766;
-  background: #e8fbf2;
-}
-
-.ClientServicesTasks-status-atrisk,
-.ClientServicesTasks-taskStatus-pending,
-.ClientServicesTasks-priority-medium {
-  color: #f08a00;
-  background: #fff4df;
-}
-
-.ClientServicesTasks-taskStatus-overdue,
-.ClientServicesTasks-priority-high {
-  color: #f0445f;
-  background: #ffe9ee;
-}
-
-.ClientServicesTasks-rowArrow {
-  justify-self: end;
-  color: #2f3658;
-}
-
-.ClientServicesTasks-wideAction {
-  width: 100%;
-  justify-content: center;
-  gap: 9px;
-  height: 38px;
-  margin-top: 18px;
-  border: 1px solid #e1e6f2;
-  border-radius: 10px;
-  background: #fff;
-  color: #743dff;
-  font-size: 13px;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.ClientServicesTasks-tasksTop {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 20px;
-}
-
-.ClientServicesTasks-tabs {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(82px, 1fr));
-  overflow: hidden;
-  border: 1px solid #dde4f1;
-  border-radius: 10px;
-  background: #fff;
-}
-
-.ClientServicesTasks-tabs button {
-  height: 42px;
-  border: 0;
-  border-right: 1px solid #edf1f8;
-  background: transparent;
-  color: #65708f;
-  font-size: 12px;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.ClientServicesTasks-tabs button:last-child {
-  border-right: 0;
-}
-
-.ClientServicesTasks-tabs button.active {
-  background: #efe8ff;
-  color: #743dff;
-}
-
-.ClientServicesTasks-taskHead,
-.ClientServicesTasks-taskRow {
-  display: grid;
-  grid-template-columns: minmax(190px, 1.35fr) minmax(130px, 0.95fr) minmax(132px, 0.85fr) 96px 86px;
-  gap: 18px;
-  align-items: center;
-}
-
-.ClientServicesTasks-taskRow {
-  min-height: 70px;
-  border-top: 1px solid #edf1f8;
-}
-
-.ClientServicesTasks-taskRow span {
-  display: block;
-  margin-top: 5px;
-  overflow: hidden;
-  color: #687391;
-  font-size: 12px;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ClientServicesTasks-taskService,
-.ClientServicesTasks-dueDate {
-  gap: 9px;
-  min-width: 0;
-}
-
-.ClientServicesTasks-dueDate {
-  color: #f0445f;
-}
-
-.ClientServicesTasks-dueDate span {
-  margin: 0;
-  color: inherit;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.ClientServicesTasks-taskStatus,
-.ClientServicesTasks-priority {
-  margin: 0;
-}
-
-.ClientServicesTasks-tone-purple { color: #743dff; background: #efe8ff; }
-.ClientServicesTasks-tone-blue { color: #3267f6; background: #eaf0ff; }
-.ClientServicesTasks-tone-green { color: #15a86a; background: #e7fbf2; }
-.ClientServicesTasks-tone-orange { color: #ff8a00; background: #fff1df; }
-.ClientServicesTasks-tone-red { color: #f0445f; background: #ffe9ee; }
-
-.ClientDashboard-dashboard-loading,
-.ClientDashboard-dashboard-error {
-  min-height: 500px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  background: #f8fafc;
-}
-
-.ClientDashboard-loading-spinner {
-  width: 42px;
-  height: 42px;
-  margin-bottom: 16px;
-  border: 3px solid #e1e7f3;
-  border-top-color: #743dff;
-  border-radius: 50%;
-  animation: ClientServicesTasks-spin 0.7s linear infinite;
-}
-
-.ClientDashboard-error-icon {
-  margin-bottom: 16px;
-  color: #f0445f;
-  font-size: 48px;
-}
-
-.ClientDashboard-error-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.ClientDashboard-btn {
-  height: 40px;
-  padding: 0 20px;
-  border-radius: 9px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.ClientDashboard-btn--primary {
-  border: 0;
-  background: #743dff;
-  color: white;
-}
-
-.ClientDashboard-btn--outlined {
-  border: 1px solid #dce3f2;
-  background: white;
-  color: #12183f;
-}
-
-@media (max-width: 1280px) {
+@media (max-width: 1450px) {
   .ClientServicesTasks-stats {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .ClientServicesTasks-content {
-    grid-template-columns: 1fr;
+  .ClientServicesTasks-shell {
+    display: block;
+  }
+
+  .ClientServicesTasks-side {
+    width: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 18px;
+  }
+
+  .ClientServicesTasks-bottomGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 820px) {
+@media (max-width: 920px) {
   .ClientServicesTasks-page {
-    padding: 16px;
+    padding: 14px;
   }
 
-  .ClientServicesTasks-header,
-  .ClientServicesTasks-tasksTop {
+  .ClientServicesTasks-topbar,
+  .ClientServicesTasks-topActions,
+  .ClientServicesTasks-pagination {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .ClientServicesTasks-actions {
-    flex-direction: column;
+  .ClientServicesTasks-toolbar {
+    grid-template-columns: 1fr;
   }
 
-  .ClientServicesTasks-clientSelect,
-  .ClientServicesTasks-refresh {
+  .ClientServicesTasks-topActions,
+  .ClientServicesTasks-search,
+  .ClientServicesTasks-primary,
+  .ClientServicesTasks-profileButton,
+  .ClientServicesTasks-toolbar select,
+  .ClientServicesTasks-filter,
+  .ClientServicesTasks-add {
     width: 100%;
   }
 
-  .ClientServicesTasks-stats {
+  .ClientServicesTasks-iconButton {
+    width: 100%;
+  }
+
+  .ClientServicesTasks-stats,
+  .ClientServicesTasks-side,
+  .ClientServicesTasks-bottomGrid {
     grid-template-columns: 1fr;
-    padding: 14px;
   }
 
-  .ClientServicesTasks-panel {
-    overflow-x: auto;
+  .ClientServicesTasks-donutBox {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
-  .ClientServicesTasks-servicesTable,
-  .ClientServicesTasks-taskTable {
-    min-width: 760px;
+  .ClientServicesTasks-milestones {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ClientServicesTasks-tableWrap {
+    overflow: visible;
+  }
+
+  .ClientServicesTasks-tableWrap table,
+  .ClientServicesTasks-tableWrap tbody,
+  .ClientServicesTasks-tableWrap tr,
+  .ClientServicesTasks-tableWrap td {
+    display: block;
+    width: 100%;
+  }
+
+  .ClientServicesTasks-tableWrap thead {
+    display: none;
+  }
+
+  .ClientServicesTasks-tableWrap tr {
+    padding: 12px;
+    border-bottom: 1px solid #edf1f7;
+  }
+
+  .ClientServicesTasks-tableWrap td {
+    display: grid;
+    grid-template-columns: 118px minmax(0, 1fr);
+    gap: 10px;
+    border-bottom: 0;
+    padding: 7px 0;
+    white-space: normal;
+  }
+
+  .ClientServicesTasks-tableWrap td::before {
+    color: #71809a;
+    font-size: 10px;
+    font-weight: 900;
+  }
+
+  .ClientServicesTasks-tableWrap td:nth-child(1) {
+    display: none;
+  }
+
+  .ClientServicesTasks-tableWrap td:nth-child(2)::before { content: "Task Name"; }
+  .ClientServicesTasks-tableWrap td:nth-child(3)::before { content: "Service"; }
+  .ClientServicesTasks-tableWrap td:nth-child(4)::before { content: "Team"; }
+  .ClientServicesTasks-tableWrap td:nth-child(5)::before { content: "Priority"; }
+  .ClientServicesTasks-tableWrap td:nth-child(6)::before { content: "Due Date"; }
+  .ClientServicesTasks-tableWrap td:nth-child(7)::before { content: "Progress"; }
+  .ClientServicesTasks-tableWrap td:nth-child(8)::before { content: "Status"; }
+  .ClientServicesTasks-tableWrap td:nth-child(9)::before { content: "Action"; }
+  .ClientServicesTasks-tableWrap td:nth-child(10) {
+    display: none;
+  }
+
+  .ClientServicesTasks-progress div {
+    width: 100%;
   }
 }

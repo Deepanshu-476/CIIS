@@ -80,7 +80,7 @@ const ContactUs = () => {
   return (
     <>
       <Header />
-
+      
       <div className="CiisContact">
         <main className="CiisContact-page">
           <section className="CiisContact-hero-grid">
@@ -246,6 +246,7 @@ const ContactUs = () => {
               <button>
                 View All FAQs
                 <ArrowRight size={15} />
+                
               </button>
             </div>
             <div className="CiisContact-faq-list">

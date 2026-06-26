@@ -273,6 +273,7 @@
 }
 
 .EmployeeProject-grid-item {
+  min-width: 0;
   width: 100%;
 }
 
@@ -743,11 +744,15 @@
   background: white;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   border: 1px solid rgba(0,0,0,0.06);
+<<<<<<< HEAD
   cursor: pointer;
   display: flex;
   flex-direction: column;
   min-height: 230px;
   height: 230px;
+=======
+  min-width: 0;
+>>>>>>> 8dc851e9ebb0cac90c029b340dbab82d747a27af
   overflow: hidden;
 }
 
@@ -919,17 +924,21 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .EmployeeProject-remark-author {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 0;
 }
 
 .EmployeeProject-remark-date {
   color: #666;
   font-size: 0.75rem;
+  overflow-wrap: anywhere;
 }
 
 /* Add Remark */
@@ -941,14 +950,23 @@
 .EmployeeProject-remark-input-row {
   display: flex;
   gap: 0.5rem;
+  align-items: stretch;
+  min-width: 0;
 }
 
 .EmployeeProject-remark-input {
   flex: 1;
+  min-width: 0;
   padding: 10px 16px;
   border: 1px solid #ddd;
   border-radius: 8px;
   font-size: 0.875rem;
+}
+
+.EmployeeProject-remark-input-row .EmployeeProject-button {
+  flex: 0 0 auto;
+  min-width: 88px;
+  white-space: nowrap;
 }
 
 .EmployeeProject-remark-input:focus {
@@ -1823,7 +1841,7 @@
   }
   
   .EmployeeProject-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   
   .EmployeeProject-stats-grid {
@@ -1861,6 +1879,11 @@
   .EmployeeProject-task-actions {
     align-self: flex-start;
   }
+
+  .EmployeeProject-task-content,
+  .EmployeeProject-add-remark {
+    padding: 1rem;
+  }
   
   .EmployeeProject-drawer-right {
     width: 100vw;
@@ -1875,6 +1898,21 @@
 }
 
 @media (max-width: 480px) {
+  .EmployeeProject-container {
+    padding: 0.75rem;
+  }
+
+  .EmployeeProject-tasks-list {
+    gap: 1rem;
+  }
+
+  .EmployeeProject-task-card {
+    width: 100%;
+    max-width: 380px;
+    margin: 0 auto;
+    border-radius: 10px;
+  }
+
   .EmployeeProject-title {
     font-size: 1.5rem;
   }
@@ -1885,11 +1923,64 @@
   
   .EmployeeProject-task-title {
     font-size: 1.125rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .EmployeeProject-task-content {
+    padding: 0.875rem;
+  }
+
+  .EmployeeProject-task-chips,
+  .EmployeeProject-task-meta {
+    gap: 0.625rem;
+  }
+
+  .EmployeeProject-task-meta {
+    margin: 1rem 0;
+  }
+
+  .EmployeeProject-task-meta-item {
+    font-size: 0.8125rem;
+  }
+
+  .EmployeeProject-task-description {
+    font-size: 0.8125rem;
+    line-height: 1.55;
+  }
+
+  .EmployeeProject-remark-item {
+    padding: 0.875rem;
+  }
+
+  .EmployeeProject-remark-author {
+    font-size: 0.8125rem;
+  }
+
+  .EmployeeProject-remark-date {
+    width: 100%;
+    padding-left: 32px;
   }
   
   .EmployeeProject-form-row {
     flex-direction: column;
     gap: 1rem;
+  }
+
+  .EmployeeProject-add-remark {
+    padding: 0.875rem 0.875rem 1.5rem;
+  }
+
+  .EmployeeProject-remark-input-row {
+    flex-direction: column;
+  }
+
+  .EmployeeProject-remark-input {
+    min-height: 40px;
+  }
+
+  .EmployeeProject-remark-input-row .EmployeeProject-button {
+    width: 100%;
+    min-height: 42px;
   }
 }
 /* Add to existing CSS file */

@@ -1,6 +1,26 @@
 @import "tailwindcss";
 
 
+:root {
+  --gradient-primary: linear-gradient(135deg, #667eea, #764ba2);
+  --gradient-primary-hover: linear-gradient(135deg, #5a67d8, #6b46c1);
+  --color-primary: #667eea;
+  --color-secondary: #764ba2;
+  --text-on-primary: #ffffff;
+  
+    /*  Shadows and transitions */
+  --shadow-primary: 0 8px 32px #667eea33;
+  --shadow-primary-hover: 0 12px 40px #667eea4d;
+  --transition-default: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+}
+
+
+
+
+
+
+
 
 .css-12tjcea-MuiInputBase-input-MuiOutlinedInput-input {
   padding: 0.75rem 0.875rem;
@@ -130,7 +150,7 @@
 /* CRITICAL FIXES - Remove horizontal overflow and black space */
 * {
   margin: 0;
-  padding: 0;
+  padding: 0; 
   box-sizing: border-box;
   max-width: 100%;
 }

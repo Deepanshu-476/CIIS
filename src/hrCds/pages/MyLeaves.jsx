@@ -553,6 +553,29 @@ const closeDetailModal = () => {
     return matchesStatus && matchesSearch;
   });
 
+  const hasApprovalWorkflow = (leave) => Array.isArray(leave?.approvalSteps) && leave.approvalSteps.length > 0;
+
+  const ApprovalWorkflow = ({ leave }) => {
+    if (!hasApprovalWorkflow(leave)) {
+      return <span className="MyLeaves-approval-empty">Default approval</span>;
+    }
+
+    return (
+      <div className="MyLeaves-approval-flow">
+        {leave.approvalSteps.map((step, index) => {
+          const user = step?.user || {};
+          const status = step?.status || "Pending";
+          return (
+            <div className={`MyLeaves-approval-step MyLeaves-approval-step-${status.toLowerCase()}`} key={user?._id || user?.id || index}>
+              <span>{user?.name || "User"}</span>
+              <strong>{status}</strong>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -935,6 +958,7 @@ const closeDetailModal = () => {
                             <th>Days</th>
                             <th>Reason</th>
                             <th>Status</th>
+                            <th>Approvers</th>
                             <th>Applied On</th>
                             <th>History</th>
                           </tr>
@@ -987,6 +1011,9 @@ const closeDetailModal = () => {
                                     {leave.status === "Rejected" && <FiXCircle size={12} />}
                                     {leave.status}
                                   </span>
+                                </td>
+                                <td>
+                                  <ApprovalWorkflow leave={leave} />
                                 </td>
                                 <td>
                                   {formatDate(leave.createdAt || leave.appliedOn)}
@@ -1066,6 +1093,10 @@ const closeDetailModal = () => {
                                   {formatDate(leave.createdAt || leave.appliedOn)}
                                 </span>
                               </div>
+                              <div className="MyLeaves-mobile-card-row MyLeaves-mobile-card-row-stack">
+                                <span className="MyLeaves-mobile-label">Approvers:</span>
+                                <ApprovalWorkflow leave={leave} />
+                              </div>
                             </div>
                             
                             <div className="MyLeaves-mobile-card-actions">
@@ -1138,6 +1169,11 @@ const closeDetailModal = () => {
             </span>
           </div>
 
+        </div>
+
+        <div className="reason-section">
+          <h4>Approval Flow</h4>
+          <ApprovalWorkflow leave={selectedLeave} />
         </div>
 
         {/* Reason Section */}

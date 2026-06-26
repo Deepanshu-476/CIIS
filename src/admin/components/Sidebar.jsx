@@ -153,7 +153,7 @@ const Sidebar = ({ isMobile = false }) => {
 
   const isSidebarOpen = isMobile ? true : isHovered;
 
-  // LocalStorage से user data fetch करें
+  // Fetch user data from localStorage.
   useEffect(() => {
     const user = localStorage.getItem("user");
     if (user) {
@@ -246,7 +246,7 @@ const Sidebar = ({ isMobile = false }) => {
     return userData?.companyRole === "client";
   }, [userData]);
 
-  // CLIENT MENU ITEMS - Sirf 3 pages client ke liye
+  // Client menu items.
   const clientMenuItems = useMemo(() => [
     {
       id: 'client-dashboard',
@@ -271,9 +271,9 @@ const Sidebar = ({ isMobile = false }) => {
     }
   ], []);
 
-  // FULL MENU ITEMS - Admin/HR/Employee ke liye
+  // Full menu items for admin, HR, and employee users.
   const fullMenuItems = useMemo(() => [
-    // Main Menu - सभी users के लिए (all departments)
+    // Main menu for all users and departments.
     {
       id: 'dashboard',
       icon: <DashboardIcon />, 
@@ -475,7 +475,7 @@ const Sidebar = ({ isMobile = false }) => {
   // Filter menu items based on user type
   const menuItems = useMemo(() => {
     if (isClientUser) {
-      // Client ke liye sirf 3 pages
+      // Client users see only the client pages.
       return clientMenuItems;
     }
     return fullMenuItems;
@@ -484,7 +484,7 @@ const Sidebar = ({ isMobile = false }) => {
   // Filter items based on user role and department (only for non-client users)
   const filteredMenuItems = useMemo(() => {
     if (isClientUser) {
-      // Client users ko directly client menu items return karo
+      // Return client menu items directly for client users.
       return menuItems;
     }
 
@@ -512,7 +512,7 @@ const Sidebar = ({ isMobile = false }) => {
     if (!filteredMenuItems.length) return [];
 
     if (isClientUser) {
-      // Client ke liye sirf ek section "Main Menu"
+      // Client users only need one Main Menu section.
       return [{
         id: 'main',
         heading: 'Main Menu',
@@ -520,7 +520,7 @@ const Sidebar = ({ isMobile = false }) => {
       }];
     }
 
-    // Non-client users ke liye multiple sections
+    // Non-client users get multiple sections.
     const sections = [
       { id: 'main', heading: 'Main Menu', items: [] },
       { id: 'tasks', heading: 'Tasks & Projects', items: [] },

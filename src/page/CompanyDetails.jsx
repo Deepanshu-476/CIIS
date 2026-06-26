@@ -81,7 +81,7 @@ const CompanyDetails = () => {
   const [saveLoading, setSaveLoading] = useState(false);
   const [departments, setDepartments] = useState([]);
 
-  // Current logged-in user की company fetch करें
+  // Fetch the company for the current logged-in user.
   const fetchCurrentUserCompany = async () => {
     try {
       setLoading(true);
@@ -96,7 +96,7 @@ const CompanyDetails = () => {
 
       const headers = { Authorization: `Bearer ${token}` };
 
-      // Step 1: Company users API से data fetch करें
+      // Step 1: Fetch data from the company users API.
       try {
         const response = await axios.get(
           `${API_URL}/users/company-users`,

@@ -141,7 +141,7 @@ const ContactSupport = () => {
           </div>
           <h1>Workplace help, routed fast.</h1>
           <p>
-            Yahan aapke support tickets ka status aur Department Head ke saath conversation show hogi. New issue raise karne ke liye floating chat widget use karein.
+            Your support ticket status and conversations with the Department Head will appear here. Use the floating chat widget to raise a new issue.
           </p>
         </div>
 

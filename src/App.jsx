@@ -263,6 +263,7 @@ import AllCompany from "./page/AllCompany.jsx";
 import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
 import BranchManagement from "./admin/page/BranchManagement.jsx"; 
+import PageManagement from "./admin/page/PageManagement.jsx";
 import ChatPage from "./Pages/Chat/ChatPage";
 
 function App() {
@@ -316,6 +317,7 @@ function App() {
           <Route path="company-assets/branch/:branchId" element={<CompanyAssetManagement/>}/>
           <Route path="CompanyManagement" element={<CompanyManagement />} />
           <Route path="SidebarManagement" element={<SidebarManagement />} />
+          <Route path="page-management" element={<PageManagement />} />
           <Route path="plans" element={<PlanManagement />} />
           <Route path="holiday" element={<Holiday />} />
           <Route path="branch" element={<BranchManagement />} />

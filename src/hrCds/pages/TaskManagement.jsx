@@ -363,6 +363,7 @@ const UserCreateTask = () => {
   const [voicePreviewUrl, setVoicePreviewUrl] = useState('');
   const [filePreviews, setFilePreviews] = useState([]);
   const mediaRecorderRef = useRef(null);
+  const fileUploadInputRef = useRef(null);
   const chunks = useRef([]);
 
   const [overdueTasks, setOverdueTasks] = useState([]);
@@ -373,6 +374,7 @@ const UserCreateTask = () => {
   const snackbarTimerRef = useRef(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
+  const selectedTaskFiles = useMemo(() => Array.from(newTask.files || []), [newTask.files]);
 
   // Responsive handler
   useEffect(() => {
@@ -2070,6 +2072,12 @@ const UserCreateTask = () => {
     }));
   };
 
+  const handleTaskFileSelect = (event) => {
+    const files = Array.from(event.target.files || []);
+    setNewTask(prev => ({ ...prev, files }));
+    event.target.value = '';
+  };
+
   // Stop recording
   const stopRecording = () => {
     if (mediaRecorderRef.current) {
@@ -3542,26 +3550,145 @@ const UserCreateTask = () => {
 
               <div>
                 <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>Attachments (Optional)</div>
+
+                {selectedTaskFiles.length > 0 && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '10px',
+                      marginBottom: '10px',
+                      border: '1px solid #c7d2fe',
+                      borderRadius: '8px',
+                      background: '#eef2ff',
+                    }}
+                  >
+                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                      {filePreviews.slice(0, 3).map(({ file, url, isImage }, index) => (
+                        <div
+                          key={`${file.name}-${file.lastModified}-${index}`}
+                          title={file.name}
+                          style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '6px',
+                            overflow: 'hidden',
+                            background: '#fff',
+                            border: '1px solid #cbd5e1',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          {isImage ? (
+                            <img
+                              src={url}
+                              alt={file.name}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <FiFileText size={18} />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: '13px', color: '#1e293b' }}>
+                        {selectedTaskFiles.length} file{selectedTaskFiles.length !== 1 ? 's' : ''} selected
+                      </div>
+                      <div
+                        title={selectedTaskFiles.map(file => file.name).join(', ')}
+                        style={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          fontSize: '12px',
+                          color: '#475569',
+                        }}
+                      >
+                        {selectedTaskFiles.map(file => file.name).join(', ')}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="user-create-task-button user-create-task-button-outlined"
+                      onClick={() => setNewTask(prev => ({ ...prev, files: [] }))}
+                      style={{ padding: '6px 8px', color: '#dc2626', flexShrink: 0 }}
+                      title="Remove selected files"
+                    >
+                      <FiX />
+                    </button>
+                  </div>
+                )}
                 
                 <div className={`user-create-task-flex ${isMobile ? 'user-create-task-flex-column user-create-task-gap-2' : 'user-create-task-gap-2'}`}>
-                  <button 
+                  <label
+                    htmlFor="file-upload"
                     className="user-create-task-button user-create-task-button-outlined"
-                    onClick={() => document.getElementById('file-upload').click()}
-                    style={{ flex: 1, padding: isMobile ? '10px' : '12px' }}
+                    style={{
+                      flex: 1,
+                      padding: isMobile ? '10px' : '12px',
+                      minWidth: 0,
+                      cursor: 'pointer',
+                      justifyContent: selectedTaskFiles.length > 0 ? 'flex-start' : 'center',
+                    }}
                   >
-                    <FiFileText />
-                    {isMobile ? 'Upload' : 'Upload Files'}
+                    {selectedTaskFiles.length > 0 ? (
+                      <>
+                        <span
+                          style={{
+                            width: '26px',
+                            height: '26px',
+                            borderRadius: '6px',
+                            overflow: 'hidden',
+                            background: '#eef2ff',
+                            border: '1px solid #c7d2fe',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {filePreviews[0]?.isImage ? (
+                            <img
+                              src={filePreviews[0].url}
+                              alt={selectedTaskFiles[0].name}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <FiFileText size={14} />
+                          )}
+                        </span>
+                        <span
+                          title={selectedTaskFiles.map(file => file.name).join(', ')}
+                          style={{
+                            minWidth: 0,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            textAlign: 'left',
+                          }}
+                        >
+                          {selectedTaskFiles[0].name}
+                          {selectedTaskFiles.length > 1 ? ` +${selectedTaskFiles.length - 1}` : ''}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <FiFileText />
+                        {isMobile ? 'Upload' : 'Upload Files'}
+                      </>
+                    )}
                     <input
+                      ref={fileUploadInputRef}
                       id="file-upload"
                       type="file"
                       multiple
                       style={{ display: 'none' }}
-                      onChange={(e) => {
-                        setNewTask(prev => ({ ...prev, files: Array.from(e.target.files || []) }));
-                        e.target.value = '';
-                      }}
+                      onChange={handleTaskFileSelect}
                     />
-                  </button>
+                  </label>
 
                   <button
                     className={`user-create-task-button ${isRecording ? 'user-create-task-button-contained' : 'user-create-task-button-outlined'}`}
@@ -3584,9 +3711,6 @@ const UserCreateTask = () => {
                     className="user-create-task-paper"
                     style={{ marginTop: '12px', padding: isMobile ? '12px' : '16px' }}
                   >
-                    <div style={{ marginBottom: '10px', fontWeight: 600 }}>
-                      Selected Files ({filePreviews.length})
-                    </div>
                     <div style={{ display: 'grid', gap: '10px' }}>
                       {filePreviews.map(({ file, url, isImage, isPdf, isAudio, isVideo }, index) => (
                         <div
@@ -3656,51 +3780,6 @@ const UserCreateTask = () => {
                             <FiTrash2 />
                           </button>
 
-                          <div style={{ gridColumn: '1 / -1', marginTop: '4px' }}>
-                            {isImage && (
-                              <img
-                                src={url}
-                                alt={`${file.name} preview`}
-                                style={{
-                                  display: 'block',
-                                  width: '100%',
-                                  maxHeight: isMobile ? '240px' : '320px',
-                                  objectFit: 'contain',
-                                  borderRadius: '8px',
-                                  background: '#f8fafc',
-                                }}
-                              />
-                            )}
-                            {isPdf && (
-                              <iframe
-                                src={url}
-                                title={`${file.name} preview`}
-                                style={{
-                                  display: 'block',
-                                  width: '100%',
-                                  height: isMobile ? '280px' : '380px',
-                                  border: '1px solid #e2e8f0',
-                                  borderRadius: '8px',
-                                  background: '#fff',
-                                }}
-                              />
-                            )}
-                            {isAudio && (
-                              <audio controls preload="metadata" src={url} style={{ display: 'block', width: '100%' }}>
-                                Your browser does not support audio playback.
-                              </audio>
-                            )}
-                            {isVideo && (
-                              <video
-                                controls
-                                preload="metadata"
-                                src={url}
-                                style={{ display: 'block', width: '100%', maxHeight: '360px', borderRadius: '8px', background: '#000' }}
-                              >
-                                Your browser does not support video playback.
-                              </video>
-                            )}
-                          </div>
                         </div>
                       ))}
                     </div>

@@ -386,6 +386,36 @@
   display: flex;
   gap: 26px;
   margin-top: 4px;
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: var(--dir-transition);
+}
+
+.EmployeeDirectory-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--dir-shadow-xl);
+}
+
+.EmployeeDirectory-stat-card:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(67, 97, 238, 0.18), var(--dir-shadow-lg);
+}
+
+.EmployeeDirectory-stat-card.active {
+  border-color: var(--dir-primary);
+  box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.12), var(--dir-shadow-lg);
+}
+
+.EmployeeDirectory-stat-card-success.active {
+  border-color: var(--dir-success);
+  box-shadow: 0 0 0 3px rgba(6, 214, 160, 0.14), var(--dir-shadow-lg);
+}
+
+.EmployeeDirectory-stat-card-error.active {
+  border-color: var(--dir-danger);
+  box-shadow: 0 0 0 3px rgba(239, 71, 111, 0.14), var(--dir-shadow-lg);
 }
 
 .EmployeeDirectory-stat-card::before {
@@ -892,13 +922,13 @@
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   padding: 20px;
   animation: dir-fadeIn 0.3s ease-out;
+  overscroll-behavior: contain;
 }
 
 @keyframes dir-fadeIn {
@@ -1540,6 +1570,7 @@
   overflow: hidden;
   min-width: 180px;
   animation: dir-scaleIn 0.1s ease-out;
+  overscroll-behavior: contain;
 }
 
 @keyframes dir-scaleIn {

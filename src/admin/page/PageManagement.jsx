@@ -4,6 +4,8 @@ import "./PageManagement.css";
 import CIISLoader from "../../Loader/CIISLoader";
 
 const getUserId = (user) => String(user?._id || user?.id || "");
+const hasConfiguredPermission = (page) =>
+  (page?.approvers || []).length > 0 || (page?.deleteUsers || []).length > 0;
 
 const PageManagement = () => {
   const [pages, setPages] = useState([]);
@@ -13,6 +15,7 @@ const PageManagement = () => {
   const [selectedDeleteUsers, setSelectedDeleteUsers] = useState([]);
   const [permissionMode, setPermissionMode] = useState("approve");
   const [searchTerm, setSearchTerm] = useState("");
+  const [userSearchTerm, setUserSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
@@ -22,7 +25,7 @@ const PageManagement = () => {
     [pages, selectedPageKey]
   );
 
-  const filteredPages = useMemo(() => {
+  const searchedPages = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     if (!query) return pages;
 
@@ -35,10 +38,43 @@ const PageManagement = () => {
     );
   }, [pages, searchTerm]);
 
+  const configuredPages = useMemo(
+    () => searchedPages.filter(hasConfiguredPermission),
+    [searchedPages]
+  );
+
+  const unconfiguredPages = useMemo(
+    () => searchedPages.filter((page) => !hasConfiguredPermission(page)),
+    [searchedPages]
+  );
+
   const activeSelectedUsers = permissionMode === "delete" ? selectedDeleteUsers : selectedApprovers;
   const activeSelectedUserSet = useMemo(
     () => new Set(activeSelectedUsers.map(String)),
     [activeSelectedUsers]
+  );
+
+  const filteredUsers = useMemo(() => {
+    const query = userSearchTerm.trim().toLowerCase();
+    if (!query) return users;
+
+    return users.filter((user) =>
+      [user.name, user.email, user.companyRole, user.jobRole]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query)
+    );
+  }, [userSearchTerm, users]);
+
+  const selectedUsers = useMemo(
+    () => filteredUsers.filter((user) => activeSelectedUserSet.has(getUserId(user))),
+    [activeSelectedUserSet, filteredUsers]
+  );
+
+  const availableUsers = useMemo(
+    () => filteredUsers.filter((user) => !activeSelectedUserSet.has(getUserId(user))),
+    [activeSelectedUserSet, filteredUsers]
   );
 
   const loadData = async () => {
@@ -141,7 +177,7 @@ const PageManagement = () => {
         <section className="PageManagement-pages">
           <div className="PageManagement-section-title">
             <h2>All Pages</h2>
-            <span>{filteredPages.length} pages</span>
+            <span>{searchedPages.length} pages</span>
           </div>
 
           <input
@@ -153,20 +189,25 @@ const PageManagement = () => {
           />
 
           <div className="PageManagement-page-list">
-            {filteredPages.map((page) => (
-              <button
-                key={page.pageKey}
-                type="button"
-                className={`PageManagement-page-item ${selectedPage?.pageKey === page.pageKey ? "PageManagement-page-item-active" : ""}`}
-                onClick={() => selectPage(page)}
-              >
-                <span className="PageManagement-page-name">{page.name}</span>
-                <span className="PageManagement-page-url">{page.path}</span>
-                <span className="PageManagement-page-count">
-                  {(page.approvers || []).length} approver / {(page.deleteUsers || []).length} delete
-                </span>
-              </button>
-            ))}
+            {configuredPages.length > 0 && (
+              <PageGroup
+                title="Configured Pages"
+                pages={configuredPages}
+                selectedPage={selectedPage}
+                onSelectPage={selectPage}
+              />
+            )}
+            {unconfiguredPages.length > 0 && (
+              <PageGroup
+                title="No Permissions Configured"
+                pages={unconfiguredPages}
+                selectedPage={selectedPage}
+                onSelectPage={selectPage}
+              />
+            )}
+            {!searchedPages.length && (
+              <div className="PageManagement-empty">No pages found.</div>
+            )}
           </div>
         </section>
 
@@ -209,35 +250,89 @@ const PageManagement = () => {
             </button>
           </div>
 
-          <div className="PageManagement-users">
-            {users.map((user) => {
-              const userId = getUserId(user);
-              const selected = activeSelectedUserSet.has(userId);
-              return (
-                <label className={`PageManagement-user ${selected ? "PageManagement-user-selected" : ""}`} key={userId}>
-                  <input
-                    type="checkbox"
-                    checked={selected}
-                    onChange={() => toggleSelectedUser(userId)}
-                  />
-                  <span className="PageManagement-avatar">
-                    {(user.name || user.email || "U").slice(0, 1).toUpperCase()}
-                  </span>
-                  <span className="PageManagement-user-main">
-                    <strong>{user.name || "Unnamed User"}</strong>
-                    <small>{user.email}</small>
-                  </span>
-                  <span className="PageManagement-role">
-                    {user.companyRole || user.jobRole || "User"}
-                  </span>
-                </label>
-              );
-            })}
+          <input
+            className="PageManagement-search PageManagement-user-search"
+            value={userSearchTerm}
+            onChange={(event) => setUserSearchTerm(event.target.value)}
+            placeholder="Search users"
+            type="search"
+          />
+
+          <div className="PageManagement-user-sections">
+            <UserGroup
+              title={`Selected Users (${selectedUsers.length})`}
+              users={selectedUsers}
+              activeSelectedUserSet={activeSelectedUserSet}
+              onToggleUser={toggleSelectedUser}
+              emptyText="No selected users."
+            />
+            <UserGroup
+              title={`Available Users (${availableUsers.length})`}
+              users={availableUsers}
+              activeSelectedUserSet={activeSelectedUserSet}
+              onToggleUser={toggleSelectedUser}
+              emptyText="No available users found."
+            />
           </div>
         </section>
       </div>
     </div>
   );
 };
+
+const PageGroup = ({ title, pages, selectedPage, onSelectPage }) => (
+  <div className="PageManagement-page-group">
+    <h3>{title}</h3>
+    {pages.map((page) => (
+      <button
+        key={page.pageKey}
+        type="button"
+        className={`PageManagement-page-item ${selectedPage?.pageKey === page.pageKey ? "PageManagement-page-item-active" : ""}`}
+        onClick={() => onSelectPage(page)}
+      >
+        <span className="PageManagement-page-name">{page.name}</span>
+        <span className="PageManagement-page-url">{page.path}</span>
+        <span className="PageManagement-page-count">
+          {(page.approvers || []).length} approver / {(page.deleteUsers || []).length} delete
+        </span>
+      </button>
+    ))}
+  </div>
+);
+
+const UserGroup = ({ title, users, activeSelectedUserSet, onToggleUser, emptyText }) => (
+  <section className="PageManagement-user-group">
+    <h3>{title}</h3>
+    {users.length ? (
+      <div className="PageManagement-users">
+        {users.map((user) => {
+          const userId = getUserId(user);
+          const selected = activeSelectedUserSet.has(userId);
+          return (
+            <label className={`PageManagement-user ${selected ? "PageManagement-user-selected" : ""}`} key={userId}>
+              <input
+                type="checkbox"
+                checked={selected}
+                onChange={() => onToggleUser(userId)}
+              />
+              <span className="PageManagement-avatar">
+                {(user.name || user.email || "U").slice(0, 1).toUpperCase()}
+              </span>
+              <span className="PageManagement-user-main">
+                <strong>{user.name || "Unnamed User"}</strong>
+                <small>{user.email}</small>
+              </span>
+              <span className="PageManagement-role">
+                {user.companyRole || user.jobRole || "User"}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    ) : (
+      <div className="PageManagement-empty">{emptyText}</div>
+    )}
+  </section>
+);
 
 export default PageManagement;

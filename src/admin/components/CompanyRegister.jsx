@@ -4,7 +4,7 @@ import API_URL from "../../config";
 import { useNavigate } from "react-router-dom";
 
 const FormField = memo(
-  ({ label, name, type = "text", placeholder, required, value, onChange, error, autoComplete }) => {
+  ({ label, name, type = "text", placeholder, required, value, onChange, error, autoComplete, ...rest }) => {
     return (
       <div style={{ marginBottom: "18px", width: "100%" }}>
         <div style={{ display: "flex", alignItems: "center", marginBottom: "6px", flexWrap: "wrap" }}>
@@ -60,6 +60,7 @@ const FormField = memo(
                 ? "0 1px 2px rgba(239, 68, 68, 0.1)" 
                 : "0 1px 1px rgba(0, 0, 0, 0.05)";
             }}
+            {...rest}
           />
         ) : (
           <input
@@ -97,6 +98,7 @@ const FormField = memo(
                 ? "0 1px 2px rgba(239, 68, 68, 0.1)" 
                 : "0 1px 1px rgba(0, 0, 0, 0.05)";
             }}
+            {...rest}
           />
         )}
 
@@ -137,6 +139,61 @@ const FormField = memo(
     );
   }
 );
+
+const compressImage = (file, callback) => {
+  const reader = new FileReader();
+  reader.readAsDataURL(file);
+  reader.onload = (event) => {
+    const img = new Image();
+    img.src = event.target.result;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 1024;
+      const MAX_HEIGHT = 1024;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        }
+      } else {
+        if (height > MAX_HEIGHT) {
+          width *= MAX_HEIGHT / height;
+          height = MAX_HEIGHT;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+              type: 'image/jpeg',
+              lastModified: Date.now()
+            });
+            callback(compressedFile);
+          } else {
+            callback(file);
+          }
+        },
+        'image/jpeg',
+        0.7
+      );
+    };
+    img.onerror = () => {
+      callback(file);
+    };
+  };
+  reader.onerror = () => {
+    callback(file);
+  };
+};
 
 const CompanyRegister = () => {
   const [form, setForm] = useState({
@@ -277,38 +334,39 @@ const CompanyRegister = () => {
           }));
           return;
         }
-        
-        // Validate file size (max 2MB)
-        if (file.size > 2 * 1024 * 1024) {
+
+        // Auto compress the image
+        compressImage(file, (compressedFile) => {
+          setForm((prev) => ({
+            ...prev,
+            [name]: compressedFile,
+          }));
+
+          // Create preview
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            setLogoPreview(ev.target.result);
+          };
+          reader.readAsDataURL(compressedFile);
+
+          // Clear any previous errors for this field
           setFormErrors((prev) => ({
             ...prev,
-            [name]: "File size should be less than 2MB",
+            [name]: "",
           }));
-          return;
-        }
-
-        setForm((prev) => ({
-          ...prev,
-          [name]: file,
-        }));
-
-        // Create preview
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setLogoPreview(e.target.result);
-        };
-        reader.readAsDataURL(file);
-        
-        // Clear any previous errors for this field
-        setFormErrors((prev) => ({
-          ...prev,
-          [name]: "",
-        }));
+        });
       }
     } else {
+      let finalValue = value;
+      if (name === "companyPhone") {
+        finalValue = value.replace(/\D/g, '');
+      } else if (name === "ownerName") {
+        finalValue = value.replace(/[^a-zA-Z\s]/g, '');
+      }
+
       setForm((prev) => ({
         ...prev,
-        [name]: value,
+        [name]: finalValue,
       }));
     }
 
@@ -421,6 +479,7 @@ const CompanyRegister = () => {
             headers: {
               'Content-Type': 'multipart/form-data',
             },
+            _skipErrorNotify: true,
             onUploadProgress: (progressEvent) => {
               const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
               setUploadProgress(percentCompleted);
@@ -1166,6 +1225,7 @@ const CompanyRegister = () => {
                       error={getFieldError("companyPhone")}
                       autoComplete="off"
                       type="tel"
+                      maxLength={10}
                     />
 
                     <div style={{ marginBottom: "18px", width: "100%" }}>

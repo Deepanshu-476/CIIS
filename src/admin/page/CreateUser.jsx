@@ -53,12 +53,12 @@ const CreateUser = () => {
   const [loadingBranches, setLoadingBranches] = useState(false);
   const navigate = useNavigate();
 
-  // LocalStorage se company data
+  // Company data from localStorage
   const [companyId, setCompanyId] = useState('');
   const [companyCode, setCompanyCode] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
 
-  // ✅ FIXED: LocalStorage se data fetch karna
+  // Load data from localStorage
   useEffect(() => {
     const fetchDataFromLocalStorage = () => {
       try {
@@ -165,7 +165,7 @@ const CreateUser = () => {
     loadData();
   }, [companyId, companyCode]);
 
-  // Department change pe job roles fetch karna
+  // Fetch job roles when department changes
   useEffect(() => {
     if (form.department) {
       fetchJobRolesByDepartment(form.department);

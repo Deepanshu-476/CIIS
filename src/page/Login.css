@@ -3,24 +3,27 @@
 /* Container */
 .login-page-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #311042 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 16px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  position: relative;
+  overflow: hidden;
 }
 
 /* Main Paper */
 .login-paper {
-  border-radius: 16px;
+  border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.35);
   background: white;
   max-width: 1000px;
   width: 100%;
   min-height: 600px;
   display: flex;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 /* Left Section */
@@ -59,18 +62,26 @@
 .logo-container {
   width: 320px;
   height: 120px;
-  border-radius: 12px;
-  background-color: white;
+  border-radius: 16px;
+  background-color: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 32px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   overflow: hidden;
-  padding: 10px;
+  padding: 12px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.logo-container:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
 }
 
 .company-logo {
@@ -79,6 +90,7 @@
   width: auto;
   height: auto;
   object-fit: contain;
+  border-radius: 8px;
 }
 
 .business-icon {
@@ -635,16 +647,18 @@
   .mobile-logo-wrapper {
     width: 100px;
     height: 100px;
-    border-radius: 12px;
-    background: white;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     overflow: hidden;
-    padding: 8px;
+    padding: 10px;
     margin-bottom: 16px;
+    transition: all 0.3s ease;
   }
 
   .mobile-logo-img {
@@ -653,6 +667,7 @@
     width: auto;
     height: auto;
     object-fit: contain;
+    border-radius: 8px;
   }
 
   .mobile-company-name {

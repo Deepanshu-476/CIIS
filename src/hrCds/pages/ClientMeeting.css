@@ -229,13 +229,18 @@
 .cm-stat-item {
   text-align: center;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .cm-stat-value {
+  display: block;
   font-size: 1.3rem;
   font-weight: 700;
   color: white;
-  line-height: 1;
+  line-height: 1.2;
   margin-bottom: 4px;
 }
 
@@ -252,11 +257,13 @@
 }
 
 .cm-stat-label {
+  display: block;
   font-size: 0.6rem;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.7);
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  line-height: 1.2;
 }
 
 @media (min-width: 640px) {

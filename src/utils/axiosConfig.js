@@ -15,10 +15,20 @@ axiosInstance.interceptors.request.use((config) => {
 
 // A set to keep track of active toast messages to prevent flooding the screen with identical popups
 const activeToasts = new Set();
+let lastToastTime = 0;
 
 const showToastError = (message) => {
   if (activeToasts.has(message)) return;
+
+  // Prevent toast storms (allow at most 1 toast every 2 seconds)
+  const now = Date.now();
+  if (now - lastToastTime < 2000) {
+    console.log("Suppressed duplicate toast error: ", message);
+    return;
+  }
+
   activeToasts.add(message);
+  lastToastTime = now;
   
   toast.error(message, {
     position: "top-right",
@@ -92,6 +102,22 @@ const responseErrorHandler = (error) => {
     if (error.response.status === 401) {
       title = "🔒 Session Expired";
       message = "Your session has expired. Please log in again.";
+      
+      // Clear storage
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      
+      // Redirect if not already on a login page
+      if (!window.location.pathname.includes("/login")) {
+        const companyCode = localStorage.getItem("companyCode") || localStorage.getItem("companyIdentifier");
+        setTimeout(() => {
+          if (companyCode) {
+            window.location.href = `/company/${companyCode}/login`;
+          } else {
+            window.location.href = `/login`;
+          }
+        }, 1500);
+      }
     } else if (error.response.status === 403) {
       title = "🚫 Access Denied";
       message = rawMessage || "You do not have permission to perform this action.";

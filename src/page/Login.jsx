@@ -110,7 +110,7 @@ const Login = () => {
   const fetchCompanyDetails = async (identifier) => {
     try {
       setCompanyLoading(true);
-      const response = await axios.get(`/company/details/${identifier}`);
+      const response = await axios.get(`/company/details/${identifier}`, { _skipErrorNotify: true });
 
       if (response.data.success) {
         setCompanyDetails(response.data.company);
@@ -185,7 +185,7 @@ const Login = () => {
         timestamp: new Date().toISOString()
       });
 
-      const res = await axios.post('/auth/login', loginData);
+      const res = await axios.post('/auth/login', loginData, { _skipErrorNotify: true });
 
       // ✅ Check if OTP verification is required
       if (res.data.requiresOTP) {
@@ -325,7 +325,7 @@ const Login = () => {
         email: otpEmail,
         otp: otpString,
         tempToken: tempToken
-      });
+      }, { _skipErrorNotify: true });
 
       if (response.data.success) {
         // Save tokens and user data
@@ -396,7 +396,7 @@ const Login = () => {
     try {
       const response = await axios.post('/auth/resend-login-otp', {
         email: otpEmail
-      });
+      }, { _skipErrorNotify: true });
 
       if (response.data.success) {
         setTempToken(response.data.tempToken);
@@ -438,7 +438,7 @@ const Login = () => {
       const response = await axios.post('/auth/forgot-password', {
         email: forgotPasswordEmail,
         ...resetContext
-      });
+      }, { _skipErrorNotify: true });
 
       if (response.data.success) {
         toast.success(response.data.devOtp
@@ -479,7 +479,7 @@ const Login = () => {
         otp: otpCode,
         newPassword: newPassword,
         ...resetContext
-      });
+      }, { _skipErrorNotify: true });
 
       toast.success("Password reset successful!");
 

@@ -134,10 +134,25 @@
 .PageManagement-page-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 14px;
   max-height: calc(100vh - 290px);
   overflow: auto;
   padding-right: 4px;
+}
+
+.PageManagement-page-group {
+  display: grid;
+  gap: 8px;
+}
+
+.PageManagement-page-group h3,
+.PageManagement-user-group h3 {
+  margin: 0;
+  color: #526174;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
 .PageManagement-page-item {
@@ -220,6 +235,20 @@
   box-shadow: 0 3px 10px rgba(18, 38, 63, 0.08);
 }
 
+.PageManagement-user-search {
+  margin-bottom: 16px;
+}
+
+.PageManagement-user-sections {
+  display: grid;
+  gap: 18px;
+}
+
+.PageManagement-user-group {
+  display: grid;
+  gap: 10px;
+}
+
 .PageManagement-users {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -279,6 +308,15 @@
   border-radius: 999px;
   padding: 4px 8px;
   font-weight: 700;
+}
+
+.PageManagement-empty {
+  border: 1px dashed #d7deea;
+  border-radius: 8px;
+  padding: 14px;
+  color: #637083;
+  font-weight: 700;
+  background: #f8fbff;
 }
 
 @media (max-width: 900px) {

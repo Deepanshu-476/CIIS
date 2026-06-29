@@ -37,7 +37,7 @@ const ChatSidebar = ({
         item?.id ||
         item?.userId ||
         item?.user?._id ||
-        item?.user?.id ||
+        item?.user?.id || 
         ""
     ).toString();
 

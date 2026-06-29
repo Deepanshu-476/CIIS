@@ -335,7 +335,7 @@ const CompanyAllTaskTasks = () => {
       setTasks(nextTasks);
       setTotal(response.data?.pagination?.total || response.data?.total || nextTasks.length);
       setTotalPages(response.data?.pagination?.pages || 1);
-      setStats(countStats(  ));
+      setStats(countStats(nextTasks));
 
       try {
         const statsResponse = await axios.get(`/task/user/${userId}/stats`, {

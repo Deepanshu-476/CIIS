@@ -927,6 +927,13 @@
   white-space: nowrap;
 }
 
+.portal-chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
 .portal-chat-icon-btn,
 .portal-chat-inputbar button {
   border: 0;
@@ -1065,6 +1072,96 @@
   margin: 14px 8px 0 54px;
 }
 
+.portal-ticket-thread-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 -18px;
+  padding: 14px 18px 13px;
+  display: grid;
+  gap: 5px;
+  color: #172033;
+  background: rgba(255, 255, 255, 0.97);
+  border-bottom: 1px solid #e8edf5;
+}
+
+.portal-ticket-thread-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.portal-ticket-thread-head > strong {
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.portal-ticket-thread-head > small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.portal-ticket-info {
+  display: inline-flex;
+  color: #64748b;
+}
+
+.portal-chat-mini-thread.portal-full-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 18px 0 76px;
+}
+
+.portal-ticket-message {
+  display: flex;
+  flex-direction: column;
+  max-width: 78%;
+}
+
+.portal-ticket-message.user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.portal-ticket-message.bot {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.portal-ticket-message .portal-chat-mini-bubble {
+  width: fit-content;
+  max-width: 100%;
+  padding: 10px 13px;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.4;
+  border-radius: 14px;
+}
+
+.portal-ticket-message.user .portal-chat-mini-bubble {
+  border-bottom-right-radius: 4px;
+}
+
+.portal-ticket-message.bot .portal-chat-mini-bubble {
+  border-bottom-left-radius: 4px;
+}
+
+.portal-ticket-message-meta {
+  min-height: 17px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #8490a1;
+  font-size: 11px;
+  line-height: 1;
+}
+
 .portal-chat-mini-bubble {
   padding: 9px 12px;
   border-radius: 10px;
@@ -1164,19 +1261,10 @@
 }
 
 .portal-chat-minimize {
-  position: absolute;
-  top: 12px;
-  right: 52px;
   width: 36px;
   height: 36px;
-  border: 0;
   border-radius: 50%;
-  display: grid;
-  place-items: center;
-  color: #ffffff;
   background: rgba(255, 255, 255, 0.16);
-  cursor: pointer;
-  z-index: 2;
 }
 
 .portal-chat-minimize svg {
@@ -1257,8 +1345,6 @@
   }
 
   .portal-chat-minimize {
-    top: 12px;
-    right: 50px;
     width: 34px;
     height: 34px;
   }

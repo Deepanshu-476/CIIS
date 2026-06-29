@@ -68,6 +68,17 @@ const getDisplayName = value => {
 
 const getCurrentUserId = user => getValueId(user?._id || user?.id || user?.userId || user?.user?._id || user?.user?.id);
 
+const normalizeAttendanceStatus = status => {
+  const normalized = String(status || '').trim().toUpperCase().replace(/[-_]/g, ' ');
+  if (normalized === 'HALFDAY' || normalized === 'HALF DAY') return 'HALF DAY';
+  return normalized;
+};
+
+const normalizeAttendanceRecord = record => ({
+  ...record,
+  status: normalizeAttendanceStatus(record?.status || 'ABSENT'),
+});
+
 const pickTaskRecords = data => {
   if (Array.isArray(data?.tasks)) return data.tasks;
   if (Array.isArray(data?.data?.tasks)) return data.data.tasks;
@@ -396,10 +407,11 @@ const UserDashboard = () => {
           data = data.filter(record => !isBeforeJoinDate(record.date));
         }
         
-        setAttendanceData(data);
+        const normalizedData = data.map(normalizeAttendanceRecord);
+        setAttendanceData(normalizedData);
         
         // Update recent activity.
-        updateRecentActivity(data, holidays);
+        updateRecentActivity(normalizedData, holidays);
         
       } catch (error) {
         if (error.name === 'AbortError' || error.code === 'ERR_CANCELED') return;

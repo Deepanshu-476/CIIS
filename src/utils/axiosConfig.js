@@ -3,7 +3,9 @@ import API_URL from "../config";
 import { toast } from "react-toastify";
 
 const axiosInstance = axios.create({
-  baseURL: API_URL,
+  // Never let a local Vite session call or mutate production data. Vite
+  // proxies /api to the backend running on localhost:3000.
+  baseURL: import.meta.env.DEV ? "/api" : API_URL,
   withCredentials: true,
 });
 

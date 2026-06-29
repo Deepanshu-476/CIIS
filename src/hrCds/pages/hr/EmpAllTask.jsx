@@ -810,9 +810,15 @@ const TaskDetails = () => {
             };
 
             try {
+              const fromDateParam = globalFromDate || undefined;
+              const toDateParam = globalToDate || undefined;
+              const isDateFiltered = fromDateParam || toDateParam;
+
               const statsRes = await axios.get(`/tasks/all/user/${userId}/stats`, {
                 params: {
-                  period: 'today',
+                  period: isDateFiltered ? 'all' : 'today',
+                  fromDate: fromDateParam,
+                  toDate: toDateParam,
                   status: 'all',
                   priority: 'all',
                 },
@@ -913,6 +919,13 @@ const TaskDetails = () => {
       }
     };
   }, [currentUser, fetchUsersWithTasks]);
+
+  // Re-fetch users when global date filters change
+  useEffect(() => {
+    if (currentUser && isMounted.current && hasFetchedUsers.current) {
+      fetchUsersWithTasks();
+    }
+  }, [globalFromDate, globalToDate, currentUser, fetchUsersWithTasks]);
 
   // ==================== FILTERS ====================
 
@@ -3792,7 +3805,13 @@ const TaskDetails = () => {
               <input
                 type="date"
                 value={globalFromDate}
-                onChange={(e) => setGlobalFromDate(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setGlobalFromDate(val);
+                  if (!globalToDate || globalToDate < val) {
+                    setGlobalToDate(val);
+                  }
+                }}
                 placeholder="From Date"
               />
             </div>
@@ -3814,7 +3833,7 @@ const TaskDetails = () => {
                   setGlobalToDate('');
                 }}
               >
-                Clear
+                Clear Date
               </button>
             )}
           </div>

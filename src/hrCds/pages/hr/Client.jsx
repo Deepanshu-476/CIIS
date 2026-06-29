@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import API_URL from '../../../config';
 import './client-management.css';
@@ -2727,6 +2728,7 @@ const AddClientModal = ({
 //  MAIN CLIENT MANAGEMENT COMPONENT
 // ============================================
 const ClientManagement = () => {
+  const navigate = useNavigate();
   const [clients, setClients] = useState([]);
   const [services, setServices] = useState([]);
   const [clientPlans, setClientPlans] = useState([]);
@@ -3561,7 +3563,7 @@ const ClientManagement = () => {
               </button>
               <button
                 className="ClientManagement-btn ClientManagement-btn--outlined"
-                onClick={() => setClientPlansModal(true)}
+                onClick={() => navigate('/ciisUser/client-plans')}
                 disabled={services.length === 0 || (!companyCode && !companyIdentifier)}
               >
                 <FiBriefcase /> Client Plans ({clientPlans.length})
@@ -4018,14 +4020,7 @@ const ClientManagement = () => {
         companyCode={companyCode}
       />
 
-      <ClientPlansModal
-        open={clientPlansModal}
-        onClose={() => setClientPlansModal(false)}
-        plans={clientPlans}
-        services={services}
-        companyCode={companyCode}
-        onSavePlan={handleSaveClientPlan}
-      />
+
 
       {deleteDialog.open && (
         <div className="ClientManagement-modal-overlay" onClick={handleDeleteCancel}>

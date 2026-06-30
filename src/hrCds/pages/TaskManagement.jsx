@@ -999,8 +999,18 @@ const UserCreateTask = () => {
     if (searchTerm.trim()) params.append('search', searchTerm.trim());
     if (timeFilter === 'today') params.append('period', 'today');
     if (timeFilter === 'this-week') params.append('period', 'week');
+    if (selectedDate) {
+      params.append('fromDate', selectedDate);
+      params.append('toDate', selectedDate);
+    } else if (dateRange.start || dateRange.end) {
+      if (dateRange.start) params.append('fromDate', dateRange.start);
+      if (dateRange.end) params.append('toDate', dateRange.end);
+    }
+    if (selectedDate || dateRange.start || dateRange.end) {
+      params.append('dateField', dateFilterType === 'createdDate' ? 'createdAt' : 'dueDate');
+    }
     return params.toString();
-  }, [statusFilter, searchTerm, timeFilter]);
+  }, [statusFilter, searchTerm, timeFilter, selectedDate, dateRange, dateFilterType]);
 
   const getUserTaskApiPeriod = useCallback(() => {
     if (timeFilter === 'today') return 'today';
@@ -1016,8 +1026,18 @@ const UserCreateTask = () => {
     params.append('status', statusFilter && statusFilter !== 'all' ? statusFilter : 'all');
     params.append('priority', 'all');
     if (searchTerm.trim()) params.append('search', searchTerm.trim());
+    if (selectedDate) {
+      params.append('fromDate', selectedDate);
+      params.append('toDate', selectedDate);
+    } else if (dateRange.start || dateRange.end) {
+      if (dateRange.start) params.append('fromDate', dateRange.start);
+      if (dateRange.end) params.append('toDate', dateRange.end);
+    }
+    if (selectedDate || dateRange.start || dateRange.end) {
+      params.append('dateField', dateFilterType === 'createdDate' ? 'createdAt' : 'dueDate');
+    }
     return params.toString();
-  }, [statusFilter, searchTerm]);
+  }, [statusFilter, searchTerm, selectedDate, dateRange, dateFilterType]);
 
   const tagTasksWithSource = useCallback((tasks, source) => {
     return tasks.map(task => ({ ...task, __taskSource: source }));

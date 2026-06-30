@@ -8,7 +8,6 @@ import {
   FiCalendar,
   FiChevronDown,
   FiDownload,
-  FiDollarSign,
   FiFileText,
   FiHeadphones,
   FiMail,
@@ -106,7 +105,7 @@ const PaymentsInvoicesPage = () => {
   };
 
   const metricCards = [
-    { label: "Total Paid", value: formatMoney(payment.paidAmount), note: `${payment.receipts.length} receipt(s)`, tone: "green", icon: <FiDollarSign /> },
+    { label: "Total Paid", value: formatMoney(payment.paidAmount), note: `${payment.receipts.length} receipt(s)`, tone: "green", icon: <span className="PaymentsPage-rupeeIcon">₹</span> },
     { label: "Outstanding Amount", value: formatMoney(payment.outstanding), note: `${payment.unpaidInvoices} invoice due`, tone: "orange", icon: <FiAlertCircle /> },
     { label: "Active Plan", value: payment.planName, note: payment.billingCycle, tone: "purple", icon: <FiAward /> },
     { label: "Next Due Date", value: formatDate(payment.nextDueDate), note: payment.nextDueDate ? "Subscription renewal" : "Not available", tone: "blue", icon: <FiCalendar /> },

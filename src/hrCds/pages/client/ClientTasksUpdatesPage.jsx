@@ -323,7 +323,6 @@ const ServicesTasks = () => {
   const completedTasks = allTasks.filter(task => task.completed === true);
   const overdueTasks = allTasks.filter(isClientTaskOverdue);
   const inProgressTasks = allTasks.filter(task => task.completed !== true && !isClientTaskOverdue(task) && String(task.status || '').toLowerCase().includes('progress'));
-  const pendingApprovalTasks = allTasks.filter(task => String(task.status || '').trim().toLowerCase() === 'pending approval');
   const upcomingDeadlineTasks = allTasks.filter(task => {
     if (!task.dueDate || task.completed === true) return false;
     const dueDate = new Date(task.dueDate);
@@ -372,7 +371,6 @@ const ServicesTasks = () => {
   const taskMatchesFilter = task => {
     if (activeTaskFilter === 'completed') return task.completed === true;
     if (activeTaskFilter === 'in-progress') return task.completed !== true && !isClientTaskOverdue(task) && String(task.status || '').toLowerCase().includes('progress');
-    if (activeTaskFilter === 'pending-approval') return String(task.status || '').trim().toLowerCase() === 'pending approval';
     if (activeTaskFilter === 'overdue') return isClientTaskOverdue(task);
     if (activeTaskFilter === 'upcoming') return upcomingDeadlineTasks.includes(task);
     return true;
@@ -459,7 +457,6 @@ const ServicesTasks = () => {
     { label: 'Total Tasks', filter: 'total', value: totalTasks, tone: 'blue', icon: <FiCalendar />, trend: '', helper: 'Live total', spark: 'M2 23 C10 19, 17 26, 25 21 S41 16, 50 22 S67 28, 76 17 S92 12, 104 19 S114 17, 120 10' },
     { label: 'Completed Tasks', filter: 'completed', value: completedTasks.length, tone: 'green', icon: <FiCheckCircle />, trend: '', helper: 'Live total', spark: 'M2 24 C12 16, 18 22, 27 19 S43 12, 52 18 S66 27, 76 21 S90 13, 101 18 S112 12, 120 15' },
     { label: 'In Progress', filter: 'in-progress', value: inProgressTasks.length, tone: 'blue', icon: <FiClock />, trend: '', helper: 'Live total', spark: 'M2 21 C12 18, 20 22, 29 20 S43 17, 54 22 S69 25, 79 19 S94 14, 105 20 S114 17, 120 12' },
-    { label: 'Pending Approval', filter: 'pending-approval', value: pendingApprovalTasks.length, tone: 'orange', icon: <FiUsers />, trend: '', helper: 'Live total', spark: 'M2 25 C12 25, 17 15, 27 20 S41 26, 51 18 S66 14, 76 23 S88 24, 98 17 S111 18, 120 22' },
     { label: 'Overdue Tasks', filter: 'overdue', value: overdueTasks.length, tone: 'red', icon: <FiAlertCircle />, trend: '', helper: 'Live total', spark: 'M2 24 C12 19, 19 21, 28 17 S43 20, 52 15 S66 25, 77 17 S91 12, 101 20 S112 16, 120 23' },
     { label: 'Upcoming Deadlines', filter: 'upcoming', value: upcomingDeadlineTasks.length, tone: 'purple', icon: <FiCalendar />, trend: '', helper: 'Next 30 days', spark: 'M2 25 C13 20, 20 24, 30 17 S45 18, 55 13 S69 19, 78 16 S92 10, 102 14 S113 9, 120 12' }
   ];
@@ -467,8 +464,7 @@ const ServicesTasks = () => {
   const distribution = [
     { label: 'Completed', value: stats[1].value, color: '#1f78ff' },
     { label: 'In Progress', value: stats[2].value, color: '#60a5fa' },
-    { label: 'Pending Approval', value: stats[3].value, color: '#f59e0b' },
-    { label: 'Overdue', value: stats[4].value, color: '#ef4444' },
+    { label: 'Overdue', value: stats[3].value, color: '#ef4444' },
     { label: 'Upcoming', value: upcomingDeadlineTasks.length, color: '#8b5cf6' }
   ];
   const distributionTotal = distribution.reduce((sum, item) => sum + item.value, 0) || 1;
@@ -540,7 +536,7 @@ const ServicesTasks = () => {
           <div className="ClientTasksUpdatesPage-titleRow">
             <div>
               <h2>Tasks & Updates</h2>
-              <p>Track tasks, milestones, approvals and latest project activity.</p>
+              <p>Track tasks, milestones and latest project activity.</p>
             </div>
           </div>
 
@@ -560,7 +556,7 @@ const ServicesTasks = () => {
                 </div>
                 {stat.trend && <small className={String(stat.trend).startsWith('-') ? 'ClientTasksUpdatesPage-down' : ''}>{stat.trend}</small>}
                 <em>{stat.helper}</em>
-                <svg viewBox="0 0 120 34" aria-hidden="true">
+                <svg className="ClientTasksUpdatesPage-statSpark" viewBox="0 0 120 34" aria-hidden="true">
                   <path d={stat.spark} />
                 </svg>
               </button>
@@ -582,7 +578,6 @@ const ServicesTasks = () => {
                 <option value="all">All Status</option>
                 <option value="completed">Completed</option>
                 <option value="in-progress">In Progress</option>
-                <option value="pending-approval">Pending Approval</option>
                 <option value="overdue">Overdue</option>
               </select>
               <select value={priorityFilter} onChange={event => setPriorityFilter(event.target.value)} aria-label="Filter by priority">

@@ -1,4 +1,4 @@
-  // import { Routes, Route, Navigate } from "react-router-dom";
+// import { Routes, Route, Navigate } from "react-router-dom";
 // import { useEffect, useState } from "react";
 // import Login from "./page/Login";
 // import { ToastContainer } from "react-toastify";
@@ -214,7 +214,6 @@ import CompanyAllTaskTasks from "./hrCds/pages/hr/CompanyAllTaskTasks";
 import EmpDepartmentAllTask from "./hrCds/pages/hr/EmpDepartmentAllTask.jsx";
 import AdminProject from "./hrCds/pages/AdminProject";
 import Client from "./hrCds/pages/hr/Client";
-import ClientPlansPage from "./hrCds/pages/hr/ClientPlansPage";
 
 // ========== CLIENT PAGES (NEW) ==========
 import ClientDashboardPage from "./hrCds/pages/client/ClientDashboardPage.jsx";
@@ -264,7 +263,6 @@ import AllCompany from "./page/AllCompany.jsx";
 import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
 import BranchManagement from "./admin/page/BranchManagement.jsx"; 
-import PageManagement from "./admin/page/PageManagement.jsx";
 import ChatPage from "./Pages/Chat/ChatPage";
 
 function App() {
@@ -277,66 +275,6 @@ function App() {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    const checkStorage = () => {
-      const path = window.location.pathname;
-      const isSuperAdminRoute = path.startsWith('/Ciis-network');
-      const isUserRoute = path.startsWith('/ciisUser');
-      const isClientRoute = path.startsWith('/client');
-
-      if (isSuperAdminRoute || isUserRoute || isClientRoute) {
-        const token = localStorage.getItem('token');
-        let isValid = !!token;
-
-        if (isValid) {
-          if (isSuperAdminRoute) {
-            isValid = !!localStorage.getItem('superAdmin');
-          } else {
-            isValid = !!localStorage.getItem('user');
-          }
-        }
-
-        if (!isValid) {
-          const companyCode = localStorage.getItem('companyCode') || localStorage.getItem('companyIdentifier');
-
-          // Clean up local storage items
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          localStorage.removeItem('superAdmin');
-
-          if (isSuperAdminRoute) {
-            if (window.location.pathname !== '/SuperAdminLogin') {
-              window.location.href = '/SuperAdminLogin';
-            }
-          } else if (companyCode) {
-            const loginUrl = `/company/${companyCode}/login`;
-            if (window.location.pathname !== loginUrl) {
-              window.location.href = loginUrl;
-            }
-          } else {
-            if (window.location.pathname !== '/') {
-              window.location.href = '/';
-            }
-          }
-        }
-      }
-    };
-
-    // 1. Listen for storage changes from other tabs/windows
-    window.addEventListener('storage', checkStorage);
-
-    // 2. Poll every 1 second to handle deletions in the current tab (DevTools)
-    const interval = setInterval(checkStorage, 1000);
-
-    // 3. Run check immediately on mount
-    checkStorage();
-
-    return () => {
-      window.removeEventListener('storage', checkStorage);
-      clearInterval(interval);
-    };
   }, []);
 
   if (loading) {
@@ -378,7 +316,6 @@ function App() {
           <Route path="company-assets/branch/:branchId" element={<CompanyAssetManagement/>}/>
           <Route path="CompanyManagement" element={<CompanyManagement />} />
           <Route path="SidebarManagement" element={<SidebarManagement />} />
-          <Route path="page-management" element={<PageManagement />} />
           <Route path="plans" element={<PlanManagement />} />
           <Route path="holiday" element={<Holiday />} />
           <Route path="branch" element={<BranchManagement />} />
@@ -414,7 +351,6 @@ function App() {
           <Route path="company-all-task/tasks/:userId" element={<CompanyAllTaskTasks />} />
           <Route path="company-all-task/:userId/tasks" element={<CompanyAllTaskTasks />} />
           <Route path="emp-client" element={<Client />} />
-          <Route path="client-plans" element={<ClientPlansPage />} />
           <Route path="active-clients" element={<ActiveClientsOverview />} />
           <Route path="alert" element={<Alerts />} />
           <Route path="attendance" element={<Attendance />} />

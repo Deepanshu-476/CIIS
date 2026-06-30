@@ -266,19 +266,25 @@
   padding: 18px;
   background: rgba(15, 23, 42, .52);
   backdrop-filter: blur(4px);
+  isolation: isolate;
 }
 
 .MyServices-modal {
   width: min(520px, 100%);
   max-height: calc(100vh - 42px);
-  overflow: auto;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
   border-radius: 8px;
   border: 1px solid #dfe5ee;
   background: #fff;
   box-shadow: 0 20px 45px rgba(15, 23, 42, .22);
 }
 
-.MyServices-modalLarge { width: min(720px, 100%); }
+.MyServices-modalLarge {
+  width: min(720px, 100%);
+  height: min(560px, calc(100vh - 42px));
+}
 
 .MyServices-modal > header {
   display: flex;
@@ -291,6 +297,10 @@
 }
 
 .MyServices-modal > header h3 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   margin: 0;
   color: #111827;
   font-size: 14px;
@@ -310,6 +320,8 @@
 }
 
 .MyServices-modalBody {
+  min-height: 0;
+  overflow: auto;
   padding: 15px;
 }
 
@@ -403,31 +415,50 @@
 
 .MyServices-taskRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) 86px 82px;
   align-items: center;
   gap: 10px;
+  min-height: 58px;
+  max-height: 58px;
   padding: 10px;
   border: 1px solid #e4e9f1;
   border-radius: 7px;
   background: #fff;
 }
 
+.MyServices-taskRow:hover {
+  background: #fff;
+}
+
+.MyServices-taskRow > div {
+  min-width: 0;
+}
+
 .MyServices-taskRow strong {
   display: block;
+  overflow: hidden;
   color: #172033;
   font-size: 10px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .MyServices-taskRow span {
   display: block;
   margin-top: 4px;
+  overflow: hidden;
   color: #647188;
   font-size: 8px;
   line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .MyServices-taskRow em,
 .MyServices-taskRow time {
+  min-width: 0;
+  overflow: hidden;
   padding: 6px 8px;
   border-radius: 999px;
   background: #edf3ff;
@@ -435,6 +466,8 @@
   font-size: 8px;
   font-style: normal;
   font-weight: 800;
+  text-align: center;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -467,7 +500,15 @@
   .MyServices-stat:nth-last-child(-n + 2) { border-bottom: 0; }
   .MyServices-filterbar { grid-template-columns: 1fr; }
   .MyServices-filter, .MyServices-service-search { grid-column: 1; }
-  .MyServices-detailGrid, .MyServices-taskRow { grid-template-columns: 1fr; }
+  .MyServices-detailGrid { grid-template-columns: 1fr; }
+  .MyServices-taskRow {
+    grid-template-columns: minmax(0, 1fr) 72px;
+    min-height: 64px;
+    max-height: 64px;
+  }
+  .MyServices-taskRow time {
+    grid-column: 2;
+  }
   .MyServices-timeline { padding: 12px 8px; }
   .MyServices-timeline-track { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
   .MyServices-timeline-track::before { left: 12%; right: 12%; }

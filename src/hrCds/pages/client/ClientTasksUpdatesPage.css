@@ -100,6 +100,15 @@
   box-shadow: 0 8px 18px rgba(11, 114, 240, 0.22);
 }
 
+.ClientTasksUpdatesPage-page button svg,
+.ClientTasksUpdatesPage-tableSearch svg,
+.ClientTasksUpdatesPage-search svg,
+.ClientTasksUpdatesPage-updateIcon svg,
+.ClientTasksUpdatesPage-milestones i svg {
+  display: block;
+  flex-shrink: 0;
+}
+
 .ClientTasksUpdatesPage-primary {
   padding: 0 17px;
 }
@@ -212,7 +221,7 @@
 
 .ClientTasksUpdatesPage-stats {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 12px;
 }
@@ -282,9 +291,11 @@
 
 .ClientTasksUpdatesPage-statCard .ClientTasksUpdatesPage-statIcon svg {
   display: block;
+  position: static;
   width: 18px;
   height: 18px;
   flex: 0 0 auto;
+  transform: none;
 }
 
 .ClientTasksUpdatesPage-is-blue { color: #1769e8; background: #eaf2ff; }
@@ -336,7 +347,7 @@
   font-weight: 700;
 }
 
-.ClientTasksUpdatesPage-statCard svg {
+.ClientTasksUpdatesPage-statSpark {
   position: absolute;
   right: 8px;
   bottom: 10px;
@@ -349,10 +360,10 @@
   stroke-width: 2.7;
 }
 
-.ClientTasksUpdatesPage-statCard.ClientTasksUpdatesPage-tone-green svg { stroke: #8bd9bd; }
-.ClientTasksUpdatesPage-statCard.ClientTasksUpdatesPage-tone-orange svg { stroke: #efc078; }
-.ClientTasksUpdatesPage-statCard.ClientTasksUpdatesPage-tone-red svg { stroke: #f2a3ad; }
-.ClientTasksUpdatesPage-statCard.ClientTasksUpdatesPage-tone-purple svg { stroke: #a78bfa; }
+.ClientTasksUpdatesPage-statCard.ClientTasksUpdatesPage-tone-green .ClientTasksUpdatesPage-statSpark { stroke: #8bd9bd; }
+.ClientTasksUpdatesPage-statCard.ClientTasksUpdatesPage-tone-orange .ClientTasksUpdatesPage-statSpark { stroke: #efc078; }
+.ClientTasksUpdatesPage-statCard.ClientTasksUpdatesPage-tone-red .ClientTasksUpdatesPage-statSpark { stroke: #f2a3ad; }
+.ClientTasksUpdatesPage-statCard.ClientTasksUpdatesPage-tone-purple .ClientTasksUpdatesPage-statSpark { stroke: #a78bfa; }
 
 .ClientTasksUpdatesPage-tablePanel {
   overflow: hidden;

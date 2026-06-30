@@ -65,7 +65,7 @@ const AIAssistantPage = () => {
             </div>
           ))}
         </div>
-        <div className="ClientPageBase-ai-input-row">
+        <div className="ClientPageBas e-ai-input-row">
           <input
             placeholder="Ask the assistant to generate text, review strategy, or summarize a report"
             value={query}

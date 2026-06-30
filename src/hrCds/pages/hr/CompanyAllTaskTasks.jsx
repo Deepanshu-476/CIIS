@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import axios from "../../../utils/axiosConfig";
 import API_URL from "../../../config";
 import "./CompanyAllTaskTasks.css";
@@ -41,13 +41,6 @@ const PRIORITY_OPTIONS = [
   { value: "high", label: "High" },
   { value: "medium", label: "Medium" },
   { value: "low", label: "Low" },
-];
-
-const PERIOD_OPTIONS = [
-  { value: "all", label: "All Time" },
-  { value: "today", label: "Today" },
-  { value: "week", label: "This Week" },
-  { value: "overdue", label: "Overdue" },
 ];
 
 const emptyStats = {
@@ -158,6 +151,13 @@ const formatDate = (value) => {
   });
 };
 
+const getDateInputValue = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return offsetDate.toISOString().slice(0, 10);
+};
+
 const formatDateTime = (value) => {
   if (!value) return "Not available";
   const date = new Date(value);
@@ -264,7 +264,12 @@ const normalizeStats = (payload, fallbackTasks) => {
 const CompanyAllTaskTasks = () => {
   const navigate = useNavigate();
   const { userId } = useParams();
+  const [searchParams] = useSearchParams();
   const currentUser = useMemo(getStoredUser, []);
+  const initialDate = useMemo(() => {
+    const queryDate = searchParams.get("date");
+    return queryDate || getDateInputValue();
+  }, [searchParams]);
 
   const [employee, setEmployee] = useState(null);
   const [tasks, setTasks] = useState([]);
@@ -273,7 +278,7 @@ const CompanyAllTaskTasks = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [period, setPeriod] = useState("today");
+  const [selectedDate, setSelectedDate] = useState(initialDate);
   const [status, setStatus] = useState("all");
   const [priority, setPriority] = useState("all");
   const [page, setPage] = useState(1);
@@ -319,37 +324,28 @@ const CompanyAllTaskTasks = () => {
     setError("");
 
     try {
-      const nextStatus = period === "overdue" && status === "all" ? "overdue" : status;
       const response = await axios.get(`/task/user/${userId}/all-tasks`, {
         params: {
           page,
           limit,
-          period: period === "overdue" ? "all" : period,
+          period: selectedDate ? "all" : "today",
+          fromDate: selectedDate,
+          toDate: selectedDate,
           search,
-          status: nextStatus,
+          status,
           priority,
         },
       });
 
       const nextTasks = response.data?.tasks || response.data?.data || [];
-      setTasks(nextTasks);
-      setTotal(response.data?.pagination?.total || response.data?.total || nextTasks.length);
-      setTotalPages(response.data?.pagination?.pages || 1);
-      setStats(countStats(nextTasks));
+      const displayTotal = response.data?.pagination?.total || response.data?.total || nextTasks.length;
+      const displayPages = response.data?.pagination?.pages || 1;
+      const displayStats = normalizeStats(response.data, nextTasks);
 
-      try {
-        const statsResponse = await axios.get(`/task/user/${userId}/stats`, {
-          params: {
-            period: period === "overdue" ? "all" : period,
-            search,
-            status: nextStatus,
-            priority,
-          },
-        });
-        setStats(normalizeStats(statsResponse.data, nextTasks));
-      } catch {
-        setStats(countStats(nextTasks));
-      }
+      setTasks(nextTasks);
+      setTotal(displayTotal);
+      setTotalPages(displayPages);
+      setStats(displayStats);
 
       if (nextTasks.length === 0) setTaskDetailsById({});
     } catch (err) {
@@ -360,7 +356,7 @@ const CompanyAllTaskTasks = () => {
     } finally {
       setLoading(false);
     }
-  }, [limit, page, period, priority, search, status, userId]);
+  }, [limit, page, priority, search, selectedDate, status, userId]);
 
   const fetchTaskDetails = useCallback(async (task) => {
     if (!task?._id) {
@@ -381,13 +377,11 @@ const CompanyAllTaskTasks = () => {
         ? `/tasks/client-tasks/${task._id}/client-activity-logs`
         : source === "project"
           ? `/tasks/project/${task.projectId}/tasks/${task._id}/activity`
-          : source === "self"
-            ? `/tasks/self/${task._id}/activity`
-            : `/tasks/assigned/${task._id}/activity`;
+          : `/task/${task._id}/activity-logs`;
 
       const [remarksResponse, activityResponse] = await Promise.allSettled([
-        axios.get(remarksUrl),
-        axios.get(activityUrl),
+        axios.get(remarksUrl, { _skipErrorNotify: true }),
+        axios.get(activityUrl, { _skipErrorNotify: true }),
       ]);
 
       const remarksPayload = remarksResponse.status === "fulfilled" ? remarksResponse.value.data : {};
@@ -456,7 +450,7 @@ const CompanyAllTaskTasks = () => {
 
   const handleReset = () => {
     setSearch("");
-    setPeriod("today");
+    setSelectedDate(getDateInputValue());
     setStatus("all");
     setPriority("all");
     setPage(1);
@@ -534,11 +528,17 @@ const CompanyAllTaskTasks = () => {
 
         <div className="company-task-filters">
           <FiFilter size={16} />
-          <select value={period} onChange={(event) => { setPeriod(event.target.value); setPage(1); }}>
-            {PERIOD_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
+          <label className="company-task-date-filter">
+            <FiCalendar size={15} />
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(event) => {
+                setSelectedDate(event.target.value);
+                setPage(1);
+              }}
+            />
+          </label>
           <select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
             {STATUS_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
@@ -560,7 +560,7 @@ const CompanyAllTaskTasks = () => {
         <div className="company-task-list-panel">
           <div className="company-task-list-head">
             <div>
-              <h2>{period === "today" ? "Today Tasks" : "Tasks"}</h2>
+              <h2>{selectedDate === getDateInputValue() ? "Today Tasks" : "Tasks"}</h2>
               <p>{loading ? "Loading..." : `${total} tasks found`}</p>
             </div>
             <select value={limit} onChange={(event) => { setLimit(Number(event.target.value)); setPage(1); }}>

@@ -62,6 +62,43 @@ const getLocalDateStart = (value = new Date()) => {
   return date;
 };
 
+const getDateInputValue = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return offsetDate.toISOString().slice(0, 10);
+};
+
+const mapStatusCountsToTaskStats = (statusCounts = {}) => {
+  const completed = statusCounts.completed?.count || 0;
+  const total = statusCounts.total || 0;
+  return {
+    total,
+    completed,
+    completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+    pending: statusCounts.pending?.count || 0,
+    inProgress: statusCounts.inProgress?.count || statusCounts['in-progress']?.count || 0,
+    rejected: statusCounts.rejected?.count || 0,
+    overdue: statusCounts.overdue?.count || 0,
+    onhold: statusCounts.onhold?.count || statusCounts.onHold?.count || 0,
+    reopen: statusCounts.reopen?.count || 0,
+    cancelled: statusCounts.cancelled?.count || 0
+  };
+};
+
+const emptyTaskStats = {
+  total: 0,
+  completed: 0,
+  completionRate: 0,
+  pending: 0,
+  inProgress: 0,
+  rejected: 0,
+  overdue: 0,
+  onhold: 0,
+  reopen: 0,
+  cancelled: 0
+};
+
 const isTaskOverdueByDate = (dueDate, status) => {
   if (!dueDate) return false;
   const normalizedStatus = normalizeStatus(status);
@@ -173,6 +210,7 @@ const TaskDetails = () => {
   const fetchingTasksForUser = useRef(null);
   const snackbarTimerRef = useRef(null);
   const skipNextTaskFetchRef = useRef(false);
+  const usersFetchRequestRef = useRef(0);
 
   // State declarations
   const [users, setUsers] = useState([]);
@@ -218,8 +256,8 @@ const TaskDetails = () => {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [globalFromDate, setGlobalFromDate] = useState("");
-  const [globalToDate, setGlobalToDate] = useState("");
+  const [globalFromDate, setGlobalFromDate] = useState(getDateInputValue());
+  const [globalToDate, setGlobalToDate] = useState(getDateInputValue());
   const [taskPage, setTaskPage] = useState(1);
   const [taskLimit, setTaskLimit] = useState(10);
   const [taskTotal, setTaskTotal] = useState(0);
@@ -231,8 +269,10 @@ const TaskDetails = () => {
 
   const openUserTasksPage = useCallback((userId) => {
     if (!userId) return;
-    navigate(`/ciisUser/company-all-task/tasks/${userId}`);
-  }, [navigate]);
+    const selectedDate = globalFromDate || globalToDate;
+    const query = selectedDate ? `?date=${encodeURIComponent(selectedDate)}` : '';
+    navigate(`/ciisUser/company-all-task/tasks/${userId}${query}`);
+  }, [globalFromDate, globalToDate, navigate]);
 
   // ==================== CLEANUP ON UNMOUNT ====================
   useEffect(() => {
@@ -792,71 +832,15 @@ const TaskDetails = () => {
 
         console.log("✅ Users data received:", usersData.length);
 
-        const usersWithStats = await Promise.all(
-          usersData.map(async (user) => {
-            const userId = user._id || user.id;
+        let filteredUsers = usersData.map(user => ({
+          ...user,
+          _id: user._id || user.id,
+          taskStats: emptyTaskStats
+        }));
 
-            let taskStats = {
-              total: 0,
-              completed: 0,
-              completionRate: 0,
-              pending: 0,
-              inProgress: 0,
-              rejected: 0,
-              overdue: 0,
-              onhold: 0,
-              reopen: 0,
-              cancelled: 0
-            };
-
-            try {
-              const fromDateParam = globalFromDate || undefined;
-              const toDateParam = globalToDate || undefined;
-              const isDateFiltered = fromDateParam || toDateParam;
-
-              const statsRes = await axios.get(`/tasks/all/user/${userId}/stats`, {
-                params: {
-                  period: isDateFiltered ? 'all' : 'today',
-                  fromDate: fromDateParam,
-                  toDate: toDateParam,
-                  status: 'all',
-                  priority: 'all',
-                },
-              });
-
-              const statusCounts = statsRes.data?.statusCounts;
-              if (statusCounts) {
-                const completed = statusCounts.completed?.count || 0;
-                const total = statusCounts.total || 0;
-                taskStats = {
-                  total,
-                  completed,
-                  completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
-                  pending: statusCounts.pending?.count || 0,
-                  inProgress: statusCounts.inProgress?.count || 0,
-                  rejected: statusCounts.rejected?.count || 0,
-                  overdue: statusCounts.overdue?.count || 0,
-                  onhold: statusCounts.onhold?.count || statusCounts.onHold?.count || 0,
-                  reopen: statusCounts.reopen?.count || 0,
-                  cancelled: statusCounts.cancelled?.count || 0
-                };
-              }
-            } catch (err) {
-              console.log("Task stats fetch failed for user:", userId);
-            }
-
-            return {
-              ...user,
-              _id: userId,
-              taskStats
-            };
-          })
-        );
-
-        let filteredUsers = usersWithStats;
         if (currentUser?.company) {
           const currentCompanyId = currentUser.company._id || currentUser.company;
-          filteredUsers = usersWithStats.filter(user => {
+          filteredUsers = filteredUsers.filter(user => {
             const userCompanyId = user.company?._id || user.company;
             return userCompanyId?.toString() === currentCompanyId?.toString();
           });
@@ -873,6 +857,47 @@ const TaskDetails = () => {
         if (isMounted.current) {
           setUsers(filteredUsers);
           calculateOverallStats(filteredUsers);
+        }
+
+        const requestId = usersFetchRequestRef.current + 1;
+        usersFetchRequestRef.current = requestId;
+        const fromDateParam = globalFromDate || undefined;
+        const toDateParam = globalToDate || undefined;
+        const isDateFiltered = fromDateParam || toDateParam;
+
+        const userIds = filteredUsers.map(user => user._id || user.id).filter(Boolean);
+        if (userIds.length === 0) return;
+
+        try {
+          const statsRes = await axios.post(
+            '/tasks/all/users/stats',
+            {
+              userIds,
+              filters: {
+                period: isDateFiltered ? 'all' : 'today',
+                fromDate: fromDateParam,
+                toDate: toDateParam,
+                status: 'all',
+                priority: 'all',
+              },
+            },
+            {
+              _skipErrorNotify: true,
+            }
+          );
+
+          const statsByUser = statsRes.data?.statsByUser || {};
+          const usersWithStats = filteredUsers.map(user => ({
+            ...user,
+            taskStats: mapStatusCountsToTaskStats(statsByUser[user._id || user.id])
+          }));
+
+          if (isMounted.current && usersFetchRequestRef.current === requestId) {
+            setUsers(usersWithStats);
+            calculateOverallStats(usersWithStats);
+          }
+        } catch (err) {
+          console.log("Batch task stats fetch failed:", err?.message || err);
         }
 
       } catch (err) {
@@ -904,11 +929,11 @@ const TaskDetails = () => {
       }
     }, 300); // Debounce by 300ms
 
-  }, [currentUser, isOwner, calculateOverallStats]);
+  }, [currentUser, isOwner, calculateOverallStats, globalFromDate, globalToDate]);
 
-  // Single useEffect for fetching users
+  // Single effect for fetching users and date-filtered stats.
   useEffect(() => {
-    if (currentUser && !hasFetchedUsers.current && isMounted.current) {
+    if (currentUser && isMounted.current) {
       hasFetchedUsers.current = true;
       fetchUsersWithTasks();
     }
@@ -919,13 +944,6 @@ const TaskDetails = () => {
       }
     };
   }, [currentUser, fetchUsersWithTasks]);
-
-  // Re-fetch users when global date filters change
-  useEffect(() => {
-    if (currentUser && isMounted.current && hasFetchedUsers.current) {
-      fetchUsersWithTasks();
-    }
-  }, [globalFromDate, globalToDate, currentUser, fetchUsersWithTasks]);
 
   // ==================== FILTERS ====================
 
@@ -2859,18 +2877,11 @@ const TaskDetails = () => {
                   <input
                     type="date"
                     value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                    placeholder="From"
-                  />
-                </div>
-                <span className="TaskDetails-modal-date-separator">→</span>
-                <div className="TaskDetails-modal-date-input">
-                  <FiCalendar size={14} />
-                  <input
-                    type="date"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                    placeholder="To"
+                    onChange={(e) => {
+                      setFromDate(e.target.value);
+                      setToDate(e.target.value);
+                    }}
+                    placeholder="Select Date"
                   />
                 </div>
                 {(fromDate || toDate) && (
@@ -3385,18 +3396,11 @@ const TaskDetails = () => {
                     <input
                       type="date"
                       value={fromDate}
-                      onChange={(e) => setFromDate(e.target.value)}
-                      placeholder="From"
-                    />
-                  </div>
-                  <span className="TaskDetails-modal-date-separator">→</span>
-                  <div className="TaskDetails-modal-date-input">
-                    <FiCalendar size={14} />
-                    <input
-                      type="date"
-                      value={toDate}
-                      onChange={(e) => setToDate(e.target.value)}
-                      placeholder="To"
+                      onChange={(e) => {
+                        setFromDate(e.target.value);
+                        setToDate(e.target.value);
+                      }}
+                      placeholder="Select Date"
                     />
                   </div>
                   {(fromDate || toDate) && (
@@ -3808,32 +3812,21 @@ const TaskDetails = () => {
                 onChange={(e) => {
                   const val = e.target.value;
                   setGlobalFromDate(val);
-                  if (!globalToDate || globalToDate < val) {
-                    setGlobalToDate(val);
-                  }
+                  setGlobalToDate(val);
                 }}
-                placeholder="From Date"
-              />
-            </div>
-            <span className="TaskDetails-modal-date-separator">→</span>
-            <div className="TaskDetails-modal-date-input">
-              <FiCalendar size={14} />
-              <input
-                type="date"
-                value={globalToDate}
-                onChange={(e) => setGlobalToDate(e.target.value)}
-                placeholder="To Date"
+                placeholder="Select Date"
               />
             </div>
             {(globalFromDate || globalToDate) && (
               <button
                 className="TaskDetails-modal-date-clear"
                 onClick={() => {
-                  setGlobalFromDate('');
-                  setGlobalToDate('');
+                  const todayValue = getDateInputValue();
+                  setGlobalFromDate(todayValue);
+                  setGlobalToDate(todayValue);
                 }}
               >
-                Clear Date
+                Today
               </button>
             )}
           </div>

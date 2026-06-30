@@ -12,7 +12,7 @@ const CiisFooter = () => {
       
       <div className="ciis-footer-container">
         {/* Main Footer Content */}
-        <div className="ciis-footer-content">
+        <div className="ciis-footer-content"> 
           
           {/* Brand Section */}
           <div className="ciis-footer-section">

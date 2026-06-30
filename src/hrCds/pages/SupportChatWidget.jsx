@@ -228,9 +228,14 @@ const SupportChatWidget = () => {
           <ChevronLeft size={26} />
         </button>
         <strong>{view === "tickets" ? "My Tickets" : view === "thread" ? selectedTicket?.ticketNumber || "Ticket" : "Customer Support"}</strong>
-        <button className="portal-chat-icon-btn" aria-label="View tickets" onClick={() => setView("tickets")}>
-          <Menu size={24} />
-        </button>
+        <div className="portal-chat-header-actions">
+          <button className="portal-chat-icon-btn portal-chat-minimize" onClick={() => setWidgetOpen(false)} aria-label="Minimize chat">
+            <ChevronDown size={24} />
+          </button>
+          <button className="portal-chat-icon-btn" aria-label="View tickets" onClick={() => setView("tickets")}>
+            <Menu size={24} />
+          </button>
+        </div>
       </div>
 
       <div className="portal-chat-body">
@@ -269,15 +274,11 @@ const SupportChatWidget = () => {
             <div className="portal-chat-mini-thread portal-full-thread">
               {activeThread.length ? activeThread.map((message, index) => (
                 <div className={`portal-ticket-message ${message.from}`} key={`${message.from}-${index}`}>
-                  {message.from === "user" && (
-                    <div className="portal-ticket-message-meta">
-                      {formatMessageTime(message.createdAt)} <CheckCheck size={14} />
-                    </div>
-                  )}
                   <div className={`portal-chat-mini-bubble ${message.from}`}>{message.text}</div>
-                  {message.from === "bot" && (
-                    <div className="portal-ticket-message-meta">{formatMessageTime(message.createdAt)}</div>
-                  )}
+                  <div className="portal-ticket-message-meta">
+                    {formatMessageTime(message.createdAt)}
+                    {message.from === "user" && <CheckCheck size={14} />}
+                  </div>
                 </div>
               )) : <div className="portal-ticket-empty">No conversation yet.</div>}
             </div>
@@ -347,9 +348,6 @@ const SupportChatWidget = () => {
       </div>}
 
       <button className="portal-chat-powered">Powered by CIIS</button>
-      <button className="portal-chat-minimize" onClick={() => setWidgetOpen(false)} aria-label="Minimize chat">
-        <ChevronDown size={38} />
-      </button>
     </aside>
   );
 };

@@ -111,7 +111,7 @@ const EmployeeProject = () => {
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
-    assignedTo: "",
+    assignedUsers: [],
     dueDate: "",
     priority: "Medium",
     status: "pending",
@@ -170,6 +170,22 @@ const EmployeeProject = () => {
   };
 
   const normalizeTaskStatus = (status) => String(status || "pending").trim().toLowerCase().replace(/-/g, " ");
+  const getTaskAssigneeNames = (task) => {
+    const users = Array.isArray(task?.assignedUsers) && task.assignedUsers.length
+      ? task.assignedUsers
+      : task?.assignedTo
+        ? [task.assignedTo]
+        : [];
+    return users.map(user => user?.name || user?.email).filter(Boolean).join(", ") || "Unassigned";
+  };
+
+  const getTaskRemarkCount = (task) => {
+    if (Array.isArray(task?.remarks)) return task.remarks.length;
+    if (typeof task?.remarksCount === "number") return task.remarksCount;
+    if (typeof task?.remarkCount === "number") return task.remarkCount;
+    if (typeof task?.commentsCount === "number") return task.commentsCount;
+    return 0;
+  };
 
   // ✅ Load all projects with page loader
   useEffect(() => {
@@ -368,7 +384,11 @@ const EmployeeProject = () => {
     try {
       const formData = new FormData();
       Object.keys(newTask).forEach((key) => {
-        formData.append(key, newTask[key]);
+        if (key === "assignedUsers") {
+          newTask.assignedUsers.forEach(userId => formData.append("assignedUsers", userId));
+        } else {
+          formData.append(key, newTask[key]);
+        }
       });
 
       if (file) formData.append("pdfFile", file);
@@ -381,7 +401,7 @@ const EmployeeProject = () => {
       setNewTask({
         title: "",
         description: "",
-        assignedTo: "",
+        assignedUsers: [],
         dueDate: "",
         priority: "Medium",
         status: "pending",
@@ -1107,7 +1127,7 @@ const EmployeeProject = () => {
                           <div className="EmployeeProject-task-meta">
                             <div className="EmployeeProject-task-meta-item">
                               <Icons.Person />
-                              <span>{t.assignedTo?.name || "Unassigned"}</span>
+                              <span>{getTaskAssigneeNames(t)}</span>
                             </div>
                             {t.dueDate && (
                               <div className="EmployeeProject-task-meta-item">
@@ -1121,7 +1141,13 @@ const EmployeeProject = () => {
                             </div>
                           </div>
 
-                          <p className="EmployeeProject-task-click-hint">View full details</p>
+                          <div className="EmployeeProject-task-card-footer">
+                            <p className="EmployeeProject-task-click-hint">View full details</p>
+                            <span className="EmployeeProject-task-remark-count">
+                              <Icons.Comment />
+                              {getTaskRemarkCount(t)} remarks
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -1173,7 +1199,7 @@ const EmployeeProject = () => {
                                   <h5>{task.pdfFile.filename || 'Task Document'}</h5>
                                   <p>From: {task.title}</p>
                                   <p>
-                                    Assigned to: {task.assignedTo?.name || 'Unassigned'} • Status: 
+                                    Assigned to: {getTaskAssigneeNames(task)} • Status: 
                                     <Chip
                                       label={task.status}
                                       color={getStatusColor(task.status)}
@@ -1361,7 +1387,7 @@ const EmployeeProject = () => {
               <div className="EmployeeProject-task-detail-grid">
                 <div className="EmployeeProject-task-meta-item">
                   <Icons.Person />
-                  <span>{detailTask.assignedTo?.name || "Unassigned"}</span>
+                  <span>{getTaskAssigneeNames(detailTask)}</span>
                 </div>
                 {detailTask.dueDate && (
                   <div className="EmployeeProject-task-meta-item">
@@ -1704,21 +1730,24 @@ const EmployeeProject = () => {
                 </div>
 
                 <div className="EmployeeProject-form-group">
-                  <label>Assign To</label>
+                  <label>Assign To (multiple users)</label>
                   <select
                     className={`EmployeeProject-select ${taskErrors.assignedTo ? 'EmployeeProject-input-error' : ''}`}
-                    value={newTask.assignedTo}
-                    onChange={(e) =>
-                      setNewTask({ ...newTask, assignedTo: e.target.value })
-                    }
+                    multiple
+                    size={Math.min(Math.max(projectUsers.length, 3), 6)}
+                    value={newTask.assignedUsers}
+                    onChange={(e) => setNewTask({
+                      ...newTask,
+                      assignedUsers: Array.from(e.target.selectedOptions, option => option.value)
+                    })}
                   >
-                    <option value="">Select a user</option>
                     {projectUsers.map((u) => (
                       <option key={u._id} value={u._id}>
                         {u.name} ({u.email})
                       </option>
                     ))}
                   </select>
+                  <small className="EmployeeProject-form-help">Ctrl (Windows) or Cmd (Mac) hold karke multiple users select karein.</small>
                   {taskErrors.assignedTo && (
                     <span className="EmployeeProject-error-text">{taskErrors.assignedTo}</span>
                   )}

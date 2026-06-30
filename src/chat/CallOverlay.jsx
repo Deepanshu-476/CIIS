@@ -41,7 +41,7 @@ const getAvatarSrc = (avatar) => {
         ? avatar
         : `${API_URL_IMG.replace(/\/$/, "")}${avatar.startsWith("/") ? avatar : `/${avatar}`}`;
 };
-
+ 
 const getGroupName = (group) => (
     group?.name || group?.groupName || group?.group_name || group?.title || "Group call"
 );

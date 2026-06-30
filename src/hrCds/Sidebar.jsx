@@ -53,6 +53,42 @@ const getRecordId = value => {
   return value;
 };
 
+const isMongoId = value => /^[0-9a-fA-F]{24}$/.test(String(value || '').trim());
+
+const getRecordDisplayName = value => {
+  if (!value) return '';
+  if (typeof value === 'object') {
+    return (
+      value.name ||
+      value.roleName ||
+      value.departmentName ||
+      value.branchName ||
+      value.companyName ||
+      value.title ||
+      value.label ||
+      ''
+    );
+  }
+
+  const text = String(value).trim();
+  if (!text || isMongoId(text)) return '';
+
+  return text
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase());
+};
+
+const getJobRoleNameFromList = (roles, roleId) => {
+  if (!Array.isArray(roles) || !roleId) return '';
+
+  const normalizedRoleId = String(roleId);
+  const matchedRole = roles.find(role => (
+    String(role?._id || role?.id || role?.value || '') === normalizedRoleId
+  ));
+
+  return getRecordDisplayName(matchedRole);
+};
+
 const SidebarContainer = styled(Box)(({ theme }) => ({
   flexShrink: 0,
   whiteSpace: 'nowrap',
@@ -745,6 +781,7 @@ const Sidebar = ({ isMobile = false }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [userData, setUserData] = useState(null);
   const [companyData, setCompanyData] = useState(null);
+  const [resolvedJobRoleName, setResolvedJobRoleName] = useState("");
   const [sidebarConfig, setSidebarConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -897,6 +934,54 @@ const Sidebar = ({ isMobile = false }) => {
       }
     }
   }, [userData, companyData, isClientUser, fetchSidebarConfig]);
+
+  useEffect(() => {
+    const resolveJobRoleName = async () => {
+      if (!userData) {
+        setResolvedJobRoleName("");
+        return;
+      }
+
+      const directRoleName =
+        userData.jobRoleName ||
+        userData.roleName ||
+        userData.designation ||
+        getRecordDisplayName(userData.jobRole) ||
+        getRecordDisplayName(userData.role) ||
+        getRecordDisplayName(userData.roleId);
+
+      if (directRoleName) {
+        setResolvedJobRoleName(directRoleName);
+        return;
+      }
+
+      const roleId = getRecordId(userData.jobRole || userData.role || userData.roleId);
+      if (!isMongoId(roleId)) {
+        setResolvedJobRoleName("");
+        return;
+      }
+
+      try {
+        const companyId = getRecordId(userData.company || userData.companyId || companyData?._id || companyData?.id);
+        const companyCode = userData.companyCode || companyData?.companyCode || companyData?.code;
+        const response = await axiosInstance.get('/job-roles', {
+          params: {
+            ...(companyId ? { company: companyId } : {}),
+            ...(companyCode ? { companyCode } : {})
+          }
+        });
+        const roles = response.data?.jobRoles || response.data?.data || response.data || [];
+        const roleName = getJobRoleNameFromList(roles, roleId);
+
+        setResolvedJobRoleName(roleName || "");
+      } catch (error) {
+        console.warn("Could not resolve sidebar job role name:", error.message);
+        setResolvedJobRoleName("");
+      }
+    };
+
+    resolveJobRoleName();
+  }, [userData, companyData]);
 
   useEffect(() => {
     return () => {
@@ -1055,8 +1140,12 @@ const Sidebar = ({ isMobile = false }) => {
 
     const sortedItems = [...accessFilteredItems].sort((a, b) => {
       const categoryOrder = ['main', 'administration', 'tasks', 'projects', 'meetings', 'communication', 'clients'];
-      const categoryA = categoryOrder.indexOf(a.category) || 99;
-      const categoryB = categoryOrder.indexOf(b.category) || 99;
+      const getCategoryOrder = (category) => {
+        const index = categoryOrder.indexOf(category);
+        return index === -1 ? 99 : index;
+      };
+      const categoryA = getCategoryOrder(a.category);
+      const categoryB = getCategoryOrder(b.category);
       
       if (categoryA !== categoryB) {
         return categoryA - categoryB;
@@ -1077,6 +1166,20 @@ const Sidebar = ({ isMobile = false }) => {
 
     return removeSupportCenter(sortedItems);
   }, [sidebarConfig, loading, isSuperAdminWithManagement, isClientUser, userData, companyData]);
+
+  const userSubtitle = useMemo(() => {
+    if (!userData) return 'Employee';
+    if (isClientUser) return 'Client Portal';
+
+    return (
+      resolvedJobRoleName ||
+      getRecordDisplayName(userData.jobRole) ||
+      getRecordDisplayName(userData.role) ||
+      getRecordDisplayName(userData.roleId) ||
+      getRecordDisplayName(userData.companyRole) ||
+      'Employee'
+    );
+  }, [userData, isClientUser, resolvedJobRoleName]);
 
   const renderMenuItem = (item, showFull) => {
     const selected = location.pathname === item.path;
@@ -1144,6 +1247,7 @@ const Sidebar = ({ isMobile = false }) => {
   // Group items by category
   const groupedItems = useMemo(() => {
     const groups = {};
+    const categoryOrder = ['main', 'administration', 'tasks', 'projects', 'meetings', 'communication', 'clients'];
     
     menuItems.forEach(item => {
       const category = item.category || 'main';
@@ -1152,8 +1256,29 @@ const Sidebar = ({ isMobile = false }) => {
       }
       groups[category].push(item);
     });
+
+    Object.values(groups).forEach(items => {
+      items.sort((a, b) => {
+        const isDashboardA = a.id === 'dashboard' || a.name?.toLowerCase() === 'dashboard';
+        const isDashboardB = b.id === 'dashboard' || b.name?.toLowerCase() === 'dashboard';
+
+        if (isDashboardA !== isDashboardB) {
+          return isDashboardA ? -1 : 1;
+        }
+
+        return (a.order ?? 99) - (b.order ?? 99);
+      });
+    });
     
-    return groups;
+    return Object.fromEntries(
+      Object.entries(groups).sort(([categoryA], [categoryB]) => {
+        const indexA = categoryOrder.indexOf(categoryA);
+        const indexB = categoryOrder.indexOf(categoryB);
+        const orderA = indexA === -1 ? 99 : indexA;
+        const orderB = indexB === -1 ? 99 : indexB;
+        return orderA - orderB;
+      })
+    );
   }, [menuItems]);
 
   // Separate containers for mobile and desktop.
@@ -1376,7 +1501,7 @@ const Sidebar = ({ isMobile = false }) => {
             {userData?.name || 'User'}
           </Typography>
           <Typography variant="caption" color="text.secondary" noWrap>
-            {userData?.jobRole || 'Employee'}
+            {userSubtitle}
           </Typography>
         </Box>
       )}

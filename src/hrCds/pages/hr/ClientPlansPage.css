@@ -1,0 +1,632 @@
+/* ClientPlansPage Stylesheet */
+
+.ClientPlansPage-container {
+  padding: 1.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background-color: #f8fafc;
+  color: #1e293b;
+}
+
+.ClientPlansPage-header-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 1.5rem;
+}
+
+.ClientPlansPage-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  color: #475569;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  width: fit-content;
+  transition: all 0.2s ease;
+}
+
+.ClientPlansPage-back-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.ClientPlansPage-title-group h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 0.25rem 0;
+  letter-spacing: -0.02em;
+}
+
+.ClientPlansPage-title-group p {
+  color: #64748b;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+/* Alerts */
+.ClientPlansPage-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+  position: relative;
+}
+
+.ClientPlansPage-alert--error {
+  background-color: #fef2f2;
+  border: 1px solid #fee2e2;
+  color: #b91c1c;
+}
+
+.ClientPlansPage-alert--success {
+  background-color: #f0fdf4;
+  border: 1px solid #dcfce7;
+  color: #15803d;
+}
+
+.ClientPlansPage-alert-close {
+  position: absolute;
+  right: 1rem;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+}
+
+.ClientPlansPage-alert-close:hover {
+  opacity: 1;
+}
+
+/* Layout Grid */
+.ClientPlansPage-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .ClientPlansPage-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Card layout */
+.ClientPlansPage-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+}
+
+.ClientPlansPage-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 1rem;
+}
+
+.ClientPlansPage-card-header h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+}
+
+.ClientPlansPage-cancel-edit-btn {
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ClientPlansPage-cancel-edit-btn:hover {
+  background-color: #e2e8f0;
+  color: #0f172a;
+}
+
+/* Form Styling */
+.ClientPlansPage-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ClientPlansPage-form-row {
+  display: flex;
+  gap: 1rem;
+}
+
+/* Services checklist layout */
+.ClientPlansPage-services-check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
+  background: #f8fafc;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  margin-top: 0.5rem;
+}
+
+.ClientPlansPage-check-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ClientPlansPage-check-item input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #4f46e5;
+  cursor: pointer;
+}
+
+.ClientPlansPage-check-item label {
+  font-size: 0.85rem;
+  color: #334155;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+}
+
+/* Tasks Editor Section */
+.ClientPlansPage-tasks-editor-section {
+  margin-top: 1.5rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+}
+
+.ClientPlansPage-tasks-editor-section h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 0.25rem 0;
+}
+
+.ClientPlansPage-section-subtitle {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin: 0 0 1rem 0;
+}
+
+.ClientPlansPage-services-tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ClientPlansPage-service-task-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.ClientPlansPage-service-task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 0.5rem;
+}
+
+.ClientPlansPage-service-task-header h5 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+}
+
+.ClientPlansPage-badge {
+  background: #e0e7ff;
+  color: #4338ca;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 9999px;
+}
+
+.ClientPlansPage-task-builder {
+  background: #f8fafc;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 0.75rem;
+}
+
+.ClientPlansPage-task-builder-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.ClientPlansPage-add-task-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  background: #4f46e5;
+  color: white;
+  border: none;
+  padding: 0.4rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.ClientPlansPage-add-task-btn:hover {
+  background: #4338ca;
+}
+
+/* Added Tasks list inside service card */
+.ClientPlansPage-added-tasks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.ClientPlansPage-task-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.5rem;
+}
+
+.ClientPlansPage-task-pill-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.ClientPlansPage-task-pill-info strong {
+  font-size: 0.8rem;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.ClientPlansPage-task-pill-info span {
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+.ClientPlansPage-task-delete-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.ClientPlansPage-task-delete-btn:hover {
+  color: #ef4444;
+}
+
+/* Form footer action buttons */
+.ClientPlansPage-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 1.25rem;
+}
+
+.ClientPlansPage-btn-outlined {
+  background: white;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 0.5rem 1.25rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ClientPlansPage-btn-outlined:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.ClientPlansPage-btn-primary {
+  background: #4f46e5;
+  border: none;
+  color: white;
+  padding: 0.5rem 1.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.ClientPlansPage-btn-primary:hover {
+  background: #4338ca;
+}
+
+.ClientPlansPage-btn-primary:disabled {
+  background: #a5b4fc;
+  cursor: not-allowed;
+}
+
+/* Empty State Styling */
+.ClientPlansPage-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  color: #94a3b8;
+}
+
+.ClientPlansPage-empty-state svg {
+  margin-bottom: 1rem;
+  color: #cbd5e1;
+}
+
+.ClientPlansPage-empty-state h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #475569;
+  margin: 0 0 0.5rem 0;
+}
+
+.ClientPlansPage-empty-state p {
+  font-size: 0.875rem;
+  max-width: 320px;
+  margin: 0;
+}
+
+/* Plans stack column */
+.ClientPlansPage-plans-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.ClientPlansPage-plan-card-item {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.ClientPlansPage-plan-card-item:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  border-color: #cbd5e1;
+}
+
+.ClientPlansPage-plan-card-item.inactive {
+  opacity: 0.65;
+  background-color: #f8fafc;
+}
+
+.ClientPlansPage-plan-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.ClientPlansPage-plan-card-head h4 {
+  font-size: 1.1rem;
+  font-weight: 650;
+  color: #0f172a;
+  margin: 0 0 0.25rem 0;
+}
+
+.ClientPlansPage-plan-card-head p {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.ClientPlansPage-plan-badge-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.ClientPlansPage-price-badge {
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.5rem;
+}
+
+.ClientPlansPage-duration-badge {
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.375rem;
+}
+
+/* Service & Task display inside Plan view */
+.ClientPlansPage-plan-services-preview h5 {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+  margin: 0 0 0.5rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ClientPlansPage-plan-services-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: #f8fafc;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+}
+
+.ClientPlansPage-plan-service-preview-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ClientPlansPage-plan-service-tag {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ClientPlansPage-plan-service-tag strong {
+  font-size: 0.85rem;
+  color: #1e293b;
+}
+
+.ClientPlansPage-plan-service-tag span {
+  font-size: 0.75rem;
+  color: #64748b;
+  background: #fff;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
+  border: 1px solid #e2e8f0;
+}
+
+.ClientPlansPage-plan-tasks-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding-left: 0.5rem;
+  border-left: 2px solid #cbd5e1;
+}
+
+.ClientPlansPage-plan-task-tag-pill {
+  background: #fff;
+  color: #475569;
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
+  border: 1px solid #cbd5e1;
+}
+
+/* Plan card bottom action area */
+.ClientPlansPage-plan-card-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 0.75rem;
+}
+
+.ClientPlansPage-status-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.ClientPlansPage-status-toggle .status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+}
+
+.ClientPlansPage-status-toggle .status-dot.active {
+  background-color: #22c55e;
+}
+
+.ClientPlansPage-status-toggle .status-dot.inactive {
+  background-color: #cbd5e1;
+}
+
+.ClientPlansPage-plan-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ClientPlansPage-plan-action-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+/* Loading Layout */
+.ClientPlansPage-loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
+.ClientPlansPage-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #cbd5e1;
+  border-top-color: #4f46e5;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

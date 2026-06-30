@@ -641,7 +641,11 @@ const closeDetailModal = () => {
       setTab(0);
     } catch (err) {
       console.error('Error applying leave:', err);
-      const errorMsg = err?.response?.data?.message || "Failed to apply leave";
+      console.error('Apply leave response:', err?.response?.data);
+      const errorMsg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        "Failed to apply leave";
       
       try {
         showToast(errorMsg, "error");

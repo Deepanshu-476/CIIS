@@ -522,27 +522,27 @@
 /* Tooltip */
 .EmployeeProject-tooltip {
   position: relative;
-  display: inline-block;
+  display: inline-flex;
 }
 
 .EmployeeProject-tooltip-text {
   background-color: #333;
   color: white;
   text-align: center;
-  padding: 5px 8px ;
-  padding-right: 70px !important;
+  padding: 5px 8px;
   border-radius: 6px;
-  margin-left: 15px;
   position: absolute;
-  z-index: 1;
-  bottom: 105%;
-  left: 5%;
-  right: 10% !important;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 50%;
   transform: translateX(-50%);
   white-space: nowrap;
-  font-size: 0.60rem;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  visibility: hidden;
   opacity: 0;
-  transition: opacity 0.3s;
+  pointer-events: none;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
 }
 
 .EmployeeProject-tooltip:hover .EmployeeProject-tooltip-text {
@@ -750,7 +750,7 @@
   min-height: 230px;
   height: 230px;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .EmployeeProject-task-card:hover {
@@ -766,6 +766,9 @@
 .EmployeeProject-task-content {
   padding: 1.1rem;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .EmployeeProject-task-header {
@@ -835,7 +838,30 @@
   color: #667eea;
   font-size: 0.8rem;
   font-weight: 600;
+  margin: 0;
+}
+
+.EmployeeProject-task-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
   margin-top: auto;
+  min-width: 0;
+}
+
+.EmployeeProject-task-remark-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(102, 126, 234, 0.1);
+  color: #4f5fd8;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .EmployeeProject-task-detail-modal .EmployeeProject-modal-header h3 {

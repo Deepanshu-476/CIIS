@@ -32,9 +32,9 @@ const Login = () => {
   const [companyDetails, setCompanyDetails] = useState(null);
   const [companyIdentifier, setCompanyIdentifier] = useState('');
   
-  // OTP Popup states
+  // Login OTP states
   const [showOtpPopup, setShowOtpPopup] = useState(false);
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otp, setOtp] = useState('');
   const [tempToken, setTempToken] = useState('');
   const [otpEmail, setOtpEmail] = useState('');
   const [otpTimer, setOtpTimer] = useState(60);
@@ -110,7 +110,7 @@ const Login = () => {
   const fetchCompanyDetails = async (identifier) => {
     try {
       setCompanyLoading(true);
-      const response = await axios.get(`/company/details/${identifier}`);
+      const response = await axios.get(`/company/details/${identifier}`, { _skipErrorNotify: true });
 
       if (response.data.success) {
         setCompanyDetails(response.data.company);
@@ -185,17 +185,18 @@ const Login = () => {
         timestamp: new Date().toISOString()
       });
 
-      const res = await axios.post('/auth/login', loginData);
+      const res = await axios.post('/auth/login', loginData, { _skipErrorNotify: true });
 
       // ✅ Check if OTP verification is required
       if (res.data.requiresOTP) {
-        // Show OTP popup
+        // Show OTP verification on the same login page
         setOtpEmail(res.data.email);
         setTempToken(res.data.tempToken);
         setShowOtpPopup(true);
         setOtpTimer(60);
         setCanResend(false);
-        setOtp(['', '', '', '', '', '']);
+        setOtp('');
+        setOtpError('');
         
         toast.info('OTP sent to your email. Please verify to continue.');
         return;
@@ -299,30 +300,17 @@ const Login = () => {
     }
   };
 
-  // Handle OTP input change
-  const handleOtpChange = (index, value) => {
-    if (value.length > 1) return;
-    
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
+  // Handle login OTP input change
+  const handleOtpChange = (e) => {
+    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+    setOtp(value);
     setOtpError('');
-
-    // Auto-focus next input
-    if (value && index < 5) {
-      document.getElementById(`otp-${index + 1}`)?.focus();
-    }
-  };
-
-  const handleOtpKeyDown = (index, e) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      document.getElementById(`otp-${index - 1}`)?.focus();
-    }
   };
 
   // Handle OTP verification
-  const handleVerifyOtp = async () => {
-    const otpString = otp.join('');
+  const handleVerifyOtp = async (e) => {
+    e?.preventDefault?.();
+    const otpString = otp.trim();
     
     if (otpString.length !== 6) {
       setOtpError('Please enter complete 6-digit OTP');
@@ -337,7 +325,7 @@ const Login = () => {
         email: otpEmail,
         otp: otpString,
         tempToken: tempToken
-      });
+      }, { _skipErrorNotify: true });
 
       if (response.data.success) {
         // Save tokens and user data
@@ -372,7 +360,7 @@ const Login = () => {
           localStorage.setItem('companyDetails', JSON.stringify(companyDetails));
         }
 
-        // Close popup
+        // Close OTP step
         setShowOtpPopup(false);
         
         toast.success('Login successful!');
@@ -395,8 +383,7 @@ const Login = () => {
     } catch (error) {
       console.error('OTP verification error:', error);
       setOtpError(error.response?.data?.message || 'Invalid OTP. Please try again.');
-      setOtp(['', '', '', '', '', '']);
-      document.getElementById('otp-0')?.focus();
+      setOtp('');
     } finally {
       setOtpLoading(false);
     }
@@ -409,13 +396,13 @@ const Login = () => {
     try {
       const response = await axios.post('/auth/resend-login-otp', {
         email: otpEmail
-      });
+      }, { _skipErrorNotify: true });
 
       if (response.data.success) {
         setTempToken(response.data.tempToken);
         setOtpTimer(60);
         setCanResend(false);
-        setOtp(['', '', '', '', '', '']);
+        setOtp('');
         setOtpError('');
         toast.success('OTP resent successfully');
       }
@@ -429,10 +416,12 @@ const Login = () => {
   // Close OTP popup
   const handleCloseOtpPopup = () => {
     setShowOtpPopup(false);
-    setOtp(['', '', '', '', '', '']);
+    setOtp('');
     setOtpError('');
     setOtpTimer(60);
     setCanResend(false);
+    setOtpEmail('');
+    setTempToken('');
   };
 
   // Forget Password Handlers
@@ -449,7 +438,7 @@ const Login = () => {
       const response = await axios.post('/auth/forgot-password', {
         email: forgotPasswordEmail,
         ...resetContext
-      });
+      }, { _skipErrorNotify: true });
 
       if (response.data.success) {
         toast.success(response.data.devOtp
@@ -490,7 +479,7 @@ const Login = () => {
         otp: otpCode,
         newPassword: newPassword,
         ...resetContext
-      });
+      }, { _skipErrorNotify: true });
 
       toast.success("Password reset successful!");
 
@@ -558,10 +547,90 @@ const Login = () => {
     </svg>
   );
 
-  const CloseIcon = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-    </svg>
+  const renderLoginOtpForm = () => (
+    <div className="login-otp-form">
+      <div className="form-header">
+        <h2 className="form-title">
+          Verify OTP
+        </h2>
+        <p className="form-subtitle">
+          We've sent a 6-digit code to {otpEmail || form.email}
+        </p>
+      </div>
+
+      <form onSubmit={handleVerifyOtp}>
+        <div className="input-group">
+          <label className="input-label">6-Digit OTP</label>
+          <div className="input-container">
+            <div className="input-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+              </svg>
+            </div>
+            <input
+              type="text"
+              name="otp"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength="6"
+              value={otp}
+              onChange={handleOtpChange}
+              disabled={otpLoading}
+              className={`login-input ${otpError ? 'input-error' : ''}`}
+              placeholder="Enter 6-digit OTP"
+              autoFocus
+            />
+          </div>
+          {otpError && <span className="error-text">{otpError}</span>}
+        </div>
+
+        <div className="login-resend-container">
+          <button
+            type="button"
+            onClick={handleResendOtp}
+            disabled={!canResend || otpLoading}
+            className="login-resend-button"
+          >
+            {canResend ? 'Resend OTP' : `Resend OTP in ${otpTimer}s`}
+          </button>
+        </div>
+
+        <button
+          type="submit"
+          className="login-button"
+          disabled={otpLoading || otp.length !== 6}
+        >
+          {otpLoading ? (
+            <>
+              <div className="button-icon">
+                <div className="spinner small"></div>
+              </div>
+              Verifying...
+            </>
+          ) : (
+            <>
+              <div className="button-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                </svg>
+              </div>
+              Verify OTP
+            </>
+          )}
+        </button>
+
+        <div className="login-link-text">
+          <button
+            type="button"
+            onClick={handleCloseOtpPopup}
+            className="login-link-button"
+            disabled={otpLoading}
+          >
+            ← Back to Login
+          </button>
+        </div>
+      </form>
+    </div>
   );
 
   const renderForgotPasswordForm = () => {
@@ -790,6 +859,9 @@ const Login = () => {
             {showForgotPassword ? (
               // Forget Password Forms
               renderForgotPasswordForm()
+            ) : showOtpPopup ? (
+              // Same-page OTP verification
+              renderLoginOtpForm()
             ) : (
               // Login Form
               <>
@@ -900,7 +972,7 @@ const Login = () => {
             )}
 
             {/* Terms & Privacy - Only show for login, not for forget password */}
-            {!showForgotPassword && (
+            {!showForgotPassword && !showOtpPopup && (
               <div className="terms-privacy">
                 By signing in, you agree to our{' '}
                 <a href="#" className="terms-link">Terms of Service</a> and{' '}
@@ -910,73 +982,6 @@ const Login = () => {
           </div>
         </div>
       </div>
-
-      {/* OTP Verification Popup */}
-      {showOtpPopup && (
-        <div className="otp-popup-overlay">
-          <div className="otp-popup-container">
-            <button className="otp-popup-close" onClick={handleCloseOtpPopup}>
-              <CloseIcon />
-            </button>
-            
-            <div className="otp-popup-header">
-              <div className="otp-popup-icon">
-                <LockIcon />
-              </div>
-              <h2>Verify OTP</h2>
-              <p>Enter the 6-digit code sent to</p>
-              <p className="otp-popup-email">{otpEmail}</p>
-            </div>
-
-            <div className="otp-popup-inputs">
-              {otp.map((digit, index) => (
-                <input
-                  key={index}
-                  id={`otp-${index}`}
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength="1"
-                  value={digit}
-                  onChange={(e) => handleOtpChange(index, e.target.value)}
-                  onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                  className="otp-popup-input"
-                  disabled={otpLoading}
-                  autoFocus={index === 0}
-                />
-              ))}
-            </div>
-
-            {otpError && (
-              <div className="otp-popup-error">{otpError}</div>
-            )}
-
-            <button
-              onClick={handleVerifyOtp}
-              className="otp-popup-verify-btn"
-              disabled={otpLoading || otp.join('').length !== 6}
-            >
-              {otpLoading ? 'Verifying...' : 'Verify OTP'}
-            </button>
-
-            <div className="otp-popup-resend">
-              {canResend ? (
-                <button
-                  onClick={handleResendOtp}
-                  className="otp-popup-resend-btn"
-                  disabled={otpLoading}
-                >
-                  Resend OTP
-                </button>
-              ) : (
-                <p className="otp-popup-timer">
-                  Resend OTP in {otpTimer} seconds
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

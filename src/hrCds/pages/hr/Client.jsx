@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import API_URL from '../../../config';
 import './client-management.css';
@@ -178,6 +179,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
   const [dueAmount, setDueAmount] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [dueNote, setDueNote] = useState('');
+  const [dueStatus, setDueStatus] = useState('Due');
   const [subscriptionTasks, setSubscriptionTasks] = useState([]);
   const [subscriptionTasksLoading, setSubscriptionTasksLoading] = useState(false);
 
@@ -220,7 +222,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
     ? paymentReceipts[paymentReceipts.length - 1]
     : null;
 
-  const canRenewSubscription = userRole === 'owner' || userRole === 'admin' || userRole === 'superadmin';
+  const canRenewSubscription = true;
   const subscriptions = client.subscription || [];
   const getTaskStatusLabel = task => {
     if (task.completed) return 'Completed';
@@ -409,7 +411,8 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
         title: dueTitle,
         amount: Number(dueAmount),
         dueDate: dueDate || new Date().toISOString(),
-        note: dueNote
+        note: dueNote,
+        status: dueStatus
       });
 
       if (response.data.success) {
@@ -418,6 +421,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
         setDueAmount('');
         setDueDate('');
         setDueNote('');
+        setDueStatus('Due');
         if (onRenewSubscription) onRenewSubscription();
       }
     } catch (error) {
@@ -570,59 +574,75 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
 
           {canRenewSubscription && (
             <>
-              <div className="ClientManagement-renewal-form-container">
-                <h4>Payment Due For Client Portal</h4>
-                <form className="ClientManagement-renewal-form" onSubmit={handleAddDueInvoice}>
-                  <div className="ClientManagement-form-group">
-                    <label className="ClientManagement-form-label">Due Title</label>
-                    <input
-                      type="text"
-                      className="ClientManagement-form-input"
-                      value={dueTitle}
-                      onChange={(e) => setDueTitle(e.target.value)}
-                      disabled={updating}
-                    />
-                  </div>
-                  <div className="ClientManagement-form-group">
-                    <label className="ClientManagement-form-label">Due Amount</label>
-                    <input
-                      type="number"
-                      className="ClientManagement-form-input"
-                      value={dueAmount}
-                      onChange={(e) => setDueAmount(e.target.value)}
-                      min="0"
-                      disabled={updating}
-                      placeholder="Enter amount"
-                    />
-                  </div>
-                  <div className="ClientManagement-form-group">
-                    <label className="ClientManagement-form-label">Due Date</label>
-                    <input
-                      type="date"
-                      className="ClientManagement-form-input"
-                      value={dueDate}
-                      onChange={(e) => setDueDate(e.target.value)}
-                      disabled={updating}
-                    />
-                  </div>
-                  <div className="ClientManagement-form-group">
-                    <label className="ClientManagement-form-label">Due Note</label>
-                    <input
-                      type="text"
-                      className="ClientManagement-form-input"
-                      value={dueNote}
-                      onChange={(e) => setDueNote(e.target.value)}
-                      disabled={updating}
-                      placeholder="Message shown to client"
-                    />
-                  </div>
-                  <div className="ClientManagement-renewal-actions">
-                    <button type="submit" className="ClientManagement-btn ClientManagement-btn--primary" disabled={updating}>
-                      <FiDollarSign /> Add Due Payment
-                    </button>
-                  </div>
-                </form>
-              </div>
+              {(!latestSubscription || new Date(latestSubscription.endDate) < new Date()) && latestPaymentReceipt?.status !== 'Approved' && (
+                <div className="ClientManagement-renewal-form-container">
+                  <h4>Payment Due For Client Portal</h4>
+                  <form className="ClientManagement-renewal-form" onSubmit={handleAddDueInvoice}>
+                    <div className="ClientManagement-form-group">
+                      <label className="ClientManagement-form-label">Due Title</label>
+                      <input
+                        type="text"
+                        className="ClientManagement-form-input"
+                        value={dueTitle}
+                        onChange={(e) => setDueTitle(e.target.value)}
+                        disabled={updating}
+                      />
+                    </div>
+                    <div className="ClientManagement-form-group">
+                      <label className="ClientManagement-form-label">Due Amount</label>
+                      <input
+                        type="number"
+                        className="ClientManagement-form-input"
+                        value={dueAmount}
+                        onChange={(e) => setDueAmount(e.target.value)}
+                        min="0"
+                        disabled={updating}
+                        placeholder="Enter amount"
+                      />
+                    </div>
+                    <div className="ClientManagement-form-group">
+                      <label className="ClientManagement-form-label">Due Date</label>
+                      <input
+                        type="date"
+                        className="ClientManagement-form-input"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
+                        disabled={updating}
+                      />
+                    </div>
+                    <div className="ClientManagement-form-group">
+                      <label className="ClientManagement-form-label">Due Note</label>
+                      <input
+                        type="text"
+                        className="ClientManagement-form-input"
+                        value={dueNote}
+                        onChange={(e) => setDueNote(e.target.value)}
+                        disabled={updating}
+                        placeholder="Message shown to client"
+                      />
+                    </div>
+                    <div className="ClientManagement-form-group">
+                      <label className="ClientManagement-form-label">Payment Status</label>
+                      <select
+                        className="ClientManagement-form-input"
+                        value={dueStatus}
+                        onChange={(e) => setDueStatus(e.target.value)}
+                        disabled={updating}
+                      >
+                        <option value="Due">Due</option>
+                        <option value="Pending Verification">Pending Verification</option>
+                        <option value="Paid">Paid</option>
+                        <option value="Cancelled">Cancelled</option>
+                      </select>
+                    </div>
+                    <div className="ClientManagement-renewal-actions">
+                      <button type="submit" className="ClientManagement-btn ClientManagement-btn--primary" disabled={updating}>
+                        <FiDollarSign /> Add Due Payment
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
 
               {(client.dueInvoices || []).filter(invoice => invoice.status !== 'Paid' && invoice.status !== 'Cancelled').length > 0 && (
                 <div className="ClientManagement-current-subscription-info">
@@ -2708,6 +2728,7 @@ const AddClientModal = ({
 //  MAIN CLIENT MANAGEMENT COMPONENT
 // ============================================
 const ClientManagement = () => {
+  const navigate = useNavigate();
   const [clients, setClients] = useState([]);
   const [services, setServices] = useState([]);
   const [clientPlans, setClientPlans] = useState([]);
@@ -3542,7 +3563,7 @@ const ClientManagement = () => {
               </button>
               <button
                 className="ClientManagement-btn ClientManagement-btn--outlined"
-                onClick={() => setClientPlansModal(true)}
+                onClick={() => navigate('/ciisUser/client-plans')}
                 disabled={services.length === 0 || (!companyCode && !companyIdentifier)}
               >
                 <FiBriefcase /> Client Plans ({clientPlans.length})
@@ -3999,14 +4020,7 @@ const ClientManagement = () => {
         companyCode={companyCode}
       />
 
-      <ClientPlansModal
-        open={clientPlansModal}
-        onClose={() => setClientPlansModal(false)}
-        plans={clientPlans}
-        services={services}
-        companyCode={companyCode}
-        onSavePlan={handleSaveClientPlan}
-      />
+
 
       {deleteDialog.open && (
         <div className="ClientManagement-modal-overlay" onClick={handleDeleteCancel}>

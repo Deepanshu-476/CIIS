@@ -319,7 +319,6 @@ const MessageBubble = ({
         }
 
         return (
-<<<<<<< HEAD
             <div className="chat-media-file-wrapper" style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}>
                 <a
                     className="chat-media-file"
@@ -342,24 +341,6 @@ const MessageBubble = ({
                     <Download size={16} />
                 </a>
             </div>
-=======
-            <a
-                className="chat-media-file"
-                href={mediaUrl}
-                target="_blank"
-                rel="noreferrer"
-                title={`Open ${attachmentName}`}
-                onClick={(event) => {
-                    if (!mediaUrl) {
-                        event.preventDefault();
-                    }
-                }}
-            >
-                <FileText size={16} />
-                <span>{attachmentName}</span>
-                <small>{isPdfMedia ? "PDF Document" : "Document"}</small>
-            </a>
->>>>>>> 575afb71780a10255fa615fd84f60b96ca85c67a
         );
     };
 

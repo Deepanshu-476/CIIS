@@ -41,7 +41,6 @@ const responseErrorHandler = (error) => {
         }
       }, 1500);
     }
-<<<<<<< HEAD
 
     
     if (data?.errors) {
@@ -113,8 +112,6 @@ const responseErrorHandler = (error) => {
     
     title = "⚙️ App Error";
     message = error.message || "Something went wrong while sending the request.";
-=======
->>>>>>> 575afb71780a10255fa615fd84f60b96ca85c67a
   }
 
   return Promise.reject(error);

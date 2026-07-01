@@ -1,9 +1,9 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 
-// 1. Create context with null default
+
 export const AuthContext = createContext(null);
 
-// 2. Safe custom hook
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -12,7 +12,7 @@ export const useAuth = () => {
   return context;
 };
 
-// 3. Provider
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(() => localStorage.getItem('token'));
@@ -35,15 +35,15 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // useEffect(() => {
-  //   if (user) {
-  //     localStorage.setItem('user', JSON.stringify(user));
-  //   } else {
-  //     localStorage.removeItem('user');
-  //     localStorage.removeItem('token');
-  //     setIsAuthenticated(false);
-  //   }
-  // }, [user]);
+  
+  
+  
+  
+  
+  
+  
+  
+  
 
   return (
     <AuthContext.Provider value={{ user, setUser, token, setToken, isAuthenticated, setIsAuthenticated }}>

@@ -51,7 +51,7 @@ import {
 const Interactions = () => {
   const theme = useTheme();
 
-  // Mock data for interactions
+  
   const interactions = [
     {
       id: 1,
@@ -121,11 +121,11 @@ const Interactions = () => {
     },
   ];
 
-  // Pagination state
+  
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
-  // For demo, assume total count is 1210 as in screenshot
+  
   const totalCount = 1210;
 
   const handleChangePage = (event, newPage) => {
@@ -149,7 +149,7 @@ const Interactions = () => {
     setActiveTab(newValue);
   }
 
-  // Status color mapping
+  
   const statusColors = {
     'Appointment': 'success',
     'Not contacted': 'default',
@@ -157,7 +157,7 @@ const Interactions = () => {
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: 'background.default', minHeight: '100vh' }}>
-      {/* Header */}
+      
       <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={3}>
         <Box>
           <Typography variant="h4" fontWeight={700} gutterBottom>
@@ -182,7 +182,7 @@ const Interactions = () => {
         </Button>
       </Box>
 
-      {/* Search and Filters */}
+      
       <Card sx={{ mb: 3, borderRadius: 2 }}>
         <CardContent>
           <Stack
@@ -191,7 +191,7 @@ const Interactions = () => {
             alignItems={{ xs: 'flex-start', md: 'center' }}
             justifyContent="space-between"
           >
-            {/* Search */}
+            
             <Stack direction="row" spacing={1} alignItems="center" flex={1} minWidth={300}>
               <TextField
                 fullWidth
@@ -224,7 +224,7 @@ const Interactions = () => {
               </Tooltip>
             </Stack>
 
-            {/* Radio Filter */}
+            
             <FormControl component="fieldset">
               <RadioGroup
                 row
@@ -244,7 +244,7 @@ const Interactions = () => {
               </RadioGroup>
             </FormControl>
 
-            {/* Status Dropdown */}
+            
             <FormControl size="small" sx={{ minWidth: 180 }}>
               <Select
                 value={statusFilter}
@@ -262,7 +262,7 @@ const Interactions = () => {
         </CardContent>
       </Card>
 
-      {/* Tabs and Additional Filters */}
+      
       <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 2, bgcolor: 'background.paper' }}>
         <Stack
           direction={{ xs: 'column', md: 'row' }}
@@ -312,16 +312,12 @@ const Interactions = () => {
                 <SortByAlphaIcon />
               </IconButton>
             </Tooltip>
-            {/* <Tooltip title="Refresh">
-              <IconButton>
-                <RefreshIcon />
-              </IconButton>
-            </Tooltip> */}
+            
           </Stack>
         </Stack>
       </Paper>
 
-      {/* Data Table */}
+      
       <Paper elevation={0} sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <TableContainer>
           <Table>
@@ -396,7 +392,7 @@ const Interactions = () => {
           </Table>
         </TableContainer>
 
-        {/* Pagination */}
+        
         <TablePagination
           component="div"
           count={totalCount}

@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import axios from '../../utils/axiosConfig';
 import './JobRoleManagement.css';
-import CIISLoader from '../../Loader/CIISLoader'; // ✅ Import CIISLoader
+import CIISLoader from '../../Loader/CIISLoader'; 
 
-// Transition for dialog
+
 const Transition = (props) => {
   return <div className="JobRoleManagement-transition" {...props} />;
 };
@@ -12,7 +12,7 @@ const Transition = (props) => {
 const JobRoleManagement = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
-  const [pageLoading, setPageLoading] = useState(true); // ✅ Page loading state
+  const [pageLoading, setPageLoading] = useState(true); 
   
   const [jobRoles, setJobRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -42,7 +42,7 @@ const JobRoleManagement = () => {
     withDepartment: 0
   });
 
-  // Handle window resize
+  
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -54,7 +54,7 @@ const JobRoleManagement = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Format date
+  
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {
@@ -69,20 +69,20 @@ const JobRoleManagement = () => {
     }
   };
 
-  // Function to get user from localStorage
+  
   const getUserFromStorage = () => {
     let userStr = localStorage.getItem('superAdmin');
     if (!userStr) userStr = localStorage.getItem('user');
     if (!userStr) userStr = sessionStorage.getItem('superAdmin') || sessionStorage.getItem('user');
     
     if (!userStr) {
-      console.log('No user found in storage');
+      void 0;
       return null;
     }
     
     try {
       const user = JSON.parse(userStr);
-      console.log('User found in storage:', user);
+      void 0;
       return user;
     } catch (error) {
       console.error('Error parsing user data:', error);
@@ -91,7 +91,7 @@ const JobRoleManagement = () => {
     }
   };
 
-  // Check if user is super-admin
+  
   const checkSuperAdminStatus = (user) => {
     if (!user) return false;
     
@@ -102,18 +102,12 @@ const JobRoleManagement = () => {
       user.role === 'super-admin' ||
       user.jobRole === 'super_admin';
     
-    console.log('Super admin check:', {
-      user,
-      isSuper,
-      role: user.role,
-      department: user.department,
-      jobRole: user.jobRole
-    });
+    void 0;
     
     return isSuper;
   };
 
-  // ✅ Load initial data with page loader
+  
   useEffect(() => {
     const loadData = async () => {
       setPageLoading(true);
@@ -142,7 +136,7 @@ const JobRoleManagement = () => {
         console.error('Error loading job roles:', error);
         toast.error('Failed to load job roles');
       } finally {
-        // Minimum 500ms loader show karega
+        
         setTimeout(() => {
           setPageLoading(false);
         }, 500);
@@ -172,13 +166,13 @@ const JobRoleManagement = () => {
         }
       }
       
-      console.log('Fetching job roles with params:', params);
+      void 0;
       
       const response = await axios.get('/job-roles', { params });
       const roles = response.data.jobRoles || [];
       setJobRoles(roles);
       
-      // Calculate stats
+      
       setStats({
         total: roles.length,
         active: roles.filter(r => r.isActive !== false).length,
@@ -186,7 +180,7 @@ const JobRoleManagement = () => {
         withDepartment: roles.filter(r => r.department).length
       });
       
-      console.log('Job roles fetched:', roles.length);
+      void 0;
     } catch (err) {
       console.error('Fetch job roles error:', err);
       toast.error(err.response?.data?.message || 'Failed to load job roles');
@@ -214,7 +208,7 @@ const JobRoleManagement = () => {
       const response = await axios.get('/departments', { params });
       setDepartments(response.data.departments || []);
       
-      console.log('Departments fetched for dropdown:', response.data.departments?.length);
+      void 0;
     } catch (err) {
       console.error('Fetch departments error:', err);
       toast.error(err.response?.data?.message || 'Failed to load departments');
@@ -253,7 +247,7 @@ const JobRoleManagement = () => {
         submitData.companyCode = formData.companyCode || user.companyCode;
       }
       
-      console.log('Submitting job role data:', submitData);
+      void 0;
       
       if (editingJobRole) {
         await axios.put(`/job-roles/${editingJobRole._id}`, submitData);
@@ -341,7 +335,7 @@ const JobRoleManagement = () => {
     setAnchorEl(null);
   };
 
-  // Handle menu open
+  
   const handleMenuOpen = (event, jobRole) => {
     setAnchorEl(event.currentTarget);
     setSelectedJobRoleMenu(jobRole);
@@ -352,18 +346,18 @@ const JobRoleManagement = () => {
     setSelectedJobRoleMenu(null);
   };
 
-  // Handle refresh
+  
   const handleRefresh = () => {
     toast.info('Refreshing job roles...');
     setRefreshKey(prev => prev + 1);
   };
 
-  // Handle clear search
+  
   const handleClearSearch = () => {
     setSearchTerm('');
   };
 
-  // Filter job roles
+  
   const getFilteredJobRoles = () => {
     let filtered = jobRoles;
     const user = userInfo || getUserFromStorage();
@@ -390,7 +384,7 @@ const JobRoleManagement = () => {
 
   const filteredJobRoles = getFilteredJobRoles();
 
-  // Mobile card view component
+  
   const MobileJobRoleCard = ({ jobRole }) => (
     <div className="JobRoleManagement-mobile-card">
       <div className="JobRoleManagement-mobile-card-status" 
@@ -462,14 +456,14 @@ const JobRoleManagement = () => {
     </div>
   );
 
-  // ✅ Show CIISLoader while page is loading
+  
   if (pageLoading) {
     return <CIISLoader />;
   }
 
   return (
     <div className="JobRoleManagement-container">
-      {/* Loading Overlay */}
+      
       {loading && (
         <div className="JobRoleManagement-loading-overlay">
           <div className="JobRoleManagement-progress-bar">
@@ -478,10 +472,10 @@ const JobRoleManagement = () => {
         </div>
       )}
 
-      {/* Stats Cards */}
+      
       {jobRoles.length > 0 && (
         <div className="JobRoleManagement-stats-grid">
-          {/* Total Job Roles */}
+          
           <div className="JobRoleManagement-stat-card JobRoleManagement-stat-blue">
             <div className="JobRoleManagement-stat-content">
               <div className="JobRoleManagement-stat-icon-box">
@@ -498,7 +492,7 @@ const JobRoleManagement = () => {
             </div>
           </div>
 
-          {/* Active Job Roles */}
+          
           <div className="JobRoleManagement-stat-card JobRoleManagement-stat-green">
             <div className="JobRoleManagement-stat-content">
               <div className="JobRoleManagement-stat-icon-box">
@@ -515,7 +509,7 @@ const JobRoleManagement = () => {
             </div>
           </div>
 
-          {/* With Department */}
+          
           <div className="JobRoleManagement-stat-card JobRoleManagement-stat-blue">
             <div className="JobRoleManagement-stat-content">
               <div className="JobRoleManagement-stat-icon-box">
@@ -532,7 +526,7 @@ const JobRoleManagement = () => {
             </div>
           </div>
 
-          {/* Inactive */}
+          
           <div className="JobRoleManagement-stat-card JobRoleManagement-stat-red">
             <div className="JobRoleManagement-stat-content">
               <div className="JobRoleManagement-stat-icon-box">
@@ -552,7 +546,7 @@ const JobRoleManagement = () => {
       )}
 
       <div className="JobRoleManagement-paper">
-        {/* Header Section */}
+        
         <div className="JobRoleManagement-header">
           <div className="JobRoleManagement-header-left">
             <div className="JobRoleManagement-header-icon-box">
@@ -581,7 +575,7 @@ const JobRoleManagement = () => {
           </div>
           
           <div className="JobRoleManagement-header-actions">
-            {/* Search Bar */}
+            
             <div className="JobRoleManagement-search-container">
               <span className="JobRoleManagement-search-icon">🔍</span>
               <input
@@ -598,7 +592,7 @@ const JobRoleManagement = () => {
               )}
             </div>
             
-            {/* Add Job Role Button */}
+            
             <button
               className="JobRoleManagement-btn-primary"
               onClick={() => {
@@ -634,9 +628,9 @@ const JobRoleManagement = () => {
           </div>
         )}
 
-        {/* Table/List View */}
+        
         {isMobile ? (
-          // Mobile Card View
+          
           <div className="JobRoleManagement-mobile-view">
             {filteredJobRoles.length === 0 ? (
               <div className="JobRoleManagement-empty-state">
@@ -680,7 +674,7 @@ const JobRoleManagement = () => {
             )}
           </div>
         ) : (
-          // Desktop Table View
+          
           <div className="JobRoleManagement-table-container">
             <table className="JobRoleManagement-table">
               <thead>
@@ -788,7 +782,7 @@ const JobRoleManagement = () => {
           </div>
         )}
 
-        {/* Pagination */}
+        
         {filteredJobRoles.length > 0 && (
           <div className="JobRoleManagement-pagination">
             <div className="JobRoleManagement-pagination-info">
@@ -838,7 +832,7 @@ const JobRoleManagement = () => {
           </div>
         )}
 
-        {/* Floating Action Button for Mobile */}
+        
         {isMobile && (
           <button
             className="JobRoleManagement-fab"
@@ -858,7 +852,7 @@ const JobRoleManagement = () => {
           </button>
         )}
 
-        {/* Options Menu for Mobile */}
+        
         {anchorEl && (
           <div className="JobRoleManagement-menu-overlay" onClick={handleMenuClose}>
             <div className="JobRoleManagement-menu" style={{top: anchorEl.getBoundingClientRect().bottom, left: anchorEl.getBoundingClientRect().left}}>
@@ -894,7 +888,7 @@ const JobRoleManagement = () => {
         )}
       </div>
 
-      {/* Add/Edit Dialog */}
+      
       {openDialog && (
         <div className="JobRoleManagement-modal-overlay" onClick={() => !loading && setOpenDialog(false)}>
           <div className={`JobRoleManagement-modal ${isMobile ? 'JobRoleManagement-modal-fullscreen' : ''}`} onClick={e => e.stopPropagation()}>
@@ -917,7 +911,7 @@ const JobRoleManagement = () => {
             </div>
             
             <div className="JobRoleManagement-modal-body">
-              {/* User Info Banner */}
+              
               {userInfo?.companyCode && !isSuperAdmin && (
                 <div className="JobRoleManagement-info-banner">
                   <span className="JobRoleManagement-info-icon">🏢</span>

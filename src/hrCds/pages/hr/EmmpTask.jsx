@@ -23,7 +23,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { styled } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 
-// Enhanced Styled Components
+
 const TaskCard = styled(Card)(({ theme, priority = 'medium' }) => ({
   borderRadius: theme.shape.borderRadius * 2,
   boxShadow: theme.shadows[2],
@@ -162,7 +162,7 @@ const EmmpTask = () => {
     rejected: 0
   });
 
-  // Notifications State
+  
   const [notifications, setNotifications] = useState([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -172,7 +172,7 @@ const EmmpTask = () => {
   const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
 
-  // Notifications Functions
+  
   const fetchNotifications = async () => {
     if (authError || !userId) return;
     
@@ -205,7 +205,7 @@ const EmmpTask = () => {
     }
   };
 
-  // Enhanced Notifications Panel
+  
   const renderNotificationsPanel = () => (
     <Modal
       open={notificationsOpen}
@@ -300,7 +300,7 @@ const EmmpTask = () => {
     </Modal>
   );
 
-  // Notification Bell Component
+  
   const NotificationBell = () => (
     <Tooltip title="Notifications">
       <ActionButton 
@@ -328,7 +328,7 @@ const EmmpTask = () => {
     </Tooltip>
   );
 
-  // Fixed: Proper user data fetching with error handling
+  
   const fetchUserRole = () => {
     try {
       const userStr = localStorage.getItem('user');
@@ -369,10 +369,10 @@ const EmmpTask = () => {
     }
   };
 
-  // Combined data fetching with proper authentication check
+  
   const fetchAssignableData = async () => {
     if (authError || !userId) {
-      console.log('Skipping data fetch due to authentication issues');
+      void 0;
       return;
     }
 
@@ -443,7 +443,7 @@ const EmmpTask = () => {
     try {
       await axios.patch(`/task/${taskId}/status`, { status: newStatus });
       fetchAssignedTasks();
-      fetchNotifications(); // Refresh notifications after status change
+      fetchNotifications(); 
       setSnackbar({ open: true, message: 'Status updated successfully', severity: 'success' });
     } catch (err) {
       console.error("❌ Error in handleStatusChange:", err.response || err);
@@ -498,7 +498,7 @@ const EmmpTask = () => {
     try {
       await axios.post('/task/create', formData);
       fetchAssignedTasks();
-      fetchNotifications(); // Refresh notifications after creating task
+      fetchNotifications(); 
       setOpenDialog(false);
       setSnackbar({ open: true, message: 'Task created successfully', severity: 'success' });
       setNewTask({
@@ -629,11 +629,11 @@ const EmmpTask = () => {
     if (!authError && userId) {
       fetchAssignedTasks();
       fetchAssignableData();
-      fetchNotifications(); // Fetch notifications when component loads
+      fetchNotifications(); 
     }
   }, [authError, userId]);
 
-  // Show authentication error message
+  
   if (authError) {
     return (
       <Box sx={{ 
@@ -683,7 +683,7 @@ const EmmpTask = () => {
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Fade in={!loading} timeout={500}>
         <Box sx={{ p: { xs: 2, md: 3 } }}>
-          {/* Header Section */}
+          
           <Paper sx={{ 
             p: 3, 
             mb: 3, 
@@ -707,7 +707,7 @@ const EmmpTask = () => {
               </Box>
 
               <Stack direction="row" spacing={2} alignItems="center">
-                {/* Notification Bell */}
+                
                 <NotificationBell />
 
                 {userRole !== 'employee' && userRole !== 'staff' && (
@@ -729,7 +729,7 @@ const EmmpTask = () => {
             </Stack>
           </Paper>
 
-          {/* Statistics Cards */}
+          
           <Grid container spacing={3} sx={{ mb: 4 }}>
             <Grid item xs={6} md={2}>
               <StatCard color="primary">
@@ -847,7 +847,7 @@ const EmmpTask = () => {
             </Grid>
           </Grid>
 
-          {/* Tasks List */}
+          
           <Stack spacing={3}>
             {tasks.length === 0 ? (
               <Card sx={{ 

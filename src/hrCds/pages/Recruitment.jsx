@@ -36,14 +36,14 @@ const Recruitment = () => {
     const [editId, setEditId] = useState(null);
     const [form, setForm] = useState({ title: '', positions: '', application: '', shortlists: '', screening: '', interviews: '', preOffered: '', offered: '' });
 
-    // Job statistics
+    
     const jobStats = [
         { label: 'Open Jobs', count: jobs.length, color: '#2ecc71' },
         { label: 'Total Applications', count: jobs.reduce((a, b) => a + parseInt(b.application.split('/')[0] || 0, 10), 0), color: '#3498db' },
         { label: 'Applications Actioned', count: jobs.reduce((a, b) => a + parseInt(b.shortlists.split('/')[0] || 0, 10), 0), color: '#f1c40f' }
     ];
 
-    // CRUD Handlers
+    
     const handleOpen = (job = null) => {
       if (job) {
         setEditId(job.id);
@@ -67,7 +67,7 @@ const Recruitment = () => {
     };
     const handleDelete = id => setJobs(jobs.filter(j => j.id !== id));
 
-    // Filtering
+    
     const filteredJobs = jobs.filter(job =>
       (jobFilter === 'All Jobs' || (jobFilter === 'Open Jobs' && job.positions !== '0') || (jobFilter === 'Closed Jobs' && job.positions === '0')) &&
       (search ? job.title.toLowerCase().includes(search.toLowerCase()) : true)
@@ -163,7 +163,7 @@ const Recruitment = () => {
                                 </TableBody>
                             </Table>
                         </TableContainer>
-                        {/* Add/Edit Dialog */}
+                        
                         <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
                           <DialogTitle>{editId ? 'Edit Job' : 'Add Job'}</DialogTitle>
                           <form onSubmit={handleSubmit}>

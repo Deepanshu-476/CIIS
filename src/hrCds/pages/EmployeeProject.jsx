@@ -1,8 +1,8 @@
-// ========================= EmployeeProject.jsx =========================
+
 import React, { useState, useEffect } from "react";
 import axios from "../../utils/axiosConfig";
 import "../Css/EmployeeProject.css";
-import CIISLoader from '../../Loader/CIISLoader'; // ✅ Import CIISLoader
+import CIISLoader from '../../Loader/CIISLoader'; 
 
 const parseStoredJson = (key) => {
   try {
@@ -80,7 +80,7 @@ const EmployeeProject = () => {
   const [projectUsers, setProjectUsers] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [projectSearchTerm, setProjectSearchTerm] = useState("");
-  const [pageLoading, setPageLoading] = useState(true); // ✅ Page loading state
+  const [pageLoading, setPageLoading] = useState(true); 
   const [loading, setLoading] = useState({ projects: false, tasks: false });
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState("");
@@ -128,7 +128,7 @@ const EmployeeProject = () => {
     { value: "cancelled", label: "Cancelled", color: "#EF5350" },
   ];
 
-  // Icons
+  
   const Icons = {
     Add: () => <span className="EmployeeProject-icon">➕</span>,
     AttachFile: () => <span className="EmployeeProject-icon">📎</span>,
@@ -261,7 +261,7 @@ const EmployeeProject = () => {
     setOpenTaskDialog(true);
   };
 
-  // ✅ Load all projects with page loader
+  
   useEffect(() => {
     const loadData = async () => {
       setPageLoading(true);
@@ -272,7 +272,7 @@ const EmployeeProject = () => {
         console.error("Error loading data:", error);
         showSnackbar("Error loading data", "error");
       } finally {
-        // Minimum 500ms loader show karega
+        
         setTimeout(() => {
           setPageLoading(false);
         }, 500);
@@ -331,7 +331,7 @@ const EmployeeProject = () => {
     }
   };
 
-  // Load selected project details + tasks
+  
   const handleSelectProject = async (id) => {
     setLoading(prev => ({ ...prev, tasks: true }));
     try {
@@ -341,7 +341,7 @@ const EmployeeProject = () => {
       setProjectUsers(res.data.users || []);
       setTasks(res.data.tasks || []);
       setTaskFilter("all");
-      setTabValue(0); // Reset to tasks tab
+      setTabValue(0); 
     } catch (error) {
       console.error("Error loading project details:", error);
       showSnackbar("Error loading project details", "error");
@@ -350,7 +350,7 @@ const EmployeeProject = () => {
     }
   };
 
-  // Validate task form
+  
   const validateTaskForm = () => {
     const errors = {};
 
@@ -367,7 +367,7 @@ const EmployeeProject = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // Update Task Status
+  
   const handleUpdateTaskStatus = async (taskId, newStatus) => {
     setLoading(prev => ({ ...prev, tasks: true }));
     try {
@@ -376,11 +376,11 @@ const EmployeeProject = () => {
         remark: statusRemark,
       });
 
-      // Refresh tasks and notifications
+      
       handleSelectProject(selectedProject);
       loadNotifications();
       
-      // Reset and close dialog
+      
       setStatusRemark("");
       setOpenStatusDialog(false);
       setSelectedTask(null);
@@ -394,14 +394,14 @@ const EmployeeProject = () => {
     }
   };
 
-  // Open status update dialog
+  
   const handleOpenStatusDialog = (task) => {
     setSelectedTask(task);
     setStatusRemark("");
     setOpenStatusDialog(true);
   };
 
-  // Load activity logs
+  
   const handleLoadActivityLogs = async (taskId) => {
     try {
       const res = await axios.get(`/projects/${selectedProject}/tasks/${taskId}/activity`);
@@ -417,18 +417,18 @@ const EmployeeProject = () => {
     }
   };
 
-  // Load notifications (placeholder - implement actual API call)
+  
   const loadNotifications = async () => {
     try {
-      // const res = await axios.get("/projects/notifications");
-      // setNotifications(res.data || []);
-      setNotifications([]); // Placeholder
+      
+      
+      setNotifications([]); 
     } catch (error) {
       console.error("Error loading notifications:", error);
     }
   };
 
-  // Mark notification as read
+  
   const handleMarkNotificationAsRead = async (notificationId) => {
     try {
       await axios.patch(`/projects/notifications/${notificationId}/read`);
@@ -438,7 +438,7 @@ const EmployeeProject = () => {
     }
   };
 
-  // Clear all notifications
+  
   const handleClearAllNotifications = async () => {
     try {
       await axios.delete("/projects/notifications/clear");
@@ -450,7 +450,7 @@ const EmployeeProject = () => {
     }
   };
 
-  // Add Task
+  
   const handleAddTask = async () => {
     if (!validateTaskForm()) return;
 
@@ -474,7 +474,7 @@ const EmployeeProject = () => {
       resetTaskForm();
       setOpenTaskDialog(false);
 
-      // Refresh tasks and notifications
+      
       handleSelectProject(selectedProject);
       loadNotifications();
       
@@ -521,7 +521,7 @@ const EmployeeProject = () => {
     }
   };
 
-  // Add Remark to a Task
+  
   const handleAddRemark = async (taskId, text) => {
     if (!text || text.trim() === "") {
       showSnackbar("Please enter a remark", "warning");
@@ -533,11 +533,11 @@ const EmployeeProject = () => {
         `/projects/${selectedProject}/tasks/${taskId}/remarks`,
         { text }
       );
-      // Reload tasks and notifications
+      
       handleSelectProject(selectedProject);
       loadNotifications();
       
-      // Clear the remark input
+      
       setTasks(prev => prev.map(task => 
         task._id === taskId ? { ...task, _newRemark: "" } : task
       ));
@@ -549,7 +549,7 @@ const EmployeeProject = () => {
     }
   };
 
-  // VIEW PDF
+  
   const viewPdf = (pdfPath, filename) => {
     if (!pdfPath) {
       showSnackbar("No PDF file available", "warning");
@@ -565,7 +565,7 @@ const EmployeeProject = () => {
     setOpenPdfDialog(true);
   };
 
-  // DOWNLOAD PDF
+  
   const downloadPdf = (pdfPath, filename) => {
     if (!pdfPath) {
       showSnackbar("No PDF file available", "warning");
@@ -780,14 +780,14 @@ const EmployeeProject = () => {
     </div>
   );
 
-  // ✅ Show CIISLoader while page is loading
+  
   if (pageLoading) {
     return <CIISLoader />;
   }
 
   return (
     <div className="EmployeeProject-container">
-      {/* Snackbar */}
+      
       {snackbar.open && (
         <div className="EmployeeProject-snackbar">
           <Alert severity={snackbar.severity} onClose={handleCloseSnackbar}>
@@ -796,7 +796,7 @@ const EmployeeProject = () => {
         </div>
       )}
 
-      {/* PDF Viewer Dialog */}
+      
       {openPdfDialog && (
         <div className="EmployeeProject-modal EmployeeProject-pdf-modal">
           <div className="EmployeeProject-modal-backdrop" onClick={() => setOpenPdfDialog(false)} />
@@ -848,7 +848,7 @@ const EmployeeProject = () => {
         </div>
       )}
 
-      {/* Header */}
+      
       <div className="EmployeeProject-header">
         <div className="EmployeeProject-header-content">
           <div className="EmployeeProject-header-text">
@@ -884,7 +884,7 @@ const EmployeeProject = () => {
           </span>
         </div>
 
-        {/* Stats Cards - Only show if project is selected */}
+        
         {selectedProject && (
           <div className="EmployeeProject-stats-grid">
             <div className="EmployeeProject-stat-item">
@@ -957,7 +957,7 @@ const EmployeeProject = () => {
         <LinearProgress />
       )}
 
-      {/* PROJECT LIST - SHOW NO PROJECTS MESSAGE IF EMPTY */}
+      
       {projects.length === 0 ? (
         <div className="EmployeeProject-no-projects">
           <div className="EmployeeProject-no-projects-content">
@@ -1056,7 +1056,7 @@ const EmployeeProject = () => {
                     </button>
                   </div>
                   
-                  {/* Project PDF indicator */}
+                  
                   {p.pdfFile?.path && (
                     <div className="EmployeeProject-card-pdf">
                       <div className="EmployeeProject-pdf-info">
@@ -1072,7 +1072,7 @@ const EmployeeProject = () => {
         </div>
       )}
 
-      {/* TASK PANEL - Only show if a project is selected */}
+      
       {selectedProject && projectDetails && (
         <div className="EmployeeProject-panel">
           <div className="EmployeeProject-panel-header">
@@ -1102,7 +1102,7 @@ const EmployeeProject = () => {
           </div>
 
           <div className="EmployeeProject-panel-content">
-            {/* TASKS TAB */}
+            
             {tabValue === 0 && (
               <>
                 <div className="EmployeeProject-panel-header-content">
@@ -1120,7 +1120,7 @@ const EmployeeProject = () => {
                   </button>
                 </div>
 
-                {/* Project Progress */}
+                
                 <div className="EmployeeProject-progress-card">
                   <div className="EmployeeProject-progress-header">
                     <h4 className="EmployeeProject-progress-title">Project Progress</h4>
@@ -1266,13 +1266,13 @@ const EmployeeProject = () => {
               </>
             )}
 
-            {/* DOCUMENTS TAB */}
+            
             {tabValue === 1 && (
               <div className="EmployeeProject-documents-tab">
                 <h2 className="EmployeeProject-documents-title">Project Documents</h2>
                 <p className="EmployeeProject-documents-subtitle">All project-related documents and files</p>
                 
-                {/* Project Document */}
+                
                 {projectDetails.pdfFile?.path ? (
                   <div className="EmployeeProject-document-card">
                     <div className="EmployeeProject-document-content">
@@ -1291,7 +1291,7 @@ const EmployeeProject = () => {
                   <Alert severity="info">No project document uploaded</Alert>
                 )}
 
-                {/* Task Documents */}
+                
                 <h3 className="EmployeeProject-task-documents-title">
                   Task Documents ({tasks.filter(t => t.pdfFile?.path).length})
                 </h3>
@@ -1328,7 +1328,7 @@ const EmployeeProject = () => {
               </div>
             )}
 
-            {/* PROJECT INFO TAB */}
+            
             {tabValue === 2 && (
               <div className="EmployeeProject-info-tab">
                 <h2 className="EmployeeProject-info-title">Project Information</h2>
@@ -1453,7 +1453,7 @@ const EmployeeProject = () => {
         </div>
       )}
 
-      {/* TASK DETAILS MODAL */}
+      
       {detailTask && (
         <div className="EmployeeProject-modal">
           <div className="EmployeeProject-modal-backdrop" onClick={() => setDetailTaskId(null)} />
@@ -1588,7 +1588,7 @@ const EmployeeProject = () => {
         </div>
       )}
 
-      {/* UPDATE STATUS DIALOG */}
+      
       {openStatusDialog && (
         <div className="EmployeeProject-modal">
           <div className="EmployeeProject-modal-backdrop" onClick={() => {
@@ -1667,7 +1667,7 @@ const EmployeeProject = () => {
         </div>
       )}
 
-      {/* ACTIVITY LOGS DRAWER */}
+      
       {openActivityDrawer && (
         <div className="EmployeeProject-drawer">
           <div className="EmployeeProject-drawer-backdrop" onClick={() => setOpenActivityDrawer(false)} />
@@ -1720,7 +1720,7 @@ const EmployeeProject = () => {
         </div>
       )}
 
-      {/* NOTIFICATIONS MODAL (Centered Popup) */}
+      
       {openNotificationsModal && (
         <div className="EmployeeProject-modal">
           <div className="EmployeeProject-modal-backdrop" onClick={() => setOpenNotificationsModal(false)} />

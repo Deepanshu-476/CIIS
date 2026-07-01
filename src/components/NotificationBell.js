@@ -1,4 +1,4 @@
-// src/components/NotificationBell.js
+
 import React, { useState } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { formatDistanceToNow } from 'date-fns';

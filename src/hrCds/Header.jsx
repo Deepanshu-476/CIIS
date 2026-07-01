@@ -56,7 +56,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
     type: "info"
   });
 
-  // Local unread count state - single source of truth
+  
   const [localUnreadCount, setLocalUnreadCount] = useState(0);
 
   const getDismissedNotificationKey = () =>
@@ -94,12 +94,12 @@ const Header = ({ toggleSidebar, isMobile }) => {
     targetScreen: notification.targetScreen || notification.data?.targetScreen,
   });
 
-  // Helper function to combine dueDate and dueTime
+  
   const combineDateTime = (dueDate, dueTime) => {
     if (!dueDate) return null;
     
     try {
-      // Parse the date
+      
       let dateObj;
       if (dueDate instanceof Date) {
         dateObj = dueDate;
@@ -107,17 +107,17 @@ const Header = ({ toggleSidebar, isMobile }) => {
         dateObj = new Date(dueDate);
       }
       
-      // If date is invalid, return null
+      
       if (isNaN(dateObj.getTime())) return null;
       
-      // If time is provided, combine it
+      
       if (dueTime) {
         const [hours, minutes] = dueTime.split(':');
         if (hours && minutes) {
           dateObj.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
         }
       } else {
-        // Default to end of day if no time specified
+        
         dateObj.setHours(23, 59, 59, 999);
       }
       
@@ -128,7 +128,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
     }
   };
 
-  // ========== FETCH INITIAL UNREAD COUNT FROM BACKEND ==========
+  
   const fetchUnreadCount = async () => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -140,11 +140,11 @@ const Header = ({ toggleSidebar, isMobile }) => {
       const count = response.data?.data?.unreadCount || 0;
       setLocalUnreadCount(count);
       localStorage.setItem('unreadCount', count);
-      console.log('📊 Initial unread count:', count);
+      void 0;
       
     } catch (err) {
       console.error("Error fetching unread count:", err);
-      // Fallback: count from notifications if API fails
+      
       const storedUnread = localStorage.getItem('unreadCount');
       if (storedUnread) {
         setLocalUnreadCount(parseInt(storedUnread, 10));
@@ -159,22 +159,22 @@ const Header = ({ toggleSidebar, isMobile }) => {
     }
   }, []);
 
-  // ========== SOCKET NOTIFICATION LISTENER ==========
+  
   useEffect(() => {
-    console.log('🔔 Header: Setting up notification listener');
+    void 0;
     
-    // Listen for new notifications via socket
+    
     const unsubscribe = onNewNotification((notification) => {
-      console.log('📢 Header: New notification received:', notification);
+      void 0;
       
-      // Add to notifications list and update count
+      
       setNotifications(prev => {
-        // Check if notification already exists
+        
         const exists = prev.some(n => n._id === notification._id || n.id === notification.id);
         
         if (!exists) {
           if (notification.type === "meeting") {
-            console.log("📅 Meeting Notification Received:", notification);
+            void 0;
           }
 
           const route = notification.targetPath || notification.data?.targetPath;
@@ -217,22 +217,22 @@ const Header = ({ toggleSidebar, isMobile }) => {
     };
   }, [onNewNotification]);
 
-  // ========== FETCH INITIAL NOTIFICATIONS AND UNREAD COUNT ==========
+  
   useEffect(() => {
     if (!hasFetched) {
       fetchNotifications();
       fetchUnreadCount(); 
     }
     
-    // Set up interval to refresh notifications every 2 minutes
+    
     const interval = setInterval(() => {
-      fetchNotifications(true); // silent refresh
+      fetchNotifications(true); 
     }, 120000);
     
     return () => clearInterval(interval);
   }, []);
 
-  // ========== FETCH NOTIFICATIONS FROM API ==========
+  
   const fetchNotifications = async (silent = false) => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -291,7 +291,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
         });
       };
 
-      // Attendance Notifications
+      
       const attendanceData = attendanceRes.value?.data?.data || [];
       attendanceData.forEach((item) => {
         if (item.inTime) all.push({ 
@@ -312,7 +312,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
         });
       });
 
-      // Leaves
+      
       const leavesData = leavesRes.value?.data?.leaves || [];
       leavesData.forEach((l) => {
         const emoji =
@@ -334,7 +334,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
         });
       });
 
-      // Assets
+      
       const assetsData = assetsRes.value?.data?.requests || [];
       assetsData.forEach((a) => {
         const type = a.status?.toLowerCase() === 'approved' ? 'success' :
@@ -349,7 +349,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
         });
       });
 
-      // My Tasks
+      
       const groupedTasks = myTasksRes.value?.data?.groupedTasks || {};
       
       Object.keys(groupedTasks).forEach((dateKey) => {
@@ -374,7 +374,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
         });
       });
 
-      // Assigned Tasks (Skip completed)
+      
       const assignedTaskData = assignedTasksRes.value?.data?.data || [];
       assignedTaskData.forEach((t) => {
         if (t.status?.toLowerCase() === "completed") return;
@@ -389,7 +389,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
         });
       });
 
-      // Groups
+      
       const groupData = groupsRes.value?.data?.data || [];
       groupData.forEach((g) => {
         all.push({ 
@@ -402,7 +402,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
         });
       });
 
-      // Alerts
+      
       const alertData = alertsRes.value?.data?.data || [];
       alertData.forEach((a) => {
         all.push({ 
@@ -415,17 +415,17 @@ const Header = ({ toggleSidebar, isMobile }) => {
         });
       });
 
-      // ✅ Sorting Latest First + Prioritize Overdue Tasks
+      
       const sorted = all.sort((a, b) => {
-        // Prioritize overdue tasks
+        
         if (a.category === 'overdue' && b.category !== 'overdue') return -1;
         if (a.category !== 'overdue' && b.category === 'overdue') return 1;
-        // Then sort by time
+        
         return new Date(b.time) - new Date(a.time);
       });
       
-      // Keep unread backend notifications even if they are older than today so
-      // the dropdown matches the unread badge count.
+      
+      
       const dismissedIds = readDismissedNotificationIds();
       const filteredNotifications = sorted.filter((n) => {
         const notificationId = String(n.id || n._id || "");
@@ -460,11 +460,11 @@ const Header = ({ toggleSidebar, isMobile }) => {
     }
   };
 
-  // ========== HANDLE NOTIFICATION CLICK ==========
+  
   const handleNotificationClick = async (e) => {
     setAnchorEl(e.currentTarget);
     
-    // Refresh notifications when opened
+    
     await fetchNotifications(true);
   };
 
@@ -472,7 +472,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
     setAnchorEl(null);
   };
 
-  // ========== MARK SINGLE NOTIFICATION AS READ ==========
+  
   const handleMarkAsRead = async (notification, index) => {
     try {
       const shouldDecreaseCount =
@@ -482,11 +482,11 @@ const Header = ({ toggleSidebar, isMobile }) => {
 
       rememberDismissedNotificationIds([notificationId]);
 
-      // Remove from notifications list
+      
       setNotifications(prev => prev.filter((_, i) => i !== index));
       
       if (shouldDecreaseCount) {
-        // Decrease local unread count (don't go below 0)
+        
         setLocalUnreadCount(prev => {
           const newCount = Math.max(0, prev - 1);
           localStorage.setItem('unreadCount', newCount);
@@ -494,7 +494,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
         });
       }
       
-      // If it has an ID, mark as read via socket
+      
       if (notification._id) {
         await markAsRead(notification._id);
         const token = localStorage.getItem("token");
@@ -517,12 +517,12 @@ const Header = ({ toggleSidebar, isMobile }) => {
     openNotificationRoute(navigate, notification);
   };
 
-  // ========== MARK ALL AS READ ==========
+  
   const handleMarkAllAsRead = async () => {
     try {
       rememberDismissedNotificationIds(notifications.map(n => n.id || n._id));
 
-      // Mark all current notifications as read
+      
       const promises = notifications.map((n) => {
         if (n._id) {
           return markAsRead(n._id);
@@ -538,7 +538,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
         }).catch(() => {});
       }
       
-      // Clear notifications and reset unread count to 0
+      
       setNotifications([]);
       setLocalUnreadCount(0);
       localStorage.setItem('unreadCount', 0);
@@ -549,17 +549,17 @@ const Header = ({ toggleSidebar, isMobile }) => {
     }
   };
 
-  // ========== CLEAR TOAST ==========
+  
   const handleCloseToast = () => {
     setToast(prev => ({ ...prev, open: false }));
   };
 
-  // ========== LOGO CLICK HANDLER ==========
+  
   const handleLogoClick = () => {
     navigate("/ciisUser/user-dashboard");
   };
 
-  // ========== LOGOUT HANDLER ==========
+  
   const handleLogout = async () => {
     const result = await Swal.fire({
       title: "Are you sure?",
@@ -588,7 +588,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
     }
   };
 
-  // ========== GET NOTIFICATION ICON ==========
+  
   const getNotificationIcon = (type) => {
     switch(type) {
       case 'success': return <CheckCircleIcon sx={{ color: '#4caf50', fontSize: 20 }} />;
@@ -623,9 +623,9 @@ const Header = ({ toggleSidebar, isMobile }) => {
             width: "100%",
           }}
         >
-          {/* LEFT */}
+          
           <Box sx={{ display: "flex", alignItems: "center", gap: isMobile ? 1 : 2 }}>
-            {/* Show menu button only on mobile */}
+            
             {isMobile && (
               <IconButton 
                 onClick={toggleSidebar} 
@@ -657,7 +657,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
             />
           </Box>
 
-          {/* CENTER */}
+          
           <Box sx={{ flex: 1, textAlign: "center" }}>
             {!isMobile ? (
               <Typography 
@@ -687,9 +687,9 @@ const Header = ({ toggleSidebar, isMobile }) => {
             )}
           </Box>
 
-          {/* RIGHT */}
+          
           <Box sx={{ display: "flex", alignItems: "center", gap: isMobile ? 1 : 2 }}>
-            {/* Notifications */}
+            
             <Tooltip title="Notifications">
               <IconButton 
                 onClick={handleNotificationClick}
@@ -767,7 +767,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
               transformOrigin={{ horizontal: 'right', vertical: 'top' }}
               anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
             >
-              {/* Header with Gradient Background */}
+              
               <Box sx={{ 
                 p: 2, 
                 borderBottom: 1, 
@@ -845,7 +845,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
                 </Box>
               </Box>
 
-              {/* Notifications List */}
+              
               <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
                 {loading ? (
                   <Box sx={{ 
@@ -898,7 +898,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
                         width: '100%',
                         gap: 1.5 
                       }}>
-                        {/* Notification Icon */}
+                        
                         <Box sx={{ mt: 0.5 }}>
                           {n.category === 'overdue' ? (
                             <ErrorIcon sx={{ color: '#f44336', fontSize: 20 }} />
@@ -907,7 +907,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
                           )}
                         </Box>
                         
-                        {/* Notification Content */}
+                        
                         <Box sx={{ flex: 1 }}>
                           <Typography 
                             variant="body2" 
@@ -954,7 +954,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
                           </Box>
                         </Box>
 
-                        {/* Mark as Read Button */}
+                        
                         <Tooltip title="Mark this notification as read">
                           <IconButton
                             size="small"
@@ -1018,7 +1018,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
                 )}
               </Box>
 
-              {/* Footer */}
+              
               {notifications.length > 0 && (
                 <Box sx={{
                   p: 1.5,
@@ -1063,7 +1063,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
               )}
             </Menu>
 
-            {/* Logout */}
+            
             <Tooltip title="Logout">
               <IconButton 
                 onClick={handleLogout} 
@@ -1096,7 +1096,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
         </Toolbar>
       </AppBar>
 
-      {/* Toast Notifications */}
+      
       <Snackbar
         open={toast.open}
         autoHideDuration={5000}

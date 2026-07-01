@@ -1,4 +1,4 @@
-// src/context/NotificationContext.js
+
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useSocket } from './SocketContext';
 import '../components/notifications.css';
@@ -81,7 +81,7 @@ export const NotificationProvider = ({ children }) => {
   );
 };
 
-// Simple Toast Component
+
 const ToastContainer = () => {
   const { toasts, removeToast } = useNotification();
 

@@ -1,6 +1,6 @@
 import React from 'react';
 
-// page components
+
 import CiisHeader from '../components/CiisHeader';
 import FeaturesSection from '../components/FeaturesSection';
 import Logo from '../components/Logo';
@@ -11,14 +11,14 @@ import HeroSection from '../componentsCSS/HeroSection';
 import Beyond from '../components/beyond';
 import Cta from '../components/Cta';
 import Bannerbtn from '../components/Bannerbtn';
-// icons
+
 
 import Applinks from '../components/Applinks';
 
-// styles
+
 import '../componentsCSS/ciis.css';
 
-// image imports (used in features)
+
 import icon1 from '../image/ciis/1.png';
 import icon2 from '../image/ciis/2.png';
 import icon3 from '../image/ciis/3.png';
@@ -112,10 +112,10 @@ function Ciis() {
         <>
             <CiisHeader />
             <HeroSection />
-            {/*  */}
+            
             <Comparison />
 
-            {/*  */}
+            
             <Beyond />
 
             <FeaturesSection
@@ -123,7 +123,7 @@ function Ciis() {
                 subheading="Manage calls, track insights, and close deals, everything from your mobile phone"
                 features={myFeatures}
             />
-            {/*  */}
+            
             <Bannerbtn
                 title="Get a personalized walkthrough of CiisNetwork
                 
@@ -132,14 +132,14 @@ function Ciis() {
                 backgroundImage="/image.png"
                 onClick={() => alert("Demo scheduled")}
             />
-            {/*  */}
+            
             <Cta />
-            {/*  */}
+            
             <Logo />
-            {/*  */}
+            
             <Crm />
 
-            {/*  */}
+            
             <Applinks />
             <Footer />
 

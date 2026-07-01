@@ -5,7 +5,7 @@ import Swal from 'sweetalert2';
 import './SidebarManagement.css';
 import CIISLoader from '../../Loader/CIISLoader';
 
-// Your routes configuration
+
 const APP_ROUTES = [
   { path: 'emp-details', name: 'Employee Details', icon: 'Person', category: 'administration' },
   { path: 'emp-leaves', name: 'Employee Leaves', icon: 'EventNote', category: 'administration' },
@@ -18,7 +18,7 @@ const APP_ROUTES = [
   { path: 'admin-meeting', name: 'Create Employee Meeting', icon: 'MeetingRoom', category: 'meetings' },
   { path: 'adminproject', name: 'Admin Projects', icon: 'ProjectIcon', category: 'projects' },
   { path: 'company-all-task', name: 'Company All Tasks', icon: 'ListAlt', category: 'tasks' },
-  // { path: 'department-all-task', name: 'Department All Tasks', icon: 'ListAlt', category: 'tasks' },
+  
   { path: 'emp-client', name: 'Client Management', icon: 'ClientIcon', category: 'clients' },
   { path: 'active-clients', name: 'Active Clients', icon: 'Folder', category: 'clients' },
   { path: 'ClienDashboard', name: 'Client Dashboard', icon: 'ClientIcon', category: 'clients' },
@@ -39,7 +39,7 @@ const APP_ROUTES = [
   { path: 'support-operations', name: 'Support Operations', icon: 'SupportAgent', category: 'administration' },
 ];
 
-// Helper function to get icon component as HTML string
+
 const getIconHtml = (iconName) => {
   const icons = {
     Dashboard: '📊',
@@ -104,7 +104,7 @@ const isRouteAllowedForCompany = (route, company) => {
 
 
 const SidebarManagement = () => {
-  // State for responsive design
+  
   const [isMobile, setIsMobile] = useState(window.innerWidth < 600);
   const [isTablet, setIsTablet] = useState(window.innerWidth < 960);
   const [pageLoading, setPageLoading] = useState(true);
@@ -132,10 +132,10 @@ const SidebarManagement = () => {
   const [expandedCategories, setExpandedCategories] = useState({});
   const [activeTab, setActiveTab] = useState(0);
   
-  // 🔥 FIXED: Modal state management - single modal at a time
+  
   const [modalState, setModalState] = useState({
     isOpen: false,
-    type: null, // 'preview', 'delete', 'addRole', etc.
+    type: null, 
     data: null
   });
   
@@ -146,7 +146,7 @@ const SidebarManagement = () => {
   const [departmentSearch, setDepartmentSearch] = useState('');
   const [roleSearch, setRoleSearch] = useState('');
 
-  // 🔥 NEW: Auto-dismiss snackbar after 5 seconds
+  
   useEffect(() => {
     let timer;
     if (snackbar.open) {
@@ -159,7 +159,7 @@ const SidebarManagement = () => {
     };
   }, [snackbar.open]);
 
-  // Handle window resize
+  
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 600);
@@ -169,7 +169,7 @@ const SidebarManagement = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // 🔥 NEW: Handle Escape key press to close modal
+  
   useEffect(() => {
     const handleEscapeKey = (e) => {
       if (e.key === 'Escape' && modalState.isOpen) {
@@ -183,7 +183,7 @@ const SidebarManagement = () => {
     };
   }, [modalState.isOpen]);
 
-  // 🔥 NEW: Prevent body scroll when modal is open
+  
   useEffect(() => {
     if (modalState.isOpen) {
       document.body.style.overflow = 'hidden';
@@ -196,14 +196,14 @@ const SidebarManagement = () => {
     };
   }, [modalState.isOpen]);
 
-  // Get company from localStorage
+  
   const getCompanyFromLocalStorage = () => {
     try {
       const companyDetailsStr = localStorage.getItem('company') || localStorage.getItem('companyDetails');
       
       if (companyDetailsStr) {
         const companyData = JSON.parse(companyDetailsStr);
-        console.log('✅ Company details found:', companyData);
+        void 0;
         
         return {
           _id: companyData._id,
@@ -231,7 +231,7 @@ const SidebarManagement = () => {
     }
   };
 
-  // Initialize pages
+  
   useEffect(() => {
     initializePages();
     initializeCompanyFromLocalStorage();
@@ -249,14 +249,14 @@ const SidebarManagement = () => {
     setAvailablePages(pages);
   };
 
-  // Initialize company from localStorage
+  
   const initializeCompanyFromLocalStorage = async () => {
     try {
       setPageLoading(true);
       const companyFromStorage = getCompanyFromLocalStorage();
       
       if (companyFromStorage && companyFromStorage._id) {
-        console.log('🎯 Company ID found:', companyFromStorage._id);
+        void 0;
         let activeCompany = companyFromStorage;
 
         try {
@@ -292,7 +292,7 @@ const SidebarManagement = () => {
           setPageLoading(false);
         }, 500);
       } else {
-        console.log('❌ No company found in localStorage');
+        void 0;
         setPageLoading(false);
       }
     } catch (error) {
@@ -312,7 +312,7 @@ const SidebarManagement = () => {
       });
       if (response.data && response.data.success) {
         setBranches(response.data.branches || []);
-        // Automatically select default branch
+        
         const defaultBr = response.data.branches?.find(b => b.isDefault);
         if (defaultBr) {
           setSelectedBranch(defaultBr._id);
@@ -341,7 +341,7 @@ const SidebarManagement = () => {
     }
   };
 
-  // Fetch departments scoped by company and optionally branch
+  
   const fetchDepartments = async (companyId, branchId = null) => {
     try {
       setLoading(prev => ({ ...prev, departments: true }));
@@ -375,7 +375,7 @@ const SidebarManagement = () => {
     }
   };
 
-  // Fetch job roles when department is selected
+  
   useEffect(() => {
     if (selectedDepartment) {
       fetchJobRoles(selectedDepartment);
@@ -417,7 +417,7 @@ const SidebarManagement = () => {
           return;
         }
       } catch (apiError) {
-        console.log('Job roles API failed:', apiError.message);
+        void 0;
       }
       
       setJobRoles([]);
@@ -461,13 +461,13 @@ const SidebarManagement = () => {
     }
   };
 
-  // Fetch existing configurations with null handling
+  
   const fetchExistingConfigs = async (companyId, branchId = null) => {
     try {
       setLoading(prev => ({ ...prev, fetching: true }));
       const token = localStorage.getItem('token');
       
-      console.log('🔍 Fetching existing configs for company:', companyId);
+      void 0;
       
       const params = { companyId };
       const activeBranchId = branchId || selectedBranch;
@@ -483,7 +483,7 @@ const SidebarManagement = () => {
         }
       });
       
-      console.log('📦 Sidebar API Response:', response.data);
+      void 0;
       
       if (response.data && response.data.success) {
         let configs = [];
@@ -494,7 +494,7 @@ const SidebarManagement = () => {
           configs = response.data;
         }
         
-        console.log(`✅ Found ${configs.length} configurations`);
+        void 0;
         setExistingConfigs(configs);
       } else {
         setExistingConfigs([]);
@@ -507,7 +507,7 @@ const SidebarManagement = () => {
     }
   };
 
-  // Get department name with null check
+  
   const getDepartmentName = (departmentId) => {
     if (!departmentId) return 'No Department';
     
@@ -521,7 +521,7 @@ const SidebarManagement = () => {
     return 'Department';
   };
 
-  // Get role name by ID with better null handling and direct role access
+  
   const getRoleNameById = (roleId) => {
     if (!roleId) return 'No Role';
     
@@ -560,7 +560,7 @@ const SidebarManagement = () => {
     return 'Role';
   };
 
-  // Handle department selection
+  
   const handleDepartmentChange = (departmentId) => {
     setSelectedDepartment(departmentId);
     setSelectedRole('');
@@ -575,7 +575,7 @@ const SidebarManagement = () => {
     }
   };
 
-  // Handle role selection
+  
   const handleRoleChange = (roleId) => {
     if (roleId === 'custom') {
       handleAddRole();
@@ -598,7 +598,7 @@ const SidebarManagement = () => {
     }
   };
 
-  // Load existing configuration
+  
   const loadExistingConfig = async (companyId, departmentId, roleId) => {
     try {
       const token = localStorage.getItem('token');
@@ -629,7 +629,7 @@ const SidebarManagement = () => {
     }
   };
 
-  // Edit existing configuration
+  
   const handleEdit = async (config) => {
     try {
       const departmentId = typeof config.departmentId === 'object' 
@@ -666,7 +666,7 @@ const SidebarManagement = () => {
     }
   };
 
-  // Handle menu item selection
+  
   const handleMenuItemToggle = (pageId) => {
     setSelectedItems(prev => {
       if (prev.includes(pageId)) {
@@ -677,7 +677,7 @@ const SidebarManagement = () => {
     });
   };
 
-  // Select all items in category
+  
   const handleSelectAllCategory = (category) => {
     const categoryPages = availablePages.filter(page => page.category === category);
     const categoryIds = categoryPages.map(page => page.id);
@@ -692,7 +692,7 @@ const SidebarManagement = () => {
     });
   };
 
-  // Toggle category expansion
+  
   const toggleCategory = (category) => {
     setExpandedCategories(prev => ({
       ...prev,
@@ -700,7 +700,7 @@ const SidebarManagement = () => {
     }));
   };
 
-  // Group pages by category
+  
   const groupedPages = availablePages.reduce((acc, page) => {
     if (!acc[page.category]) {
       acc[page.category] = [];
@@ -709,7 +709,7 @@ const SidebarManagement = () => {
     return acc;
   }, {});
 
-  // Save configuration
+  
   const handleSave = async () => {
     if (!company || !company._id || !selectedDepartment || !selectedRole) {
       setSnackbar({
@@ -750,7 +750,7 @@ const SidebarManagement = () => {
         })
       };
 
-      console.log('Saving config data:', configData);
+      void 0;
 
       const checkParams = { 
         companyId: company._id, 
@@ -786,7 +786,7 @@ const SidebarManagement = () => {
         });
       }
 
-      console.log('Save response:', response.data);
+      void 0;
 
       if (response.data.success) {
         await fetchExistingConfigs(company._id);
@@ -821,7 +821,7 @@ const SidebarManagement = () => {
     }
   };
 
-  // 🔥 FIXED: Delete configuration with modal
+  
   const handleDelete = (configId) => {
     setModalState({
       isOpen: true,
@@ -830,7 +830,7 @@ const SidebarManagement = () => {
     });
   };
 
-  // 🔥 FIXED: Confirm delete
+  
   const confirmDelete = async () => {
     if (!modalState.data) return;
     
@@ -867,7 +867,7 @@ const SidebarManagement = () => {
     }
   };
 
-  // Refresh job roles manually
+  
   const handleRefreshRoles = async () => {
     if (selectedDepartment) {
       await fetchJobRoles(selectedDepartment);
@@ -879,7 +879,7 @@ const SidebarManagement = () => {
     }
   };
 
-  // 🔥 FIXED: Preview configuration
+  
   const handlePreview = (config) => {
     setModalState({
       isOpen: true,
@@ -888,7 +888,7 @@ const SidebarManagement = () => {
     });
   };
 
-  // 🔥 FIXED: Add custom role with modal
+  
   const handleAddRole = () => {
     setModalState({
       isOpen: true,
@@ -897,7 +897,7 @@ const SidebarManagement = () => {
     });
   };
 
-  // 🔥 FIXED: Confirm add custom role
+  
   const confirmAddRole = (roleName) => {
     if (!roleName) return;
     
@@ -937,7 +937,7 @@ const SidebarManagement = () => {
     closeModal();
   };
 
-  // 🔥 FIXED: Close modal function
+  
   const closeModal = () => {
     setModalState({
       isOpen: false,
@@ -946,27 +946,27 @@ const SidebarManagement = () => {
     });
   };
 
-  // Get all available roles for dropdown
+  
   const getAllAvailableRoles = () => {
     const allRolesList = [...jobRoles, ...customRoles];
     return allRolesList.sort((a, b) => a.name.localeCompare(b.name));
   };
 
-  // Filter departments based on search
+  
   const filteredDepartments = departments.filter(dept => {
     const searchLower = departmentSearch.toLowerCase();
     return dept.name.toLowerCase().includes(searchLower) ||
            (dept.description && dept.description.toLowerCase().includes(searchLower));
   });
 
-  // Filter roles based on search
+  
   const filteredRoles = getAllAvailableRoles().filter(role => {
     const searchLower = roleSearch.toLowerCase();
     return role.name.toLowerCase().includes(searchLower) ||
            (role.description && role.description.toLowerCase().includes(searchLower));
   });
 
-  // Get category display name
+  
   const getCategoryDisplayName = (category) => {
     const categoryNames = {
       'main': 'Main Menu',
@@ -982,7 +982,7 @@ const SidebarManagement = () => {
     return categoryNames[category] || category;
   };
 
-  // Format date
+  
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -993,7 +993,7 @@ const SidebarManagement = () => {
     });
   };
 
-  // Get progress percentage
+  
   const getProgressPercentage = () => {
     let steps = 0;
     if (company) steps++;
@@ -1003,14 +1003,14 @@ const SidebarManagement = () => {
     return (steps / 4) * 100;
   };
 
-  // Show CIISLoader while page is loading
+  
   if (pageLoading) {
     return <CIISLoader />;
   }
 
   return (
     <div className={`SidebarManagement-container ${isMobile ? 'SidebarManagement-mobile' : ''}`}>
-      {/* Header */}
+      
       <div className="SidebarManagement-header-paper">
         <div className="SidebarManagement-header-bg-effect SidebarManagement-header-bg-effect-1"></div>
         <div className="SidebarManagement-header-bg-effect SidebarManagement-header-bg-effect-2"></div>
@@ -1030,7 +1030,7 @@ const SidebarManagement = () => {
         </div>
       </div>
 
-      {/* Current Company Display */}
+      
       {company ? (
         <div className="SidebarManagement-company-paper">
           <div className="SidebarManagement-company-grid">
@@ -1087,7 +1087,7 @@ const SidebarManagement = () => {
         </div>
       )}
 
-      {/* Progress Bar */}
+      
       {company && (
         <div className="SidebarManagement-progress-container">
           <div className="SidebarManagement-progress-header">
@@ -1103,7 +1103,7 @@ const SidebarManagement = () => {
         </div>
       )}
 
-      {/* Tabs */}
+      
       {company ? (
         <>
           <div className="SidebarManagement-tabs-container">
@@ -1123,10 +1123,10 @@ const SidebarManagement = () => {
             </button>
           </div>
 
-          {/* Tab 1: Configuration */}
+          
           {activeTab === 0 && (
             <>
-              {/* Selection Stepper */}
+              
               <div className="SidebarManagement-stepper-paper">
                 <div className={`SidebarManagement-stepper ${isMobile ? 'SidebarManagement-stepper-vertical' : ''}`}>
                   <div className={`SidebarManagement-step ${activeStep >= 0 ? 'SidebarManagement-step-active' : ''}`}>
@@ -1152,9 +1152,9 @@ const SidebarManagement = () => {
                 </div>
               </div>
 
-              {/* Selection Cards */}
+              
               <div className="SidebarManagement-cards-grid">
-                {/* Branch Selection */}
+                
                 <div className={`SidebarManagement-card ${selectedBranch ? 'SidebarManagement-card-selected' : ''}`}>
                   <div className="SidebarManagement-card-content">
                     <div className="SidebarManagement-card-header">
@@ -1187,7 +1187,7 @@ const SidebarManagement = () => {
                   </div>
                 </div>
 
-                {/* Department Selection */}
+                
                 <div className={`SidebarManagement-card ${selectedDepartment ? 'SidebarManagement-card-selected' : ''}`}>
                   <div className="SidebarManagement-card-content">
                     <div className="SidebarManagement-card-header">
@@ -1266,7 +1266,7 @@ const SidebarManagement = () => {
                   </div>
                 </div>
 
-                {/* Role Selection */}
+                
                 <div className={`SidebarManagement-card ${selectedRole ? 'SidebarManagement-card-selected' : ''}`}>
                   <div className="SidebarManagement-card-content">
                     <div className="SidebarManagement-card-header">
@@ -1370,7 +1370,7 @@ const SidebarManagement = () => {
                 </div>
               </div>
 
-              {/* Menu Items Selection */}
+              
               {company && selectedDepartment && selectedRole && (
                 <div className="SidebarManagement-menu-card">
                   <div className="SidebarManagement-menu-header">
@@ -1387,7 +1387,7 @@ const SidebarManagement = () => {
                     </div>
                   </div>
 
-                  {/* Search Bar */}
+                  
                   <div className="SidebarManagement-search-wrapper">
                     <span className="SidebarManagement-search-icon">🔍</span>
                     <input
@@ -1407,7 +1407,7 @@ const SidebarManagement = () => {
                     )}
                   </div>
 
-                  {/* Menu Items by Category */}
+                  
                   {Object.entries(groupedPages).map(([category, pages]) => {
                     const filteredCategoryPages = searchTerm 
                       ? pages.filter(page =>
@@ -1426,7 +1426,7 @@ const SidebarManagement = () => {
 
                     return (
                       <div key={category} className="SidebarManagement-category-section">
-                        {/* Category Header */}
+                        
                         <div 
                           className="SidebarManagement-category-header"
                           onClick={() => toggleCategory(category)}
@@ -1453,7 +1453,7 @@ const SidebarManagement = () => {
                           </button>
                         </div>
 
-                        {/* Category Items */}
+                        
                         {isExpanded && (
                           <div className="SidebarManagement-category-items-grid">
                             {filteredCategoryPages.map((page) => {
@@ -1493,7 +1493,7 @@ const SidebarManagement = () => {
                     );
                   })}
                   
-                  {/* Save Button at Bottom */}
+                  
                   <div className="SidebarManagement-save-footer">
                     <button
                       className="SidebarManagement-save-button"
@@ -1518,7 +1518,7 @@ const SidebarManagement = () => {
             </>
           )}
 
-          {/* Tab 2 - Existing Configurations */}
+          
           {activeTab === 1 && (
             <div className="SidebarManagement-configs-card">
               <div className="SidebarManagement-configs-header">
@@ -1621,12 +1621,12 @@ const SidebarManagement = () => {
         </div>
       )}
 
-      {/* 🔥 FIXED: Unified Modal Component with proper background click handling */}
+      
       {modalState.isOpen && (
         <div className="SidebarManagement-modal-overlay" onClick={closeModal}>
           <div className="SidebarManagement-modal" onClick={e => e.stopPropagation()}>
             
-            {/* Preview Modal */}
+            
             {modalState.type === 'preview' && modalState.data && (
               <>
                 <div className="SidebarManagement-modal-header">
@@ -1667,7 +1667,7 @@ const SidebarManagement = () => {
               </>
             )}
 
-            {/* Delete Confirmation Modal */}
+            
             {modalState.type === 'delete' && (
               <>
                 <div className="SidebarManagement-modal-header SidebarManagement-modal-header-warning">
@@ -1693,7 +1693,7 @@ const SidebarManagement = () => {
               </>
             )}
 
-            {/* Add Custom Role Modal */}
+            
             {modalState.type === 'addRole' && (
               <AddRoleModal 
                 onClose={closeModal}
@@ -1704,7 +1704,7 @@ const SidebarManagement = () => {
         </div>
       )}
 
-      {/* Snackbar/Toast with Auto-dismiss */}
+      
       {snackbar.open && (
         <div className={`SidebarManagement-snackbar SidebarManagement-snackbar-${snackbar.severity}`}>
           <span className="SidebarManagement-snackbar-icon">
@@ -1720,7 +1720,7 @@ const SidebarManagement = () => {
   );
 };
 
-// 🔥 NEW: Add Role Modal Component
+
 const AddRoleModal = ({ onClose, onConfirm }) => {
   const [roleName, setRoleName] = useState('');
 

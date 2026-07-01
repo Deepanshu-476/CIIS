@@ -38,21 +38,21 @@ const ExpenseManagement = () => {
     const [travelRequests, setTravelRequests] = useState(initialTravelRequests);
     const [expenses, setExpenses] = useState(initialExpenses);
     const [advances, setAdvances] = useState(initialAdvances);
-    // Dialog state
+    
     const [openDialog, setOpenDialog] = useState(false);
     const [editId, setEditId] = useState(null);
     const [form, setForm] = useState({});
-    // Track which type is being edited/added
+    
     const [dialogType, setDialogType] = useState('travel');
 
-    // User info
+    
     const userInfo = {
         name: 'Ankit Rai',
         level: 'Manager Level',
         division: 'Division A - GAN001'
     };
 
-    // CRUD Handlers
+    
     const handleOpenDialog = (type, item = null) => {
         setDialogType(type);
         setEditId(item ? item.id : null);
@@ -98,7 +98,7 @@ const ExpenseManagement = () => {
         if (type === 'advance') setAdvances(advances.filter(r => r.id !== id));
     };
 
-    // Filtering
+    
     const filteredTravelRequests = travelRequests.filter(r => travelStatus === 'All Requests' || r.approvalStatus === travelStatus);
 
     return (
@@ -260,7 +260,7 @@ const ExpenseManagement = () => {
                     </Paper>
                 )}
             </Box>
-            {/* Add/Edit Dialog */}
+            
             <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="xs" fullWidth>
                 <DialogTitle>{editId ? 'Edit' : 'Add'} {dialogType === 'travel' ? 'Travel' : dialogType === 'expense' ? 'Expense' : 'Advance'}</DialogTitle>
                 <form onSubmit={handleSubmit}>

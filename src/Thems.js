@@ -1,4 +1,4 @@
-// src/Themes.js
+
 import { createTheme } from '@mui/material/styles';
 
 export const getTheme = (mode) =>
@@ -49,4 +49,3 @@ export const getTheme = (mode) =>
       },
     },
   });
-// 

@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "../../utils/axiosConfig";
 import "../Css/Alerts.css";
-import CIISLoader from '../../Loader/CIISLoader'; // ✅ Import CIISLoader
+import CIISLoader from '../../Loader/CIISLoader'; 
 
-// Icons as React components
+
 const FiAlertCircle = () => <span className="Alerts-icon">⚠️</span>;
 const FiAlertTriangle = () => <span className="Alerts-icon">⚠️</span>;
 const FiInfo = () => <span className="Alerts-icon">ℹ️</span>;
@@ -25,7 +25,7 @@ const FiChevronDown = () => <span className="Alerts-icon">⌄</span>;
 const FiChevronUp = () => <span className="Alerts-icon">⌃</span>;
 const FiRefreshCw = () => <span className="Alerts-icon">🔄</span>;
 
-// Custom Components
+
 const Badge = ({ children, badgeContent, color = "error", size = "small" }) => (
   <div className="Alerts-badge">
     {children}
@@ -103,9 +103,7 @@ const Checkbox = ({ checked, onChange }) => (
   </label>
 );
 
-/* -----------------------------------
- 🔹 Component
------------------------------------- */
+ 
 const Alerts = () => {
   const [alerts, setAlerts] = useState([]);
   const [pageLoading, setPageLoading] = useState(true);
@@ -143,9 +141,7 @@ const Alerts = () => {
   const canManage = ["admin", "hr", "manager"].includes(role?.toLowerCase());
   const headers = { headers: { Authorization: `Bearer ${token}` } };
 
-  /* -----------------------------------
-    🔹 Helper Functions
-  ------------------------------------ */
+   
   const getUserGroups = async (userId) => {
     try {
       const response = await axios.get(`/users/${userId}/groups`, headers);
@@ -157,7 +153,7 @@ const Alerts = () => {
       }
     } catch (error) {
       console.error("Error fetching user groups:", error);
-      // Try to get from localStorage as fallback
+      
       const storedGroups = localStorage.getItem("userGroups");
       if (storedGroups) {
         try {
@@ -172,9 +168,7 @@ const Alerts = () => {
     return [];
   };
 
-  /* -----------------------------------
-    🔹 Fetch Data
-  ------------------------------------ */
+   
   const fetchData = async () => {
     setLoading(true);
     setRefreshing(true);
@@ -209,7 +203,7 @@ const Alerts = () => {
   const calculateStats = (data) => {
     const currentUserId = localStorage.getItem("userId");
     
-    // Only count alerts that are visible to the current user
+    
     const visibleAlerts = data.filter(alert => {
       const hasAssignments = alert.assignedUsers?.length > 0 || alert.assignedGroups?.length > 0;
       if (!hasAssignments) return true;
@@ -240,7 +234,7 @@ const Alerts = () => {
     });
   };
 
-  // Load data with page loader
+  
   useEffect(() => {
     const loadData = async () => {
       setPageLoading(true);
@@ -254,7 +248,7 @@ const Alerts = () => {
           const userId = parsed._id || parsed.user?._id || "";
           if (userId) {
             localStorage.setItem("userId", userId);
-            // Fetch user's groups
+            
             await getUserGroups(userId);
           }
         } catch (error) {
@@ -267,16 +261,14 @@ const Alerts = () => {
     loadData();
   }, []);
 
-  // Recalculate stats when userGroups change
+  
   useEffect(() => {
     if (alerts.length > 0) {
       calculateStats(alerts);
     }
   }, [userGroups, alerts]);
 
-  /* -----------------------------------
-    🔹 Handlers
-  ------------------------------------ */
+   
   const handleOpen = (alert = null) => {
     if (alert) {
       setEditId(alert._id);
@@ -411,27 +403,25 @@ const Alerts = () => {
     }
   };
 
-  /* -----------------------------------
-    🔹 Filtered Data
-  ------------------------------------- */
+   
   const filteredAlerts = useMemo(() => {
     let filtered = alerts;
     const currentUserId = localStorage.getItem("userId");
     
-    // First, filter by assigned to current user
+    
     filtered = filtered.filter(alert => {
-      // Check if alert has any assignments
+      
       const hasAssignments = alert.assignedUsers?.length > 0 || alert.assignedGroups?.length > 0;
       
-      // If no assignments, alert is for all users (show it)
+      
       if (!hasAssignments) return true;
       
-      // Check if user is directly assigned
+      
       const isDirectlyAssigned = alert.assignedUsers?.some(
         user => (user._id || user) === currentUserId
       );
       
-      // Check if user belongs to any assigned groups
+      
       const isInAssignedGroup = alert.assignedGroups?.some(group => {
         const groupId = group._id || group;
         return userGroups.includes(groupId);
@@ -440,7 +430,7 @@ const Alerts = () => {
       return isDirectlyAssigned || isInAssignedGroup;
     });
     
-    // Apply search filter
+    
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(alert => 
@@ -449,12 +439,12 @@ const Alerts = () => {
       );
     }
     
-    // Apply type filter
+    
     if (filterType !== "all") {
       filtered = filtered.filter((a) => a.type === filterType);
     }
     
-    // Apply view mode filter
+    
     if (viewMode === "unread") {
       filtered = filtered.filter(alert => 
         !alert.readBy?.some(user => (user._id || user) === currentUserId)
@@ -510,7 +500,7 @@ const Alerts = () => {
   };
 
   const getCreatorName = (alert) => {
-    // Try different possible field names for the creator
+    
     const creator = alert.createdBy || alert.assignedBy || alert.author || alert.creator;
     
     if (!creator) return "System";
@@ -519,7 +509,7 @@ const Alerts = () => {
       return creator.name || creator.email || "Unknown User";
     }
     
-    // If it's an ID, try to find the user
+    
     const user = users.find(u => u._id === creator);
     return user ? user.name || user.email : "Unknown User";
   };
@@ -552,14 +542,14 @@ const Alerts = () => {
     }
   };
 
-  // Show CIISLoader while page is loading
+  
   if (pageLoading) {
     return <CIISLoader />;
   }
 
   return (
     <div className="Alerts-container">
-      {/* Enhanced Header with Gradient */}
+      
       <div className="Alerts-gradient-header">
         <div className="Alerts-header-content">
           <div className="Alerts-header-text">
@@ -589,9 +579,9 @@ const Alerts = () => {
         </div>
       </div>
 
-      {/* Stats & Filters Section */}
+      
       <div className="Alerts-stats-filters">
-        {/* Search Bar */}
+        
         <div className="Alerts-search-container">
           <div className="Alerts-search-field">
             <FiSearch />
@@ -610,7 +600,7 @@ const Alerts = () => {
           </div>
         </div>
 
-        {/* View Mode Toggle */}
+        
         <div className="Alerts-view-mode-container">
           <div className="Alerts-view-mode-card">
             <span className="Alerts-view-mode-label">View:</span>
@@ -635,7 +625,7 @@ const Alerts = () => {
           </div>
         </div>
 
-        {/* Stat Cards */}
+        
         <div className="Alerts-stats-grid">
           {[
             { 
@@ -695,7 +685,7 @@ const Alerts = () => {
         </div>
       </div>
 
-      {/* Alerts List */}
+      
       <div className="Alerts-list-container">
         <div className="Alerts-list-header">
           <div>
@@ -786,7 +776,7 @@ const Alerts = () => {
                       </div>
                     </div>
 
-                    {/* Creator/Assigner Information */}
+                    
                     <div className="Alerts-creator-info">
                         <FiUserCheck />
                       <span className="Alerts-creator-name">
@@ -798,58 +788,7 @@ const Alerts = () => {
                       {alert.message}
                     </p>
 
-                    {/* {(expanded || assignedUsers.length > 0 || assignedGroups.length > 0) && (
-                      <div className="Alerts-alert-details">
-                        <div className="Alerts-divider" />
-                        <div className="Alerts-assignments">
-                          <span className="Alerts-assignments-label">ASSIGNED TO:</span>
-                          <div className="Alerts-assignments-list">
-                            {assignedUsers.length > 0 ? (
-                              assignedUsers.map((user, index) => (
-                                <Chip
-                                  key={index}
-                                  icon={<FiUser />}
-                                  label={getUserNameById(user)}
-                                  size="small"
-                                  style={{ 
-                                    backgroundColor: '#667eea20',
-                                    color: '#667eea',
-                                    borderColor: '#667eea30'
-                                  }}
-                                />
-                              ))
-                            ) : (
-                              <Chip
-                                icon={<FiGlobe />}
-                                label="All Users"
-                                size="small"
-                                style={{ 
-                                  backgroundColor: '#667eea20',
-                                  color: '#667eea',
-                                  borderColor: '#667eea30'
-                                }}
-                              />
-                            )}
-                            
-                            {assignedGroups.length > 0 && (
-                              assignedGroups.map((group, index) => (
-                                <Chip
-                                  key={index}
-                                  icon={<FiUsers />}
-                                  label={getGroupNameById(group)}
-                                  size="small"
-                                  style={{ 
-                                    backgroundColor: '#764ba220',
-                                    color: '#764ba2',
-                                    borderColor: '#764ba230'
-                                  }}
-                                />
-                              ))
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )} */}
+                    
                   </div>
                 </div>
               );
@@ -858,7 +797,7 @@ const Alerts = () => {
         </div>
       </div>
 
-      {/* Enhanced Dialog */}
+      
       {open && (
         <div className="Alerts-modal">
           <div className="Alerts-modal-backdrop" onClick={handleClose} />
@@ -872,7 +811,7 @@ const Alerts = () => {
             
             <div className="Alerts-modal-body">
               <div className="Alerts-form">
-                {/* Alert Type Selection */}
+                
                 <div className="Alerts-form-group">
                   <label>Alert Type *</label>
                   <select
@@ -893,7 +832,7 @@ const Alerts = () => {
                   </select>
                 </div>
                 
-                {/* Message */}
+                
                 <div className="Alerts-form-group">
                   <label>Alert Message *</label>
                   <textarea
@@ -907,14 +846,14 @@ const Alerts = () => {
                   />
                 </div>
 
-                {/* Assign Users Section */}
+                
                 <div className="Alerts-assign-section">
                   <h3 className="Alerts-assign-title">📋 Assign Users</h3>
                   <p className="Alerts-assign-subtitle">
                     Select specific users or leave empty for all users
                   </p>
                   
-                  {/* User Search */}
+                  
                   <div className="Alerts-search-field">
                     <FiSearch />
                     <input
@@ -926,7 +865,7 @@ const Alerts = () => {
                     />
                   </div>
                   
-                  {/* Selected Users Chips */}
+                  
                   {form.assignedUsers.length > 0 && (
                     <div className="Alerts-selected-chips">
                       {form.assignedUsers.map(userId => {
@@ -944,7 +883,7 @@ const Alerts = () => {
                     </div>
                   )}
                   
-                  {/* Users List */}
+                  
                   <div className="Alerts-users-list">
                     {filteredUsers.length === 0 ? (
                       <div className="Alerts-empty-list">
@@ -976,14 +915,14 @@ const Alerts = () => {
                   </div>
                 </div>
 
-                {/* Assign Groups Section */}
+                
                 <div className="Alerts-assign-section">
                   <h3 className="Alerts-assign-title">👥 Assign Groups</h3>
                   <p className="Alerts-assign-subtitle">
                     Select specific groups or leave empty for all groups
                   </p>
                   
-                  {/* Group Search */}
+                  
                   <div className="Alerts-search-field">
                     <FiSearch />
                     <input
@@ -995,7 +934,7 @@ const Alerts = () => {
                     />
                   </div>
                   
-                  {/* Selected Groups Chips */}
+                  
                   {form.assignedGroups.length > 0 && (
                     <div className="Alerts-selected-chips">
                       {form.assignedGroups.map(groupId => {
@@ -1013,7 +952,7 @@ const Alerts = () => {
                     </div>
                   )}
                   
-                  {/* Groups List */}
+                  
                   <div className="Alerts-groups-list">
                     {filteredGroups.length === 0 ? (
                       <div className="Alerts-empty-list">
@@ -1073,7 +1012,7 @@ const Alerts = () => {
         </div>
       )}
 
-      {/* Enhanced Notification */}
+      
       {notification && (
         <div className="Alerts-notification">
           <div 

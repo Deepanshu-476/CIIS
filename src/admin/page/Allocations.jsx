@@ -30,7 +30,7 @@ const Allocations = () => {
 
   return (
     <>
-      {/* Filter Header */}
+      
       <Box
         sx={{
           bgcolor: theme.palette.background.default,
@@ -41,7 +41,7 @@ const Allocations = () => {
         }}
       >
         <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
-          {/* Left: Label & Search */}
+          
           <Box display="flex" alignItems="center" gap={2}>
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
               0
@@ -68,7 +68,7 @@ const Allocations = () => {
             />
           </Box>
 
-          {/* Right: Filters */}
+          
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
             <Button
               variant="contained"
@@ -128,7 +128,7 @@ const Allocations = () => {
           </Stack>
         </Box>
 
-        {/* Tabs */}
+        
         <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Tabs
             value={tab}
@@ -200,7 +200,7 @@ const Allocations = () => {
         </Box>
       </Box>
 
-      {/* Empty State */}
+      
       <Box
         sx={{
           py: 8,
@@ -212,7 +212,7 @@ const Allocations = () => {
         }}
       >
         <img
-          src="/images/no-allocations.png" // adjust as needed
+          src="/images/no-allocations.png" 
           alt="No Allocations"
           style={{ width: 240, marginBottom: theme.spacing(3) }}
         />

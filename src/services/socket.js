@@ -186,5 +186,5 @@ export default socketServiceInstance;
 
 if (typeof window !== 'undefined') {
   window.socketService = socketServiceInstance;
-    console.log('✅ Socket service attached to window');
+    void 0;
 }

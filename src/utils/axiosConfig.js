@@ -2,8 +2,8 @@ import axios from "axios";
 import API_URL from "../config";
 
 const axiosInstance = axios.create({
-  // Never let a local Vite session call or mutate production data. Vite
-  // proxies /api to the backend running on localhost:3000.
+  
+  
   baseURL: import.meta.env.DEV ? "/api" : API_URL,
   withCredentials: true,
 });
@@ -15,18 +15,18 @@ axiosInstance.interceptors.request.use((config) => {
 });
 
 const responseErrorHandler = (error) => {
-  // If the request was cancelled (e.g. via AbortController/CancelToken), do not show error toast
+  
   if (axios.isCancel(error) || error?.code === "ERR_CANCELED" || error?.name === "CanceledError") {
     return Promise.reject(error);
   }
 
-  // If the request was configured to skip global error notification, ignore it
+  
   if (error.config?._skipErrorNotify) {
     return Promise.reject(error);
   }
 
-  // Keep global axios errors silent. Pages can still handle errors locally,
-  // while auth expiry keeps its redirect behavior without showing a toast.
+  
+  
   if (error.response?.status === 401) {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
@@ -41,9 +41,8 @@ const responseErrorHandler = (error) => {
         }
       }, 1500);
     }
-<<<<<<< HEAD
 
-    // Capture validation errors beautifully if they exist, detailing the exact field/section
+    
     if (data?.errors) {
       let formattedList = [];
       if (Array.isArray(data.errors)) {
@@ -74,21 +73,21 @@ const responseErrorHandler = (error) => {
       }
     }
 
-    // Append actionable suggestion if provided by backend
+    
     if (data?.suggestion) {
       message += `\n\n💡 Suggestion: ${data.suggestion}`;
     }
 
-    // Special status code messages
+    
     if (error.response.status === 401) {
       title = "🔒 Session Expired";
       message = "Your session has expired. Please log in again.";
       
-      // Clear storage
+      
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       
-      // Redirect if not already on a login page
+      
       if (!window.location.pathname.includes("/login")) {
         const companyCode = localStorage.getItem("companyCode") || localStorage.getItem("companyIdentifier");
         setTimeout(() => {
@@ -107,20 +106,18 @@ const responseErrorHandler = (error) => {
       message = rawMessage || "The requested resource could not be found.";
     }
   } else if (error.request) {
-    // The request was made but no response was received. Skip showing toast.
+    
     return Promise.reject(error);
   } else {
-    // Something happened in setting up the request that triggered an Error
+    
     title = "⚙️ App Error";
     message = error.message || "Something went wrong while sending the request.";
-=======
->>>>>>> 575afb71780a10255fa615fd84f60b96ca85c67a
   }
 
   return Promise.reject(error);
 };
 
-// Bind interceptors to both standard default axios and custom axiosInstance.
+
 axios.interceptors.response.use((response) => response, responseErrorHandler);
 axiosInstance.interceptors.response.use((response) => response, responseErrorHandler);
 

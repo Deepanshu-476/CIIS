@@ -1,10 +1,10 @@
-// AdminProject.jsx
+
 import React, { useState, useEffect } from "react";
 import axios from "../../utils/axiosConfig";
 import "../Css/AdminProject.css";
-import CIISLoader from "../../Loader/CIISLoader"; // Import CIISLoader
+import CIISLoader from "../../Loader/CIISLoader"; 
 
-// Icons
+
 const Icons = {
   Add: () => <span>+</span>,
   Upload: () => <span>📤</span>,
@@ -131,7 +131,7 @@ const toProjectStatusValue = (value = "Active") => {
 };
 
 export const AdminProject = () => {
-  // FORM STATES
+  
   const [projectId, setProjectId] = useState(null);
   const [projectName, setProjectName] = useState("");
   const [description, setDescription] = useState("");
@@ -143,14 +143,14 @@ export const AdminProject = () => {
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState("");
 
-  // DATA STATES
+  
   const [users, setUsers] = useState([]);
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
 
-  // UI STATES
+  
   const [loading, setLoading] = useState(false);
-  const [pageLoading, setPageLoading] = useState(true); // Add page loading state
+  const [pageLoading, setPageLoading] = useState(true); 
   const [errors, setErrors] = useState({});
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   const [openPdfDialog, setOpenPdfDialog] = useState(false);
@@ -161,11 +161,11 @@ export const AdminProject = () => {
   const [sortBy, setSortBy] = useState("newest");
   const [stats, setStats] = useState({ total: 0, active: 0, completed: 0, onHold: 0, highPriority: 0 });
 
-  // DROPDOWN STATES
+  
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [memberSearchTerm, setMemberSearchTerm] = useState("");
 
-  // Add timeout state
+  
   const [requestTimeout, setRequestTimeout] = useState(null);
 
   useEffect(() => {
@@ -201,7 +201,7 @@ export const AdminProject = () => {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [isDropdownOpen]);
 
-  // Cleanup timeout on unmount
+  
   useEffect(() => {
     return () => {
       if (requestTimeout) {
@@ -251,10 +251,10 @@ export const AdminProject = () => {
         return;
       }
 
-      // Add timeout to axios request
+      
       const res = await axios.get("/users/company-users", {
         params: { companyCode, companyIdentifier: companyIdentifier || undefined },
-        timeout: 10000 // 10 seconds timeout
+        timeout: 10000 
       });
       
       if (res.data?.success && res.data.message?.users) setUsers(res.data.message.users);
@@ -286,10 +286,10 @@ export const AdminProject = () => {
         return;
       }
 
-      // Add timeout to axios request
+      
       const res = await axios.get("/projects", {
         params: { companyCode, companyIdentifier: companyIdentifier || undefined },
-        timeout: 10000 // 10 seconds timeout
+        timeout: 10000 
       });
 
       const normalizedCompanyCode = companyCode.toLowerCase();
@@ -344,8 +344,8 @@ export const AdminProject = () => {
     else if (startDate && endDate < startDate) newErrors.endDate = "End date must be after start date";
     if (members.length === 0) newErrors.members = "Select at least one member";
     
-    // File validation
-    if (file && file.size > 10 * 1024 * 1024) { // 10MB limit
+    
+    if (file && file.size > 10 * 1024 * 1024) { 
       newErrors.file = "File size must be less than 10MB";
     }
     
@@ -364,11 +364,11 @@ export const AdminProject = () => {
     
     setLoading(true);
     
-    // Set a timeout to prevent infinite loading
+    
     const timeoutId = setTimeout(() => {
       setLoading(false);
       showSnackbar("❌ Request timeout - please try again", "error");
-    }, 30000); // 30 seconds timeout
+    }, 30000); 
     
     setRequestTimeout(timeoutId);
 
@@ -393,16 +393,16 @@ export const AdminProject = () => {
     try {
       let response;
       
-      // Configure axios with longer timeout for file uploads
+      
       const config = {
         headers: { 
           "Content-Type": "multipart/form-data"
         },
         params: { companyCode, companyIdentifier: companyIdentifier || undefined },
-        timeout: 60000, // 60 seconds timeout for file uploads
+        timeout: 60000, 
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          console.log(`Upload progress: ${percentCompleted}%`);
+          void 0;
         }
       };
 
@@ -412,27 +412,27 @@ export const AdminProject = () => {
         response = await axios.post("/projects", formData, config);
       }
 
-      // Clear the timeout since request completed
+      
       clearTimeout(timeoutId);
       setRequestTimeout(null);
 
-      // Check for successful response
+      
       if (response.status === 200 || response.status === 201) {
         showSnackbar(projectId ? "Project updated successfully!" : "Project created successfully!", "success");
         upsertProject(getProjectFromResponse(response.data));
         resetForm();
-        await fetchProjects(); // Refresh the project list
+        await fetchProjects(); 
       } else {
         showSnackbar(response.data?.message || "Operation failed", "error");
       }
     } catch (err) {
-      // Clear the timeout
+      
       clearTimeout(timeoutId);
       setRequestTimeout(null);
       
       console.error("Error saving project:", err);
       
-      // Handle different error types
+      
       if (err.code === 'ECONNABORTED') {
         showSnackbar("❌ Request timeout - server is taking too long to respond", "error");
       } else if (err.response?.status === 504) {
@@ -495,7 +495,7 @@ export const AdminProject = () => {
     setFile(null);
     setFileName("");
     
-    // Scroll to form
+    
     document.getElementById('ap-project-form')?.scrollIntoView({ behavior: 'smooth' });
   };
 
@@ -511,7 +511,7 @@ export const AdminProject = () => {
       return;
     }
     
-    // Handle different PDF path formats
+    
     let pdfUrl;
     if (pdfPath.startsWith('http')) {
       pdfUrl = pdfPath;
@@ -531,7 +531,7 @@ export const AdminProject = () => {
       return;
     }
 
-    // Handle different PDF path formats
+    
     let pdfUrl;
     if (pdfPath.startsWith('http')) {
       pdfUrl = pdfPath;
@@ -541,7 +541,7 @@ export const AdminProject = () => {
       pdfUrl = `${axios.defaults.baseURL}/uploads/projects/${pdfFilename}`;
     }
 
-    // Create a temporary anchor element
+    
     const link = document.createElement('a');
     link.href = pdfUrl;
     link.download = filename || 'document.pdf';
@@ -570,17 +570,17 @@ export const AdminProject = () => {
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
-      // Check file type
+      
       if (selectedFile.type !== "application/pdf") {
         showSnackbar("Only PDF files are allowed", "error");
-        e.target.value = ''; // Clear the input
+        e.target.value = ''; 
         return;
       }
       
-      // Check file size (max 10MB)
+      
       if (selectedFile.size > 10 * 1024 * 1024) {
         showSnackbar("File size must be less than 10MB", "error");
-        e.target.value = ''; // Clear the input
+        e.target.value = ''; 
         return;
       }
       
@@ -592,7 +592,7 @@ export const AdminProject = () => {
   const showSnackbar = (message, severity = "success") => {
     setSnackbar({ open: true, message, severity });
     
-    // Auto hide after 4 seconds
+    
     setTimeout(() => {
       setSnackbar(prev => ({ ...prev, open: false }));
     }, 4000);
@@ -655,14 +655,14 @@ export const AdminProject = () => {
     </div>
   );
 
-  // Show CIISLoader while page is loading
+  
   if (pageLoading) {
     return <CIISLoader />;
   }
 
   return (
     <div className="ap">
-      {/* Snackbar */}
+      
       {snackbar.open && (
         <div className={`ap-snackbar ap-snackbar-${snackbar.severity}`}>
           <div className="ap-snackbar-content">
@@ -674,7 +674,7 @@ export const AdminProject = () => {
         </div>
       )}
 
-      {/* Loading Overlay */}
+      
       {loading && (
         <div className="ap-loading-overlay">
           <div className="ap-loading-spinner"></div>
@@ -682,7 +682,7 @@ export const AdminProject = () => {
         </div>
       )}
 
-      {/* PDF Dialog */}
+      
       {openPdfDialog && (
         <div className="ap-dialog-backdrop">
           <div className="ap-dialog ap-dialog-lg">
@@ -724,7 +724,7 @@ export const AdminProject = () => {
         </div>
       )}
 
-      {/* Details Dialog */}
+      
       {openDetailsDialog && selectedProject && (
         <div className="ap-dialog-backdrop">
           <div className="ap-dialog ap-dialog-lg">
@@ -940,21 +940,19 @@ export const AdminProject = () => {
         </div>
       )}
 
-      {/* Main Container */}
+      
       <div className="ap-container">
-        {/* Header */}
+        
         <div className="ap-header">
           <div className="ap-header-content">
             <div>
               <h1 className="ap-header-title">Project Management</h1>
               <p className="ap-header-subtitle">Admin dashboard for managing all projects</p>
             </div>
-            {/* <div className="ap-admin-badge">
-              <Icons.AdminPanelSettings />
-            </div> */}
+            
           </div>
 
-          {/* Stats Cards */}
+          
           <div className="ap-stats-grid">
             <StatCard icon={<Icons.Folder />} value={stats.total} label="Total Projects" color="#667eea" subtext="All projects" />
             <StatCard icon={<Icons.PlayArrow />} value={stats.active} label="Active" color="#10b981" />
@@ -963,7 +961,7 @@ export const AdminProject = () => {
           </div>
         </div>
 
-        {/* CREATE / EDIT PROJECT FORM */}
+        
         <div id="ap-project-form" className="ap-form-card">
           <div className="ap-form-header">
             <div className="ap-form-header-content">
@@ -981,7 +979,7 @@ export const AdminProject = () => {
 
           <div className="ap-form-content">
             <div className="ap-form-stack">
-              {/* PROJECT NAME */}
+              
               <div className="ap-form-group">
                 <label className="ap-form-label ap-required">Project Name</label>
                 <input
@@ -995,7 +993,7 @@ export const AdminProject = () => {
                 {errors.projectName && <div className="ap-error-text">{errors.projectName}</div>}
               </div>
 
-              {/* DESCRIPTION */}
+              
               <div className="ap-form-group">
                 <label className="ap-form-label ap-required">Description</label>
                 <textarea
@@ -1009,7 +1007,7 @@ export const AdminProject = () => {
                 {errors.description && <div className="ap-error-text">{errors.description}</div>}
               </div>
 
-              {/* DATES */}
+              
               <div className="ap-form-row">
                 <div className="ap-form-group">
                   <label className="ap-form-label ap-required">Start Date</label>
@@ -1035,7 +1033,7 @@ export const AdminProject = () => {
                 </div>
               </div>
 
-              {/* PRIORITY & STATUS */}
+              
               <div className="ap-form-row">
                 <div className="ap-form-group">
                   <label className="ap-form-label">Priority</label>
@@ -1067,7 +1065,7 @@ export const AdminProject = () => {
                 </div>
               </div>
 
-              {/* MEMBERS DROPDOWN */}
+              
               <div className="ap-form-group">
                 <label className="ap-form-label ap-required">Team Members</label>
                 <div className="ap-dropdown-container">
@@ -1136,7 +1134,7 @@ export const AdminProject = () => {
                   )}
                 </div>
                 
-                {/* Selected Members Avatars */}
+                
                 {members.length > 0 && (
                   <div className="ap-avatar-group">
                     {getSelectedUsers().map((u) => {
@@ -1163,7 +1161,7 @@ export const AdminProject = () => {
                 {errors.members && <div className="ap-error-text">{errors.members}</div>}
               </div>
 
-              {/* FILE UPLOAD */}
+              
               <div className="ap-form-group">
                 <label className="ap-form-label">Project Document (PDF) - Max 10MB</label>
                 <div className="ap-file-upload-wrapper">
@@ -1196,7 +1194,7 @@ export const AdminProject = () => {
                 {errors.file && <div className="ap-error-text">{errors.file}</div>}
               </div>
 
-              {/* ACTION BUTTONS */}
+              
               <div className="ap-form-actions">
                 <button 
                   className="ap-btn ap-btn-primary" 
@@ -1226,7 +1224,7 @@ export const AdminProject = () => {
           </div>
         </div>
 
-        {/* PROJECT LIST SECTION */}
+        
         <div className="ap-list-section">
           <div className="ap-list-header">
             <div>

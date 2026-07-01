@@ -3,7 +3,7 @@ import axios from "../../utils/axiosConfig";
 import "../Css/CreateAlerts.css";
 import CIISLoader from '../../Loader/CIISLoader';
 
-// Icons as React components
+
 const FiAlertCircle = () => <span className="CreateAlert-icon">⚠️</span>;
 const FiAlertTriangle = () => <span className="CreateAlert-icon">⚠️</span>;
 const FiInfo = () => <span className="CreateAlert-icon">ℹ️</span>;
@@ -22,7 +22,7 @@ const FiPlus = () => <span className="CreateAlert-icon">➕</span>;
 const FiClock = () => <span className="CreateAlert-icon">⏰</span>;
 const FiCalendar = () => <span className="CreateAlert-icon">📅</span>;
 
-// Custom Components
+
 const Badge = ({ children, badgeContent, color = "error", size = "small" }) => (
   <div className="CreateAlert-badge">
     {children}
@@ -89,28 +89,28 @@ const CreateAlert = () => {
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [users, setUsers] = useState([]);
-  const [usersMap, setUsersMap] = useState(new Map()); // Add a Map for quick user lookup
+  const [usersMap, setUsersMap] = useState(new Map()); 
   const [groups, setGroups] = useState([]);
   const [role, setRole] = useState("");
   const [alerts, setAlerts] = useState([]);
   
-  // Modal state
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // Form state
+  
   const [form, setForm] = useState({
     type: "info",
     message: "",
     assignedUsers: [],
   });
   
-  // Search and filter states
+  
   const [userSearch, setUserSearch] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [viewMode, setViewMode] = useState("all");
   
-  // Stats state
+  
   const [stats, setStats] = useState({
     total: 0,
     info: 0,
@@ -119,14 +119,14 @@ const CreateAlert = () => {
     unread: 0,
   });
   
-  // UI states
+  
   const [notification, setNotification] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedAlert, setSelectedAlert] = useState(null);
 
   const token = localStorage.getItem("token");
   
-  // Check if mobile view
+  
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth > 768 && window.innerWidth <= 1024);
 
@@ -140,10 +140,10 @@ const CreateAlert = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   
-  // Headers with token validation
+  
   const getHeaders = () => {
     const token = localStorage.getItem("token");
-    console.log("Current token:", token ? "Present" : "Missing");
+    void 0;
     
     return {
       headers: {
@@ -153,7 +153,7 @@ const CreateAlert = () => {
     };
   };
 
-  // Create users map for quick lookup
+  
   const createUsersMap = (usersArray) => {
     const map = new Map();
     usersArray.forEach(user => {
@@ -165,15 +165,15 @@ const CreateAlert = () => {
     setUsersMap(map);
   };
 
-  // Fetch users from company-users API
+  
   const fetchUsers = async () => {
     try {
-      console.log("========== FETCHING USERS ==========");
-      console.log("API URL: /users/company-users");
+      void 0;
+      void 0;
       
       const response = await axios.get("/users/company-users", getHeaders());
       
-      console.log("✅ FULL RESPONSE DATA:", response.data);
+      void 0;
       
       let fetchedUsers = [];
       
@@ -197,9 +197,9 @@ const CreateAlert = () => {
         }
       }
       
-      console.log("✅ FINAL FETCHED USERS COUNT:", fetchedUsers.length);
+      void 0;
       setUsers(fetchedUsers);
-      createUsersMap(fetchedUsers); // Create the map after fetching users
+      createUsersMap(fetchedUsers); 
       
     } catch (error) {
       console.error("❌ ERROR FETCHING USERS:", error);
@@ -214,10 +214,10 @@ const CreateAlert = () => {
     }
   };
 
-  // Fetch groups (still needed for displaying alerts)
+  
   const fetchGroups = async () => {
     try {
-      console.log("========== FETCHING GROUPS ==========");
+      void 0;
       const response = await axios.get("/groups", getHeaders());
       
       let fetchedGroups = [];
@@ -235,7 +235,7 @@ const CreateAlert = () => {
         }
       }
       
-      console.log("Fetched groups:", fetchedGroups.length);
+      void 0;
       setGroups(fetchedGroups);
     } catch (error) {
       console.error("Error fetching groups:", error);
@@ -243,7 +243,7 @@ const CreateAlert = () => {
     }
   };
 
-  // Fetch alerts
+  
   const fetchAlerts = async () => {
     try {
       const response = await axios.get("/alerts", getHeaders());
@@ -282,7 +282,7 @@ const CreateAlert = () => {
     });
   };
 
-  // Load initial data
+  
   useEffect(() => {
     const loadData = async () => {
       setPageLoading(true);
@@ -301,7 +301,7 @@ const CreateAlert = () => {
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
-          console.log("Parsed user:", parsed);
+          void 0;
           
           const userRole = parsed.role || 
                           parsed.user?.role || 
@@ -332,14 +332,14 @@ const CreateAlert = () => {
     loadData();
   }, []);
 
-  // Refresh data
+  
   const handleRefresh = async () => {
     setRefreshing(true);
     await Promise.all([fetchUsers(), fetchGroups(), fetchAlerts()]);
     setRefreshing(false);
   };
 
-  // Form handlers
+  
   const handleUserSelect = (userId) => {
     setForm(prev => {
       const isSelected = prev.assignedUsers.includes(userId);
@@ -361,7 +361,7 @@ const CreateAlert = () => {
     }
   };
 
-  // Handle form submit
+  
   const handleSubmit = async () => {
     if (!form.message.trim()) {
       return setNotification({ 
@@ -386,21 +386,21 @@ const CreateAlert = () => {
         assignedUsers: form.assignedUsers,
       };
 
-      console.log("Submitting alert with payload:", payload);
+      void 0;
       
       let response;
       try {
         response = await axios.post("/alerts", payload, getHeaders());
       } catch (error) {
         if (error.response?.status === 403) {
-          console.log("Trying alternative endpoint: /api/alerts");
+          void 0;
           response = await axios.post("/api/alerts", payload, getHeaders());
         } else {
           throw error;
         }
       }
       
-      console.log("Alert created successfully:", response.data);
+      void 0;
       
       setNotification({ 
         message: "Alert created successfully!", 
@@ -409,7 +409,7 @@ const CreateAlert = () => {
 
       await fetchAlerts();
 
-      // Close modal and reset form
+      
       setIsModalOpen(false);
       setForm({
         type: "info",
@@ -463,18 +463,18 @@ const CreateAlert = () => {
     setUserSearch("");
   };
 
-  // Open modal
+  
   const openModal = () => {
     setIsModalOpen(true);
   };
 
-  // Close modal
+  
   const closeModal = () => {
     setIsModalOpen(false);
     handleReset();
   };
 
-  // Filtered users based on search
+  
   const filteredUsers = useMemo(() => {
     if (!Array.isArray(users) || users.length === 0) {
       return [];
@@ -500,13 +500,13 @@ const CreateAlert = () => {
     });
   }, [users, userSearch]);
 
-  // Filtered alerts based on search and filters
+  
   const filteredAlerts = useMemo(() => {
     if (!Array.isArray(alerts) || alerts.length === 0) return [];
     
     let filtered = [...alerts];
     
-    // Apply search filter
+    
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(alert => 
@@ -515,12 +515,12 @@ const CreateAlert = () => {
       );
     }
     
-    // Apply type filter
+    
     if (filterType !== "all") {
       filtered = filtered.filter(alert => alert.type === filterType);
     }
     
-    // Apply view mode filter
+    
     if (viewMode === "assigned") {
       const userId = localStorage.getItem("userId");
       filtered = filtered.filter(alert => 
@@ -534,11 +534,11 @@ const CreateAlert = () => {
     return filtered;
   }, [alerts, searchQuery, filterType, viewMode]);
 
-  // Get user by ID - FIXED: Using usersMap for better performance and reliability
+  
   const getUserById = (userId) => {
     if (!userId) return { name: "Unknown User", email: "", username: "Unknown" };
     
-    // First try to get from the map
+    
     if (usersMap && usersMap.size > 0) {
       const user = usersMap.get(userId);
       if (user) {
@@ -546,7 +546,7 @@ const CreateAlert = () => {
       }
     }
     
-    // Fallback to array search
+    
     if (Array.isArray(users) && users.length > 0) {
       const user = users.find(u => u._id === userId || u.id === userId);
       if (user) {
@@ -554,7 +554,7 @@ const CreateAlert = () => {
       }
     }
     
-    // Return default if not found
+    
     return { 
       name: "Unknown User", 
       email: "", 
@@ -563,13 +563,13 @@ const CreateAlert = () => {
     };
   };
 
-  // Get user display name - NEW: Helper function to get consistent user display name
+  
   const getUserDisplayName = (user) => {
     if (!user) return "Unknown User";
     return user.name || user.username || user.fullName || user.email || "Unknown User";
   };
 
-  // Get group by ID
+  
   const getGroupById = (groupId) => {
     if (!groupId) return { name: "Unknown Group" };
     if (!Array.isArray(groups) || groups.length === 0) return { name: "Unknown Group" };
@@ -598,7 +598,7 @@ const CreateAlert = () => {
 
   return (
     <div className="CreateAlert-container">
-      {/* Header */}
+      
       <div className="CreateAlert-gradient-header">
         <div className="CreateAlert-header-content">
           <div className="CreateAlert-header-text">
@@ -630,9 +630,9 @@ const CreateAlert = () => {
         </div>
       </div>
 
-      {/* Stats & Filters Section */}
+      
       <div className="CreateAlert-stats-filters">
-        {/* Search Bar */}
+        
         <div className="CreateAlert-search-container">
           <div className="CreateAlert-search-field">
             <FiSearch />
@@ -651,7 +651,7 @@ const CreateAlert = () => {
           </div>
         </div>
 
-        {/* View Mode Toggle */}
+        
         <div className="CreateAlert-view-mode-container">
           <div className="CreateAlert-view-mode-card">
             <span className="CreateAlert-view-mode-label">View:</span>
@@ -683,7 +683,7 @@ const CreateAlert = () => {
           </div>
         </div>
 
-        {/* Stat Cards */}
+        
         <div className="CreateAlert-stats-grid">
           {[
             { 
@@ -742,7 +742,7 @@ const CreateAlert = () => {
           ))}
         </div>
 
-        {/* Filter Chip */}
+        
         <div className="CreateAlert-filter-chip-container">
           <Chip
             icon={<FiFilter />}
@@ -754,7 +754,7 @@ const CreateAlert = () => {
         </div>
       </div>
 
-      {/* Alerts List */}
+      
       <div className="CreateAlert-alerts-container">
         {filteredAlerts.length === 0 ? (
           <div className="CreateAlert-empty-state">
@@ -769,7 +769,7 @@ const CreateAlert = () => {
         ) : (
           <div className="CreateAlert-alerts-grid">
             {filteredAlerts.map((alert) => {
-              // Get assigned users names for tooltip
+              
               const assignedUsersList = alert.assignedUsers?.map(userId => {
                 const user = getUserById(userId);
                 return getUserDisplayName(user);
@@ -831,7 +831,7 @@ const CreateAlert = () => {
         )}
       </div>
 
-      {/* Create Alert Modal */}
+      
       {isModalOpen && (
         <div className="CreateAlert-modal-overlay" onClick={closeModal}>
           <div className="CreateAlert-modal" onClick={e => e.stopPropagation()}>
@@ -843,7 +843,7 @@ const CreateAlert = () => {
             </div>
             
             <div className="CreateAlert-modal-content">
-              {/* Alert Type Selection */}
+              
               <div className="CreateAlert-form-section">
                 <h3 className="CreateAlert-section-title">Alert Type</h3>
                 <div className="CreateAlert-type-grid">
@@ -879,7 +879,7 @@ const CreateAlert = () => {
                 </div>
               </div>
 
-              {/* Message Input */}
+              
               <div className="CreateAlert-form-section">
                 <h3 className="CreateAlert-section-title">
                   Alert Message <span className="CreateAlert-required">*</span>
@@ -897,7 +897,7 @@ const CreateAlert = () => {
                 </div>
               </div>
 
-              {/* User Assignment */}
+              
               <div className="CreateAlert-form-section">
                 <div className="CreateAlert-section-header">
                   <h3 className="CreateAlert-section-title">Assign to Users</h3>
@@ -916,7 +916,7 @@ const CreateAlert = () => {
                   </div>
                 </div>
                 
-                {/* Selected Users */}
+                
                 {Array.isArray(form.assignedUsers) && form.assignedUsers.length > 0 && (
                   <div className="CreateAlert-selected-items">
                     <span className="CreateAlert-selected-label">
@@ -939,7 +939,7 @@ const CreateAlert = () => {
                   </div>
                 )}
 
-                {/* User Search */}
+                
                 <div className="CreateAlert-search-field">
                   <FiSearch />
                   <input
@@ -951,7 +951,7 @@ const CreateAlert = () => {
                   />
                 </div>
 
-                {/* Users List */}
+                
                 <div className="CreateAlert-users-list">
                   {!Array.isArray(filteredUsers) || filteredUsers.length === 0 ? (
                     <div className="CreateAlert-empty-list">
@@ -1005,7 +1005,7 @@ const CreateAlert = () => {
                 </div>
               </div>
 
-              {/* Action Buttons */}
+              
               <div className="CreateAlert-actions">
                 <button
                   className="CreateAlert-button CreateAlert-button-secondary"
@@ -1037,7 +1037,7 @@ const CreateAlert = () => {
         </div>
       )}
 
-      {/* Alert Details Modal */}
+      
       {selectedAlert && (
         <div className="CreateAlert-modal-overlay" onClick={() => setSelectedAlert(null)}>
           <div className="CreateAlert-modal CreateAlert-modal-small" onClick={e => e.stopPropagation()}>
@@ -1145,7 +1145,7 @@ const CreateAlert = () => {
         </div>
       )}
 
-      {/* Notification */}
+      
       {notification && (
         <div className="CreateAlert-notification">
           <div 

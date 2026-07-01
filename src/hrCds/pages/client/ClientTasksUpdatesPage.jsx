@@ -597,7 +597,7 @@ const ServicesTasks = () => {
                 <option value="overdue">Overdue</option>
               </select>
               <button type="button" className="ClientTasksUpdatesPage-filter"><FiFilter /> Filters</button>
-              {/* <button type="button" className="ClientTasksUpdatesPage-add"><FiPlus /> Add Task</button> */}
+              
             </div>
 
             <div className="ClientTasksUpdatesPage-tableWrap">

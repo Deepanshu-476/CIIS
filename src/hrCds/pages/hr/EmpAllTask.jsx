@@ -20,7 +20,7 @@ import {
   FiPaperclip, FiMic, FiFileText
 } from "react-icons/fi";
 
-// Status Options
+
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All Status', color: '#6c757d', icon: FiGrid, bgColor: '#e9ecef' },
   { value: 'pending', label: 'Pending', color: '#ffc107', icon: FiClock, bgColor: '#fff3cd' },
@@ -33,7 +33,7 @@ const STATUS_OPTIONS = [
   { value: 'cancelled', label: 'Cancelled', color: '#6c757d', icon: FiX, bgColor: '#f8f9fa' },
 ];
 
-// Normalize status function
+
 const normalizeStatus = (status) => {
   if (!status) return 'pending';
   const lower = status.toLowerCase().trim();
@@ -118,15 +118,15 @@ const getSourceAwareTaskDate = task => {
   return getTaskDueDate(task) || task?.createdAt;
 };
 
-// Get complete status object with color and bgColor
+
 const getStatusObject = (status) => {
   const normalized = normalizeStatus(status);
   
-  // First try to find in STATUS_OPTIONS
+  
   const found = STATUS_OPTIONS.find(s => s.value === normalized);
   if (found) return found;
   
-  // Fallback - return default based on normalized status
+  
   const defaultStatus = {
     'pending': { value: 'pending', label: 'Pending', color: '#ffc107', bgColor: '#fff3cd' },
     'in-progress': { value: 'in-progress', label: 'In Progress', color: '#17a2b8', bgColor: '#d1ecf1' },
@@ -141,59 +141,59 @@ const getStatusObject = (status) => {
   return defaultStatus[normalized] || defaultStatus.pending;
 };
 
-// Helper function to determine task type - FIXED: normalize source to 'assigned'
+
 const getTaskType = (task) => {
-  // Check if task has source property
+  
   if (task.source === 'assigned') return 'assigned';
   if (task.source === 'personal') return 'personal';
-  if (task.source === 'client') return 'assigned'; // Normalize 'client' to 'assigned'
+  if (task.source === 'client') return 'assigned'; 
   
-  // Check for other indicators
+  
   if (task.taskType === 'assigned' || task.taskType === 'client') return 'assigned';
   if (task.taskType === 'personal') return 'personal';
   
-  // Check if task has clientId or isClientTask flag
+  
   if (task.clientId || task.isClientTask === true) return 'assigned';
   
-  // Check if task has assignedBy property (assigned tasks have this)
+  
   if (task.assignedBy) return 'assigned';
   
-  // Check if task has userStatus property (assigned tasks use userStatus)
+  
   if (task.userStatus && !task.status) return 'assigned';
   
-  // Default to personal if no clear indicator
+  
   return 'personal';
 };
 
-// Helper function to get correct image URL
+
 const getImageUrl = (imagePath) => {
   if (!imagePath) return '';
 
-  console.log('🔍 Original image path:', imagePath);
+  void 0;
 
-  // If it is already a full URL.
+  
   if (imagePath.startsWith('http')) {
     return imagePath;
   }
 
   const baseUrl = API_URL;
-  const baseUrlWithoutApi = baseUrl.replace(/\/api$/, ''); // Remove /api if present
+  const baseUrlWithoutApi = baseUrl.replace(/\/api$/, ''); 
 
-  // Clean the path - replace backslashes and remove leading slashes
+  
   let cleanPath = imagePath.replace(/\\/g, '/').replace(/^\/+/, '');
   
-  // Check if the path already has the correct structure
+  
   if (cleanPath.startsWith('uploads/')) {
-    // Path already has uploads/ prefix
+    
     return `${baseUrlWithoutApi}/${cleanPath}`;
   }
   
   if (cleanPath.startsWith('client-remarks/')) {
-    // Path starts with client-remarks/ - need to add uploads/
+    
     return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
   }
   
-  // If it's just a filename, assume it's in uploads/client-remarks/
+  
   const filename = cleanPath.split('/').pop();
   return `${baseUrlWithoutApi}/uploads/client-remarks/${filename}`;
 };
@@ -203,7 +203,7 @@ const TaskDetails = () => {
   const { userId: routeUserId } = useParams();
   const isTaskPageMode = Boolean(routeUserId);
 
-  // Refs to prevent multiple API calls
+  
   const isMounted = useRef(true);
   const hasFetchedUsers = useRef(false);
   const fetchUsersTimeoutRef = useRef(null);
@@ -212,7 +212,7 @@ const TaskDetails = () => {
   const skipNextTaskFetchRef = useRef(false);
   const usersFetchRequestRef = useRef(0);
 
-  // State declarations
+  
   const [users, setUsers] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -221,35 +221,44 @@ const TaskDetails = () => {
   const [usersLoading, setUsersLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Department mapping state
+  
   const [departmentMap, setDepartmentMap] = useState({});
 
-  // Activity Log states
+  
   const [activityLogs, setActivityLogs] = useState([]);
   const [allTaskLogs, setAllTaskLogs] = useState({});
   const [loadingActivity, setLoadingActivity] = useState(false);
   const [showActivityLog, setShowActivityLog] = useState(false);
   const [selectedTaskForActivity, setSelectedTaskForActivity] = useState(null);
 
-  // Remarks states - UPDATED: Only for viewing, no adding
+  
   const [remarksDialog, setRemarksDialog] = useState({ open: false, taskId: null, remarks: [] });
   const [zoomImage, setZoomImage] = useState(null);
   const [loadingRemarks, setLoadingRemarks] = useState(false);
 
-  // Time Tracking states
+  
   const [taskTimeTracking, setTaskTimeTracking] = useState({});
   const [todayTotalTime, setTodayTotalTime] = useState({
     totalSeconds: 0,
     displayText: '0s'
   });
 
-  // User states
+  
   const [currentUser, setCurrentUser] = useState(null);
   const [currentUserRole, setCurrentUserRole] = useState("");
   const [currentUserCompanyRole, setCurrentUserCompanyRole] = useState("");
 
   const [openDialog, setOpenDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchInputValue, setSearchInputValue] = useState('');
+
+  useEffect(() => {
+    const delayDebounce = setTimeout(() => {
+      setSearchQuery(searchInputValue);
+    }, 400);
+    return () => clearTimeout(delayDebounce);
+  }, [searchInputValue]);
+
   const [activeStatusFilters, setActiveStatusFilters] = useState(['all']);
   const [showStatusFilters, setShowStatusFilters] = useState(true);
   const [dateFilter, setDateFilter] = useState("today");
@@ -274,11 +283,11 @@ const TaskDetails = () => {
     navigate(`/ciisUser/company-all-task/tasks/${userId}${query}`);
   }, [globalFromDate, globalToDate, navigate]);
 
-  // ==================== CLEANUP ON UNMOUNT ====================
+  
   useEffect(() => {
     isMounted.current = true;
 
-    // Cleanup function
+    
     return () => {
       isMounted.current = false;
       if (fetchUsersTimeoutRef.current) {
@@ -290,7 +299,7 @@ const TaskDetails = () => {
     };
   }, []);
 
-  // ==================== SNACKBAR UTILITY ====================
+  
   const showSnackbar = useCallback((message, severity = 'info') => {
     if (snackbarTimerRef.current) {
       clearTimeout(snackbarTimerRef.current);
@@ -307,7 +316,7 @@ const TaskDetails = () => {
     }, 3000);
   }, []);
 
-  // ==================== HELPER FUNCTIONS ====================
+  
 
   const isOwner = useCallback(() => {
     return currentUserCompanyRole === 'Owner' || currentUserRole === 'Owner' || currentUserRole === 'CAREER INFOWIS Admin';
@@ -324,26 +333,26 @@ const TaskDetails = () => {
   const getDepartmentName = (department) => {
     if (!department) return 'N/A';
 
-    // If department is an object with name property
+    
     if (typeof department === 'object') {
       return department.name || department.departmentName || department._id || 'N/A';
     }
 
-    // If department is a string (ID), try to get from departmentMap
+    
     if (typeof department === 'string') {
-      // Check if we have this department in our map
+      
       if (departmentMap[department]) {
         return departmentMap[department];
       }
 
-      // Return a formatted version of the ID as fallback
+      
       return `Dept-${department.substring(0, 6)}`;
     }
 
     return String(department);
   };
 
-  // FIXED: Fetch departments to create mapping
+  
   const fetchDepartments = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -364,7 +373,7 @@ const TaskDetails = () => {
           map[dept._id] = dept.name;
         });
         setDepartmentMap(map);
-        console.log("✅ Department map created:", map);
+        void 0;
       }
     } catch (err) {
       console.error("❌ Error fetching departments:", err);
@@ -393,7 +402,7 @@ const TaskDetails = () => {
     return checkDate >= start && checkDate <= end;
   };
 
-  // ==================== TIME TRACKING FUNCTIONS ====================
+  
 
   const formatTimeFromSeconds = (totalSeconds) => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -503,9 +512,9 @@ const TaskDetails = () => {
     };
   }, [calculateTaskActiveTime]);
 
-  // ==================== TASK LOGS FETCHING WITH TYPE DETECTION ====================
   
-  // Fetch logs for a single task based on its type
+  
+  
   const fetchTaskLogsByType = useCallback(async (task) => {
     const source = task.__taskSource || task.taskSource || task.source || getTaskType(task);
     const taskId = task._id;
@@ -514,13 +523,13 @@ const TaskDetails = () => {
       let response;
       
       if (source === 'client') {
-        console.log(`📤 Fetching client task logs for task ${taskId} using client-activity-logs`);
+        void 0;
         response = await axios.get(`/tasks/client-tasks/${taskId}/client-activity-logs`);
       } else if (source === 'project') {
-        console.log(`📤 Fetching project task logs for task ${taskId} using activity`);
+        void 0;
         response = await axios.get(`/tasks/project/${task.projectId}/tasks/${taskId}/activity`);
       } else {
-        console.log(`📤 Fetching personal task logs for task ${taskId} using activity-logs`);
+        void 0;
         response = await axios.get(`/task/${taskId}/activity-logs`);
       }
       
@@ -534,7 +543,7 @@ const TaskDetails = () => {
     }
   }, []);
 
-  // Fetch all task logs with type detection
+  
   const fetchAllTaskLogs = useCallback(async (tasksList) => {
     if (!tasksList || tasksList.length === 0) return;
 
@@ -543,7 +552,7 @@ const TaskDetails = () => {
 
     if (tasksNeedingLogs.length === 0) return;
 
-    // Fetch logs for each task based on its type
+    
     for (const task of tasksNeedingLogs) {
       const logs = await fetchTaskLogsByType(task);
       if (isMounted.current) {
@@ -555,7 +564,7 @@ const TaskDetails = () => {
       setAllTaskLogs(prevLogs => {
         const newLogs = { ...prevLogs, ...logsMap };
 
-        // Update today's total time
+        
         const todayTotal = calculateTodayTotalTime(tasksList, newLogs);
         setTodayTotalTime(todayTotal);
 
@@ -564,7 +573,7 @@ const TaskDetails = () => {
     }
   }, [allTaskLogs, calculateTodayTotalTime, fetchTaskLogsByType]);
 
-  // ==================== STATISTICS CALCULATION ====================
+  
 
   const [overallStats, setOverallStats] = useState({
     total: 0,
@@ -578,7 +587,7 @@ const TaskDetails = () => {
     cancelled: 0
   });
 
-  // UPDATED: Add state for filtered stats
+  
   const [filteredTaskStats, setFilteredTaskStats] = useState({
     total: 0,
     pending: { count: 0, percentage: 0 },
@@ -670,7 +679,7 @@ const TaskDetails = () => {
     });
   }, []);
 
-  // ==================== USER AUTHENTICATION ====================
+  
 
   useEffect(() => {
     const fetchUserData = () => {
@@ -682,7 +691,7 @@ const TaskDetails = () => {
         }
 
         const user = JSON.parse(userStr);
-        console.log("👤 Current user data:", user);
+        void 0;
 
         let foundUser = null;
         let userRole = 'user';
@@ -726,13 +735,7 @@ const TaskDetails = () => {
           setCurrentUserCompanyRole(companyRole);
         }
 
-        console.log("✅ User authenticated:", {
-          name: userName,
-          role: userRole,
-          companyRole: companyRole,
-          company: userCompany,
-          department: userDepartment
-        });
+        void 0;
 
       } catch (error) {
         console.error("Error parsing user data:", error);
@@ -741,13 +744,13 @@ const TaskDetails = () => {
     };
 
     fetchUserData();
-    fetchDepartments(); // Fetch departments on component mount
+    fetchDepartments(); 
   }, []);
 
-  // ==================== FETCH USERS WITH TASKS ====================
+  
 
   const fetchUsersWithTasks = useCallback(async () => {
-    // Prevent multiple calls
+    
     if (fetchUsersTimeoutRef.current) {
       clearTimeout(fetchUsersTimeoutRef.current);
     }
@@ -759,7 +762,7 @@ const TaskDetails = () => {
       setError("");
 
       try {
-        console.log("📤 Fetching users with role-based access...");
+        void 0;
 
         const token = localStorage.getItem('token');
         if (!token) {
@@ -784,9 +787,9 @@ const TaskDetails = () => {
           if (isOwner()) {
             const companyId = currentUser?.company?._id || currentUser?.company;
             if (companyId) {
-              apiUrl = `/users/company-users?companyId=${companyId}`;
+              apiUrl = `/users/company-users?companyId=${companyId}&includeStats=true`;
             } else {
-              apiUrl = '/users/company-users';
+              apiUrl = '/users/company-users?includeStats=true';
             }
           } else {
             const deptId = currentUser?.department?._id || currentUser?.department;
@@ -795,9 +798,9 @@ const TaskDetails = () => {
             } else {
               const companyId = currentUser?.company?._id || currentUser?.company;
               if (companyId) {
-                apiUrl = `/users/company-users?companyId=${companyId}`;
+                apiUrl = `/users/company-users?companyId=${companyId}&includeStats=true`;
               } else {
-                apiUrl = '/users/company-users';
+                apiUrl = '/users/company-users?includeStats=true';
               }
             }
           }
@@ -805,14 +808,14 @@ const TaskDetails = () => {
           try {
             response = await axios.get(apiUrl, config);
           } catch (apiError) {
-            console.log("Primary endpoint failed, trying fallback...");
+            void 0;
             throw apiError;
           }
         } else {
           try {
             response = await axios.get('/task/users-with-counts', config);
           } catch (generalError) {
-            console.log("General endpoint failed, trying users list...");
+            void 0;
             const usersResponse = await axios.get('/auth/users', config);
             if (usersResponse.data?.users) {
               usersData = usersResponse.data.users;
@@ -830,7 +833,7 @@ const TaskDetails = () => {
           usersData = response.data.message.users;
         }
 
-        console.log("✅ Users data received:", usersData.length);
+        void 0;
 
         let filteredUsers = usersData.map(user => ({
           ...user,
@@ -897,7 +900,7 @@ const TaskDetails = () => {
             calculateOverallStats(usersWithStats);
           }
         } catch (err) {
-          console.log("Batch task stats fetch failed:", err?.message || err);
+          void 0;
         }
 
       } catch (err) {
@@ -927,11 +930,11 @@ const TaskDetails = () => {
           setUsersLoading(false);
         }
       }
-    }, 300); // Debounce by 300ms
+    }, 300); 
 
   }, [currentUser, isOwner, calculateOverallStats, globalFromDate, globalToDate]);
 
-  // Single effect for fetching users and date-filtered stats.
+  
   useEffect(() => {
     if (currentUser && isMounted.current) {
       hasFetchedUsers.current = true;
@@ -945,7 +948,7 @@ const TaskDetails = () => {
     };
   }, [currentUser, fetchUsersWithTasks]);
 
-  // ==================== FILTERS ====================
+  
 
   const filteredUsers = useMemo(() => {
     let filtered = users;
@@ -969,7 +972,7 @@ const TaskDetails = () => {
     });
   }, [overallStats]);
 
-  // Backend already applies search, status, date, priority and pagination.
+  
   const filteredTasks = useMemo(() => {
     if (!Array.isArray(tasks)) return [];
     return [...tasks].sort((a, b) => {
@@ -981,7 +984,7 @@ const TaskDetails = () => {
     });
   }, [tasks]);
 
-  // UPDATED: Calculate stats based on filtered tasks
+  
   useEffect(() => {
     if (!filteredTasks || filteredTasks.length === 0) {
       setFilteredTaskStats({
@@ -1063,7 +1066,7 @@ const TaskDetails = () => {
     if (fromDate || toDate) setDateFilter("all");
   }, [fromDate, toDate]);
 
-  // ==================== FETCH TASK FUNCTIONS ====================
+  
 
   const fetchTaskStatusCounts = useCallback(async (userId) => {
     try {
@@ -1111,7 +1114,7 @@ const TaskDetails = () => {
     }
   }, [activeStatusFilters, dateFilter, fromDate, priorityFilter, searchQuery, toDate]);
 
-  // FIXED: calculateStatsFromTasks to include overdue
+  
   const calculateStatsFromTasks = useCallback(() => {
     if (!tasks || tasks.length === 0) {
       setUserTaskStats({
@@ -1206,7 +1209,7 @@ const TaskDetails = () => {
     }); 
   };
 
-  // FIXED: fetchUserTasks function with merged API calls - Normalize source to 'assigned'
+  
   const fetchUserTasks = useCallback(async (userId, page = taskPage, options = {}) => {
     if (fetchingTasksForUser.current === `${userId}-${page}`) {
       return;
@@ -1219,7 +1222,7 @@ const TaskDetails = () => {
 
     fetchingTasksForUser.current = `${userId}-${page}`;
 
-    // Find and set the user first
+    
     const user = users.find((x) => x._id === userId || x.id === userId);
     if (!user) {
       setError("User not found");
@@ -1233,7 +1236,7 @@ const TaskDetails = () => {
       setSelectedUserId(userId);
       setOpenDialog(isTaskPageMode);
       if (options.reset) {
-        setTasks([]); // Clear previous tasks
+        setTasks([]); 
         setTaskTotal(0);
         setTaskTotalPages(1);
         setTaskPage(1);
@@ -1243,7 +1246,7 @@ const TaskDetails = () => {
       }
     }
 
-    setLoading(true); // Set loading after modal opens
+    setLoading(true); 
     setError("");
 
     try {
@@ -1288,17 +1291,17 @@ const TaskDetails = () => {
       console.error("❌ Error fetching user tasks:", err);
       console.error("Error details:", err.response?.data);
       
-      // Handle partial failures - try to get at least one API's data
+      
       if (err.response?.status === 404 || err.code === 'ECONNABORTED' || err.response?.status === 500) {
-        // One or both APIs failed, but we might still have partial data
-        console.log("⚠️ Partial API failure, attempting to fetch individual APIs...");
+        
+        void 0;
         
         try {
-          // Try to fetch personal tasks
+          
           let personalTasks = [];
           try {
             const personalRes = await axios.get(`/task/user/${userId}/tasks`);
-            console.log('Personal tasks response:', personalRes.data);
+            void 0;
             
             if (personalRes.data) {
               if (personalRes.data.success && personalRes.data.tasks) {
@@ -1311,18 +1314,18 @@ const TaskDetails = () => {
                 personalTasks = personalRes.data.data;
               }
             }
-            // Add source property
+            
             personalTasks = personalTasks.map(task => ({ ...task, source: 'personal' }));
           } catch (personalErr) {
-            console.log("Personal tasks API failed:", personalErr.message);
+            void 0;
           }
           
-          // Try to fetch assigned tasks
+          
           let assignedTasks = [];
           try {
-            // UPDATED: Using the assigned tasks endpoint
+            
             const assignedRes = await axios.get(`/tasks/user/${userId}/assigned-tasks`);
-            console.log('Assigned tasks response:', assignedRes.data);
+            void 0;
             
             if (assignedRes.data) {
               if (assignedRes.data.success && assignedRes.data.tasks) {
@@ -1335,16 +1338,16 @@ const TaskDetails = () => {
                 assignedTasks = assignedRes.data.data;
               }
             }
-            // FIXED: Add source property and normalize to 'assigned'
+            
             assignedTasks = assignedTasks.map(task => ({ ...task, source: 'assigned' }));
           } catch (assignedErr) {
-            console.log("Assigned tasks API failed:", assignedErr.message);
+            void 0;
           }
           
-          console.log(`📥 Personal tasks (fallback): ${personalTasks.length}`);
-          console.log(`📥 Assigned tasks (fallback): ${assignedTasks.length}`);
+          void 0;
+          void 0;
           
-          // Merge tasks
+          
           const mergedTasksMap = new Map();
           personalTasks.forEach(task => {
             if (task._id) mergedTasksMap.set(task._id, task);
@@ -1357,7 +1360,7 @@ const TaskDetails = () => {
           
           let mergedTasks = Array.from(mergedTasksMap.values());
           
-          // FIXED: Sort by createdAt descending
+          
           mergedTasks.sort((a, b) => {
             const aDate = a.createdAt ? new Date(a.createdAt) : new Date(0);
             const bDate = b.createdAt ? new Date(b.createdAt) : new Date(0);
@@ -1369,7 +1372,7 @@ const TaskDetails = () => {
             await fetchAllTaskLogs(mergedTasks);
             await fetchTaskStatusCounts(userId);
             
-            // Show warning message
+            
             showSnackbar(`Loaded ${mergedTasks.length} tasks (some APIs may be unavailable)`, 'warning');
           } else if (isMounted.current && mergedTasks.length === 0) {
             setTasks([]);
@@ -1421,10 +1424,10 @@ const TaskDetails = () => {
     users,
   ]);
 
-  // REMOVED: fetchAllUsersTasks - endpoint doesn't exist
-  // The function is removed entirely since the endpoint returns 404
+  
+  
 
-  // UPDATED: useEffect for fetching tasks when selectedUserId changes
+  
   useEffect(() => {
     if (!isTaskPageMode || !selectedUserId) return;
     if (skipNextTaskFetchRef.current) {
@@ -1453,28 +1456,23 @@ const TaskDetails = () => {
     });
   }, [fetchUserTasks, isTaskPageMode, routeUserId, selectedUserId, users.length]);
 
-  // Debug effect to log tasks when they change
+  
   useEffect(() => {
     if (tasks.length > 0) {
-      console.log('📊 Current tasks in state:', tasks.length);
-      console.log('📊 First 3 tasks (newest first):', tasks.slice(0, 3).map(t => ({ 
-        id: t._id, 
-        title: t.title, 
-        source: t.source,
-        createdAt: t.createdAt 
-      })));
+      void 0;
+      void 0;
     } else {
-      console.log('📊 No tasks in state');
+      void 0;
     }
   }, [tasks]);
 
-  // ==================== REMARKS FUNCTIONS WITH TYPE DETECTION ====================
   
-  // Fetch remarks for a task based on its type
+  
+  
   const fetchTaskRemarks = useCallback(async (taskId) => {
     if (!taskId) return;
 
-    // Find the task to determine its type
+    
     const task = tasks.find(t => t._id === taskId);
     if (!task) {
       console.error("❌ Task not found for remarks:", taskId);
@@ -1490,30 +1488,30 @@ const TaskDetails = () => {
       
       const source = task.__taskSource || task.taskSource || task.source || getTaskType(task);
       if (source === 'client') {
-        console.log(`📤 Fetching client task remarks for task ${taskId} using client-remarks`);
+        void 0;
         response = await axios.get(`/tasks/client-tasks/${taskId}/client-remarks`);
       } else if (source === 'project') {
-        console.log(`📤 Fetching project task remarks for task ${taskId} using remarks`);
+        void 0;
         response = await axios.get(`/tasks/project/${task.projectId}/tasks/${taskId}/remarks`);
       } else if (source === 'self' || source === 'personal') {
-        console.log(`📤 Fetching personal task remarks for task ${taskId} using remarks`);
+        void 0;
         response = await axios.get(`/tasks/self/${taskId}/remarks`);
       } else if (source === 'assigned') {
-        console.log(`📤 Fetching assigned task remarks for task ${taskId} using remarks`);
+        void 0;
         response = await axios.get(`/tasks/assigned/${taskId}/remarks`);
       } else {
-        console.log(`📤 Fetching task remarks for task ${taskId}`);
+        void 0;
         response = await axios.get(`/task/${taskId}/remarks`);
       }
       
-      console.log('📥 Remarks data:', response.data);
+      void 0;
       
-      // Check image paths
+      
       const remarks = response.data.data || response.data.remarks || [];
       remarks.forEach((remark, index) => {
         if (remark.image) {
-          console.log(`📸 Remark ${index} image path:`, remark.image);
-          console.log(`🔗 Full URL:`, getImageUrl(remark.image));
+          void 0;
+          void 0;
         }
       });
       
@@ -1544,13 +1542,13 @@ const TaskDetails = () => {
     setRemarksDialog({ open: false, taskId: null, remarks: [] });
   }, []);
 
-  // ==================== ACTIVITY LOGS WITH TYPE DETECTION ====================
   
-  // Fetch activity logs for a task based on its type
+  
+  
   const fetchActivityLogs = useCallback(async (taskId) => {
     if (!taskId) return;
 
-    // Find the task to determine its type
+    
     const task = tasks.find(t => t._id === taskId);
     if (!task) {
       console.error("❌ Task not found for activity logs:", taskId);
@@ -1565,13 +1563,13 @@ const TaskDetails = () => {
       let response;
       
       if (source === 'client') {
-        console.log(`📤 Fetching client task activity logs for task ${taskId} using client-activity-logs`);
+        void 0;
         response = await axios.get(`/tasks/client-tasks/${taskId}/client-activity-logs`);
       } else if (source === 'project') {
-        console.log(`📤 Fetching project task activity logs for task ${taskId} using activity`);
+        void 0;
         response = await axios.get(`/tasks/project/${task.projectId}/tasks/${taskId}/activity`);
       } else {
-        console.log(`📤 Fetching personal task activity logs for task ${taskId} using activity-logs`);
+        void 0;
         response = await axios.get(`/task/${taskId}/activity-logs`);
       }
 
@@ -1609,9 +1607,10 @@ const TaskDetails = () => {
     setActivityLogs([]);
   }, []);
 
-  // UPDATED: Comprehensive reset filters function
+  
   const resetFilters = useCallback(() => {
     setSearchQuery('');
+    setSearchInputValue('');
     setActiveStatusFilters(['all']);
     setDateFilter('today');
     setPriorityFilter('all');
@@ -1621,9 +1620,9 @@ const TaskDetails = () => {
     setShowStatusFilters(true);
   }, []);
 
-  // UPDATED: Internal refresh function
+  
   const refreshContent = useCallback(() => {
-    // Reset all modal-related states
+    
     setSelectedUserId(null);
     setSelectedUser(null);
     setTasks([]);
@@ -1636,23 +1635,23 @@ const TaskDetails = () => {
     setActivityLogs([]);
     setRemarksDialog({ open: false, taskId: null, remarks: [] });
     
-    // Reset filters
+    
     resetFilters();
     
-    // Reset error
+    
     setError("");
     
-    // Reset status filters visibility
+    
     setShowStatusFilters(true);
     
-    // Refetch users data if needed
+    
     if (currentUser) {
       hasFetchedUsers.current = false;
       fetchUsersWithTasks();
     }
   }, [resetFilters, currentUser, fetchUsersWithTasks]);
 
-  // UPDATED: Handle modal close with internal refresh
+  
   const handleCloseDialog = useCallback(() => {
     if (isTaskPageMode) {
       navigate('/ciisUser/company-all-task');
@@ -1663,11 +1662,11 @@ const TaskDetails = () => {
     refreshContent();
   }, [isTaskPageMode, navigate, refreshContent]);
 
-  // Cleanup effect when modal closes
+  
   useEffect(() => {
     if (isTaskPageMode) return;
     if (!openDialog) {
-      // Clear task-related data when modal is closed
+      
       setTasks([]);
       setTaskTotal(0);
       setTaskTotalPages(1);
@@ -1678,12 +1677,12 @@ const TaskDetails = () => {
       setActivityLogs([]);
       setRemarksDialog({ open: false, taskId: null, remarks: [] });
       
-      // Reset any error states
+      
       setError("");
     }
   }, [isTaskPageMode, openDialog]);
 
-  // ==================== FORMATTING FUNCTIONS ====================
+  
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "Not set";
@@ -1722,7 +1721,7 @@ const TaskDetails = () => {
     }
   };
 
-  // UPDATED: getStatusCount now uses filteredTaskStats
+  
   const getStatusCount = (status) => {
     switch (status) {
       case 'total': return filteredTaskStats.total || 0;
@@ -1791,7 +1790,7 @@ const TaskDetails = () => {
     return '#6b7280';
   };
 
-  // ==================== RENDER FUNCTIONS ====================
+  
 
   const renderOverallStats = () => {
     const statusGradients = {
@@ -1887,7 +1886,7 @@ const TaskDetails = () => {
     );
   };
 
-  // UPDATED: renderStatusCards - Now shows all statuses including zeros based on filtered tasks
+  
   const renderStatusCards = () => {
     const statusGradients = {
       'pending': 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
@@ -1901,7 +1900,7 @@ const TaskDetails = () => {
       'all': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
     };
 
-    // Show ALL status options, regardless of count
+    
     const allStatuses = STATUS_OPTIONS;
 
     return (
@@ -1947,7 +1946,7 @@ const TaskDetails = () => {
               const percentage = status.value !== 'all' ? filteredTaskStats[status.value]?.percentage || 0 : 0;
               const gradient = statusGradients[status.value] || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
 
-              // Determine opacity for zero count cards
+              
               const isZeroCount = count === 0;
               const cardOpacity = isZeroCount ? 0.5 : 1;
 
@@ -2066,7 +2065,7 @@ const TaskDetails = () => {
     );
   };
 
-  // UPDATED: renderEnhancedUserCard with loading state
+  
   const renderEnhancedUserCard = (user) => {
     const isSelected = selectedUserId === (user._id || user.id);
     const isLoading = loading && fetchingTasksForUser.current?.startsWith(`${user._id || user.id}-`);
@@ -2194,7 +2193,7 @@ const TaskDetails = () => {
     );
   };
 
-  // UPDATED: renderActivityLogModal with task type display
+  
   const renderActivityLogModal = () => {
     if (!showActivityLog || !selectedTaskForActivity) return null;
 
@@ -2432,11 +2431,11 @@ const TaskDetails = () => {
     );
   };
 
-  // UPDATED: renderRemarksDialog with task type display
+  
   const renderRemarksDialog = () => {
     if (!remarksDialog.open) return null;
 
-    // Find the task to get its type
+    
     const task = tasks.find(t => t._id === remarksDialog.taskId);
     const taskType = task ? getTaskType(task) : 'personal';
 
@@ -2554,12 +2553,12 @@ const TaskDetails = () => {
                             // Remove duplicates
                             const uniquePaths = [...new Set(pathsToTry)];
                             
-                            console.log('🔄 Trying alternative paths:', uniquePaths);
+                            void 0;
                             
                             let triedIndex = 0;
                             const tryNextPath = () => {
                               if (triedIndex < uniquePaths.length) {
-                                console.log(`🔄 Trying path ${triedIndex + 1}:`, uniquePaths[triedIndex]);
+                                void 0;
                                 e.target.src = uniquePaths[triedIndex];
                                 triedIndex++;
                               } else {
@@ -2834,13 +2833,13 @@ const TaskDetails = () => {
                   type="text"
                   className="TaskDetails-modal-search-input"
                   placeholder="Search tasks by title, description, or ID..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={searchInputValue}
+                  onChange={(e) => setSearchInputValue(e.target.value)}
                 />
-                {searchQuery && (
+                {searchInputValue && (
                   <button
                     className="TaskDetails-modal-search-clear"
-                    onClick={() => setSearchQuery('')}
+                    onClick={() => { setSearchInputValue(''); setSearchQuery(''); }}
                   >
                     <FiX size={14} />
                   </button>
@@ -3353,13 +3352,13 @@ const TaskDetails = () => {
                     type="text"
                     className="TaskDetails-modal-search-input"
                     placeholder="Search tasks by title, description, or ID..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    value={searchInputValue}
+                    onChange={(e) => setSearchInputValue(e.target.value)}
                   />
-                  {searchQuery && (
+                  {searchInputValue && (
                     <button
                       className="TaskDetails-modal-search-clear"
-                      onClick={() => setSearchQuery('')}
+                      onClick={() => { setSearchInputValue(''); setSearchQuery(''); }}
                     >
                       <FiX size={14} />
                     </button>
@@ -3858,8 +3857,8 @@ const TaskDetails = () => {
                 type="text"
                 className="TaskDetails-search-input"
                 placeholder={`Search ${isOwner() ? 'company' : 'department'} employees by name, email or ID...`}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={searchInputValue}
+                onChange={(e) => setSearchInputValue(e.target.value)}
               />
               <button
                 className="TaskDetails-reset-filter-button"

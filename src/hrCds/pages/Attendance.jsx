@@ -21,7 +21,7 @@ import {
   FiAlertTriangle,
   FiWatch,
   FiGift,
-  FiCalendar as FiCalendarRange // Add this for range icon
+  FiCalendar as FiCalendarRange 
 } from "react-icons/fi";
 import { MdCelebration } from "react-icons/md";
 import '../Css/Attendance.css';
@@ -45,13 +45,13 @@ const Attendance = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [holidaysLoading, setHolidaysLoading] = useState(false);
   
-  // 🔥 NEW: Date Range Filter States
+  
   const [showDateRangePicker, setShowDateRangePicker] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isDateRangeActive, setIsDateRangeActive] = useState(false);
   
-  // User join date from createdAt
+  
   const [userJoinDate, setUserJoinDate] = useState(null);
   const [formattedJoinDate, setFormattedJoinDate] = useState('');
   
@@ -64,13 +64,13 @@ const Attendance = () => {
     percentage: 0,
   });
 
-  // Add refs for each popup
+  
   const filterMenuRef = useRef(null);
   const calendarRef = useRef(null);
   const dateRangePickerRef = useRef(null);
   const mobileFilterRef = useRef(null);
 
-  // Get user from localStorage
+  
   const user = useMemo(() => {
     try {
       const userData = localStorage.getItem('user');
@@ -82,7 +82,7 @@ const Attendance = () => {
 
   const token = useMemo(() => localStorage.getItem('token'), []);
 
-  // Get company details from localStorage
+  
   const companyDetails = useMemo(() => {
     try {
       const details = localStorage.getItem('companyDetails');
@@ -92,25 +92,25 @@ const Attendance = () => {
     }
   }, []);
 
-  // Handle click outside to close popups
+  
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // Close filter menu if clicked outside
+      
       if (filterMenuRef.current && !filterMenuRef.current.contains(event.target)) {
         setShowFilterMenu(false);
       }
       
-      // Close calendar if clicked outside
+      
       if (calendarRef.current && !calendarRef.current.contains(event.target)) {
         setShowCalendar(false);
       }
       
-      // Close date range picker if clicked outside
+      
       if (dateRangePickerRef.current && !dateRangePickerRef.current.contains(event.target)) {
         setShowDateRangePicker(false);
       }
       
-      // Close mobile filter if clicked outside (but only if it's open)
+      
       if (showMobileFilter && 
           mobileFilterRef.current && 
           !mobileFilterRef.current.contains(event.target) &&
@@ -125,7 +125,7 @@ const Attendance = () => {
     };
   }, [showMobileFilter]);
 
-  // Handle Escape key press
+  
   useEffect(() => {
     const handleEscKey = (event) => {
       if (event.key === 'Escape') {
@@ -142,7 +142,7 @@ const Attendance = () => {
     };
   }, []);
 
-  // Parse user's creation date
+  
   useEffect(() => {
     if (user?.createdAt) {
       const joinDate = new Date(user.createdAt);
@@ -158,7 +158,7 @@ const Attendance = () => {
     }
   }, [user?.createdAt]);
 
-  // Check if date is before join date
+  
   const isBeforeJoinDate = useCallback((date) => {
     if (!userJoinDate) return false;
     
@@ -186,7 +186,7 @@ const Attendance = () => {
     String(record?.status || '').toUpperCase() === 'ABSENT' && isFutureDate(record?.date)
   ), [isFutureDate]);
 
-  // Check mobile viewport
+  
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -196,7 +196,7 @@ const Attendance = () => {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Fetch holidays
+  
   const fetchHolidays = useCallback(async () => {
     setHolidaysLoading(true);
     try {
@@ -208,7 +208,7 @@ const Attendance = () => {
       if (response.data?.success) {
         let holidaysData = response.data.holidays || [];
         
-        // Filter holidays after join date
+        
         if (userJoinDate) {
           holidaysData = holidaysData.filter(holiday => 
             !isBeforeJoinDate(new Date(holiday.date))
@@ -224,7 +224,7 @@ const Attendance = () => {
     }
   }, [token, userJoinDate, isBeforeJoinDate]);
 
-  // Fetch attendance with join date filtering
+  
   const fetchAttendance = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
     else setLoading(true);
@@ -232,7 +232,7 @@ const Attendance = () => {
     try {
       let url = "/attendance/list";
       
-      // 🔥 FIX: Build URL based on timeRange
+      
       if (timeRange !== "ALL") {
         const now = new Date();
         const month = now.getMonth();
@@ -259,7 +259,7 @@ const Attendance = () => {
         attendanceData = [];
       }
 
-      // Filter out records before user's join date
+      
       if (userJoinDate) {
         attendanceData = attendanceData.filter(record => !isBeforeJoinDate(record.date));
       }
@@ -281,7 +281,7 @@ const Attendance = () => {
     }
   }, [token, userJoinDate, isBeforeJoinDate, isFutureAbsentRecord, timeRange]);
 
-  // Combined data with holidays
+  
   const processedAttendance = useMemo(() => {
     const attendanceMap = new Map();
     attendance.filter(record => !isFutureAbsentRecord(record)).forEach(record => {
@@ -331,7 +331,7 @@ const Attendance = () => {
     return combined.sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [attendance, holidays, isFutureAbsentRecord]);
 
-  // Calculate stats
+  
   const calculateStats = useCallback((data) => {
     const attendanceRecords = data.filter(record => (
       (!record.isHoliday || record.status !== 'HOLIDAY') && !isFutureAbsentRecord(record)
@@ -356,7 +356,7 @@ const Attendance = () => {
     });
   }, [isFutureAbsentRecord]);
 
-  // Load data on mount
+  
   const initialLoadRef = useRef(false);
   
   useEffect(() => {
@@ -384,7 +384,7 @@ const Attendance = () => {
     loadData();
   }, [userJoinDate, fetchAttendance, fetchHolidays]);
 
-  // Refetch when timeRange changes
+  
   useEffect(() => {
     if (userJoinDate) {
       fetchAttendance();
@@ -509,7 +509,7 @@ const Attendance = () => {
     return status.toLowerCase().replace(" ", "-");
   };
 
-  // 🔥 NEW: Apply Date Range Filter
+  
   const filteredData = useMemo(() => {
     return processedAttendance.filter((record) => {
       if (isFutureAbsentRecord(record)) return false;
@@ -529,12 +529,12 @@ const Attendance = () => {
       const now = new Date();
       let matchesTimeRange = true;
 
-      // 🔥 NEW: Date Range Filter
+      
       if (isDateRangeActive && startDate && endDate) {
         const recordDateStr = formatDateForInput(recordDate);
         matchesTimeRange = recordDateStr >= startDate && recordDateStr <= endDate;
       } 
-      // If date range is not active, use existing time range filters
+      
       else if (timeRange !== "ALL") {
         switch (timeRange) {
           case "TODAY":
@@ -544,7 +544,7 @@ const Attendance = () => {
           const today = new Date();
 
           const firstDayOfWeek = new Date(today);
-          const day = today.getDay(); // 0 Sunday
+          const day = today.getDay(); 
 
           const diff = today.getDate() - day + (day === 0 ? -6 : 1);
 
@@ -576,12 +576,12 @@ const Attendance = () => {
     });
   }, [processedAttendance, search, statusFilter, timeRange, isDateRangeActive, startDate, endDate, isFutureAbsentRecord]);
 
-  // Keep stats aligned with the currently selected date/time range.
+  
   useEffect(() => {
     calculateStats(filteredData);
   }, [filteredData, calculateStats]);
 
-  // 🔥 NEW: Apply Date Range function
+  
   const applyDateRange = () => {
     if (!startDate || !endDate) {
       toast.warning("Please select both start and end dates");
@@ -593,7 +593,7 @@ const Attendance = () => {
       return;
     }
 
-    // Check if dates are within join date range
+    
     if (userJoinDate) {
       const joinDateStr = formatDateForInput(userJoinDate);
       if (startDate < joinDateStr) {
@@ -604,12 +604,12 @@ const Attendance = () => {
     }
 
     setIsDateRangeActive(true);
-    setTimeRange("ALL"); // Reset time range when using date range
+    setTimeRange("ALL"); 
     setShowDateRangePicker(false);
     toast.success(`Showing records from ${startDate} to ${endDate}`);
   };
 
-  // 🔥 NEW: Clear Date Range
+  
   const clearDateRange = () => {
     setIsDateRangeActive(false);
     setStartDate('');
@@ -696,13 +696,13 @@ const Attendance = () => {
 
   const handleTimeRangeChange = (range) => {
     setTimeRange(range);
-    setIsDateRangeActive(false); // Disable date range when using preset ranges
-    // fetchAttendance will be called automatically by the useEffect
+    setIsDateRangeActive(false); 
+    
   };
 
   const statusOptions = ["ALL", "PRESENT", "LATE", "HALF DAY", "ABSENT", "HOLIDAY"];
 
-  // Show CIISLoader while page is loading
+  
   if (pageLoading) {
     return <CIISLoader />;
   }
@@ -715,7 +715,7 @@ const Attendance = () => {
         theme="light"
       />
 
-      {/* Header Section */}
+      
       <div className="Attendance-header">
         <div className="Attendance-header-content">
           <div className="Attendance-header-text">
@@ -751,7 +751,7 @@ const Attendance = () => {
               )}
             </div>
 
-            {/* 🔥 NEW: Date Range Picker Button */}
+            
             <button
               className={`Attendance-icon-button ${isDateRangeActive ? 'Attendance-active' : ''}`}
               onClick={() => {
@@ -805,7 +805,7 @@ const Attendance = () => {
           </div>
         </div>
 
-        {/* 🔥 NEW: Date Range Picker */}
+        
         {showDateRangePicker && (
           <div className="Attendance-date-range-picker" ref={dateRangePickerRef}>
             <h3>Select Date Range</h3>
@@ -847,8 +847,8 @@ const Attendance = () => {
               <button
                 className="Attendance-clear-range-btn"
                 onClick={() => {
-                  clearDateRange();           // sab filter clear
-                  setShowDateRangePicker(false); // modal close
+                  clearDateRange();           
+                  setShowDateRangePicker(false); 
                 }}
               >
                 Close
@@ -857,7 +857,7 @@ const Attendance = () => {
           </div>
         )}
 
-        {/* Calendar Popover */}
+        
         {showCalendar && (
           <div className="Attendance-calendar-popover" ref={calendarRef}>
             <input
@@ -876,7 +876,7 @@ const Attendance = () => {
           </div>
         )}
 
-        {/* Filter Menu */}
+        
         {showFilterMenu && !isMobile && (
           <div className="Attendance-filter-menu" ref={filterMenuRef}>
             {statusOptions.map((status) => (
@@ -896,7 +896,7 @@ const Attendance = () => {
           </div>
         )}
 
-        {/* Time Range Tabs */}
+        
         <div className="Attendance-time-range-tabs">
           {["ALL", "TODAY", "WEEK", "MONTH"].map((range) => (
             <button
@@ -910,7 +910,7 @@ const Attendance = () => {
         </div>
       </div>
 
-      {/* Mobile Filter Drawer */}
+      
       {showMobileFilter && isMobile && (
         <div className="Attendance-mobile-filter-drawer" ref={mobileFilterRef}>
           <div className="Attendance-filter-drawer-content">
@@ -955,7 +955,7 @@ const Attendance = () => {
         </div>
       )}
 
-      {/* Join Date Info Banner */}
+      
       {userJoinDate && processedAttendance.length === 0 && !loading && (
         <div className="Attendance-join-banner">
           <div className="Attendance-join-banner-content">
@@ -968,7 +968,7 @@ const Attendance = () => {
         </div>
       )}
 
-      {/* Stats Cards */}
+      
       <div className="Attendance-stats-grid">
         {[
           {
@@ -1044,7 +1044,7 @@ const Attendance = () => {
           ))}
       </div>
 
-      {/* Holiday Count Card */}
+      
       {holidays.length > 0 && (
         <div className="Attendance-holiday-summary">
           <MdCelebration className="Attendance-holiday-summary-icon" />
@@ -1052,7 +1052,7 @@ const Attendance = () => {
         </div>
       )}
 
-      {/* Active Filters Display */}
+      
       {(statusFilter !== "ALL" || timeRange !== "ALL" || isDateRangeActive) && (
         <div className="Attendance-active-filters">
           <h4>Active filters:</h4>
@@ -1069,7 +1069,7 @@ const Attendance = () => {
                 <button onClick={() => setTimeRange("ALL")}>×</button>
               </div>
             )}
-            {/* 🔥 NEW: Date Range Chip */}
+            
             {isDateRangeActive && startDate && endDate && (
               <div className="Attendance-filter-chip Attendance-primary">
                 <span>From: {startDate} To: {endDate}</span>
@@ -1080,7 +1080,7 @@ const Attendance = () => {
         </div>
       )}
 
-      {/* Results Count */}
+      
       <div className="Attendance-results-count">
         <h3>
           Showing {filteredData.length} of {processedAttendance.length} records
@@ -1099,7 +1099,7 @@ const Attendance = () => {
         )}
       </div>
 
-      {/* Desktop/Tablet Table */}
+      
       {!isMobile && (
         <div className="Attendance-table-container">
           <table className="Attendance-table">
@@ -1205,7 +1205,7 @@ const Attendance = () => {
         </div>
       )}
 
-      {/* Mobile Cards */}
+      
       {isMobile && (
         <div className="Attendance-mobile-cards">
           {filteredData.length > 0 ? (
@@ -1285,7 +1285,7 @@ const Attendance = () => {
         </div>
       )}
 
-      {/* Modal */}
+      
       {openModal && selectedRecord && (
         <div className="Attendance-modal-overlay" onClick={closeModal}>
           <div

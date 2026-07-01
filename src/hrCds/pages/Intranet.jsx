@@ -44,7 +44,7 @@ const Intranet = () => {
     const [surveyDialogOpen, setSurveyDialogOpen] = useState(false);
     const [surveyForm, setSurveyForm] = useState({ title: '', endDate: '', status: 'Participate' });
 
-    // Post CRUD
+    
     const handlePostSubmit = () => {
         if (postText.trim()) {
             setPosts([
@@ -73,7 +73,7 @@ const Intranet = () => {
         setEditDialogOpen(false);
     };
 
-    // Poll CRUD
+    
     const handleAddPoll = () => {
         setPollForm({ title: '', endDate: '' });
         setPollDialogOpen(true);
@@ -85,7 +85,7 @@ const Intranet = () => {
     };
     const handleDeletePoll = (id) => setPolls(polls.filter(p => p.id !== id));
 
-    // Survey CRUD
+    
     const handleAddSurvey = () => {
         setSurveyForm({ title: '', endDate: '', status: 'Participate' });
         setSurveyDialogOpen(true);
@@ -114,7 +114,7 @@ const Intranet = () => {
             <Box>
                 {activeTab === 0 && (
                     <Box>
-                        {/* Post creation area */}
+                        
                         <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
                             <Stack spacing={2}>
                                 <TextField
@@ -143,7 +143,7 @@ const Intranet = () => {
                                 </Stack>
                             </Stack>
                         </Paper>
-                        {/* Posts list */}
+                        
                         <Stack spacing={2} sx={{ mb: 3 }}>
                             {posts.map(post => (
                                 <Paper
@@ -179,7 +179,7 @@ const Intranet = () => {
                                 </Paper>
                             ))}
                         </Stack>
-                        {/* Polls and Surveys */}
+                        
                         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                             <Paper sx={{ p: 2, borderRadius: 2, flex: 1 }}>
                                 <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -213,7 +213,7 @@ const Intranet = () => {
                                 ))}
                             </Paper>
                         </Stack>
-                        {/* Edit Post Dialog */}
+                        
                         <Dialog open={editDialogOpen} onClose={handleEditPostClose} maxWidth="xs" fullWidth>
                             <DialogTitle>Edit Post</DialogTitle>
                             <form onSubmit={handleEditPostSubmit}>
@@ -229,7 +229,7 @@ const Intranet = () => {
                                 </DialogActions>
                             </form>
                         </Dialog>
-                        {/* Add Poll Dialog */}
+                        
                         <Dialog open={pollDialogOpen} onClose={() => setPollDialogOpen(false)} maxWidth="xs" fullWidth>
                             <DialogTitle>Add Poll</DialogTitle>
                             <form onSubmit={handlePollSubmit}>
@@ -243,7 +243,7 @@ const Intranet = () => {
                                 </DialogActions>
                             </form>
                         </Dialog>
-                        {/* Add Survey Dialog */}
+                        
                         <Dialog open={surveyDialogOpen} onClose={() => setSurveyDialogOpen(false)} maxWidth="xs" fullWidth>
                             <DialogTitle>Add Survey</DialogTitle>
                             <form onSubmit={handleSurveySubmit}>

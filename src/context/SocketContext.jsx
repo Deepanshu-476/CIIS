@@ -1,4 +1,4 @@
-// src/context/SocketContext.jsx - WITH COMPLETE CONSOLE LOGS + TOKEN RETRY
+
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import socketService from '../services/socket';
 import { useAuth } from './AuthContext';
@@ -59,7 +59,7 @@ export const useSocket = () => {
   const context = useContext(SocketContext);
   if (!context) {
     console.warn('⚠️ useSocket must be used within SocketProvider - returning dummy functions');
-    // Return dummy functions
+    
     return {
       isConnected: false,
       notifications: [],
@@ -78,8 +78,8 @@ export const useSocket = () => {
 };
 
 export const SocketProvider = ({ children }) => {
-  console.log('🟢 SocketProvider initializing...');
-  console.log('📅 Time:', new Date().toLocaleTimeString());
+  void 0;
+  void 0;
   
   const { user, token, isAuthenticated } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
@@ -126,61 +126,52 @@ export const SocketProvider = ({ children }) => {
     }
   }, []);
 
-  // Log auth state on mount and when it changes
+  
   useEffect(() => {
-    console.log('📊 SocketProvider - Auth State:', {
-      isAuthenticated,
-      hasUser: !!user,
-      hasToken: !!token,
-      userName: user?.name || 'No user',
-      userId: user?._id || 'No ID',
-      connectionAttempts,
-      retryCount,
-      timestamp: new Date().toLocaleTimeString()
-    });
+    void 0;
   }, [isAuthenticated, user, token, connectionAttempts, retryCount]);
 
-  // ========== TOKEN RETRY MECHANISM ==========
+  
   useEffect(() => {
-    // If token not available yet, set up a retry mechanism
+    
     if (isAuthenticated && user && !token) {
-      console.log('🔄 Token not available in context, setting up retry...');
+      void 0;
       
-      // Try to get token from localStorage directly
+      
       const storedToken = localStorage.getItem('token');
       if (storedToken) {
-        console.log('✅ Found token in localStorage manually:', !!storedToken);
-        console.log('📦 Token value (first 20 chars):', storedToken.substring(0, 20) + '...');
+        void 0;
+        void 0;
         
-        // Force reconnect with stored token
+        
         setTimeout(() => {
-          console.log('🔄 Retrying socket connection with stored token...');
+          void 0;
           setRetryCount(prev => prev + 1);
           socketService.connect(storedToken);
         }, 1000);
       } else {
-        console.log('❌ No token found in localStorage either');
-        console.log('🔍 localStorage keys:', Object.keys(localStorage));
+        void 0;
+        void 0;
       }
       
-      // Set up an interval to check for token
+      
       const interval = setInterval(() => {
         const checkToken = localStorage.getItem('token');
         if (checkToken) {
-          console.log('✅ Token became available! Connecting socket...');
-          console.log('📦 Token value (first 20 chars):', checkToken.substring(0, 20) + '...');
+          void 0;
+          void 0;
           setRetryCount(prev => prev + 1);
           socketService.connect(checkToken);
           clearInterval(interval);
         } else {
-          console.log('⏳ Still waiting for token...');
+          void 0;
         }
       }, 1000);
       
-      // Clear interval after 15 seconds to avoid infinite loop
+      
       const timeout = setTimeout(() => {
         clearInterval(interval);
-        console.log('⏰ Token retry timeout after 15 seconds');
+        void 0;
       }, 15000);
       
       return () => {
@@ -190,42 +181,37 @@ export const SocketProvider = ({ children }) => {
     }
   }, [isAuthenticated, user, token]);
 
-  // Connect to socket when user is authenticated
+  
   useEffect(() => {
-    console.log('🔄 SocketProvider useEffect triggered with dependencies:', {
-      isAuthenticated,
-      hasUser: !!user,
-      hasToken: !!token,
-      timestamp: new Date().toLocaleTimeString()
-    });
+    void 0;
 
     if (!isAuthenticated) {
-      console.log('⏳ Not authenticated yet, waiting...');
+      void 0;
       return;
     }
 
     if (!user) {
-      console.log('⏳ User not available yet, waiting...');
+      void 0;
       return;
     }
 
     if (!token) {
-      console.log('⏳ Token not available in context yet, waiting...');
+      void 0;
       return;
     }
 
-    console.log('🔌 All conditions met, attempting socket connection...');
-    console.log('🔑 Token exists:', !!token);
-    console.log('📦 Token value (first 20 chars):', token.substring(0, 20) + '...');
-    console.log('👤 User:', user.name || user.email || 'Unknown');
-    console.log('🆔 User ID:', user._id);
+    void 0;
+    void 0;
+    void 0;
+    void 0;
+    void 0;
     
-    // Increment connection attempts
+    
     setConnectionAttempts(prev => prev + 1);
     
     try {
-      // Connect to socket
-      console.log('🔄 Calling socketService.connect() with token...');
+      
+      void 0;
       const socket = socketService.connect(token);
 
       if (!socket) {
@@ -233,58 +219,39 @@ export const SocketProvider = ({ children }) => {
         return;
       }
 
-      console.log('✅ Socket instance obtained:', {
-        id: socket.id || 'not connected yet',
-        connected: socket.connected,
-        auth: !!socket.auth,
-        transport: socket.io?.engine?.transport?.name || 'unknown'
-      });
+      void 0;
 
-      // Connection status handlers
+      
       socket.on('connect', () => {
-        console.log('%c✅✅✅ SOCKET CONNECTED SUCCESSFULLY! ID: ' + socket.id, 'color: green; font-size: 16px; font-weight: bold');
-        console.log('%c🎉 Real-time updates are now active', 'color: blue; font-size: 14px');
-        console.log('📊 Connection details:', {
-          transport: socket.io?.engine?.transport?.name,
-          connected: socket.connected,
-          id: socket.id
-        });
+        void 0;
+        void 0;
+        void 0;
         setIsConnected(true);
-        setConnectionAttempts(0); // Reset attempts on successful connection
+        setConnectionAttempts(0); 
       });
       
       socket.on('disconnect', (reason) => {
-        console.log('%c❌❌❌ Socket disconnected', 'color: red; font-size: 16px');
-        console.log('🔍 Disconnect reason:', reason);
-        console.log('📊 Disconnect details:', {
-          reason,
-          wasConnected: isConnected,
-          attempts: connectionAttempts,
-          timestamp: new Date().toLocaleTimeString()
-        });
+        void 0;
+        void 0;
+        void 0;
         setIsConnected(false);
       });
 
       socket.on('connect_error', (error) => {
         console.error('%c❌❌❌ Socket connection error', 'color: red; font-size: 16px');
         console.error('🔍 Error message:', error.message);
-        console.log('🔍 Error details:', {
-          message: error.message,
-          description: error.description,
-          context: error.context,
-          type: error.type
-        });
+        void 0;
         setIsConnected(false);
       });
 
       socket.on('reconnect', (attemptNumber) => {
-        console.log(`🔄 Socket reconnected after ${attemptNumber} attempts`);
-        console.log('✅ New socket ID:', socket.id);
+        void 0;
+        void 0;
         setIsConnected(true);
       });
 
       socket.on('reconnect_attempt', (attemptNumber) => {
-        console.log(`🔄 Reconnection attempt #${attemptNumber}`);
+        void 0;
       });
 
       socket.on('reconnect_error', (error) => {
@@ -295,28 +262,22 @@ export const SocketProvider = ({ children }) => {
         console.error('❌❌❌ Failed to reconnect after all attempts');
       });
 
-      // Listen for new notifications
+      
       const handleSystemNotification = (notification = {}, eventName = 'notification:new') => {
-        console.log('%c📢📢📢 NEW NOTIFICATION RECEIVED', 'color: purple; font-size: 14px');
-        console.log('📨 Notification details:', {
-          type: notification.type,
-          title: notification.title,
-          message: notification.message,
-          id: notification._id,
-          timestamp: new Date().toLocaleTimeString()
-        });
+        void 0;
+        void 0;
 
         showDesktopNotification(notification, eventName);
         
         setNotifications(prev => {
           const updated = [notification, ...prev];
-          console.log(`📊 Notification count: ${updated.length}`);
+          void 0;
           return updated;
         });
         
         setUnreadCount(prev => {
           const newCount = prev + 1;
-          console.log(`🔔 Unread count increased to: ${newCount}`);
+          void 0;
           return newCount;
         });
         
@@ -328,72 +289,63 @@ export const SocketProvider = ({ children }) => {
 
       PORTAL_DESKTOP_EVENTS.forEach((eventName) => {
         socket.on(eventName, (payload = {}) => {
-          console.log(`%cPortal event received: ${eventName}`, 'color: teal; font-size: 14px');
-          console.log('Portal event data:', payload);
+          void 0;
+          void 0;
           showDesktopNotification(payload, eventName);
         });
       });
 
-      // Listen for unread count updates
+      
       socket.on('notification:unread_count', (count) => {
-        console.log(`📊 Unread count updated from server: ${count}`);
+        void 0;
         setUnreadCount(count);
       });
 
-      // Listen for leave events
+      
       socket.on('leave:new', (data) => {
-        console.log('%c📢 New leave event received', 'color: orange; font-size: 14px');
-        console.log('📊 Leave data:', data);
+        void 0;
+        void 0;
       });
 
       socket.on('leave:status_changed', (data) => {
-        console.log('%c📢 Leave status changed event', 'color: orange; font-size: 14px');
-        console.log('📊 Status change data:', data);
+        void 0;
+        void 0;
       });
 
       socket.on('leave:deleted', (data) => {
-        console.log('%c📢 Leave deleted event', 'color: orange; font-size: 14px');
-        console.log('📊 Delete data:', data);
+        void 0;
+        void 0;
       });
 
-      // Get initial unread count
-      console.log('📊 Fetching initial unread count...');
+      
+      void 0;
       socketService.getUnreadCount()
         .then(count => {
-          console.log(`📊 Initial unread count received: ${count}`);
+          void 0;
           setUnreadCount(count);
         })
         .catch(err => {
           console.error('❌ Error getting unread count:', err);
         });
 
-      // Request notification permission
+      
       if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-        console.log('🔔 Requesting notification permission...');
+        void 0;
         Notification.requestPermission().then(permission => {
-          console.log('🔔 Notification permission result:', permission);
+          void 0;
         });
       } else if (typeof Notification !== 'undefined') {
-        console.log('🔔 Notification permission already:', Notification.permission);
+        void 0;
       }
 
-      // Log socket connection status after 2 seconds
+      
       setTimeout(() => {
-        console.log('📊 Socket status check (2s):', {
-          connected: socket.connected,
-          id: socket.id,
-          transport: socket.io?.engine?.transport?.name,
-          uptime: socket.io?.engine?.transport?.writable ? 'active' : 'inactive'
-        });
+        void 0;
       }, 2000);
 
-      // Log again after 5 seconds
+      
       setTimeout(() => {
-        console.log('📊 Socket status check (5s):', {
-          connected: socket.connected,
-          id: socket.id,
-          transport: socket.io?.engine?.transport?.name
-        });
+        void 0;
       }, 5000);
 
     } catch (error) {
@@ -402,71 +354,68 @@ export const SocketProvider = ({ children }) => {
       console.error('Error stack:', error.stack);
     }
 
-    // Cleanup function
+    
     return () => {
-      console.log('🧹 Cleaning up socket connection...');
-      console.log('📊 Final socket state:', {
-        connected: socketService.socket?.connected,
-        id: socketService.socket?.id
-      });
-      console.log('Removing all listeners and disconnecting');
+      void 0;
+      void 0;
+      void 0;
       socketService.removeAllListeners();
       socketService.disconnect();
       setIsConnected(false);
     };
   }, [isAuthenticated, user, token, showDesktopNotification]);
 
-  // ========== LEAVE EVENT LISTENERS ==========
+  
   const handleNewLeave = useCallback((callback) => {
-    console.log('📢 Setting up leave:new listener');
+    void 0;
     if (!socketService.socket) {
       console.warn('⚠️ Socket not connected, cannot set up leave:new listener');
       return () => {};
     }
     
     socketService.socket.on('leave:new', callback);
-    console.log('✅ leave:new listener registered');
+    void 0;
     
     return () => {
-      console.log('🧹 Cleaning up leave:new listener');
+      void 0;
       socketService.socket?.off('leave:new', callback);
     };
   }, []);
 
   const handleLeaveStatusChanged = useCallback((callback) => {
-    console.log('📢 Setting up leave:status_changed listener');
+    void 0;
     if (!socketService.socket) {
       console.warn('⚠️ Socket not connected, cannot set up leave:status_changed listener');
       return () => {};
     }
     
     socketService.socket.on('leave:status_changed', callback);
-    console.log('✅ leave:status_changed listener registered');
+    void 0;
     
     return () => {
-      console.log('🧹 Cleaning up leave:status_changed listener');
+      void 0;
       socketService.socket?.off('leave:status_changed', callback);
     };
   }, []);
 
   const handleLeaveDeleted = useCallback((callback) => {
-    console.log('📢 Setting up leave:deleted listener');
+    void 0;
     if (!socketService.socket) {
       console.warn('⚠️ Socket not connected, cannot set up leave:deleted listener');
       return () => {};
     }
     
     socketService.socket.on('leave:deleted', callback);
-    console.log('✅ leave:deleted listener registered');
+    void 0;
     
     return () => {
-      console.log('🧹 Cleaning up leave:deleted listener');
+      void 0;
       socketService.socket?.off('leave:deleted', callback);
     };
   }, []);
 
   const handleNewNotification = useCallback((callback) => {
-    console.log('📢 Setting up notification:new listener');
+    void 0;
 
     let disposed = false;
     let cleanup = () => {};
@@ -477,7 +426,7 @@ export const SocketProvider = ({ children }) => {
 
       socketService.socket.on('notification:new', callback);
       socketService.socket.on('new_notification', callback);
-      console.log('✅ notification listener registered');
+      void 0;
       cleanup = () => {
         socketService.socket?.off('notification:new', callback);
         socketService.socket?.off('new_notification', callback);
@@ -499,9 +448,9 @@ export const SocketProvider = ({ children }) => {
     };
   }, [isConnected]);
 
-  // ========== ROOM MANAGEMENT ==========
+  
   const joinLeaveRoom = useCallback((leaveId) => {
-    console.log(`🚪 Attempting to join leave room: ${leaveId}`);
+    void 0;
     if (!socketService.socket) {
       console.warn('⚠️ Socket not connected, cannot join room');
       return;
@@ -513,38 +462,38 @@ export const SocketProvider = ({ children }) => {
     }
     
     socketService.socket.emit('leave:join', leaveId);
-    console.log(`✅ Joined leave room: ${leaveId}`);
+    void 0;
   }, []);
 
   const leaveLeaveRoom = useCallback((leaveId) => {
-    console.log(`🚪 Attempting to leave leave room: ${leaveId}`);
+    void 0;
     if (!socketService.socket) {
       console.warn('⚠️ Socket not connected, cannot leave room');
       return;
     }
     
     socketService.socket.emit('leave:leave', leaveId);
-    console.log(`✅ Left leave room: ${leaveId}`);
+    void 0;
   }, []);
 
-  // ========== NOTIFICATION ACTIONS ==========
+  
   const markAsRead = useCallback(async (notificationId) => {
-    console.log(`📌 Marking notification as read: ${notificationId}`);
+    void 0;
     try {
       const result = await socketService.markNotificationRead(notificationId);
-      console.log('✅ Mark as read result:', result);
+      void 0;
       
       setNotifications(prev => {
         const updated = prev.map(n =>
           n._id === notificationId ? { ...n, isRead: true } : n
         );
-        console.log(`📊 Updated notifications, read count: ${updated.filter(n => n.isRead).length}`);
+        void 0;
         return updated;
       });
       
       setUnreadCount(prev => {
         const newCount = Math.max(0, prev - 1);
-        console.log(`🔔 Unread count decreased to: ${newCount}`);
+        void 0;
         return newCount;
       });
       
@@ -555,7 +504,7 @@ export const SocketProvider = ({ children }) => {
     }
   }, []);
 
-  // Value object with all functions
+  
   const value = {
     isConnected,
     notifications,
@@ -570,15 +519,7 @@ export const SocketProvider = ({ children }) => {
     socket: socketService.socket
   };
 
-  console.log('🔄 SocketProvider rendering with state:', {
-    isConnected,
-    notificationCount: notifications.length,
-    unreadCount,
-    hasSocket: !!socketService.socket,
-    socketConnected: socketService.socket?.connected,
-    retryCount,
-    timestamp: new Date().toLocaleTimeString()
-  });
+  void 0;
 
   return (
     <SocketContext.Provider value={value}>

@@ -17,7 +17,7 @@ import {
   Send as SendIcon
 } from '@mui/icons-material';
 
-// Enhanced template data
+
 const smsTemplates = [
   {
     id: 1,
@@ -70,7 +70,7 @@ const SMSTemplate = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [activeTab, setActiveTab] = useState('templates');
 
-  // Filter logic
+  
   const filteredTemplates = smsTemplates.filter(template => {
     const matchesSearch = template.title.toLowerCase().includes(search.toLowerCase()) ||
       template.content.toLowerCase().includes(search.toLowerCase());
@@ -113,7 +113,7 @@ const SMSTemplate = () => {
         )}
       </Box>
 
-      {/* Tabs for different views */}
+      
       <Tabs
         value={activeTab}
         onChange={(e, newValue) => setActiveTab(newValue)}
@@ -141,7 +141,7 @@ const SMSTemplate = () => {
         />
       </Tabs>
 
-      {/* Filter Section */}
+      
       <Paper
         elevation={1}
         sx={{
@@ -239,9 +239,9 @@ const SMSTemplate = () => {
         </Grid>
       </Paper>
 
-      {/* Main Content */}
+      
       <Grid container spacing={3}>
-        {/* Template List */}
+        
         <Grid item xs={12} md={5} lg={4}>
           <Paper elevation={1} sx={{ borderRadius: 2, overflow: 'hidden' }}>
             <List sx={{ maxHeight: '70vh', overflow: 'auto' }}>
@@ -318,7 +318,7 @@ const SMSTemplate = () => {
           </Paper>
         </Grid>
 
-        {/* Template Preview */}
+        
         <Grid item xs={12} md={7} lg={8}>
           {selectedTemplate ? (
             <Paper elevation={1} sx={{ p: 3, borderRadius: 2, height: '100%' }}>
@@ -345,7 +345,7 @@ const SMSTemplate = () => {
                 </Box>
               </Box>
 
-              {/* SMS Preview */}
+              
               <Paper
                 elevation={0}
                 sx={{

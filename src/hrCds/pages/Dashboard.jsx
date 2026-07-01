@@ -3,7 +3,7 @@ import axios from 'axios';
 import API_URL from '../../config';
 import './Dashboard.css';
 
-// Icons
+
 import {
   FiBriefcase,
   FiCheckCircle,
@@ -52,7 +52,7 @@ ChartJS.register(
 
 const dashboardFontFamily = '"Roboto", "Helvetica", "Arial", sans-serif';
 
-// ========== HELPER FUNCTIONS ==========
+
 const getAuthToken = () => {
   return localStorage.getItem('token') || localStorage.getItem('authToken');
 };
@@ -288,7 +288,7 @@ const getTaskStatus = task => {
   return { label: rawStatus ? rawStatus.replace(/\b\w/g, char => char.toUpperCase()) : 'Pending', tone: 'orange', icon: <FiClock /> };
 };
 
-// ========== MAIN DASHBOARD COMPONENT ==========
+
 const Dashboard = () => {
   const [client, setClient] = useState(null);
   const [services, setServices] = useState([]);

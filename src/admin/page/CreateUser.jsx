@@ -5,7 +5,7 @@ import axios from '../../utils/axiosConfig';
 import './CreateUser.css';
 import CIISLoader from '../../Loader/CIISLoader';
 
-// Constants
+
 const genderOptions = ['male', 'female', 'other'];
 const maritalStatusOptions = ['single', 'married', 'divorced', 'widowed'];
 const employeeTypeOptions = ['permanent', 'probation', 'contract', 'intern', 'trainee'];
@@ -28,7 +28,7 @@ const roleBelongsToDepartment = (role, departmentId) => {
   return !roleDepartmentId || roleDepartmentId === departmentId;
 };
 
-// Initial form state
+
 const initialFormState = {
   name: '', email: '', password: '', confirmPassword: '',
   branch: '', department: '', jobRole: '',
@@ -53,55 +53,55 @@ const CreateUser = () => {
   const [loadingBranches, setLoadingBranches] = useState(false);
   const navigate = useNavigate();
 
-  // Company data from localStorage
+  
   const [companyId, setCompanyId] = useState('');
   const [companyCode, setCompanyCode] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
 
-  // Load data from localStorage
+  
   useEffect(() => {
     const fetchDataFromLocalStorage = () => {
       try {
-        // Try multiple possible storage keys
+        
         let userData = null;
         let token = null;
         
-        // Check for superAdmin
+        
         const superAdminStr = localStorage.getItem('superAdmin');
         if (superAdminStr) {
           userData = JSON.parse(superAdminStr);
-          console.log("📋 Found superAdmin:", userData);
+          void 0;
         }
         
-        // Check for user
+        
         const userStr = localStorage.getItem('user');
         if (userStr && !userData) {
           userData = JSON.parse(userStr);
-          console.log("📋 Found user:", userData);
+          void 0;
         }
         
-        // Check for token
+        
         token = localStorage.getItem('token');
         
         if (userData) {
           setCurrentUser(userData);
           
-          // Try multiple possible company field names
+          
           const companyIdValue = userData.companyId || userData.company || userData.company_id || userData.CompanyId;
           const companyCodeValue = userData.companyCode || userData.code || userData.company_code;
           
-          console.log("🏢 Company ID from userData:", companyIdValue);
-          console.log("🏢 Company Code from userData:", companyCodeValue);
+          void 0;
+          void 0;
           
           if (companyIdValue && companyCodeValue) {
             setCompanyId(companyIdValue);
             setCompanyCode(companyCodeValue);
           } else {
-            // Try to get from separate company object
+            
             const companyStr = localStorage.getItem('company');
             if (companyStr) {
               const companyData = JSON.parse(companyStr);
-              console.log("📋 Found separate company:", companyData);
+              void 0;
               setCompanyId(companyData._id || companyData.id);
               setCompanyCode(companyData.companyCode || companyData.code);
             } else {
@@ -110,11 +110,11 @@ const CreateUser = () => {
             }
           }
         } else if (token) {
-          // Try to get company from separate storage
+          
           const companyStr = localStorage.getItem('company');
           if (companyStr) {
             const companyData = JSON.parse(companyStr);
-            console.log("📋 Found company from separate storage:", companyData);
+            void 0;
             setCompanyId(companyData._id || companyData.id);
             setCompanyCode(companyData.companyCode || companyData.code);
             setCurrentUser({ name: companyData.companyName || 'Admin' });
@@ -136,21 +136,21 @@ const CreateUser = () => {
     fetchDataFromLocalStorage();
   }, [navigate]);
 
-  // ✅ FIXED: Departments and Branches fetch with better company ID handling
+  
   useEffect(() => {
     const loadData = async () => {
       if (companyId) {
-        console.log("🔍 Company ID found, fetching departments & branches for:", companyId);
+        void 0;
         await Promise.all([
           fetchDepartments(),
           fetchBranches()
         ]);
       } else if (companyCode) {
-        console.log("🔍 Company Code found, fetching departments by code:", companyCode);
+        void 0;
         await fetchDepartmentsByCode();
       } else {
-        console.log("⚠️ No company ID or code yet, waiting...");
-        // Retry after 1 second if still no company ID
+        void 0;
+        
         const timer = setTimeout(() => {
           const retryCompanyId = localStorage.getItem('companyId') || 
                                  JSON.parse(localStorage.getItem('company')?._id);
@@ -165,7 +165,7 @@ const CreateUser = () => {
     loadData();
   }, [companyId, companyCode]);
 
-  // Fetch job roles when department changes
+  
   useEffect(() => {
     if (form.department) {
       fetchJobRolesByDepartment(form.department);
@@ -175,7 +175,7 @@ const CreateUser = () => {
     }
   }, [form.department]);
 
-  // Page loading complete
+  
   useEffect(() => {
     if (companyId && (departments.length > 0 || !loadingDepartments)) {
       setTimeout(() => {
@@ -184,7 +184,7 @@ const CreateUser = () => {
     }
   }, [companyId, departments, loadingDepartments]);
 
-  // ✅ FIXED: Fetch Departments by ID
+  
   const fetchDepartments = async () => {
     try {
       if (!companyId) {
@@ -193,12 +193,12 @@ const CreateUser = () => {
       }
       
       setLoadingDepartments(true);
-      console.log("📡 Fetching departments for company ID:", companyId);
+      void 0;
       
       let response = null;
       let success = false;
       
-      // Try multiple endpoints with company ID
+      
       const endpoints = [
         `/departments?companyId=${companyId}`,
         `/departments?company=${companyId}`,
@@ -210,13 +210,13 @@ const CreateUser = () => {
       
       for (const endpoint of endpoints) {
         try {
-          console.log(`🔄 Trying endpoint: ${endpoint}`);
+          void 0;
           response = await axios.get(endpoint);
-          console.log(`✅ Success with: ${endpoint}`, response.data);
+          void 0;
           success = true;
           break;
         } catch (err) {
-          console.log(`❌ Failed: ${endpoint}`, err.response?.status, err.message);
+          void 0;
         }
       }
       
@@ -224,10 +224,10 @@ const CreateUser = () => {
         throw new Error("All department endpoints failed");
       }
 
-      // Handle different response formats
+      
       let departmentsData = [];
       const data = response.data;
-      console.log("📦 Raw department response:", data);
+      void 0;
       
       if (data) {
         if (Array.isArray(data)) {
@@ -250,7 +250,7 @@ const CreateUser = () => {
         }
       }
       
-      console.log("✅ Processed departments:", departmentsData);
+      void 0;
       setDepartments(departmentsData);
 
       if (departmentsData.length === 0) {
@@ -264,8 +264,8 @@ const CreateUser = () => {
       toast.error('Failed to load departments. Please check API endpoint.');
       setDepartments([]);
       
-      console.log("🔍 Debug - Company ID:", companyId);
-      console.log("🔍 Debug - Company Code:", companyCode);
+      void 0;
+      void 0;
       
     } finally {
       setLoadingDepartments(false);
@@ -276,7 +276,7 @@ const CreateUser = () => {
     try {
       if (!companyId) return;
       setLoadingBranches(true);
-      console.log("📡 Fetching branches for company ID:", companyId);
+      void 0;
       const response = await axios.get(`/branches/company/${companyId}`);
       if (response.data && response.data.success) {
         setBranches(response.data.branches || []);
@@ -288,13 +288,13 @@ const CreateUser = () => {
     }
   };
 
-  // ✅ NEW: Fetch Departments by Code
+  
   const fetchDepartmentsByCode = async () => {
     try {
       if (!companyCode) return;
       
       setLoadingDepartments(true);
-      console.log("📡 Fetching departments for company code:", companyCode);
+      void 0;
       
       let response = null;
       let success = false;
@@ -308,13 +308,13 @@ const CreateUser = () => {
       
       for (const endpoint of endpoints) {
         try {
-          console.log(`🔄 Trying endpoint: ${endpoint}`);
+          void 0;
           response = await axios.get(endpoint);
-          console.log(`✅ Success with: ${endpoint}`, response.data);
+          void 0;
           success = true;
           break;
         } catch (err) {
-          console.log(`❌ Failed: ${endpoint}`, err.message);
+          void 0;
         }
       }
       
@@ -332,7 +332,7 @@ const CreateUser = () => {
         else if (data.result && Array.isArray(data.result)) departmentsData = data.result;
       }
       
-      console.log("✅ Processed departments by code:", departmentsData);
+      void 0;
       setDepartments(departmentsData);
 
     } catch (err) {
@@ -342,7 +342,7 @@ const CreateUser = () => {
     }
   };
 
-  // ✅ FIXED: Fetch Job Roles with better handling
+  
   const fetchJobRolesByDepartment = async (departmentId) => {
     try {
       if (!departmentId) {
@@ -351,12 +351,12 @@ const CreateUser = () => {
       }
 
       setLoadingJobRoles(true);
-      console.log("📡 Fetching job roles for department:", departmentId);
+      void 0;
       
       let response = null;
       let success = false;
       
-      // Try company + department scoped endpoints first so only selected department roles load.
+      
       const endpoints = [
         companyId ? `/job-roles?company=${companyId}&department=${departmentId}` : null,
         companyId ? `/job-roles?companyId=${companyId}&departmentId=${departmentId}` : null,
@@ -371,18 +371,18 @@ const CreateUser = () => {
       
       for (const endpoint of endpoints) {
         try {
-          console.log(`🔄 Trying job role endpoint: ${endpoint}`);
+          void 0;
           response = await axios.get(endpoint);
-          console.log(`✅ Success with: ${endpoint}`, response.data);
+          void 0;
           success = true;
           break;
         } catch (err) {
-          console.log(`❌ Failed: ${endpoint}`, err.response?.status, err.message);
+          void 0;
         }
       }
       
       if (!success && companyId) {
-        // Try with company context
+        
         const companyEndpoints = [
           `/job-roles?companyId=${companyId}&departmentId=${departmentId}`,
           `/job-roles?company=${companyId}&department=${departmentId}`,
@@ -391,13 +391,13 @@ const CreateUser = () => {
         
         for (const endpoint of companyEndpoints) {
           try {
-            console.log(`🔄 Trying with company context: ${endpoint}`);
+            void 0;
             response = await axios.get(endpoint);
-            console.log(`✅ Success with: ${endpoint}`, response.data);
+            void 0;
             success = true;
             break;
           } catch (err) {
-            console.log(`❌ Failed: ${endpoint}`, err.message);
+            void 0;
           }
         }
       }
@@ -406,10 +406,10 @@ const CreateUser = () => {
         throw new Error("All job role endpoints failed");
       }
 
-      // Handle different response formats
+      
       let jobRolesData = [];
       const data = response.data;
-      console.log("📦 Raw job role response:", data);
+      void 0;
       
       if (data) {
         if (Array.isArray(data)) {
@@ -432,9 +432,9 @@ const CreateUser = () => {
         }
       }
       
-      console.log("✅ Processed job roles:", jobRolesData);
+      void 0;
       const departmentJobRoles = jobRolesData.filter(role => roleBelongsToDepartment(role, departmentId));
-      console.log("✅ Department filtered job roles:", departmentJobRoles);
+      void 0;
       setJobRoles(departmentJobRoles);
       
       if (departmentJobRoles.length === 0) {
@@ -536,15 +536,15 @@ const CreateUser = () => {
         companyCode: companyCode
       };
 
-      console.log("📦 Submitting user data:", userData);
+      void 0;
       
       const response = await axios.post('/auth/register', userData);
-      console.log("✅ Server response:", response.data);
+      void 0;
       toast.success('✅ User created successfully');
       
       setForm({ ...initialFormState });
       
-      // Reset select fields
+      
       setJobRoles([]);
 
     } catch (err) {
@@ -567,14 +567,14 @@ const CreateUser = () => {
     return 'USER';
   };
 
-  // Debug logs
-  console.log("🏢 Current departments state:", departments);
-  console.log("📋 Selected department ID:", form.department);
-  console.log("🎯 Job Roles:", jobRoles);
-  console.log("🏢 Company ID:", companyId);
-  console.log("🏢 Company Code:", companyCode);
+  
+  void 0;
+  void 0;
+  void 0;
+  void 0;
+  void 0;
 
-  // Show CIISLoader while page is loading
+  
   if (pageLoading) {
     return <CIISLoader />;
   }
@@ -582,7 +582,7 @@ const CreateUser = () => {
   return (
     <div className="CreateUser-container">
       <div className="CreateUser-paper">
-        {/* Header Section */}
+        
         <div className="CreateUser-header">
           <div>
             <h2 className="CreateUser-header-title">
@@ -594,7 +594,7 @@ const CreateUser = () => {
           </div>
         </div>
 
-        {/* Company Info Box */}
+        
         {currentUser && (
           <div className="CreateUser-company-info-box">
             <h3 className="CreateUser-company-name">
@@ -619,13 +619,13 @@ const CreateUser = () => {
         <hr className="CreateUser-divider" />
 
         <form onSubmit={handleSubmit}>
-          {/* Personal Information Section */}
+          
           <h3 className="CreateUser-section-title">
             Personal Information
           </h3>
 
           <div className="CreateUser-form-grid">
-            {/* ROW 1: Name & Email */}
+            
             <div className="CreateUser-form-row">
               <div className="CreateUser-form-group">
                 <label htmlFor="name" className="CreateUser-label">
@@ -667,7 +667,7 @@ const CreateUser = () => {
               </div>
             </div>
 
-            {/* ROW 2: Password & Confirm Password */}
+            
             <div className="CreateUser-form-row">
               <div className="CreateUser-form-group">
                 <label htmlFor="password" className="CreateUser-label">
@@ -723,7 +723,7 @@ const CreateUser = () => {
               </div>
             </div>
 
-            {/* ROW 3: Branch & Department */}
+            
             <div className="CreateUser-form-row">
               <div className="CreateUser-form-group">
                 <label htmlFor="branch" className="CreateUser-label">
@@ -800,7 +800,7 @@ const CreateUser = () => {
               </div>
             </div>
 
-            {/* ROW 3.5: Job Role & Empty Column for Alignment */}
+            
             <div className="CreateUser-form-row">
               <div className="CreateUser-form-group">
                 <label htmlFor="jobRole" className="CreateUser-label">
@@ -849,7 +849,7 @@ const CreateUser = () => {
               </div>
             </div>
 
-            {/* ROW 4: Gender & Marital Status */}
+            
             <div className="CreateUser-form-row">
               <div className="CreateUser-form-group">
                 <label htmlFor="gender" className="CreateUser-label">
@@ -902,7 +902,7 @@ const CreateUser = () => {
               </div>
             </div>
 
-            {/* ROW 5: Date of Birth & Phone */}
+            
             <div className="CreateUser-form-row">
               <div className="CreateUser-form-group">
                 <label htmlFor="dob" className="CreateUser-label">
@@ -947,7 +947,7 @@ const CreateUser = () => {
 
           <hr className="CreateUser-divider" />
 
-          {/* Address Information */}
+          
           <h3 className="CreateUser-section-title">
             Address Information
           </h3>
@@ -974,7 +974,7 @@ const CreateUser = () => {
 
           <hr className="CreateUser-divider" />
           
-          {/* Submit Button */}
+          
           <button
             type="submit"
             className="CreateUser-submit-button"
@@ -993,7 +993,7 @@ const CreateUser = () => {
             )}
           </button>
 
-          {/* Warning Messages */}
+          
           {(!companyId && !companyCode) && (
             <div className="CreateUser-info-message CreateUser-error-message">
               ⚠️ Company information is missing. Please login again or contact support.

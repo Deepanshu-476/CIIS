@@ -197,7 +197,7 @@ const CollapsedHeading = styled(Box)(({ theme }) => ({
   justifyContent: 'center',
 }));
 
-// ✅ ICON MAPPING
+
 const iconMap = {
   'Dashboard': DashboardIcon,
   'dashboard': DashboardIcon,
@@ -253,7 +253,7 @@ const iconMap = {
   'supportagent': SupportAgentIcon,
 };
 
-// ✅ Get icon component
+
 const getIconComponent = (iconName) => {
   if (!iconName) {
     return <DashboardIcon />;
@@ -305,7 +305,7 @@ const getIconComponent = (iconName) => {
   return <IconComponent />;
 };
 
-// ✅ FIXED DEFAULT MENU ITEMS
+
 const fixedDefaultItems = [
   {
     id: 'dashboard',
@@ -381,7 +381,7 @@ const fixedDefaultItems = [
   }
 ];
 
-// ✅ CLIENT MENU ITEMS - All client pages now included
+
 const clientMenuItems = [
   {
     id: 'client-dashboard',
@@ -449,7 +449,7 @@ const clientMenuItems = [
   }
 ];
 
-// ✅ ALL PAGES MENU ITEMS (for super_admin with Management department)
+
 const allPagesItems = [
   {
     id: 'dashboard',
@@ -669,7 +669,7 @@ const allPagesItems = [
   }
 ];
 
-// ✅ Path mapping helper
+
 const getPathFromName = (name) => {
   const pathMap = {
     'Dashboard': '/ciisUser/user-dashboard',
@@ -789,20 +789,20 @@ const Sidebar = ({ isMobile = false }) => {
   const hoverTimer = useRef(null);
   const leaveTimer = useRef(null);
 
-  // Mobile par always open, Desktop par hover-based
+  
   const isSidebarOpen = isMobile ? true : isHovered;
 
-  // Check if user is client (companyRole: "client")
+  
   const isClientUser = useMemo(() => {
     return userData?.companyRole === "client";
   }, [userData]);
 
-  // Check if user is super_admin with Management department
+  
   const isSuperAdminWithManagement = useMemo(() => {
     return userData?.department === "Management" && userData?.jobRole === "super_admin";
   }, [userData]);
 
-  // Fetch user data and company details from localStorage.
+  
   useEffect(() => {
     const fetchLocalData = async () => {
       try {
@@ -862,7 +862,7 @@ const Sidebar = ({ isMobile = false }) => {
     fetchLocalData();
   }, []);
 
-  // Fetch sidebar configuration (only for non-client users)
+  
   const fetchSidebarConfig = useCallback(async () => {
     if (!userData || !companyData || isClientUser) return;
 
@@ -877,12 +877,7 @@ const Sidebar = ({ isMobile = false }) => {
       const branchId = getRecordId(userData.branch || userData.branchId || userData.branchDetails);
       const role = getRecordId(userData.jobRole || userData.role || userData.roleId);
 
-      console.log('Fetching sidebar config with:', {
-        companyId,
-        branchId,
-        departmentId,
-        role
-      });
+      void 0;
 
       const response = await axiosInstance.get(`/sidebar/config`, {
         params: {
@@ -897,7 +892,7 @@ const Sidebar = ({ isMobile = false }) => {
         }
       });
 
-      console.log('Sidebar config API response:', response.data);
+      void 0;
 
       if (response.data && response.data.success) {
         if (response.data.data) {
@@ -926,7 +921,7 @@ const Sidebar = ({ isMobile = false }) => {
   useEffect(() => {
     if (userData && companyData) {
       if (isClientUser) {
-        // Client users don't need to fetch sidebar config
+        
         setLoading(false);
         setSidebarConfig(null);
       } else {
@@ -1072,7 +1067,7 @@ const Sidebar = ({ isMobile = false }) => {
     }
   };
 
-  // ✅ Get menu items based on user role and configuration
+  
   const menuItems = useMemo(() => {
     if (loading) return [];
 
@@ -1086,26 +1081,26 @@ const Sidebar = ({ isMobile = false }) => {
         && !path.includes("contact-support");
     });
 
-    console.log('Current user data:', userData);
-    console.log('Is client user:', isClientUser);
-    console.log('Is super_admin with Management:', isSuperAdminWithManagement);
+    void 0;
+    void 0;
+    void 0;
 
-    // ✅ If user is client, show client menu items (3 pages)
+    
     if (isClientUser) {
-      console.log('Client user detected - showing client menu items (3 pages)');
+      void 0;
       return removeSupportCenter(clientMenuItems);
     }
 
-    // If user is super_admin with Management department, show all pages
+    
     if (isSuperAdminWithManagement) {
-      console.log('Showing all pages for super_admin with Management department');
+      void 0;
       return removeSupportCenter(filterItemsByCompanyAccess(allPagesItems, companyData));
     }
 
     let items = [];
 
     if (sidebarConfig && sidebarConfig.menuItems && Array.isArray(sidebarConfig.menuItems)) {
-      console.log('Using custom config from database with', sidebarConfig.menuItems.length, 'items');
+      void 0;
       
       items = sidebarConfig.menuItems
         .map(item => {
@@ -1125,11 +1120,11 @@ const Sidebar = ({ isMobile = false }) => {
         .filter(item => item.visible && !item.disabled);
     } 
     else if (sidebarConfig && (sidebarConfig.useFixedDefault || !sidebarConfig.menuItems)) {
-      console.log('Using fixed default menu items');
+      void 0;
       items = [...fixedDefaultItems];
     }
     else {
-      console.log('Using fixed default menu items (fallback)');
+      void 0;
       items = [...fixedDefaultItems];
     }
 
@@ -1156,13 +1151,7 @@ const Sidebar = ({ isMobile = false }) => {
       return orderA - orderB;
     });
 
-    console.log('Sorted menu items:', sortedItems.map(item => ({ 
-      name: item.name, 
-      order: item.order,
-      category: item.category,
-      icon: item.icon,
-      path: item.path
-    })));
+    void 0;
 
     return removeSupportCenter(sortedItems);
   }, [sidebarConfig, loading, isSuperAdminWithManagement, isClientUser, userData, companyData]);
@@ -1244,7 +1233,7 @@ const Sidebar = ({ isMobile = false }) => {
     }
   };
 
-  // Group items by category
+  
   const groupedItems = useMemo(() => {
     const groups = {};
     const categoryOrder = ['main', 'administration', 'tasks', 'projects', 'meetings', 'communication', 'clients'];
@@ -1281,10 +1270,10 @@ const Sidebar = ({ isMobile = false }) => {
     );
   }, [menuItems]);
 
-  // Separate containers for mobile and desktop.
+  
   const Container = isMobile ? MobileSidebarContainer : SidebarContainer;
 
-  // Loading state
+  
   if (loading) {
     return (
       <Container
@@ -1310,7 +1299,7 @@ const Sidebar = ({ isMobile = false }) => {
     );
   }
 
-  // Error state
+  
   if (error && !sidebarConfig && !isSuperAdminWithManagement && !isClientUser) {
     return (
       <Container
@@ -1338,10 +1327,10 @@ const Sidebar = ({ isMobile = false }) => {
     );
   }
 
-  // ✅ For client users, render the sidebar with client menu items
+  
   if (isClientUser) {
-    console.log('Client user detected - rendering sidebar with client menu items');
-    // Client sidebar renders but with limited menu items
+    void 0;
+    
     return (
       <Container
         ref={sidebarRef}
@@ -1351,7 +1340,7 @@ const Sidebar = ({ isMobile = false }) => {
           width: isSidebarOpen ? drawerWidthOpen : drawerWidthClosed,
         } : undefined}
       >
-        {/* Client User Info */}
+        
         {isSidebarOpen && (
           <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
             <Typography variant="subtitle2" fontWeight={600} noWrap>
@@ -1363,7 +1352,7 @@ const Sidebar = ({ isMobile = false }) => {
           </Box>
         )}
 
-        {/* Menu Items */}
+        
         <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', mt: 2 }}>
           <List sx={{ py: 0 }}>
             {menuItems.map((item) => (
@@ -1374,7 +1363,7 @@ const Sidebar = ({ isMobile = false }) => {
           </List>
         </Box>
 
-        {/* Logout Button */}
+        
         <Box sx={{ px: 2, py: 2 }}>
           {isSidebarOpen ? (
             <StyledListItemButton
@@ -1423,7 +1412,7 @@ const Sidebar = ({ isMobile = false }) => {
     );
   }
 
-  // If menuItems is empty and not loading, show empty state
+  
   if (menuItems.length === 0 && !loading) {
     return (
       <Container
@@ -1448,7 +1437,7 @@ const Sidebar = ({ isMobile = false }) => {
     );
   }
 
-  // Render category headings for non-client users
+  
   const renderCategoryHeading = (category) => {
     const categoryLabels = {
       'main': 'Main Menu',
@@ -1494,7 +1483,7 @@ const Sidebar = ({ isMobile = false }) => {
         width: isSidebarOpen ? drawerWidthOpen : drawerWidthClosed,
       } : undefined}
     >
-      {/* User Info (only when sidebar is open) */}
+      
       {isSidebarOpen && (
         <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
           <Typography variant="subtitle2" fontWeight={600} noWrap>
@@ -1506,13 +1495,13 @@ const Sidebar = ({ isMobile = false }) => {
         </Box>
       )}
 
-      {/* Menu Items */}
+      
       <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
         {Object.keys(groupedItems).map(category => (
           <Box key={category}>
             {renderCategoryHeading(category)}
             
-            {/* Menu Items List */}
+            
             <List sx={{ py: 0 }}>
               {groupedItems[category].map((item) => (
                 <StyledListItem key={item.id} disablePadding>
@@ -1524,7 +1513,7 @@ const Sidebar = ({ isMobile = false }) => {
         ))}
       </Box>
 
-      {/* Logout Button */}
+      
       <Box sx={{ px: 2, py: 2 }}>
         {isSidebarOpen ? (
           <StyledListItemButton

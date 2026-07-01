@@ -10,12 +10,12 @@ import {
 import './client-management.css';
 import './ClientPlansPage.css';
 
-// Helper to get token from localStorage
+
 const getAuthToken = () => {
   return localStorage.getItem('token') || localStorage.getItem('authToken');
 };
 
-// Centralized Axios Instances
+
 const clientPlansApi = axios.create({
   baseURL: `${API_URL}/client-plans`,
   timeout: 10000,
@@ -51,18 +51,18 @@ clientsServiceApi.interceptors.request.use(
 const ClientPlansPage = () => {
   const navigate = useNavigate();
   
-  // Page Data States
+  
   const [plans, setPlans] = useState([]);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [companyCode, setCompanyCode] = useState('');
   
-  // Feedback Messages
+  
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Form State
+  
   const [form, setForm] = useState({
     name: '',
     price: '',
@@ -72,13 +72,13 @@ const ClientPlansPage = () => {
     isActive: true
   });
   
-  // Editing State
+  
   const [editingPlanId, setEditingPlanId] = useState(null);
   
-  // Task Drafts for each service
+  
   const [taskDrafts, setTaskDrafts] = useState({});
 
-  // 1. Fetch Auth and Init Data
+  
   useEffect(() => {
     const loadCompanyAndData = async () => {
       try {
@@ -103,7 +103,7 @@ const ClientPlansPage = () => {
           return;
         }
 
-        // Fetch Services and Client Plans
+        
         const [servicesRes, plansRes] = await Promise.all([
           clientsServiceApi.get('/services', { 
             params: { companyCode: companyCodeFromStorage } 
@@ -134,12 +134,12 @@ const ClientPlansPage = () => {
     loadCompanyAndData();
   }, []);
 
-  // Filter Services for company
+  
   const availableServices = companyCode
     ? services.filter(service => service.companyCode === companyCode)
     : services;
 
-  // Toggle Service in draft plan
+  
   const toggleServiceInPlan = serviceName => {
     if (!serviceName) return;
     setForm(prev => ({
@@ -150,7 +150,7 @@ const ClientPlansPage = () => {
     }));
   };
 
-  // Update Task draft for a service
+  
   const updateTaskDraft = (serviceName, key, value) => {
     setTaskDrafts(prev => ({
       ...prev,
@@ -165,7 +165,7 @@ const ClientPlansPage = () => {
     }));
   };
 
-  // Add task to service in plan
+  
   const addTaskToService = serviceName => {
     const draft = taskDrafts[serviceName] || {};
     const name = draft.name || '';
@@ -190,7 +190,7 @@ const ClientPlansPage = () => {
     }));
   };
 
-  // Remove task from service in plan
+  
   const removeTask = (serviceName, taskIndex) => {
     setForm(prev => ({
       ...prev,
@@ -200,7 +200,7 @@ const ClientPlansPage = () => {
     }));
   };
 
-  // Reset Plan Form
+  
   const resetForm = () => {
     setForm({
       name: '',
@@ -215,7 +215,7 @@ const ClientPlansPage = () => {
     setError('');
   };
 
-  // Load plan for editing
+  
   const handleEditPlan = (plan) => {
     setEditingPlanId(plan._id);
     setForm({
@@ -230,7 +230,7 @@ const ClientPlansPage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Save Plan (Create/Update)
+  
   const handleSubmitPlan = async (e) => {
     e.preventDefault();
     if (!form.name?.trim()) {
@@ -273,7 +273,7 @@ const ClientPlansPage = () => {
         
         resetForm();
         
-        // Clear success message after 3 seconds
+        
         setTimeout(() => setSuccess(''), 3000);
       }
     } catch (err) {
@@ -295,7 +295,7 @@ const ClientPlansPage = () => {
 
   return (
     <div className="ClientPlansPage-container">
-      {/* Header bar */}
+      
       <div className="ClientPlansPage-header-row">
         <button 
           className="ClientPlansPage-back-btn" 
@@ -310,7 +310,7 @@ const ClientPlansPage = () => {
         </div>
       </div>
 
-      {/* Alerts */}
+      
       {error && (
         <div className="ClientPlansPage-alert ClientPlansPage-alert--error">
           <FiInfo size={16} />
@@ -326,10 +326,10 @@ const ClientPlansPage = () => {
         </div>
       )}
 
-      {/* Grid Content */}
+      
       <div className="ClientPlansPage-grid">
         
-        {/* Form Column */}
+        
         <div className="ClientPlansPage-card ClientPlansPage-form-card">
           <div className="ClientPlansPage-card-header">
             <h3>{editingPlanId ? '✏️ Edit Client Plan' : '🔄 Create Client Plan'}</h3>
@@ -388,7 +388,7 @@ const ClientPlansPage = () => {
               />
             </div>
 
-            {/* Service checklist */}
+            
             <div className="ClientManagement-form-group">
               <label className="ClientManagement-form-label">Select Services Included in Plan *</label>
               {availableServices.length === 0 ? (
@@ -415,7 +415,7 @@ const ClientPlansPage = () => {
               )}
             </div>
 
-            {/* Task list editor for selected services */}
+            
             {form.services.length > 0 && (
               <div className="ClientPlansPage-tasks-editor-section">
                 <h4>📝 Add Setup Tasks to Selected Services</h4>
@@ -431,7 +431,7 @@ const ClientPlansPage = () => {
                           <span className="ClientPlansPage-badge">{service.tasks.length} Default Tasks</span>
                         </div>
                         
-                        {/* Add task builder */}
+                        
                         <div className="ClientPlansPage-task-builder">
                           <input
                             className="ClientManagement-form-input"
@@ -477,7 +477,7 @@ const ClientPlansPage = () => {
                           />
                         </div>
 
-                        {/* List of added tasks */}
+                        
                         {service.tasks.length > 0 && (
                           <div className="ClientPlansPage-added-tasks">
                             {service.tasks.map((task, taskIndex) => (
@@ -523,7 +523,7 @@ const ClientPlansPage = () => {
           </form>
         </div>
 
-        {/* Existing Plans Column */}
+        
         <div className="ClientPlansPage-card ClientPlansPage-list-card">
           <div className="ClientPlansPage-card-header">
             <h3>📋 Existing Client Plans ({plans.length})</h3>
@@ -558,7 +558,7 @@ const ClientPlansPage = () => {
                       </div>
                     </div>
 
-                    {/* Services and Tasks list in plan */}
+                    
                     {planServices.length > 0 && (
                       <div className="ClientPlansPage-plan-services-preview">
                         <h5>Services & Default Tasks:</h5>

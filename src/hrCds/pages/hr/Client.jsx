@@ -4,7 +4,7 @@ import axios from 'axios';
 import API_URL from '../../../config';
 import './client-management.css';
 
-// Import icons from react-icons
+
 import {
   FiBell,
   FiCheckCircle,
@@ -35,15 +35,15 @@ import {
   FiUpload
 } from 'react-icons/fi';
 
-// Import from react-icons/fa for additional icons if needed
+
 import { FaTasks, FaProjectDiagram, FaCity } from 'react-icons/fa';
 import { Repeat } from 'lucide-react';
 
-// ============================================
-//  CENTRALIZED AXIOS INSTANCES WITH INTERCEPTORS
-// ============================================
 
-// Helper to get token from localStorage (tries both common keys)
+
+
+
+
 const getAuthToken = () => {
   return localStorage.getItem('token') || localStorage.getItem('authToken');
 };
@@ -94,7 +94,7 @@ const formatClientTaskDue = value => {
   });
 };
 
-// Clients API instance
+
 const api = axios.create({
   baseURL: `${API_URL}/clientsservice`,
   timeout: 10000,
@@ -111,7 +111,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Tasks API instance
+
 const tasksApi = axios.create({
   baseURL: `${API_URL}/tasks/client-tasks`,
   timeout: 10000,
@@ -144,7 +144,7 @@ clientPlansApi.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Users API instance
+
 const usersApi = axios.create({
   baseURL: `${API_URL}/users`,
   timeout: 10000,
@@ -161,9 +161,9 @@ usersApi.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ============================================
-//  PAYMENT RECEIPTS MODAL COMPONENT
-// ============================================
+
+
+
 const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, userRole, clientPlans = [] }) => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -1093,9 +1093,9 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
   );
 };
 
-// ============================================
-//  TASK DETAILS MODAL COMPONENT
-// ============================================
+
+
+
 const TaskDetailsModal = ({ task, open, onClose, projectManagers = [] }) => {
   if (!open) return null;
 
@@ -1214,9 +1214,9 @@ const TaskDetailsModal = ({ task, open, onClose, projectManagers = [] }) => {
   );
 };
 
-// ============================================
-//  SERVICE PROGRESS CARD COMPONENT
-// ============================================
+
+
+
 const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], onTaskUpdate, api, startDate = null, endDate = null, subscriptionId = null, subscriptionNo = null }) => {
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState({
@@ -1701,9 +1701,9 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
   );
 };
 
-// ============================================
-//  SERVICES MODAL COMPONENT
-// ============================================
+
+
+
 const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService, companyCode }) => {
   const [newService, setNewService] = useState('');
 
@@ -2085,9 +2085,9 @@ const ClientPlansModal = ({ open, onClose, plans, services, companyCode, onSaveP
   );
 };
 
-// ============================================
-//  ADD CLIENT MODAL COMPONENT WITH PER MONTH SUBSCRIPTION
-// ============================================
+
+
+
 const AddClientModal = ({ 
   open, 
   onClose, 
@@ -2437,7 +2437,7 @@ const AddClientModal = ({
                 )}
               </div>
 
-              {/* Team Selection */}
+              
               <div className="ClientManagement-form-group ClientManagement-col-span-2">
                 <label className="ClientManagement-form-label">Team *</label>
                 <div className="ClientManagement-dropdown-wrapper">
@@ -2543,7 +2543,7 @@ const AddClientModal = ({
                 {fieldErrors.projectManagers && <small className="ClientManagement-text-danger">{fieldErrors.projectManagers}</small>}
               </div>
 
-              {/* Services Selection */}
+              
               <div className="ClientManagement-form-group ClientManagement-col-span-2">
                 <label className="ClientManagement-form-label">Services</label>
                 {filteredServices.length === 0 && (
@@ -2724,9 +2724,9 @@ const AddClientModal = ({
   );
 };
 
-// ============================================
-//  MAIN CLIENT MANAGEMENT COMPONENT
-// ============================================
+
+
+
 const ClientManagement = () => {
   const navigate = useNavigate();
   const [clients, setClients] = useState([]);
@@ -2771,6 +2771,15 @@ const ClientManagement = () => {
     projectManager: '',
     service: ''
   });
+
+  const [searchInputValue, setSearchInputValue] = useState('');
+
+  useEffect(() => {
+    const delayDebounce = setTimeout(() => {
+      handleFilterChange('search', searchInputValue);
+    }, 450);
+    return () => clearTimeout(delayDebounce);
+  }, [searchInputValue]);
 
   const [tasksStats, setTasksStats] = useState({
     pendingTasks: 0,
@@ -3534,7 +3543,7 @@ const ClientManagement = () => {
   };
 
   const handleTaskUpdate = (serviceName, tasks) => {
-    console.log(`Tasks updated for ${serviceName}:`, tasks);
+    void 0;
   };
 
   return (
@@ -3688,8 +3697,8 @@ const ClientManagement = () => {
                 <input
                   type="text"
                   placeholder="Search clients..."
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange('search', e.target.value)}
+                  value={searchInputValue}
+                  onChange={(e) => setSearchInputValue(e.target.value)}
                 />
               </div>
             </div>
@@ -4153,7 +4162,7 @@ const ClientManagement = () => {
                       Add tasks with due dates and assign them to project managers
                     </p>
 
-                    {/* Subscription Cycle Dropdown Filter */}
+                    
                     {viewDialog.client.subscription && viewDialog.client.subscription.length > 0 && (
                       <div className="ClientManagement-form-group" style={{ maxWidth: '400px', marginBottom: '1.5rem' }}>
                         <label className="ClientManagement-form-label" style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

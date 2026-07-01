@@ -326,7 +326,7 @@ const CompanyRegister = () => {
     if (type === "file") {
       const file = files[0];
       if (file) {
-        // Validate file type
+        
         if (!file.type.match("image.*")) {
           setFormErrors((prev) => ({
             ...prev,
@@ -335,21 +335,21 @@ const CompanyRegister = () => {
           return;
         }
 
-        // Auto compress the image
+        
         compressImage(file, (compressedFile) => {
           setForm((prev) => ({
             ...prev,
             [name]: compressedFile,
           }));
 
-          // Create preview
+          
           const reader = new FileReader();
           reader.onload = (ev) => {
             setLogoPreview(ev.target.result);
           };
           reader.readAsDataURL(compressedFile);
 
-          // Clear any previous errors for this field
+          
           setFormErrors((prev) => ({
             ...prev,
             [name]: "",
@@ -462,7 +462,7 @@ const CompanyRegister = () => {
     try {
       setLogoLoading(true);
       
-      // Try multiple endpoints for better reliability
+      
       let uploadRes;
       let endpoints = [
         `${API_URL}/upload-logo`,
@@ -474,7 +474,7 @@ const CompanyRegister = () => {
       
       for (const endpoint of endpoints) {
         try {
-          console.log(`Trying logo upload to: ${endpoint}`);
+          void 0;
           uploadRes = await axios.post(endpoint, formData, {
             headers: {
               'Content-Type': 'multipart/form-data',
@@ -484,15 +484,15 @@ const CompanyRegister = () => {
               const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
               setUploadProgress(percentCompleted);
             },
-            timeout: 30000 // 30 second timeout
+            timeout: 30000 
           });
           
           if (uploadRes.data && uploadRes.data.success) {
-            console.log(`✅ Logo uploaded successfully to ${endpoint}`);
+            void 0;
             break;
           }
         } catch (err) {
-          console.log(`❌ Failed to upload to ${endpoint}:`, err.message);
+          void 0;
           lastError = err;
           continue;
         }
@@ -531,7 +531,7 @@ const CompanyRegister = () => {
     try {
       let logoUrl = "";
       
-      // Upload logo if exists
+      
       if (form.logoFile) {
         try {
           logoUrl = await uploadLogoToServer(form.logoFile);
@@ -548,13 +548,10 @@ const CompanyRegister = () => {
         companyPhone: form.companyPhone.replace(/\D/g, '')
       };
 
-      // Remove the file object before sending
+      
       delete formData.logoFile;
 
-      console.log("Submitting company registration with data:", {
-        ...formData,
-        ownerPassword: "[HIDDEN]"
-      });
+      void 0;
 
       const res = await axios.post(`${API_URL}/company`, formData);
       const createdCompany = normalizeCreatedCompany(res.data, formData);
@@ -689,7 +686,7 @@ const CompanyRegister = () => {
           overflow: "hidden",
           position: "relative",
         }}>
-          {/* Header Section - Logo Left with Text */}
+          
           <div style={{
             background: "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)",
             padding: isMobile ? "16px" : isTablet ? "20px" : "24px",
@@ -700,7 +697,7 @@ const CompanyRegister = () => {
             justifyContent: "space-between",
             gap: "16px",
           }}>
-            {/* Logo on Left Side */}
+            
             <div
               style={{
                 width: isMobile ? 50 : isTablet ? 60 : 70,
@@ -742,7 +739,7 @@ const CompanyRegister = () => {
               />
             </div>
 
-            {/* Text Content on Right */}
+            
             <div style={{ 
               position: "relative", 
               zIndex: 2,

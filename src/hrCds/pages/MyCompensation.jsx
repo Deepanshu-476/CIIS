@@ -73,7 +73,7 @@ const MyCompensation = () => {
     const currentData = compensationData[salaryRevision];
     const formatCurrency = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
 
-    // Pie chart
+    
     const generatePieChartPaths = () => {
         let cumulativePercentage = 0;
         return currentData.components.map((component, index) => {
@@ -91,7 +91,7 @@ const MyCompensation = () => {
     };
     const pieChartPaths = generatePieChartPaths();
 
-    // CRUD for Salary Revisions
+    
     const handleOpenRevisionDialog = (year = null) => {
         if (year) {
             setEditRevision(year);
@@ -129,7 +129,7 @@ const MyCompensation = () => {
         setSalaryRevision(Object.keys(compensationData)[0]);
     };
 
-    // CRUD for CTC Components
+    
     const handleOpenComponentDialog = (idx = null) => {
         if (idx !== null) {
             setEditComponentIdx(idx);
@@ -215,7 +215,7 @@ const MyCompensation = () => {
                                 </Button>
                             </Box>
                         </Box>
-                        {/* Salary Revision Dialog */}
+                        
                         <Dialog open={revisionDialogOpen} onClose={handleCloseRevisionDialog} maxWidth="xs" fullWidth>
                             <DialogTitle>{editRevision ? 'Edit Revision' : 'Add Revision'}</DialogTitle>
                             <form onSubmit={handleRevisionSubmit}>
@@ -303,7 +303,7 @@ const MyCompensation = () => {
                                 <Button variant="outlined" sx={{ mt: 2 }} onClick={() => handleOpenComponentDialog()}>Add Component</Button>
                             </Box>
                         </Box>
-                        {/* Component Dialog */}
+                        
                         <Dialog open={componentDialogOpen} onClose={handleCloseComponentDialog} maxWidth="xs" fullWidth>
                             <DialogTitle>{editComponentIdx !== null ? 'Edit Component' : 'Add Component'}</DialogTitle>
                             <form onSubmit={handleComponentSubmit}>

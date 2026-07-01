@@ -68,7 +68,7 @@ const CompanyDetails = () => {
   const [recentUsers, setRecentUsers] = useState([]);
   const [userRole, setUserRole] = useState("");
   
-  // Modal States
+  
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [editFormData, setEditFormData] = useState({
@@ -81,7 +81,7 @@ const CompanyDetails = () => {
   const [saveLoading, setSaveLoading] = useState(false);
   const [departments, setDepartments] = useState([]);
 
-  // Fetch the company for the current logged-in user.
+  
   const fetchCurrentUserCompany = async () => {
     try {
       setLoading(true);
@@ -96,28 +96,28 @@ const CompanyDetails = () => {
 
       const headers = { Authorization: `Bearer ${token}` };
 
-      // Step 1: Fetch data from the company users API.
+      
       try {
         const response = await axios.get(
           `${API_URL}/users/company-users`,
           { headers }
         );
         
-        console.log("Full API Response:", response.data);
+        void 0;
         
         if (response.data && response.data.success) {
           const data = response.data.message;
           
-          // Debug: Check what data we're getting
-          console.log("Company data from API:", data.company);
-          console.log("Users data from API:", data.users);
-          console.log("Current user data:", data.currentUser);
           
-          // Extract company ID properly
+          void 0;
+          void 0;
+          void 0;
+          
+          
           let companyId = "";
           let companyDetails = {};
           
-          // Multiple ways to get company ID
+          
           if (data.company?.id?._id) {
             companyId = data.company.id._id;
             companyDetails = data.company.id;
@@ -128,7 +128,7 @@ const CompanyDetails = () => {
             companyId = data.company.id;
             companyDetails = data.company;
           } else if (data.users && data.users.length > 0 && data.users[0].company) {
-            // Try to get from first user's company data
+            
             companyId = data.users[0].company._id || data.users[0].company.id;
             companyDetails = data.users[0].company;
           }
@@ -140,7 +140,7 @@ const CompanyDetails = () => {
             return;
           }
           
-          // Build company data object
+          
           const companyData = {
             _id: companyId,
             companyName: companyDetails.name || data.company?.name || "Company",
@@ -159,21 +159,21 @@ const CompanyDetails = () => {
             subscriptionExpiry: companyDetails.subscriptionExpiry || data.company?.subscriptionExpiry || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
           };
           
-          console.log("Final company data:", companyData);
+          void 0;
           
           setCompany(companyData);
           
-          // Users data
+          
           const users = data.users || [];
-          console.log("Total users fetched:", users.length);
+          void 0;
           
-          setRecentUsers(users.slice(0, 5)); // First 5 users for recent
+          setRecentUsers(users.slice(0, 5)); 
           
-          // Extract unique departments
+          
           const uniqueDepartments = [...new Set(users.map(user => user.department).filter(Boolean))];
           setDepartments(uniqueDepartments);
           
-          // Calculate statistics
+          
           const activeUsers = users.filter(user => user.isActive).length;
           const deptCount = new Set(users.map(user => user.department)).size;
           
@@ -184,15 +184,15 @@ const CompanyDetails = () => {
             todayLogins: 0
           });
           
-          // Set user role from current user
+          
           if (data.currentUser) {
             setUserRole(data.currentUser.name || data.currentUser.role || "user");
           }
           
-          // Store in localStorage for future use
+          
           localStorage.setItem("company", JSON.stringify(companyData));
           
-          // Also store company code if available
+          
           if (companyData.companyCode) {
             localStorage.setItem("companyCode", companyData.companyCode);
           }
@@ -201,8 +201,8 @@ const CompanyDetails = () => {
         }
       } catch (apiError) {
         console.error("Company users API failed:", apiError);
-        console.log("API Error details:", apiError.response?.data);
-        // Fallback: Try to get company from localStorage
+        void 0;
+        
         await fetchCompanyFromLocalStorage(headers);
       }
       
@@ -222,17 +222,17 @@ const CompanyDetails = () => {
     }
   };
 
-  // Alternative method: Fetch company details directly
+  
   const fetchCompanyDirectly = async (headers) => {
     try {
-      // Try to get company ID from localStorage first
+      
       const storedCompany = localStorage.getItem("company");
       if (storedCompany) {
         const companyInfo = JSON.parse(storedCompany);
         const companyId = companyInfo._id;
         
         if (companyId) {
-          // Fetch company details directly
+          
           const companyRes = await axios.get(
             `${API_URL}/super-admin/company/${companyId}`,
             { headers }
@@ -258,7 +258,7 @@ const CompanyDetails = () => {
               subscriptionExpiry: companyData.subscriptionExpiry
             });
             
-            // Then fetch users
+            
             await fetchCompanyUsers(companyData._id, headers);
             return true;
           }
@@ -271,7 +271,7 @@ const CompanyDetails = () => {
     }
   };
 
-  // Fetch company users separately
+  
   const fetchCompanyUsers = async (companyId, headers) => {
     try {
       const usersRes = await axios.get(
@@ -282,7 +282,7 @@ const CompanyDetails = () => {
       const users = usersRes.data || [];
       setRecentUsers(users.slice(0, 5));
       
-      // Extract unique departments
+      
       const uniqueDepartments = [...new Set(users.map(user => user.department).filter(Boolean))];
       setDepartments(uniqueDepartments);
       
@@ -301,16 +301,16 @@ const CompanyDetails = () => {
     }
   };
 
-  // Fallback method
+  
   const fetchCompanyFromLocalStorage = async (headers) => {
     try {
       const companyData = localStorage.getItem("company");
       if (companyData) {
         const companyInfo = JSON.parse(companyData);
         
-        console.log("Company from localStorage:", companyInfo);
+        void 0;
         
-        // Set default values if missing
+        
         const fullCompanyData = {
           ...companyInfo,
           companyName: companyInfo.companyName || companyInfo.name || "Company",
@@ -330,7 +330,7 @@ const CompanyDetails = () => {
         
         setCompany(fullCompanyData);
         
-        // Try to fetch users using company ID
+        
         if (fullCompanyData._id) {
           await fetchCompanyUsers(fullCompanyData._id, headers);
         } else {
@@ -339,10 +339,10 @@ const CompanyDetails = () => {
       } else {
         toast.error("Company data not found in localStorage");
         
-        // Try direct fetch as last resort
+        
         const fetched = await fetchCompanyDirectly(headers);
         if (!fetched) {
-          // Create dummy company data for testing
+          
           const dummyCompany = {
             _id: "dummy_company_id",
             companyName: "Test Company",
@@ -370,7 +370,7 @@ const CompanyDetails = () => {
     }
   };
 
-  // Format date function
+  
   const formatDate = (dateString) => {
     if (!dateString) return "Not available";
     try {
@@ -387,9 +387,9 @@ const CompanyDetails = () => {
     }
   };
 
-  // Days remaining calculation
+  
   const getDaysRemaining = (expiryDate) => {
-    if (!expiryDate) return 27; // Default
+    if (!expiryDate) return 27; 
     try {
       const expiry = new Date(expiryDate);
       const today = new Date();
@@ -397,16 +397,16 @@ const CompanyDetails = () => {
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       return diffDays > 0 ? diffDays : 0;
     } catch (error) {
-      return 27; // Default
+      return 27; 
     }
   };
 
-  // Handle manual refresh
+  
   const handleRefresh = () => {
     fetchCurrentUserCompany();
   };
 
-  // Handle user edit - Open modal with user data
+  
   const handleEditUser = (user) => {
     setSelectedUser(user);
     setEditFormData({
@@ -421,7 +421,7 @@ const CompanyDetails = () => {
     setEditModalOpen(true);
   };
 
-  // Handle form input changes
+  
   const handleInputChange = (e) => {
     const { name, value, checked } = e.target;
     setEditFormData(prev => ({
@@ -430,7 +430,7 @@ const CompanyDetails = () => {
     }));
   };
 
-  // Save user changes
+  
   const handleSaveUser = async () => {
     if (!selectedUser) return;
     
@@ -439,10 +439,10 @@ const CompanyDetails = () => {
       const token = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
       
-      // Determine which API to use based on your backend
+      
       const userId = selectedUser.id || selectedUser._id;
       
-      // Update user API call - adjust endpoint as needed
+      
       const response = await axios.put(
         `${API_URL}/users/${userId}`,
         editFormData,
@@ -452,7 +452,7 @@ const CompanyDetails = () => {
       if (response.data.success) {
         toast.success("User updated successfully!");
         
-        // Update local state
+        
         const updatedUsers = recentUsers.map(user => 
           (user.id === userId || user._id === userId) 
             ? { ...user, ...editFormData }
@@ -460,7 +460,7 @@ const CompanyDetails = () => {
         );
         setRecentUsers(updatedUsers);
         
-        // Update stats
+        
         const activeUsers = updatedUsers.filter(user => user.isActive).length;
         setStats(prev => ({
           ...prev,
@@ -479,7 +479,7 @@ const CompanyDetails = () => {
     }
   };
 
-  // Delete user
+  
   const handleDeleteUser = async () => {
     if (!selectedUser || !window.confirm("Are you sure you want to delete this user?")) {
       return;
@@ -500,13 +500,13 @@ const CompanyDetails = () => {
       if (response.data.success) {
         toast.success("User deleted successfully!");
         
-        // Remove user from list
+        
         const filteredUsers = recentUsers.filter(user => 
           user.id !== userId && user._id !== userId
         );
         setRecentUsers(filteredUsers);
         
-        // Update stats
+        
         setStats(prev => ({
           ...prev,
           totalUsers: prev.totalUsers - 1,
@@ -525,7 +525,7 @@ const CompanyDetails = () => {
     }
   };
 
-  // Handle view all users
+  
   const handleViewAllUsers = () => {
     if (company && company._id) {
       navigate(`/Ciis-network/company/${company._id}/users`);
@@ -534,7 +534,7 @@ const CompanyDetails = () => {
     }
   };
 
-  // Initial load
+  
   useEffect(() => {
     fetchCurrentUserCompany();
   }, []);
@@ -571,7 +571,7 @@ const CompanyDetails = () => {
 
   return (
     <Box sx={styles.container}>
-      {/* Header */}
+      
       <Box sx={styles.header}>
         <Box sx={styles.headerContent}>
           <Button
@@ -600,9 +600,9 @@ const CompanyDetails = () => {
       </Box>
 
       <Grid container spacing={3}>
-        {/* Left Column - Company Info */}
+        
         <Grid item xs={12} md={8}>
-          {/* Company Profile Card */}
+          
           <Card sx={styles.profileCard}>
             <CardContent>
               <Box sx={styles.profileHeader}>
@@ -648,7 +648,7 @@ const CompanyDetails = () => {
                     )}
                   </Box>
                   
-                  {/* Debug Info - Remove in production */}
+                  
                   {process.env.NODE_ENV === 'development' && (
                     <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
                       Company ID: {company._id}
@@ -659,7 +659,7 @@ const CompanyDetails = () => {
 
               <Divider sx={{ my: 3 }} />
 
-              {/* Company Details Grid */}
+              
               <Grid container spacing={3}>
                 <Grid item xs={12} md={6}>
                   <Box sx={styles.detailItem}>
@@ -790,7 +790,7 @@ const CompanyDetails = () => {
 
               <Divider sx={{ my: 3 }} />
 
-              {/* Dates Section */}
+              
               <Grid container spacing={3}>
                 <Grid item xs={12} md={6}>
                   <Box sx={styles.dateItem}>
@@ -871,9 +871,9 @@ const CompanyDetails = () => {
           </Card>
         </Grid>
 
-        {/* Right Column - Stats and Actions */}
+        
         <Grid item xs={12} md={4}>
-          {/* Stats Card */}
+          
           <Card sx={styles.statsCard}>
             <CardContent>
               <Typography variant="h6" gutterBottom sx={styles.statsTitle}>

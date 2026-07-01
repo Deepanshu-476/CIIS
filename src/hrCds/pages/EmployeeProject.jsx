@@ -200,6 +200,18 @@ const EmployeeProject = () => {
     return users.map(getUserId).filter(Boolean);
   };
 
+  const toggleTaskAssignedUser = (userId) => {
+    setNewTask(prev => {
+      const selected = new Set(prev.assignedUsers || []);
+      if (selected.has(userId)) {
+        selected.delete(userId);
+      } else {
+        selected.add(userId);
+      }
+      return { ...prev, assignedUsers: Array.from(selected) };
+    });
+  };
+
   const formatDateTimeForInput = (value) => {
     if (!value) return "";
     const date = new Date(value);
@@ -1853,23 +1865,31 @@ const EmployeeProject = () => {
 
                 <div className="EmployeeProject-form-group">
                   <label>Assign To (multiple users)</label>
-                  <select
-                    className={`EmployeeProject-select ${taskErrors.assignedTo ? 'EmployeeProject-input-error' : ''}`}
-                    multiple
-                    size={Math.min(Math.max(projectUsers.length, 3), 6)}
-                    value={newTask.assignedUsers}
-                    onChange={(e) => setNewTask({
-                      ...newTask,
-                      assignedUsers: Array.from(e.target.selectedOptions, option => option.value)
+                  <div className={`EmployeeProject-user-tabs ${taskErrors.assignedTo ? 'EmployeeProject-user-tabs-error' : ''}`}>
+                    {projectUsers.map((u) => {
+                      const userId = getUserId(u);
+                      const isSelected = newTask.assignedUsers.includes(userId);
+                      return (
+                        <label
+                          className={`EmployeeProject-user-tab ${isSelected ? 'EmployeeProject-user-tab-selected' : ''}`}
+                          key={userId}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleTaskAssignedUser(userId)}
+                          />
+                          <span className="EmployeeProject-user-tab-copy">
+                            <strong>{u.name || 'Unnamed User'}</strong>
+                            <small>{u.email || 'No email'}</small>
+                          </span>
+                        </label>
+                      );
                     })}
-                  >
-                    {projectUsers.map((u) => (
-                      <option key={u._id} value={u._id}>
-                        {u.name} ({u.email})
-                      </option>
-                    ))}
-                  </select>
-                  <small className="EmployeeProject-form-help">Ctrl (Windows) or Cmd (Mac) hold karke multiple users select karein.</small>
+                    {!projectUsers.length && (
+                      <div className="EmployeeProject-user-tabs-empty">No project users available.</div>
+                    )}
+                  </div>
                   {taskErrors.assignedTo && (
                     <span className="EmployeeProject-error-text">{taskErrors.assignedTo}</span>
                   )}

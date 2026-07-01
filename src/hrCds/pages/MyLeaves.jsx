@@ -517,9 +517,18 @@ const closeDetailModal = () => {
   }, [joinLeaveRoom]);
 
   const calculateStats = (data) => {
-    const approved = data.filter((l) => l.status === "Approved").length;
-    const pending = data.filter((l) => l.status === "Pending").length;
-    const rejected = data.filter((l) => l.status === "Rejected").length;
+    const statusCounts = data.reduce(
+      (counts, leave) => {
+        const status = String(leave?.status || "").toLowerCase();
+        if (status === "approved") counts.approved += 1;
+        if (status === "pending") counts.pending += 1;
+        if (status === "rejected") counts.rejected += 1;
+        return counts;
+      },
+      { approved: 0, pending: 0, rejected: 0 }
+    );
+
+    const { approved, pending, rejected } = statusCounts;
     setStats({ total: data.length, approved, pending, rejected });
   };
 
@@ -901,25 +910,29 @@ const closeDetailModal = () => {
                 className={`MyLeaves-status-filter ${statusFilter === "ALL" ? "active" : ""}`}
                 onClick={() => setStatusFilter("ALL")}
               >
-                All
+                <span>All</span>
+                <span className="MyLeaves-status-filter-count">{stats.total}</span>
               </button>
               <button
                 className={`MyLeaves-status-filter ${statusFilter === "Approved" ? "active" : ""}`}
                 onClick={() => setStatusFilter("Approved")}
               >
-                Approved
+                <span>Approved</span>
+                <span className="MyLeaves-status-filter-count">{stats.approved}</span>
               </button>
               <button
                 className={`MyLeaves-status-filter ${statusFilter === "Pending" ? "active" : ""}`}
                 onClick={() => setStatusFilter("Pending")}
               >
-                Pending
+                <span>Pending</span>
+                <span className="MyLeaves-status-filter-count">{stats.pending}</span>
               </button>
               <button
                 className={`MyLeaves-status-filter ${statusFilter === "Rejected" ? "active" : ""}`}
                 onClick={() => setStatusFilter("Rejected")}
               >
-                Rejected
+                <span>Rejected</span>
+                <span className="MyLeaves-status-filter-count">{stats.rejected}</span>
               </button>
             </div>
 

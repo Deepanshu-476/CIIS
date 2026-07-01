@@ -394,12 +394,23 @@ const CompanyAssetManagement = () => {
     );
   };
 
+  const normalizeStatus = (status) => String(status || 'Available').trim().toLowerCase();
+
+  const getRequestAssetId = (request) => (
+    getRecordId(request?.asset) ||
+    getRecordId(request?.assetId) ||
+    getRecordId(request?.companyAsset)
+  );
+
   // Filter and search assets
   const getFilteredAssets = () => {
     let filtered = [...assets];
 
     if (selectedBranchId) {
-      filtered = filtered.filter(asset => getBranchId(asset) === selectedBranchId);
+      filtered = filtered.filter(asset => {
+        const assetBranchId = getBranchId(asset);
+        return !assetBranchId || assetBranchId === selectedBranchId;
+      });
     }
     
     if (statusFilter !== 'all') {
@@ -428,6 +439,20 @@ const CompanyAssetManagement = () => {
     ? requests.filter(req => getBranchId(req) === selectedBranchId || getBranchId(req.user) === selectedBranchId)
     : requests;
   const user = getUser();
+  const assignedAssetIds = new Set(
+    filteredRequests
+      .filter(req => normalizeStatus(req.status) === 'approved')
+      .map(getRequestAssetId)
+      .filter(Boolean)
+  );
+  const totalAssetsCount = filteredAssets.length;
+  const assignedAssetsCount = filteredAssets.filter(asset => (
+    normalizeStatus(asset.status) === 'assigned' || assignedAssetIds.has(getRecordId(asset))
+  )).length;
+  const maintenanceAssetsCount = filteredAssets.filter(asset => normalizeStatus(asset.status) === 'maintenance').length;
+  const availableAssetsCount = filteredAssets.filter(asset => (
+    normalizeStatus(asset.status) === 'available' && !assignedAssetIds.has(getRecordId(asset))
+  )).length;
 
   const handleBranchFilterChange = (branchId) => {
     setSelectedBranchId(branchId);
@@ -513,7 +538,7 @@ const CompanyAssetManagement = () => {
             </svg>
           </div>
           <div className="ca-stat-info-enhanced">
-            <div className="ca-stat-value-enhanced">{filteredAssets.length}</div>
+            <div className="ca-stat-value-enhanced">{totalAssetsCount}</div>
             <div className="ca-stat-label-enhanced">Total Assets</div>
           </div>
           <div className="stat-progress">
@@ -528,11 +553,11 @@ const CompanyAssetManagement = () => {
             </svg>
           </div>
           <div className="ca-stat-info-enhanced">
-            <div className="ca-stat-value-enhanced">{filteredAssets.filter(a => a.status === 'Available').length}</div>
+            <div className="ca-stat-value-enhanced">{availableAssetsCount}</div>
             <div className="ca-stat-label-enhanced">Available</div>
           </div>
           <div className="stat-progress">
-            <div className="progress-bar" style={{ width: `${filteredAssets.length ? (filteredAssets.filter(a => a.status === 'Available').length / filteredAssets.length) * 100 : 0}%` }}></div>
+            <div className="progress-bar" style={{ width: `${totalAssetsCount ? (availableAssetsCount / totalAssetsCount) * 100 : 0}%` }}></div>
           </div>
         </div>
         <div className="ca-stat-card-enhanced stat-assigned">
@@ -543,11 +568,11 @@ const CompanyAssetManagement = () => {
             </svg>
           </div>
           <div className="ca-stat-info-enhanced">
-            <div className="ca-stat-value-enhanced">{filteredAssets.filter(a => a.status === 'Assigned').length}</div>
+            <div className="ca-stat-value-enhanced">{assignedAssetsCount}</div>
             <div className="ca-stat-label-enhanced">Assigned</div>
           </div>
           <div className="stat-progress">
-            <div className="progress-bar" style={{ width: `${filteredAssets.length ? (filteredAssets.filter(a => a.status === 'Assigned').length / filteredAssets.length) * 100 : 0}%` }}></div>
+            <div className="progress-bar" style={{ width: `${totalAssetsCount ? (assignedAssetsCount / totalAssetsCount) * 100 : 0}%` }}></div>
           </div>
         </div>
         <div className="ca-stat-card-enhanced stat-maintenance">
@@ -558,11 +583,11 @@ const CompanyAssetManagement = () => {
             </svg>
           </div>
           <div className="ca-stat-info-enhanced">
-            <div className="ca-stat-value-enhanced">{filteredAssets.filter(a => a.status === 'Maintenance').length}</div>
+            <div className="ca-stat-value-enhanced">{maintenanceAssetsCount}</div>
             <div className="ca-stat-label-enhanced">Maintenance</div>
           </div>
           <div className="stat-progress">
-            <div className="progress-bar" style={{ width: `${filteredAssets.length ? (filteredAssets.filter(a => a.status === 'Maintenance').length / filteredAssets.length) * 100 : 0}%` }}></div>
+            <div className="progress-bar" style={{ width: `${totalAssetsCount ? (maintenanceAssetsCount / totalAssetsCount) * 100 : 0}%` }}></div>
           </div>
         </div>
       </div>
@@ -793,12 +818,7 @@ const CompanyAssetManagement = () => {
 
         {viewMode === 'table' ? (
           <>
-            {loading && assets.length === 0 ? (
-              <div className="ca-loading-enhanced">
-                <div className="ca-spinner-enhanced"></div>
-                <p>Loading assets...</p>
-              </div>
-            ) : filteredAssets.length === 0 ? (
+            {!loading && filteredAssets.length === 0 ? (
               <div className="ca-empty-state-enhanced">
                 <div className="ca-empty-icon-enhanced">📦</div>
                 <h4>No Assets Found</h4>

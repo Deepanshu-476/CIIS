@@ -257,6 +257,7 @@ import SuperAdminLogin from "./page/SuperAdminLogin";
 
 import CompanyManagement from "./page/CompanyManagement.jsx";
 import PlanManagement from "./admin/page/PlanManagement.jsx";
+import PageManagement from "./admin/page/PageManagement.jsx";
 import JobRoleManagement from "./admin/page/JobRoleManagement.jsx";
 import SidebarManagement from "./admin/components/SidebarManagement.jsx";
 import CompanyDetails from "./admin/components/CompanyDetails.jsx";
@@ -317,6 +318,7 @@ function App() {
           <Route path="company-assets/branch/:branchId" element={<CompanyAssetManagement/>}/>
           <Route path="CompanyManagement" element={<CompanyManagement />} />
           <Route path="SidebarManagement" element={<SidebarManagement />} />
+          <Route path="page-management" element={<PageManagement />} />
           <Route path="plans" element={<PlanManagement />} />
           <Route path="holiday" element={<Holiday />} />
           <Route path="branch" element={<BranchManagement />} />
@@ -340,7 +342,7 @@ function App() {
           <Route path="change-password" element={<ChangePassword />} />
           <Route path="emp-details" element={<EmppDetail />} />
           <Route path="emp-leaves" element={<EmppLeave />} />
-          <Route path="emp-assets" element={<EmppAsset />} />
+          <Route path="emp-ass  ets" element={<EmppAsset />} />
           <Route path="emp-attendance" element={<EmppAttendence />} />
           <Route path="emp-task-details" element={<TaskDeatils />} />
           <Route path="admin-task-create" element={<AdminTaskCreate />} />

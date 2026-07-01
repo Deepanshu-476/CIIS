@@ -1080,7 +1080,6 @@ const UserCreateTask = () => {
         
         if (totalTasks > 0) {
           void 0;
-          showSnackbar(`✅ Loaded ${totalTasks} assigned tasks`, 'success');
         } else {
           void 0;
         }
@@ -1838,15 +1837,16 @@ const UserCreateTask = () => {
       return;
     }
 
+    setPageLoading(true);
     try {
       await axios.patch(`/tasks/self/${taskId}/status`, { 
         status: newStatus, 
         remarks: remarks || `Status changed to ${newStatus}`
       });
 
-      fetchAllTasks();
-      fetchMyTasks();
-      fetchOverdueTasks();
+      await fetchAllTasks();
+      await fetchMyTasks();
+      await fetchOverdueTasks();
       
       showSnackbar('Status updated successfully', 'success');
 
@@ -1858,6 +1858,8 @@ const UserCreateTask = () => {
       } else {
         showSnackbar(err?.response?.data?.error || 'Failed to update status', 'error');
       }
+    } finally {
+      setPageLoading(false);
     }
   };
 
@@ -1868,6 +1870,7 @@ const UserCreateTask = () => {
       return;
     }
 
+    setPageLoading(true);
     try {
       const normalizedStatus = normalizeStatus(newStatus);
       void 0;
@@ -1898,6 +1901,8 @@ const UserCreateTask = () => {
       }
       
       showSnackbar(errorMessage, 'error');
+    } finally {
+      setPageLoading(false);
     }
   };
 
@@ -1907,6 +1912,7 @@ const UserCreateTask = () => {
       return;
     }
 
+    setPageLoading(true);
     try {
       const normalizedStatus = normalizeStatus(newStatus);
       if (remarks && remarks.trim()) {
@@ -1926,6 +1932,8 @@ const UserCreateTask = () => {
     } catch (err) {
       console.error("❌ Error updating client task:", err);
       showSnackbar(err.response?.data?.message || err.response?.data?.error || 'Failed to update client task status', 'error');
+    } finally {
+      setPageLoading(false);
     }
   };
 
@@ -1948,6 +1956,7 @@ const UserCreateTask = () => {
       return;
     }
 
+    setPageLoading(true);
     try {
       const statusForApi = toProjectApiStatus(newStatus);
       await axios.patch(`/tasks/project/${projectId}/tasks/${taskId}/status`, {
@@ -1962,6 +1971,8 @@ const UserCreateTask = () => {
     } catch (err) {
       console.error("❌ Error updating project task:", err);
       showSnackbar(err.response?.data?.message || err.response?.data?.error || 'Failed to update project task status', 'error');
+    } finally {
+      setPageLoading(false);
     }
   };
 
@@ -1972,6 +1983,7 @@ const UserCreateTask = () => {
       return;
     }
 
+    setPageLoading(true);
     try {
       if (taskSource === 'client') {
         await axios.patch(`/tasks/client-tasks/assigned/${taskId}/status`, { 
@@ -1980,6 +1992,7 @@ const UserCreateTask = () => {
         });
       } else if (taskSource === 'project') {
         await handleProjectTaskStatusChange(taskId, 'onhold', remarks || 'Marked for review after overdue');
+        setPageLoading(false);
         return;
       } else if (taskSource === 'self') {
         await axios.patch(`/tasks/self/${taskId}/status`, { 
@@ -1998,21 +2011,21 @@ const UserCreateTask = () => {
       }
 
       if (taskViewMode === 'all') {
-        fetchAllTasks();
-        fetchMyTasks();
-        fetchAssignedToMeTasks();
-        fetchClientTasks();
-        fetchProjectTasks();
+        await fetchAllTasks();
+        await fetchMyTasks();
+        await fetchAssignedToMeTasks();
+        await fetchClientTasks();
+        await fetchProjectTasks();
       } else if (taskViewMode === 'self') {
-        fetchMyTasks();
+        await fetchMyTasks();
       } else if (taskViewMode === 'client') {
-        fetchClientTasks();
+        await fetchClientTasks();
       } else if (taskViewMode === 'project') {
-        fetchProjectTasks();
+        await fetchProjectTasks();
       } else {
-        fetchAssignedToMeTasks();
+        await fetchAssignedToMeTasks();
       }
-      fetchOverdueTasks();
+      await fetchOverdueTasks();
       
       showSnackbar('Task marked as overdue', 'warning');
 
@@ -2024,6 +2037,8 @@ const UserCreateTask = () => {
       } else {
         showSnackbar(err?.response?.data?.error || 'Failed to mark task as overdue', 'error');
       }
+    } finally {
+      setPageLoading(false);
     }
   };
 
@@ -2999,7 +3014,20 @@ const UserCreateTask = () => {
                                       </div>
                                     )}
                                   </div>
-                                  <StatusChip status={status} label={status} />
+                                  {taskSource === 'self' ? (
+                                    <StatusChip status={status} label={status} />
+                                  ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ fontSize: '11px', color: '#666' }}>User:</span>
+                                        <StatusChip status={status} label={status} />
+                                      </div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ fontSize: '11px', color: '#666' }}>Admin:</span>
+                                         <StatusChip status={typeof task.creatorStatus === 'object' ? (task.creatorStatus?.status || 'pending') : (task.creatorStatus || 'pending')} label={typeof task.creatorStatus === 'object' ? (task.creatorStatus?.status || 'pending') : (task.creatorStatus || 'pending')} />
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
 
                                 <div className="user-create-task-mobile-card-details">
@@ -3086,14 +3114,26 @@ const UserCreateTask = () => {
                                         }
                                       }}
                                       className="user-create-task-select"
+                                      disabled={status === 'overdue' || taskIsOverdue || task.overallStatus === 'overdue'}
                                       style={{ 
                                         minWidth: '90px',
                                         borderColor: shouldHighlightOverdue ? '#f44336' : undefined,
                                         color: shouldHighlightOverdue ? '#f44336' : undefined,
-                                        fontWeight: shouldHighlightOverdue ? '600' : undefined
+                                        fontWeight: shouldHighlightOverdue ? '600' : undefined,
+                                        cursor: (status === 'overdue' || taskIsOverdue || task.overallStatus === 'overdue') ? 'not-allowed' : 'pointer'
                                       }}
                                     >
-                                      {taskSource === 'project' ? (
+                                      {status === 'completed' ? (
+                                        <>
+                                          <option value="completed">Completed</option>
+                                          <option value="reopen">Reopen</option>
+                                        </>
+                                      ) : status === 'reopen' ? (
+                                        <>
+                                          <option value="reopen">Reopen</option>
+                                          <option value="completed">Completed</option>
+                                        </>
+                                      ) : taskSource === 'project' ? (
                                         <>
                                           <option value="pending">Pending</option>
                                           <option value="in-progress">In Progress</option>
@@ -3235,7 +3275,20 @@ const UserCreateTask = () => {
                                 <PriorityChip priority={priority} />
                               </td>
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                                <StatusChip status={status} label={status} />
+                                {taskSource === 'self' ? (
+                                  <StatusChip status={status} label={status} />
+                                ) : (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <span style={{ fontSize: '11px', color: '#666', fontWeight: 600 }}>User:</span>
+                                      <StatusChip status={status} label={status} />
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <span style={{ fontSize: '11px', color: '#666', fontWeight: 600 }}>Admin:</span>
+                                      <StatusChip status={typeof task.creatorStatus === 'object' ? (task.creatorStatus?.status || 'pending') : (task.creatorStatus || 'pending')} label={typeof task.creatorStatus === 'object' ? (task.creatorStatus?.status || 'pending') : (task.creatorStatus || 'pending')} />
+                                    </div>
+                                  </div>
+                                )}
                               </td>
                               
                               {(taskViewMode === 'client' || taskViewMode === 'project' || taskViewMode === 'all') && (
@@ -3405,14 +3458,26 @@ const UserCreateTask = () => {
                                     }
                                   }}
                                   className="user-create-task-select"
+                                  disabled={status === 'overdue' || taskIsOverdue || task.overallStatus === 'overdue'}
                                   style={{ 
                                     minWidth: isMobile ? '90px' : '100px',
                                     borderColor: shouldHighlightOverdue ? '#f44336' : undefined,
                                     color: shouldHighlightOverdue ? '#f44336' : undefined,
-                                    fontWeight: shouldHighlightOverdue ? '600' : undefined
+                                    fontWeight: shouldHighlightOverdue ? '600' : undefined,
+                                    cursor: (status === 'overdue' || taskIsOverdue || task.overallStatus === 'overdue') ? 'not-allowed' : 'pointer'
                                   }}
                                 >
-                                  {taskSource === 'project' ? (
+                                  {status === 'completed' ? (
+                                    <>
+                                      <option value="completed">Completed</option>
+                                      <option value="reopen">Reopen</option>
+                                    </>
+                                  ) : status === 'reopen' ? (
+                                    <>
+                                      <option value="reopen">Reopen</option>
+                                      <option value="completed">Completed</option>
+                                    </>
+                                  ) : taskSource === 'project' ? (
                                     <>
                                       <option value="pending">Pending</option>
                                       <option value="in-progress">In Progress</option>

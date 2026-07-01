@@ -161,6 +161,13 @@ const AdminTaskManagement = () => {
     return companyRole === 'Owner' || userRole === 'Owner' || userRole === 'CAREER INFOWIS Admin';
   };
 
+  const isTaskEditable = (task) => {
+    if (!task) return false;
+    const hasStatusChanged = (task.overallStatus && task.overallStatus !== 'pending') || 
+      (task.statusByUser && task.statusByUser.some(s => s.status !== 'pending'));
+    return !hasStatusChanged;
+  };
+
   
   const getCompanyName = (company) => {
     if (!company) return 'N/A';
@@ -706,12 +713,14 @@ const AdminTaskManagement = () => {
     }
 
     setIsCreatingTask(true);
+    setLoading(true);
     try {
       const parsedDueDateTime = parseDateTimeInput(newTask.dueDateTime);
       
       if (!parsedDueDateTime || isNaN(parsedDueDateTime.getTime())) {
         showSnackbar('Invalid date format. Please select a valid date and time.', 'error');
         setIsCreatingTask(false);
+        setLoading(false);
         return;
       }
 
@@ -720,6 +729,7 @@ const AdminTaskManagement = () => {
       if (parsedDueDateTime < new Date(now.getTime() - buffer)) {
         showSnackbar('Due date cannot be in the past. Please select a future date and time.', 'error');
         setIsCreatingTask(false);
+        setLoading(false);
         return;
       }
 
@@ -751,6 +761,7 @@ const AdminTaskManagement = () => {
       fetchAllData(page, rowsPerPage);
     } catch (error) {
       console.error('Error creating task:', error);
+      setLoading(false);
     } finally {
       setIsCreatingTask(false);
     }
@@ -764,12 +775,14 @@ const AdminTaskManagement = () => {
     }
 
     setIsUpdatingTask(true);
+    setLoading(true);
     try {
       const parsedDueDateTime = parseDateTimeInput(editTask.dueDateTime);
       
       if (!parsedDueDateTime || isNaN(parsedDueDateTime.getTime())) {
         showSnackbar('Invalid date format', 'error');
         setIsUpdatingTask(false);
+        setLoading(false);
         return;
       }
 
@@ -790,6 +803,7 @@ const AdminTaskManagement = () => {
       fetchAllData(page, rowsPerPage);
     } catch (error) {
       console.error('Error updating task:', error);
+      setLoading(false);
     } finally {
       setIsUpdatingTask(false);
     }
@@ -798,12 +812,14 @@ const AdminTaskManagement = () => {
   const handleDeleteTask = async (taskId) => {
     if (!window.confirm('Are you sure you want to delete this task?')) return;
 
+    setLoading(true);
     try {
       await apiCall('delete', `/task/${taskId}`);
       showSnackbar('Task deleted successfully', 'success');
       fetchAllData(page, rowsPerPage);
     } catch (error) {
       console.error('Error deleting task:', error);
+      setLoading(false);
     }
   };
 
@@ -868,6 +884,7 @@ const AdminTaskManagement = () => {
       return;
     }
 
+    setLoading(true);
     try {
       await apiCall('patch', `/task/${statusChange.taskId}/status`, {
         status: statusChange.status,
@@ -881,6 +898,7 @@ const AdminTaskManagement = () => {
       fetchAllData(page, rowsPerPage);
     } catch (error) {
       console.error('Error updating status:', error);
+      setLoading(false);
     }
   };
 
@@ -1130,6 +1148,10 @@ const AdminTaskManagement = () => {
 
   
   const openEditTaskDialog = (task) => {
+    if (!isTaskEditable(task)) {
+      showSnackbar('Task cannot be edited after its status has changed from pending', 'error');
+      return;
+    }
     setSelectedTask(task);
     
     const formattedDueDateTime = formatDateForInput(task.dueDateTime);
@@ -1155,6 +1177,10 @@ const AdminTaskManagement = () => {
   };
 
   const openStatusChangeDialog = (task, userId = '') => {
+    if (task.overallStatus === 'overdue') {
+      showSnackbar('Cannot change status of an overdue task', 'error');
+      return;
+    }
     setSelectedTask(task);
     setStatusChange({
       taskId: task._id,
@@ -1455,11 +1481,25 @@ const AdminTaskManagement = () => {
                 value={statusChange.status}
                 onChange={(e) => setStatusChange({ ...statusChange, status: e.target.value })}
               >
-                <option value="">Select Status</option>
-                <option value="pending">Pending</option>
-                <option value="in-progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="rejected">Rejected</option>
+                {selectedTask?.overallStatus === 'completed' ? (
+                  <>
+                    <option value="completed">Completed</option>
+                    <option value="reopen">Reopen</option>
+                  </>
+                ) : selectedTask?.overallStatus === 'reopen' ? (
+                  <>
+                    <option value="reopen">Reopen</option>
+                    <option value="completed">Completed</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="">Select Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                    <option value="rejected">Rejected</option>
+                  </>
+                )}
               </select>
             </div>
 
@@ -2695,7 +2735,43 @@ const AdminTaskManagement = () => {
                   </div>
                 </td>
                 <td>
-                  <AdminTaskManagementStatusChip status={getTaskStatus(task)} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div>
+                      <span style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '2px', fontWeight: 600 }}>Assignee:</span>
+                      <AdminTaskManagementStatusChip status={getTaskStatus(task)} />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '2px', fontWeight: 600 }}>Admin Check:</span>
+                      <select
+                        value={typeof task.creatorStatus === 'object' ? (task.creatorStatus?.status || 'pending') : (task.creatorStatus || 'pending')}
+                        disabled={task.overallStatus === 'overdue'}
+                        onChange={async (e) => {
+                          const newAdminStatus = e.target.value;
+                          try {
+                            setLoading(true);
+                            await apiCall('patch', `/task/${task._id}/creator-status`, { status: newAdminStatus });
+                            showSnackbar('Admin status updated successfully', 'success');
+                            fetchAllData(page, rowsPerPage);
+                          } catch (error) {
+                            console.error('Error updating admin status:', error);
+                            showSnackbar(error.response?.data?.error || 'Failed to update admin status', 'error');
+                            setLoading(false);
+                          }
+                        }}
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          border: '1px solid #ccc',
+                          fontSize: '12px',
+                          backgroundColor: '#fff',
+                          cursor: task.overallStatus === 'overdue' ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="completed">Completed</option>
+                      </select>
+                    </div>
+                  </div>
                 </td>
                 <td>
                   <AdminTaskManagementPriorityChip priority={task.priority} />
@@ -2722,13 +2798,15 @@ const AdminTaskManagement = () => {
                 </td>
                 <td>
                   <div className="AdminTaskManagement-action-buttons">
-                    <button
-                      className="AdminTaskManagement-icon-btn AdminTaskManagement-btn-sm"
-                      onClick={() => openEditTaskDialog(task)}
-                      title="Edit"
-                    >
-                      <FiEdit />
-                    </button>
+                    {isTaskEditable(task) && (
+                      <button
+                        className="AdminTaskManagement-icon-btn AdminTaskManagement-btn-sm"
+                        onClick={() => openEditTaskDialog(task)}
+                        title="Edit"
+                      >
+                        <FiEdit />
+                      </button>
+                    )}
                     <button
                       className="AdminTaskManagement-icon-btn AdminTaskManagement-btn-sm"
                       onClick={() => fetchRemarks(task._id)}
@@ -2750,13 +2828,15 @@ const AdminTaskManagement = () => {
                     >
                       <FiUsers />
                     </button>
-                    <button
-                      className="AdminTaskManagement-icon-btn AdminTaskManagement-btn-sm"
-                      onClick={() => openStatusChangeDialog(task)}
-                      title="Change Status"
-                    >
-                      <FiCheckCircle />
-                    </button>
+                    {task.overallStatus !== 'overdue' && (
+                      <button
+                        className="AdminTaskManagement-icon-btn AdminTaskManagement-btn-sm"
+                        onClick={() => openStatusChangeDialog(task)}
+                        title="Change Status"
+                      >
+                        <FiCheckCircle />
+                      </button>
+                    )}
                     <button
                       className="AdminTaskManagement-icon-btn AdminTaskManagement-btn-sm AdminTaskManagement-btn-danger"
                       onClick={() => handleDeleteTask(task._id)}
@@ -2826,6 +2906,10 @@ const AdminTaskManagement = () => {
       </div>
     </div>
   );
+
+  if (loading) {
+    return <CIISLoader />;
+  }
 
   return (
     <div className="AdminTaskManagement-container">

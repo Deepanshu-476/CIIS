@@ -582,6 +582,66 @@
     background: #eef2f7;
 }
 
+.chat-media-download-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.15);
+    color: inherit;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.chat-media-download-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: scale(1.05);
+}
+
+.chat-media-download-btn:active {
+    transform: scale(0.95);
+}
+
+.message-row.other .chat-media-download-btn {
+    background: #eef2f7;
+}
+
+.message-row.other .chat-media-download-btn:hover {
+    background: #e2e8f0;
+}
+
+.chat-media-preview-download {
+    position: absolute;
+    top: -14px;
+    right: 32px;
+    z-index: 1;
+    width: 38px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 50%;
+    color: #0f172a;
+    background: #ffffff;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.chat-media-preview-download:hover {
+    background: #f1f5f9;
+    transform: scale(1.05);
+}
+
+.chat-media-preview-download:active {
+    transform: scale(0.95);
+}
+
 .chat-input-area {
     display: flex;
     align-items: flex-end;

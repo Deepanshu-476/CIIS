@@ -135,7 +135,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
 
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get(`${API_URL}/notifications/unread-count`, { headers });
+      const response = await axios.get(`${API_URL}/notifications/unread-count`, { headers, _skipErrorNotify: true });
       
       const count = response.data?.data?.unreadCount || 0;
       setLocalUnreadCount(count);
@@ -252,16 +252,17 @@ const Header = ({ toggleSidebar, isMobile }) => {
         alertsRes,
         systemNotificationsRes,
       ] = await Promise.allSettled([
-        axios.get(`${API_URL}/attendance/list`, { headers }),
-        axios.get(`${API_URL}/leaves/status`, { headers }),
-        axios.get(`${API_URL}/asset-requests/my-requests`, { headers }),
-        axios.get(`${API_URL}/task/my`, { headers }),
-        axios.get(`${API_URL}/task/assigned`, { headers }),
-        axios.get(`${API_URL}/groups`, { headers }),
-        axios.get(`${API_URL}/alerts`, { headers }),
+        axios.get(`${API_URL}/attendance/list`, { headers, _skipErrorNotify: true }),
+        axios.get(`${API_URL}/leaves/status`, { headers, _skipErrorNotify: true }),
+        axios.get(`${API_URL}/asset-requests/my-requests`, { headers, _skipErrorNotify: true }),
+        axios.get(`${API_URL}/task/my`, { headers, _skipErrorNotify: true }),
+        axios.get(`${API_URL}/task/assigned`, { headers, _skipErrorNotify: true }),
+        axios.get(`${API_URL}/groups`, { headers, _skipErrorNotify: true }),
+        axios.get(`${API_URL}/alerts`, { headers, _skipErrorNotify: true }),
         axios.get(`${API_URL}/notifications`, {
           headers,
           params: { unreadOnly: true, limit: 100 },
+          _skipErrorNotify: true
         }),
       ]);
       

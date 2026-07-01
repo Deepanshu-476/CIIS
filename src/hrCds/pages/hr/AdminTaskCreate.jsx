@@ -2675,6 +2675,7 @@ const AdminTaskManagement = () => {
         <table className="AdminTaskManagement-table">
           <thead>
             <tr>
+              <th className="AdminTaskManagement-serial-column">S.No.</th>
               <th>Task</th>
               <th>Status</th>
               <th>Priority</th>
@@ -2684,8 +2685,11 @@ const AdminTaskManagement = () => {
             </tr>
           </thead>
           <tbody>
-            {tasks.map((task) => (
+            {tasks.map((task, index) => (
               <tr key={task._id} className={isOverdue(task) ? 'AdminTaskManagement-task-overdue' : ''}>
+                <td className="AdminTaskManagement-serial-cell">
+                  {page * rowsPerPage + index + 1}
+                </td>
                 <td>
                   <div className="AdminTaskManagement-task-title-cell">
                     <div className="AdminTaskManagement-task-title">{task.title}</div>

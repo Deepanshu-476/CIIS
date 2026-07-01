@@ -203,7 +203,7 @@ body::before {
 
 .pricing-section {
   padding: 2.5rem 0 5rem;
-  background-image: url(images/background.jpg);
+  background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 45%, #fff7ed 100%);
 }
 
 .container {
@@ -266,7 +266,7 @@ body::before {
 }
 
 .card-body-bc {
-  background-image: url(images/blue.webp);
+  background-image: linear-gradient(135deg, #1d4ed8 0%, #38bdf8 100%);
   background-size: cover;
   background-position: top center;
   height: 8.375rem;
@@ -276,7 +276,7 @@ body::before {
 }
 
 .card-body-bc-g {
-  background-image: url(images/gold.webp);
+  background-image: linear-gradient(135deg, #b45309 0%, #facc15 100%);
   background-size: cover;
   background-position: top center;
   height: 8.375rem;
@@ -286,7 +286,7 @@ body::before {
 }
 
 .card-body-bc-gr {
-  background-image: url(images/green.webp);
+  background-image: linear-gradient(135deg, #047857 0%, #86efac 100%);
   background-size: cover;
   background-position: top center;
   height: 8.375rem;

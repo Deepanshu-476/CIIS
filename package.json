@@ -2,7 +2,7 @@
   "name": "ciisnetwork",
   "productName": "CIIS Network",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.1",
   "description": "CIIS Network desktop application.",
   "author": "CIIS Network",
   "type": "module",

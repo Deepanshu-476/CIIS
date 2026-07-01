@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Check, CheckCheck, FileText, Forward, Mic, MoreVertical, Pause, Play, Trash2, X } from "lucide-react";
+import { Check, CheckCheck, Download, FileText, Forward, Mic, MoreVertical, Pause, Play, Trash2, X } from "lucide-react";
 import { API_URL_IMG } from "../config";
 
 const MessageBubble = ({
@@ -231,17 +231,28 @@ const MessageBubble = ({
         }
 
         return (
-            <a
-                className="chat-media-file"
-                href={mediaUrl}
-                target="_blank"
-                rel="noreferrer"
-                title={`Open ${attachmentName}`}
-            >
-                <FileText size={16} />
-                <span>{attachmentName}</span>
-                <small>{isPdfMedia ? "PDF Document" : "Document"}</small>
-            </a>
+            <div className="chat-media-file-wrapper" style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}>
+                <a
+                    className="chat-media-file"
+                    href={mediaUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={`Open ${attachmentName}`}
+                    style={{ marginTop: 0, flex: 1 }}
+                >
+                    <FileText size={16} />
+                    <span>{attachmentName}</span>
+                    <small>{isPdfMedia ? "PDF Document" : "Document"}</small>
+                </a>
+                <a
+                    href={mediaUrl}
+                    download={attachmentName}
+                    className="chat-media-download-btn"
+                    title="Download File"
+                >
+                    <Download size={16} />
+                </a>
+            </div>
         );
     };
 
@@ -331,6 +342,14 @@ const MessageBubble = ({
         {previewMedia && (
             <div className="chat-media-preview-overlay" onClick={() => setPreviewMedia(null)}>
                 <div className="chat-media-preview" onClick={(e) => e.stopPropagation()}>
+                    <a
+                        href={previewMedia.url}
+                        download={attachmentName}
+                        className="chat-media-preview-download"
+                        title="Download"
+                    >
+                        <Download size={20} />
+                    </a>
                     <button
                         type="button"
                         className="chat-media-preview-close"

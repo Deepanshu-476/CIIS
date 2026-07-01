@@ -931,7 +931,6 @@ useEffect(() => {
                         <input
                             ref={fileInputRef}
                             type="file"
-                            accept={CHAT_FILE_ACCEPT}
                             multiple
                             onChange={(e) => {
                                 setFiles(

@@ -44,6 +44,11 @@ const showToastError = (message) => {
 };
 
 const responseErrorHandler = (error) => {
+  // If the request was cancelled (e.g. via AbortController/CancelToken), do not show error toast
+  if (axios.isCancel(error) || error?.code === "ERR_CANCELED" || error?.name === "CanceledError") {
+    return Promise.reject(error);
+  }
+
   // If the request was configured to skip global error notification, ignore it
   if (error.config?._skipErrorNotify) {
     return Promise.reject(error);
@@ -128,9 +133,8 @@ const responseErrorHandler = (error) => {
       message = rawMessage || "The requested resource could not be found.";
     }
   } else if (error.request) {
-    // The request was made but no response was received
-    title = "🌐 Network Offline";
-    message = "Unable to connect to the server. Please check your internet connection and try again.";
+    // The request was made but no response was received. Skip showing toast.
+    return Promise.reject(error);
   } else {
     // Something happened in setting up the request that triggered an Error
     title = "⚙️ App Error";

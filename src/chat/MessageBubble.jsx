@@ -2,6 +2,23 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Check, CheckCheck, Download, FileText, Forward, Mic, MoreVertical, Pause, Play, Trash2, X } from "lucide-react";
 import { API_URL_IMG } from "../config";
 
+const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif|bmp|svg)$/i;
+const AUDIO_EXTENSIONS = /\.(mp3|wav|webm|ogg|m4a|aac)$/i;
+const VIDEO_EXTENSIONS = /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i;
+const DOCUMENT_EXTENSIONS = /\.(pdf|docx?|xlsx?|csv|pptx?|txt|rtf|odt|ods|odp|zip|rar|7z)$/i;
+
+const getBackendUrl = (path) => `${API_URL_IMG.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
+
+const safeEncodeUrl = (url) => {
+    try {
+        return encodeURI(url);
+    } catch {
+        return url;
+    }
+};
+
+const uniqueUrls = (urls) => Array.from(new Set(urls.filter(Boolean).map(safeEncodeUrl)));
+
 const MessageBubble = ({
     message,
     currentUser,
@@ -22,6 +39,7 @@ const MessageBubble = ({
     const [isAudioPlaying, setIsAudioPlaying] = useState(false);
     const [audioCurrentTime, setAudioCurrentTime] = useState(0);
     const [audioDuration, setAudioDuration] = useState(0);
+    const [mediaUrlIndex, setMediaUrlIndex] = useState(0);
     const audioRef = useRef(null);
 
     const currentUserId = (currentUser?._id || currentUser?.id || "").toString();
@@ -31,32 +49,95 @@ const MessageBubble = ({
     const isDeletedForEveryone = Boolean(message.deletedForEveryone);
     const mediaType = message.mediaType || message.type || message.fileType;
     const getRawMediaUrl = () => {
-        const raw = message.mediaUrl || message.fileUrl || message.attachmentUrl || message.file;
+        const raw = message.mediaUrl
+            || message.fileUrl
+            || message.attachmentUrl
+            || message.file
+            || message.url
+            || message.path
+            || message.filename
+            || message.fileName
+            || message.name;
         if (!raw) return "";
         if (typeof raw === "string") return raw;
         if (typeof raw === "object") {
-            return raw.url || raw.path || raw.fileUrl || raw.attachmentUrl || "";
+            return raw.url
+                || raw.path
+                || raw.fileUrl
+                || raw.attachmentUrl
+                || raw.filename
+                || raw.fileName
+                || raw.name
+                || "";
         }
         return "";
     };
     const rawMediaUrl = getRawMediaUrl();
-    const normalizeMediaUrl = (url) => {
-        if (!url) return "";
-        return url.startsWith("http")
-            ? url
-            : `${API_URL_IMG.replace(/\/$/, "")}${url.startsWith("/") ? url : `/${url}`}`;
+    const getMediaUrlCandidates = (url) => {
+        if (!url) return [];
+
+        const normalizedRaw = String(url).trim().replace(/\\/g, "/");
+        const withoutQuery = normalizedRaw.split("?")[0];
+        const fileName = withoutQuery.split("/").pop();
+        const looksLikeChatFile = fileName && (IMAGE_EXTENSIONS.test(fileName) || AUDIO_EXTENSIONS.test(fileName) || VIDEO_EXTENSIONS.test(fileName) || DOCUMENT_EXTENSIONS.test(fileName));
+
+        if (/^https?:\/\//i.test(normalizedRaw)) {
+            const candidates = [normalizedRaw];
+
+            try {
+                const parsed = new URL(normalizedRaw);
+                candidates.push(getBackendUrl(parsed.pathname + parsed.search));
+                if (looksLikeChatFile) {
+                    candidates.push(getBackendUrl(`/api/uploads/chat/${fileName}`));
+                    candidates.push(getBackendUrl(`/uploads/chat/${fileName}`));
+                }
+            } catch {
+                // Keep the absolute URL as-is if parsing fails.
+            }
+
+            return uniqueUrls(candidates);
+        }
+
+        const trimmedPath = normalizedRaw.replace(/^\/+/, "");
+        const candidates = [];
+
+        if (trimmedPath.startsWith("api/uploads/") || trimmedPath.startsWith("uploads/")) {
+            candidates.push(getBackendUrl(`/${trimmedPath}`));
+        }
+
+        if (trimmedPath.startsWith("uploads/chat/")) {
+            candidates.push(getBackendUrl(`/api/${trimmedPath}`));
+        }
+
+        if (trimmedPath.startsWith("chat/")) {
+            candidates.push(getBackendUrl(`/api/uploads/${trimmedPath}`));
+            candidates.push(getBackendUrl(`/uploads/${trimmedPath}`));
+        }
+
+        if (looksLikeChatFile) {
+            candidates.push(getBackendUrl(`/api/uploads/chat/${fileName}`));
+            candidates.push(getBackendUrl(`/uploads/chat/${fileName}`));
+        }
+
+        candidates.push(getBackendUrl(`/${trimmedPath}`));
+
+        return uniqueUrls(candidates);
     };
-    const mediaUrl = normalizeMediaUrl(rawMediaUrl);
+    const mediaUrlCandidates = useMemo(() => getMediaUrlCandidates(rawMediaUrl), [rawMediaUrl]);
+    const mediaUrl = mediaUrlCandidates[mediaUrlIndex] || mediaUrlCandidates[0] || "";
     const normalizedMediaType = (mediaType || "").toLowerCase();
     const mediaPath = (mediaUrl || "").split("?")[0].toLowerCase();
-    const isImageMedia = normalizedMediaType.startsWith("image") || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(mediaPath);
+    const rawMediaPath = String(rawMediaUrl || "").split("?")[0].toLowerCase();
+    const isImageMedia = normalizedMediaType.startsWith("image") || IMAGE_EXTENSIONS.test(mediaPath) || IMAGE_EXTENSIONS.test(rawMediaPath);
     const isAudioMedia = normalizedMediaType.startsWith("audio")
         || mediaPath.includes("audio-recording")
-        || /\.(mp3|wav|webm|ogg|m4a|aac)$/i.test(mediaPath);
+        || rawMediaPath.includes("audio-recording")
+        || AUDIO_EXTENSIONS.test(mediaPath)
+        || AUDIO_EXTENSIONS.test(rawMediaPath);
     const isVideoMedia = !isAudioMedia && (
-        normalizedMediaType.startsWith("video") || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i.test(mediaPath)
+        normalizedMediaType.startsWith("video") || VIDEO_EXTENSIONS.test(mediaPath) || VIDEO_EXTENSIONS.test(rawMediaPath)
     );
-    const isPdfMedia = normalizedMediaType === "application/pdf" || /\.pdf$/i.test(mediaPath);
+    const isPdfMedia = normalizedMediaType === "application/pdf" || /\.pdf$/i.test(mediaPath) || /\.pdf$/i.test(rawMediaPath);
     const getAttachmentName = () => {
         const pathName = rawMediaUrl.split(/[\\/]/).pop() || "Attachment";
         try {
@@ -67,12 +148,18 @@ const MessageBubble = ({
     };
     const attachmentName = getAttachmentName();
     const isAudioOnly = Boolean(isAudioMedia && mediaUrl && !message.text && !isDeletedForEveryone);
+    const tryNextMediaUrl = () => {
+        setMediaUrlIndex((currentIndex) => (
+            currentIndex + 1 < mediaUrlCandidates.length ? currentIndex + 1 : currentIndex
+        ));
+    };
 
     useEffect(() => {
+        setMediaUrlIndex(0);
         setIsAudioPlaying(false);
         setAudioCurrentTime(0);
         setAudioDuration(0);
-    }, [mediaUrl]);
+    }, [rawMediaUrl]);
 
     const forwardCandidates = useMemo(() => (
         users.filter((user) => user._id !== currentUser?._id)
@@ -165,6 +252,7 @@ const MessageBubble = ({
                 }}
                 onError={(event) => {
                     console.warn("Voice note load error", event);
+                    tryNextMediaUrl();
                 }}
             />
             <div className="voice-avatar">
@@ -207,7 +295,7 @@ const MessageBubble = ({
                     onClick={() => openMediaPreview("image")}
                     aria-label="Open image attachment"
                 >
-                    <img src={mediaUrl} alt="attachment" className="chat-media chat-media-image" />
+                    <img src={mediaUrl} alt="attachment" className="chat-media chat-media-image" onError={tryNextMediaUrl} />
                 </button>
             );
         }
@@ -224,13 +312,14 @@ const MessageBubble = ({
                     onClick={() => openMediaPreview("video")}
                     aria-label="Open video attachment"
                 >
-                    <video src={mediaUrl} className="chat-media chat-media-video" muted playsInline />
+                    <video src={mediaUrl} className="chat-media chat-media-video" muted playsInline onError={tryNextMediaUrl} />
                     <span className="chat-video-open-label">Open video</span>
                 </button>
             );
         }
 
         return (
+<<<<<<< HEAD
             <div className="chat-media-file-wrapper" style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}>
                 <a
                     className="chat-media-file"
@@ -253,6 +342,24 @@ const MessageBubble = ({
                     <Download size={16} />
                 </a>
             </div>
+=======
+            <a
+                className="chat-media-file"
+                href={mediaUrl}
+                target="_blank"
+                rel="noreferrer"
+                title={`Open ${attachmentName}`}
+                onClick={(event) => {
+                    if (!mediaUrl) {
+                        event.preventDefault();
+                    }
+                }}
+            >
+                <FileText size={16} />
+                <span>{attachmentName}</span>
+                <small>{isPdfMedia ? "PDF Document" : "Document"}</small>
+            </a>
+>>>>>>> 575afb71780a10255fa615fd84f60b96ca85c67a
         );
     };
 

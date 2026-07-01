@@ -830,6 +830,18 @@
   transition: var(--transition);
 }
 
+.AdminTaskManagement-serial-column,
+.AdminTaskManagement-serial-cell {
+  width: 72px;
+  min-width: 72px;
+  text-align: center;
+}
+
+.AdminTaskManagement-serial-cell {
+  color: var(--gray-700);
+  font-weight: 700;
+}
+
 .AdminTaskManagement-table tbody tr {
   transition: var(--transition);
   animation: AdminTaskManagement-fadeIn 0.3s ease;

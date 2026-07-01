@@ -1,6 +1,5 @@
 import axios from "axios";
 import API_URL from "../config";
-import { toast } from "react-toastify";
 
 const axiosInstance = axios.create({
   // Never let a local Vite session call or mutate production data. Vite
@@ -15,34 +14,6 @@ axiosInstance.interceptors.request.use((config) => {
   return config;
 });
 
-// A set to keep track of active toast messages to prevent flooding the screen with identical popups
-const activeToasts = new Set();
-let lastToastTime = 0;
-
-const showToastError = (message) => {
-  if (activeToasts.has(message)) return;
-
-  // Prevent toast storms (allow at most 1 toast every 2 seconds)
-  const now = Date.now();
-  if (now - lastToastTime < 2000) {
-    console.log("Suppressed duplicate toast error: ", message);
-    return;
-  }
-
-  activeToasts.add(message);
-  lastToastTime = now;
-  
-  toast.error(message, {
-    position: "top-right",
-    autoClose: 6000, // Show for 6 seconds so user has enough time to read clearly
-    hideProgressBar: false,
-    closeOnClick: true,
-    pauseOnHover: true,
-    draggable: true,
-    onClose: () => activeToasts.delete(message),
-  });
-};
-
 const responseErrorHandler = (error) => {
   // If the request was cancelled (e.g. via AbortController/CancelToken), do not show error toast
   if (axios.isCancel(error) || error?.code === "ERR_CANCELED" || error?.name === "CanceledError") {
@@ -54,20 +25,23 @@ const responseErrorHandler = (error) => {
     return Promise.reject(error);
   }
 
-  let title = "⚠️ Request Failed";
-  let message = "An unexpected error occurred. Please try again.";
+  // Keep global axios errors silent. Pages can still handle errors locally,
+  // while auth expiry keeps its redirect behavior without showing a toast.
+  if (error.response?.status === 401) {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
 
-  if (error.response) {
-    // The server responded with a status code out of the 2xx range
-    const data = error.response.data;
-    
-    // Extract base message
-    const rawMessage = data?.message || data?.error;
-    if (rawMessage) {
-      message = rawMessage;
-    } else {
-      message = `Request failed with status code ${error.response.status}`;
+    if (!window.location.pathname.includes("/login")) {
+      const companyCode = localStorage.getItem("companyCode") || localStorage.getItem("companyIdentifier");
+      setTimeout(() => {
+        if (companyCode) {
+          window.location.href = `/company/${companyCode}/login`;
+        } else {
+          window.location.href = `/login`;
+        }
+      }, 1500);
     }
+<<<<<<< HEAD
 
     // Capture validation errors beautifully if they exist, detailing the exact field/section
     if (data?.errors) {
@@ -139,14 +113,14 @@ const responseErrorHandler = (error) => {
     // Something happened in setting up the request that triggered an Error
     title = "⚙️ App Error";
     message = error.message || "Something went wrong while sending the request.";
+=======
+>>>>>>> 575afb71780a10255fa615fd84f60b96ca85c67a
   }
 
-  const finalToastText = `[${title}]\n${message}`;
-  showToastError(finalToastText);
   return Promise.reject(error);
 };
 
-// Bind interceptors to both standard default axios and custom axiosInstance
+// Bind interceptors to both standard default axios and custom axiosInstance.
 axios.interceptors.response.use((response) => response, responseErrorHandler);
 axiosInstance.interceptors.response.use((response) => response, responseErrorHandler);
 

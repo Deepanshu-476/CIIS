@@ -90,6 +90,7 @@ const EmployeeProject = () => {
   const [openActivityDrawer, setOpenActivityDrawer] = useState(false);
   const [openNotificationsModal, setOpenNotificationsModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [editingTask, setEditingTask] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [statusRemark, setStatusRemark] = useState("");
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
@@ -185,6 +186,79 @@ const EmployeeProject = () => {
     if (typeof task?.remarkCount === "number") return task.remarkCount;
     if (typeof task?.commentsCount === "number") return task.commentsCount;
     return 0;
+  };
+
+  const getUserId = (user) => String(user?._id || user?.id || user || "");
+
+  const getTaskAssignedUserIds = (task) => {
+    const users = Array.isArray(task?.assignedUsers) && task.assignedUsers.length
+      ? task.assignedUsers
+      : task?.assignedTo
+        ? [task.assignedTo]
+        : [];
+
+    return users.map(getUserId).filter(Boolean);
+  };
+
+  const formatDateTimeForInput = (value) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const timezoneOffsetMs = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
+  };
+
+  const getPriorityInputValue = (priority) => {
+    const normalized = String(priority || "Medium").trim().toLowerCase();
+    if (normalized === "low") return "Low";
+    if (normalized === "high") return "High";
+    return "Medium";
+  };
+
+  const resetTaskForm = () => {
+    setNewTask({
+      title: "",
+      description: "",
+      assignedUsers: [],
+      dueDate: "",
+      priority: "Medium",
+      status: "pending",
+    });
+    setFile(null);
+    setFileName("");
+    setTaskErrors({});
+    setEditingTask(null);
+  };
+
+  const handleOpenCreateTaskDialog = () => {
+    resetTaskForm();
+    setOpenTaskDialog(true);
+  };
+
+  const handleCloseTaskDialog = () => {
+    resetTaskForm();
+    setOpenTaskDialog(false);
+  };
+
+  const handleOpenEditTaskDialog = (task) => {
+    if (normalizeTaskStatus(task?.status) !== "pending") {
+      showSnackbar("Only pending tasks can be edited", "warning");
+      return;
+    }
+
+    setEditingTask(task);
+    setNewTask({
+      title: task?.title || "",
+      description: task?.description || "",
+      assignedUsers: getTaskAssignedUserIds(task),
+      dueDate: formatDateTimeForInput(task?.dueDate),
+      priority: getPriorityInputValue(task?.priority),
+      status: normalizeTaskStatus(task?.status),
+    });
+    setFile(null);
+    setFileName("");
+    setTaskErrors({});
+    setOpenTaskDialog(true);
   };
 
   // ✅ Load all projects with page loader
@@ -397,18 +471,7 @@ const EmployeeProject = () => {
         headers: { "Content-Type": "multipart/form-data" }
       });
 
-      // Reset form and close dialog
-      setNewTask({
-        title: "",
-        description: "",
-        assignedUsers: [],
-        dueDate: "",
-        priority: "Medium",
-        status: "pending",
-      });
-      setFile(null);
-      setFileName("");
-      setTaskErrors({});
+      resetTaskForm();
       setOpenTaskDialog(false);
 
       // Refresh tasks and notifications
@@ -419,6 +482,40 @@ const EmployeeProject = () => {
     } catch (error) {
       console.error("Error adding task:", error);
       showSnackbar("Error adding task", "error");
+    } finally {
+      setLoading(prev => ({ ...prev, tasks: false }));
+    }
+  };
+
+  const handleUpdateTask = async () => {
+    if (!editingTask?._id || !validateTaskForm()) return;
+
+    setLoading(prev => ({ ...prev, tasks: true }));
+    try {
+      const assignedTo = newTask.assignedUsers[0] || "";
+      const payload = {
+        title: newTask.title,
+        description: newTask.description,
+        assignedUsers: newTask.assignedUsers,
+        assignedTo,
+        dueDate: newTask.dueDate || "",
+        priority: newTask.priority,
+        status: newTask.status,
+      };
+
+      await axios.patch(`/projects/${selectedProject}/tasks/${editingTask._id}`, payload);
+
+      resetTaskForm();
+      setOpenTaskDialog(false);
+      setDetailTaskId(null);
+
+      handleSelectProject(selectedProject);
+      loadNotifications();
+
+      showSnackbar("Task updated successfully!", "success");
+    } catch (error) {
+      console.error("Error updating task:", error);
+      showSnackbar(error.response?.data?.message || "Error updating task", "error");
     } finally {
       setLoading(prev => ({ ...prev, tasks: false }));
     }
@@ -1015,7 +1112,7 @@ const EmployeeProject = () => {
                   </div>
                   <button
                     className="EmployeeProject-button EmployeeProject-button-primary"
-                    onClick={() => setOpenTaskDialog(true)}
+                    onClick={handleOpenCreateTaskDialog}
                     disabled={loading.tasks}
                   >
                     <Icons.Add />
@@ -1048,7 +1145,7 @@ const EmployeeProject = () => {
                     <p>Start by creating your first task</p>
                     <button
                       className="EmployeeProject-button EmployeeProject-button-primary"
-                      onClick={() => setOpenTaskDialog(true)}
+                      onClick={handleOpenCreateTaskDialog}
                     >
                       <Icons.Add />
                       Create First Task
@@ -1099,6 +1196,19 @@ const EmployeeProject = () => {
                               </div>
                             </div>
                             <div className="EmployeeProject-task-actions">
+                              {normalizeTaskStatus(t.status) === "pending" && (
+                                <Tooltip title="Edit Task">
+                                  <button
+                                    className="EmployeeProject-icon-button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenEditTaskDialog(t);
+                                    }}
+                                  >
+                                    <Icons.Edit />
+                                  </button>
+                                </Tooltip>
+                              )}
                               <Tooltip title="Update Status">
                                 <button
                                   className="EmployeeProject-icon-button"
@@ -1432,6 +1542,18 @@ const EmployeeProject = () => {
             </div>
 
             <div className="EmployeeProject-modal-footer EmployeeProject-task-detail-footer">
+              {normalizeTaskStatus(detailTask.status) === "pending" && (
+                <button
+                  className="EmployeeProject-button EmployeeProject-button-outline"
+                  onClick={() => {
+                    setDetailTaskId(null);
+                    handleOpenEditTaskDialog(detailTask);
+                  }}
+                >
+                  <Icons.Edit />
+                  Edit
+                </button>
+              )}
               <input
                 type="text"
                 className="EmployeeProject-remark-input"
@@ -1694,10 +1816,10 @@ const EmployeeProject = () => {
       {/* ADD TASK DIALOG */}
       {openTaskDialog && (
         <div className="EmployeeProject-modal">
-          <div className="EmployeeProject-modal-backdrop" onClick={() => setOpenTaskDialog(false)} />
+          <div className="EmployeeProject-modal-backdrop" onClick={handleCloseTaskDialog} />
           <div className="EmployeeProject-modal-content EmployeeProject-modal-md">
             <div className="EmployeeProject-modal-header EmployeeProject-modal-header-primary">
-              <h3>Create New Task</h3>
+              <h3>{editingTask ? "Edit Pending Task" : "Create New Task"}</h3>
             </div>
             <div className="EmployeeProject-modal-body">
               <div className="EmployeeProject-task-form">
@@ -1803,79 +1925,86 @@ const EmployeeProject = () => {
                   </div>
                 </div>
 
-                <div className="EmployeeProject-form-group">
-                  <div
-                    className={`EmployeeProject-file-dropzone ${isTaskFileDragging ? 'EmployeeProject-file-dropzone-active' : ''}`}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => document.getElementById('task-file-input').click()}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
+                {!editingTask ? (
+                  <div className="EmployeeProject-form-group">
+                    <div
+                      className={`EmployeeProject-file-dropzone ${isTaskFileDragging ? 'EmployeeProject-file-dropzone-active' : ''}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => document.getElementById('task-file-input').click()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          document.getElementById('task-file-input').click();
+                        }
+                      }}
+                      onDragEnter={(e) => {
                         e.preventDefault();
-                        document.getElementById('task-file-input').click();
-                      }
-                    }}
-                    onDragEnter={(e) => {
-                      e.preventDefault();
-                      setIsTaskFileDragging(true);
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setIsTaskFileDragging(true);
-                    }}
-                    onDragLeave={(e) => {
-                      e.preventDefault();
-                      if (e.currentTarget === e.target) setIsTaskFileDragging(false);
-                    }}
-                    onDrop={handleTaskFileDrop}
-                  >
-                    <Icons.CloudUpload />
-                    <div className="EmployeeProject-file-dropzone-text">
-                      <strong>Upload Task File</strong>
-                      <span>Drag & drop PDF or image here, or click to browse</span>
+                        setIsTaskFileDragging(true);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsTaskFileDragging(true);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        if (e.currentTarget === e.target) setIsTaskFileDragging(false);
+                      }}
+                      onDrop={handleTaskFileDrop}
+                    >
+                      <Icons.CloudUpload />
+                      <div className="EmployeeProject-file-dropzone-text">
+                        <strong>Upload Task File</strong>
+                        <span>Drag & drop PDF or image here, or click to browse</span>
+                      </div>
                     </div>
+                    <input
+                      id="task-file-input"
+                      type="file"
+                      hidden
+                      accept=".pdf,image/jpeg,image/png,image/webp,image/gif"
+                      onChange={handleFileChange}
+                    />
+                    {fileName && (
+                      <div className="EmployeeProject-file-info">
+                        <Icons.PictureAsPdf />
+                        <span>Selected: {fileName}</span>
+                        <button
+                          type="button"
+                          className="EmployeeProject-file-remove"
+                          onClick={() => {
+                            setFile(null);
+                            setFileName("");
+                          }}
+                          aria-label="Remove selected file"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <input
-                    id="task-file-input"
-                    type="file"
-                    hidden
-                    accept=".pdf,image/jpeg,image/png,image/webp,image/gif"
-                    onChange={handleFileChange}
-                  />
-                  {fileName && (
-                    <div className="EmployeeProject-file-info">
-                      <Icons.PictureAsPdf />
-                      <span>Selected: {fileName}</span>
-                      <button
-                        type="button"
-                        className="EmployeeProject-file-remove"
-                        onClick={() => {
-                          setFile(null);
-                          setFileName("");
-                        }}
-                        aria-label="Remove selected file"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  )}
-                </div>
+                ) : editingTask.pdfFile?.filename ? (
+                  <div className="EmployeeProject-file-info">
+                    <Icons.PictureAsPdf />
+                    <span>Current file: {editingTask.pdfFile.filename}</span>
+                  </div>
+                ) : null}
               </div>
             </div>
             <div className="EmployeeProject-modal-footer">
               <button 
                 className="EmployeeProject-button EmployeeProject-button-outline"
-                onClick={() => setOpenTaskDialog(false)} 
+                onClick={handleCloseTaskDialog} 
                 disabled={loading.tasks}
               >
                 Cancel
               </button>
               <button
                 className="EmployeeProject-button EmployeeProject-button-primary"
-                onClick={handleAddTask}
+                onClick={editingTask ? handleUpdateTask : handleAddTask}
                 disabled={loading.tasks}
               >
-                {loading.tasks ? "Adding..." : "Create Task"}
+                {loading.tasks ? (editingTask ? "Updating..." : "Adding...") : (editingTask ? "Update Task" : "Create Task")}
               </button>
             </div>
           </div>

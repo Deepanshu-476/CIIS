@@ -214,6 +214,7 @@ import CompanyAllTaskTasks from "./hrCds/pages/hr/CompanyAllTaskTasks";
 import EmpDepartmentAllTask from "./hrCds/pages/hr/EmpDepartmentAllTask.jsx";
 import AdminProject from "./hrCds/pages/AdminProject";
 import Client from "./hrCds/pages/hr/Client";
+import ClientPlansPage from "./hrCds/pages/hr/ClientPlansPage.jsx";
 
 // ========== CLIENT PAGES (NEW) ==========
 import ClientDashboardPage from "./hrCds/pages/client/ClientDashboardPage.jsx";
@@ -351,6 +352,7 @@ function App() {
           <Route path="company-all-task/tasks/:userId" element={<CompanyAllTaskTasks />} />
           <Route path="company-all-task/:userId/tasks" element={<CompanyAllTaskTasks />} />
           <Route path="emp-client" element={<Client />} />
+          <Route path="client-plans" element={<ClientPlansPage />} />
           <Route path="active-clients" element={<ActiveClientsOverview />} />
           <Route path="alert" element={<Alerts />} />
           <Route path="attendance" element={<Attendance />} />
@@ -384,7 +386,7 @@ function App() {
             </ThemeContextProvider>
           }
         >
-          <Route index element={<ClientDashboardPage />} />x
+          <Route index element={<ClientDashboardPage />} />
           <Route path="dashboard" element={<ClientDashboardPage />} />
           <Route path="tasks-updates" element={<ClientTasksUpdatesPage />} />
           <Route path="my-services" element={<MyServicesPage />} />

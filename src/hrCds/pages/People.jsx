@@ -26,7 +26,7 @@ import { Download, FilterList, Group } from "@mui/icons-material"
 import { Grid } from "@mui/system"
 import axiosInstance from "../../utils/axiosConfig"
 
-// Static dropdown options
+
 const designations = ["Software Engineer", "Product Manager"]
 const genders = ["Male", "Female"]
 const departments = ["Engineering", "Product"]
@@ -40,65 +40,13 @@ function FilterBar({ filters, onFiltersChange, onReset }) {
   return (
     <Box mb={3}>
       <Stack direction="row" spacing={2} alignItems="center" flexWrap="nowrap" sx={{ overflowX: "auto" }}>
-        {/* <TextField
-          select
-          label="Designation"
-          name="designation"
-          value={filters.designation}
-          onChange={handleChange}
-          size="small"
-          sx={{ minWidth: 160, flexShrink: 0 }}
-        >
-          <MenuItem value="">All</MenuItem>
-          {designations.map((d) => (
-            <MenuItem key={d} value={d}>{d}</MenuItem>
-          ))}
-        </TextField> */}
+        
 
-        {/* <TextField
-          select
-          label="Gender"
-          name="gender"
-          value={filters.gender}
-          onChange={handleChange}
-          size="small"
-          sx={{ minWidth: 120, flexShrink: 0 }}
-        >
-          <MenuItem value="">All</MenuItem>
-          {genders.map((g) => (
-            <MenuItem key={g} value={g}>{g}</MenuItem>
-          ))}
-        </TextField> */}
+        
 
-        {/* <TextField
-          select
-          label="Department"
-          name="department"
-          value={filters.department}
-          onChange={handleChange}
-          size="small"
-          sx={{ minWidth: 160, flexShrink: 0 }}
-        >
-          <MenuItem value="">All</MenuItem>
-          {departments.map((d) => (
-            <MenuItem key={d} value={d}>{d}</MenuItem>
-          ))}
-        </TextField> */}
+        
 
-        {/* <TextField
-          select
-          label="Location"
-          name="location"
-          value={filters.location}
-          onChange={handleChange}
-          size="small"
-          sx={{ minWidth: 150, flexShrink: 0 }}
-        >
-          <MenuItem value="">All</MenuItem>
-          {locations.map((l) => (
-            <MenuItem key={l} value={l}>{l}</MenuItem>
-          ))}
-        </TextField> */}
+        
 
         <TextField
           label="Search by Name"
@@ -142,7 +90,7 @@ function People() {
     try {
       const response = await axiosInstance.get('/users/all-users')
       setAllUsers(response.data)
-      console.log(response.data, 'all users data')
+      void 0
     } catch (error) {
       console.error("Error fetching users:", error)
     }
@@ -168,10 +116,10 @@ function People() {
 
   const handleReset = () => {
     setFilters({
-      // designation: "",
-      // gender: "",
-      // department: "",
-      // location: "",
+      
+      
+      
+      
       search: "",
     })
     setPage(0)
@@ -226,8 +174,8 @@ function People() {
       </Box>
 
       <Tabs value={tabIndex} onChange={(_, newValue) => setTabIndex(newValue)} sx={{ maxWidth: 400 }}>
-        {/* <Tab label="Organization Chart" /> */}
-        {/* <Tab label="Organization Directory" /> */}
+        
+        
       </Tabs>
 
       {tabIndex === 0 && (
@@ -275,10 +223,10 @@ function People() {
                   <TableHead>
                     <TableRow>
                       <TableCell>Name</TableCell>
-                      {/* <TableCell>Designation</TableCell> */}
-                      {/* <TableCell>Department</TableCell> */}
-                      {/* <TableCell>Gender</TableCell> */}
-                      {/* <TableCell>Location</TableCell> */}
+                      
+                      
+                      
+                      
                       <TableCell>Email</TableCell>
                       <TableCell>Mobile</TableCell>
                     </TableRow>
@@ -292,10 +240,10 @@ function People() {
                             <Typography>{emp.name}</Typography>
                           </Stack>
                         </TableCell>
-                        {/* <TableCell>{emp.designation}</TableCell>/ */}
-                        {/* <TableCell>{emp.department}</TableCell> */}
-                        {/* <TableCell>{emp.gender}</TableCell> */}
-                        {/* <TableCell>{emp.location}</TableCell> */}
+                        
+                        
+                        
+                        
                         <TableCell>{emp.email}</TableCell>
                         <TableCell>{emp.mobile}</TableCell>
                       </TableRow>

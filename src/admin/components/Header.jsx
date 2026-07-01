@@ -102,14 +102,14 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
   };
 
 const handleLogout = () => {
-  // Using your UI library's confirmation dialog (example)
-  // This is more customizable and looks better than window.confirm
+  
+  
   if (window.confirm('Are you sure you want to logout?')) {
     localStorage.removeItem('token');
     navigate('/');
     
-    // Optional: Show success message
-    alert('Logged out successfully!'); // or use toast notification
+    
+    alert('Logged out successfully!'); 
   }
 };
 
@@ -186,7 +186,7 @@ const handleLogout = () => {
             </IconButton>
           </Tooltip>
 
-          {/* ✅ New Attendance Button */}
+          
           <Tooltip title="Attendance">
             <IconButton color="inherit" onClick={() => navigate('/cds/user-dashboard')}>
               <Typography variant="subtitle2" fontWeight={600}>Attd.</Typography>

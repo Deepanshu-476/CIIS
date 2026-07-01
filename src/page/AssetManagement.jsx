@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 import axios from '../utils/axiosConfig';
 import './AssetManagement.css';
 
-// Asset Categories with Icons (SVG paths)
+
 const ASSET_CATEGORIES = [
   { value: 'electronics', label: 'Electronics', icon: 'computer', color: '#2196f3' },
   { value: 'furniture', label: 'Furniture', icon: 'business', color: '#ff9800' },
@@ -15,7 +15,7 @@ const ASSET_CATEGORIES = [
   { value: 'other', label: 'Other', icon: 'category', color: '#757575' }
 ];
 
-// Asset Status with Icons and Colors
+
 const ASSET_STATUS = [
   { value: 'available', label: 'Available', icon: 'check_circle', color: '#4caf50' },
   { value: 'assigned', label: 'Assigned', icon: 'assignment_turned_in', color: '#2196f3' },
@@ -25,7 +25,7 @@ const ASSET_STATUS = [
   { value: 'reserved', label: 'Reserved', icon: 'schedule', color: '#9c27b0' }
 ];
 
-// Condition Types
+
 const CONDITION_TYPES = [
   { value: 'new', label: 'New', color: '#4caf50' },
   { value: 'excellent', label: 'Excellent', color: '#8bc34a' },
@@ -34,7 +34,7 @@ const CONDITION_TYPES = [
   { value: 'poor', label: 'Poor', color: '#f44336' }
 ];
 
-// SVG Icons as components
+
 const Icons = {
   inventory: (size = 24) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1 0-2 .9-2 2v3.01c0 .72.43 1.34 1 1.69V20c0 1.1 1.1 2 2 2h14c.9 0 2-.9 2-2V8.7c.57-.35 1-.97 1-1.69V4c0-1.1-1-2-2-2zm-5 12H9v-2h6v2zm5-7H4V4h16v3z"/></svg>`,
   check_circle: (size = 24) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`,
@@ -66,7 +66,7 @@ const Icons = {
 };
 
 const AssetManagement = () => {
-  // State Management
+  
   const [assets, setAssets] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -126,7 +126,7 @@ const AssetManagement = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
 
-  // Handle window resize
+  
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -136,20 +136,20 @@ const AssetManagement = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Function to get user from localStorage
+  
   const getUserFromStorage = () => {
     let userStr = localStorage.getItem('superAdmin');
     if (!userStr) userStr = localStorage.getItem('user');
     if (!userStr) userStr = sessionStorage.getItem('superAdmin') || sessionStorage.getItem('user');
     
     if (!userStr) {
-      console.log('No user found in storage');
+      void 0;
       return null;
     }
     
     try {
       const user = JSON.parse(userStr);
-      console.log('User found in storage:', user);
+      void 0;
       return user;
     } catch (error) {
       console.error('Error parsing user data:', error);
@@ -158,7 +158,7 @@ const AssetManagement = () => {
     }
   };
 
-  // Check if user is super-admin
+  
   const checkSuperAdminStatus = (user) => {
     if (!user) return false;
     return user.role === 'super-admin' || 
@@ -166,7 +166,7 @@ const AssetManagement = () => {
            (user.role === 'super-admin' && user.department === 'Management');
   };
 
-  // Initial Data Load
+  
   useEffect(() => {
     const user = getUserFromStorage();
     if (user) {
@@ -181,7 +181,7 @@ const AssetManagement = () => {
     }
   }, [refreshKey, showAllCompanies, categoryFilter, statusFilter]);
 
-  // Fetch employees whenever departments change or when needed
+  
   useEffect(() => {
     const user = getUserFromStorage();
     if (user) {
@@ -190,7 +190,7 @@ const AssetManagement = () => {
     }
   }, [departments, showAllCompanies]);
 
-  // Fetch Assets
+  
   const fetchAssets = async (user = null, isSuper = false) => {
     try {
       setLoading(true);
@@ -219,13 +219,13 @@ const AssetManagement = () => {
         params.status = statusFilter;
       }
       
-      console.log('Fetching assets with params:', params);
+      void 0;
       
       const response = await axios.get('/assets12', { params });
       const assetsData = response.data.assets || [];
       setAssets(assetsData);
       
-      // Calculate stats
+      
       const total = assetsData.length;
       const available = assetsData.filter(a => a.status === 'available').length;
       const assigned = assetsData.filter(a => a.status === 'assigned').length;
@@ -240,7 +240,7 @@ const AssetManagement = () => {
         totalValue
       });
       
-      console.log('Assets fetched:', assetsData.length);
+      void 0;
     } catch (err) {
       console.error('Fetch assets error:', err);
       toast.error(err.response?.data?.message || 'Failed to load assets');
@@ -249,7 +249,7 @@ const AssetManagement = () => {
     }
   };
 
-  // Fetch Departments
+  
   const fetchDepartments = async (user = null, isSuper = false) => {
     try {
       if (!user) {
@@ -265,17 +265,17 @@ const AssetManagement = () => {
         }
       }
       
-      console.log('Fetching departments with params:', params);
+      void 0;
       const response = await axios.get('/departments', { params });
       const departmentsData = response.data.departments || [];
       setDepartments(departmentsData);
-      console.log('Departments fetched:', departmentsData);
+      void 0;
     } catch (err) {
       console.error('Fetch departments error:', err);
     }
   };
 
-  // Fetch Employees with department information
+  
   const fetchEmployees = async (user = null, isSuper = false) => {
     try {
       setLoadingEmployees(true);
@@ -292,14 +292,14 @@ const AssetManagement = () => {
         }
       }
       
-      // Add populate parameter to get department details
+      
       params.populate = 'department';
       
-      console.log('Fetching employees with params:', params);
+      void 0;
       const response = await axios.get('/users/company-users', { params });
-      console.log('Employees API response:', response.data);
+      void 0;
       
-      // Handle different response structures
+      
       let employeesData = [];
       if (response.data.users) {
         employeesData = response.data.users;
@@ -309,7 +309,7 @@ const AssetManagement = () => {
         employeesData = response.data.data || [];
       }
       
-      // Enhance employee data with department names
+      
       const enhancedEmployees = employeesData.map(emp => {
         const enhanced = { ...emp };
         
@@ -333,7 +333,7 @@ const AssetManagement = () => {
       });
       
       setEmployees(enhancedEmployees);
-      console.log('Enhanced employees:', enhancedEmployees);
+      void 0;
       
     } catch (err) {
       console.error('Fetch employees error:', err);
@@ -343,7 +343,7 @@ const AssetManagement = () => {
     }
   };
 
-  // Handle Form Submit
+  
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
       toast.error('Asset name is required');
@@ -386,7 +386,7 @@ const AssetManagement = () => {
         submitData.companyCode = formData.companyCode || user.companyCode;
       }
       
-      console.log('Submitting asset data:', submitData);
+      void 0;
       
       if (editingAsset) {
         await axios.put(`/assets12/${editingAsset._id}`, submitData);
@@ -409,7 +409,7 @@ const AssetManagement = () => {
     }
   };
 
-  // Handle Asset Assignment
+  
   const handleAssign = async () => {
     if (!selectedAsset) return;
     if (!formData.assignedTo && !formData.department) {
@@ -442,10 +442,10 @@ const AssetManagement = () => {
         assignedDate: new Date()
       };
       
-      console.log('Assigning asset with data:', assignData);
+      void 0;
       
       const response = await axios.post('/assets12/assign', assignData);
-      console.log('Assignment response:', response.data);
+      void 0;
       
       toast.success('Asset Assigned!');
       
@@ -465,7 +465,7 @@ const AssetManagement = () => {
     }
   };
 
-  // Handle Asset Return
+  
   const handleReturn = async (assetId) => {
     try {
       setLoading(true);
@@ -483,7 +483,7 @@ const AssetManagement = () => {
     }
   };
 
-  // Handle Maintenance Request
+  
   const handleMaintenance = async () => {
     if (!selectedAsset) return;
     if (!formData.notes) {
@@ -502,7 +502,7 @@ const AssetManagement = () => {
         vendor: formData.vendor || ''
       };
       
-      console.log('Scheduling maintenance:', maintenanceData);
+      void 0;
       
       await axios.post(`/assets12/${selectedAsset._id}/maintenance`, maintenanceData);
       
@@ -526,7 +526,7 @@ const AssetManagement = () => {
     }
   };
 
-  // Handle Delete
+  
   const handleDelete = async (id) => {
     const asset = assets.find(a => a._id === id);
     if (!window.confirm(`Are you sure you want to delete "${asset?.name}"? This action cannot be undone.`)) return;
@@ -544,7 +544,7 @@ const AssetManagement = () => {
     }
   };
 
-  // Handle Bulk Delete
+  
   const handleBulkDelete = async () => {
     if (selectedAssets.length === 0) return;
     if (!window.confirm(`Are you sure you want to delete ${selectedAssets.length} assets?`)) return;
@@ -563,7 +563,7 @@ const AssetManagement = () => {
     }
   };
 
-  // Handle Edit
+  
   const handleEdit = (asset) => {
     setEditingAsset(asset);
     const user = getUserFromStorage();
@@ -597,7 +597,7 @@ const AssetManagement = () => {
     setShowMenu(false);
   };
 
-  // Handle View History
+  
   const handleViewHistory = async (asset) => {
     try {
       setLoading(true);
@@ -616,7 +616,7 @@ const AssetManagement = () => {
     }
   };
 
-  // Handle Menu Open
+  
   const handleMenuOpen = (event, asset) => {
     const rect = event.currentTarget.getBoundingClientRect();
     setMenuPosition({
@@ -632,25 +632,25 @@ const AssetManagement = () => {
     setSelectedAssetMenu(null);
   };
 
-  // Handle Refresh
+  
   const handleRefresh = () => {
     toast.info('Refreshing assets...');
     setRefreshKey(prev => prev + 1);
   };
 
-  // Handle Clear Search
+  
   const handleClearSearch = () => {
     setSearchTerm('');
   };
 
-  // Handle Clear Filters
+  
   const handleClearFilters = () => {
     setCategoryFilter('all');
     setStatusFilter('all');
     setSearchTerm('');
   };
 
-  // Handle Tab Change
+  
   const handleTabChange = (tabIndex) => {
     setActiveTab(tabIndex);
     switch (tabIndex) {
@@ -671,7 +671,7 @@ const AssetManagement = () => {
     }
   };
 
-  // Reset Form
+  
   const resetForm = () => {
     const user = getUserFromStorage();
     setFormData({
@@ -701,7 +701,7 @@ const AssetManagement = () => {
     });
   };
 
-  // Handle Select All
+  
   const handleSelectAll = (event) => {
     if (event.target.checked) {
       setSelectedAssets(filteredAssets.map(asset => asset._id));
@@ -710,7 +710,7 @@ const AssetManagement = () => {
     }
   };
 
-  // Handle Select One
+  
   const handleSelectOne = (event, id) => {
     const selectedIndex = selectedAssets.indexOf(id);
     let newSelected = [];
@@ -731,7 +731,7 @@ const AssetManagement = () => {
     setSelectedAssets(newSelected);
   };
 
-  // Filter Assets
+  
   const getFilteredAssets = () => {
     let filtered = assets;
     const user = userInfo || getUserFromStorage();
@@ -758,7 +758,7 @@ const AssetManagement = () => {
 
   const filteredAssets = getFilteredAssets();
 
-  // Format Currency
+  
   const formatCurrency = (value) => {
     if (!value) return 'N/A';
     return new Intl.NumberFormat('en-US', {
@@ -769,7 +769,7 @@ const AssetManagement = () => {
     }).format(value);
   };
 
-  // Format Date
+  
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {
@@ -784,37 +784,37 @@ const AssetManagement = () => {
     }
   };
 
-  // Get Category Icon
+  
   const getCategoryIcon = (category) => {
     const cat = ASSET_CATEGORIES.find(c => c.value === category);
     return cat ? cat.icon : 'category';
   };
 
-  // Get Category Color
+  
   const getCategoryColor = (category) => {
     const cat = ASSET_CATEGORIES.find(c => c.value === category);
     return cat ? cat.color : '#757575';
   };
 
-  // Get Status Icon
+  
   const getStatusIcon = (status) => {
     const stat = ASSET_STATUS.find(s => s.value === status);
     return stat ? stat.icon : 'check_circle';
   };
 
-  // Get Status Color
+  
   const getStatusColor = (status) => {
     const stat = ASSET_STATUS.find(s => s.value === status);
     return stat ? stat.color : '#4caf50';
   };
 
-  // Get Condition Color
+  
   const getConditionColor = (condition) => {
     const cond = CONDITION_TYPES.find(c => c.value === condition);
     return cond ? cond.color : '#2196f3';
   };
 
-  // Pagination Handlers
+  
   const handlePageChange = (newPage) => {
     setPage(newPage);
   };
@@ -838,7 +838,7 @@ const AssetManagement = () => {
 
   return (
     <div className="AssetManagement">
-      {/* Loading Overlay */}
+      
       {loading && (
         <div className="AssetManagement-loading-overlay">
           <div className="AssetManagement-progress-bar">
@@ -847,10 +847,10 @@ const AssetManagement = () => {
         </div>
       )}
 
-      {/* Stats Cards */}
+      
       {assets.length > 0 && (
         <div className="AssetManagement-stats-grid">
-          {/* Total Assets */}
+          
           <div className="AssetManagement-stat-card AssetManagement-stat-total">
             <div className="AssetManagement-stat-icon" dangerouslySetInnerHTML={{ __html: Icons.inventory(isMobile ? 24 : 28) }} />
             <div className="AssetManagement-stat-content">
@@ -862,7 +862,7 @@ const AssetManagement = () => {
             </div>
           </div>
 
-          {/* Available */}
+          
           <div className="AssetManagement-stat-card AssetManagement-stat-available">
             <div className="AssetManagement-stat-icon" dangerouslySetInnerHTML={{ __html: Icons.check_circle(isMobile ? 24 : 28) }} />
             <div className="AssetManagement-stat-content">
@@ -878,7 +878,7 @@ const AssetManagement = () => {
             </div>
           </div>
 
-          {/* Assigned */}
+          
           <div className="AssetManagement-stat-card AssetManagement-stat-assigned">
             <div className="AssetManagement-stat-icon" dangerouslySetInnerHTML={{ __html: Icons.assignment_turned_in(isMobile ? 24 : 28) }} />
             <div className="AssetManagement-stat-content">
@@ -894,7 +894,7 @@ const AssetManagement = () => {
             </div>
           </div>
 
-          {/* Total Value */}
+          
           <div className="AssetManagement-stat-card AssetManagement-stat-value">
             <div className="AssetManagement-stat-icon" dangerouslySetInnerHTML={{ __html: Icons.attach_money(isMobile ? 24 : 28) }} />
             <div className="AssetManagement-stat-content">
@@ -907,9 +907,9 @@ const AssetManagement = () => {
         </div>
       )}
 
-      {/* Main Content */}
+      
       <div className="AssetManagement-paper">
-        {/* Header Section */}
+        
         <div className="AssetManagement-header">
           <div className="AssetManagement-title-section">
             <div className="AssetManagement-title-icon" dangerouslySetInnerHTML={{ __html: Icons.inventory(isMobile ? 24 : 28) }} />
@@ -932,7 +932,7 @@ const AssetManagement = () => {
           </div>
           
           <div className="AssetManagement-header-actions">
-            {/* Search Bar */}
+            
             <div className="AssetManagement-search-wrapper">
               <span className="AssetManagement-search-icon" dangerouslySetInnerHTML={{ __html: Icons.search(isMobile ? 18 : 20) }} />
               <input
@@ -949,7 +949,7 @@ const AssetManagement = () => {
               )}
             </div>
             
-            {/* Category Filter */}
+            
             <select 
               className="AssetManagement-filter-select"
               value={categoryFilter}
@@ -961,7 +961,7 @@ const AssetManagement = () => {
               ))}
             </select>
 
-            {/* Status Filter */}
+            
             <select 
               className="AssetManagement-filter-select"
               value={statusFilter}
@@ -973,7 +973,7 @@ const AssetManagement = () => {
               ))}
             </select>
             
-            {/* Add Asset Button */}
+            
             {!isMobile && (
               <button
                 className="AssetManagement-btn AssetManagement-btn-primary"
@@ -988,7 +988,7 @@ const AssetManagement = () => {
               </button>
             )}
 
-            {/* Bulk Actions */}
+            
             {bulkMode && selectedAssets.length > 0 && (
               <button
                 className="AssetManagement-btn AssetManagement-btn-danger"
@@ -1002,7 +1002,7 @@ const AssetManagement = () => {
         </div>
 
 
-        {/* Quick Filters Tabs */}
+        
         <div className="AssetManagement-tabs">
           <button 
             className={`AssetManagement-tab ${activeTab === 0 ? 'active' : ''}`}
@@ -1030,7 +1030,7 @@ const AssetManagement = () => {
           </button>
         </div>
 
-        {/* Bulk Mode Toggle */}
+        
         <div className="AssetManagement-bulk-toggle">
           <label className="AssetManagement-switch">
             <input
@@ -1046,9 +1046,9 @@ const AssetManagement = () => {
           <span className="AssetManagement-bulk-label">Bulk Mode</span>
         </div>
 
-        {/* Table/List View */}
+        
         {isMobile ? (
-          // Mobile Card View
+          
           <div className="AssetManagement-mobile-view">
             {filteredAssets.length === 0 ? (
               <div className="AssetManagement-empty-state">
@@ -1193,7 +1193,7 @@ const AssetManagement = () => {
             )}
           </div>
         ) : (
-          // Desktop Table View
+          
           <div className="AssetManagement-table-container">
             <table className="AssetManagement-table">
               <thead>
@@ -1387,7 +1387,7 @@ const AssetManagement = () => {
           </div>
         )}
 
-        {/* Pagination */}
+        
         {filteredAssets.length > 0 && (
           <div className="AssetManagement-pagination">
             <div className="AssetManagement-pagination-info">
@@ -1433,7 +1433,7 @@ const AssetManagement = () => {
           </div>
         )}
 
-        {/* Floating Action Button for Mobile */}
+        
         {isMobile && (
           <button
             className="AssetManagement-fab"
@@ -1446,7 +1446,7 @@ const AssetManagement = () => {
           </button>
         )}
 
-        {/* Options Menu */}
+        
         {showMenu && (
           <div 
             className="AssetManagement-menu-overlay"
@@ -1533,7 +1533,7 @@ const AssetManagement = () => {
         )}
       </div>
 
-      {/* Add/Edit Asset Dialog */}
+      
       {openDialog && (
         <div className="AssetManagement-modal-overlay" onClick={() => !loading && setOpenDialog(false)}>
           <div 
@@ -1565,7 +1565,7 @@ const AssetManagement = () => {
             </div>
 
             <div className="AssetManagement-modal-body">
-              {/* Basic Information */}
+              
               <h4 className="AssetManagement-section-title">Basic Information</h4>
               
               <div className="AssetManagement-form-grid">
@@ -1796,7 +1796,7 @@ const AssetManagement = () => {
         </div>
       )}
 
-      {/* Assign Asset Dialog */}
+      
       {openAssignDialog && (
         <div className="AssetManagement-modal-overlay" onClick={() => !loading && setOpenAssignDialog(false)}>
           <div 
@@ -1821,7 +1821,7 @@ const AssetManagement = () => {
             </div>
 
             <div className="AssetManagement-modal-body">
-              {/* Employee Assignment */}
+              
               <div className="AssetManagement-form-group">
                 <label className="AssetManagement-form-label">Assign To Employee</label>
                 <select
@@ -1851,7 +1851,7 @@ const AssetManagement = () => {
 
               <div className="AssetManagement-form-divider">OR</div>
 
-              {/* Department Assignment */}
+              
               <div className="AssetManagement-form-group">
                 <label className="AssetManagement-form-label">Assign to Department</label>
                 <select
@@ -1875,7 +1875,7 @@ const AssetManagement = () => {
                 <p className="AssetManagement-form-helper">Or assign to a department directly</p>
               </div>
 
-              {/* Assignment Notes */}
+              
               <div className="AssetManagement-form-group">
                 <label className="AssetManagement-form-label">Assignment Notes</label>
                 <textarea
@@ -1887,7 +1887,7 @@ const AssetManagement = () => {
                 />
               </div>
 
-              {/* Assignment Summary */}
+              
               {(formData.assignedTo || formData.department) && (
                 <div className="AssetManagement-summary-box">
                   <h4 className="AssetManagement-summary-title">Assignment Summary</h4>
@@ -1940,7 +1940,7 @@ const AssetManagement = () => {
         </div>
       )}
 
-      {/* Maintenance Dialog */}
+      
       {openMaintenanceDialog && (
         <div className="AssetManagement-modal-overlay" onClick={() => !loading && setOpenMaintenanceDialog(false)}>
           <div 
@@ -2065,7 +2065,7 @@ const AssetManagement = () => {
         </div>
       )}
 
-      {/* History Dialog */}
+      
       {openHistoryDialog && (
         <div className="AssetManagement-modal-overlay" onClick={() => setOpenHistoryDialog(false)}>
           <div 

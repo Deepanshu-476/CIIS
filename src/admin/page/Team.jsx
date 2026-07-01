@@ -34,12 +34,12 @@ const MoreMenu = ({ user }) => {
   };
 
   const handleEdit = () => {
-    console.log("Edit:", user.name);
+    void 0;
     handleClose();
   };
 
   const handleDelete = () => {
-    console.log("Delete:", user.name);
+    void 0;
     handleClose();
   };
 
@@ -72,7 +72,7 @@ const Team = () => {
 
   return (
     <Box p={2}>
-      {/* Top Section */}
+      
       <Box display="flex" flexDirection={isMobile ? 'column' : 'row'} justifyContent="space-between" alignItems="center" mb={2} gap={2}>
         <Typography variant="subtitle1">
           <strong>1 out of 1 User</strong>
@@ -106,13 +106,13 @@ const Team = () => {
         </Box>
       </Box>
 
-      {/* Tabs */}
+      
       <Tabs value={0} textColor="primary" indicatorColor="primary">
         <Tab label="Active Users (1)" />
         <Tab label="Invite Pending (0)" />
       </Tabs>
 
-      {/* User Table */}
+      
       <TableContainer component={Paper} sx={{ mt: 2 }}>
         <Table>
           <TableHead>

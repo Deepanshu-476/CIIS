@@ -22,7 +22,7 @@ export default function AdminMeetingPage() {
   const [debugInfo, setDebugInfo] = useState({ show: false, message: "" });
   const [companyCode, setCompanyCode] = useState("");
   
-  // Get socket from context
+  
   const { 
     socket, 
     isConnected,
@@ -38,11 +38,11 @@ export default function AdminMeetingPage() {
     title: "",
     description: "",
     date: "",
-    dates: [], // Multi-date selection
+    dates: [], 
     time: "",
     recurring: "No",
     attendees: [],
-    link: "", // Clickable join link
+    link: "", 
   });
 
   const [clientForm, setClientForm] = useState({
@@ -70,43 +70,43 @@ export default function AdminMeetingPage() {
 
   const adminId = localStorage.getItem("userId");
 
-  // 🟢 Socket Notification Listeners using the context methods
+  
   useEffect(() => {
-    console.log("🔔 Setting up socket notification listeners");
+    void 0;
 
-    // Listen for new meeting notifications
+    
     const unsubscribeNewMeeting = onNewNotification?.((data) => {
-      console.log("📢 New Meeting Notification:", data);
+      void 0;
       
       showToast?.(`📅 New Meeting: ${data.title || 'Meeting Scheduled'}`, 'info', 5000);
       
-      // Refresh meetings list
+      
       fetchMeetings();
     });
 
-    // Listen for meeting updates if available
+    
     const unsubscribeMeetingUpdate = onMeetingUpdate?.((data) => {
-      console.log("🔄 Meeting Update Notification:", data);
+      void 0;
       showToast?.(`✏️ Meeting Updated: ${data.title || 'Meeting Details Changed'}`, 'info', 5000);
       fetchMeetings();
     });
 
-    // Listen for meeting reminders if available
+    
     const unsubscribeMeetingReminder = onMeetingReminder?.((data) => {
-      console.log("⏰ Meeting Reminder:", data);
+      void 0;
       showToast?.(`⏰ Reminder: ${data.title} starts soon!`, 'warning', 10000);
     });
 
-    // Cleanup function
+    
     return () => {
-      console.log("🧹 Cleaning up socket notification listeners");
+      void 0;
       unsubscribeNewMeeting?.();
       unsubscribeMeetingUpdate?.();
       unsubscribeMeetingReminder?.();
     };
   }, [onNewNotification, onMeetingUpdate, onMeetingReminder]);
 
-  // 🟢 Get company code from user data
+  
   const getCompanyCodeFromUsers = (usersList) => {
     if (usersList && usersList.length > 0 && usersList[0].companyCode) {
       const code = usersList[0].companyCode;
@@ -119,7 +119,7 @@ export default function AdminMeetingPage() {
     return storedCode;
   };
 
-  // 🟢 Fetch all users for current company
+  
   const fetchUsers = async () => {
     try {
       const res = await axios.get(`${API_URL}/users/company-users`);
@@ -131,7 +131,7 @@ export default function AdminMeetingPage() {
           const code = fetchedUsers[0].companyCode;
           localStorage.setItem("companyCode", code);
           setCompanyCode(code);
-          console.log("Company code set from users:", code);
+          void 0;
         }
       } else {
         console.warn("Unexpected API response structure:", res.data);
@@ -144,14 +144,14 @@ export default function AdminMeetingPage() {
     }
   };
 
-  // 🟢 Fetch all meetings for current company
+  
   const fetchMeetings = async () => {
     try {
       setRefreshing(true);
       
       const currentCompanyCode = companyCode || localStorage.getItem("companyCode") || "CAREER";
       
-      console.log(`Fetching meetings for company: ${currentCompanyCode}`);
+      void 0;
       
       let fetchedMeetings = [];
       
@@ -168,7 +168,7 @@ export default function AdminMeetingPage() {
           fetchedMeetings = res.data.data;
         }
       } catch (err) {
-        console.log("Query parameter approach failed, trying alternative...");
+        void 0;
         
         try {
           const res = await axios.post(`${API_URL}/meetings/company-meetings`, {
@@ -183,7 +183,7 @@ export default function AdminMeetingPage() {
             fetchedMeetings = res.data.meetings;
           }
         } catch (err2) {
-          console.log("POST approach failed, fetching all and filtering client-side...");
+          void 0;
           
           const res = await axios.get(`${API_URL}/meetings`);
           
@@ -211,10 +211,10 @@ export default function AdminMeetingPage() {
         return !meetingCompanyCode || meetingCompanyCode === currentCompanyCode;
       });
       
-      console.log(`Fetched ${fetchedMeetings.length} meetings for company: ${currentCompanyCode}`);
+      void 0;
       
       if (fetchedMeetings.length > 0) {
-        console.log("Sample meeting structure:", fetchedMeetings[0]);
+        void 0;
       }
       
       setMeetings(fetchedMeetings);
@@ -256,7 +256,7 @@ export default function AdminMeetingPage() {
     }
   };
 
-  // Initialize data
+  
   useEffect(() => {
     const initializeData = async () => {
       await fetchUsers();
@@ -271,7 +271,7 @@ export default function AdminMeetingPage() {
     initializeData();
   }, []);
 
-  // Fetch groups
+  
   const fetchGroups = async () => {
     try {
       const res = await axios.get(`${API_URL}/groups`);
@@ -281,7 +281,7 @@ export default function AdminMeetingPage() {
     }
   };
 
-  // Toggle Group Selection (Create Form)
+  
   const toggleGroupSelection = (group) => {
     if (!group.members || group.members.length === 0) return;
     
@@ -296,7 +296,7 @@ export default function AdminMeetingPage() {
     });
   };
 
-  // Toggle Group Selection (Edit Form)
+  
   const toggleEditGroupSelection = (group) => {
     if (!group.members || group.members.length === 0 || !editingMeeting) return;
     
@@ -311,7 +311,7 @@ export default function AdminMeetingPage() {
     });
   };
 
-  // Add a date to multi-date selection
+  
   const addMeetingDate = () => {
     if (!currentDateInput) return;
     if (form.dates.includes(currentDateInput)) {
@@ -325,7 +325,7 @@ export default function AdminMeetingPage() {
     setCurrentDateInput("");
   };
 
-  // Remove a date from multi-date selection
+  
   const removeMeetingDate = (dateToRemove) => {
     setForm(prev => ({
       ...prev,
@@ -333,7 +333,7 @@ export default function AdminMeetingPage() {
     }));
   };
 
-  // Start editing meeting
+  
   const startEditing = (meeting) => {
     const formattedDate = meeting.date ? new Date(meeting.date).toISOString().split('T')[0] : "";
     setEditingMeeting({
@@ -348,7 +348,7 @@ export default function AdminMeetingPage() {
     });
   };
 
-  // Retry fetching meetings if companyCode changes
+  
   useEffect(() => {
     if (companyCode) {
       fetchMeetings();
@@ -357,12 +357,12 @@ export default function AdminMeetingPage() {
     }
   }, [companyCode]);
 
-  // 🟢 Handle form inputs
+  
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // 🟢 Helper function to get user ID
+  
   const getUserId = (user) => {
     if (!user) return "";
     if (typeof user !== "object") return user.toString();
@@ -397,7 +397,7 @@ export default function AdminMeetingPage() {
     });
   };
 
-  // 🟢 Handle attendee selection
+  
   const handleAttendeeChange = (id) => {
     setForm((prev) => ({
       ...prev,
@@ -406,7 +406,7 @@ export default function AdminMeetingPage() {
         : [...prev.attendees, id],
     }));
   };
-  // 🟢 Select all attendees
+  
   const selectAllAttendees = () => {
     const allUserIds = users.map(user => getUserId(user));
     setForm(prev => ({
@@ -492,7 +492,7 @@ export default function AdminMeetingPage() {
     setCurrentClientDateInput("");
   };
 
-  // 🟢 Create meeting
+  
   const createMeeting = async (e) => {
     e.preventDefault();
     const finalDates = form.dates.length > 0 ? form.dates : (form.date ? [form.date] : []);
@@ -520,13 +520,13 @@ export default function AdminMeetingPage() {
         companyName: users.length > 0 ? users[0].companyName : "CAREER INFOWIS IT SOLUTION PRIVATE LIMITED"
       };
       
-      console.log("Creating meeting with payload:", payload);
+      void 0;
       
       const res = await axios.post(`${API_URL}/meetings/create`, payload);
       if (res.data.success) {
         toast.success("✅ Meeting(s) scheduled successfully!");
         
-        // Emit socket event if socket is available and has emit method
+        
         if (socket && typeof socket.emit === 'function') {
           socket.emit("meeting-created", {
             meetingId: res.data.meeting?._id,
@@ -536,8 +536,8 @@ export default function AdminMeetingPage() {
             companyCode: currentCompanyCode
           });
         } else if (socket && typeof socket.emit === 'undefined') {
-          console.log("Socket available but emit method not found, using alternative notification method");
-          // Try alternative emit method if socket has different structure
+          void 0;
+          
           const socketInstance = socket.socket || socket;
           if (socketInstance && typeof socketInstance.emit === 'function') {
             socketInstance.emit("meeting-created", {
@@ -623,7 +623,7 @@ export default function AdminMeetingPage() {
     }
   };
 
-  // 🟢 Edit / Update existing meeting
+  
   const handleUpdateMeeting = async (e) => {
     e.preventDefault();
     if (!editingMeeting.title || !editingMeeting.date || !editingMeeting.time || editingMeeting.attendees.length === 0) {
@@ -646,7 +646,7 @@ export default function AdminMeetingPage() {
         companyCode: currentCompanyCode,
       };
 
-      console.log("Updating meeting with payload:", payload);
+      void 0;
 
       const res = await axios.put(`${API_URL}/meetings/${editingMeeting._id}`, payload);
       if (res.data.success) {
@@ -737,7 +737,7 @@ export default function AdminMeetingPage() {
     }
   };
 
-  // 🟢 Show view status
+  
   const showStatus = async (meetingId, meetingTitle) => {
     try {
       const res = await axios.get(`${API_URL}/meetings/view-status/${meetingId}`);
@@ -766,7 +766,7 @@ export default function AdminMeetingPage() {
     }
   };
 
-  // 🟢 Debug function to test different endpoints
+  
   const testDeleteEndpoints = async (meetingId) => {
     const currentCompanyCode = companyCode || localStorage.getItem("companyCode") || "CAREER";
     
@@ -825,7 +825,7 @@ export default function AdminMeetingPage() {
     return false;
   };
 
-  // 🟢 Delete meeting with debugging
+  
   const deleteMeeting = async () => {
     if (!deleteConfirm.meetingId) return;
     
@@ -893,7 +893,7 @@ export default function AdminMeetingPage() {
     }
   };
 
-  // 🟢 Format date and time
+  
   const formatDateTime = (date, time) => {
     if (!date) return { date: "N/A", time: "N/A", isPast: false, isToday: false };
     
@@ -922,7 +922,7 @@ export default function AdminMeetingPage() {
 
   return (
     <div className="amp-container">
-      {/* Socket Connection Status Indicator */}
+      
       <div className="amp-socket-indicator" style={{
         position: 'fixed',
         top: '10px',
@@ -939,7 +939,7 @@ export default function AdminMeetingPage() {
         {isConnected ? '🔌 Live' : '📡 Connecting...'}
       </div>
 
-      {/* Company Code Indicator */}
+      
       {companyCode && (
         <div className="amp-company-indicator" style={{
           position: 'fixed',
@@ -958,7 +958,7 @@ export default function AdminMeetingPage() {
         </div>
       )}
 
-      {/* Debug Info Modal */}
+      
       {debugInfo.show && (
         <div className="amp-modal-overlay" onClick={() => setDebugInfo({ show: false, message: "" })}>
           <div className="amp-modal amp-modal-lg" onClick={(e) => e.stopPropagation()}>
@@ -1004,7 +1004,7 @@ export default function AdminMeetingPage() {
         </div>
       )}
 
-      {/* Header with Gradient */}
+      
       <div className="amp-header">
         <div className="amp-header-content">
           <div className="amp-header-left">
@@ -1062,7 +1062,7 @@ export default function AdminMeetingPage() {
         </div>
       </div>
 
-      {/* Navigation Tabs */}
+      
       <div className="amp-tabs-container">
         <div className="amp-tabs">
           <button 
@@ -1085,7 +1085,7 @@ export default function AdminMeetingPage() {
         </div>
       </div>
 
-      {/* Create Meeting Form */}
+      
       {activeTab === "create" && meetingAudience === "employee" && (
         <div className="amp-create-section">
           <div className="amp-form-card">
@@ -1099,7 +1099,7 @@ export default function AdminMeetingPage() {
 
             <form onSubmit={createMeeting} className="amp-form">
               <div className="amp-form-grid">
-                {/* Left Column */}
+                
                 <div className="amp-form-left">
                   <div className="amp-form-group">
                     <label className="amp-label amp-required">Meeting Title</label>
@@ -1150,7 +1150,7 @@ export default function AdminMeetingPage() {
                         </button>
                       </div>
                       
-                      {/* Dates list/badges */}
+                      
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
                         {form.dates.map(d => (
                           <span key={d} style={{ background: 'rgba(59, 130, 246, 0.2)', border: '1px solid rgba(59, 130, 246, 0.4)', padding: '4px 10px', borderRadius: '20px', color: '#fff', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1160,7 +1160,7 @@ export default function AdminMeetingPage() {
                         ))}
                       </div>
                       
-                      {/* Fallback display if date picked but not added yet */}
+                      
                       {form.dates.length === 0 && (
                         <div className="amp-input-icon-wrapper" style={{ marginTop: '10px' }}>
                           <span className="amp-input-icon">📅</span>
@@ -1226,7 +1226,7 @@ export default function AdminMeetingPage() {
                   </div>
                 </div>
 
-                {/* Right Column - Attendees */}
+                
                 <div className="amp-form-right">
                   <div className="amp-attendees-header">
                     <div className="amp-attendees-title-wrapper">
@@ -1245,7 +1245,7 @@ export default function AdminMeetingPage() {
                     </button>
                   </div>
 
-                  {/* Quick-Select by Group list */}
+                  
                   {groups.length > 0 && (
                     <div className="amp-groups-select-section" style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: '8px' }}>
                       <label className="amp-label" style={{ marginBottom: '8px', display: 'block', fontWeight: '600', fontSize: '13px' }}>👥 Select by Group</label>
@@ -1329,7 +1329,7 @@ export default function AdminMeetingPage() {
                 </div>
               </div>
 
-              {/* Form Actions */}
+              
               <div className="amp-form-actions">
                 <button 
                   type="button"
@@ -1579,7 +1579,7 @@ export default function AdminMeetingPage() {
         </div>
       )}
 
-      {/* Manage Meetings */}
+      
       {activeTab === "manage" && meetingAudience === "employee" && (
         <div className="amp-manage-section">
           <div className="amp-manage-header">
@@ -1893,7 +1893,7 @@ export default function AdminMeetingPage() {
         </div>
       )}
 
-      {/* Status Modal */}
+      
       {statusModal.open && (
         <div className="amp-modal-overlay" onClick={() => setStatusModal({ open: false, data: [], meetingTitle: "" })}>
           <div className="amp-modal" onClick={(e) => e.stopPropagation()}>
@@ -1976,7 +1976,7 @@ export default function AdminMeetingPage() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      
       {deleteConfirm.open && (
         <div className="amp-modal-overlay" onClick={() => setDeleteConfirm({ open: false, meetingId: null, meetingTitle: "" })}>
           <div className="amp-modal amp-modal-sm" onClick={(e) => e.stopPropagation()}>
@@ -2033,7 +2033,7 @@ export default function AdminMeetingPage() {
         </div>
       )}
 
-      {/* Edit Meeting Modal */}
+      
       {editingMeeting && (
         <div className="amp-modal-overlay" onClick={() => setEditingMeeting(null)}>
           <div className="amp-modal amp-modal-lg" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px' }}>
@@ -2054,7 +2054,7 @@ export default function AdminMeetingPage() {
               <div className="amp-modal-content" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
                 <div className="amp-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                   
-                  {/* Left Column */}
+                  
                   <div>
                     <div className="amp-form-group" style={{ marginBottom: '15px' }}>
                       <label className="amp-label amp-required">Meeting Title</label>
@@ -2128,7 +2128,7 @@ export default function AdminMeetingPage() {
                     </div>
                   </div>
 
-                  {/* Right Column - Attendees */}
+                  
                   <div>
                     <div className="amp-attendees-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                       <label className="amp-label amp-required">Select Attendees</label>
@@ -2137,7 +2137,7 @@ export default function AdminMeetingPage() {
                       </span>
                     </div>
 
-                    {/* Quick-Select by Group list for Editing */}
+                    
                     {groups.length > 0 && (
                       <div className="amp-groups-select-section" style={{ marginBottom: '1rem', background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '8px' }}>
                         <label className="amp-label" style={{ marginBottom: '6px', display: 'block', fontWeight: '600', fontSize: '12px' }}>👥 Select by Group</label>

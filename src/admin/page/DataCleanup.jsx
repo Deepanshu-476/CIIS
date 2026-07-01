@@ -52,7 +52,7 @@ const DataCleanup = () => {
         flexDirection="column"
         gap={2}
       >
-        {/* Dropdowns */}
+        
         <Stack direction={isMobile ? 'column' : 'row'} spacing={2}>
           <FormControl fullWidth size="small">
             <InputLabel>Process</InputLabel>
@@ -80,7 +80,7 @@ const DataCleanup = () => {
           </IconButton>
         </Stack>
 
-        {/* Cleanup Method */}
+        
         <Typography mt={1}>Choose a cleanup method</Typography>
         <ToggleButtonGroup
           value={cleanupMethod}
@@ -98,7 +98,7 @@ const DataCleanup = () => {
           </ToggleButton>
         </ToggleButtonGroup>
 
-        {/* Date Range Buttons */}
+        
         <Typography mt={2}>Choose Data Cleanup Date Range</Typography>
         <Stack direction={isMobile ? 'column' : 'row'} spacing={2}>
           <Button
@@ -122,7 +122,7 @@ const DataCleanup = () => {
         </Stack>
       </Box>
 
-      {/* Matched Customers */}
+      
       <Box p={2} bgcolor="#f9f9f9" borderRadius={2} mt={3}>
         <Typography fontWeight={600} mb={1}>Matched Customers</Typography>
         <Button variant="outlined" color="error" startIcon={<AutorenewIcon />}>

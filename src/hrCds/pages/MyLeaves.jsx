@@ -42,7 +42,7 @@ const MyLeaves = () => {
   const [selectedLeave, setSelectedLeave] = useState(null);
 const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   
-  // Socket and Notification Hooks with safe defaults
+  
   let socketContext = {};
   let notificationContext = {};
   
@@ -61,7 +61,7 @@ const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     unreadCount = 0 
   } = socketContext;
   
-  const { showToast = (msg) => console.log('Toast:', msg) } = notificationContext;
+  const { showToast = (msg) => void 0 } = notificationContext;
   
 
   const toggleReason = (id) => {
@@ -77,7 +77,7 @@ const closeDetailModal = () => {
   setSelectedLeave(null);
   setIsDetailModalOpen(false);
 };
-  // Job Roles aur Departments State
+  
   const [jobRoles, setJobRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [userJobRoleName, setUserJobRoleName] = useState("Employee");
@@ -105,7 +105,7 @@ const closeDetailModal = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [socketError, setSocketError] = useState(false);
 
-  // Get user and company details with error handling
+  
   let user = null;
   let token = null;
   let companyDetails = null;
@@ -118,23 +118,23 @@ const closeDetailModal = () => {
     console.error('Error parsing localStorage data:', error);
   }
 
-  // ============================================
-  // SOCKET EVENT LISTENERS - REAL-TIME UPDATES
-  // ============================================
+  
+  
+  
   useEffect(() => {
     if (!user?._id) return;
 
-    console.log('🔌 Setting up socket listeners for user leaves...');
+    void 0;
 
     let unsubscribeStatusChange;
 
     try {
       unsubscribeStatusChange = onLeaveStatusChanged?.((data) => {
-        console.log('📢 Leave status changed via socket:', data);
+        void 0;
         
         const { leaveId, newStatus, oldStatus, remarks } = data.data || data;
         
-        // Check if this leave belongs to current user
+        
         setLeaves(prev => {
           const updatedLeaves = prev.map(leave => {
             if (leave._id === leaveId) {
@@ -143,18 +143,18 @@ const closeDetailModal = () => {
             return leave;
           });
           
-          // Update stats
+          
           calculateStats(updatedLeaves);
           
-          // Find the affected leave
+          
           const affectedLeave = prev.find(l => l._id === leaveId);
           
           if (affectedLeave) {
-            // Set highlight
+            
             setRecentlyUpdatedId(leaveId);
             setTimeout(() => setRecentlyUpdatedId(null), 3000);
             
-            // Show toast notification
+            
             const message = `Your ${affectedLeave.type} leave has been ${newStatus.toLowerCase()}`;
             
             try {
@@ -169,7 +169,7 @@ const closeDetailModal = () => {
               console.warn('Toast error:', toastError);
             }
             
-            // Show in-app notification
+            
             setNotification({
               message: `Leave ${newStatus.toLowerCase()}: ${affectedLeave.type} leave from ${formatDate(affectedLeave.startDate)} to ${formatDate(affectedLeave.endDate)}`,
               severity: newStatus === 'Approved' ? 'success' : newStatus === 'Rejected' ? 'error' : 'info',
@@ -185,7 +185,7 @@ const closeDetailModal = () => {
       setSocketError(true);
     }
 
-    // Join rooms for existing leaves
+    
     try {
       leaves.forEach(leave => {
         joinLeaveRoom?.(leave._id);
@@ -209,7 +209,7 @@ const closeDetailModal = () => {
     };
   }, [user?._id, onLeaveStatusChanged, showToast, leaves.length]);
 
-  // Check mobile viewport
+  
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -219,7 +219,7 @@ const closeDetailModal = () => {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // ✅ Get Company ID Function
+  
   const getCompanyId = () => {
     if (!user && !companyDetails) {
       return null;
@@ -243,7 +243,7 @@ const closeDetailModal = () => {
     return null;
   };
 
-  // ✅ Resolve User Job Role Function
+  
   const resolveUserJobRole = (roles) => {
     if (!roles || roles.length === 0) {
       if (!user) return "Employee";
@@ -278,7 +278,7 @@ const closeDetailModal = () => {
     return "Employee";
   };
 
-  // ✅ Resolve User Department Function
+  
   const resolveUserDepartment = (depts) => {
     if (!depts || depts.length === 0) {
       if (!user) return "General";
@@ -311,7 +311,7 @@ const closeDetailModal = () => {
     return "General";
   };
 
-  // ✅ Fetch Job Roles Function
+  
   const fetchJobRoles = async () => {
     const companyId = getCompanyId();
     
@@ -365,7 +365,7 @@ const closeDetailModal = () => {
     }
   };
 
-  // ✅ Fetch Departments Function
+  
   const fetchDepartments = async () => {
     const companyId = getCompanyId();
     
@@ -419,7 +419,7 @@ const closeDetailModal = () => {
     }
   };
 
-  // ✅ Load User Info Function
+  
   const loadUserInfo = async () => {
     try {
       await Promise.all([
@@ -488,7 +488,7 @@ const closeDetailModal = () => {
       setLeaves(list);
       calculateStats(list);
       
-      // Join rooms for each leave
+      
       try {
         list.forEach(leave => {
           joinLeaveRoom?.(leave._id);
@@ -523,7 +523,7 @@ const closeDetailModal = () => {
     setStats({ total: data.length, approved, pending, rejected });
   };
 
-  // ✅ Load initial data with page loader
+  
   useEffect(() => {
     const loadData = async () => {
       setPageLoading(true);
@@ -675,7 +675,7 @@ const closeDetailModal = () => {
     setHistoryDialog({ open: false, title: "", items: [] });
   };
 
-  // Force refresh user info
+  
   const forceRefreshUserInfo = async () => {
     setRefreshing(true);
     await loadUserInfo();
@@ -683,7 +683,7 @@ const closeDetailModal = () => {
     setRefreshing(false);
   };
 
-  // Auto-hide notification after 4 seconds
+  
   useEffect(() => {
     if (notification?.autoHide) {
       const timer = setTimeout(() => {
@@ -693,14 +693,14 @@ const closeDetailModal = () => {
     }
   }, [notification]);
 
-  // ✅ Show CIISLoader while page is loading
+  
   if (pageLoading) {
     return <CIISLoader />;
   }
 
   return (
     <div className="MyLeaves-container">
-      {/* Header Section */}
+      
       <div className="MyLeaves-header">
         <div className="MyLeaves-header-content">
           <div className="MyLeaves-header-text">
@@ -709,46 +709,13 @@ const closeDetailModal = () => {
               Manage and track all your leave requests
             </p>
             
-            {/* Socket Connection Status */}
-            {/* <div className="MyLeaves-socket-status">
-              {socketError ? (
-                <span className="socket-badge error" title="Real-time updates unavailable">
-                  <FiWifiOff size={12} />
-                  Offline Mode
-                </span>
-              ) : isConnected ? (
-                <span className="socket-badge connected">
-                  <FiWifi size={12} />
-                  Live Updates
-                  {unreadCount > 0 && (
-                    <span className="unread-badge">{unreadCount}</span>
-                  )}
-                </span>
-              ) : (
-                <span className="socket-badge disconnected">
-                  <FiWifiOff size={12} />
-                  Connecting...
-                </span>
-              )}
-            </div> */}
+            
+            
 
-            {/* User Info Display */}
+            
             <div className="MyLeaves-user-info">
               <div className="MyLeaves-user-info-tags">
-                {/* <span className="MyLeaves-user-tag">
-                  <FiUser size={12} />
-                  {user?.name || 'User'}
-                </span>
-                <span className="MyLeaves-user-tag">
-                  <FiBriefcase size={12} />
-                  {userJobRoleName}
-                  {jobRolesLoading && <span className="MyLeaves-loading-dot">...</span>}
-                </span>
-                <span className="MyLeaves-user-tag">
-                  <FiUsers size={12} />
-                  {userDepartmentName}
-                  {departmentsLoading && <span className="MyLeaves-loading-dot">...</span>}
-                </span> */}
+                
                 <span className="MyLeaves-user-tag">
                   <FiBriefcase size={12} />
                   {companyDetails?.companyName || 'Company'}
@@ -780,7 +747,7 @@ const closeDetailModal = () => {
           </div>
         </div>
 
-        {/* Active Filters Display */}
+        
         {(statusFilter !== "ALL" || searchTerm) && (
           <div className="MyLeaves-active-filters">
             <span className="MyLeaves-active-filters-label">Active filters:</span>
@@ -802,11 +769,11 @@ const closeDetailModal = () => {
         )}
       </div>
 
-      {/* Stats Cards */}
-     {/* Stats Cards - Only show cards with value > 0 */}
+      
+     
 <div className="MyLeaves-stats-container">
   <div className="MyLeaves-stats-grid">
-    {/* Total Leaves Card - Always show if total > 0 */}
+    
     {stats.total > 0 && (
       <div className="MyLeaves-stat-card MyLeaves-stat-total">
         <div className="MyLeaves-stat-header">
@@ -815,13 +782,11 @@ const closeDetailModal = () => {
           <div className="MyLeaves-stat-value">{stats.total}</div>
         </div>
         
-        {/* <div className="MyLeaves-stat-footer">
-          <span>All time records</span>
-        </div> */}
+        
       </div>
     )}
     
-    {/* Approved Card - Show only if approved > 0 */}
+    
     {stats.approved > 0 && (
       <div className="MyLeaves-stat-card MyLeaves-stat-approved">
         <div className="MyLeaves-stat-header">
@@ -830,13 +795,11 @@ const closeDetailModal = () => {
            <div className="MyLeaves-stat-value">{stats.approved}</div>
         </div>
        
-        {/* <div className="MyLeaves-stat-footer">
-          <span>Approved requests</span>
-        </div> */}
+        
       </div>
     )}
     
-    {/* Pending Card - Show only if pending > 0 */}
+    
     {stats.pending > 0 && (
       <div className="MyLeaves-stat-card MyLeaves-stat-pending">
         <div className="MyLeaves-stat-header">
@@ -846,13 +809,11 @@ const closeDetailModal = () => {
         <div className="MyLeaves-stat-value" style={{ marginTop: "14px" , gap: "5px" }}>
           {stats.pending}
         </div>
-        {/* <div className="MyLeaves-stat-footer">
-          <span>Awaiting approval</span>
-        </div> */}
+        
       </div>
     )}
     
-    {/* Rejected Card - Show only if rejected > 0 */}
+    
     {stats.rejected > 0 && (
       <div className="MyLeaves-stat-card MyLeaves-stat-rejected">
         <div className="MyLeaves-stat-header">
@@ -862,15 +823,13 @@ const closeDetailModal = () => {
         <div className="MyLeaves-stat-value"
         style={{ marginTop: "13px" , gap: "5px" }}
         >{stats.rejected}</div>
-        {/* <div className="MyLeaves-stat-footer">
-          <span>Declined requests</span>
-        </div> */}
+        
       </div>
     )}
   </div>
 </div>
 
-      {/* Tabs Section */}
+      
       <div className="MyLeaves-tabs-container">
         <div className="MyLeaves-tabs-header">
           <button
@@ -892,10 +851,10 @@ const closeDetailModal = () => {
           </button>
         </div>
 
-        {/* Leave Requests Tab */}
+        
         {tab === 0 && (
           <div className="MyLeaves-requests-tab">
-            {/* Status Filter Buttons */}
+            
             <div className="MyLeaves-status-filters">
               <button
                 className={`MyLeaves-status-filter ${statusFilter === "ALL" ? "active" : ""}`}
@@ -923,21 +882,10 @@ const closeDetailModal = () => {
               </button>
             </div>
 
-            {/* Results Count with Socket Status */}
-            {/* <h3 className="MyLeaves-results-count">
-              Showing {filteredLeaves.length} of {leaves.length} records
-              <span className="MyLeaves-user-role-badge">
-                • Role: {userJobRoleName} • Dept: {userDepartmentName}
-              </span>
-              {isConnected && !socketError && (
-                <span className="live-badge">
-                  <FiBell size={12} />
-                  LIVE
-                </span>
-              )}
-            </h3> */}
+            
+            
 
-            {/* Main Content */}
+            
             <div className="MyLeaves-requests-content">
               {filteredLeaves.length === 0 ? (
                 <div className="MyLeaves-empty-state">
@@ -951,7 +899,7 @@ const closeDetailModal = () => {
                 </div>
               ) : (
                 <>
-                  {/* Desktop Table View */}
+                  
                   {!isMobile && (
                     <div className="MyLeaves-table-container">
                       <table className="MyLeaves-table">
@@ -1040,7 +988,7 @@ const closeDetailModal = () => {
                     </div>
                   )}
 
-                  {/* Mobile Card View */}
+                  
                   {isMobile && (
                     <div className="MyLeaves-mobile-cards">
                       {filteredLeaves.map((leave) => {
@@ -1129,13 +1077,13 @@ const closeDetailModal = () => {
   <div className="modal-overlay">
     <div className="modal-container">
 
-      {/* Header */}
+      
       <div className="modal-header">
         <h2>Leave Details</h2>
         <button className="close-btn" onClick={closeDetailModal}>✖</button>
       </div>
 
-      {/* Body */}
+      
       <div className="modal-body">
 
         <div className="detail-grid">
@@ -1180,7 +1128,7 @@ const closeDetailModal = () => {
           <ApprovalWorkflow leave={selectedLeave} />
         </div>
 
-        {/* Reason Section */}
+        
         <div className="reason-section">
           <h4>Reason</h4>
           <p>{selectedLeave.reason}</p>
@@ -1192,7 +1140,7 @@ const closeDetailModal = () => {
   </div>
 )}
 
-        {/* Apply Leave Tab */}
+        
         {tab === 1 && (
           <div className="MyLeaves-apply-tab">
             <div className="MyLeaves-apply-form-container">
@@ -1201,7 +1149,7 @@ const closeDetailModal = () => {
                 Fill in the details to submit a leave request
               </p>
 
-              {/* Leave Form */}
+              
               <div className="MyLeaves-form">
                 <div className="MyLeaves-form-group">
                   <label htmlFor="type">
@@ -1311,7 +1259,7 @@ const closeDetailModal = () => {
         )}
       </div>
 
-      {/* History Modal */}
+      
       {historyDialog.open && (
         <div className="MyLeaves-modal-overlay">
           <div className="MyLeaves-modal">

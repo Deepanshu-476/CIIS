@@ -108,7 +108,7 @@ const ChatPage = () => {
       const res = await getConversations();
       setConversations(res.data.conversations || []);
     } catch (error) {
-      console.log(error);
+      void 0;
     }
   };
 
@@ -118,7 +118,7 @@ const ChatPage = () => {
       const fetchedGroups = res.data.groups || res.data.data || res.data || [];
       setGroups(Array.isArray(fetchedGroups) ? fetchedGroups : []);
     } catch (error) {
-      console.log(error);
+      void 0;
     }
   };
 
@@ -151,7 +151,7 @@ const ChatPage = () => {
         };
       });
     } catch (error) {
-      console.log(error);
+      void 0;
     }
   };
 

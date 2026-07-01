@@ -81,12 +81,12 @@ const App = () => {
 
   return (
     <div className="ciis-app">
-      {/* Header */}
+      
       <header className="ciis-header">
         <div className="ciis-header-container">
           <div className="ciis-logo-section">
             <div className="ciis-logo-placeholder">
-              {/* Logo Image */}
+              
               <img 
                 src="/logo.png" 
                 alt="CIIS Network Logo" 
@@ -96,7 +96,7 @@ const App = () => {
                   e.target.nextSibling.style.display = 'flex';
                 }}
               />
-              {/* Fallback text logo, shown only when the image fails to load. */}
+              
               <div className="ciis-logo-fallback">
                 <span className="ciis-logo-text">CIIS NETWORK</span>
               </div>
@@ -111,7 +111,7 @@ const App = () => {
         </div>
       </header>
 
-      {/* Hero Section */}
+      
       <section className="ciis-hero">
         <div className="ciis-hero-background">
           <div className="ciis-hero-radial-light-1"></div>
@@ -160,7 +160,7 @@ const App = () => {
         </div>
       </section>
 
-      {/* Powerful Features Section */}
+      
       <section id="features" className="ciis-powerful-features">
         <div className="ciis-section-container">
           <div className="ciis-section-header">
@@ -183,7 +183,7 @@ const App = () => {
         </div>
       </section>
 
-      {/* Dashboard Preview */}
+      
       <section id="dashboard" className="ciis-dashboard-preview">
         <div className="ciis-section-container">
           <div className="ciis-section-header">
@@ -208,44 +208,9 @@ const App = () => {
         </div>
       </section>
 
-      {/* <section id="dashboard" className="dashboard-overview">
-        <div className="dashboard-container">
-          <div className="dashboard-header">
-            <h2 className="dashboard-title">Dashboard Overview</h2>
-            <p className="dashboard-description">
-              Real-time insights and analytics at your fingertips. Monitor your key metrics with beautiful visualizations.
-            </p>
-          </div>
-          <div className="dashboard-content">
-            <div className="dashboard-stats">
-              {stats.map((stat, index) => (
-                <div key={index} className="stat-card">
-                  <div className="stat-icon">{stat.icon}</div>
-                  <div className="stat-content">
-                    <div className="stat-label">{stat.label}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="dashboard-visualization">
-              <div className="visualization-placeholder">
-                <div className="chart-area">
-                  <div className="chart-bars">
-                    <div className="chart-bar" style={{height: '80%'}}></div>
-                    <div className="chart-bar" style={{height: '60%'}}></div>
-                    <div className="chart-bar" style={{height: '90%'}}></div>
-                    <div className="chart-bar" style={{height: '70%'}}></div>
-                    <div className="chart-bar" style={{height: '85%'}}></div>
-                    <div className="chart-bar" style={{height: '75%'}}></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section> */}
+      
 
-      {/* Access Section */}
+      
       <section id="access" className="ciis-access">
         <div className="ciis-section-container">
           <div className="ciis-section-header">
@@ -294,7 +259,7 @@ const App = () => {
         </div>
       </section>
 
-      {/* Benefits Section */}
+      
       <section id="benefits" className="ciis-benefits">
         <div className="ciis-section-container">
           <div className="ciis-section-header">
@@ -317,7 +282,7 @@ const App = () => {
         </div>
       </section>   
 
-      {/* Footer */}
+      
       <footer className="ciis-footer">
         <div className="ciis-footer-container">
           <div className="ciis-footer-content">

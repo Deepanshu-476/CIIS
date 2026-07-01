@@ -31,7 +31,7 @@ import "./ManageGroups.css";
 const ManageGroups = () => {
   const navigate = useNavigate();
 
-  // States
+  
   const [groups, setGroups] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -49,11 +49,11 @@ const ManageGroups = () => {
     members: [],
   });
 
-  // API call helper
+  
   const apiCall = async (method, url, data = null, config = {}) => {
     try {
       const token = localStorage.getItem("token");
-      console.log(`API Call: [${method.toUpperCase()}] ${url}`);
+      void 0;
       
       const response = await axiosInstance({
         method,
@@ -66,7 +66,7 @@ const ManageGroups = () => {
         ...config,
       });
       
-      console.log(`API Response: [${method.toUpperCase()}] ${url}`, response.data);
+      void 0;
       return response;
     } catch (error) {
       console.error(`API Error [${method.toUpperCase()} ${url}]:`, error.response?.data || error.message);
@@ -74,17 +74,17 @@ const ManageGroups = () => {
     }
   };
 
-  // Fetch groups
+  
   const fetchGroups = async () => {
     try {
       setLoading(true);
-      console.log("Fetching groups...");
+      void 0;
       const response = await apiCall("get", "/groups");
-      console.log("Groups fetched successfully:", response.data);
+      void 0;
       setGroups(response.data.groups || response.data || []);
     } catch (error) {
       console.error("Failed to fetch groups:", error.message);
-      // Don't redirect on API errors, just show snackbar
+      
       showSnackbar("Failed to fetch groups", "error");
     } finally {
       setLoading(false);
@@ -94,13 +94,13 @@ const ManageGroups = () => {
   const { user } = useAuth();
   const companyId = user?.company?._id || user?.company;
 
-  // Fetch users from company
+  
   const fetchUsers = async () => {
     try {
-      console.log("Fetching users for company:", companyId || "default");
+      void 0;
       const url = companyId ? `/users/company-users?companyId=${companyId}` : "/users/company-users";
       const response = await apiCall("get", url);
-      console.log("Users fetched successfully:", response.data);
+      void 0;
 
       let usersList = [];
       if (response.data) {
@@ -122,27 +122,27 @@ const ManageGroups = () => {
       setUsers(Array.isArray(usersList) ? usersList : []);
     } catch (error) {
       console.error("Failed to fetch users:", error.message);
-      // Don't redirect on API errors, just show snackbar
+      
       showSnackbar("Failed to fetch users", "error");
     }
   };
 
-  // Initialize data
+  
   useEffect(() => {
-    console.log("ManageGroups page mounted");
+    void 0;
     
-    // ProtectedRoute already checks authentication, just fetch data
-    console.log("Fetching groups and users");
+    
+    void 0;
     fetchGroups();
     fetchUsers();
   }, []);
 
-  // Show snackbar
+  
   const showSnackbar = (message, severity = "success") => {
     setSnackbar({ open: true, message, severity });
   };
 
-  // Open dialog for create/edit
+  
   const handleOpenDialog = (group = null) => {
     if (group) {
       setEditingGroup(group);
@@ -164,7 +164,7 @@ const ManageGroups = () => {
     setOpenDialog(true);
   };
 
-  // Close dialog
+  
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setEditingGroup(null);
@@ -175,7 +175,7 @@ const ManageGroups = () => {
     });
   };
 
-  // Handle form change
+  
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -184,7 +184,7 @@ const ManageGroups = () => {
     }));
   };
 
-  // Toggle member selection
+  
   const toggleMember = (userId) => {
     setFormData((prev) => ({
       ...prev,
@@ -194,7 +194,7 @@ const ManageGroups = () => {
     }));
   };
 
-  // Save group
+  
   const handleSaveGroup = async () => {
     if (!formData.name.trim()) {
       showSnackbar("Group name is required", "error");
@@ -203,11 +203,11 @@ const ManageGroups = () => {
 
     try {
       if (editingGroup) {
-        // Update group
+        
         await apiCall("put", `/groups/${editingGroup._id}`, formData);
         showSnackbar("Group updated successfully", "success");
       } else {
-        // Create group
+        
         await apiCall("post", "/groups", formData);
         showSnackbar("Group created successfully", "success");
       }
@@ -221,7 +221,7 @@ const ManageGroups = () => {
     }
   };
 
-  // Delete group
+  
   const handleDeleteGroup = async (groupId) => {
     if (window.confirm("Are you sure you want to delete this group?")) {
       try {
@@ -239,7 +239,7 @@ const ManageGroups = () => {
     return entity._id || entity.id || entity;
   };
 
-  // Get user name by ID
+  
   const getUserName = (userId) => {
     const normalizedId = getEntityId(userId);
     const user = users.find((u) => getEntityId(u) === normalizedId);
@@ -270,7 +270,7 @@ const ManageGroups = () => {
         </Button>
       </Box>
 
-      {/* Groups Table */}
+      
       <TableContainer component={Paper} className="manage-groups-table">
         <Table>
           <TableHead>
@@ -331,7 +331,7 @@ const ManageGroups = () => {
         </Table>
       </TableContainer>
 
-      {/* Create/Edit Dialog */}
+      
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
           {editingGroup ? "Edit Group" : "Create New Group"}
@@ -357,7 +357,7 @@ const ManageGroups = () => {
             rows={3}
           />
 
-          {/* Members Selection */}
+          
           <Box sx={{ mt: 3 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
               Select Members
@@ -430,7 +430,7 @@ const ManageGroups = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar */}
+      
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}

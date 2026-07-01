@@ -92,7 +92,7 @@ const MessageBubble = ({
                     candidates.push(getBackendUrl(`/uploads/chat/${fileName}`));
                 }
             } catch {
-                // Keep the absolute URL as-is if parsing fails.
+                
             }
 
             return uniqueUrls(candidates);

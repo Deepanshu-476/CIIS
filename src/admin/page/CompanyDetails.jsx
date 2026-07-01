@@ -66,7 +66,7 @@ const CompanyDetails = () => {
           </FormControl>
         </Grid>
 
-        {/* Logo */}
+        
         <Grid item xs={12} sm={2}>
           <Box display="flex" flexDirection="column" alignItems="center">
             <Avatar
@@ -82,7 +82,7 @@ const CompanyDetails = () => {
           </Box>
         </Grid>
 
-        {/* Address Fields */}
+        
         <Grid item xs={12} sm={10}>
           <TextField
             fullWidth

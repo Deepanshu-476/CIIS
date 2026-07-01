@@ -153,7 +153,7 @@ const Sidebar = ({ isMobile = false }) => {
 
   const isSidebarOpen = isMobile ? true : isHovered;
 
-  // Fetch user data from localStorage.
+  
   useEffect(() => {
     const user = localStorage.getItem("user");
     if (user) {
@@ -241,12 +241,12 @@ const Sidebar = ({ isMobile = false }) => {
     }
   };
 
-  // Check if user is a client
+  
   const isClientUser = useMemo(() => {
     return userData?.companyRole === "client";
   }, [userData]);
 
-  // Client menu items.
+  
   const clientMenuItems = useMemo(() => [
     {
       id: 'client-dashboard',
@@ -271,9 +271,9 @@ const Sidebar = ({ isMobile = false }) => {
     }
   ], []);
 
-  // Full menu items for admin, HR, and employee users.
+  
   const fullMenuItems = useMemo(() => [
-    // Main menu for all users and departments.
+    
     {
       id: 'dashboard',
       icon: <DashboardIcon />, 
@@ -319,7 +319,7 @@ const Sidebar = ({ isMobile = false }) => {
       ]
     },
     
-    // Tasks & Projects
+    
     {
       id: 'create-task',
       icon: <TaskIcon />, 
@@ -341,7 +341,7 @@ const Sidebar = ({ isMobile = false }) => {
       ]
     },
     
-    // Communication
+    
     {
       id: 'alerts',
       icon: <NotificationsIcon />, 
@@ -363,7 +363,7 @@ const Sidebar = ({ isMobile = false }) => {
       ]
     },
 
-    // Admin Menu
+    
     {
       id: 'emp-details',
       icon: <PersonIcon />, 
@@ -472,19 +472,19 @@ const Sidebar = ({ isMobile = false }) => {
     },
   ], []);
 
-  // Filter menu items based on user type
+  
   const menuItems = useMemo(() => {
     if (isClientUser) {
-      // Client users see only the client pages.
+      
       return clientMenuItems;
     }
     return fullMenuItems;
   }, [isClientUser, clientMenuItems, fullMenuItems]);
 
-  // Filter items based on user role and department (only for non-client users)
+  
   const filteredMenuItems = useMemo(() => {
     if (isClientUser) {
-      // Return client menu items directly for client users.
+      
       return menuItems;
     }
 
@@ -507,12 +507,12 @@ const Sidebar = ({ isMobile = false }) => {
     });
   }, [userData, menuItems, isClientUser]);
 
-  // Organize menu items into sections
+  
   const menuSections = useMemo(() => {
     if (!filteredMenuItems.length) return [];
 
     if (isClientUser) {
-      // Client users only need one Main Menu section.
+      
       return [{
         id: 'main',
         heading: 'Main Menu',
@@ -520,7 +520,7 @@ const Sidebar = ({ isMobile = false }) => {
       }];
     }
 
-    // Non-client users get multiple sections.
+    
     const sections = [
       { id: 'main', heading: 'Main Menu', items: [] },
       { id: 'tasks', heading: 'Tasks & Projects', items: [] },
@@ -543,7 +543,7 @@ const Sidebar = ({ isMobile = false }) => {
 
     return (
       <Box key={section.id}>
-        {/* Section Heading */}
+        
         {shouldShowFull ? (
           <SectionHeading>
             {section.heading}
@@ -565,7 +565,7 @@ const Sidebar = ({ isMobile = false }) => {
           </Tooltip>
         )}
 
-        {/* Section Items */}
+        
         <List sx={{ py: 0 }}>
           {section.items.map((item) => (
             <StyledListItem key={item.id} disablePadding>
@@ -606,7 +606,7 @@ const Sidebar = ({ isMobile = false }) => {
 
   const Container = isMobile ? MobileSidebarContainer : SidebarContainer;
 
-  // Loading state
+  
   if (!userData) {
     return (
       <Container
@@ -632,7 +632,7 @@ const Sidebar = ({ isMobile = false }) => {
         width: isSidebarOpen ? drawerWidthOpen : drawerWidthClosed,
       } : undefined}
     >
-      {/* User Info (only when sidebar is open) */}
+      
       {isSidebarOpen && (
         <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
           <Typography variant="subtitle2" fontWeight={600} noWrap>
@@ -644,10 +644,10 @@ const Sidebar = ({ isMobile = false }) => {
         </Box>
       )}
 
-      {/* Menu Sections */}
+      
       {menuSections.map((section) => renderMenuSection(section))}
 
-      {/* Logout Section */}
+      
       <Box sx={{ mt: 'auto', p: 2 }}>
         <Divider sx={{ mb: 2 }} />
         

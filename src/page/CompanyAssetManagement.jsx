@@ -147,7 +147,7 @@ const CompanyAssetManagement = () => {
 
   const selectedBranchLabel = selectedBranchId ? getBranchLabel(selectedBranchId) : 'All Branches';
 
-  // Get user from storage
+  
   const getUser = () => {
     try {
       let userStr = localStorage.getItem('superAdmin');
@@ -166,7 +166,7 @@ const CompanyAssetManagement = () => {
     }
   };
 
-  // Get company info
+  
   const getCompanyInfo = (currentUser = null) => {
     const user = currentUser || getUser();
     if (user) {
@@ -231,14 +231,14 @@ const CompanyAssetManagement = () => {
     }
   };
 
-  // Fetch all company assets
+  
   const fetchAssets = async () => {
     try {
       setLoading(true);
       const params = selectedBranchId ? { branch: selectedBranchId } : {};
       const response = await axios.get('/company-assets', { params });
       if (response.data.success) {
-        // Ensure each asset has a status field
+        
         const assetsWithStatus = (response.data.assets || []).map(asset => ({
           ...asset,
           status: asset.status || 'Available'
@@ -284,7 +284,7 @@ const CompanyAssetManagement = () => {
     }
   };
 
-  // Create new company asset
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -324,7 +324,7 @@ const CompanyAssetManagement = () => {
     }
   };
 
-  // Update asset status
+  
   const handleStatusChange = async (id, newStatus) => {
     try {
       setUpdatingStatus(id);
@@ -351,7 +351,7 @@ const CompanyAssetManagement = () => {
     }
   };
 
-  // Delete company asset
+  
   const handleDelete = async (id) => {
     try {
       setLoading(true);
@@ -371,9 +371,9 @@ const CompanyAssetManagement = () => {
     }
   };
 
-  // Get status badge - FIXED with proper error handling
+  
   const getStatusBadge = (status) => {
-    // Handle undefined, null, or invalid status
+    
     const safeStatus = (status && typeof status === 'string') ? status : 'Available';
     
     const statusConfig = {
@@ -382,7 +382,7 @@ const CompanyAssetManagement = () => {
       'Maintenance': { color: '#f59e0b', icon: '🔧', label: 'Maintenance', bg: '#fed7aa', border: '#fdba74' },
     };
     
-    // Use Available as default if status not found in config
+    
     const config = statusConfig[safeStatus] || statusConfig['Available'];
     const displayStatus = statusConfig[safeStatus] ? safeStatus : 'Available';
     
@@ -394,7 +394,7 @@ const CompanyAssetManagement = () => {
     );
   };
 
-  // Filter and search assets
+  
   const getFilteredAssets = () => {
     let filtered = [...assets];
 
@@ -417,7 +417,7 @@ const CompanyAssetManagement = () => {
     return filtered;
   };
 
-  // View asset details
+  
   const viewAssetDetails = (asset) => {
     setSelectedAsset(asset);
     setShowDetailsModal(true);
@@ -441,7 +441,7 @@ const CompanyAssetManagement = () => {
     setSearchParams(nextParams, { replace: true });
   };
 
-  // If no user, show login message
+  
   if (!user) {
     return (
       <div className="ca-login-prompt-enhanced">
@@ -459,7 +459,7 @@ const CompanyAssetManagement = () => {
 
   return (
     <div className={`ca-container-enhanced ${animateIn ? 'fade-in' : ''}`}>
-      {/* Header Section */}
+      
       <div className="ca-header-enhanced">
         <div className="ca-header-content-enhanced">
           <div className="ca-header-left-enhanced">
@@ -503,7 +503,7 @@ const CompanyAssetManagement = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      
       <div className="ca-stats-grid-enhanced">
         <div className="ca-stat-card-enhanced stat-total">
           <div className="ca-stat-icon-enhanced">
@@ -567,7 +567,7 @@ const CompanyAssetManagement = () => {
         </div>
       </div>
 
-      {/* Action Bar */}
+      
       <div className="ca-action-bar-enhanced">
         <div className="ca-action-left-enhanced">
           <button 
@@ -659,7 +659,7 @@ const CompanyAssetManagement = () => {
         </div>
       </div>
 
-      {/* Create Asset Form Modal */}
+      
       {showForm && (
         <div className="ca-modal-overlay-enhanced" onClick={() => setShowForm(false)}>
           <div className="ca-form-card-enhanced" onClick={(e) => e.stopPropagation()}>
@@ -768,7 +768,7 @@ const CompanyAssetManagement = () => {
         </div>
       )}
 
-      {/* Assets Display Section */}
+      
       <div className="ca-assets-section-enhanced">
         <div className="ca-section-header-enhanced">
           <div className="section-title">
@@ -966,7 +966,7 @@ const CompanyAssetManagement = () => {
         )}
       </div>
 
-      {/* Asset Details Modal */}
+      
       {showDetailsModal && selectedAsset && (
         <div className="ca-modal-overlay-enhanced" onClick={() => setShowDetailsModal(false)}>
           <div className="ca-modal-enhanced" onClick={(e) => e.stopPropagation()}>
@@ -1024,7 +1024,7 @@ const CompanyAssetManagement = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      
       {showDeleteConfirm && (
         <div className="ca-modal-overlay-enhanced" onClick={() => setShowDeleteConfirm(null)}>
           <div className="ca-modal-enhanced ca-modal-sm-enhanced" onClick={(e) => e.stopPropagation()}>
@@ -1049,7 +1049,7 @@ const CompanyAssetManagement = () => {
         </div>
       )}
 
-      {/* Comment Modal */}
+      
       {editingCommentReq && (
         <div className="ca-modal-overlay-enhanced" onClick={() => setEditingCommentReq(null)}>
           <div className="ca-modal-enhanced" onClick={(e) => e.stopPropagation()}>

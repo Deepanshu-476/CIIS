@@ -3,7 +3,7 @@ import axios from "../../../utils/axiosConfig";
 import './employee-directory.css';
 import CIISLoader from '../../../Loader/CIISLoader';
 
-// Icons imports
+
 import {
   FiMail, FiPhone, FiUser, FiCalendar, FiMapPin,
   FiBriefcase, FiPhoneCall, FiUsers, FiAlertTriangle,
@@ -17,12 +17,12 @@ import {
   FiUpload, FiLink, FiDownload as FiDownloadIcon
 } from "react-icons/fi";
 
-// Additional icons from react-icons/fa
+
 import { FaLaptop, FaDesktop, FaHeadphones, FaTabletAlt, FaTruck, FaMoneyBillWave } from "react-icons/fa";
 
-// ==================== CUSTOM HOOKS ====================
 
-// Custom hook for form management
+
+
 const useForm = (initialState = {}) => {
   const [formData, setFormData] = useState(initialState);
   
@@ -45,7 +45,7 @@ const useForm = (initialState = {}) => {
   };
 };
 
-// Custom hook for user management
+
 const useUser = () => {
   const getCurrentUser = useCallback(() => {
     try {
@@ -118,23 +118,23 @@ const useUser = () => {
     return (user?.companyRole || user?.role || 'employee').toLowerCase();
   }, [getCurrentUser]);
   
-  // Check if user is super_admin
+  
   const isSuperAdmin = useMemo(() => {
     const jobRole = getCurrentUserJobRole();
     return jobRole === 'super_admin';
   }, [getCurrentUserJobRole]);
   
-  // ✅ UPDATED: EVERYONE can edit other employees (Employee, Owner, HR, Manager, Admin, Super Admin)
+  
   const canEditOtherEmployees = useMemo(() => {
     const jobRole = getCurrentUserJobRole();
     const companyRole = getCurrentUserCompanyRole();
-    // Edit permission is available for Employee, Owner, HR, Manager, Admin, and Super Admin.
+    
     const allowedRoles = ['super_admin', 'admin', 'owner', 'hr', 'manager', 'employee'];
     return allowedRoles.includes(jobRole) || allowedRoles.includes(companyRole);
   }, [getCurrentUserJobRole, getCurrentUserCompanyRole]);
   
-  // ✅ Check if user can see all company users (Owner, HR, Manager, Admin, Super Admin)
-  // Employee will only see department users
+  
+  
   const canSeeAllCompanyUsers = useMemo(() => {
     const jobRole = getCurrentUserJobRole();
     const companyRole = getCurrentUserCompanyRole();
@@ -162,7 +162,7 @@ const useUser = () => {
   };
 };
 
-// ==================== ASSET ICONS MAPPING ====================
+
 const assetIcons = {
   sim: <FiSmartphone size={14} />,
   phone: <FiPhoneCall size={14} />,
@@ -173,9 +173,9 @@ const assetIcons = {
   vehicle: <FaTruck size={14} />
 };
 
-// ==================== SUB-COMPONENTS ====================
 
-// Employee Card Component
+
+
 const EmployeeDirectoryEmployeeCard = React.memo(({ 
   emp, 
   onView, 
@@ -247,7 +247,7 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
   const isCurrentUserEmp = currentUserId === (emp._id || emp.id);
   const isOtherUser = !isCurrentUserEmp;
   
-  // Show menu if user can edit other employees AND this is not the current user
+  
   const showMenu = canEditOtherEmployees && isOtherUser;
   
   return (
@@ -363,7 +363,7 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
   );
 });
 
-// Children Form Component
+
 const ChildrenForm = ({ children = [], onChange, isReadOnly = false }) => {
   const addChild = () => {
     if (!isReadOnly) {
@@ -440,7 +440,7 @@ const ChildrenForm = ({ children = [], onChange, isReadOnly = false }) => {
   );
 };
 
-// Documents Form Component
+
 const DocumentsForm = ({ documents = [], onChange, isReadOnly = false }) => {
   const addDocument = () => {
     if (!isReadOnly) {
@@ -526,7 +526,7 @@ const DocumentsForm = ({ documents = [], onChange, isReadOnly = false }) => {
   );
 };
 
-// Assets Form Component
+
 const AssetsForm = ({ properties = [], currentlyAssignedAssets = [], onChange, isReadOnly = false }) => {
   const assetOptions = ['sim', 'phone', 'laptop', 'desktop', 'headphones', 'tablet', 'vehicle'];
 
@@ -565,7 +565,7 @@ const AssetsForm = ({ properties = [], currentlyAssignedAssets = [], onChange, i
   );
 };
 
-// Bank Details Form Component
+
 const BankDetailsForm = ({ formData, onInputChange, canEdit }) => {
   return (
     <div className="EmployeeDirectory-form-section">
@@ -1192,7 +1192,7 @@ const EditEmployeeForm = React.memo(({
 // ==================== MAIN COMPONENT ====================
 
 const EmployeeDirectory = () => {
-  console.log("🚀 EmployeeDirectory component mounted");
+  void 0;
   
   // Custom hooks
   const user = useUser();
@@ -1409,10 +1409,10 @@ const EmployeeDirectory = () => {
       let usersRes;
       
       if (canSeeAllCompanyUsers) {
-        console.log("👑 Fetching ALL company users");
+        void 0;
         usersRes = await axios.get(`/users/company-users?companyId=${currentUserCompanyId}&includeInactive=true`, config);
       } else {
-        console.log("👤 Fetching department users only");
+        void 0;
         usersRes = await axios.get(
           `/users/department-users?department=${currentUserDepartmentId}&includeInactive=true`,
           config
@@ -1618,8 +1618,8 @@ const EmployeeDirectory = () => {
       
       const apiUrl = isSelfEdit ? '/users/me' : `/users/${userId}`;
       
-      console.log(`📝 Updating user: ${isSelfEdit ? 'Self-edit' : 'Admin edit'} - Endpoint: ${apiUrl}`);
-      console.log("FINAL PAYLOAD 👉", updateData);
+      void 0;
+      void 0;
       
       const res = await axios.put(apiUrl, updateData, config);
       

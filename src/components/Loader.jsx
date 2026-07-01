@@ -2,13 +2,13 @@ import React from 'react';
 import './Loader.css';
 
 const Loader = ({ 
-  size = 'medium', // 'small', 'medium', 'large'
+  size = 'medium', 
   color = '#667eea', 
   message = 'Loading...',
   showMessage = true,
-  type = 'modern' // 'modern', 'spinner', 'dots'
+  type = 'modern' 
 }) => {
-  // Size classes
+  
   const sizeClasses = {
     small: { barWidth: '6px', barHeight: '30px', container: 'w-20' },
     medium: { barWidth: '8px', barHeight: '40px', container: 'w-24' },
@@ -20,7 +20,7 @@ const Loader = ({
   return (
     <div className="loader-overlay">
       <div className="loader-container">
-        {/* Modern Bar Loader */}
+        
         {type === 'modern' && (
           <div className={`modern-loader ${container}`}>
             <div 
@@ -50,7 +50,7 @@ const Loader = ({
           </div>
         )}
 
-        {/* Spinner Loader */}
+        
         {type === 'spinner' && (
           <div 
             className="spinner" 
@@ -63,7 +63,7 @@ const Loader = ({
           ></div>
         )}
 
-        {/* Dots Loader */}
+        
         {type === 'dots' && (
           <div className="dots-loader">
             <div className="dot" style={{ backgroundColor: color }}></div>
@@ -72,7 +72,7 @@ const Loader = ({
           </div>
         )}
 
-        {/* Message */}
+        
         {showMessage && (
           <p className="loader-text" style={{ color }}>
             {message}

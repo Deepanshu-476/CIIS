@@ -27,7 +27,7 @@ import {
   Web as WebIcon,
 } from '@mui/icons-material';
 
-// Styled components (same as before)
+
 const SidebarContainer = styled(Box)(({ theme }) => ({
   width: 260,
   flexShrink: 0,
@@ -134,31 +134,31 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
   useEffect(() => {
     try {
       const userDataString = localStorage.getItem('superAdmin');
-      console.log('superAdmin data from localStorage:', userDataString);
+      void 0;
       
       if (userDataString) {
         const userData = JSON.parse(userDataString);
-        console.log('Parsed user data:', userData);
+        void 0;
         
         if (userData && userData.companyRole) {
           setCompanyRole(userData.companyRole);
-          console.log('Company role set to:', userData.companyRole);
+          void 0;
         } else {
-          console.log('companyRole not found in user data');
+          void 0;
           setCompanyRole('Owner');
         }
 
-        // Extract email from user data
+        
         if (userData && userData.email) {
           setUserEmail(userData.email);
-          console.log('User email set to:', userData.email);
+          void 0;
         } else if (userData && userData.user && userData.user.email) {
-          // Check nested structure
+          
           setUserEmail(userData.user.email);
-          console.log('User email set to (nested):', userData.user.email);
+          void 0;
         }
       } else {
-        console.log('No superAdmin data found in localStorage');
+        void 0;
         setCompanyRole('Owner');
       }
     } catch (error) {
@@ -173,22 +173,22 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       icon: <CompanyIcon />, 
       name: 'Company Details', 
       route: '/Ciis-network/company-details',
-      // Show only for specific email if configured.
-      // showForEmail: ['ashutoshrai130@gmail.com']
+      
+      
       showForAll: true
     },
     { 
       icon: <CompanyIcon />, 
       name: 'All Company', 
       route: '/Ciis-network/all-company',
-      // Show only for specific email if configured.
+      
       showForEmail: ['ashutoshrai130@gmail.com']
     },
     { 
       icon: <DepartmentIcon />, 
       name: 'Department', 
       route: '/Ciis-network/department',
-      // Show for all users.
+      
       showForAll: true
     },
     { 
@@ -201,29 +201,29 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       icon: <JobRoleIcon />, 
       name: 'Job Roles', 
       route: '/Ciis-network/JobRoleManagement',
-      // Show for all users.
+      
       showForAll: true
     },
     { 
       icon: <CreateUserIcon />, 
       name: 'Create User', 
       route: '/Ciis-network/create-user',
-      // Show for all users.
+      
       showForAll: true
     },
     { 
       icon: <AssetsIcon />,
       name: 'Assets Management', 
       route: '/Ciis-network/company-assets',
-      // Show for all users.
+      
       showForAll: true
     },
     { 
       icon: <DepartmentIcon />, 
       name: 'Sidebar Management', 
       route: '/Ciis-network/SidebarManagement',
-      // Show only for specific email if configured.
-      // showForEmail: ['ashutoshrai130@gmail.com']
+      
+      
       showForAll: true
     },
     {
@@ -249,8 +249,8 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       icon: <CompanyIcon />, 
       name: 'Holiday', 
       route: '/Ciis-network/holiday',
-      // Show only for specific email if configured.
-      // showForEmail: ['ashutoshrai130@gmail.com']
+      
+      
       showForAll: true
     },
   ];
@@ -269,14 +269,14 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
         }
         filteredItems.push(item);
       } else {
-        // Check if item should be shown based on new conditions
+        
         let shouldShow = false;
         
         if (item.showForAll) {
-          // Show to everyone when showForAll is enabled.
+          
           shouldShow = true;
         } else if (item.showForEmail && item.showForEmail.includes(userEmail)) {
-          // Show when the configured email matches.
+          
           shouldShow = true;
         }
         
@@ -291,7 +291,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       }
     }
     
-    // Remove empty headings
+    
     return filteredItems.filter((item, index, array) => {
       if (item.heading) {
         const hasMenuItemAfter = array
@@ -327,8 +327,8 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
   const SidebarComponent = isOpen ? SidebarContainer : CollapsedSidebar;
   const filteredMenuItems = getFilteredMenuItems();
 
-  console.log('Current userEmail:', userEmail);
-  console.log('Filtered menu items count:', filteredMenuItems.length);
+  void 0;
+  void 0;
 
   return (
     <SidebarComponent>

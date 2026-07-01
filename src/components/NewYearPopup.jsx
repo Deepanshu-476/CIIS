@@ -8,7 +8,7 @@ const NewYearPopup = () => {
   const confettiRef = useRef(null);
   const [isHovered, setIsHovered] = useState(false);
 
-  // Keyframes for animations
+  
   const keyframes = `
     @keyframes popupAppear {
       0% { transform: scale(0.8); opacity: 0; }
@@ -48,7 +48,7 @@ const NewYearPopup = () => {
     }
   `;
 
-  // Update countdown timer
+  
   useEffect(() => {
     const updateCountdown = () => {
       const now = new Date();
@@ -71,7 +71,7 @@ const NewYearPopup = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Create fireworks
+  
   const createFireworks = () => {
     if (!fireworksRef.current) return;
     
@@ -92,10 +92,10 @@ const NewYearPopup = () => {
         
         fireworksRef.current.appendChild(firework);
 
-        // Create particles for explosion
+        
         createParticles(firework);
 
-        // Remove firework after animation
+        
         setTimeout(() => {
           if (firework.parentNode) {
             firework.parentNode.removeChild(firework);
@@ -105,7 +105,7 @@ const NewYearPopup = () => {
     }
   };
 
-  // Create particles for fireworks
+  
   const createParticles = (firework) => {
     const particles = 20;
     const color = firework.style.backgroundColor;
@@ -141,10 +141,10 @@ const NewYearPopup = () => {
           posX += vx;
           posY += vy;
           
-          // Gravity effect
+          
           vy += 0.05;
           
-          // Fade out
+          
           const opacity = 1 - (posY / 200);
           
           particle.style.transform = `translate(${posX}px, ${posY}px)`;
@@ -162,7 +162,7 @@ const NewYearPopup = () => {
     }
   };
 
-  // Create confetti
+  
   const createConfetti = () => {
     if (!confettiRef.current) return;
     
@@ -182,7 +182,7 @@ const NewYearPopup = () => {
       
       confettiRef.current.appendChild(confetti);
       
-      // Remove confetti after animation
+      
       setTimeout(() => {
         if (confetti.parentNode) {
           confetti.parentNode.removeChild(confetti);
@@ -191,24 +191,24 @@ const NewYearPopup = () => {
     }
   };
 
-  // Handle celebrate button click
+  
   const handleCelebrate = () => {
     setIsCelebrating(true);
     createFireworks();
     createConfetti();
     
-    // Reset celebration after 5 seconds
+    
     setTimeout(() => {
       setIsCelebrating(false);
     }, 5000);
   };
 
-  // Close popup
+  
   const handleClosePopup = () => {
     setShowPopup(false);
   };
 
-  // Initialize effects on component mount
+  
   useEffect(() => {
     if (showPopup) {
       createFireworks();
@@ -225,7 +225,7 @@ const NewYearPopup = () => {
 
   if (!showPopup) return null;
 
-  // Inline styles
+  
   const styles = {
     overlay: {
       position: 'fixed',
@@ -418,11 +418,11 @@ const NewYearPopup = () => {
     <div style={styles.overlay}>
       <style>{keyframes}</style>
       
-      {/* Background effects containers */}
+      
       <div style={styles.fireworksContainer} ref={fireworksRef}></div>
       <div style={styles.confettiContainer} ref={confettiRef}></div>
       
-      {/* Main popup */}
+      
       <div style={styles.popupContainer}>
         <button 
           style={styles.closePopupBtn} 
@@ -434,30 +434,30 @@ const NewYearPopup = () => {
         </button>
         
         <div style={styles.newYearPopup}>
-          {/* Decorative Elements */}
+          
           <div style={styles.popupDecoration}>
             <div style={styles.decorationCircle1}></div>
             <div style={styles.decorationCircle2}></div>
           </div>
           
-          {/* Header */}
+          
           <div style={styles.popupHeader}>
             <h1 style={styles.yearText}>2026</h1>
           </div>
           
-          {/* Message */}
+          
           <h2 style={styles.message}>
             Happy New Year!
             <span style={styles.messageAfter}></span>
           </h2>
           
-          {/* Sub-message */}
+          
           <p style={styles.subMessage}>
             May this new year bring you joy, success, and prosperity. 
             Wishing you a year filled with new opportunities and wonderful moments!
           </p>
           
-          {/* Countdown */}
+          
           <div style={styles.countdown}>
             <div style={styles.countdownItem}>
               <span style={styles.countdownValue}>{countdown.days.toString().padStart(2, '0')}</span>
@@ -477,7 +477,7 @@ const NewYearPopup = () => {
             </div>
           </div>
           
-          {/* Button */}
+          
           <button 
             style={styles.closeBtn}
             onClick={handleCelebrate}

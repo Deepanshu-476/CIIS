@@ -39,19 +39,19 @@ import {
 function Customers() {
   const theme = useTheme();
 
-  // Pagination state
+  
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  // For demo, assume total count is 5886 as in screenshot
+  
   const totalCount = 5886;
 
-  // Mock data for customers
+  
   const customers = [
-    // ... (your mock data)
+    
   ];
 
-  // For mock data, repeat the customers to fill the page
+  
   const pagedCustomers = Array.from({ length: rowsPerPage }, (_, i) => {
     const base = customers[i % customers.length];
     return {
@@ -84,7 +84,7 @@ function Customers() {
 
   return (
     <Box p={3}>
-      {/* Header */}
+      
       <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={3}>
         <Box>
           <Typography variant="h4" fontWeight={600} gutterBottom>
@@ -109,10 +109,10 @@ function Customers() {
         </Button>
       </Box>
 
-      {/* Search + Tabs + Filters */}
+      
       <Paper variant="outlined" sx={{ p: 2, mb: 3, borderRadius: 2 }}>
         <Box display="flex" flexWrap="wrap" gap={2} alignItems="center">
-          {/* Search */}
+          
           <Box flexGrow={1} minWidth={300}>
             <TextField
               fullWidth
@@ -131,7 +131,7 @@ function Customers() {
             />
           </Box>
 
-          {/* Status Filter */}
+          
           <Box display="flex" alignItems="center" gap={1}>
             <Typography variant="body2" color="text.secondary">Status:</Typography>
             <Select
@@ -148,7 +148,7 @@ function Customers() {
             </Select>
           </Box>
 
-          {/* Action Buttons */}
+          
           <Box display="flex" gap={1}>
             <Tooltip title="Filter">
               <IconButton>
@@ -160,15 +160,11 @@ function Customers() {
                 <SortByAlphaIcon />
               </IconButton>
             </Tooltip>
-            {/* <Tooltip title="Refresh">
-              <IconButton>
-                <Refresh />
-              </IconButton>
-            </Tooltip> */}
+            
           </Box>
         </Box>
 
-        {/* Tabs */}
+        
         <Box mt={2}>
           <Tabs
             value={activeTab}
@@ -185,7 +181,7 @@ function Customers() {
         </Box>
       </Paper>
 
-      {/* Data Table */}
+      
       <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <Table>
           <TableHead sx={{ bgcolor: theme.palette.grey[50] }}>
@@ -256,7 +252,7 @@ function Customers() {
           </TableBody>
         </Table>
 
-        {/* Pagination */}
+        
         <TablePagination
           component="div"
           count={totalCount}

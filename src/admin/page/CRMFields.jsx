@@ -52,7 +52,7 @@ const CRMFields = () => {
 
   return (
     <Box p={3}>
-      {/* Header */}
+      
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Box display="flex" alignItems="center" gap={2}>
           <Typography variant="h6" fontWeight={600}>
@@ -69,7 +69,7 @@ const CRMFields = () => {
         </Box>
       </Box>
 
-      {/* Tabs */}
+      
       <Tabs
         value={tabValue}
         onChange={(e, newVal) => setTabValue(newVal)}
@@ -81,7 +81,7 @@ const CRMFields = () => {
         <Tab label="Default Fields" />
       </Tabs>
 
-      {/* Tab Panel Content */}
+      
       {tabValue === 0 && (
         <>
           <TextField

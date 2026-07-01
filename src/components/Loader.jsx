@@ -35,7 +35,7 @@ const Loader = ({
               className="bar" 
               style={{
                 width: barWidth,
-                height: barHeight,
+                height: barHeight,  
                 backgroundColor: color
               }}
             ></div>

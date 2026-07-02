@@ -348,14 +348,6 @@ const fixedDefaultItems = [
     order: 5
   },
   {
-    id: 'change-password',
-    name: 'Change Password',
-    icon: 'Settings',
-    path: '/ciisUser/change-password',
-    category: 'main',
-    order: 6
-  },
-  {
     id: 'chat',
     name: 'Chat',
     icon: 'Chat',
@@ -439,14 +431,6 @@ const clientMenuItems = [
     category: 'main',
     order: 7
   },
-  {
-    id: 'change-password',
-    name: 'Change Password',
-    icon: 'Settings',
-    path: '/client/change-password',
-    category: 'main',
-    order: 10
-  }
 ];
 
 
@@ -636,14 +620,6 @@ const allPagesItems = [
     order: 23
   },
   {
-    id: 'change-password',
-    name: 'Change Password',
-    icon: 'Settings',
-    path: '/ciisUser/change-password',
-    category: 'main',
-    order: 24
-  },
-  {
     id: 'chat',
     name: 'Chat',
     icon: 'Chat',
@@ -698,7 +674,6 @@ const getPathFromName = (name) => {
     'Department All Tasks': '/ciisUser/department-all-task',
     'Client Management': '/ciisUser/emp-client',
     'Active Clients': '/ciisUser/active-clients',
-    'Change Password': '/ciisUser/change-password',
     'Chat': '/ciisUser/chat',
     'Support Desk': '/ciisUser/support-desk',
     'Support Operations': '/ciisUser/support-operations',
@@ -1071,14 +1046,22 @@ const Sidebar = ({ isMobile = false }) => {
   const menuItems = useMemo(() => {
     if (loading) return [];
 
-    const removeSupportCenter = items => items.filter(item => {
+    const removeHiddenSidebarItems = items => items.filter(item => {
       const id = String(item?.id || "").toLowerCase();
       const name = String(item?.name || "").toLowerCase();
       const path = String(item?.path || "").toLowerCase();
       return id !== "contact-support"
         && name !== "support center"
         && name !== "contact support"
-        && !path.includes("contact-support");
+        && !path.includes("contact-support")
+        && id !== "profile"
+        && id !== "change-password"
+        && name !== "my profile"
+        && name !== "my details"
+        && name !== "profile"
+        && name !== "change password"
+        && !path.endsWith("/profile")
+        && !path.endsWith("/change-password");
     });
 
     void 0;
@@ -1088,13 +1071,13 @@ const Sidebar = ({ isMobile = false }) => {
     
     if (isClientUser) {
       void 0;
-      return removeSupportCenter(clientMenuItems);
+      return removeHiddenSidebarItems(clientMenuItems);
     }
 
     
     if (isSuperAdminWithManagement) {
       void 0;
-      return removeSupportCenter(filterItemsByCompanyAccess(allPagesItems, companyData));
+      return removeHiddenSidebarItems(filterItemsByCompanyAccess(allPagesItems, companyData));
     }
 
     let items = [];
@@ -1153,7 +1136,7 @@ const Sidebar = ({ isMobile = false }) => {
 
     void 0;
 
-    return removeSupportCenter(sortedItems);
+    return removeHiddenSidebarItems(sortedItems);
   }, [sidebarConfig, loading, isSuperAdminWithManagement, isClientUser, userData, companyData]);
 
   const userSubtitle = useMemo(() => {
@@ -1341,16 +1324,49 @@ const Sidebar = ({ isMobile = false }) => {
         } : undefined}
       >
         
-        {isSidebarOpen && (
-          <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
-            <Typography variant="subtitle2" fontWeight={600} noWrap>
-              {userData?.name || 'Client User'}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" noWrap>
-              Client Portal
-            </Typography>
+      {isSidebarOpen && (
+        <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.25 }}>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="subtitle2" fontWeight={600} noWrap>
+                {userData?.name || 'Client User'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" noWrap>
+                Client Portal
+              </Typography>
+            </Box>
+            <Tooltip title="My Profile">
+              <Button
+                size="small"
+                onClick={() => handleNavigate('/client/account-settings')}
+                startIcon={<PersonIcon fontSize="small" />}
+                sx={{
+                  flex: '0 0 auto',
+                  minWidth: 86,
+                  height: 32,
+                  px: 1,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  color: 'primary.main',
+                  backgroundColor: 'action.hover',
+                  border: `1px solid ${theme.palette.divider}`,
+                  '& .MuiButton-startIcon': {
+                    mr: 0.5,
+                  },
+                  '&:hover': {
+                    backgroundColor: 'primary.light',
+                    color: 'primary.contrastText',
+                  },
+                }}
+              >
+                Profile
+              </Button>
+            </Tooltip>
           </Box>
-        )}
+        </Box>
+      )}
 
         
         <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', mt: 2 }}>
@@ -1486,12 +1502,45 @@ const Sidebar = ({ isMobile = false }) => {
       
       {isSidebarOpen && (
         <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
-          <Typography variant="subtitle2" fontWeight={600} noWrap>
-            {userData?.name || 'User'}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" noWrap>
-            {userSubtitle}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.25 }}>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="subtitle2" fontWeight={600} noWrap>
+                {userData?.name || 'User'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" noWrap>
+                {userSubtitle}
+              </Typography>
+            </Box>
+            <Tooltip title="My Profile">
+              <Button
+                size="small"
+                onClick={() => handleNavigate('/ciisUser/profile')}
+                startIcon={<PersonIcon fontSize="small" />}
+                sx={{
+                  flex: '0 0 auto',
+                  minWidth: 86,
+                  height: 32,
+                  px: 1,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  color: 'primary.main',
+                  backgroundColor: 'action.hover',
+                  border: `1px solid ${theme.palette.divider}`,
+                  '& .MuiButton-startIcon': {
+                    mr: 0.5,
+                  },
+                  '&:hover': {
+                    backgroundColor: 'primary.light',
+                    color: 'primary.contrastText',
+                  },
+                }}
+              >
+                Profile
+              </Button>
+            </Tooltip>
+          </Box>
         </Box>
       )}
 

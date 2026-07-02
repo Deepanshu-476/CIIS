@@ -49,6 +49,15 @@
   font-size: 14px;
 }
 
+.UserDetails-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+}
+
 .UserDetails-primary-btn,
 .UserDetails-secondary-btn,
 .UserDetails-field-head button {
@@ -80,6 +89,12 @@
   color: #334155;
   border: 1px solid #d9e2ef;
   background: #fff;
+}
+
+.UserDetails-password-btn {
+  color: #2563eb;
+  border-color: #bfdbfe;
+  background: #eff6ff;
 }
 
 .UserDetails-alert {
@@ -287,6 +302,10 @@
   box-shadow: 0 30px 80px rgba(15, 23, 42, 0.28);
 }
 
+.UserDetails-password-modal {
+  width: min(520px, 94vw);
+}
+
 .UserDetails-modal-header,
 .UserDetails-modal-footer {
   display: flex;
@@ -336,6 +355,10 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+}
+
+.UserDetails-password-grid {
+  grid-template-columns: 1fr;
 }
 
 .UserDetails-form-grid label,
@@ -403,6 +426,11 @@
     align-items: flex-start;
   }
 
+  .UserDetails-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .UserDetails-grid,
   .UserDetails-info-grid,
   .UserDetails-info-grid.three,
@@ -428,5 +456,11 @@
 
   .UserDetails-child-row {
     grid-template-columns: 1fr;
+  }
+
+  .UserDetails-header-actions,
+  .UserDetails-header-actions .UserDetails-primary-btn,
+  .UserDetails-header-actions .UserDetails-secondary-btn {
+    width: 100%;
   }
 }

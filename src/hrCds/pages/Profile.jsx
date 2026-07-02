@@ -6,6 +6,7 @@ import {
   FiCreditCard,
   FiEdit,
   FiHeart,
+  FiLock,
   FiPhone,
   FiPlus,
   FiSave,
@@ -111,6 +112,13 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
   const [message, setMessage] = useState(null);
 
   const loadProfile = useCallback(async () => {
@@ -157,6 +165,31 @@ const Profile = () => {
       setEditOpen(false);
       setFormData(buildInitialForm(profile));
     }
+  };
+
+  const openPasswordModal = () => {
+    setPasswordData({
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    });
+    setPasswordOpen(true);
+    setMessage(null);
+  };
+
+  const closePasswordModal = () => {
+    if (!passwordSaving) {
+      setPasswordOpen(false);
+      setPasswordData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+    }
+  };
+
+  const handlePasswordChange = (field, value) => {
+    setPasswordData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSave = async (event) => {
@@ -211,6 +244,55 @@ const Profile = () => {
     }
   };
 
+  const handleChangePassword = async (event) => {
+    event.preventDefault();
+
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      setMessage({ type: "error", text: "Please fill all password fields." });
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      setMessage({ type: "error", text: "New password must be at least 6 characters." });
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setMessage({ type: "error", text: "New password and confirm password do not match." });
+      return;
+    }
+
+    setPasswordSaving(true);
+    setMessage(null);
+
+    try {
+      const response = await axios.put("/users/change-password", {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      });
+
+      if (response.data?.success === false) {
+        throw new Error(response.data?.message || "Password change failed");
+      }
+
+      setPasswordOpen(false);
+      setPasswordData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setMessage({ type: "success", text: "Your password has been changed successfully." });
+    } catch (error) {
+      console.error("Password change failed:", error);
+      setMessage({
+        type: "error",
+        text: error.response?.data?.message || error.message || "Failed to change password.",
+      });
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
   if (!userId) {
     return (
       <div className="UserDetails-page">
@@ -231,9 +313,14 @@ const Profile = () => {
           <h1>Personal Information</h1>
           <p>View and update your name, mobile, bank details, and family details.</p>
         </div>
-        <button className="UserDetails-primary-btn" onClick={openEdit}>
-          <FiEdit /> Edit Details
-        </button>
+        <div className="UserDetails-header-actions">
+          <button className="UserDetails-primary-btn" onClick={openEdit}>
+            <FiEdit /> Edit Details
+          </button>
+          <button className="UserDetails-secondary-btn UserDetails-password-btn" onClick={openPasswordModal}>
+            <FiLock /> Change Password
+          </button>
+        </div>
       </div>
 
       {message && (
@@ -414,6 +501,73 @@ const Profile = () => {
               </button>
               <button type="submit" className="UserDetails-primary-btn" disabled={saving}>
                 <FiSave /> {saving ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {passwordOpen && (
+        <div className="UserDetails-modal-overlay" onClick={closePasswordModal}>
+          <form
+            className="UserDetails-modal UserDetails-password-modal"
+            onSubmit={handleChangePassword}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="UserDetails-modal-header">
+              <div>
+                <h2>Change Password</h2>
+                <p>Enter your current password and choose a new secure password.</p>
+              </div>
+              <button type="button" className="UserDetails-icon-btn" onClick={closePasswordModal} disabled={passwordSaving}>
+                <FiX />
+              </button>
+            </div>
+
+            <div className="UserDetails-modal-content">
+              <section className="UserDetails-form-section">
+                <h3><FiLock /> Password Details</h3>
+                <div className="UserDetails-form-grid UserDetails-password-grid">
+                  <label>
+                    Current Password *
+                    <input
+                      type="password"
+                      value={passwordData.currentPassword}
+                      onChange={(event) => handlePasswordChange("currentPassword", event.target.value)}
+                      autoComplete="current-password"
+                      required
+                    />
+                  </label>
+                  <label>
+                    New Password *
+                    <input
+                      type="password"
+                      value={passwordData.newPassword}
+                      onChange={(event) => handlePasswordChange("newPassword", event.target.value)}
+                      autoComplete="new-password"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Confirm New Password *
+                    <input
+                      type="password"
+                      value={passwordData.confirmPassword}
+                      onChange={(event) => handlePasswordChange("confirmPassword", event.target.value)}
+                      autoComplete="new-password"
+                      required
+                    />
+                  </label>
+                </div>
+              </section>
+            </div>
+
+            <div className="UserDetails-modal-footer">
+              <button type="button" className="UserDetails-secondary-btn" onClick={closePasswordModal} disabled={passwordSaving}>
+                Cancel
+              </button>
+              <button type="submit" className="UserDetails-primary-btn" disabled={passwordSaving}>
+                <FiSave /> {passwordSaving ? "Updating..." : "Update Password"}
               </button>
             </div>
           </form>

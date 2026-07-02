@@ -179,7 +179,7 @@ export const getTheme = (mode) =>
     },
   });
 
-// Custom hook for using the theme
+
 export const useAppTheme = () => {
   const [mode, setMode] = React.useState('light');
   

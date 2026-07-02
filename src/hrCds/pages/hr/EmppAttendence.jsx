@@ -37,9 +37,9 @@ import {
   FiCalendar as FiRangeCalendar
 } from "react-icons/fi";
 
-// ============================================
-// DATE RANGE FILTER COMPONENT
-// ============================================
+
+
+
 const DateRangeFilter = ({ startDate, endDate, onStartDateChange, onEndDateChange, onApply, onClear }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -143,7 +143,7 @@ const DateRangeFilter = ({ startDate, endDate, onStartDateChange, onEndDateChang
   );
 };
 
-// Employee Type Filter Component
+
 const EmployeeTypeFilter = ({ selected, onChange }) => {
   const options = [
     { value: 'all', label: 'All Types' },
@@ -168,7 +168,7 @@ const EmployeeTypeFilter = ({ selected, onChange }) => {
   );
 };
 
-// Department Filter Component
+
 const DepartmentFilter = ({ selected, onChange, departments }) => {
   const options = [
     { value: 'all', label: 'All Departments' },
@@ -193,7 +193,7 @@ const DepartmentFilter = ({ selected, onChange, departments }) => {
   );
 };
 
-// Status Filter Component
+
 const StatusFilter = ({ selected, onChange }) => {
   const options = [
     { value: 'all', label: 'All Status' },
@@ -218,7 +218,7 @@ const StatusFilter = ({ selected, onChange }) => {
   );
 };
 
-// Add New Attendance Modal
+
 const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserDepartment, canEdit }) => {
   const [formData, setFormData] = useState({
     user: '',
@@ -234,12 +234,12 @@ const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserD
   const [loading, setLoading] = useState(false);
   const [searchUser, setSearchUser] = useState('');
 
-  // Filter users based on department (everyone can see all users in same company)
+  
   const filteredUsers = useMemo(() => {
     let availableUsers = users;
     
-    // Only filter by department if not in admin role (but still show all users)
-    // For attendance, everyone can add attendance for any user in same company
+    
+    
     return availableUsers.filter(user => 
       user.name?.toLowerCase().includes(searchUser.toLowerCase()) ||
       user.email?.toLowerCase().includes(searchUser.toLowerCase())
@@ -484,7 +484,7 @@ const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserD
   );
 };
 
-// Helper function to get department name
+
 const getDepartmentName = (deptId, departmentsMap, departmentsList) => {
   if (!deptId) return 'Unassigned';
   
@@ -500,13 +500,13 @@ const getDepartmentName = (deptId, departmentsMap, departmentsList) => {
   return deptId;
 };
 
-// Edit Attendance Modal - UPDATED with full permissions
+
 const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit }) => {
   const [editedRecord, setEditedRecord] = useState({});
   const [loading, setLoading] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
-  // ✅ Everyone can edit and delete
+  
   const canEditRecord = true;
   const canDeleteRecord = true;
 
@@ -786,7 +786,7 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
   );
 };
 
-// Quick Edit Modal - UPDATED with full permissions
+
 const QuickEditModal = ({ records, onClose, onSave }) => {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('present');
@@ -891,7 +891,7 @@ const QuickEditModal = ({ records, onClose, onSave }) => {
   );
 };
 
-// Helper functions
+
 const getInitials = (name) => {
   if (!name) return 'U';
   return name
@@ -966,7 +966,7 @@ const calculateHoursWorked = (inTime, outTime) => {
   };
 };
 
-// Main Component
+
 const EmployeeAttendance = () => {
   const [pageLoading, setPageLoading] = useState(true);
   const [records, setRecords] = useState([]);
@@ -974,7 +974,7 @@ const EmployeeAttendance = () => {
   const [departments, setDepartments] = useState([]);
   const [departmentsMap, setDepartmentsMap] = useState({});
   
-  // Date states
+  
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedStartDate, setSelectedStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedEndDate, setSelectedEndDate] = useState(new Date().toISOString().split('T')[0]);
@@ -1000,7 +1000,7 @@ const EmployeeAttendance = () => {
     onTime: 0,
   });
   
-  // Date range stats
+  
   const [dateRangeStats, setDateRangeStats] = useState({
     totalDays: 1,
     averagePresent: 0,
@@ -1023,7 +1023,7 @@ const EmployeeAttendance = () => {
   const [selectedRecords, setSelectedRecords] = useState([]);
   const [bulkEditMode, setBulkEditMode] = useState(false);
 
-  // User Role Related States
+  
   const [currentUser, setCurrentUser] = useState(null);
   const [currentUserRole, setCurrentUserRole] = useState('');
   const [currentUserDepartment, setCurrentUserDepartment] = useState('');
@@ -1032,16 +1032,16 @@ const EmployeeAttendance = () => {
   const [currentUserCompanyCode, setCurrentUserCompanyCode] = useState('');
   const [currentUserName, setCurrentUserName] = useState('');
   
-  // ✅ UPDATED: Everyone can edit attendance now
+  
   const [canEditAttendance, setCanEditAttendance] = useState(true);
   const [canViewAllAttendance, setCanViewAllAttendance] = useState(true);
 
   const tableRef = useRef(null);
   const exportMenuRef = useRef(null);
 
-  // ============================================
-  // INITIALIZATION
-  // ============================================
+  
+  
+  
   useEffect(() => {
     const initializeData = async () => {
       setPageLoading(true);
@@ -1062,14 +1062,14 @@ const EmployeeAttendance = () => {
     initializeData();
   }, []);
 
-  // Fetch users after user role is loaded
+  
   useEffect(() => {
     if (currentUserCompanyId) {
       fetchAllUsers();
     }
   }, [currentUserCompanyId]);
 
-  // Fetch attendance after users are loaded
+  
   useEffect(() => {
     if (allUsers.length > 0 && currentUserCompanyId && initialLoadComplete) {
       if (dateRangeMode) {
@@ -1080,7 +1080,7 @@ const EmployeeAttendance = () => {
     }
   }, [selectedDate, selectedStartDate, selectedEndDate, dateRangeMode, allUsers, currentUserCompanyId, initialLoadComplete]);
 
-  // Click outside handler for export menu
+  
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (exportMenuRef.current && !exportMenuRef.current.contains(event.target)) {
@@ -1094,14 +1094,14 @@ const EmployeeAttendance = () => {
     };
   }, []);
 
-  // ============================================
-  // USER & PERMISSION FUNCTIONS
-  // ============================================
+  
+  
+  
   const fetchCurrentUserAndCompany = async () => {
     try {
       const userStr = localStorage.getItem('user');
       if (!userStr) {
-        console.log("⚠️ No user found in localStorage");
+        void 0;
         return;
       }
 
@@ -1128,7 +1128,7 @@ const EmployeeAttendance = () => {
       setCurrentUserName(name);
       setCurrentUserRole(role);
       
-      // ✅ Everyone can edit attendance
+      
       setCanEditAttendance(true);
       setCanViewAllAttendance(true);
       
@@ -1138,12 +1138,12 @@ const EmployeeAttendance = () => {
     }
   };
 
-  // Fetch all users function
+  
   const fetchAllUsers = async () => {
     try {
-      console.log("🔄 Fetching all company users...");
+      void 0;
       
-      // Create a map for department IDs to names
+      
       let deptMap = {};
       let departmentsList = [];
       
@@ -1172,12 +1172,12 @@ const EmployeeAttendance = () => {
         
         setDepartments(departmentsList);
         setDepartmentsMap(deptMap);
-        console.log("✅ Departments loaded:", deptMap);
+        void 0;
       } catch (deptErr) {
         console.error("❌ Failed to load departments", deptErr);
       }
       
-      // Fetch all company users
+      
       const res = await axios.get('/users/company-users');
       
       let usersData = [];
@@ -1232,7 +1232,7 @@ const EmployeeAttendance = () => {
       });
       
       setAllUsers(usersWithDepartment);
-      console.log("✅ Users loaded:", usersWithDepartment.length);
+      void 0;
       
     } catch (err) {
       console.error("❌ Failed to load users", err);
@@ -1254,14 +1254,14 @@ const EmployeeAttendance = () => {
     return "present";
   };
 
-  // ============================================
-  // FETCH ATTENDANCE DATA (SINGLE DAY)
-  // ============================================
+  
+  
+  
   const fetchAttendanceData = async (date) => {
     setLoading(true);
     try {
       const formatted = date;
-      console.log("📅 Fetching attendance for date:", formatted);
+      void 0;
       
       const res = await axios.get(`/attendance/all?date=${formatted}`);
       
@@ -1358,13 +1358,13 @@ const EmployeeAttendance = () => {
     }
   };
 
-  // ============================================
-  // FETCH ATTENDANCE DATA (DATE RANGE)
-  // ============================================
+  
+  
+  
   const fetchAttendanceDataRange = async (startDate, endDate) => {
     setLoading(true);
     try {
-      console.log("📅 Fetching attendance from", startDate, "to", endDate);
+      void 0;
       
       const start = new Date(startDate);
       const end = new Date(endDate);
@@ -1557,9 +1557,9 @@ const EmployeeAttendance = () => {
     });
   };
 
-  // ============================================
-  // HANDLE DATE RANGE
-  // ============================================
+  
+  
+  
   const handleDateRangeApply = () => {
     if (selectedStartDate && selectedEndDate) {
       if (new Date(selectedStartDate) > new Date(selectedEndDate)) {
@@ -1595,9 +1595,9 @@ const EmployeeAttendance = () => {
     }, 4000);
   };
 
-  // ============================================
-  // FILTERED RECORDS
-  // ============================================
+  
+  
+  
   const filteredRecords = useMemo(() => {
     let filtered = records;
 
@@ -1654,9 +1654,9 @@ const EmployeeAttendance = () => {
     return filtered;
   }, [records, selectedEmployeeType, selectedDepartment, searchTerm, statusFilter]);
 
-  // ============================================
-  // GROUP RECORDS BY DATE (for date range mode)
-  // ============================================
+  
+  
+  
   const groupedByDate = useMemo(() => {
     if (!dateRangeMode) return null;
     
@@ -1859,7 +1859,7 @@ const EmployeeAttendance = () => {
     }
   };
 
-  // Export functions
+  
   const exportToPDF = async () => {
     setExportMenuOpen(false);
     setLoading(true);
@@ -2160,12 +2160,12 @@ const EmployeeAttendance = () => {
     );
   };
 
-  // Show CIISLoader while page is loading
+  
   if (pageLoading) {
     return <CIISLoader />;
   }
 
-  // Loading State
+  
   if (loading && !initialLoadComplete) {
     return (
       <div className="EmppAttendence-loading-container">
@@ -2182,7 +2182,7 @@ const EmployeeAttendance = () => {
 
   return (
     <div className="EmppAttendence-employee-attendance">
-      {/* Header */}
+      
       <div className="EmppAttendence-attendance-header">
         <div>
           <h1 className="EmppAttendence-attendance-title">Attendance Management</h1>
@@ -2259,7 +2259,7 @@ const EmployeeAttendance = () => {
           )}
         </div>
 
-        {/* Action Bar */}
+        
         <div className="EmppAttendence-header-actions">
           <button
             className="EmppAttendence-date-chip"
@@ -2271,7 +2271,7 @@ const EmployeeAttendance = () => {
             <span>Add Attendance</span>
           </button>
 
-          {/* Export Button */}
+          
           <div className="EmppAttendence-export-container" ref={exportMenuRef}>
             <button
               className="EmppAttendence-date-chip"
@@ -2322,7 +2322,7 @@ const EmployeeAttendance = () => {
         </div>
       </div>
 
-      {/* Filter Section */}
+      
       <div className="EmppAttendence-filter-section">
         <div className="EmppAttendence-filter-header">
           <FiFilter size={20} color="#1976d2" />
@@ -2330,7 +2330,7 @@ const EmployeeAttendance = () => {
         </div>
         
         <div className="EmppAttendence-filter-grid">
-          {/* Date Range Filter */}
+          
           <div className="EmppAttendence-filter-group EmppAttendence-full-width">
             <label className="EmppAttendence-filter-label">Date Range</label>
             <DateRangeFilter
@@ -2406,7 +2406,7 @@ const EmployeeAttendance = () => {
         </div>
       </div>
 
-      {/* Stat Cards */}
+      
       <div className="EmppAttendence-stats-container">
         {[
           { 
@@ -2490,7 +2490,7 @@ const EmployeeAttendance = () => {
           ))}
       </div>
 
-      {/* Date Range Summary */}
+      
       {dateRangeMode && (
         <div className="EmppAttendence-date-range-summary">
           <div className="EmppAttendence-summary-cards">
@@ -2530,7 +2530,7 @@ const EmployeeAttendance = () => {
         </div>
       )}
 
-      {/* Attendance Table */}
+      
       <div className="EmppAttendence-attendance-table-container" ref={tableRef}>
         <div className="EmppAttendence-table-header">
           <div>
@@ -2586,10 +2586,10 @@ const EmployeeAttendance = () => {
             <tbody>
               {filteredRecords.length ? (
                 dateRangeMode ? (
-                  // Group by date for range mode
+                  
                   Object.entries(groupedByDate || {}).sort(([dateA], [dateB]) => dateA.localeCompare(dateB)).map(([date, dateRecords]) => (
                     <React.Fragment key={date}>
-                      {/* Date Header */}
+                      
                       <tr className="EmppAttendence-date-header">
                         <td colSpan={bulkEditMode ? 12 : 11}>
                           <div className="EmppAttendence-date-title">
@@ -2607,7 +2607,7 @@ const EmployeeAttendance = () => {
                         </td>
                       </tr>
                       
-                      {/* Records for this date */}
+                      
                       {dateRecords.map((rec) => (
                         <tr key={`${rec._id}_${date}`} className={getRowClass(rec.status)}>
                           {bulkEditMode && (
@@ -2735,7 +2735,7 @@ const EmployeeAttendance = () => {
                     </React.Fragment>
                   ))
                 ) : (
-                  // Group by department for single day
+                  
                   Object.entries(
                     filteredRecords.reduce((acc, rec) => {
                       const dept = rec.user?.department || 'Unassigned';
@@ -2745,7 +2745,7 @@ const EmployeeAttendance = () => {
                     }, {})
                   ).map(([department, deptRecords]) => (
                     <React.Fragment key={department}>
-                      {/* Department Header */}
+                      
                       <tr className="EmppAttendence-department-header">
                         <td colSpan={bulkEditMode ? 12 : 11}>
                           <div className="EmppAttendence-department-title">
@@ -2758,7 +2758,7 @@ const EmployeeAttendance = () => {
                         </td>
                       </tr>
 
-                      {/* Records */}
+                      
                       {deptRecords.map((rec) => (
                         <tr key={rec._id} className={getRowClass(rec.status)}>
                           {bulkEditMode && (
@@ -2899,7 +2899,7 @@ const EmployeeAttendance = () => {
         </div>
       </div>
 
-      {/* Summary Section */}
+      
       <div className="EmppAttendence-summary-grid">
         {stats.total > 0 && (
           <div className="EmppAttendence-summary-item">
@@ -2936,7 +2936,7 @@ const EmployeeAttendance = () => {
         )}
       </div>
 
-      {/* Modals */}
+      
       {editModalOpen && (
         <EditAttendanceModal
           record={selectedRecord}
@@ -2969,7 +2969,7 @@ const EmployeeAttendance = () => {
         />
       )}
 
-      {/* Snackbar */}
+      
       {snackbar.open && (
         <div className="EmppAttendence-snackbar">
           <div className={`EmppAttendence-snackbar-content EmppAttendence-snackbar-${snackbar.type}`}>

@@ -30,7 +30,7 @@ const CompanyDetails = () => {
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [selectedBranchId, setSelectedBranchId] = useState(requestedBranchId);
   
-  // Modal States
+  
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [editFormData, setEditFormData] = useState({
@@ -67,7 +67,7 @@ const CompanyDetails = () => {
   const [editSuccess, setEditSuccess] = useState(false);
   const [formErrors, setFormErrors] = useState({});
   
-  // Company Edit Modal
+  
   const [companyEditModalOpen, setCompanyEditModalOpen] = useState(false);
   const [companyEditFormData, setCompanyEditFormData] = useState({
     companyName: "",
@@ -82,7 +82,7 @@ const CompanyDetails = () => {
   const [companyEditLoading, setCompanyEditLoading] = useState(false);
   const [companyEditSuccess, setCompanyEditSuccess] = useState(false);
   
-  // Separate states for departments and job roles
+  
   const [departments, setDepartments] = useState([]);
   const [departmentsMap, setDepartmentsMap] = useState({});
   const [jobRoles, setJobRoles] = useState([]);
@@ -92,7 +92,7 @@ const CompanyDetails = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [hoveredDepartment, setHoveredDepartment] = useState(null);
 
-  // Gender options
+  
   const genderOptions = ["male", "female", "other"];
   const maritalStatusOptions = ["single", "married", "divorced", "widowed"];
   const employeeTypeOptions = ["permanent", "contract", "intern", "trainee", "consultant", "part-time", "freelance"];
@@ -202,7 +202,7 @@ const CompanyDetails = () => {
     return `${origin}${getCompanyLoginPath(companyData)}`;
   };
 
-  // Handle window resize
+  
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -212,7 +212,7 @@ const CompanyDetails = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Handle copy URL
+  
   const handleCopy = () => {
     const url = getCompanyLoginUrl(company);
     navigator.clipboard.writeText(url);
@@ -221,25 +221,25 @@ const CompanyDetails = () => {
     toast.success("Login URL copied to clipboard!");
   };
 
-  // Get department name from ID
+  
   const getDepartmentName = (deptId) => {
     if (!deptId) return "No Department";
     
-    // If it's already a string (name)
+    
     if (typeof deptId === 'string' && !deptId.match(/^[0-9a-fA-F]{24}$/)) {
       return deptId;
     }
     
-    // If it's an object with name
+    
     if (typeof deptId === 'object' && deptId !== null) {
       return deptId.name || deptId._id || "Unknown";
     }
     
-    // Look up in departments map
+    
     return departmentsMap[deptId] || deptId || "Unknown";
   };
 
-  // Fetch departments API
+  
   const fetchDepartments = async (companyId) => {
     if (!companyId) return;
     
@@ -259,7 +259,7 @@ const CompanyDetails = () => {
       if (response.data && response.data.success) {
         const departmentsData = response.data.departments || [];
         
-        // Create department options for dropdown
+        
         const departmentOptions = departmentsData.map(dept => ({
           id: dept._id,
           name: dept.name,
@@ -269,7 +269,7 @@ const CompanyDetails = () => {
         
         setDepartments(departmentOptions);
         
-        // Create a map for quick department name lookup by ID
+        
         const deptMap = {};
         departmentsData.forEach(dept => {
           deptMap[dept._id] = dept.name;
@@ -288,7 +288,7 @@ const CompanyDetails = () => {
     }
   };
 
-  // Fetch job roles API
+  
   const fetchJobRoles = async (companyId) => {
     if (!companyId) return;
     
@@ -644,27 +644,27 @@ const CompanyDetails = () => {
     }
   };
 
-  // Process users to ensure department names are properly set
+  
   const processUsers = (users) => {
     if (!Array.isArray(users)) return [];
 
     return users.map(user => {
       const processedUser = { ...user };
       
-      // Handle department - could be ID, object, or name
+      
       if (user.department) {
         if (typeof user.department === 'object' && user.department !== null) {
-          // If it's an object, extract the name
+          
           processedUser.departmentName = user.department.name || user.department._id;
           processedUser.departmentId = user.department._id;
         } else if (typeof user.department === 'string') {
-          // If it's a string, check if it's an ID or a name
+          
           if (user.department.match(/^[0-9a-fA-F]{24}$/)) {
-            // It's an ID, look up the name
+            
             processedUser.departmentId = user.department;
             processedUser.departmentName = departmentsMap[user.department] || user.department;
           } else {
-            // It's a name
+            
             processedUser.departmentName = user.department;
           }
         }
@@ -676,7 +676,7 @@ const CompanyDetails = () => {
     });
   };
 
-  // 🔥 FIXED: Fetch current user company with proper company name extraction
+  
   const fetchCurrentUserCompany = async () => {
     try {
       setLoading(true);
@@ -698,19 +698,19 @@ const CompanyDetails = () => {
           { headers }
         );
         
-        console.log("Full API Response:", response.data);
+        void 0;
         setApiDebug(response.data);
         
         if (response.data && response.data.success) {
           const data = response.data.message;
-          console.log("API Response Data:", data);
+          void 0;
           
           let companyId = "";
           let companyDetails = {};
-          let companyName = getCompanyDisplayName(loggedCompany); // Default fallback
+          let companyName = getCompanyDisplayName(loggedCompany); 
           
-          // 🔥 FIXED: Extract company details properly
-          // First try to get from company.id object
+          
+          
           if (data.company?.id) {
             if (data.company.id._id) {
               companyId = data.company.id._id;
@@ -720,13 +720,13 @@ const CompanyDetails = () => {
               companyId = data.company.id;
             }
           } 
-          // Then try company object
+          
           else if (data.company?._id) {
             companyId = data.company._id;
             companyDetails = data.company;
             companyName = data.company.name || data.company.companyName || companyName;
           }
-          // Then try from first user
+          
           else if (data.users && data.users.length > 0) {
             const firstUser = data.users[0];
             if (firstUser.company) {
@@ -738,13 +738,13 @@ const CompanyDetails = () => {
                 companyId = firstUser.company;
               }
             }
-            // Also check if user has companyName directly
+            
             if (firstUser.companyName) {
               companyName = firstUser.companyName;
             }
           }
           
-          // 🔥 FIXED: Also check for company name in data.company
+          
           if (data.company?.companyName) {
             companyName = data.company.companyName;
           } else if (data.company?.name) {
@@ -760,11 +760,7 @@ const CompanyDetails = () => {
             companyDetails = loggedCompany;
           }
           
-          console.log("✅ Extracted company details:", {
-            companyId,
-            companyName,
-            companyDetails
-          });
+          void 0;
           
           if (!companyId) {
             console.error("Company ID not found in response");
@@ -772,7 +768,7 @@ const CompanyDetails = () => {
             return;
           }
           
-          // Company logo mapping
+          
           let companyLogo = null;
           
           if (companyDetails.logo) {
@@ -789,10 +785,10 @@ const CompanyDetails = () => {
 
           const loggedUserName = getLoggedUserNameFromResponse(data);
           
-          // Company data mapping with proper name
+          
           const companyData = {
             _id: companyId,
-            companyName: companyName, // 🔥 FIXED: Use extracted company name
+            companyName: companyName, 
             companyCode: loggedCompany?.companyCode ||
                         loggedCompany?.code ||
                         companyDetails.companyCode || 
@@ -887,10 +883,10 @@ const CompanyDetails = () => {
             allowedPages: loggedCompany?.allowedPages || companyDetails.allowedPages || data.company?.allowedPages || []
           };
           
-          console.log("✅ Mapped Company Data:", companyData);
+          void 0;
           setCompany(companyData);
           
-          // Initialize company edit form
+          
           setCompanyEditFormData({
             companyName: companyData.companyName,
             companyCode: companyData.companyCode,
@@ -909,14 +905,14 @@ const CompanyDetails = () => {
             setUserRole(data.currentUser.role || data.currentUser.name || "user");
           }
           
-          // Store in localStorage
+          
           localStorage.setItem("company", JSON.stringify(companyData));
           
           if (companyData.companyCode) {
             localStorage.setItem("companyCode", companyData.companyCode);
           }
           
-          // Fetch departments and job roles
+          
           await fetchDepartments(companyId);
           await fetchJobRoles(companyId);
           await fetchTodayLoginCount(headers);
@@ -946,13 +942,13 @@ const CompanyDetails = () => {
     }
   };
 
-  // Fetch company from localStorage (fallback)
+  
   const fetchCompanyFromLocalStorage = async (headers) => {
     try {
       const companyInfo = getLoggedCompanyFromStorage();
       
       if (companyInfo) {
-        console.log("Company from localStorage:", companyInfo);
+        void 0;
         
         const fullCompanyData = {
           ...companyInfo,
@@ -1011,7 +1007,7 @@ const CompanyDetails = () => {
           await fetchWeeklyLoginAnalytics(headers);
         }
       } else {
-        // Create default company data
+        
         const defaultCompany = {
           _id: "temp_" + Date.now(),
           companyName: "My Company",
@@ -1051,7 +1047,7 @@ const CompanyDetails = () => {
     }
   };
 
-  // Update users when departments map changes
+  
   useEffect(() => {
     if (recentUsers.length > 0 && Object.keys(departmentsMap).length > 0) {
       const processedUsers = recentUsers.map(user => {
@@ -1066,7 +1062,7 @@ const CompanyDetails = () => {
     }
   }, [departmentsMap]);
 
-  // Format date function
+  
   const formatDate = (dateString) => {
     if (!dateString) return "Not available";
     try {
@@ -1081,7 +1077,7 @@ const CompanyDetails = () => {
     }
   };
 
-  // Format date for input
+  
   const formatDateForInput = (dateString) => {
     if (!dateString) return "";
     try {
@@ -1092,7 +1088,7 @@ const CompanyDetails = () => {
     }
   };
 
-  // Format relative time
+  
   const formatRelativeTime = (dateString) => {
     if (!dateString) return "Unknown";
     try {
@@ -1112,7 +1108,7 @@ const CompanyDetails = () => {
     }
   };
 
-  // Days remaining calculation
+  
   const getDaysRemaining = (expiryDate) => {
     if (!expiryDate) return 30;
     try {
@@ -1126,7 +1122,7 @@ const CompanyDetails = () => {
     }
   };
 
-  // Get subscription status color
+  
   const getSubscriptionStatus = (daysRemaining) => {
     if (daysRemaining > 15) return { color: 'success', text: 'Active', bg: 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)' };
     if (daysRemaining > 7) return { color: 'warning', text: 'Expiring Soon', bg: 'linear-gradient(135deg, #ff9800 0%, #ed6c02 100%)' };
@@ -1134,7 +1130,7 @@ const CompanyDetails = () => {
     return { color: 'error', text: 'Expired', bg: 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)' };
   };
 
-  // Handle manual refresh
+  
   const handleRefresh = () => {
     toast.info("Refreshing data...");
     fetchCurrentUserCompany();
@@ -1160,7 +1156,7 @@ const CompanyDetails = () => {
     }
   };
 
-  // Handle company edit - Open modal
+  
   const handleEditCompany = () => {
     if (company) {
       setCompanyEditFormData({
@@ -1178,7 +1174,7 @@ const CompanyDetails = () => {
     }
   };
 
-  // Handle company edit form input changes
+  
   const handleCompanyInputChange = (e) => {
     const { name, value } = e.target;
     setCompanyEditFormData(prev => ({
@@ -1187,7 +1183,7 @@ const CompanyDetails = () => {
     }));
   };
 
-  // Save company changes
+  
   const handleSaveCompany = async () => {
     try {
       setCompanyEditLoading(true);
@@ -1227,11 +1223,11 @@ const CompanyDetails = () => {
         return;
       }
       
-      console.log("Updating company:", company._id, updateData);
+      void 0;
       
       let success = false;
       
-      // Try multiple API endpoints
+      
       try {
         const response = await axios.put(
           `${API_URL}/companies/${company._id}`,
@@ -1240,7 +1236,7 @@ const CompanyDetails = () => {
         );
         if (response.data && response.data.success) success = true;
       } catch (error) {
-        console.log("Company update attempt 1 failed:", error.message);
+        void 0;
       }
       
       if (!success) {
@@ -1252,11 +1248,11 @@ const CompanyDetails = () => {
           );
           if (response.data && response.data.success) success = true;
         } catch (error) {
-          console.log("Company update attempt 2 failed:", error.message);
+          void 0;
         }
       }
       
-      // Update local state
+      
       const updatedCompany = {
         ...company,
         companyName: companyEditFormData.companyName,
@@ -1300,11 +1296,11 @@ const CompanyDetails = () => {
     }
   };
 
-  // Handle user edit
+  
   const handleEditUser = (user) => {
-    console.log("Editing user:", user);
+    void 0;
     
-    // Get department name
+    
     let departmentName = "";
     if (user.departmentName) {
       departmentName = user.departmentName;
@@ -1314,7 +1310,7 @@ const CompanyDetails = () => {
       departmentName = getDepartmentName(user.department);
     }
     
-    // Get job role name
+    
     let jobRoleName = "";
     if (user.jobRole && typeof user.jobRole === 'object') {
       jobRoleName = user.jobRole.name || user.jobRole._id;
@@ -1325,7 +1321,7 @@ const CompanyDetails = () => {
     
     setSelectedUser(user);
     setEditFormData({
-      // Basic Info
+      
       name: user.name || "",
       email: user.email || "",
       phone: user.phone || user.mobile || "",
@@ -1334,7 +1330,7 @@ const CompanyDetails = () => {
       maritalStatus: user.maritalStatus || "",
       dob: formatDateForInput(user.dob) || "",
       
-      // Employment Info
+      
       department: departmentName || "",
       jobRole: jobRoleName || "",
       role: user.role || "user",
@@ -1342,23 +1338,23 @@ const CompanyDetails = () => {
       designation: user.designation || user.jobTitle || user.position || "",
       salary: user.salary || "",
       
-      // Bank Details
+      
       accountNumber: user.accountNumber || "",
       ifsc: user.ifsc || "",
       bankName: user.bankName || "",
       bankHolderName: user.bankHolderName || "",
       
-      // Family Details
+      
       fatherName: user.fatherName || "",
       motherName: user.motherName || "",
       
-      // Emergency Contact
+      
       emergencyName: user.emergencyName || "",
       emergencyPhone: user.emergencyPhone || "",
       emergencyRelation: user.emergencyRelation || "",
       emergencyAddress: user.emergencyAddress || "",
       
-      // Additional
+      
       isActive: user.isActive ?? true,
       properties: user.properties || [],
       propertyOwned: user.propertyOwned || "",
@@ -1369,7 +1365,7 @@ const CompanyDetails = () => {
     setEditModalOpen(true);
   };
 
-  // Handle form input changes
+  
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setEditFormData(prev => ({
@@ -1385,7 +1381,7 @@ const CompanyDetails = () => {
     }
   };
 
-  // Handle select changes
+  
   const handleSelectChange = (e) => {
     const { name, value } = e.target;
     setEditFormData(prev => ({
@@ -1394,7 +1390,7 @@ const CompanyDetails = () => {
     }));
   };
 
-  // Validate form
+  
   const validateForm = () => {
     const errors = {};
     if (!editFormData.name.trim()) {
@@ -1407,7 +1403,7 @@ const CompanyDetails = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // Save user changes
+  
   const handleSaveUser = async () => {
     if (!selectedUser) return;
     
@@ -1435,10 +1431,10 @@ const CompanyDetails = () => {
         return;
       }
 
-      console.log("Updating user with ID:", userId);
-      console.log("Update data:", editFormData);
+      void 0;
+      void 0;
       
-      // Prepare update data
+      
       const updateData = {
         name: editFormData.name,
         email: editFormData.email,
@@ -1471,7 +1467,7 @@ const CompanyDetails = () => {
       let success = false;
       let response;
       
-      // Try multiple API endpoints
+      
       try {
         response = await axios.put(
           `${API_URL}/users/${userId}`,
@@ -1480,7 +1476,7 @@ const CompanyDetails = () => {
         );
         if (response.data && (response.data.success || response.data._id)) success = true;
       } catch (error) {
-        console.log("First API attempt failed:", error.message);
+        void 0;
       }
       
       if (!success) {
@@ -1492,7 +1488,7 @@ const CompanyDetails = () => {
           );
           if (response.data && (response.data.success || response.data._id)) success = true;
         } catch (error) {
-          console.log("Second API attempt failed:", error.message);
+          void 0;
         }
       }
       
@@ -1505,20 +1501,20 @@ const CompanyDetails = () => {
           );
           if (response.data && (response.data.success || response.data._id)) success = true;
         } catch (error) {
-          console.log("Third API attempt failed:", error.message);
+          void 0;
         }
       }
       
       if (success) {
         handleUpdateSuccess(response?.data);
       } else {
-        // Optimistic update
+        
         const updatedUsers = recentUsers.map(user => 
           (user.id === userId || user._id === userId) 
             ? { 
                 ...user, 
                 ...editFormData,
-                departmentName: editFormData.department // Store department name
+                departmentName: editFormData.department 
               }
             : user
         );
@@ -1554,7 +1550,7 @@ const CompanyDetails = () => {
     }
   };
 
-  // Handle successful update
+  
   const handleUpdateSuccess = (responseData) => {
     setEditSuccess(true);
     
@@ -1596,7 +1592,7 @@ const CompanyDetails = () => {
     }, 2000);
   };
 
-  // ✅ UPDATED: Delete user with DELETE API call
+  
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
     
@@ -1622,16 +1618,16 @@ const CompanyDetails = () => {
         return;
       }
       
-      console.log("Deleting user with ID:", userId);
+      void 0;
       
-      // Make DELETE API call
+      
       const response = await axios.delete(
         `${API_URL}/users/${userId}`,
         { headers }
       );
       
       if (response.data && response.data.success) {
-        // Success toast with custom design
+        
         toast.success(
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <svg style={{ color: '#f44336', width: '24px', height: '24px' }} viewBox="0 0 24 24" fill="currentColor">
@@ -1645,13 +1641,13 @@ const CompanyDetails = () => {
           { icon: false, autoClose: 4000 }
         );
         
-        // Remove user from recentUsers list
+        
         const filteredUsers = recentUsers.filter(user => 
           (user.id !== userId && user._id !== userId)
         );
         setRecentUsers(filteredUsers);
         
-        // Update stats
+        
         const activeUsersCount = filteredUsers.filter(user => user.isActive).length;
         setStats(prev => ({
           ...prev,
@@ -1659,11 +1655,11 @@ const CompanyDetails = () => {
           activeUsers: activeUsersCount
         }));
         
-        // Close modal
+        
         setEditModalOpen(false);
         setSelectedUser(null);
         
-        // Reset form
+        
         setEditFormData({
           name: "",
           email: "",
@@ -1701,7 +1697,7 @@ const CompanyDetails = () => {
     } catch (error) {
       console.error("Error deleting user:", error);
       
-      // Handle specific error cases
+      
       if (error.response?.status === 401) {
         toast.error("Session expired. Please login again!");
         localStorage.clear();
@@ -1718,7 +1714,7 @@ const CompanyDetails = () => {
     }
   };
 
-  // Handle view all users
+  
   const handleViewAllUsers = () => {
     if (company && company._id) {
       navigate(`/Ciis-network/company/${company._id}/users`);
@@ -1727,7 +1723,7 @@ const CompanyDetails = () => {
     }
   };
 
-  // Handle add new user
+  
   const handleAddNewUser = () => {
     if (company && company._id) {
       navigate(`/Ciis-network/create-user?company=${company._id}&companyCode=${company.companyCode}&companyName=${encodeURIComponent(company.companyName)}`);
@@ -1736,7 +1732,7 @@ const CompanyDetails = () => {
     }
   };
 
-  // Handle add new department
+  
   const handleAddNewDepartment = async () => {
     const newDept = prompt("Enter new department name:");
     if (newDept && newDept.trim()) {
@@ -1765,12 +1761,12 @@ const CompanyDetails = () => {
     }
   };
 
-  // Handle tab change
+  
   const handleTabChange = (tabIndex) => {
     setActiveTab(tabIndex);
   };
 
-  // Load data with page loader
+  
   useEffect(() => {
     const loadData = async () => {
       setPageLoading(true);
@@ -1799,7 +1795,7 @@ const CompanyDetails = () => {
   const allowedPagesCount = currentPlan?.allowedPages?.length || company?.allowedPages?.length || 0;
   const subscriptionProgress = Math.min((daysRemaining / Math.max(planDurationDays || 30, 1)) * 100, 100);
 
-  // Show CIISLoader while page is loading
+  
   if (pageLoading) {
     return <CIISLoader />;
   }
@@ -1995,18 +1991,18 @@ const CompanyDetails = () => {
 
   return (
     <div className="CompanyDetails">
-      {/* Animated Background */}
+      
       <div className="CompanyDetails-animated-bg">
         <div className="CompanyDetails-bg-blob CompanyDetails-blob-1"></div>
         <div className="CompanyDetails-bg-blob CompanyDetails-blob-2"></div>
       </div>
 
       <div className="CompanyDetails-container">
-        {/* Responsive Header */}
+        
         <div className="CompanyDetails-header">
           <div className="CompanyDetails-header-gradient">
             <div className="CompanyDetails-header-content">
-              {/* Logo and Company Info */}
+              
               <div className="CompanyDetails-header-left">
                 <div className="CompanyDetails-company-info">
                   <div className="CompanyDetails-company-chips">
@@ -2046,7 +2042,7 @@ const CompanyDetails = () => {
                 </div>
               </div>
 
-              {/* Desktop Login URL */}
+              
               <div className="CompanyDetails-desktop-login-url">
                 <div className="CompanyDetails-url-wrapper">
                   <span className="CompanyDetails-url-label-desktop">Login URL:</span>
@@ -2072,7 +2068,7 @@ const CompanyDetails = () => {
                 </div>
               </div>
 
-              {/* Action Buttons */}
+              
               <div className="CompanyDetails-header-actions">
                 <button className="CompanyDetails-icon-btn CompanyDetails-refresh-btn" onClick={handleRefresh} title="Refresh Data">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -2088,7 +2084,7 @@ const CompanyDetails = () => {
                 </button>
               </div>
 
-              {/* Mobile Menu Button */}
+              
               <button className="CompanyDetails-mobile-menu-btn" onClick={() => setMobileMenuOpen(true)}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
@@ -2096,7 +2092,7 @@ const CompanyDetails = () => {
               </button>
             </div>
 
-            {/* Mobile Login URL */}
+            
             <div className="CompanyDetails-mobile-login-url">
               <span className="CompanyDetails-url-label">Login URL:</span>
               <div className="CompanyDetails-url-container">
@@ -2122,7 +2118,7 @@ const CompanyDetails = () => {
           </div>
         </div>
 
-        {/* Mobile Menu Drawer */}
+        
         {mobileMenuOpen && (
           <div className="CompanyDetails-mobile-menu-drawer">
             <div className="CompanyDetails-drawer-header">
@@ -2167,7 +2163,7 @@ const CompanyDetails = () => {
           </div>
         )}
 
-        {/* Stats Grid */}
+        
         <div className="CompanyDetails-stats-grid">
           {statsData.map((stat, index) => (
             <div key={index} className={`CompanyDetails-stat-card CompanyDetails-stat-${stat.tone}`}>
@@ -2311,12 +2307,12 @@ const CompanyDetails = () => {
           </div>
         </div>
 
-        {/* Conditional Rendering based on tab for mobile */}
+        
         {isMobile ? (
           <>
             {activeTab === 0 && (
               <>
-                {/* Company Information Card */}
+                
                 <div className="CompanyDetails-info-card">
                   <div className="CompanyDetails-card-header">
                     <div className="CompanyDetails-header-icon CompanyDetails-primary-bg">
@@ -2342,7 +2338,7 @@ const CompanyDetails = () => {
                   </div>
                 </div>
 
-                {/* Subscription Card */}
+                
                 <div className={`CompanyDetails-subscription-card CompanyDetails-status-${subscriptionStatus.color}`}>
                   <div className="CompanyDetails-subscription-bg"></div>
                   <div className="CompanyDetails-subscription-content">
@@ -2412,7 +2408,7 @@ const CompanyDetails = () => {
                 <div className="CompanyDetails-users-list">
                   {recentUsers.length > 0 ? (
                     recentUsers.map((user, index) => {
-                      // Get department name for display
+                      
                       let deptDisplay = "No Department";
                       
                       if (user.departmentName) {
@@ -2479,10 +2475,10 @@ const CompanyDetails = () => {
             )}
           </>
         ) : (
-          /* Desktop/Tablet Layout */
+           
           <div className="CompanyDetails-desktop-grid">
             <div className="CompanyDetails-left-column">
-              {/* Company Information Card */}
+              
               <div className="CompanyDetails-info-card">
                 <div className="CompanyDetails-card-header">
                   <div className="CompanyDetails-header-icon CompanyDetails-primary-bg">
@@ -2508,7 +2504,7 @@ const CompanyDetails = () => {
                 </div>
               </div>
 
-              {/* Subscription Card */}
+              
               <div className={`CompanyDetails-subscription-card CompanyDetails-status-${subscriptionStatus.color}`}>
                 <div className="CompanyDetails-subscription-bg"></div>
                 <div className="CompanyDetails-subscription-content">
@@ -2577,7 +2573,7 @@ const CompanyDetails = () => {
                 <div className="CompanyDetails-users-list">
                   {recentUsers.length > 0 ? (
                     recentUsers.map((user, index) => {
-                      // Get department name for display
+                      
                       let deptDisplay = "No Department";
                       
                       if (user.departmentName) {
@@ -2666,7 +2662,7 @@ const CompanyDetails = () => {
         </div>
       </div>
 
-      {/* Mobile Bottom Navigation */}
+      
       <div className="CompanyDetails-mobile-bottom-nav">
         <button 
           className={`CompanyDetails-nav-item ${activeTab === 0 ? 'CompanyDetails-active' : ''}`} 
@@ -2699,7 +2695,7 @@ const CompanyDetails = () => {
         </button>
       </div>
 
-      {/* Company Edit Modal */}
+      
       {companyEditModalOpen && (
         <div className="CompanyDetails-modal-overlay" onClick={() => !companyEditLoading && setCompanyEditModalOpen(false)}>
           <div className={`CompanyDetails-modal-content ${isMobile ? 'CompanyDetails-fullscreen' : ''}`} onClick={e => e.stopPropagation()}>
@@ -2892,7 +2888,7 @@ const CompanyDetails = () => {
       )}
 
      
-      {/* Edit User Modal */}
+      
 {editModalOpen && selectedUser && (
   <div className="CompanyDetails-modal-overlay" onClick={() => !saveLoading && setEditModalOpen(false)}>
     <div className={`CompanyDetails-modal-content CompanyDetails-large ${isMobile ? 'CompanyDetails-fullscreen' : ''}`} onClick={e => e.stopPropagation()}>
@@ -2925,7 +2921,7 @@ const CompanyDetails = () => {
               <span>Editing: <strong>{selectedUser.name}</strong> ({selectedUser.email})</span>
             </div>
 
-            {/* SECTION 1: BASIC INFORMATION */}
+            
             <div className="CompanyDetails-form-section">
               <div className="CompanyDetails-section-header">
                 <div className="CompanyDetails-section-icon CompanyDetails-blue-bg">
@@ -3083,7 +3079,7 @@ const CompanyDetails = () => {
               </div>
             </div>
 
-            {/* SECTION 2: EMPLOYMENT INFORMATION */}
+            
             <div className="CompanyDetails-form-section">
               <div className="CompanyDetails-section-header">
                 <div className="CompanyDetails-section-icon CompanyDetails-orange-bg">
@@ -3244,7 +3240,7 @@ const CompanyDetails = () => {
             Cancel
           </button>
           
-          {/* Delete User Button - Exactly where it was before */}
+          
           <button 
             className="CompanyDetails-btn CompanyDetails-btn-danger" 
             onClick={handleDeleteUser} 

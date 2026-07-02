@@ -3,11 +3,11 @@ import axios from "../../../utils/axiosConfig";
 import './employee-leaves.css';
 import CIISLoader from '../../../Loader/CIISLoader';
 
-// Socket import with error handling
+
 import { useSocket } from '../../../context/SocketContext';
 import { useNotification } from '../../../context/NotificationContext';
 
-// Icons
+
 import {
   FiCalendar,
   FiUsers,
@@ -47,9 +47,9 @@ import {
   FiBell
 } from "react-icons/fi";
 
-// ============================================
-// FILTER COMPONENTS
-// ============================================
+
+
+
 const StatusFilter = ({ selected, onChange }) => {
   const options = [
     { value: 'All', label: 'All Statuses' },
@@ -114,13 +114,13 @@ const DepartmentFilter = ({ selected, onChange, departments = [] }) => {
   );
 };
 
-// ============================================
-// MAIN COMPONENT
-// ============================================
+
+
+
 const EmployeeLeaves = () => {
-  // ============================================
-  // STATE DECLARATIONS
-  // ============================================
+  
+  
+  
   const [leaves, setLeaves] = useState([]);
   const [filterDate, setFilterDate] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -162,7 +162,7 @@ const EmployeeLeaves = () => {
     leave: null
   });
   
-  // User Role Related States
+  
   const [currentUser, setCurrentUser] = useState(null);
   const [currentUserRole, setCurrentUserRole] = useState("");
   const [currentUserDepartment, setCurrentUserDepartment] = useState("");
@@ -173,15 +173,15 @@ const EmployeeLeaves = () => {
   const [usersMap, setUsersMap] = useState({});
   const [deletePermissionUserIds, setDeletePermissionUserIds] = useState([]);
   
-  // Department Related States
+  
   const [departments, setDepartments] = useState([]);
   const [departmentMap, setDepartmentMap] = useState({});
   const [loadingDepartments, setLoadingDepartments] = useState(false);
   
-  // Company Name State
+  
   const [companyName, setCompanyName] = useState("");
   
-  // Permission States
+  
   const [isOwner, setIsOwner] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isHR, setIsHR] = useState(false);
@@ -194,9 +194,9 @@ const EmployeeLeaves = () => {
     canViewHistory: true
   });
 
-  // ============================================
-  // CONTEXT HOOKS WITH ERROR HANDLING
-  // ============================================
+  
+  
+  
   let socketContext = { isConnected: false, onNewLeave: () => {}, onLeaveStatusChanged: () => {}, onLeaveDeleted: () => {}, joinLeaveRoom: () => {}, leaveLeaveRoom: () => {} };
   let notificationContext = { showToast: () => {} };
   
@@ -218,9 +218,9 @@ const EmployeeLeaves = () => {
   
   const { showToast } = notificationContext;
 
-  // ============================================
-  // HELPER FUNCTIONS
-  // ============================================
+  
+  
+  
   const showSnackbar = useCallback((message, type = "success") => {
     setSnackbar({ open: true, message, type });
     setTimeout(() => {
@@ -365,29 +365,29 @@ const EmployeeLeaves = () => {
     return role.charAt(0).toUpperCase() + role.slice(1);
   };
 
-  // SIMPLE FUNCTION TO GET USER NAME
+  
   const getUserName = (userId) => {
     if (!userId) return "System";
     
-    // If it's already a name string
+    
     if (typeof userId === 'string' && !userId.match(/^[0-9a-f]{24}$/i)) {
       return userId;
     }
     
-    // If it's an object with name
+    
     if (typeof userId === 'object' && userId?.name) {
       return userId.name;
     }
     
-    // Get ID as string
+    
     const id = typeof userId === 'object' ? userId?._id || userId?.id : userId;
     
-    // Check in users map
+    
     if (usersMap[id]) {
       return usersMap[id].name || usersMap[id].username || 'User';
     }
     
-    // Check if it's current user
+    
     if (id === currentUserId) {
       return currentUserName;
     }
@@ -442,9 +442,9 @@ const EmployeeLeaves = () => {
     );
   };
 
-  // ============================================
-  // PERMISSION CHECK FUNCTIONS
-  // ============================================
+  
+  
+  
   const canModifyLeave = useCallback(() => {
     return isOwner || isAdmin || isHR || isManager;
   }, [isOwner, isAdmin, isHR, isManager]);
@@ -466,14 +466,14 @@ const EmployeeLeaves = () => {
     return isOwner || isAdmin || isHR || isManager;
   }, [isOwner, isAdmin, isHR, isManager, currentUserId]);
 
-  // ============================================
-  // API CALL FUNCTIONS
-  // ============================================
+  
+  
+  
   const fetchCurrentUserAndCompany = useCallback(async () => {
     try {
       const userStr = localStorage.getItem('user');
       if (!userStr) {
-        console.log("No user found in localStorage");
+        void 0;
         return;
       }
 
@@ -622,7 +622,7 @@ const EmployeeLeaves = () => {
       
       setAllUsers(usersData);
       
-      // Create users map for easy lookup
+      
       const map = {};
       usersData.forEach(user => {
         const id = user._id || user.id;
@@ -747,9 +747,9 @@ const EmployeeLeaves = () => {
     showSnackbar
   ]);
 
-  // ============================================
-  // INITIALIZATION EFFECTS
-  // ============================================
+  
+  
+  
   useEffect(() => {
     fetchCurrentUserAndCompany();
   }, [fetchCurrentUserAndCompany]);
@@ -778,9 +778,9 @@ const EmployeeLeaves = () => {
     fetchLeaves
   ]);
 
-  // ============================================
-  // SOCKET EVENT LISTENERS
-  // ============================================
+  
+  
+  
   useEffect(() => {
     if (!currentUserId || !onNewLeave || !onLeaveStatusChanged || !onLeaveDeleted) return;
 
@@ -879,9 +879,9 @@ const EmployeeLeaves = () => {
     };
   }, [currentUserId, isOwner, currentUserDepartment, leaves, onNewLeave, onLeaveStatusChanged, onLeaveDeleted, joinLeaveRoom, leaveLeaveRoom, updateStats, showToast]);
 
-  // ============================================
-  // FILTERED LEAVES
-  // ============================================
+  
+  
+  
   const filteredLeaves = useMemo(() => {
     let filtered = leaves;
 
@@ -909,9 +909,9 @@ const EmployeeLeaves = () => {
     [filteredLeaves]
   );
 
-  // ============================================
-  // DIALOG FUNCTIONS
-  // ============================================
+  
+  
+  
   const openStatusDialog = (leaveId, newStatus, userEmail, userName, userPhone, userId, currentStatus, leave = null) => {
     if (!canApproveLeave(leave)) {
       showSnackbar("Access Denied: You don't have permission to update leave status", "error");
@@ -1033,7 +1033,7 @@ const EmployeeLeaves = () => {
     const history = leave.history || [];
     
     if (history.length === 0) {
-      // Create history from current status
+      
       setHistoryDialog({
         open: true,
         title: `${leave.user?.name || 'Employee'} — ${leave.type || ''} Leave`,
@@ -1051,7 +1051,7 @@ const EmployeeLeaves = () => {
       return;
     }
     
-    // Process existing history
+    
     const processedHistory = history.map(item => {
       let byName = item.byName;
       
@@ -1149,9 +1149,9 @@ const EmployeeLeaves = () => {
     setStatusFilter(type === 'All' ? 'All' : type);
   };
 
-  // ============================================
-  // ROLE BADGE COMPONENT
-  // ============================================
+  
+  
+  
   const RoleBadge = () => {
     if (!currentUserRole) return null;
     
@@ -1178,9 +1178,9 @@ const EmployeeLeaves = () => {
     );
   };
 
-  // ============================================
-  // LEAVE DETAILS MODAL COMPONENT
-  // ============================================
+  
+  
+  
   const LeaveDetailsModal = ({ leave, onClose }) => {
     if (!leave) return null;
 
@@ -1446,9 +1446,9 @@ const EmployeeLeaves = () => {
     );
   };
 
-  // ============================================
-  // RENDER LEAVE TABLE
-  // ============================================
+  
+  
+  
   const renderLeaveTable = (title, leavesData, showStatusColumn = true) => (
     <div className="EmppLeaves-leaves-table-container">
       <div className="EmppLeaves-table-header">
@@ -1672,9 +1672,9 @@ const EmployeeLeaves = () => {
     </div>
   );
 
-  // ============================================
-  // LOADING STATE
-  // ============================================
+  
+  
+  
   if (loading) {
     return <CIISLoader />;
   }

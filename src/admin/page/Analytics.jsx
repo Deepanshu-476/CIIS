@@ -1,4 +1,4 @@
-// pages/Analytics.jsx
+
 import React, { useState } from 'react';
 import {
   Box, Typography, Tabs, Tab, MenuItem, Select, Card, CardContent,
@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 import { FiUser, FiClock, FiPhone, FiActivity, FiTrendingUp } from 'react-icons/fi';
 
-// Enhanced dummy data
+
 const generateCallData = () => {
   const hours = Array.from({ length: 12 }, (_, i) => `${i + 9}h`);
   return hours.map(hour => ({
@@ -73,7 +73,7 @@ const Analytics = () => {
 
   const handleTabChange = (e, newValue) => setTab(newValue);
 
-  // Generate fresh data each render for demo purposes
+  
   const callData = generateCallData();
   const talkTimeData = generateTalkTimeData();
   const loginAnalytics = generateLoginAnalytics();
@@ -113,7 +113,7 @@ const Analytics = () => {
 
       {tab === 0 && (
         <Grid container spacing={3}>
-          {/* Summary Cards */}
+          
           <Grid item xs={12} md={6} lg={3}>
             <Paper elevation={2} sx={{ p: 2, borderRadius: 2 }}>
               <Stack direction="row" alignItems="center" spacing={2}>
@@ -199,7 +199,7 @@ const Analytics = () => {
             </Paper>
           </Grid>
 
-          {/* Call Analytics */}
+          
           <Grid item xs={12} lg={8}>
             <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
               <Typography variant="h6" mb={2}>Call Activity</Typography>
@@ -224,7 +224,7 @@ const Analytics = () => {
             </Paper>
           </Grid>
 
-          {/* Call Distribution */}
+          
           <Grid item xs={12} lg={4}>
             <Paper elevation={2} sx={{ p: 3, borderRadius: 2, height: '100%' }}>
               <Typography variant="h6" mb={2}>Call Distribution</Typography>
@@ -261,7 +261,7 @@ const Analytics = () => {
             </Paper>
           </Grid>
 
-          {/* Talk Time Analytics */}
+          
           <Grid item xs={12} lg={8}>
             <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
               <Typography variant="h6" mb={2}>Talk Time Analysis</Typography>
@@ -295,7 +295,7 @@ const Analytics = () => {
             </Paper>
           </Grid>
 
-          {/* Login Analytics */}
+          
           <Grid item xs={12} lg={4}>
             <Paper elevation={2} sx={{ p: 3, borderRadius: 2, height: '100%' }}>
               <Typography variant="h6" mb={2}>Agent Activity</Typography>
@@ -351,7 +351,7 @@ const Analytics = () => {
 
       {tab === 1 && (
         <Grid container spacing={3}>
-          {/* User Performance Table */}
+          
           <Grid item xs={12} lg={8}>
             <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
               <Typography variant="h6" mb={2}>Top Performers</Typography>
@@ -412,7 +412,7 @@ const Analytics = () => {
             </Paper>
           </Grid>
 
-          {/* Performance Radar Chart */}
+          
           <Grid item xs={12} lg={4}>
             <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
               <Typography variant="h6" mb={2}>Performance Metrics</Typography>
@@ -437,7 +437,7 @@ const Analytics = () => {
             </Paper>
           </Grid>
 
-          {/* Trend Analysis */}
+          
           <Grid item xs={12}>
             <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
               <Typography variant="h6" mb={2}>Weekly Trend Analysis</Typography>

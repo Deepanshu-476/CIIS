@@ -39,12 +39,12 @@ const MyLearning = () => {
     const [editCourseId, setEditCourseId] = useState(null);
     const [courseForm, setCourseForm] = useState({ title: '', progress: 0, dueDate: '', completedDate: '', status: 'Not Started' });
 
-    // Achievements
+    
     const completedCount = myCourses.filter(c => c.status === 'Completed').length;
     const streak = myCourses.filter(c => c.status === 'Completed').length >= 7;
     const skillMaster = myCourses.filter(c => c.status === 'Completed' && c.category === 'Technical Skills').length >= 2;
 
-    // CRUD for My Courses
+    
     const handleOpenCourseDialog = (course = null) => {
         if (course) {
             setEditCourseId(course.id);
@@ -71,11 +71,11 @@ const MyLearning = () => {
     const handleDeleteCourse = (id) => {
         setMyCourses(myCourses.filter(c => c.id !== id));
     };
-    // Enroll from catalog
+    
     const handleEnroll = (course) => {
         setMyCourses([{ ...course, id: Date.now(), progress: 0, status: 'Not Started' }, ...myCourses]);
     };
-    // Start/Continue/Review
+    
     const handleCourseAction = (course) => {
         if (course.status === 'Not Started') {
             setMyCourses(myCourses.map(c => c.id === course.id ? { ...c, status: 'In Progress', progress: 10 } : c));
@@ -84,9 +84,9 @@ const MyLearning = () => {
             setMyCourses(myCourses.map(c => c.id === course.id ? { ...c, progress: newProgress, status: newProgress === 100 ? 'Completed' : 'In Progress', completedDate: newProgress === 100 ? new Date().toLocaleDateString('en-GB') : '' } : c));
         }
     };
-    // Filtered My Courses
+    
     const filteredMyCourses = myCourses.filter(c => courseFilter === 'All Courses' || c.status === courseFilter);
-    // Filtered Catalog
+    
     const filteredCatalog = catalogCourses.filter(course => (catalogFilter === 'All' || course.category === catalogFilter) && course.title.toLowerCase().includes(catalogSearch.toLowerCase()));
 
     return (
@@ -140,7 +140,7 @@ const MyLearning = () => {
                                 </Paper>
                             ))}
                         </Stack>
-                        {/* Add/Edit Course Dialog */}
+                        
                         <Dialog open={courseDialogOpen} onClose={handleCloseCourseDialog} maxWidth="xs" fullWidth>
                             <DialogTitle>{editCourseId ? 'Edit Course' : 'Add Course'}</DialogTitle>
                             <form onSubmit={handleCourseSubmit}>

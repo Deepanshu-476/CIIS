@@ -3,7 +3,7 @@ import axios from '../utils/axiosConfig';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { toast } from 'react-toastify';
-import './Login.css'; // Create this CSS file
+import './Login.css'; 
 
 const clearPreviousLoginStorage = () => {
   [
@@ -32,7 +32,7 @@ const Login = () => {
   const [companyDetails, setCompanyDetails] = useState(null);
   const [companyIdentifier, setCompanyIdentifier] = useState('');
   
-  // Login OTP states
+  
   const [showOtpPopup, setShowOtpPopup] = useState(false);
   const [otp, setOtp] = useState('');
   const [tempToken, setTempToken] = useState('');
@@ -41,10 +41,10 @@ const Login = () => {
   const [canResend, setCanResend] = useState(false);
   const [otpError, setOtpError] = useState('');
   
-  // Forget password states
+  
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
-  const [forgotPasswordStep, setForgotPasswordStep] = useState('email'); // email, otp, reset
+  const [forgotPasswordStep, setForgotPasswordStep] = useState('email'); 
   const [otpCode, setOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -55,7 +55,7 @@ const Login = () => {
   const navigate = useNavigate();
   const { setUser, setToken, setIsAuthenticated } = useAuth();
 
-  // Extract company identifier from URL
+  
   useEffect(() => {
     const extractCompanyIdentifier = () => {
       const path = window.location.pathname;
@@ -87,7 +87,7 @@ const Login = () => {
     }
   }, []);
 
-  // OTP Timer
+  
   useEffect(() => {
     let timer;
     if (showOtpPopup && otpTimer > 0) {
@@ -98,7 +98,7 @@ const Login = () => {
     return () => clearTimeout(timer);
   }, [showOtpPopup, otpTimer]);
 
-  // Countdown timer for OTP resend (forgot password)
+  
   useEffect(() => {
     let timer;
     if (countdown > 0) {
@@ -172,24 +172,20 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // Create login data with correct field names
+      
       const loginData = {
         email: form.email.trim(),
         password: form.password,
         companyCode: companyIdentifier || null
       };
 
-      console.log('Login attempt:', {
-        email: loginData.email,
-        companyCode: loginData.companyCode,
-        timestamp: new Date().toISOString()
-      });
+      void 0;
 
       const res = await axios.post('/auth/login', loginData, { _skipErrorNotify: true });
 
-      // ✅ Check if OTP verification is required
+      
       if (res.data.requiresOTP) {
-        // Show OTP verification on the same login page
+        
         setOtpEmail(res.data.email);
         setTempToken(res.data.tempToken);
         setShowOtpPopup(true);
@@ -202,7 +198,7 @@ const Login = () => {
         return;
       }
 
-      // Direct login without OTP (legacy flow - if any)
+      
       clearPreviousLoginStorage();
       if (res.data.token) {
         localStorage.setItem('token', res.data.token);
@@ -245,7 +241,7 @@ const Login = () => {
         redirectPath = '/admin/dashboard';
       }
 
-      console.log('Redirecting to:', redirectPath);
+      void 0;
       navigate(redirectPath);
       
     } catch (err) {
@@ -300,14 +296,14 @@ const Login = () => {
     }
   };
 
-  // Handle login OTP input change
+  
   const handleOtpChange = (e) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 6);
     setOtp(value);
     setOtpError('');
   };
 
-  // Handle OTP verification
+  
   const handleVerifyOtp = async (e) => {
     e?.preventDefault?.();
     const otpString = otp.trim();
@@ -328,7 +324,7 @@ const Login = () => {
       }, { _skipErrorNotify: true });
 
       if (response.data.success) {
-        // Save tokens and user data
+        
         clearPreviousLoginStorage();
         if (response.data.token) {
           localStorage.setItem('token', response.data.token);
@@ -348,7 +344,7 @@ const Login = () => {
           localStorage.removeItem('client');
         }
 
-        // Save company info
+        
         if (companyIdentifier) {
           localStorage.setItem('companyIdentifier', companyIdentifier);
           localStorage.setItem('companyCode', companyIdentifier);
@@ -360,12 +356,12 @@ const Login = () => {
           localStorage.setItem('companyDetails', JSON.stringify(companyDetails));
         }
 
-        // Close OTP step
+        
         setShowOtpPopup(false);
         
         toast.success('Login successful!');
 
-        // Redirect based on role
+        
         const companyRole = String(response.data.user?.companyRole || '').toLowerCase();
         const userRole = String(response.data.user?.role || '').toLowerCase();
         let redirectPath = '/ciisUser/user-dashboard';
@@ -389,7 +385,7 @@ const Login = () => {
     }
   };
 
-  // Handle resend OTP
+  
   const handleResendOtp = async () => {
     setOtpLoading(true);
     
@@ -413,7 +409,7 @@ const Login = () => {
     }
   };
 
-  // Close OTP popup
+  
   const handleCloseOtpPopup = () => {
     setShowOtpPopup(false);
     setOtp('');
@@ -424,7 +420,7 @@ const Login = () => {
     setTempToken('');
   };
 
-  // Forget Password Handlers
+  
   const handleForgotPassword = async () => {
     if (!forgotPasswordEmail.trim()) {
       setErrors({ forgotPassword: 'Email is required' });
@@ -493,7 +489,7 @@ const Login = () => {
     }
   };
 
-  // Back to login
+  
   const handleBackToLogin = () => {
     setShowForgotPassword(false);
     setForgotPasswordStep('email');
@@ -504,7 +500,7 @@ const Login = () => {
     setErrors({});
   };
 
-  // Icons as inline SVG components
+  
   const VisibilityIcon = () => (
     <svg className="login-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
@@ -789,12 +785,12 @@ const Login = () => {
   return (
     <div className="login-page-container">
       <div className="login-paper fade-in">
-        {/* LEFT SECTION - Company Branding (Hidden on Mobile) */}
+        
         <div className="login-left-section">
           <div className="left-pattern"></div>
           
           <div className="left-content">
-            {/* Company Logo */}
+            
             <div className="logo-container" onClick={() => navigate('/dashboard')} title="Go to Dashboard">
               {companyLoading ? (
                 <div className="loading-spinner-container">
@@ -811,7 +807,7 @@ const Login = () => {
               )}
             </div>
 
-            {/* Company Name */}
+            
             <h1 className="company-name">
               {companyLoading ? 'Loading...' : (companyDetails?.companyName || 'CIIS NETWORK')}
             </h1>
@@ -822,11 +818,11 @@ const Login = () => {
           </div>
         </div>
 
-        {/* RIGHT SECTION - Login/Forget Password Form */}
+        
         <div className="login-right-section">
           <div className="form-container">
             
-            {/* ===== MOBILE LOGO SECTION - Only visible on mobile ===== */}
+            
             <div className="mobile-logo-container">
               <div className="mobile-logo-wrapper">
                 {companyLoading ? (
@@ -854,18 +850,18 @@ const Login = () => {
                 Secure Enterprise Portal
               </p>
             </div>
-            {/* ===== END MOBILE LOGO SECTION ===== */}
+            
 
             {showForgotPassword ? (
-              // Forget Password Forms
+              
               renderForgotPasswordForm()
             ) : showOtpPopup ? (
-              // Same-page OTP verification
+              
               renderLoginOtpForm()
             ) : (
-              // Login Form
+              
               <>
-                {/* Form Header */}
+                
                 <div className="form-header">
                   <h2 className="form-title">
                     Welcome Back
@@ -875,7 +871,7 @@ const Login = () => {
                   </p>
                 </div>
 
-                {/* Error Alert */}
+                
                 {errors.general && (
                   <div className="error-alert">
                     <div className="error-icon">
@@ -888,7 +884,7 @@ const Login = () => {
                 )}
 
                 <form onSubmit={handleSubmit}>
-                  {/* Email Input */}
+                  
                   <div className="input-group">
                     <label className="input-label">Email Address</label>
                     <div className="input-container">
@@ -909,7 +905,7 @@ const Login = () => {
                     {errors.email && <span className="error-text">{errors.email}</span>}
                   </div>
 
-                  {/* Password Input */}
+                  
                   <div className="input-group">
                     <label className="input-label">Password</label>
                     <div className="input-container">
@@ -936,7 +932,7 @@ const Login = () => {
                     {errors.password && <span className="error-text">{errors.password}</span>}
                   </div>
 
-                  {/* Forgot Password Link */}
+                  
                   <div className="forgot-password-link">
                     <span
                       onClick={() => setShowForgotPassword(true)}
@@ -945,7 +941,7 @@ const Login = () => {
                     </span>
                   </div>
 
-                  {/* Sign In Button */}
+                  
                   <button
                     type="submit"
                     className="login-button"
@@ -971,7 +967,7 @@ const Login = () => {
               </>
             )}
 
-            {/* Terms & Privacy - Only show for login, not for forget password */}
+            
             {!showForgotPassword && !showOtpPopup && (
               <div className="terms-privacy">
                 By signing in, you agree to our{' '}

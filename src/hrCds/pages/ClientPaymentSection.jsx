@@ -18,7 +18,7 @@ import {
 
 const PaymentSection = () => {
 <<<<<<< HEAD
-  // Static data matching the image to achieve the exact UI
+  
   const invoices = [
     { id: 'INV-2026-067', period: 'May 26 - Jun 25, 2026', amount: '₹32,000', date: 'Jun 25, 2026', status: 'Due Soon' },
     { id: 'INV-2026-066', period: 'Apr 26 - May 25, 2026', amount: '₹32,000', date: 'May 25, 2026', status: 'Paid' },
@@ -168,7 +168,7 @@ const PaymentSection = () => {
 
   return (
     <div className="ps-dashboard">
-      {/* Top Header Row */}
+      
       <div className="ps-header">
         <div className="ps-header-left">
           <h1>Payments & Subscription</h1>
@@ -191,7 +191,7 @@ const PaymentSection = () => {
         </div>
       </div>
 
-      {/* Top Metric Cards */}
+      
       <div className="ps-metrics-row">
         <div className="ps-metric-card">
           <div className="ps-metric-icon ps-bg-green"><FiDollarSign /></div>
@@ -235,11 +235,11 @@ const PaymentSection = () => {
         </div>
       </div>
 
-      {/* Main Content Grid */}
+      
       <div className="ps-main-grid">
-        {/* Left Column */}
+        
         <div className="ps-left-col">
-          {/* Subscription Summary */}
+          
           <div className="ps-box">
             <div className="ps-sub-summary-top">
               <div className="ps-sub-icon"><FiAward size={28} /></div>
@@ -271,7 +271,7 @@ const PaymentSection = () => {
             </div>
           </div>
 
-          {/* Invoice & Payment History */}
+          
           <div className="ps-box ps-invoice-box">
             <h2 className="ps-box-title">Invoice & Payment History</h2>
             <table className="ps-table">
@@ -310,9 +310,9 @@ const PaymentSection = () => {
           </div>
         </div>
 
-        {/* Right Column */}
+        
         <div className="ps-right-col">
-          {/* Payment Summary */}
+          
           <div className="ps-box">
             <h2 className="ps-box-title">Payment Summary</h2>
             <div className="ps-pay-summary-list">
@@ -333,7 +333,7 @@ const PaymentSection = () => {
             <button className="ps-btn-primary ps-btn-full">Pay Now</button>
           </div>
 
-          {/* Billing Support */}
+          
           <div className="ps-box">
             <h2 className="ps-box-title">Billing Support</h2>
             <div className="ps-manager-info">

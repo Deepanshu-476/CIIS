@@ -60,9 +60,9 @@ const UserProfile = styled(Box)(({ theme }) => ({
     marginLeft: theme.spacing(0.5),
     padding: theme.spacing(0.5, 1),
     borderRadius: '30px',
-    cursor: 'default', // Changed from 'pointer' to 'default' since no click action
+    cursor: 'default', 
     '&:hover': {
-        backgroundColor: 'transparent', // Remove hover effect since no click
+        backgroundColor: 'transparent', 
     },
     [theme.breakpoints.down('sm')]: {
         padding: theme.spacing(0.5),
@@ -85,10 +85,10 @@ const SuperAdminHeader = ({ toggleSidebar, isSidebarOpen }) => {
     const navigate = useNavigate();
     const { user } = useAuth();
 
-    // Function to get data from localStorage
+    
     const getLocalStorageData = () => {
         try {
-            // Get superAdmin data from localStorage
+            
             const superAdminStr = localStorage.getItem('superAdmin');
             let name = '';
             let loginType = 'Company';
@@ -101,7 +101,7 @@ const SuperAdminHeader = ({ toggleSidebar, isSidebarOpen }) => {
                 }
             }
 
-            // Get company data from localStorage
+            
             const companyStr = localStorage.getItem('company');
             let companyName = 'CIIS';
             let companyLogo = logo;
@@ -131,7 +131,7 @@ const SuperAdminHeader = ({ toggleSidebar, isSidebarOpen }) => {
         }
     };
 
-    // Update user data on component mount and when localStorage changes
+    
     useEffect(() => {
         const updateUserData = () => {
             const data = getLocalStorageData();
@@ -214,7 +214,7 @@ const SuperAdminHeader = ({ toggleSidebar, isSidebarOpen }) => {
                 </Box>
                 
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: isMobile ? 0.5 : 1, flex: 1, justifyContent: 'flex-end', }}>
-                    {/* User Profile - No click action, just display */}
+                    
                     <UserProfile>
                         <Avatar sx={{ bgcolor: 'primary.main' }}>
                             <PersonIcon />

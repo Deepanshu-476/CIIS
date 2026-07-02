@@ -7,7 +7,7 @@ const Footer = () => {
   return (
       <footer className="footer">
       <div className="footer-container">
-        {/* Logo Section */}
+        
         <div className="footer-logo-section">
           <img src={logo} alt=" CIIS Network Logo" className="footer-logo" />
           <div className="footer-contact">

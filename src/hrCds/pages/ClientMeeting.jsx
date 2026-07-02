@@ -27,12 +27,12 @@ export default function ClientMeeting() {
     followUpRequired: "No",
   });
 
-  /* ================= FETCH ================= */
+   
   const fetchMeetings = async () => {
     setLoading(true);
     try {
-      const res = await axiosInstance.get("/cmeeting");
-      setMeetings(res.data.data);
+      const res = await axiosInstance.get("/cmeeting", { params: { page: 1, limit: 100 } });
+      setMeetings(Array.isArray(res.data) ? res.data : (res.data.data || res.data.meetings || []));
     } catch (err) {
       console.error(err);
     } finally {
@@ -44,7 +44,7 @@ export default function ClientMeeting() {
     fetchMeetings();
   }, []);
 
-  /* ================= FILTER ================= */
+   
   const filteredMeetings = meetings.filter(meeting => {
     const searchString = searchTerm.toLowerCase();
     const matchesSearch = 
@@ -59,12 +59,12 @@ export default function ClientMeeting() {
     return matchesSearch && matchesType && matchesPriority;
   });
 
-  /* ================= HANDLE CHANGE ================= */
+   
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  /* ================= SAVE ================= */
+   
   const saveMeeting = async () => {
     if (!form.clientName || !form.phone || !form.meetingDate || !form.meetingTime || !form.location) {
       alert("Please fill all required fields");
@@ -89,7 +89,7 @@ export default function ClientMeeting() {
     }
   };
 
-  /* ================= EDIT ================= */
+   
   const editMeeting = (meeting) => {
     setSelectedMeeting(meeting);
     setForm({
@@ -109,7 +109,7 @@ export default function ClientMeeting() {
     setShowModal(true);
   };
 
-  /* ================= DELETE ================= */
+   
   const deleteMeeting = async (id) => {
     if (!window.confirm("Are you sure you want to delete this meeting?")) return;
     setLoading(true);
@@ -123,7 +123,7 @@ export default function ClientMeeting() {
     }
   };
 
-  /* ================= RESET ================= */
+   
   const resetForm = () => {
     setForm({
       clientName: "",
@@ -142,14 +142,14 @@ export default function ClientMeeting() {
     setSelectedMeeting(null);
   };
 
-  /* ================= STATS ================= */
+   
   const today = new Date().toISOString().split('T')[0];
   const totalMeetings = meetings.length;
   const todayMeetings = meetings.filter(m => m.meetingDate === today).length;
   const upcomingMeetings = meetings.filter(m => m.meetingDate > today).length;
   const highPriorityMeetings = meetings.filter(m => m.priority === "High").length;
 
-  /* ================= FORMAT DATE ================= */
+   
   const formatDate = (dateString) => {
     const options = { weekday: 'short', month: 'short', day: 'numeric' };
     return new Date(dateString).toLocaleDateString(undefined, options);
@@ -164,7 +164,7 @@ export default function ClientMeeting() {
 
   return (
     <div className="cm-container">
-      {/* ================= HEADER WITH GRADIENT ================= */}
+      
       <div className="cm-header">
         <div className="cm-header-content">
           <div className="cm-header-left">
@@ -195,7 +195,7 @@ export default function ClientMeeting() {
         </div>
       </div>
 
-      {/* ================= QUICK STATS GRID ================= */}
+      
       <div className="cm-stats-grid">
         <div className="cm-stat-card">
           <div className="cm-stat-card-icon blue">

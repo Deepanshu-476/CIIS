@@ -23,13 +23,13 @@ const clearPreviousLoginStorage = () => {
 const SuperAdminLogin = () => {
   const navigate = useNavigate();
   
-  // Login form state
+  
   const [form, setForm] = useState({
     email: '',
     password: ''
   });
   
-  // OTP verification state
+  
   const [otpStep, setOtpStep] = useState(false);
   const [otp, setOtp] = useState('');
   const [tempToken, setTempToken] = useState('');
@@ -92,7 +92,7 @@ const SuperAdminLogin = () => {
     return true;
   };
 
-  // Start resend timer
+  
   const startResendTimer = () => {
     setResendTimer(60);
     const timer = setInterval(() => {
@@ -106,7 +106,7 @@ const SuperAdminLogin = () => {
     }, 1000);
   };
 
-  // Handle login submission (first step)
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -121,14 +121,14 @@ const SuperAdminLogin = () => {
       });
       
       if (response.data.success && response.data.requiresOTP) {
-        // OTP required - move to OTP verification step
+        
         setTempToken(response.data.tempToken);
         setEmail(response.data.email);
         setOtpStep(true);
         startResendTimer();
         toast.success('OTP sent to your email! Please verify.');
       } else if (response.data.success) {
-        // Direct login (if OTP is disabled)
+        
         clearPreviousLoginStorage();
         localStorage.setItem('superAdmin', JSON.stringify(response.data.user));
         localStorage.setItem('token', response.data.token);
@@ -151,7 +151,7 @@ const SuperAdminLogin = () => {
     }
   };
 
-  // Handle OTP verification
+  
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
     if (!validateOtp()) return;
@@ -188,7 +188,7 @@ const SuperAdminLogin = () => {
     }
   };
 
-  // Handle resend OTP
+  
   const handleResendOtp = async () => {
     if (resendTimer > 0) return;
     
@@ -216,7 +216,7 @@ const SuperAdminLogin = () => {
     }
   };
 
-  // Handle back to login
+  
   const handleBackToLogin = () => {
     setOtpStep(false);
     setOtp('');
@@ -226,7 +226,7 @@ const SuperAdminLogin = () => {
     setResendTimer(0);
   };
 
-  // Icons as inline SVG components
+  
   const VisibilityIcon = () => (
     <svg className="ciis-login-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
@@ -287,12 +287,12 @@ const SuperAdminLogin = () => {
     </svg>
   );
 
-  // OTP Verification UI
+  
   if (otpStep) {
     return (
       <div className="ciis-login-container">
         <div className="ciis-login-paper ciis-login-fade-in">
-          {/* LEFT SECTION - Super Admin Features (Hidden on mobile) */}
+          
           <div className="ciis-login-left">
             <div className="ciis-login-left-pattern"></div>
             
@@ -356,7 +356,7 @@ const SuperAdminLogin = () => {
             </div>
           </div>
 
-          {/* RIGHT SECTION - OTP Verification */}
+          
           <div className="ciis-login-right">
             <div className="ciis-login-form-container">
               <div className="ciis-login-form-header">

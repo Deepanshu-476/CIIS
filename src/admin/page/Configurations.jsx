@@ -16,18 +16,18 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 function Configurations() {
-  // Recurring Followup States
+  
   const [assignedUsers, setAssignedUsers] = useState(true);
   const [admin, setAdmin] = useState(false);
   const [emailInput, setEmailInput] = useState('');
   const [emailList, setEmailList] = useState([]);
   const [daysBefore, setDaysBefore] = useState(1);
 
-  // SIM Call Track States
+  
   const [trackInternal, setTrackInternal] = useState(true);
   const [ignoreUnknown, setIgnoreUnknown] = useState(false);
 
-  // Handlers
+  
   const handleAddEmail = () => {
     if (emailInput && !emailList.includes(emailInput)) {
       setEmailList([...emailList, emailInput]);
@@ -51,7 +51,7 @@ function Configurations() {
 
   return (
     <Box sx={{ maxWidth: 600, margin: 'auto', p: 2 }}>
-      {/* Auto Dial Section */}
+      
       <Accordion defaultExpanded>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography variant="h6">Auto Dial</Typography>
@@ -61,7 +61,7 @@ function Configurations() {
         </AccordionDetails>
       </Accordion>
 
-      {/* SIM Call Track Section */}
+      
       <Accordion defaultExpanded>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography variant="h6">SIM Call Track</Typography>
@@ -97,7 +97,7 @@ function Configurations() {
         </AccordionDetails>
       </Accordion>
 
-      {/* Configure Recurring Followup Section */}
+      
       <Accordion defaultExpanded>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography variant="h6">Configure Recurring Followup</Typography>

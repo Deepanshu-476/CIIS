@@ -1,4 +1,4 @@
-// src/ThemeContext.jsx
+
 import React, { createContext, useMemo, useState, useEffect } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';

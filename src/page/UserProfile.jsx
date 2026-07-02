@@ -1,4 +1,4 @@
-// page/UserProfile.jsx
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -16,11 +16,11 @@ const UserProfile = () => {
   const [editedData, setEditedData] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   
-  // State for fetched names
+  
   const [departmentName, setDepartmentName] = useState('');
   const [companyName, setCompanyName] = useState('');
 
-  // Handle window resize
+  
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -30,7 +30,7 @@ const UserProfile = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Get user data from localStorage
+  
   const getUserFromStorage = () => {
     try {
       const userStr = localStorage.getItem("user");
@@ -53,7 +53,7 @@ const UserProfile = () => {
     }
   };
 
-  // Fetch department name by ID
+  
   const fetchDepartmentName = async (departmentId) => {
     if (!departmentId) return;
     
@@ -72,7 +72,7 @@ const UserProfile = () => {
     }
   };
 
-  // Fetch company name by ID
+  
   const fetchCompanyName = async (companyId) => {
     if (!companyId) return;
     
@@ -92,7 +92,7 @@ const UserProfile = () => {
     }
   };
 
-  // Fetch complete user profile from API
+  
   const fetchUserProfile = async () => {
     try {
       setLoading(true);
@@ -102,7 +102,7 @@ const UserProfile = () => {
       const token = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
 
-      // Get user details from API using user ID
+      
       const response = await axios.get(
         `${API_URL}/user/${user._id || user.id}`,
         { headers }
@@ -112,7 +112,7 @@ const UserProfile = () => {
         const userProfile = response.data.user || response.data;
         setUserData(userProfile);
         
-        // Set edited data with only personal fields
+        
         setEditedData({
           name: userProfile.name,
           email: userProfile.email,
@@ -125,15 +125,15 @@ const UserProfile = () => {
           emergencyPhone: userProfile.emergencyPhone
         });
         
-        // Update localStorage with latest data
+        
         localStorage.setItem("user", JSON.stringify(userProfile));
         
-        // Fetch department name if department ID exists
+        
         if (userProfile.department) {
           fetchDepartmentName(userProfile.department);
         }
         
-        // Fetch company name if company ID exists
+        
         if (userProfile.company) {
           fetchCompanyName(userProfile.company);
         }
@@ -146,7 +146,7 @@ const UserProfile = () => {
         localStorage.clear();
         navigate("/");
       } else {
-        // If API fails, use localStorage data
+        
         const user = getUserFromStorage();
         if (user) {
           setUserData(user);
@@ -169,14 +169,14 @@ const UserProfile = () => {
     }
   };
 
-  // Update user profile (only personal information)
+  
   const handleUpdateProfile = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
 
-      // Only send personal information fields
+      
       const updateData = {
         name: editedData.name,
         email: editedData.email,
@@ -202,7 +202,7 @@ const UserProfile = () => {
         toast.success("Profile updated successfully!");
         setEditMode(false);
         
-        // Update localStorage
+        
         localStorage.setItem("user", JSON.stringify(updatedUser));
       }
     } catch (error) {
@@ -213,7 +213,7 @@ const UserProfile = () => {
     }
   };
 
-  // Handle edit field change (only personal fields)
+  
   const handleEditChange = (field, value) => {
     setEditedData(prev => ({
       ...prev,
@@ -221,7 +221,7 @@ const UserProfile = () => {
     }));
   };
 
-  // Handle cancel edit
+  
   const handleCancelEdit = () => {
     setEditedData({
       name: userData.name,
@@ -237,12 +237,12 @@ const UserProfile = () => {
     setEditMode(false);
   };
 
-  // Load user profile on mount
+  
   useEffect(() => {
     fetchUserProfile();
   }, []);
 
-  // Format date
+  
   const formatDate = (dateString) => {
     if (!dateString) return "Not specified";
     try {
@@ -257,7 +257,7 @@ const UserProfile = () => {
     }
   };
 
-  // Get user initials for avatar
+  
   const getUserInitials = () => {
     if (!userData?.name) return "U";
     const nameParts = userData.name.split(' ');
@@ -267,7 +267,7 @@ const UserProfile = () => {
     return userData.name[0].toUpperCase();
   };
 
-  // Get role color
+  
   const getRoleColor = (role) => {
     switch (role?.toLowerCase()) {
       case 'admin': return '#2563eb';
@@ -278,20 +278,20 @@ const UserProfile = () => {
     }
   };
 
-  // Show loader while page is loading
+  
   if (pageLoading) {
     return <CIISLoader />;
   }
 
   return (
     <div className="UserProfile-container">
-      {/* Animated Background */}
+      
       <div className="UserProfile-animated-bg">
         <div className="UserProfile-bg-circle UserProfile-circle-1"></div>
         <div className="UserProfile-bg-circle UserProfile-circle-2"></div>
       </div>
 
-      {/* Mobile Header */}
+      
       {isMobile && (
         <div className="UserProfile-mobile-header">
           <button className="UserProfile-back-btn" onClick={() => navigate(-1)}>
@@ -311,7 +311,7 @@ const UserProfile = () => {
       )}
 
       <div className="UserProfile-content">
-        {/* Desktop Header */}
+        
         {!isMobile && (
           <div className="UserProfile-desktop-header">
             <div className="UserProfile-header-left">
@@ -341,9 +341,9 @@ const UserProfile = () => {
           </div>
         )}
 
-        {/* Main Profile Card */}
+        
         <div className="UserProfile-main-card">
-          {/* Profile Header */}
+          
           <div className="UserProfile-profile-header">
             <div className="UserProfile-avatar-section">
               <div className="UserProfile-avatar-wrapper">
@@ -391,7 +391,7 @@ const UserProfile = () => {
               </div>
             </div>
 
-            {/* Quick Stats - Now showing fetched names */}
+            
             <div className="UserProfile-quick-stats">
               <div className="UserProfile-stat-item">
                 <span className="UserProfile-stat-label">Department</span>
@@ -410,9 +410,9 @@ const UserProfile = () => {
             </div>
           </div>
 
-          {/* Profile Details Grid - Only Personal Information editable */}
+          
           <div className="UserProfile-details-grid">
-            {/* Personal Information - EDITABLE */}
+            
             <div className="UserProfile-details-section">
               <h3 className="UserProfile-section-title">
                 <span className="material-icons UserProfile-section-icon">person</span>
@@ -516,7 +516,7 @@ const UserProfile = () => {
               </div>
             </div>
 
-            {/* Emergency Contact - EDITABLE */}
+            
             <div className="UserProfile-details-section">
               <h3 className="UserProfile-section-title">
                 <span className="material-icons UserProfile-section-icon">emergency</span>
@@ -555,7 +555,7 @@ const UserProfile = () => {
               </div>
             </div>
 
-            {/* Bio - EDITABLE */}
+            
             <div className="UserProfile-details-section UserProfile-full-width">
               <h3 className="UserProfile-section-title">
                 <span className="material-icons UserProfile-section-icon">description</span>
@@ -578,7 +578,7 @@ const UserProfile = () => {
               </div>
             </div>
 
-            {/* Work Information - READ ONLY with fetched names */}
+            
             <div className="UserProfile-details-section">
               <h3 className="UserProfile-section-title">
                 <span className="material-icons UserProfile-section-icon">work</span>
@@ -619,7 +619,7 @@ const UserProfile = () => {
               </div>
             </div>
 
-            {/* Account Information - READ ONLY */}
+            
             <div className="UserProfile-details-section">
               <h3 className="UserProfile-section-title">
                 <span className="material-icons UserProfile-section-icon">security</span>
@@ -650,7 +650,7 @@ const UserProfile = () => {
         </div>
       </div>
 
-      {/* Loading Overlay */}
+      
       {loading && (
         <div className="UserProfile-loading-overlay">
           <div className="UserProfile-spinner"></div>

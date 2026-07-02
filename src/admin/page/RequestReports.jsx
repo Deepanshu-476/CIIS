@@ -4,7 +4,7 @@ import {
   FormControlLabel, Button, TextField, Grid, Paper
 } from '@mui/material';
 
-// Report options
+
 const basicReports = [
   'Interactions (All)',
   'Interactions (Last/Unique)',
@@ -49,7 +49,7 @@ const RequestReports = () => {
       </Tabs>
 
       <Paper elevation={0} sx={{ mt: 2, p: 3, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-        {/* Left Column: Report Options */}
+        
         <Box flex="1">
           <Typography variant="subtitle1" fontWeight={600} mb={2}>
             Select the report you want to request
@@ -69,7 +69,7 @@ const RequestReports = () => {
           </RadioGroup>
         </Box>
 
-        {/* Right Column: Date/Time Pickers */}
+        
         <Box flex="1">
           <Typography variant="subtitle1" fontWeight={600} mb={2}>
             Choose Date and Time range

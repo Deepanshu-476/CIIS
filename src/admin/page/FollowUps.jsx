@@ -56,7 +56,7 @@ function FollowUps() {
 
   return (
     <Box sx={{ bgcolor: theme.palette.background.default, minHeight: '100vh', p: 3 }}>
-      {/* Header */}
+      
       <Box mb={2}>
         <Typography variant="h5" fontWeight={700}>100</Typography>
         <Typography variant="subtitle1" color="text.secondary">
@@ -78,7 +78,7 @@ function FollowUps() {
         </Typography>
       </Box>
 
-      {/* Controls */}
+      
       <Box display="flex" flexWrap="wrap" alignItems="center" gap={2} mb={3}>
         <Paper
           component="form"
@@ -134,7 +134,7 @@ function FollowUps() {
         <IconButton><ViewListIcon /></IconButton>
       </Box>
 
-      {/* Table */}
+      
       <TableContainer component={Paper} sx={{ borderRadius: theme.shape.borderRadius * 1.5, boxShadow: theme.shadows[2] }}>
         <Table>
           <TableHead sx={{ bgcolor: theme.palette.background.default }}>

@@ -1,8 +1,8 @@
-// ========================= EmployeeProject.jsx =========================
+
 import React, { useState, useEffect } from "react";
 import axios from "../../utils/axiosConfig";
 import "../Css/EmployeeProject.css";
-import CIISLoader from '../../Loader/CIISLoader'; // ✅ Import CIISLoader
+import CIISLoader from '../../Loader/CIISLoader'; 
 
 const parseStoredJson = (key) => {
   try {
@@ -80,7 +80,7 @@ const EmployeeProject = () => {
   const [projectUsers, setProjectUsers] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [projectSearchTerm, setProjectSearchTerm] = useState("");
-  const [pageLoading, setPageLoading] = useState(true); // ✅ Page loading state
+  const [pageLoading, setPageLoading] = useState(true); 
   const [loading, setLoading] = useState({ projects: false, tasks: false });
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState("");
@@ -128,7 +128,7 @@ const EmployeeProject = () => {
     { value: "cancelled", label: "Cancelled", color: "#EF5350" },
   ];
 
-  // Icons
+  
   const Icons = {
     Add: () => <span className="EmployeeProject-icon">➕</span>,
     AttachFile: () => <span className="EmployeeProject-icon">📎</span>,
@@ -164,10 +164,49 @@ const EmployeeProject = () => {
     Group: () => <span className="EmployeeProject-icon">👥</span>,
     Folder: () => <span className="EmployeeProject-icon">📁</span>,
     CloudUpload: () => <span className="EmployeeProject-icon">☁️↑</span>,
+    Image: () => <span className="EmployeeProject-icon">🖼️</span>,
     Bolt: () => <span className="EmployeeProject-icon">⚡</span>,
     Notifications: () => <span className="EmployeeProject-icon">🔔</span>,
     Search: () => <span className="EmployeeProject-icon">🔍</span>,
     NoProjects: () => <span className="EmployeeProject-icon">📭</span>
+  };
+
+  const getApiUploadBase = () => {
+    const baseUrl = axios.defaults.baseURL || "";
+    if (!baseUrl) return "/api/uploads";
+    if (baseUrl === "/api" || baseUrl.endsWith("/api")) {
+      return `${baseUrl.replace(/\/$/, "")}/uploads`;
+    }
+    return `${baseUrl.replace(/\/$/, "")}/api/uploads`;
+  };
+
+  const getUploadUrl = (filePath) => {
+    if (!filePath) return "";
+    const rawPath = String(filePath).replace(/\\/g, "/").trim();
+    if (/^https?:\/\//i.test(rawPath)) return rawPath;
+
+    let cleanPath = rawPath.replace(/^\/+/, "");
+    const uploadsIndex = cleanPath.indexOf("uploads/");
+    if (uploadsIndex >= 0) {
+      cleanPath = cleanPath.slice(uploadsIndex + "uploads/".length);
+    } else {
+      cleanPath = cleanPath.replace(/^api\/uploads\//, "");
+    }
+
+    return `${getApiUploadBase()}/${cleanPath}`.replace(/([^:]\/)\/+/g, "$1");
+  };
+
+  const getFileDisplayName = (fileObj, fallback = "Attachment") => {
+    if (!fileObj) return fallback;
+    if (typeof fileObj === "string") return fileObj.split("/").pop() || fallback;
+    return fileObj.filename || fileObj.originalname || fileObj.path?.split("/").pop() || fallback;
+  };
+
+  const isImagePath = (fileObj) => {
+    const value = typeof fileObj === "string"
+      ? fileObj
+      : `${fileObj?.filename || ""} ${fileObj?.path || ""} ${fileObj?.mimetype || ""}`;
+    return /\.(png|jpe?g|webp|gif)$/i.test(value) || /image\//i.test(value);
   };
 
   const normalizeTaskStatus = (status) => String(status || "pending").trim().toLowerCase().replace(/-/g, " ");
@@ -261,7 +300,7 @@ const EmployeeProject = () => {
     setOpenTaskDialog(true);
   };
 
-  // ✅ Load all projects with page loader
+  
   useEffect(() => {
     const loadData = async () => {
       setPageLoading(true);
@@ -272,7 +311,7 @@ const EmployeeProject = () => {
         console.error("Error loading data:", error);
         showSnackbar("Error loading data", "error");
       } finally {
-        // Minimum 500ms loader show karega
+        
         setTimeout(() => {
           setPageLoading(false);
         }, 500);
@@ -331,7 +370,7 @@ const EmployeeProject = () => {
     }
   };
 
-  // Load selected project details + tasks
+  
   const handleSelectProject = async (id) => {
     setLoading(prev => ({ ...prev, tasks: true }));
     try {
@@ -341,7 +380,7 @@ const EmployeeProject = () => {
       setProjectUsers(res.data.users || []);
       setTasks(res.data.tasks || []);
       setTaskFilter("all");
-      setTabValue(0); // Reset to tasks tab
+      setTabValue(0); 
     } catch (error) {
       console.error("Error loading project details:", error);
       showSnackbar("Error loading project details", "error");
@@ -350,7 +389,7 @@ const EmployeeProject = () => {
     }
   };
 
-  // Validate task form
+  
   const validateTaskForm = () => {
     const errors = {};
 
@@ -367,7 +406,7 @@ const EmployeeProject = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // Update Task Status
+  
   const handleUpdateTaskStatus = async (taskId, newStatus) => {
     setLoading(prev => ({ ...prev, tasks: true }));
     try {
@@ -376,11 +415,11 @@ const EmployeeProject = () => {
         remark: statusRemark,
       });
 
-      // Refresh tasks and notifications
+      
       handleSelectProject(selectedProject);
       loadNotifications();
       
-      // Reset and close dialog
+      
       setStatusRemark("");
       setOpenStatusDialog(false);
       setSelectedTask(null);
@@ -394,14 +433,14 @@ const EmployeeProject = () => {
     }
   };
 
-  // Open status update dialog
+  
   const handleOpenStatusDialog = (task) => {
     setSelectedTask(task);
     setStatusRemark("");
     setOpenStatusDialog(true);
   };
 
-  // Load activity logs
+  
   const handleLoadActivityLogs = async (taskId) => {
     try {
       const res = await axios.get(`/projects/${selectedProject}/tasks/${taskId}/activity`);
@@ -417,18 +456,18 @@ const EmployeeProject = () => {
     }
   };
 
-  // Load notifications (placeholder - implement actual API call)
+  
   const loadNotifications = async () => {
     try {
-      // const res = await axios.get("/projects/notifications");
-      // setNotifications(res.data || []);
-      setNotifications([]); // Placeholder
+      
+      
+      setNotifications([]); 
     } catch (error) {
       console.error("Error loading notifications:", error);
     }
   };
 
-  // Mark notification as read
+  
   const handleMarkNotificationAsRead = async (notificationId) => {
     try {
       await axios.patch(`/projects/notifications/${notificationId}/read`);
@@ -438,7 +477,7 @@ const EmployeeProject = () => {
     }
   };
 
-  // Clear all notifications
+  
   const handleClearAllNotifications = async () => {
     try {
       await axios.delete("/projects/notifications/clear");
@@ -450,7 +489,7 @@ const EmployeeProject = () => {
     }
   };
 
-  // Add Task
+  
   const handleAddTask = async () => {
     if (!validateTaskForm()) return;
 
@@ -474,7 +513,7 @@ const EmployeeProject = () => {
       resetTaskForm();
       setOpenTaskDialog(false);
 
-      // Refresh tasks and notifications
+      
       handleSelectProject(selectedProject);
       loadNotifications();
       
@@ -521,25 +560,42 @@ const EmployeeProject = () => {
     }
   };
 
-  // Add Remark to a Task
+  
   const handleAddRemark = async (taskId, text) => {
-    if (!text || text.trim() === "") {
-      showSnackbar("Please enter a remark", "warning");
+    const task = tasks.find(item => item._id === taskId);
+    const remarkImage = task?._newRemarkImage || null;
+    const remarkText = text?.trim() || "";
+
+    if (!remarkText && !remarkImage) {
+      showSnackbar("Please enter a remark or attach an image", "warning");
       return;
     }
 
     try {
-      await axios.post(
-        `/projects/${selectedProject}/tasks/${taskId}/remarks`,
-        { text }
-      );
-      // Reload tasks and notifications
+      if (remarkImage) {
+        const formData = new FormData();
+        formData.append("text", remarkText);
+        formData.append("image", remarkImage);
+        await axios.post(
+          `/projects/${selectedProject}/tasks/${taskId}/remarks`,
+          formData,
+          { headers: { "Content-Type": "multipart/form-data" } }
+        );
+      } else {
+        await axios.post(
+          `/projects/${selectedProject}/tasks/${taskId}/remarks`,
+          { text: remarkText }
+        );
+      }
+      
       handleSelectProject(selectedProject);
       loadNotifications();
       
-      // Clear the remark input
+      
       setTasks(prev => prev.map(task => 
-        task._id === taskId ? { ...task, _newRemark: "" } : task
+        task._id === taskId
+          ? { ...task, _newRemark: "", _newRemarkImage: null, _newRemarkImageName: "" }
+          : task
       ));
       
       showSnackbar("Remark added successfully!", "success");
@@ -549,32 +605,32 @@ const EmployeeProject = () => {
     }
   };
 
-  // VIEW PDF
+  
   const viewPdf = (pdfPath, filename) => {
     if (!pdfPath) {
-      showSnackbar("No PDF file available", "warning");
+      showSnackbar("No file available", "warning");
       return;
     }
     
     const pathParts = pdfPath.split('/');
     const pdfFilename = pathParts[pathParts.length - 1];
-    const pdfUrl = `${axios.defaults.baseURL.replace('/api', '')}/${pdfPath}`;
+    const pdfUrl = getUploadUrl(pdfPath);
     
     setSelectedPdfUrl(pdfUrl);
     setSelectedPdfName(filename || pdfFilename);
     setOpenPdfDialog(true);
   };
 
-  // DOWNLOAD PDF
+  
   const downloadPdf = (pdfPath, filename) => {
     if (!pdfPath) {
-      showSnackbar("No PDF file available", "warning");
+      showSnackbar("No file available", "warning");
       return;
     }
     
     const pathParts = pdfPath.split('/');
     const pdfFilename = pathParts[pathParts.length - 1];
-    const pdfUrl = `${axios.defaults.baseURL.replace('/api', '')}/${pdfPath}`;
+    const pdfUrl = getUploadUrl(pdfPath);
     
     const link = document.createElement('a');
     link.href = pdfUrl;
@@ -606,6 +662,30 @@ const EmployeeProject = () => {
     e.preventDefault();
     setIsTaskFileDragging(false);
     handleTaskFileSelect(e.dataTransfer.files[0]);
+  };
+
+  const handleRemarkImageSelect = (taskId, selectedFile) => {
+    if (!selectedFile) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(selectedFile.type)) {
+      showSnackbar("Only image files are allowed for remarks", "error");
+      return;
+    }
+
+    setTasks(prev => prev.map(task =>
+      task._id === taskId
+        ? { ...task, _newRemarkImage: selectedFile, _newRemarkImageName: selectedFile.name }
+        : task
+    ));
+  };
+
+  const clearRemarkImage = (taskId) => {
+    setTasks(prev => prev.map(task =>
+      task._id === taskId
+        ? { ...task, _newRemarkImage: null, _newRemarkImageName: "" }
+        : task
+    ));
   };
 
   const showSnackbar = (message, severity) => {
@@ -642,9 +722,16 @@ const EmployeeProject = () => {
     return Math.round((completed / tasks.length) * 100);
   };
 
-  const filteredTasks = taskFilter === "all"
+  const getTaskCreatedTime = (task) => {
+    const value = task?.createdAt || task?.createdDate || task?._id;
+    const dateTime = value ? new Date(value).getTime() : 0;
+    return Number.isNaN(dateTime) ? 0 : dateTime;
+  };
+
+  const filteredTasks = (taskFilter === "all"
     ? tasks
-    : tasks.filter(task => normalizeTaskStatus(task.status) === taskFilter);
+    : tasks.filter(task => normalizeTaskStatus(task.status) === taskFilter)
+  ).slice().sort((a, b) => getTaskCreatedTime(b) - getTaskCreatedTime(a));
 
   const normalizedProjectSearch = projectSearchTerm.trim().toLowerCase();
   const filteredProjects = normalizedProjectSearch
@@ -780,14 +867,14 @@ const EmployeeProject = () => {
     </div>
   );
 
-  // ✅ Show CIISLoader while page is loading
+  
   if (pageLoading) {
     return <CIISLoader />;
   }
 
   return (
     <div className="EmployeeProject-container">
-      {/* Snackbar */}
+      
       {snackbar.open && (
         <div className="EmployeeProject-snackbar">
           <Alert severity={snackbar.severity} onClose={handleCloseSnackbar}>
@@ -796,7 +883,7 @@ const EmployeeProject = () => {
         </div>
       )}
 
-      {/* PDF Viewer Dialog */}
+      
       {openPdfDialog && (
         <div className="EmployeeProject-modal EmployeeProject-pdf-modal">
           <div className="EmployeeProject-modal-backdrop" onClick={() => setOpenPdfDialog(false)} />
@@ -812,14 +899,22 @@ const EmployeeProject = () => {
             </div>
             <div className="EmployeeProject-modal-body EmployeeProject-pdf-viewer">
               {selectedPdfUrl ? (
-                <iframe
-                  src={selectedPdfUrl}
-                  title="PDF Viewer"
-                  className="EmployeeProject-pdf-frame"
-                />
+                isImagePath(selectedPdfName || selectedPdfUrl) ? (
+                  <img
+                    src={selectedPdfUrl}
+                    alt={selectedPdfName || "Attachment preview"}
+                    className="EmployeeProject-file-preview-image"
+                  />
+                ) : (
+                  <iframe
+                    src={selectedPdfUrl}
+                    title="File Viewer"
+                    className="EmployeeProject-pdf-frame"
+                  />
+                )
               ) : (
                 <div className="EmployeeProject-pdf-error">
-                  <p>PDF cannot be loaded</p>
+                  <p>File cannot be loaded</p>
                 </div>
               )}
             </div>
@@ -848,7 +943,7 @@ const EmployeeProject = () => {
         </div>
       )}
 
-      {/* Header */}
+      
       <div className="EmployeeProject-header">
         <div className="EmployeeProject-header-content">
           <div className="EmployeeProject-header-text">
@@ -884,7 +979,7 @@ const EmployeeProject = () => {
           </span>
         </div>
 
-        {/* Stats Cards - Only show if project is selected */}
+        
         {selectedProject && (
           <div className="EmployeeProject-stats-grid">
             <div className="EmployeeProject-stat-item">
@@ -957,7 +1052,7 @@ const EmployeeProject = () => {
         <LinearProgress />
       )}
 
-      {/* PROJECT LIST - SHOW NO PROJECTS MESSAGE IF EMPTY */}
+      
       {projects.length === 0 ? (
         <div className="EmployeeProject-no-projects">
           <div className="EmployeeProject-no-projects-content">
@@ -1056,7 +1151,7 @@ const EmployeeProject = () => {
                     </button>
                   </div>
                   
-                  {/* Project PDF indicator */}
+                  
                   {p.pdfFile?.path && (
                     <div className="EmployeeProject-card-pdf">
                       <div className="EmployeeProject-pdf-info">
@@ -1072,7 +1167,7 @@ const EmployeeProject = () => {
         </div>
       )}
 
-      {/* TASK PANEL - Only show if a project is selected */}
+      
       {selectedProject && projectDetails && (
         <div className="EmployeeProject-panel">
           <div className="EmployeeProject-panel-header">
@@ -1102,7 +1197,7 @@ const EmployeeProject = () => {
           </div>
 
           <div className="EmployeeProject-panel-content">
-            {/* TASKS TAB */}
+            
             {tabValue === 0 && (
               <>
                 <div className="EmployeeProject-panel-header-content">
@@ -1120,7 +1215,7 @@ const EmployeeProject = () => {
                   </button>
                 </div>
 
-                {/* Project Progress */}
+                
                 <div className="EmployeeProject-progress-card">
                   <div className="EmployeeProject-progress-header">
                     <h4 className="EmployeeProject-progress-title">Project Progress</h4>
@@ -1251,6 +1346,39 @@ const EmployeeProject = () => {
                             </div>
                           </div>
 
+                          {t.pdfFile?.path && (
+                            <div className="EmployeeProject-task-attachment">
+                              <div className="EmployeeProject-task-attachment-main">
+                                {isImagePath(t.pdfFile) ? <Icons.Image /> : <Icons.InsertDriveFile />}
+                                <span>{getFileDisplayName(t.pdfFile, "Task attachment")}</span>
+                              </div>
+                              <div className="EmployeeProject-task-pdf-actions">
+                                <button
+                                  type="button"
+                                  className="EmployeeProject-icon-button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    viewPdf(t.pdfFile.path, getFileDisplayName(t.pdfFile));
+                                  }}
+                                  aria-label="Preview task attachment"
+                                >
+                                  <Icons.Visibility />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="EmployeeProject-icon-button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    downloadPdf(t.pdfFile.path, getFileDisplayName(t.pdfFile));
+                                  }}
+                                  aria-label="Download task attachment"
+                                >
+                                  <Icons.Download />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
                           <div className="EmployeeProject-task-card-footer">
                             <p className="EmployeeProject-task-click-hint">View full details</p>
                             <span className="EmployeeProject-task-remark-count">
@@ -1266,13 +1394,13 @@ const EmployeeProject = () => {
               </>
             )}
 
-            {/* DOCUMENTS TAB */}
+            
             {tabValue === 1 && (
               <div className="EmployeeProject-documents-tab">
                 <h2 className="EmployeeProject-documents-title">Project Documents</h2>
                 <p className="EmployeeProject-documents-subtitle">All project-related documents and files</p>
                 
-                {/* Project Document */}
+                
                 {projectDetails.pdfFile?.path ? (
                   <div className="EmployeeProject-document-card">
                     <div className="EmployeeProject-document-content">
@@ -1285,13 +1413,29 @@ const EmployeeProject = () => {
                           <p>Main project document • Uploaded on: {new Date(projectDetails.createdAt).toLocaleDateString()}</p>
                         </div>
                       </div>
+                      <div className="EmployeeProject-document-actions">
+                        <button
+                          className="EmployeeProject-button EmployeeProject-button-outline"
+                          onClick={() => viewPdf(projectDetails.pdfFile.path, getFileDisplayName(projectDetails.pdfFile, "Project document"))}
+                        >
+                          <Icons.Visibility />
+                          Preview
+                        </button>
+                        <button
+                          className="EmployeeProject-button EmployeeProject-button-outline"
+                          onClick={() => downloadPdf(projectDetails.pdfFile.path, getFileDisplayName(projectDetails.pdfFile, "Project document"))}
+                        >
+                          <Icons.Download />
+                          Download
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (
                   <Alert severity="info">No project document uploaded</Alert>
                 )}
 
-                {/* Task Documents */}
+                
                 <h3 className="EmployeeProject-task-documents-title">
                   Task Documents ({tasks.filter(t => t.pdfFile?.path).length})
                 </h3>
@@ -1304,7 +1448,7 @@ const EmployeeProject = () => {
                           <div className="EmployeeProject-task-document-content">
                             <div className="EmployeeProject-task-document-header">
                               <div className="EmployeeProject-task-document-info">
-                                <Icons.InsertDriveFile />
+                                {isImagePath(task.pdfFile) ? <Icons.Image /> : <Icons.InsertDriveFile />}
                                 <div className="EmployeeProject-task-document-text">
                                   <h5>{task.pdfFile.filename || 'Task Document'}</h5>
                                   <p>From: {task.title}</p>
@@ -1317,6 +1461,22 @@ const EmployeeProject = () => {
                                   </p>
                                 </div>
                               </div>
+                              <div className="EmployeeProject-task-document-buttons">
+                                <button
+                                  className="EmployeeProject-button EmployeeProject-button-outline EmployeeProject-button-sm"
+                                  onClick={() => viewPdf(task.pdfFile.path, getFileDisplayName(task.pdfFile))}
+                                >
+                                  <Icons.Visibility />
+                                  Preview
+                                </button>
+                                <button
+                                  className="EmployeeProject-button EmployeeProject-button-outline EmployeeProject-button-sm"
+                                  onClick={() => downloadPdf(task.pdfFile.path, getFileDisplayName(task.pdfFile))}
+                                >
+                                  <Icons.Download />
+                                  Download
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1328,7 +1488,7 @@ const EmployeeProject = () => {
               </div>
             )}
 
-            {/* PROJECT INFO TAB */}
+            
             {tabValue === 2 && (
               <div className="EmployeeProject-info-tab">
                 <h2 className="EmployeeProject-info-title">Project Information</h2>
@@ -1453,7 +1613,7 @@ const EmployeeProject = () => {
         </div>
       )}
 
-      {/* TASK DETAILS MODAL */}
+      
       {detailTask && (
         <div className="EmployeeProject-modal">
           <div className="EmployeeProject-modal-backdrop" onClick={() => setDetailTaskId(null)} />
@@ -1511,6 +1671,49 @@ const EmployeeProject = () => {
                 </div>
               </div>
 
+              {detailTask.pdfFile?.path && (
+                <div className="EmployeeProject-task-detail-section">
+                  <h4>Attachment</h4>
+                  <div className="EmployeeProject-detail-attachment">
+                    {isImagePath(detailTask.pdfFile) && (
+                      <button
+                        type="button"
+                        className="EmployeeProject-detail-image-button"
+                        onClick={() => viewPdf(detailTask.pdfFile.path, getFileDisplayName(detailTask.pdfFile))}
+                      >
+                        <img
+                          src={getUploadUrl(detailTask.pdfFile.path)}
+                          alt={getFileDisplayName(detailTask.pdfFile)}
+                          className="EmployeeProject-detail-image-preview"
+                        />
+                      </button>
+                    )}
+                    <div className="EmployeeProject-detail-attachment-info">
+                      <div className="EmployeeProject-detail-attachment-name">
+                        {isImagePath(detailTask.pdfFile) ? <Icons.Image /> : <Icons.InsertDriveFile />}
+                        <span>{getFileDisplayName(detailTask.pdfFile, "Task attachment")}</span>
+                      </div>
+                      <div className="EmployeeProject-task-detail-actions">
+                        <button
+                          className="EmployeeProject-button EmployeeProject-button-outline"
+                          onClick={() => viewPdf(detailTask.pdfFile.path, getFileDisplayName(detailTask.pdfFile))}
+                        >
+                          <Icons.Visibility />
+                          Preview
+                        </button>
+                        <button
+                          className="EmployeeProject-button EmployeeProject-button-outline"
+                          onClick={() => downloadPdf(detailTask.pdfFile.path, getFileDisplayName(detailTask.pdfFile))}
+                        >
+                          <Icons.Download />
+                          Download
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="EmployeeProject-task-remarks">
                 <h5 className="EmployeeProject-remarks-title">
                   <Icons.Comment />
@@ -1520,7 +1723,20 @@ const EmployeeProject = () => {
                   <div className="EmployeeProject-remarks-list">
                     {detailTask.remarks.map((r, idx) => (
                       <div className="EmployeeProject-remark-item" key={idx}>
-                        <p className="EmployeeProject-remark-text">{r.text}</p>
+                        {r.text && <p className="EmployeeProject-remark-text">{r.text}</p>}
+                        {r.image && (
+                          <button
+                            type="button"
+                            className="EmployeeProject-remark-image-button"
+                            onClick={() => viewPdf(r.image, getFileDisplayName(r.image, "Remark image"))}
+                          >
+                            <img
+                              src={getUploadUrl(r.image)}
+                              alt="Remark attachment"
+                              className="EmployeeProject-remark-image"
+                            />
+                          </button>
+                        )}
                         <div className="EmployeeProject-remark-footer">
                           <div className="EmployeeProject-remark-author">
                             <Avatar size="small">
@@ -1575,10 +1791,41 @@ const EmployeeProject = () => {
                   }
                 }}
               />
+              <input
+                id={`remark-image-${detailTask._id}`}
+                type="file"
+                hidden
+                accept="image/jpeg,image/png,image/jpg,image/webp,image/gif"
+                onChange={(e) => {
+                  handleRemarkImageSelect(detailTask._id, e.target.files[0]);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                className="EmployeeProject-icon-button EmployeeProject-remark-attach-button"
+                onClick={() => document.getElementById(`remark-image-${detailTask._id}`)?.click()}
+                aria-label="Attach remark image"
+              >
+                <Icons.Image />
+              </button>
+              {detailTask._newRemarkImageName && (
+                <div className="EmployeeProject-remark-selected-image">
+                  <Icons.Image />
+                  <span>{detailTask._newRemarkImageName}</span>
+                  <button
+                    type="button"
+                    className="EmployeeProject-file-remove"
+                    onClick={() => clearRemarkImage(detailTask._id)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
               <button
                 className="EmployeeProject-button EmployeeProject-button-primary"
                 onClick={() => handleAddRemark(detailTask._id, detailTask._newRemark)}
-                disabled={!detailTask._newRemark?.trim()}
+                disabled={!detailTask._newRemark?.trim() && !detailTask._newRemarkImage}
               >
                 <Icons.Comment />
                 Add
@@ -1588,7 +1835,7 @@ const EmployeeProject = () => {
         </div>
       )}
 
-      {/* UPDATE STATUS DIALOG */}
+      
       {openStatusDialog && (
         <div className="EmployeeProject-modal">
           <div className="EmployeeProject-modal-backdrop" onClick={() => {
@@ -1667,7 +1914,7 @@ const EmployeeProject = () => {
         </div>
       )}
 
-      {/* ACTIVITY LOGS DRAWER */}
+      
       {openActivityDrawer && (
         <div className="EmployeeProject-drawer">
           <div className="EmployeeProject-drawer-backdrop" onClick={() => setOpenActivityDrawer(false)} />
@@ -1720,7 +1967,7 @@ const EmployeeProject = () => {
         </div>
       )}
 
-      {/* NOTIFICATIONS MODAL (Centered Popup) */}
+      
       {openNotificationsModal && (
         <div className="EmployeeProject-modal">
           <div className="EmployeeProject-modal-backdrop" onClick={() => setOpenNotificationsModal(false)} />

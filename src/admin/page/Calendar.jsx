@@ -9,7 +9,7 @@ import {
 } from '@mui/icons-material';
 import dayjs from 'dayjs';
 
-// Mock follow-up data
+
 const followUps = {
   '2025-07-14': [{
     name: '9988003622',
@@ -35,7 +35,7 @@ const statuses = [
 export default function Calendar() {
   const theme = useTheme();
 
-  // ✅ Get user name from localStorage
+  
   const userName = localStorage.getItem("userName") || "User";
 
   const [statusAnchorEl, setStatusAnchorEl] = useState(null);
@@ -43,7 +43,7 @@ export default function Calendar() {
   const [currentMonth, setCurrentMonth] = useState(dayjs());
   const [selectedDate, setSelectedDate] = useState(dayjs());
 
-  // Leave modal
+  
   const [leaveModalOpen, setLeaveModalOpen] = useState(false);
   const [leaveReason, setLeaveReason] = useState("");
 
@@ -128,9 +128,9 @@ export default function Calendar() {
 
   return (
     <Box p={3} display="flex" gap={3} sx={{ backgroundColor: theme.palette.background.default }}>
-      {/* Left Side: Calendar */}
+      
       <Box flex={1}>
-        {/* 👋 Top Header with Buttons */}
+        
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
           <Typography variant="h6" fontWeight="bold">Hi, {userName} 👋</Typography>
           <Box display="flex" gap={2}>
@@ -189,7 +189,7 @@ export default function Calendar() {
         {renderCalendar()}
       </Box>
 
-      {/* Right Side: Quick Look */}
+      
       <Box flex={1.3}>
         <Typography variant="h6" fontWeight={700} mb={2}>
           <Box component="span" sx={{ color: theme.palette.primary.main }}>
@@ -226,7 +226,7 @@ export default function Calendar() {
           <Typography color="text.secondary" mb={2}>No follow-ups on this date</Typography>
         )}
 
-        {/* ✅ New Buttons Below Quick Look */}
+        
         <Box display="flex" gap={2}>
           <Button
             variant="contained"
@@ -247,7 +247,7 @@ export default function Calendar() {
         </Box>
       </Box>
 
-      {/* ✅ Leave Modal */}
+      
       <Modal open={leaveModalOpen} onClose={() => setLeaveModalOpen(false)}>
         <Box sx={{
           position: 'absolute', top: '50%', left: '50%',

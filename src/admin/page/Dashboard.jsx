@@ -30,7 +30,7 @@ import {
 
 import CountUp from 'react-countup';
 
-// Reusable Component: Stat Card
+
 const StatCard = ({ label, value, color }) => {
   const theme = useTheme();
 
@@ -46,7 +46,7 @@ const StatCard = ({ label, value, color }) => {
   );
 };
 
-// Reusable Component: Action Item Card
+
 const ActionItemCard = ({ icon, label, value }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -68,7 +68,7 @@ const ActionItemCard = ({ icon, label, value }) => {
   );
 };
 
-// Reusable Component: Progress Bar Item
+
 const ProgressBarItem = ({ label, value }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -132,24 +132,20 @@ const Dashboard = () => {
 
   return (
     <Box p={3} sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
-      {/* Header */}
+      
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h5" fontWeight="bold" color="primary">
           CIIS Dashboard
         </Typography>
         <Box>
-          {/* <Tooltip title="Refresh data">
-            <IconButton color="primary">
-              <Refresh />
-            </IconButton>
-          </Tooltip> */}
+          
           <IconButton color="primary">
             <MoreVert />
           </IconButton>
         </Box>
       </Box>
 
-      {/* Onboarding Progress */}
+      
       <Card
         sx={{
           mb: 3,
@@ -185,7 +181,7 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      {/* Performance Overview */}
+      
       <Card sx={{ mb: 3 }}>
         <CardHeader
           title={
@@ -219,7 +215,7 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      {/* Open Actions */}
+      
       <Card sx={{ mb: 3 }}>
         <CardHeader title="Open Actions" />
         <CardContent>
@@ -237,7 +233,7 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      {/* Customer Progress & Lead Status */}
+      
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <Card>

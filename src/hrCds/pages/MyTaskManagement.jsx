@@ -61,7 +61,7 @@ const MyTaskManagement = () => {
   const fileInputRef = useRef(null);
   const voiceNoteInputRef = useRef(null);
 
-  // Check mobile viewport
+  
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -97,9 +97,9 @@ const MyTaskManagement = () => {
         return;
       }
 
-      setUserId(user._id); // Using _id instead of id
+      setUserId(user._id); 
       setAuthError(false);
-      console.log('User ID set:', user._id);
+      void 0;
     } catch (error) {
       console.error('Error parsing user data:', error);
       setAuthError(true);
@@ -425,7 +425,7 @@ const MyTaskManagement = () => {
 
   const fetchAssignableData = async () => {
     if (authError || !userId) {
-      console.log('Skipping data fetch due to authentication issues');
+      void 0;
       return;
     }
 

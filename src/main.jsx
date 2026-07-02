@@ -2,10 +2,10 @@
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import './index.css';
-import './utils/axiosConfig'; // Centralized error handler and global axios configuration
+import './utils/axiosConfig'; 
 import App from './App.jsx';
 
-// Contexts
+
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import { NotificationProvider } from './context/NotificationContext.jsx';

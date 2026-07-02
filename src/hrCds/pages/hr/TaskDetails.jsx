@@ -25,7 +25,7 @@ import { useTheme, useMediaQuery } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
 
-// Enhanced Styled Components - FIXED VERSION
+
 const StatCard = styled(Card, {
   shouldForwardProp: (prop) => prop !== 'color'
 })(({ theme, color = 'primary' }) => ({
@@ -164,13 +164,13 @@ const UserCreateTask = () => {
   const [authError, setAuthError] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Task Management States
+  
   const [myTasksGrouped, setMyTasksGrouped] = useState({});
   const [allTasks, setAllTasks] = useState([]);
   const [statusFilter, setStatusFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Client-side stats calculation
+  
   const [clientStats, setClientStats] = useState({
     total: 0,
     pending: 0,
@@ -179,7 +179,7 @@ const UserCreateTask = () => {
     rejected: 0
   });
 
-  // Pagination States
+  
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -188,7 +188,7 @@ const UserCreateTask = () => {
     hasMore: true
   });
 
-  // Enhanced Features States
+  
   const [notifications, setNotifications] = useState([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [remarksDialog, setRemarksDialog] = useState({ open: false, taskId: null, remarks: [] });
@@ -197,7 +197,7 @@ const UserCreateTask = () => {
   const [activityDialog, setActivityDialog] = useState({ open: false, taskId: null });
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
-  // Calendar Filter States
+  
   const [calendarFilterOpen, setCalendarFilterOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [dateFilterType, setDateFilterType] = useState('dueDate');
@@ -206,7 +206,7 @@ const UserCreateTask = () => {
     end: null
   });
 
-  // Task form state
+  
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -224,7 +224,7 @@ const UserCreateTask = () => {
   const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
 
-  // Helper function to count all tasks
+  
   const countAllTasks = (groupedTasks) => {
     if (!groupedTasks || typeof groupedTasks !== 'object') return 0;
     
@@ -239,7 +239,7 @@ const UserCreateTask = () => {
 
   const getTaskDueDate = (task) => task?.dueDateTime || task?.dueDate;
 
-  // Fixed date grouping function
+  
   const groupTasksByCreatedDate = (tasks) => {
     const grouped = {};
     
@@ -250,7 +250,12 @@ const UserCreateTask = () => {
       
       let dateObj;
       
-      if (task.createdAt) {
+      
+      const dueDate = getTaskDueDate(task);
+
+      if (dueDate) {
+        dateObj = new Date(dueDate);
+      } else if (task.createdAt) {
         dateObj = new Date(task.createdAt);
       } else if (task.createdDate) {
         dateObj = new Date(task.createdDate);
@@ -259,12 +264,12 @@ const UserCreateTask = () => {
       } else if (getTaskDueDate(task)) {
         dateObj = new Date(getTaskDueDate(task));
       } else {
-        dateObj = new Date(); // Final fallback
+        dateObj = new Date(); 
       }
 
-      // Validate date
+      
       if (isNaN(dateObj.getTime())) {
-        dateObj = new Date(); // Fallback to current date if invalid
+        dateObj = new Date(); 
       }
 
       const dateKey = dateObj.toLocaleDateString('en-IN', {
@@ -280,7 +285,7 @@ const UserCreateTask = () => {
       grouped[dateKey].push(task);
     });
     
-    // Sort the groups by date (newest first)
+    
     const sortedEntries = Object.entries(grouped).sort(([dateA], [dateB]) => {
       return new Date(dateB) - new Date(dateA);
     });
@@ -296,7 +301,7 @@ const UserCreateTask = () => {
     return result;
   };
 
-  // Client-side stats calculation
+  
   const calculateStatsFromTasks = useCallback((tasks) => {
     let total = 0;
     let pending = 0;
@@ -339,7 +344,7 @@ const UserCreateTask = () => {
     return { total, pending, inProgress, completed, rejected };
   }, [userId]);
 
-  // User authentication check
+  
  const fetchUserData = () => {
   try {
     const userStr = localStorage.getItem('user');
@@ -356,8 +361,8 @@ const UserCreateTask = () => {
 
     const user = JSON.parse(userStr);
     
-    // ✅ FIX: Use _id instead of id
-    const userId = user._id;  // Changed from user.id
+    
+    const userId = user._id;  
     const userName = user.name;
     
     if (!userId || !userName) {
@@ -371,12 +376,12 @@ const UserCreateTask = () => {
       return;
     }
 
-    // Set state.
+    
     setUserId(userId);
     setUserName(userName);
     setAuthError(false);
     
-    // Set assignedUsers for self-task creation
+    
     setNewTask(prev => ({
       ...prev,
       assignedUsers: [userId]
@@ -394,7 +399,7 @@ const UserCreateTask = () => {
   }
 };
 
-  // Fetch tasks with proper error handling
+  
   const fetchMyTasks = useCallback(async (page = 1, isLoadMore = false) => {
     if (authError || !userId) {
       setLoading(false);
@@ -413,9 +418,9 @@ const UserCreateTask = () => {
       const url = `/task?${params}`;
       const res = await axios.get(url);
       
-      console.log('📊 Tasks API RESPONSE:', res.data);
+      void 0;
 
-      // Handle different response formats
+      
       let tasksArray = [];
       if (Array.isArray(res.data?.tasks)) {
         tasksArray = res.data.tasks;
@@ -429,11 +434,11 @@ const UserCreateTask = () => {
         tasksArray = res.data;
       }
       
-      // Group tasks by creation date
+      
       const newTasks = groupTasksByCreatedDate(tasksArray);
       
       if (isLoadMore && page > 1) {
-        // Merge new tasks with existing ones for load more
+        
         const mergedTasks = { ...myTasksGrouped };
         Object.entries(newTasks).forEach(([date, tasks]) => {
           if (mergedTasks[date]) {
@@ -449,7 +454,7 @@ const UserCreateTask = () => {
         setMyTasksGrouped(newTasks);
       }
 
-      // Update all tasks flat array
+      
       const allTasksFlat = Object.values(newTasks).flat();
       if (isLoadMore && page > 1) {
         setAllTasks(prev => [...prev, ...allTasksFlat]);
@@ -457,7 +462,7 @@ const UserCreateTask = () => {
         setAllTasks(allTasksFlat);
       }
 
-      // Calculate stats from tasks
+      
       const calculatedStats = calculateStatsFromTasks(newTasks);
       setClientStats(calculatedStats);
 
@@ -486,20 +491,20 @@ const UserCreateTask = () => {
     }
   }, [authError, userId, statusFilter, searchTerm, pagination.limit, myTasksGrouped, calculateStatsFromTasks]);
 
-  // Load more tasks function
+  
   const loadMoreTasks = () => {
     if (pagination.hasMore && !loading) {
       fetchMyTasks(pagination.page + 1, true);
     }
   };
 
-  // Reset to first page when filters change
+  
   useEffect(() => {
     setPagination(prev => ({ ...prev, page: 1 }));
     fetchMyTasks(1, false);
   }, [statusFilter, searchTerm]);
 
-  // Infinite scroll effect
+  
   useEffect(() => {
     const handleScroll = () => {
       if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 100) {
@@ -513,7 +518,7 @@ const UserCreateTask = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [pagination.hasMore, loading]);
 
-  // Enhanced Notifications Functions
+  
   const fetchNotifications = async () => {
     if (authError || !userId) return;
     
@@ -546,7 +551,7 @@ const UserCreateTask = () => {
     }
   };
 
-  // Enhanced Remarks Functions
+  
   const fetchTaskRemarks = async (taskId) => {
     try {
       const res = await axios.get(`/task/${taskId}/remarks`);
@@ -578,7 +583,7 @@ const UserCreateTask = () => {
     }
   };
 
-  // Enhanced Activity Logs Functions
+  
   const fetchActivityLogs = async (taskId) => {
     try {
       const res = await axios.get(`/task/${taskId}/activity-logs`);
@@ -590,7 +595,7 @@ const UserCreateTask = () => {
     }
   };
 
-  // Calendar Filter Functions
+  
   const applyDateFilter = useCallback((tasks) => {
     if (!selectedDate && !dateRange.start && !dateRange.end) {
       return tasks;
@@ -615,7 +620,7 @@ const UserCreateTask = () => {
 
         if (!taskDate || isNaN(taskDate.getTime())) return false;
 
-        // Single date filter
+        
         if (selectedDate && !dateRange.start && !dateRange.end) {
           const selected = new Date(selectedDate);
           return (
@@ -625,7 +630,7 @@ const UserCreateTask = () => {
           );
         }
 
-        // Date range filter
+        
         if (dateRange.start && dateRange.end) {
           const start = new Date(dateRange.start);
           const end = new Date(dateRange.end);
@@ -661,21 +666,21 @@ const UserCreateTask = () => {
     return null;
   };
 
-  // Refresh button
+  
   const handleRefresh = () => {
     fetchMyTasks(1, false);
   };
 
-  // Memoized filtered tasks for better performance
+  
   const filteredTasks = useMemo(() => {
     return applyDateFilter(myTasksGrouped);
   }, [myTasksGrouped, applyDateFilter]);
 
-  // Get individual user status for a task - FIXED VERSION
+  
   const getUserStatusForTask = (task, userId) => {
     if (!task || !userId || typeof task !== 'object') return 'pending';
     
-    // Check if statusByUser exists and is an array
+    
     if (Array.isArray(task.statusByUser)) {
       const userStatus = task.statusByUser.find(s => 
         s?.user === userId || s?.user?._id === userId
@@ -683,11 +688,11 @@ const UserCreateTask = () => {
       return userStatus?.status || 'pending';
     }
     
-    // Fallback to task status if statusByUser doesn't exist
+    
     return task.status || 'pending';
   };
 
-  // Status Change Handler
+  
   const handleStatusChange = async (taskId, newStatus, remarks = '') => {
     if (authError || !userId) {
       setSnackbar({
@@ -732,7 +737,7 @@ const UserCreateTask = () => {
     }
   };
 
-  // Task creation handler
+  
   const handleCreateTask = async () => {
     if (authError || !userId) {
       setSnackbar({
@@ -771,7 +776,7 @@ const UserCreateTask = () => {
       formData.append('priorityDays', newTask.priorityDays || '1');
       formData.append('priority', newTask.priority);
 
-      // Use create-self endpoint for personal tasks
+      
       const endpoint = '/task/create-self';
 
       if (newTask.files) {
@@ -797,7 +802,7 @@ const UserCreateTask = () => {
         severity: 'success' 
       });
       
-      // Reset form
+      
       setNewTask({
         title: '', 
         description: '', 
@@ -810,7 +815,7 @@ const UserCreateTask = () => {
         assignedGroups: []
       });
 
-      // Refresh tasks list
+      
       fetchMyTasks(1, false);
       fetchNotifications();
 
@@ -848,7 +853,7 @@ const UserCreateTask = () => {
     return new Date(dueDate) < new Date();
   };
 
-  // Enhanced table cell with new action buttons
+  
   const renderActionButtons = (task) => {
     if (!task || typeof task !== 'object') return null;
     
@@ -899,7 +904,7 @@ const UserCreateTask = () => {
     );
   };
 
-  // Status Select Component
+  
   const renderStatusSelect = (task) => {
     if (!task || typeof task !== 'object') return null;
     
@@ -927,7 +932,7 @@ const UserCreateTask = () => {
     );
   };
 
-  // Load More Component
+  
   const renderLoadMore = () => {
     if (!pagination.hasMore || countAllTasks(filteredTasks) === 0) return null;
 
@@ -946,7 +951,7 @@ const UserCreateTask = () => {
     );
   };
 
-  // Pagination info
+  
   const renderPaginationInfo = () => {
     const totalTasksCount = countAllTasks(filteredTasks);
     
@@ -960,7 +965,7 @@ const UserCreateTask = () => {
     );
   };
 
-  // Statistics Cards - Client-side calculation
+  
   const renderStatsCards = () => (
     <Grid container spacing={2} sx={{ mb: 3 }}>
       {[
@@ -1003,7 +1008,7 @@ const UserCreateTask = () => {
     </Grid>
   );
 
-  // FIXED: Render Desktop Table with proper data mapping
+  
   const renderDesktopTable = (groupedTasks) => {
     const tasksToRender = applyDateFilter(groupedTasks);
     
@@ -1061,14 +1066,14 @@ const UserCreateTask = () => {
                       backgroundColor: `${theme.palette.primary.main}08`,
                     }
                   }}>
-                    {/* Title */}
+                    
                     <TableCell sx={{ py: 1.5 }}>
                       <Typography variant="body2" fontWeight={600} sx={{ fontSize: isSmallMobile ? '0.8rem' : '0.875rem' }}>
                         {task?.title || 'No Title'}
                       </Typography>
                     </TableCell>
                     
-                    {/* Description */}
+                    
                     <TableCell sx={{ py: 1.5, maxWidth: 200 }}>
                       <Tooltip title={task?.description || 'No description'}>
                         <Typography variant="body2" sx={{
@@ -1082,7 +1087,7 @@ const UserCreateTask = () => {
                       </Tooltip>
                     </TableCell>
                     
-                    {/* Due Date */}
+                    
                     <TableCell sx={{ py: 1.5 }}>
                       <Stack direction="row" alignItems="center" spacing={1}>
                         <FiCalendar size={14} color={theme.palette.text.secondary} />
@@ -1106,7 +1111,7 @@ const UserCreateTask = () => {
                       </Stack>
                     </TableCell>
                     
-                    {/* Priority */}
+                    
                     <TableCell sx={{ py: 1.5 }}>
                       <PriorityChip
                         label={(task?.priority || 'medium').toUpperCase()}
@@ -1115,7 +1120,7 @@ const UserCreateTask = () => {
                       />
                     </TableCell>
                     
-                    {/* Status */}
+                    
                     <TableCell sx={{ py: 1.5 }}>
                       <StatusChip
                         label={myStatus?.charAt(0)?.toUpperCase() + myStatus?.slice(1) || 'Pending'}
@@ -1124,7 +1129,7 @@ const UserCreateTask = () => {
                       />
                     </TableCell>
                     
-                    {/* Files */}
+                    
                     <TableCell sx={{ py: 1.5 }}>
                       {task?.files?.length ? (
                         <Tooltip title={`${task.files.length} file(s)`}>
@@ -1147,12 +1152,12 @@ const UserCreateTask = () => {
                       )}
                     </TableCell>
                     
-                    {/* Actions */}
+                    
                     <TableCell sx={{ py: 1.5 }}>
                       {renderActionButtons(task)}
                     </TableCell>
                     
-                    {/* Change Status */}
+                    
                     <TableCell sx={{ py: 1.5 }}>
                       {renderStatusSelect(task)}
                     </TableCell>
@@ -1166,7 +1171,7 @@ const UserCreateTask = () => {
     ));
   };
 
-  // Enhanced mobile cards with action buttons
+  
   const renderMobileCards = (groupedTasks) => {
     const tasksToRender = applyDateFilter(groupedTasks);
     
@@ -1195,7 +1200,7 @@ const UserCreateTask = () => {
               <MobileTaskCard key={task._id} status={myStatus}>
                 <CardContent sx={{ p: 2 }}>
                   <Stack spacing={2}>
-                    {/* Header Section */}
+                    
                     <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
                       <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Typography variant="h6" fontWeight={600} sx={{ 
@@ -1223,7 +1228,7 @@ const UserCreateTask = () => {
                       />
                     </Stack>
 
-                    {/* Info Row */}
+                    
                     <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
                       <Stack direction="row" alignItems="center" spacing={1}>
                         <FiCalendar size={14} color={theme.palette.text.secondary} />
@@ -1238,7 +1243,7 @@ const UserCreateTask = () => {
                       />
                     </Stack>
 
-                    {/* Files Section */}
+                    
                     {task?.files?.length > 0 && (
                       <Box>
                         <Typography variant="caption" color="text.secondary" display="block" gutterBottom fontWeight={600}>
@@ -1268,7 +1273,7 @@ const UserCreateTask = () => {
                       </Box>
                     )}
 
-                    {/* Action Buttons Row */}
+                    
                     <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
                       <Stack direction="row" spacing={0.5}>
                         {renderActionButtons(task)}
@@ -1340,7 +1345,7 @@ const UserCreateTask = () => {
     );
   };
 
-  // Search Component
+  
   const renderSearch = () => (
     <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
       <TextField
@@ -1369,7 +1374,7 @@ const UserCreateTask = () => {
     </Paper>
   );
 
-  // Create Task Dialog
+  
   const renderCreateTaskDialog = () => (
     <Dialog
       open={openDialog}
@@ -1487,7 +1492,7 @@ const UserCreateTask = () => {
     </Dialog>
   );
 
-  // Calendar Filter Dialog
+  
   const renderCalendarFilterDialog = () => (
     <Dialog
       open={calendarFilterOpen}
@@ -1581,7 +1586,7 @@ const UserCreateTask = () => {
     </Dialog>
   );
 
-  // Notifications Panel
+  
   const renderNotificationsPanel = () => (
     <Modal
       open={notificationsOpen}
@@ -1675,7 +1680,7 @@ const UserCreateTask = () => {
     </Modal>
   );
 
-  // Remarks Dialog
+  
   const renderRemarksDialog = () => (
     <Dialog
       open={remarksDialog.open}
@@ -1694,7 +1699,7 @@ const UserCreateTask = () => {
       
       <DialogContent>
         <Stack spacing={3}>
-          {/* Add New Remark */}
+          
           <Box>
             <TextField
               label="Add Remark"
@@ -1715,7 +1720,7 @@ const UserCreateTask = () => {
             </Button>
           </Box>
 
-          {/* Remarks List */}
+          
           <Box>
             <Typography variant="h6" gutterBottom>
               Previous Remarks
@@ -1754,7 +1759,7 @@ const UserCreateTask = () => {
     </Dialog>
   );
 
-  // Activity Logs Dialog
+  
   const renderActivityLogsDialog = () => (
     <Dialog
       open={activityDialog.open}
@@ -1818,7 +1823,7 @@ const UserCreateTask = () => {
     fetchUserData();
   }, []);
 
-  // Initial load
+  
   useEffect(() => {
     if (!authError && userId) {
       fetchMyTasks(1, false);
@@ -1884,7 +1889,7 @@ const UserCreateTask = () => {
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Fade in={!loading} timeout={500}>
         <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, maxWidth: 1400, margin: '0 auto' }}>
-          {/* Header */}
+          
           <Paper
             sx={{
               p: { xs: 2, sm: 3 },
@@ -1900,7 +1905,7 @@ const UserCreateTask = () => {
               justifyContent="space-between"
               alignItems={{ xs: "flex-start", sm: "center" }}
             >
-              {/* Left Section: Title & Info */}
+              
               <Box sx={{ flex: 1 }}>
                 <Typography variant="h4" fontWeight={700} gutterBottom sx={{ fontSize: { xs: '1.5rem', sm: '2rem' } }}>
                   My Task Management
@@ -1910,9 +1915,9 @@ const UserCreateTask = () => {
                 </Typography>
               </Box>
 
-              {/* Right Section: Buttons */}
+              
               <Stack direction="row" spacing={1} alignItems="center" sx={{ width: { xs: '100%', sm: 'auto' } }}>
-                {/* Notifications Badge */}
+                
                 <Tooltip title="Notifications">
                   <ActionButton 
                     onClick={() => setNotificationsOpen(true)}
@@ -1938,7 +1943,7 @@ const UserCreateTask = () => {
                   </ActionButton>
                 </Tooltip>
 
-                {/* Create Task Button */}
+                
                 <Button
                   variant="contained"
                   startIcon={<FiPlus />}
@@ -1958,19 +1963,19 @@ const UserCreateTask = () => {
             </Stack>
           </Paper>
 
-          {/* Search Box */}
+          
           {renderSearch()}
 
-          {/* Statistics Cards */}
+          
           {renderStatsCards()}
 
-          {/* Tasks Section */}
+          
           <Paper sx={{
             borderRadius: { xs: 2, sm: 3 },
             boxShadow: 1,
             overflow: 'hidden'
           }}>
-            {/* Filter Section */}
+            
             <Box sx={{ p: { xs: 2, sm: 3 }, borderBottom: 1, borderColor: 'divider' }}>
               <Stack
                 direction={{ xs: 'column', sm: 'row' }}
@@ -1983,7 +1988,7 @@ const UserCreateTask = () => {
                 </Typography>
                 
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                  {/* Calendar Filter Button */}
+                  
                   <Tooltip title="Filter by Date">
                     <CalendarFilterButton
                       onClick={() => setCalendarFilterOpen(true)}
@@ -1994,7 +1999,7 @@ const UserCreateTask = () => {
                     </CalendarFilterButton>
                   </Tooltip>
 
-                  {/* Status Filter */}
+                  
                   <FormControl size="small" sx={{ minWidth: 150 }}>
                     <InputLabel>Status Filter</InputLabel>
                     <Select
@@ -2011,7 +2016,7 @@ const UserCreateTask = () => {
                     </Select>
                   </FormControl>
 
-                  {/* Clear Date Filter Button */}
+                  
                   {(selectedDate || dateRange.start || dateRange.end) && (
                     <Tooltip title="Clear Date Filter">
                       <ActionButton 
@@ -2043,7 +2048,7 @@ const UserCreateTask = () => {
                 </Stack>
               </Stack>
 
-              {/* Date Filter Summary */}
+              
               {(selectedDate || dateRange.start || dateRange.end) && (
                 <Box sx={{ mt: 2, p: 1.5, bgcolor: 'primary.light', borderRadius: 1 }}>
                   <Stack direction="row" alignItems="center" spacing={1}>
@@ -2056,7 +2061,7 @@ const UserCreateTask = () => {
               )}
             </Box>
 
-            {/* Tasks Content */}
+            
             <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
               {renderGroupedTasks(myTasksGrouped)}
               {loading && pagination.page > 1 && (
@@ -2070,14 +2075,14 @@ const UserCreateTask = () => {
             </Box>
           </Paper>
 
-          {/* DIALOGS */}
+          
           {renderCreateTaskDialog()}
           {renderCalendarFilterDialog()}
           {renderNotificationsPanel()}
           {renderRemarksDialog()}
           {renderActivityLogsDialog()}
 
-          {/* Enhanced Snackbar */}
+          
           <Snackbar
             open={snackbar.open}
             autoHideDuration={4000}

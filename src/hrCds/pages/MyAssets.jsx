@@ -47,14 +47,14 @@ const MyAssets = () => {
  const [viewCommentReq, setViewCommentReq] = useState(null);
  const [isMobile, setIsMobile] = useState(false);
 
-  // ✅ Allowed assets for dropdown
+  
   const [allowedAssets, setAllowedAssets] = useState([]);
 
-  // ✅ Initialize socket and notification hooks
+  
   const socketContext = useSocket();
   const { showToast } = useNotification();
 
-  // Check mobile viewport
+  
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -64,7 +64,7 @@ const MyAssets = () => {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Get user from storage
+  
   const getUser = () => {
     try {
       let userStr = localStorage.getItem('user') || localStorage.getItem('superAdmin');
@@ -82,7 +82,7 @@ const MyAssets = () => {
     }
   };
 
-  // ✅ Fetch company assets from API
+  
   const fetchCompanyAssets = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -90,9 +90,9 @@ const MyAssets = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       
-      console.log("📦 Company Assets API Response:", res.data);
+      void 0;
       
-      // Get assets from response
+      
       let assets = [];
       if (res.data.assets) {
         assets = res.data.assets;
@@ -102,10 +102,10 @@ const MyAssets = () => {
         assets = res.data.data;
       }
       
-      console.log("✅ Fetched assets:", assets.length);
+      void 0;
       setCompanyAssets(assets);
       
-      // Format assets for dropdown
+      
       const formattedAssets = assets.map(asset => ({
         value: asset._id,
         label: asset.name || asset.assetName || 'Unnamed Asset',
@@ -113,7 +113,7 @@ const MyAssets = () => {
         icon: getIconForAssetType(asset.category || asset.type),
         color: getColorForAssetType(asset.category || asset.type),
 
-        // ✅ FIXED
+        
         available: asset.quantity > 0,
 
         status: asset.status,
@@ -122,7 +122,7 @@ const MyAssets = () => {
         description: asset.description
       }));
       
-      console.log("🎨 Formatted assets for dropdown:", formattedAssets);
+      void 0;
       setAllowedAssets(formattedAssets);
       
     } catch (err) {
@@ -131,7 +131,7 @@ const MyAssets = () => {
     }
   };
 
-  // Helper function to get icon based on asset type
+  
   const getIconForAssetType = (type) => {
     const typeLower = (type || '').toLowerCase();
     if (typeLower.includes('phone') || typeLower.includes('mobile')) return FiSmartphone;
@@ -145,7 +145,7 @@ const MyAssets = () => {
     return FiPackage;
   };
 
-  // Helper function to get color based on asset type
+  
   const getColorForAssetType = (type) => {
     const typeLower = (type || '').toLowerCase();
     if (typeLower.includes('phone') || typeLower.includes('mobile')) return 'primary';
@@ -156,7 +156,7 @@ const MyAssets = () => {
     return 'primary';
   };
 
-  // ✅ Fetch user's asset requests from asset-requests API
+  
   const fetchRequests = async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
     
@@ -166,14 +166,14 @@ const MyAssets = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       
-      console.log("📋 Requests API Response:", res.data);
+      void 0;
       
       const data = res.data.requests || res.data.data || [];
       setRequests(data);
       
-      // Extract approved assets from requests
+      
       const approved = data.filter(req => req.status === "approved");
-      console.log("✅ Approved assets:", approved.length);
+      void 0;
       setAssignedAssets(approved);
       
       calculateStats(data);
@@ -189,7 +189,7 @@ const MyAssets = () => {
     }
   };
 
-  // Calculate stats from requests
+  
   const calculateStats = (data) => {
     const approved = data.filter((r) => r.status === "approved").length;
     const pending = data.filter((r) => r.status === "pending").length;
@@ -204,47 +204,47 @@ const MyAssets = () => {
     });
   };
 
-  // ✅ Listen for real-time socket notifications
+  
   useEffect(() => {
-    // Function to handle incoming notifications
+    
     const handleNotification = (notificationData) => {
-      console.log("🔔 Real-time notification received (MyAssets):", notificationData);
+      void 0;
       
-      // Show toast notification
+      
       if (notificationData && notificationData.message) {
         showToast(notificationData.message, "info", 4000);
       }
       
-      // Refresh data to reflect changes
+      
       fetchRequests();
       fetchCompanyAssets();
     };
 
-    // Try to get socket from context in different possible ways
+    
     let socket = null;
     let cleanupFunctions = [];
 
-    // Check if socketContext has a socket property
+    
     if (socketContext && socketContext.socket && typeof socketContext.socket.on === 'function') {
       socket = socketContext.socket;
-      console.log("✅ Using socket from context.socket");
+      void 0;
     } 
-    // Check if socketContext itself is the socket
+    
     else if (socketContext && typeof socketContext.on === 'function') {
       socket = socketContext;
-      console.log("✅ Using socket context directly as socket");
+      void 0;
     }
-    // Check if socketContext has a getSocket method
+    
     else if (socketContext && typeof socketContext.getSocket === 'function') {
       socket = socketContext.getSocket();
       if (socket && typeof socket.on === 'function') {
-        console.log("✅ Using socket from getSocket()");
+        void 0;
       }
     }
 
-    // If we have a valid socket, set up event listeners
+    
     if (socket && typeof socket.on === 'function') {
-      // Listen to various notification events
+      
       const events = ['notification', 'asset-request-update', 'asset-update', 'new_notification'];
       
       events.forEach(eventName => {
@@ -252,12 +252,12 @@ const MyAssets = () => {
         cleanupFunctions.push(() => socket.off(eventName, handleNotification));
       });
       
-      console.log(`✅ Socket listeners registered for events: ${events.join(', ')}`);
+      void 0;
     } else {
       console.warn("⚠️ Socket not available for real-time notifications");
-      // Fallback: Poll for updates every 30 seconds
+      
       const intervalId = setInterval(() => {
-        console.log("🔄 Fallback: Polling for updates");
+        void 0;
         fetchRequests();
         fetchCompanyAssets();
       }, 30000);
@@ -265,7 +265,7 @@ const MyAssets = () => {
       cleanupFunctions.push(() => clearInterval(intervalId));
     }
     
-    // Cleanup subscription on component unmount
+    
     return () => {
       cleanupFunctions.forEach(cleanup => {
         if (typeof cleanup === 'function') {
@@ -275,14 +275,14 @@ const MyAssets = () => {
     };
   }, [socketContext, showToast]);
 
-  // Load all data on mount
+  
   useEffect(() => {
     const loadData = async () => {
       setPageLoading(true);
-      getUser(); // Get user info
+      getUser(); 
       
       try {
-        // Fetch both company assets and user requests in parallel
+        
         await Promise.all([
           fetchCompanyAssets(),
           fetchRequests()
@@ -299,14 +299,14 @@ const MyAssets = () => {
     loadData();
   }, []);
 
-  // ✅ Handle asset request using asset-requests API
+  
   const handleRequest = async () => {
     if (!newAsset) {
       showToast("Please select an asset.", "error", 4000);
       return;
     }
 
-    // Find the selected asset details
+    
     const selectedAsset = companyAssets.find(asset => asset._id === newAsset);
 
     if (!selectedAsset) {
@@ -318,13 +318,13 @@ const MyAssets = () => {
     try {
       const token = localStorage.getItem("token");
       
-      // Send only required fields to match backend
+      
       const requestData = {
         assetId: newAsset,
         reason: `Request for ${selectedAsset.name}`
       };
       
-      console.log("📤 Sending request:", requestData);
+      void 0;
       
       await axios.post(
         "/asset-requests/request",
@@ -335,8 +335,8 @@ const MyAssets = () => {
       showToast("🎉 Request submitted successfully!", "success", 4000);
       
       setNewAsset("");
-      await fetchRequests(); // Refresh to get updated requests
-      await fetchCompanyAssets(); // Refresh to update available assets
+      await fetchRequests(); 
+      await fetchCompanyAssets(); 
       
     } catch (error) {
         console.error("❌ FULL ERROR:", error.response?.data);
@@ -377,18 +377,18 @@ const MyAssets = () => {
     return asset ? asset.color : 'primary';
   };
 
-  // Show loader while page is loading
+  
   if (pageLoading) {
     return <CIISLoader />;
   }
 
-  // Count available assets
+  
   const availableAssetsCount = allowedAssets.filter(a => a.available).length;
   const totalAssetsCount = allowedAssets.length;
 
   return (
     <div className="MyAssets-container">
-      {/* Header */}
+      
       <div className="MyAssets-header">
         <div className="MyAssets-header-content">
           <div className="MyAssets-header-text">
@@ -419,9 +419,9 @@ const MyAssets = () => {
         </div>
       </div>
 
-      {/* Stat Cards */}
+      
       <div className="MyAssets-stats-grid">
-        {/* Available Assets Stat */}
+        
         <div className="MyAssets-stat-card" style={{ cursor: 'default' }}>
           <div className="MyAssets-stat-card-content">
             <div className="MyAssets-stat-avatar MyAssets-primary">
@@ -493,9 +493,9 @@ const MyAssets = () => {
         ))}
       </div>
 
-      {/* Action Cards Grid */}
+      
       <div className="MyAssets-action-grid">
-        {/* Request New Asset Card */}
+        
         <div className="MyAssets-request-card">
           <div className="MyAssets-card-content">
             <div className="MyAssets-card-header">
@@ -554,7 +554,7 @@ const MyAssets = () => {
           </div>
         </div>
 
-        {/* Assigned Assets Card */}
+        
         <div className="MyAssets-properties-card">
           <div className="MyAssets-card-content">
             <div className="MyAssets-card-header">
@@ -607,7 +607,7 @@ const MyAssets = () => {
         </div>
       </div>
 
-      {/* Requests Section */}
+      
       <div className="MyAssets-requests-section">
         <div className="MyAssets-requests-header">
           <div className="MyAssets-requests-title-section">
@@ -629,7 +629,7 @@ const MyAssets = () => {
           </div>
         </div>
 
-        {/* Status Filter Tabs */}
+        
         <div className="MyAssets-filter-tabs">
           <button
             className={`MyAssets-filter-tab ${filterStatus === "all" ? "MyAssets-active-tab" : ""}`}
@@ -657,7 +657,7 @@ const MyAssets = () => {
           </button>
         </div>
 
-        {/* Requests Table (Desktop) */}
+        
         {!isMobile && (
           <div className="MyAssets-table-container">
             <table className="MyAssets-table">
@@ -745,7 +745,7 @@ const MyAssets = () => {
           </div>
         )}
 
-        {/* Mobile Cards View */}
+        
         {isMobile && (
           <div className="MyAssets-mobile-cards">
             {filteredRequests.length > 0 ? (
@@ -838,7 +838,7 @@ const MyAssets = () => {
           </div>
         )}
 
-      {/* Local Notification (kept for backward compatibility) */}
+      
       {notification && (
         <div className={`MyAssets-notification MyAssets-notification-${notification.severity}`}>
           <div className="MyAssets-notification-content">

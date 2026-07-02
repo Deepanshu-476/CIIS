@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react-swc'
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
 
-// https://vite.dev/config/
+
 export default defineConfig({
   base: '/',
 
@@ -21,14 +21,14 @@ export default defineConfig({
     tailwindcss(),
   ],
 
-  // Fix for Material-UI v4 + Vite compatibility
+  
   build: {
     commonjsOptions: {
       include: [/node_modules/]
     },
     esbuild: {
       loader: {
-        '.js': 'jsx', // Enabling JSX syntax for .js files
+        '.js': 'jsx', 
       },
     },
   },
@@ -36,11 +36,11 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
-    host: true, // Expose to network
+    host: true, 
     hmr: {
       protocol: 'ws',
       host: 'localhost',
-      port: 5173, // ✅ Same as server port
+      port: 5173, 
       clientPort: 5173,
       timeout: 5000
     },
@@ -55,11 +55,11 @@ export default defineConfig({
       
        
       },
-      '/socket.io': { // ✅ Add socket.io proxy
+      '/socket.io': { 
         target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
-        ws: true, // Enable WebSocket proxying
+        ws: true, 
       }
     },
     cors: true,
@@ -77,6 +77,6 @@ export default defineConfig({
   },
 
   define: {
-    'process.env': {} // For compatibility
+    'process.env': {} 
   }
 })

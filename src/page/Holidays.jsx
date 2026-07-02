@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import './Holidays.css';
-import API_URL, { API_URL_IMG } from "../config"; // Import both if needed
+import API_URL, { API_URL_IMG } from "../config"; 
 
 const Holidays = () => {
-    // ==================== STATES ====================
+    
     const [holidays, setHolidays] = useState([]);
     const [filteredHolidays, setFilteredHolidays] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -13,7 +13,7 @@ const Holidays = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     
-    // Form states
+    
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [formData, setFormData] = useState({
@@ -23,19 +23,19 @@ const Holidays = () => {
         description: ''
     });
     
-    // Filter states
+    
     const [selectedMonth, setSelectedMonth] = useState('');
     const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
     const [selectedType, setSelectedType] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     
-    // Months array
+    
     const months = [
         "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December"
     ];
 
-    // ==================== GET CURRENT MONTH ====================
+    
     const getCurrentMonth = () => {
         const date = new Date();
         return months[date.getMonth()];
@@ -183,14 +183,14 @@ const Holidays = () => {
         }
     };
 
-    // ==================== FETCH HOLIDAYS ====================
+    
     const fetchHolidays = async () => {
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
             
-            // Build URL with query params
-            let url = `${API_URL}/holidays`; // Updated: Added API_URL
+            
+            let url = `${API_URL}/holidays`; 
             if (selectedMonth) {
                 url += `?month=${selectedMonth}`;
             }
@@ -212,12 +212,12 @@ const Holidays = () => {
         }
     };
 
-    // ==================== USE EFFECT ====================
+    
     useEffect(() => {
         fetchHolidays();
-    }, [selectedMonth]); // Refetch when month changes
+    }, [selectedMonth]); 
 
-    // ==================== SEARCH FILTER ====================
+    
     useEffect(() => {
         const cleanSearch = searchTerm.trim().toLowerCase();
         const filtered = holidays.filter(holiday => {
@@ -234,7 +234,7 @@ const Holidays = () => {
         setFilteredHolidays(filtered);
     }, [searchTerm, holidays, selectedYear, selectedType]);
 
-    // ==================== HANDLE INPUT CHANGE ====================
+    
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({
@@ -242,7 +242,7 @@ const Holidays = () => {
             [name]: value
         }));
         
-        // Auto-set month based on date
+        
         if (name === 'date' && value) {
             const date = new Date(value);
             const monthName = months[date.getMonth()];
@@ -253,7 +253,7 @@ const Holidays = () => {
         }
     };
 
-    // ==================== RESET FORM ====================
+    
     const resetForm = () => {
         setFormData({
             title: '',
@@ -267,14 +267,14 @@ const Holidays = () => {
         setSuccess('');
     };
 
-    // ==================== HANDLE SUBMIT ====================
+    
     const handleSubmit = async (e) => {
         e.preventDefault();
         
         try {
             const token = localStorage.getItem('token');
             
-            // Validation
+            
             if (!formData.title || !formData.date || !formData.month) {
                setError('Title, date and month are required');
                 return;
@@ -283,14 +283,14 @@ const Holidays = () => {
             let response;
             
             if (editingId) {
-                // Update holiday
-                response = await axios.put(`${API_URL}/holidays/${editingId}`, formData, { // Updated: Added API_URL
+                
+                response = await axios.put(`${API_URL}/holidays/${editingId}`, formData, { 
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setSuccess('Holiday updated successfully!');
             } else {
-                // Add holiday
-                response = await axios.post(`${API_URL}/holidays/add`, formData, { // Updated: Added API_URL
+                
+                response = await axios.post(`${API_URL}/holidays/add`, formData, { 
                     headers: { Authorization: `Bearer ${token}` }
                 });
              setSuccess('Holiday added successfully!');
@@ -300,7 +300,7 @@ const Holidays = () => {
                 resetForm();
                 fetchHolidays();
                 
-                // Auto hide success message after 3 seconds
+                
                 setTimeout(() => setSuccess(''), 3000);
             }
         } catch (err) {
@@ -313,9 +313,9 @@ const Holidays = () => {
         }
     };
 
-    // ==================== EDIT HOLIDAY ====================
+    
     const handleEdit = (holiday) => {
-        // Format date for input (YYYY-MM-DD)
+        
         const formattedDate = new Date(holiday.date).toISOString().split('T')[0];
         
         setFormData({
@@ -328,11 +328,11 @@ const Holidays = () => {
         setShowForm(true);
         setError('');
         
-        // Scroll to form
+        
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // ==================== DELETE HOLIDAY ====================
+    
     const handleDelete = async (id, title) => {
         if (!window.confirm(`Do you want to delete "${title}"?`)) {
             return;
@@ -340,7 +340,7 @@ const Holidays = () => {
         
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.delete(`${API_URL}/holidays/${id}`, { // Updated: Added API_URL
+            const response = await axios.delete(`${API_URL}/holidays/${id}`, { 
                 headers: { Authorization: `Bearer ${token}` }
             });
             
@@ -348,7 +348,7 @@ const Holidays = () => {
                setSuccess('Holiday deleted successfully!');
                 fetchHolidays();
                 
-                // Auto hide success message
+                
                 setTimeout(() => setSuccess(''), 3000);
             }
         } catch (err) {
@@ -357,7 +357,7 @@ const Holidays = () => {
         }
     };
 
-    // ==================== FORMAT DATE ====================
+    
     const formatDate = (dateString) => {
         const options = { day: 'numeric', month: 'long', year: 'numeric' };
         return new Date(dateString).toLocaleDateString('en-IN', options);
@@ -387,10 +387,10 @@ const Holidays = () => {
     const upcomingCount = holidays.filter(holiday => new Date(holiday.date) >= today).length;
     const optionalCount = holidays.filter(holiday => getHolidayType(holiday) === 'Optional Holiday').length;
 
-    // ==================== RENDER ====================
+    
     return (
         <div className="holidays-container">
-            {/* Header */}
+            
             <div className="holidays-header">
                 <h1>Holiday Management</h1>
                 <div className="holiday-breadcrumb">
@@ -452,11 +452,11 @@ const Holidays = () => {
                 </div>
             </div>
 
-            {/* Success/Error Messages */}
+            
             {success && <div className="success-message">{success}</div>}
             {error && <div className="error-message">{error}</div>}
 
-            {/* Add/Edit Form */}
+            
             {showForm && (
                 <div className="holiday-form-container">
                     <h2>{editingId ? '✏️ Edit Holiday' : '➕ Add New Holiday'}</h2>
@@ -645,7 +645,7 @@ const Holidays = () => {
                 )}
             </section>
 
-            {/* Filters */}
+            
             <div className="filters-section">
                 <div className="filter-group">
                     <label>Filter by Month:</label>
@@ -672,7 +672,7 @@ const Holidays = () => {
                 </div>
             </div>
 
-            {/* Holidays List */}
+            
             <div className="holidays-list">
                 {loading ? (
                     <div className="loading">Loading holidays...</div>
@@ -692,25 +692,25 @@ const Holidays = () => {
                     <div className="holidays-grid">
     {filteredHolidays.map(holiday => (
         <div key={holiday._id} className="holiday-card">
-            {/* Card Header with decorative accent */}
+            
             <div className="holiday-card-header">
                 <div className="header-left">
                     <h3>{holiday.title}</h3>
                     <span className="month-badge">{holiday.month}</span>
                 </div>
                 <div className="header-actions">
-                    {/* Optional: Add a favorite/flag icon here */}
+                    
                 </div>
             </div>
             
-            {/* Card Body - Main content */}
+            
             <div className="holiday-card-body">
-                {/* Date with icon and enhanced styling */}
+                
                 <div className="holiday-date">
                     <span className="date-text">{formatDate(holiday.date)}</span>
                 </div>
                 
-                {/* Description with better formatting */}
+                
                 {holiday.description && (
                     <div className="holiday-description">
                         <span className="description-label">About this holiday</span>
@@ -718,7 +718,7 @@ const Holidays = () => {
                     </div>
                 )}
                 
-                {/* Meta information with icons */}
+                
                 <div className="holiday-meta">
                     <div className="meta-item">
                         <span className="meta-icon">👤</span>
@@ -735,7 +735,7 @@ const Holidays = () => {
                 </div>
             </div>
             
-            {/* Card Footer with action buttons */}
+            
             <div className="holiday-card-footer">
                 <button 
                     className="edit-btn"
@@ -753,7 +753,7 @@ const Holidays = () => {
                 </button>
             </div>
             
-            {/* Decorative gradient line at bottom */}
+            
             <div className="card-accent"></div>
         </div>
     ))}
@@ -762,7 +762,7 @@ const Holidays = () => {
                 )}
             </div>
 
-            {/* Quick Stats */}
+            
             <div className="holidays-stats">
                 <h3>📊 Quick Stats</h3>
                 <div className="stats-grid">

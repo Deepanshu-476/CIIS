@@ -12,7 +12,7 @@ export default function EmployeeMeetingPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState("all");
 
-  // Load user data safely from localStorage
+  
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem("user"));
     const id = storedUser?._id || storedUser?.id || localStorage.getItem("userId");
@@ -26,16 +26,16 @@ export default function EmployeeMeetingPage() {
     setUserName(name);
   }, []);
 
-  // Fetch employee's meetings
+  
   const fetchMeetings = async (id) => {
     if (!id) return;
     setLoading(true);
     try {
-      const res = await axios.get(`${API_URL}/meetings/user/${id}`);
+      const res = await axios.get(`${API_URL}/meetings/user/${id}`, { params: { page: 1, limit: 100 } });
       if (Array.isArray(res.data)) {
         setMeetings(res.data);
       } else {
-        setMeetings([]);
+        setMeetings(res.data?.data || res.data?.meetings || []);
       }
     } catch (err) {
       console.error("Error fetching meetings:", err);
@@ -46,12 +46,12 @@ export default function EmployeeMeetingPage() {
     }
   };
 
-  // Refetch when userId available
+  
   useEffect(() => {
     if (userId) fetchMeetings(userId);
   }, [userId]);
 
-  // Mark as Seen
+  
   const markSeen = async (meetingId) => {
     if (!userId) return;
     try {
@@ -67,14 +67,14 @@ export default function EmployeeMeetingPage() {
     }
   };
 
-  // Manual refresh
+  
   const handleRefresh = () => {
     if (!userId) return;
     setRefreshing(true);
     fetchMeetings(userId);
   };
 
-  // Filter meetings
+  
   const filteredMeetings = meetings.filter(meeting => {
     const now = new Date();
     const meetingDate = new Date(`${meeting.date}T${meeting.time}`);
@@ -91,7 +91,7 @@ export default function EmployeeMeetingPage() {
     }
   });
 
-  // Get meeting status
+  
   const getMeetingStatus = (meeting) => {
     const now = new Date();
     const meetingDate = new Date(`${meeting.date}T${meeting.time}`);
@@ -105,7 +105,7 @@ export default function EmployeeMeetingPage() {
     }
   };
 
-  // Format time
+  
   const formatTime = (time) => {
     return new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', {
       hour: 'numeric',
@@ -114,7 +114,7 @@ export default function EmployeeMeetingPage() {
     });
   };
 
-  // Format date
+  
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -134,7 +134,7 @@ export default function EmployeeMeetingPage() {
     }
   };
 
-  // Stats calculations
+  
   const totalMeetings = meetings.length;
   const unseenCount = meetings.filter(m => !m.viewed).length;
   const upcomingCount = meetings.filter(m => {
@@ -147,7 +147,7 @@ export default function EmployeeMeetingPage() {
     return meetingDate.toDateString() === today.toDateString();
   }).length;
 
-  // Loading State
+  
   if (loading) {
     return (
       <div className="emp-meeting-loading-container">
@@ -159,7 +159,7 @@ export default function EmployeeMeetingPage() {
 
   return (
     <div className="emp-meeting-container">
-      {/* Header Section with Gradient */}
+      
       <div className="emp-meeting-header">
         <div className="emp-meeting-header-content">
           <div className="emp-meeting-header-left">
@@ -184,7 +184,7 @@ export default function EmployeeMeetingPage() {
         </div>
       </div>
 
-      {/* Stats Grid */}
+      
       <div className="emp-meeting-stats-grid">
         <div className="emp-meeting-stat-card">
           <div className="emp-meeting-stat-card-icon blue">
@@ -413,7 +413,7 @@ export default function EmployeeMeetingPage() {
                       </div>
                     )}
 
-                    {/* Already Seen Note */}
+                    
                     {meeting.viewed && (
                       <div className="emp-meeting-seen-note">
                         <span className="emp-meeting-seen-icon">✓</span>

@@ -92,7 +92,7 @@ const MessageBubble = ({
                     candidates.push(getBackendUrl(`/uploads/chat/${fileName}`));
                 }
             } catch {
-                // Keep the absolute URL as-is if parsing fails.
+                
             }
 
             return uniqueUrls(candidates);
@@ -319,22 +319,28 @@ const MessageBubble = ({
         }
 
         return (
-            <a
-                className="chat-media-file"
-                href={mediaUrl}
-                target="_blank"
-                rel="noreferrer"
-                title={`Open ${attachmentName}`}
-                onClick={(event) => {
-                    if (!mediaUrl) {
-                        event.preventDefault();
-                    }
-                }}
-            >
-                <FileText size={16} />
-                <span>{attachmentName}</span>
-                <small>{isPdfMedia ? "PDF Document" : "Document"}</small>
-            </a>
+            <div className="chat-media-file-wrapper" style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}>
+                <a
+                    className="chat-media-file"
+                    href={mediaUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={`Open ${attachmentName}`}
+                    style={{ marginTop: 0, flex: 1 }}
+                >
+                    <FileText size={16} />
+                    <span>{attachmentName}</span>
+                    <small>{isPdfMedia ? "PDF Document" : "Document"}</small>
+                </a>
+                <a
+                    href={mediaUrl}
+                    download={attachmentName}
+                    className="chat-media-download-btn"
+                    title="Download File"
+                >
+                    <Download size={16} />
+                </a>
+            </div>
         );
     };
 

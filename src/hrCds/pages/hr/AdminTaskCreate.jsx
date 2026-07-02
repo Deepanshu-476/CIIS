@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import './AdminTaskManagement.css';
 import CIISLoader from '../../../Loader/CIISLoader';
 
-// Icons
+
 import {
   FiPlus, FiCalendar, FiInfo, FiPaperclip, FiMic, FiFileText,
   FiCheck, FiX, FiAlertCircle, FiUser, FiUsers, FiFolder,
@@ -30,7 +30,7 @@ const AdminTaskManagement = () => {
   const [authError, setAuthError] = useState(false);
   const [initialAuthCheck, setInitialAuthCheck] = useState(false);
   
-  // Current user details for filtering
+  
   const [currentUser, setCurrentUser] = useState({
     id: '',
     name: '',
@@ -40,12 +40,12 @@ const AdminTaskManagement = () => {
     companyRole: ''
   });
   
-  // Pagination States
+  
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalTasks, setTotalTasks] = useState(0);
   
-  // Date Range Filter State
+  
   const [dateRange, setDateRange] = useState(() => {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
@@ -54,7 +54,7 @@ const AdminTaskManagement = () => {
     return { startDate: start, endDate: end };
   });
 
-  // Filtered Stats State
+  
   const [filteredStats, setFilteredStats] = useState({
     total: 0,
     pending: 0,
@@ -64,7 +64,7 @@ const AdminTaskManagement = () => {
     overdue: 0
   });
 
-  // Dialog States
+  
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
   const [openGroupDialog, setOpenGroupDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
@@ -73,14 +73,14 @@ const AdminTaskManagement = () => {
   const [openStatusDialog, setOpenStatusDialog] = useState(false);
   const [openUserStatusDialog, setOpenUserStatusDialog] = useState(false);
   
-  // Enhanced Remarks States
+  
   const [remarks, setRemarks] = useState([]);
   const [newRemark, setNewRemark] = useState('');
   const [remarkImages, setRemarkImages] = useState([]);
   const [isUploadingRemark, setIsUploadingRemark] = useState(false);
   const [zoomImage, setZoomImage] = useState(null);
 
-  // Data States
+  
   const [selectedTask, setSelectedTask] = useState(null);
   const [activityLogs, setActivityLogs] = useState([]);
   const [editingGroup, setEditingGroup] = useState(null);
@@ -88,7 +88,7 @@ const AdminTaskManagement = () => {
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [taskUserStatuses, setTaskUserStatuses] = useState([]);
   
-  // Filter States
+  
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [assignedToFilter, setAssignedToFilter] = useState('');
@@ -96,7 +96,7 @@ const AdminTaskManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [overdueFilter, setOverdueFilter] = useState('');
   
-  // Form States
+  
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -138,30 +138,37 @@ const AdminTaskManagement = () => {
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
 
-  // Search state for user dropdown
+  
   const [userSearch, setUserSearch] = useState('');
   const [groupSearch, setGroupSearch] = useState('');
 
-  // Local date state for create dialog
+  
   const [createDueDateTime, setCreateDueDateTime] = useState('');
 
   const navigate = useNavigate();
 
-  // Snackbar helper function
+  
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
-    // Auto hide after 3 seconds
+    
     setTimeout(() => {
       setSnackbar(prev => ({ ...prev, open: false }));
     }, 3000);
   };
 
-  // Helper function to check if user is Owner
+  
   const isOwner = () => {
     return companyRole === 'Owner' || userRole === 'Owner' || userRole === 'CAREER INFOWIS Admin';
   };
 
-  // Helper function to get company name from company object
+  const isTaskEditable = (task) => {
+    if (!task) return false;
+    const hasStatusChanged = (task.overallStatus && task.overallStatus !== 'pending') || 
+      (task.statusByUser && task.statusByUser.some(s => s.status !== 'pending'));
+    return !hasStatusChanged;
+  };
+
+  
   const getCompanyName = (company) => {
     if (!company) return 'N/A';
     if (typeof company === 'object') {
@@ -170,7 +177,7 @@ const AdminTaskManagement = () => {
     return company;
   };
 
-  // Helper function to get department name from department object
+  
   const getDepartmentName = (department) => {
     if (!department) return 'N/A';
     if (typeof department === 'object') {
@@ -179,7 +186,7 @@ const AdminTaskManagement = () => {
     return department;
   };
 
-  // Helper function to get user's company display
+  
   const getUserCompanyDisplay = (user) => {
     if (!user?.company) return 'No Company';
     if (typeof user.company === 'object') {
@@ -188,7 +195,7 @@ const AdminTaskManagement = () => {
     return user.company;
   };
 
-  // Helper function to get user's department display
+  
   const getUserDepartmentDisplay = (user) => {
     if (!user?.department) return 'No Department';
     if (typeof user.department === 'object') {
@@ -197,11 +204,11 @@ const AdminTaskManagement = () => {
     return user.department;
   };
 
-  // 🆕 FUNCTION: Check if user belongs to same company and department
+  
   const checkSameCompanyDepartment = (targetUser) => {
     if (!currentUser || !targetUser) return false;
     
-    // Check same company
+    
     const currentCompany = currentUser.company?._id || currentUser.company;
     const targetCompany = targetUser.company?._id || targetUser.company;
     
@@ -209,7 +216,7 @@ const AdminTaskManagement = () => {
       return false;
     }
     
-    // Check same department
+    
     const currentDept = currentUser.department?._id || currentUser.department;
     const targetDept = targetUser.department?._id || targetUser.department;
     
@@ -220,7 +227,7 @@ const AdminTaskManagement = () => {
     return true;
   };
 
-  // 🆕 FUNCTION: Check if user is from same company (for cross-department visibility)
+  
   const checkSameCompany = (targetUser) => {
     if (!currentUser || !targetUser) return false;
     
@@ -230,15 +237,15 @@ const AdminTaskManagement = () => {
     return currentCompany?.toString() === targetCompany?.toString();
   };
 
-  // 🆕 Filter users based on search AND company role
+  
   const filteredUsers = users.filter(user => {
-    // First check if user is from same company
+    
     const isSameCompany = checkSameCompany(user);
     const isSelf = (user.id || user._id) === currentUser.id;
     
     if (!isSameCompany || isSelf) return false;
     
-    // For employees: only show users from same department
+    
     if (!isOwner()) {
       const userDept = user.department?._id || user.department;
       const currentDept = currentUser.department?._id || currentUser.department;
@@ -248,19 +255,19 @@ const AdminTaskManagement = () => {
       }
     }
     
-    // Then apply search filter
+    
     return user.name?.toLowerCase().includes(userSearch.toLowerCase()) ||
            user.email?.toLowerCase().includes(userSearch.toLowerCase()) ||
            user.role?.toLowerCase().includes(userSearch.toLowerCase());
   });
 
-  // Filter groups based on search
+  
   const filteredGroups = groups.filter(group => 
     group.name?.toLowerCase().includes(groupSearch.toLowerCase()) ||
     group.description?.toLowerCase().includes(groupSearch.toLowerCase())
   );
 
-  // Fetch user data
+  
   const fetchUserData = () => {
     try {
       const userStr = localStorage.getItem('user');
@@ -283,7 +290,7 @@ const AdminTaskManagement = () => {
         return;
       }
       
-      // Find user ID and role with proper object structure
+      
       let foundUserId = null;
       let userRole = 'user';
       let companyRole = 'employee';
@@ -292,7 +299,7 @@ const AdminTaskManagement = () => {
       let userCompany = null;
       let userDepartment = null;
       
-      // Handle different user object structures
+      
       if (user.id && typeof user.id === 'string') {
         foundUserId = user.id;
         userRole = user.role || 'user';
@@ -406,7 +413,7 @@ const AdminTaskManagement = () => {
     }
   };
 
-  // API call function
+  
   const apiCall = async (method, url, data = null, config = {}) => {
     try {
       const token = localStorage.getItem('token');
@@ -469,7 +476,7 @@ const AdminTaskManagement = () => {
     }
   };
 
-  // Format date for datetime-local input
+  
   const formatDateForInput = (date) => {
     if (!date) return '';
     
@@ -485,7 +492,7 @@ const AdminTaskManagement = () => {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
-  // Parse datetime-local input to Date object
+  
   const parseDateTimeInput = (dateTimeString) => {
     if (!dateTimeString) return null;
     
@@ -500,7 +507,7 @@ const AdminTaskManagement = () => {
     }
   };
 
-  // Fetch tasks with pagination, filters and date range
+  
   const fetchTasks = async (page = 0, limit = rowsPerPage, filters = {}) => {
     if (authError || !userId) {
       return;
@@ -569,7 +576,7 @@ const AdminTaskManagement = () => {
     }
   };
 
-  // Calculate statistics based on filtered tasks
+  
   const calculateFilteredStats = (tasksArray) => {
     const stats = {
       total: tasksArray.length,
@@ -582,12 +589,12 @@ const AdminTaskManagement = () => {
     setFilteredStats(stats);
   };
 
-  // Fetch all supporting data (users, groups, notifications, departments)
+  
   const fetchSupportingData = async () => {
     try {
       const companyId = currentUser.company?._id || currentUser.company;
       
-      // Fetch departments
+      
       try {
         let deptUrl = '/departments';
         if (companyId) {
@@ -612,7 +619,7 @@ const AdminTaskManagement = () => {
         console.error('Failed to load departments', deptErr);
       }
       
-      // Fetch users based on company role
+      
       let usersUrl;
       
       if (isOwner()) {
@@ -643,7 +650,7 @@ const AdminTaskManagement = () => {
         usersArray = usersResult;
       }
       
-      // Additional filtering to ensure only same company users
+      
       if (currentUser.company) {
         usersArray = usersArray.filter(user => {
           const userCompany = user.company?._id || user.company;
@@ -654,11 +661,11 @@ const AdminTaskManagement = () => {
       
       setUsers(usersArray);
 
-      // Fetch groups
+      
       const groupsResult = await apiCall('get', '/groups');
       setGroups(groupsResult.groups || groupsResult.data || []);
 
-      // Fetch notifications
+      
       const notificationsResult = await apiCall('get', '/task/notifications/all');
       setNotifications(notificationsResult.notifications || []);
       setUnreadNotificationCount(notificationsResult.unreadCount || 0);
@@ -668,7 +675,7 @@ const AdminTaskManagement = () => {
     }
   };
 
-  // Fetch all data
+  
   const fetchAllData = async (page = 0, limit = rowsPerPage) => {
     await Promise.all([
       fetchTasks(page, limit, getCurrentFilters()),
@@ -676,7 +683,7 @@ const AdminTaskManagement = () => {
     ]);
   };
 
-  // Enhanced Task CRUD Operations
+  
   const handleCreateTask = async () => {
     if (!newTask.title || !newTask.description || !newTask.dueDateTime) {
       showSnackbar('Please fill all required fields', 'error');
@@ -688,7 +695,7 @@ const AdminTaskManagement = () => {
       return;
     }
 
-    // Validate that employees are only assigning to users in their department
+    
     if (!isOwner() && newTask.assignedUsers.length > 0) {
       const currentDept = currentUser.department?._id || currentUser.department;
       
@@ -706,12 +713,14 @@ const AdminTaskManagement = () => {
     }
 
     setIsCreatingTask(true);
+    setLoading(true);
     try {
       const parsedDueDateTime = parseDateTimeInput(newTask.dueDateTime);
       
       if (!parsedDueDateTime || isNaN(parsedDueDateTime.getTime())) {
         showSnackbar('Invalid date format. Please select a valid date and time.', 'error');
         setIsCreatingTask(false);
+        setLoading(false);
         return;
       }
 
@@ -720,6 +729,7 @@ const AdminTaskManagement = () => {
       if (parsedDueDateTime < new Date(now.getTime() - buffer)) {
         showSnackbar('Due date cannot be in the past. Please select a future date and time.', 'error');
         setIsCreatingTask(false);
+        setLoading(false);
         return;
       }
 
@@ -751,12 +761,13 @@ const AdminTaskManagement = () => {
       fetchAllData(page, rowsPerPage);
     } catch (error) {
       console.error('Error creating task:', error);
+      setLoading(false);
     } finally {
       setIsCreatingTask(false);
     }
   };
 
-  // Edit Task function
+  
   const handleEditTask = async () => {
     if (!editTask.title || !editTask.description || !editTask.dueDateTime) {
       showSnackbar('Please fill all required fields', 'error');
@@ -764,12 +775,14 @@ const AdminTaskManagement = () => {
     }
 
     setIsUpdatingTask(true);
+    setLoading(true);
     try {
       const parsedDueDateTime = parseDateTimeInput(editTask.dueDateTime);
       
       if (!parsedDueDateTime || isNaN(parsedDueDateTime.getTime())) {
         showSnackbar('Invalid date format', 'error');
         setIsUpdatingTask(false);
+        setLoading(false);
         return;
       }
 
@@ -790,6 +803,7 @@ const AdminTaskManagement = () => {
       fetchAllData(page, rowsPerPage);
     } catch (error) {
       console.error('Error updating task:', error);
+      setLoading(false);
     } finally {
       setIsUpdatingTask(false);
     }
@@ -798,16 +812,18 @@ const AdminTaskManagement = () => {
   const handleDeleteTask = async (taskId) => {
     if (!window.confirm('Are you sure you want to delete this task?')) return;
 
+    setLoading(true);
     try {
       await apiCall('delete', `/task/${taskId}`);
       showSnackbar('Task deleted successfully', 'success');
       fetchAllData(page, rowsPerPage);
     } catch (error) {
       console.error('Error deleting task:', error);
+      setLoading(false);
     }
   };
 
-  // Enhanced Group Management
+  
   const handleCreateGroup = async () => {
     if (!newGroup.name || !newGroup.description) {
       showSnackbar('Please fill group name and description', 'error');
@@ -819,7 +835,7 @@ const AdminTaskManagement = () => {
       return;
     }
 
-    // Check if all selected members are from same company
+    
     const invalidMembers = newGroup.members.filter(memberId => {
       const user = users.find(u => (u.id || u._id) === memberId);
       return !checkSameCompany(user);
@@ -861,13 +877,14 @@ const AdminTaskManagement = () => {
     }
   };
 
-  // Enhanced Status Management
+  
   const handleStatusChange = async () => {
     if (!statusChange.status) {
       showSnackbar('Please select status', 'error');
       return;
     }
 
+    setLoading(true);
     try {
       await apiCall('patch', `/task/${statusChange.taskId}/status`, {
         status: statusChange.status,
@@ -881,10 +898,11 @@ const AdminTaskManagement = () => {
       fetchAllData(page, rowsPerPage);
     } catch (error) {
       console.error('Error updating status:', error);
+      setLoading(false);
     }
   };
 
-  // Function to fetch and show user statuses for a task
+  
   const fetchUserStatuses = async (task) => {
     try {
       setSelectedTask(task);
@@ -919,7 +937,7 @@ const AdminTaskManagement = () => {
     }
   };
 
-  // Enhanced Remarks Functions with Image Upload
+  
   const fetchRemarks = async (taskId) => {
     try {
       const data = await apiCall('get', `/task/${taskId}/remarks`);
@@ -1013,7 +1031,7 @@ const AdminTaskManagement = () => {
     }
   };
 
-  // Enhanced Activity Logs
+  
   const fetchActivityLogs = async (taskId) => {
     try {
       const data = await apiCall('get', `/task/${taskId}/activity-logs`);
@@ -1026,7 +1044,7 @@ const AdminTaskManagement = () => {
     }
   };
 
-  // Enhanced Notifications Management
+  
   const markNotificationAsRead = async (notificationId) => {
     try {
       await apiCall('patch', `/task/notifications/${notificationId}/read`);
@@ -1047,7 +1065,7 @@ const AdminTaskManagement = () => {
     }
   };
 
-  // Filter functions
+  
   const getCurrentFilters = () => {
     const filters = {};
     if (searchTerm) filters.search = searchTerm;
@@ -1079,7 +1097,7 @@ const AdminTaskManagement = () => {
     fetchAllData(0, rowsPerPage);
   };
 
-  // Pagination handlers
+  
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
     fetchTasks(newPage, rowsPerPage, getCurrentFilters());
@@ -1092,7 +1110,7 @@ const AdminTaskManagement = () => {
     fetchTasks(0, newRowsPerPage, getCurrentFilters());
   };
 
-  // Helper Functions
+  
   const resetNewTaskForm = () => {
     setNewTask({
       title: '',
@@ -1128,8 +1146,12 @@ const AdminTaskManagement = () => {
     setEditingGroup(null);
   };
 
-  // Open Edit Task Dialog function
+  
   const openEditTaskDialog = (task) => {
+    if (!isTaskEditable(task)) {
+      showSnackbar('Task cannot be edited after its status has changed from pending', 'error');
+      return;
+    }
     setSelectedTask(task);
     
     const formattedDueDateTime = formatDateForInput(task.dueDateTime);
@@ -1155,6 +1177,10 @@ const AdminTaskManagement = () => {
   };
 
   const openStatusChangeDialog = (task, userId = '') => {
+    if (task.overallStatus === 'overdue') {
+      showSnackbar('Cannot change status of an overdue task', 'error');
+      return;
+    }
     setSelectedTask(task);
     setStatusChange({
       taskId: task._id,
@@ -1175,7 +1201,7 @@ const AdminTaskManagement = () => {
     setOpenGroupDialog(true);
   };
 
-  // Data Helpers
+  
   const getUserName = (userId) => {
     if (typeof userId === 'object') {
       return userId.name || userId.Name || 'Unknown User';
@@ -1208,7 +1234,7 @@ const AdminTaskManagement = () => {
     return task.overallStatus || 'pending';
   };
 
-  // Get individual user status for a task
+  
   const getUserStatusForTask = (task, userId) => {
     if (task.statusInfo && Array.isArray(task.statusInfo)) {
       const userStatus = task.statusInfo.find(s => 
@@ -1227,7 +1253,7 @@ const AdminTaskManagement = () => {
     return 'pending';
   };
 
-  // FIX 1: Get all assigned users with their status - SHOW ONLY 2 NAMES + MORE INDICATOR
+  
   const getAllAssignedUsersWithStatus = (task) => {
     const assignedUsers = [];
     
@@ -1268,7 +1294,7 @@ const AdminTaskManagement = () => {
     return assignedUsers;
   };
 
-  // FIX 1: Component to display assigned users with limit
+  
   const AssignedUsersDisplay = ({ task }) => {
     const [showAllUsers, setShowAllUsers] = useState(false);
     const assignedUsers = getAllAssignedUsersWithStatus(task);
@@ -1278,7 +1304,7 @@ const AdminTaskManagement = () => {
       return <span className="AdminTaskManagement-no-users">No users assigned</span>;
     }
     
-    // Show first 2 users
+    
     const displayUsers = showAllUsers ? assignedUsers : assignedUsers.slice(0, 2);
     const remainingCount = totalCount - 2;
     
@@ -1292,9 +1318,7 @@ const AdminTaskManagement = () => {
               </span>
               <span className="AdminTaskManagement-user-info">
                 <span className="AdminTaskManagement-user-name">{assignedUser.user.name}</span>
-                {/* <span className={`AdminTaskManagement-user-status AdminTaskManagement-user-status-${assignedUser.status}`}>
-                  {assignedUser.status}
-                </span> */}
+                
               </span>
             </div>
           ))}
@@ -1302,7 +1326,7 @@ const AdminTaskManagement = () => {
           {!showAllUsers && remainingCount > 0 && (
             <button 
               className="AdminTaskManagement-see-more-btn"
-              // onClick={() => setShowAllUsers(true)}
+              
               title={`Show all ${totalCount} users`}
             >
               +{remainingCount} more
@@ -1326,7 +1350,7 @@ const AdminTaskManagement = () => {
     );
   };
 
-  // Status Chip Component
+  
   const AdminTaskManagementStatusChip = ({ status }) => {
     const getStatusColor = () => {
       switch(status) {
@@ -1355,7 +1379,7 @@ const AdminTaskManagement = () => {
     );
   };
 
-  // Priority Chip Component
+  
   const AdminTaskManagementPriorityChip = ({ priority }) => {
     const safePriority = typeof priority === 'string' ? priority : 'medium';
 
@@ -1377,7 +1401,7 @@ const AdminTaskManagement = () => {
     );
   };
 
-  // User Info Chip Component
+  
   const AdminTaskManagementUserInfoChip = ({ user }) => {
     return (
       <div className="AdminTaskManagement-user-info-chip">
@@ -1395,7 +1419,7 @@ const AdminTaskManagement = () => {
     );
   };
 
-  // Stats Cards Component
+  
   const AdminTaskManagementStatCard = ({ label, value, color, icon: Icon }) => {
     const colors = {
       primary: '#3f51b5',
@@ -1420,7 +1444,7 @@ const AdminTaskManagement = () => {
     );
   };
 
-  // Status Change Dialog
+  
   const renderStatusChangeDialog = () => (
     <div className={`AdminTaskManagement-modal ${openStatusDialog ? 'AdminTaskManagement-modal-open' : ''}`}>
       <div className="AdminTaskManagement-modal-content AdminTaskManagement-modal-medium">
@@ -1457,11 +1481,25 @@ const AdminTaskManagement = () => {
                 value={statusChange.status}
                 onChange={(e) => setStatusChange({ ...statusChange, status: e.target.value })}
               >
-                <option value="">Select Status</option>
-                <option value="pending">Pending</option>
-                <option value="in-progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="rejected">Rejected</option>
+                {selectedTask?.overallStatus === 'completed' ? (
+                  <>
+                    <option value="completed">Completed</option>
+                    <option value="reopen">Reopen</option>
+                  </>
+                ) : selectedTask?.overallStatus === 'reopen' ? (
+                  <>
+                    <option value="reopen">Reopen</option>
+                    <option value="completed">Completed</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="">Select Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                    <option value="rejected">Rejected</option>
+                  </>
+                )}
               </select>
             </div>
 
@@ -1495,7 +1533,7 @@ const AdminTaskManagement = () => {
     </div>
   );
 
-  // Enhanced Filters Section with Date Range
+  
   const renderEnhancedFilters = () => (
     <div className="AdminTaskManagement-filter-section">
       <div className="AdminTaskManagement-filter-stack">
@@ -1519,7 +1557,7 @@ const AdminTaskManagement = () => {
           </button>
         </div>
 
-        {/* Date Range Filters */}
+        
         <div className="AdminTaskManagement-date-range-filters">
           <div className="AdminTaskManagement-date-input-container">
             <label>From Date</label>
@@ -1547,7 +1585,7 @@ const AdminTaskManagement = () => {
           </div>
         </div>
 
-        {/* Other Filters */}
+        
         <div className="AdminTaskManagement-filter-grid">
           <div className="AdminTaskManagement-filter-select-container">
             <label>Status</label>
@@ -1611,7 +1649,7 @@ const AdminTaskManagement = () => {
     </div>
   );
 
-  // Stats Cards with Filtered Data - SHOW ONLY CARDS WITH VALUE > 0
+  
   const renderFilteredStatsCards = () => {
     const statsCards = [
       { label: "Total Tasks", value: filteredStats.total, color: "primary", icon: FiCalendar },
@@ -1650,7 +1688,7 @@ const AdminTaskManagement = () => {
     );
   };
 
-  // Enhanced Remarks Dialog with Image Upload
+  
   const renderRemarksDialog = () => (
     <div className={`AdminTaskManagement-modal ${openRemarksDialog ? 'AdminTaskManagement-modal-open' : ''}`}>
       <div className="AdminTaskManagement-modal-content AdminTaskManagement-modal-large">
@@ -1672,12 +1710,12 @@ const AdminTaskManagement = () => {
         
         <div className="AdminTaskManagement-modal-body">
           <div className="AdminTaskManagement-remarks-container">
-            {/* Add New Remark Section */}
+            
             <div className="AdminTaskManagement-card AdminTaskManagement-card-outline">
               <div className="AdminTaskManagement-card-content">
                 <h4>Add New Remark</h4>
                 
-                {/* Text Input */}
+                
                 <textarea
                   className="AdminTaskManagement-remark-textarea"
                   placeholder="Enter your remark here... (Optional if uploading images)"
@@ -1686,7 +1724,7 @@ const AdminTaskManagement = () => {
                   rows={3}
                 />
 
-                {/* Image Upload Section */}
+                
                 <div className="AdminTaskManagement-image-upload-section">
                   <label>Attach Image (Optional)</label>
                   
@@ -1718,7 +1756,7 @@ const AdminTaskManagement = () => {
                     />
                   </div>
 
-                  {/* Image Preview */}
+                  
                   {remarkImages.length > 0 && (
                     <div className="AdminTaskManagement-image-preview-container">
                       <label>Selected Image:</label>
@@ -1746,7 +1784,7 @@ const AdminTaskManagement = () => {
                   )}
                 </div>
 
-                {/* Submit Button */}
+                
                 <button
                   className="AdminTaskManagement-btn AdminTaskManagement-btn-primary AdminTaskManagement-btn-block"
                   onClick={addRemark}
@@ -1757,7 +1795,7 @@ const AdminTaskManagement = () => {
               </div>
             </div>
 
-            {/* Remarks History */}
+            
             <div className="AdminTaskManagement-remarks-history">
               <h4>Remarks History</h4>
               
@@ -1767,7 +1805,7 @@ const AdminTaskManagement = () => {
                     <div key={index} className="AdminTaskManagement-card AdminTaskManagement-card-outline">
                       <div className="AdminTaskManagement-card-content">
                         <div className="AdminTaskManagement-remark-item">
-                          {/* User Info and Date */}
+                          
                           <div className="AdminTaskManagement-remark-header">
                             <div className="AdminTaskManagement-remark-user">
                               <div className="AdminTaskManagement-remark-avatar">
@@ -1785,14 +1823,14 @@ const AdminTaskManagement = () => {
                             </div>
                           </div>
 
-                          {/* Remark Text */}
+                          
                           {remark.text && (
                             <div className="AdminTaskManagement-remark-text">
                               {remark.text}
                             </div>
                           )}
 
-                          {/* Remark Image */}
+                          
                           {remark.image && (
                             <div className="AdminTaskManagement-remark-image-container">
                               <label>Attached Image:</label>
@@ -1840,7 +1878,7 @@ const AdminTaskManagement = () => {
     </div>
   );
 
-  // Image Zoom Modal
+  
   const renderImageZoomModal = () => (
     <div className={`AdminTaskManagement-modal ${zoomImage ? 'AdminTaskManagement-modal-open' : ''} AdminTaskManagement-modal-zoom`}>
       <div className="AdminTaskManagement-modal-zoom-content">
@@ -1859,7 +1897,7 @@ const AdminTaskManagement = () => {
     </div>
   );
 
-  // Enhanced Activity Logs Dialog
+  
   const renderActivityLogsDialog = () => (
     <div className={`AdminTaskManagement-modal ${openActivityDialog ? 'AdminTaskManagement-modal-open' : ''}`}>
       <div className="AdminTaskManagement-modal-content AdminTaskManagement-modal-large">
@@ -1937,7 +1975,7 @@ const AdminTaskManagement = () => {
     </div>
   );
 
-  // User Status Dialog
+  
   const renderUserStatusDialog = () => (
     <div className={`AdminTaskManagement-modal ${openUserStatusDialog ? 'AdminTaskManagement-modal-open' : ''}`}>
       <div className="AdminTaskManagement-modal-content AdminTaskManagement-modal-medium">
@@ -2019,7 +2057,7 @@ const AdminTaskManagement = () => {
     </div>
   );
 
-  // Set default date when create dialog opens
+  
   useEffect(() => {
     if (openCreateDialog) {
       const now = new Date();
@@ -2030,7 +2068,7 @@ const AdminTaskManagement = () => {
     }
   }, [openCreateDialog]);
 
-  // Create Task Dialog - Shows filtered users based on company role
+  
   const renderCreateTaskDialog = () => (
     <div className={`AdminTaskManagement-modal ${openCreateDialog ? 'AdminTaskManagement-modal-open' : ''}`}>
       <div className="AdminTaskManagement-modal-content AdminTaskManagement-modal-large">
@@ -2047,7 +2085,7 @@ const AdminTaskManagement = () => {
         </div>
         <div className="AdminTaskManagement-modal-body">
           <div className="AdminTaskManagement-form-container">
-            {/* Role-based access hint */}
+            
             <div className="AdminTaskManagement-form-group">
               <div className="AdminTaskManagement-role-hint">
                 {isOwner() ? (
@@ -2127,7 +2165,7 @@ const AdminTaskManagement = () => {
               </div>
             </div>
 
-            {/* Assign to Users - Shows filtered users based on company role */}
+            
             <div className="AdminTaskManagement-form-group">
               <label>
                 Assign to Users 
@@ -2209,7 +2247,7 @@ const AdminTaskManagement = () => {
               )}
             </div>
 
-            {/* Assign to Groups with Search */}
+            
             <div className="AdminTaskManagement-form-group">
               <label>Assign to Groups</label>
               <div className="AdminTaskManagement-multi-select-container">
@@ -2331,7 +2369,7 @@ const AdminTaskManagement = () => {
     </div>
   );
 
-  // Edit Task Dialog - Shows filtered users based on company role
+  
   const renderEditTaskDialog = () => (
     <div className={`AdminTaskManagement-modal ${openEditDialog ? 'AdminTaskManagement-modal-open' : ''}`}>
       <div className="AdminTaskManagement-modal-content AdminTaskManagement-modal-large">
@@ -2409,7 +2447,7 @@ const AdminTaskManagement = () => {
               </div>
             </div>
 
-            {/* Assign to Users (Edit mode) - Shows filtered users based on company role */}
+            
             <div className="AdminTaskManagement-form-group">
               <label>
                 Assign to Users 
@@ -2460,7 +2498,7 @@ const AdminTaskManagement = () => {
               </div>
             </div>
 
-            {/* Assign to Groups (Edit mode) */}
+            
             <div className="AdminTaskManagement-form-group">
               <label>Assign to Groups</label>
               <div className="AdminTaskManagement-multi-select-container">
@@ -2513,7 +2551,7 @@ const AdminTaskManagement = () => {
     </div>
   );
 
-  // Group Management Dialog - Shows all company users
+  
   const renderGroupDialog = () => (
     <div className={`AdminTaskManagement-modal ${openGroupDialog ? 'AdminTaskManagement-modal-open' : ''}`}>
       <div className="AdminTaskManagement-modal-content AdminTaskManagement-modal-medium">
@@ -2623,7 +2661,7 @@ const AdminTaskManagement = () => {
     </div>
   );
 
-  // Main useEffect for data fetching
+  
   useEffect(() => {
     fetchUserData();
   }, []);
@@ -2631,14 +2669,14 @@ const AdminTaskManagement = () => {
   useEffect(() => {
     if (initialAuthCheck) {
       if (authError) {
-        console.log('Skipping data fetch due to auth error');
+        void 0;
       } else if (userId) {
         fetchAllData(page, rowsPerPage);
       }
     }
   }, [authError, initialAuthCheck, userId, page, rowsPerPage]);
 
-  // Handle auth error redirect
+  
   useEffect(() => {
     if (authError && initialAuthCheck) {
       const timer = setTimeout(() => {
@@ -2648,7 +2686,7 @@ const AdminTaskManagement = () => {
     }
   }, [authError, initialAuthCheck, navigate]);
 
-  // Render Tasks Table with Enhanced UI
+  
   const renderTasksTable = () => {
     if (loading && tasks.length === 0) {
       return <CIISLoader />;
@@ -2697,7 +2735,43 @@ const AdminTaskManagement = () => {
                   </div>
                 </td>
                 <td>
-                  <AdminTaskManagementStatusChip status={getTaskStatus(task)} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div>
+                      <span style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '2px', fontWeight: 600 }}>Assignee:</span>
+                      <AdminTaskManagementStatusChip status={getTaskStatus(task)} />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '2px', fontWeight: 600 }}>Admin Check:</span>
+                      <select
+                        value={typeof task.creatorStatus === 'object' ? (task.creatorStatus?.status || 'pending') : (task.creatorStatus || 'pending')}
+                        disabled={task.overallStatus === 'overdue'}
+                        onChange={async (e) => {
+                          const newAdminStatus = e.target.value;
+                          try {
+                            setLoading(true);
+                            await apiCall('patch', `/task/${task._id}/creator-status`, { status: newAdminStatus });
+                            showSnackbar('Admin status updated successfully', 'success');
+                            fetchAllData(page, rowsPerPage);
+                          } catch (error) {
+                            console.error('Error updating admin status:', error);
+                            showSnackbar(error.response?.data?.error || 'Failed to update admin status', 'error');
+                            setLoading(false);
+                          }
+                        }}
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          border: '1px solid #ccc',
+                          fontSize: '12px',
+                          backgroundColor: '#fff',
+                          cursor: task.overallStatus === 'overdue' ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="completed">Completed</option>
+                      </select>
+                    </div>
+                  </div>
                 </td>
                 <td>
                   <AdminTaskManagementPriorityChip priority={task.priority} />
@@ -2719,18 +2793,20 @@ const AdminTaskManagement = () => {
                   </div>
                 </td>
                 <td>
-                  {/* FIX 1: Use the new AssignedUsersDisplay component */}
+                  
                   <AssignedUsersDisplay task={task} />
                 </td>
                 <td>
                   <div className="AdminTaskManagement-action-buttons">
-                    <button
-                      className="AdminTaskManagement-icon-btn AdminTaskManagement-btn-sm"
-                      onClick={() => openEditTaskDialog(task)}
-                      title="Edit"
-                    >
-                      <FiEdit />
-                    </button>
+                    {isTaskEditable(task) && (
+                      <button
+                        className="AdminTaskManagement-icon-btn AdminTaskManagement-btn-sm"
+                        onClick={() => openEditTaskDialog(task)}
+                        title="Edit"
+                      >
+                        <FiEdit />
+                      </button>
+                    )}
                     <button
                       className="AdminTaskManagement-icon-btn AdminTaskManagement-btn-sm"
                       onClick={() => fetchRemarks(task._id)}
@@ -2752,13 +2828,15 @@ const AdminTaskManagement = () => {
                     >
                       <FiUsers />
                     </button>
-                    <button
-                      className="AdminTaskManagement-icon-btn AdminTaskManagement-btn-sm"
-                      onClick={() => openStatusChangeDialog(task)}
-                      title="Change Status"
-                    >
-                      <FiCheckCircle />
-                    </button>
+                    {task.overallStatus !== 'overdue' && (
+                      <button
+                        className="AdminTaskManagement-icon-btn AdminTaskManagement-btn-sm"
+                        onClick={() => openStatusChangeDialog(task)}
+                        title="Change Status"
+                      >
+                        <FiCheckCircle />
+                      </button>
+                    )}
                     <button
                       className="AdminTaskManagement-icon-btn AdminTaskManagement-btn-sm AdminTaskManagement-btn-danger"
                       onClick={() => handleDeleteTask(task._id)}
@@ -2773,7 +2851,7 @@ const AdminTaskManagement = () => {
           </tbody>
         </table>
 
-        {/* Pagination */}
+        
         <div className="AdminTaskManagement-pagination">
           <div className="AdminTaskManagement-pagination-info">
             Showing {tasks.length} of {totalTasks} tasks
@@ -2812,7 +2890,7 @@ const AdminTaskManagement = () => {
     );
   };
 
-  // FIX 2: Snackbar/Toast Notification - Now properly implemented
+  
   const renderSnackbar = () => (
     <div className={`AdminTaskManagement-snackbar ${snackbar.open ? 'AdminTaskManagement-snackbar-open' : ''} AdminTaskManagement-snackbar-${snackbar.severity}`}>
       <div className="AdminTaskManagement-snackbar-content">
@@ -2829,9 +2907,13 @@ const AdminTaskManagement = () => {
     </div>
   );
 
+  if (loading) {
+    return <CIISLoader />;
+  }
+
   return (
     <div className="AdminTaskManagement-container">
-      {/* Header with Current User Info */}
+      
       <div className="AdminTaskManagement-header">
         <div className="AdminTaskManagement-header-content">
           <div className="AdminTaskManagement-header-title">
@@ -2843,7 +2925,7 @@ const AdminTaskManagement = () => {
           <div className="AdminTaskManagement-header-actions">
             {companyRole && (
               <div className="AdminTaskManagement-user-info">
-                {/* User info can be displayed here if needed */}
+                
               </div>
             )}
             <button 
@@ -2862,7 +2944,7 @@ const AdminTaskManagement = () => {
         </div>
       </div>
 
-      {/* Authentication Error Message */}
+      
       {authError && initialAuthCheck && (
         <div className="AdminTaskManagement-auth-error">
           <div className="AdminTaskManagement-auth-error-content">
@@ -2876,16 +2958,16 @@ const AdminTaskManagement = () => {
         </div>
       )}
 
-      {/* Main Content */}
+      
       {!authError && (
         <>
-          {/* Stats Cards */}
+          
           {renderFilteredStatsCards()}
           
-          {/* Filters */}
+          
           {renderEnhancedFilters()}
           
-          {/* Tasks Table */}
+          
           <div className="AdminTaskManagement-card">
             <div className="AdminTaskManagement-card-header">
               <div className="AdminTaskManagement-card-title">
@@ -2906,7 +2988,7 @@ const AdminTaskManagement = () => {
         </>
       )}
 
-      {/* Dialogs */}
+      
       {renderCreateTaskDialog()}
       {renderEditTaskDialog()}
       {renderGroupDialog()}
@@ -2916,7 +2998,7 @@ const AdminTaskManagement = () => {
       {renderUserStatusDialog()}
       {renderImageZoomModal()}
       
-      {/* FIX 2: Snackbar is now properly rendered */}
+      
       {renderSnackbar()}
     </div>
   );

@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
 import API_URL from "../config";
-import "./AllCompany.css"; // Import the CSS file
-import CIISLoader from '../Loader/CIISLoader'; // ✅ Import CIISLoader
+import "./AllCompany.css"; 
+import CIISLoader from '../Loader/CIISLoader'; 
 
 const AllCompany = () => {
   const navigate = useNavigate();
@@ -12,13 +12,13 @@ const AllCompany = () => {
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
 
-  // Mobile drawer state
+  
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   
-  // Bottom navigation value for mobile
+  
   const [bottomNavValue, setBottomNavValue] = useState(0);
 
-  // State variables
+  
   const [pageLoading, setPageLoading] = useState(true); 
   const [loading, setLoading] = useState(false);
   const [companies, setCompanies] = useState([]);
@@ -66,15 +66,15 @@ const AllCompany = () => {
   const [subscriptionActivateCompany, setSubscriptionActivateCompany] = useState(true);
   const [subscriptionSaving, setSubscriptionSaving] = useState(false);
 
-  // Menu state
+  
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedAction, setSelectedAction] = useState(null);
   const [filterMenuAnchor, setFilterMenuAnchor] = useState(null);
 
-  // Items per page based on screen size
+  
   const itemsPerPage = isMobile ? 5 : isTablet ? 8 : 10;
 
-  // Handle window resize
+  
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -86,7 +86,7 @@ const AllCompany = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Check authentication
+  
   const checkAuth = () => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -164,7 +164,7 @@ const AllCompany = () => {
     setEditedCompany(prev => prev?._id === updatedCompany._id ? { ...prev, ...updatedCompany } : prev);
   };
 
-  // Fetch company details by ID
+  
   const fetchCompanyDetails = async (companyId) => {
     try {
       setCompanyDetailsLoading(true);
@@ -199,7 +199,7 @@ const AllCompany = () => {
     }
   };
 
-  // Update company details
+  
   const handleUpdateCompany = async () => {
     try {
       if (!checkAuth()) return;
@@ -245,7 +245,7 @@ const AllCompany = () => {
     }
   };
 
-  // Fetch all users and group by company
+  
   const fetchAllUsers = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -275,7 +275,7 @@ const AllCompany = () => {
     }
   };
 
-  // Main function to fetch companies with users
+  
   const fetchCompaniesWithUsers = async () => {
     if (!checkAuth()) return;
 
@@ -318,11 +318,11 @@ const AllCompany = () => {
       toast.error("Failed to load data. Please try again.");
     } finally {
       setLoading(false);
-      setPageLoading(false); // ✅ Stop page loading
+      setPageLoading(false); 
     }
   };
 
-  // Handle search and filter with sorting
+  
   useEffect(() => {
     let results = [...companies];
 
@@ -364,7 +364,7 @@ const AllCompany = () => {
     setFilteredCompanies(results);
   }, [searchTerm, filter, sortBy, sortOrder, companies]);
 
-  // ✅ Load data with page loader
+  
   useEffect(() => {
     const loadData = async () => {
       setPageLoading(true);
@@ -374,7 +374,7 @@ const AllCompany = () => {
         console.error("Error loading companies:", error);
         toast.error("Failed to load companies");
       } finally {
-        // Minimum 500ms loader show karega
+        
         setTimeout(() => {
           setPageLoading(false);
         }, 500);
@@ -384,7 +384,7 @@ const AllCompany = () => {
     loadData();
   }, []);
 
-  // Fetch users for popup
+  
   const fetchCompanyUsers = async (companyId) => {
     try {
       setUsersLoading(true);
@@ -412,27 +412,27 @@ const AllCompany = () => {
     }
   };
 
-  // Open users popup
+  
   const handleOpenUsersPopup = async (company) => {
     setSelectedCompany(company);
     await fetchCompanyUsers(company._id);
     setUsersPopupOpen(true);
   };
 
-  // Close users popup
+  
   const handleCloseUsersPopup = () => {
     setUsersPopupOpen(false);
     setSelectedCompany(null);
     setCompanyUsers([]);
   };
 
-  // Open company details popup
+  
   const handleOpenCompanyDetails = async (company) => {
     setSelectedCompany(company);
     await fetchCompanyDetails(company._id);
   };
 
-  // Close company details popup
+  
   const handleCloseCompanyDetails = () => {
     setCompanyDetailsPopupOpen(false);
     setSelectedCompany(null);
@@ -563,7 +563,7 @@ const AllCompany = () => {
     }
   };
 
-  // Handle edit field change
+  
   const handleEditChange = (field, value) => {
     setEditedCompany(prev => ({
       ...prev,
@@ -571,7 +571,7 @@ const AllCompany = () => {
     }));
   };
 
-  // Format date
+  
   const formatDate = (dateString) => {
     if (!dateString) return "Not available";
     try {
@@ -586,7 +586,7 @@ const AllCompany = () => {
     }
   };
 
-  // Format relative time
+  
   const formatRelativeTime = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
@@ -601,7 +601,7 @@ const AllCompany = () => {
     return formatDate(dateString);
   };
 
-  // Export to CSV
+  
   const handleExportCSV = () => {
     try {
       const csvRows = [];
@@ -637,12 +637,12 @@ const AllCompany = () => {
     }
   };
 
-  // Toggle company expansion
+  
   const toggleCompanyExpansion = (companyId) => {
     setExpandedCompany(expandedCompany === companyId ? null : companyId);
   };
 
-  // Navigate to create user page
+  
   const handleNavigateToCreateUser = (companyId, companyCode, companyName) => {
     if (companyId && companyCode) {
       navigate(`/create-user?company=${companyId}&companyCode=${companyCode}&companyName=${encodeURIComponent(companyName || '')}`);
@@ -651,12 +651,12 @@ const AllCompany = () => {
     }
   };
 
-  // Navigate to create company page
+  
   const handleNavigateToCreateCompany = () => {
     navigate('/RegisterCompany');
   };
 
-  // Get role badge color
+  
   const getRoleColor = (role) => {
     switch (role?.toLowerCase()) {
       case 'admin': return '#2563eb';
@@ -772,7 +772,7 @@ const AllCompany = () => {
     return user?.role || user?.userRole || "User";
   };
 
-  // Handle menu actions
+  
   const handleMenuOpen = (event, company) => {
     setAnchorEl(event.currentTarget);
     setSelectedAction(company);
@@ -818,7 +818,7 @@ const AllCompany = () => {
     setNotificationAnchor(null);
   };
 
-  // Add new user function
+  
   const handleAddNewUser = (company) => {
     if (company && company._id && company.companyCode) {
       navigate(`/create-user?company=${company._id}&companyCode=${company.companyCode}&companyName=${encodeURIComponent(company.companyName || '')}`);
@@ -839,7 +839,7 @@ const AllCompany = () => {
     toast.success('All notifications cleared');
   };
 
-  // Handle bulk selection
+  
   const handleSelectCompany = (companyId) => {
     setSelectedCompanies(prev =>
       prev.includes(companyId)
@@ -856,7 +856,7 @@ const AllCompany = () => {
     }
   };
 
-  // Handle filter menu
+  
   const handleFilterMenuOpen = (event) => {
     setFilterMenuAnchor(event.currentTarget);
   };
@@ -865,13 +865,13 @@ const AllCompany = () => {
     setFilterMenuAnchor(null);
   };
 
-  // Calculate statistics
+  
   const totalCompanies = companies.length;
   const activeCompanies = companies.filter(c => c.isActive).length;
   const totalUsers = companies.reduce((total, company) => total + (company.userCount || 0), 0);
   const activePercentage = totalCompanies > 0 ? Math.round((activeCompanies / totalCompanies) * 100) : 0;
 
-  // Get company color
+  
   const getCompanyColor = (company) => {
     if (!company) return '#2563eb';
     const colors = ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#16a34a', '#0891b2'];
@@ -879,18 +879,18 @@ const AllCompany = () => {
     return colors[index];
   };
 
-  // Pagination logic
+  
   const paginatedCompanies = filteredCompanies.slice(
     (page - 1) * itemsPerPage,
     page * itemsPerPage
   );
 
-  // Mobile drawer toggle
+  
   const toggleMobileDrawer = () => {
     setMobileDrawerOpen(!mobileDrawerOpen);
   };
 
-  // Handle bottom navigation
+  
   const handleBottomNavChange = (value) => {
     setBottomNavValue(value);
     switch (value) {
@@ -910,26 +910,24 @@ const AllCompany = () => {
     }
   };
 
-  // ✅ Show CIISLoader while page is loading
+  
   if (pageLoading) {
     return <CIISLoader />;
   }
 
   return (
     <div className="AllCompany-all-company-container">
-      {/* Animated Background */}
+      
       <div className="AllCompany-animated-bg">
         <div className="AllCompany-bg-circle AllCompany-circle-1"></div>
         <div className="AllCompany-bg-circle AllCompany-circle-2"></div>
       </div>
 
-      {/* Mobile App Bar */}
+      
       {isMobile && (
         <div className="AllCompany-mobile-app-bar">
           <div className="AllCompany-toolbar">
-            {/* <button className="AllCompany-icon-button" onClick={toggleMobileDrawer}>
-              <span className="material-icons">menu</span>
-            </button> */}
+            
             <h6 className="AllCompany-app-bar-title">Companies</h6>
             <div className="AllCompany-notification-badge">
               <button className="AllCompany-icon-button" onClick={handleNotificationsOpen}>
@@ -943,27 +941,14 @@ const AllCompany = () => {
         </div>
       )}
 
-      {/* Mobile Drawer - Commented out as in original */}
-      {/* ... (mobile drawer code) ... */}
+      
+      
 
       <div className="AllCompany-responsive-container">
-        {/* Desktop Header */}
+        
         {!isMobile && (
           <div className="AllCompany-desktop-header">
-            {/* <div className="AllCompany-breadcrumbs">
-              <a href="#" onClick={(e) => { 
-                e.preventDefault(); 
-                navigate('/dashboard');
-              }} className="AllCompany-breadcrumb-link">
-                <span className="material-icons AllCompany-breadcrumb-icon">dashboard</span>
-                Dashboard
-              </a>
-              <span className="material-icons AllCompany-breadcrumb-separator">chevron_right</span>
-              <span className="AllCompany-breadcrumb-current">
-                <span className="material-icons AllCompany-breadcrumb-icon">corporate_fare</span>
-                Companies
-              </span>
-            </div> */}
+            
 
             <div className="AllCompany-header-content">
               <div className="AllCompany-header-left">
@@ -1001,7 +986,7 @@ const AllCompany = () => {
           </div>
         )}
 
-        {/* Statistics Cards */}
+        
         <div className="AllCompany-stats-grid">
           <div className="AllCompany-stat-card">
             <div className="AllCompany-stat-card-content">
@@ -1073,7 +1058,7 @@ const AllCompany = () => {
           </div>
         </div>
 
-        {/* Search and Filter Section */}
+        
         <div className="AllCompany-search-filter-section">
           <div className="AllCompany-search-filter-grid">
             <div className="AllCompany-search-field">
@@ -1137,7 +1122,7 @@ const AllCompany = () => {
           </div>
         </div>
 
-        {/* Companies List */}
+        
         {filteredCompanies.length === 0 ? (
           <div className="AllCompany-empty-state">
             <div className="AllCompany-empty-state-icon">
@@ -2098,7 +2083,7 @@ const AllCompany = () => {
         </div>
       )}
 
-      {/* Action Menu */}
+      
       {anchorEl && (
         <div className="AllCompany-menu-overlay" onClick={handleMenuClose}>
           <div className="AllCompany-menu-content" style={{top: anchorEl.getBoundingClientRect().bottom, left: anchorEl.getBoundingClientRect().left}}>
@@ -2129,7 +2114,7 @@ const AllCompany = () => {
         </div>
       )}
 
-      {/* Filter/Sort Menu */}
+      
       {filterMenuAnchor && (
         <div className="AllCompany-menu-overlay" onClick={handleFilterMenuClose}>
           <div className="AllCompany-menu-content" style={{top: filterMenuAnchor.getBoundingClientRect().bottom, left: filterMenuAnchor.getBoundingClientRect().left}}>

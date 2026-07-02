@@ -22,7 +22,7 @@ const ProtectedRoute = ({ children }) => {
   if (!isValid) {
     const companyCode = localStorage.getItem('companyCode') || localStorage.getItem('companyIdentifier');
 
-    // Clear any remaining auth items if validation failed
+    
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('superAdmin');

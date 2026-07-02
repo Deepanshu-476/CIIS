@@ -11,10 +11,10 @@ const CiisFooter = () => {
       <div className="ciis-footer-wave"></div>
       
       <div className="ciis-footer-container">
-        {/* Main Footer Content */}
+        
         <div className="ciis-footer-content"> 
           
-          {/* Brand Section */}
+          
           <div className="ciis-footer-section">
             <div className="ciis-footer-brand">
               <div className="ciis-footer-logo">
@@ -42,7 +42,7 @@ const CiisFooter = () => {
             </div>
           </div>
 
-          {/* Quick Links */}
+          
           <div className="ciis-footer-section">
             <h4 className="ciis-footer-title">Quick Links</h4>
             <ul className="ciis-footer-list">
@@ -53,7 +53,7 @@ const CiisFooter = () => {
             </ul>
           </div>
 
-          {/* Legal */}
+          
           <div className="ciis-footer-section">
             <h4 className="ciis-footer-title">Legal</h4>
             <ul className="ciis-footer-list">
@@ -63,7 +63,7 @@ const CiisFooter = () => {
             </ul>
           </div>
 
-          {/* Contact Information */}
+          
           <div className="ciis-footer-section">
             <h4 className="ciis-footer-title">Contact Us</h4>
             <ul className="ciis-footer-contact-list">
@@ -82,7 +82,7 @@ const CiisFooter = () => {
             </ul>
           </div>
         </div>
-        {/* Bottom Bar */}
+        
         <div className="ciis-footer-bottom">
           <div className="ciis-bottom-content">
 

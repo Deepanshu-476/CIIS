@@ -420,7 +420,7 @@ useEffect(() => {
                 );
             }
         } catch (error) {
-            console.log(error);
+            void 0;
         }
     };
 
@@ -443,7 +443,7 @@ useEffect(() => {
 
         } catch (error) {
 
-            console.log(error);
+            void 0;
         }
     };
 
@@ -580,7 +580,7 @@ useEffect(() => {
                 try {
                     await sendRecordedFile(blob, mode, recorder.mimeType || mimeType);
                 } catch (error) {
-                    console.log(error);
+                    void 0;
                     setRecordingError("Unable to send the recording. Please try again.");
                 }
             };
@@ -592,7 +592,7 @@ useEffect(() => {
                 setRecordingSeconds((prev) => prev + 1);
             }, 1000);
         } catch (error) {
-            console.log(error);
+            void 0;
             stopRecordingTracks();
             setRecorderMode(null);
             setRecordingError("Allow microphone/camera permission, then try again.");
@@ -684,7 +684,7 @@ useEffect(() => {
             onConversationChange?.();
 
         } catch (error) {
-            console.log(error);
+            void 0;
         }
     };
 
@@ -696,7 +696,7 @@ useEffect(() => {
             socket?.emit("chat:delete-for-me", { messageId: message._id, conversationId: conversation?._id });
             onConversationChange?.();
         } catch (error) {
-            console.log(error);
+            void 0;
         } finally {
             setIsSendingAction(false);
         }
@@ -712,7 +712,7 @@ useEffect(() => {
             socket?.emit("chat:delete-for-everyone", { messageId: message._id, conversationId: conversation?._id });
             onConversationChange?.();
         } catch (error) {
-            console.log(error);
+            void 0;
         } finally {
             setIsSendingAction(false);
         }
@@ -727,7 +727,7 @@ useEffect(() => {
             });
             onConversationChange?.();
         } catch (error) {
-            console.log(error);
+            void 0;
         } finally {
             setIsSendingAction(false);
         }

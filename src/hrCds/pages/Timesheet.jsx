@@ -23,7 +23,7 @@ const defaultHours = { mon: '', tue: '', wed: '', thu: '', fri: '', sat: '', sun
 function getMonday(d) {
     const date = new Date(d);
     const day = date.getDay();
-    const diff = day === 0 ? -6 : 1 - day; // adjust when day is sunday
+    const diff = day === 0 ? -6 : 1 - day; 
     date.setDate(date.getDate() + diff);
     date.setHours(0, 0, 0, 0);
     return date;
@@ -45,9 +45,9 @@ function getWeekDays(monday) {
 
 const Timesheet = () => {
     const [activeTab, setActiveTab] = useState(0);
-    // Track the current week's Monday
-    const [currentMonday, setCurrentMonday] = useState(getMonday(new Date('2025-02-10'))); // default to 10 Feb 2025
-    // Store timesheet data per week (keyed by ISO string of Monday)
+    
+    const [currentMonday, setCurrentMonday] = useState(getMonday(new Date('2025-02-10'))); 
+    
     const [weekData, setWeekData] = useState({
         [currentMonday.toISOString()]: [
             { client: 'Peoplesense', job: 'Test Job Group...', hours: { ...defaultHours }, isEditing: false },
@@ -62,7 +62,7 @@ const Timesheet = () => {
     const weekKey = currentMonday.toISOString();
     const timesheetData = weekData[weekKey] || [];
 
-    // Calculate total hours for each row and for all rows
+    
     const calcTotal = (hours) => {
         let totalMins = 0;
         weekDays.forEach(day => {
@@ -96,7 +96,7 @@ const Timesheet = () => {
         return total;
     };
 
-    // CRUD Handlers
+    
     const handleAdd = () => {
         if (!newEntry.client || !newEntry.job) return;
         const entry = {
@@ -172,7 +172,7 @@ const Timesheet = () => {
 
     const totalHours = getTotalHours();
 
-    // Week navigation
+    
     const handlePrevWeek = () => {
         const prev = new Date(currentMonday);
         prev.setDate(currentMonday.getDate() - 7);
@@ -216,7 +216,7 @@ const Timesheet = () => {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {/* New Entry Row */}
+                        
                         <TableRow>
                             <TableCell>
                                 <TextField size="small" value={newEntry.client} onChange={e => handleNewEntryChange('client', e.target.value)} placeholder="Client" />
@@ -234,7 +234,7 @@ const Timesheet = () => {
                                 <Button variant="contained" size="small" onClick={handleAdd}>Add</Button>
                             </TableCell>
                         </TableRow>
-                        {/* Data Rows */}
+                        
                         {timesheetData.map((row, index) => (
                             <TableRow key={index}>
                                 {row.isEditing ? (
@@ -272,7 +272,7 @@ const Timesheet = () => {
                                 )}
                             </TableRow>
                         ))}
-                        {/* Total Row */}
+                        
                         <TableRow sx={{ background: '#f5f5f5' }}>
                             <TableCell colSpan={2}><b>Total Task Hours</b></TableCell>
                             {weekDays.map(day => (

@@ -16,7 +16,7 @@ import {
   Refresh as RefreshIcon
 } from '@mui/icons-material';
 
-// Sample email template data
+
 const emailTemplates = [
   {
     id: 1,
@@ -71,7 +71,7 @@ const EmailTemplate = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [activeTab, setActiveTab] = useState('templates');
 
-  // Filter logic
+  
   const filteredTemplates = emailTemplates.filter(template => {
     const matchesSearch = template.title.toLowerCase().includes(search.toLowerCase()) ||
       template.content.toLowerCase().includes(search.toLowerCase()) ||
@@ -115,7 +115,7 @@ const EmailTemplate = () => {
         )}
       </Box>
 
-      {/* Tabs for different views */}
+      
       <Tabs
         value={activeTab}
         onChange={(e, newValue) => setActiveTab(newValue)}
@@ -143,7 +143,7 @@ const EmailTemplate = () => {
         />
       </Tabs>
 
-      {/* Filter Section */}
+      
       <Paper
         elevation={1}
         sx={{
@@ -241,9 +241,9 @@ const EmailTemplate = () => {
         </Grid>
       </Paper>
 
-      {/* Main Content */}
+      
       <Grid container spacing={3}>
-        {/* Template List */}
+        
         <Grid item xs={12} md={5} lg={4}>
           <Paper elevation={1} sx={{ borderRadius: 2, overflow: 'hidden' }}>
             <List sx={{ maxHeight: '70vh', overflow: 'auto' }}>
@@ -320,7 +320,7 @@ const EmailTemplate = () => {
           </Paper>
         </Grid>
 
-        {/* Template Preview */}
+        
         <Grid item xs={12} md={7} lg={8}>
           {selectedTemplate ? (
             <Paper elevation={1} sx={{ p: 3, borderRadius: 2, height: '100%' }}>
@@ -347,7 +347,7 @@ const EmailTemplate = () => {
                 </Box>
               </Box>
 
-              {/* Email Preview */}
+              
               <Paper
                 elevation={0}
                 sx={{

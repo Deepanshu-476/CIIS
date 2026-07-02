@@ -37,7 +37,7 @@ import {
   Cancel as CancelIcon
 } from '@mui/icons-material';
 
-// Sample data - replace with your actual data source
+
 const generateLogData = (type) => {
   const actions = ['Created', 'Updated', 'Deleted', 'Modified', 'Uploaded'];
   const entities = ['User', 'Process', 'Settings', 'CRM Field', 'Template'];
@@ -78,7 +78,7 @@ const ActivityLogs = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Simulate data loading
+  
   React.useEffect(() => {
     setLoading(true);
     const timer = setTimeout(() => {
@@ -111,7 +111,7 @@ const ActivityLogs = () => {
 
   const open = Boolean(eventAnchorEl);
 
-  // Filter data based on search and selected events
+  
   const filteredData = data?.filter(item => {
     const matchesSearch = item.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.user.toLowerCase().includes(searchQuery.toLowerCase());
@@ -160,9 +160,9 @@ const ActivityLogs = () => {
         </Box>
       </Box>
 
-      {/* Filters Section */}
+      
       <Box mt={3} display="flex" alignItems="center" flexWrap="wrap" gap={2}>
-        {/* Month Selector */}
+        
         <Box display="flex" alignItems="center" gap={1} sx={{ overflowX: isMobile ? 'auto' : 'visible', width: isMobile ? '100%' : 'auto', pb: isMobile ? 1 : 0 }}>
           {months.map((month) => (
             <Chip
@@ -182,7 +182,7 @@ const ActivityLogs = () => {
           ))}
         </Box>
 
-        {/* Event Type Filter */}
+        
         <Box>
           <Button
             variant="outlined"
@@ -285,7 +285,7 @@ const ActivityLogs = () => {
         </Box>
       </Box>
 
-      {/* Tabs Section */}
+      
       <Box mt={3}>
         <Tabs
           value={activeTab}
@@ -333,7 +333,7 @@ const ActivityLogs = () => {
           />
         </Tabs>
 
-        {/* Data Display */}
+        
         {loading ? (
           <Box mt={2}>
             {Array.from({ length: 5 }).map((_, index) => (
@@ -426,7 +426,7 @@ const ActivityLogs = () => {
         )}
       </Box>
 
-      {/* Mobile Floating Action Button */}
+      
       {isMobile && (
         <Box
           position="fixed"

@@ -1,4 +1,4 @@
-// UserDashboard.jsx - COMPLETE FIXED VERSION WITH ALL LOADERS + HOLIDAYS
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
@@ -99,7 +99,7 @@ const mapTaskToActivity = task => ({
     : getDisplayName(task.assignee || task.assignedTo || ''),
 });
 
-// ✅ Loader Components
+
 const StatsLoader = () => (
   <div className="stats-loader-container">
     {[1, 2, 3, 4].map((i) => (
@@ -158,7 +158,7 @@ const UserDashboard = () => {
   const [leaveData, setLeaveData] = useState([]);
   const [taskActivity, setTaskActivity] = useState([]);
   
-  // Holiday state.
+  
   const [holidays, setHolidays] = useState([]);
   const [holidaysLoading, setHolidaysLoading] = useState(false);
   
@@ -179,7 +179,7 @@ const UserDashboard = () => {
   const [formattedJoinDate, setFormattedJoinDate] = useState('');
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
-  // Get user data from localStorage
+  
   const user = useMemo(() => {
     try {
       const userData = localStorage.getItem('user');
@@ -204,7 +204,7 @@ const UserDashboard = () => {
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
 
-  // Refs to prevent infinite loops
+  
   const fetchInProgress = useRef({
     attendance: false,
     leaves: false,
@@ -221,7 +221,7 @@ const UserDashboard = () => {
   const holidaysTimeoutRef = useRef(null);
   const initialLoadRef = useRef(false);
 
-  // Parse user's creation date
+  
   useEffect(() => {
     if (user?.createdAt) {
       const joinDate = new Date(user.createdAt);
@@ -284,7 +284,7 @@ const UserDashboard = () => {
     });
   }, []);
 
-  // Fetch job roles
+  
   const fetchJobRoles = useCallback(async () => {
     if (!isUserInCurrentCompany) return [];
     if (fetchInProgress.current.jobRoles) return [];
@@ -327,7 +327,7 @@ const UserDashboard = () => {
     }
   }, [getCompanyId, token, isUserInCurrentCompany]);
 
-  // Fetch holidays.
+  
   const fetchHolidays = useCallback(async () => {
     if (!isUserInCurrentCompany) return;
     if (fetchInProgress.current.holidays) return;
@@ -343,17 +343,17 @@ const UserDashboard = () => {
       setHolidaysLoading(true);
 
       try {
-        // ✅ API route - /holidays
+        
         const response = await axios.get('/holidays', {
           headers: { Authorization: `Bearer ${token}` },
           timeout: 10000
         });
         
-        // ✅ Response structure - { success: true, holidays: [...] }
+        
         if (response.data.success) {
           let holidaysData = response.data.holidays || [];
           
-          // Filter holidays after join date
+          
           if (userJoinDate) {
             holidaysData = holidaysData.filter(holiday => 
               !isBeforeJoinDate(new Date(holiday.date))
@@ -373,7 +373,7 @@ const UserDashboard = () => {
 
   }, [token, isUserInCurrentCompany, userJoinDate, isBeforeJoinDate]);
 
-  // Fetch attendance data
+  
   const fetchAttendanceData = useCallback(async (force = false) => {
     if (!isUserInCurrentCompany) return;
     if (!force && fetchInProgress.current.attendance) return;
@@ -410,7 +410,7 @@ const UserDashboard = () => {
         const normalizedData = data.map(normalizeAttendanceRecord);
         setAttendanceData(normalizedData);
         
-        // Update recent activity.
+        
         updateRecentActivity(normalizedData, holidays);
         
       } catch (error) {
@@ -425,7 +425,7 @@ const UserDashboard = () => {
 
   }, [token, isUserInCurrentCompany, userJoinDate, isBeforeJoinDate, holidays]);
 
-  // Fetch leave data
+  
   const fetchLeaveData = useCallback(async () => {
     if (!isUserInCurrentCompany) return;
     if (fetchInProgress.current.leaves) return;
@@ -467,7 +467,7 @@ const UserDashboard = () => {
 
   }, [token, isUserInCurrentCompany, userJoinDate, isBeforeJoinDate]);
 
-  // Fetch current status
+  
   const fetchCurrentStatus = useCallback(async () => {
     if (!isUserInCurrentCompany) {
       setIsRunning(false);
@@ -557,12 +557,12 @@ const UserDashboard = () => {
     }
   }, [token, isUserInCurrentCompany, user]);
 
-  // ✅ Function to update recent activity (HOLIDAY优先)
+  
   const updateRecentActivity = useCallback((attendance, holidayList, tasks = taskActivity) => {
-    // Collect all activities first.
+    
     const allActivities = [];
     
-    // Add attendance records.
+    
     attendance.forEach(record => {
       allActivities.push({
         ...record,
@@ -573,7 +573,7 @@ const UserDashboard = () => {
       });
     });
     
-    // Add holidays.
+    
     holidayList.forEach(holiday => {
       allActivities.push({
         ...holiday,
@@ -595,14 +595,14 @@ const UserDashboard = () => {
       });
     });
     
-    // Sort by date (latest first)
+    
     allActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
     
-    // Take top 5
+    
     setRecentActivity(allActivities.slice(0, 5));
   }, [taskActivity]);
 
-  // Load initial data with page loader
+  
   useEffect(() => {
     if (initialLoadRef.current) return;
     if (!isUserInCurrentCompany) {
@@ -618,8 +618,8 @@ const UserDashboard = () => {
       
       try {
         await fetchJobRoles();
-        await fetchHolidays(); // Fetch holidays first.
-        await fetchAttendanceData(true); // Then fetch attendance.
+        await fetchHolidays(); 
+        await fetchAttendanceData(true); 
         await fetchLeaveData();
         await fetchCurrentStatus();
         await fetchRecentTaskActivity();
@@ -638,14 +638,14 @@ const UserDashboard = () => {
     return () => cancelPendingRequests();
   }, []);
 
-  // ✅ Effect to update recent activity when holidays or attendance change
+  
   useEffect(() => {
     if (attendanceData.length > 0 || holidays.length > 0 || taskActivity.length > 0) {
       updateRecentActivity(attendanceData, holidays, taskActivity);
     }
   }, [attendanceData, holidays, taskActivity, updateRecentActivity]);
 
-  // Timer effect
+  
   useEffect(() => {
     if (isRunning) {
       intervalRef.current = setInterval(() => {
@@ -657,7 +657,7 @@ const UserDashboard = () => {
     return () => clearInterval(intervalRef.current);
   }, [isRunning]);
 
-  // Cleanup on unmount
+  
   useEffect(() => {
     return () => {
       cancelPendingRequests();
@@ -738,7 +738,7 @@ const UserDashboard = () => {
     return [...new Set(dates)];
   }, [filteredLeaveData, isBeforeJoinDate]);
 
-  // Calculate holiday dates.
+  
   const holidayDates = useMemo(() => {
     return holidays.map(holiday => {
       const date = new Date(holiday.date);
@@ -746,7 +746,7 @@ const UserDashboard = () => {
     });
   }, [holidays]);
 
-  // ✅ Holiday titles mapping for tooltip
+  
   const holidayTitles = useMemo(() => {
     const map = {};
     holidays.forEach(holiday => {
@@ -786,7 +786,7 @@ const UserDashboard = () => {
     return { presentDays, lateDays, halfDays, absentDays, leavesTaken };
   }, [filteredAttendanceData, leaveDates, currentMonth, currentYear]);
 
-  // Check holidays first in getDayStatus.
+  
   const getDayStatus = useCallback((day) => {
     if (!day) return null;
     
@@ -795,7 +795,7 @@ const UserDashboard = () => {
     const dayOfWeek = dateObj.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     
-    // Holiday check first.
+    
     if (holidayDates.includes(key)) return "holiday";
     
     if (isBeforeJoinDate(dateObj)) return "before-join";
@@ -815,7 +815,7 @@ const UserDashboard = () => {
            calendarYear === currentDate.getFullYear();
   }, [currentDate, calendarMonth, calendarYear]);
 
-  // ✅ getDayIcon me holiday icon
+  
   const getDayIcon = useCallback((day) => {
     const status = getDayStatus(day);
     switch(status) {
@@ -936,12 +936,12 @@ const UserDashboard = () => {
   const shouldBlockMobileDashboard = false;
   const userJobRoleDisplay = getJobRoleDisplayName();
 
-  // Show page loader while page is loading
+  
   if (pageLoading) {
     return <CIISLoader />;
   }
 
-  // Don't render if not authenticated
+  
   if (!user || !token) {
     navigate('/login');
     return null;
@@ -1067,7 +1067,7 @@ const UserDashboard = () => {
         </div>
       </div>
 
-      {/* Stats Section with Loader */}
+      
       {loading.attendance ? (
         <StatsLoader />
       ) : (
@@ -1127,7 +1127,7 @@ const UserDashboard = () => {
       )}
 
       <div className="dashboard-content-grid">
-        {/* Calendar Section with Loader */}
+        
         {loading.attendance || holidaysLoading ? (
           <CalendarLoader />
         ) : (
@@ -1197,7 +1197,7 @@ const UserDashboard = () => {
               </div>
             </div>
 
-            {/* Legend me Holiday add kiya */}
+            
             <div className="calendar-legend">
               <div className="legend-item"><div className="legend-color color-present"></div><span>Present</span></div>
               <div className="legend-item"><div className="legend-color color-late"></div><span>Late</span></div>
@@ -1211,7 +1211,7 @@ const UserDashboard = () => {
           </div>
         )}
 
-        {/* Activity Section with Loader */}
+        
         <div className="dashboard-activity-card">
           <div className="activity-header">
             <div className="activity-title-section">
@@ -1227,15 +1227,15 @@ const UserDashboard = () => {
           </div>
 
           <div className="activity-list">
-            {/* Show refresh overlay when loading but data exists */}
+            
             {loading.attendance && recentActivity.length > 0 && <RefreshOverlay />}
             
-            {/* Show main loader when loading and no data */}
+            
             {loading.attendance && !recentActivity.length && <ActivityLoader />}
             
-            {/* Show actual data when not loading */}
+            
             {!loading.attendance && recentActivity.map((item, index) => {
-              // Show a separate UI when the date is a holiday.
+              
               if (item.type === 'holiday') {
                 const date = new Date(item.date);
                 return (
@@ -1283,7 +1283,7 @@ const UserDashboard = () => {
                 );
               }
               
-              // Attendance records are shown only when the date is not a holiday.
+              
               const date = new Date(item.date);
               const isCurrentMonth = date.getMonth() === currentMonth && date.getFullYear() === currentYear;
               return (
@@ -1311,7 +1311,7 @@ const UserDashboard = () => {
               );
             })}
             
-            {/* Empty State */}
+            
             {!loading.attendance && !recentActivity.length && (
               <div className="activity-empty-state">
                 <div className="empty-icon-container"><FiClock className="empty-icon" /></div>

@@ -8,7 +8,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 const RechurnCustomers = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [userStatus, setUserStatus] = useState('');
-  const [dateTab, setDateTab] = useState(1); // 0=Today, 1=Last 30 Days, 2=Select Range
+  const [dateTab, setDateTab] = useState(1); 
   const [assignOption, setAssignOption] = useState('');
   const [assignToUser, setAssignToUser] = useState('');
 
@@ -22,7 +22,7 @@ const RechurnCustomers = () => {
         Rechurn Customers
       </Typography>
 
-      {/* Filters */}
+      
       <Box display="flex" alignItems="center" gap={2} mt={3}>
         <FormControl size="small">
           <InputLabel>By Status</InputLabel>
@@ -61,7 +61,7 @@ const RechurnCustomers = () => {
         </Button>
       </Box>
 
-      {/* Date Range */}
+      
       <Paper elevation={0} sx={{ mt: 4, p: 3 }}>
         <Typography variant="subtitle1" fontWeight={600} mb={2}>
           Choose Date range
@@ -80,7 +80,7 @@ const RechurnCustomers = () => {
           </Box>
         )}
 
-        {/* Get Count */}
+        
         <Typography mt={3} mb={1} fontWeight={500}>
           Matched Customers
         </Typography>
@@ -95,7 +95,7 @@ const RechurnCustomers = () => {
         </Button>
       </Paper>
 
-      {/* Assignment Options */}
+      
       <Paper elevation={0} sx={{ mt: 4, p: 3 }}>
         <RadioGroup value={assignOption} onChange={(e) => setAssignOption(e.target.value)}>
           <FormControlLabel
@@ -140,7 +140,7 @@ const RechurnCustomers = () => {
         )}
       </Paper>
 
-      {/* Initiate Button */}
+      
       <Box mt={4}>
         <Typography variant="body2" color="text.secondary" mb={2}>
           On click of initiate, allocations will be created for the matched customers.

@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import axios from '../../utils/axiosConfig';
 import './DepartmentManagement.css';
-import CIISLoader from '../../Loader/CIISLoader'; // ✅ Import CIISLoader
+import CIISLoader from '../../Loader/CIISLoader'; 
 
 const DepartmentManagement = () => {
   const { branchId: routeBranchId } = useParams();
@@ -11,7 +11,7 @@ const DepartmentManagement = () => {
   const requestedBranchId = routeBranchId || searchParams.get('branch') || searchParams.get('branchId') || '';
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
-  const [pageLoading, setPageLoading] = useState(true); // ✅ Page loading state
+  const [pageLoading, setPageLoading] = useState(true); 
   
   const [departments, setDepartments] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -23,7 +23,7 @@ const DepartmentManagement = () => {
     description: '',
     company: '',  
     companyCode: '',
-    branch: '' // NEW: Branch ID
+    branch: '' 
   });
   const [loading, setLoading] = useState(false);
   const [loadingBranches, setLoadingBranches] = useState(false);
@@ -79,7 +79,7 @@ const DepartmentManagement = () => {
     return branch.branchCode ? `${branch.name} (${branch.branchCode})` : branch.name;
   };
 
-  // Handle window resize
+  
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
@@ -92,20 +92,20 @@ const DepartmentManagement = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Function to get user from localStorage
+  
   const getUserFromStorage = () => {
     let userStr = localStorage.getItem('superAdmin');
     if (!userStr) userStr = localStorage.getItem('user');
     if (!userStr) userStr = sessionStorage.getItem('superAdmin') || sessionStorage.getItem('user');
     
     if (!userStr) {
-      console.log('No user found in storage');
+      void 0;
       return null;
     }
     
     try {
       const user = JSON.parse(userStr);
-      console.log('User found in storage:', user);
+      void 0;
       return user;
     } catch (error) {
       console.error('Error parsing user data:', error);
@@ -114,7 +114,7 @@ const DepartmentManagement = () => {
     }
   };
 
-  // Check if user is super-admin
+  
   const checkSuperAdminStatus = (user) => {
     if (!user) return false;
     return user.role === 'super-admin' || 
@@ -122,7 +122,7 @@ const DepartmentManagement = () => {
            (user.role === 'super-admin' && user.department === 'Management');
   };
 
-  // ✅ Load initial data with page loader
+  
   useEffect(() => {
     setSelectedBranchId(requestedBranchId);
     setPage(0);
@@ -146,7 +146,7 @@ const DepartmentManagement = () => {
               company: companyId,
               companyCode
             }));
-            // Fetch company branches
+            
             await fetchBranches(companyId);
           }
           
@@ -158,7 +158,7 @@ const DepartmentManagement = () => {
         console.error('Error loading departments:', error);
         toast.error('Failed to load departments');
       } finally {
-        // Minimum 500ms loader show karega
+        
         setTimeout(() => {
           setPageLoading(false);
         }, 500);
@@ -193,13 +193,13 @@ const DepartmentManagement = () => {
         params.branch = selectedBranchId;
       }
       
-      console.log('Fetching departments with params:', params);
+      void 0;
       
       const response = await axios.get('/departments', { params });
       const depts = response.data.departments || [];
       setDepartments(depts);
       
-      console.log('Departments fetched:', depts.length);
+      void 0;
     } catch (err) {
       console.error('Fetch departments error:', err);
       toast.error(err.response?.data?.message || 'Failed to load departments');
@@ -255,7 +255,7 @@ const DepartmentManagement = () => {
         submitData.companyCode = formData.companyCode || companyCode;
       }
       
-      console.log('Submitting department data:', submitData);
+      void 0;
       
       if (editingDept) {
         await axios.put(`/departments/${editingDept._id}`, submitData);
@@ -349,7 +349,7 @@ const DepartmentManagement = () => {
     setShowMenu(false);
   };
 
-  // Handle menu open
+  
   const handleMenuOpen = (event, dept) => {
     const rect = event.currentTarget.getBoundingClientRect();
     setMenuPosition({
@@ -365,13 +365,13 @@ const DepartmentManagement = () => {
     setSelectedDeptMenu(null);
   };
 
-  // Handle refresh
+  
   const handleRefresh = () => {
     toast.info('Refreshing departments...');
     setRefreshKey(prev => prev + 1);
   };
 
-  // Handle clear search
+  
   const handleClearSearch = () => {
     setSearchTerm('');
   };
@@ -389,7 +389,7 @@ const DepartmentManagement = () => {
     setSearchParams(nextParams, { replace: true });
   };
 
-  // Sort departments
+  
   const sortDepartments = (depts) => {
     return [...depts].sort((a, b) => {
       let comparison = 0;
@@ -410,7 +410,7 @@ const DepartmentManagement = () => {
     });
   };
 
-  // Filter departments
+  
   const getFilteredDepartments = () => {
     let filtered = departments;
     const user = userInfo || getUserFromStorage();
@@ -445,7 +445,7 @@ const DepartmentManagement = () => {
     inactive: filteredDepartments.filter(d => d.isActive === false).length
   };
 
-  // Format date
+  
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {
@@ -472,7 +472,7 @@ const DepartmentManagement = () => {
     setPage(0);
   };
 
-  // Mobile Department Card Component
+  
   const MobileDepartmentCard = ({ dept }) => (
     <div className="DepartmentManagement-mobile-card">
       <div className="DepartmentManagement-status-indicator" style={{
@@ -555,7 +555,7 @@ const DepartmentManagement = () => {
     </div>
   );
 
-  // Tablet Department Card Component
+  
   const TabletDepartmentCard = ({ dept }) => (
     <div className="DepartmentManagement-tablet-card">
       <div className="DepartmentManagement-tablet-card-header">
@@ -672,7 +672,7 @@ const DepartmentManagement = () => {
     }
   };
 
-  // ✅ Show CIISLoader while page is loading
+  
   if (pageLoading) {
     return <CIISLoader />;
   }
@@ -691,7 +691,7 @@ const DepartmentManagement = () => {
 
   return (
     <div className="DepartmentManagement">
-      {/* Loading Overlay */}
+      
       {loading && (
         <div className="DepartmentManagement-loading-overlay">
           <div className="DepartmentManagement-progress-bar">
@@ -700,10 +700,10 @@ const DepartmentManagement = () => {
         </div>
       )}
 
-      {/* Stats Cards */}
+      
       {departments.length > 0 && (
         <div className="DepartmentManagement-stats-grid">
-          {/* Total Departments Card */}
+          
           <div className="DepartmentManagement-stat-card DepartmentManagement-stat-total">
             <div className="DepartmentManagement-stat-icon">
               {getIconSvg('corporate', isMobile ? 24 : 28)}
@@ -717,7 +717,7 @@ const DepartmentManagement = () => {
             </div>
           </div>
 
-          {/* Active Departments Card */}
+          
           <div className="DepartmentManagement-stat-card DepartmentManagement-stat-active">
             <div className="DepartmentManagement-stat-icon">
               {getIconSvg('check', isMobile ? 24 : 28)}
@@ -735,7 +735,7 @@ const DepartmentManagement = () => {
             </div>
           </div>
 
-          {/* Inactive Departments Card */}
+          
           <div className="DepartmentManagement-stat-card DepartmentManagement-stat-inactive">
             <div className="DepartmentManagement-stat-icon">
               {getIconSvg('cancel', isMobile ? 24 : 28)}
@@ -756,7 +756,7 @@ const DepartmentManagement = () => {
       )}
 
       <div className="DepartmentManagement-paper">
-        {/* Header Section */}
+        
         <div className="DepartmentManagement-header">
           <div className="DepartmentManagement-title-section">
             <div className="DepartmentManagement-title-icon">
@@ -791,7 +791,7 @@ const DepartmentManagement = () => {
           </div>
           
           <div className="DepartmentManagement-header-actions">
-            {/* Search Bar - Always visible */}
+            
             <div className="DepartmentManagement-search-wrapper">
               <span className="DepartmentManagement-search-icon">
                 {getIconSvg('search', isMobile ? 18 : 20)}
@@ -831,7 +831,7 @@ const DepartmentManagement = () => {
               ))}
             </select>
             
-            {/* Mobile Filter Button */}
+            
             {isMobile && (
               <button
                 className="DepartmentManagement-filter-btn"
@@ -841,7 +841,7 @@ const DepartmentManagement = () => {
               </button>
             )}
             
-            {/* Add Department Button - Hidden on mobile (FAB used instead) */}
+            
             {!isMobile && (
               <button
                 className="DepartmentManagement-btn DepartmentManagement-btn-primary"
@@ -869,7 +869,7 @@ const DepartmentManagement = () => {
           </div>
         </div>
 
-        {/* Mobile Filters */}
+        
         {isMobile && showMobileFilters && (
           <div className="DepartmentManagement-mobile-filters">
             <div className="DepartmentManagement-mobile-filter-header">
@@ -906,7 +906,7 @@ const DepartmentManagement = () => {
 
    
 
-        {/* View Selection */}
+        
         {isTablet && !isMobile && (
           <div className="DepartmentManagement-view-tabs">
             <button 
@@ -924,9 +924,9 @@ const DepartmentManagement = () => {
           </div>
         )}
 
-        {/* Content View */}
+        
         {isMobile ? (
-          // Mobile Card View
+          
           <div className="DepartmentManagement-mobile-view">
             {filteredDepartments.length === 0 ? (
               <div className="DepartmentManagement-empty-state">
@@ -961,7 +961,7 @@ const DepartmentManagement = () => {
             )}
           </div>
         ) : isTablet ? (
-          // Tablet Grid View
+          
           <div className="DepartmentManagement-tablet-grid">
             {filteredDepartments.length === 0 ? (
               <div className="DepartmentManagement-empty-state">
@@ -982,7 +982,7 @@ const DepartmentManagement = () => {
             )}
           </div>
         ) : (
-          // Desktop Table View
+          
           <div className="DepartmentManagement-table-container">
             <table className="DepartmentManagement-table">
               <thead>
@@ -1090,7 +1090,7 @@ const DepartmentManagement = () => {
           </div>
         )}
 
-        {/* Pagination */}
+        
         {filteredDepartments.length > 0 && (
           <div className="DepartmentManagement-pagination">
             <div className="DepartmentManagement-pagination-info">
@@ -1136,7 +1136,7 @@ const DepartmentManagement = () => {
           </div>
         )}
 
-        {/* Floating Action Button for Mobile */}
+        
         {isMobile && (
           <button
             className="DepartmentManagement-fab"
@@ -1156,7 +1156,7 @@ const DepartmentManagement = () => {
           </button>
         )}
 
-        {/* Options Menu for Mobile */}
+        
         {showMenu && (
           <div 
             className="DepartmentManagement-menu-overlay"
@@ -1209,7 +1209,7 @@ const DepartmentManagement = () => {
         )}
       </div>
 
-      {/* Add/Edit Dialog */}
+      
       {openDialog && (
         <div className="DepartmentManagement-modal-overlay" onClick={() => !loading && setOpenDialog(false)}>
           <div 
@@ -1246,7 +1246,7 @@ const DepartmentManagement = () => {
             </div>
 
             <div className="DepartmentManagement-modal-body">
-              {/* User Info Banner */}
+              
               {userInfo?.companyCode && !isSuperAdmin && (
                 <div className="DepartmentManagement-info-banner">
                   <svg width={isMobile ? "18" : "22"} height={isMobile ? "18" : "22"} viewBox="0 0 24 24" fill="currentColor">
@@ -1265,7 +1265,7 @@ const DepartmentManagement = () => {
                 </div>
               )}
 
-              {/* NEW: Branch Dropdown */}
+              
               <div className="DepartmentManagement-form-group">
                 <label className="DepartmentManagement-form-label">Branch *</label>
                 <div className="DepartmentManagement-input-wrapper">

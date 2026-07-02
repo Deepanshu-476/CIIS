@@ -16,7 +16,7 @@ import {
   Refresh as RefreshIcon
 } from '@mui/icons-material';
 
-// Enhanced template data with more fields
+
 const whatsappTemplates = [
   {
     id: 1,
@@ -68,7 +68,7 @@ const WhatsAppTemplate = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [activeTab, setActiveTab] = useState('templates');
 
-  // Filter logic
+  
   const filteredTemplates = whatsappTemplates.filter(template => {
     const matchesSearch = template.title.toLowerCase().includes(search.toLowerCase()) ||
       template.content.toLowerCase().includes(search.toLowerCase());
@@ -111,7 +111,7 @@ const WhatsAppTemplate = () => {
         )}
       </Box>
 
-      {/* Tabs for different views */}
+      
       <Tabs
         value={activeTab}
         onChange={(e, newValue) => setActiveTab(newValue)}
@@ -138,7 +138,7 @@ const WhatsAppTemplate = () => {
         />
       </Tabs>
 
-      {/* Filter Section */}
+      
       <Paper
         elevation={1}
         sx={{
@@ -236,9 +236,9 @@ const WhatsAppTemplate = () => {
         </Grid>
       </Paper>
 
-      {/* Main Content */}
+      
       <Grid container spacing={3}>
-        {/* Template List */}
+        
         <Grid item xs={12} md={5} lg={4}>
           <Paper elevation={1} sx={{ borderRadius: 2, overflow: 'hidden' }}>
             <List sx={{ maxHeight: '70vh', overflow: 'auto' }}>
@@ -308,7 +308,7 @@ const WhatsAppTemplate = () => {
           </Paper>
         </Grid>
 
-        {/* Template Preview */}
+        
         <Grid item xs={12} md={7} lg={8}>
           {selectedTemplate ? (
             <Paper elevation={1} sx={{ p: 3, borderRadius: 2, height: '100%' }}>

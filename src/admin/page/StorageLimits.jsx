@@ -27,10 +27,10 @@ function StorageLimits() {
       </Typography>
 
       <Grid container spacing={3}>
-        {/* Left Panel */}
+        
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: 3, borderRadius: 2 }}>
-            {/* Header */}
+            
             <Box display="flex" justifyContent="space-between" alignItems="center">
               <Box display="flex" alignItems="center" gap={1}>
                 <Typography fontWeight="bold">CUSTOMER STORAGE</Typography>
@@ -41,7 +41,7 @@ function StorageLimits() {
               </Button>
             </Box>
 
-            {/* Storage Summary */}
+            
             <Box mt={3} mb={2}>
               <Typography variant="h4" fontWeight="bold" color="error">
                 {available.toLocaleString()} <Typography component="span" fontSize={16}>40.00%</Typography>
@@ -74,7 +74,7 @@ function StorageLimits() {
               </Box>
             </Box>
 
-            {/* Customers Utilisation */}
+            
             <Typography fontWeight="bold" mt={4} mb={2}>
               CUSTOMERS UTILISATION
             </Typography>
@@ -94,20 +94,20 @@ function StorageLimits() {
               </FormControl>
             </Box>
 
-            {/* Bar Chart (Mock) */}
+            
             <Box mt={2} px={1}>
               <Box display="flex" alignItems="flex-end" height={150} gap={4}>
-                {/* May */}
+                
                 <Box textAlign="center">
                   <Box sx={{ height: 90, width: 20, bgcolor: '#ff5722', borderRadius: 1 }} />
                   <Typography variant="caption">May</Typography>
                 </Box>
-                {/* Jun */}
+                
                 <Box textAlign="center">
                   <Box sx={{ height: 50, width: 20, bgcolor: '#ff5722', borderRadius: 1 }} />
                   <Typography variant="caption">Jun</Typography>
                 </Box>
-                {/* Jul */}
+                
                 <Box textAlign="center">
                   <Box sx={{ height: 70, width: 20, bgcolor: '#ff5722', borderRadius: 1 }} />
                   <Typography variant="caption">Jul</Typography>
@@ -120,7 +120,7 @@ function StorageLimits() {
           </Paper>
         </Grid>
 
-        {/* Right Panel */}
+        
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 3, borderRadius: 2 }}>
             <Box display="flex" alignItems="center" gap={1}>

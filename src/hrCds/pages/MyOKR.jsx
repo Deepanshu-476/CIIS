@@ -120,7 +120,7 @@ const MyOKR = () => {
     const [commentForm, setCommentForm] = useState({ text: '', user: 'You', date: new Date().toISOString().slice(0, 10) });
     const [editCommentId, setEditCommentId] = useState(null);
 
-    // OKR status data for the pie chart
+    
     const statusData = [
         { status: 'Not Started', count: objectives.filter(o => o.status === 'Not Started').length, color: '#3498db' },
         { status: 'Ongoing', count: objectives.filter(o => o.status === 'Ongoing').length, color: '#2ecc71' },
@@ -134,13 +134,13 @@ const MyOKR = () => {
         percentage: totalCount > 0 ? Math.round((item.count / totalCount) * 100) : 0
     }));
 
-    // Filter objectives based on search term
+    
     const filteredObjectives = objectives.filter(obj =>
         obj.objective.toLowerCase().includes(searchTerm.toLowerCase()) ||
         obj.description.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Pagination
+    
     const objectivesPerPage = 5;
     const totalPages = Math.ceil(filteredObjectives.length / objectivesPerPage);
     const paginatedObjectives = filteredObjectives.slice(
@@ -148,7 +148,7 @@ const MyOKR = () => {
         currentPage * objectivesPerPage
     );
 
-    // Generate pie chart paths
+    
     const generatePieChartPaths = () => {
         let cumulativePercentage = 0;
         return statusWithPercentages.map((item, index) => {
@@ -173,7 +173,7 @@ const MyOKR = () => {
         setCurrentPage(newPage);
     };
 
-    // CRUD for Objectives
+    
     const handleOpenObjectiveDialog = (obj = null) => {
         if (obj) {
             setEditObjectiveId(obj.id);
@@ -228,7 +228,7 @@ const MyOKR = () => {
         setObjectives(objectives.filter(obj => obj.id !== id));
     };
 
-    // CRUD for Comments
+    
     const handleOpenCommentDialog = (objectiveId, comment = null) => {
         setCommentObjectiveId(objectiveId);
         if (comment) {
@@ -448,7 +448,7 @@ const MyOKR = () => {
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
                 <Pagination count={totalPages} page={currentPage} onChange={handlePageChange} color="primary" />
             </Box>
-            {/* Add/Edit Objective Dialog */}
+            
             <Dialog open={objectiveDialogOpen} onClose={handleCloseObjectiveDialog} maxWidth="sm" fullWidth>
                 <DialogTitle>{editObjectiveId ? 'Edit Objective' : 'Add Objective'}</DialogTitle>
                 <form onSubmit={handleObjectiveSubmit}>
@@ -480,7 +480,7 @@ const MyOKR = () => {
                     </DialogActions>
                 </form>
             </Dialog>
-            {/* Add/Edit Comment Dialog */}
+            
             <Dialog open={commentDialogOpen} onClose={handleCloseCommentDialog} maxWidth="xs" fullWidth>
                 <DialogTitle>{editCommentId ? 'Edit Comment' : 'Add Comment'}</DialogTitle>
                 <form onSubmit={handleCommentSubmit}>

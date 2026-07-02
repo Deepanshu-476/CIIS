@@ -26,7 +26,7 @@ const EmpAssets = () => {
   const [departmentMap, setDepartmentMap] = useState({});
   const [showFilters, setShowFilters] = useState(false);
 
-  // User Role Related States
+  
   const [currentUser, setCurrentUser] = useState(null);
   const [currentUserRole, setCurrentUserRole] = useState('');
   const [currentUserDepartment, setCurrentUserDepartment] = useState('');
@@ -36,7 +36,7 @@ const EmpAssets = () => {
   const [currentUserName, setCurrentUserName] = useState('');
   const [allUsers, setAllUsers] = useState([]);
   
-  // Permission States
+  
   const [isOwner, setIsOwner] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isHR, setIsHR] = useState(false);
@@ -49,38 +49,38 @@ const EmpAssets = () => {
     canViewHistory: true
   });
 
-  // Get company code from localStorage
+  
   const companyCode = localStorage.getItem('companyCode') || 'Mohit';
 
-  // ============================================
-  // INITIALIZATION
-  // ============================================
+  
+  
+  
   useEffect(() => {
     fetchCurrentUserAndCompany();
   }, []);
 
-  // Fetch data when filters change
+  
   useEffect(() => { 
     if (currentUserCompanyCode) {
       fetchRequests();
     }
   }, [statusFilter, selectedCompany, selectedDepartment, currentUserCompanyCode, isOwner]);
 
-  // Load departments on component mount
+  
   useEffect(() => {
     if (currentUserCompanyId) {
       fetchDepartments();
     }
   }, [currentUserCompanyId]);
 
-  // ============================================
-  // USER & PERMISSION FUNCTIONS
-  // ============================================
+  
+  
+  
   const fetchCurrentUserAndCompany = async () => {
     try {
       const userStr = localStorage.getItem('user');
       if (!userStr) {
-        console.log("⚠️ No user found in localStorage");
+        void 0;
         return;
       }
 
@@ -125,7 +125,7 @@ const EmpAssets = () => {
         canViewHistory: true
       });
       
-      // Auto-set company filter for current user's company
+      
       if (companyCode) {
         setSelectedCompany(companyCode);
       }
@@ -172,9 +172,9 @@ const EmpAssets = () => {
     }
   };
 
-  // ============================================
-  // FETCH DEPARTMENTS
-  // ============================================
+  
+  
+  
   const fetchDepartments = async () => {
     try {
       let url = '/departments';
@@ -190,15 +190,15 @@ const EmpAssets = () => {
         url += `?${params.join('&')}`;
       }
       
-      console.log("🏢 Fetching departments from:", url);
+      void 0;
       const { data } = await axios.get(url);
       
-      console.log("✅ Departments API response:", data);
+      void 0;
       
       let departmentsData = [];
       let departmentMapping = {};
       
-      // Handle different response structures
+      
       if (data.success && data.departments) {
         departmentsData = data.departments;
       } else if (Array.isArray(data)) {
@@ -207,7 +207,7 @@ const EmpAssets = () => {
         departmentsData = data.data;
       }
       
-      // Create department map { id: name }
+      
       if (Array.isArray(departmentsData)) {
         departmentsData.forEach(dept => {
           const deptId = dept._id || dept.id;
@@ -218,9 +218,9 @@ const EmpAssets = () => {
         });
       }
       
-      console.log("📊 Department mapping created:", departmentMapping);
+      void 0;
       
-      // Extract department names for dropdown
+      
       const deptNames = departmentsData.map(dept => dept.name || dept.departmentName || dept).filter(Boolean);
       
       setDepartmentMap(departmentMapping);
@@ -232,36 +232,36 @@ const EmpAssets = () => {
     }
   };
 
-  // ============================================
-  // GET DEPARTMENT NAME
-  // ============================================
+  
+  
+  
   const getDepartmentName = (dept) => {
     if (!dept) return 'Not Assigned';
     
-    // CASE 1: If it's already a string and not an ID pattern, return as is
+    
     if (typeof dept === 'string') {
-      // Check if it looks like a MongoDB ID (24 hex chars)
+      
       const isMongoId = /^[0-9a-fA-F]{24}$/.test(dept);
       
       if (!isMongoId) {
-        return dept; // Already a name
+        return dept; 
       }
       
-      // Try to get from department map
+      
       if (departmentMap[dept]) {
         return departmentMap[dept];
       }
       
-      // Try to find in departments array
+      
       const foundDept = departments.find(d => d._id === dept || d.id === dept);
       if (foundDept) {
         return foundDept.name || foundDept.departmentName || dept;
       }
       
-      return 'Department'; // Fallback
+      return 'Department'; 
     }
     
-    // CASE 2: If it's an object with name property
+    
     if (typeof dept === 'object') {
       if (dept.name) {
         return dept.name;
@@ -284,10 +284,10 @@ const EmpAssets = () => {
     requestsData.forEach(req => {
       if (req.department) {
         if (typeof req.department === 'string') {
-          // Check if it's an ID
+          
           const isMongoId = /^[0-9a-fA-F]{24}$/.test(req.department);
           if (!isMongoId) {
-            deptSet.add(req.department); // It's a name
+            deptSet.add(req.department); 
           }
         } else if (req.department.name) {
           deptSet.add(req.department.name);
@@ -302,27 +302,27 @@ const EmpAssets = () => {
     setDepartments(Array.from(deptSet).sort());
   };
 
-  // ============================================
-  // 🔥 FIXED: FETCH ASSET REQUESTS - CORRECT ENDPOINTS
-  // ============================================
+  
+  
+  
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      // ✅ FIXED: Use correct endpoint - /asset-requests/all instead of /assets/all
+      
       let url = `/asset-requests/all`;
       const params = [];
       
-      // Always add company filter
+      
       if (currentUserCompanyCode) {
         params.push(`companyCode=${currentUserCompanyCode}`);
       } else if (selectedCompany) {
         params.push(`companyCode=${selectedCompany}`);
       }
       
-      // For non-owners, force filter by their department
+      
       if (!isOwner && !isAdmin && !isHR) {
         if (currentUserDepartment) {
-          console.log("📊 Filtering asset requests by department:", currentUserDepartment);
+          void 0;
           const deptValue = typeof currentUserDepartment === 'object' 
             ? currentUserDepartment._id || currentUserDepartment.id 
             : currentUserDepartment;
@@ -334,7 +334,7 @@ const EmpAssets = () => {
           return;
         }
       } else {
-        // For owners/admins/HR, apply department filter only if selected
+        
         if (selectedDepartment) {
           params.push(`department=${selectedDepartment}`);
         }
@@ -346,7 +346,7 @@ const EmpAssets = () => {
         url += `?${params.join('&')}`;
       }
       
-      console.log("🌐 Fetching asset requests from:", url);
+      void 0;
       const { data } = await axios.get(url);
       
       let requestsData = [];
@@ -356,9 +356,9 @@ const EmpAssets = () => {
         requestsData = data;
       }
       
-      console.log(`✅ Fetched ${requestsData.length} asset requests`);
+      void 0;
       
-      // For non-owners, double-check filtering by department (safety net)
+      
       if (!isOwner && !isAdmin && !isHR && currentUserDepartment) {
         const beforeFilter = requestsData.length;
         const deptValue = typeof currentUserDepartment === 'object' 
@@ -371,14 +371,14 @@ const EmpAssets = () => {
         });
         
         if (requestsData.length !== beforeFilter) {
-          console.log(`🔒 Filtered out ${beforeFilter - requestsData.length} requests from other departments`);
+          void 0;
         }
       }
       
       setRequests(requestsData);
       calculateStats(requestsData);
       
-      // Update departments based on fetched requests
+      
       extractDepartmentsFromRequests(requestsData);
     } catch (err) {
       setNotification({ message: 'Failed to fetch requests', severity: 'error' });
@@ -395,9 +395,9 @@ const EmpAssets = () => {
     setStats({ total: data.length, pending, approved, rejected });
   };
 
-  // ============================================
-  // PERMISSION CHECK FUNCTIONS
-  // ============================================
+  
+  
+  
   const canApproveRequest = () => {
     return isOwner === true || isAdmin === true || isHR === true || isManager === true;
   };
@@ -410,12 +410,12 @@ const EmpAssets = () => {
     return isOwner === true || isAdmin === true || isHR === true || isManager === true;
   };
 
-  // ============================================
-  // 🔥 FIXED: HANDLE FUNCTIONS WITH CORRECT ENDPOINTS
-  // ============================================
+  
+  
+  
   const handleStatFilter = (type) => {
     if (selectedStat === type) {
-      // If clicking the same filter, clear it
+      
       setSelectedStat('All');
       setStatusFilter('');
     } else {
@@ -436,7 +436,7 @@ const EmpAssets = () => {
     if (!window.confirm('Are you sure you want to delete this request?')) return;
     setActionLoading(true);
     try {
-      // ✅ FIXED: Use correct endpoint - /asset-requests/delete/:id
+      
       await axios.delete(`/asset-requests/delete/${id}`);
       setNotification({ message: 'Request deleted successfully', severity: 'success' });
       fetchRequests();
@@ -536,7 +536,7 @@ const EmpAssets = () => {
 
     setActionLoading(true);
     try {
-      // ✅ FIXED: Use correct endpoint - /asset-requests/update/:id
+      
       const payload = buildStatusPayload(request, newStatus);
       await patchStatusWithFallbacks(reqId, payload);
       setNotification({ message: 'Status updated successfully', severity: 'success' });
@@ -577,15 +577,15 @@ const EmpAssets = () => {
     
     setActionLoading(true);
     try {
-      // ✅ FIXED: Use correct endpoint - /asset-requests/update/:id
+      
       await axios.patch(`/asset-requests/update/${editingCommentReq._id}`, {
         adminComment: commentText,
       });
       setNotification({ message: 'Comment updated successfully', severity: 'success' });
-      // Show the comment in the UI immediately.
+      
         await fetchRequests();
 
-        // Clear the textarea.
+        
         setCommentText('');
     } catch (err) {
       setNotification({ message: 'Failed to update comment', severity: 'error' });
@@ -597,17 +597,17 @@ const EmpAssets = () => {
 
   const handleCompanyFilter = () => {
     if (selectedCompany === currentUserCompanyCode) {
-      // If already filtering by this company, clear the filter
+      
       setSelectedCompany('');
     } else {
       setSelectedCompany(currentUserCompanyCode);
     }
-    // Don't clear department when toggling company
+    
     fetchDepartments();
   };
 
   const handleClearFilters = () => {
-    setSelectedCompany(currentUserCompanyCode); // Keep user's company as default
+    setSelectedCompany(currentUserCompanyCode); 
     setSelectedDepartment('');
     setStatusFilter('');
     setSelectedStat('All');
@@ -617,10 +617,10 @@ const EmpAssets = () => {
 
   const handleDepartmentChange = (e) => {
     setSelectedDepartment(e.target.value);
-    // Don't clear other filters, just update department
+    
   };
 
-  // Get active filter count
+  
   const getActiveFilterCount = () => {
     let count = 0;
     if (selectedDepartment) count++;
@@ -629,7 +629,7 @@ const EmpAssets = () => {
     return count;
   };
 
-  // Auto-hide notification after 3 seconds
+  
   useEffect(() => {
     if (notification) {
       const timer = setTimeout(() => {
@@ -644,7 +644,7 @@ const EmpAssets = () => {
   const filteredRequests = requests.filter(req => {
     const searchLower = searchTerm.toLowerCase();
     
-    // Handle department search properly
+    
     let departmentMatch = false;
     if (req.department) {
       const deptName = getDepartmentName(req.department);
@@ -750,14 +750,14 @@ const EmpAssets = () => {
     );
   };
 
-  // Loading state - Use CIISLoader
+  
   if (loading) {
     return <CIISLoader />;
   }
 
   return (
     <div className="EmpAssets-container">
-      {/* Header Section */}
+      
       <div className="EmpAssets-header">
         <h1>Asset Requests Management</h1>
         <p>
@@ -772,7 +772,7 @@ const EmpAssets = () => {
         </p>
       </div>
 
-      {/* Permission Warning Banner */}
+      
       {!canApproveRequest() && (
         <div className="EmpAssets-warning-banner">
           <div className="EmpAssets-warning-content">
@@ -785,7 +785,7 @@ const EmpAssets = () => {
         </div>
       )}
 
-      {/* Department Info Banner - Show for non-privileged users */}
+      
       {!isOwner && !isAdmin && !isHR && !isManager && currentUserDepartment && (
         <div className="EmpAssets-department-info-banner">
           <div className="EmpAssets-info-content">
@@ -798,7 +798,7 @@ const EmpAssets = () => {
         </div>
       )}
 
-      {/* Company Info Bar */}
+      
       <div className="EmpAssets-company-bar">
         <div className="EmpAssets-company-info">
           <span>Company: <strong>{currentUserCompanyCode || companyCode}</strong></span>
@@ -833,7 +833,7 @@ const EmpAssets = () => {
         </div>
       </div>
 
-      {/* Stats Cards - Only show cards with count > 0 */}
+      
       <div className="EmpAssets-stats-grid">
         {[
           { label: 'Total Requests', count: stats.total, color: 'primary', type: 'All', icon: <FiPackage />, alwaysShow: true },
@@ -861,7 +861,7 @@ const EmpAssets = () => {
           ))}
       </div>
 
-      {/* Filters Section */}
+      
       <div className={`EmpAssets-filters-container ${showFilters ? 'expanded' : ''}`}>
         <div className="EmpAssets-search-container">
           <div className="EmpAssets-search-input">
@@ -876,7 +876,7 @@ const EmpAssets = () => {
         </div>
 
         <div className="EmpAssets-filter-options">
-          {/* Only show department filter for users who can view all departments */}
+          
           {(isOwner || isAdmin || isHR) && (
             <div className="EmpAssets-department-filter">
               <FiBriefcase />
@@ -898,7 +898,7 @@ const EmpAssets = () => {
             </div>
           )}
           
-          {/* For non-privileged users, show read-only department info */}
+          
           {!isOwner && !isAdmin && !isHR && currentUserDepartment && (
             <div className="EmpAssets-department-readonly">
               <FiBriefcase />
@@ -908,7 +908,7 @@ const EmpAssets = () => {
         </div>
       </div>
 
-      {/* Active Filters Display */}
+      
       {(selectedDepartment || statusFilter) && (
         <div className="EmpAssets-active-filters">
           <span className="EmpAssets-active-filters-label">Active Filters:</span>
@@ -930,7 +930,7 @@ const EmpAssets = () => {
         </div>
       )}
 
-      {/* Table Section */}
+      
       <div className="EmpAssets-table-container">
         <table className="EmpAssets-table">
           <thead>
@@ -1057,7 +1057,7 @@ const EmpAssets = () => {
         </table>
       </div>
 
-      {/* Comment Dialog */}
+      
       {editingCommentReq && (
         <div className="EmpAssets-dialog-overlay">
           <div className="EmpAssets-dialog">
@@ -1067,7 +1067,7 @@ const EmpAssets = () => {
             </div>
             <div className="EmpAssets-dialog-body">
 
-              {/* ✅ TEXTAREA (YE MISSING HAI) */}
+              
               <textarea
                 className="EmpAssets-textarea-field"
                 value={commentText}
@@ -1077,7 +1077,7 @@ const EmpAssets = () => {
                 autoFocus
               />
 
-              {/* ✅ PREVIOUS COMMENT */}
+              
               {editingCommentReq?.adminComments?.length > 0 && (
                 <div style={{ marginTop: "10px" }}>
                   <strong>Comments:</strong>
@@ -1116,7 +1116,7 @@ const EmpAssets = () => {
         </div>
       )}
 
-      {/* Snackbar Notification */}
+      
       {notification && (
         <div className="EmpAssets-snackbar" onClick={() => setNotification(null)}>
           <div className={`EmpAssets-snackbar-content ${notification.severity}`}>

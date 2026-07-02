@@ -366,7 +366,7 @@ const CompanyManagement = () => {
   const fetchCompanies = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API_URL}/company`);
+      const res = await axios.get(`${API_URL}/company`, { params: { page: 1, limit: 100 } });
 
       if (res.data?.success && Array.isArray(res.data?.data)) {
         setCompanies(res.data.data);
@@ -392,7 +392,7 @@ const CompanyManagement = () => {
     if (type === "file") {
       const file = files[0];
       if (file) {
-        // Validate file type
+        
         if (!file.type.match("image.*")) {
           setFormErrors((prev) => ({
             ...prev,
@@ -401,7 +401,7 @@ const CompanyManagement = () => {
           return;
         }
         
-        // Validate file size (max 2MB)
+        
         if (file.size > 2 * 1024 * 1024) {
           setFormErrors((prev) => ({
             ...prev,
@@ -413,10 +413,10 @@ const CompanyManagement = () => {
         setForm((prev) => ({
           ...prev,
           [name]: file,
-          logo: "", // Clear URL if file is uploaded
+          logo: "", 
         }));
 
-        // Create preview
+        
         const reader = new FileReader();
         reader.onload = (e) => {
           setLogoPreview(e.target.result);
@@ -496,7 +496,7 @@ const CompanyManagement = () => {
     setFormErrors({});
   };
 
-  // ✅ FIXED: Updated logo upload function with correct endpoint
+  
   const uploadLogoToServer = async (file) => {
     if (!file) return null;
     
@@ -504,16 +504,16 @@ const CompanyManagement = () => {
     formData.append('logo', file);
     
     try {
-      console.log("Uploading logo to:", `${API_URL}/company/upload-logo`);
+      void 0;
       
       const uploadRes = await axios.post(`${API_URL}/company/upload-logo`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-        timeout: 30000, // 30 seconds timeout
+        timeout: 30000, 
       });
       
-      console.log("Logo upload response:", uploadRes.data);
+      void 0;
       
       if (uploadRes.data.success) {
         return uploadRes.data.logoUrl;
@@ -523,17 +523,17 @@ const CompanyManagement = () => {
     } catch (err) {
       console.error("❌ Logo upload failed:", err);
       
-      // Provide detailed error message
+      
       let errorMessage = "Failed to upload logo";
       
       if (err.response) {
-        // Server responded with error
+        
         errorMessage = err.response.data.message || errorMessage;
       } else if (err.request) {
-        // Request made but no response
+        
         errorMessage = "No response from server. Check if backend is running.";
       } else {
-        // Something else happened
+        
         errorMessage = err.message || errorMessage;
       }
       
@@ -541,7 +541,7 @@ const CompanyManagement = () => {
     }
   };
 
-  // ✅ FIXED: Improved error handling in submit
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -560,11 +560,11 @@ const CompanyManagement = () => {
     try {
       let logoUrl = form.logo;
       
-      // Upload new logo if exists
+      
       if (form.logoFile) {
         try {
           logoUrl = await uploadLogoToServer(form.logoFile);
-          console.log("✅ Logo uploaded successfully:", logoUrl);
+          void 0;
         } catch (uploadError) {
           setError(`Logo upload failed: ${uploadError.message}. Please try again or use logo URL instead.`);
           setIsSubmitting(false);
@@ -578,7 +578,7 @@ const CompanyManagement = () => {
         logo: logoUrl,
       };
 
-      // Remove the file object before sending
+      
       delete formData.logoFile;
 
       if (isEditing && !formData.ownerPassword?.trim()) {
@@ -647,7 +647,7 @@ const CompanyManagement = () => {
     setIsEditing(true);
     setViewMode("edit");
     
-    // Set logo preview if logo exists
+    
     if (company.logo) {
       setLogoPreview(company.logo);
     } else {
@@ -871,7 +871,7 @@ const CompanyManagement = () => {
         position: "relative",
         animation: "fadeIn 0.8s ease-out",
       }}>
-        {/* Header */}
+        
         <div style={{
           display: "flex",
           alignItems: "center",
@@ -975,7 +975,7 @@ const CompanyManagement = () => {
           </button>
         </div>
 
-        {/* Messages */}
+        
         <div style={{ marginBottom: "24px" }}>
           {msg && (
             <div style={{
@@ -1134,7 +1134,7 @@ const CompanyManagement = () => {
           )}
         </div>
 
-        {/* Search Section */}
+        
         <div style={{
           background: "rgba(255, 255, 255, 0.95)",
           backdropFilter: "blur(10px)",
@@ -1325,7 +1325,7 @@ const CompanyManagement = () => {
           </div>
         </div>
 
-        {/* Edit Form */}
+        
         {viewMode === "edit" && isEditing && (
           <div style={{
             background: "rgba(255, 255, 255, 0.98)",
@@ -1930,7 +1930,7 @@ const CompanyManagement = () => {
           </div>
         )}
 
-        {/* Main Content - Company List */}
+        
         <div>
           <div style={{
             background: "rgba(255, 255, 255, 0.98)",
@@ -2005,7 +2005,7 @@ const CompanyManagement = () => {
               </div>
             </div>
 
-            {/* Company Details Card */}
+            
             {viewMode === "view" && selectedCompany && (
               <div style={{
                 background: "#f8fafc",
@@ -2338,7 +2338,7 @@ const CompanyManagement = () => {
               </div>
             )}
 
-            {/* Companies Table */}
+            
             <div style={{
               flex: 1,
               overflowY: "auto",
@@ -2664,7 +2664,7 @@ const CompanyManagement = () => {
           </div>
         </div>
 
-        {/* Footer */}
+        
         <div style={{
           marginTop: "30px",
           padding: isMobile ? "16px" : "20px",

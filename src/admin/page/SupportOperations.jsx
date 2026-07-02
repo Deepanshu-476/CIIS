@@ -229,7 +229,7 @@ const SupportOperations = () => {
       const response = await axiosInstance.get("/support/admin/reports");
       if (response.data?.success) {
         toast.success("Report generated in backend");
-        console.log("Support report:", response.data);
+        void 0;
       }
     } catch (error) {
       console.error("Generate report failed:", error);
@@ -297,20 +297,7 @@ const SupportOperations = () => {
             </button>
           </div>
         </div>
-        {/* <aside className="support-notification-card">
-          <div className="support-panel-header">
-            <div>
-              <span className="support-panel-kicker">Today</span>
-              <h2>Operations Pulse</h2>
-            </div>
-            <Activity size={20} />
-          </div>
-          <div className="support-kpi-strip">
-            <div className="support-kpi"><strong>{stats.newEnquiriesToday}</strong><span>New enquiries</span></div>
-            <div className="support-kpi"><strong>{stats.avgResponse}</strong><span>Avg response</span></div>
-            <div className="support-kpi"><strong>{stats.escalatedTickets}</strong><span>Escalations</span></div>
-          </div>
-        </aside> */}
+        
       </section>
 
       <section className="support-stats-grid">

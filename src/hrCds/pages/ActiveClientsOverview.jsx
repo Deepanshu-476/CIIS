@@ -30,6 +30,24 @@ import {
 import './ActiveClientsOverview.css';
 
 const getAuthToken = () => localStorage.getItem('token') || localStorage.getItem('authToken');
+const ACTIVE_CLIENTS_PAGE_SIZE = 50;
+const RELATED_FETCH_CONCURRENCY = 5;
+
+const mapWithConcurrency = async (items, limit, mapper) => {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await mapper(items[currentIndex], currentIndex);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+};
 
 const clientsApi = axios.create({
   baseURL: `${API_URL}/clientsservice`,
@@ -114,7 +132,7 @@ const getTasksFromResponse = response => {
   return [];
 };
 
-const getStatsFromResponse = response => response.data?.data?.stats || null;
+const getStatsFromResponse = response => response.data?.data?.overall || response.data?.overall || null;
 
 const formatBytes = bytes => {
   const size = Number(bytes || 0);
@@ -366,7 +384,7 @@ const ActiveClientsOverview = () => {
       params: {
         companyCode,
         status: 'Active',
-        limit: 500,
+        limit: ACTIVE_CLIENTS_PAGE_SIZE,
         page: 1,
         sortBy: 'client',
         sortOrder: 'asc',
@@ -375,50 +393,37 @@ const ActiveClientsOverview = () => {
 
     const firstPageClients = firstResponse.data?.data || [];
     const pagination = firstResponse.data?.pagination || {};
-    const totalPages = Number(pagination.totalPages || 1);
-
-    if (totalPages <= 1) {
-      return {
-        clients: firstPageClients,
-        pagination,
-      };
-    }
-
-    const remainingResponses = await Promise.all(
-      Array.from({ length: totalPages - 1 }, (_, index) => clientsApi.get('/', {
-        params: {
-          companyCode,
-          status: 'Active',
-          limit: 500,
-          page: index + 2,
-          sortBy: 'client',
-          sortOrder: 'asc',
-        },
-      }))
-    );
 
     return {
-      clients: [
-        ...firstPageClients,
-        ...remainingResponses.flatMap(response => response.data?.data || []),
-      ],
+      clients: firstPageClients,
       pagination,
     };
   };
 
   const fetchClientTasks = async client => {
     try {
-      const response = await clientTasksApi.get(`/client/${client._id}`);
+      const response = await clientTasksApi.get(`/client/${client._id}`, {
+        params: { page: 1, limit: 50 },
+      });
       return {
         tasks: getTasksFromResponse(response).map(task => ({
           ...task,
           serviceName: task.serviceName || task.service,
         })),
-        stats: getStatsFromResponse(response),
       };
     } catch (err) {
       console.error(`Failed to load tasks for ${getClientDisplayName(client)}`, err);
-      return { tasks: [], stats: null };
+      return { tasks: [] };
+    }
+  };
+
+  const fetchClientStats = async client => {
+    try {
+      const response = await clientTasksApi.get(`/client/${client._id}/stats`);
+      return getStatsFromResponse(response);
+    } catch (err) {
+      console.error(`Failed to load task stats for ${getClientDisplayName(client)}`, err);
+      return null;
     }
   };
 
@@ -562,15 +567,28 @@ const ActiveClientsOverview = () => {
 
       const { clients: loadedClients, pagination } = await fetchActiveClients(companyCode);
       const active = loadedClients.filter(client => String(client.status || 'Active').toLowerCase() === 'active');
-      const taskResults = await Promise.all(active.map(async client => [client._id, await fetchClientTasks(client)]));
-      const documentResults = await Promise.all(active.map(async client => [client._id, await fetchClientDocuments(client)]));
+      const taskResults = await mapWithConcurrency(
+        active,
+        RELATED_FETCH_CONCURRENCY,
+        async client => [client._id, await fetchClientTasks(client)]
+      );
+      const statsResults = await mapWithConcurrency(
+        active,
+        RELATED_FETCH_CONCURRENCY,
+        async client => [client._id, await fetchClientStats(client)]
+      );
+      const documentResults = await mapWithConcurrency(
+        active,
+        RELATED_FETCH_CONCURRENCY,
+        async client => [client._id, await fetchClientDocuments(client)]
+      );
 
       setClients(loadedClients);
       setClientTaskMap(Object.fromEntries(taskResults.map(([clientId, result]) => [clientId, result.tasks])));
       setClientStatsMap(Object.fromEntries(
-        taskResults
-          .filter(([, result]) => result.stats)
-          .map(([clientId, result]) => [clientId, result.stats])
+        statsResults
+          .filter(([, stats]) => stats)
+          .map(([clientId, stats]) => [clientId, stats])
       ));
       setClientDocumentMap(Object.fromEntries(documentResults));
       setApiInfo({ totalItems: pagination.totalItems || active.length, companyCode });

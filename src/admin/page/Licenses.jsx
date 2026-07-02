@@ -53,7 +53,7 @@ function Licenses() {
 
   return (
     <Box sx={{ p: 2 }}>
-      {/* Header */}
+      
       <Typography variant="h6" gutterBottom>
         3 Licenses{' '}
         <Typography component="span" sx={{ color: 'green', fontWeight: 500 }}>
@@ -65,7 +65,7 @@ function Licenses() {
         </Typography>
       </Typography>
 
-      {/* Filters */}
+      
       <Grid container spacing={2} mb={2}>
         <Grid item xs={12} sm={4}>
           <FormControl fullWidth size="small">
@@ -98,9 +98,9 @@ function Licenses() {
         </Grid>
       </Grid>
 
-      {/* Table container with scroll on small screens */}
+      
       <Box sx={{ overflowX: 'auto' }}>
-        {/* Table Header */}
+        
         <Paper
           sx={{
             p: 2,
@@ -125,7 +125,7 @@ function Licenses() {
           </Grid>
         </Paper>
 
-        {/* Table Rows */}
+        
         {licenses.map((license) => (
           <Paper
             key={license.id}

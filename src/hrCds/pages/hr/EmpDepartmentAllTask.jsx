@@ -15,7 +15,7 @@ import {
   FiEdit3, FiExternalLink, FiMoreVertical, FiShare2, FiInfo, FiHash, FiFlag
 } from "react-icons/fi";
 
-// Status Options
+
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All Status', color: '#6c757d', icon: FiGrid, bgColor: '#e9ecef' },
   { value: 'pending', label: 'Pending', color: '#ffc107', icon: FiClock, bgColor: '#fff3cd' },
@@ -38,7 +38,7 @@ const TaskDetails = () => {
   const [usersLoading, setUsersLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // User states
+  
   const [currentUser, setCurrentUser] = useState(null);
   const [currentUserRole, setCurrentUserRole] = useState("");
 
@@ -72,7 +72,7 @@ const TaskDetails = () => {
     return new Date(date) >= start && new Date(date) <= end;
   };
 
-  // Overall Statistics
+  
   const [overallStats, setOverallStats] = useState({
     total: 0,
     pending: 0,
@@ -86,7 +86,7 @@ const TaskDetails = () => {
     cancelled: 0
   });
 
-  // Individual user statistics
+  
   const [userTaskStats, setUserTaskStats] = useState({
     total: 0,
     pending: { count: 0, percentage: 0 },
@@ -108,7 +108,7 @@ const TaskDetails = () => {
     activeEmployees: 0
   });
 
-  // ✅ FIXED: User authentication function - NO ACCESS RESTRICTIONS
+  
   useEffect(() => {
     const fetchUserData = () => {
       try {
@@ -121,12 +121,12 @@ const TaskDetails = () => {
         const user = JSON.parse(userStr);
         setCurrentUser(user);
         
-        // Check if user has a name field or use email
+        
         if (!user.name && user.email) {
           user.name = user.email.split('@')[0];
         }
 
-        setCurrentUserRole('user'); // Set default role for all users
+        setCurrentUserRole('user'); 
         
       } catch (error) {
         console.error("Error parsing user data:", error);
@@ -137,10 +137,10 @@ const TaskDetails = () => {
     fetchUserData();
   }, []);
 
-  // ✅ REMOVED: Role-based access control - ALL USERS CAN ACCESS
+  
   const canManage = true;
 
-  // Calculate overall stats from all users
+  
   const calculateOverallStats = (usersData) => {
     if (!usersData || usersData.length === 0) {
       const emptyStats = {};
@@ -166,7 +166,7 @@ const TaskDetails = () => {
       cancelled: 0
     };
 
-    // Calculate totals from all users
+    
     usersData.forEach(user => {
       const userStats = user.taskStats || {};
 
@@ -184,7 +184,7 @@ const TaskDetails = () => {
 
     setOverallStats(stats);
 
-    // Calculate system stats
+    
     const totalTasks = stats.total;
     const totalUsers = usersData.length;
     const activeUsers = usersData.filter(user => (user.taskStats?.total || 0) > 0).length;
@@ -202,14 +202,14 @@ const TaskDetails = () => {
     });
   };
 
-  // ✅ FIXED: Fetch Users Function - NO RESTRICTIONS
+  
   const fetchUsersWithTasks = async () => {
     setUsersLoading(true);
     setError("");
     try {
-      console.log("📤 Fetching all users with tasks...");
+      void 0;
 
-      // Get token from localStorage
+      
       const token = localStorage.getItem('token');
       if (!token) {
         setError("Please log in to access this page");
@@ -217,7 +217,7 @@ const TaskDetails = () => {
         return;
       }
 
-      // Add authorization header
+      
       const config = {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -225,17 +225,17 @@ const TaskDetails = () => {
         }
       };
 
-      // Try different endpoints
+      
       let response = null;
 
-      // Try general users endpoint first
+      
       try {
-        console.log("🔍 Trying general endpoint...");
+        void 0;
         response = await axios.get('/task/department-users-with-counts', config);
       } catch (generalError) {
-        console.log("General endpoint failed, trying fallback...");
+        void 0;
         try {
-          // Fallback: Get all users
+          
           const usersResponse = await axios.get('/auth/users', config);
           if (usersResponse.data?.users) {
             const usersWithEmptyStats = usersResponse.data.users.map(user => ({
@@ -266,7 +266,7 @@ const TaskDetails = () => {
         }
       }
 
-      // Handle different response formats
+      
       let usersData = [];
 
       if (response.data?.users && Array.isArray(response.data.users)) {
@@ -277,9 +277,9 @@ const TaskDetails = () => {
         usersData = response.data;
       }
 
-      console.log("✅ Users data received:", usersData.length);
+      void 0;
 
-      // Ensure each user has taskStats
+      
       const usersWithStats = usersData.map(user => ({
         ...user,
         name: user.name || user.email?.split('@')[0] || 'Unknown User',
@@ -305,7 +305,7 @@ const TaskDetails = () => {
     } catch (err) {
       console.error("❌ Error fetching users with tasks:", err);
 
-      // Better error handling
+      
       if (err.response?.status === 401) {
         setError("Your session has expired. Please log in again.");
         localStorage.removeItem('user');
@@ -321,7 +321,7 @@ const TaskDetails = () => {
         );
       }
 
-      // Set empty users array
+      
       setUsers([]);
       calculateOverallStats([]);
     } finally {
@@ -329,11 +329,11 @@ const TaskDetails = () => {
     }
   };
 
-  // Filtered users based on search query
+  
   const filteredUsers = useMemo(() => {
     let filtered = users;
 
-    // Filter by search query
+    
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(user =>
@@ -346,7 +346,7 @@ const TaskDetails = () => {
     return filtered;
   }, [users, searchQuery]);
 
-  // Get non-zero statuses for overall stats
+  
   const getNonZeroStatuses = useMemo(() => {
     return STATUS_OPTIONS.filter(status => {
       if (status.value === 'all') return true;
@@ -354,14 +354,14 @@ const TaskDetails = () => {
     });
   }, [overallStats]);
 
-  // Filter tasks based on active status filters
+  
   const filteredTasks = useMemo(() => {
     if (!Array.isArray(tasks)) return [];
 
     let filtered = [...tasks];
     const now = new Date();
 
-    /* 🔍 SEARCH FILTER */
+     
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(task =>
@@ -371,7 +371,7 @@ const TaskDetails = () => {
       );
     }
 
-    /* 📌 STATUS FILTER */
+     
     if (!activeStatusFilters.includes("all")) {
       filtered = filtered.filter(task => {
         const status = task.userStatus || task.status || task.overallStatus;
@@ -379,14 +379,14 @@ const TaskDetails = () => {
       });
     }
 
-    /* 📅 DATE FILTER */
+     
     filtered = filtered.filter(task => {
       const rawDate = task.dueDateTime || task.createdAt;
       if (!rawDate) return false;
 
       const taskTime = new Date(rawDate).setHours(0, 0, 0, 0);
 
-      // 🔹 DATE RANGE FILTER (From – To)
+      
       if (fromDate || toDate) {
         const fromTime = fromDate
           ? new Date(fromDate).setHours(0, 0, 0, 0)
@@ -402,7 +402,7 @@ const TaskDetails = () => {
         return true;
       }
 
-      // 🔹 QUICK DATE FILTERS
+      
       if (dateFilter === "today") {
         return isSameDay(rawDate, now);
       }
@@ -424,12 +424,12 @@ const TaskDetails = () => {
       return true;
     });
 
-    /* 🚦 PRIORITY FILTER */
+     
     if (priorityFilter !== "all") {
       filtered = filtered.filter(task => task.priority === priorityFilter);
     }
 
-    /* ⭐ TODAY TASKS ALWAYS ON TOP */
+     
     filtered.sort((a, b) => {
       const aDate = a.dueDateTime || a.createdAt;
       const bDate = b.dueDateTime || b.createdAt;
@@ -458,12 +458,12 @@ const TaskDetails = () => {
     if (fromDate || toDate) setDateFilter("all");
   }, [fromDate, toDate]);
 
-  // Fetch all users with task counts from backend
+  
   useEffect(() => {
     fetchUsersWithTasks();
   }, []);
 
-  // Fetch task status counts for specific user
+  
   const fetchTaskStatusCounts = async (userId) => {
     try {
       const response = await axios.get(`/task/user/${userId}/stats`);
@@ -490,7 +490,7 @@ const TaskDetails = () => {
     }
   };
 
-  // Calculate stats from tasks data (fallback)
+  
   const calculateStatsFromTasks = () => {
     if (!tasks || tasks.length === 0) {
       setUserTaskStats({
@@ -569,7 +569,7 @@ const TaskDetails = () => {
     });
   };
 
-  // Handle status filter toggle
+  
   const handleStatusFilterToggle = (status) => {
     setActiveStatusFilters(prev => {
       if (status === 'all') {
@@ -587,7 +587,7 @@ const TaskDetails = () => {
     });
   };
 
-  // Fetch user tasks
+  
   const fetchUserTasks = async (userId) => {
     setLoading(true);
     setError("");
@@ -614,7 +614,7 @@ const TaskDetails = () => {
         const tasksData = res.data.tasks || [];
         setTasks(tasksData);
 
-        // Fetch stats from backend
+        
         await fetchTaskStatusCounts(userId);
         setOpenDialog(true);
       } else {
@@ -633,7 +633,7 @@ const TaskDetails = () => {
     }
   };
 
-  // Reset filters
+  
   const resetFilters = () => {
     setSearchQuery('');
     setActiveStatusFilters(['all']);
@@ -643,7 +643,7 @@ const TaskDetails = () => {
     setToDate('');
   };
 
-  // Format date
+  
   const formatDate = (dateStr) => {
     if (!dateStr) return "Not set";
     try {
@@ -654,7 +654,7 @@ const TaskDetails = () => {
     }
   };
 
-  // Get status count for specific user
+  
   const getStatusCount = (status) => {
     switch (status) {
       case 'total': return userTaskStats.total || 0;
@@ -671,7 +671,7 @@ const TaskDetails = () => {
     }
   };
 
-  // Get user initials
+  
   const getInitials = (name) => {
     if (!name) return "U";
     return name
@@ -682,7 +682,7 @@ const TaskDetails = () => {
       .slice(0, 2);
   };
 
-  // Get user task stats
+  
   const getUserTaskStats = (user) => {
     return user.taskStats || {
       total: 0,
@@ -692,7 +692,7 @@ const TaskDetails = () => {
     };
   };
 
-  // Render overall statistics
+  
   const renderOverallStats = () => {
     const statusGradients = {
       'pending': 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
@@ -717,7 +717,7 @@ const TaskDetails = () => {
         </div>
 
         <div className="emp-all-task-overall-stats-grid">
-          {/* Total Tasks Card */}
+          
           <div className="emp-all-task-overall-stat-card">
             <div className="emp-all-task-overall-stat-content">
               <div
@@ -737,7 +737,7 @@ const TaskDetails = () => {
             </div>
           </div>
 
-          {/* Status Breakdown Cards */}
+          
           {getNonZeroStatuses
             .filter((status) => status.value !== "all" && overallStats[status.value] > 0)
             .map((status) => {
@@ -787,7 +787,7 @@ const TaskDetails = () => {
     );
   };
 
-  // Render status cards
+  
   const renderStatusCards = () => {
     const statusGradients = {
       'pending': 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
@@ -944,7 +944,7 @@ const TaskDetails = () => {
     );
   };
 
-  // Render enhanced user card
+  
   const renderEnhancedUserCard = (user) => {
     const isSelected = selectedUserId === user._id;
     const userStats = getUserTaskStats(user);
@@ -1042,14 +1042,14 @@ const TaskDetails = () => {
     );
   };
 
-  // Render enhanced dialog
+  
   const renderEnhancedDialog = () => {
     if (!openDialog) return null;
 
     return (
       <div className="emp-all-task-modal-overlay" onClick={() => setOpenDialog(false)}>
         <div className="emp-all-task-modal" onClick={(e) => e.stopPropagation()}>
-          {/* Modal Header with Gradient */}
+          
           <div className="emp-all-task-modal-header">
             <div className="emp-all-task-modal-header-bg"></div>
             
@@ -1079,7 +1079,7 @@ const TaskDetails = () => {
                 </div>
               </div>
 
-              {/* Close Button */}
+              
               <button 
                 className="emp-all-task-modal-close-btn"
                 onClick={() => setOpenDialog(false)}
@@ -1089,7 +1089,7 @@ const TaskDetails = () => {
               </button>
             </div>
 
-            {/* Quick Stats */}
+            
             <div className="emp-all-task-modal-quick-stats">
               <div className="emp-all-task-modal-stat-card">
                 <div className="emp-all-task-modal-stat-icon">
@@ -1137,9 +1137,9 @@ const TaskDetails = () => {
             </div>
           </div>
 
-          {/* Modal Body */}
+          
           <div className="emp-all-task-modal-body">
-            {/* Status Filters Section */}
+            
             <div className="emp-all-task-modal-section">
               <div className="emp-all-task-modal-section-header">
                 <div className="emp-all-task-modal-section-title">
@@ -1156,7 +1156,7 @@ const TaskDetails = () => {
 
               {showStatusFilters && (
                 <div className="emp-all-task-modal-status-filters">
-                  {/* All Status Filter */}
+                  
                   <div 
                     className={`emp-all-task-modal-status-filter ${activeStatusFilters.includes('all') ? 'active' : ''}`}
                     onClick={() => handleStatusFilterToggle('all')}
@@ -1175,7 +1175,7 @@ const TaskDetails = () => {
                     </div>
                   </div>
 
-                  {/* Status Filters */}
+                  
                   {STATUS_OPTIONS.filter(s => s.value !== 'all' && getStatusCount(s.value) > 0).map(status => {
                     const count = getStatusCount(status.value);
                     const percentage = userTaskStats[status.value]?.percentage || 
@@ -1213,7 +1213,7 @@ const TaskDetails = () => {
               )}
             </div>
 
-            {/* Search and Filters Section */}
+            
             <div className="emp-all-task-modal-section">
               <div className="emp-all-task-modal-section-header">
                 <div className="emp-all-task-modal-section-title">
@@ -1223,7 +1223,7 @@ const TaskDetails = () => {
               </div>
 
               <div className="emp-all-task-modal-search-filters">
-                {/* Search Input */}
+                
                 <div className="emp-all-task-modal-search-wrapper">
                   <FiSearch className="emp-all-task-modal-search-icon" size={18} />
                   <input
@@ -1243,7 +1243,7 @@ const TaskDetails = () => {
                   )}
                 </div>
 
-                {/* Filter Row */}
+                
                 <div className="emp-all-task-modal-filter-row">
                   <select 
                     className="emp-all-task-modal-filter-select"
@@ -1269,7 +1269,7 @@ const TaskDetails = () => {
                   </select>
                 </div>
 
-                {/* Date Range */}
+                
                 <div className="emp-all-task-modal-date-range">
                   <div className="emp-all-task-modal-date-input">
                     <FiCalendar size={16} />
@@ -1303,7 +1303,7 @@ const TaskDetails = () => {
                   )}
                 </div>
 
-                {/* Active Filters */}
+                
                 {(activeStatusFilters.length > 1 || activeStatusFilters[0] !== 'all' || searchQuery || dateFilter !== 'all' || priorityFilter !== 'all' || fromDate || toDate) && (
                   <div className="emp-all-task-modal-active-filters">
                     <span className="emp-all-task-modal-active-filters-label">Active Filters:</span>
@@ -1367,9 +1367,9 @@ const TaskDetails = () => {
               </div>
             </div>
 
-            {/* Tasks List Section */}
+            
             <div className="emp-all-task-modal-section">
-              {/* Tasks Header */}
+              
               <div className="emp-all-task-modal-tasks-header">
                 <div className="emp-all-task-modal-tasks-title">
                   <div className="emp-all-task-modal-tasks-icon-wrapper">
@@ -1393,7 +1393,7 @@ const TaskDetails = () => {
                 </div>
               </div>
 
-              {/* Loading State */}
+              
               {loading ? (
                 <div className="emp-all-task-modal-loading">
                   <div className="emp-all-task-modal-loading-spinner"></div>
@@ -1426,17 +1426,17 @@ const TaskDetails = () => {
                         className={`emp-all-task-modal-task-card ${isToday ? 'today' : ''} ${isOverdue ? 'overdue' : ''}`}
                         style={{ '--status-color': statusOption.color }}
                       >
-                        {/* Card Glow Effect */}
+                        
                         <div className="emp-all-task-modal-task-card-glow"></div>
                         
-                        {/* Status Bar */}
+                        
                         <div 
                           className="emp-all-task-modal-task-card-status-bar"
                           style={{ backgroundColor: statusOption.color }}
                         ></div>
 
                         <div className="emp-all-task-modal-task-card-inner">
-                          {/* Header Section */}
+                          
                           <div className="emp-all-task-modal-task-card-header">
                             <div className="emp-all-task-modal-task-title-section">
                               <div className="emp-all-task-modal-task-title-wrapper">
@@ -1476,7 +1476,7 @@ const TaskDetails = () => {
                               </div>
                             </div>
 
-                            {/* Quick Actions */}
+                            
                             <div className="emp-all-task-modal-task-quick-actions">
                               <button className="emp-all-task-modal-task-quick-action" title="Edit">
                                 <FiEdit2 size={14} />
@@ -1487,7 +1487,7 @@ const TaskDetails = () => {
                             </div>
                           </div>
 
-                          {/* Description */}
+                          
                           {task.description && (
                             <div className="emp-all-task-modal-task-description-wrapper">
                               <p className="emp-all-task-modal-task-description">
@@ -1496,7 +1496,7 @@ const TaskDetails = () => {
                             </div>
                           )}
 
-                          {/* Meta Information Grid */}
+                          
                           <div className="emp-all-task-modal-task-meta-grid">
                             <div className="emp-all-task-modal-task-meta-item">
                               <div className="emp-all-task-modal-task-meta-icon-wrapper">
@@ -1558,7 +1558,7 @@ const TaskDetails = () => {
                             )}
                           </div>
 
-                          {/* Footer with Stats */}
+                          
                           <div className="emp-all-task-modal-task-footer">
                             <div className="emp-all-task-modal-task-stats">
                               {task.subtasks && (
@@ -1590,7 +1590,7 @@ const TaskDetails = () => {
                             </div>
                           </div>
 
-                          {/* Today/Overdue Badge */}
+                          
                           {isToday && !isOverdue && (
                             <div className="emp-all-task-modal-task-badge today">
                               <FiAlertCircle size={12} />
@@ -1612,7 +1612,7 @@ const TaskDetails = () => {
             </div>
           </div>
 
-          {/* Modal Footer */}
+          
           <div className="emp-all-task-modal-footer">
             <div className="emp-all-task-modal-footer-info">
               <FiInfo size={16} />
@@ -1630,7 +1630,7 @@ const TaskDetails = () => {
     );
   };
 
-  // ✅ Add error display component
+  
   const renderError = () => {
     if (!error) return null;
 
@@ -1672,7 +1672,7 @@ const TaskDetails = () => {
     <div className="emp-all-task-section">
       {renderError()}
 
-      {/* Header */}
+      
       <div className="emp-all-task-header">
         <div className="emp-all-task-header-content">
           <div className="emp-all-task-header-top">
@@ -1700,10 +1700,10 @@ const TaskDetails = () => {
         </div>
       </div>
 
-      {/* Main Card */}
+      
       <div className="emp-all-task-card">
         <div className="emp-all-task-card-content">
-          {/* Card Header */}
+          
           <div className="emp-all-task-card-header">
             <div className="emp-all-task-card-title-section">
               <div className="emp-all-task-card-icon">
@@ -1718,7 +1718,7 @@ const TaskDetails = () => {
               </div>
             </div>
 
-            {/* Filters */}
+            
             <div className="emp-all-task-filter-section">
               <input
                 type="text"
@@ -1738,7 +1738,7 @@ const TaskDetails = () => {
             </div>
           </div>
 
-          {/* Stats Grid */}
+          
           <div className="emp-all-task-stats-grid">
             <div className="emp-all-task-stat-item">
               <div className="emp-all-task-stat-content">
@@ -1786,7 +1786,7 @@ const TaskDetails = () => {
             </div>
           </div>
 
-          {/* Loading State */}
+          
           {usersLoading ? (
             <div className="emp-all-task-loading-container">
               <div className="emp-all-task-loading-spinner"></div>
@@ -1818,7 +1818,7 @@ const TaskDetails = () => {
         </div>
       </div>
 
-      {/* Modal/Dialog */}
+      
       {renderEnhancedDialog()}
     </div>
   );

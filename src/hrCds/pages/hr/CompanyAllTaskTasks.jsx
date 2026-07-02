@@ -312,7 +312,7 @@ const CompanyAllTaskTasks = () => {
           return;
         }
       } catch {
-        // Try the next available endpoint.
+        
       }
     }
   }, [currentUser, userId]);

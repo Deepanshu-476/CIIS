@@ -93,12 +93,12 @@ function CallLogs() {
 
   return (
     <Box p={3}>
-      {/* Header */}
+      
       <Box mb={3}>
         <Typography variant="h5" fontWeight={600}>30 Call Logs</Typography>
       </Box>
 
-      {/* Filters */}
+      
       <Box display="flex" alignItems="center" flexWrap="wrap" gap={2} mb={2}>
         <TextField
           size="small"
@@ -151,7 +151,7 @@ function CallLogs() {
         </Box>
       </Box>
 
-      {/* Call Logs Table */}
+      
       <Paper variant="outlined">
         <Table>
           <TableHead>
@@ -211,7 +211,7 @@ function CallLogs() {
           </TableBody>
         </Table>
 
-        {/* Pagination */}
+        
         <TablePagination
           component="div"
           count={totalCount}

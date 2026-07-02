@@ -16,14 +16,14 @@ import { useNavigate } from 'react-router-dom';
 const ChangePassword = () => {
   const navigate = useNavigate();
   
-  // Form states
-  const [step, setStep] = useState('email'); // email, otp, reset
+  
+  const [step, setStep] = useState('email'); 
   const [email, setEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
-  // UI states
+  
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -31,7 +31,7 @@ const ChangePassword = () => {
   const [countdown, setCountdown] = useState(0);
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Countdown timer for OTP resend
+  
   useEffect(() => {
     let timer;
     if (countdown > 0) {
@@ -40,7 +40,7 @@ const ChangePassword = () => {
     return () => clearTimeout(timer);
   }, [countdown]);
 
-  // Icons as inline SVG components (same as in Login)
+  
   const VisibilityIcon = () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
@@ -98,7 +98,7 @@ const ChangePassword = () => {
       if (response.data.success) {
         toast.success('OTP sent to your email!');
         setStep('reset');
-        setCountdown(60); // Start 60 second countdown
+        setCountdown(60); 
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to send OTP');
@@ -109,7 +109,7 @@ const ChangePassword = () => {
   };
 
   const handleResetPassword = async () => {
-    // Validation
+    
     if (!otpCode || otpCode.length !== 6) {
       setErrors({ otp: 'Enter valid 6-digit OTP' });
       return;
@@ -139,11 +139,11 @@ const ChangePassword = () => {
       if (response.data.success) {
         setSuccessMessage('Password changed successfully! You can now login with your new password.');
         
-        // Reset form fields but stay on success state
+        
         setOtpCode('');
         setNewPassword('');
         setConfirmPassword('');
-        setStep('success'); // Add a success step
+        setStep('success'); 
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to reset password');
@@ -164,7 +164,7 @@ const ChangePassword = () => {
       
       if (response.data.success) {
         toast.success('New OTP sent to your email!');
-        setCountdown(60); // Reset countdown
+        setCountdown(60); 
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to resend OTP');
@@ -196,9 +196,9 @@ const ChangePassword = () => {
     navigate('/login');
   };
 
-  // Render based on current step
+  
   const renderContent = () => {
-    // Success step
+    
     if (step === 'success') {
       return (
         <>

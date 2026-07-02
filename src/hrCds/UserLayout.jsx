@@ -35,12 +35,12 @@ const MainContent = styled('main', {
     duration: theme.transitions.duration.leavingScreen,
   }),
   
-  // Desktop styles
+  
   ...(!isMobile && {
     marginLeft: `${drawerWidthClosed}px`,
     width: `calc(100% - ${drawerWidthClosed}px)`,
     
-    // When sidebar is hovered (open)
+    
     ...(isSidebarHovered && {
       marginLeft: `${drawerWidthOpen}px`,
       width: `calc(100% - ${drawerWidthOpen}px)`,
@@ -51,7 +51,7 @@ const MainContent = styled('main', {
     }),
   }),
   
-  // Mobile styles
+  
   ...(isMobile && {
     marginLeft: 0,
     width: '100%',
@@ -64,7 +64,7 @@ const UserLayout = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
-  // Handle sidebar hover
+  
   const handleSidebarMouseEnter = () => {
     if (!isMobile) {
       setIsSidebarHovered(true);
@@ -77,19 +77,19 @@ const UserLayout = () => {
     }
   };
   
-  // Toggle mobile sidebar
+  
   const toggleMobileSidebar = () => {
     setMobileSidebarOpen(!mobileSidebarOpen);
   };
   
-  // Close mobile sidebar when route changes
+  
   const handleCloseMobileSidebar = () => {
     if (isMobile) {
       setMobileSidebarOpen(false);
     }
   };
   
-  // Auto-close sidebar on mobile when resizing to desktop
+  
   useEffect(() => {
     if (!isMobile) {
       setMobileSidebarOpen(false);
@@ -105,7 +105,7 @@ const UserLayout = () => {
         isMobile={isMobile}
       />
 
-      {/* Desktop Sidebar (Always visible, hover-controlled) */}
+      
       {!isMobile && (
         <Box
           onMouseEnter={handleSidebarMouseEnter}
@@ -126,7 +126,7 @@ const UserLayout = () => {
         </Box>
       )}
 
-      {/* Mobile Drawer */}
+      
       {isMobile && (
         <Drawer
           variant="temporary"

@@ -6,18 +6,18 @@ const ChristmasPopup = () => {
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const musicRef = useRef(null);
   
-  // Auto-show on page load/refresh
+  
   useEffect(() => {
     const checkAndShowPopup = () => {
       const lastShown = localStorage.getItem('christmasPopupLastShown');
       const today = new Date().toDateString();
       
-      // Only show if not shown today
+      
       if (lastShown !== today) {
         const timer = setTimeout(() => {
           setIsOpen(true);
           localStorage.setItem('christmasPopupLastShown', today);
-        }, 2000); // Show after 2 seconds
+        }, 2000); 
         return timer;
       }
       return null;
@@ -27,14 +27,14 @@ const ChristmasPopup = () => {
     return () => timer && clearTimeout(timer);
   }, []);
   
-  // Initialize effects when popup opens
+  
   useEffect(() => {
     if (isOpen) {
       createSnowfall();
       createChristmasLights();
       createReindeer();
       
-      // Auto-open card after 1 second when popup opens
+      
       const timer = setTimeout(() => {
         if (!isCardOpened) handleOpenCard();
       }, 1000);
@@ -47,7 +47,7 @@ const ChristmasPopup = () => {
     const snowfallContainer = document.getElementById('snowfall');
     if (!snowfallContainer) return;
     
-    // Clear existing snowflakes
+    
     snowfallContainer.innerHTML = '';
     
     for (let i = 0; i < 150; i++) {
@@ -92,7 +92,7 @@ const ChristmasPopup = () => {
     const lightsContainer = document.getElementById('christmasLights');
     if (!lightsContainer) return;
     
-    // Clear existing lights
+    
     lightsContainer.innerHTML = '';
     
     const colors = ['#ff3333', '#2e7d32', '#ffeb3b', '#2196f3', '#9c27b0', '#ff9800'];
@@ -107,7 +107,7 @@ const ChristmasPopup = () => {
   };
   
   const createReindeer = () => {
-    // Remove existing reindeer
+    
     document.querySelectorAll('.reindeer').forEach(el => el.remove());
     
     const reindeers = ['🦌', '🦌', '🦌', '🦌'];
@@ -217,7 +217,7 @@ const ChristmasPopup = () => {
         setIsMusicPlaying(false);
       } else {
         musicRef.current.play().catch(e => {
-          console.log("Audio playback failed:", e);
+          void 0;
           alert("Click the music button again to play Christmas music!");
         });
         setIsMusicPlaying(true);
@@ -264,7 +264,7 @@ const ChristmasPopup = () => {
     if (isMusicPlaying) {
       handleToggleMusic();
     }
-    // Clean up animations
+    
     document.querySelectorAll('.reindeer').forEach(el => el.remove());
     const snowfallEl = document.getElementById('snowfall');
     const lightsEl = document.getElementById('christmasLights');
@@ -275,7 +275,7 @@ const ChristmasPopup = () => {
     setIsCardOpened(false);
   };
   
-  // Add keyboard controls
+  
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && isOpen) {
@@ -293,7 +293,7 @@ const ChristmasPopup = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, isCardOpened]);
   
-  // Create dynamic ornaments positions
+  
   const ornaments = [
     { top: '20px', left: '-10px', backgroundColor: '#ff3333', animationDelay: '0s' },
     { top: '30px', right: '-15px', backgroundColor: '#ffeb3b', animationDelay: '0.2s' },
@@ -303,7 +303,7 @@ const ChristmasPopup = () => {
     { top: '110px', right: '-30px', backgroundColor: '#00bcd4', animationDelay: '1s' },
   ];
   
-  // Gift box colors
+  
   const giftBoxColors = [
     'linear-gradient(135deg, #ff3333, #c62828)',
     'linear-gradient(135deg, #2e7d32, #1b5e20)',
@@ -1041,19 +1041,19 @@ const ChristmasPopup = () => {
       </style>
 
       <div className="christmas-popup-overlay">
-        {/* Northern Lights */}
+        
         <div className="northern-lights"></div>
 
-        {/* Snowfall */}
+        
         <div id="snowfall" className="snowfall"></div>
 
-        {/* Christmas Lights */}
+        
         <div id="christmasLights" className="christmas-lights"></div>
 
-        {/* Confetti Container */}
+        
         <div id="confettiContainer" className="confetti-container"></div>
 
-        {/* Main Container */}
+        
         <div className="main-container">
           <div className={`click-hint ${isCardOpened ? 'hidden' : ''}`} id="clickHint">
             🎁 Click to Open Your Christmas Gift! 🎁
@@ -1074,7 +1074,7 @@ const ChristmasPopup = () => {
               }
             }}
           >
-            {/* Gift Boxes */}
+            
             <div className="gift-boxes">
               {giftBoxColors.map((color, index) => (
                 <div 
@@ -1088,11 +1088,11 @@ const ChristmasPopup = () => {
               ))}
             </div>
 
-            {/* Card Content (Inside) */}
+            
             <div className="card-content">
               <div className="card-top-border"></div>
               
-              {/* Christmas Tree */}
+              
               <div className="christmas-tree">
                 <div className="tree-star">★</div>
                 <div className="tree">
@@ -1107,17 +1107,17 @@ const ChristmasPopup = () => {
                 <div className="tree-trunk"></div>
               </div>
 
-              {/* Christmas Title */}
+              
               <h1 className="christmas-title">Merry Christmas!</h1>
 
-              {/* Christmas Message */}
+              
               <p className="christmas-message">
                 May your holidays be filled with joy, laughter, and all the warmth of the season. 
                 Wishing you peace, happiness, and love this Christmas and throughout the coming year! 
                 🎄✨
               </p>
 
-              {/* Santa and Snowman */}
+              
               <div className="santa-container">
                 <div className="santa">🎅</div>
               </div>
@@ -1125,13 +1125,13 @@ const ChristmasPopup = () => {
                 <div className="snowman">⛄</div>
               </div>
 
-              {/* Fireplace */}
+              
               <div className="fireplace">
                 <div className="fire"></div>
               </div>
             </div>
 
-            {/* Closed Card (Present) */}
+            
             <div className="card-closed">
               <div className="present-ribbon horizontal"></div>
               <div className="present-ribbon vertical"></div>
@@ -1144,7 +1144,7 @@ const ChristmasPopup = () => {
           </div>
         </div>
 
-        {/* Close Button */}
+        
         <button 
           className={`close-btn ${isCardOpened ? 'visible' : ''}`}
           onClick={handleClosePopup}
@@ -1153,7 +1153,7 @@ const ChristmasPopup = () => {
           ✕
         </button>
 
-        {/* Music Button */}
+        
         <button 
           className="music-btn"
           onClick={handleToggleMusic}
@@ -1162,7 +1162,7 @@ const ChristmasPopup = () => {
           <i className={isMusicPlaying ? "fas fa-pause" : "fas fa-music"}></i>
         </button>
 
-        {/* Audio Element for Christmas Music */}
+        
         <audio 
           ref={musicRef}
           id="christmasMusic" 

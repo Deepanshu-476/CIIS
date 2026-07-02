@@ -35,7 +35,7 @@ function Settings() {
           General
         </Typography>
 
-        {/* Limit Assign To Toggle */}
+        
         <Box display="flex" alignItems="center" mb={1}>
           <Switch
             checked={limitAssignTo}
@@ -49,7 +49,7 @@ function Settings() {
           When enabled, only the direct reportees, colleagues, manager will be shown under Assign To option. When disabled, all the users under current process will be shown under Assign To option.
         </Typography>
 
-        {/* Reset Password */}
+        
         <Accordion defaultExpanded>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography fontWeight="bold">Reset Password</Typography>
@@ -115,7 +115,7 @@ function Settings() {
           </AccordionDetails>
         </Accordion>
 
-        {/* Delete Account */}
+        
         <Accordion>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography fontWeight="bold">Delete Account</Typography>

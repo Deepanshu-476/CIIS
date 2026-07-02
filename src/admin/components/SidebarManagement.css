@@ -1247,6 +1247,7 @@
   border-radius: 24px;
   overflow: hidden;
   animation: SidebarManagement-slideIn 0.3s;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
 }
 
 @keyframes SidebarManagement-fadeIn {
@@ -1310,10 +1311,57 @@
   background: rgba(255,255,255,0.3);
 }
 
+.SidebarManagement-modal-header-warning {
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+}
+
+.SidebarManagement-modal-header-warning .SidebarManagement-modal-header-content {
+  gap: 12px;
+  margin-bottom: 0;
+}
+
+.SidebarManagement-modal-header-warning .SidebarManagement-modal-header-icon {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 18px;
+  flex: 0 0 36px;
+}
+
+.SidebarManagement-modal-header-warning .SidebarManagement-modal-close {
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 18px;
+  font-weight: 700;
+}
+
 .SidebarManagement-modal-content {
   padding: 24px;
   max-height: 400px;
   overflow-y: auto;
+}
+
+.SidebarManagement-modal-text {
+  margin: 0;
+  color: #1f2937;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.SidebarManagement-modal-header-warning + .SidebarManagement-modal-content {
+  padding: 28px 30px;
+}
+
+.SidebarManagement-modal-header-warning + .SidebarManagement-modal-content .SidebarManagement-modal-text {
+  padding: 18px 20px;
+  border: 1px solid #fecaca;
+  border-radius: 14px;
+  background: #fff7f7;
+  color: #7f1d1d;
+  font-weight: 600;
 }
 
 .SidebarManagement-preview-list {
@@ -1384,6 +1432,53 @@
   background-color: #f5f5f5;
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+
+.SidebarManagement-modal-cancel-btn,
+.SidebarManagement-modal-delete-btn,
+.SidebarManagement-modal-add-btn {
+  min-width: 112px;
+  height: 42px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+  white-space: nowrap;
+}
+
+.SidebarManagement-modal-cancel-btn {
+  background: white;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.SidebarManagement-modal-cancel-btn:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.SidebarManagement-modal-delete-btn {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: white;
+  box-shadow: 0 8px 18px rgba(220, 38, 38, 0.24);
+}
+
+.SidebarManagement-modal-delete-btn:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(185, 28, 28, 0.28);
 }
 
 .SidebarManagement-modal-close-btn {
@@ -1552,6 +1647,15 @@
     padding: 12px 24px;
     font-size: 14px;
   }
+
+  .SidebarManagement-modal {
+    width: min(94vw, 600px);
+    border-radius: 18px;
+  }
+
+  .SidebarManagement-modal-footer {
+    padding: 14px 18px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1563,6 +1667,17 @@
   .SidebarManagement-company-item {
     flex-direction: column;
     text-align: center;
+  }
+
+  .SidebarManagement-modal-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .SidebarManagement-modal-cancel-btn,
+  .SidebarManagement-modal-delete-btn,
+  .SidebarManagement-modal-add-btn {
+    width: 100%;
   }
   
   .SidebarManagement-category-header {

@@ -119,7 +119,7 @@ const DateRangeFilter = ({ startDate, endDate, onStartDateChange, onEndDateChang
           <FiRefreshCw size={16} />
         </button>
         <button 
-          className="EmppAttendence-btn EmppAttendence-btn-outlined EmppAttendence-btn-sm"
+          className="EmppAttendence-btn EmppAttendence-btn-outlined EmppAttendence-btn-sm EmppAttendence-quick-select-btn"
           onClick={() => setIsOpen(!isOpen)}
         >
           Quick Select ▼

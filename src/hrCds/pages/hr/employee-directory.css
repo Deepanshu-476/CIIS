@@ -1025,6 +1025,19 @@
   flex: 1;
 }
 
+.EmployeeDirectory-documents-list { display: grid; gap: 12px; }
+.EmployeeDirectory-document-row { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; }
+.EmployeeDirectory-document-row > svg { color: #4361ee; flex: 0 0 auto; }
+.EmployeeDirectory-document-info { display: flex; flex: 1; min-width: 0; flex-direction: column; }
+.EmployeeDirectory-document-info strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #273142; }
+.EmployeeDirectory-document-info span, .EmployeeDirectory-documents-empty { color: #8492a6; font-size: 13px; }
+.EmployeeDirectory-documents-error { padding: 14px; border-radius: 8px; color: #b91c1c; background: #fef2f2; }
+.EmployeeDirectory-document-row button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid #dbe2ff; border-radius: 7px; background: #f7f9ff; color: #3656d4; cursor: pointer; }
+@media (max-width: 600px) {
+  .EmployeeDirectory-document-row { flex-wrap: wrap; }
+  .EmployeeDirectory-document-info { flex-basis: calc(100% - 40px); }
+}
+
 .EmployeeDirectory-modal-footer {
   padding: 24px 28px;
   border-top: 1px solid var(--dir-gray-200);

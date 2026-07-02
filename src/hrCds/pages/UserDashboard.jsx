@@ -102,7 +102,7 @@ const mapTaskToActivity = task => ({
 
 const StatsLoader = () => (
   <div className="stats-loader-container">
-    {[1, 2, 3, 4].map((i) => (
+    {[1, 2, 3, 4, 5].map((i) => (
       <div key={i} className="stat-skeleton-card">
         <div className="stat-skeleton-header">
           <div className="skeleton-icon-large"></div>
@@ -246,10 +246,17 @@ const UserDashboard = () => {
   }, [companyDetails, user]);
 
   const isUserInCurrentCompany = useMemo(() => {
-    if (!user || !companyDetails) return false;
-    const userCompanyCode = user.companyCode || user?.company?.companyCode;
-    const companyCode = companyDetails.companyCode;
-    return userCompanyCode === companyCode;
+    if (!user) return false;
+    if (!companyDetails) return Boolean(user.company || user.companyId || user.companyCode);
+
+    const userCompanyCode = String(user.companyCode || user?.company?.companyCode || '').trim().toLowerCase();
+    const selectedCompanyCode = String(companyDetails.companyCode || companyDetails.code || '').trim().toLowerCase();
+    const userCompanyId = getValueId(user.company || user.companyId || user?.companyDetails);
+    const selectedCompanyId = getValueId(companyDetails);
+
+    if (userCompanyCode && selectedCompanyCode) return userCompanyCode === selectedCompanyCode;
+    if (userCompanyId && selectedCompanyId) return userCompanyId === selectedCompanyId;
+    return true;
   }, [user, companyDetails]);
 
   const isBeforeJoinDate = useCallback((date) => {
@@ -722,7 +729,7 @@ const UserDashboard = () => {
   const leaveDates = useMemo(() => {
     const dates = [];
     filteredLeaveData.forEach(leave => {
-      if (leave.status === 'APPROVED' || leave.status === 'Approved') {
+      if (String(leave.status || '').trim().toUpperCase() === 'APPROVED') {
         const start = new Date(leave.startDate);
         const end = new Date(leave.endDate);
         const current = new Date(start);
@@ -1121,6 +1128,19 @@ const UserDashboard = () => {
             <div className="stat-footer">
               <FiCheckCircle className="stat-trend-icon" />
               <span className="stat-month-text">Approved in {monthNames[currentMonth]}</span>
+            </div>
+          </div>
+
+          <div className="dashboard-stat-card stat-card-absent">
+            <div className="stat-card-header">
+              <div className="stat-icon-container icon-absent"><FiX className="stat-icon" /></div>
+              <div className="stat-current-month">Current Month</div>
+            </div>
+            <div className="stat-value">{monthlyStats.absentDays}</div>
+            <div className="stat-label">Absent Days</div>
+            <div className="stat-footer">
+              <FiAlertCircle className="stat-trend-icon" />
+              <span className="stat-month-text">Tracked in {monthNames[currentMonth]}</span>
             </div>
           </div>
         </div>

@@ -19,6 +19,10 @@ const UserProfile = () => {
   
   const [departmentName, setDepartmentName] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [documents, setDocuments] = useState([]);
+  const [documentName, setDocumentName] = useState('');
+  const [documentFile, setDocumentFile] = useState(null);
+  const [uploadingDocument, setUploadingDocument] = useState(false);
 
   
   useEffect(() => {
@@ -104,13 +108,14 @@ const UserProfile = () => {
 
       
       const response = await axios.get(
-        `${API_URL}/user/${user._id || user.id}`,
+        `${API_URL}/users/${user._id || user.id}`,
         { headers }
       );
 
       if (response.data) {
         const userProfile = response.data.user || response.data;
         setUserData(userProfile);
+        setDocuments(userProfile.documents || []);
         
         
         setEditedData({
@@ -167,6 +172,61 @@ const UserProfile = () => {
     }
   };
 
+  const documentRequest = async (url, download = false) => {
+    const token = localStorage.getItem("token");
+    const response = await axios.get(`${API_URL}${url}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      responseType: 'blob'
+    });
+    const blobUrl = URL.createObjectURL(response.data);
+    if (download) {
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = decodeURIComponent(response.headers['content-disposition']?.match(/filename="([^"]+)"/)?.[1] || 'document');
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    } else {
+      window.open(blobUrl, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    }
+  };
+
+  const handleDocumentUpload = async (event) => {
+    event.preventDefault();
+    if (!documentFile || !userData?._id) return toast.error('Please select a document');
+    try {
+      setUploadingDocument(true);
+      const form = new FormData();
+      form.append('document', documentFile);
+      form.append('name', documentName || documentFile.name);
+      const response = await axios.post(`${API_URL}/users/${userData._id}/documents`, form, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      setDocuments(prev => [...prev, response.data.document]);
+      setDocumentName('');
+      setDocumentFile(null);
+      event.target.reset();
+      toast.success('Document uploaded successfully');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Document upload failed');
+    } finally {
+      setUploadingDocument(false);
+    }
+  };
+
+  const handleDocumentDelete = async (documentId) => {
+    if (!window.confirm('Delete this document?')) return;
+    try {
+      await axios.delete(`${API_URL}/users/${userData._id}/documents/${documentId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      setDocuments(prev => prev.filter(doc => doc._id !== documentId));
+      toast.success('Document deleted');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not delete document');
+    }
+  };
+
   
   const handleUpdateProfile = async () => {
     try {
@@ -188,7 +248,7 @@ const UserProfile = () => {
       };
 
       const response = await axios.put(
-        `${API_URL}/user/${userData._id}`,
+        `${API_URL}/users/${userData._id}`,
         updateData,
         { headers }
       );
@@ -510,6 +570,38 @@ const UserProfile = () => {
                   ) : (
                     <div className="UserProfile-detail-value">{userData?.address || 'No address provided'}</div>
                   )}
+                </div>
+              </div>
+            </div>
+
+            <div className="UserProfile-details-section UserProfile-full-width">
+              <h3 className="UserProfile-section-title">
+                <span className="material-icons UserProfile-section-icon">folder_shared</span>
+                Joining Documents
+              </h3>
+              <div className="UserProfile-details-card">
+                <p className="UserProfile-document-help">Upload company-required documents. PDF, JPG, PNG, DOC or DOCX up to 10 MB.</p>
+                <form className="UserProfile-document-form" onSubmit={handleDocumentUpload}>
+                  <input className="UserProfile-detail-input" value={documentName} onChange={e => setDocumentName(e.target.value)} placeholder="Document name (e.g. Aadhaar Card)" />
+                  <input className="UserProfile-document-file" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt" onChange={e => setDocumentFile(e.target.files?.[0] || null)} />
+                  <button className="UserProfile-btn-primary" type="submit" disabled={uploadingDocument}>
+                    <span className="material-icons UserProfile-btn-icon">upload_file</span>
+                    {uploadingDocument ? 'Uploading...' : 'Upload'}
+                  </button>
+                </form>
+                <div className="UserProfile-document-list">
+                  {documents.length === 0 ? <div className="UserProfile-document-empty">No documents uploaded yet.</div> : documents.map(doc => (
+                    <div className="UserProfile-document-item" key={doc._id}>
+                      <span className="material-icons">description</span>
+                      <div className="UserProfile-document-info">
+                        <strong>{doc.name}</strong>
+                        <small>{formatDate(doc.uploadedAt)}</small>
+                      </div>
+                      <button type="button" title="View" onClick={() => documentRequest(doc.viewUrl || `/users/${userData._id}/documents/${doc._id}/view`)}><span className="material-icons">visibility</span></button>
+                      <button type="button" title="Download" onClick={() => documentRequest(doc.downloadUrl || `/users/${userData._id}/documents/${doc._id}/download`, true)}><span className="material-icons">download</span></button>
+                      <button type="button" className="danger" title="Delete" onClick={() => handleDocumentDelete(doc._id)}><span className="material-icons">delete</span></button>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

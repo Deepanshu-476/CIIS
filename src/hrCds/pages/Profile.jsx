@@ -4,13 +4,17 @@ import CIISLoader from "../../Loader/CIISLoader";
 import "./Profile.css";
 import {
   FiCreditCard,
+  FiDownload,
   FiEdit,
+  FiEye,
+  FiFileText,
   FiHeart,
   FiLock,
   FiPhone,
   FiPlus,
   FiSave,
   FiTrash2,
+  FiUpload,
   FiUser,
   FiUsers,
   FiX,
@@ -120,6 +124,11 @@ const Profile = () => {
     confirmPassword: "",
   });
   const [message, setMessage] = useState(null);
+  const [documents, setDocuments] = useState([]);
+  const [documentName, setDocumentName] = useState("");
+  const [documentFile, setDocumentFile] = useState(null);
+  const [documentsLoading, setDocumentsLoading] = useState(true);
+  const [uploadingDocument, setUploadingDocument] = useState(false);
 
   const loadProfile = useCallback(async () => {
     if (!userId) {
@@ -149,6 +158,84 @@ const Profile = () => {
   useEffect(() => {
     loadProfile();
   }, [loadProfile]);
+
+  const loadDocuments = useCallback(async () => {
+    if (!userId) return;
+    setDocumentsLoading(true);
+    try {
+      const response = await axios.get(`/users/${userId}/documents`);
+      setDocuments(response.data?.documents || []);
+    } catch (error) {
+      setMessage({ type: "error", text: error.response?.data?.message || "Documents could not be loaded." });
+    } finally {
+      setDocumentsLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    loadDocuments();
+  }, [loadDocuments]);
+
+  const handleDocumentUpload = async (event) => {
+    event.preventDefault();
+    if (!documentFile) {
+      setMessage({ type: "error", text: "Please select a document first." });
+      return;
+    }
+    setUploadingDocument(true);
+    setMessage(null);
+    try {
+      const formData = new FormData();
+      formData.append("document", documentFile);
+      formData.append("name", documentName.trim() || documentFile.name);
+      const response = await axios.post(`/users/${userId}/documents`, formData);
+      setDocuments((current) => [...current, response.data.document]);
+      setDocumentName("");
+      setDocumentFile(null);
+      event.currentTarget.reset();
+      setMessage({ type: "success", text: "Document uploaded successfully." });
+    } catch (error) {
+      const backendMessage = error.response?.data?.message;
+      setMessage({
+        type: "error",
+        text: backendMessage
+          ? `Upload failed: ${backendMessage}`
+          : "Document upload failed. Please select the file again.",
+      });
+    } finally {
+      setUploadingDocument(false);
+    }
+  };
+
+  const openDocument = async (item, download = false) => {
+    try {
+      const response = await axios.get(download ? item.downloadUrl : item.viewUrl, { responseType: "blob" });
+      const blobUrl = URL.createObjectURL(response.data);
+      if (download) {
+        const link = window.document.createElement("a");
+        link.href = blobUrl;
+        link.download = item.name || "document";
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      } else {
+        window.open(blobUrl, "_blank", "noopener,noreferrer");
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      }
+    } catch (error) {
+      setMessage({ type: "error", text: error.response?.data?.message || "Document could not be opened." });
+    }
+  };
+
+  const deleteDocument = async (documentId) => {
+    if (!window.confirm("Delete this document?")) return;
+    try {
+      await axios.delete(`/users/${userId}/documents/${documentId}`);
+      setDocuments((current) => current.filter((item) => item._id !== documentId));
+      setMessage({ type: "success", text: "Document deleted successfully." });
+    } catch (error) {
+      setMessage({ type: "error", text: error.response?.data?.message || "Document could not be deleted." });
+    }
+  };
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -380,6 +467,61 @@ const Profile = () => {
             ) : (
               <p className="UserDetails-empty-note">No children details added.</p>
             )}
+          </div>
+        </section>
+
+        <section className="UserDetails-section-card UserDetails-section-wide UserDetails-documents-card">
+          <div className="UserDetails-documents-heading">
+            <div>
+              <h3><FiFileText /> My Documents</h3>
+              <p>Upload the documents required by your company.</p>
+            </div>
+          </div>
+
+          <form className="UserDetails-document-form" onSubmit={handleDocumentUpload}>
+            <label>
+              Document Name
+              <input
+                type="text"
+                value={documentName}
+                onChange={(event) => setDocumentName(event.target.value)}
+                placeholder="e.g. Aadhaar Card, PAN Card"
+              />
+            </label>
+            <label>
+              Select Document *
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.jfif,.png,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.odt,.ods"
+                onChange={(event) => setDocumentFile(event.target.files?.[0] || null)}
+                required
+              />
+            </label>
+            <button className="UserDetails-primary-btn" type="submit" disabled={uploadingDocument}>
+              <FiUpload /> {uploadingDocument ? "Uploading..." : "Upload Document"}
+            </button>
+          </form>
+          <p className="UserDetails-document-hint">Allowed: PDF, images, Word, Excel and text documents · Maximum 25 MB</p>
+
+          <div className="UserDetails-document-list">
+            {documentsLoading ? (
+              <p className="UserDetails-empty-note">Loading documents...</p>
+            ) : documents.length === 0 ? (
+              <p className="UserDetails-empty-note">No documents uploaded yet.</p>
+            ) : documents.map((item) => (
+              <div className="UserDetails-document-row" key={item._id}>
+                <div className="UserDetails-document-icon"><FiFileText /></div>
+                <div className="UserDetails-document-info">
+                  <strong>{item.name}</strong>
+                  <span>{item.uploadedAt ? new Date(item.uploadedAt).toLocaleDateString() : "Uploaded document"}</span>
+                </div>
+                <div className="UserDetails-document-actions">
+                  <button type="button" onClick={() => openDocument(item)}><FiEye /> View</button>
+                  <button type="button" onClick={() => openDocument(item, true)}><FiDownload /> Download</button>
+                  <button type="button" className="danger" onClick={() => deleteDocument(item._id)}><FiTrash2 /></button>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       </div>

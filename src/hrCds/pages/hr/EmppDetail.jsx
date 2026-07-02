@@ -1193,6 +1193,69 @@ const EditEmployeeForm = React.memo(({
 
 // ==================== MAIN COMPONENT ====================
 
+const EmployeeDocuments = ({ userId }) => {
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError('');
+    axios.get(`/users/${userId}/documents`)
+      .then(({ data }) => active && setDocuments(data.documents || []))
+      .catch(err => active && setError(err.response?.data?.message || 'Could not load documents'))
+      .finally(() => active && setLoading(false));
+    return () => { active = false; };
+  }, [userId]);
+
+  const openDocument = async (document, download) => {
+    try {
+      const { data, headers } = await axios.get(
+        download ? document.downloadUrl : document.viewUrl,
+        { responseType: 'blob' }
+      );
+      const blobUrl = URL.createObjectURL(data);
+      if (download) {
+        const link = window.document.createElement('a');
+        link.href = blobUrl;
+        link.download = decodeURIComponent(headers['content-disposition']?.match(/filename="([^"]+)"/)?.[1] || document.name);
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      } else {
+        window.open(blobUrl, '_blank', 'noopener,noreferrer');
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not open document');
+    }
+  };
+
+  return (
+    <div className="EmployeeDirectory-modal-section">
+      <h3 className="EmployeeDirectory-section-title"><FiFileText /> Employee Documents</h3>
+      {loading && <div className="EmployeeDirectory-documents-empty">Loading documents...</div>}
+      {!loading && error && <div className="EmployeeDirectory-documents-error">{error}</div>}
+      {!loading && !error && documents.length === 0 && (
+        <div className="EmployeeDirectory-documents-empty">No documents uploaded by this employee.</div>
+      )}
+      <div className="EmployeeDirectory-documents-list">
+        {documents.map(document => (
+          <div className="EmployeeDirectory-document-row" key={document._id}>
+            <FiFileText size={22} />
+            <div className="EmployeeDirectory-document-info">
+              <strong>{document.name}</strong>
+              <span>{document.uploadedAt ? new Date(document.uploadedAt).toLocaleDateString() : 'Uploaded document'}</span>
+            </div>
+            <button type="button" onClick={() => openDocument(document, false)}><FiEye /> View</button>
+            <button type="button" onClick={() => openDocument(document, true)}><FiDownload /> Download</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const EmployeeDirectory = () => {
   void 0;
   
@@ -2182,6 +2245,12 @@ const EmployeeDirectory = () => {
               >
                 <FiPhoneCall size={14} /> Emergency
               </button>
+              <button
+                className={`EmployeeDirectory-tab ${activeTab === 'documents' ? 'active' : ''}`}
+                onClick={() => setActiveTab('documents')}
+              >
+                <FiFileText size={14} /> Documents
+              </button>
             </div>
             
             <div className="EmployeeDirectory-modal-content">
@@ -2423,6 +2492,9 @@ const EmployeeDirectory = () => {
                     </div>
                   </div>
                 </div>
+              )}
+              {activeTab === 'documents' && (
+                <EmployeeDocuments userId={selectedUser._id || selectedUser.id} />
               )}
             </div>
             

@@ -718,3 +718,18 @@
     transform: translateY(0);
   }
 }
+
+.UserProfile-document-help { margin: 0 0 16px; color: var(--gray-500); font-size: 14px; }
+.UserProfile-document-form { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 12px; align-items: center; }
+.UserProfile-document-file { padding: 10px; border: 1px dashed var(--gray-300); border-radius: 8px; background: white; }
+.UserProfile-document-list { display: grid; gap: 10px; margin-top: 18px; }
+.UserProfile-document-item { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--gray-200); border-radius: 10px; }
+.UserProfile-document-info { display: flex; flex: 1; min-width: 0; flex-direction: column; }
+.UserProfile-document-info strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.UserProfile-document-info small, .UserProfile-document-empty { color: var(--gray-500); }
+.UserProfile-document-item button { display: grid; place-items: center; border: 0; background: transparent; color: var(--primary-color); cursor: pointer; padding: 6px; }
+.UserProfile-document-item button.danger { color: #dc2626; }
+.UserProfile-document-item button .material-icons { font-size: 20px; }
+@media (max-width: 700px) {
+  .UserProfile-document-form { grid-template-columns: 1fr; }
+}

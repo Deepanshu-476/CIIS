@@ -744,6 +744,9 @@
   color: #4a5568;
   cursor: pointer;
   transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .MyLeaves-status-filter:hover {
@@ -756,6 +759,26 @@
   border-color: transparent;
   color: white;
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.MyLeaves-status-filter-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(102, 126, 234, 0.12);
+  color: #4c51bf;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.MyLeaves-status-filter.active .MyLeaves-status-filter-count {
+  background: rgba(255, 255, 255, 0.24);
+  color: white;
 }
 
 .MyLeaves-results-count {

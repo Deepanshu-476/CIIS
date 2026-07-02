@@ -261,6 +261,8 @@ const UserCreateTask = () => {
         dateObj = new Date(task.createdDate);
       } else if (task.updatedAt) {
         dateObj = new Date(task.updatedAt);
+      } else if (getTaskDueDate(task)) {
+        dateObj = new Date(getTaskDueDate(task));
       } else {
         dateObj = new Date(); 
       }
@@ -290,7 +292,10 @@ const UserCreateTask = () => {
     
     const result = {};
     sortedEntries.forEach(([dateKey, tasks]) => {
-      result[dateKey] = tasks;
+      result[dateKey] = [...tasks].sort((a, b) => (
+        new Date(b.createdAt || b.createdDate || b.updatedAt || 0) -
+        new Date(a.createdAt || a.createdDate || a.updatedAt || 0)
+      ));
     });
     
     return result;

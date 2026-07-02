@@ -141,6 +141,7 @@ const AdminTaskManagement = () => {
   
   const [userSearch, setUserSearch] = useState('');
   const [groupSearch, setGroupSearch] = useState('');
+  const [activeGroupMenu, setActiveGroupMenu] = useState(null);
 
   
   const [createDueDateTime, setCreateDueDateTime] = useState('');
@@ -1126,6 +1127,7 @@ const AdminTaskManagement = () => {
     setUserSearch('');
     setGroupSearch('');
     setCreateDueDateTime('');
+    setActiveGroupMenu(null);
   };
 
   const resetStatusForm = () => {
@@ -1144,6 +1146,7 @@ const AdminTaskManagement = () => {
       members: []
     });
     setEditingGroup(null);
+    setActiveGroupMenu(null);
   };
 
   
@@ -1193,10 +1196,11 @@ const AdminTaskManagement = () => {
 
   const openGroupEditDialog = (group) => {
     setEditingGroup(group);
+    setActiveGroupMenu(null);
     setNewGroup({
-      name: group.name,
-      description: group.description,
-      members: group.members?.map(m => m.id || m._id || m) || []
+      name: group.name || '',
+      description: group.description || '',
+      members: group.members?.map(m => m.id || m._id || m.userId || m.user?._id || m.user || m).filter(Boolean) || []
     });
     setOpenGroupDialog(true);
   };
@@ -2297,6 +2301,35 @@ const AdminTaskManagement = () => {
                           </div>
                         </div>
                       </label>
+                      <div className="AdminTaskManagement-group-actions">
+                        <button
+                          type="button"
+                          className="AdminTaskManagement-group-menu-btn"
+                          aria-label={`Open ${group.name} group actions`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setActiveGroupMenu(activeGroupMenu === group._id ? null : group._id);
+                          }}
+                        >
+                          <FiMoreVertical size={18} />
+                        </button>
+                        {activeGroupMenu === group._id && (
+                          <div className="AdminTaskManagement-group-menu">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                openGroupEditDialog(group);
+                              }}
+                            >
+                              <FiEdit3 size={15} />
+                              Edit group
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                   {filteredGroups.length === 0 && (

@@ -192,7 +192,7 @@ const ChatBox = ({
 
         setConversation(null);
         setMessages([]);
-        startConversation();
+        startConversation(); 
     }, [selectedUserKey]);
 
     useEffect(() => {

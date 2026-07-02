@@ -20,6 +20,14 @@ import {
 
 import { FaLaptop, FaDesktop, FaHeadphones, FaTabletAlt, FaTruck, FaMoneyBillWave } from "react-icons/fa";
 
+const getValueId = (value) => {
+  if (!value) return '';
+  if (typeof value === 'object') {
+    return String(value._id || value.id || value.departmentId || '');
+  }
+  return String(value);
+};
+
 
 
 
@@ -1270,6 +1278,7 @@ const EmployeeDirectory = () => {
   const [error, setError] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedFilter, setSelectedFilter] = useState("all");
+  const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [editingUser, setEditingUser] = useState(null);
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
@@ -1918,6 +1927,18 @@ const EmployeeDirectory = () => {
     } else if (selectedFilter === "inactive") {
       filtered = filtered.filter(emp => emp && emp.isActive === false);
     }
+
+    if (selectedDepartment !== "all") {
+      const selectedDepartmentData = departments.find(
+        (department) => getValueId(department) === selectedDepartment
+      );
+      filtered = filtered.filter((emp) => {
+        const employeeDepartmentId = getValueId(emp?.department);
+        const employeeDepartmentName = getDepartmentName(emp?.department).toLowerCase();
+        return employeeDepartmentId === selectedDepartment ||
+          employeeDepartmentName === String(selectedDepartmentData?.name || '').toLowerCase();
+      });
+    }
     
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
@@ -1939,7 +1960,33 @@ const EmployeeDirectory = () => {
     }
     
     return filtered;
-  }, [employees, selectedFilter, searchTerm, getJobRoleName, getDepartmentName]);
+  }, [employees, selectedFilter, selectedDepartment, searchTerm, getJobRoleName, getDepartmentName, departments]);
+
+  const departmentOptions = useMemo(() => departments.map((department) => {
+    const id = getValueId(department);
+    const name = department.name || department.departmentName || 'Unnamed Department';
+    const count = employees.filter((employee) =>
+      getValueId(employee?.department) === id ||
+      getDepartmentName(employee?.department).toLowerCase() === name.toLowerCase()
+    ).length;
+    return { id, name, count };
+  }).filter((department) => department.id).sort((a, b) => a.name.localeCompare(b.name)),
+  [departments, employees, getDepartmentName]);
+
+  const groupedEmployees = useMemo(() => {
+    const groups = new Map();
+    filteredEmployees.forEach((employee) => {
+      const value = getDepartmentName(employee.department);
+      const departmentName = !value || value === 'Not assigned' ? 'Unassigned' : value;
+      if (!groups.has(departmentName)) groups.set(departmentName, []);
+      groups.get(departmentName).push(employee);
+    });
+    return [...groups.entries()].sort(([a], [b]) => {
+      if (a === 'Unassigned') return 1;
+      if (b === 'Unassigned') return -1;
+      return a.localeCompare(b);
+    });
+  }, [filteredEmployees, getDepartmentName]);
   
   // Loading state
   if (loading) {
@@ -2065,6 +2112,19 @@ const EmployeeDirectory = () => {
               <option value="active">Active ({stats.active})</option>
               <option value="inactive">Inactive ({stats.inactive})</option>
             </select>
+
+            <select
+              className="EmployeeDirectory-role-select EmployeeDirectory-department-select-inline"
+              value={selectedDepartment}
+              onChange={(event) => setSelectedDepartment(event.target.value)}
+            >
+              <option value="all">All Departments ({employees.length})</option>
+              {departmentOptions.map((department) => (
+                <option value={department.id} key={department.id}>
+                  {department.name} ({department.count})
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       )}
@@ -2140,6 +2200,18 @@ const EmployeeDirectory = () => {
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
+            <select
+              className="EmployeeDirectory-role-select"
+              value={selectedDepartment}
+              onChange={(event) => setSelectedDepartment(event.target.value)}
+            >
+              <option value="all">All Departments ({employees.length})</option>
+              {departmentOptions.map((department) => (
+                <option value={department.id} key={department.id}>
+                  {department.name} ({department.count})
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       )}
@@ -2161,26 +2233,54 @@ const EmployeeDirectory = () => {
             onClick={() => {
               setSearchTerm('');
               setSelectedFilter('all');
+              setSelectedDepartment('all');
             }}
           >
             <FiX size={16} /> Clear Filters
           </button>
         </div>
       ) : (
-        <div className={`EmployeeDirectory-employee-${viewMode}`}>
-          {filteredEmployees.map((emp) => (
-            <EmployeeDirectoryEmployeeCard 
-              key={emp._id || emp.id} 
-              emp={emp} 
-              onView={handleOpenUser}
-              onMenuOpen={handleMenuOpen}
-              currentUserId={currentUserId}
-              jobRoles={jobRoles}
-              departments={departments}
-              canEditOtherEmployees={canEditOtherEmployees}
-            />
-          ))}
-        </div>
+        selectedDepartment === 'all' ? (
+          <div className="EmployeeDirectory-department-groups">
+            {groupedEmployees.map(([departmentName, departmentEmployees]) => (
+              <section className="EmployeeDirectory-department-group" key={departmentName}>
+                <div className="EmployeeDirectory-department-group-header">
+                  <div><FiUsers /><h3>{departmentName}</h3></div>
+                  <span>{departmentEmployees.length} employee{departmentEmployees.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div className={`EmployeeDirectory-employee-${viewMode}`}>
+                  {departmentEmployees.map((emp) => (
+                    <EmployeeDirectoryEmployeeCard
+                      key={emp._id || emp.id}
+                      emp={emp}
+                      onView={handleOpenUser}
+                      onMenuOpen={handleMenuOpen}
+                      currentUserId={currentUserId}
+                      jobRoles={jobRoles}
+                      departments={departments}
+                      canEditOtherEmployees={canEditOtherEmployees}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        ) : (
+          <div className={`EmployeeDirectory-employee-${viewMode}`}>
+            {filteredEmployees.map((emp) => (
+              <EmployeeDirectoryEmployeeCard
+                key={emp._id || emp.id}
+                emp={emp}
+                onView={handleOpenUser}
+                onMenuOpen={handleMenuOpen}
+                currentUserId={currentUserId}
+                jobRoles={jobRoles}
+                departments={departments}
+                canEditOtherEmployees={canEditOtherEmployees}
+              />
+            ))}
+          </div>
+        )
       )}
 
       {/* User Detail Modal */}

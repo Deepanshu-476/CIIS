@@ -46,12 +46,9 @@ const AdminTaskManagement = () => {
   const [totalTasks, setTotalTasks] = useState(0);
   
   
-  const [dateRange, setDateRange] = useState(() => {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const end = new Date();
-    end.setHours(23, 59, 59, 999);
-    return { startDate: start, endDate: end };
+  const [dateRange, setDateRange] = useState({
+    startDate: null,
+    endDate: null
   });
 
   
@@ -520,17 +517,17 @@ const AdminTaskManagement = () => {
         createdBy: userId
       };
 
-      if (searchTerm) params.search = searchTerm;
-      if (statusFilter) params.status = statusFilter;
-      if (priorityFilter) params.priority = priorityFilter;
-      if (assignedToFilter) params.assignedTo = assignedToFilter;
-      if (overdueFilter) params.overdue = overdueFilter;
+      if (filters.search) params.search = filters.search;
+      if (filters.status) params.status = filters.status;
+      if (filters.priority) params.priority = filters.priority;
+      if (filters.assignedTo) params.assignedTo = filters.assignedTo;
+      if (filters.overdue) params.overdue = filters.overdue;
       
-      if (dateRange.startDate) {
-        params.startDate = new Date(dateRange.startDate).toISOString();
+      if (filters.startDate) {
+        params.startDate = new Date(filters.startDate).toISOString();
       }
-      if (dateRange.endDate) {
-        params.endDate = new Date(dateRange.endDate).toISOString();
+      if (filters.endDate) {
+        params.endDate = new Date(filters.endDate).toISOString();
       }
       
       const queryString = Object.keys(params)
@@ -757,7 +754,15 @@ const AdminTaskManagement = () => {
       setOpenCreateDialog(false);
       showSnackbar('Task created successfully', 'success');
       resetNewTaskForm();
-      fetchAllData(page, rowsPerPage);
+      setSearchTerm('');
+      setStatusFilter('');
+      setPriorityFilter('');
+      setAssignedToFilter('');
+      setOverdueFilter('');
+      setDateRange({ startDate: null, endDate: null });
+      setPage(0);
+      await fetchTasks(0, rowsPerPage, {});
+      fetchSupportingData();
     } catch (error) {
       console.error('Error creating task:', error);
       setLoading(false);
@@ -1093,7 +1098,8 @@ const AdminTaskManagement = () => {
       endDate: null
     });
     setPage(0);
-    fetchAllData(0, rowsPerPage);
+    fetchTasks(0, rowsPerPage, {});
+    fetchSupportingData();
   };
 
   

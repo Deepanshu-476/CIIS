@@ -257,6 +257,13 @@ const UserCreateTask = () => {
   const [loadingClientTasks, setLoadingClientTasks] = useState(false);
   const [loadingProjectTasks, setLoadingProjectTasks] = useState(false);
   const [loadingAllTasks, setLoadingAllTasks] = useState(false);
+  const [taskViewsLoaded, setTaskViewsLoaded] = useState({
+    all: false,
+    self: false,
+    assigned: false,
+    client: false,
+    project: false
+  });
 
   
   const [myTasksGrouped, setMyTasksGrouped] = useState({});
@@ -1121,6 +1128,7 @@ const UserCreateTask = () => {
       
     } finally {
       setLoadingAssigned(false);
+      setTaskViewsLoaded(prev => ({ ...prev, assigned: true }));
       void 0;
     }
   }, [authError, userId, enrichAssignedTasks, extractTasksFromResponse, groupTasksByDate, calculateAssignedStatsFromTasks, tagTasksWithSource, buildTaskQueryParams]);
@@ -1146,6 +1154,7 @@ const UserCreateTask = () => {
       }
     } finally {
       setLoadingClientTasks(false);
+      setTaskViewsLoaded(prev => ({ ...prev, client: true }));
     }
   }, [authError, userId, enrichAssignedTasks, extractTasksFromResponse, groupTasksByDate, calculateClientStatsFromTasks, tagTasksWithSource, buildTaskQueryParams]);
 
@@ -1181,6 +1190,7 @@ const UserCreateTask = () => {
       }
     } finally {
       setLoadingProjectTasks(false);
+      setTaskViewsLoaded(prev => ({ ...prev, project: true }));
     }
   }, [authError, userId, extractTasksFromResponse, extractProjectsFromResponse, extractAssignedProjectTasksFromProjects, groupTasksByDate, calculateProjectStatsFromTasks, tagTasksWithSource, buildTaskQueryParams]);
 
@@ -1219,6 +1229,7 @@ const UserCreateTask = () => {
       }
     } finally {
       setLoadingAllTasks(false);
+      setTaskViewsLoaded(prev => ({ ...prev, all: true }));
     }
   }, [authError, userId, buildTaskQueryParams, extractTasksFromResponse, groupTasksByDate, calculateUnifiedStatsFromTasks, allTasksPagination.page, allTasksPagination.limit]);
 
@@ -1254,6 +1265,7 @@ const UserCreateTask = () => {
       }
     } finally {
       setLoading(false);
+      setTaskViewsLoaded(prev => ({ ...prev, self: true }));
     }
   }, [authError, userId, calculateStatsFromTasks, extractTasksFromResponse, groupTasksByDate, tagTasksWithSource, buildUserTaskQueryParams, getUserTaskApiPeriod]);
 
@@ -2251,9 +2263,7 @@ const UserCreateTask = () => {
         console.error('❌ Error loading data:', error);
         setAuthError(true);
       } finally {
-        setTimeout(() => {
-          setPageLoading(false);
-        }, 500);
+        setPageLoading(false);
       }
     };
     
@@ -2262,20 +2272,15 @@ const UserCreateTask = () => {
 
   useEffect(() => {
     if (userId && !authError && !pageLoading) {
-      // already aggregates every source, so calling all source APIs alongside it
-      void 0;
-      if (taskViewMode === 'all') {
-        fetchAllTasks();
-      } else if (taskViewMode === 'self') {
-        fetchMyTasks();
-      } else if (taskViewMode === 'client') {
-        fetchClientTasks();
-      } else if (taskViewMode === 'project') {
-        fetchProjectTasks();
-        fetchAssignedToMeTasks();
-      }
+      Promise.allSettled([
+        fetchAllTasks(),
+        fetchMyTasks(),
+        fetchAssignedToMeTasks(),
+        fetchClientTasks(),
+        fetchProjectTasks()
+      ]);
     }
-  }, [userId, authError, pageLoading, taskViewMode, fetchAllTasks, fetchMyTasks, fetchAssignedToMeTasks, fetchClientTasks, fetchProjectTasks]);
+  }, [userId, authError, pageLoading, fetchAllTasks, fetchMyTasks, fetchAssignedToMeTasks, fetchClientTasks, fetchProjectTasks]);
 
   
   useEffect(() => {
@@ -2875,7 +2880,7 @@ const UserCreateTask = () => {
         </div>
 
         <div className="user-create-task-paper-content">
-          {((taskViewMode === 'all' && loadingAllTasks) || (taskViewMode === 'self' && loading) || (taskViewMode === 'assigned' && loadingAssigned) || (taskViewMode === 'client' && loadingClientTasks) || (taskViewMode === 'project' && loadingProjectTasks)) ? (
+          {(((taskViewMode === 'all' && loadingAllTasks) || (taskViewMode === 'self' && loading) || (taskViewMode === 'assigned' && loadingAssigned) || (taskViewMode === 'client' && loadingClientTasks) || (taskViewMode === 'project' && loadingProjectTasks)) && !taskViewsLoaded[taskViewMode]) ? (
             <div className="user-create-task-loading">
               <div className="spinner"></div>
               <p>Loading {taskViewMode === 'all' ? 'all' : taskViewMode === 'self' ? 'personal' : taskViewMode === 'client' ? 'client' : taskViewMode === 'project' ? 'project' : 'assigned'} tasks...</p>
@@ -3018,9 +3023,7 @@ const UserCreateTask = () => {
                                       </div>
                                     )}
                                   </div>
-                                  {taskSource === 'self' ? (
-                                    <StatusChip status={status} label={status} />
-                                  ) : (
+                                  {taskViewMode === 'assigned' ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                         <span style={{ fontSize: '11px', color: '#666' }}>User:</span>
@@ -3031,6 +3034,8 @@ const UserCreateTask = () => {
                                          <StatusChip status={typeof task.creatorStatus === 'object' ? (task.creatorStatus?.status || 'pending') : (task.creatorStatus || 'pending')} label={typeof task.creatorStatus === 'object' ? (task.creatorStatus?.status || 'pending') : (task.creatorStatus || 'pending')} />
                                       </div>
                                     </div>
+                                  ) : (
+                                    <StatusChip status={status} label={status} />
                                   )}
                                 </div>
 
@@ -3279,9 +3284,7 @@ const UserCreateTask = () => {
                                 <PriorityChip priority={priority} />
                               </td>
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                                {taskSource === 'self' ? (
-                                  <StatusChip status={status} label={status} />
-                                ) : (
+                                {taskViewMode === 'assigned' ? (
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                       <span style={{ fontSize: '11px', color: '#666', fontWeight: 600 }}>User:</span>
@@ -3292,6 +3295,8 @@ const UserCreateTask = () => {
                                       <StatusChip status={typeof task.creatorStatus === 'object' ? (task.creatorStatus?.status || 'pending') : (task.creatorStatus || 'pending')} label={typeof task.creatorStatus === 'object' ? (task.creatorStatus?.status || 'pending') : (task.creatorStatus || 'pending')} />
                                     </div>
                                   </div>
+                                ) : (
+                                  <StatusChip status={status} label={status} />
                                 )}
                               </td>
                               

@@ -73,6 +73,48 @@ const getCurrentDateTimeInputValue = () => {
   return new Date(now.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
 };
 
+const getObjectIdTime = (id) => {
+  const value = String(id || "");
+  if (!/^[a-f\d]{24}$/i.test(value)) return 0;
+  return parseInt(value.slice(0, 8), 16) * 1000;
+};
+
+const getTaskCreatedTime = (task) => {
+  const creationLog = Array.isArray(task?.activityLogs)
+    ? task.activityLogs.find(log => log?.type === "creation")
+    : null;
+  const date = new Date(
+    task?.createdAt ||
+    task?.createdDate ||
+    creationLog?.performedAt ||
+    creationLog?.createdAt ||
+    0
+  );
+  const parsedTime = Number.isNaN(date.getTime()) ? 0 : date.getTime();
+  if (parsedTime) return parsedTime;
+  return getObjectIdTime(task?._id || task?.id) || getObjectIdTime(task?.projectTaskId);
+};
+
+const getTaskCreatedTieBreaker = (task) => {
+  const date = new Date(task?.updatedAt || task?.dueDate || 0);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+};
+
+const sortTasksByCreatedAt = (tasks = []) => (
+  Array.isArray(tasks)
+    ? [...tasks].sort((a, b) => {
+        const createdDiff = getTaskCreatedTime(b) - getTaskCreatedTime(a);
+        if (createdDiff !== 0) return createdDiff;
+        return getTaskCreatedTieBreaker(b) - getTaskCreatedTieBreaker(a);
+      })
+    : []
+);
+
+const normalizeProjectTaskOrder = (project) => ({
+  ...project,
+  tasks: sortTasksByCreatedAt(project?.tasks)
+});
+
 const EmployeeProject = () => {
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -332,7 +374,7 @@ const EmployeeProject = () => {
       const companyProjects = loadedProjects.filter(project => {
         const projectCompanyCode = getProjectCompanyCode(project);
         return !projectCompanyCode || projectCompanyCode.toLowerCase() === normalizedCompanyCode;
-      });
+      }).map(normalizeProjectTaskOrder);
 
       setProjects(companyProjects);
     } catch (error) {
@@ -349,9 +391,10 @@ const EmployeeProject = () => {
     try {
       setSelectedProject(id);
       const res = await axios.get(`/projects/${id}`);
-      setProjectDetails(res.data);
+      const sortedTasks = sortTasksByCreatedAt(res.data.tasks);
+      setProjectDetails({ ...res.data, tasks: sortedTasks });
       setProjectUsers(res.data.users || []);
-      setTasks(res.data.tasks || []);
+      setTasks(sortedTasks);
       setTaskFilter("all");
       setTabValue(0); // Reset to tasks tab
     } catch (error) {
@@ -550,9 +593,9 @@ const EmployeeProject = () => {
       loadNotifications();
       
       // Clear the remark input
-      setTasks(prev => prev.map(task => 
+      setTasks(prev => sortTasksByCreatedAt(prev.map(task => 
         task._id === taskId ? { ...task, _newRemark: "" } : task
-      ));
+      )));
       
       showSnackbar("Remark added successfully!", "success");
     } catch (error) {
@@ -654,9 +697,12 @@ const EmployeeProject = () => {
     return Math.round((completed / tasks.length) * 100);
   };
 
-  const filteredTasks = taskFilter === "all"
-    ? tasks
-    : tasks.filter(task => normalizeTaskStatus(task.status) === taskFilter);
+  const filteredTasks = (
+    taskFilter === "all"
+      ? tasks
+      : tasks.filter(task => normalizeTaskStatus(task.status) === taskFilter)
+  );
+  const displayedTasks = sortTasksByCreatedAt(filteredTasks);
 
   const normalizedProjectSearch = projectSearchTerm.trim().toLowerCase();
   const filteredProjects = normalizedProjectSearch
@@ -1163,7 +1209,7 @@ const EmployeeProject = () => {
                       Create First Task
                     </button>
                   </div>
-                ) : filteredTasks.length === 0 ? (
+                ) : displayedTasks.length === 0 ? (
                   <div className="EmployeeProject-empty-state">
                     <Icons.Task />
                     <h3>No {taskFilter === "all" ? "" : taskFilter} tasks found</h3>
@@ -1171,7 +1217,7 @@ const EmployeeProject = () => {
                   </div>
                 ) : (
                   <div className="EmployeeProject-tasks-list">
-                    {filteredTasks.map((t) => (
+                    {displayedTasks.map((t) => (
                       <div
                         className="EmployeeProject-task-card"
                         key={t._id}
@@ -1573,11 +1619,11 @@ const EmployeeProject = () => {
                 value={detailTask._newRemark || ""}
                 onChange={(e) =>
                   setTasks((prev) =>
-                    prev.map((x) =>
+                    sortTasksByCreatedAt(prev.map((x) =>
                       x._id === detailTask._id
                         ? { ...x, _newRemark: e.target.value }
                         : x
-                    )
+                    ))
                   )
                 }
                 onKeyPress={(e) => {

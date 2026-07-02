@@ -229,25 +229,7 @@ const emptyExternalStats = () => ({
 
 const getTaskSourceAwareDate = (task) => {
   if (!task) return null;
-  const source = String(task.__taskSource || task.taskSource || task.source || '').toLowerCase();
-  if (source === 'client') {
-    return task.dueDate || task.dueDateTime || task.createdAt;
-  }
-  if (source === 'project') {
-    let statusUpdateDate = null;
-    if (task.activityLogs && task.activityLogs.length > 0) {
-      const statusLogs = task.activityLogs.filter(log => log.type === 'status_change' || log.type === 'status_changed');
-      if (statusLogs.length > 0) {
-        const sortedLogs = [...statusLogs].sort((a, b) => new Date(b.performedAt || b.createdAt || 0) - new Date(a.performedAt || a.createdAt || 0));
-        statusUpdateDate = sortedLogs[0].performedAt || sortedLogs[0].createdAt;
-      }
-    }
-    return statusUpdateDate || task.updatedAt || task.createdAt;
-  }
-  if (source === 'self' || source === 'personal') {
-    return task.createdAt;
-  }
-  return task.dueDateTime || task.dueDate || task.createdAt;
+  return task.createdAt || task.createdDate || task.updatedAt || task.dueDateTime || task.dueDate;
 };
 
 const UserCreateTask = () => {

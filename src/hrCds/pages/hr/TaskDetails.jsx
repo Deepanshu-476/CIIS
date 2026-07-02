@@ -250,17 +250,14 @@ const UserCreateTask = () => {
       
       let dateObj;
       
-      // Try different date fields with proper fallback
-      const dueDate = getTaskDueDate(task);
-
-      if (dueDate) {
-        dateObj = new Date(dueDate);
-      } else if (task.createdAt) {
+      if (task.createdAt) {
         dateObj = new Date(task.createdAt);
       } else if (task.createdDate) {
         dateObj = new Date(task.createdDate);
       } else if (task.updatedAt) {
         dateObj = new Date(task.updatedAt);
+      } else if (getTaskDueDate(task)) {
+        dateObj = new Date(getTaskDueDate(task));
       } else {
         dateObj = new Date(); // Final fallback
       }
@@ -290,7 +287,10 @@ const UserCreateTask = () => {
     
     const result = {};
     sortedEntries.forEach(([dateKey, tasks]) => {
-      result[dateKey] = tasks;
+      result[dateKey] = [...tasks].sort((a, b) => (
+        new Date(b.createdAt || b.createdDate || b.updatedAt || 0) -
+        new Date(a.createdAt || a.createdDate || a.updatedAt || 0)
+      ));
     });
     
     return result;

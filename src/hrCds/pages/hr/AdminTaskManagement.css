@@ -1650,7 +1650,7 @@
 .AdminTaskManagement-multi-select-container {
   border: 2px solid var(--gray-200);
   border-radius: 16px;
-  overflow: hidden;
+  overflow: visible;
   background: var(--white);
   width: 100%;
   transition: var(--transition);
@@ -1722,24 +1722,27 @@
 .AdminTaskManagement-multi-select-options {
   max-height: 250px;
   overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  padding-bottom: 48px;
+  border-radius: 0 0 14px 14px;
 }
 
 .AdminTaskManagement-multi-select-option {
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--gray-200);
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   transition: var(--transition);
   cursor: pointer;
   animation: AdminTaskManagement-fadeIn 0.3s ease;
   position: relative;
+  min-height: 72px;
 }
 
 .AdminTaskManagement-multi-select-option:hover {
   background: linear-gradient(135deg, var(--primary-light), var(--white));
-  transform: translateX(4px);
 }
 
 .AdminTaskManagement-multi-select-option input[type="checkbox"] {
@@ -1757,6 +1760,7 @@
 
 .AdminTaskManagement-multi-select-label {
   flex: 1;
+  min-width: 0;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
@@ -1771,6 +1775,9 @@
 .AdminTaskManagement-multi-select-primary {
   font-weight: 600;
   color: var(--gray-800);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .AdminTaskManagement-multi-select-secondary {
@@ -1780,6 +1787,8 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .AdminTaskManagement-separator {
@@ -1797,13 +1806,20 @@
 .AdminTaskManagement-group-actions {
   position: relative;
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 38px;
+  height: 38px;
+  z-index: 3;
 }
 
 .AdminTaskManagement-group-menu-btn {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border: 1px solid transparent;
-  border-radius: 50%;
+  border-radius: 10px;
   background: transparent;
   color: var(--gray-600);
   cursor: pointer;
@@ -1823,33 +1839,38 @@
 
 .AdminTaskManagement-group-menu {
   position: absolute;
-  top: calc(100% + 6px);
+  top: 50%;
   right: 0;
-  z-index: 20;
-  min-width: 150px;
-  padding: 6px;
+  transform: translateY(-50%);
+  z-index: 30;
+  min-width: 132px;
+  padding: 4px;
   border: 1px solid var(--gray-200);
-  border-radius: var(--border-radius-sm);
+  border-radius: 10px;
   background: var(--white);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+  cursor: default;
+  margin-right: 42px;
 }
 
 .AdminTaskManagement-group-menu button {
   width: 100%;
-  min-height: 38px;
+  min-height: 34px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 7px;
   background: transparent;
   color: var(--gray-800);
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
-  font-size: 13px;
+  justify-content: flex-start;
+  padding: 7px 9px;
+  font-size: 12px;
   font-weight: 600;
   text-align: left;
   transition: var(--transition);
+  white-space: nowrap;
 }
 
 .AdminTaskManagement-group-menu button:hover,

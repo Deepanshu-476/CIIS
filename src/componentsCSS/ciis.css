@@ -8,7 +8,7 @@ body {
 .hero-section {
   background-image: url('../image/ciis/banner.jpg');
   background-size: cover;
-  background-position: center;
+  background-position: center; 
   padding: 3.125rem 0;
   color: black;
 }

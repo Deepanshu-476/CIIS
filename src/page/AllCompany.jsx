@@ -187,9 +187,7 @@ const AllCompany = () => {
       console.error("❌ ERROR fetching company details:", error);
       
       if (error.response?.status === 401) {
-        toast.error("Session expired. Please login again!");
-        localStorage.clear();
-        navigate("/super-admin/login");
+        toast.error("You are not authorized to load this data.");
         return;
       }
       
@@ -309,9 +307,7 @@ const AllCompany = () => {
       console.error("❌ ERROR in fetchCompaniesWithUsers:", error);
       
       if (error.response?.status === 401) {
-        toast.error("Session expired. Please login again!");
-        localStorage.clear();
-        navigate("/super-admin/login");
+        toast.error("You are not authorized to load this data.");
         return;
       }
 

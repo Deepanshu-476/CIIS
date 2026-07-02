@@ -459,9 +459,7 @@ const AdminTaskManagement = () => {
     } catch (error) {
       if (error.response?.status === 401) {
         setAuthError(true);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        showSnackbar('Session expired. Please login again.', 'error');
+        showSnackbar('You are not authorized to perform this action.', 'error');
       } else if (error.response?.status === 403) {
         showSnackbar('Access denied. You do not have permission to perform this action.', 'error');
       } else if (error.response?.status === 404) {
@@ -2701,7 +2699,7 @@ const AdminTaskManagement = () => {
 
   useEffect(() => {
     if (initialAuthCheck) {
-      if (authError) {
+      if (authError && !localStorage.getItem('token')) {
         void 0;
       } else if (userId) {
         fetchAllData(page, rowsPerPage);

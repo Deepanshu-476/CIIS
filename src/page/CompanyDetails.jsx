@@ -210,9 +210,7 @@ const CompanyDetails = () => {
       console.error("Error fetching company details:", error);
       
       if (error.response?.status === 401) {
-        toast.error("Session expired. Please login again!");
-        localStorage.clear();
-        navigate("/login");
+        toast.error("You are not authorized to load this data.");
         return;
       }
       

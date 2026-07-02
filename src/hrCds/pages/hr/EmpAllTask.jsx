@@ -898,10 +898,7 @@ const TaskDetails = () => {
         console.error("❌ Error fetching users with tasks:", err);
 
         if (err.response?.status === 401) {
-          setError("Your session has expired. Please log in again.");
-          localStorage.removeItem('user');
-          localStorage.removeItem('token');
-          window.location.href = '/login';
+          setError("You are not authorized to load this data.");
         } else if (err.response?.status === 403) {
           setError("You don't have permission to access this page.");
         } else {

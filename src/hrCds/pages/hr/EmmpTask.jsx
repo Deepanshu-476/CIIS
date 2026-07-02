@@ -344,7 +344,9 @@ const EmmpTask = () => {
       }
 
       const user = JSON.parse(userStr);
-      if (!user || !user.role || !user.id) {
+      const storedUserId = user?.id || user?._id;
+      const storedUserRole = user?.role || user?.jobRole || user?.companyRole;
+      if (!user || !storedUserRole || !storedUserId) {
         console.error('Invalid user data structure:', user);
         setAuthError(true);
         setSnackbar({ 
@@ -355,8 +357,8 @@ const EmmpTask = () => {
         return;
       }
 
-      setUserRole(user.role);
-      setUserId(user.id);
+      setUserRole(storedUserRole);
+      setUserId(storedUserId);
       setAuthError(false);
     } catch (error) {
       console.error('Error parsing user data:', error);
@@ -634,7 +636,7 @@ const EmmpTask = () => {
   }, [authError, userId]);
 
   
-  if (authError) {
+  if (authError && !localStorage.getItem('token')) {
     return (
       <Box sx={{ 
         display: 'flex', 

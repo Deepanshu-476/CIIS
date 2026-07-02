@@ -1831,7 +1831,7 @@ const UserCreateTask = () => {
     }
   }, [authError, userId]);
 
-  if (authError) {
+  if (authError && !localStorage.getItem('token')) {
     return (
       <Box sx={{
         display: 'flex',

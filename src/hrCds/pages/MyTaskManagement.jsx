@@ -86,7 +86,8 @@ const MyTaskManagement = () => {
       }
 
       const user = JSON.parse(userStr);
-      if (!user || !user._id) {
+      const storedUserId = user?._id || user?.id;
+      if (!user || !storedUserId) {
         console.error('Invalid user data structure:', user);
         setAuthError(true);
         setSnackbar({
@@ -97,7 +98,7 @@ const MyTaskManagement = () => {
         return;
       }
 
-      setUserId(user._id); 
+      setUserId(storedUserId); 
       setAuthError(false);
       void 0;
     } catch (error) {
@@ -861,7 +862,7 @@ const MyTaskManagement = () => {
     }
   }, [statusFilter, tab, authError, userId]);
 
-  if (authError) {
+  if (authError && !localStorage.getItem('token')) {
     return (
       <div className="MyTaskManagement-auth-error">
         <div className="MyTaskManagement-error-card">

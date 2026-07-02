@@ -25,35 +25,8 @@ const responseErrorHandler = (error) => {
     return Promise.reject(error);
   }
 
-  if (error.response?.status === 401) {
-    const authMessage = String(error.response?.data?.message || "").toLowerCase();
-    const sessionIsInvalid = [
-      "token expired",
-      "invalid token",
-      "user not found",
-      "account is deactivated",
-      "user account is deactivated",
-      "company account is deactivated",
-      "recently changed password",
-    ].some((reason) => authMessage.includes(reason));
-
-    // A single page API may reject the current role. It must not destroy the
-    // user's valid session; only a genuinely invalid session triggers logout.
-    if (sessionIsInvalid) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-
-      const companyCode =
-        localStorage.getItem("companyCode") ||
-        localStorage.getItem("companyIdentifier");
-      const loginPath = companyCode ? `/company/${companyCode}/login` : "/";
-
-      if (window.location.pathname !== loginPath) {
-        window.location.replace(loginPath);
-      }
-    }
-  }
-
+  // A failed page request must never destroy the active login session.
+  // Session storage is cleared only by an explicit Logout action.
   return Promise.reject(error);
 };
 

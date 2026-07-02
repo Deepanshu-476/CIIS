@@ -2293,7 +2293,7 @@ const UserCreateTask = () => {
   }, [remarkImages]);
 
   
-  if (authError) {
+  if (authError && !localStorage.getItem('token')) {
     return (
       <div className="user-create-task-error-container">
         <div className="user-create-task-error-card">

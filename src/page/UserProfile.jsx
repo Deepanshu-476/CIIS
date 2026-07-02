@@ -142,9 +142,7 @@ const UserProfile = () => {
       console.error("Error fetching user profile:", error);
       
       if (error.response?.status === 401) {
-        toast.error("Session expired. Please login again!");
-        localStorage.clear();
-        navigate("/");
+        toast.error("You are not authorized to load this profile.");
       } else {
         
         const user = getUserFromStorage();

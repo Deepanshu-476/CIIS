@@ -777,16 +777,11 @@ const EmployeeProject = () => {
     return Math.round((completed / tasks.length) * 100);
   };
 
-  const getTaskCreatedTime = (task) => {
-    const value = task?.createdAt || task?.createdDate || task?._id;
-    const dateTime = value ? new Date(value).getTime() : 0;
-    return Number.isNaN(dateTime) ? 0 : dateTime;
-  };
-
   const filteredTasks = (taskFilter === "all"
     ? tasks
     : tasks.filter(task => normalizeTaskStatus(task.status) === taskFilter)
-  ).slice().sort((a, b) => getTaskCreatedTime(b) - getTaskCreatedTime(a));
+  );
+  const displayedTasks = sortTasksByCreatedAt(filteredTasks);
 
   const normalizedProjectSearch = projectSearchTerm.trim().toLowerCase();
   const filteredProjects = normalizedProjectSearch

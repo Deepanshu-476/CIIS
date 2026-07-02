@@ -776,10 +776,18 @@ const EmployeeProject = () => {
     return Math.round((completed / tasks.length) * 100);
   };
 
-  const filteredTasks = (taskFilter === "all"
-    ? tasks
-    : tasks.filter(task => normalizeTaskStatus(task.status) === taskFilter)
+  const highPriorityTasks = sortTasksByCreatedAt(
+    tasks.filter(task => String(task?.priority || "").trim().toLowerCase() === "high")
   );
+  const completedHighPriorityTasks = highPriorityTasks.filter(task => normalizeTaskStatus(task.status) === "completed").length;
+  const highPriorityProgress = highPriorityTasks.length
+    ? Math.round((completedHighPriorityTasks / highPriorityTasks.length) * 100)
+    : 0;
+  const filteredTasks = taskFilter === "all"
+    ? tasks
+    : taskFilter === "high priority"
+      ? highPriorityTasks
+      : tasks.filter(task => normalizeTaskStatus(task.status) === taskFilter);
   const displayedTasks = sortTasksByCreatedAt(filteredTasks);
 
   const normalizedProjectSearch = projectSearchTerm.trim().toLowerCase();
@@ -807,14 +815,16 @@ const EmployeeProject = () => {
 
   const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
 
-  const StatCard = ({ icon, value, label, color, subtext, trend, filter, active }) => (
+  const StatCard = ({ icon, value, label, color, subtext, trend, filter, active, tabTarget = 0, className = "" }) => (
     <button
       type="button"
-      className={`EmployeeProject-stat-card EmployeeProject-stat-card-clickable ${active ? 'EmployeeProject-stat-card-active' : ''}`}
+      className={`EmployeeProject-stat-card EmployeeProject-stat-card-clickable ${active ? 'EmployeeProject-stat-card-active' : ''} ${className}`}
       style={{ borderLeftColor: color }}
       onClick={() => {
-        setTaskFilter(filter);
-        setTabValue(0);
+        if (filter) {
+          setTaskFilter(filter);
+        }
+        setTabValue(tabTarget);
       }}
     >
       <div className="EmployeeProject-stat-content">
@@ -915,6 +925,179 @@ const EmployeeProject = () => {
       </svg>
     </div>
   );
+
+  const renderTaskList = (taskItems, { emptyTitle, emptyMessage, showCreateButton = false } = {}) => {
+    if (loading.tasks) {
+      return (
+        <div className="EmployeeProject-loading">
+          <CircularProgress />
+        </div>
+      );
+    }
+
+    if (taskItems.length === 0) {
+      return (
+        <div className="EmployeeProject-empty-state">
+          <Icons.Task />
+          <h3>{emptyTitle}</h3>
+          <p>{emptyMessage}</p>
+          {showCreateButton && (
+            <button
+              className="EmployeeProject-button EmployeeProject-button-primary"
+              onClick={handleOpenCreateTaskDialog}
+            >
+              <Icons.Add />
+              Create First Task
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="EmployeeProject-tasks-list">
+        {taskItems.map((t) => (
+          <div
+            className="EmployeeProject-task-card"
+            key={t._id}
+            style={{ borderLeftColor: getStatusColor(t.status) }}
+            onClick={() => setDetailTaskId(t._id)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setDetailTaskId(t._id);
+              }
+            }}
+          >
+            <div className="EmployeeProject-task-content">
+              <div className="EmployeeProject-task-header">
+                <div className="EmployeeProject-task-title-section">
+                  <h4 className="EmployeeProject-task-title">{t.title}</h4>
+                  <div className="EmployeeProject-task-chips">
+                    <Chip
+                      icon={normalizeTaskStatus(t.status) === "completed" ? <Icons.CheckCircle /> :
+                            normalizeTaskStatus(t.status) === "in progress" ? <Icons.Update /> :
+                            normalizeTaskStatus(t.status) === "pending" ? <Icons.Schedule /> :
+                            normalizeTaskStatus(t.status) === "cancelled" ? <Icons.Cancel /> :
+                            normalizeTaskStatus(t.status) === "on hold" ? <Icons.Pause /> : <Icons.Schedule />}
+                      label={String(t.status || "pending").replace(/_/g, ' ')}
+                      color={getStatusColor(t.status)}
+                    />
+                    <Chip
+                      icon={<Icons.PriorityHigh />}
+                      label={`Priority: ${t.priority || "Medium"}`}
+                      color={getPriorityColor(t.priority)}
+                    />
+                  </div>
+                </div>
+                <div className="EmployeeProject-task-actions">
+                  {normalizeTaskStatus(t.status) === "pending" && (
+                    <Tooltip title="Edit Task">
+                      <button
+                        className="EmployeeProject-icon-button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEditTaskDialog(t);
+                        }}
+                      >
+                        <Icons.Edit />
+                      </button>
+                    </Tooltip>
+                  )}
+                  <Tooltip title="Update Status">
+                    <button
+                      className="EmployeeProject-icon-button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenStatusDialog(t);
+                      }}
+                    >
+                      <Icons.Update />
+                    </button>
+                  </Tooltip>
+                  <Tooltip title="View Activity">
+                    <button
+                      className="EmployeeProject-icon-button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleLoadActivityLogs(t._id);
+                      }}
+                    >
+                      <Icons.History />
+                    </button>
+                  </Tooltip>
+                </div>
+              </div>
+
+              <div className="EmployeeProject-task-meta">
+                <div className="EmployeeProject-task-meta-item">
+                  <Icons.Person />
+                  <span>{getTaskAssigneeNames(t)}</span>
+                </div>
+                {t.dueDate && (
+                  <div className="EmployeeProject-task-meta-item">
+                    <Icons.CalendarToday />
+                    <span>Due: {new Date(t.dueDate).toLocaleDateString()}</span>
+                  </div>
+                )}
+                <div className="EmployeeProject-task-meta-item">
+                  <Icons.AccessTime />
+                  <span>Created: {t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "Not available"}</span>
+                </div>
+              </div>
+
+              <div className={`EmployeeProject-task-attachment ${!t.pdfFile?.path ? 'EmployeeProject-task-attachment-empty' : ''}`}>
+                {t.pdfFile?.path ? (
+                  <>
+                  <div className="EmployeeProject-task-attachment-main">
+                    {isImagePath(t.pdfFile) ? <Icons.Image /> : <Icons.InsertDriveFile />}
+                    <span>{getFileDisplayName(t.pdfFile, "Task attachment")}</span>
+                  </div>
+                  <div className="EmployeeProject-task-pdf-actions">
+                    <button
+                      type="button"
+                      className="EmployeeProject-icon-button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        viewPdf(t.pdfFile.path, getFileDisplayName(t.pdfFile));
+                      }}
+                      aria-label="Preview task attachment"
+                    >
+                      <Icons.Visibility />
+                    </button>
+                    <button
+                      type="button"
+                      className="EmployeeProject-icon-button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        downloadPdf(t.pdfFile.path, getFileDisplayName(t.pdfFile));
+                      }}
+                      aria-label="Download task attachment"
+                    >
+                      <Icons.Download />
+                    </button>
+                  </div>
+                  </>
+                ) : (
+                  <span className="EmployeeProject-task-attachment-placeholder">No attachment</span>
+                )}
+              </div>
+
+              <div className="EmployeeProject-task-card-footer">
+                <p className="EmployeeProject-task-click-hint">View full details</p>
+                <span className="EmployeeProject-task-remark-count">
+                  <Icons.Comment />
+                  {getTaskRemarkCount(t)} remarks
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   
   if (pageLoading) {
@@ -1051,6 +1234,19 @@ const EmployeeProject = () => {
                 trend={`${getTaskProgress()}% of total`}
                 filter="completed"
                 active={taskFilter === "completed"}
+              />
+            </div>
+            <div className="EmployeeProject-stat-item">
+              <StatCard
+                icon={<Icons.PriorityHigh />}
+                value={`${completedHighPriorityTasks}/${highPriorityTasks.length}`}
+                label="High Priority"
+                color="#EF5350"
+                subtext="Completed / total"
+                trend={`${highPriorityProgress}% of high`}
+                filter="high priority"
+                active={taskFilter === "high priority"}
+                className="EmployeeProject-stat-card-high-priority"
               />
             </div>
             <div className="EmployeeProject-stat-item">
@@ -1275,172 +1471,19 @@ const EmployeeProject = () => {
                   </div>
                 </div>
 
-                {loading.tasks ? (
-                  <div className="EmployeeProject-loading">
-                    <CircularProgress />
-                  </div>
-                ) : tasks.length === 0 ? (
-                  <div className="EmployeeProject-empty-state">
-                    <Icons.Task />
-                    <h3>No tasks yet</h3>
-                    <p>Start by creating your first task</p>
-                    <button
-                      className="EmployeeProject-button EmployeeProject-button-primary"
-                      onClick={handleOpenCreateTaskDialog}
-                    >
-                      <Icons.Add />
-                      Create First Task
-                    </button>
-                  </div>
-                ) : displayedTasks.length === 0 ? (
-                  <div className="EmployeeProject-empty-state">
-                    <Icons.Task />
-                    <h3>No {taskFilter === "all" ? "" : taskFilter} tasks found</h3>
-                    <p>Click another status card to view different tasks.</p>
-                  </div>
-                ) : (
-                  <div className="EmployeeProject-tasks-list">
-                    {displayedTasks.map((t) => (
-                      <div
-                        className="EmployeeProject-task-card"
-                        key={t._id}
-                        style={{ borderLeftColor: getStatusColor(t.status) }}
-                        onClick={() => setDetailTaskId(t._id)}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            setDetailTaskId(t._id);
-                          }
-                        }}
-                      >
-                        <div className="EmployeeProject-task-content">
-                          <div className="EmployeeProject-task-header">
-                            <div className="EmployeeProject-task-title-section">
-                              <h4 className="EmployeeProject-task-title">{t.title}</h4>
-                              <div className="EmployeeProject-task-chips">
-                                <Chip
-                                  icon={t.status === "completed" ? <Icons.CheckCircle /> : 
-                                        t.status === "in progress" ? <Icons.Update /> :
-                                        t.status === "pending" ? <Icons.Schedule /> :
-                                        t.status === "cancelled" ? <Icons.Cancel /> :
-                                        t.status === "on hold" ? <Icons.Pause /> : <Icons.Schedule />}
-                                  label={t.status.replace(/_/g, ' ')}
-                                  color={getStatusColor(t.status)}
-                                />
-                                <Chip
-                                  icon={<Icons.PriorityHigh />}
-                                  label={`Priority: ${t.priority}`}
-                                  color={getPriorityColor(t.priority)}
-                                />
-                              </div>
-                            </div>
-                            <div className="EmployeeProject-task-actions">
-                              {normalizeTaskStatus(t.status) === "pending" && (
-                                <Tooltip title="Edit Task">
-                                  <button
-                                    className="EmployeeProject-icon-button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOpenEditTaskDialog(t);
-                                    }}
-                                  >
-                                    <Icons.Edit />
-                                  </button>
-                                </Tooltip>
-                              )}
-                              <Tooltip title="Update Status">
-                                <button
-                                  className="EmployeeProject-icon-button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenStatusDialog(t);
-                                  }}
-                                >
-                                  <Icons.Update />
-                                </button>
-                              </Tooltip>
-                              <Tooltip title="View Activity">
-                                <button
-                                  className="EmployeeProject-icon-button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleLoadActivityLogs(t._id);
-                                  }}
-                                >
-                                  <Icons.History />
-                                </button>
-                              </Tooltip>
-                            </div>
-                          </div>
-                          
-                          <div className="EmployeeProject-task-meta">
-                            <div className="EmployeeProject-task-meta-item">
-                              <Icons.Person />
-                              <span>{getTaskAssigneeNames(t)}</span>
-                            </div>
-                            {t.dueDate && (
-                              <div className="EmployeeProject-task-meta-item">
-                                <Icons.CalendarToday />
-                                <span>Due: {new Date(t.dueDate).toLocaleDateString()}</span>
-                              </div>
-                            )}
-                            <div className="EmployeeProject-task-meta-item">
-                              <Icons.AccessTime />
-                              <span>Created: {new Date(t.createdAt).toLocaleDateString()}</span>
-                            </div>
-                          </div>
-
-                          {t.pdfFile?.path && (
-                            <div className="EmployeeProject-task-attachment">
-                              <div className="EmployeeProject-task-attachment-main">
-                                {isImagePath(t.pdfFile) ? <Icons.Image /> : <Icons.InsertDriveFile />}
-                                <span>{getFileDisplayName(t.pdfFile, "Task attachment")}</span>
-                              </div>
-                              <div className="EmployeeProject-task-pdf-actions">
-                                <button
-                                  type="button"
-                                  className="EmployeeProject-icon-button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    viewPdf(t.pdfFile.path, getFileDisplayName(t.pdfFile));
-                                  }}
-                                  aria-label="Preview task attachment"
-                                >
-                                  <Icons.Visibility />
-                                </button>
-                                <button
-                                  type="button"
-                                  className="EmployeeProject-icon-button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    downloadPdf(t.pdfFile.path, getFileDisplayName(t.pdfFile));
-                                  }}
-                                  aria-label="Download task attachment"
-                                >
-                                  <Icons.Download />
-                                </button>
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="EmployeeProject-task-card-footer">
-                            <p className="EmployeeProject-task-click-hint">View full details</p>
-                            <span className="EmployeeProject-task-remark-count">
-                              <Icons.Comment />
-                              {getTaskRemarkCount(t)} remarks
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {tasks.length === 0
+                  ? renderTaskList([], {
+                      emptyTitle: "No tasks yet",
+                      emptyMessage: "Start by creating your first task",
+                      showCreateButton: true
+                    })
+                  : renderTaskList(displayedTasks, {
+                      emptyTitle: `No ${taskFilter === "all" ? "" : taskFilter} tasks found`,
+                      emptyMessage: "Click another status card to view different tasks."
+                    })}
               </>
             )}
 
-            
             {tabValue === 1 && (
               <div className="EmployeeProject-documents-tab">
                 <h2 className="EmployeeProject-documents-title">Project Documents</h2>

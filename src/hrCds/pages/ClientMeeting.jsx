@@ -31,8 +31,8 @@ export default function ClientMeeting() {
   const fetchMeetings = async () => {
     setLoading(true);
     try {
-      const res = await axiosInstance.get("/cmeeting");
-      setMeetings(res.data.data);
+      const res = await axiosInstance.get("/cmeeting", { params: { page: 1, limit: 100 } });
+      setMeetings(Array.isArray(res.data) ? res.data : (res.data.data || res.data.meetings || []));
     } catch (err) {
       console.error(err);
     } finally {

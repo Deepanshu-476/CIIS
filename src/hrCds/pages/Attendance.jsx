@@ -26,6 +26,7 @@ import {
 import { MdCelebration } from "react-icons/md";
 import '../Css/Attendance.css';
 import CIISLoader from '../../Loader/CIISLoader';
+import VirtualList from '../../components/VirtualList';
 
 const Attendance = () => {
   const [attendance, setAttendance] = useState([]);
@@ -1209,68 +1210,73 @@ const Attendance = () => {
       {isMobile && (
         <div className="Attendance-mobile-cards">
           {filteredData.length > 0 ? (
-            filteredData.map((record) => {
-              const statusClass = getStatusClass(record);
-              const displayStatus = getStatusDisplayText(record);
-              return (
-                <div
-                  key={record._id}
-                  className={`Attendance-mobile-card Attendance-status-${statusClass}`}
-                  onClick={() => openDetailsModal(record)}
-                  title={record.holidayTitle ? `Holiday: ${record.holidayTitle}` : ''}
-                >
-                  <div className="Attendance-mobile-card-content">
-                    <div className="Attendance-mobile-card-header">
-                      <h3>{formatDate(record.date)}</h3>
-                      {record.holidayTitle && (
-                        <span className="Attendance-mobile-holiday-badge">
-                          🎉
-                        </span>
-                      )}
-                      <FiChevronRight className="Attendance-card-arrow" />
-                    </div>
-                    <div className="Attendance-mobile-card-times">
-                      {record.inTime && (
-                        <div className="Attendance-time-item">
-                          <FiClock />
-                          <span>In: {formatTime(record.inTime)}</span>
-                        </div>
-                      )}
-                      {record.outTime && (
-                        <div className="Attendance-time-item">
-                          <FiClock />
-                          <span>Out: {formatTime(record.outTime)}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="Attendance-mobile-card-footer">
-                      <div className={`Attendance-mobile-status-chip Attendance-status-${statusClass}`}>
-                        {getStatusIcon(record)}
-                        <span>{displayStatus}</span>
+            <VirtualList
+              items={filteredData}
+              height={Math.min(620, Math.max(320, window.innerHeight - 280))}
+              rowHeight={178}
+              renderItem={(record) => {
+                const statusClass = getStatusClass(record);
+                const displayStatus = getStatusDisplayText(record);
+                return (
+                  <div
+                    key={record._id}
+                    className={`Attendance-mobile-card Attendance-status-${statusClass}`}
+                    onClick={() => openDetailsModal(record)}
+                    title={record.holidayTitle ? `Holiday: ${record.holidayTitle}` : ''}
+                  >
+                    <div className="Attendance-mobile-card-content">
+                      <div className="Attendance-mobile-card-header">
+                        <h3>{formatDate(record.date)}</h3>
+                        {record.holidayTitle && (
+                          <span className="Attendance-mobile-holiday-badge">
+                            🎉
+                          </span>
+                        )}
+                        <FiChevronRight className="Attendance-card-arrow" />
                       </div>
-                      <div className="Attendance-mobile-card-right">
-                        {record.lateBy && record.lateBy !== "00:00:00" && (
-                          <div className="Attendance-mobile-late">
-                            <FiAlertTriangle />
-                            <span>{record.lateBy}</span>
+                      <div className="Attendance-mobile-card-times">
+                        {record.inTime && (
+                          <div className="Attendance-time-item">
+                            <FiClock />
+                            <span>In: {formatTime(record.inTime)}</span>
                           </div>
                         )}
-                        {record.totalTime && (
-                          <strong className="Attendance-mobile-total-time">
-                            {record.totalTime}
-                          </strong>
+                        {record.outTime && (
+                          <div className="Attendance-time-item">
+                            <FiClock />
+                            <span>Out: {formatTime(record.outTime)}</span>
+                          </div>
                         )}
                       </div>
-                    </div>
-                    {record.holidayTitle && (
-                      <div className="Attendance-mobile-holiday-title">
-                        🎉 {record.holidayTitle}
+                      <div className="Attendance-mobile-card-footer">
+                        <div className={`Attendance-mobile-status-chip Attendance-status-${statusClass}`}>
+                          {getStatusIcon(record)}
+                          <span>{displayStatus}</span>
+                        </div>
+                        <div className="Attendance-mobile-card-right">
+                          {record.lateBy && record.lateBy !== "00:00:00" && (
+                            <div className="Attendance-mobile-late">
+                              <FiAlertTriangle />
+                              <span>{record.lateBy}</span>
+                            </div>
+                          )}
+                          {record.totalTime && (
+                            <strong className="Attendance-mobile-total-time">
+                              {record.totalTime}
+                            </strong>
+                          )}
+                        </div>
                       </div>
-                    )}
+                      {record.holidayTitle && (
+                        <div className="Attendance-mobile-holiday-title">
+                          🎉 {record.holidayTitle}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              }}
+            />
           ) : (
             <div className="Attendance-no-data-card">
               <FiUser className="Attendance-no-data-icon" />

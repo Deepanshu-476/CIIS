@@ -156,7 +156,9 @@ export default function AdminMeetingPage() {
       let fetchedMeetings = [];
       
       try {
-        const res = await axios.get(`${API_URL}/meetings?companyCode=${currentCompanyCode}`);
+        const res = await axios.get(`${API_URL}/meetings`, {
+          params: { companyCode: currentCompanyCode, page: 1, limit: 100 }
+        });
         
         if (Array.isArray(res.data)) {
           fetchedMeetings = res.data;
@@ -185,7 +187,9 @@ export default function AdminMeetingPage() {
         } catch (err2) {
           void 0;
           
-          const res = await axios.get(`${API_URL}/meetings`);
+          const res = await axios.get(`${API_URL}/meetings`, {
+            params: { page: 1, limit: 100 }
+          });
           
           if (Array.isArray(res.data)) {
             fetchedMeetings = res.data;
@@ -230,7 +234,9 @@ export default function AdminMeetingPage() {
   const fetchClients = async () => {
     try {
       const currentCompanyCode = companyCode || localStorage.getItem("companyCode") || "CAREER";
-      const res = await axios.get(`${API_URL}/clientsservice/company/${currentCompanyCode}`);
+      const res = await axios.get(`${API_URL}/clientsservice/company/${currentCompanyCode}`, {
+        params: { page: 1, limit: 100 }
+      });
       const fetchedClients = Array.isArray(res.data?.data) ? res.data.data : [];
       setClients(fetchedClients);
     } catch (err) {
@@ -244,7 +250,9 @@ export default function AdminMeetingPage() {
     try {
       setRefreshing(true);
       const currentCompanyCode = companyCode || localStorage.getItem("companyCode") || "CAREER";
-      const res = await axios.get(`${API_URL}/cmeeting?companyCode=${currentCompanyCode}`);
+      const res = await axios.get(`${API_URL}/cmeeting`, {
+        params: { companyCode: currentCompanyCode, page: 1, limit: 100 }
+      });
       const fetchedClientMeetings = Array.isArray(res.data?.data) ? res.data.data : [];
       setClientMeetings(fetchedClientMeetings);
     } catch (err) {

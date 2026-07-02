@@ -31,11 +31,11 @@ export default function EmployeeMeetingPage() {
     if (!id) return;
     setLoading(true);
     try {
-      const res = await axios.get(`${API_URL}/meetings/user/${id}`);
+      const res = await axios.get(`${API_URL}/meetings/user/${id}`, { params: { page: 1, limit: 100 } });
       if (Array.isArray(res.data)) {
         setMeetings(res.data);
       } else {
-        setMeetings([]);
+        setMeetings(res.data?.data || res.data?.meetings || []);
       }
     } catch (err) {
       console.error("Error fetching meetings:", err);

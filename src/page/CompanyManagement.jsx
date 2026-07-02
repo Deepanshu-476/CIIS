@@ -366,7 +366,7 @@ const CompanyManagement = () => {
   const fetchCompanies = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API_URL}/company`);
+      const res = await axios.get(`${API_URL}/company`, { params: { page: 1, limit: 100 } });
 
       if (res.data?.success && Array.isArray(res.data?.data)) {
         setCompanies(res.data.data);

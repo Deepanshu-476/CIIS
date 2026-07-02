@@ -235,7 +235,7 @@ const CompanyAssetManagement = () => {
   const fetchAssets = async () => {
     try {
       setLoading(true);
-      const params = selectedBranchId ? { branch: selectedBranchId } : {};
+      const params = { page: 1, limit: 100, ...(selectedBranchId ? { branch: selectedBranchId } : {}) };
       const response = await axios.get('/company-assets', { params });
       if (response.data.success) {
         
@@ -256,7 +256,7 @@ const CompanyAssetManagement = () => {
 
   const fetchRequests = async () => {
     try {
-      const params = selectedBranchId ? { branch: selectedBranchId } : {};
+      const params = { page: 1, limit: 100, ...(selectedBranchId ? { branch: selectedBranchId } : {}) };
       const res = await axios.get('/asset-requests/all', { params });
       setRequests(res.data.requests || []);
     } catch (err) {

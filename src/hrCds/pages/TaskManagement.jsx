@@ -250,6 +250,16 @@ const getTaskSourceAwareDate = (task) => {
   return task.dueDateTime || task.dueDate || task.createdAt;
 };
 
+const TASK_PAGE_LIMIT = 25;
+const API_PERIOD_BY_FILTER = {
+  today: 'today',
+  yesterday: 'yesterday',
+  'this-week': 'week',
+  'last-week': 'last-week',
+  'this-month': 'this-month',
+  'last-month': 'last-month',
+};
+
 const UserCreateTask = () => {
   
   const [openDialog, setOpenDialog] = useState(false);
@@ -326,6 +336,8 @@ const UserCreateTask = () => {
     completed: { count: 0, percentage: 0 },
     overdue: { count: 0, percentage: 0 }
   });
+
+  const [allTaskStats, setAllTaskStats] = useState(emptyExternalStats());
 
   const [timeFilter, setTimeFilter] = useState("today");
   const [notifications, setNotifications] = useState([]);
@@ -891,7 +903,7 @@ const UserCreateTask = () => {
 
   const getActiveTasksGrouped = useCallback(() => {
     if (taskViewMode === 'all') {
-      return mergeGroupedTasks(allTasksGrouped, combinedTasksGrouped);
+      return allTasksGrouped;
     }
     if (taskViewMode === 'self') return myTasksGrouped;
     if (taskViewMode === 'client') return clientTasksGrouped;
@@ -995,10 +1007,12 @@ const UserCreateTask = () => {
 
   const buildTaskQueryParams = useCallback(() => {
     const params = new URLSearchParams();
+    params.append('page', '1');
+    params.append('limit', String(TASK_PAGE_LIMIT));
     if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
     if (searchTerm.trim()) params.append('search', searchTerm.trim());
-    if (timeFilter === 'today') params.append('period', 'today');
-    if (timeFilter === 'this-week') params.append('period', 'week');
+    const apiPeriod = API_PERIOD_BY_FILTER[timeFilter];
+    if (apiPeriod) params.append('period', apiPeriod);
     if (selectedDate) {
       params.append('fromDate', selectedDate);
       params.append('toDate', selectedDate);
@@ -1013,15 +1027,13 @@ const UserCreateTask = () => {
   }, [statusFilter, searchTerm, timeFilter, selectedDate, dateRange, dateFilterType]);
 
   const getUserTaskApiPeriod = useCallback(() => {
-    if (timeFilter === 'today') return 'today';
-    if (timeFilter === 'this-week') return 'week';
-    return 'all';
+    return API_PERIOD_BY_FILTER[timeFilter] || 'all';
   }, [timeFilter]);
 
   const buildUserTaskQueryParams = useCallback((period = 'all') => {
     const params = new URLSearchParams();
     params.append('page', '1');
-    params.append('limit', '100');
+    params.append('limit', String(TASK_PAGE_LIMIT));
     params.append('period', period);
     params.append('status', statusFilter && statusFilter !== 'all' ? statusFilter : 'all');
     params.append('priority', 'all');
@@ -1162,7 +1174,9 @@ const UserCreateTask = () => {
       let tasksArray = tagTasksWithSource(extractTasksFromResponse(res.data), 'project');
 
       if (tasksArray.length === 0) {
-        const fallbackRes = await axios.get('/projects');
+        const fallbackRes = await axios.get('/projects', {
+          params: { page: 1, limit: TASK_PAGE_LIMIT }
+        });
         tasksArray = tagTasksWithSource(
           extractAssignedProjectTasksFromProjects(extractProjectsFromResponse(fallbackRes.data)),
           'project'
@@ -1202,6 +1216,7 @@ const UserCreateTask = () => {
       }));
       const groupedTasks = groupTasksByDate(tasksArray);
       setAllTasksGrouped(groupedTasks);
+      setAllTaskStats(res.data?.stats || calculateUnifiedStatsFromTasks(groupedTasks));
       setAllTasksPagination(prev => ({
         ...prev,
         ...(res.data?.pagination || {}),
@@ -1211,6 +1226,7 @@ const UserCreateTask = () => {
     } catch (err) {
       console.error('❌ Error in fetchAllTasks:', err);
       setAllTasksGrouped({});
+      setAllTaskStats(emptyExternalStats());
       setAllTasksPagination(prev => ({ ...prev, total: 0, pages: 1, hasNext: false, hasPrev: false }));
       if (err.response?.status !== 404) {
         showSnackbar('Failed to load all tasks', 'error');
@@ -1218,7 +1234,7 @@ const UserCreateTask = () => {
     } finally {
       setLoadingAllTasks(false);
     }
-  }, [authError, userId, buildTaskQueryParams, extractTasksFromResponse, groupTasksByDate, allTasksPagination.page, allTasksPagination.limit]);
+  }, [authError, userId, buildTaskQueryParams, extractTasksFromResponse, groupTasksByDate, calculateUnifiedStatsFromTasks, allTasksPagination.page, allTasksPagination.limit]);
 
   
   const fetchMyTasks = useCallback(async () => {
@@ -1648,7 +1664,7 @@ const UserCreateTask = () => {
       setRemarkImages([]);
       
       if (taskViewMode === 'all') {
-        await Promise.all([fetchAllTasks(), fetchMyTasks(), fetchAssignedToMeTasks(), fetchClientTasks(), fetchProjectTasks()]);
+        await fetchAllTasks();
       } else if (taskViewMode === 'self') {
         fetchMyTasks();
       } else if (taskViewMode === 'client') {
@@ -2012,10 +2028,6 @@ const UserCreateTask = () => {
 
       if (taskViewMode === 'all') {
         await fetchAllTasks();
-        await fetchMyTasks();
-        await fetchAssignedToMeTasks();
-        await fetchClientTasks();
-        await fetchProjectTasks();
       } else if (taskViewMode === 'self') {
         await fetchMyTasks();
       } else if (taskViewMode === 'client') {
@@ -2260,14 +2272,20 @@ const UserCreateTask = () => {
   useEffect(() => {
     if (userId && !authError && !pageLoading) {
       void 0;
-      fetchAllTasks();
-      fetchMyTasks();
-      fetchAssignedToMeTasks();
-      fetchClientTasks();
-      fetchProjectTasks();
+      if (taskViewMode === 'all') {
+        fetchAllTasks();
+      } else if (taskViewMode === 'self') {
+        fetchMyTasks();
+      } else if (taskViewMode === 'client') {
+        fetchClientTasks();
+      } else if (taskViewMode === 'project') {
+        fetchProjectTasks();
+      } else {
+        fetchAssignedToMeTasks();
+      }
       fetchOverdueTasks();
     }
-  }, [userId, authError, pageLoading, fetchAllTasks, fetchMyTasks, fetchAssignedToMeTasks, fetchClientTasks, fetchProjectTasks, fetchOverdueTasks]);
+  }, [userId, authError, pageLoading, taskViewMode, fetchAllTasks, fetchMyTasks, fetchAssignedToMeTasks, fetchClientTasks, fetchProjectTasks, fetchOverdueTasks]);
 
   
   useEffect(() => {
@@ -2313,7 +2331,7 @@ const UserCreateTask = () => {
     return <CIISLoader />;
   }
 
-  const activeStats = filteredTaskStats;
+  const activeStats = taskViewMode === 'all' ? allTaskStats : filteredTaskStats;
 
   
   return (
@@ -2837,10 +2855,6 @@ const UserCreateTask = () => {
                   onClick={() => {
                     if (taskViewMode === 'all') {
                       fetchAllTasks();
-                      fetchMyTasks();
-                      fetchAssignedToMeTasks();
-                      fetchClientTasks();
-                      fetchProjectTasks();
                     } else if (taskViewMode === 'self') {
                       fetchMyTasks();
                     } else if (taskViewMode === 'client') {

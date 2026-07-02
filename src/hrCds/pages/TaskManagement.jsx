@@ -8,7 +8,7 @@ import {
   FiXCircle, FiFilter, FiSearch, FiLogOut, FiMessageCircle,
   FiBarChart2, FiTrendingUp, FiList, FiPause, FiTarget, FiUsers,
   FiSlash, FiImage, FiCamera, FiTrash2, FiZoomIn, FiCheckSquare,
-  FiGlobe, FiSun, FiRotateCcw, FiAlertTriangle
+  FiGlobe, FiSun, FiRotateCcw, FiAlertTriangle, FiFlag, FiArrowDownCircle
 } from 'react-icons/fi';
 
 import "../Css/TaskManagement.css";
@@ -134,8 +134,11 @@ const normalizeStatus = (status) => {
     'Rejected': 'rejected',
     'On Hold': 'onhold',
     'OnHold': 'onhold',
+    'on hold': 'onhold',
+    'onhold': 'onhold',
     'Reopen': 'reopen',
-    'Cancelled': 'cancelled'
+    'Cancelled': 'cancelled',
+    'cancelled': 'cancelled'
   };
   
   return statusMap[status] || status.toLowerCase();
@@ -221,22 +224,26 @@ const getColorValue = (color) => {
 
 const emptyExternalStats = () => ({
   total: 0,
+  highPriority: { count: 0, completed: 0, percentage: 0 },
+  mediumPriority: { count: 0, completed: 0, percentage: 0 },
+  lowPriority: { count: 0, completed: 0, percentage: 0 },
   pending: { count: 0, percentage: 0 },
   inProgress: { count: 0, percentage: 0 },
   completed: { count: 0, percentage: 0 },
+  onHold: { count: 0, percentage: 0 },
   overdue: { count: 0, percentage: 0 }
 });
 
 const getTaskSourceAwareDate = (task) => {
   if (!task) return null;
-  return task.createdAt || task.createdDate || task.updatedAt || task.dueDateTime || task.dueDate;
+  return task.dueDateTime || task.dueDate || task.createdAt || task.createdDate || task.updatedAt;
 };
 
-const TASK_PAGE_LIMIT = 25;
+const TASK_PAGE_LIMIT = 10;
 const API_PERIOD_BY_FILTER = {
   today: 'today',
   yesterday: 'yesterday',
-  'this-week': 'week',
+  'this-week': 'this-week',
   'last-week': 'last-week',
   'this-month': 'this-month',
   'last-month': 'last-month',
@@ -273,6 +280,9 @@ const UserCreateTask = () => {
   const [clientTasksGrouped, setClientTasksGrouped] = useState({});
   const [projectTasksGrouped, setProjectTasksGrouped] = useState({});
   const [allTasksGrouped, setAllTasksGrouped] = useState({});
+  const [allTasksStatsGrouped, setAllTasksStatsGrouped] = useState({});
+  const allTasksStatsLoadedRef = useRef(false);
+  const allTasksLoadedRef = useRef(false);
   const [allTasksPagination, setAllTasksPagination] = useState({
     page: 1,
     limit: 10,
@@ -605,9 +615,13 @@ const UserCreateTask = () => {
     }
     
     let total = 0;
+    let highPriority = 0;
+    let highPriorityCompleted = 0;
     let pending = 0;
     let inProgress = 0;
     let completed = 0;
+    let onHold = 0;
+    let cancelled = 0;
     let overdue = 0;
 
     Object.values(tasks).forEach(dateTasks => {
@@ -616,6 +630,14 @@ const UserCreateTask = () => {
         
         
         let status = getAssignedTaskStatus(task);
+        const isHighPriority = String(task?.priority || '').toLowerCase() === 'high';
+
+        if (isHighPriority) {
+          highPriority++;
+          if (status === 'completed') {
+            highPriorityCompleted++;
+          }
+        }
         
         
         if (status === 'completed') {
@@ -624,6 +646,10 @@ const UserCreateTask = () => {
           inProgress++;
         } else if (status === 'pending') {
           pending++;
+        } else if (status === 'onhold') {
+          onHold++;
+        } else if (status === 'cancelled') {
+          cancelled++;
         } else if (status === 'overdue') {
           overdue++;
         }
@@ -643,9 +669,16 @@ const UserCreateTask = () => {
 
     return {
       total,
+      highPriority: {
+        count: highPriority,
+        completed: highPriorityCompleted,
+        percentage: highPriority > 0 ? Math.round((highPriorityCompleted / highPriority) * 100) : 0
+      },
       pending: { count: pending, percentage: calculatePercentage(pending) },
       inProgress: { count: inProgress, percentage: calculatePercentage(inProgress) },
       completed: { count: completed, percentage: calculatePercentage(completed) },
+      onHold: { count: onHold, percentage: calculatePercentage(onHold) },
+      cancelled: { count: cancelled, percentage: calculatePercentage(cancelled) },
       overdue: { count: overdue, percentage: calculatePercentage(overdue) }
     };
   }, [getAssignedTaskStatus, isOverdue]);
@@ -739,8 +772,7 @@ const UserCreateTask = () => {
     const today = getLocalDateStart();
     const startOfThisWeek = new Date(today);
     const day = startOfThisWeek.getDay();
-    const diffToMonday = day === 0 ? -6 : 1 - day;
-    startOfThisWeek.setDate(startOfThisWeek.getDate() + diffToMonday);
+    startOfThisWeek.setDate(startOfThisWeek.getDate() - day);
 
     const endOfThisWeek = new Date(startOfThisWeek);
     endOfThisWeek.setDate(endOfThisWeek.getDate() + 6);
@@ -781,6 +813,14 @@ const UserCreateTask = () => {
     if (!statusFilter || statusFilter === 'all') return true;
 
     const status = getStatusForTask(task);
+    const priorityFilterMap = {
+      'high-priority': 'high',
+      'medium-priority': 'medium',
+      'low-priority': 'low'
+    };
+    if (priorityFilterMap[statusFilter]) {
+      return String(task?.priority || '').toLowerCase() === priorityFilterMap[statusFilter];
+    }
     if (statusFilter === 'overdue') {
       return status === 'overdue' || isOverdue(getDueDateForTask(task), status);
     }
@@ -801,13 +841,13 @@ const UserCreateTask = () => {
     ].some(value => String(value || '').toLowerCase().includes(query));
   }, [searchTerm]);
 
-  const applyLocalFilters = useCallback((tasks) => {
+  const applyLocalFilters = useCallback((tasks, { includeStatus = true } = {}) => {
     const filtered = {};
 
     Object.entries(tasks || {}).forEach(([dateKey, dateTasks]) => {
       const filteredDateTasks = dateTasks.filter(task => (
         matchesTimeFilter(task) &&
-        matchesStatusFilter(task) &&
+        (!includeStatus || matchesStatusFilter(task)) &&
         matchesSearchFilter(task)
       ));
 
@@ -826,9 +866,16 @@ const UserCreateTask = () => {
 
     let total = 0;
     const counts = {
+      highPriority: 0,
+      highPriorityCompleted: 0,
+      mediumPriority: 0,
+      mediumPriorityCompleted: 0,
+      lowPriority: 0,
+      lowPriorityCompleted: 0,
       pending: 0,
       'in-progress': 0,
       completed: 0,
+      onhold: 0,
       overdue: 0
     };
 
@@ -838,9 +885,24 @@ const UserCreateTask = () => {
         const status = getStatusForTask(task);
         const dueDate = getDueDateForTask(task);
         const taskIsOverdue = isOverdue(dueDate, status);
+        const priority = String(task?.priority || '').toLowerCase();
+        const isCompleted = status === 'completed';
+
+        if (priority === 'high') {
+          counts.highPriority++;
+          if (isCompleted) counts.highPriorityCompleted++;
+        } else if (priority === 'medium') {
+          counts.mediumPriority++;
+          if (isCompleted) counts.mediumPriorityCompleted++;
+        } else if (priority === 'low') {
+          counts.lowPriority++;
+          if (isCompleted) counts.lowPriorityCompleted++;
+        }
 
         if (status === 'completed') {
           counts.completed++;
+        } else if (status === 'onhold') {
+          counts.onhold++;
         } else if (status === 'overdue' || taskIsOverdue) {
           counts.overdue++;
         } else if (status === 'in-progress') {
@@ -855,9 +917,25 @@ const UserCreateTask = () => {
 
     return {
       total,
+      highPriority: {
+        count: counts.highPriority,
+        completed: counts.highPriorityCompleted,
+        percentage: counts.highPriority > 0 ? Math.round((counts.highPriorityCompleted / counts.highPriority) * 100) : 0
+      },
+      mediumPriority: {
+        count: counts.mediumPriority,
+        completed: counts.mediumPriorityCompleted,
+        percentage: counts.mediumPriority > 0 ? Math.round((counts.mediumPriorityCompleted / counts.mediumPriority) * 100) : 0
+      },
+      lowPriority: {
+        count: counts.lowPriority,
+        completed: counts.lowPriorityCompleted,
+        percentage: counts.lowPriority > 0 ? Math.round((counts.lowPriorityCompleted / counts.lowPriority) * 100) : 0
+      },
       pending: { count: counts.pending, percentage: calculatePercentage(counts.pending) },
       inProgress: { count: counts['in-progress'], percentage: calculatePercentage(counts['in-progress']) },
       completed: { count: counts.completed, percentage: calculatePercentage(counts.completed) },
+      onHold: { count: counts.onhold, percentage: calculatePercentage(counts.onhold) },
       overdue: { count: counts.overdue, percentage: calculatePercentage(counts.overdue) }
     };
   }, [getStatusForTask, getDueDateForTask, isOverdue]);
@@ -900,6 +978,11 @@ const UserCreateTask = () => {
     if (taskViewMode === 'project') return projectTasksGrouped;
     return assignedToMeTasksGrouped;
   }, [taskViewMode, allTasksGrouped, combinedTasksGrouped, myTasksGrouped, clientTasksGrouped, projectTasksGrouped, assignedToMeTasksGrouped, mergeGroupedTasks]);
+
+  const getStatsTasksGrouped = useCallback(() => {
+    if (taskViewMode === 'all') return allTasksStatsGrouped;
+    return getActiveTasksGrouped();
+  }, [taskViewMode, allTasksStatsGrouped, getActiveTasksGrouped]);
 
   
   const enrichAssignedTasks = useCallback((tasks) => {
@@ -995,54 +1078,28 @@ const UserCreateTask = () => {
     ));
   }, [userId]);
 
-  const buildTaskQueryParams = useCallback(() => {
+  const buildTaskQueryParams = useCallback(({ includeAll = true } = {}) => {
     const params = new URLSearchParams();
     params.append('page', '1');
     params.append('limit', String(TASK_PAGE_LIMIT));
-    if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
-    if (debouncedSearchTerm.trim()) params.append('search', debouncedSearchTerm.trim());
-    if (timeFilter === 'today') params.append('period', 'today');
-    if (timeFilter === 'this-week') params.append('period', 'week');
-    if (searchTerm.trim()) params.append('search', searchTerm.trim());
-    const apiPeriod = API_PERIOD_BY_FILTER[timeFilter];
-    if (apiPeriod) params.append('period', apiPeriod);
-    if (selectedDate) {
-      params.append('fromDate', selectedDate);
-      params.append('toDate', selectedDate);
-    } else if (dateRange.start || dateRange.end) {
-      if (dateRange.start) params.append('fromDate', dateRange.start);
-      if (dateRange.end) params.append('toDate', dateRange.end);
-    }
-    if (selectedDate || dateRange.start || dateRange.end) {
-      params.append('dateField', dateFilterType === 'createdDate' ? 'createdAt' : 'dueDate');
-    }
+    if (includeAll) params.append('all', 'true');
     return params.toString();
-  }, [statusFilter, debouncedSearchTerm, timeFilter, selectedDate, dateRange, dateFilterType]);
+  }, []);
 
   const getUserTaskApiPeriod = useCallback(() => {
-    return API_PERIOD_BY_FILTER[timeFilter] || 'all';
-  }, [timeFilter]);
+    return 'all';
+  }, []);
 
   const buildUserTaskQueryParams = useCallback((period = 'all') => {
     const params = new URLSearchParams();
     params.append('page', '1');
     params.append('limit', String(TASK_PAGE_LIMIT));
     params.append('period', period);
-    params.append('status', statusFilter && statusFilter !== 'all' ? statusFilter : 'all');
+    params.append('status', 'all');
     params.append('priority', 'all');
-    if (debouncedSearchTerm.trim()) params.append('search', debouncedSearchTerm.trim());
-    if (selectedDate) {
-      params.append('fromDate', selectedDate);
-      params.append('toDate', selectedDate);
-    } else if (dateRange.start || dateRange.end) {
-      if (dateRange.start) params.append('fromDate', dateRange.start);
-      if (dateRange.end) params.append('toDate', dateRange.end);
-    }
-    if (selectedDate || dateRange.start || dateRange.end) {
-      params.append('dateField', dateFilterType === 'createdDate' ? 'createdAt' : 'dueDate');
-    }
+    params.append('all', 'true');
     return params.toString();
-  }, [statusFilter, debouncedSearchTerm, selectedDate, dateRange, dateFilterType]);
+  }, []);
 
   const tagTasksWithSource = useCallback((tasks, source) => {
     return tasks.map(task => ({ ...task, __taskSource: source }));
@@ -1194,17 +1251,24 @@ const UserCreateTask = () => {
     }
   }, [authError, userId, extractTasksFromResponse, extractProjectsFromResponse, extractAssignedProjectTasksFromProjects, groupTasksByDate, calculateProjectStatsFromTasks, tagTasksWithSource, buildTaskQueryParams]);
 
-  const fetchAllTasks = useCallback(async () => {
+  const fetchAllTasks = useCallback(async ({ refreshStats = false } = {}) => {
     if (authError || !userId) return;
 
-    setLoadingAllTasks(true);
+    const shouldShowLoader = !allTasksLoadedRef.current;
+    if (shouldShowLoader) setLoadingAllTasks(true);
     try {
-      const query = buildTaskQueryParams();
+      const query = buildTaskQueryParams({ includeAll: false });
       const params = new URLSearchParams(query);
       params.set('page', String(allTasksPagination.page));
       params.set('limit', String(allTasksPagination.limit));
       const url = `/tasks/all?${params.toString()}`;
-      const res = await axios.get(url);
+      const shouldFetchFullStats = refreshStats || !allTasksStatsLoadedRef.current;
+      const fullParams = shouldFetchFullStats ? new URLSearchParams(buildTaskQueryParams()) : null;
+      const fullUrl = fullParams ? `/tasks/all?${fullParams.toString()}` : null;
+      const [res, fullRes] = await Promise.all([
+        axios.get(url),
+        fullUrl ? axios.get(fullUrl) : Promise.resolve(null)
+      ]);
       const responseTasks = Array.isArray(res.data?.tasks) ? res.data.tasks : extractTasksFromResponse(res.data);
       const tasksArray = responseTasks.map(task => ({
         ...task,
@@ -1212,7 +1276,17 @@ const UserCreateTask = () => {
       }));
       const groupedTasks = groupTasksByDate(tasksArray);
       setAllTasksGrouped(groupedTasks);
-      setAllTaskStats(res.data?.stats || calculateUnifiedStatsFromTasks(groupedTasks));
+      if (fullRes) {
+        const fullResponseTasks = Array.isArray(fullRes.data?.tasks) ? fullRes.data.tasks : extractTasksFromResponse(fullRes.data);
+        const fullTasksArray = fullResponseTasks.map(task => ({
+          ...task,
+          __taskSource: task.__taskSource || task.taskSource || (task.clientId ? 'client' : 'assigned')
+        }));
+        const fullGroupedTasks = groupTasksByDate(fullTasksArray);
+        setAllTasksStatsGrouped(fullGroupedTasks);
+        setAllTaskStats(fullRes.data?.stats || calculateUnifiedStatsFromTasks(fullGroupedTasks));
+        allTasksStatsLoadedRef.current = true;
+      }
       setAllTasksPagination(prev => ({
         ...prev,
         ...(res.data?.pagination || {}),
@@ -1222,13 +1296,16 @@ const UserCreateTask = () => {
     } catch (err) {
       console.error('❌ Error in fetchAllTasks:', err);
       setAllTasksGrouped({});
+      setAllTasksStatsGrouped({});
+      allTasksStatsLoadedRef.current = false;
       setAllTaskStats(emptyExternalStats());
       setAllTasksPagination(prev => ({ ...prev, total: 0, pages: 1, hasNext: false, hasPrev: false }));
       if (err.response?.status !== 404) {
         showSnackbar('Failed to load all tasks', 'error');
       }
     } finally {
-      setLoadingAllTasks(false);
+      if (shouldShowLoader) setLoadingAllTasks(false);
+      allTasksLoadedRef.current = true;
       setTaskViewsLoaded(prev => ({ ...prev, all: true }));
     }
   }, [authError, userId, buildTaskQueryParams, extractTasksFromResponse, groupTasksByDate, calculateUnifiedStatsFromTasks, allTasksPagination.page, allTasksPagination.limit]);
@@ -1300,10 +1377,6 @@ const UserCreateTask = () => {
     }
   };
 
-  useEffect(() => {
-    setAllTasksPagination(prev => ({ ...prev, page: 1 }));
-  }, [statusFilter, debouncedSearchTerm, timeFilter]);
-
   // Avoid firing an expensive backend request for every search keystroke.
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 350);
@@ -1313,12 +1386,21 @@ const UserCreateTask = () => {
   
   const handleStatsCardClick = (status) => {
     if (status) {
-      const newStatusFilter = statusFilter === status ? '' : status;
+      const newStatusFilter = status === 'all' || statusFilter === status ? '' : status;
+      const statusLabels = {
+        completed: 'Completed',
+        'high-priority': 'High Priority',
+        'medium-priority': 'Medium Priority',
+        'low-priority': 'Low Priority',
+        'in-progress': 'In Progress',
+        pending: 'Pending',
+        onhold: 'On Hold'
+      };
       setStatusFilter(newStatusFilter);
       
       showSnackbar(
         newStatusFilter 
-          ? `Filtering ${taskViewMode === 'all' ? 'all' : taskViewMode === 'self' ? 'personal' : taskViewMode === 'client' ? 'client' : taskViewMode === 'project' ? 'project' : 'assigned'} tasks by: ${status.replace('-', ' ')}` 
+          ? `Filtering ${taskViewMode === 'all' ? 'all' : taskViewMode === 'self' ? 'personal' : taskViewMode === 'client' ? 'client' : taskViewMode === 'project' ? 'project' : 'assigned'} tasks by: ${statusLabels[status] || status.replace('-', ' ')}` 
           : 'Cleared status filter',
         'info'
       );
@@ -1830,9 +1912,14 @@ const UserCreateTask = () => {
     return applyDateFilter(tasksToFilter);
   }, [getActiveTasksGrouped, applyLocalFilters, applyDateFilter]);
 
+  const statsBaseTasks = useMemo(() => {
+    const tasksToFilter = applyLocalFilters(getStatsTasksGrouped(), { includeStatus: false });
+    return applyDateFilter(tasksToFilter);
+  }, [getStatsTasksGrouped, applyLocalFilters, applyDateFilter]);
+
   const filteredTaskStats = useMemo(() => {
-    return calculateUnifiedStatsFromTasks(filteredTasks);
-  }, [filteredTasks, calculateUnifiedStatsFromTasks]);
+    return calculateUnifiedStatsFromTasks(statsBaseTasks);
+  }, [statsBaseTasks, calculateUnifiedStatsFromTasks]);
 
   const getOverdueCount = useMemo(() => {
     let count = 0;
@@ -2326,7 +2413,7 @@ const UserCreateTask = () => {
     return <CIISLoader />;
   }
 
-  const activeStats = taskViewMode === 'all' ? allTaskStats : filteredTaskStats;
+  const activeStats = filteredTaskStats;
 
   
   return (
@@ -2513,26 +2600,40 @@ const UserCreateTask = () => {
           <div className="user-create-task-grid-container">
             {(() => {
               const statsToShow = activeStats;
-              const statsData = taskViewMode === 'self' 
-                ? [
-                    { title: 'Total Tasks', value: statsToShow.total, icon: FiList, color: 'primary', description: `All tasks (${timeFilter})`, clickable: false, status: null },
-                    { title: 'Completed', value: statsToShow.completed.count, percentage: statsToShow.completed.percentage, icon: FiCheckCircle, color: 'success', description: `${statsToShow.completed.percentage}% of total`, status: 'completed', clickable: true },
-                    { title: 'In Progress', value: statsToShow.inProgress.count, percentage: statsToShow.inProgress.percentage, icon: FiTrendingUp, color: 'info', description: `${statsToShow.inProgress.percentage}% of total`, status: 'in-progress', clickable: true },
-                    { title: 'Pending', value: statsToShow.pending.count, percentage: statsToShow.pending.percentage, icon: FiClock, color: 'warning', description: `${statsToShow.pending.percentage}% of total`, status: 'pending', clickable: true },
-                    { title: 'Overdue', value: statsToShow.overdue.count, percentage: statsToShow.overdue.percentage, icon: FiAlertCircle, color: 'error', description: `${statsToShow.overdue.percentage}% of total`, status: 'overdue', clickable: true }
-                  ]
-                : [
-                    { title: 'Total Tasks', value: statsToShow.total, icon: FiList, color: 'primary', description: `${taskViewMode === 'all' ? 'All tasks' : taskViewMode === 'client' ? 'All client tasks' : taskViewMode === 'project' ? 'All project tasks' : 'All assigned tasks'} (${timeFilter})`, clickable: false, status: null },
-                    { title: 'Completed', value: statsToShow.completed.count, percentage: statsToShow.completed.percentage, icon: FiCheckCircle, color: 'success', description: `${statsToShow.completed.percentage}% of total`, status: 'completed', clickable: true },
-                    { title: 'In Progress', value: statsToShow.inProgress.count, percentage: statsToShow.inProgress.percentage, icon: FiTrendingUp, color: 'info', description: `${statsToShow.inProgress.percentage}% of total`, status: 'in-progress', clickable: true },
-                    { title: 'Pending', value: statsToShow.pending.count, percentage: statsToShow.pending.percentage, icon: FiClock, color: 'warning', description: `${statsToShow.pending.percentage}% of total`, status: 'pending', clickable: true },
-                    { title: 'Overdue', value: statsToShow.overdue.count, percentage: statsToShow.overdue.percentage, icon: FiAlertCircle, color: 'error', description: `${statsToShow.overdue.percentage}% of total`, status: 'overdue', clickable: true }
-                  ];
+              const fallbackStats = filteredTaskStats || emptyExternalStats();
+              const getStat = (key, fallback = { count: 0, percentage: 0 }) => statsToShow?.[key] || fallbackStats?.[key] || fallback;
+              const completed = getStat('completed');
+              const highPriority = getStat('highPriority', { count: 0, completed: 0, percentage: 0 });
+              const mediumPriority = getStat('mediumPriority', { count: 0, completed: 0, percentage: 0 });
+              const lowPriority = getStat('lowPriority', { count: 0, completed: 0, percentage: 0 });
+              const highPriorityCompleted = Number.isFinite(Number(highPriority.completed)) ? highPriority.completed : fallbackStats?.highPriority?.completed || 0;
+              const highPriorityTotal = Number.isFinite(Number(highPriority.count)) ? highPriority.count : fallbackStats?.highPriority?.count || 0;
+              const highPriorityPercentage = Number.isFinite(Number(highPriority.percentage)) ? highPriority.percentage : fallbackStats?.highPriority?.percentage || 0;
+              const mediumPriorityCompleted = Number.isFinite(Number(mediumPriority.completed)) ? mediumPriority.completed : fallbackStats?.mediumPriority?.completed || 0;
+              const mediumPriorityTotal = Number.isFinite(Number(mediumPriority.count)) ? mediumPriority.count : fallbackStats?.mediumPriority?.count || 0;
+              const mediumPriorityPercentage = Number.isFinite(Number(mediumPriority.percentage)) ? mediumPriority.percentage : fallbackStats?.mediumPriority?.percentage || 0;
+              const lowPriorityCompleted = Number.isFinite(Number(lowPriority.completed)) ? lowPriority.completed : fallbackStats?.lowPriority?.completed || 0;
+              const lowPriorityTotal = Number.isFinite(Number(lowPriority.count)) ? lowPriority.count : fallbackStats?.lowPriority?.count || 0;
+              const lowPriorityPercentage = Number.isFinite(Number(lowPriority.percentage)) ? lowPriority.percentage : fallbackStats?.lowPriority?.percentage || 0;
+              const inProgress = getStat('inProgress');
+              const pending = getStat('pending');
+              const onHold = getStat('onHold');
+              const totalDescription = taskViewMode === 'self'
+                ? `All tasks (${timeFilter})`
+                : `${taskViewMode === 'all' ? 'All tasks' : taskViewMode === 'client' ? 'All client tasks' : taskViewMode === 'project' ? 'All project tasks' : 'All assigned tasks'} (${timeFilter})`;
+              const statsData = [
+                { title: 'Total Tasks', value: statsToShow?.total || 0, icon: FiList, color: 'primary', description: totalDescription, clickable: true, status: 'all' },
+                { title: 'Completed', value: completed.count, percentage: completed.percentage, icon: FiCheckCircle, color: 'success', description: `${completed.percentage}% of total`, status: 'completed', clickable: true },
+                { title: 'High Priority', value: `${highPriorityCompleted}/${highPriorityTotal}`, percentage: highPriorityPercentage, icon: FiAlertTriangle, color: 'error', description: `${highPriorityPercentage}% of high`, status: 'high-priority', clickable: true },
+                { title: 'Medium Priority', value: `${mediumPriorityCompleted}/${mediumPriorityTotal}`, percentage: mediumPriorityPercentage, icon: FiFlag, color: 'warning', description: `${mediumPriorityPercentage}% of medium`, status: 'medium-priority', clickable: true },
+                { title: 'Low Priority', value: `${lowPriorityCompleted}/${lowPriorityTotal}`, percentage: lowPriorityPercentage, icon: FiArrowDownCircle, color: 'info', description: `${lowPriorityPercentage}% of low`, status: 'low-priority', clickable: true },
+                { title: 'In Progress', value: inProgress.count, percentage: inProgress.percentage, icon: FiTrendingUp, color: 'info', description: `${inProgress.percentage}% of total`, status: 'in-progress', clickable: true },
+                { title: 'Pending', value: pending.count, percentage: pending.percentage, icon: FiClock, color: 'warning', description: `${pending.percentage}% of total`, status: 'pending', clickable: true },
+                { title: 'On Hold', value: onHold.count, percentage: onHold.percentage, icon: FiPause, color: 'secondary', description: `${onHold.percentage}% of total`, status: 'onhold', clickable: true }
+              ];
 
-              return statsData
-                .filter(stat => stat.value > 0 || stat.title === 'Total Tasks')
-                .map((stat, index) => {
-                  const isActive = stat.status === statusFilter;
+              return statsData.map((stat, index) => {
+                  const isActive = stat.status === 'all' ? !statusFilter || statusFilter === 'all' : stat.status === statusFilter;
                   
                   return (
                     <StatCard
@@ -2545,8 +2646,8 @@ const UserCreateTask = () => {
                       <div className="user-create-task-stat-card-content">
                         <div className="user-create-task-stat-card-header">
                           <div>
-                            <div className="user-create-task-stat-card-title">{stat.title}</div>
                             <div className="user-create-task-stat-card-value">{stat.value}</div>
+                            <div className="user-create-task-stat-card-title">{stat.title}</div>
                           </div>
                           <div 
                             className="user-create-task-stat-card-icon"
@@ -2558,24 +2659,6 @@ const UserCreateTask = () => {
                             {React.createElement(stat.icon, { size: isMobile ? 16 : 18 })}
                           </div>
                         </div>
-
-                        {stat.percentage !== undefined && (
-                          <div className="user-create-task-progress-container">
-                            <div className="user-create-task-progress-header">
-                              <div className="user-create-task-progress-label">Progress</div>
-                              <div className="user-create-task-progress-percentage">{stat.percentage}%</div>
-                            </div>
-                            <div className="user-create-task-progress-bar">
-                              <div 
-                                className="user-create-task-progress-fill"
-                                style={{
-                                  width: `${stat.percentage}%`,
-                                  backgroundColor: getColorValue(stat.color)
-                                }}
-                              />
-                            </div>
-                          </div>
-                        )}
 
                         <div className="user-create-task-stat-card-description">{stat.description}</div>
                       </div>
@@ -2591,7 +2674,16 @@ const UserCreateTask = () => {
                 Active Filters:
                 {statusFilter && (
                   <div className="user-create-task-status-chip" style={{ display: 'inline-flex', margin: '0 4px', padding: '2px 8px' }}>
-                    {statusFilter.replace('-', ' ')}
+                    {{
+                      completed: 'Completed',
+                      'high-priority': 'High Priority',
+                      'medium-priority': 'Medium Priority',
+                      'low-priority': 'Low Priority',
+                      'in-progress': 'In Progress',
+                      pending: 'Pending',
+                      onhold: 'On Hold',
+                      overdue: 'Overdue'
+                    }[statusFilter] || statusFilter.replace('-', ' ')}
                     <button
                       onClick={() => setStatusFilter('')}
                       style={{ marginLeft: '4px', background: 'none', border: 'none', cursor: 'pointer' }}
@@ -3526,7 +3618,7 @@ const UserCreateTask = () => {
             })()
           )}
 
-          {taskViewMode === 'all' && !loadingAllTasks && allTasksPagination.total > allTasksPagination.limit && (
+          {taskViewMode === 'all' && allTasksPagination.total > allTasksPagination.limit && (
             <div className="user-create-task-pagination">
               <button
                 className="user-create-task-button user-create-task-button-outlined"

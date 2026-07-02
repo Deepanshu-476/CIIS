@@ -198,7 +198,6 @@ const EmployeeProject = () => {
     Description: () => <span className="EmployeeProject-icon">📝</span>,
     Dashboard: () => <span className="EmployeeProject-icon">📊</span>,
     TrendingUp: () => <span className="EmployeeProject-icon">📈</span>,
-    MoreVert: () => <span className="EmployeeProject-icon">⋯</span>,
     ArrowForward: () => <span className="EmployeeProject-icon">→</span>,
     Star: () => <span className="EmployeeProject-icon">⭐</span>,
     FiberNew: () => <span className="EmployeeProject-icon">🆕</span>,
@@ -1158,9 +1157,6 @@ const EmployeeProject = () => {
                         color={getStatusColor(p.status)}
                       />
                     </div>
-                    <button className="EmployeeProject-icon-button EmployeeProject-card-menu">
-                      <Icons.MoreVert />
-                    </button>
                   </div>
                   
                   <div className="EmployeeProject-chip-container">

@@ -6,26 +6,8 @@ const ProtectedRoute = ({ children }) => {
   const path = location.pathname;
 
   const isSuperAdminRoute = path.startsWith('/Ciis-network');
-  const isUserRoute = path.startsWith('/ciisUser');
-  const isClientRoute = path.startsWith('/client');
-
-  let isValid = !!token;
-
-  if (isValid) {
-    if (isSuperAdminRoute) {
-      isValid = !!localStorage.getItem('superAdmin');
-    } else if (isUserRoute || isClientRoute) {
-      isValid = !!localStorage.getItem('user');
-    }
-  }
-
-  if (!isValid) {
+  if (!token) {
     const companyCode = localStorage.getItem('companyCode') || localStorage.getItem('companyIdentifier');
-
-    
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('superAdmin');
 
     if (isSuperAdminRoute) {
       return <Navigate to="/SuperAdminLogin" replace />;

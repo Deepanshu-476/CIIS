@@ -1246,6 +1246,32 @@ textarea.ClientManagement-form-input {
   bottom: 0;
 }
 
+/* Task details is opened from inside the scrolling client modal. It is portalled
+   to body and kept above that parent so it cannot be clipped or pushed down. */
+.ClientManagement-task-details-overlay {
+  z-index: 11000;
+  height: 100dvh;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.ClientManagement-task-details-modal {
+  max-width: 700px;
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.ClientManagement-task-details-modal .ClientManagement-modal__content {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.ClientManagement-task-details-modal .ClientManagement-modal__footer {
+  flex-shrink: 0;
+}
+
 .ClientManagement-service-request-list {
   display: grid;
   gap: 8px;

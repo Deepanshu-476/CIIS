@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import API_URL from '../../../config';
@@ -1118,9 +1119,9 @@ const TaskDetailsModal = ({ task, open, onClose, projectManagers = [] }) => {
 
   const assigneeDetails = getAssigneeDetails(task.assignee);
 
-  return (
-    <div className="ClientManagement-modal-overlay" onClick={onClose}>
-      <div className="ClientManagement-modal" onClick={e => e.stopPropagation()}>
+  return createPortal(
+    <div className="ClientManagement-modal-overlay ClientManagement-task-details-overlay" onClick={onClose}>
+      <div className="ClientManagement-modal ClientManagement-task-details-modal" role="dialog" aria-modal="true" aria-label="Task details" onClick={e => e.stopPropagation()}>
         <div className="ClientManagement-modal__header">
           <h3>Task Details</h3>
           <button className="ClientManagement-action-button" onClick={onClose}>
@@ -1210,14 +1211,15 @@ const TaskDetailsModal = ({ task, open, onClose, projectManagers = [] }) => {
           <button className="ClientManagement-btn ClientManagement-btn--outlined" onClick={onClose}>Close</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
 
 
 
-const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], onTaskUpdate, api, startDate = null, endDate = null, subscriptionId = null, subscriptionNo = null }) => {
+const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], onTaskUpdate, api, startDate = null, endDate = null, subscriptionId = null, subscriptionNo = null, initialTasks = null }) => {
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState({
     name: '',
@@ -1266,8 +1268,13 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
   };
 
   useEffect(() => {
+    if (Array.isArray(initialTasks)) {
+      setTasks(initialTasks);
+      setLoading(false);
+      return;
+    }
     fetchTasks();
-  }, [clientId, service, startDate, endDate, subscriptionId, subscriptionNo]);
+  }, [clientId, service, startDate, endDate, subscriptionId, subscriptionNo, initialTasks]);
 
   const completedTasks = tasks.filter(task => task.completed).length;
   const totalTasks = tasks.length;
@@ -2745,6 +2752,7 @@ const ClientManagement = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [viewDialog, setViewDialog] = useState({ open: false, client: null });
+  const [viewClientTasks, setViewClientTasks] = useState(null);
   const [selectedSubIndex, setSelectedSubIndex] = useState('all');
   const [servicesModal, setServicesModal] = useState(false);
   const [clientPlansModal, setClientPlansModal] = useState(false);
@@ -2876,8 +2884,6 @@ const ClientManagement = () => {
         
         setCompanyCode(companyCodeFromStorage);
         setCompanyIdentifier(companyIdentifierFromStorage);
-        loadServiceRequests(companyCodeFromStorage, companyIdentifierFromStorage);
-        
         if (!companyCodeFromStorage && !companyIdentifierFromStorage) {
           setError('Company information not found. Please login again.');
         } else {
@@ -2979,7 +2985,8 @@ const ClientManagement = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      await fetchProjectManagers();
+      // User lookup is independent and must not hold up the client list.
+      fetchProjectManagers();
       
       const apiParams = {
         ...filters,
@@ -3113,75 +3120,52 @@ const ClientManagement = () => {
   };
 
   useEffect(() => {
-    const calculateTasksForAll = async () => {
-      const counts = {};
-      let totalPending = 0;
-      const overdueClientsData = [];
-      
-      for (const client of clients) {
-        try {
-          const tasks = await fetchClientTasks(client._id);
-          const total = tasks.length;
-          const completed = tasks.filter(t => t.completed).length;
-          const pending = total - completed;
-          const overdueTasks = tasks.filter(t => isClientTaskOverdue(t));
-          const overdueTasksCount = overdueTasks.length;
-          const overdueTaskNames = overdueTasks
-            .map(task => task?.name || task?.title || task?.taskName)
-            .filter(Boolean);
-          
-          counts[client._id] = { total, completed, pending };
-          totalPending += pending;
-          if (overdueTasksCount > 0) {
+    let cancelled = false;
+    const loadTaskSummaries = async () => {
+      if (!clients.length) {
+        setTaskCounts({});
+        setOverdueClients([]);
+        setTasksStats({ pendingTasks: 0, overdueTasks: 0 });
+        return;
+      }
+      try {
+        const response = await tasksApi.get('/summary/bulk', {
+          params: { clientIds: clients.map(client => client._id).join(',') }
+        });
+        if (cancelled) return;
+        const summaries = response.data?.data || {};
+        let pendingTasks = 0;
+        let overdueTasks = 0;
+        const overdueClientsData = [];
+        const counts = {};
+        clients.forEach(client => {
+          const summary = summaries[client._id] || {};
+          counts[client._id] = {
+            total: summary.total || 0,
+            completed: summary.completed || 0,
+            pending: summary.pending || 0
+          };
+          pendingTasks += summary.pending || 0;
+          overdueTasks += summary.overdue || 0;
+          if (summary.overdue) {
             overdueClientsData.push({
               _id: client._id,
               client: client.client,
               company: client.company,
-              overdueTasksCount,
-              overdueTaskNames
+              overdueTasksCount: summary.overdue,
+              overdueTaskNames: summary.overdueTaskNames || []
             });
           }
-        } catch (error) {
-          console.error(`Error calculating tasks for client ${client._id}:`, error);
-          counts[client._id] = { total: 0, completed: 0, pending: 0 };
-        }
+        });
+        setTaskCounts(counts);
+        setOverdueClients(overdueClientsData);
+        setTasksStats({ pendingTasks, overdueTasks });
+      } catch (error) {
+        if (!cancelled) console.error('Error loading task summaries:', error);
       }
-      
-      setTaskCounts(counts);
-      setOverdueClients(overdueClientsData);
-      setTasksStats(prev => ({
-        ...prev,
-        pendingTasks: totalPending
-      }));
     };
-    
-    if (clients.length > 0) {
-      calculateTasksForAll();
-      
-      const calculateOverdueTasks = async () => {
-        let totalOverdue = 0;
-        for (const client of clients) {
-          const tasksData = await fetchClientTasks(client._id);
-          const overdue = tasksData.filter(t => {
-            return isClientTaskOverdue(t);
-          }).length;
-          totalOverdue += overdue;
-        }
-        setTasksStats(prev => ({
-          ...prev,
-          overdueTasks: totalOverdue
-        }));
-      };
-      
-      calculateOverdueTasks();
-    } else {
-      setTaskCounts({});
-      setOverdueClients([]);
-      setTasksStats({
-        pendingTasks: 0,
-        overdueTasks: 0
-      });
-    }
+    loadTaskSummaries();
+    return () => { cancelled = true; };
   }, [clients]);
 
   const handleFilterChange = (key, value) => {
@@ -3483,9 +3467,18 @@ const ClientManagement = () => {
     }
   };
 
-  const handleViewClick = (client) => {
+  const handleViewClick = async (client) => {
     setViewDialog({ open: true, client });
     setSelectedSubIndex('all');
+    setViewClientTasks(null);
+    try {
+      const response = await tasksApi.get(`/client/${client._id}`, { params: { limit: 100 } });
+      const data = response.data?.data;
+      setViewClientTasks(Array.isArray(data) ? data : (data?.tasks || []));
+    } catch (error) {
+      console.error('Error loading client detail tasks:', error);
+      setViewClientTasks([]);
+    }
   };
 
   const safeMapProjectManagers = (callback) => {
@@ -4202,6 +4195,12 @@ const ClientManagement = () => {
                                 endDate={selectedSub ? selectedSub.endDate : null}
                                 subscriptionId={selectedSub ? selectedSub._id : null}
                                 subscriptionNo={selectedSub ? selectedSub.subscriptionNo : null}
+                                initialTasks={Array.isArray(viewClientTasks) ? viewClientTasks.filter(task => {
+                                  if (task.service !== service) return false;
+                                  if (!selectedSub) return true;
+                                  if (selectedSub._id && String(task.subscriptionId?._id || task.subscriptionId || '') === String(selectedSub._id)) return true;
+                                  return selectedSub.subscriptionNo && Number(task.subscriptionNo) === Number(selectedSub.subscriptionNo);
+                                }) : null}
                               />
                             </div>
                           </div>

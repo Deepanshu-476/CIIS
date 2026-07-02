@@ -95,12 +95,17 @@ const useUser = () => {
   
   const getCurrentUserCompanyId = useCallback(() => {
     const user = getCurrentUser();
-    return user?.company || user?.companyId || user?.companyDetails?._id || null;
+    const company = user?.company;
+    return company?._id || company?.id || company || user?.companyId || user?.companyDetails?._id || null;
   }, [getCurrentUser]);
   
   const getCurrentUserCompanyCode = useCallback(() => {
     const user = getCurrentUser();
-    return user?.companyCode || user?.companyDetails?.companyCode || null;
+    return localStorage.getItem('companyCode') ||
+      user?.companyCode ||
+      user?.company?.companyCode ||
+      user?.companyDetails?.companyCode ||
+      null;
   }, [getCurrentUser]);
   
   const getCurrentUserCompanyName = useCallback(() => {
@@ -126,21 +131,14 @@ const useUser = () => {
   
   // ✅ UPDATED: EVERYONE can edit other employees (Employee, Owner, HR, Manager, Admin, Super Admin)
   const canEditOtherEmployees = useMemo(() => {
-    const jobRole = getCurrentUserJobRole();
-    const companyRole = getCurrentUserCompanyRole();
-    // Edit permission is available for Employee, Owner, HR, Manager, Admin, and Super Admin.
-    const allowedRoles = ['super_admin', 'admin', 'owner', 'hr', 'manager', 'employee'];
-    return allowedRoles.includes(jobRole) || allowedRoles.includes(companyRole);
-  }, [getCurrentUserJobRole, getCurrentUserCompanyRole]);
+    return true;
+  }, []);
   
   // ✅ Check if user can see all company users (Owner, HR, Manager, Admin, Super Admin)
   // Employee will only see department users
   const canSeeAllCompanyUsers = useMemo(() => {
-    const jobRole = getCurrentUserJobRole();
-    const companyRole = getCurrentUserCompanyRole();
-    const allowedRoles = ['super_admin', 'admin', 'owner', 'hr', 'manager'];
-    return allowedRoles.includes(jobRole) || allowedRoles.includes(companyRole);
-  }, [getCurrentUserJobRole, getCurrentUserCompanyRole]);
+    return true;
+  }, []);
   
   const getAuthToken = useCallback(() => {
     return localStorage.getItem('token');
@@ -1253,7 +1251,7 @@ const EmployeeDirectory = () => {
   
   // Fetch Job Roles from API
   const fetchJobRoles = useCallback(async () => {
-    if (!currentUserCompanyId) {
+    if (!currentUserCompanyId && !currentUserCompanyCode) {
       return [];
     }
     
@@ -1266,7 +1264,13 @@ const EmployeeDirectory = () => {
         }
       };
       
-      const response = await axios.get(`/job-roles?company=${currentUserCompanyId}`, config);
+      const response = await axios.get('/job-roles', {
+        ...config,
+        params: {
+          company: currentUserCompanyId || undefined,
+          companyCode: currentUserCompanyCode || undefined
+        }
+      });
       
       if (response.data && response.data.success) {
         let jobRolesData = [];
@@ -1300,7 +1304,7 @@ const EmployeeDirectory = () => {
       setJobRoles([]);
       return [];
     }
-  }, [currentUserCompanyId, user.getAuthToken]);
+  }, [currentUserCompanyId, currentUserCompanyCode, user.getAuthToken]);
   
   // Helper function to get job role name by ID
   const getJobRoleName = useCallback((jobRoleId) => {
@@ -1353,9 +1357,12 @@ const EmployeeDirectory = () => {
       return false;
     }
     
-    // Users with edit permission can delete
-    return canEditOtherEmployees;
-  }, [currentUserId, canEditOtherEmployees]);
+    const jobRole = user.getCurrentUserJobRole();
+    const companyRole = user.getCurrentUserCompanyRole();
+    const allowedDeleteRoles = ['super_admin', 'admin', 'owner', 'hr', 'manager'];
+
+    return allowedDeleteRoles.includes(jobRole) || allowedDeleteRoles.includes(companyRole);
+  }, [currentUserId, user]);
   
   // Responsive check
   useEffect(() => {
@@ -1388,7 +1395,7 @@ const EmployeeDirectory = () => {
   
   // Fetch data
   const fetchData = useCallback(async () => {
-    if (!currentUserCompanyId) {
+    if (!currentUserCompanyId && !currentUserCompanyCode) {
       showSnackbar('Company information not found. Please login again.', 'error');
       setLoading(false);
       return;
@@ -1410,13 +1417,24 @@ const EmployeeDirectory = () => {
       
       if (canSeeAllCompanyUsers) {
         console.log("👑 Fetching ALL company users");
-        usersRes = await axios.get(`/users/company-users?companyId=${currentUserCompanyId}&includeInactive=true`, config);
+        usersRes = await axios.get('/users/company-users', {
+          ...config,
+          params: {
+            companyId: currentUserCompanyId || undefined,
+            companyCode: currentUserCompanyCode || undefined,
+            includeInactive: true
+          }
+        });
       } else {
         console.log("👤 Fetching department users only");
-        usersRes = await axios.get(
-          `/users/department-users?department=${currentUserDepartmentId}&includeInactive=true`,
-          config
-        );
+        usersRes = await axios.get('/users/department-users', {
+          ...config,
+          params: {
+            department: currentUserDepartmentId || undefined,
+            companyCode: currentUserCompanyCode || undefined,
+            includeInactive: true
+          }
+        });
       }
       
       let employeesData = [];
@@ -1442,7 +1460,9 @@ const EmployeeDirectory = () => {
       if (deptRes.data && deptRes.data.success && Array.isArray(deptRes.data.departments)) {
         const filteredDepartments = deptRes.data.departments.filter(dept => {
           const deptCompanyId = dept.company?._id || dept.company;
-          return deptCompanyId === currentUserCompanyId;
+          const deptCompanyCode = dept.companyCode || dept.company?.companyCode;
+          return String(deptCompanyId || '') === String(currentUserCompanyId || '') ||
+            Boolean(currentUserCompanyCode && deptCompanyCode === currentUserCompanyCode);
         });
         
         setDepartments(filteredDepartments);
@@ -1461,6 +1481,7 @@ const EmployeeDirectory = () => {
     }
   }, [
     currentUserCompanyId, 
+    currentUserCompanyCode,
     currentUserDepartmentId, 
     canSeeAllCompanyUsers,
     showSnackbar, 

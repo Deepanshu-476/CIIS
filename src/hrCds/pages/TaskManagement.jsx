@@ -288,6 +288,7 @@ const UserCreateTask = () => {
 
   const [statusFilter, setStatusFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   
   // Self task stats
   const [taskStats, setTaskStats] = useState({
@@ -996,7 +997,7 @@ const UserCreateTask = () => {
   const buildTaskQueryParams = useCallback(() => {
     const params = new URLSearchParams();
     if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
-    if (searchTerm.trim()) params.append('search', searchTerm.trim());
+    if (debouncedSearchTerm.trim()) params.append('search', debouncedSearchTerm.trim());
     if (timeFilter === 'today') params.append('period', 'today');
     if (timeFilter === 'this-week') params.append('period', 'week');
     if (selectedDate) {
@@ -1010,7 +1011,7 @@ const UserCreateTask = () => {
       params.append('dateField', dateFilterType === 'createdDate' ? 'createdAt' : 'dueDate');
     }
     return params.toString();
-  }, [statusFilter, searchTerm, timeFilter, selectedDate, dateRange, dateFilterType]);
+  }, [statusFilter, debouncedSearchTerm, timeFilter, selectedDate, dateRange, dateFilterType]);
 
   const getUserTaskApiPeriod = useCallback(() => {
     if (timeFilter === 'today') return 'today';
@@ -1025,7 +1026,7 @@ const UserCreateTask = () => {
     params.append('period', period);
     params.append('status', statusFilter && statusFilter !== 'all' ? statusFilter : 'all');
     params.append('priority', 'all');
-    if (searchTerm.trim()) params.append('search', searchTerm.trim());
+    if (debouncedSearchTerm.trim()) params.append('search', debouncedSearchTerm.trim());
     if (selectedDate) {
       params.append('fromDate', selectedDate);
       params.append('toDate', selectedDate);
@@ -1037,7 +1038,7 @@ const UserCreateTask = () => {
       params.append('dateField', dateFilterType === 'createdDate' ? 'createdAt' : 'dueDate');
     }
     return params.toString();
-  }, [statusFilter, searchTerm, selectedDate, dateRange, dateFilterType]);
+  }, [statusFilter, debouncedSearchTerm, selectedDate, dateRange, dateFilterType]);
 
   const tagTasksWithSource = useCallback((tasks, source) => {
     return tasks.map(task => ({ ...task, __taskSource: source }));
@@ -1289,7 +1290,13 @@ const UserCreateTask = () => {
 
   useEffect(() => {
     setAllTasksPagination(prev => ({ ...prev, page: 1 }));
-  }, [statusFilter, searchTerm, timeFilter]);
+  }, [statusFilter, debouncedSearchTerm, timeFilter]);
+
+  // Avoid firing an expensive backend request for every search keystroke.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 350);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // Handle stats card click
   const handleStatsCardClick = (status) => {
@@ -2248,15 +2255,22 @@ const UserCreateTask = () => {
   // Fetch when user ID becomes available
   useEffect(() => {
     if (userId && !authError && !pageLoading) {
-      console.log('👤 User ID available, fetching tasks...');
-      fetchAllTasks();
-      fetchMyTasks();
-      fetchAssignedToMeTasks();
-      fetchClientTasks();
-      fetchProjectTasks();
-      fetchOverdueTasks();
+      // Fetch only the endpoint needed by the active tab. The all-tasks endpoint
+      // already aggregates every source, so calling all source APIs alongside it
+      // duplicated the heaviest database work on every filter/search change.
+      if (taskViewMode === 'all') {
+        fetchAllTasks();
+      } else if (taskViewMode === 'self') {
+        fetchMyTasks();
+      } else if (taskViewMode === 'client') {
+        fetchClientTasks();
+      } else if (taskViewMode === 'project') {
+        fetchProjectTasks();
+      } else {
+        fetchAssignedToMeTasks();
+      }
     }
-  }, [userId, authError, pageLoading, fetchAllTasks, fetchMyTasks, fetchAssignedToMeTasks, fetchClientTasks, fetchProjectTasks, fetchOverdueTasks]);
+  }, [userId, authError, pageLoading, taskViewMode, fetchAllTasks, fetchMyTasks, fetchAssignedToMeTasks, fetchClientTasks, fetchProjectTasks]);
 
   // Cleanup effect
   useEffect(() => {

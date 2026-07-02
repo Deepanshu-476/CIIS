@@ -1025,17 +1025,128 @@
   flex: 1;
 }
 
-.EmployeeDirectory-documents-list { display: grid; gap: 12px; }
-.EmployeeDirectory-document-row { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; }
-.EmployeeDirectory-document-row > svg { color: #4361ee; flex: 0 0 auto; }
-.EmployeeDirectory-document-info { display: flex; flex: 1; min-width: 0; flex-direction: column; }
-.EmployeeDirectory-document-info strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #273142; }
-.EmployeeDirectory-document-info span, .EmployeeDirectory-documents-empty { color: #8492a6; font-size: 13px; }
-.EmployeeDirectory-documents-error { padding: 14px; border-radius: 8px; color: #b91c1c; background: #fef2f2; }
-.EmployeeDirectory-document-row button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid #dbe2ff; border-radius: 7px; background: #f7f9ff; color: #3656d4; cursor: pointer; }
-@media (max-width: 600px) {
-  .EmployeeDirectory-document-row { flex-wrap: wrap; }
-  .EmployeeDirectory-document-info { flex-basis: calc(100% - 40px); }
+.EmployeeDirectory-modal-section .EmployeeDirectory-documents-list {
+  display: grid;
+  gap: 12px;
+}
+
+.EmployeeDirectory-modal-section .EmployeeDirectory-document-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.EmployeeDirectory-document-file-icon {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #eef4ff;
+  color: #4361ee;
+}
+
+.EmployeeDirectory-modal-section .EmployeeDirectory-document-info {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.EmployeeDirectory-modal-section .EmployeeDirectory-document-info strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #273142;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.EmployeeDirectory-modal-section .EmployeeDirectory-document-info span,
+.EmployeeDirectory-documents-empty {
+  color: #8492a6;
+  font-size: 13px;
+}
+
+.EmployeeDirectory-documents-error {
+  padding: 14px;
+  border-radius: 8px;
+  color: #b91c1c;
+  background: #fef2f2;
+}
+
+.EmployeeDirectory-document-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.EmployeeDirectory-document-action {
+  min-width: 106px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 14px;
+  border: 1px solid #cdd8ff;
+  border-radius: 9px;
+  background: #f8faff;
+  color: #3656d4;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.EmployeeDirectory-document-action:hover {
+  background: #edf2ff;
+  border-color: #4361ee;
+  transform: translateY(-1px);
+}
+
+.EmployeeDirectory-document-action-download {
+  background: #4361ee;
+  border-color: #4361ee;
+  color: white;
+}
+
+.EmployeeDirectory-document-action-download:hover {
+  background: #3656d4;
+  border-color: #3656d4;
+}
+
+@media (max-width: 700px) {
+  .EmployeeDirectory-modal-section .EmployeeDirectory-document-row {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .EmployeeDirectory-document-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 480px) {
+  .EmployeeDirectory-document-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .EmployeeDirectory-document-action {
+    width: 100%;
+  }
 }
 
 .EmployeeDirectory-modal-footer {

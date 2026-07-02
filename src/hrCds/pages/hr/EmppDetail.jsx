@@ -1242,13 +1242,29 @@ const EmployeeDocuments = ({ userId }) => {
       <div className="EmployeeDirectory-documents-list">
         {documents.map(document => (
           <div className="EmployeeDirectory-document-row" key={document._id}>
-            <FiFileText size={22} />
+            <div className="EmployeeDirectory-document-file-icon">
+              <FiFileText size={22} />
+            </div>
             <div className="EmployeeDirectory-document-info">
               <strong>{document.name}</strong>
               <span>{document.uploadedAt ? new Date(document.uploadedAt).toLocaleDateString() : 'Uploaded document'}</span>
             </div>
-            <button type="button" onClick={() => openDocument(document, false)}><FiEye /> View</button>
-            <button type="button" onClick={() => openDocument(document, true)}><FiDownload /> Download</button>
+            <div className="EmployeeDirectory-document-actions">
+              <button
+                type="button"
+                className="EmployeeDirectory-document-action EmployeeDirectory-document-action-view"
+                onClick={() => openDocument(document, false)}
+              >
+                <FiEye /> View
+              </button>
+              <button
+                type="button"
+                className="EmployeeDirectory-document-action EmployeeDirectory-document-action-download"
+                onClick={() => openDocument(document, true)}
+              >
+                <FiDownload /> Download
+              </button>
+            </div>
           </div>
         ))}
       </div>

@@ -34,9 +34,6 @@ const getFallbackIceServers = () => {
 
     return servers;
 };
- 
-
-
 const logCall = (...args) => void 0;
 
 const getUserId = (user) => {

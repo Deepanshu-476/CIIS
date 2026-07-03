@@ -334,7 +334,7 @@
   width: 100%;
 }
 
-.AdminTaskManagement-btn:disabled {
+.AdminTaskManagement-btn:disabled { 
   opacity: 0.5;
   pointer-events: none;
   transform: none;

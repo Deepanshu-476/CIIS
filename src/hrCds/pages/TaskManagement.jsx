@@ -1257,18 +1257,11 @@ const UserCreateTask = () => {
     const shouldShowLoader = !allTasksLoadedRef.current;
     if (shouldShowLoader) setLoadingAllTasks(true);
     try {
-      const query = buildTaskQueryParams({ includeAll: false });
-      const params = new URLSearchParams(query);
-      params.set('page', String(allTasksPagination.page));
-      params.set('limit', String(allTasksPagination.limit));
-      const url = `/tasks/all?${params.toString()}`;
-      const shouldFetchFullStats = refreshStats || !allTasksStatsLoadedRef.current;
-      const fullParams = shouldFetchFullStats ? new URLSearchParams(buildTaskQueryParams()) : null;
-      const fullUrl = fullParams ? `/tasks/all?${fullParams.toString()}` : null;
-      const [res, fullRes] = await Promise.all([
-        axios.get(url),
-        fullUrl ? axios.get(fullUrl) : Promise.resolve(null)
-      ]);
+      // Time/status/search filters are applied locally in this screen. Always load
+      // the complete set so "All Tasks" + "All Time" cannot silently omit tasks
+      // that happened to be on a different API page.
+      const query = buildTaskQueryParams({ includeAll: true });
+      const res = await axios.get(`/tasks/all?${query}`);
       const responseTasks = Array.isArray(res.data?.tasks) ? res.data.tasks : extractTasksFromResponse(res.data);
       const tasksArray = responseTasks.map(task => ({
         ...task,
@@ -1276,22 +1269,17 @@ const UserCreateTask = () => {
       }));
       const groupedTasks = groupTasksByDate(tasksArray);
       setAllTasksGrouped(groupedTasks);
-      if (fullRes) {
-        const fullResponseTasks = Array.isArray(fullRes.data?.tasks) ? fullRes.data.tasks : extractTasksFromResponse(fullRes.data);
-        const fullTasksArray = fullResponseTasks.map(task => ({
-          ...task,
-          __taskSource: task.__taskSource || task.taskSource || (task.clientId ? 'client' : 'assigned')
-        }));
-        const fullGroupedTasks = groupTasksByDate(fullTasksArray);
-        setAllTasksStatsGrouped(fullGroupedTasks);
-        setAllTaskStats(fullRes.data?.stats || calculateUnifiedStatsFromTasks(fullGroupedTasks));
-        allTasksStatsLoadedRef.current = true;
-      }
+      setAllTasksStatsGrouped(groupedTasks);
+      setAllTaskStats(res.data?.stats || calculateUnifiedStatsFromTasks(groupedTasks));
+      allTasksStatsLoadedRef.current = true;
       setAllTasksPagination(prev => ({
         ...prev,
-        ...(res.data?.pagination || {}),
-        total: res.data?.pagination?.total ?? res.data?.total ?? tasksArray.length,
-        pages: res.data?.pagination?.pages ?? 1
+        page: 1,
+        limit: Math.max(tasksArray.length, 1),
+        total: res.data?.total ?? tasksArray.length,
+        pages: 1,
+        hasNext: false,
+        hasPrev: false
       }));
     } catch (err) {
       console.error('❌ Error in fetchAllTasks:', err);
@@ -1308,7 +1296,7 @@ const UserCreateTask = () => {
       allTasksLoadedRef.current = true;
       setTaskViewsLoaded(prev => ({ ...prev, all: true }));
     }
-  }, [authError, userId, buildTaskQueryParams, extractTasksFromResponse, groupTasksByDate, calculateUnifiedStatsFromTasks, allTasksPagination.page, allTasksPagination.limit]);
+  }, [authError, userId, buildTaskQueryParams, extractTasksFromResponse, groupTasksByDate, calculateUnifiedStatsFromTasks]);
 
   
   const fetchMyTasks = useCallback(async () => {

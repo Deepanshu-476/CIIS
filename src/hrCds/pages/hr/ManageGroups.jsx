@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/useAuth";
 import {
   Box,
   Button,
+  Checkbox,
   Table,
   TableBody,
   TableCell,
@@ -18,25 +18,33 @@ import {
   TextField,
   Snackbar,
   Alert,
-  Chip,
   IconButton,
   Tooltip,
   CircularProgress,
   Typography,
 } from "@mui/material";
-import { FiEdit2, FiTrash2, FiPlus, FiUsers } from "react-icons/fi";
+import {
+  FiEdit2,
+  FiTrash2,
+  FiPlus,
+  FiUsers,
+  FiSearch,
+  FiUserCheck,
+  FiLayers,
+} from "react-icons/fi";
 import axiosInstance from "../../../utils/axiosConfig";
 import "./ManageGroups.css";
 
 const ManageGroups = () => {
-  const navigate = useNavigate();
+  const { user } = useAuth();
+  const companyId = user?.company?._id || user?.company;
 
-  
   const [groups, setGroups] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingGroup, setEditingGroup] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -49,12 +57,14 @@ const ManageGroups = () => {
     members: [],
   });
 
-  
+  const showSnackbar = (message, severity = "success") => {
+    setSnackbar({ open: true, message, severity });
+  };
+
   const apiCall = async (method, url, data = null, config = {}) => {
     try {
       const token = localStorage.getItem("token");
-      void 0;
-      
+
       const response = await axiosInstance({
         method,
         url,
@@ -65,42 +75,36 @@ const ManageGroups = () => {
         },
         ...config,
       });
-      
-      void 0;
+
       return response;
     } catch (error) {
-      console.error(`API Error [${method.toUpperCase()} ${url}]:`, error.response?.data || error.message);
+      console.error(
+        `API Error [${method.toUpperCase()} ${url}]:`,
+        error.response?.data || error.message
+      );
       throw error;
     }
   };
 
-  
   const fetchGroups = async () => {
     try {
       setLoading(true);
-      void 0;
       const response = await apiCall("get", "/groups");
-      void 0;
       setGroups(response.data.groups || response.data || []);
     } catch (error) {
       console.error("Failed to fetch groups:", error.message);
-      
       showSnackbar("Failed to fetch groups", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const { user } = useAuth();
-  const companyId = user?.company?._id || user?.company;
-
-  
   const fetchUsers = async () => {
     try {
-      void 0;
-      const url = companyId ? `/users/company-users?companyId=${companyId}` : "/users/company-users";
+      const url = companyId
+        ? `/users/company-users?companyId=${companyId}`
+        : "/users/company-users";
       const response = await apiCall("get", url);
-      void 0;
 
       let usersList = [];
       if (response.data) {
@@ -122,27 +126,20 @@ const ManageGroups = () => {
       setUsers(Array.isArray(usersList) ? usersList : []);
     } catch (error) {
       console.error("Failed to fetch users:", error.message);
-      
       showSnackbar("Failed to fetch users", "error");
     }
   };
 
-  
   useEffect(() => {
-    void 0;
-    
-    
-    void 0;
     fetchGroups();
     fetchUsers();
   }, []);
 
-  
-  const showSnackbar = (message, severity = "success") => {
-    setSnackbar({ open: true, message, severity });
+  const getEntityId = (entity) => {
+    if (!entity) return "";
+    return entity._id || entity.id || entity;
   };
 
-  
   const handleOpenDialog = (group = null) => {
     if (group) {
       setEditingGroup(group);
@@ -164,7 +161,6 @@ const ManageGroups = () => {
     setOpenDialog(true);
   };
 
-  
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setEditingGroup(null);
@@ -175,7 +171,6 @@ const ManageGroups = () => {
     });
   };
 
-  
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -184,7 +179,6 @@ const ManageGroups = () => {
     }));
   };
 
-  
   const toggleMember = (userId) => {
     setFormData((prev) => ({
       ...prev,
@@ -194,7 +188,6 @@ const ManageGroups = () => {
     }));
   };
 
-  
   const handleSaveGroup = async () => {
     if (!formData.name.trim()) {
       showSnackbar("Group name is required", "error");
@@ -203,11 +196,9 @@ const ManageGroups = () => {
 
     try {
       if (editingGroup) {
-        
         await apiCall("put", `/groups/${editingGroup._id}`, formData);
         showSnackbar("Group updated successfully", "success");
       } else {
-        
         await apiCall("post", "/groups", formData);
         showSnackbar("Group created successfully", "success");
       }
@@ -221,7 +212,6 @@ const ManageGroups = () => {
     }
   };
 
-  
   const handleDeleteGroup = async (groupId) => {
     if (window.confirm("Are you sure you want to delete this group?")) {
       try {
@@ -234,21 +224,26 @@ const ManageGroups = () => {
     }
   };
 
-  const getEntityId = (entity) => {
-    if (!entity) return "";
-    return entity._id || entity.id || entity;
-  };
+  const totalAssignedMembers = groups.reduce((total, group) => {
+    return total + (Array.isArray(group.members) ? group.members.length : 0);
+  }, 0);
 
-  
-  const getUserName = (userId) => {
-    const normalizedId = getEntityId(userId);
-    const user = users.find((u) => getEntityId(u) === normalizedId);
-    return user ? user.name : "";
-  };
+  const groupsWithMembers = groups.filter((group) => {
+    return Array.isArray(group.members) && group.members.length > 0;
+  }).length;
+
+  const filteredGroups = groups.filter((group) => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return true;
+
+    return [group.name, group.description]
+      .filter(Boolean)
+      .some((value) => value.toLowerCase().includes(query));
+  });
 
   if (loading) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+      <Box className="manage-groups-loading">
         <CircularProgress />
       </Box>
     );
@@ -256,87 +251,209 @@ const ManageGroups = () => {
 
   return (
     <Box className="manage-groups-container">
-      <Box className="manage-groups-header">
-        <Typography variant="h5" sx={{ fontWeight: 600 }}>
-          Manage Groups
-        </Typography>
+      <Box className="manage-groups-hero">
+        <Box className="manage-groups-hero-copy">
+          <Box className="manage-groups-hero-icon">
+            <FiUsers />
+          </Box>
+          <Box>
+            <Typography className="manage-groups-title" variant="h5">
+              Manage Groups
+            </Typography>
+            <Typography className="manage-groups-subtitle" variant="body2">
+              Create teams, assign users, and keep access organized.
+            </Typography>
+          </Box>
+        </Box>
         <Button
           variant="contained"
           color="primary"
           startIcon={<FiPlus />}
           onClick={() => handleOpenDialog()}
+          className="manage-groups-create-btn"
         >
           Create Group
         </Button>
       </Box>
 
-      
+      <Box className="manage-groups-stats">
+        <Box className="manage-groups-stat-card">
+          <Box className="manage-groups-stat-icon groups">
+            <FiLayers />
+          </Box>
+          <Box>
+            <Typography className="manage-groups-stat-value">
+              {groups.length}
+            </Typography>
+            <Typography className="manage-groups-stat-label">
+              Total Groups
+            </Typography>
+          </Box>
+        </Box>
+        <Box className="manage-groups-stat-card">
+          <Box className="manage-groups-stat-icon members">
+            <FiUserCheck />
+          </Box>
+          <Box>
+            <Typography className="manage-groups-stat-value">
+              {totalAssignedMembers}
+            </Typography>
+            <Typography className="manage-groups-stat-label">
+              Assigned Members
+            </Typography>
+          </Box>
+        </Box>
+        <Box className="manage-groups-stat-card">
+          <Box className="manage-groups-stat-icon users">
+            <FiUsers />
+          </Box>
+          <Box>
+            <Typography className="manage-groups-stat-value">
+              {users.length}
+            </Typography>
+            <Typography className="manage-groups-stat-label">
+              Available Users
+            </Typography>
+          </Box>
+        </Box>
+        <Box className="manage-groups-stat-card">
+          <Box className="manage-groups-stat-icon active">
+            <FiUserCheck />
+          </Box>
+          <Box>
+            <Typography className="manage-groups-stat-value">
+              {groupsWithMembers}
+            </Typography>
+            <Typography className="manage-groups-stat-label">
+              Active Groups
+            </Typography>
+          </Box>
+        </Box>
+      </Box>
+
+      <Box className="manage-groups-toolbar">
+        <Box className="manage-groups-search">
+          <FiSearch />
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search groups"
+          />
+        </Box>
+        <Typography className="manage-groups-result-count">
+          {filteredGroups.length} of {groups.length} groups
+        </Typography>
+      </Box>
+
       <TableContainer component={Paper} className="manage-groups-table">
         <Table>
           <TableHead>
-            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-              <TableCell sx={{ fontWeight: 600 }}>Group Name</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Members</TableCell>
-              <TableCell sx={{ fontWeight: 600, textAlign: "center" }}>
-                Actions
-              </TableCell>
+            <TableRow>
+              <TableCell>Group Name</TableCell>
+              <TableCell>Description</TableCell>
+              <TableCell>Members</TableCell>
+              <TableCell align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {groups.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} sx={{ textAlign: "center", py: 3 }}>
-                  <Typography color="textSecondary">
-                    No groups found. Create one to get started.
-                  </Typography>
+                <TableCell colSpan={4}>
+                  <Box className="manage-groups-empty">
+                    <FiUsers />
+                    <Typography className="manage-groups-empty-title">
+                      No groups found
+                    </Typography>
+                    <Typography className="manage-groups-empty-text">
+                      Create a group to organize users by team or department.
+                    </Typography>
+                  </Box>
+                </TableCell>
+              </TableRow>
+            ) : filteredGroups.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4}>
+                  <Box className="manage-groups-empty">
+                    <FiSearch />
+                    <Typography className="manage-groups-empty-title">
+                      No matching groups
+                    </Typography>
+                    <Typography className="manage-groups-empty-text">
+                      Try searching by a different group name or description.
+                    </Typography>
+                  </Box>
                 </TableCell>
               </TableRow>
             ) : (
-              groups.map((group) => (
-                <TableRow key={group._id} hover>
-                  <TableCell sx={{ fontWeight: 500 }}>{group.name}</TableCell>
-                  <TableCell>{group.description || "—"}</TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {group.members && group.members.length > 0
-                        ? `${group.members.length} member${group.members.length > 1 ? "s" : ""}`
-                        : "0 members"}
-                    </Typography>
-                  </TableCell>
-                  <TableCell sx={{ textAlign: "center" }}>
-                    <Tooltip title="Edit">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleOpenDialog(group)}
-                        color="primary"
-                      >
-                        <FiEdit2 />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDeleteGroup(group._id)}
-                        color="error"
-                      >
-                        <FiTrash2 />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))
+              filteredGroups.map((group) => {
+                const memberCount = Array.isArray(group.members)
+                  ? group.members.length
+                  : 0;
+
+                return (
+                  <TableRow key={group._id} hover>
+                    <TableCell>
+                      <Box className="manage-groups-name-cell">
+                        <Box className="manage-groups-avatar">
+                          <FiUsers />
+                        </Box>
+                        <Typography className="manage-groups-name">
+                          {group.name}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography className="manage-groups-description">
+                        {group.description || "No description"}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Box className="manage-groups-member-pill">
+                        {memberCount} member{memberCount === 1 ? "" : "s"}
+                      </Box>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box className="manage-groups-actions">
+                        <Tooltip title="Edit group">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleOpenDialog(group)}
+                            className="manage-groups-action-btn manage-groups-edit-btn"
+                          >
+                            <FiEdit2 />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete group">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeleteGroup(group._id)}
+                            className="manage-groups-action-btn manage-groups-delete-btn"
+                          >
+                            <FiTrash2 />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
       </TableContainer>
 
-      
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
+      <Dialog
+        open={openDialog}
+        onClose={handleCloseDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ className: "manage-groups-dialog" }}
+      >
+        <DialogTitle className="manage-groups-dialog-title">
           {editingGroup ? "Edit Group" : "Create New Group"}
         </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
+        <DialogContent className="manage-groups-dialog-content">
           <TextField
             fullWidth
             label="Group Name"
@@ -357,80 +474,64 @@ const ManageGroups = () => {
             rows={3}
           />
 
-          
-          <Box sx={{ mt: 3 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+          <Box className="manage-groups-members-section">
+            <Typography className="manage-groups-members-title">
               Select Members
             </Typography>
-            <Box
-              sx={{
-                border: "1px solid #ddd",
-                borderRadius: 1,
-                p: 2,
-                maxHeight: 250,
-                overflowY: "auto",
-              }}
-            >
+            <Box className="manage-groups-members-list">
               {users.length === 0 ? (
-                <Typography variant="body2" color="textSecondary">
+                <Typography className="manage-groups-no-users">
                   No users available
                 </Typography>
               ) : (
-                users.map((user) => (
-                  <Box
-                    key={user._id || user.id}
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      p: 1,
-                      mb: 1,
-                      backgroundColor: formData.members.includes(
-                        user._id || user.id
-                      )
-                        ? "#e3f2fd"
-                        : "transparent",
-                      borderRadius: 1,
-                      cursor: "pointer",
-                      transition: "background-color 0.2s",
-                      "&:hover": { backgroundColor: "#f5f5f5" },
-                    }}
-                    onClick={() => toggleMember(user._id || user.id)}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={formData.members.includes(
-                        user._id || user.id
-                      )}
-                      onChange={() => toggleMember(user._id || user.id)}
-                      style={{ marginRight: 10, cursor: "pointer" }}
-                    />
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {user.name}
-                      </Typography>
-                      <Typography variant="caption" color="textSecondary">
-                        {user.companyRole || user.role}
-                      </Typography>
+                users.map((user) => {
+                  const userId = user._id || user.id;
+                  const isSelected = formData.members.includes(userId);
+
+                  return (
+                    <Box
+                      key={userId}
+                      className={`manage-groups-member-row${
+                        isSelected ? " selected" : ""
+                      }`}
+                      onClick={() => toggleMember(userId)}
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={() => toggleMember(userId)}
+                        size="small"
+                      />
+                      <Box className="manage-groups-user-copy">
+                        <Typography className="manage-groups-user-name">
+                          {user.name}
+                        </Typography>
+                        <Typography className="manage-groups-user-role">
+                          {user.companyRole || user.role || "User"}
+                        </Typography>
+                      </Box>
                     </Box>
-                  </Box>
-                ))
+                  );
+                })
               )}
             </Box>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
+        <DialogActions className="manage-groups-dialog-actions">
+          <Button onClick={handleCloseDialog} className="manage-groups-cancel-btn">
+            Cancel
+          </Button>
           <Button
             onClick={handleSaveGroup}
             variant="contained"
             color="primary"
+            className="manage-groups-save-btn"
           >
             {editingGroup ? "Update" : "Create"}
           </Button>
         </DialogActions>
       </Dialog>
 
-      
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}

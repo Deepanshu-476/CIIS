@@ -1256,7 +1256,7 @@ export default function AdminMeetingPage() {
                   
                   {groups.length > 0 && (
                     <div className="amp-groups-select-section" style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: '8px' }}>
-                      <label className="amp-label" style={{ marginBottom: '8px', display: 'block', fontWeight: '600', fontSize: '13px' }}>👥 Select by Group</label>
+                      <label className="amp-label" style={{ marginBottom: '8px  ', display: 'block', fontWeight: '600', fontSize: '13px' }}>👥 Select by Group</label>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                         {groups.map(group => {
                           const allMembersSelected = group.members && group.members.length > 0 && group.members.every(m => {

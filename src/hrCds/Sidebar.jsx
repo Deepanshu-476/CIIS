@@ -1092,7 +1092,7 @@ const Sidebar = ({ isMobile = false }) => {
             name: getMenuDisplayName(item.name || 'Unnamed Item'),
             icon: item.icon || 'Dashboard',
             category: item.category || 'main',
-            order: item.order || 99,
+            order: Number.isFinite(Number(item.order)) ? Number(item.order) : 99,
             path: item.path || getPathFromName(item.name),
             disabled: item.disabled || false,
             visible: item.visible !== false
@@ -1116,23 +1116,15 @@ const Sidebar = ({ isMobile = false }) => {
       companyData
     );
 
-    const sortedItems = [...accessFilteredItems].sort((a, b) => {
-      const categoryOrder = ['main', 'administration', 'tasks', 'projects', 'meetings', 'communication', 'clients'];
-      const getCategoryOrder = (category) => {
-        const index = categoryOrder.indexOf(category);
-        return index === -1 ? 99 : index;
-      };
-      const categoryA = getCategoryOrder(a.category);
-      const categoryB = getCategoryOrder(b.category);
-      
-      if (categoryA !== categoryB) {
-        return categoryA - categoryB;
-      }
-      
-      const orderA = a.order || 99;
-      const orderB = b.order || 99;
-      return orderA - orderB;
-    });
+    // Sidebar Management stores the click/selection sequence as `order`.
+    // Keep that exact sequence across categories in the employee menu.
+    const sortedItems = accessFilteredItems
+      .map((item, originalIndex) => ({ item, originalIndex }))
+      .sort((a, b) => {
+        const orderDifference = Number(a.item.order ?? 99) - Number(b.item.order ?? 99);
+        return orderDifference || a.originalIndex - b.originalIndex;
+      })
+      .map(({ item }) => item);
 
     void 0;
 

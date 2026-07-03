@@ -857,7 +857,7 @@ const UserDashboard = () => {
       }, 500);
       
     } catch (error) {
-      toast.error('Clock-in failed');
+      toast.error(error.response?.data?.message || 'Clock-in failed');
     } finally {
       setIsProcessing(false);
     }

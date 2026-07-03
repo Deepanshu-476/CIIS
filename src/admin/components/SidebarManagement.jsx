@@ -738,14 +738,15 @@ const SidebarManagement = () => {
         branchId: selectedBranch || null,
         departmentId: selectedDepartment,
         role: selectedRole,
-        menuItems: selectedItems.map(id => {
+        menuItems: selectedItems.map((id, index) => {
           const page = availablePages.find(p => p.id === id);
           return {
             id: page.id,
             name: page.name,
             icon: page.icon,
             path: page.path,
-            category: page.category
+            category: page.category,
+            order: index + 1
           };
         })
       };

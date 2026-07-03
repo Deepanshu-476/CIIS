@@ -648,11 +648,6 @@ const AllCompany = () => {
   };
 
   
-  const handleNavigateToCreateCompany = () => {
-    navigate('/RegisterCompany');
-  };
-
-  
   const getRoleColor = (role) => {
     switch (role?.toLowerCase()) {
       case 'admin': return '#2563eb';
@@ -779,6 +774,29 @@ const AllCompany = () => {
     setSelectedAction(null);
   };
 
+  const handleDeleteCompany = async (company) => {
+    if (!company?._id) return;
+
+    const confirmed = window.confirm(
+      `Permanently delete "${company.companyName || 'this company'}"? This will also delete all of its users and company data. This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.delete(`${API_URL}/company/${company._id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setCompanies(prev => prev.filter(item => item._id !== company._id));
+      setSelectedCompanies(prev => prev.filter(id => id !== company._id));
+      toast.success(response.data?.message || "Company and all related data deleted");
+    } catch (error) {
+      console.error("Error deleting company:", error);
+      toast.error(error.response?.data?.message || "Failed to delete company");
+    }
+  };
+
   const handleAction = (action) => {
     if (selectedAction) {
       switch (action) {
@@ -795,7 +813,7 @@ const AllCompany = () => {
           handleOpenSubscriptionModal(selectedAction);
           break;
         case 'delete':
-          toast.info('Delete functionality coming soon');
+          handleDeleteCompany(selectedAction);
           break;
         default:
           break;
@@ -893,12 +911,9 @@ const AllCompany = () => {
       case 0:
         break;
       case 1:
-        handleNavigateToCreateCompany();
-        break;
-      case 2:
         fetchCompaniesWithUsers();
         break;
-      case 3:
+      case 2:
         handleExportCSV();
         break;
       default:
@@ -925,14 +940,6 @@ const AllCompany = () => {
           <div className="AllCompany-toolbar">
             
             <h6 className="AllCompany-app-bar-title">Companies</h6>
-            <div className="AllCompany-notification-badge">
-              <button className="AllCompany-icon-button" onClick={handleNotificationsOpen}>
-                <span className="material-icons">notifications_none</span>
-                {notifications.filter(n => !n.read).length > 0 && (
-                  <span className="AllCompany-badge">{notifications.filter(n => !n.read).length}</span>
-                )}
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -961,21 +968,9 @@ const AllCompany = () => {
               </div>
               
               <div className="AllCompany-header-actions">
-                <button className="AllCompany-btn-primary" onClick={handleNavigateToCreateCompany}>
-                  <span className="material-icons AllCompany-btn-icon">add</span>
-                  Add Company
-                </button>
                 <button className="AllCompany-btn-outline" onClick={fetchCompaniesWithUsers}>
                   <span className="material-icons AllCompany-btn-icon">refresh</span>
                   Refresh
-                </button>
-                <button className="AllCompany-icon-btn" onClick={handleNotificationsOpen}>
-                  <div className="AllCompany-notification-badge">
-                    <span className="material-icons">notifications_none</span>
-                    {notifications.filter(n => !n.read).length > 0 && (
-                      <span className="AllCompany-badge">{notifications.filter(n => !n.read).length}</span>
-                    )}
-                  </div>
                 </button>
               </div>
             </div>
@@ -1126,10 +1121,6 @@ const AllCompany = () => {
             </div>
             <h6 className="AllCompany-empty-state-title">No companies found</h6>
             <p className="AllCompany-empty-state-text">Try adjusting your search or filter to find what you're looking for.</p>
-            <button className="AllCompany-btn-primary" onClick={handleNavigateToCreateCompany}>
-              <span className="material-icons AllCompany-btn-icon">add</span>
-              Add New Company
-            </button>
           </div>
         ) : (
           <>
@@ -1434,19 +1425,12 @@ const AllCompany = () => {
             className={`AllCompany-bottom-nav-item ${bottomNavValue === 1 ? 'AllCompany-active' : ''}`}
             onClick={() => handleBottomNavChange(1)}
           >
-            <span className="material-icons AllCompany-bottom-nav-icon">add</span>
-            <span className="AllCompany-bottom-nav-label">Add</span>
-          </button>
-          <button 
-            className={`AllCompany-bottom-nav-item ${bottomNavValue === 2 ? 'AllCompany-active' : ''}`}
-            onClick={() => handleBottomNavChange(2)}
-          >
             <span className="material-icons AllCompany-bottom-nav-icon">refresh</span>
             <span className="AllCompany-bottom-nav-label">Refresh</span>
           </button>
           <button 
-            className={`AllCompany-bottom-nav-item ${bottomNavValue === 3 ? 'AllCompany-active' : ''}`}
-            onClick={() => handleBottomNavChange(3)}
+            className={`AllCompany-bottom-nav-item ${bottomNavValue === 2 ? 'AllCompany-active' : ''}`}
+            onClick={() => handleBottomNavChange(2)}
           >
             <span className="material-icons AllCompany-bottom-nav-icon">download</span>
             <span className="AllCompany-bottom-nav-label">Export</span>
@@ -1461,9 +1445,6 @@ const AllCompany = () => {
             <span className="material-icons AllCompany-fab-icon">add</span>
           </button>
           <div className="AllCompany-fab-actions">
-            <button className="AllCompany-fab-action AllCompany-fab-blue" onClick={handleNavigateToCreateCompany} title="Add Company">
-              <span className="material-icons">add</span>
-            </button>
             <button className="AllCompany-fab-action AllCompany-fab-green" onClick={() => {
               if (companies.length > 0) {
                 handleAddNewUser(companies[0]);

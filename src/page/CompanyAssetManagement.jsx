@@ -51,6 +51,14 @@ const CompanyAssetManagement = () => {
     return record;
   };
 
+  const normalizeStatus = (status) => String(status || '').trim().toLowerCase();
+
+  const getRequestAssetId = (request) => getRecordId(
+    request?.assetId ||
+    request?.asset ||
+    request?.companyAsset
+  );
+
   const getCompanyFromStorage = () => {
     try {
       const companyStr = localStorage.getItem('company') || localStorage.getItem('companyDetails');

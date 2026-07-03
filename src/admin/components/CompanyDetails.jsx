@@ -2238,7 +2238,6 @@ const CompanyDetails = () => {
                 <h3>Department Split</h3>
                 <p>Company user activity</p>
               </div>
-              <span className="CompanyDetails-more-dot">...</span>
             </div>
             <div className="CompanyDetails-donut-wrap">
               <svg

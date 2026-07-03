@@ -197,6 +197,37 @@ const MessageBubble = ({
         setPreviewMedia({ kind, url: mediaUrl });
     };
 
+    const downloadAttachment = async () => {
+        if (!mediaUrl) return;
+
+        const downloadUrls = mediaUrlCandidates.length ? mediaUrlCandidates : [mediaUrl];
+        try {
+            let blob = null;
+            for (const url of downloadUrls) {
+                try {
+                    const response = await fetch(url, { credentials: "include" });
+                    if (!response.ok) throw new Error(`Download failed: ${response.status}`);
+                    blob = await response.blob();
+                    break;
+                } catch (error) {
+                    if (url === downloadUrls[downloadUrls.length - 1]) throw error;
+                }
+            }
+            if (!blob) throw new Error("No downloadable attachment found");
+
+            const blobUrl = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = blobUrl;
+            link.download = attachmentName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            console.error("Attachment download failed", error);
+        }
+    };
+
     const formatAudioTime = (seconds) => {
         if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
         const minutes = Math.floor(seconds / 60);
@@ -385,6 +416,7 @@ const MessageBubble = ({
 
             {showMenu && !isDeletedForEveryone && (
                 <div className="message-menu">
+                    {mediaUrl && <button onClick={() => { downloadAttachment(); setShowMenu(false); }}><Download size={13} />Download</button>}
                     <button onClick={() => { onDeleteForMe(message); setShowMenu(false); }}><Trash2 size={13} />Delete For Me</button>
                     {isOwn && <button onClick={() => { onDeleteForEveryone(message); setShowMenu(false); }}><Trash2 size={13} />Delete For Everyone</button>}
                     <button onClick={() => { setShowForwardModal(true); setShowMenu(false); }}><Forward size={13} />Forward</button>
@@ -435,6 +467,10 @@ const MessageBubble = ({
                         download={attachmentName}
                         className="chat-media-preview-download"
                         title="Download"
+                        onClick={(event) => {
+                            event.preventDefault();
+                            downloadAttachment();
+                        }}
                     >
                         <Download size={20} />
                     </a>

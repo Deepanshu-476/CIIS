@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import axios from "../../utils/axiosConfig";
 import "../Css/EmployeeProject.css";
 import CIISLoader from '../../Loader/CIISLoader'; 
@@ -115,6 +116,8 @@ const normalizeProjectTaskOrder = (project) => ({
   tasks: sortTasksByCreatedAt(project?.tasks)
 });
 
+const LIVE_UPLOAD_BASE = "https://backendcds.ciisnetwork.in/api/uploads";
+
 const EmployeeProject = () => {
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -138,10 +141,13 @@ const EmployeeProject = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   const [openPdfDialog, setOpenPdfDialog] = useState(false);
   const [selectedPdfUrl, setSelectedPdfUrl] = useState("");
+  const [selectedPdfPath, setSelectedPdfPath] = useState("");
   const [selectedPdfName, setSelectedPdfName] = useState("");
+  const [imagePreview, setImagePreview] = useState(null);
   const [tabValue, setTabValue] = useState(0);
   const [taskFilter, setTaskFilter] = useState("all");
   const [detailTaskId, setDetailTaskId] = useState(null);
+  const [taskDetailToRestore, setTaskDetailToRestore] = useState(null);
   const [stats, setStats] = useState({
     totalTasks: 0,
     completedTasks: 0,
@@ -221,7 +227,7 @@ const EmployeeProject = () => {
     return `${baseUrl.replace(/\/$/, "")}/api/uploads`;
   };
 
-  const getUploadUrl = (filePath) => {
+  const getUploadCleanPath = (filePath) => {
     if (!filePath) return "";
     const rawPath = String(filePath).replace(/\\/g, "/").trim();
     if (/^https?:\/\//i.test(rawPath)) return rawPath;
@@ -234,7 +240,29 @@ const EmployeeProject = () => {
       cleanPath = cleanPath.replace(/^api\/uploads\//, "");
     }
 
+    return cleanPath;
+  };
+
+  const getUploadUrl = (filePath) => {
+    if (!filePath) return "";
+    const rawPath = String(filePath).replace(/\\/g, "/").trim();
+    if (/^https?:\/\//i.test(rawPath)) return rawPath;
+
+    const cleanPath = getUploadCleanPath(filePath);
     return `${getApiUploadBase()}/${cleanPath}`.replace(/([^:]\/)\/+/g, "$1");
+  };
+
+  const getLiveUploadUrl = (filePath) => {
+    if (!filePath) return "";
+    const cleanPath = getUploadCleanPath(filePath);
+    if (!cleanPath || /^https?:\/\//i.test(cleanPath)) return "";
+    return `${LIVE_UPLOAD_BASE}/${cleanPath}`.replace(/([^:]\/)\/+/g, "$1");
+  };
+
+  const handlePreviewImageError = (event) => {
+    const liveUrl = getLiveUploadUrl(selectedPdfPath);
+    if (!liveUrl || event.currentTarget.src === liveUrl) return;
+    event.currentTarget.src = liveUrl;
   };
 
   const getFileDisplayName = (fileObj, fallback = "Attachment") => {
@@ -668,15 +696,56 @@ const EmployeeProject = () => {
     
     const pathParts = pdfPath.split('/');
     const pdfFilename = pathParts[pathParts.length - 1];
-    const pdfUrl = getUploadUrl(pdfPath);
+    const pdfUrl = isImagePath(filename || pdfPath)
+      ? (getLiveUploadUrl(pdfPath) || getUploadUrl(pdfPath))
+      : getUploadUrl(pdfPath);
+
+    if (isImagePath(filename || pdfPath)) {
+      if (detailTaskId) {
+        setTaskDetailToRestore(detailTaskId);
+      } else {
+        setTaskDetailToRestore(null);
+      }
+      setImagePreview({
+        url: pdfUrl,
+        path: pdfPath,
+        name: filename || pdfFilename
+      });
+      setOpenPdfDialog(false);
+      setDetailTaskId(null);
+      return;
+    }
     
+    if (detailTaskId) {
+      setTaskDetailToRestore(detailTaskId);
+      setDetailTaskId(null);
+    } else {
+      setTaskDetailToRestore(null);
+    }
     setSelectedPdfUrl(pdfUrl);
+    setSelectedPdfPath(pdfPath);
     setSelectedPdfName(filename || pdfFilename);
     setOpenPdfDialog(true);
   };
 
+  const closePdfPreview = () => {
+    setOpenPdfDialog(false);
+    if (taskDetailToRestore) {
+      setDetailTaskId(taskDetailToRestore);
+      setTaskDetailToRestore(null);
+    }
+  };
+
+  const closeImagePreview = () => {
+    setImagePreview(null);
+    if (taskDetailToRestore) {
+      setDetailTaskId(taskDetailToRestore);
+      setTaskDetailToRestore(null);
+    }
+  };
+
   
-  const downloadPdf = (pdfPath, filename) => {
+  const downloadPdf = async (pdfPath, filename) => {
     if (!pdfPath) {
       showSnackbar("No file available", "warning");
       return;
@@ -684,14 +753,36 @@ const EmployeeProject = () => {
     
     const pathParts = pdfPath.split('/');
     const pdfFilename = pathParts[pathParts.length - 1];
-    const pdfUrl = getUploadUrl(pdfPath);
+    const downloadName = filename || pdfFilename || 'document.pdf';
+    const downloadUrls = [
+      getUploadUrl(pdfPath),
+      getLiveUploadUrl(pdfPath)
+    ].filter((url, index, urls) => url && urls.indexOf(url) === index);
     
-    const link = document.createElement('a');
-    link.href = pdfUrl;
-    link.download = filename || pdfFilename || 'document.pdf';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      let response = null;
+      for (const url of downloadUrls) {
+        try {
+          response = await axios.get(url, { responseType: 'blob' });
+          break;
+        } catch (error) {
+          if (url === downloadUrls[downloadUrls.length - 1]) throw error;
+        }
+      }
+      if (!response) throw new Error("No download URL available");
+
+      const blobUrl = URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = downloadName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("Error downloading file:", error);
+      showSnackbar("Unable to download file", "error");
+    }
   };
 
   const handleTaskFileSelect = (selectedFile) => {
@@ -1104,6 +1195,129 @@ const EmployeeProject = () => {
     return <CIISLoader />;
   }
 
+  if (imagePreview) {
+    return (
+      <div className="EmployeeProject-image-preview-screen">
+        <div className="EmployeeProject-image-preview-shell">
+          <div className="EmployeeProject-image-preview-header">
+            <div className="EmployeeProject-image-preview-title">
+              <Icons.Image />
+              <h3>{imagePreview.name}</h3>
+            </div>
+            <button className="EmployeeProject-image-preview-close" onClick={closeImagePreview} aria-label="Close image preview">
+              <Icons.Close />
+            </button>
+          </div>
+          <div className="EmployeeProject-image-preview-body">
+            <div className="EmployeeProject-image-preview-frame">
+              <img
+                src={imagePreview.url}
+                alt={imagePreview.name || "Attachment preview"}
+                className="EmployeeProject-image-preview-full"
+                onError={(event) => {
+                  const liveUrl = getLiveUploadUrl(imagePreview.path);
+                  if (liveUrl && event.currentTarget.src !== liveUrl) {
+                    event.currentTarget.src = liveUrl;
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <div className="EmployeeProject-image-preview-footer">
+            <button
+              className="EmployeeProject-button EmployeeProject-button-primary"
+              onClick={() => downloadPdf(imagePreview.path, imagePreview.name)}
+            >
+              <Icons.Download />
+              Download
+            </button>
+            <button
+              className="EmployeeProject-button EmployeeProject-button-outline"
+              onClick={closeImagePreview}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (openPdfDialog) {
+    return (
+      <div className="EmployeeProject-container">
+        {snackbar.open && (
+          <div className="EmployeeProject-snackbar">
+            <Alert severity={snackbar.severity} onClose={handleCloseSnackbar}>
+              {snackbar.message}
+            </Alert>
+          </div>
+        )}
+
+        {createPortal(
+          <div className="EmployeeProject-modal EmployeeProject-pdf-modal">
+            <div className="EmployeeProject-modal-backdrop" onClick={closePdfPreview} />
+            <div className="EmployeeProject-modal-content">
+              <div className="EmployeeProject-modal-header EmployeeProject-modal-header-primary">
+                <div className="EmployeeProject-modal-header-content">
+                  <Icons.PictureAsPdf />
+                  <h3>{selectedPdfName}</h3>
+                </div>
+                <button className="EmployeeProject-modal-close" onClick={closePdfPreview}>
+                  <Icons.Close />
+                </button>
+              </div>
+              <div className="EmployeeProject-modal-body EmployeeProject-pdf-viewer">
+                {selectedPdfUrl ? (
+                  isImagePath(selectedPdfName || selectedPdfUrl) ? (
+                    <img
+                      src={selectedPdfUrl}
+                      alt={selectedPdfName || "Attachment preview"}
+                      className="EmployeeProject-file-preview-image"
+                      onError={handlePreviewImageError}
+                    />
+                  ) : (
+                    <iframe
+                      src={selectedPdfUrl}
+                      title="File Viewer"
+                      className="EmployeeProject-pdf-frame"
+                    />
+                  )
+                ) : (
+                  <div className="EmployeeProject-pdf-error">
+                    <p>File cannot be loaded</p>
+                  </div>
+                )}
+              </div>
+              <div className="EmployeeProject-modal-footer">
+                <button
+                  className="EmployeeProject-button EmployeeProject-button-primary"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = selectedPdfUrl;
+                    link.download = selectedPdfName || 'document.pdf';
+                    link.click();
+                  }}
+                  disabled={!selectedPdfUrl}
+                >
+                  <Icons.Download />
+                  Download
+                </button>
+                <button
+                  className="EmployeeProject-button EmployeeProject-button-outline"
+                  onClick={closePdfPreview}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="EmployeeProject-container">
       
@@ -1115,67 +1329,6 @@ const EmployeeProject = () => {
         </div>
       )}
 
-      
-      {openPdfDialog && (
-        <div className="EmployeeProject-modal EmployeeProject-pdf-modal">
-          <div className="EmployeeProject-modal-backdrop" onClick={() => setOpenPdfDialog(false)} />
-          <div className="EmployeeProject-modal-content">
-            <div className="EmployeeProject-modal-header EmployeeProject-modal-header-primary">
-              <div className="EmployeeProject-modal-header-content">
-                <Icons.PictureAsPdf />
-                <h3>{selectedPdfName}</h3>
-              </div>
-              <button className="EmployeeProject-modal-close" onClick={() => setOpenPdfDialog(false)}>
-                <Icons.Close />
-              </button>
-            </div>
-            <div className="EmployeeProject-modal-body EmployeeProject-pdf-viewer">
-              {selectedPdfUrl ? (
-                isImagePath(selectedPdfName || selectedPdfUrl) ? (
-                  <img
-                    src={selectedPdfUrl}
-                    alt={selectedPdfName || "Attachment preview"}
-                    className="EmployeeProject-file-preview-image"
-                  />
-                ) : (
-                  <iframe
-                    src={selectedPdfUrl}
-                    title="File Viewer"
-                    className="EmployeeProject-pdf-frame"
-                  />
-                )
-              ) : (
-                <div className="EmployeeProject-pdf-error">
-                  <p>File cannot be loaded</p>
-                </div>
-              )}
-            </div>
-            <div className="EmployeeProject-modal-footer">
-              <button
-                className="EmployeeProject-button EmployeeProject-button-primary"
-                onClick={() => {
-                  const link = document.createElement('a');
-                  link.href = selectedPdfUrl;
-                  link.download = selectedPdfName || 'document.pdf';
-                  link.click();
-                }}
-                disabled={!selectedPdfUrl}
-              >
-                <Icons.Download />
-                Download
-              </button>
-              <button 
-                className="EmployeeProject-button EmployeeProject-button-outline"
-                onClick={() => setOpenPdfDialog(false)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      
       <div className="EmployeeProject-header">
         <div className="EmployeeProject-header-content">
           <div className="EmployeeProject-header-text">
@@ -1525,6 +1678,8 @@ const EmployeeProject = () => {
                 )}
 
                 
+                {false && (
+                <>
                 <h3 className="EmployeeProject-task-documents-title">
                   Task Documents ({tasks.filter(t => t.pdfFile?.path).length})
                 </h3>
@@ -1573,6 +1728,8 @@ const EmployeeProject = () => {
                   </div>
                 ) : (
                   <Alert severity="info">No task documents available</Alert>
+                )}
+                </>
                 )}
               </div>
             )}
@@ -1703,7 +1860,7 @@ const EmployeeProject = () => {
       )}
 
       
-      {detailTask && (
+      {detailTask && !openPdfDialog && (
         <div className="EmployeeProject-modal">
           <div className="EmployeeProject-modal-backdrop" onClick={() => setDetailTaskId(null)} />
           <div className="EmployeeProject-modal-content EmployeeProject-modal-lg EmployeeProject-task-detail-modal">

@@ -21,6 +21,32 @@ const CHAT_FILE_ACCEPT = [
     ".zip", ".rar", ".7z"
 ].join(",");
 
+const getMessageDate = (value) => {
+    const date = new Date(value || Date.now());
+    return Number.isNaN(date.getTime()) ? new Date() : date;
+};
+
+const getMessageDateKey = (value) => {
+    const date = getMessageDate(value);
+    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+};
+
+const formatMessageDateSeparator = (value) => {
+    const date = getMessageDate(value);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    if (getMessageDateKey(date) === getMessageDateKey(today)) return "Today";
+    if (getMessageDateKey(date) === getMessageDateKey(yesterday)) return "Yesterday";
+
+    return date.toLocaleDateString([], {
+        day: "numeric",
+        month: "short",
+        year: "numeric"
+    });
+};
+
 const ChatBox = ({
     selectedUser,
     currentUser,
@@ -58,8 +84,11 @@ const ChatBox = ({
     const chatInputRef = useRef(null);
     const fileInputRef = useRef(null);
     const activeConversationIdRef = useRef(null);
+    const chatMessagesRef = useRef(null);
     const { startCall } = useCall();
     const { showToast } = useNotification();
+    const [activeChatDateLabel, setActiveChatDateLabel] = useState("");
+    const [showActiveChatDate, setShowActiveChatDate] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const quickReplies = [
         "Please share the report",
@@ -131,6 +160,41 @@ const ChatBox = ({
         return "Sent a message";
     };
 
+    const updateActiveChatDate = () => {
+        const container = chatMessagesRef.current;
+        if (!container) return;
+
+        const anchors = Array.from(container.querySelectorAll(".chat-message-date-anchor"));
+        if (!anchors.length) {
+            setActiveChatDateLabel("");
+            setShowActiveChatDate(false);
+            return;
+        }
+
+        const scrollTop = container.scrollTop;
+        let activeLabel = anchors[0].dataset.dateLabel || "";
+
+        for (const anchor of anchors) {
+            if (anchor.offsetTop - scrollTop <= 48) {
+                activeLabel = anchor.dataset.dateLabel || activeLabel;
+            } else {
+                break;
+            }
+        }
+
+        const containerRect = container.getBoundingClientRect();
+        const visibleMatchingSeparator = Array.from(container.querySelectorAll(".chat-date-separator"))
+            .some((separator) => {
+                if (separator.dataset.dateLabel !== activeLabel) return false;
+                const rect = separator.getBoundingClientRect();
+                const relativeTop = rect.top - containerRect.top;
+                return relativeTop >= 0 && relativeTop <= 42;
+            });
+
+        setActiveChatDateLabel(activeLabel);
+        setShowActiveChatDate(scrollTop > 8 && !visibleMatchingSeparator);
+    };
+
     const notifyIncomingMessage = (message) => {
         const senderName = getSenderName(message.sender);
         const preview = getMessagePreview(message);
@@ -194,6 +258,11 @@ const ChatBox = ({
         setMessages([]);
         startConversation();  
     }, [selectedUserKey]);
+
+    useEffect(() => {
+        const frameId = requestAnimationFrame(updateActiveChatDate);
+        return () => cancelAnimationFrame(frameId);
+    }, [messages]);
 
     useEffect(() => {
         return () => {
@@ -887,32 +956,41 @@ useEffect(() => {
                 <button type="button">Change Topic</button>
             </div>
 
-            <div className="chat-messages">
-                {messages.length > 0 && (
-                    <div className="chat-date-separator">
-                        <span>
-                            {new Date(messages[0]?.createdAt || Date.now()).toLocaleDateString([], {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric"
-                            })}
-                        </span>
+            <div className="chat-messages" ref={chatMessagesRef} onScroll={updateActiveChatDate}>
+                {showActiveChatDate && activeChatDateLabel && (
+                    <div className="chat-active-date">
+                        <span>{activeChatDateLabel}</span>
                     </div>
                 )}
 
                 {
-                    messages.map((message) => (
+                    messages.map((message, index) => {
+                        const previousMessage = messages[index - 1];
+                        const shouldShowDateSeparator = !previousMessage
+                            || getMessageDateKey(previousMessage.createdAt) !== getMessageDateKey(message.createdAt);
+                        const messageDateLabel = formatMessageDateSeparator(message.createdAt);
 
-                        <MessageBubble
-                            key={message._id}
-                            message={message}
-                            currentUser={currentUser}
-                            users={users}
-                            onDeleteForMe={handleDeleteForMe}
-                            onDeleteForEveryone={handleDeleteForEveryone}
-                            onForward={handleForward}
-                        />
-                    ))
+                        return (
+                            <React.Fragment key={message._id || `${message.createdAt}-${index}`}>
+                                {shouldShowDateSeparator && (
+                                    <div className="chat-date-separator" data-date-label={messageDateLabel}>
+                                        <span>{messageDateLabel}</span>
+                                    </div>
+                                )}
+
+                                <div className="chat-message-date-anchor" data-date-label={messageDateLabel}>
+                                    <MessageBubble
+                                        message={message}
+                                        currentUser={currentUser}
+                                        users={users}
+                                        onDeleteForMe={handleDeleteForMe}
+                                        onDeleteForEveryone={handleDeleteForEveryone}
+                                        onForward={handleForward}
+                                    />
+                                </div>
+                            </React.Fragment>
+                        );
+                    })
                 }
 
             </div>

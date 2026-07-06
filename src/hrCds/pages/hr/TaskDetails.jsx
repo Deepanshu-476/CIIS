@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import axios from '../../../utils/axiosConfig';
 import { API_URL_IMG } from '../../../config';
 import {
@@ -145,15 +145,32 @@ const statusColors = {
   pending: 'warning',
   'in-progress': 'info',
   completed: 'success',
-  rejected: 'error'
+  rejected: 'error',
+  overdue: 'error'
 };
 
 const statusIcons = {
   pending: FiClock,
   'in-progress': FiAlertCircle,
   completed: FiCheckCircle,
-  rejected: FiXCircle
+  rejected: FiXCircle,
+  overdue: FiAlertCircle
 };
+
+const normalizeTaskStatus = (status) => String(status || 'pending').trim().toLowerCase();
+
+const getStatusForUser = (task, userId) => {
+  if (Array.isArray(task?.statusByUser)) {
+    const userStatus = task.statusByUser.find(s =>
+      s?.user === userId || s?.user?._id === userId
+    );
+    return normalizeTaskStatus(userStatus?.status);
+  }
+
+  return normalizeTaskStatus(task?.status);
+};
+
+const canMoveToOverdue = (status) => normalizeTaskStatus(status) === 'pending';
 
 const UserCreateTask = () => {
   const [openDialog, setOpenDialog] = useState(false);
@@ -205,6 +222,7 @@ const UserCreateTask = () => {
     start: null,
     end: null
   });
+  const autoOverdueTaskIdsRef = useRef(new Set());
 
   
   const [newTask, setNewTask] = useState({
@@ -399,6 +417,44 @@ const UserCreateTask = () => {
   }
 };
 
+  const syncOverdueTaskStatuses = useCallback(async (tasksArray = []) => {
+    if (!Array.isArray(tasksArray) || tasksArray.length === 0 || !userId) return false;
+
+    const updateRequests = tasksArray
+      .filter(task => {
+        const taskId = task?._id || task?.id;
+        const dueDate = getTaskDueDate(task);
+        const status = getStatusForUser(task, userId);
+
+        return (
+          taskId &&
+          dueDate &&
+          !autoOverdueTaskIdsRef.current.has(taskId) &&
+          canMoveToOverdue(status) &&
+          new Date(dueDate) < new Date()
+        );
+      })
+      .map(task => {
+        const taskId = task._id || task.id;
+        autoOverdueTaskIdsRef.current.add(taskId);
+        return axios.patch(`/task/${taskId}/status`, {
+          status: 'overdue',
+          remarks: 'Automatically marked overdue after due time passed'
+        });
+      });
+
+    if (updateRequests.length === 0) return false;
+
+    const results = await Promise.allSettled(updateRequests);
+    results.forEach(result => {
+      if (result.status === 'rejected') {
+        console.warn('Failed to auto-mark task overdue:', result.reason);
+      }
+    });
+
+    return results.some(result => result.status === 'fulfilled');
+  }, [userId]);
+
   
   const fetchMyTasks = useCallback(async (page = 1, isLoadMore = false) => {
     if (authError || !userId) {
@@ -416,22 +472,24 @@ const UserCreateTask = () => {
       });
 
       const url = `/task?${params}`;
-      const res = await axios.get(url);
+      let res = await axios.get(url);
       
       void 0;
 
       
-      let tasksArray = [];
-      if (Array.isArray(res.data?.tasks)) {
-        tasksArray = res.data.tasks;
-      } else if (Array.isArray(res.data?.groupedTasks)) {
-        tasksArray = res.data.groupedTasks;
-      } else if (res.data?.groupedTasks && typeof res.data.groupedTasks === 'object') {
-        tasksArray = Object.values(res.data.groupedTasks).flat();
-      } else if (res.data?.data && Array.isArray(res.data.data)) {
-        tasksArray = res.data.data;
-      } else if (Array.isArray(res.data)) {
-        tasksArray = res.data;
+      const extractTasksArray = (data) => {
+        if (Array.isArray(data?.tasks)) return data.tasks;
+        if (Array.isArray(data?.groupedTasks)) return data.groupedTasks;
+        if (data?.groupedTasks && typeof data.groupedTasks === 'object') return Object.values(data.groupedTasks).flat();
+        if (data?.data && Array.isArray(data.data)) return data.data;
+        if (Array.isArray(data)) return data;
+        return [];
+      };
+
+      let tasksArray = extractTasksArray(res.data);
+      if (await syncOverdueTaskStatuses(tasksArray)) {
+        res = await axios.get(url);
+        tasksArray = extractTasksArray(res.data);
       }
       
       
@@ -489,7 +547,7 @@ const UserCreateTask = () => {
     } finally {
       setLoading(false);
     }
-  }, [authError, userId, statusFilter, searchTerm, pagination.limit, myTasksGrouped, calculateStatsFromTasks]);
+  }, [authError, userId, statusFilter, searchTerm, pagination.limit, myTasksGrouped, calculateStatsFromTasks, syncOverdueTaskStatuses]);
 
   
   const loadMoreTasks = () => {
@@ -698,6 +756,20 @@ const UserCreateTask = () => {
       setSnackbar({
         open: true,
         message: 'Please log in to update task status',
+        severity: 'error'
+      });
+      return;
+    }
+
+    const task = allTasks.find(item => (item?._id || item?.id)?.toString() === taskId?.toString());
+    const currentStatus = getStatusForUser(task, userId);
+    if (
+      normalizeTaskStatus(newStatus) !== 'overdue' &&
+      (currentStatus === 'overdue' || (canMoveToOverdue(currentStatus) && isOverdue(task)))
+    ) {
+      setSnackbar({
+        open: true,
+        message: 'Overdue task status cannot be changed',
         severity: 'error'
       });
       return;

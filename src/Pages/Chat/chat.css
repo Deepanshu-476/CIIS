@@ -1387,6 +1387,7 @@
 }
 
 .chat-messages {
+    position: relative;
     padding: 26px 24px 18px;
     background: #fbfcff;
 }
@@ -1394,26 +1395,35 @@
 .chat-date-separator {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin: 6px 0 24px;
+    justify-content: center;
+    margin: 4px 0 16px;
+    padding: 0;
     color: #53627a;
     font-size: 12px;
     font-weight: 800;
 }
 
-.chat-date-separator::before,
-.chat-date-separator::after {
-    content: "";
-    height: 1px;
-    flex: 1;
-    background: #e8edf5;
+.chat-active-date {
+    position: sticky;
+    top: 8px;
+    z-index: 8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 0;
+    pointer-events: none;
 }
 
+.chat-active-date span,
 .chat-date-separator span {
-    padding: 7px 14px;
-    border: 1px solid #e8edf5;
+    padding: 7px 13px;
+    border: 1px solid #dbe6f3;
     border-radius: 8px;
+    color: #53627a;
+    font-size: 12px;
+    font-weight: 800;
     background: #ffffff;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
 }
 
 .message-row {
@@ -1499,6 +1509,9 @@
     border: 1px solid #dfe6f1;
     color: #1c2f52;
     background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center ;
 }
 
 .emoji-picker-wrap {

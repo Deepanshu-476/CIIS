@@ -37,7 +37,7 @@ const getFallbackIceServers = () => {
 const logCall = (...args) => void 0;
 
 const getUserId = (user) => {
-    if (!user) return "";
+    if (!user) return ""; 
     if (typeof user !== "object") return user.toString();
 
     const rawId = user._id || user.id || user.userId || user.user?._id || user.user?.id;

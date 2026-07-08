@@ -507,9 +507,7 @@ const Dashboard = () => {
     if (filter === 'open-tasks') return task.completed !== true;
     return true;
   };
-  const visibleTasks = dashboardFilter === 'total-paid'
-    ? []
-    : serviceTasks.filter(task => taskMatchesFilter(task, dashboardFilter));
+  const visibleTasks = serviceTasks.filter(task => taskMatchesFilter(task, dashboardFilter));
   const visibleTaskStats = calculateTaskStats(visibleTasks);
   const serviceRows = services.map(serviceName => {
     const tasks = serviceTasks.filter(task => task.serviceName === serviceName);
@@ -527,7 +525,6 @@ const Dashboard = () => {
   });
   const visibleServiceRows = serviceRows.filter(([service]) => {
     if (dashboardFilter === 'active-services') return true;
-    if (dashboardFilter === 'total-paid') return false;
     return serviceTasks
       .filter(task => task.serviceName === service)
       .some(task => taskMatchesFilter(task, dashboardFilter));
@@ -551,9 +548,6 @@ const Dashboard = () => {
       formatDate(task.updatedAt || task.createdAt || task.dueDate),
       task.completed ? <FiCheckCircle /> : <FiFileText />
     ]),
-    ...(dashboardFilter === 'total-paid' && paymentSummary.receipts[0]
-      ? [[`Payment received for ${formatMoney(paymentSummary.receipts[0].amount || paymentSummary.subscriptionPrice)}`, formatDate(paymentSummary.receipts[0].createdAt || paymentSummary.receipts[0].paymentDate), rupee]]
-      : [])
   ].slice(0, 5);
   const supportTickets = [
     ['#TK-2026-021', 'Email not syncing on mobile', 'Open'],
@@ -683,11 +677,11 @@ const Dashboard = () => {
             <h2>{clientName}</h2>
             <span>Client</span>
           </div>
-          <p><FiMail /> {client?.email || 'No email available'}</p>
-          <p><FiPhone /> {client?.phone || 'No phone available'}</p>
-          <p><FiMapPin /> {client?.city || client?.address || 'No address available'}</p>
-          <p><FiCalendar /> Client ID: {formatPublicId('CLT', client)}</p>
-          <p><FiUser /> Account Manager: {sidebarManagers[0]?.name || 'Not assigned'}</p>
+          <p><FiMail /> <span>{client?.email || 'No email available'}</span></p>
+          <p><FiPhone /> <span>{client?.phone || 'No phone available'}</span></p>
+          <p><FiMapPin /> <span>{client?.city || client?.address || 'No address available'}</span></p>
+          <p><FiCalendar /> <span>Client ID: {formatPublicId('CLT', client)}</span></p>
+          <p><FiUser /> <span>Account Manager: {sidebarManagers[0]?.name || 'Not assigned'}</span></p>
         </div>
       </section>
 
@@ -696,8 +690,7 @@ const Dashboard = () => {
           { label: 'Active Services', filter: 'active-services', value: services.length, trend: 'Live', dir: 'up', icon: <FiPackage />, tone: 'blue' },
           { label: 'Completed Tasks', filter: 'completed-tasks', value: taskStats.completedTasks, trend: 'Live', dir: 'up', icon: <FiCheckCircle />, tone: 'green' },
           { label: 'Pending Tasks', filter: 'pending-tasks', value: taskStats.pendingTasks, trend: 'Live', dir: 'up', icon: <FiClock />, tone: 'orange' },
-          { label: 'Open Tasks', filter: 'open-tasks', value: openTasksCount, trend: 'Live', dir: 'down', icon: <FiHeadphones />, tone: 'purple' },
-          { label: 'Total Paid', filter: 'total-paid', value: formatMoney(paymentSummary.paidAmount), trend: 'Live', dir: 'up', icon: rupee, tone: 'green' }
+          { label: 'Open Tasks', filter: 'open-tasks', value: openTasksCount, trend: 'Live', dir: 'down', icon: <FiHeadphones />, tone: 'purple' }
         ].map(card => (
           <button
             type="button"

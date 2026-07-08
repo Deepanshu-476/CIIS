@@ -4,6 +4,7 @@
   background: #fcfdff;
   color: #111827;
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow-x: hidden;
 }
 
 .DocumentsPage-header {
@@ -178,7 +179,7 @@
 
 .DocumentsPage-layout {
   display: grid;
-  grid-template-columns: minmax(0, 2.75fr) minmax(280px, 0.86fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 28px;
   align-items: start;
 }
@@ -199,9 +200,12 @@
   gap: 28px;
   padding: 0 18px;
   border-bottom: 1px solid #e5eaf1;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .DocumentsPage-tabs button {
+  flex: 0 0 auto;
   height: 100%;
   border: 0;
   border-bottom: 2px solid transparent;
@@ -218,7 +222,7 @@
 
 .DocumentsPage-toolbar {
   display: grid;
-  grid-template-columns: 210px 100px 120px 110px 1fr;
+  grid-template-columns: minmax(190px, 1.4fr) repeat(3, minmax(110px, auto)) minmax(160px, 1fr);
   gap: 10px;
   align-items: center;
   padding: 20px 14px;
@@ -279,11 +283,13 @@
 }
 
 .DocumentsPage-tableWrap {
-  overflow-x: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .DocumentsPage-tableWrap table {
   width: 100%;
+  min-width: 860px;
   table-layout: fixed;
   border-collapse: collapse;
 }
@@ -573,16 +579,111 @@
     flex-wrap: wrap;
   }
 
-  .DocumentsPage-layout {
-    grid-template-columns: 1fr;
-  }
-
   .DocumentsPage-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .DocumentsPage-storageStat {
     grid-column: 1 / -1;
+  }
+
+  .DocumentsPage-toolbar {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .DocumentsPage-docSearch {
+    grid-column: 1 / -1;
+  }
+
+  .DocumentsPage-toolbar .DocumentsPage-upload {
+    justify-self: stretch;
+  }
+}
+
+@media (max-width: 900px) {
+  .DocumentsPage-tableWrap {
+    overflow-x: visible;
+  }
+
+  .DocumentsPage-tableWrap table,
+  .DocumentsPage-tableWrap thead,
+  .DocumentsPage-tableWrap tbody,
+  .DocumentsPage-tableWrap tr,
+  .DocumentsPage-tableWrap th,
+  .DocumentsPage-tableWrap td {
+    display: block;
+    width: 100%;
+  }
+
+  .DocumentsPage-tableWrap table {
+    min-width: 0;
+  }
+
+  .DocumentsPage-tableWrap thead {
+    display: none;
+  }
+
+  .DocumentsPage-tableWrap tbody {
+    display: grid;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .DocumentsPage-tableWrap tr {
+    border: 1px solid #e5eaf1;
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+  }
+
+  .DocumentsPage-tableWrap td {
+    min-height: 42px;
+    display: grid;
+    grid-template-columns: 118px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #eef2f7;
+    text-align: left !important;
+  }
+
+  .DocumentsPage-tableWrap td::before {
+    content: attr(data-label);
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  .DocumentsPage-tableWrap td:first-child,
+  .DocumentsPage-tableWrap td:last-child,
+  .DocumentsPage-tableWrap td:nth-child(2),
+  .DocumentsPage-tableWrap td:nth-child(3),
+  .DocumentsPage-tableWrap td:nth-child(4),
+  .DocumentsPage-tableWrap td:nth-child(5),
+  .DocumentsPage-tableWrap td:nth-child(6),
+  .DocumentsPage-tableWrap td:nth-child(7) {
+    width: 100%;
+  }
+
+  .DocumentsPage-tableWrap td:last-child {
+    border-bottom: 0;
+  }
+
+  .DocumentsPage-rowActions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+
+  .DocumentsPage-trashAction {
+    flex: 1 1 130px;
+  }
+
+  .DocumentsPage-recoverAction,
+  .DocumentsPage-permanentDeleteAction {
+    width: auto;
   }
 }
 
@@ -594,6 +695,15 @@
   .DocumentsPage-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
+  }
+
+  .DocumentsPage-title h1 {
+    font-size: 22px;
+  }
+
+  .DocumentsPage-title p {
+    font-size: 12px;
+    line-height: 1.45;
   }
 
   .DocumentsPage-stat {
@@ -683,12 +793,57 @@
     grid-template-columns: 1fr;
   }
 
+  .DocumentsPage-docSearch,
+  .DocumentsPage-toolbar button,
   .DocumentsPage-toolbar .DocumentsPage-upload {
     justify-self: stretch;
+    justify-content: center;
+    width: 100%;
   }
 
   .DocumentsPage-pagination {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .DocumentsPage-pagination div {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 520px) {
+  .DocumentsPage-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .DocumentsPage-stat,
+  .DocumentsPage-storageStat {
+    min-height: auto;
+  }
+
+  .DocumentsPage-tabs {
+    gap: 18px;
+    padding-inline: 14px;
+  }
+
+  .DocumentsPage-tableWrap tbody {
+    padding: 10px;
+  }
+
+  .DocumentsPage-tableWrap td {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  .DocumentsPage-nameCell {
+    align-items: flex-start;
+  }
+
+  .DocumentsPage-rowActions {
+    gap: 8px;
+  }
+
+  .DocumentsPage-trashAction {
+    flex-basis: 100%;
   }
 }

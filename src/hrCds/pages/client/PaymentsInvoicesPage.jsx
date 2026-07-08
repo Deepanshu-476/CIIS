@@ -54,15 +54,9 @@ const PaymentsInvoicesPage = () => {
   const dueInvoiceRows = payment.dueInvoices.map((invoice, index) => ({
     id: formatPublicId("INV", invoice, index),
     rawId: invoice._id,
-<<<<<<< HEAD
-    period: invoice.periodStart || invoice.periodEnd
-      ? `${invoice.planName || invoice.title || "Subscription"}: ${formatDate(invoice.periodStart)} - ${formatDate(invoice.periodEnd)}`
-      : invoice.title || "Subscription Due",
-=======
     type: "invoice",
     source: invoice,
     period: invoice.title || "Subscription Due",
->>>>>>> bf2d8d7c45ba1666695a0d3c36124eaa07f6623e
     amount: formatMoney(invoice.amount),
     dueDate: formatDate(invoice.dueDate),
     status: invoice.status || "Due",

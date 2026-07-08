@@ -5,7 +5,6 @@ import {
   FiChevronRight,
   FiClock,
   FiMail,
-  FiMessageSquare,
   FiPhone,
   FiUser,
 } from "react-icons/fi";
@@ -61,7 +60,7 @@ const isUpcomingMeeting = meeting => {
 };
 
 const SupportTicketsPage = () => {
-  const { client, services, tasks, projectManagers, user, loading, error, refetch } = useClientPortalData();
+  const { client, projectManagers, user, loading, error, refetch } = useClientPortalData();
   const [meetings, setMeetings] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [meetingsLoading, setMeetingsLoading] = useState(false);
@@ -73,6 +72,7 @@ const SupportTicketsPage = () => {
   const clientName = getClientDisplayName(client);
   const manager = projectManagers[0] || {};
   const managerName = manager.name || 'Account Manager';
+  const managerRole = String(manager.role || '').trim();
 
   useEffect(() => {
     const fetchClientMeetings = async () => {
@@ -195,7 +195,7 @@ const SupportTicketsPage = () => {
     setActionMessage(`${meeting.title}: ${meeting.date} at ${meeting.time}`);
   };
 
-  const upcomingMeetings = meetings.filter(isUpcomingMeeting).slice(0, 10).map((meeting, index) => {
+  const allUpcomingMeetingRows = meetings.filter(isUpcomingMeeting).map((meeting, index) => {
     const member = meeting.createdBy || projectManagers[index % Math.max(projectManagers.length, 1)] || manager || {};
     const type = getMeetingType(meeting);
     return {
@@ -214,20 +214,15 @@ const SupportTicketsPage = () => {
     };
   });
 
-  const history = meetings.filter(meeting => !isUpcomingMeeting(meeting)).slice(0, 8).map(meeting => ({
-    title: meeting.title || `${clientName} Meeting`,
-    date: formatDate(meeting.meetingDate),
-    notes: meeting.description || meeting.location || 'Client meeting update.',
-    status: meeting.status || 'Completed'
-  }));
+  const upcomingMeetings = allUpcomingMeetingRows.slice(0, 10);
+  const completedMeetingCount = meetings.filter(meeting => !isUpcomingMeeting(meeting)).length;
   const filteredTickets = tickets.slice(0, 8);
+  const pendingRequestCount = tickets.filter(ticket => !['resolved', 'closed'].includes(String(ticket.status || '').toLowerCase())).length;
   const slots = [1, 2, 3].map((days, index) => {
     const date = new Date();
     date.setDate(date.getDate() + days);
     return [formatDate(date), ['02:00 PM', '11:00 AM', '04:00 PM'][index]];
   });
-  const nextMeeting = upcomingMeetings[0];
-
   if (loading) {
     return <CIISLoader />;
   }
@@ -248,32 +243,21 @@ const SupportTicketsPage = () => {
     <section className="ClientMeetings-stats">
       <article className="ClientMeetings-statCard">
         <span className="ClientMeetings-statIcon ClientMeetings-blue"><FiCalendar /></span>
-        <div><p>Upcoming Meetings</p><strong>{upcomingMeetings.length}</strong></div>
-        <small className="up">+25% <em>vs last month</em></small>
+        <div><p>Upcoming Meetings</p><strong>{allUpcomingMeetingRows.length}</strong></div>
+        <small className="up">{meetingsLoading ? 'Loading' : 'Live'} <em>from records</em></small>
         <Sparkline tone="blue" />
       </article>
       <article className="ClientMeetings-statCard">
         <span className="ClientMeetings-statIcon ClientMeetings-green"><FiCheckCircle /></span>
-        <div><p>Completed Meetings</p><strong>{history.length}</strong></div>
-        <small className="up">+12% <em>vs last month</em></small>
+        <div><p>Completed Meetings</p><strong>{completedMeetingCount}</strong></div>
+        <small className="up">{meetingsLoading ? 'Loading' : 'Live'} <em>from records</em></small>
         <Sparkline tone="green" />
       </article>
       <article className="ClientMeetings-statCard">
         <span className="ClientMeetings-statIcon ClientMeetings-orange"><FiClock /></span>
-        <div><p>Pending Requests</p><strong>{Math.max(0, services.length - upcomingMeetings.length)}</strong></div>
-        <small className="down">-20% <em>vs last month</em></small>
+        <div><p>Pending Requests</p><strong>{pendingRequestCount}</strong></div>
+        <small className={pendingRequestCount ? "down" : "up"}>{ticketsLoading ? 'Loading' : 'Live'} <em>support tickets</em></small>
         <Sparkline tone="orange" />
-      </article>
-      <article className="ClientMeetings-nextCard">
-        <span className="ClientMeetings-statIcon ClientMeetings-purple"><FiCalendar /></span>
-        <div>
-          <p>Next Meeting</p>
-          <strong>{nextMeeting?.title || `${clientName} Review`}</strong>
-          <small>{nextMeeting ? `${nextMeeting.date} at ${nextMeeting.time}` : 'No meetings scheduled'}</small>
-        </div>
-        <button type="button" onClick={() => nextMeeting && handleMeetingAction(nextMeeting)}>
-          {nextMeeting?.link ? 'Join' : 'View'}
-        </button>
       </article>
     </section>
 
@@ -318,7 +302,6 @@ const SupportTicketsPage = () => {
               </div>
             )}
           </div>
-          <a href="/client/support-tickets">View All Meetings</a>
         </section>
 
         <section className="ClientMeetings-panel">
@@ -347,27 +330,6 @@ const SupportTicketsPage = () => {
           </div>
         </section>
 
-        <section className="ClientMeetings-panel">
-          <h2>Recent Meeting History</h2>
-          <div className="ClientMeetings-history">
-            <div className="ClientMeetings-historyHead">
-              <span>Meeting Title</span><span>Date</span><span>Notes</span><span>Status</span>
-            </div>
-            {history.length > 0 ? history.map(item => (
-              <div className="ClientMeetings-historyRow" key={item.title}>
-                <span>{item.title}</span>
-                <span>{item.date}</span>
-                <span>{item.notes}</span>
-                <span><em className={`ClientMeetings-historyStatus ${item.status.toLowerCase()}`}>{item.status}</em></span>
-              </div>
-            )) : (
-              <div className="ClientMeetings-historyRow ClientMeetings-emptyRow">
-                <span>No meeting history yet.</span>
-              </div>
-            )}
-          </div>
-          <a href="/client/support-tickets">View All History</a>
-        </section>
       </main>
 
       <aside className="ClientMeetings-side">
@@ -396,23 +358,11 @@ const SupportTicketsPage = () => {
             <div className="ClientMeetings-managerPhoto">RS</div>
             <div>
               <strong>{managerName}</strong>
-              <span>{manager.role || 'Account Manager'}</span>
+              {managerRole && !/project team/i.test(managerRole) && <span>{managerRole}</span>}
               {manager.phone && <a href={`tel:${manager.phone}`}><FiPhone /> {manager.phone}</a>}
               {manager.email && <a href={`mailto:${manager.email}`}><FiMail /> {manager.email}</a>}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              if (manager.email) {
-                window.location.href = `mailto:${manager.email}?subject=${encodeURIComponent(`Message from ${clientName}`)}`;
-              } else {
-                handleQuickAction(quickActions[2]);
-              }
-            }}
-          >
-            <FiMessageSquare /> Message {manager.name ? managerName.split(' ')[0] : 'Manager'}
-          </button>
         </section>
 
         <section className="ClientMeetings-panel ClientMeetings-slots">
@@ -426,7 +376,6 @@ const SupportTicketsPage = () => {
               </button>
             ))}
           </div>
-          <a href="/client/support-tickets">View More Slots</a>
         </section>
       </aside>
     </div>

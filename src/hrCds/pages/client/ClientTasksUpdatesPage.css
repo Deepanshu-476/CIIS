@@ -19,8 +19,7 @@
 .ClientTasksUpdatesPage-avatars,
 .ClientTasksUpdatesPage-donutBox,
 .ClientTasksUpdatesPage-overall,
-.ClientTasksUpdatesPage-manager,
-.ClientTasksUpdatesPage-teamAvatars {
+.ClientTasksUpdatesPage-manager {
   display: flex;
   align-items: center;
 }
@@ -103,7 +102,6 @@
 .ClientTasksUpdatesPage-page button svg,
 .ClientTasksUpdatesPage-tableSearch svg,
 .ClientTasksUpdatesPage-search svg,
-.ClientTasksUpdatesPage-updateIcon svg,
 .ClientTasksUpdatesPage-milestones i svg {
   display: block;
   flex-shrink: 0;
@@ -173,9 +171,7 @@
 .ClientTasksUpdatesPage-profileButton b,
 .ClientTasksUpdatesPage-manager b,
 .ClientTasksUpdatesPage-avatars i,
-.ClientTasksUpdatesPage-avatars b,
-.ClientTasksUpdatesPage-teamAvatars i,
-.ClientTasksUpdatesPage-teamAvatars b {
+.ClientTasksUpdatesPage-avatars b {
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -191,20 +187,12 @@
 }
 
 .ClientTasksUpdatesPage-shell {
-  align-items: stretch;
-  gap: 12px;
+  display: block;
 }
 
 .ClientTasksUpdatesPage-main {
   min-width: 0;
-  flex: 1;
-}
-
-.ClientTasksUpdatesPage-side {
-  width: 300px;
-  flex: 0 0 300px;
-  display: grid;
-  gap: 12px;
+  width: 100%;
 }
 
 .ClientTasksUpdatesPage-titleRow {
@@ -228,7 +216,6 @@
 
 .ClientTasksUpdatesPage-statCard,
 .ClientTasksUpdatesPage-tablePanel,
-.ClientTasksUpdatesPage-sideCard,
 .ClientTasksUpdatesPage-widget {
   border: 1px solid #e3e9f3;
   border-radius: 8px;
@@ -265,8 +252,7 @@
   pointer-events: none;
 }
 
-.ClientTasksUpdatesPage-statIcon,
-.ClientTasksUpdatesPage-updateIcon {
+.ClientTasksUpdatesPage-statIcon {
   display: grid;
   place-items: center;
   width: 28px;
@@ -666,10 +652,6 @@
   cursor: not-allowed;
 }
 
-.ClientTasksUpdatesPage-sideCard {
-  padding: 13px;
-}
-
 .ClientTasksUpdatesPage-cardHead {
   justify-content: space-between;
   gap: 10px;
@@ -700,25 +682,6 @@
   font-weight: 900;
 }
 
-.ClientTasksUpdatesPage-updateList,
-.ClientTasksUpdatesPage-deadlineList {
-  display: grid;
-  gap: 10px;
-}
-
-.ClientTasksUpdatesPage-updateList article,
-.ClientTasksUpdatesPage-deadlineList article {
-  display: grid;
-  align-items: start;
-  gap: 10px;
-}
-
-.ClientTasksUpdatesPage-updateList article {
-  grid-template-columns: 28px 1fr;
-}
-
-.ClientTasksUpdatesPage-updateList strong,
-.ClientTasksUpdatesPage-deadlineList strong,
 .ClientTasksUpdatesPage-project > strong,
 .ClientTasksUpdatesPage-manager strong {
   display: block;
@@ -728,8 +691,6 @@
   font-weight: 900;
 }
 
-.ClientTasksUpdatesPage-updateList span,
-.ClientTasksUpdatesPage-deadlineList span,
 .ClientTasksUpdatesPage-project p,
 .ClientTasksUpdatesPage-manager small,
 .ClientTasksUpdatesPage-team > span,
@@ -741,30 +702,10 @@
   font-weight: 700;
 }
 
-.ClientTasksUpdatesPage-deadlineList article {
-  grid-template-columns: 72px 1fr 8px;
-}
-
-.ClientTasksUpdatesPage-deadlineList time {
-  color: #ef4444;
-  font-size: 11px;
-  font-weight: 900;
-}
-
-.ClientTasksUpdatesPage-deadlineList i {
-  width: 7px;
-  height: 7px;
-  margin-top: 5px;
-  border-radius: 50%;
-  background: #ef4444;
-}
-
-.ClientTasksUpdatesPage-deadlineList .ClientTasksUpdatesPage-dot-1 { background: #0b72f0; }
-.ClientTasksUpdatesPage-deadlineList .ClientTasksUpdatesPage-dot-2 { background: #10b981; }
-
 .ClientTasksUpdatesPage-bottomGrid {
   display: grid;
-  grid-template-columns: minmax(250px, 0.9fr) minmax(320px, 1.25fr) minmax(230px, 0.82fr) minmax(250px, 0.9fr);
+  grid-template-columns: minmax(280px, 0.95fr) minmax(360px, 1.35fr) minmax(280px, 0.95fr) minmax(280px, 0.95fr);
+  align-items: stretch;
   gap: 12px;
   margin-top: 12px;
 }
@@ -772,6 +713,8 @@
 .ClientTasksUpdatesPage-widget {
   min-width: 0;
   padding: 13px;
+  display: flex;
+  flex-direction: column;
 }
 
 .ClientTasksUpdatesPage-donutBox {
@@ -844,6 +787,10 @@
   color: #0b72f0;
   font-size: 11px;
   font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-widget > button {
+  margin-top: auto;
 }
 
 .ClientTasksUpdatesPage-project p {
@@ -941,41 +888,88 @@
 }
 
 .ClientTasksUpdatesPage-manager {
-  gap: 10px;
-  margin: 7px 0 10px;
+  gap: 12px;
+  align-items: center;
+  min-height: 82px;
+  margin: 8px 0 10px;
+  padding: 14px;
+  border: 1px solid #edf1f7;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f3f6fa 100%);
 }
 
 .ClientTasksUpdatesPage-manager b {
-  width: 42px;
-  height: 42px;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
   background: #d97706;
+  font-size: 17px;
 }
 
-.ClientTasksUpdatesPage-teamAvatars {
-  margin: 7px 0 11px;
+.ClientTasksUpdatesPage-manager div {
+  min-width: 0;
 }
 
-.ClientTasksUpdatesPage-teamAvatars i,
-.ClientTasksUpdatesPage-teamAvatars b {
-  width: 30px;
-  height: 30px;
-  margin-left: -6px;
-  border: 2px solid #fff;
-  background: #0b72f0;
+.ClientTasksUpdatesPage-team {
+  gap: 0;
+}
+
+.ClientTasksUpdatesPage-team .ClientTasksUpdatesPage-cardHead {
+  margin-bottom: 10px;
+}
+
+.ClientTasksUpdatesPage-team .ClientTasksUpdatesPage-manager strong {
+  margin-top: 3px;
+  font-size: 12px;
+}
+
+.ClientTasksUpdatesPage-team .ClientTasksUpdatesPage-manager span {
+  display: block;
+  color: #6b7890;
   font-size: 10px;
+  font-weight: 800;
 }
 
-.ClientTasksUpdatesPage-teamAvatars i:first-child {
-  margin-left: 0;
-  background: #111827;
+.ClientTasksUpdatesPage-team .ClientTasksUpdatesPage-manager small,
+.ClientTasksUpdatesPage-managerDetails strong {
+  overflow-wrap: anywhere;
 }
 
-.ClientTasksUpdatesPage-teamAvatars i:nth-child(2) { background: #d97706; }
-.ClientTasksUpdatesPage-teamAvatars i:nth-child(3) { background: #be123c; }
-.ClientTasksUpdatesPage-teamAvatars i:nth-child(4) { background: #047857; }
-.ClientTasksUpdatesPage-teamAvatars b {
-  color: #475467;
-  background: #eef2f7;
+.ClientTasksUpdatesPage-managerDetails {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.ClientTasksUpdatesPage-managerDetails > span {
+  display: grid;
+  grid-template-columns: 26px 58px minmax(0, 1fr);
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid #edf1f7;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.ClientTasksUpdatesPage-managerDetails svg {
+  color: #0b72f0;
+  font-size: 15px;
+}
+
+.ClientTasksUpdatesPage-managerDetails small {
+  margin: 0;
+  color: #72809a;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.ClientTasksUpdatesPage-managerDetails strong {
+  min-width: 0;
+  color: #17213b;
+  font-size: 10px;
+  font-weight: 900;
 }
 
 .ClientTasksUpdatesPage-quick > div {
@@ -1088,10 +1082,6 @@
   border-top: 1px solid #edf1f7;
 }
 
-.ClientTasksUpdatesPage-modalDeadlineList article {
-  grid-template-columns: 72px minmax(0, 1fr) 8px;
-}
-
 .ClientTasksUpdatesPage-modalList article:first-child,
 .ClientTasksUpdatesPage-modalTableRow:first-of-type {
   border-top: 0;
@@ -1117,22 +1107,6 @@
   font-size: 12px;
   font-weight: 700;
 }
-
-.ClientTasksUpdatesPage-modalDeadlineList time {
-  color: #ef4444;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.ClientTasksUpdatesPage-modalDeadlineList i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #ef4444;
-}
-
-.ClientTasksUpdatesPage-modalDeadlineList .ClientTasksUpdatesPage-dot-1 { background: #0b72f0; }
-.ClientTasksUpdatesPage-modalDeadlineList .ClientTasksUpdatesPage-dot-2 { background: #10b981; }
 
 .ClientTasksUpdatesPage-modalTableHead,
 .ClientTasksUpdatesPage-modalTableRow {
@@ -1370,12 +1344,6 @@
     display: block;
   }
 
-  .ClientTasksUpdatesPage-side {
-    width: auto;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-top: 18px;
-  }
-
   .ClientTasksUpdatesPage-bottomGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1408,7 +1376,6 @@
     width: 100%;
   }
 
-  .ClientTasksUpdatesPage-side,
   .ClientTasksUpdatesPage-bottomGrid {
     grid-template-columns: 1fr;
   }
@@ -1420,16 +1387,6 @@
   .ClientTasksUpdatesPage-donutBox {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .ClientTasksUpdatesPage-updateList {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .ClientTasksUpdatesPage-updateList article {
-    min-width: 0;
-    grid-template-columns: 26px minmax(0, 1fr);
-    gap: 8px;
   }
 
   .ClientTasksUpdatesPage-milestones {
@@ -1477,13 +1434,6 @@
     padding: 12px 0;
   }
 
-  .ClientTasksUpdatesPage-modalDeadlineList article {
-    grid-template-columns: 64px minmax(0, 1fr);
-  }
-
-  .ClientTasksUpdatesPage-modalDeadlineList i {
-    grid-column: 2;
-  }
 }
 
 @media (max-width: 520px) {

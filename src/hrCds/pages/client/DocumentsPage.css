@@ -43,6 +43,7 @@
 .DocumentsPage-toolbar button,
 .DocumentsPage-upload,
 .DocumentsPage-more,
+.DocumentsPage-trashAction,
 .DocumentsPage-pagination button,
 .DocumentsPage-quick button {
   font: inherit;
@@ -216,7 +217,7 @@
 
 .DocumentsPage-toolbar {
   display: grid;
-  grid-template-columns: 210px 120px 100px 120px 110px 1fr;
+  grid-template-columns: 210px 100px 120px 110px 1fr;
   gap: 10px;
   align-items: center;
   padding: 20px 14px;
@@ -270,12 +271,12 @@
 }
 
 .DocumentsPage-tableWrap {
-  overflow-x: auto;
+  overflow-x: hidden;
 }
 
 .DocumentsPage-tableWrap table {
   width: 100%;
-  min-width: 940px;
+  table-layout: fixed;
   border-collapse: collapse;
 }
 
@@ -295,6 +296,41 @@
   font-size: 12px;
   font-weight: 650;
   vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.DocumentsPage-tableWrap th:first-child,
+.DocumentsPage-tableWrap td:first-child {
+  width: 44px;
+}
+
+.DocumentsPage-tableWrap th:nth-child(2),
+.DocumentsPage-tableWrap td:nth-child(2) {
+  width: 34%;
+}
+
+.DocumentsPage-tableWrap th:nth-child(3),
+.DocumentsPage-tableWrap td:nth-child(3),
+.DocumentsPage-tableWrap th:nth-child(4),
+.DocumentsPage-tableWrap td:nth-child(4),
+.DocumentsPage-tableWrap th:nth-child(5),
+.DocumentsPage-tableWrap td:nth-child(5) {
+  width: 12%;
+}
+
+.DocumentsPage-tableWrap th:nth-child(6),
+.DocumentsPage-tableWrap td:nth-child(6) {
+  width: 10%;
+}
+
+.DocumentsPage-tableWrap th:nth-child(7),
+.DocumentsPage-tableWrap td:nth-child(7) {
+  width: 8%;
+}
+
+.DocumentsPage-tableWrap th:last-child,
+.DocumentsPage-tableWrap td:last-child {
+  width: 190px;
 }
 
 .DocumentsPage-tableWrap input[type="checkbox"] {
@@ -314,6 +350,8 @@
   color: #111827;
   font-size: 12px;
   font-weight: 850;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .DocumentsPage-docIcon {
@@ -359,10 +397,54 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  min-height: 32px;
 }
 
 .DocumentsPage-deleteAction {
   color: #dc2626;
+}
+
+.DocumentsPage-trashAction {
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.DocumentsPage-trashAction svg {
+  flex: 0 0 auto;
+  font-size: 14px;
+}
+
+.DocumentsPage-trashAction:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.DocumentsPage-recoverAction {
+  width: 86px;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.DocumentsPage-permanentDeleteAction {
+  width: 82px;
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #b91c1c;
 }
 
 .DocumentsPage-trashBadge {

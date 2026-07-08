@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import CIISLoader from '../../../Loader/CIISLoader';
 import API_URL from '../../../config';
-import { isClientForLoggedInUser } from '../../utils/clientPortalData';
+import { collectProjectMembers, isClientForLoggedInUser } from '../../utils/clientPortalData';
 import './ClientTasksUpdatesPage.css';
 
 import {
@@ -13,14 +13,14 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiClock,
-  FiDownload,
   FiFilter,
   FiGrid,
+  FiMail,
   FiMoreVertical,
+  FiPhone,
   FiPlus,
   FiSearch,
   FiUpload,
-  FiUsers,
   FiX
 } from 'react-icons/fi';
 import { Doughnut } from 'react-chartjs-2';
@@ -37,6 +37,14 @@ const getAuthToken = () => localStorage.getItem('token') || localStorage.getItem
 
 const normalizeMatchValue = value => String(value || '').trim().toLowerCase();
 
+const getUsersArrayFromResponse = responseData => {
+  if (Array.isArray(responseData)) return responseData;
+  if (Array.isArray(responseData?.users)) return responseData.users;
+  if (Array.isArray(responseData?.message?.users)) return responseData.message.users;
+  if (Array.isArray(responseData?.data)) return responseData.data;
+  return [];
+};
+
 const isClientTaskOverdue = task => {
   if (!task?.dueDate || task.completed) return false;
   const status = String(task.status || 'pending').trim().toLowerCase();
@@ -52,14 +60,6 @@ const formatDate = dateString => {
     month: 'short',
     day: 'numeric',
     year: 'numeric'
-  });
-};
-
-const formatShortDate = dateString => {
-  if (!dateString) return 'N/A';
-  return new Date(dateString).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric'
   });
 };
 
@@ -144,6 +144,7 @@ const ServicesTasks = () => {
   const [client, setClient] = useState(null);
   const [services, setServices] = useState([]);
   const [allTasks, setAllTasks] = useState([]);
+  const [projectManagers, setProjectManagers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [companyInfo, setCompanyInfo] = useState({ companyCode: '', companyIdentifier: '' });
@@ -171,6 +172,11 @@ const ServicesTasks = () => {
     timeout: 10000
   }), []);
 
+  const usersApi = useMemo(() => axios.create({
+    baseURL: `${API_URL}/users`,
+    timeout: 10000
+  }), []);
+
   useEffect(() => {
     const attachAuth = instance => {
       instance.interceptors.request.use(config => {
@@ -182,7 +188,8 @@ const ServicesTasks = () => {
 
     attachAuth(api);
     attachAuth(tasksApi);
-  }, [api, tasksApi]);
+    attachAuth(usersApi);
+  }, [api, tasksApi, usersApi]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -232,6 +239,17 @@ const ServicesTasks = () => {
     }
   };
 
+  const fetchCompanyUsers = async user => {
+    try {
+      const role = String(user?.companyRole || user?.role || user?.userRole || '').toLowerCase();
+      const response = await usersApi.get(role === 'employee' ? '/department-users' : '/company-users');
+      return getUsersArrayFromResponse(response.data);
+    } catch (err) {
+      console.error('Error fetching company users for client tasks page:', err);
+      return [];
+    }
+  };
+
   const fetchClientData = async () => {
     try {
       if (!isMounted.current) return;
@@ -252,13 +270,16 @@ const ServicesTasks = () => {
           return null;
         }
       })();
-      const response = await api.get('/', {
-        params: {
-          companyCode: companyInfo.companyCode,
-          companyIdentifier: companyInfo.companyIdentifier,
-          limit: 1000
-        }
-      });
+      const [response, companyUsers] = await Promise.all([
+        api.get('/', {
+          params: {
+            companyCode: companyInfo.companyCode,
+            companyIdentifier: companyInfo.companyIdentifier,
+            limit: 1000
+          }
+        }),
+        fetchCompanyUsers(user)
+      ]);
 
       if (!response.data?.success) {
         setError('No client data found');
@@ -279,6 +300,7 @@ const ServicesTasks = () => {
         setClient(null);
         setServices([]);
         setAllTasks([]);
+        setProjectManagers([]);
         setError('No client data found for this login.');
         return;
       }
@@ -286,6 +308,7 @@ const ServicesTasks = () => {
       const serviceList = Array.isArray(currentClient.services) ? currentClient.services : [];
       setClient(currentClient);
       setServices(serviceList);
+      setProjectManagers(collectProjectMembers(currentClient, companyUsers));
       await fetchAllServiceTasks(currentClient, serviceList);
     } catch (err) {
       console.error('Error fetching client services:', err);
@@ -329,7 +352,6 @@ const ServicesTasks = () => {
   });
   const totalTasks = allTasks.length;
   const clientName = client?.client || client?.name || 'Client';
-  const projectManagers = client?.projectManagers || [];
   const baseServices = services;
 
   const serviceRows = baseServices.map((service, index) => {
@@ -424,33 +446,7 @@ const ServicesTasks = () => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
   }, [currentPage, totalPages]);
 
-  const upcomingDeadlines = upcomingDeadlineTasks
-    .slice()
-    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-    .map(buildTaskRow)
-    .slice(0, 5);
-  const allUpcomingDeadlines = upcomingDeadlineTasks
-    .slice()
-    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-    .map(buildTaskRow);
   const allFilteredTaskRows = filteredTaskSource.map(buildTaskRow);
-
-  const recentUpdates = [
-    ...(taskRows[0] ? [{ icon: <FiCheckCircle />, tone: 'green', title: `Latest task: "${taskRows[0].title}" is ${taskRows[0].status}.`, time: formatDate(taskRows[0].dueDate) }] : []),
-    ...(taskRows[1] ? [{ icon: <FiUsers />, tone: 'orange', title: `Update available for "${taskRows[1].title}".`, time: formatDate(taskRows[1].dueDate) }] : []),
-    ...(baseServices[0] ? [{ icon: <FiCalendar />, tone: 'blue', title: `${baseServices[0]} service is active for your account.`, time: 'Current service' }] : []),
-    { icon: <FiDownload />, tone: 'purple', title: `${clientName} client portal synced with live records.`, time: 'Now' }
-  ].slice(0, 5);
-  const allRecentUpdates = [
-    ...allTasks.map(task => ({
-      icon: task.completed ? <FiCheckCircle /> : <FiClock />,
-      tone: task.completed ? 'green' : isClientTaskOverdue(task) ? 'red' : 'blue',
-      title: `${getTaskTitle(task)} - ${task.completed ? 'Completed' : isClientTaskOverdue(task) ? 'Overdue' : 'Updated'}`,
-      time: formatDate(task.updatedAt || task.createdAt || task.dueDate),
-      service: task.serviceName || 'Project Service'
-    })),
-    { icon: <FiDownload />, tone: 'purple', title: `${clientName} client portal synced with live records.`, time: 'Now', service: 'Client Portal' }
-  ];
 
   const stats = [
     { label: 'Total Tasks', filter: 'total', value: totalTasks, tone: 'blue', icon: <FiCalendar />, trend: '', helper: 'Live total', spark: 'M2 23 C10 19, 17 26, 25 21 S41 16, 50 22 S67 28, 76 17 S92 12, 104 19 S114 17, 120 10' },
@@ -708,44 +704,6 @@ const ServicesTasks = () => {
           </section>
         </section>
 
-        <aside className="ClientTasksUpdatesPage-side">
-          <section className="ClientTasksUpdatesPage-sideCard">
-            <div className="ClientTasksUpdatesPage-cardHead">
-              <h3>Recent Updates</h3>
-              <button type="button" onClick={() => setDetailsModal('updates')}>View All</button>
-            </div>
-            <div className="ClientTasksUpdatesPage-updateList">
-              {recentUpdates.map(update => (
-                <article key={update.title}>
-                  <div className={`ClientTasksUpdatesPage-updateIcon ClientTasksUpdatesPage-is-${update.tone}`}>{update.icon}</div>
-                  <div>
-                    <strong>{update.title}</strong>
-                    <span>{update.time}</span>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="ClientTasksUpdatesPage-sideCard">
-            <div className="ClientTasksUpdatesPage-cardHead">
-              <h3>Upcoming Deadlines</h3>
-              <button type="button" onClick={() => setDetailsModal('deadlines')}>View All</button>
-            </div>
-            <div className="ClientTasksUpdatesPage-deadlineList">
-              {upcomingDeadlines.map((task, index) => (
-                <article key={`${task.id}-deadline`}>
-                  <time>{formatShortDate(task.dueDate)}</time>
-                  <div>
-                    <strong>{task.title}</strong>
-                    <span>{task.service}</span>
-                  </div>
-                  <i className={`ClientTasksUpdatesPage-dot-${index % 3}`}></i>
-                </article>
-              ))}
-            </div>
-          </section>
-        </aside>
       </main>
 
       <section className="ClientTasksUpdatesPage-bottomGrid">
@@ -796,21 +754,18 @@ const ServicesTasks = () => {
         <article className="ClientTasksUpdatesPage-widget ClientTasksUpdatesPage-team">
           <div className="ClientTasksUpdatesPage-cardHead">
             <h3>Assigned Team & Manager</h3>
-            <button type="button">View Profile</button>
           </div>
-          <span>Account Manager</span>
           <div className="ClientTasksUpdatesPage-manager">
             <b>{getInitials(manager.name || clientName)}</b>
             <div>
+              <span>Account Manager</span>
               <strong>{manager.name || 'Account Manager'}</strong>
-              <small>{manager.email || 'No email assigned'}</small>
-              <small>{manager.phone || 'No phone assigned'}</small>
+              <small>{manager.role || 'Account Manager'}</small>
             </div>
           </div>
-          <span>Project Team</span>
-          <div className="ClientTasksUpdatesPage-teamAvatars">
-            {teamMembers.map(member => <i key={member.email || member.name}>{getInitials(member.name)}</i>)}
-            {projectManagers.length > teamMembers.length && <b>+{projectManagers.length - teamMembers.length}</b>}
+          <div className="ClientTasksUpdatesPage-managerDetails">
+            <span><FiMail /><small>Email</small><strong>{manager.email || 'No email assigned'}</strong></span>
+            <span><FiPhone /><small>Phone</small><strong>{manager.phone || 'No phone assigned'}</strong></span>
           </div>
         </article>
 
@@ -839,8 +794,6 @@ const ServicesTasks = () => {
               <div>
                 <span>Tasks & Updates</span>
                 <h3 id="ClientTasksUpdatesPage-modalTitle">
-                  {detailsModal === 'updates' && 'All Recent Updates'}
-                  {detailsModal === 'deadlines' && 'All Upcoming Deadlines'}
                   {detailsModal === 'tasks' && 'All Tasks'}
                   {detailsModal === 'task' && 'Task Details'}
                   {detailsModal === 'project' && 'Project Details'}
@@ -850,36 +803,6 @@ const ServicesTasks = () => {
                 <FiX />
               </button>
             </header>
-
-            {detailsModal === 'updates' && (
-              <div className="ClientTasksUpdatesPage-modalList">
-                {allRecentUpdates.map(update => (
-                  <article key={`${update.title}-${update.time}`}>
-                    <div className={`ClientTasksUpdatesPage-updateIcon ClientTasksUpdatesPage-is-${update.tone}`}>{update.icon}</div>
-                    <div>
-                      <strong>{update.title}</strong>
-                      <span>{update.service} - {update.time}</span>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-
-            {detailsModal === 'deadlines' && (
-              <div className="ClientTasksUpdatesPage-modalList ClientTasksUpdatesPage-modalDeadlineList">
-                {allUpcomingDeadlines.map((task, index) => (
-                  <article key={`${task.id}-all-deadline`}>
-                    <time>{formatShortDate(task.dueDate)}</time>
-                    <div>
-                      <strong>{task.title}</strong>
-                      <span>{task.service} - {task.priority}</span>
-                    </div>
-                    <i className={`ClientTasksUpdatesPage-dot-${index % 3}`}></i>
-                  </article>
-                ))}
-                {!allUpcomingDeadlines.length && <p className="ClientTasksUpdatesPage-modalEmpty">No upcoming deadlines found.</p>}
-              </div>
-            )}
 
             {detailsModal === 'tasks' && (
               <div className="ClientTasksUpdatesPage-modalTable">

@@ -11,6 +11,7 @@ import {
   FiFilter,
   FiFolder,
   FiMoreVertical,
+  FiRefreshCw,
   FiSearch,
   FiShare2,
   FiTrash2,
@@ -93,6 +94,7 @@ const DocumentsPage = () => {
   const [documentLoading, setDocumentLoading] = useState(false);
   const [documentError, setDocumentError] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [documentActionId, setDocumentActionId] = useState("");
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const documents = useMemo(() => uploadedDocuments.map(formatUploadedDocument), [uploadedDocuments]);
@@ -204,10 +206,57 @@ const DocumentsPage = () => {
       const deleted = response.data?.data || doc;
       setUploadedDocuments(prev => prev.filter(item => item._id !== doc._id));
       setTrashedDocuments(prev => [deleted, ...prev]);
-      setActiveTab("trash");
+      await loadUploadedDocuments();
     } catch (err) {
       console.error("Document delete failed", err);
       setDocumentError(err.response?.data?.message || "Document delete failed");
+    }
+  };
+
+  const handleRecoverDocument = async doc => {
+    if (!doc?._id) return;
+    if (!doc.canDelete) {
+      setDocumentError("You do not have permission to recover this document");
+      return;
+    }
+
+    try {
+      setDocumentActionId(`recover-${doc._id}`);
+      setDocumentError("");
+      const response = await clientDocumentsApi.post(`/${doc._id}/restore`);
+      const recovered = response.data?.data || { ...doc, isDeleted: false };
+      setTrashedDocuments(prev => prev.filter(item => item._id !== doc._id));
+      setUploadedDocuments(prev => [recovered, ...prev.filter(item => item._id !== doc._id)]);
+      await loadUploadedDocuments();
+    } catch (err) {
+      console.error("Document recover failed", err);
+      setDocumentError(err.response?.data?.message || "Document recover failed");
+    } finally {
+      setDocumentActionId("");
+    }
+  };
+
+  const handlePermanentDeleteDocument = async doc => {
+    if (!doc?._id) return;
+    if (!doc.canDelete) {
+      setDocumentError("You do not have permission to permanently delete this document");
+      return;
+    }
+    if (!window.confirm(`Permanently delete "${doc.name}"? This cannot be undone.`)) return;
+
+    try {
+      setDocumentActionId(`delete-${doc._id}`);
+      setDocumentError("");
+      await clientDocumentsApi.delete(`/${doc._id}`, {
+        params: { permanent: true },
+      });
+      setTrashedDocuments(prev => prev.filter(item => item._id !== doc._id));
+      await loadUploadedDocuments();
+    } catch (err) {
+      console.error("Permanent document delete failed", err);
+      setDocumentError(err.response?.data?.message || "Permanent document delete failed");
+    } finally {
+      setDocumentActionId("");
     }
   };
 
@@ -290,7 +339,6 @@ const DocumentsPage = () => {
               onChange={event => setSearch(event.target.value)}
             />
           </label>
-          <button type="button">Document Type <FiChevronDown /></button>
           <button type="button">Category <FiChevronDown /></button>
           <button type="button">Date Modified <FiChevronDown /></button>
           <button type="button"><FiFilter /> More Filters</button>
@@ -354,7 +402,30 @@ const DocumentsPage = () => {
                           )}
                         </>
                       ) : activeTab === "trash" ? (
-                        <span className="DocumentsPage-trashBadge">In Trash</span>
+                        doc.canDelete ? (
+                          <>
+                            <button
+                              type="button"
+                              className="DocumentsPage-trashAction DocumentsPage-recoverAction"
+                              onClick={() => handleRecoverDocument(doc)}
+                              disabled={documentActionId === `recover-${doc._id}` || documentActionId === `delete-${doc._id}`}
+                            >
+                              <FiRefreshCw />
+                              {documentActionId === `recover-${doc._id}` ? "Recovering..." : "Recover"}
+                            </button>
+                            <button
+                              type="button"
+                              className="DocumentsPage-trashAction DocumentsPage-permanentDeleteAction"
+                              onClick={() => handlePermanentDeleteDocument(doc)}
+                              disabled={documentActionId === `recover-${doc._id}` || documentActionId === `delete-${doc._id}`}
+                            >
+                              <FiTrash2 />
+                              {documentActionId === `delete-${doc._id}` ? "Deleting..." : "Delete"}
+                            </button>
+                          </>
+                        ) : (
+                          <span className="DocumentsPage-trashBadge">In Trash</span>
+                        )
                       ) : (
                         <button type="button" className="DocumentsPage-more" aria-label={`Open ${doc.name} actions`}><FiMoreVertical /></button>
                       )}

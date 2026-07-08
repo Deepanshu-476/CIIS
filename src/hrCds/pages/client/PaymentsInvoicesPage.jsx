@@ -1,7 +1,6 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import axios from "axios";
 import {
-  FiAlertCircle,
   FiArrowRight,
   FiAward,
   FiBell,
@@ -38,6 +37,7 @@ const PaymentsInvoicesPage = () => {
   const [receiptFile, setReceiptFile] = useState(null);
   const [selectedDueId, setSelectedDueId] = useState("");
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const invoiceTableRef = useRef(null);
 
   const dueInvoiceRows = payment.dueInvoices.map((invoice, index) => ({
     id: formatPublicId("INV", invoice, index),
@@ -105,12 +105,14 @@ const PaymentsInvoicesPage = () => {
   };
 
   const metricCards = [
-    { label: "Total Paid", value: formatMoney(payment.paidAmount), note: `${payment.receipts.length} receipt(s)`, tone: "green", icon: <span className="PaymentsPage-rupeeIcon">₹</span> },
-    { label: "Outstanding Amount", value: formatMoney(payment.outstanding), note: `${payment.unpaidInvoices} invoice due`, tone: "orange", icon: <FiAlertCircle /> },
     { label: "Active Plan", value: payment.planName, note: payment.billingCycle, tone: "purple", icon: <FiAward /> },
     { label: "Next Due Date", value: formatDate(payment.nextDueDate), note: payment.nextDueDate ? "Subscription renewal" : "Not available", tone: "blue", icon: <FiCalendar /> },
     { label: "Unpaid Invoices", value: String(payment.unpaidInvoices), note: "View details", tone: "red", icon: <FiFileText />, link: true },
   ];
+
+  const handleViewInvoices = () => {
+    invoiceTableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   if (loading) {
     return <CIISLoader />;
@@ -190,7 +192,7 @@ const PaymentsInvoicesPage = () => {
             </div>
           </section>
 
-          <section className="PaymentsPage-panel PaymentsPage-tablePanel">
+          <section className="PaymentsPage-panel PaymentsPage-tablePanel" ref={invoiceTableRef}>
             <h2>Invoice & Payment History</h2>
             <div className="PaymentsPage-tableWrap">
               <table>
@@ -225,7 +227,7 @@ const PaymentsInvoicesPage = () => {
                 </tbody>
               </table>
             </div>
-            <a href="/client/payments" className="PaymentsPage-viewAll">View All Invoices<FiArrowRight /></a>
+            <button type="button" className="PaymentsPage-viewAll" onClick={handleViewInvoices}>View All Invoices<FiArrowRight /></button>
           </section>
         </div>
 

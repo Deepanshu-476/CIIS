@@ -748,6 +748,58 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
         };
     }, [socket, currentUserId, remoteParticipants]);
 
+    useEffect(() => {
+        if (!socket || !currentUserId) return;
+
+        const query = new URLSearchParams(window.location.search);
+        const callType = query.get("callType");
+        const callTarget = query.get("callTarget");
+        const callTargetName = query.get("callTargetName");
+
+        const acceptCallId = query.get("acceptCallId");
+        const acceptCallType = query.get("acceptCallType");
+        const callerId = query.get("callerId");
+        const callerName = query.get("callerName");
+
+        if (callType && callTarget) {
+            const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+            window.history.replaceState({ path: cleanUrl }, "", cleanUrl);
+
+            const userObj = {
+                _id: callTarget,
+                name: callTargetName || "User",
+            };
+            startCall(callType === "video" ? "video" : "audio", userObj);
+        } else if (acceptCallId && acceptCallType && callerId) {
+            const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+            window.history.replaceState({ path: cleanUrl }, "", cleanUrl);
+
+            const incomingCall = {
+                callId: acceptCallId,
+                type: acceptCallType === "video" ? "video" : "audio",
+                status: "incoming",
+                peerUser: { _id: callerId, name: callerName || "User" },
+                peerUserId: callerId,
+                participantIds: [callerId],
+                isCaller: false,
+                isGroupCall: false,
+                title: callerName || "User",
+            };
+            activeCallRef.current = incomingCall;
+            setCall(incomingCall);
+            setRemoteParticipants([{
+                userId: callerId,
+                user: { _id: callerId, name: callerName || "User" },
+                stream: null,
+            }]);
+            setError("");
+
+            setTimeout(() => {
+                acceptCall();
+            }, 600);
+        }
+    }, [socket, currentUserId]);
+
     useEffect(() => () => {
         stopRingtone();
         resetCall();

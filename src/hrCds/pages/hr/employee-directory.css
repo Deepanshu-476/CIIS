@@ -1087,6 +1087,34 @@
   background: #fef2f2;
 }
 
+.EmployeeDirectory-document-upload-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: end;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px dashed #b8c7ff;
+  border-radius: 10px;
+  background: #f8faff;
+}
+
+.EmployeeDirectory-document-upload-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.EmployeeDirectory-file-input {
+  padding: 12px;
+  cursor: pointer;
+}
+
+.EmployeeDirectory-document-upload-btn {
+  height: 46px;
+  white-space: nowrap;
+}
+
 .EmployeeDirectory-document-actions {
   display: flex;
   align-items: center;
@@ -1131,7 +1159,27 @@
   border-color: #3656d4;
 }
 
+.EmployeeDirectory-document-action-delete {
+  background: #fff7f7;
+  border-color: #ffd4d4;
+  color: #d32f2f;
+}
+
+.EmployeeDirectory-document-action-delete:hover {
+  background: #ffeded;
+  border-color: #ef476f;
+}
+
 @media (max-width: 700px) {
+  .EmployeeDirectory-document-upload-panel,
+  .EmployeeDirectory-document-upload-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .EmployeeDirectory-document-upload-btn {
+    width: 100%;
+  }
+
   .EmployeeDirectory-modal-section .EmployeeDirectory-document-row {
     grid-template-columns: 44px minmax(0, 1fr);
   }

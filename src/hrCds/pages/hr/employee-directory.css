@@ -57,6 +57,7 @@
   padding: 24px;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: var(--dir-gray-800);
+  overflow-x: hidden;
 }
 
 /* ===== LOADING STATE ===== */
@@ -146,6 +147,8 @@
   display: flex;
   align-items: center;
   gap: 16px;
+  min-width: 0;
+  flex: 1 1 420px;
 }
 
 .EmployeeDirectory-company-avatar {
@@ -178,6 +181,17 @@
   flex-wrap: wrap;
 }
 
+.EmployeeDirectory-super-admin-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--dir-radius-full);
+  background: rgba(67, 97, 238, 0.1);
+  color: var(--dir-primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .EmployeeDirectory-department-badge {
   color: var(--dir-primary);
   font-weight: 500;
@@ -197,6 +211,9 @@
   display: flex;
   align-items: center;
   gap: 16px;
+  justify-content: flex-end;
+  min-width: 0;
+  flex: 1 1 320px;
 }
 
 .EmployeeDirectory-total-count {
@@ -286,10 +303,10 @@
 }
 
 .EmployeeDirectory-search-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(170px, auto) minmax(220px, auto);
   gap: 16px;
   align-items: center;
-  flex-wrap: wrap;
 }
 
 .EmployeeDirectory-search-input-container {
@@ -387,8 +404,10 @@
   border: 1px solid var(--dir-gray-200);
   position: relative;
   overflow: hidden;
-  display: flex;
-  gap: 26px;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
   margin-top: 4px;
   width: 100%;
   font: inherit;
@@ -447,7 +466,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  grid-row: 1 / span 2;
 }
 
 .EmployeeDirectory-stat-icon {
@@ -480,7 +499,7 @@
   font-weight: 700;
   color: var(--dir-gray-900);
   line-height: 1;
-  margin-top: 5px;
+  margin-top: 0;
 }
 
 .EmployeeDirectory-stat-label {
@@ -489,7 +508,7 @@
   color: var(--dir-gray-600);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-top: 10px;
+  margin-top: 4px;
 }
 
 /* ===== RESULTS HEADER ===== */
@@ -534,11 +553,87 @@
   gap: 20px;
 }
 
+.EmployeeDirectory-department-groups {
+  display: grid;
+  gap: 20px;
+}
+
+.EmployeeDirectory-department-group {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--dir-gray-200);
+  border-radius: var(--dir-radius-xl);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: var(--dir-shadow-sm);
+}
+
+.EmployeeDirectory-department-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--dir-gray-200);
+}
+
+.EmployeeDirectory-department-group-header > div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--dir-primary);
+}
+
+.EmployeeDirectory-department-group-header h3 {
+  min-width: 0;
+  margin: 0;
+  color: var(--dir-gray-900);
+  font-size: 17px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.EmployeeDirectory-department-group-header > span {
+  flex: 0 0 auto;
+  padding: 5px 12px;
+  border-radius: var(--dir-radius-full);
+  background: var(--dir-gray-100);
+  color: var(--dir-gray-700);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 /* ===== EMPLOYEE LIST ===== */
 .EmployeeDirectory-employee-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.EmployeeDirectory-employee-list .EmployeeDirectory-employee-card {
+  padding: 16px 18px;
+}
+
+.EmployeeDirectory-employee-list .EmployeeDirectory-employee-card-content {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.2fr) minmax(260px, 1fr) 150px;
+  align-items: center;
+  gap: 18px;
+}
+
+.EmployeeDirectory-employee-list .EmployeeDirectory-employee-details {
+  padding: 0 18px;
+  border-top: 0;
+  border-bottom: 0;
+  border-left: 1px solid var(--dir-gray-200);
+  border-right: 1px solid var(--dir-gray-200);
+}
+
+.EmployeeDirectory-employee-list .EmployeeDirectory-view-profile-btn {
+  align-self: center;
 }
 
 /* ===== EMPLOYEE CARD ===== */
@@ -551,6 +646,7 @@
   transition: var(--dir-transition);
   position: relative;
   cursor: pointer;
+  min-width: 0;
 }
 
 .EmployeeDirectory-employee-card:hover {
@@ -591,6 +687,7 @@
 .EmployeeDirectory-employee-header {
   display: flex;
   gap: 16px;
+  min-width: 0;
 }
 
 .EmployeeDirectory-employee-avatar {
@@ -732,7 +829,8 @@
 }
 
 .EmployeeDirectory-detail-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
 }
@@ -770,6 +868,8 @@
 .EmployeeDirectory-detail-text {
   font-size: 13px;
   color: var(--dir-gray-700);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .EmployeeDirectory-view-profile-btn {
@@ -1810,6 +1910,109 @@
 }
 
 /* ===== MOBILE OPTIMIZATION ===== */
+@media screen and (max-width: 1440px) {
+  .EmployeeDirectory {
+    padding: 18px;
+  }
+
+  .EmployeeDirectory-header,
+  .EmployeeDirectory-search-filter-container {
+    border-radius: var(--dir-radius-xl);
+    padding: 20px;
+  }
+
+  .EmployeeDirectory-title {
+    font-size: 26px;
+  }
+
+  .EmployeeDirectory-company-avatar {
+    width: 42px;
+    height: 42px;
+  }
+
+  .EmployeeDirectory-action-bar {
+    flex: 1 1 100%;
+  }
+
+  .EmployeeDirectory-total-count {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .EmployeeDirectory-search-row {
+    grid-template-columns: minmax(260px, 1fr) minmax(160px, 0.42fr) minmax(210px, 0.52fr);
+  }
+
+  .EmployeeDirectory-stats-container {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .EmployeeDirectory-stat-card {
+    min-height: 104px;
+    padding: 16px;
+  }
+
+  .EmployeeDirectory-stat-icon {
+    width: 42px;
+    height: 42px;
+    font-size: 20px;
+  }
+
+  .EmployeeDirectory-stat-value {
+    font-size: 30px;
+  }
+
+  .EmployeeDirectory-stat-label {
+    font-size: 12px;
+  }
+
+  .EmployeeDirectory-employee-grid {
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 16px;
+  }
+
+  .EmployeeDirectory-department-group {
+    padding: 16px;
+  }
+
+  .EmployeeDirectory-employee-list .EmployeeDirectory-employee-card-content {
+    grid-template-columns: minmax(240px, 1.1fr) minmax(220px, 1fr) 140px;
+  }
+}
+
+@media screen and (max-width: 1180px) {
+  .EmployeeDirectory-search-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .EmployeeDirectory-search-input-container {
+    grid-column: 1 / -1;
+  }
+
+  .EmployeeDirectory-role-select,
+  .EmployeeDirectory-department-select-inline {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .EmployeeDirectory-employee-list .EmployeeDirectory-employee-card-content {
+    grid-template-columns: 1fr;
+  }
+
+  .EmployeeDirectory-employee-list .EmployeeDirectory-employee-details {
+    padding: 12px 0;
+    border-left: 0;
+    border-right: 0;
+    border-top: 1px solid var(--dir-gray-200);
+    border-bottom: 1px solid var(--dir-gray-200);
+  }
+
+  .EmployeeDirectory-employee-list .EmployeeDirectory-view-profile-btn {
+    width: 100%;
+  }
+}
+
 @media screen and (max-width: 768px) {
   .EmployeeDirectory {
     padding: 12px;
@@ -1859,6 +2062,7 @@
   .EmployeeDirectory-search-filter-container {
     padding: 16px;
     display: flex;
+    flex-direction: column;
     gap: 8px;
   }
 
@@ -2115,15 +2319,23 @@
 /* Tablet Styles */
 @media screen and (min-width: 769px) and (max-width: 1024px) {
   .EmployeeDirectory-stats-container {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .EmployeeDirectory-employee-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .EmployeeDirectory-search-filter-container {
     padding: 20px;
+  }
+
+  .EmployeeDirectory-search-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .EmployeeDirectory-search-input-container {
+    grid-column: 1 / -1;
   }
 
   .EmployeeDirectory-form-grid {

@@ -420,7 +420,7 @@ const DocumentsPage = () => {
                               disabled={documentActionId === `recover-${doc._id}` || documentActionId === `delete-${doc._id}`}
                             >
                               <FiTrash2 />
-                              {documentActionId === `delete-${doc._id}` ? "Deleting..." : "Delete"}
+                              {documentActionId === `delete-${doc._id}` ? "Deleting..." : "Permanently Delete"}
                             </button>
                           </>
                         ) : (

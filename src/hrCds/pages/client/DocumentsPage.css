@@ -330,7 +330,8 @@
 
 .DocumentsPage-tableWrap th:last-child,
 .DocumentsPage-tableWrap td:last-child {
-  width: 190px;
+  width: 260px;
+  text-align: center;
 }
 
 .DocumentsPage-tableWrap input[type="checkbox"] {
@@ -396,10 +397,11 @@
 .DocumentsPage-rowActions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-start;
-  min-height: 32px;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+  min-height: 36px;
+  white-space: nowrap;
 }
 
 .DocumentsPage-deleteAction {
@@ -407,7 +409,7 @@
 }
 
 .DocumentsPage-trashAction {
-  height: 32px;
+  height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -415,7 +417,7 @@
   flex: 0 0 auto;
   border: 1px solid transparent;
   border-radius: 6px;
-  padding: 0 10px;
+  padding: 0 9px;
   background: #fff;
   font-size: 11px;
   font-weight: 900;
@@ -434,14 +436,14 @@
 }
 
 .DocumentsPage-recoverAction {
-  width: 86px;
+  width: 100px;
   border-color: #bbf7d0;
   background: #f0fdf4;
   color: #15803d;
 }
 
 .DocumentsPage-permanentDeleteAction {
-  width: 82px;
+  width: 140px;
   border-color: #fecaca;
   background: #fff1f2;
   color: #b91c1c;

@@ -192,7 +192,7 @@
 
 .PaymentsPage-metrics {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
   margin-bottom: 24px;
 }
@@ -397,13 +397,12 @@
 .PaymentsPage-tableWrap {
   width: 100%;
   max-width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow-x: hidden;
 }
 
 .PaymentsPage-tablePanel table {
   width: 100%;
-  min-width: 700px;
+  table-layout: fixed;
   border-collapse: collapse;
 }
 
@@ -422,7 +421,8 @@
   color: #4b5563;
   font-size: 13px;
   font-weight: 600;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .PaymentsPage-tablePanel td strong {
@@ -526,7 +526,7 @@
 
 .PaymentsPage-fullButton {
   width: 100%;
-  display: none;
+  display: inline-flex;
 }
 
 .PaymentsPage-supportPanel {
@@ -579,7 +579,7 @@
 
 @media (max-width: 1500px) {
   .PaymentsPage-metrics {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .PaymentsPage-contentGrid {

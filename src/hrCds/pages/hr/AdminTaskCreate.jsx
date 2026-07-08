@@ -9,11 +9,11 @@ import CIISLoader from '../../../Loader/CIISLoader';
 import {
   FiPlus, FiCalendar, FiInfo, FiPaperclip, FiMic, FiFileText,
   FiCheck, FiX, FiAlertCircle, FiUser, FiUsers, FiFolder,
-  FiBell, FiEdit, FiTrash2, FiSave, FiSearch,
+  FiBell, FiEdit, FiSave, FiSearch,
   FiFilter, FiDownload, FiMessageSquare, FiActivity,
   FiEye, FiClock, FiCheckCircle, FiXCircle, FiAlertTriangle,
   FiMoreVertical, FiRefreshCw, FiUserCheck, FiUserX,
-  FiLogOut, FiEdit3, FiTrash, FiMessageCircle,
+  FiLogOut, FiEdit3, FiMessageCircle,
   FiZoomIn, FiImage, FiCamera, FiBriefcase
 } from 'react-icons/fi';
 
@@ -813,21 +813,6 @@ const AdminTaskManagement = () => {
     }
   };
 
-  const handleDeleteTask = async (taskId) => {
-    if (!window.confirm('Are you sure you want to delete this task?')) return;
-
-    setLoading(true);
-    try {
-      await apiCall('delete', `/task/${taskId}`);
-      showSnackbar('Task deleted successfully', 'success');
-      fetchAllData(page, rowsPerPage);
-    } catch (error) {
-      console.error('Error deleting task:', error);
-      setLoading(false);
-    }
-  };
-
-  
   const handleCreateGroup = async () => {
     if (!newGroup.name || !newGroup.description) {
       showSnackbar('Please fill group name and description', 'error');
@@ -2874,13 +2859,6 @@ const AdminTaskManagement = () => {
                         <FiCheckCircle />
                       </button>
                     )}
-                    <button
-                      className="AdminTaskManagement-icon-btn AdminTaskManagement-btn-sm AdminTaskManagement-btn-danger"
-                      onClick={() => handleDeleteTask(task._id)}
-                      title="Delete"
-                    >
-                      <FiTrash2 />
-                    </button>
                   </div>
                 </td>
               </tr>

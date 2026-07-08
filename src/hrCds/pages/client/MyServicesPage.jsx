@@ -1,5 +1,4 @@
-import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
 import CIISLoader from '../../../Loader/CIISLoader';
 import {
   FiBarChart2,
@@ -44,7 +43,6 @@ const getServiceIcon = service => {
 };
 
 const MyServicesPage = () => {
-  const navigate = useNavigate();
   const { client, services, tasks, projectManagers, loading, error, refetch } = useClientPortalData();
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('All Status');
@@ -52,6 +50,7 @@ const MyServicesPage = () => {
   const [sortBy, setSortBy] = useState('Recently Updated');
   const [detailsService, setDetailsService] = useState(null);
   const [tasksService, setTasksService] = useState(null);
+  const [showAllServices, setShowAllServices] = useState(false);
 
   const serviceCards = useMemo(() => services.map((serviceName, index) => {
     const serviceTasks = tasks.filter(task => task.serviceName === serviceName);
@@ -103,6 +102,12 @@ const MyServicesPage = () => {
         return new Date(b.updated || 0) - new Date(a.updated || 0);
       });
   }, [query, serviceCards, serviceType, sortBy, status]);
+  const visibleServices = showAllServices ? filteredServices : filteredServices.slice(0, 6);
+  const hasMoreServices = filteredServices.length > visibleServices.length;
+
+  useEffect(() => {
+    setShowAllServices(false);
+  }, [query, serviceType, sortBy, status]);
 
   const deliverables = tasks
     .filter(task => task.dueDate && task.completed !== true)
@@ -202,7 +207,7 @@ const MyServicesPage = () => {
 
               {filteredServices.length ? (
                 <div className="MyServices-grid">
-                  {filteredServices.map(service => (
+                  {visibleServices.map(service => (
                     <article className="MyServices-card" key={service.rawTitle}>
                       <div className="MyServices-card-top">
                         <span className={`MyServices-service-icon ${service.tone}`}>{service.icon}</span>
@@ -231,7 +236,11 @@ const MyServicesPage = () => {
               ) : (
                 <div className="MyServices-empty"><FiSearch /><strong>No services found</strong><span>Try changing your search or filters.</span></div>
               )}
-              <button className="MyServices-view-all" type="button" onClick={() => navigate('/client/marketplace')}>View All Services <FiChevronRight /></button>
+              {hasMoreServices && (
+                <button className="MyServices-view-all" type="button" onClick={() => setShowAllServices(true)}>
+                  View All Services <FiChevronRight />
+                </button>
+              )}
             </section>
 
             <div className="MyServices-bottom">

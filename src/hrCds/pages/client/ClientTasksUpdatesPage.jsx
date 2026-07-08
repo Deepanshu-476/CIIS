@@ -40,8 +40,7 @@ const normalizeMatchValue = value => String(value || '').trim().toLowerCase();
 const isClientTaskOverdue = task => {
   if (!task?.dueDate || task.completed) return false;
   const status = String(task.status || 'pending').trim().toLowerCase();
-  if (status === 'overdue') return true;
-  if (status !== 'pending') return false;
+  if (status === 'completed' || status === 'onhold') return false;
   const dueDate = new Date(task.dueDate);
   if (Number.isNaN(dueDate.getTime())) return false;
   return dueDate < new Date();
@@ -343,7 +342,7 @@ const ServicesTasks = () => {
 
   const buildTaskRow = (task) => {
     const completed = task.completed === true;
-    const overdue = isClientTaskOverdue(task) || String(task.status || '').toLowerCase() === 'overdue';
+    const overdue = isClientTaskOverdue(task);
     const assignee = getTaskAssignee(task, projectManagers);
     const status = completed
       ? 'Completed'

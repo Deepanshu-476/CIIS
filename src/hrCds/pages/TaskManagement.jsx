@@ -144,6 +144,20 @@ const normalizeStatus = (status) => {
   return statusMap[status] || status.toLowerCase();
 };
 
+const OVERDUE_LOCKED_STATUSES = new Set([
+  'completed',
+  'approved',
+  'rejected',
+  'cancelled',
+  'onhold',
+  'overdue'
+]);
+
+const canMoveToOverdue = (status) => {
+  const normalized = normalizeStatus(status);
+  return !OVERDUE_LOCKED_STATUSES.has(normalized);
+};
+
 const getLocalDateStart = (value = new Date()) => {
   const date = value instanceof Date ? new Date(value) : new Date(value);
   if (Number.isNaN(date.getTime())) return null;
@@ -283,6 +297,7 @@ const UserCreateTask = () => {
   const [allTasksStatsGrouped, setAllTasksStatsGrouped] = useState({});
   const allTasksStatsLoadedRef = useRef(false);
   const allTasksLoadedRef = useRef(false);
+  const autoOverdueTaskIdsRef = useRef(new Set());
   const [allTasksPagination, setAllTasksPagination] = useState({
     page: 1,
     limit: 10,
@@ -494,10 +509,69 @@ const UserCreateTask = () => {
     if (Number.isNaN(dueDate.getTime())) return false;
     
     const isPastDue = dueDate < new Date();
-    const canBeOverdue = ['pending'];
-    
-    return isPastDue && canBeOverdue.includes(status);
+    return isPastDue && canMoveToOverdue(status);
   }, []);
+
+  const syncOverdueTaskStatuses = useCallback(async (tasks = [], source) => {
+    if (!Array.isArray(tasks) || tasks.length === 0) return false;
+
+    const updateRequests = tasks
+      .filter(task => {
+        const taskId = task?._id || task?.id;
+        const dueDate = task?.dueDateTime || task?.dueDate;
+        const status = source === 'self'
+          ? getUserStatusForTask(task, userId)
+          : getAssignedTaskStatus(task);
+        const syncKey = `${source}:${taskId}`;
+
+        return (
+          taskId &&
+          dueDate &&
+          !autoOverdueTaskIdsRef.current.has(syncKey) &&
+          isOverdue(dueDate, status)
+        );
+      })
+      .map(task => {
+        const taskId = task._id || task.id;
+        const syncKey = `${source}:${taskId}`;
+        autoOverdueTaskIdsRef.current.add(syncKey);
+
+        const payload = {
+          status: 'overdue',
+          remarks: 'Automatically marked overdue after due time passed'
+        };
+
+        if (source === 'client') {
+          return axios.patch(`/tasks/client-tasks/assigned/${taskId}/status`, payload);
+        }
+
+        if (source === 'project') {
+          const projectId = getValueId(task.projectId) || task.projectId;
+          if (!projectId) return Promise.resolve();
+          return axios.patch(`/tasks/project/${projectId}/tasks/${taskId}/status`, {
+            status: 'overdue',
+            remark: payload.remarks
+          });
+        }
+
+        if (source === 'assigned') {
+          return axios.patch(`/tasks/assigned/${taskId}/status`, payload);
+        }
+
+        return axios.patch(`/tasks/self/${taskId}/status`, payload);
+      });
+
+    if (updateRequests.length === 0) return false;
+
+    const results = await Promise.allSettled(updateRequests);
+    results.forEach((result) => {
+      if (result.status === 'rejected') {
+        console.warn('Failed to auto-mark task overdue:', result.reason);
+      }
+    });
+
+    return results.some(result => result.status === 'fulfilled');
+  }, [getAssignedTaskStatus, getUserStatusForTask, isOverdue, userId]);
 
   
   const groupTasksByDate = useCallback((tasks) => {
@@ -1132,6 +1206,14 @@ const UserCreateTask = () => {
             const createdBy = typeof task.createdBy === 'object' ? task.createdBy?._id || task.createdBy?.id : task.createdBy;
             return !createdBy || createdBy.toString() !== userId.toString();
           });
+        if (await syncOverdueTaskStatuses(tasksArray, 'assigned')) {
+          const refreshedRes = await axios.get(url);
+          tasksArray = extractTasksFromResponse(refreshedRes.data)
+            .filter(task => {
+              const createdBy = typeof task.createdBy === 'object' ? task.createdBy?._id || task.createdBy?.id : task.createdBy;
+              return !createdBy || createdBy.toString() !== userId.toString();
+            });
+        }
         tasksArray = tagTasksWithSource(enrichAssignedTasks(tasksArray), 'assigned');
         const groupedTasks = groupTasksByDate(tasksArray);
         setAssignedToMeTasksGrouped(groupedTasks);
@@ -1188,7 +1270,7 @@ const UserCreateTask = () => {
       setTaskViewsLoaded(prev => ({ ...prev, assigned: true }));
       void 0;
     }
-  }, [authError, userId, enrichAssignedTasks, extractTasksFromResponse, groupTasksByDate, calculateAssignedStatsFromTasks, tagTasksWithSource, buildTaskQueryParams]);
+  }, [authError, userId, enrichAssignedTasks, extractTasksFromResponse, groupTasksByDate, calculateAssignedStatsFromTasks, tagTasksWithSource, buildTaskQueryParams, syncOverdueTaskStatuses]);
 
   const fetchClientTasks = useCallback(async () => {
     if (authError || !userId) return;
@@ -1198,7 +1280,12 @@ const UserCreateTask = () => {
       const query = buildTaskQueryParams();
       const url = `/tasks/client-tasks/assigned-to-me${query ? `?${query}` : ''}`;
       const res = await axios.get(url);
-      const tasksArray = tagTasksWithSource(enrichAssignedTasks(extractTasksFromResponse(res.data)), 'client');
+      let rawTasksArray = extractTasksFromResponse(res.data);
+      if (await syncOverdueTaskStatuses(rawTasksArray, 'client')) {
+        const refreshedRes = await axios.get(url);
+        rawTasksArray = extractTasksFromResponse(refreshedRes.data);
+      }
+      const tasksArray = tagTasksWithSource(enrichAssignedTasks(rawTasksArray), 'client');
       const groupedTasks = groupTasksByDate(tasksArray);
       setClientTasksGrouped(groupedTasks);
       calculateClientStatsFromTasks(groupedTasks);
@@ -1213,7 +1300,7 @@ const UserCreateTask = () => {
       setLoadingClientTasks(false);
       setTaskViewsLoaded(prev => ({ ...prev, client: true }));
     }
-  }, [authError, userId, enrichAssignedTasks, extractTasksFromResponse, groupTasksByDate, calculateClientStatsFromTasks, tagTasksWithSource, buildTaskQueryParams]);
+  }, [authError, userId, enrichAssignedTasks, extractTasksFromResponse, groupTasksByDate, calculateClientStatsFromTasks, tagTasksWithSource, buildTaskQueryParams, syncOverdueTaskStatuses]);
 
   const fetchProjectTasks = useCallback(async () => {
     if (authError || !userId) return;
@@ -1235,6 +1322,23 @@ const UserCreateTask = () => {
         );
       }
 
+      if (await syncOverdueTaskStatuses(tasksArray, 'project')) {
+        const refreshedRes = await axios.get(url);
+        let refreshedTasksArray = tagTasksWithSource(extractTasksFromResponse(refreshedRes.data), 'project');
+
+        if (refreshedTasksArray.length === 0) {
+          const fallbackRes = await axios.get('/projects', {
+            params: { page: 1, limit: TASK_PAGE_LIMIT }
+          });
+          refreshedTasksArray = tagTasksWithSource(
+            extractAssignedProjectTasksFromProjects(extractProjectsFromResponse(fallbackRes.data)),
+            'project'
+          );
+        }
+
+        tasksArray = refreshedTasksArray;
+      }
+
       const groupedTasks = groupTasksByDate(tasksArray);
       setProjectTasksGrouped(groupedTasks);
       calculateProjectStatsFromTasks(groupedTasks);
@@ -1249,7 +1353,7 @@ const UserCreateTask = () => {
       setLoadingProjectTasks(false);
       setTaskViewsLoaded(prev => ({ ...prev, project: true }));
     }
-  }, [authError, userId, extractTasksFromResponse, extractProjectsFromResponse, extractAssignedProjectTasksFromProjects, groupTasksByDate, calculateProjectStatsFromTasks, tagTasksWithSource, buildTaskQueryParams]);
+  }, [authError, userId, extractTasksFromResponse, extractProjectsFromResponse, extractAssignedProjectTasksFromProjects, groupTasksByDate, calculateProjectStatsFromTasks, tagTasksWithSource, buildTaskQueryParams, syncOverdueTaskStatuses]);
 
   const fetchAllTasks = useCallback(async ({ refreshStats = false } = {}) => {
     if (authError || !userId) return;
@@ -1262,11 +1366,26 @@ const UserCreateTask = () => {
       // that happened to be on a different API page.
       const query = buildTaskQueryParams({ includeAll: true });
       const res = await axios.get(`/tasks/all?${query}`);
-      const responseTasks = Array.isArray(res.data?.tasks) ? res.data.tasks : extractTasksFromResponse(res.data);
-      const tasksArray = responseTasks.map(task => ({
+      let responseTasks = Array.isArray(res.data?.tasks) ? res.data.tasks : extractTasksFromResponse(res.data);
+      let tasksArray = responseTasks.map(task => ({
         ...task,
         __taskSource: task.__taskSource || task.taskSource || (task.clientId ? 'client' : 'assigned')
       }));
+      const syncedSources = await Promise.all([
+        syncOverdueTaskStatuses(tasksArray.filter(task => task.__taskSource === 'self'), 'self'),
+        syncOverdueTaskStatuses(tasksArray.filter(task => task.__taskSource === 'client'), 'client'),
+        syncOverdueTaskStatuses(tasksArray.filter(task => task.__taskSource === 'project'), 'project'),
+        syncOverdueTaskStatuses(tasksArray.filter(task => !['self', 'client', 'project'].includes(task.__taskSource)), 'assigned')
+      ]);
+
+      if (syncedSources.some(Boolean)) {
+        const refreshedRes = await axios.get(`/tasks/all?${query}`);
+        responseTasks = Array.isArray(refreshedRes.data?.tasks) ? refreshedRes.data.tasks : extractTasksFromResponse(refreshedRes.data);
+        tasksArray = responseTasks.map(task => ({
+          ...task,
+          __taskSource: task.__taskSource || task.taskSource || (task.clientId ? 'client' : 'assigned')
+        }));
+      }
       const groupedTasks = groupTasksByDate(tasksArray);
       setAllTasksGrouped(groupedTasks);
       setAllTasksStatsGrouped(groupedTasks);
@@ -1296,7 +1415,7 @@ const UserCreateTask = () => {
       allTasksLoadedRef.current = true;
       setTaskViewsLoaded(prev => ({ ...prev, all: true }));
     }
-  }, [authError, userId, buildTaskQueryParams, extractTasksFromResponse, groupTasksByDate, calculateUnifiedStatsFromTasks]);
+  }, [authError, userId, buildTaskQueryParams, extractTasksFromResponse, groupTasksByDate, calculateUnifiedStatsFromTasks, syncOverdueTaskStatuses]);
 
   
   const fetchMyTasks = useCallback(async () => {
@@ -1312,7 +1431,11 @@ const UserCreateTask = () => {
       void 0;
       
       const res = await axios.get(url);
-      const selfTasks = extractTasksFromResponse(res.data);
+      let selfTasks = extractTasksFromResponse(res.data);
+      if (await syncOverdueTaskStatuses(selfTasks, 'self')) {
+        const refreshedRes = await axios.get(url);
+        selfTasks = extractTasksFromResponse(refreshedRes.data);
+      }
       const tasks = groupTasksByDate(tagTasksWithSource(selfTasks, 'self'));
       
       void 0;
@@ -1332,7 +1455,7 @@ const UserCreateTask = () => {
       setLoading(false);
       setTaskViewsLoaded(prev => ({ ...prev, self: true }));
     }
-  }, [authError, userId, calculateStatsFromTasks, extractTasksFromResponse, groupTasksByDate, tagTasksWithSource, buildUserTaskQueryParams, getUserTaskApiPeriod]);
+  }, [authError, userId, calculateStatsFromTasks, extractTasksFromResponse, groupTasksByDate, tagTasksWithSource, buildUserTaskQueryParams, getUserTaskApiPeriod, syncOverdueTaskStatuses]);
 
   
   const fetchOverdueTasks = useCallback(async () => {
@@ -1932,6 +2055,16 @@ const UserCreateTask = () => {
       return;
     }
 
+    const task = findTaskInGroups(taskId);
+    const currentStatus = task ? getStatusForTask(task) : '';
+    if (
+      normalizeStatus(newStatus) !== 'overdue' &&
+      (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus))
+    ) {
+      showSnackbar('Overdue task status cannot be changed', 'error');
+      return;
+    }
+
     setPageLoading(true);
     try {
       await axios.patch(`/tasks/self/${taskId}/status`, { 
@@ -1962,6 +2095,16 @@ const UserCreateTask = () => {
   const handleAssignedTaskStatusChange = async (taskId, newStatus, remarks = '') => {
     if (authError || !userId) {
       showSnackbar('Please log in to update task status', 'error');
+      return;
+    }
+
+    const task = findTaskInGroups(taskId);
+    const currentStatus = task ? getStatusForTask(task) : '';
+    if (
+      normalizeStatus(newStatus) !== 'overdue' &&
+      (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus))
+    ) {
+      showSnackbar('Overdue task status cannot be changed', 'error');
       return;
     }
 
@@ -2007,6 +2150,16 @@ const UserCreateTask = () => {
       return;
     }
 
+    const task = findTaskInGroups(taskId);
+    const currentStatus = task ? getStatusForTask(task) : '';
+    if (
+      normalizeStatus(newStatus) !== 'overdue' &&
+      (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus))
+    ) {
+      showSnackbar('Overdue task status cannot be changed', 'error');
+      return;
+    }
+
     setPageLoading(true);
     try {
       const normalizedStatus = normalizeStatus(newStatus);
@@ -2048,6 +2201,16 @@ const UserCreateTask = () => {
     const { taskId, projectId } = getProjectTaskContext(taskOrId);
     if (!projectId || !taskId) {
       showSnackbar('Project task details are missing. Please refresh and try again.', 'error');
+      return;
+    }
+
+    const task = typeof taskOrId === 'object' ? taskOrId : findTaskInGroups(taskId);
+    const currentStatus = task ? getStatusForTask(task) : '';
+    if (
+      normalizeStatus(newStatus) !== 'overdue' &&
+      (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus))
+    ) {
+      showSnackbar('Overdue task status cannot be changed', 'error');
       return;
     }
 

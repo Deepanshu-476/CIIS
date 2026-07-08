@@ -264,7 +264,7 @@ button {
 .ClientDashboard-kpi-row {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 15px;
 }
 
@@ -701,30 +701,40 @@ button {
 
 .ClientDashboard-distribution-content {
   display: grid;
-  grid-template-columns: 132px minmax(0, 1fr);
+  grid-template-columns: minmax(96px, 118px) minmax(0, 1fr);
   align-items: center;
-  gap: 18px;
+  gap: 12px;
+  min-width: 0;
 }
 
 .ClientDashboard-doughnut-container {
-  width: 126px;
-  height: 126px;
+  width: min(118px, 100%);
+  aspect-ratio: 1;
+  justify-self: center;
 }
 
 .ClientDashboard-distribution-legend {
   display: grid;
-  gap: 17px;
+  gap: 14px;
   min-width: 0;
 }
 
 .ClientDashboard-distribution-legend p {
-  grid-template-columns: 11px minmax(72px, 1fr) 58px;
-  gap: 2px;
+  grid-template-columns: 11px minmax(0, 1fr) max-content;
+  column-gap: 6px;
   color: #3c4662;
   font-family: "Inter", "Roboto", "Helvetica Neue", Arial, sans-serif;
   font-size: 11px;
   line-height: 1;
   font-weight: 700;
+  min-width: 0;
+}
+
+.ClientDashboard-distribution-legend p > span:nth-child(2) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ClientDashboard-distribution-legend strong {
@@ -1199,6 +1209,10 @@ button {
 }
 
 @media (max-width: 1180px) {
+  .ClientDashboard-kpi-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .ClientDashboard-progress-overview,
   .ClientDashboard-task-distribution,
   .ClientDashboard-recent-activity,
@@ -1219,8 +1233,11 @@ button {
     grid-template-columns: 1fr;
   }
 
-  .ClientDashboard-kpi-row,
   .ClientDashboard-hero-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ClientDashboard-kpi-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1261,6 +1278,7 @@ button {
 
   .ClientDashboard-update-strip,
   .ClientDashboard-profile-actions,
+  .ClientDashboard-kpi-row,
   .ClientDashboard-progress-layout,
   .ClientDashboard-distribution-content {
     grid-template-columns: 1fr;

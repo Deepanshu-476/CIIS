@@ -224,7 +224,7 @@ export default function AdminMeetingPage() {
       setMeetings(fetchedMeetings);
     } catch (err) {
       console.error("Error fetching meetings:", err);
-      toast.error("❌ Failed to fetch meetings");
+      toast.error("❌   Failed to fetch meetings");
       setMeetings([]);
     } finally {
       setRefreshing(false);

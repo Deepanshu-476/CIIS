@@ -268,11 +268,43 @@ export const getTaskTitle = task => (
   task?.name || task?.task || task?.title || task?.taskName || 'Project Task'
 );
 
+const getTaskSubscription = (client, task = {}) => {
+  const subscriptions = Array.isArray(client?.subscription) ? client.subscription : [];
+  if (!subscriptions.length) return null;
+
+  const taskSubscriptionId = task.subscriptionId
+    ? String(task.subscriptionId?._id || task.subscriptionId)
+    : '';
+
+  if (taskSubscriptionId) {
+    const matched = subscriptions.find(subscription => String(subscription?._id) === taskSubscriptionId);
+    if (matched) return matched;
+  }
+
+  if (task.subscriptionNo) {
+    const matched = subscriptions.find(subscription => Number(subscription?.subscriptionNo) === Number(task.subscriptionNo));
+    if (matched) return matched;
+  }
+
+  return getLatestSubscription(client);
+};
+
+export const getClientTaskDueDate = (client, task = {}) => (
+  getTaskSubscription(client, task)?.endDate || task?.dueDate
+);
+
+export const applyClientSubscriptionDueDates = (tasks = [], client) => (
+  tasks.map(task => ({
+    ...task,
+    dueDate: getClientTaskDueDate(client, task),
+    dueDateSource: 'subscription'
+  }))
+);
+
 export const isClientTaskOverdue = task => {
   if (!task?.dueDate || task.completed) return false;
   const status = String(task.status || 'pending').trim().toLowerCase();
-  if (status === 'overdue') return true;
-  if (status !== 'pending') return false;
+  if (status === 'completed' || status === 'onhold') return false;
   const dueDate = new Date(task.dueDate);
   return !Number.isNaN(dueDate.getTime()) && dueDate < new Date();
 };
@@ -551,11 +583,12 @@ export const useClientPortalData = () => {
 
       const serviceList = getClientServices(currentClient);
       const taskGroups = await Promise.all(serviceList.map(service => fetchServiceTasks(currentClient._id, service)));
+      const normalizedTasks = applyClientSubscriptionDueDates(taskGroups.flat(), currentClient);
 
       if (isMounted.current) {
         setClient(currentClient);
         setServices(serviceList);
-        setTasks(taskGroups.flat());
+        setTasks(normalizedTasks);
         setProjectManagers(collectProjectMembers(currentClient, companyUsers));
       }
     } catch (err) {

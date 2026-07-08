@@ -8,6 +8,13 @@ import './UserDashboard.css';
 import useIsMobile from '../../hooks/useIsMobile';
 import CIISLoader from '../../Loader/CIISLoader';
 
+import WelcomeHeader from '../../components/dashboard/WelcomeHeader';
+import ClockInSection from '../../components/dashboard/ClockInSection';
+import StatsCards from '../../components/dashboard/StatsCards';
+import AttendanceCalendar from '../../components/dashboard/AttendanceCalendar';
+import RecentActivity from '../../components/dashboard/RecentActivity';
+
+
 import {
   FiClock, FiCalendar, FiChevronLeft, FiChevronRight,
   FiPlay, FiSquare, FiRefreshCw, FiBriefcase, FiUser,
@@ -171,6 +178,7 @@ const UserDashboard = () => {
   const [recentActivity, setRecentActivity] = useState([]);
   const [jobRoles, setJobRoles] = useState([]);
   const [jobRolesLoading, setJobRolesLoading] = useState(false);
+  const [dashboardConfig, setDashboardConfig] = useState([]);
   
   const [showClockOutConfirm, setShowClockOutConfirm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -603,6 +611,28 @@ const UserDashboard = () => {
   }, [taskActivity]);
 
   
+  const fetchDashboardConfig = useCallback(async () => {
+    const companyId = getCompanyId();
+    if (!companyId) return;
+    try {
+      const response = await axios.get(`/company/${companyId}/dashboard-config`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success && response.data.dashboardConfig) {
+        setDashboardConfig(response.data.dashboardConfig);
+      }
+    } catch (err) {
+      console.error("Failed to load dashboard config:", err);
+      setDashboardConfig([
+        { componentId: 'header', componentName: 'Welcome Header', isEnabled: true, sortOrder: 1 },
+        { componentId: 'clock-in', componentName: 'Attendance Timer & Clock In', isEnabled: true, sortOrder: 2, settings: { attendanceMode: 'normal' } },
+        { componentId: 'stats', componentName: 'Monthly Stats Grid', isEnabled: true, sortOrder: 3 },
+        { componentId: 'calendar', componentName: 'Attendance Calendar Grid', isEnabled: true, sortOrder: 4 },
+        { componentId: 'activity', componentName: 'Recent Activity Timeline', isEnabled: true, sortOrder: 5 }
+      ]);
+    }
+  }, [getCompanyId, token]);
+
   useEffect(() => {
     if (initialLoadRef.current) return;
     if (!isUserInCurrentCompany) {
@@ -617,6 +647,7 @@ const UserDashboard = () => {
       cancelPendingRequests();
       
       try {
+        await fetchDashboardConfig();
         await fetchJobRoles();
         await fetchHolidays(); 
         await fetchAttendanceData(true); 
@@ -830,12 +861,12 @@ const UserDashboard = () => {
     }
   }, [getDayStatus]);
 
-  const handleIn = async () => {
+  const handleIn = async (payload = {}) => {
     if (!isUserInCurrentCompany || isProcessing) return;
     
     setIsProcessing(true);
     try {
-      await axios.post('/attendance/in', {}, {
+      await axios.post('/attendance/in', payload, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 10000
       });
@@ -850,18 +881,18 @@ const UserDashboard = () => {
       }, 500);
       
     } catch (error) {
-      toast.error('Clock-in failed');
+      toast.error(error.response?.data?.message || 'Clock-in failed');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleClockOut = async () => {
+  const handleClockOut = async (payload = {}) => {
     if (!isUserInCurrentCompany || isProcessing) return;
     
     setIsProcessing(true);
     try {
-      await axios.post("/attendance/out", {}, {
+      await axios.post("/attendance/out", payload, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 10000
       });
@@ -876,7 +907,7 @@ const UserDashboard = () => {
       }, 500);
 
     } catch (error) {
-      toast.error("Clock-out failed");
+      toast.error(error.response?.data?.message || "Clock-out failed");
     } finally {
       setIsProcessing(false);
     }
@@ -936,6 +967,12 @@ const UserDashboard = () => {
   const shouldBlockMobileDashboard = false;
   const userJobRoleDisplay = getJobRoleDisplayName();
 
+  const sortedConfigs = useMemo(() => {
+    return [...dashboardConfig]
+      .filter(item => item.isEnabled)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+  }, [dashboardConfig]);
+
   
   if (pageLoading) {
     return <CIISLoader />;
@@ -981,8 +1018,45 @@ const UserDashboard = () => {
     );
   }
 
+  const dashboardProps = {
+    user,
+    companyDetails,
+    userJobRoleDisplay,
+    currentDate,
+    timer,
+    isRunning,
+    loading,
+    isUserInCurrentCompany,
+    isProcessing,
+    handleIn,
+    handleClockOut,
+    monthlyStats,
+    currentMonth,
+    monthNames,
+    holidaysLoading,
+    calendarMonth,
+    calendarYear,
+    handlePrevMonth,
+    resetToCurrentMonth,
+    handleNextMonth,
+    isMonthBeforeJoin,
+    formattedJoinDate,
+    calendarDays,
+    getDayStatus,
+    getDayIcon,
+    isToday,
+    holidayTitles,
+    daysOfWeek,
+    isBeforeJoinDate,
+    recentActivity,
+    handleRefresh,
+    getStatusColor,
+    userJoinDate,
+    currentYear
+  };
+
   return (
-    <div className="dashboard-container">
+    <div className="dashboard-container" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '20px' }}>
       <ToastContainer position="top-right" autoClose={3000} theme="colored" pauseOnHover />
       
       {showClockOutConfirm && (
@@ -1005,7 +1079,7 @@ const UserDashboard = () => {
               <button className="confirmation-btn confirmation-btn-cancel" onClick={() => setShowClockOutConfirm(false)} disabled={isProcessing}>
                 Cancel
               </button>
-              <button className="confirmation-btn confirmation-btn-confirm" onClick={handleClockOut} disabled={isProcessing}>
+              <button className="confirmation-btn confirmation-btn-confirm" onClick={() => handleClockOut({})} disabled={isProcessing}>
                 {isProcessing ? 'Processing...' : 'Confirm Clock Out'}
               </button>
             </div>
@@ -1013,319 +1087,34 @@ const UserDashboard = () => {
         </div>
       )}
       
-      <div className="dashboard-header">
-        <div className="dashboard-header-content">
-          <div className="dashboard-user-details">
-            <h1 className="dashboard-user-name">Welcome back, {user?.name || 'User'}</h1>
-            <p className="dashboard-user-welcome">
-              {new Date().getHours() < 12 ? 'Good morning! Let\'s make today count.' :
-               new Date().getHours() < 18 ? 'Good afternoon! Stay focused and productive.' :
-               'Good evening! Wrapping up strong.'}
-            </p>
-            <div className="dashboard-user-tags">
-              <span className="dashboard-tag dashboard-tag-role">
-                <FiBriefcase size={14} /> {userJobRoleDisplay}
-              </span>
-              <span className="dashboard-tag dashboard-tag-type">
-                <FiUser size={14} /> {user?.employeeType || 'Full-time'}
-              </span>
-              <span className="dashboard-tag dashboard-tag-company">
-                <FiBriefcase size={14} /> {companyDetails?.companyName || 'Company'}
-              </span>
+      {sortedConfigs.map(comp => {
+        if (comp.componentId === 'header') {
+          return (
+            <div key="header" className="dashboard-header" style={{ width: '100%' }}>
+              <WelcomeHeader {...dashboardProps} />
             </div>
-            <div className="dashboard-date-info">
-              <MdToday size={14} />
-              {currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+          );
+        }
+        if (comp.componentId === 'clock-in') {
+          return (
+            <div key="clock-in" className="dashboard-header" style={{ width: '100%' }}>
+              <ClockInSection config={comp} {...dashboardProps} />
             </div>
-          </div>
-          
-          <div className="dashboard-clock-section">
-            <div className="dashboard-timer-display">
-              <div className="dashboard-timer-value">{formatTime(timer)}</div>
-              <div className={`dashboard-timer-status ${isRunning ? 'status-active-text' : 'status-inactive-text'}`}>
-                <div className={`dashboard-timer-dot ${isRunning ? 'dot-active' : 'dot-inactive'}`}></div>
-                {isRunning ? 'Active Timer • Live' : 'Timer Stopped'}
-              </div>
-            </div>
-            <div className="dashboard-clock-buttons">
-              <button
-                onClick={handleIn}
-                disabled={isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing}
-                className={`dashboard-btn dashboard-btn-clockin ${isRunning ? 'btn-disabled' : ''}`}
-              >
-                <FiPlay size={20} /> Clock In
-              </button>
-              <button
-                onClick={() => setShowClockOutConfirm(true)}
-                disabled={!isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing}
-                className={`dashboard-btn dashboard-btn-clockout ${!isRunning ? 'btn-disabled' : ''}`}
-              >
-                <FiSquare size={20} /> Clock Out
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+          );
+        }
+        if (comp.componentId === 'stats') {
+          return <StatsCards key="stats" {...dashboardProps} />;
+        }
+        if (comp.componentId === 'calendar') {
+          return <AttendanceCalendar key="calendar" {...dashboardProps} />;
+        }
+        if (comp.componentId === 'activity') {
+          return <RecentActivity key="activity" {...dashboardProps} />;
+        }
+        return null;
+      })}
 
-      
-      {loading.attendance ? (
-        <StatsLoader />
-      ) : (
-        <div className="dashboard-stats-grid">
-          <div className="dashboard-stat-card stat-card-present">
-            <div className="stat-card-header">
-              <div className="stat-icon-container icon-present"><MdWork className="stat-icon" /></div>
-              <div className="stat-current-month">Current Month</div>
-            </div>
-            <div className="stat-value">{monthlyStats.presentDays}</div>
-            <div className="stat-label">Days Present</div>
-            <div className="stat-footer">
-              <FiTrendingUp className="stat-trend-icon" />
-              <span className="stat-month-text">Tracked in {monthNames[currentMonth]}</span>
-            </div>
-          </div>
-
-          <div className="dashboard-stat-card stat-card-late">
-            <div className="stat-card-header">
-              <div className="stat-icon-container icon-late"><MdOutlineAlarm className="stat-icon" /></div>
-              <div className="stat-current-month">Current Month</div>
-            </div>
-            <div className="stat-value">{monthlyStats.lateDays}</div>
-            <div className="stat-label">Late Days</div>
-            <div className="stat-footer">
-              <FiAlertTriangle className="stat-trend-icon" />
-              <span className="stat-month-text">Tracked in {monthNames[currentMonth]}</span>
-            </div>
-          </div>
-
-          <div className="dashboard-stat-card stat-card-halfday">
-            <div className="stat-card-header">
-              <div className="stat-icon-container icon-halfday"><MdOutlineCrop54 className="stat-icon" /></div>
-              <div className="stat-current-month">Current Month</div>
-            </div>
-            <div className="stat-value">{monthlyStats.halfDays}</div>
-            <div className="stat-label">Half Days</div>
-            <div className="stat-footer">
-              <FiActivity className="stat-trend-icon" />
-              <span className="stat-month-text">Tracked in {monthNames[currentMonth]}</span>
-            </div>
-          </div>
-
-          <div className="dashboard-stat-card stat-card-leave">
-            <div className="stat-card-header">
-              <div className="stat-icon-container icon-leave"><MdBeachAccess className="stat-icon" /></div>
-              <div className="stat-current-month">Current Month</div>
-            </div>
-            <div className="stat-value">{monthlyStats.leavesTaken}</div>
-            <div className="stat-label">Leaves Taken</div>
-            <div className="stat-footer">
-              <FiCheckCircle className="stat-trend-icon" />
-              <span className="stat-month-text">Approved in {monthNames[currentMonth]}</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="dashboard-content-grid">
-        
-        {loading.attendance || holidaysLoading ? (
-          <CalendarLoader />
-        ) : (
-          <div className="dashboard-calendar-card">
-            <div className="calendar-header">
-              <div className="calendar-title-section">
-                <div className="calendar-icon-container"><FiCalendar className="calendar-icon" /></div>
-                <div>
-                  <h2 className="calendar-title">{monthNames[calendarMonth]} {calendarYear}</h2>
-                  <p className="calendar-subtitle">Attendance Calendar</p>
-                </div>
-              </div>
-              <div className="calendar-controls">
-                <button onClick={handlePrevMonth} className="calendar-nav-btn" disabled={isMonthBeforeJoin(calendarYear, calendarMonth)}>
-                  <FiChevronLeft className="nav-icon" />
-                </button>
-                <button onClick={resetToCurrentMonth} className="calendar-today-btn">Today</button>
-                <button onClick={handleNextMonth} className="calendar-nav-btn">
-                  <FiChevronRight className="nav-icon" />
-                </button>
-              </div>
-            </div>
-
-            {isMonthBeforeJoin(calendarYear, calendarMonth) && (
-              <div className="calendar-before-join-message">
-                <FiClock size={16} />
-                <span>You joined on {formattedJoinDate}. No attendance records before this date.</span>
-              </div>
-            )}
-
-            <div className="calendar-body">
-              <div className="calendar-week-header">
-                {daysOfWeek.map(day => <div key={day} className="calendar-day-header">{day}</div>)}
-              </div>
-              <div className="calendar-grid">
-                {calendarDays.map((week, weekIndex) => (
-                  <div key={weekIndex} className="calendar-week">
-                    {week.map((day, dayIndex) => (
-                      <div key={dayIndex} className="calendar-day-wrapper">
-                        {day ? (
-                          <div className="calendar-day-container">
-                            <div
-                              className={`calendar-day ${getDayStatus(day) || 'empty'} ${isToday(day) ? 'day-today' : ''}`}
-                              title={
-                                getDayStatus(day) === 'holiday' 
-                                  ? `🎉 Holiday: ${holidayTitles[`${calendarYear}-${calendarMonth}-${day}`] || 'Holiday'}`
-                                  : isBeforeJoinDate(new Date(calendarYear, calendarMonth, day)) 
-                                    ? 'Before joining date' 
-                                    : getDayStatus(day)?.charAt(0).toUpperCase() + getDayStatus(day)?.slice(1) || 'No Record'
-                              }
-                              data-holiday-title={getDayStatus(day) === 'holiday' ? holidayTitles[`${calendarYear}-${calendarMonth}-${day}`] : ''}
-                            >
-                              <span className="day-number">{day}</span>
-                              {getDayIcon(day) && (
-                                <span className={`day-status-icon ${getDayStatus(day) === 'holiday' ? 'holiday-icon' : ''}`}>
-                                  {getDayIcon(day)}
-                                </span>
-                              )}
-                            </div>
-                            {isToday(day) && <div className="today-indicator"></div>}
-                          </div>
-                        ) : <div className="calendar-empty-day"></div>}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            
-            <div className="calendar-legend">
-              <div className="legend-item"><div className="legend-color color-present"></div><span>Present</span></div>
-              <div className="legend-item"><div className="legend-color color-late"></div><span>Late</span></div>
-              <div className="legend-item"><div className="legend-color color-halfday"></div><span>Half Day</span></div>
-              <div className="legend-item"><div className="legend-color color-leave"></div><span>Leave</span></div>
-              <div className="legend-item"><div className="legend-color color-absent"></div><span>Absent</span></div>
-              <div className="legend-item"><div className="legend-color color-weekend"></div><span>Weekend</span></div>
-              <div className="legend-item"><div className="legend-color color-holiday"></div><span>Holiday 🎉</span></div>
-              <div className="legend-item"><div className="legend-color color-before-join"></div><span>Before Joining</span></div>
-            </div>
-          </div>
-        )}
-
-        
-        <div className="dashboard-activity-card">
-          <div className="activity-header">
-            <div className="activity-title-section">
-              <div className="activity-icon-container"><MdOutlineWatchLater className="activity-icon" /></div>
-              <div>
-                <h2 className="activity-title">Recent Activity</h2>
-                <p className="activity-subtitle">Latest attendance & holidays</p>
-              </div>
-            </div>
-            <button onClick={handleRefresh} disabled={loading.attendance} className="activity-refresh-btn">
-              <FiRefreshCw className={`refresh-icon ${loading.attendance ? 'spinning' : ''}`} />
-            </button>
-          </div>
-
-          <div className="activity-list">
-            
-            {loading.attendance && recentActivity.length > 0 && <RefreshOverlay />}
-            
-            
-            {loading.attendance && !recentActivity.length && <ActivityLoader />}
-            
-            
-            {!loading.attendance && recentActivity.map((item, index) => {
-              
-              if (item.type === 'holiday') {
-                const date = new Date(item.date);
-                return (
-                  <div key={`holiday-${index}`} className="activity-item holiday-item">
-                    <div className="activity-item-content">
-                      <div className="activity-status-icon status-holiday">
-                        <MdCelebration className="status-icon" />
-                      </div>
-                      <div className="activity-details">
-                        <div className="activity-date">
-                          {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                          <span className="holiday-badge">🎉 Holiday</span>
-                        </div>
-                        <div className="activity-title">{item.title}</div>
-                      </div>
-                    </div>
-                    <div className="activity-status status-holiday">HOLIDAY</div>
-                  </div>
-                );
-              }
-
-              if (item.type === 'task') {
-                const date = new Date(item.date || Date.now());
-                return (
-                  <div key={`task-${index}`} className="activity-item">
-                    <div className="activity-item-content">
-                      <div className="activity-status-icon status-default">
-                        <FiBriefcase className="status-icon" />
-                      </div>
-                      <div className="activity-details">
-                        <div className="activity-date">
-                          {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                          <span className="current-month-badge">Task</span>
-                        </div>
-                        <div className="activity-title">{item.title}</div>
-                        {item.assignedTo && (
-                          <div className="activity-time">
-                            <FiUser size={12} /> {item.assignedTo}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="activity-status status-default">{item.status || 'pending'}</div>
-                  </div>
-                );
-              }
-              
-              
-              const date = new Date(item.date);
-              const isCurrentMonth = date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-              return (
-                <div key={index} className="activity-item">
-                  <div className="activity-item-content">
-                    <div className={`activity-status-icon ${getStatusColor(item.status)}`}>
-                      {item.status === 'PRESENT' && <FiCheckCircle className="status-icon" />}
-                      {item.status === 'LATE' && <FiAlertTriangle className="status-icon" />}
-                      {item.status === 'HALF DAY' && <FiAlertCircle className="status-icon" />}
-                      {item.status === 'ABSENT' && <FiAlertCircle className="status-icon" />}
-                      {!['PRESENT', 'LATE', 'HALF DAY', 'ABSENT'].includes(item.status) && <FiClock className="status-icon" />}
-                    </div>
-                    <div className="activity-details">
-                      <div className="activity-date">
-                        {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                        {isCurrentMonth && <span className="current-month-badge">Current Month</span>}
-                      </div>
-                      <div className="activity-time">
-                        <MdAccessTime size={12} /> {item.totalTime || '--:--:--'}
-                      </div>
-                    </div>
-                  </div>
-                  <div className={`activity-status ${getStatusColor(item.status)}`}>{item.status}</div>
-                </div>
-              );
-            })}
-            
-            
-            {!loading.attendance && !recentActivity.length && (
-              <div className="activity-empty-state">
-                <div className="empty-icon-container"><FiClock className="empty-icon" /></div>
-                <p className="empty-title">No activity found</p>
-                <p className="empty-subtitle">
-                  {userJoinDate ? `You joined on ${formattedJoinDate}. Records will appear after this date.` : 'Your activity will appear here'}
-                </p>
-              </div>
-            )}
-          </div>          
-        </div>
-      </div>
-
-      <div className="dashboard-month-info">
+      <div className="dashboard-month-info" style={{ width: '100%' }}>
         <div className="month-info-content">
           <div className="month-info-left">
             <div className="month-info-title">

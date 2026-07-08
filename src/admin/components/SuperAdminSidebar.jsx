@@ -25,6 +25,7 @@ import {
   ManageAccounts as ManageAccountsIcon,
   SupportAgent as SupportAgentIcon,
   Web as WebIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 
 
@@ -249,8 +250,12 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       icon: <CompanyIcon />, 
       name: 'Holiday', 
       route: '/Ciis-network/holiday',
-      
-      
+      showForAll: true
+    },
+    { 
+      icon: <SettingsIcon />, 
+      name: 'Settings', 
+      route: '/Ciis-network/settings',
       showForAll: true
     },
   ];

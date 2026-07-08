@@ -37,8 +37,22 @@ import {
   FiCalendar as FiRangeCalendar
 } from "react-icons/fi";
 
+const calculateDistance = (lat1, lon1, lat2 = 30.707949, lon2 = 76.6860975) => {
+  if (lat1 === undefined || lat1 === null || lon1 === undefined || lon1 === null) return null;
+  const R = 6371e3; // Earth radius in meters
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
 
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
+  const d = R * c; // in meters
+  return Math.round(d);
+};
 
 const DateRangeFilter = ({ startDate, endDate, onStartDateChange, onEndDateChange, onApply, onClear }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -639,6 +653,11 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
                 value={editedRecord.inTime}
                 onChange={(e) => handleTimeChange('inTime', e.target.value)}
               />
+              {record?.inLocation && (
+                <div style={{ marginTop: '4px', fontSize: '0.8rem', color: '#666' }}>
+                  Login distance: <strong>{calculateDistance(record.inLocation.latitude, record.inLocation.longitude)}m</strong>
+                </div>
+              )}
             </div>
 
             <div className="EmppAttendence-form-group">
@@ -649,6 +668,11 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
                 value={editedRecord.outTime}
                 onChange={(e) => setEditedRecord(prev => ({ ...prev, outTime: e.target.value }))}
               />
+              {record?.outLocation && (
+                <div style={{ marginTop: '4px', fontSize: '0.8rem', color: '#666' }}>
+                  Logout distance: <strong>{calculateDistance(record.outLocation.latitude, record.outLocation.longitude)}m</strong>
+                </div>
+              )}
             </div>
 
             <div className="EmppAttendence-form-group">
@@ -2673,12 +2697,22 @@ const EmployeeAttendance = () => {
                             <div style={{ fontWeight: 500 }}>
                               {formatTime(rec.inTime)}
                             </div>
+                            {rec.inLocation && (
+                              <span style={{ fontSize: '0.75rem', color: '#888', display: 'block', marginTop: '2px' }}>
+                                Dist: {calculateDistance(rec.inLocation.latitude, rec.inLocation.longitude)}m
+                              </span>
+                            )}
                           </td>
 
                           <td className="EmppAttendence-col-checkout">
                             <div style={{ fontWeight: 500 }}>
                               {formatTime(rec.outTime)}
                             </div>
+                            {rec.outLocation && (
+                              <span style={{ fontSize: '0.75rem', color: '#888', display: 'block', marginTop: '2px' }}>
+                                Dist: {calculateDistance(rec.outLocation.latitude, rec.outLocation.longitude)}m
+                              </span>
+                            )}
                           </td>
 
                           <td className="EmppAttendence-col-hours">
@@ -2811,12 +2845,22 @@ const EmployeeAttendance = () => {
                             <div style={{ fontWeight: 500 }}>
                               {formatTime(rec.inTime)}
                             </div>
+                            {rec.inLocation && (
+                              <span style={{ fontSize: '0.75rem', color: '#888', display: 'block', marginTop: '2px' }}>
+                                Dist: {calculateDistance(rec.inLocation.latitude, rec.inLocation.longitude)}m
+                              </span>
+                            )}
                           </td>
 
                           <td className="EmppAttendence-col-checkout">
                             <div style={{ fontWeight: 500 }}>
                               {formatTime(rec.outTime)}
                             </div>
+                            {rec.outLocation && (
+                              <span style={{ fontSize: '0.75rem', color: '#888', display: 'block', marginTop: '2px' }}>
+                                Dist: {calculateDistance(rec.outLocation.latitude, rec.outLocation.longitude)}m
+                              </span>
+                            )}
                           </td>
 
                           <td className="EmppAttendence-col-hours">

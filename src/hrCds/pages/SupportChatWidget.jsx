@@ -77,6 +77,7 @@ const SupportChatWidget = () => {
   const selectedTicket = tickets.find(ticket => ticket.id === selectedTicketId) || null;
   const activeTicket = tickets.find(ticket => activeStatuses.has(ticket.status)) || null;
   const selectedTicketClosed = Boolean(selectedTicket && closedStatuses.has(selectedTicket.status));
+  const openTicketCount = tickets.filter(ticket => activeStatuses.has(ticket.status)).length;
 
   const fetchTickets = async () => {
     try {
@@ -241,6 +242,13 @@ const SupportChatWidget = () => {
       <div className="portal-chat-body">
         {view === "tickets" ? (
           <div className="portal-ticket-list">
+            <div className="portal-ticket-summary">
+              <div>
+                <span>Support inbox</span>
+                <strong>{tickets.length} ticket{tickets.length === 1 ? "" : "s"}</strong>
+              </div>
+              <em>{openTicketCount} open</em>
+            </div>
             <button className="portal-new-support-chat" onClick={() => setView("chat")}>
               <MessageCircle size={17} /> New support chat
             </button>
@@ -347,7 +355,7 @@ const SupportChatWidget = () => {
         </button>
       </div>}
 
-      <button className="portal-chat-powered">Powered by CIIS</button>
+      {view !== "tickets" && <button className="portal-chat-powered">Powered by CIIS</button>}
     </aside>
   );
 };

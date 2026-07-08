@@ -2965,27 +2965,6 @@ const UserCreateTask = () => {
                             </div>
                             <div className="user-create-task-flex user-create-task-gap-1">
                               <button
-                                className="user-create-task-button user-create-task-button-contained"
-                                onClick={() => {
-                                  if (taskSource === 'self') {
-                                    handleStatusChange(task._id, 'in-progress', 'Working on overdue task');
-                                  } else if (taskSource === 'client') {
-                                    handleClientTaskStatusChange(task._id, 'in-progress', 'Working on overdue task');
-                                  } else if (taskSource === 'project') {
-                                    handleProjectTaskStatusChange(task, 'in-progress', 'Working on overdue task');
-                                  } else {
-                                    handleAssignedTaskStatusChange(task._id, 'in-progress', 'Working on overdue task');
-                                  }
-                                }}
-                                style={{
-                                  padding: isMobile ? '6px 8px' : '8px 12px',
-                                  backgroundColor: '#1976d2',
-                                  fontSize: isMobile ? '11px' : '12px'
-                                }}
-                              >
-                                Start
-                              </button>
-                              <button
                                 className="user-create-task-button user-create-task-button-outlined"
                                 onClick={() => markTaskAsOverdue(taskSource === 'project' ? task : task._id, 'Manual overdue marking', taskSource)}
                                 style={{
@@ -3375,12 +3354,12 @@ const UserCreateTask = () => {
                                         cursor: (status === 'overdue' || taskIsOverdue || task.overallStatus === 'overdue') ? 'not-allowed' : 'pointer'
                                       }}
                                     >
-                                      {status === 'completed' ? (
+                                      {status === 'completed' && taskSource !== 'client' ? (
                                         <>
                                           <option value="completed">Completed</option>
                                           <option value="reopen">Reopen</option>
                                         </>
-                                      ) : status === 'reopen' ? (
+                                      ) : status === 'reopen' && taskSource !== 'client' ? (
                                         <>
                                           <option value="reopen">Reopen</option>
                                           <option value="completed">Completed</option>
@@ -3392,6 +3371,14 @@ const UserCreateTask = () => {
                                           <option value="completed">Completed</option>
                                           <option value="onhold">On Hold</option>
                                           <option value="cancelled">Cancelled</option>
+                                        </>
+                                      ) : taskSource === 'client' ? (
+                                        <>
+                                          <option value="pending">Pending</option>
+                                          <option value="in-progress">In Progress</option>
+                                          <option value="onhold">On Hold</option>
+                                          <option value="completed">Completed</option>
+                                          <option value="overdue">Overdue</option>
                                         </>
                                       ) : taskSource !== 'self' ? (
                                         <>
@@ -3719,12 +3706,12 @@ const UserCreateTask = () => {
                                     cursor: (status === 'overdue' || taskIsOverdue || task.overallStatus === 'overdue') ? 'not-allowed' : 'pointer'
                                   }}
                                 >
-                                  {status === 'completed' ? (
+                                  {status === 'completed' && taskSource !== 'client' ? (
                                     <>
                                       <option value="completed">Completed</option>
                                       <option value="reopen">Reopen</option>
                                     </>
-                                  ) : status === 'reopen' ? (
+                                  ) : status === 'reopen' && taskSource !== 'client' ? (
                                     <>
                                       <option value="reopen">Reopen</option>
                                       <option value="completed">Completed</option>
@@ -3736,6 +3723,14 @@ const UserCreateTask = () => {
                                       <option value="completed">Completed</option>
                                       <option value="onhold">On Hold</option>
                                       <option value="cancelled">Cancelled</option>
+                                    </>
+                                  ) : taskSource === 'client' ? (
+                                    <>
+                                      <option value="pending">Pending</option>
+                                      <option value="in-progress">In Progress</option>
+                                      <option value="onhold">On Hold</option>
+                                      <option value="completed">Completed</option>
+                                      <option value="overdue">Overdue</option>
                                     </>
                                   ) : taskSource !== 'self' ? (
                                     <>

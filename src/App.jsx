@@ -1,185 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-          
-          
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Login from "./page/Login";
@@ -266,6 +84,8 @@ import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
 import BranchManagement from "./admin/page/BranchManagement.jsx"; 
 import ChatPage from "./Pages/Chat/ChatPage";
+import PageManagement from "./admin/page/PageManagement.jsx";
+import Settings from "./admin/page/Settings.jsx";
 
 function App() {
 
@@ -323,6 +143,8 @@ function App() {
           <Route path="holiday" element={<Holiday />} />
           <Route path="branch" element={<BranchManagement />} />
           <Route path="support-operations" element={<SupportOperations />} />
+          <Route path="page-management" element={<PageManagement />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
 
         

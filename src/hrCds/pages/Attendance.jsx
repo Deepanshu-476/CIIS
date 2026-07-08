@@ -28,6 +28,23 @@ import '../Css/Attendance.css';
 import CIISLoader from '../../Loader/CIISLoader';
 import VirtualList from '../../components/VirtualList';
 
+const calculateDistance = (lat1, lon1, lat2 = 30.707949, lon2 = 76.6860975) => {
+  if (lat1 === undefined || lat1 === null || lon1 === undefined || lon1 === null) return null;
+  const R = 6371e3; // Earth radius in meters
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  const d = R * c; // in meters
+  return Math.round(d);
+};
+
 const Attendance = () => {
   const [attendance, setAttendance] = useState([]);
   const [holidays, setHolidays] = useState([]);
@@ -1136,9 +1153,16 @@ const Attendance = () => {
                       </td>
                       <td>
                         {record.inTime ? (
-                          <div className="Attendance-time-cell">
-                            <FiClock />
-                            <span>{formatTime(record.inTime)}</span>
+                          <div className="Attendance-time-cell" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              <FiClock />
+                              <span>{formatTime(record.inTime)}</span>
+                            </div>
+                            {record.inLocation && (
+                              <span style={{ fontSize: '0.75rem', color: '#888', marginLeft: '21px' }}>
+                                Dist: {calculateDistance(record.inLocation.latitude, record.inLocation.longitude)}m
+                              </span>
+                            )}
                           </div>
                         ) : (
                           <span className="Attendance-no-time">--</span>
@@ -1146,9 +1170,16 @@ const Attendance = () => {
                       </td>
                       <td>
                         {record.outTime ? (
-                          <div className="Attendance-time-cell">
-                            <FiClock />
-                            <span>{formatTime(record.outTime)}</span>
+                          <div className="Attendance-time-cell" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              <FiClock />
+                              <span>{formatTime(record.outTime)}</span>
+                            </div>
+                            {record.outLocation && (
+                              <span style={{ fontSize: '0.75rem', color: '#888', marginLeft: '21px' }}>
+                                Dist: {calculateDistance(record.outLocation.latitude, record.outLocation.longitude)}m
+                              </span>
+                            )}
                           </div>
                         ) : (
                           <span className="Attendance-no-time">--</span>
@@ -1238,13 +1269,19 @@ const Attendance = () => {
                         {record.inTime && (
                           <div className="Attendance-time-item">
                             <FiClock />
-                            <span>In: {formatTime(record.inTime)}</span>
+                            <span>
+                              In: {formatTime(record.inTime)}
+                              {record.inLocation && ` (${calculateDistance(record.inLocation.latitude, record.inLocation.longitude)}m)`}
+                            </span>
                           </div>
                         )}
                         {record.outTime && (
                           <div className="Attendance-time-item">
                             <FiClock />
-                            <span>Out: {formatTime(record.outTime)}</span>
+                            <span>
+                              Out: {formatTime(record.outTime)}
+                              {record.outLocation && ` (${calculateDistance(record.outLocation.latitude, record.outLocation.longitude)}m)`}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -1362,6 +1399,21 @@ const Attendance = () => {
                       <h4>Overtime</h4>
                       <p className="Attendance-modal-overtime">
                         {selectedRecord.overTime || "00:00:00"}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="Attendance-modal-grid">
+                    <div className="Attendance-modal-grid-item">
+                      <h4>Login Distance</h4>
+                      <p className="Attendance-modal-duration">
+                        {selectedRecord.inLocation ? `${calculateDistance(selectedRecord.inLocation.latitude, selectedRecord.inLocation.longitude)}m` : "--"}
+                      </p>
+                    </div>
+                    <div className="Attendance-modal-grid-item">
+                      <h4>Logout Distance</h4>
+                      <p className="Attendance-modal-duration">
+                        {selectedRecord.outLocation ? `${calculateDistance(selectedRecord.outLocation.latitude, selectedRecord.outLocation.longitude)}m` : "--"}
                       </p>
                     </div>
                   </div>

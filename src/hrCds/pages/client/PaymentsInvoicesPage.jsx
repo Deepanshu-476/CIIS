@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import axios from "axios";
+import jsPDF from "jspdf";
 import {
   FiArrowRight,
   FiAward,
@@ -7,7 +8,6 @@ import {
   FiCalendar,
   FiChevronDown,
   FiDownload,
-  FiFileText,
   FiHeadphones,
   FiMail,
   FiPhone,
@@ -27,6 +27,18 @@ import "./PaymentsInvoicesPage.css";
 
 const getInitials = value => String(value || "C").trim().slice(0, 1).toUpperCase();
 
+const sanitizeDownloadName = value => String(value || "payment-history")
+  .trim()
+  .replace(/[<>:"/\\|?*\x00-\x1f]/g, "-")
+  .replace(/-+/g, "-")
+  .replace(/^-|-$/g, "") || "payment-history";
+
+const getReceiptDownloadUrl = receipt => {
+  const receiptImage = receipt?.receiptImage || "";
+  if (!receiptImage) return "";
+  return `${API_URL}/clientsservice/receipt-image/${encodeURIComponent(receiptImage.split("/").pop())}`;
+};
+
 const PaymentsInvoicesPage = () => {
   const { client, projectManagers, loading, error, refetch } = useClientPortalData();
   const payment = calculatePaymentSummary(client);
@@ -42,9 +54,15 @@ const PaymentsInvoicesPage = () => {
   const dueInvoiceRows = payment.dueInvoices.map((invoice, index) => ({
     id: formatPublicId("INV", invoice, index),
     rawId: invoice._id,
+<<<<<<< HEAD
     period: invoice.periodStart || invoice.periodEnd
       ? `${invoice.planName || invoice.title || "Subscription"}: ${formatDate(invoice.periodStart)} - ${formatDate(invoice.periodEnd)}`
       : invoice.title || "Subscription Due",
+=======
+    type: "invoice",
+    source: invoice,
+    period: invoice.title || "Subscription Due",
+>>>>>>> bf2d8d7c45ba1666695a0d3c36124eaa07f6623e
     amount: formatMoney(invoice.amount),
     dueDate: formatDate(invoice.dueDate),
     status: invoice.status || "Due",
@@ -56,6 +74,9 @@ const PaymentsInvoicesPage = () => {
     ? [...dueInvoiceRows, ...payment.receipts.map((receipt, index) => ({
       id: formatPublicId("PAY", receipt, index),
       rawId: receipt._id,
+      type: "receipt",
+      source: receipt,
+      downloadUrl: getReceiptDownloadUrl(receipt),
       period: `${formatDate(receipt.startDate || payment.latest?.startDate)} - ${formatDate(receipt.endDate || payment.latest?.endDate)}`,
       amount: formatMoney(receipt.amount || receipt.price || receipt.paidAmount || payment.subscriptionPrice),
       dueDate: formatDate(receipt.paymentDate || receipt.createdAt || payment.nextDueDate),
@@ -68,6 +89,8 @@ const PaymentsInvoicesPage = () => {
         amount: formatMoney(payment.subscriptionPrice),
         dueDate: formatDate(payment.latest.endDate),
         status: payment.outstanding > 0 ? "Due Soon" : "Active",
+        type: "subscription",
+        source: payment.latest,
       }]
       : dueInvoiceRows;
 
@@ -110,11 +133,127 @@ const PaymentsInvoicesPage = () => {
   const metricCards = [
     { label: "Active Plan", value: payment.planName, note: payment.billingCycle, tone: "purple", icon: <FiAward /> },
     { label: "Next Due Date", value: formatDate(payment.nextDueDate), note: payment.nextDueDate ? "Subscription renewal" : "Not available", tone: "blue", icon: <FiCalendar /> },
-    { label: "Unpaid Invoices", value: String(payment.unpaidInvoices), note: "View details", tone: "red", icon: <FiFileText />, link: true },
   ];
 
   const handleViewInvoices = () => {
     invoiceTableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const downloadBlob = (blob, filename) => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = sanitizeDownloadName(filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const buildHistoryPdf = invoice => {
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 42;
+    const amount = String(invoice.amount || "").replace(/\u20b9/g, "Rs. ");
+    const type = invoice.type === "receipt" ? "Payment Receipt" : invoice.type === "subscription" ? "Subscription Summary" : "Invoice";
+    const statusColor = invoice.status === "Paid" || invoice.status === "Active" || invoice.status === "Approved"
+      ? [22, 163, 74]
+      : [249, 115, 22];
+
+    doc.setFillColor(15, 91, 234);
+    doc.rect(0, 0, pageWidth, 96, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(24);
+    doc.text("CIIS Network", margin, 42);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.text("Payment & Invoice History", margin, 64);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(15);
+    doc.text(type, pageWidth - margin, 42, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleDateString("en-IN")}`, pageWidth - margin, 64, { align: "right" });
+
+    doc.setTextColor(17, 24, 39);
+    doc.setDrawColor(226, 232, 240);
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(margin, 122, pageWidth - margin * 2, 76, 8, 8, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.text("Bill To", margin + 18, 150);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.text(clientName, margin + 18, 172);
+    doc.text(`Reference ID: ${invoice.id}`, pageWidth - margin - 18, 150, { align: "right" });
+    doc.text(`Status: ${invoice.status}`, pageWidth - margin - 18, 172, { align: "right" });
+
+    const rows = [
+      ["Billing Period", invoice.period],
+      ["Amount", amount],
+      ["Due / Payment Date", invoice.dueDate],
+      ["Transaction ID", invoice.source?.transactionId || "N/A"],
+      ["Note", invoice.source?.note || "N/A"],
+    ];
+
+    let y = 238;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("Payment Details", margin, y);
+    y += 22;
+
+    rows.forEach(([label, value], index) => {
+      const rowY = y + index * 36;
+      if (index % 2 === 0) {
+        doc.setFillColor(249, 250, 251);
+        doc.rect(margin, rowY - 18, pageWidth - margin * 2, 32, "F");
+      }
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(75, 85, 99);
+      doc.setFontSize(10);
+      doc.text(label, margin + 14, rowY);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(17, 24, 39);
+      doc.text(String(value || "N/A"), margin + 180, rowY, { maxWidth: pageWidth - margin * 2 - 200 });
+    });
+
+    y += rows.length * 36 + 24;
+    doc.setFillColor(statusColor[0], statusColor[1], statusColor[2]);
+    doc.roundedRect(margin, y, pageWidth - margin * 2, 54, 8, 8, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text(amount, margin + 18, y + 24);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Current Status: ${invoice.status}`, margin + 18, y + 42);
+
+    doc.setTextColor(107, 114, 128);
+    doc.setFontSize(9);
+    doc.text("This document is system generated from CIIS client payment history.", margin, 760);
+    doc.text("For billing verification, please contact your CIIS account manager.", margin, 776);
+
+    return doc.output("blob");
+  };
+
+  const handleDownloadHistory = async invoice => {
+    try {
+      if (invoice.downloadUrl) {
+        const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+        const response = await axios.get(invoice.downloadUrl, {
+          responseType: "blob",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const extension = invoice.source?.receiptImage?.split(".").pop() || "pdf";
+        downloadBlob(response.data, `${invoice.id}.${extension}`);
+        return;
+      }
+
+      downloadBlob(buildHistoryPdf(invoice), `${invoice.id}.pdf`);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to download payment history");
+    }
   };
 
   if (loading) {
@@ -189,10 +328,6 @@ const PaymentsInvoicesPage = () => {
                 </div>
               </div>
             </div>
-            <div className="PaymentsPage-subscriptionActions">
-              <button type="button" className="PaymentsPage-primary">Renew Now</button>
-              <button type="button" className="PaymentsPage-secondary"><FiDownload />Download Invoice</button>
-            </div>
           </section>
 
           <section className="PaymentsPage-panel PaymentsPage-tablePanel" ref={invoiceTableRef}>
@@ -224,7 +359,16 @@ const PaymentsInvoicesPage = () => {
                           {invoice.status}
                         </span>
                       </td>
-                      <td><button type="button" className="PaymentsPage-download" aria-label={`Download ${invoice.id}`}><FiDownload /></button></td>
+                      <td>
+                        <button
+                          type="button"
+                          className="PaymentsPage-download"
+                          aria-label={`Download ${invoice.id}`}
+                          onClick={() => handleDownloadHistory(invoice)}
+                        >
+                          <FiDownload />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                   {invoices.length === 0 && (
@@ -233,7 +377,9 @@ const PaymentsInvoicesPage = () => {
                 </tbody>
               </table>
             </div>
-            <button type="button" className="PaymentsPage-viewAll" onClick={handleViewInvoices}>View All Invoices<FiArrowRight /></button>
+            {invoices.length > 4 && (
+              <button type="button" className="PaymentsPage-viewAll" onClick={handleViewInvoices}>View All Invoices<FiArrowRight /></button>
+            )}
           </section>
         </div>
 
@@ -282,7 +428,7 @@ const PaymentsInvoicesPage = () => {
             </form>
           </section>
 
-          <section className="PaymentsPage-panel PaymentsPage-supportPanel">
+          {/* <section className="PaymentsPage-panel PaymentsPage-supportPanel">
             <h2>Billing Support</h2>
             <div className="PaymentsPage-manager">
               <div className="PaymentsPage-managerIcon"><FiUser /></div>
@@ -294,7 +440,7 @@ const PaymentsInvoicesPage = () => {
               </div>
             </div>
             <button type="button" className="PaymentsPage-secondary PaymentsPage-fullButton"><FiHeadphones />Raise Billing Ticket</button>
-          </section>
+          </section> */}
         </aside>
       </div>
     </section>

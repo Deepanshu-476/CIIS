@@ -50,6 +50,8 @@ const documentTabs = [
   { id: "trash", label: "Trash" },
 ];
 
+const STORAGE_LIMIT_BYTES = 5 * 1024 * 1024 * 1024;
+
 const iconMap = {
   pdf: <span className="DocumentsPage-docIcon DocumentsPage-pdf">PDF</span>,
   word: <span className="DocumentsPage-docIcon DocumentsPage-word">W</span>,
@@ -72,7 +74,28 @@ const formatBytes = bytes => {
   const size = Number(bytes || 0);
   if (!size) return "0 KB";
   if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+};
+
+const getStorageDisplay = bytes => {
+  const value = formatBytes(bytes).split(" ");
+  return { value: value[0] || "0", unit: value[1] || "KB" };
+};
+
+const sumDocumentSizes = docs => (
+  docs.reduce((total, doc) => total + Number(doc?.size || 0), 0)
+);
+
+const clampPercent = value => Math.min(100, Math.max(0, value));
+
+const getStoragePercent = bytes => (
+  clampPercent((Number(bytes || 0) / STORAGE_LIMIT_BYTES) * 100)
+);
+
+const formatStoragePercent = value => {
+  if (value > 0 && value < 1) return "<1%";
+  return `${Math.round(value)}%`;
 };
 
 const formatUploadedDocument = doc => ({
@@ -115,6 +138,13 @@ const DocumentsPage = () => {
   const visibleDocuments = filteredDocuments.slice(0, 8);
   const clientName = getClientDisplayName(client);
   const recentCount = documents.filter(doc => doc.date !== 'N/A').length;
+  const storageUsedBytes = useMemo(
+    () => sumDocumentSizes([...uploadedDocuments, ...trashedDocuments]),
+    [uploadedDocuments, trashedDocuments]
+  );
+  const storageDisplay = getStorageDisplay(storageUsedBytes);
+  const storagePercent = getStoragePercent(storageUsedBytes);
+  const isStorageFull = storageUsedBytes >= STORAGE_LIMIT_BYTES;
 
   const loadUploadedDocuments = async () => {
     if (!client?._id) return;
@@ -146,6 +176,11 @@ const DocumentsPage = () => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file || !client?._id) return;
+
+    if (storageUsedBytes + file.size > STORAGE_LIMIT_BYTES) {
+      setDocumentError(`Storage limit exceeded. You can upload up to 5 GB only. Available space: ${formatBytes(Math.max(0, STORAGE_LIMIT_BYTES - storageUsedBytes))}.`);
+      return;
+    }
 
     try {
       setUploading(true);
@@ -304,12 +339,12 @@ const DocumentsPage = () => {
         <span className="DocumentsPage-statIcon DocumentsPage-orange"><FiBox /></span>
         <div>
           <p>Storage Used</p>
-          <strong>120 <em>MB</em></strong>
+          <strong>{storageDisplay.value} <em>{storageDisplay.unit}</em></strong>
           <small>of 5 GB used</small>
         </div>
         <div className="DocumentsPage-storageMini">
-          <span><i></i></span>
-          <b>2%</b>
+          <span style={{ "--storage-width": `${storagePercent}%` }}><i></i></span>
+          <b>{formatStoragePercent(storagePercent)}</b>
         </div>
       </article>
     </section>
@@ -342,12 +377,12 @@ const DocumentsPage = () => {
           <button type="button">Category <FiChevronDown /></button>
           <button type="button">Date Modified <FiChevronDown /></button>
           <button type="button"><FiFilter /> More Filters</button>
-          <label className="DocumentsPage-upload">
-            <FiUploadCloud /> {uploading ? "Uploading..." : "Upload Document"}
+          <label className={`DocumentsPage-upload ${isStorageFull ? "DocumentsPage-uploadDisabled" : ""}`}>
+            <FiUploadCloud /> {isStorageFull ? "Storage Full" : uploading ? "Uploading..." : "Upload Document"}
             <input
               type="file"
               onChange={handleUploadDocument}
-              disabled={uploading}
+              disabled={uploading || isStorageFull}
               accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.txt"
             />
           </label>
@@ -420,7 +455,7 @@ const DocumentsPage = () => {
                               disabled={documentActionId === `recover-${doc._id}` || documentActionId === `delete-${doc._id}`}
                             >
                               <FiTrash2 />
-                              {documentActionId === `delete-${doc._id}` ? "Deleting..." : "Delete"}
+                              {documentActionId === `delete-${doc._id}` ? "Deleting..." : "Permanently Delete"}
                             </button>
                           </>
                         ) : (

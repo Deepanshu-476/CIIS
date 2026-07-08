@@ -276,7 +276,7 @@ const PaymentsInvoicesPage = () => {
             </form>
           </section>
 
-          <section className="PaymentsPage-panel PaymentsPage-supportPanel">
+          {/* <section className="PaymentsPage-panel PaymentsPage-supportPanel">
             <h2>Billing Support</h2>
             <div className="PaymentsPage-manager">
               <div className="PaymentsPage-managerIcon"><FiUser /></div>
@@ -288,7 +288,7 @@ const PaymentsInvoicesPage = () => {
               </div>
             </div>
             <button type="button" className="PaymentsPage-secondary PaymentsPage-fullButton"><FiHeadphones />Raise Billing Ticket</button>
-          </section>
+          </section> */}
         </aside>
       </div>
     </section>

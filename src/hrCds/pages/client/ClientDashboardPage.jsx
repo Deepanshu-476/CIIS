@@ -689,10 +689,6 @@ const Dashboard = () => {
           <p><FiCalendar /> Client ID: {formatPublicId('CLT', client)}</p>
           <p><FiUser /> Account Manager: {sidebarManagers[0]?.name || 'Not assigned'}</p>
         </div>
-        <div className="ClientDashboard-profile-actions">
-          
-          <button type="button" className="ClientDashboard-btn-solid">Contact Support</button>
-        </div>
       </section>
 
       <section className="ClientDashboard-kpi-row">

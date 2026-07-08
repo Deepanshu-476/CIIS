@@ -15,16 +15,12 @@ import {
   FiSearch,
   FiSend,
   FiSmartphone,
-  FiTarget,
-  FiUsers,
   FiX
 } from 'react-icons/fi';
 import { MdOutlinePalette, MdOutlineWeb } from 'react-icons/md';
 import {
-  calculatePaymentSummary,
   calculateTaskStats,
   formatDate,
-  formatMoney,
   getTaskTitle,
   useClientPortalData
 } from '../../utils/clientPortalData';
@@ -77,7 +73,6 @@ const MyServicesPage = () => {
   }), [client, projectManagers, services, tasks]);
 
   const taskStats = calculateTaskStats(tasks);
-  const paymentSummary = calculatePaymentSummary(client);
   const stats = [
     { label: 'Active Services', value: services.length, icon: <FiBriefcase />, tone: 'blue' },
     { label: 'Completed Tasks', value: taskStats.completedTasks, icon: <FiCheckCircle />, tone: 'green' },
@@ -108,29 +103,6 @@ const MyServicesPage = () => {
   useEffect(() => {
     setShowAllServices(false);
   }, [query, serviceType, sortBy, status]);
-
-  const deliverables = tasks
-    .filter(task => task.dueDate && task.completed !== true)
-    .slice()
-    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-    .slice(0, 3)
-    .map(task => {
-      const dueDate = new Date(task.dueDate);
-      return {
-        month: Number.isNaN(dueDate.getTime()) ? '' : dueDate.toLocaleString('en-US', { month: 'short' }),
-        day: Number.isNaN(dueDate.getTime()) ? '' : dueDate.getDate(),
-        title: task.serviceName || 'Service Task',
-        text: getTaskTitle(task),
-        due: formatDate(task.dueDate)
-      };
-    });
-
-  const updates = tasks.slice(0, 3).map((task, index) => ({
-    title: task.serviceName || 'Service Update',
-    text: getTaskTitle(task),
-    date: formatDate(task.updatedAt || task.createdAt || task.dueDate),
-    tone: ['blue', 'green', 'blue'][index % 3]
-  }));
 
   const timeline = filteredServices[0] ? [
     { title: 'Started', date: filteredServices[0].start, state: 'Completed', tone: 'done', icon: <FiCheck /> },
@@ -258,44 +230,6 @@ const MyServicesPage = () => {
             </div>
           </div>
 
-          <aside className="MyServices-sidebar">
-            <section className="MyServices-side-panel MyServices-deliverables">
-              <header><h3><FiCalendar /> Upcoming Deliverables</h3><button type="button">View All</button></header>
-              {deliverables.length ? deliverables.map(item => (
-                <div className="MyServices-deliverable" key={`${item.title}-${item.day}`}>
-                  <time><span>{item.month}</span><strong>{item.day}</strong></time>
-                  <div><strong>{item.title}</strong><p>{item.text}</p></div>
-                  <em>{item.due}</em>
-                </div>
-              )) : <div className="MyServices-empty"><FiCalendar /><strong>No upcoming deliverables</strong></div>}
-              <button className="MyServices-side-link" type="button">View All Deliverables <FiChevronRight /></button>
-            </section>
-
-            <section className="MyServices-side-panel MyServices-updates">
-              <header><h3><FiClock /> Recent Service Updates</h3><button type="button">View All</button></header>
-              {updates.length ? updates.map(item => (
-                <div className="MyServices-update" key={`${item.title}-${item.text}`}>
-                  <i className={item.tone}><FiTarget /></i>
-                  <div><strong>{item.title}</strong><p>{item.text}</p></div>
-                  <time>{item.date}</time><b className={item.tone} />
-                </div>
-              )) : <div className="MyServices-empty"><FiClock /><strong>No recent updates</strong></div>}
-            </section>
-
-            <section className="MyServices-side-panel MyServices-billing">
-              <header><h3><FiCalendar /> Billing Snapshot</h3><button type="button">View All Invoices</button></header>
-              <div className="MyServices-bill-main">
-                <strong>{formatMoney(paymentSummary.outstanding)}<small>Total Outstanding</small></strong>
-                <strong>{paymentSummary.unpaidInvoices}<small>Unpaid Invoices</small></strong>
-              </div>
-              <div className="MyServices-bill-details">
-                <span>Overdue<strong>{formatMoney(paymentSummary.outstanding)}</strong></span>
-                <span>Paid<strong>{formatMoney(paymentSummary.paidAmount)}</strong></span>
-                <span>Plan Price<strong>{formatMoney(paymentSummary.subscriptionPrice)}</strong></span>
-              </div>
-            </section>
-
-          </aside>
         </div>
       </div>
 

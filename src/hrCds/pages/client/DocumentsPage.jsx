@@ -411,19 +411,19 @@ const DocumentsPage = () => {
             <tbody>
               {visibleDocuments.map(doc => (
                 <tr key={doc._id || doc.name}>
-                  <td><input type="checkbox" aria-label={`Select ${doc.name}`} /></td>
-                  <td>
+                  <td data-label="Select"><input type="checkbox" aria-label={`Select ${doc.name}`} /></td>
+                  <td data-label="Document Name">
                     <div className="DocumentsPage-nameCell">
                       {iconMap[doc.icon] || <FiFile />}
                       <strong>{doc.name}</strong>
                     </div>
                   </td>
-                  <td>{doc.type}</td>
-                  <td>{doc.category}</td>
-                  <td>{doc.date}</td>
-                  <td>{doc.by}</td>
-                  <td>{doc.size}</td>
-                  <td>
+                  <td data-label="Type">{doc.type}</td>
+                  <td data-label="Category">{doc.category}</td>
+                  <td data-label="Date Modified">{doc.date}</td>
+                  <td data-label="Uploaded By">{doc.by}</td>
+                  <td data-label="Size">{doc.size}</td>
+                  <td data-label="Action">
                     <div className="DocumentsPage-rowActions">
                       {doc.isUploaded && activeTab !== "trash" ? (
                         <>
@@ -495,7 +495,7 @@ const DocumentsPage = () => {
       </main>
 
       <aside className="DocumentsPage-side">
-        <section className="DocumentsPage-sideCard DocumentsPage-quick">
+        {/* <section className="DocumentsPage-sideCard DocumentsPage-quick">
           <h2>Quick Actions</h2>
           {quickActions.map(action => (
             <button type="button" key={action.title}>
@@ -503,7 +503,7 @@ const DocumentsPage = () => {
               <div><strong>{action.title}</strong><small>{action.text}</small></div>
             </button>
           ))}
-        </section>
+        </section> */}
       </aside>
     </div>
   </section>

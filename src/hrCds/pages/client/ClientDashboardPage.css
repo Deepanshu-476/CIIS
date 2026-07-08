@@ -7,6 +7,7 @@
   background: #f6f8fd;
   color: #101735;
   font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  overflow-x: hidden;
 } 
 
 .ClientDashboard-card,
@@ -218,15 +219,23 @@ button {
 }
 
 .ClientDashboard-profile-info p {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 8px 0;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  gap: 9px;
+  margin: 7px 0;
   color: #1f2b4a;
+  line-height: 1.35;
 }
 
 .ClientDashboard-profile-info svg {
+  margin-top: 1px;
   color: #3568e8;
+}
+
+.ClientDashboard-profile-info span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .ClientDashboard-profile-actions {
@@ -264,7 +273,7 @@ button {
 .ClientDashboard-kpi-row {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 15px;
 }
 
@@ -369,6 +378,7 @@ button {
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-flow: dense;
   gap: 16px;
 }
 
@@ -455,9 +465,10 @@ button {
 
 .ClientDashboard-progress-layout {
   display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
+  grid-template-columns: 1fr;
   align-items: center;
-  gap: 0px;
+  justify-items: center;
+  gap: 18px;
   margin-top: 22px;
 }
 
@@ -500,7 +511,8 @@ button {
 
 .ClientDashboard-progress-legend {
   display: grid;
-  gap: 40px;
+  gap: 16px;
+  width: 100%;
   min-width: 0;
 }
 
@@ -517,9 +529,9 @@ button {
 
 .ClientDashboard-progress-legend-row {
   display: grid;
-  grid-template-columns: 84px minmax(48px, 1fr) 52px;
+  grid-template-columns: minmax(92px, 1fr) minmax(60px, 96px) max-content;
   align-items: center;
-  gap: 0px;
+  gap: 8px;
   color: #35405d;
   font-family: "Inter", "Roboto", "Helvetica Neue", Arial, sans-serif;
   font-size: 10px;
@@ -532,7 +544,7 @@ button {
   align-items: center;
   gap: 6px;
   min-width: 0;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .ClientDashboard-progress-legend-row b {
@@ -559,6 +571,7 @@ button {
   line-height: 1;
   font-weight: 800;
   text-align: right;
+  white-space: nowrap;
 }
 
 .ClientDashboard-progress-legend i,
@@ -619,6 +632,8 @@ button {
 .ClientDashboard-service-table-row strong {
   color: #111b38;
   font-weight: 800;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .ClientDashboard-service-table-row button {
@@ -701,7 +716,7 @@ button {
 
 .ClientDashboard-distribution-content {
   display: grid;
-  grid-template-columns: minmax(96px, 118px) minmax(0, 1fr);
+  grid-template-columns: 1fr;
   align-items: center;
   gap: 12px;
   min-width: 0;
@@ -715,12 +730,13 @@ button {
 
 .ClientDashboard-distribution-legend {
   display: grid;
-  gap: 14px;
+  gap: 12px;
+  width: 100%;
   min-width: 0;
 }
 
 .ClientDashboard-distribution-legend p {
-  grid-template-columns: 11px minmax(0, 1fr) max-content;
+  grid-template-columns: 11px minmax(0, 1fr) auto;
   column-gap: 6px;
   color: #3c4662;
   font-family: "Inter", "Roboto", "Helvetica Neue", Arial, sans-serif;
@@ -732,9 +748,8 @@ button {
 
 .ClientDashboard-distribution-legend p > span:nth-child(2) {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .ClientDashboard-distribution-legend strong {
@@ -743,7 +758,7 @@ button {
   line-height: 1;
   font-weight: 800;
   text-align: right;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .ClientDashboard-recent-activity,
@@ -929,7 +944,7 @@ button {
 
 .ClientDashboard-action-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 12px;
   margin-top: 16px;
 }
@@ -1185,9 +1200,37 @@ button {
 .ClientDashboard-btn--primary { border: 0; background: #3158ff; color: white; }
 .ClientDashboard-btn--outlined { border: 1px solid #dce3f2; background: white; color: #12183f; }
 
-@media (max-width: 1400px) {
-  .ClientDashboard-client-dashboard {
-    grid-template-columns: 1fr;
+@media (max-width: 1500px) {
+  .ClientDashboard-profile-summary {
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 14px;
+    padding-top: 56px;
+    align-items: center;
+  }
+
+  .ClientDashboard-profile-avatar {
+    width: 84px;
+    height: 84px;
+    border-width: 5px;
+    font-size: 34px;
+  }
+
+  .ClientDashboard-profile-info {
+    min-width: 0;
+    padding-right: 0;
+  }
+
+  .ClientDashboard-profile-info p {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .ClientDashboard-profile-info p svg {
+    flex: 0 0 auto;
+  }
+
+  .ClientDashboard-name-row {
+    flex-wrap: wrap;
   }
 
   .ClientDashboard-content-grid {
@@ -1200,17 +1243,21 @@ button {
   .ClientDashboard-payment-summary,
   .ClientDashboard-support-card,
   .ClientDashboard-actions-card {
-    grid-column: span 3;
+    grid-column: span 6;
   }
 
   .ClientDashboard-active-services {
-    grid-column: span 6;
+    grid-column: span 12;
   }
 }
 
 @media (max-width: 1180px) {
+  .ClientDashboard-client-dashboard {
+    grid-template-columns: 1fr;
+  }
+
   .ClientDashboard-kpi-row {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .ClientDashboard-progress-overview,
@@ -1231,6 +1278,18 @@ button {
   .ClientDashboard-content-grid,
   .ClientDashboard-profile-summary {
     grid-template-columns: 1fr;
+  }
+
+  .ClientDashboard-profile-summary {
+    gap: 14px;
+  }
+
+  .ClientDashboard-profile-avatar {
+    justify-self: start;
+  }
+
+  .ClientDashboard-name-row {
+    flex-wrap: wrap;
   }
 
   .ClientDashboard-hero-stats {
@@ -1260,20 +1319,97 @@ button {
   }
 
   .ClientDashboard-service-table-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: 118px minmax(0, 1fr);
     align-items: start;
+    gap: 8px 12px;
     padding: 12px 0;
+  }
+
+  .ClientDashboard-service-table-row > * {
+    min-width: 0;
+  }
+
+  .ClientDashboard-service-table-row > *::before {
+    display: block;
+    margin-bottom: 3px;
+    color: #69738e;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .ClientDashboard-service-table-row > strong {
+    grid-column: 1 / -1;
+  }
+
+  .ClientDashboard-service-table-row > strong::before {
+    content: "Service";
+  }
+
+  .ClientDashboard-service-table-row > span:nth-of-type(1)::before {
+    content: "Team";
+  }
+
+  .ClientDashboard-service-table-row > span:nth-of-type(2)::before {
+    content: "Start";
+  }
+
+  .ClientDashboard-service-table-row > span:nth-of-type(3)::before {
+    content: "Deadline";
+  }
+
+  .ClientDashboard-service-table-row > span:nth-of-type(4)::before {
+    content: "Progress";
+  }
+
+  .ClientDashboard-service-table-row > span:nth-of-type(5)::before {
+    content: "Status";
+  }
+
+  .ClientDashboard-service-table-row > button {
+    display: none;
+  }
+}
+
+.ClientDashboard-action-tile strong,
+.ClientDashboard-action-tile small {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1500px) and (min-width: 981px) {
+  .ClientDashboard-task-distribution .ClientDashboard-distribution-content {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .ClientDashboard-task-distribution .ClientDashboard-distribution-legend {
+    width: 100%;
+  }
+
+  .ClientDashboard-actions-card .ClientDashboard-action-grid {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 640px) {
   .ClientDashboard-client-dashboard {
+    gap: 14px;
     padding: 12px;
   }
 
   .ClientDashboard-hero-card,
   .ClientDashboard-card {
     padding: 16px;
+    border-radius: 10px;
+  }
+
+  .ClientDashboard-hero-card {
+    min-height: auto;
+  }
+
+  .ClientDashboard-greeting-card h1 {
+    font-size: 20px;
+    line-height: 1.25;
   }
 
   .ClientDashboard-update-strip,
@@ -1289,9 +1425,81 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .ClientDashboard-hero-stats {
+    gap: 10px;
+  }
+
+  .ClientDashboard-hero-stat {
+    min-height: 78px;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid #e5ebf6;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.68);
+  }
+
+  .ClientDashboard-hero-stat .ClientDashboard-icon {
+    width: 34px;
+    height: 34px;
+    font-size: 17px;
+  }
+
+  .ClientDashboard-hero-stat small {
+    font-size: 10px;
+    line-height: 1.25;
+  }
+
+  .ClientDashboard-hero-stat strong {
+    font-size: 20px;
+  }
+
+  .ClientDashboard-profile-avatar {
+    width: 82px;
+    height: 82px;
+    border-width: 5px;
+    font-size: 34px;
+  }
+
+  .ClientDashboard-profile-info p {
+    align-items: flex-start;
+    overflow-wrap: anywhere;
+  }
+
+  .ClientDashboard-kpi-card {
+    min-height: 98px;
+  }
+
+  .ClientDashboard-kpi-card > small {
+    left: 62px;
+    right: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ClientDashboard-progress-ring,
+  .ClientDashboard-doughnut-container {
+    justify-self: center;
+  }
+
+  .ClientDashboard-progress-legend {
+    gap: 16px;
+  }
+
+  .ClientDashboard-progress-legend-row {
+    grid-template-columns: minmax(86px, 1fr) minmax(64px, 1fr) max-content;
+    gap: 8px;
+  }
+
+  .ClientDashboard-distribution-content {
+    justify-items: stretch;
+  }
+
   .ClientDashboard-date-pill {
     position: static;
-    width: max-content;
+    width: fit-content;
+    max-width: 100%;
     margin-bottom: 12px;
   }
 
@@ -1317,5 +1525,55 @@ button {
   .ClientDashboard-modal-ticket em {
     grid-column: 2;
     justify-self: start;
+  }
+}
+
+@media (max-width: 480px) {
+  .ClientDashboard-client-dashboard {
+    padding: 10px;
+  }
+
+  .ClientDashboard-hero-stats,
+  .ClientDashboard-ticket-stats,
+  .ClientDashboard-action-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ClientDashboard-service-table-row {
+    grid-template-columns: 1fr;
+  }
+
+  .ClientDashboard-payment-line,
+  .ClientDashboard-due-box p {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .ClientDashboard-ticket-row {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .ClientDashboard-ticket-row em {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .ClientDashboard-action-tile {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  .ClientDashboard-action-tile .ClientDashboard-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .ClientDashboard-error-actions {
+    width: min(100%, 320px);
+    flex-direction: column;
+  }
+
+  .ClientDashboard-btn {
+    width: 100%;
   }
 }

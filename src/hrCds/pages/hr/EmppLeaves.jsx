@@ -1999,10 +1999,13 @@ const EmployeeLeaves = () => {
       )}
 
       {deleteDialog && (
-        <div className="EmppLeaves-dialog-overlay" onClick={() => setDeleteDialog(null)}>
+        <div className="EmppLeaves-dialog-overlay EmppLeaves-delete-overlay" onClick={() => setDeleteDialog(null)}>
           <div className="EmppLeaves-dialog-content EmppLeaves-delete-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="EmppLeaves-dialog-header">
-              <h3>Delete Leave Request</h3>
+              <div className="EmppLeaves-dialog-header-left">
+                <span className="EmppLeaves-delete-title-icon"><FiTrash2 size={18} /></span>
+                <h3>Delete Leave Request</h3>
+              </div>
               <button className="EmppLeaves-dialog-close" onClick={() => setDeleteDialog(null)}>
                 <FiX size={20} />
               </button>
@@ -2010,12 +2013,11 @@ const EmployeeLeaves = () => {
             
             <div className="EmppLeaves-dialog-body">
               <div className="EmppLeaves-warning-icon">
-                <FiAlertCircle size={48} color="#f57c00" />
+                <FiAlertCircle size={30} />
               </div>
               <h4>Are you sure?</h4>
               <p>
-                This will permanently delete the leave request. 
-                This action cannot be undone.
+                This leave request will be permanently deleted and cannot be recovered.
               </p>
             </div>
             

@@ -1063,8 +1063,8 @@ border-radius: 50px ;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(26, 32, 44, 0.7);
-  backdrop-filter: blur(4px);
+  background: rgba(15, 23, 42, 0.54);
+  backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1081,11 +1081,12 @@ border-radius: 50px ;
 .EmppLeaves-dialog-content {
   background: white;
   border-radius: 16px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
   width: 100%;
   max-width: 520px;
   max-height: 90vh;
   overflow-y: auto;
+  border: 1px solid rgba(226, 232, 240, 0.9);
   animation: EmppLeaves-slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -1109,7 +1110,126 @@ border-radius: 50px ;
 }
 
 .EmppLeaves-delete-dialog {
-  max-width: 440px;
+  width: min(90vw, 380px);
+  max-width: none;
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.24);
+}
+
+.EmppLeaves-delete-overlay {
+  align-items: center;
+}
+
+.EmppLeaves-delete-dialog .EmppLeaves-dialog-header {
+  padding: 16px 20px;
+  background: #ffffff;
+}
+
+.EmppLeaves-delete-dialog .EmppLeaves-dialog-header h3 {
+  color: #111827;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.EmppLeaves-delete-title-icon {
+  width: 30px;
+  height: 30px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.EmppLeaves-delete-dialog .EmppLeaves-dialog-body {
+  display: grid;
+  justify-items: center;
+  padding: 24px 24px 22px;
+  text-align: center;
+}
+
+.EmppLeaves-delete-dialog .EmppLeaves-warning-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 14px;
+  border-radius: 50%;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  box-shadow: 0 12px 24px rgba(220, 38, 38, 0.14);
+}
+
+.EmppLeaves-delete-dialog .EmppLeaves-dialog-body h4 {
+  margin: 0 0 8px;
+  color: #111827;
+  font-size: 18px;
+  line-height: 1.25;
+  font-weight: 800;
+}
+
+.EmppLeaves-delete-dialog .EmppLeaves-dialog-body p {
+  max-width: 280px;
+  margin: 0;
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+.EmppLeaves-delete-dialog .EmppLeaves-dialog-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 14px 20px 20px;
+  gap: 12px;
+  background: #f8fafc;
+}
+
+.EmppLeaves-delete-dialog .EmppLeaves-btn {
+  width: 100%;
+  flex: none;
+  min-width: 0;
+  height: 42px;
+  justify-content: center;
+  border-radius: 7px;
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+  letter-spacing: 0;
+}
+
+.EmppLeaves-delete-dialog .EmppLeaves-btn svg {
+  flex: 0 0 auto;
+}
+
+.EmppLeaves-delete-dialog .EmppLeaves-btn-error {
+  background: #dc2626;
+  border: 1px solid #dc2626;
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(220, 38, 38, 0.18);
+}
+
+.EmppLeaves-delete-dialog .EmppLeaves-btn-error:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  transform: translateY(-1px);
+}
+
+.EmppLeaves-delete-dialog .EmppLeaves-btn-outlined {
+  background: #ffffff;
+  border: 1px solid #d8dee8;
+  color: #475467;
+  box-shadow: none;
+}
+
+.EmppLeaves-delete-dialog .EmppLeaves-btn-outlined:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #334155;
+  transform: translateY(-1px);
 }
 
 .EmppLeaves-history-dialog {
@@ -2405,6 +2525,23 @@ border-radius: 50px ;
   .EmppLeaves-dialog-footer .EmppLeaves-btn {
     width: 100%;
     padding: 14px;
+  }
+
+  .EmppLeaves-delete-dialog {
+    width: min(90vw, 380px);
+    max-width: none;
+    border-radius: 12px;
+    margin: auto;
+  }
+
+  .EmppLeaves-delete-dialog .EmppLeaves-dialog-footer {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .EmppLeaves-delete-dialog .EmppLeaves-btn {
+    width: 100%;
+    flex: none;
+    padding: 0 14px;
   }
 
   /* Details Dialog Mobile */

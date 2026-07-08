@@ -137,7 +137,7 @@ const normalizeStatus = (status) => {
     'on hold': 'onhold',
     'onhold': 'onhold',
     'Reopen': 'reopen',
-    'Cancelled': 'cancelled',
+    'Cancelled': 'cancelled',   
     'cancelled': 'cancelled'
   };
   

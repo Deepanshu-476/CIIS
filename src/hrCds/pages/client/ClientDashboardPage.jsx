@@ -9,8 +9,10 @@ import {
   formatDate,
   formatMoney,
   formatPublicId,
+  rupee,
   getTaskTitle,
-  isClientTaskOverdue
+  isClientTaskOverdue,
+  applyClientSubscriptionDueDates
 } from '../../utils/clientPortalData';
 import './ClientDashboardPage.css';
 
@@ -30,7 +32,6 @@ import {
   FiStar,
   FiHeadphones,
   FiFileText,
-  FiDollarSign,
   FiUpload,
   FiCreditCard,
   FiGrid,
@@ -398,7 +399,7 @@ const Dashboard = () => {
     }
 
     if (isMounted.current) {
-      setServiceTasks(collectedTasks);
+      setServiceTasks(applyClientSubscriptionDueDates(collectedTasks, currentClient));
     }
   };
 
@@ -542,7 +543,7 @@ const Dashboard = () => {
       formatDate(task.updatedAt || task.createdAt || task.dueDate),
       task.completed ? <FiCheckCircle /> : <FiFileText />
     ]),
-    ...(paymentSummary.receipts[0] ? [[`Payment received for ${formatMoney(paymentSummary.receipts[0].amount || paymentSummary.subscriptionPrice)}`, formatDate(paymentSummary.receipts[0].createdAt || paymentSummary.receipts[0].paymentDate), <FiDollarSign />]] : [])
+    ...(paymentSummary.receipts[0] ? [[`Payment received for ${formatMoney(paymentSummary.receipts[0].amount || paymentSummary.subscriptionPrice)}`, formatDate(paymentSummary.receipts[0].createdAt || paymentSummary.receipts[0].paymentDate), rupee]] : [])
   ].slice(0, 5);
   const visibleRecentActivities = [
     ...visibleTasks.slice(0, 4).map(task => [
@@ -551,7 +552,7 @@ const Dashboard = () => {
       task.completed ? <FiCheckCircle /> : <FiFileText />
     ]),
     ...(dashboardFilter === 'total-paid' && paymentSummary.receipts[0]
-      ? [[`Payment received for ${formatMoney(paymentSummary.receipts[0].amount || paymentSummary.subscriptionPrice)}`, formatDate(paymentSummary.receipts[0].createdAt || paymentSummary.receipts[0].paymentDate), <FiDollarSign />]]
+      ? [[`Payment received for ${formatMoney(paymentSummary.receipts[0].amount || paymentSummary.subscriptionPrice)}`, formatDate(paymentSummary.receipts[0].createdAt || paymentSummary.receipts[0].paymentDate), rupee]]
       : [])
   ].slice(0, 5);
   const supportTickets = [
@@ -602,6 +603,12 @@ const Dashboard = () => {
   });
 
   const sidebarManagers = projectManagers.slice(0, 3);
+  const currentHour = new Date().getHours();
+  const greeting = currentHour < 12
+    ? { text: 'Good morning!', icon: '☀' }
+    : currentHour < 18
+      ? { text: 'Good afternoon!', icon: '☀' }
+      : { text: 'Good evening!', icon: '☾' };
 
    
 
@@ -644,7 +651,7 @@ const Dashboard = () => {
     <div className="ClientDashboard-client-dashboard">
       <section className="ClientDashboard-hero-card ClientDashboard-greeting-card">
         <div>
-          <h1>Good morning! <span>☀</span></h1>
+          <h1>{greeting.text} <span>{greeting.icon}</span></h1>
           <p>Stay on top of your services, tasks, and payments.</p>
         </div>
         <div className="ClientDashboard-hero-stats">
@@ -693,9 +700,8 @@ const Dashboard = () => {
           { label: 'Active Services', filter: 'active-services', value: services.length, trend: 'Live', dir: 'up', icon: <FiPackage />, tone: 'blue' },
           { label: 'Completed Tasks', filter: 'completed-tasks', value: taskStats.completedTasks, trend: 'Live', dir: 'up', icon: <FiCheckCircle />, tone: 'green' },
           { label: 'Pending Tasks', filter: 'pending-tasks', value: taskStats.pendingTasks, trend: 'Live', dir: 'up', icon: <FiClock />, tone: 'orange' },
-          { label: 'Overdue Tasks', filter: 'overdue-tasks', value: taskStats.overdueTasks, trend: 'Live', dir: 'down', icon: <FiAlertCircle />, tone: 'red' },
           { label: 'Open Tasks', filter: 'open-tasks', value: openTasksCount, trend: 'Live', dir: 'down', icon: <FiHeadphones />, tone: 'purple' },
-          { label: 'Total Paid', filter: 'total-paid', value: formatMoney(paymentSummary.paidAmount), trend: 'Live', dir: 'up', icon: <FiDollarSign />, tone: 'green' }
+          { label: 'Total Paid', filter: 'total-paid', value: formatMoney(paymentSummary.paidAmount), trend: 'Live', dir: 'up', icon: rupee, tone: 'green' }
         ].map(card => (
           <button
             type="button"
@@ -750,7 +756,7 @@ const Dashboard = () => {
         <article className="ClientDashboard-card ClientDashboard-active-services">
           <div className="ClientDashboard-card-head">
             <h3>Active Services</h3>
-            <button type="button" onClick={() => setDetailsModal('services')}>View All <span>⌄</span></button>
+            <button type="button" onClick={() => navigate('/client/my-services')}>View All <span>⌄</span></button>
           </div>
           <div className="ClientDashboard-service-table">
             <div className="ClientDashboard-table-head">
@@ -778,17 +784,16 @@ const Dashboard = () => {
         <article className="ClientDashboard-card ClientDashboard-task-distribution">
           <div className="ClientDashboard-card-head">
             <h3>Task Distribution</h3>
-            <button type="button">This Month <span>⌄</span></button>
           </div>
           <div className="ClientDashboard-distribution-content">
             <div className="ClientDashboard-doughnut-container">
               <Doughnut data={doughnutData} options={doughnutOptions} />
             </div>
             <div className="ClientDashboard-distribution-legend">
-              <p><span className="ClientDashboard-dot green"></span>Completed <strong>{visibleTaskStats.completedTasks} ({completedPercent}%)</strong></p>
-              <p><span className="ClientDashboard-dot blue"></span>In Progress <strong>{visibleTaskStats.inProgressTasks} ({inProgressPercent}%)</strong></p>
-              <p><span className="ClientDashboard-dot orange"></span>Pending <strong>{visibleTaskStats.pendingTasks} ({pendingPercent}%)</strong></p>
-              <p><span className="ClientDashboard-dot red"></span>Overdue <strong>{visibleTaskStats.overdueTasks} ({overduePercent}%)</strong></p>
+              <p><span className="ClientDashboard-dot green"></span><span>Completed</span><strong>{visibleTaskStats.completedTasks} ({completedPercent}%)</strong></p>
+              <p><span className="ClientDashboard-dot blue"></span><span>In Progress</span><strong>{visibleTaskStats.inProgressTasks} ({inProgressPercent}%)</strong></p>
+              <p><span className="ClientDashboard-dot orange"></span><span>Pending</span><strong>{visibleTaskStats.pendingTasks} ({pendingPercent}%)</strong></p>
+              <p><span className="ClientDashboard-dot red"></span><span>Overdue</span><strong>{visibleTaskStats.overdueTasks} ({overduePercent}%)</strong></p>
             </div>
           </div>
         </article>
@@ -859,7 +864,7 @@ const Dashboard = () => {
               </button>
             ))}
           </div>
-          <button type="button" className="ClientDashboard-all-services"><FiGrid /> View All Services <FiChevronRight /></button>
+          <button type="button" className="ClientDashboard-all-services" onClick={() => navigate('/client/my-services')}><FiGrid /> View All Services <FiChevronRight /></button>
         </article>
       </section>
 

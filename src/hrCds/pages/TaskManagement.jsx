@@ -146,6 +146,7 @@ const normalizeStatus = (status) => {
 
 const OVERDUE_LOCKED_STATUSES = new Set([
   'completed',
+  'approved',
   'rejected',
   'cancelled',
   'onhold',
@@ -154,7 +155,7 @@ const OVERDUE_LOCKED_STATUSES = new Set([
 
 const canMoveToOverdue = (status) => {
   const normalized = normalizeStatus(status);
-  return !OVERDUE_LOCKED_STATUSES.has(normalized) && normalized === 'pending';
+  return !OVERDUE_LOCKED_STATUSES.has(normalized);
 };
 
 const getLocalDateStart = (value = new Date()) => {

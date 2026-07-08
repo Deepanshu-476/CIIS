@@ -161,10 +161,11 @@
 
 .DocumentsPage-storageMini i {
   display: block;
-  width: 2%;
+  width: var(--storage-width, 0%);
   height: 100%;
   border-radius: inherit;
   background: #0067ff;
+  transition: width 0.25s ease;
 }
 
 .DocumentsPage-storageMini b {
@@ -251,6 +252,13 @@
 
 .DocumentsPage-toolbar .DocumentsPage-upload input {
   display: none;
+}
+
+.DocumentsPage-toolbar .DocumentsPage-uploadDisabled {
+  border-color: #cbd5e1;
+  background: #e5e7eb;
+  color: #64748b;
+  cursor: not-allowed;
 }
 
 .DocumentsPage-inlineNotice {

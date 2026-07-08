@@ -584,6 +584,12 @@
   }
 
   .DocumentsPage-storageStat {
+    grid-column: auto;
+    grid-template-columns: 46px minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .DocumentsPage-storageMini {
     grid-column: 1 / -1;
   }
 

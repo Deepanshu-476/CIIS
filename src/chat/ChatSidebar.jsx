@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Search, SlidersHorizontal, Users } from "lucide-react";
+import { Edit, Lock, MoreVertical, Search, SlidersHorizontal, Users } from "lucide-react";
 import { API_URL_IMG } from "../config";
 
 const ChatSidebar = ({
@@ -15,6 +15,7 @@ const ChatSidebar = ({
 }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [newChatUserId, setNewChatUserId] = useState("");
+    const [showNewChat, setShowNewChat] = useState(false);
 
     const getAvatarSrc = (avatar) => {
         if (!avatar) return null;
@@ -153,10 +154,18 @@ const ChatSidebar = ({
         <aside className={`chat-sidebar ${className}`.trim()}>
             <section className="chat-sidebar-card conversations-card">
                 <div className="sidebar-top">
-                    <div className="sidebar-title">Conversations</div>
-                    <button className="sidebar-icon" title="Filter conversations" type="button">
-                        <SlidersHorizontal size={18} />
-                    </button>
+                    <div className="sidebar-title">Chats</div>
+                    <div className="sidebar-actions">
+                        <button className="sidebar-icon" title="New chat" type="button" onClick={() => setShowNewChat(prev => !prev)}>
+                            <Edit size={18} />
+                        </button>
+                        <button className="sidebar-icon" title="Filter conversations" type="button">
+                            <SlidersHorizontal size={18} />
+                        </button>
+                        <button className="sidebar-icon" title="More" type="button">
+                            <MoreVertical size={18} />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="chat-search-wrap">
@@ -164,10 +173,16 @@ const ChatSidebar = ({
                     <input
                         type="text"
                         className="chat-search"
-                        placeholder="Search conversations..."
+                        placeholder="Search or start new chat"
                         value={searchTerm}
                         onChange={event => setSearchTerm(event.target.value)}
                     />
+                </div>
+                <div className="chat-filter-tabs">
+                    <button type="button" className="active">All</button>
+                    <button type="button">Unread</button>
+                    <button type="button">Groups</button>
+                    <button type="button">Favourites</button>
                 </div>
 
                 <div className="chat-sidebar-list">
@@ -280,10 +295,13 @@ const ChatSidebar = ({
                     )}
                 </div>
 
-                <button className="view-conversations-btn" type="button">View All Conversations</button>
+                <div className="chat-encryption-note">
+                    <Lock size={13} />
+                    <span>Your personal messages are <strong>end-to-end encrypted</strong></span>
+                </div>
             </section>
 
-            <section className="chat-sidebar-card start-chat-card">
+            <section className={showNewChat ? "chat-sidebar-card start-chat-card open" : "chat-sidebar-card start-chat-card"}>
                 <h3>Start a New Chat</h3>
                 <p>Select a company user to start conversation</p>
                 <select

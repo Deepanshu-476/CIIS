@@ -85,7 +85,7 @@ const EmpAssets = () => {
     if (currentUserCompanyCode) {
       fetchRequests();
     }
-  }, [statusFilter, selectedCompany, selectedDepartment, currentUserCompanyCode, isOwner]);
+  }, [selectedCompany, selectedDepartment, currentUserCompanyCode, isOwner]);
 
   
   useEffect(() => {
@@ -369,8 +369,6 @@ const EmpAssets = () => {
         }
       }
       
-      if (statusFilter) params.push(`status=${statusFilter}`);
-      
       if (params.length > 0) {
         url += `?${params.join('&')}`;
       }
@@ -418,9 +416,9 @@ const EmpAssets = () => {
   };
 
   const calculateStats = (data) => {
-    const pending = data.filter(r => r.status === 'pending').length;
-    const approved = data.filter(r => r.status === 'approved').length;
-    const rejected = data.filter(r => r.status === 'rejected').length;
+    const pending = data.filter(r => String(r.status || '').toLowerCase() === 'pending').length;
+    const approved = data.filter(r => String(r.status || '').toLowerCase() === 'approved').length;
+    const rejected = data.filter(r => String(r.status || '').toLowerCase() === 'rejected').length;
     setStats({ total: data.length, pending, approved, rejected });
   };
 
@@ -719,6 +717,7 @@ const EmpAssets = () => {
 
   const filteredRequests = requests.filter(req => {
     const searchLower = searchTerm.toLowerCase();
+    const statusMatch = !statusFilter || String(req.status || '').toLowerCase() === statusFilter;
     
     
     let departmentMatch = false;
@@ -727,7 +726,7 @@ const EmpAssets = () => {
       departmentMatch = deptName.toLowerCase().includes(searchLower);
     }
     
-    return (
+    return statusMatch && (
       req.user?.name?.toLowerCase().includes(searchLower) ||
       req.user?.email?.toLowerCase().includes(searchLower) ||
       req.assetName?.toLowerCase().includes(searchLower) ||

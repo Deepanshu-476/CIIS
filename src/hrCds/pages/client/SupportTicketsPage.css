@@ -590,6 +590,25 @@
     grid-template-columns: 1fr;
   }
 
+  .ClientMeetings-side {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    margin-top: 0;
+  }
+
+  .ClientMeetings-quick {
+    grid-column: 1 / -1;
+  }
+
+  .ClientMeetings-manager,
+  .ClientMeetings-slots {
+    height: 100%;
+  }
+
+  .ClientMeetings-slots > div {
+    grid-template-columns: 1fr;
+  }
+
   .ClientMeetings-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -652,6 +671,10 @@
   .ClientMeetings-panel {
     overflow-x: auto;
     padding: 15px;
+  }
+
+  .ClientMeetings-side {
+    grid-template-columns: 1fr;
   }
 
   .ClientMeetings-quick {

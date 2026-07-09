@@ -16,7 +16,6 @@ import {
   FiFilter,
   FiGrid,
   FiMail,
-  FiMoreVertical,
   FiPhone,
   FiPlus,
   FiSearch,
@@ -427,7 +426,7 @@ const ServicesTasks = () => {
   const filteredTaskSource = allTasks.filter(task => taskMatchesFilter(task) && taskMatchesToolbarFilters(task));
   const totalFilteredTasks = filteredTaskSource.length;
   const totalPages = Math.max(1, Math.ceil(totalFilteredTasks / pageSize));
-  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const safeCurrentPage = Math.max(1, Math.min(currentPage, totalPages));
   const pageStartIndex = (safeCurrentPage - 1) * pageSize;
   const taskRows = filteredTaskSource.slice(pageStartIndex, pageStartIndex + pageSize).map(buildTaskRow);
   const showingFrom = totalFilteredTasks ? pageStartIndex + 1 : 0;
@@ -445,6 +444,17 @@ const ServicesTasks = () => {
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
   }, [currentPage, totalPages]);
+
+  const goToPage = page => {
+    const nextPage = Number(page);
+    if (!Number.isFinite(nextPage)) return;
+    setCurrentPage(Math.max(1, Math.min(totalPages, nextPage)));
+  };
+
+  const handlePageSizeChange = event => {
+    setPageSize(Number(event.target.value));
+    setCurrentPage(1);
+  };
 
   const allFilteredTaskRows = filteredTaskSource.map(buildTaskRow);
 
@@ -599,22 +609,18 @@ const ServicesTasks = () => {
               <table>
                 <thead>
                   <tr>
-                    <th><input type="checkbox" aria-label="Select all tasks" /></th>
                     <th>Task Name</th>
                     <th>Related Service / Project</th>
-                    <th>Assigned Team</th>
                     <th>Priority</th>
                     <th>Created Date</th>
                     <th>Progress</th>
                     <th>Status</th>
                     <th>Action</th>
-                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {taskRows.map((task, index) => (
                     <tr key={task.id}>
-                      <td><input type="checkbox" aria-label={`Select ${task.title}`} /></td>
                       <td>
                         <div className="ClientTasksUpdatesPage-taskName">
                           <span>{pageStartIndex + index + 1}</span>
@@ -622,12 +628,6 @@ const ServicesTasks = () => {
                         </div>
                       </td>
                       <td>{task.service}</td>
-                      <td>
-                        <div className="ClientTasksUpdatesPage-avatars">
-                          {[0, 1, 2].map(item => <i key={item}>{getInitials(teamMembers[item]?.name || clientName)}</i>)}
-                          {index % 2 === 0 && <b>+1</b>}
-                        </div>
-                      </td>
                       <td><span className={`ClientTasksUpdatesPage-priority ClientTasksUpdatesPage-${task.priority.toLowerCase()}`}>{task.priority}</span></td>
                       <td>
                         {formatDate(task.createdDate)}
@@ -651,12 +651,11 @@ const ServicesTasks = () => {
                           {pageStartIndex + index === 0 ? 'Review' : 'View Details'}
                         </button>
                       </td>
-                      <td><FiMoreVertical /></td>
                     </tr>
                   ))}
                   {!taskRows.length && (
                     <tr>
-                      <td colSpan={10} className="ClientTasksUpdatesPage-emptyCell">No tasks match this filter.</td>
+                      <td colSpan={7} className="ClientTasksUpdatesPage-emptyCell">No tasks match this filter.</td>
                     </tr>
                   )}
                 </tbody>
@@ -666,12 +665,12 @@ const ServicesTasks = () => {
             <div className="ClientTasksUpdatesPage-pagination">
               <span>Showing {showingFrom} to {showingTo} of {totalFilteredTasks} tasks</span>
               <div>
-                <button type="button" onClick={() => setCurrentPage(page => Math.max(1, page - 1))} disabled={safeCurrentPage === 1}>
+                <button type="button" onClick={() => goToPage(safeCurrentPage - 1)} disabled={safeCurrentPage === 1}>
                   <FiChevronLeft />
                 </button>
                 {pageWindowStart > 1 && (
                   <>
-                    <button type="button" onClick={() => setCurrentPage(1)}>1</button>
+                    <button type="button" onClick={() => goToPage(1)}>1</button>
                     {pageWindowStart > 2 && <span>...</span>}
                   </>
                 )}
@@ -680,7 +679,8 @@ const ServicesTasks = () => {
                     className={safeCurrentPage === page ? 'ClientTasksUpdatesPage-active' : ''}
                     type="button"
                     key={page}
-                    onClick={() => setCurrentPage(page)}
+                    onClick={() => goToPage(page)}
+                    disabled={safeCurrentPage === page}
                   >
                     {page}
                   </button>
@@ -688,14 +688,14 @@ const ServicesTasks = () => {
                 {pageWindowStart + visiblePageNumbers.length - 1 < totalPages && (
                   <>
                     {pageWindowStart + visiblePageNumbers.length < totalPages && <span>...</span>}
-                    <button type="button" onClick={() => setCurrentPage(totalPages)}>{totalPages}</button>
+                    <button type="button" onClick={() => goToPage(totalPages)}>{totalPages}</button>
                   </>
                 )}
-                <button type="button" onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))} disabled={safeCurrentPage === totalPages}>
+                <button type="button" onClick={() => goToPage(safeCurrentPage + 1)} disabled={safeCurrentPage === totalPages}>
                   <FiChevronRight />
                 </button>
               </div>
-              <select value={pageSize} onChange={event => setPageSize(Number(event.target.value))} aria-label="Tasks per page">
+              <select value={pageSize} onChange={handlePageSizeChange} aria-label="Tasks per page">
                 <option value="10">10 / page</option>
                 <option value="20">20 / page</option>
                 <option value="50">50 / page</option>

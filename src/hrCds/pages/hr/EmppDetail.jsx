@@ -1134,15 +1134,11 @@ const EditEmployeeForm = React.memo(({
   
   const isEditingSelf = currentUserId === (editingUser._id || editingUser.id);
   
-  // If editing SELF -> Full edit access
-  // If editing OTHER and has permission -> Full edit access
   const hasFullEditAccess = isEditingSelf || canEditOtherEmployees;
   
   // Show permission warning for users without edit access
   const showPermissionWarning = !canEditOtherEmployees && !isEditingSelf;
   
-  // Show info for users with edit access
-  const showEditInfo = canEditOtherEmployees && !isEditingSelf;
   const editableUserId = editingUser._id || editingUser.id;
   const documentManagerRoles = ['super_admin', 'admin', 'owner', 'hr', 'manager'];
   const canManageEmployeeDocuments = isEditingSelf ||
@@ -1153,15 +1149,13 @@ const EditEmployeeForm = React.memo(({
     <>
       {showPermissionWarning && (
         <div className="EmployeeDirectory-permission-warning">
-          <FiShield size={20} />
-          <span>You don't have permission to edit other employees.</span>
-        </div>
-      )}
-      
-      {showEditInfo && (
-        <div className="EmployeeDirectory-permission-info">
-          <FiEdit size={20} />
-          <span>You have full edit access. You can edit all employee details.</span>
+          <span className="EmployeeDirectory-permission-icon">
+            <FiShield size={18} />
+          </span>
+          <span className="EmployeeDirectory-permission-copy">
+            <strong>Limited access</strong>
+            <span>You don't have permission to edit other employees.</span>
+          </span>
         </div>
       )}
       
@@ -2772,7 +2766,7 @@ const EmployeeDirectory = () => {
 
       {/* Edit Modal */}
       {editingUser && (
-        <div className="EmployeeDirectory-modal-overlay" onClick={handleCancelEdit}>
+        <div className="EmployeeDirectory-modal-overlay EmployeeDirectory-edit-overlay" onClick={handleCancelEdit}>
           <div className="EmployeeDirectory-modal EmployeeDirectory-edit-modal" onClick={e => e.stopPropagation()}>
             <div className="EmployeeDirectory-modal-header">
               <div className="EmployeeDirectory-modal-header-content">

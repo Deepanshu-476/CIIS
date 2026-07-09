@@ -1,10 +1,10 @@
 import React from 'react';
-import { FiTrendingUp, FiAlertTriangle, FiActivity, FiCheckCircle } from 'react-icons/fi';
+import { FiTrendingUp, FiAlertTriangle, FiActivity, FiCheckCircle, FiAlertCircle, FiX } from 'react-icons/fi';
 import { MdWork, MdOutlineAlarm, MdOutlineCrop54, MdBeachAccess } from 'react-icons/md';
 
 const StatsLoader = () => (
   <div className="stats-loader-container">
-    {[1, 2, 3, 4].map((i) => (
+    {[1, 2, 3, 4, 5].map((i) => (
       <div key={i} className="stat-skeleton-card">
         <div className="stat-skeleton-header">
           <div className="skeleton-icon-large"></div>
@@ -74,6 +74,19 @@ const StatsCards = ({ loading, monthlyStats, currentMonth, monthNames }) => {
         <div className="stat-footer">
           <FiCheckCircle className="stat-trend-icon" />
           <span className="stat-month-text">Approved in {monthNames[currentMonth]}</span>
+        </div>
+      </div>
+
+      <div className="dashboard-stat-card stat-card-absent">
+        <div className="stat-card-header">
+          <div className="stat-icon-container icon-absent"><FiX className="stat-icon" /></div>
+          <div className="stat-current-month">Current Month</div>
+        </div>
+        <div className="stat-value">{monthlyStats.absentDays}</div>
+        <div className="stat-label">Absent Days</div>
+        <div className="stat-footer">
+          <FiAlertCircle className="stat-trend-icon" />
+          <span className="stat-month-text">Tracked in {monthNames[currentMonth]}</span>
         </div>
       </div>
     </div>

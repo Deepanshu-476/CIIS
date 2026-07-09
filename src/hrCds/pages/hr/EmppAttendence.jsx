@@ -580,7 +580,7 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
         date: record.date ? new Date(record.date).toISOString().split('T')[0] : '',
         inTime: record.inTime ? new Date(record.inTime).toTimeString().slice(0, 5) : '',
         outTime: record.outTime ? new Date(record.outTime).toTimeString().slice(0, 5) : '',
-        status: record.status?.toLowerCase() || 'absent',
+        status: normalizeAttendanceStatus(record.status),
         lateBy: record.lateBy || '00:00:00',
         earlyLeave: record.earlyLeave || '00:00:00',
         overTime: record.overTime || '00:00:00',
@@ -977,10 +977,11 @@ const formatDate = (dateStr) => {
 };
 
 const getStatusClass = (status) => {
-  if (status === "present") return "EmppAttendence-status-present";
-  if (status === "absent") return "EmppAttendence-status-absent";
-  if (status === "halfday") return "EmppAttendence-status-halfday";
-  if (status === "late") return "EmppAttendence-status-late";
+  const normalizedStatus = normalizeAttendanceStatus(status);
+  if (normalizedStatus === "present") return "EmppAttendence-status-present";
+  if (normalizedStatus === "absent") return "EmppAttendence-status-absent";
+  if (normalizedStatus === "halfday") return "EmppAttendence-status-halfday";
+  if (normalizedStatus === "late") return "EmppAttendence-status-late";
   return "";
 };
 
@@ -995,11 +996,26 @@ const getEmployeeTypeClass = (type) => {
 };
 
 const getRowClass = (status) => {
-  if (status === "present") return "EmppAttendence-row-present";
-  if (status === "absent") return "EmppAttendence-row-absent";
-  if (status === "halfday") return "EmppAttendence-row-halfday";
-  if (status === "late") return "EmppAttendence-row-late";
+  const normalizedStatus = normalizeAttendanceStatus(status);
+  if (normalizedStatus === "present") return "EmppAttendence-row-present";
+  if (normalizedStatus === "absent") return "EmppAttendence-row-absent";
+  if (normalizedStatus === "halfday") return "EmppAttendence-row-halfday";
+  if (normalizedStatus === "late") return "EmppAttendence-row-late";
   return "";
+};
+
+const normalizeAttendanceStatus = (status) => {
+  const normalized = String(status || "absent")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+
+  if (normalized === "halfday") return "halfday";
+  if (normalized === "present") return "present";
+  if (normalized === "late") return "late";
+  if (normalized === "absent") return "absent";
+  if (normalized === "weekend") return "absent";
+  return normalized || "absent";
 };
 
 const getStatusFilterLabel = (statusFilter) => {
@@ -1012,6 +1028,18 @@ const getStatusFilterLabel = (statusFilter) => {
     ontime: "ON TIME",
   };
   return labels[statusFilter] || String(statusFilter || "").toUpperCase();
+};
+
+const formatStatusLabel = (status) => getStatusFilterLabel(normalizeAttendanceStatus(status));
+
+const getStatusExplanation = (status) => {
+  const normalizedStatus = normalizeAttendanceStatus(status);
+
+  if (normalizedStatus === 'present') return 'Arrived before 9:10 AM';
+  if (normalizedStatus === 'late') return 'Arrived between 9:10-9:30 AM';
+  if (normalizedStatus === 'halfday') return 'Arrived after 9:30 AM';
+  if (normalizedStatus === 'absent') return 'No attendance recorded';
+  return '';
 };
 
 const calculateHoursWorked = (inTime, outTime) => {
@@ -1337,7 +1365,7 @@ const EmployeeAttendance = () => {
             const userId = record.user._id || record.user.id;
             attendanceMap[userId] = {
               ...record,
-              status: record.status ? record.status.toLowerCase() : 'absent'
+              status: normalizeAttendanceStatus(record.status)
             };
           }
         });
@@ -1351,8 +1379,8 @@ const EmployeeAttendance = () => {
           const calculatedStatus = calculateStatusFromTime(attendanceRecord.inTime);
           const hoursWorked = calculateHoursWorked(attendanceRecord.inTime, attendanceRecord.outTime);
           
-          let finalStatus = attendanceRecord.status 
-            ? attendanceRecord.status.toLowerCase() 
+          let finalStatus = attendanceRecord.status
+            ? normalizeAttendanceStatus(attendanceRecord.status)
             : calculatedStatus;
 
           if (
@@ -1462,7 +1490,7 @@ const EmployeeAttendance = () => {
               const userId = record.user._id || record.user.id;
               attendanceMap[userId] = {
                 ...record,
-                status: record.status ? record.status.toLowerCase() : 'absent'
+                status: normalizeAttendanceStatus(record.status)
               };
             }
           });
@@ -1476,8 +1504,8 @@ const EmployeeAttendance = () => {
             const calculatedStatus = calculateStatusFromTime(attendanceRecord.inTime);
             const hoursWorked = calculateHoursWorked(attendanceRecord.inTime, attendanceRecord.outTime);
             
-            let finalStatus = attendanceRecord.status 
-              ? attendanceRecord.status.toLowerCase() 
+            let finalStatus = attendanceRecord.status
+              ? normalizeAttendanceStatus(attendanceRecord.status)
               : calculatedStatus;
 
             if (
@@ -1537,10 +1565,10 @@ const EmployeeAttendance = () => {
         
         allRecords.push(...dateCombinedRecords);
         
-        const present = dateCombinedRecords.filter(r => r.status === "present").length;
-        const absent = dateCombinedRecords.filter(r => r.status === "absent").length;
-        const halfDay = dateCombinedRecords.filter(r => r.status === "halfday").length;
-        const late = dateCombinedRecords.filter(r => r.status === "late").length;
+        const present = dateCombinedRecords.filter(r => normalizeAttendanceStatus(r.status) === "present").length;
+        const absent = dateCombinedRecords.filter(r => normalizeAttendanceStatus(r.status) === "absent").length;
+        const halfDay = dateCombinedRecords.filter(r => normalizeAttendanceStatus(r.status) === "halfday").length;
+        const late = dateCombinedRecords.filter(r => normalizeAttendanceStatus(r.status) === "late").length;
         
         dailyStats[date] = {
           total: dateCombinedRecords.length,
@@ -1555,10 +1583,10 @@ const EmployeeAttendance = () => {
       setRecords(allRecords);
       
       const totalDays = dateRange.length;
-      const totalPresent = allRecords.filter(r => r.status === "present").length;
-      const totalLate = allRecords.filter(r => r.status === "late").length;
-      const totalHalfDay = allRecords.filter(r => r.status === "halfday").length;
-      const totalAbsent = allRecords.filter(r => r.status === "absent").length;
+      const totalPresent = allRecords.filter(r => normalizeAttendanceStatus(r.status) === "present").length;
+      const totalLate = allRecords.filter(r => normalizeAttendanceStatus(r.status) === "late").length;
+      const totalHalfDay = allRecords.filter(r => normalizeAttendanceStatus(r.status) === "halfday").length;
+      const totalAbsent = allRecords.filter(r => normalizeAttendanceStatus(r.status) === "absent").length;
       
       const avgEmployeesPerDay = allUsers.length || 1;
       
@@ -1606,10 +1634,10 @@ const EmployeeAttendance = () => {
   };
 
   const calculateStats = (attendanceData) => {
-    const present = attendanceData.filter((r) => r.status === "present").length;
-    const absent = attendanceData.filter((r) => r.status === "absent").length;
-    const halfDay = attendanceData.filter((r) => r.status === "halfday").length;
-    const late = attendanceData.filter((r) => r.status === "late").length;
+    const present = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "present").length;
+    const absent = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "absent").length;
+    const halfDay = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "halfday").length;
+    const late = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "late").length;
     const onTime = attendanceData.filter((r) => r.calculatedStatus === "present").length;
     
     setStats({
@@ -1686,7 +1714,7 @@ const EmployeeAttendance = () => {
         if (statusFilter === "ontime") {
           return rec.calculatedStatus === "present";
         }
-        return rec.status === statusFilter;
+        return normalizeAttendanceStatus(rec.status) === statusFilter;
       });
     }
 
@@ -2079,7 +2107,7 @@ const EmployeeAttendance = () => {
       'Check In': formatTime(record.inTime),
       'Check Out': formatTime(record.outTime),
       'Hours Worked': record.hoursWorked || '00:00:00',
-      'Status': record.status.toUpperCase(),
+      'Status': formatStatusLabel(record.status),
       'Late By': record.lateBy || '00:00:00',
       'Early Leave': record.earlyLeave || '00:00:00',
       'Overtime': record.overTime || '00:00:00',
@@ -2142,7 +2170,7 @@ const EmployeeAttendance = () => {
       formatTime(record.inTime),
       formatTime(record.outTime),
       record.hoursWorked || '00:00:00',
-      record.status.toUpperCase(),
+      formatStatusLabel(record.status),
       record.lateBy || '00:00:00',
       record.earlyLeave || '00:00:00',
       record.overTime || '00:00:00'
@@ -2529,7 +2557,10 @@ const EmployeeAttendance = () => {
             iconClass: "EmppAttendence-stat-icon-secondary"
           },
         ]
-          .filter(stat => stat.count > 0)
+          .filter(stat =>
+            stat.count > 0 ||
+            ["all", "present", "late", "halfday", "absent"].includes(stat.filterValue)
+          )
           .map((stat) => (
             <div 
               key={stat.label}
@@ -2768,13 +2799,10 @@ const EmployeeAttendance = () => {
 
                           <td className="EmppAttendence-col-status">
                             <span className={`EmppAttendence-status-chip ${getStatusClass(rec.status)}`}>
-                              {rec.status.toUpperCase()}
+                              {formatStatusLabel(rec.status)}
                             </span>
                             <div className="EmppAttendence-status-explanation">
-                              {rec.status === 'present' && 'Arrived before 9:10 AM'}
-                              {rec.status === 'late' && 'Arrived between 9:10-9:30 AM'}
-                              {rec.status === 'halfday' && 'Arrived after 9:30 AM'}
-                              {rec.status === 'absent' && 'No attendance recorded'}
+                              {getStatusExplanation(rec.status)}
                             </div>
                           </td>
 
@@ -2908,13 +2936,10 @@ const EmployeeAttendance = () => {
 
                           <td className="EmppAttendence-col-status">
                             <span className={`EmppAttendence-status-chip ${getStatusClass(rec.status)}`}>
-                              {rec.status.toUpperCase()}
+                              {formatStatusLabel(rec.status)}
                             </span>
                             <div className="EmppAttendence-status-explanation">
-                              {rec.status === 'present' && 'Arrived before 9:10 AM'}
-                              {rec.status === 'late' && 'Arrived between 9:10-9:30 AM'}
-                              {rec.status === 'halfday' && 'Arrived after 9:30 AM'}
-                              {rec.status === 'absent' && 'No attendance recorded'}
+                              {getStatusExplanation(rec.status)}
                             </div>
                           </td>
 

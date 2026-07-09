@@ -32,12 +32,11 @@ import {
   FiChevronDown,
   FiChevronUp,
   FiCreditCard,
-  FiDollarSign,
   FiUpload
 } from 'react-icons/fi';
 
 
-import { FaTasks, FaProjectDiagram, FaCity } from 'react-icons/fa';
+import { FaTasks, FaProjectDiagram, FaCity, FaRupeeSign } from 'react-icons/fa';
 import { Repeat } from 'lucide-react';
 
 
@@ -638,7 +637,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
                     </div>
                     <div className="ClientManagement-renewal-actions">
                       <button type="submit" className="ClientManagement-btn ClientManagement-btn--primary" disabled={updating}>
-                        <FiDollarSign /> Add Due Payment
+                        <FaRupeeSign /> Add Due Payment
                       </button>
                     </div>
                   </form>
@@ -765,18 +764,21 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
 
                     <div className="ClientManagement-form-group">
                       <label className="ClientManagement-form-label">
-                        <FiDollarSign /> Price (₹)
+                        <FaRupeeSign /> Price
                       </label>
-                      <input
-                        type="number"
-                        className="ClientManagement-form-input"
-                        placeholder="Enter subscription price"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        disabled={updating}
-                        step="0.01"
-                        min="0"
-                      />
+                      <div className="ClientManagement-currency-input">
+                        <span className="ClientManagement-currency-prefix">₹</span>
+                        <input
+                          type="number"
+                          className="ClientManagement-form-input"
+                          placeholder="Enter subscription price"
+                          value={price}
+                          onChange={(e) => setPrice(e.target.value)}
+                          disabled={updating}
+                          step="0.01"
+                          min="0"
+                        />
+                      </div>
                       <small className="ClientManagement-text-muted">Enter the subscription amount</small>
                     </div>
 
@@ -983,7 +985,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
                   <div className="ClientManagement-payment-receipt-details">
                     <div className="ClientManagement-payment-detail-row">
                       <div className="ClientManagement-payment-detail-label">
-                        <FiDollarSign size={14} /> Amount:
+                        <FaRupeeSign size={14} /> Amount:
                       </div>
                       <div className="ClientManagement-payment-detail-value ClientManagement-amount-highlight">
                         ₹{typeof receipt.amount === 'number' ? receipt.amount.toLocaleString('en-IN') : receipt.amount}
@@ -1219,7 +1221,7 @@ const TaskDetailsModal = ({ task, open, onClose, projectManagers = [] }) => {
 
 
 
-const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], onTaskUpdate, api, startDate = null, endDate = null, subscriptionId = null, subscriptionNo = null, initialTasks = null }) => {
+export const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], onTaskUpdate, api, startDate = null, endDate = null, subscriptionId = null, subscriptionNo = null, initialTasks = null }) => {
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState({
     name: '',
@@ -1279,6 +1281,36 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
   const completedTasks = tasks.filter(task => task.completed).length;
   const totalTasks = tasks.length;
   const progressPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+  const formatTaskGroupDate = (value) => {
+    if (!value) return 'No due date';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'No due date';
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+  const formatTaskDueDate = (value) => {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+  const getTaskStatus = (task) => task.completed ? 'Completed' : (task.status || 'Pending');
+  const getTaskDescription = (task) => task.description || task.taskDescription || task.details || '-';
+  const groupedTasks = tasks.reduce((groups, task) => {
+    const groupKey = formatTaskGroupDate(task.dueDate || task.createdAt);
+    if (!groups[groupKey]) groups[groupKey] = [];
+    groups[groupKey].push(task);
+    return groups;
+  }, {});
 
   const handleAddTask = async () => {
     if (newTask.name.trim()) {
@@ -1359,7 +1391,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
           }
         } else {
           const updatedTasks = tasks.map(task => 
-            task.id === editTask.id ? {
+            isSameTask(task, editTask) ? {
               ...editTask,
               name: editTask.name.trim()
             } : task
@@ -1377,10 +1409,23 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
     }
   };
 
+  const isSameTask = (candidate, target) => {
+    if (!candidate || !target) return false;
+    const candidateMongoId = candidate._id ? String(candidate._id) : '';
+    const targetMongoId = target._id ? String(target._id) : '';
+    if (candidateMongoId && targetMongoId) return candidateMongoId === targetMongoId;
+
+    const candidateLocalId = candidate.id ? String(candidate.id) : '';
+    const targetLocalId = target.id ? String(target.id) : '';
+    if (candidateLocalId && targetLocalId) return candidateLocalId === targetLocalId;
+
+    return candidate === target;
+  };
+
   const toggleTaskCompletion = async (task) => {
     try {
       const updatedTasks = tasks.map(t => {
-        if (t._id === task._id || t.id === task.id) {
+        if (isSameTask(t, task)) {
           return {
             ...t,
             completed: !t.completed,
@@ -1392,7 +1437,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
       setTasks(updatedTasks);
 
       if (task._id) {
-        await api.patch(`/${task._id}/toggle`);
+        await api.patch(`/${task._id}/toggle`, { clientId });
       } else {
         localStorage.setItem(`client_${clientId}_service_${service}_tasks`, JSON.stringify(updatedTasks));
       }
@@ -1408,7 +1453,7 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
 
   const deleteTask = async (task) => {
     try {
-      const updatedTasks = tasks.filter(t => t._id !== task._id && t.id !== task.id);
+      const updatedTasks = tasks.filter(t => !isSameTask(t, task));
       setTasks(updatedTasks);
 
       if (task._id) {
@@ -1609,79 +1654,76 @@ const ServiceProgressCard = ({ service, clientId, clientProjectManagers = [], on
           </div>
         )}
 
-        <div>
-          <h5 className="ClientManagement-mb-2">Tasks ({totalTasks}):</h5>
+        <div className="ClientManagement-service-task-table-section">
           {tasks.length > 0 ? (
-            <div className="ClientManagement-task-list">
-              {tasks.map((task) => (
-                <div key={task._id || task.id} className="ClientManagement-task-item">
-                  <div className="ClientManagement-task-item__checkbox">
-                    <input
-                      type="checkbox"
-                      checked={task.completed}
-                      onChange={() => toggleTaskCompletion(task)}
-                    />
+            <div className="ClientManagement-task-table-groups">
+              {Object.entries(groupedTasks).map(([dateLabel, grouped]) => (
+                <div className="ClientManagement-task-date-group" key={dateLabel}>
+                  <div className="ClientManagement-task-date-heading">
+                    <span className="ClientManagement-task-date-icon">D</span>
+                    <strong>{dateLabel}</strong>
+                    <span>({grouped.length} {grouped.length === 1 ? 'task' : 'tasks'})</span>
                   </div>
-                  <div className="ClientManagement-task-item__content">
-                    <div className="ClientManagement-flex-align-center ClientManagement-gap-1 ClientManagement-flex-wrap">
-                      <p className={task.completed ? 'ClientManagement-text-line-through ClientManagement-text-muted' : ''}>
-                        {task.name}
-                      </p>
-
-                      {task.isPlanTask === false && (
-                        <div className="ClientManagement-badge ClientManagement-badge--warning">
-                          Extra
-                        </div>
-                      )}
-                      
-                      {task.priority && task.priority !== 'Medium' && (
-                        <div className={`ClientManagement-badge ${getPriorityColor(task.priority)}`}>
-                          {task.priority}
-                        </div>
-                      )}
-                      
-                      {task.assignee && (
-                        <div className="ClientManagement-badge" title={`Assigned to: ${task.assignee}`}>
-                          {task.assignee}
-                        </div>
-                      )}
-                      
-                      {task.dueDate && (
-                        <div className="ClientManagement-badge" title={`Due: ${formatClientTaskDue(task.dueDate)}`}>
-                          {formatClientTaskDue(task.dueDate)}
-                        </div>
-                      )}
-                    </div>
-                    
-                    <small className="ClientManagement-text-muted">
-                      Added: {new Date(task.createdAt).toLocaleDateString()}
-                      {task.completed && task.completedAt && (
-                        <> • Completed: {new Date(task.completedAt).toLocaleDateString()}</>
-                      )}
-                    </small>
-                  </div>
-                  <div className="ClientManagement-task-item__actions">
-                    <button 
-                      className="ClientManagement-action-button"
-                      onClick={() => setShowTaskDetails({ open: true, task })}
-                      title="View Details"
-                    >
-                      <FiEye />
-                    </button>
-                    <button 
-                      className="ClientManagement-action-button ClientManagement-action-button--primary"
-                      onClick={() => setEditTask(task)}
-                      title="Edit Task"
-                    >
-                      <FiEdit />
-                    </button>
-                    <button 
-                      className="ClientManagement-action-button ClientManagement-action-button--error"
-                      onClick={() => deleteTask(task)}
-                      title="Delete Task"
-                    >
-                      <FiTrash2 />
-                    </button>
+                  <div className="ClientManagement-task-table-wrap">
+                    <table className="ClientManagement-task-table">
+                      <thead>
+                        <tr>
+                          <th>Title</th>
+                          <th>Description</th>
+                          <th>Due Date</th>
+                          <th>Priority</th>
+                          <th>Status</th>
+                          <th>Change Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {grouped.map((task) => (
+                          <tr key={task._id || task.id}>
+                            <td>
+                              <div className="ClientManagement-task-title-cell">
+                                <input
+                                  type="checkbox"
+                                  checked={!!task.completed}
+                                  onChange={() => toggleTaskCompletion(task)}
+                                />
+                                <span className={task.completed ? 'ClientManagement-text-line-through ClientManagement-text-muted' : ''}>
+                                  {task.name || task.title || 'Untitled Task'}
+                                </span>
+                              </div>
+                            </td>
+                            <td>
+                              <span className="ClientManagement-task-description-cell">
+                                {getTaskDescription(task)}
+                              </span>
+                            </td>
+                            <td>
+                              <span className="ClientManagement-task-due-cell">
+                                {formatTaskDueDate(task.dueDate)}
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`ClientManagement-task-pill ClientManagement-task-pill--priority ${getPriorityColor(task.priority)}`}>
+                                {task.priority || 'Medium'}
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`ClientManagement-task-pill ${task.completed ? 'ClientManagement-task-pill--success' : 'ClientManagement-task-pill--pending'}`}>
+                                {getTaskStatus(task)}
+                              </span>
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                className={`ClientManagement-task-status-btn ${task.completed ? 'completed' : 'pending'}`}
+                                onClick={() => toggleTaskCompletion(task)}
+                              >
+                                {task.completed ? 'Completed' : 'Pending'}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               ))}
@@ -2751,9 +2793,6 @@ const ClientManagement = () => {
   const [activeClientsCount, setActiveClientsCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [viewDialog, setViewDialog] = useState({ open: false, client: null });
-  const [viewClientTasks, setViewClientTasks] = useState(null);
-  const [selectedSubIndex, setSelectedSubIndex] = useState('all');
   const [servicesModal, setServicesModal] = useState(false);
   const [clientPlansModal, setClientPlansModal] = useState(false);
   const [addClientModal, setAddClientModal] = useState(false);
@@ -2786,6 +2825,24 @@ const ClientManagement = () => {
   });
 
   const pendingServiceRequestsCount = serviceRequests.filter(request => (request.status || 'Pending') === 'Pending').length;
+
+  useEffect(() => {
+    if (!editDialog.open) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+    document.body.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
+    };
+  }, [editDialog.open]);
 
   const loadServiceRequests = async (nextCompanyCode = companyCode, nextCompanyIdentifier = companyIdentifier) => {
     try {
@@ -3467,18 +3524,8 @@ const ClientManagement = () => {
     }
   };
 
-  const handleViewClick = async (client) => {
-    setViewDialog({ open: true, client });
-    setSelectedSubIndex('all');
-    setViewClientTasks(null);
-    try {
-      const response = await tasksApi.get(`/client/${client._id}`, { params: { limit: 100 } });
-      const data = response.data?.data;
-      setViewClientTasks(Array.isArray(data) ? data : (data?.tasks || []));
-    } catch (error) {
-      console.error('Error loading client detail tasks:', error);
-      setViewClientTasks([]);
-    }
+  const handleViewClick = (client) => {
+    navigate(`/ciisUser/emp-client/${client._id}`, { state: { client } });
   };
 
   const safeMapProjectManagers = (callback) => {
@@ -4040,243 +4087,8 @@ const ClientManagement = () => {
         </div>
       )}
 
-      {viewDialog.open && viewDialog.client && (
-        <div className="ClientManagement-modal-overlay ClientManagement-view-modal-overlay" onClick={() => setViewDialog({ open: false, client: null })}>
-          <div className="ClientManagement-modal ClientManagement-modal-lg ClientManagement-view-modal" onClick={e => e.stopPropagation()}>
-            <div className="ClientManagement-modal__header ClientManagement-view-modal-header">
-              <h3>Client Details</h3>
-              <button className="ClientManagement-action-button ClientManagement-view-modal-close" onClick={() => setViewDialog({ open: false, client: null })}>
-                <FiX />
-              </button>
-            </div>
-            
-            <div className="ClientManagement-modal__content ClientManagement-view-modal-content">
-              <div className="ClientManagement-client-details-content">
-                <div className="ClientManagement-client-details-section">
-                  <h4 className="ClientManagement-section-header">
-                    <FiBriefcase className="ClientManagement-section-icon" />
-                    Basic Information
-                  </h4>
-                  
-                  <div className="ClientManagement-details-grid">
-                    <div className="ClientManagement-detail-item">
-                      <p className="ClientManagement-detail-label">Client Name</p>
-                      <p className="ClientManagement-detail-value ClientManagement-client-name-highlight">{viewDialog.client.client}</p>
-                    </div>
-                    
-                    <div className="ClientManagement-detail-item">
-                      <p className="ClientManagement-detail-label">Company</p>
-                      <p className="ClientManagement-detail-value ClientManagement-company-badge">{viewDialog.client.company}</p>
-                    </div>
-                    
-                    <div className="ClientManagement-detail-item">
-                      <p className="ClientManagement-detail-label">City</p>
-                      <p className="ClientManagement-detail-value ClientManagement-location-text">
-                        <span className="ClientManagement-location-dot"></span>
-                        <span>{viewDialog.client.city}</span>
-                      </p>
-                    </div>
-                    
-                    <div className="ClientManagement-detail-item">
-                      <p className="ClientManagement-detail-label">Status</p>
-                      <div className={`ClientManagement-status-chip ClientManagement-status-chip--${viewDialog.client.status === 'Active' ? 'active' : viewDialog.client.status === 'On Hold' ? 'on-hold' : 'default'}`}>
-                        <span className="ClientManagement-status-dot"></span>
-                        {viewDialog.client.status}
-                      </div>
-                    </div>
-                    
-                    {(viewDialog.client.companyCode || viewDialog.client.companyIdentifier) && (
-                      <div className="ClientManagement-detail-item ClientManagement-company-info-item">
-                        <p className="ClientManagement-detail-label">Company Info</p>
-                        <p className="ClientManagement-detail-value ClientManagement-company-codes">
-                          {viewDialog.client.companyCode && (
-                            <span className="ClientManagement-company-code-badge">Code: {viewDialog.client.companyCode}</span>
-                          )}
-                          {viewDialog.client.companyIdentifier && (
-                            <span className="ClientManagement-company-id-badge">ID: {viewDialog.client.companyIdentifier}</span>
-                          )}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="ClientManagement-client-details-section ClientManagement-team-section">
-                  <h4 className="ClientManagement-section-header">
-                    <FiUsers className="ClientManagement-section-icon" />
-                    Team
-                  </h4>
-                  
-                  <p className="ClientManagement-section-description ClientManagement-team-description">
-                    <span className="ClientManagement-description-icon">👥</span>
-                    These managers will appear in task assignment dropdowns
-                  </p>
-                  
-                  <div className="ClientManagement-team-members-container">
-                    {(() => {
-                      const managers = getProjectManagersDetails(viewDialog.client);
-                      return managers.length > 0 ? (
-                        <div className="ClientManagement-managers-grid">
-                          {managers.map((manager, idx) => (
-                            <div key={idx} className="ClientManagement-manager-card-wrapper">
-                              {renderManagerInfo(manager)}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="ClientManagement-empty-state ClientManagement-enhanced-empty">
-                          <div className="ClientManagement-empty-icon">👥</div>
-                          <p className="ClientManagement-text-muted">No project managers assigned</p>
-                          <button className="ClientManagement-btn-assign-manager">Assign Manager</button>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-
-                {viewDialog.client.services && viewDialog.client.services.length > 0 && (
-                  <div className="ClientManagement-client-details-section ClientManagement-services-section">
-                    <h4 className="ClientManagement-section-header">
-                      <FiTrendingUp className="ClientManagement-section-icon" />
-                      Services & Tasks
-                    </h4>
-                    
-                    <p className="ClientManagement-section-description ClientManagement-services-description">
-                      <span className="ClientManagement-description-icon">📋</span>
-                      Add tasks with due dates and assign them to project managers
-                    </p>
-
-                    
-                    {viewDialog.client.subscription && viewDialog.client.subscription.length > 0 && (
-                      <div className="ClientManagement-form-group" style={{ maxWidth: '400px', marginBottom: '1.5rem' }}>
-                        <label className="ClientManagement-form-label" style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          📅 Filter by Subscription Period:
-                        </label>
-                        <select
-                          className="ClientManagement-form-input"
-                          value={selectedSubIndex}
-                          onChange={(e) => setSelectedSubIndex(e.target.value)}
-                          style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #d1d5db' }}
-                        >
-                          <option value="all">Show All Tasks (No Filter)</option>
-                          {viewDialog.client.subscription.map((sub, idx) => (
-                            <option key={idx} value={idx}>
-                              Subscription {sub.subscriptionNo || idx + 1}: {sub.planName ? `${sub.planName} - ` : ''}{new Date(sub.startDate).toLocaleDateString()} to {new Date(sub.endDate).toLocaleDateString()} ({sub.status}){sub.extraTasks > 0 ? ` (+${sub.extraTasks} Tasks)` : ''}{sub.benefits ? ` - ${sub.benefits}` : ''}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                    
-                    <div className="ClientManagement-services-container">
-                      {viewDialog.client.services.map((service, index) => {
-                        const clientProjectManagers = getProjectManagersDetails(viewDialog.client);
-                        const selectedSub = selectedSubIndex !== 'all' ? viewDialog.client.subscription[selectedSubIndex] : null;
-                        const referenceSub = selectedSub || (viewDialog.client.subscription || []).find(sub => sub.status === 'Active') || (viewDialog.client.subscription || [])[viewDialog.client.subscription.length - 1];
-                        const planServiceNames = (referenceSub?.servicesSnapshot || []).map(item => item.service);
-                        const isExtraService = planServiceNames.length > 0 && !planServiceNames.includes(service);
-                        return (
-                          <div key={index} className="ClientManagement-service-card-wrapper">
-                            <div className="ClientManagement-service-card-header">
-                              <span className="ClientManagement-service-icon">📊</span>
-                              <h5 className="ClientManagement-service-title">{service}</h5>
-                              {isExtraService && (
-                                <span className="ClientManagement-badge ClientManagement-badge--warning">Extra</span>
-                              )}
-                            </div>
-                            <div className="ClientManagement-service-card-body">
-                              <ServiceProgressCard
-                                service={service}
-                                clientId={viewDialog.client._id}
-                                clientProjectManagers={clientProjectManagers}
-                                onTaskUpdate={handleTaskUpdate}
-                                api={tasksApi}
-                                startDate={selectedSub ? selectedSub.startDate : null}
-                                endDate={selectedSub ? selectedSub.endDate : null}
-                                subscriptionId={selectedSub ? selectedSub._id : null}
-                                subscriptionNo={selectedSub ? selectedSub.subscriptionNo : null}
-                                initialTasks={Array.isArray(viewClientTasks) ? viewClientTasks.filter(task => {
-                                  if (task.service !== service) return false;
-                                  if (!selectedSub) return true;
-                                  if (selectedSub._id && String(task.subscriptionId?._id || task.subscriptionId || '') === String(selectedSub._id)) return true;
-                                  return selectedSub.subscriptionNo && Number(task.subscriptionNo) === Number(selectedSub.subscriptionNo);
-                                }) : null}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <div className="ClientManagement-client-details-section ClientManagement-additional-info-section">
-                  <h4 className="ClientManagement-section-header">
-                    <FiMapPin className="ClientManagement-section-icon" />
-                    Additional Information
-                  </h4>
-                  
-                  <div className="ClientManagement-details-grid ClientManagement-additional-grid">
-                    {viewDialog.client.phone && (
-                      <div className="ClientManagement-detail-item ClientManagement-contact-item">
-                        <p className="ClientManagement-detail-label">
-                          <span className="ClientManagement-contact-icon">📞</span> Phone
-                        </p>
-                        <p className="ClientManagement-detail-value ClientManagement-contact-value">{viewDialog.client.phone}</p>
-                      </div>
-                    )}
-                    
-                    {viewDialog.client.email && (
-                      <div className="ClientManagement-detail-item ClientManagement-contact-item">
-                        <p className="ClientManagement-detail-label">
-                          <span className="ClientManagement-contact-icon">✉️</span> Email
-                        </p>
-                        <p className="ClientManagement-detail-value ClientManagement-contact-value ClientManagement-email-value">{viewDialog.client.email}</p>
-                      </div>
-                    )}
-                    
-                    {viewDialog.client.address && (
-                      <div className="ClientManagement-detail-item ClientManagement-address-item">
-                        <p className="ClientManagement-detail-label">
-                          <span className="ClientManagement-contact-icon">📍</span> Address
-                        </p>
-                        <p className="ClientManagement-detail-value ClientManagement-address-text">{viewDialog.client.address}</p>
-                      </div>
-                    )}
-                    
-                    {viewDialog.client.description && (
-                      <div className="ClientManagement-detail-item ClientManagement-detail-item-full ClientManagement-description-item">
-                        <p className="ClientManagement-detail-label">
-                          <span className="ClientManagement-contact-icon">📝</span> Description
-                        </p>
-                        <p className="ClientManagement-detail-value ClientManagement-description-text">{viewDialog.client.description}</p>
-                      </div>
-                    )}
-                    
-                    {viewDialog.client.notes && (
-                      <div className="ClientManagement-detail-item ClientManagement-detail-item-full ClientManagement-notes-item">
-                        <p className="ClientManagement-detail-label">
-                          <span className="ClientManagement-contact-icon">📌</span> Notes
-                        </p>
-                        <p className="ClientManagement-detail-value ClientManagement-notes-text">{viewDialog.client.notes}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="ClientManagement-modal__footer ClientManagement-view-modal-footer">
-              <button className="ClientManagement-btn ClientManagement-btn--outlined ClientManagement-view-modal-close-btn" onClick={() => setViewDialog({ open: false, client: null })}>
-                <span className="ClientManagement-close-icon">✕</span> Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {editDialog.open && editDialog.client && (
-        <div className="ClientManagement-modal-overlay" onClick={() => setEditDialog({ open: false, client: null })}>
+        <div className="ClientManagement-modal-overlay ClientManagement-edit-modal-overlay" onClick={() => setEditDialog({ open: false, client: null })}>
           <div className="ClientManagement-modal ClientManagement-edit-modal" onClick={e => e.stopPropagation()}>
             <div className="ClientManagement-modal__header">
               <h3>Edit Client</h3>
@@ -4404,25 +4216,28 @@ const ClientManagement = () => {
 
                   <div className="ClientManagement-form-group">
                     <label className="ClientManagement-form-label">
-                      <FiDollarSign className="ClientManagement-icon-inline" /> Subscription Price (₹)
+                      <FaRupeeSign className="ClientManagement-icon-inline" /> Subscription Price
                     </label>
-                    <input
-                      type="number"
-                      className="ClientManagement-form-input"
-                      placeholder="Enter subscription amount"
-                      value={editDialog.client.subscriptionPrice || ''}
-                      onChange={(e) => {
-                        setEditDialog({
-                          ...editDialog,
-                          client: { 
-                            ...editDialog.client, 
-                            subscriptionPrice: e.target.value
-                          }
-                        });
-                      }}
-                      step="0.01"
-                      min="0"
-                    />
+                    <div className="ClientManagement-currency-input">
+                      <span className="ClientManagement-currency-prefix">₹</span>
+                      <input
+                        type="number"
+                        className="ClientManagement-form-input"
+                        placeholder="Enter subscription amount"
+                        value={editDialog.client.subscriptionPrice || ''}
+                        onChange={(e) => {
+                          setEditDialog({
+                            ...editDialog,
+                            client: { 
+                              ...editDialog.client, 
+                              subscriptionPrice: e.target.value
+                            }
+                          });
+                        }}
+                        step="0.01"
+                        min="0"
+                      />
+                    </div>
                     <small className="ClientManagement-text-muted">Enter the subscription amount</small>
                   </div>
 

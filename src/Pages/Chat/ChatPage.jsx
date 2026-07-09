@@ -4,6 +4,7 @@ import ChatSidebar from "../../chat/ChatSidebar";
 import ChatBox from "../../chat/ChatBox";
 import { getCompanyGroups, getCompanyUsers, getConversations } from "../../services/chatService";
 import { useSocket } from "../../context/SocketContext";
+import { Archive, LogOut, MessageCircle, Phone, Settings, Star, TimerReset, Users } from "lucide-react";
 
 const getEntityId = value => {
   if (!value) return "";
@@ -298,6 +299,34 @@ const ChatPage = () => {
 
   return (
     <div className={`chat-page ${selectedUser ? "has-selected-chat" : "is-chat-list"}`}>
+      <aside className="chat-app-rail">
+        <div className="chat-rail-brand">
+          <img src="/logoo.png" alt="CIIS" />
+          <strong>CIIS</strong>
+        </div>
+        <div className="chat-rail-profile">
+          <div className="chat-rail-avatar">
+            {currentUser?.avatar || currentUser?.profileImage || currentUser?.image ? (
+              <img src={currentUser.avatar || currentUser.profileImage || currentUser.image} alt={currentUser.name || "User"} />
+            ) : (
+              (currentUser?.name || "U").charAt(0).toUpperCase()
+            )}
+          </div>
+          <span />
+        </div>
+        <nav className="chat-rail-nav" aria-label="Chat navigation">
+          <button type="button" className="active"><MessageCircle size={20} /><span>Chats</span></button>
+          <button type="button"><TimerReset size={20} /><span>Status</span></button>
+          <button type="button"><Phone size={20} /><span>Calls</span></button>
+          <button type="button"><Users size={20} /><span>Communities</span></button>
+          <button type="button"><Star size={20} /><span>Starred</span></button>
+          <button type="button"><Archive size={20} /><span>Archived</span></button>
+        </nav>
+        <div className="chat-rail-bottom">
+          <button type="button"><Settings size={20} /><span>Settings</span></button>
+          <button type="button"><LogOut size={20} /><span>Log out</span></button>
+        </div>
+      </aside>
       <ChatSidebar
         users={enrichedUsers}
         groups={enrichedGroups}

@@ -8,18 +8,11 @@ import './UserDashboard.css';
 import useIsMobile from '../../hooks/useIsMobile';
 import CIISLoader from '../../Loader/CIISLoader';
 
-import WelcomeHeader from '../../components/dashboard/WelcomeHeader';
-import ClockInSection from '../../components/dashboard/ClockInSection';
-import StatsCards from '../../components/dashboard/StatsCards';
-import AttendanceCalendar from '../../components/dashboard/AttendanceCalendar';
-import RecentActivity from '../../components/dashboard/RecentActivity';
-
-
 import {
   FiClock, FiCalendar, FiChevronLeft, FiChevronRight,
   FiPlay, FiSquare, FiRefreshCw, FiBriefcase, FiUser,
   FiCheckCircle, FiAlertCircle, FiTrendingUp, FiActivity,
-  FiX, FiAlertTriangle
+  FiX, FiAlertTriangle, FiCamera
 } from 'react-icons/fi';
 import {
   MdWork, MdOutlineCrop54, MdBeachAccess,
@@ -178,10 +171,16 @@ const UserDashboard = () => {
   const [recentActivity, setRecentActivity] = useState([]);
   const [jobRoles, setJobRoles] = useState([]);
   const [jobRolesLoading, setJobRolesLoading] = useState(false);
-  const [dashboardConfig, setDashboardConfig] = useState([]);
   
   const [showClockOutConfirm, setShowClockOutConfirm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [attendanceMode, setAttendanceMode] = useState('normal');
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [modalMode, setModalMode] = useState(null);
+  const [cameraStream, setCameraStream] = useState(null);
+  const [capturedImage, setCapturedImage] = useState(null);
+  const [selfieUploading, setSelfieUploading] = useState(false);
+  const videoRef = useRef(null);
 
   const [userJoinDate, setUserJoinDate] = useState(null);
   const [formattedJoinDate, setFormattedJoinDate] = useState('');
@@ -617,29 +616,25 @@ const UserDashboard = () => {
     setRecentActivity(allActivities.slice(0, 5));
   }, [taskActivity]);
 
-  
   const fetchDashboardConfig = useCallback(async () => {
     const companyId = getCompanyId();
     if (!companyId) return;
+
     try {
       const response = await axios.get(`/company/${companyId}/dashboard-config`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (response.data.success && response.data.dashboardConfig) {
-        setDashboardConfig(response.data.dashboardConfig);
-      }
+
+      const dashboardConfig = response.data?.dashboardConfig || [];
+      const clockConfig = dashboardConfig.find(item => item.componentId === 'clock-in');
+      setAttendanceMode(clockConfig?.settings?.attendanceMode || 'normal');
     } catch (err) {
       console.error("Failed to load dashboard config:", err);
-      setDashboardConfig([
-        { componentId: 'header', componentName: 'Welcome Header', isEnabled: true, sortOrder: 1 },
-        { componentId: 'clock-in', componentName: 'Attendance Timer & Clock In', isEnabled: true, sortOrder: 2, settings: { attendanceMode: 'normal' } },
-        { componentId: 'stats', componentName: 'Monthly Stats Grid', isEnabled: true, sortOrder: 3 },
-        { componentId: 'calendar', componentName: 'Attendance Calendar Grid', isEnabled: true, sortOrder: 4 },
-        { componentId: 'activity', componentName: 'Recent Activity Timeline', isEnabled: true, sortOrder: 5 }
-      ]);
+      setAttendanceMode('normal');
     }
   }, [getCompanyId, token]);
 
+  
   useEffect(() => {
     if (initialLoadRef.current) return;
     if (!isUserInCurrentCompany) {
@@ -674,7 +669,7 @@ const UserDashboard = () => {
     loadData();
     
     return () => cancelPendingRequests();
-  }, []);
+  }, [fetchDashboardConfig, fetchJobRoles, fetchHolidays, fetchAttendanceData, fetchLeaveData, fetchCurrentStatus, fetchRecentTaskActivity, cancelPendingRequests, isUserInCurrentCompany]);
 
   
   useEffect(() => {
@@ -699,11 +694,14 @@ const UserDashboard = () => {
   useEffect(() => {
     return () => {
       cancelPendingRequests();
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [cancelPendingRequests]);
+  }, [cancelPendingRequests, cameraStream]);
 
   const getJobRoleDisplayName = useCallback(() => {
     if (jobRolesLoading) return 'Loading...';
@@ -868,6 +866,111 @@ const UserDashboard = () => {
     }
   }, [getDayStatus]);
 
+  const getCoordinates = () => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve({ error: "Geolocation is not supported by your browser." });
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          });
+        },
+        (error) => {
+          resolve({ error: error.message });
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    });
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+  };
+
+  const startCamera = async () => {
+    try {
+      setCapturedImage(null);
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 400, height: 300 } });
+      setCameraStream(stream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error("Camera access error:", err);
+      toast.error("Unable to access camera. Please check permissions.");
+    }
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = 400;
+    canvas.height = 300;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    setCapturedImage(canvas.toDataURL('image/jpeg'));
+    stopCamera();
+  };
+
+  const uploadSelfie = async (dataUrl) => {
+    try {
+      setSelfieUploading(true);
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const formData = new FormData();
+      formData.append('selfie', blob, 'selfie.jpg');
+
+      const uploadRes = await axios.post('/attendance/upload-selfie', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (uploadRes.data.success) return uploadRes.data.selfieUrl;
+      throw new Error("Selfie upload failed");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to upload image. Please try again.");
+      return null;
+    } finally {
+      setSelfieUploading(false);
+    }
+  };
+
+  const handleCancelCameraModal = () => {
+    stopCamera();
+    setShowCameraModal(false);
+    setCapturedImage(null);
+    setModalMode(null);
+  };
+
+  const buildAttendancePayload = async (selfieUrl = null) => {
+    const payload = {};
+    if (selfieUrl) payload.selfieUrl = selfieUrl;
+
+    if (attendanceMode === 'location' || attendanceMode === 'both') {
+      toast.info("Fetching location...");
+      const coords = await getCoordinates();
+      if (coords.error) {
+        toast.error(`Location error: ${coords.error}`);
+        return null;
+      }
+      payload.latitude = coords.latitude;
+      payload.longitude = coords.longitude;
+    }
+
+    return payload;
+  };
+
   const handleIn = async (payload = {}) => {
     if (!isUserInCurrentCompany || isProcessing) return;
     
@@ -918,6 +1021,41 @@ const UserDashboard = () => {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const runAttendanceFlow = async (mode, selfieUrl = null) => {
+    const payload = await buildAttendancePayload(selfieUrl);
+    if (!payload) return;
+
+    if (mode === 'in') {
+      await handleIn(payload);
+    } else {
+      await handleClockOut(payload);
+    }
+
+    setShowCameraModal(false);
+    setCapturedImage(null);
+    setModalMode(null);
+  };
+
+  const handleActionClick = (mode) => {
+    setModalMode(mode);
+    if (mode === 'out') setShowClockOutConfirm(false);
+
+    if (attendanceMode === 'image' || attendanceMode === 'both') {
+      setShowCameraModal(true);
+      setTimeout(() => startCamera(), 100);
+      return;
+    }
+
+    runAttendanceFlow(mode);
+  };
+
+  const handleConfirmCaptured = async () => {
+    if (!capturedImage) return;
+    const selfieUrl = await uploadSelfie(capturedImage);
+    if (!selfieUrl) return;
+    await runAttendanceFlow(modalMode, selfieUrl);
   };
 
   const handlePrevMonth = useCallback(() => {
@@ -974,12 +1112,6 @@ const UserDashboard = () => {
   const shouldBlockMobileDashboard = false;
   const userJobRoleDisplay = getJobRoleDisplayName();
 
-  const sortedConfigs = useMemo(() => {
-    return [...dashboardConfig]
-      .filter(item => item.isEnabled)
-      .sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [dashboardConfig]);
-
   
   if (pageLoading) {
     return <CIISLoader />;
@@ -1025,45 +1157,8 @@ const UserDashboard = () => {
     );
   }
 
-  const dashboardProps = {
-    user,
-    companyDetails,
-    userJobRoleDisplay,
-    currentDate,
-    timer,
-    isRunning,
-    loading,
-    isUserInCurrentCompany,
-    isProcessing,
-    handleIn,
-    handleClockOut,
-    monthlyStats,
-    currentMonth,
-    monthNames,
-    holidaysLoading,
-    calendarMonth,
-    calendarYear,
-    handlePrevMonth,
-    resetToCurrentMonth,
-    handleNextMonth,
-    isMonthBeforeJoin,
-    formattedJoinDate,
-    calendarDays,
-    getDayStatus,
-    getDayIcon,
-    isToday,
-    holidayTitles,
-    daysOfWeek,
-    isBeforeJoinDate,
-    recentActivity,
-    handleRefresh,
-    getStatusColor,
-    userJoinDate,
-    currentYear
-  };
-
   return (
-    <div className="dashboard-container" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '20px' }}>
+    <div className="dashboard-container">
       <ToastContainer position="top-right" autoClose={3000} theme="colored" pauseOnHover />
       
       {showClockOutConfirm && (
@@ -1086,42 +1181,384 @@ const UserDashboard = () => {
               <button className="confirmation-btn confirmation-btn-cancel" onClick={() => setShowClockOutConfirm(false)} disabled={isProcessing}>
                 Cancel
               </button>
-              <button className="confirmation-btn confirmation-btn-confirm" onClick={() => handleClockOut({})} disabled={isProcessing}>
+              <button className="confirmation-btn confirmation-btn-confirm" onClick={() => handleActionClick('out')} disabled={isProcessing || selfieUploading}>
                 {isProcessing ? 'Processing...' : 'Confirm Clock Out'}
               </button>
             </div>
           </div>
         </div>
       )}
-      
-      {sortedConfigs.map(comp => {
-        if (comp.componentId === 'header') {
-          return (
-            <div key="header" className="dashboard-header" style={{ width: '100%' }}>
-              <WelcomeHeader {...dashboardProps} />
-            </div>
-          );
-        }
-        if (comp.componentId === 'clock-in') {
-          return (
-            <div key="clock-in" className="dashboard-header" style={{ width: '100%' }}>
-              <ClockInSection config={comp} {...dashboardProps} />
-            </div>
-          );
-        }
-        if (comp.componentId === 'stats') {
-          return <StatsCards key="stats" {...dashboardProps} />;
-        }
-        if (comp.componentId === 'calendar') {
-          return <AttendanceCalendar key="calendar" {...dashboardProps} />;
-        }
-        if (comp.componentId === 'activity') {
-          return <RecentActivity key="activity" {...dashboardProps} />;
-        }
-        return null;
-      })}
 
-      <div className="dashboard-month-info" style={{ width: '100%' }}>
+      {showCameraModal && (
+        <div className="confirmation-overlay" style={{ zIndex: 1000 }}>
+          <div className="confirmation-popup" style={{ maxWidth: '450px' }}>
+            <button className="confirmation-close-btn" onClick={handleCancelCameraModal} disabled={selfieUploading}>
+              <FiX size={20} />
+            </button>
+            <h3 className="confirmation-title">{modalMode === 'in' ? 'Clock In Verification' : 'Clock Out Verification'}</h3>
+            <p className="confirmation-message" style={{ marginBottom: '15px' }}>
+              Your company requires a selfie to verify attendance.
+            </p>
+
+            <div style={{ width: '100%', height: '300px', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden', position: 'relative', marginBottom: '20px' }}>
+              {capturedImage ? (
+                <img src={capturedImage} alt="Captured" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <video ref={videoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              )}
+            </div>
+
+            <div className="confirmation-buttons" style={{ justifyContent: 'center', gap: '15px' }}>
+              {capturedImage ? (
+                <>
+                  <button className="confirmation-btn confirmation-btn-cancel" onClick={startCamera} disabled={selfieUploading}>
+                    Retake
+                  </button>
+                  <button className="confirmation-btn confirmation-btn-confirm" onClick={handleConfirmCaptured} disabled={selfieUploading}>
+                    {selfieUploading ? 'Uploading...' : 'Confirm & Submit'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="confirmation-btn confirmation-btn-cancel" onClick={handleCancelCameraModal} disabled={selfieUploading}>
+                    Cancel
+                  </button>
+                  <button className="confirmation-btn confirmation-btn-confirm" onClick={capturePhoto} disabled={selfieUploading}>
+                    <FiCamera style={{ marginRight: '8px' }} /> Capture Photo
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <div className="dashboard-header">
+        <div className="dashboard-header-content">
+          <div className="dashboard-user-details">
+            <h1 className="dashboard-user-name">Welcome back, {user?.name || 'User'}</h1>
+            <p className="dashboard-user-welcome">
+              {new Date().getHours() < 12 ? 'Good morning! Let\'s make today count.' :
+               new Date().getHours() < 18 ? 'Good afternoon! Stay focused and productive.' :
+               'Good evening! Wrapping up strong.'}
+            </p>
+            <div className="dashboard-user-tags">
+              <span className="dashboard-tag dashboard-tag-role">
+                <FiBriefcase size={14} /> {userJobRoleDisplay}
+              </span>
+              <span className="dashboard-tag dashboard-tag-type">
+                <FiUser size={14} /> {user?.employeeType || 'Full-time'}
+              </span>
+              <span className="dashboard-tag dashboard-tag-company">
+                <FiBriefcase size={14} /> {companyDetails?.companyName || 'Company'}
+              </span>
+            </div>
+            <div className="dashboard-date-info">
+              <MdToday size={14} />
+              {currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            </div>
+          </div>
+          
+          <div className="dashboard-clock-section">
+            <div className="dashboard-timer-display">
+              <div className="dashboard-timer-value">{formatTime(timer)}</div>
+              <div className={`dashboard-timer-status ${isRunning ? 'status-active-text' : 'status-inactive-text'}`}>
+                <div className={`dashboard-timer-dot ${isRunning ? 'dot-active' : 'dot-inactive'}`}></div>
+                {isRunning ? 'Active Timer • Live' : 'Timer Stopped'}
+              </div>
+            </div>
+            <div className="dashboard-clock-buttons">
+              <button
+                onClick={() => handleActionClick('in')}
+                disabled={isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
+                className={`dashboard-btn dashboard-btn-clockin ${isRunning ? 'btn-disabled' : ''}`}
+              >
+                <FiPlay size={20} /> Clock In
+              </button>
+              <button
+                onClick={() => setShowClockOutConfirm(true)}
+                disabled={!isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
+                className={`dashboard-btn dashboard-btn-clockout ${!isRunning ? 'btn-disabled' : ''}`}
+              >
+                <FiSquare size={20} /> Clock Out
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      
+      {loading.attendance ? (
+        <StatsLoader />
+      ) : (
+        <div className="dashboard-stats-grid">
+          <div className="dashboard-stat-card stat-card-present">
+            <div className="stat-card-header">
+              <div className="stat-icon-container icon-present"><MdWork className="stat-icon" /></div>
+              <div className="stat-current-month">Current Month</div>
+            </div>
+            <div className="stat-value">{monthlyStats.presentDays}</div>
+            <div className="stat-label">Days Present</div>
+            <div className="stat-footer">
+              <FiTrendingUp className="stat-trend-icon" />
+              <span className="stat-month-text">Tracked in {monthNames[currentMonth]}</span>
+            </div>
+          </div>
+
+          <div className="dashboard-stat-card stat-card-late">
+            <div className="stat-card-header">
+              <div className="stat-icon-container icon-late"><MdOutlineAlarm className="stat-icon" /></div>
+              <div className="stat-current-month">Current Month</div>
+            </div>
+            <div className="stat-value">{monthlyStats.lateDays}</div>
+            <div className="stat-label">Late Days</div>
+            <div className="stat-footer">
+              <FiAlertTriangle className="stat-trend-icon" />
+              <span className="stat-month-text">Tracked in {monthNames[currentMonth]}</span>
+            </div>
+          </div>
+
+          <div className="dashboard-stat-card stat-card-halfday">
+            <div className="stat-card-header">
+              <div className="stat-icon-container icon-halfday"><MdOutlineCrop54 className="stat-icon" /></div>
+              <div className="stat-current-month">Current Month</div>
+            </div>
+            <div className="stat-value">{monthlyStats.halfDays}</div>
+            <div className="stat-label">Half Days</div>
+            <div className="stat-footer">
+              <FiActivity className="stat-trend-icon" />
+              <span className="stat-month-text">Tracked in {monthNames[currentMonth]}</span>
+            </div>
+          </div>
+
+          <div className="dashboard-stat-card stat-card-leave">
+            <div className="stat-card-header">
+              <div className="stat-icon-container icon-leave"><MdBeachAccess className="stat-icon" /></div>
+              <div className="stat-current-month">Current Month</div>
+            </div>
+            <div className="stat-value">{monthlyStats.leavesTaken}</div>
+            <div className="stat-label">Leaves Taken</div>
+            <div className="stat-footer">
+              <FiCheckCircle className="stat-trend-icon" />
+              <span className="stat-month-text">Approved in {monthNames[currentMonth]}</span>
+            </div>
+          </div>
+
+          <div className="dashboard-stat-card stat-card-absent">
+            <div className="stat-card-header">
+              <div className="stat-icon-container icon-absent"><FiX className="stat-icon" /></div>
+              <div className="stat-current-month">Current Month</div>
+            </div>
+            <div className="stat-value">{monthlyStats.absentDays}</div>
+            <div className="stat-label">Absent Days</div>
+            <div className="stat-footer">
+              <FiAlertCircle className="stat-trend-icon" />
+              <span className="stat-month-text">Tracked in {monthNames[currentMonth]}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="dashboard-content-grid">
+        
+        {loading.attendance || holidaysLoading ? (
+          <CalendarLoader />
+        ) : (
+          <div className="dashboard-calendar-card">
+            <div className="calendar-header">
+              <div className="calendar-title-section">
+                <div className="calendar-icon-container"><FiCalendar className="calendar-icon" /></div>
+                <div>
+                  <h2 className="calendar-title">{monthNames[calendarMonth]} {calendarYear}</h2>
+                  <p className="calendar-subtitle">Attendance Calendar</p>
+                </div>
+              </div>
+              <div className="calendar-controls">
+                <button onClick={handlePrevMonth} className="calendar-nav-btn" disabled={isMonthBeforeJoin(calendarYear, calendarMonth)}>
+                  <FiChevronLeft className="nav-icon" />
+                </button>
+                <button onClick={resetToCurrentMonth} className="calendar-today-btn">Today</button>
+                <button onClick={handleNextMonth} className="calendar-nav-btn">
+                  <FiChevronRight className="nav-icon" />
+                </button>
+              </div>
+            </div>
+
+            {isMonthBeforeJoin(calendarYear, calendarMonth) && (
+              <div className="calendar-before-join-message">
+                <FiClock size={16} />
+                <span>You joined on {formattedJoinDate}. No attendance records before this date.</span>
+              </div>
+            )}
+
+            <div className="calendar-body">
+              <div className="calendar-week-header">
+                {daysOfWeek.map(day => <div key={day} className="calendar-day-header">{day}</div>)}
+              </div>
+              <div className="calendar-grid">
+                {calendarDays.map((week, weekIndex) => (
+                  <div key={weekIndex} className="calendar-week">
+                    {week.map((day, dayIndex) => (
+                      <div key={dayIndex} className="calendar-day-wrapper">
+                        {day ? (
+                          <div className="calendar-day-container">
+                            <div
+                              className={`calendar-day ${getDayStatus(day) || 'empty'} ${isToday(day) ? 'day-today' : ''}`}
+                              title={
+                                getDayStatus(day) === 'holiday' 
+                                  ? `🎉 Holiday: ${holidayTitles[`${calendarYear}-${calendarMonth}-${day}`] || 'Holiday'}`
+                                  : isBeforeJoinDate(new Date(calendarYear, calendarMonth, day)) 
+                                    ? 'Before joining date' 
+                                    : getDayStatus(day)?.charAt(0).toUpperCase() + getDayStatus(day)?.slice(1) || 'No Record'
+                              }
+                              data-holiday-title={getDayStatus(day) === 'holiday' ? holidayTitles[`${calendarYear}-${calendarMonth}-${day}`] : ''}
+                            >
+                              <span className="day-number">{day}</span>
+                              {getDayIcon(day) && (
+                                <span className={`day-status-icon ${getDayStatus(day) === 'holiday' ? 'holiday-icon' : ''}`}>
+                                  {getDayIcon(day)}
+                                </span>
+                              )}
+                            </div>
+                            {isToday(day) && <div className="today-indicator"></div>}
+                          </div>
+                        ) : <div className="calendar-empty-day"></div>}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            
+            <div className="calendar-legend">
+              <div className="legend-item"><div className="legend-color color-present"></div><span>Present</span></div>
+              <div className="legend-item"><div className="legend-color color-late"></div><span>Late</span></div>
+              <div className="legend-item"><div className="legend-color color-halfday"></div><span>Half Day</span></div>
+              <div className="legend-item"><div className="legend-color color-leave"></div><span>Leave</span></div>
+              <div className="legend-item"><div className="legend-color color-absent"></div><span>Absent</span></div>
+              <div className="legend-item"><div className="legend-color color-weekend"></div><span>Weekend</span></div>
+              <div className="legend-item"><div className="legend-color color-holiday"></div><span>Holiday 🎉</span></div>
+              <div className="legend-item"><div className="legend-color color-before-join"></div><span>Before Joining</span></div>
+            </div>
+          </div>
+        )}
+
+        
+        <div className="dashboard-activity-card">
+          <div className="activity-header">
+            <div className="activity-title-section">
+              <div className="activity-icon-container"><MdOutlineWatchLater className="activity-icon" /></div>
+              <div>
+                <h2 className="activity-title">Recent Activity</h2>
+                <p className="activity-subtitle">Latest attendance & holidays</p>
+              </div>
+            </div>
+            <button onClick={handleRefresh} disabled={loading.attendance} className="activity-refresh-btn">
+              <FiRefreshCw className={`refresh-icon ${loading.attendance ? 'spinning' : ''}`} />
+            </button>
+          </div>
+
+          <div className="activity-list">
+            
+            {loading.attendance && recentActivity.length > 0 && <RefreshOverlay />}
+            
+            
+            {loading.attendance && !recentActivity.length && <ActivityLoader />}
+            
+            
+            {!loading.attendance && recentActivity.slice(0, 5).map((item, index) => {
+              
+              if (item.type === 'holiday') {
+                const date = new Date(item.date);
+                return (
+                  <div key={`holiday-${index}`} className="activity-item holiday-item">
+                    <div className="activity-item-content">
+                      <div className="activity-status-icon status-holiday">
+                        <MdCelebration className="status-icon" />
+                      </div>
+                      <div className="activity-details">
+                        <div className="activity-date">
+                          {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                          <span className="holiday-badge">🎉 Holiday</span>
+                        </div>
+                        <div className="activity-title">{item.title}</div>
+                      </div>
+                    </div>
+                    <div className="activity-status status-holiday">HOLIDAY</div>
+                  </div>
+                );
+              }
+
+              if (item.type === 'task') {
+                const date = new Date(item.date || Date.now());
+                return (
+                  <div key={`task-${index}`} className="activity-item">
+                    <div className="activity-item-content">
+                      <div className="activity-status-icon status-default">
+                        <FiBriefcase className="status-icon" />
+                      </div>
+                      <div className="activity-details">
+                        <div className="activity-date">
+                          {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                          <span className="current-month-badge">Task</span>
+                        </div>
+                        <div className="activity-title">{item.title}</div>
+                        {item.assignedTo && (
+                          <div className="activity-time">
+                            <FiUser size={12} /> {item.assignedTo}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="activity-status status-default">{item.status || 'pending'}</div>
+                  </div>
+                );
+              }
+              
+              
+              const date = new Date(item.date);
+              const isCurrentMonth = date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+              return (
+                <div key={index} className="activity-item">
+                  <div className="activity-item-content">
+                    <div className={`activity-status-icon ${getStatusColor(item.status)}`}>
+                      {item.status === 'PRESENT' && <FiCheckCircle className="status-icon" />}
+                      {item.status === 'LATE' && <FiAlertTriangle className="status-icon" />}
+                      {item.status === 'HALF DAY' && <FiAlertCircle className="status-icon" />}
+                      {item.status === 'ABSENT' && <FiAlertCircle className="status-icon" />}
+                      {!['PRESENT', 'LATE', 'HALF DAY', 'ABSENT'].includes(item.status) && <FiClock className="status-icon" />}
+                    </div>
+                    <div className="activity-details">
+                      <div className="activity-date">
+                        {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        {isCurrentMonth && <span className="current-month-badge">Current Month</span>}
+                      </div>
+                      <div className="activity-time">
+                        <MdAccessTime size={12} /> {item.totalTime || '--:--:--'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className={`activity-status ${getStatusColor(item.status)}`}>{item.status}</div>
+                </div>
+              );
+            })}
+            
+            
+            {!loading.attendance && !recentActivity.length && (
+              <div className="activity-empty-state">
+                <div className="empty-icon-container"><FiClock className="empty-icon" /></div>
+                <p className="empty-title">No activity found</p>
+                <p className="empty-subtitle">
+                  {userJoinDate ? `You joined on ${formattedJoinDate}. Records will appear after this date.` : 'Your activity will appear here'}
+                </p>
+              </div>
+            )}
+          </div>          
+        </div>
+      </div>
+
+      <div className="dashboard-month-info">
         <div className="month-info-content">
           <div className="month-info-left">
             <div className="month-info-title">

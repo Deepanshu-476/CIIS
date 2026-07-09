@@ -1277,7 +1277,13 @@ const closeDetailModal = () => {
         <div className="MyLeaves-modal-overlay">
           <div className="MyLeaves-modal">
             <div className="MyLeaves-modal-header">
-              <h2>{historyDialog.title}</h2>
+              <div className="MyLeaves-history-modal-title">
+                <span className="MyLeaves-history-modal-eyebrow">Leave history</span>
+                <h2>{historyDialog.title}</h2>
+              </div>
+              <span className="MyLeaves-history-count">
+                {historyDialog.items.length} update{historyDialog.items.length === 1 ? "" : "s"}
+              </span>
               <button className="MyLeaves-modal-close" onClick={closeHistoryModal}>
                 <FiX />
               </button>
@@ -1291,28 +1297,46 @@ const closeDetailModal = () => {
                 </div>
               ) : (
                 <div className="MyLeaves-history-list">
-                  {historyDialog.items.map((item, index) => (
-                    <div key={index} className="MyLeaves-history-item">
-                      <div className="MyLeaves-history-icon">
-                        {item.action === "approved" && <FiCheckCircle className="MyLeaves-history-approved" />}
-                        {item.action === "rejected" && <FiXCircle className="MyLeaves-history-rejected" />}
-                        {item.action === "applied" && <FiClock className="MyLeaves-history-applied" />}
+                  {historyDialog.items.map((item, index) => {
+                    const action = String(item.action || "pending").toLowerCase();
+                    const actor = typeof item.by === "object" ? item.by?.name : item.by;
+                    const historyText =
+                      action === "approved"
+                        ? `Approved by ${actor || "Unknown"}`
+                        : action === "rejected"
+                          ? `Rejected by ${actor || "Unknown"}`
+                          : action === "applied"
+                            ? "Leave request applied"
+                            : "Pending update";
+
+                    return (
+                    <div key={index} className={`MyLeaves-history-item MyLeaves-history-${action}`}>
+                      <div className="MyLeaves-history-icon" aria-hidden="true">
+                        {action === "approved" && <FiCheckCircle />}
+                        {action === "rejected" && <FiXCircle />}
+                        {action !== "approved" && action !== "rejected" && <FiClock />}
                       </div>
                       <div className="MyLeaves-history-content">
-                        <p className="MyLeaves-history-text">
-                          {getHistoryLabel(item)}
+                        <div className="MyLeaves-history-row-top">
+                          <p className="MyLeaves-history-text">
+                            {historyText}
+                          </p>
+                          <span className="MyLeaves-history-action-pill">
+                            {action}
+                          </span>
+                        </div>
+                        <p className="MyLeaves-history-time">
+                          {item.at ? new Date(item.at).toLocaleString() : 'Unknown date'}
                         </p>
                         {item.remarks && (
                           <p className="MyLeaves-history-remarks">
                             <strong>Remarks:</strong> {item.remarks}
                           </p>
                         )}
-                        <p className="MyLeaves-history-time">
-                          {item.at ? new Date(item.at).toLocaleString() : 'Unknown date'}
-                        </p>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

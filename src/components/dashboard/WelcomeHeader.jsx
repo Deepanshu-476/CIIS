@@ -4,7 +4,7 @@ import { MdToday } from 'react-icons/md';
 
 const WelcomeHeader = ({ user, companyDetails, userJobRoleDisplay, currentDate }) => {
   return (
-    <div className="dashboard-header-content" style={{ width: '100%' }}>
+    <div className="dashboard-welcome-section">
       <div className="dashboard-user-details">
         <h1 className="dashboard-user-name">Welcome back, {user?.name || 'User'}</h1>
         <p className="dashboard-user-welcome">

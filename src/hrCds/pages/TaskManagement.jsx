@@ -805,6 +805,71 @@ const UserCreateTask = () => {
       : getAssignedTaskStatus(task);
   }, [getTaskSource, getUserStatusForTask, getAssignedTaskStatus, userId]);
 
+  const getStatusOptionsForTask = useCallback((status, taskSource) => {
+    const normalizedStatus = normalizeStatus(status);
+
+    if (normalizedStatus === 'onhold' && taskSource !== 'client') {
+      return [
+        { value: 'in-progress', label: 'In Progress' },
+        { value: 'completed', label: 'Completed' }
+      ];
+    }
+
+    if (normalizedStatus === 'completed' && taskSource !== 'client') {
+      return [
+        { value: 'completed', label: 'Completed' },
+        { value: 'reopen', label: 'Reopen' }
+      ];
+    }
+
+    if (normalizedStatus === 'reopen' && taskSource !== 'client') {
+      return [
+        { value: 'reopen', label: 'Reopen' },
+        { value: 'completed', label: 'Completed' }
+      ];
+    }
+
+    if (taskSource === 'project') {
+      return [
+        { value: 'pending', label: 'Pending' },
+        { value: 'in-progress', label: 'In Progress' },
+        { value: 'completed', label: 'Completed' },
+        { value: 'onhold', label: 'On Hold' },
+        { value: 'cancelled', label: 'Cancelled' }
+      ];
+    }
+
+    if (taskSource === 'client') {
+      return [
+        { value: 'pending', label: 'Pending' },
+        { value: 'in-progress', label: 'In Progress' },
+        { value: 'onhold', label: 'On Hold' },
+        { value: 'completed', label: 'Completed' },
+        { value: 'overdue', label: 'Overdue' }
+      ];
+    }
+
+    if (taskSource !== 'self') {
+      return [
+        { value: 'pending', label: 'Pending' },
+        { value: 'in-progress', label: 'In Progress' },
+        { value: 'completed', label: 'Completed' },
+        { value: 'overdue', label: 'Overdue' }
+      ];
+    }
+
+    return [
+      { value: 'pending', label: 'Pending' },
+      { value: 'in-progress', label: 'In Progress' },
+      { value: 'completed', label: 'Completed' },
+      { value: 'overdue', label: 'Overdue' },
+      { value: 'rejected', label: 'Rejected' },
+      { value: 'onhold', label: 'On Hold' },
+      { value: 'reopen', label: 'Reopen' },
+      { value: 'cancelled', label: 'Cancelled' }
+    ];
+  }, []);
+
   const getProjectAssignmentDisplay = useCallback((task) => {
     const assignedBy = task?.assignedByName || getUserDisplayName(task?.assignedBy || task?.createdBy);
     const assignedTo = task?.assignedToName || getUserDisplayName(task?.assignedTo);
@@ -3190,6 +3255,9 @@ const UserCreateTask = () => {
                         const attachmentUrl = getImageUrl(getAttachmentPath(attachment));
                         const attachmentName = getAttachmentName(attachment);
                         const attachmentIsImage = isImageAttachment(attachment);
+                        const statusOptions = getStatusOptionsForTask(status, taskSource);
+                        const isOnHoldActionSelect = normalizeStatus(status) === 'onhold' && taskSource !== 'client';
+                        const selectValue = isOnHoldActionSelect ? '' : status;
 
                         return (
                           <div 
@@ -3322,7 +3390,7 @@ const UserCreateTask = () => {
                                   </div>
                                   <div style={{ minWidth: '90px' }}>
                                     <select
-                                      value={status}
+                                      value={selectValue}
                                       onChange={(e) => {
                                         const selectedStatus = e.target.value;
                                         const currentTaskId = task._id;
@@ -3354,51 +3422,10 @@ const UserCreateTask = () => {
                                         cursor: (status === 'overdue' || taskIsOverdue || task.overallStatus === 'overdue') ? 'not-allowed' : 'pointer'
                                       }}
                                     >
-                                      {status === 'completed' && taskSource !== 'client' ? (
-                                        <>
-                                          <option value="completed">Completed</option>
-                                          <option value="reopen">Reopen</option>
-                                        </>
-                                      ) : status === 'reopen' && taskSource !== 'client' ? (
-                                        <>
-                                          <option value="reopen">Reopen</option>
-                                          <option value="completed">Completed</option>
-                                        </>
-                                      ) : taskSource === 'project' ? (
-                                        <>
-                                          <option value="pending">Pending</option>
-                                          <option value="in-progress">In Progress</option>
-                                          <option value="completed">Completed</option>
-                                          <option value="onhold">On Hold</option>
-                                          <option value="cancelled">Cancelled</option>
-                                        </>
-                                      ) : taskSource === 'client' ? (
-                                        <>
-                                          <option value="pending">Pending</option>
-                                          <option value="in-progress">In Progress</option>
-                                          <option value="onhold">On Hold</option>
-                                          <option value="completed">Completed</option>
-                                          <option value="overdue">Overdue</option>
-                                        </>
-                                      ) : taskSource !== 'self' ? (
-                                        <>
-                                          <option value="pending">Pending</option>
-                                          <option value="in-progress">In Progress</option>
-                                          <option value="completed">Completed</option>
-                                          <option value="overdue">Overdue</option>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <option value="pending">Pending</option>
-                                          <option value="in-progress">In Progress</option>
-                                          <option value="completed">Completed</option>
-                                          <option value="overdue">Overdue</option>
-                                          <option value="rejected">Rejected</option>
-                                          <option value="onhold">On Hold</option>
-                                          <option value="reopen">Reopen</option>
-                                          <option value="cancelled">Cancelled</option>
-                                        </>
-                                      )}
+                                      {isOnHoldActionSelect && <option value="" disabled>Change Status</option>}
+                                      {statusOptions.map(option => (
+                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                      ))}
                                     </select>
                                   </div>
                                 </div>
@@ -3454,6 +3481,9 @@ const UserCreateTask = () => {
                           const attachmentUrl = getImageUrl(getAttachmentPath(attachment));
                           const attachmentName = getAttachmentName(attachment);
                           const attachmentIsImage = isImageAttachment(attachment);
+                          const statusOptions = getStatusOptionsForTask(status, taskSource);
+                          const isOnHoldActionSelect = normalizeStatus(status) === 'onhold' && taskSource !== 'client';
+                          const selectValue = isOnHoldActionSelect ? '' : status;
 
                           return (
                             <tr 
@@ -3667,7 +3697,7 @@ const UserCreateTask = () => {
                               </td>
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
                                 <select
-                                  value={status}
+                                  value={selectValue}
                                   onChange={(e) => {
                                     const selectedStatus = e.target.value;
                                     const currentTaskId = task._id;
@@ -3706,51 +3736,10 @@ const UserCreateTask = () => {
                                     cursor: (status === 'overdue' || taskIsOverdue || task.overallStatus === 'overdue') ? 'not-allowed' : 'pointer'
                                   }}
                                 >
-                                  {status === 'completed' && taskSource !== 'client' ? (
-                                    <>
-                                      <option value="completed">Completed</option>
-                                      <option value="reopen">Reopen</option>
-                                    </>
-                                  ) : status === 'reopen' && taskSource !== 'client' ? (
-                                    <>
-                                      <option value="reopen">Reopen</option>
-                                      <option value="completed">Completed</option>
-                                    </>
-                                  ) : taskSource === 'project' ? (
-                                    <>
-                                      <option value="pending">Pending</option>
-                                      <option value="in-progress">In Progress</option>
-                                      <option value="completed">Completed</option>
-                                      <option value="onhold">On Hold</option>
-                                      <option value="cancelled">Cancelled</option>
-                                    </>
-                                  ) : taskSource === 'client' ? (
-                                    <>
-                                      <option value="pending">Pending</option>
-                                      <option value="in-progress">In Progress</option>
-                                      <option value="onhold">On Hold</option>
-                                      <option value="completed">Completed</option>
-                                      <option value="overdue">Overdue</option>
-                                    </>
-                                  ) : taskSource !== 'self' ? (
-                                    <>
-                                      <option value="pending">Pending</option>
-                                      <option value="in-progress">In Progress</option>
-                                      <option value="completed">Completed</option>
-                                      <option value="overdue">Overdue</option>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <option value="pending">Pending</option>
-                                      <option value="in-progress">In Progress</option>
-                                      <option value="completed">Completed</option>
-                                      <option value="overdue">Overdue</option>
-                                      <option value="rejected">Rejected</option>
-                                      <option value="onhold">On Hold</option>
-                                      <option value="reopen">Reopen</option>
-                                      <option value="cancelled">Cancelled</option>
-                                    </>
-                                  )}
+                                  {isOnHoldActionSelect && <option value="" disabled>Change Status</option>}
+                                  {statusOptions.map(option => (
+                                    <option key={option.value} value={option.value}>{option.label}</option>
+                                  ))}
                                 </select>
                               </td>
                             </tr>

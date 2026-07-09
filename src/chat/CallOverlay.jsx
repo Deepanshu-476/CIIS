@@ -94,7 +94,7 @@ const notifyIncomingCall = (incomingCall) => {
         ? `${callerName} invited you to ${incomingCall.title || "a group call"}`
         : `${callerName} is calling`;
 
-    window.electronAPI?.showIncomingCall?.({
+    window.electronAPI?.showIncomingCall?.({         
         title,
         body,
         callerName,
@@ -157,6 +157,19 @@ const RemoteVideoTile = ({ participant }) => {
             <div className="call-tile-name">{participant.user?.name || "Participant"}</div>
         </div>
     );
+};
+
+const RemoteAudioTrack = ({ participant }) => {
+    const audioRef = useRef(null);
+
+    useEffect(() => {
+        if (!audioRef.current || !participant.stream) return;
+
+        audioRef.current.srcObject = participant.stream;
+        audioRef.current.play?.().catch(error => logCall("Remote voice audio autoplay failed", error));
+    }, [participant.stream]);
+
+    return <audio ref={audioRef} autoPlay playsInline />;
 };
 
 const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
@@ -837,9 +850,14 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
                             <div className="call-waiting-text">Waiting for participants...</div>
                         )
                     ) : (
-                        <div className="call-avatar-large">
-                            {avatarSrc ? <img src={avatarSrc} alt={call.peerUser?.name} /> : call.peerUser?.name?.charAt(0).toUpperCase() || "U"}
-                        </div>
+                        <>
+                            {remoteParticipants.map(participant => (
+                                <RemoteAudioTrack key={participant.userId} participant={participant} />
+                            ))}
+                            <div className="call-avatar-large">
+                                {avatarSrc ? <img src={avatarSrc} alt={call.peerUser?.name} /> : call.peerUser?.name?.charAt(0).toUpperCase() || "U"}
+                            </div>
+                        </>
                     )}
 
                     {isVideoCall && (

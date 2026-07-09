@@ -4,7 +4,7 @@ import React, {
     useState
 } from "react";
 import "../Pages/Chat/chat.css";
-import { ArrowLeft, Mic, Paperclip, Phone, SendHorizontal, Smile, Square, Video, X } from "lucide-react";
+import { ArrowLeft, Bell, ChevronRight, Image, Mic, MessageCircle, MoreVertical, Paperclip, Phone, Search, SendHorizontal, Smile, Square, Star, TimerReset, Video, Wallpaper, X } from "lucide-react";
 
 import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage } from "../services/chatService";
 
@@ -90,6 +90,7 @@ const ChatBox = ({
     const [activeChatDateLabel, setActiveChatDateLabel] = useState("");
     const [showActiveChatDate, setShowActiveChatDate] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [showContactInfo, setShowContactInfo] = useState(false);
     const quickReplies = [
         "Please share the report",
         "What's the next plan?",
@@ -256,6 +257,7 @@ const ChatBox = ({
 
         setConversation(null);
         setMessages([]);
+        setShowContactInfo(false);
         startConversation();  
     }, [selectedUserKey]);
 
@@ -890,10 +892,15 @@ useEffect(() => {
         if (!canStartCall) return;
         startCall(callType, selectedUser);
     };
+    const selectedAvatar = selectedUser?.isGroup
+        ? null
+        : getAvatarSrc(selectedUser.avatar || selectedUser.profileImage || selectedUser.image);
+    const selectedName = selectedUser?.isGroup ? getGroupName(selectedUser) : selectedUser?.name;
 
     return (
 
-        <div className="chat-box">
+        <div className={showContactInfo ? "chat-box contact-info-open" : "chat-box"}>
+            <div className="chat-conversation">
             <div className="chat-header">
                 <div className="chat-header-left">
                     <button
@@ -904,34 +911,49 @@ useEffect(() => {
                     >
                         <ArrowLeft size={20} />
                     </button>
-                    <div className="chat-avatar">
-                        {
-                            selectedUser.isGroup
-                                ? selectedUser.name?.charAt(0).toUpperCase() || "G"
-                                : getAvatarSrc(selectedUser.avatar || selectedUser.profileImage || selectedUser.image)
-                                ? (
-                                    <img
-                                        src={getAvatarSrc(selectedUser.avatar || selectedUser.profileImage || selectedUser.image)}
-                                        alt={selectedUser.name}
-                                    />
-                                )
-                                : selectedUser.name?.charAt(0).toUpperCase()
-                        }
-                    </div>
-                    <div className="chat-user-meta">
-                        <div className="chat-user-name">
-                                {selectedUser.isGroup ? getGroupName(selectedUser) : selectedUser.name}
-                            </div>
-                            <div className={`chat-user-status ${selectedUser.isGroup || isSelectedUserOnline ? "" : "offline"}`}>
-                                {typingUserId 
-                                    ? "Typing..." 
-                                    : selectedUser.isGroup 
-                                    ? groupStatusLabel
-                                    : (isSelectedUserOnline ? "Online" : "Offline")}
-                            </div>
-                    </div>
+                    <button
+                        type="button"
+                        className="chat-header-profile"
+                        onClick={() => setShowContactInfo(true)}
+                        title="Open contact info"
+                    >
+                        <span className="chat-avatar">
+                            {
+                                selectedUser.isGroup
+                                    ? selectedName?.charAt(0).toUpperCase() || "G"
+                                    : selectedAvatar
+                                    ? (
+                                        <img
+                                            src={selectedAvatar}
+                                            alt={selectedName}
+                                        />
+                                    )
+                                    : selectedName?.charAt(0).toUpperCase()
+                            }
+                        </span>
+                        <span className="chat-user-meta">
+                            <span className="chat-user-name">
+                                    {selectedName}
+                                </span>
+                                <span className={`chat-user-status ${selectedUser.isGroup || isSelectedUserOnline ? "" : "offline"}`}>
+                                    {typingUserId 
+                                        ? "Typing..." 
+                                        : selectedUser.isGroup 
+                                        ? groupStatusLabel
+                                        : (isSelectedUserOnline ? "Online" : "Offline")}
+                                </span>
+                        </span>
+                    </button>
                 </div>
                 <div className="chat-header-actions">
+                    <button
+                        type="button"
+                        title={selectedUser.isGroup ? (canStartCall ? "Start group video call" : "No group member online") : isSelectedUserOnline ? "Start video call" : "User is offline"}
+                        onClick={() => startDirectCall("video")}
+                        disabled={!canStartCall}
+                    >
+                        <Video size={18} />
+                    </button>
                     <button
                         type="button"
                         title={selectedUser.isGroup ? (canStartCall ? "Start group voice call" : "No group member online") : isSelectedUserOnline ? "Start voice call" : "User is offline"}
@@ -942,11 +964,12 @@ useEffect(() => {
                     </button>
                     <button
                         type="button"
-                        title={selectedUser.isGroup ? (canStartCall ? "Start group video call" : "No group member online") : isSelectedUserOnline ? "Start video call" : "User is offline"}
-                        onClick={() => startDirectCall("video")}
-                        disabled={!canStartCall}
+                        title="Search"
                     >
-                        <Video size={18} />
+                        <Search size={18} />
+                    </button>
+                    <button type="button" title="More">
+                        <MoreVertical size={18} />
                     </button>
                 </div>
             </div>
@@ -1154,6 +1177,79 @@ useEffect(() => {
                     </button>
                 </div>
             </div>
+            </div>
+
+            {showContactInfo && (
+            <aside className="chat-contact-info">
+                <div className="chat-contact-top">
+                    <button type="button" title="Back" onClick={() => setShowContactInfo(false)}>
+                        <ArrowLeft size={20} />
+                    </button>
+                    <strong>Contact info</strong>
+                    <button type="button" title="Close" onClick={() => setShowContactInfo(false)}>
+                        <X size={22} />
+                    </button>
+                </div>
+                <div className="chat-contact-profile">
+                    <div className="chat-contact-avatar">
+                        {selectedAvatar ? (
+                            <img src={selectedAvatar} alt={selectedName} />
+                        ) : (
+                            selectedName?.charAt(0).toUpperCase() || "U"
+                        )}
+                    </div>
+                    <h2>{selectedName}</h2>
+                    <span>{selectedUser.isGroup ? groupStatusLabel : (isSelectedUserOnline ? "online" : "offline")}</span>
+                </div>
+                <div className="chat-contact-actions">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setShowContactInfo(false);
+                            requestAnimationFrame(() => chatInputRef.current?.focus());
+                        }}
+                        title="Message"
+                    >
+                        <MessageCircle size={20} />
+                        <span>Message</span>
+                    </button>
+                    <button type="button" onClick={() => startDirectCall("audio")} disabled={!canStartCall} title="Voice call">
+                        <Phone size={20} />
+                        <span>Voice call</span>
+                    </button>
+                    <button type="button" onClick={() => startDirectCall("video")} disabled={!canStartCall} title="Video call">
+                        <Video size={20} />
+                        <span>Video call</span>
+                    </button>
+                    <button type="button" title="Search">
+                        <Search size={20} />
+                        <span>Search</span>
+                    </button>
+                </div>
+                <div className="chat-contact-section">
+                    <h3>About</h3>
+                    <p>{selectedUser?.bio || selectedUser?.about || selectedUser?.companyRole || "Work hard in silence, let success make the noise."}</p>
+                </div>
+                <div className="chat-contact-section">
+                    <div className="chat-contact-section-head">
+                        <span>Media, links and docs</span>
+                        <button type="button">See all <ChevronRight size={15} /></button>
+                    </div>
+                    <div className="chat-media-thumbs">
+                        <div><Image size={22} /></div>
+                        <div><Wallpaper size={22} /></div>
+                        <div><Image size={22} /></div>
+                        <div>+12</div>
+                    </div>
+                </div>
+                <div className="chat-contact-list">
+                    <button type="button"><Star size={19} /><span>Starred messages</span><ChevronRight size={18} /></button>
+                    <button type="button"><Bell size={19} /><span>Mute notifications</span><i /></button>
+                    <button type="button"><Wallpaper size={19} /><span>Wallpaper & sound</span><ChevronRight size={18} /></button>
+                    <button type="button"><TimerReset size={19} /><span>Disappearing messages<small>Off</small></span><ChevronRight size={18} /></button>
+                </div>
+            </aside>
+            )}
 
         </div>
     );

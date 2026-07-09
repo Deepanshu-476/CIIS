@@ -186,6 +186,12 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       showForEmail: ['ashutoshrai130@gmail.com']
     },
     { 
+      icon: <CompanyIcon />, 
+      name: 'Company Access', 
+      route: '/Ciis-network/CompanyAccessManagement',
+      showForEmail: ['ashutoshrai130@gmail.com']
+    },
+    { 
       icon: <DepartmentIcon />, 
       name: 'Department', 
       route: '/Ciis-network/department',

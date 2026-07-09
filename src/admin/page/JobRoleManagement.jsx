@@ -23,7 +23,21 @@ const JobRoleManagement = () => {
     description: '',
     department: '',
     company: '',  
-    companyCode: '' 
+    companyCode: '',
+    shiftSettings: {
+      shiftStart: '09:00',
+      shiftEnd: '19:00',
+      earlyClockInStart: '08:30',
+      lateGraceLimit: '09:10',
+      halfDayLateLimit: '11:00',
+      shortLeaveEarlyLimit: '18:30',
+      halfDayEarlyLimit: '15:00',
+      secondHalfStart: '14:00',
+      secondHalfClockInWindow: {
+        start: '13:30',
+        end: '14:30'
+      }
+    }
   });
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
@@ -239,7 +253,8 @@ const JobRoleManagement = () => {
       const submitData = {
         name: formData.name.trim(),
         description: formData.description.trim(),
-        department: formData.department
+        department: formData.department,
+        shiftSettings: formData.shiftSettings
       };
       
       if (!isSuper || formData.company) {
@@ -281,7 +296,21 @@ const JobRoleManagement = () => {
         description: '',
         department: '',
         company: user.company || '',
-        companyCode: user.companyCode || ''
+        companyCode: user.companyCode || '',
+        shiftSettings: {
+          shiftStart: '09:00',
+          shiftEnd: '19:00',
+          earlyClockInStart: '08:30',
+          lateGraceLimit: '09:10',
+          halfDayLateLimit: '11:00',
+          shortLeaveEarlyLimit: '18:30',
+          halfDayEarlyLimit: '15:00',
+          secondHalfStart: '14:00',
+          secondHalfClockInWindow: {
+            start: '13:30',
+            end: '14:30'
+          }
+        }
       });
       setEditingJobRole(null);
       setRefreshKey(prev => prev + 1);
@@ -329,7 +358,21 @@ const JobRoleManagement = () => {
       description: jobRole.description || '',
       department: jobRole.department?._id || jobRole.department || '',
       company: jobRole.company?._id || jobRole.company || user?.company || '',
-      companyCode: jobRole.companyCode || user?.companyCode || ''
+      companyCode: jobRole.companyCode || user?.companyCode || '',
+      shiftSettings: jobRole.shiftSettings || {
+        shiftStart: '09:00',
+        shiftEnd: '19:00',
+        earlyClockInStart: '08:30',
+        lateGraceLimit: '09:10',
+        halfDayLateLimit: '11:00',
+        shortLeaveEarlyLimit: '18:30',
+        halfDayEarlyLimit: '15:00',
+        secondHalfStart: '14:00',
+        secondHalfClockInWindow: {
+          start: '13:30',
+          end: '14:30'
+        }
+      }
     });
     setOpenDialog(true);
     setAnchorEl(null);
@@ -843,7 +886,21 @@ const JobRoleManagement = () => {
                 description: '',
                 department: '',
                 company: user?.company || '',
-                companyCode: user?.companyCode || ''
+                companyCode: user?.companyCode || '',
+                shiftSettings: {
+                  shiftStart: '09:00',
+                  shiftEnd: '19:00',
+                  earlyClockInStart: '08:30',
+                  lateGraceLimit: '09:10',
+                  halfDayLateLimit: '11:00',
+                  shortLeaveEarlyLimit: '18:30',
+                  halfDayEarlyLimit: '15:00',
+                  secondHalfStart: '14:00',
+                  secondHalfClockInWindow: {
+                    start: '13:30',
+                    end: '14:30'
+                  }
+                }
               });
               setOpenDialog(true);
             }}
@@ -954,7 +1011,6 @@ const JobRoleManagement = () => {
                   />
                 </div>
               </div>
-              
               <div className="JobRoleManagement-form-group">
                 <label className="JobRoleManagement-form-label">Department *</label>
                 <select
@@ -969,6 +1025,132 @@ const JobRoleManagement = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px' }}>
+                <h4 style={{ marginBottom: '15px', color: '#333', fontSize: '1rem', fontWeight: 600 }}>Shift & Clock-in Timing Settings</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '15px' }}>
+                  <div className="JobRoleManagement-form-group">
+                    <label className="JobRoleManagement-form-label">Shift Start Time</label>
+                    <input
+                      type="time"
+                      className="JobRoleManagement-form-input"
+                      value={formData.shiftSettings?.shiftStart || '09:00'}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        shiftSettings: { ...formData.shiftSettings, shiftStart: e.target.value }
+                      })}
+                    />
+                  </div>
+                  <div className="JobRoleManagement-form-group">
+                    <label className="JobRoleManagement-form-label">Shift End Time</label>
+                    <input
+                      type="time"
+                      className="JobRoleManagement-form-input"
+                      value={formData.shiftSettings?.shiftEnd || '19:00'}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        shiftSettings: { ...formData.shiftSettings, shiftEnd: e.target.value }
+                      })}
+                    />
+                  </div>
+                  <div className="JobRoleManagement-form-group">
+                    <label className="JobRoleManagement-form-label">Early Clock-in Allowed From</label>
+                    <input
+                      type="time"
+                      className="JobRoleManagement-form-input"
+                      value={formData.shiftSettings?.earlyClockInStart || '08:30'}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        shiftSettings: { ...formData.shiftSettings, earlyClockInStart: e.target.value }
+                      })}
+                    />
+                  </div>
+                  <div className="JobRoleManagement-form-group">
+                    <label className="JobRoleManagement-form-label">Late Grace Limit Time</label>
+                    <input
+                      type="time"
+                      className="JobRoleManagement-form-input"
+                      value={formData.shiftSettings?.lateGraceLimit || '09:10'}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        shiftSettings: { ...formData.shiftSettings, lateGraceLimit: e.target.value }
+                      })}
+                    />
+                  </div>
+                  <div className="JobRoleManagement-form-group">
+                    <label className="JobRoleManagement-form-label">Half-Day Late Limit Time</label>
+                    <input
+                      type="time"
+                      className="JobRoleManagement-form-input"
+                      value={formData.shiftSettings?.halfDayLateLimit || '11:00'}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        shiftSettings: { ...formData.shiftSettings, halfDayLateLimit: e.target.value }
+                      })}
+                    />
+                  </div>
+                  <div className="JobRoleManagement-form-group">
+                    <label className="JobRoleManagement-form-label">Short Leave Limit Time</label>
+                    <input
+                      type="time"
+                      className="JobRoleManagement-form-input"
+                      value={formData.shiftSettings?.shortLeaveEarlyLimit || '18:30'}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        shiftSettings: { ...formData.shiftSettings, shortLeaveEarlyLimit: e.target.value }
+                      })}
+                    />
+                  </div>
+                  <div className="JobRoleManagement-form-group" style={{ gridColumn: isMobile ? 'span 1' : 'span 2' }}>
+                    <label className="JobRoleManagement-form-label">Half-Day Early Out Limit Time</label>
+                    <input
+                      type="time"
+                      className="JobRoleManagement-form-input"
+                      value={formData.shiftSettings?.halfDayEarlyLimit || '15:00'}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        shiftSettings: { ...formData.shiftSettings, halfDayEarlyLimit: e.target.value }
+                      })}
+                    />
+                  </div>
+                  <div className="JobRoleManagement-form-group">
+                    <label className="JobRoleManagement-form-label">2nd Half Clock-in Window Start</label>
+                    <input
+                      type="time"
+                      className="JobRoleManagement-form-input"
+                      value={formData.shiftSettings?.secondHalfClockInWindow?.start || '13:30'}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        shiftSettings: {
+                          ...formData.shiftSettings,
+                          secondHalfClockInWindow: {
+                            ...formData.shiftSettings?.secondHalfClockInWindow,
+                            start: e.target.value
+                          }
+                        }
+                      })}
+                    />
+                  </div>
+                  <div className="JobRoleManagement-form-group">
+                    <label className="JobRoleManagement-form-label">2nd Half Clock-in Window End</label>
+                    <input
+                      type="time"
+                      className="JobRoleManagement-form-input"
+                      value={formData.shiftSettings?.secondHalfClockInWindow?.end || '14:30'}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        shiftSettings: {
+                          ...formData.shiftSettings,
+                          secondHalfClockInWindow: {
+                            ...formData.shiftSettings?.secondHalfClockInWindow,
+                            end: e.target.value
+                          }
+                        }
+                      })}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
             

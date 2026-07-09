@@ -54,6 +54,55 @@ const calculateDistance = (lat1, lon1, lat2 = 30.707949, lon2 = 76.6860975) => {
   return Math.round(d);
 };
 
+const hasValidLocation = (location) => {
+  const latitude = Number(location?.latitude);
+  const longitude = Number(location?.longitude);
+  return Number.isFinite(latitude) && Number.isFinite(longitude);
+};
+
+const formatLocation = (location) => {
+  if (!hasValidLocation(location)) return "";
+  return `${Number(location.latitude).toFixed(6)}, ${Number(location.longitude).toFixed(6)}`;
+};
+
+const getMapsUrl = (location) => {
+  if (!hasValidLocation(location)) return "#";
+  return `https://www.google.com/maps?q=${location.latitude},${location.longitude}`;
+};
+
+const LocationMeta = ({ location, label = "Location", compact = false }) => {
+  if (!hasValidLocation(location)) return null;
+
+  const distance = calculateDistance(location.latitude, location.longitude);
+  const accuracy = Number(location.accuracy);
+
+  return (
+    <span style={{ fontSize: compact ? '0.72rem' : '0.8rem', color: '#666', display: 'block', marginTop: compact ? '2px' : '4px', lineHeight: 1.35 }}>
+      {distance !== null && (
+        <>
+          {compact ? 'Dist' : `${label} distance`}: <strong>{distance}m</strong>
+          <br />
+        </>
+      )}
+      {Number.isFinite(accuracy) && (
+        <>
+          Accuracy: <strong>{Math.round(accuracy)}m</strong>
+          <br />
+        </>
+      )}
+      <a
+        href={getMapsUrl(location)}
+        target="_blank"
+        rel="noreferrer"
+        style={{ color: '#2563eb', textDecoration: 'none' }}
+        title={`Open ${formatLocation(location)} in Google Maps`}
+      >
+        {compact ? 'Map' : 'Current location'}: {formatLocation(location)}
+      </a>
+    </span>
+  );
+};
+
 const DateRangeFilter = ({ startDate, endDate, onStartDateChange, onEndDateChange, onApply, onClear }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -653,11 +702,7 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
                 value={editedRecord.inTime}
                 onChange={(e) => handleTimeChange('inTime', e.target.value)}
               />
-              {record?.inLocation && (
-                <div style={{ marginTop: '4px', fontSize: '0.8rem', color: '#666' }}>
-                  Login distance: <strong>{calculateDistance(record.inLocation.latitude, record.inLocation.longitude)}m</strong>
-                </div>
-              )}
+              <LocationMeta location={record?.inLocation} label="Login" />
             </div>
 
             <div className="EmppAttendence-form-group">
@@ -668,11 +713,7 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
                 value={editedRecord.outTime}
                 onChange={(e) => setEditedRecord(prev => ({ ...prev, outTime: e.target.value }))}
               />
-              {record?.outLocation && (
-                <div style={{ marginTop: '4px', fontSize: '0.8rem', color: '#666' }}>
-                  Logout distance: <strong>{calculateDistance(record.outLocation.latitude, record.outLocation.longitude)}m</strong>
-                </div>
-              )}
+              <LocationMeta location={record?.outLocation} label="Logout" />
             </div>
 
             <div className="EmppAttendence-form-group">
@@ -2697,22 +2738,14 @@ const EmployeeAttendance = () => {
                             <div style={{ fontWeight: 500 }}>
                               {formatTime(rec.inTime)}
                             </div>
-                            {rec.inLocation && (
-                              <span style={{ fontSize: '0.75rem', color: '#888', display: 'block', marginTop: '2px' }}>
-                                Dist: {calculateDistance(rec.inLocation.latitude, rec.inLocation.longitude)}m
-                              </span>
-                            )}
+                            <LocationMeta location={rec.inLocation} label="Login" compact />
                           </td>
 
                           <td className="EmppAttendence-col-checkout">
                             <div style={{ fontWeight: 500 }}>
                               {formatTime(rec.outTime)}
                             </div>
-                            {rec.outLocation && (
-                              <span style={{ fontSize: '0.75rem', color: '#888', display: 'block', marginTop: '2px' }}>
-                                Dist: {calculateDistance(rec.outLocation.latitude, rec.outLocation.longitude)}m
-                              </span>
-                            )}
+                            <LocationMeta location={rec.outLocation} label="Logout" compact />
                           </td>
 
                           <td className="EmppAttendence-col-hours">
@@ -2845,22 +2878,14 @@ const EmployeeAttendance = () => {
                             <div style={{ fontWeight: 500 }}>
                               {formatTime(rec.inTime)}
                             </div>
-                            {rec.inLocation && (
-                              <span style={{ fontSize: '0.75rem', color: '#888', display: 'block', marginTop: '2px' }}>
-                                Dist: {calculateDistance(rec.inLocation.latitude, rec.inLocation.longitude)}m
-                              </span>
-                            )}
+                            <LocationMeta location={rec.inLocation} label="Login" compact />
                           </td>
 
                           <td className="EmppAttendence-col-checkout">
                             <div style={{ fontWeight: 500 }}>
                               {formatTime(rec.outTime)}
                             </div>
-                            {rec.outLocation && (
-                              <span style={{ fontSize: '0.75rem', color: '#888', display: 'block', marginTop: '2px' }}>
-                                Dist: {calculateDistance(rec.outLocation.latitude, rec.outLocation.longitude)}m
-                              </span>
-                            )}
+                            <LocationMeta location={rec.outLocation} label="Logout" compact />
                           </td>
 
                           <td className="EmppAttendence-col-hours">

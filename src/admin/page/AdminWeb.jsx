@@ -6,4 +6,4 @@ function AdminWeb() {
   )
 }
 
-export default AdminWeb  
+export default AdminWeb     

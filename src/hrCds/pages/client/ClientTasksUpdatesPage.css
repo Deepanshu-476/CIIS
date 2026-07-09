@@ -1,7 +1,7 @@
 .ClientTasksUpdatesPage-page {
   min-height: 100vh;
-  padding: 14px 16px 20px;
-  background: #f7f9fc;
+  padding: 18px 20px 24px;
+  background: #f5f7fb;
   color: #17213b;
   font-family: "Roboto", "Helvetica", "Arial", sans-serif;
   overflow-x: hidden;
@@ -197,12 +197,12 @@
 
 .ClientTasksUpdatesPage-titleRow {
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .ClientTasksUpdatesPage-titleRow h2 {
   margin: 0 0 4px;
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1.1;
   font-weight: 900;
 }
@@ -210,29 +210,29 @@
 .ClientTasksUpdatesPage-stats {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .ClientTasksUpdatesPage-statCard,
 .ClientTasksUpdatesPage-tablePanel,
 .ClientTasksUpdatesPage-widget {
-  border: 1px solid #e3e9f3;
+  border: 1px solid #e7edf6;
   border-radius: 8px;
   background: #fff;
-  box-shadow: 0 8px 24px rgba(24, 39, 75, 0.05);
+  box-shadow: 0 10px 28px rgba(24, 39, 75, 0.045);
 }
 
 .ClientTasksUpdatesPage-statCard {
   position: relative;
-  min-height: 82px;
-  padding: 10px 10px 8px 42px;
+  min-height: 92px;
+  padding: 13px 12px 10px 48px;
   border-color: #e7edf6;
   overflow: hidden;
   text-align: left;
   cursor: pointer;
   font-family: inherit;
-  box-shadow: 0 5px 15px rgba(20, 35, 70, 0.045);
+  box-shadow: 0 7px 18px rgba(20, 35, 70, 0.04);
   transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
@@ -263,8 +263,8 @@
 
 .ClientTasksUpdatesPage-statCard .ClientTasksUpdatesPage-statIcon {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: 13px;
+  left: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -294,7 +294,7 @@
   display: block;
   margin-top: 0;
   color: #25314d;
-  font-size: 9px;
+  font-size: 9.5px;
   line-height: 1.15;
   font-weight: 900;
 }
@@ -303,15 +303,15 @@
   display: block;
   margin-top: 4px;
   color: #101828;
-  font-size: 19px;
+  font-size: 21px;
   line-height: 1;
   font-weight: 900;
 }
 
 .ClientTasksUpdatesPage-statCard small {
   position: absolute;
-  left: 10px;
-  bottom: 22px;
+  left: 12px;
+  bottom: 25px;
   color: #11a36a;
   font-size: 9px;
   line-height: 1;
@@ -324,8 +324,8 @@
 
 .ClientTasksUpdatesPage-statCard em {
   position: absolute;
-  left: 10px;
-  bottom: 9px;
+  left: 12px;
+  bottom: 11px;
   color: #8a97aa;
   font-size: 8.5px;
   line-height: 1;
@@ -335,10 +335,10 @@
 
 .ClientTasksUpdatesPage-statSpark {
   position: absolute;
-  right: 8px;
-  bottom: 10px;
-  width: 62px;
-  height: 22px;
+  right: 11px;
+  bottom: 12px;
+  width: 68px;
+  height: 24px;
   fill: none;
   stroke: #8fb8ff;
   stroke-linecap: round;
@@ -356,20 +356,22 @@
 }
 
 .ClientTasksUpdatesPage-toolbar {
-  gap: 7px;
-  padding: 9px;
+  flex-wrap: wrap;
+  gap: 9px;
+  padding: 12px;
   border-bottom: 1px solid #edf1f7;
+  background: #fff;
 }
 
 .ClientTasksUpdatesPage-tableSearch {
-  flex: 1;
-  min-width: 180px;
-  padding: 0 10px;
+  flex: 1 1 260px;
+  min-width: 220px;
+  padding: 0 12px;
 }
 
 .ClientTasksUpdatesPage-toolbar select,
 .ClientTasksUpdatesPage-pagination select {
-  height: 36px;
+  height: 38px;
   border: 1px solid #dfe6f1;
   border-radius: 8px;
   background: #fff;
@@ -379,16 +381,17 @@
 }
 
 .ClientTasksUpdatesPage-toolbar select {
-  width: 108px;
-  padding: 0 7px;
+  width: 122px;
+  padding: 0 9px;
 }
 
 .ClientTasksUpdatesPage-filter {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
-  height: 36px;
-  padding: 0 10px;
+  height: 38px;
+  padding: 0 13px;
   border-radius: 8px;
   font-size: 11px;
   font-weight: 800;
@@ -400,12 +403,12 @@
 }
 
 .ClientTasksUpdatesPage-tableWrap {
-  overflow-x: hidden;
+  overflow-x: auto;
 }
 
 .ClientTasksUpdatesPage-tableWrap table {
   width: 100%;
-  min-width: 0;
+  min-width: 920px;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -413,16 +416,16 @@
 .ClientTasksUpdatesPage-tableWrap th,
 .ClientTasksUpdatesPage-tableWrap td {
   border-bottom: 1px solid #edf1f7;
-  padding: 9px 5px;
+  padding: 12px 10px;
   text-align: left;
   vertical-align: middle;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .ClientTasksUpdatesPage-tableWrap th {
   color: #71809a;
   background: #fbfcff;
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 900;
 }
 
@@ -434,26 +437,33 @@
   white-space: nowrap;
 }
 
+.ClientTasksUpdatesPage-tableWrap tbody tr {
+  transition: background 140ms ease;
+}
+
+.ClientTasksUpdatesPage-tableWrap tbody tr:hover {
+  background: #f8fbff;
+}
+
 .ClientTasksUpdatesPage-tableWrap th:nth-child(1),
-.ClientTasksUpdatesPage-tableWrap td:nth-child(1) { width: 3%; }
+.ClientTasksUpdatesPage-tableWrap td:nth-child(1) { width: 23%; }
 .ClientTasksUpdatesPage-tableWrap th:nth-child(2),
-.ClientTasksUpdatesPage-tableWrap td:nth-child(2) { width: 15%; }
+.ClientTasksUpdatesPage-tableWrap td:nth-child(2) { width: 21%; }
 .ClientTasksUpdatesPage-tableWrap th:nth-child(3),
-.ClientTasksUpdatesPage-tableWrap td:nth-child(3) { width: 16%; }
+.ClientTasksUpdatesPage-tableWrap td:nth-child(3) { width: 9%; }
 .ClientTasksUpdatesPage-tableWrap th:nth-child(4),
-.ClientTasksUpdatesPage-tableWrap td:nth-child(4) { width: 11%; }
+.ClientTasksUpdatesPage-tableWrap td:nth-child(4) { width: 12%; }
 .ClientTasksUpdatesPage-tableWrap th:nth-child(5),
-.ClientTasksUpdatesPage-tableWrap td:nth-child(5) { width: 9%; }
+.ClientTasksUpdatesPage-tableWrap td:nth-child(5) { width: 13%; }
 .ClientTasksUpdatesPage-tableWrap th:nth-child(6),
 .ClientTasksUpdatesPage-tableWrap td:nth-child(6) { width: 11%; }
 .ClientTasksUpdatesPage-tableWrap th:nth-child(7),
-.ClientTasksUpdatesPage-tableWrap td:nth-child(7) { width: 12%; }
-.ClientTasksUpdatesPage-tableWrap th:nth-child(8),
-.ClientTasksUpdatesPage-tableWrap td:nth-child(8) { width: 12%; }
-.ClientTasksUpdatesPage-tableWrap th:nth-child(9),
-.ClientTasksUpdatesPage-tableWrap td:nth-child(9) { width: 10%; }
-.ClientTasksUpdatesPage-tableWrap th:nth-child(10),
-.ClientTasksUpdatesPage-tableWrap td:nth-child(10) { width: 1%; }
+.ClientTasksUpdatesPage-tableWrap td:nth-child(7) { width: 11%; }
+
+.ClientTasksUpdatesPage-tableWrap th:nth-child(7),
+.ClientTasksUpdatesPage-tableWrap td:nth-child(7) {
+  text-align: center;
+}
 
 .ClientTasksUpdatesPage-tableWrap td.ClientTasksUpdatesPage-emptyCell {
   padding: 26px 12px;
@@ -472,17 +482,17 @@
 }
 
 .ClientTasksUpdatesPage-taskName {
-  gap: 6px;
+  gap: 8px;
   width: 100%;
   min-width: 0;
 }
 
 .ClientTasksUpdatesPage-taskName span {
-  flex: 0 0 16px;
+  flex: 0 0 22px;
   display: grid;
   place-items: center;
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
   border-radius: 4px;
   background: #eef2ff;
   color: #4f46e5;
@@ -495,7 +505,7 @@
   flex: 1;
   overflow: hidden;
   color: #17213b;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 900;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -533,7 +543,7 @@
 .ClientTasksUpdatesPage-status {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   white-space: nowrap;
 }
 
@@ -554,15 +564,15 @@
 }
 
 .ClientTasksUpdatesPage-progress span {
-  width: 34px;
+  width: 38px;
   color: #344054;
   font-size: 11px;
   font-weight: 900;
 }
 
 .ClientTasksUpdatesPage-progress div {
-  width: 58px;
-  height: 5px;
+  width: 72px;
+  height: 6px;
   overflow: hidden;
   border-radius: 999px;
   background: #e8eef7;
@@ -577,7 +587,7 @@
 }
 
 .ClientTasksUpdatesPage-status {
-  padding: 5px 8px;
+  padding: 6px 9px;
   border-radius: 999px;
   font-size: 9.5px;
   font-weight: 900;
@@ -605,9 +615,9 @@
 }
 
 .ClientTasksUpdatesPage-review {
-  height: 26px;
-  width: 86px;
-  padding: 0 8px;
+  height: 30px;
+  width: 94px;
+  padding: 0 10px;
   border-radius: 6px;
   color: #0b72f0;
   font-size: 10px;
@@ -618,7 +628,7 @@
 .ClientTasksUpdatesPage-pagination {
   justify-content: space-between;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 12px;
   color: #71809a;
   font-size: 10.5px;
   font-weight: 700;
@@ -633,8 +643,8 @@
 .ClientTasksUpdatesPage-pagination button {
   display: grid;
   place-items: center;
-  min-width: 26px;
-  height: 26px;
+  min-width: 30px;
+  height: 30px;
   border-radius: 6px;
   color: #344054;
   font-size: 11px;
@@ -645,6 +655,7 @@
   border-color: #0b72f0;
   background: #0b72f0;
   color: #fff;
+  opacity: 1;
 }
 
 .ClientTasksUpdatesPage-pagination button:disabled {
@@ -652,17 +663,21 @@
   cursor: not-allowed;
 }
 
+.ClientTasksUpdatesPage-pagination button.ClientTasksUpdatesPage-active:disabled {
+  opacity: 1;
+}
+
 .ClientTasksUpdatesPage-cardHead {
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .ClientTasksUpdatesPage-cardHead h3,
 .ClientTasksUpdatesPage-widget h3 {
   margin: 0;
   color: #111827;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 900;
 }
 
@@ -704,30 +719,30 @@
 
 .ClientTasksUpdatesPage-bottomGrid {
   display: grid;
-  grid-template-columns: minmax(280px, 0.95fr) minmax(360px, 1.35fr) minmax(280px, 0.95fr) minmax(280px, 0.95fr);
+  grid-template-columns: minmax(280px, 1fr) minmax(380px, 1.35fr) minmax(280px, 1fr) minmax(280px, 1fr);
   align-items: stretch;
-  gap: 12px;
-  margin-top: 12px;
+  gap: 16px;
+  margin-top: 16px;
 }
 
 .ClientTasksUpdatesPage-widget {
   min-width: 0;
-  padding: 13px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
 }
 
 .ClientTasksUpdatesPage-donutBox {
   align-items: center;
-  gap: 12px;
-  margin: 10px 0;
+  gap: 16px;
+  margin: 12px 0 14px;
 }
 
 .ClientTasksUpdatesPage-donut {
   position: relative;
-  width: 116px;
-  height: 116px;
-  flex: 0 0 116px;
+  width: 126px;
+  height: 126px;
+  flex: 0 0 126px;
 }
 
 .ClientTasksUpdatesPage-donut > div:last-child {
@@ -754,17 +769,17 @@
 .ClientTasksUpdatesPage-legend {
   flex: 1;
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .ClientTasksUpdatesPage-legend p {
   display: grid;
   grid-template-columns: 9px 1fr auto;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin: 0;
   color: #4b5563;
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 800;
 }
 
@@ -782,7 +797,7 @@
   justify-content: center;
   gap: 8px;
   width: 100%;
-  height: 34px;
+  height: 38px;
   border-radius: 7px;
   color: #0b72f0;
   font-size: 11px;
@@ -794,14 +809,15 @@
 }
 
 .ClientTasksUpdatesPage-project p {
-  margin: 5px 0 10px;
+  margin: 6px 0 14px;
+  line-height: 1.55;
 }
 
 .ClientTasksUpdatesPage-milestones {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 6px;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
 .ClientTasksUpdatesPage-milestones div {
@@ -832,9 +848,9 @@
   z-index: 1;
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
-  margin: 0 auto 5px;
+  width: 26px;
+  height: 26px;
+  margin: 0 auto 7px;
   border-radius: 50%;
   background: #eaf2ff;
   color: #0b72f0;
@@ -873,7 +889,7 @@
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 6px 10px;
-  margin-bottom: 13px;
+  margin-bottom: 16px;
   color: #475467;
   font-size: 10px;
   font-weight: 900;
@@ -881,27 +897,27 @@
 
 .ClientTasksUpdatesPage-overall div {
   grid-column: 1 / -1;
-  height: 6px;
+  height: 7px;
   overflow: hidden;
   border-radius: 999px;
   background: #e8eef7;
 }
 
 .ClientTasksUpdatesPage-manager {
-  gap: 12px;
+  gap: 14px;
   align-items: center;
-  min-height: 82px;
-  margin: 8px 0 10px;
-  padding: 14px;
+  min-height: 92px;
+  margin: 8px 0 12px;
+  padding: 16px;
   border: 1px solid #edf1f7;
   border-radius: 8px;
   background: linear-gradient(180deg, #f8fafc 0%, #f3f6fa 100%);
 }
 
 .ClientTasksUpdatesPage-manager b {
-  width: 52px;
-  height: 52px;
-  flex: 0 0 52px;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
   background: #d97706;
   font-size: 17px;
 }
@@ -938,7 +954,7 @@
 .ClientTasksUpdatesPage-managerDetails {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 8px;
+  gap: 10px;
   margin-top: auto;
 }
 
@@ -946,8 +962,8 @@
   display: grid;
   grid-template-columns: 26px 58px minmax(0, 1fr);
   align-items: center;
-  min-height: 38px;
-  padding: 8px 10px;
+  min-height: 44px;
+  padding: 9px 11px;
   border: 1px solid #edf1f7;
   border-radius: 8px;
   background: #fff;
@@ -975,18 +991,24 @@
 .ClientTasksUpdatesPage-quick > div {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin: 10px 0;
+  gap: 10px;
+  margin: 12px 0;
 }
 
 .ClientTasksUpdatesPage-quick > div button {
   display: grid;
   place-items: center;
-  min-height: 68px;
-  padding: 8px 5px;
+  min-height: 76px;
+  padding: 10px 7px;
   border-radius: 8px;
   color: #17213b;
   text-align: center;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.ClientTasksUpdatesPage-quick > div button:hover {
+  border-color: #bcd3f7;
+  background: #f8fbff;
 }
 
 .ClientTasksUpdatesPage-quick svg {
@@ -1582,7 +1604,7 @@
   }
 
   .ClientTasksUpdatesPage-tableWrap table {
-    min-width: 760px;
+    min-width: 840px;
     table-layout: fixed;
   }
 
@@ -1593,25 +1615,21 @@
   }
 
   .ClientTasksUpdatesPage-tableWrap th:nth-child(1),
-  .ClientTasksUpdatesPage-tableWrap td:nth-child(1) { width: 34px; }
+  .ClientTasksUpdatesPage-tableWrap td:nth-child(1) { width: 178px; }
   .ClientTasksUpdatesPage-tableWrap th:nth-child(2),
-  .ClientTasksUpdatesPage-tableWrap td:nth-child(2) { width: 120px; }
+  .ClientTasksUpdatesPage-tableWrap td:nth-child(2) { width: 170px; }
   .ClientTasksUpdatesPage-tableWrap th:nth-child(3),
-  .ClientTasksUpdatesPage-tableWrap td:nth-child(3) { width: 112px; }
+  .ClientTasksUpdatesPage-tableWrap td:nth-child(3) { width: 76px; }
   .ClientTasksUpdatesPage-tableWrap th:nth-child(4),
-  .ClientTasksUpdatesPage-tableWrap td:nth-child(4) { width: 86px; }
+  .ClientTasksUpdatesPage-tableWrap td:nth-child(4) { width: 96px; }
   .ClientTasksUpdatesPage-tableWrap th:nth-child(5),
-  .ClientTasksUpdatesPage-tableWrap td:nth-child(5) { width: 70px; }
+  .ClientTasksUpdatesPage-tableWrap td:nth-child(5) { width: 112px; }
   .ClientTasksUpdatesPage-tableWrap th:nth-child(6),
-  .ClientTasksUpdatesPage-tableWrap td:nth-child(6) { width: 86px; }
+  .ClientTasksUpdatesPage-tableWrap td:nth-child(6) { width: 90px; }
   .ClientTasksUpdatesPage-tableWrap th:nth-child(7),
-  .ClientTasksUpdatesPage-tableWrap td:nth-child(7) { width: 90px; }
+  .ClientTasksUpdatesPage-tableWrap td:nth-child(7) { width: 92px; }
   .ClientTasksUpdatesPage-tableWrap th:nth-child(8),
-  .ClientTasksUpdatesPage-tableWrap td:nth-child(8) { width: 88px; }
-  .ClientTasksUpdatesPage-tableWrap th:nth-child(9),
-  .ClientTasksUpdatesPage-tableWrap td:nth-child(9) { width: 92px; }
-  .ClientTasksUpdatesPage-tableWrap th:nth-child(10),
-  .ClientTasksUpdatesPage-tableWrap td:nth-child(10) { width: 24px; }
+  .ClientTasksUpdatesPage-tableWrap td:nth-child(8) { width: 24px; }
 
   .ClientTasksUpdatesPage-taskName strong {
     font-size: 10px;

@@ -48,6 +48,12 @@ import {
   FiMoreVertical
 } from "react-icons/fi";
 
+const getEntityId = (value) => {
+  if (!value) return "";
+  if (typeof value === "object") return String(value._id || value.id || value.value || "");
+  return String(value);
+};
+
 
 
 
@@ -143,6 +149,7 @@ const EmployeeLeaves = () => {
   const [selectedStat, setSelectedStat] = useState("All");
   const [openActionMenuId, setOpenActionMenuId] = useState(null);
   const [deleteDialog, setDeleteDialog] = useState(null);
+  const [deletingLeaveId, setDeletingLeaveId] = useState(null);
   const [statusDialog, setStatusDialog] = useState({
     open: false,
     leaveId: null,
@@ -482,8 +489,8 @@ const EmployeeLeaves = () => {
       const user = JSON.parse(userStr);
       
       const userId = user._id || user.id || '';
-      const companyId = user.company || user.companyId || '';
-      const department = user.department || '';
+      const companyId = getEntityId(user.company || user.companyId);
+      const department = getEntityId(user.department || user.departmentId);
       const name = user.name || user.username || 'User';
       let role = '';
       
@@ -1003,23 +1010,36 @@ const EmployeeLeaves = () => {
     }
   };
 
-  const handleDeleteLeave = async (leaveId) => {
+  const handleDeleteLeave = async (leaveOrId) => {
   try {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const leaveId = typeof leaveOrId === 'object' ? leaveOrId?._id : leaveOrId;
 
-    const leave = leaves.find(l => l._id === leaveId);
-    if (!leave) return;
+    const leave = (
+      typeof leaveOrId === 'object'
+        ? leaveOrId
+        : leaves.find(l => String(l._id) === String(leaveId))
+    );
 
-    if (!canDeleteLeave()) {
+    if (!leaveId || !leave) {
+      showSnackbar("Leave request not found. Please refresh and try again.", "error");
+      setDeleteDialog(null);
+      return;
+    }
+
+    if (!canDeleteLeave(leave)) {
       showSnackbar("Access Denied: You don't have permission to delete leave requests", "error");
       setDeleteDialog(null);
       return;
     }
 
+    setDeletingLeaveId(leaveId);
     const res = await axios.delete(`/leaves/${leaveId}`, {
       headers: {
-        "x-user-company-role": user.companyRole,
-        "x-user-job-role": user.jobRole
+        "x-user-id": getEntityId(user._id || user.id),
+        "x-user-company-id": currentUserCompanyId || getEntityId(user.company || user.companyId),
+        "x-user-company-role": user.companyRole || user.role || "",
+        "x-user-job-role": user.jobRole || ""
       }
     });
 
@@ -1033,6 +1053,7 @@ const EmployeeLeaves = () => {
       });
 
       setDeleteDialog(null);
+      await fetchLeaves();
     }
 
   } catch (err) {
@@ -1040,9 +1061,13 @@ const EmployeeLeaves = () => {
 
     if (err.response?.status === 403) {
       showSnackbar(err.response.data.error || "Permission denied", "error");
+    } else if (err.response?.status === 404) {
+      showSnackbar("Leave request not found", "error");
     } else {
-      showSnackbar("Failed to delete leave", "error");
+      showSnackbar(err.response?.data?.error || err.response?.data?.message || "Failed to delete leave", "error");
     }
+  } finally {
+    setDeletingLeaveId(null);
   }
 };
 
@@ -1208,7 +1233,7 @@ const EmployeeLeaves = () => {
     const approvedByName = getUserName(leave.approvedBy);
 
     return (
-      <div className="EmppLeaves-dialog-overlay" onClick={onClose}>
+      <div className="EmppLeaves-dialog-overlay EmppLeaves-details-overlay" onClick={onClose}>
         <div className="EmppLeaves-dialog-content EmppLeaves-details-dialog" onClick={(e) => e.stopPropagation()}>
           <div className="EmppLeaves-dialog-header">
             <div className="EmppLeaves-dialog-header-left">
@@ -1325,18 +1350,6 @@ const EmployeeLeaves = () => {
               </div>
 
               <div className="EmppLeaves-details-column">
-                <div className="EmppLeaves-details-card EmppLeaves-reason-card">
-                  <div className="EmppLeaves-card-header">
-                    <FiMessageSquare size={18} color="#1976d2" />
-                    <h4>Reason for Leave</h4>
-                  </div>
-                  <div className="EmppLeaves-card-content">
-                    <div className="EmppLeaves-reason-box">
-                      {leave.reason || "No reason provided"}
-                    </div>
-                  </div>
-                </div>
-
                 {leave.remarks && (
                   <div className="EmppLeaves-details-card EmppLeaves-remarks-card">
                     <div className="EmppLeaves-card-header">
@@ -1415,48 +1428,6 @@ const EmployeeLeaves = () => {
             <button className="EmppLeaves-btn EmppLeaves-btn-outlined" onClick={onClose}>
               Close
             </button>
-            {leave.status === 'Pending' && canApproveLeave(leave) && (
-              <div className="EmppLeaves-footer-actions">
-                <button 
-                  className="EmppLeaves-btn EmppLeaves-btn-success"
-                  onClick={() => {
-                    onClose();
-                    openStatusDialog(
-                      leave._id,
-                      'Approved',
-                      leave.user?.email,
-                      leave.user?.name,
-                      leave.user?.phone,
-                      leave.user?._id,
-                      leave.status,
-                      leave
-                    );
-                  }}
-                >
-                  <FiCheckCircle size={16} />
-                  Approve
-                </button>
-                <button 
-                  className="EmppLeaves-btn EmppLeaves-btn-error"
-                  onClick={() => {
-                    onClose();
-                    openStatusDialog(
-                      leave._id,
-                      'Rejected',
-                      leave.user?.email,
-                      leave.user?.name,
-                      leave.user?.phone,
-                      leave.user?._id,
-                      leave.status,
-                      leave
-                    );
-                  }}
-                >
-                  <FiXCircle size={16} />
-                  Reject
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -1503,13 +1474,8 @@ const EmployeeLeaves = () => {
                 const userId = leave.user?._id || leave.user;
                 const isOwnLeave = userId === currentUserId;
                 const departmentName = getDepartmentName(leave.user?.department);
-                const reasonPreview = leave.reason 
-                  ? leave.reason.length > 40 
-                    ? `${leave.reason.substring(0, 40)}...` 
-                    : leave.reason
-                  : "No reason provided";
                 const canApproveThisLeave = leave.status === 'Pending' && canApproveLeave(leave);
-                const canDeleteThisLeave = canDeleteLeave();
+                const canDeleteThisLeave = canDeleteLeave(leave);
                 
                 return (
                   <tr key={leave._id} className={`${getRowClass(leave.status)} ${isOwnLeave ? 'EmppLeaves-own-leave-row' : ''}`}>
@@ -1565,33 +1531,22 @@ const EmployeeLeaves = () => {
                             {leave.type || "N/A"}
                           </span>
                         </div>
-                        
-                        <div className="EmppLeaves-leave-reason-preview">
-                          {reasonPreview}
-                        </div>
-                        
+
                         <button 
                           className="EmppLeaves-view-details-button"
                           onClick={() => openDetailsModal(leave)}
                         >
-                          <FiEye size={16} />
-                          View Full Details
+                          <FiEye size={13} />
+                          View Details
                         </button>
                       </div>
                     </td>
                     <td>
                       <div className="EmppLeaves-duration-info">
-                        <div className="EmppLeaves-date-range">
-                          {formatDate(leave.startDate)}
-                        </div>
-                        <div className="EmppLeaves-date-separator">→</div>
-                        <div className="EmppLeaves-date-range">
-                          {formatDate(leave.endDate)}
-                        </div>
-                        <div className="EmppLeaves-days-badge">
+                        <span className="EmppLeaves-days-badge">
                           <FiClock size={12} />
                           {days} {days > 1 ? 'days' : 'day'}
-                        </div>
+                        </span>
                       </div>
                     </td>
                     {showStatusColumn && (
@@ -2082,10 +2037,11 @@ const EmployeeLeaves = () => {
               </button>
               <button 
                 className="EmppLeaves-btn EmppLeaves-btn-error" 
-                onClick={() => handleDeleteLeave(leavePendingDelete?._id || deleteDialog)}
+                onClick={() => handleDeleteLeave(leavePendingDelete || deleteDialog)}
+                disabled={Boolean(deletingLeaveId)}
               >
                 <FiTrash2 size={16} />
-                Delete
+                {deletingLeaveId ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>

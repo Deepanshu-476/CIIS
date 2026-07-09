@@ -125,7 +125,7 @@ const ServiceMarketplacePage = () => {
   const [servicesLoading, setServicesLoading] = useState(true);
   const [servicesError, setServicesError] = useState("");
   const [activeCategory, setActiveCategory] = useState("All Services");
-  const [openModal, setOpenModal] = useState(true);
+  const [openModal, setOpenModal] = useState(false);
   const [selectedService, setSelectedService] = useState(clientServices[0] || "WhatsApp Marketing");
   const [enquiries, setEnquiries] = useState([]);
   const [enquiriesLoading, setEnquiriesLoading] = useState(false);

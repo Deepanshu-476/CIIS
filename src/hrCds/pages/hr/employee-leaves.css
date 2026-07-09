@@ -785,21 +785,29 @@
 .EmppLeaves-leave-details {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 132px;
 }
 
 .EmppLeaves-leave-type-wrapper {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
 }
 
 .EmppLeaves-leave-type-chip {
-  padding: 4px 11px;
-  border-radius: 20px;
+  min-height: 28px;
+  padding: 5px 12px;
+  border-radius: 999px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   border: 1px solid;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .EmppLeaves-leave-type-casual {
@@ -846,37 +854,23 @@
 /* ============================================ */
 .EmppLeaves-duration-info {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.EmppLeaves-date-range {
-  font-size: 12px;
-  color: #2d3748;
-  font-weight: 500;
-}
-
-.EmppLeaves-date-separator {
-  font-size: 12px;
-  color: #a0aec0;
-  text-align: center;
+  align-items: center;
 }
 
 .EmppLeaves-days-badge {
   font-size: 12px;
-  padding: 3px 9px;
-  background: #ebf8ff;
-  color: #4299e1;
-  border-radius: 20px;
+  padding: 5px 11px;
+  background: #f0fdf4;
+  color: #15803d;
+  border-radius: 999px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 3px;
-  font-weight: 600;
-  border: 1px solid #bee3f8;
+  font-weight: 700;
+  border: 1px solid #bbf7d0;
+  white-space: nowrap;
 }
 
-/* ============================================ */
 /* STATUS CHIP */
 /* ============================================ */
 .EmppLeaves-status-chip {
@@ -1099,18 +1093,21 @@ border-radius: 50px ;
 .EmppLeaves-view-details-button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 5px;
+  min-height: 28px;
   padding: 5px 10px;
   background: #f7fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  border-radius: 7px;
   color: #4299e1;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
-  margin-top: 4px;
   width: auto;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .EmppLeaves-view-details-button:hover {
@@ -1171,6 +1168,11 @@ border-radius: 50px ;
   animation: EmppLeaves-fadeIn 0.2s ease-out;
 }
 
+.EmppLeaves-details-overlay {
+  align-items: flex-start;
+  padding: 104px 20px 32px;
+}
+
 @keyframes EmppLeaves-fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -1202,9 +1204,9 @@ border-radius: 50px ;
 .EmppLeaves-details-dialog {
   max-width: 900px !important;
   width: 95%;
-  position: relative;
-  top: 25px;
-  border-radius: 10px;
+  max-height: calc(100vh - 136px);
+  overflow: hidden;
+  border-radius: 14px;
 }
 
 .EmppLeaves-delete-dialog {
@@ -1550,6 +1552,13 @@ border-radius: 50px ;
   border-radius: 16px 16px 0 0;
 }
 
+.EmppLeaves-details-dialog .EmppLeaves-dialog-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border-radius: 14px 14px 0 0;
+}
+
 .EmppLeaves-dialog-header h3 {
   font-size: 20px;
   font-weight: 600;
@@ -1592,6 +1601,12 @@ border-radius: 50px ;
   padding: 28px;
 }
 
+.EmppLeaves-details-dialog .EmppLeaves-dialog-body {
+  max-height: calc(100vh - 286px);
+  overflow-y: auto;
+  padding: 24px;
+}
+
 .EmppLeaves-dialog-footer {
   padding: 24px 28px;
   border-top: 1px solid #e8ecef;
@@ -1600,15 +1615,23 @@ border-radius: 50px ;
   gap: 16px;
 }
 
+.EmppLeaves-details-dialog .EmppLeaves-dialog-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: #ffffff;
+  padding: 16px 24px;
+}
+
 /* Details Status Banner */
 .EmppLeaves-details-status-banner {
-  padding: 16px 20px;
-  border-radius: 12px;
-  margin-bottom: 24px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 20px;
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .EmppLeaves-details-status-banner.EmppLeaves-status-pending {
@@ -2694,14 +2717,17 @@ border-radius: 50px ;
 
   /* Leave Details Mobile */
   .EmppLeaves-leave-details {
+    align-items: flex-start;
     gap: 8px;
+    min-width: 0;
   }
 
   .EmppLeaves-leave-type-wrapper {
-    margin-bottom: 4px;
+    margin-bottom: 0;
   }
 
   .EmppLeaves-leave-type-chip {
+    min-height: 28px;
     padding: 5px 12px;
     font-size: 12px;
   }
@@ -2713,19 +2739,20 @@ border-radius: 50px ;
 
   /* View Details Button - Enhanced for Mobile */
   .EmppLeaves-view-details-button {
-    display: flex !important;
+    display: inline-flex !important;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    width: 100%;
-    padding: 12px 16px;
+    gap: 5px;
+    width: auto;
+    min-height: 28px;
+    padding: 5px 10px;
     background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
     border: none;
-    border-radius: 10px;
+    border-radius: 7px;
     color: white;
-    font-size: 14px;
-    font-weight: 600;
-    margin-top: 12px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-top: 0;
     box-shadow: 0 4px 12px rgba(66, 153, 225, 0.3);
   }
 
@@ -2735,8 +2762,8 @@ border-radius: 50px ;
   }
 
   .EmppLeaves-view-details-button svg {
-    width: 18px;
-    height: 18px;
+    width: 13px;
+    height: 13px;
   }
 
   /* Show status chip for pending leaves */
@@ -2910,12 +2937,40 @@ border-radius: 50px ;
   }
 
   /* Details Dialog Mobile */
+  .EmppLeaves-details-overlay {
+    align-items: flex-start;
+    padding: 88px 14px 14px;
+  }
+
   .EmppLeaves-details-dialog {
-    max-height: 90vh;
-    overflow-y: auto;
-    position: relative;
-    top: 10px;
-    border-radius: 8px;
+    width: 100%;
+    max-height: calc(100vh - 102px);
+    overflow: hidden;
+    border-radius: 14px;
+  }
+
+  .EmppLeaves-details-dialog .EmppLeaves-dialog-header {
+    padding: 16px;
+    border-radius: 14px 14px 0 0;
+  }
+
+  .EmppLeaves-details-dialog .EmppLeaves-dialog-header-left {
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .EmppLeaves-details-dialog .EmppLeaves-dialog-header-left h3 {
+    font-size: 16px;
+    line-height: 1.25;
+  }
+
+  .EmppLeaves-details-dialog .EmppLeaves-dialog-body {
+    max-height: calc(100vh - 254px);
+    padding: 16px;
+  }
+
+  .EmppLeaves-details-dialog .EmppLeaves-dialog-footer {
+    padding: 14px 16px;
   }
 
   .EmppLeaves-details-grid-container {
@@ -3124,8 +3179,8 @@ border-radius: 50px ;
   }
 
   .EmppLeaves-view-details-button {
-    padding: 10px 14px;
-    font-size: 13px;
+    padding: 5px 9px;
+    font-size: 12px;
   }
 
   .EmppLeaves-section-title {
@@ -3157,6 +3212,12 @@ border-radius: 50px ;
 
   .EmppLeaves-details-dialog {
     max-width: 90%;
+    max-height: calc(100vh - 86px);
+  }
+
+  .EmppLeaves-details-overlay {
+    align-items: flex-start;
+    padding: 72px 14px 14px;
   }
 
   .EmppLeaves-details-grid-container {
@@ -3262,23 +3323,29 @@ border-radius: 50px ;
 .EmppLeaves-approval-flow {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-width: 132px;
+  gap: 7px;
+  min-width: 0;
+  width: 100%;
 }
 
 .EmppLeaves-approval-step {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
-  padding: 4px 6px;
-  border-radius: 7px;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 7px 10px;
+  border-radius: 8px;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
+  box-sizing: border-box;
 }
 
 .EmppLeaves-approval-name {
-  font-size: 11px;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
   font-weight: 700;
   color: #334155;
   overflow: hidden;
@@ -3287,13 +3354,19 @@ border-radius: 50px ;
 }
 
 .EmppLeaves-approval-status {
-  font-size: 10px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  font-size: 11px;
   font-weight: 800;
   border-radius: 999px;
-  padding: 2px 6px;
+  padding: 4px 9px;
   background: #e2e8f0;
   color: #475569;
-  flex: 0 0 auto;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .EmppLeaves-approval-step-approved {

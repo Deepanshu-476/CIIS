@@ -784,7 +784,7 @@ const ServicesTasks = () => {
       {detailsModal && (
         <div className="ClientTasksUpdatesPage-modalBackdrop" role="presentation" onClick={() => setDetailsModal(null)}>
           <section
-            className="ClientTasksUpdatesPage-modal"
+            className={`ClientTasksUpdatesPage-modal ${detailsModal === 'task' ? 'ClientTasksUpdatesPage-taskModal' : ''}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="ClientTasksUpdatesPage-modalTitle"
@@ -827,11 +827,15 @@ const ServicesTasks = () => {
               <div className="ClientTasksUpdatesPage-taskDetails">
                 <div className="ClientTasksUpdatesPage-taskDetailsHero">
                   <div>
-                    <span>{selectedTask.service}</span>
+                    <span>Task Details</span>
                     <h4>{selectedTask.title}</h4>
                     <p>{selectedTask.description || 'No description added for this task.'}</p>
                   </div>
-                  <em className={`ClientTasksUpdatesPage-status ClientTasksUpdatesPage-${selectedTask.status.replace(/\s/g, '').toLowerCase()}`}>{selectedTask.status}</em>
+                  <div className="ClientTasksUpdatesPage-taskDetailsSide">
+                    <em className={`ClientTasksUpdatesPage-status ClientTasksUpdatesPage-${selectedTask.status.replace(/\s/g, '').toLowerCase()}`}>{selectedTask.status}</em>
+                    <strong>{selectedTask.progress}%</strong>
+                    <small>Progress</small>
+                  </div>
                 </div>
 
                 <div className="ClientTasksUpdatesPage-taskDetailsGrid">
@@ -854,7 +858,7 @@ const ServicesTasks = () => {
                   </div>
                   <div>
                     <span>Progress</span>
-                    <strong>{selectedTask.progress}%</strong>
+                    <strong>{selectedTask.progress}% complete</strong>
                     <div className="ClientTasksUpdatesPage-taskDetailsProgress"><i style={{ width: `${selectedTask.progress}%` }}></i></div>
                   </div>
                   <div>

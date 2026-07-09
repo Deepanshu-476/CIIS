@@ -141,6 +141,7 @@ const EmployeeLeaves = () => {
     rejected: 0,
   });
   const [selectedStat, setSelectedStat] = useState("All");
+  const [openActionMenuId, setOpenActionMenuId] = useState(null);
   const [deleteDialog, setDeleteDialog] = useState(null);
   const [statusDialog, setStatusDialog] = useState({
     open: false,
@@ -916,6 +917,15 @@ const EmployeeLeaves = () => {
     return leaves.find(leave => leave._id === deleteDialog) || null;
   }, [deleteDialog, leaves]);
 
+  const handleActionMenuToggle = useCallback((leaveId, event) => {
+    if (event.currentTarget.open) {
+      setOpenActionMenuId(leaveId);
+      return;
+    }
+
+    setOpenActionMenuId((currentId) => (currentId === leaveId ? null : currentId));
+  }, []);
+
   
   
   
@@ -1488,7 +1498,7 @@ const EmployeeLeaves = () => {
           </thead>
           <tbody>
             {leavesData.length > 0 ? (
-              leavesData.map((leave) => {
+              leavesData.map((leave, index) => {
                 const days = calculateDays(leave.startDate, leave.endDate);
                 const userId = leave.user?._id || leave.user;
                 const isOwnLeave = userId === currentUserId;
@@ -1498,6 +1508,8 @@ const EmployeeLeaves = () => {
                     ? `${leave.reason.substring(0, 40)}...` 
                     : leave.reason
                   : "No reason provided";
+                const canApproveThisLeave = leave.status === 'Pending' && canApproveLeave(leave);
+                const canDeleteThisLeave = canDeleteLeave();
                 
                 return (
                   <tr key={leave._id} className={`${getRowClass(leave.status)} ${isOwnLeave ? 'EmppLeaves-own-leave-row' : ''}`}>
@@ -1593,7 +1605,11 @@ const EmployeeLeaves = () => {
                       <ApprovalWorkflow leave={leave} />
                     </td>
                     <td>
-                      <details className="EmppLeaves-actions-dropdown">
+                      <details
+                        className="EmppLeaves-actions-dropdown"
+                        open={openActionMenuId === leave._id}
+                        onToggle={(event) => handleActionMenuToggle(leave._id, event)}
+                      >
                         <summary className="EmppLeaves-actions-trigger">
                           <FiMoreVertical size={16} />
                           <span>Actions</span>
@@ -1602,42 +1618,51 @@ const EmployeeLeaves = () => {
                         <div className="EmppLeaves-actions-menu">
                           <button
                             className="EmppLeaves-action-menu-item EmppLeaves-view-history"
-                            onClick={() => openHistoryDialog(leave)}
+                            onClick={() => {
+                              setOpenActionMenuId(null);
+                              openHistoryDialog(leave);
+                            }}
                           >
                             <FiList size={16} />
                             <span>History</span>
                           </button>
 
-                          {leave.status === 'Pending' && canApproveLeave(leave) && (
+                          {canApproveThisLeave && (
                             <>
                               <button
                                 className="EmppLeaves-action-menu-item EmppLeaves-approve"
-                                onClick={() => openStatusDialog(
-                                  leave._id,
-                                  'Approved',
-                                  leave.user?.email,
-                                  leave.user?.name,
-                                  leave.user?.phone,
-                                  userId,
-                                  leave.status,
-                                  leave
-                                )}
+                                onClick={() => {
+                                  setOpenActionMenuId(null);
+                                  openStatusDialog(
+                                    leave._id,
+                                    'Approved',
+                                    leave.user?.email,
+                                    leave.user?.name,
+                                    leave.user?.phone,
+                                    userId,
+                                    leave.status,
+                                    leave
+                                  );
+                                }}
                               >
                                 <FiCheckCircle size={16} />
                                 <span>Approve</span>
                               </button>
                               <button
                                 className="EmppLeaves-action-menu-item EmppLeaves-reject"
-                                onClick={() => openStatusDialog(
-                                  leave._id,
-                                  'Rejected',
-                                  leave.user?.email,
-                                  leave.user?.name,
-                                  leave.user?.phone,
-                                  userId,
-                                  leave.status,
-                                  leave
-                                )}
+                                onClick={() => {
+                                  setOpenActionMenuId(null);
+                                  openStatusDialog(
+                                    leave._id,
+                                    'Rejected',
+                                    leave.user?.email,
+                                    leave.user?.name,
+                                    leave.user?.phone,
+                                    userId,
+                                    leave.status,
+                                    leave
+                                  );
+                                }}
                               >
                                 <FiXCircle size={16} />
                                 <span>Reject</span>
@@ -1645,10 +1670,13 @@ const EmployeeLeaves = () => {
                             </>
                           )}
 
-                          {canDeleteLeave() && (
+                          {canDeleteThisLeave && (
                             <button
                               className="EmppLeaves-action-menu-item EmppLeaves-delete"
-                              onClick={() => setDeleteDialog(leave)}
+                              onClick={() => {
+                                setOpenActionMenuId(null);
+                                setDeleteDialog(leave);
+                              }}
                             >
                               <FiTrash2 size={16} />
                               <span>Delete</span>
@@ -2068,7 +2096,12 @@ const EmployeeLeaves = () => {
         <div className="EmppLeaves-dialog-overlay" onClick={closeHistoryDialog}>
           <div className="EmppLeaves-dialog-content EmppLeaves-history-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="EmppLeaves-dialog-header">
-              <h3>Leave History</h3>
+              <h3>
+                <span className="EmppLeaves-dialog-title-icon">
+                  <FiList size={18} />
+                </span>
+                Leave History
+              </h3>
               <button className="EmppLeaves-dialog-close" onClick={closeHistoryDialog}>
                 <FiX size={20} />
               </button>
@@ -2077,6 +2110,7 @@ const EmployeeLeaves = () => {
             <div className="EmppLeaves-dialog-body">
               <div className="EmppLeaves-history-title">
                 <h4>{historyDialog.title}</h4>
+                <span>{historyDialog.items.length} update{historyDialog.items.length === 1 ? '' : 's'}</span>
               </div>
               
               <div className="EmppLeaves-history-timeline">
@@ -2101,7 +2135,7 @@ const EmployeeLeaves = () => {
                         )}
                         <div className="EmppLeaves-history-by">
                           <strong>By:</strong> 
-                          {item.byName || 'System'}
+                          <span>{item.byName || 'System'}</span>
                           {item.byRole && item.byRole !== 'System' && (
                             <span className="EmppLeaves-history-role">({normalizeRole(item.byRole)})</span>
                           )}

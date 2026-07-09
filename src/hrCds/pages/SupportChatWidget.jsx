@@ -8,6 +8,7 @@ import {
   Menu,
   MessageCircle,
   Send,
+  TicketCheck,
   UserRound,
 } from "lucide-react";
 import axiosInstance from "../../utils/axiosConfig";
@@ -69,6 +70,7 @@ const SupportChatWidget = () => {
   const [tickets, setTickets] = useState([]);
   const [selectedTicketId, setSelectedTicketId] = useState("");
   const [view, setView] = useState("chat");
+  const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = getEntityId(currentUser);
@@ -221,6 +223,7 @@ const SupportChatWidget = () => {
           className="portal-chat-icon-btn"
           aria-label="Back"
           onClick={() => {
+            setMenuOpen(false);
             if (view === "thread") setView("tickets");
             else if (view === "tickets") setView("chat");
             else setWidgetOpen(false);
@@ -230,12 +233,51 @@ const SupportChatWidget = () => {
         </button>
         <strong>{view === "tickets" ? "My Tickets" : view === "thread" ? selectedTicket?.ticketNumber || "Ticket" : "Customer Support"}</strong>
         <div className="portal-chat-header-actions">
-          <button className="portal-chat-icon-btn portal-chat-minimize" onClick={() => setWidgetOpen(false)} aria-label="Minimize chat">
+          <button
+            className="portal-chat-icon-btn portal-chat-minimize"
+            onClick={() => {
+              setMenuOpen(false);
+              setWidgetOpen(false);
+            }}
+            aria-label="Minimize chat"
+          >
             <ChevronDown size={24} />
           </button>
-          <button className="portal-chat-icon-btn" aria-label="View tickets" onClick={() => setView("tickets")}>
-            <Menu size={24} />
-          </button>
+          <div className="portal-chat-menu-wrap">
+            <button
+              className="portal-chat-icon-btn"
+              aria-label="Open support menu"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen(open => !open)}
+            >
+              <Menu size={24} />
+            </button>
+            {menuOpen && (
+              <div className="portal-chat-menu">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setView("tickets");
+                  }}
+                >
+                  <TicketCheck size={15} />
+                  <span>My Tickets</span>
+                  <em>{openTicketCount}</em>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setView("chat");
+                  }}
+                >
+                  <MessageCircle size={15} />
+                  <span>New Chat</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

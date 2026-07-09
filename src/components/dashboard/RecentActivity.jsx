@@ -50,7 +50,7 @@ const RecentActivity = ({
         {loading.attendance && recentActivity.length > 0 && <RefreshOverlay />}
         {loading.attendance && !recentActivity.length && <ActivityLoader />}
 
-        {!loading.attendance && recentActivity.map((item, index) => {
+        {!loading.attendance && recentActivity.slice(0, 5).map((item, index) => {
           if (item.type === 'holiday') {
             const date = new Date(item.date);
             return (

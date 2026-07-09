@@ -33,6 +33,7 @@ import EmpDepartmentAllTask from "./hrCds/pages/hr/EmpDepartmentAllTask.jsx";
 import AdminProject from "./hrCds/pages/AdminProject";
 import Client from "./hrCds/pages/hr/Client";
 import ClientPlansPage from "./hrCds/pages/hr/ClientPlansPage.jsx";
+import ClientDetailsPage from "./hrCds/pages/hr/ClientDetailsPage.jsx";
 
 
 import ClientDashboardPage from "./hrCds/pages/client/ClientDashboardPage.jsx";
@@ -174,6 +175,7 @@ function App() {
           <Route path="company-all-task/tasks/:userId" element={<CompanyAllTaskTasks />} />
           <Route path="company-all-task/:userId/tasks" element={<CompanyAllTaskTasks />} />
           <Route path="emp-client" element={<Client />} />
+          <Route path="emp-client/:clientId" element={<ClientDetailsPage />} />
           <Route path="client-plans" element={<ClientPlansPage />} />
           <Route path="active-clients" element={<ActiveClientsOverview />} />
           <Route path="alert" element={<Alerts />} />

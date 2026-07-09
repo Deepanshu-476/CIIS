@@ -1297,8 +1297,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1308,14 +1308,16 @@
 
 .MyLeaves-modal {
   background: white;
-  border-radius: 20px;
+  border-radius: 16px;
   width: 100%;
-  max-width: 600px;
-  max-height: 80vh;
+  max-width: 680px;
+  max-height: 84vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
   animation: modalSlideIn 0.3s ease;
+  overflow: hidden;
 }
 
 @keyframes modalSlideIn {
@@ -1331,60 +1333,96 @@
 
 .MyLeaves-modal-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 24px 32px;
+  gap: 14px;
+  padding: 18px 22px;
   border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
 }
 
-.MyLeaves-modal-header h2 {
-  font-size: 20px;
-  font-weight: 600;
+.MyLeaves-history-modal-title {
+  min-width: 0;
+  flex: 1;
+}
+
+.MyLeaves-history-modal-eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.MyLeaves-history-modal-title h2 {
+  font-size: 17px;
+  line-height: 1.3;
+  font-weight: 800;
   color: #2d3748;
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.MyLeaves-history-count {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .MyLeaves-modal-close {
-  background: none;
-  border: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+  flex: 0 0 auto;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #a0aec0;
-  transition: all 0.3s ease;
+  color: #64748b;
+  transition: all 0.2s ease;
 }
 
 .MyLeaves-modal-close:hover {
-  background: #f7fafc;
-  color: #4a5568;
+  background: #eef2f7;
+  color: #1f2937;
 }
 
 .MyLeaves-modal-content {
-  padding: 32px;
+  padding: 18px 22px 20px;
   overflow-y: auto;
   flex: 1;
+  background: #f8fafc;
 }
 
 .MyLeaves-empty-history {
   text-align: center;
-  padding: 40px 20px;
+  padding: 46px 20px;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
 }
 
 .MyLeaves-empty-history-icon {
-  width: 48px;
-  height: 48px;
-  color: #a0aec0;
-  margin-bottom: 16px;
+  width: 44px;
+  height: 44px;
+  color: #94a3b8;
+  margin-bottom: 14px;
 }
 
 .MyLeaves-empty-history h3 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #4a5568;
+  font-size: 17px;
+  font-weight: 800;
+  color: #334155;
   margin-bottom: 8px;
 }
 
@@ -1396,90 +1434,174 @@
 }
 
 .MyLeaves-history-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  display: grid;
+  gap: 10px;
 }
 
 .MyLeaves-history-item {
+  position: relative;
   display: flex;
-  gap: 16px;
-  padding: 16px;
-  background: #f8f9fa;
+  gap: 13px;
+  padding: 14px 14px 14px 16px;
+  background: #ffffff;
   border-radius: 12px;
-  border-left: 4px solid #667eea;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+  overflow: hidden;
+}
+
+.MyLeaves-history-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #64748b;
+}
+
+.MyLeaves-history-approved::before {
+  background: #16a34a;
+}
+
+.MyLeaves-history-rejected::before {
+  background: #dc2626;
+}
+
+.MyLeaves-history-applied::before {
+  background: #2563eb;
 }
 
 .MyLeaves-history-icon {
   flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
 }
 
-.MyLeaves-history-approved {
-  color: #48bb78;
-  width: 24px;
-  height: 24px;
+.MyLeaves-history-icon svg {
+  width: 18px;
+  height: 18px;
 }
 
-.MyLeaves-history-rejected {
-  color: #f56565;
-  width: 24px;
-  height: 24px;
+.MyLeaves-history-approved .MyLeaves-history-icon {
+  color: #15803d;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
 }
 
-.MyLeaves-history-applied {
-  color: #ed8936;
-  width: 24px;
-  height: 24px;
+.MyLeaves-history-rejected .MyLeaves-history-icon {
+  color: #b91c1c;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.MyLeaves-history-applied .MyLeaves-history-icon {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
 }
 
 .MyLeaves-history-content {
   flex: 1;
+  min-width: 0;
+}
+
+.MyLeaves-history-row-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
 }
 
 .MyLeaves-history-text {
-  font-size: 15px;
-  color: #2d3748;
-  margin-bottom: 8px;
-  font-weight: 500;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.35;
+  color: #1e293b;
+  margin: 0;
+  font-weight: 800;
+}
+
+.MyLeaves-history-action-pill {
+  flex: 0 0 auto;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.MyLeaves-history-approved .MyLeaves-history-action-pill {
+  background: #f0fdf4;
+  color: #15803d;
+  border-color: #bbf7d0;
+}
+
+.MyLeaves-history-rejected .MyLeaves-history-action-pill {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.MyLeaves-history-applied .MyLeaves-history-action-pill {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
 }
 
 .MyLeaves-history-remarks {
-  font-size: 14px;
-  color: #4a5568;
-  background: white;
-  padding: 8px 12px;
-  border-radius: 8px;
-  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #334155;
+  background: #f8fafc;
+  padding: 9px 11px;
+  border-radius: 10px;
+  margin: 10px 0 0;
   border: 1px solid #e2e8f0;
 }
 
 .MyLeaves-history-time {
   font-size: 12px;
-  color: #a0aec0;
+  color: #64748b;
+  font-weight: 700;
+  margin: 0;
 }
 
 .MyLeaves-modal-footer {
-  padding: 24px 32px;
+  padding: 14px 22px 18px;
   border-top: 1px solid #e2e8f0;
   display: flex;
   justify-content: flex-end;
+  background: #ffffff;
 }
 
 .MyLeaves-modal-close-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  padding: 12px 32px;
+  background: #111827;
+  color: #ffffff;
+  border: 1px solid #111827;
+  padding: 10px 24px;
   border-radius: 10px;
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 800;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
 .MyLeaves-modal-close-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  background: #1f2937;
+  border-color: #1f2937;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
 }
 
 /* ===== NOTIFICATION ===== */
@@ -1673,6 +1795,19 @@
   
   .MyLeaves-modal {
     margin: 0;
+  }
+
+  .MyLeaves-modal-header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .MyLeaves-history-modal-title {
+    flex: 1 1 calc(100% - 48px);
+  }
+
+  .MyLeaves-history-count {
+    order: 3;
   }
   
   .MyLeaves-modal-header,

@@ -1001,6 +1001,137 @@
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
+.EmpAssets-comment-upload {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.EmpAssets-comment-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px dashed var(--primary);
+  border-radius: var(--radius);
+  background: #eff6ff;
+  color: var(--primary-dark);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.EmpAssets-comment-upload-btn:hover {
+  background: #dbeafe;
+  transform: translateY(-1px);
+}
+
+.EmpAssets-comment-upload-btn input {
+  display: none;
+}
+
+.EmpAssets-comment-upload-hint {
+  color: var(--gray-500);
+  font-size: 12px;
+}
+
+.EmpAssets-comment-image-preview {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  background: var(--gray-50);
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.EmpAssets-comment-image-preview img {
+  width: 92px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid var(--gray-200);
+}
+
+.EmpAssets-comment-image-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.EmpAssets-comment-image-meta span {
+  color: var(--gray-700);
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.EmpAssets-comment-image-meta button {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-sm);
+  background: #fff7f7;
+  color: var(--danger-dark);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.EmpAssets-comments-list {
+  margin-top: 16px;
+}
+
+.EmpAssets-comments-list > strong {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--gray-800);
+  font-size: 14px;
+}
+
+.EmpAssets-comment-item {
+  margin-top: 8px;
+  padding: 10px;
+  background: #f5f7ff;
+  border: 1px solid #e0e7ff;
+  border-radius: var(--radius);
+}
+
+.EmpAssets-comment-item p {
+  margin: 0;
+  color: var(--gray-700);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.EmpAssets-comment-image-link {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary-dark);
+  text-decoration: none;
+}
+
+.EmpAssets-comment-image-link img {
+  width: 84px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid #bfdbfe;
+}
+
 /* ===== EMPTY STATE ===== */
 .EmpAssets-empty-state {
   text-align: center;

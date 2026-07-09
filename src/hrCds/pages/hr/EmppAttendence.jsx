@@ -37,8 +37,22 @@ import {
   FiCalendar as FiRangeCalendar
 } from "react-icons/fi";
 
+const calculateDistance = (lat1, lon1, lat2 = 30.707949, lon2 = 76.6860975) => {
+  if (lat1 === undefined || lat1 === null || lon1 === undefined || lon1 === null) return null;
+  const R = 6371e3; // Earth radius in meters
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
 
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
+  const d = R * c; // in meters
+  return Math.round(d);
+};
 
 const DateRangeFilter = ({ startDate, endDate, onStartDateChange, onEndDateChange, onApply, onClear }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -517,7 +531,7 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
         date: record.date ? new Date(record.date).toISOString().split('T')[0] : '',
         inTime: record.inTime ? new Date(record.inTime).toTimeString().slice(0, 5) : '',
         outTime: record.outTime ? new Date(record.outTime).toTimeString().slice(0, 5) : '',
-        status: record.status?.toLowerCase() || 'absent',
+        status: normalizeAttendanceStatus(record.status),
         lateBy: record.lateBy || '00:00:00',
         earlyLeave: record.earlyLeave || '00:00:00',
         overTime: record.overTime || '00:00:00',
@@ -639,6 +653,11 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
                 value={editedRecord.inTime}
                 onChange={(e) => handleTimeChange('inTime', e.target.value)}
               />
+              {record?.inLocation && (
+                <div style={{ marginTop: '4px', fontSize: '0.8rem', color: '#666' }}>
+                  Login distance: <strong>{calculateDistance(record.inLocation.latitude, record.inLocation.longitude)}m</strong>
+                </div>
+              )}
             </div>
 
             <div className="EmppAttendence-form-group">
@@ -649,6 +668,11 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
                 value={editedRecord.outTime}
                 onChange={(e) => setEditedRecord(prev => ({ ...prev, outTime: e.target.value }))}
               />
+              {record?.outLocation && (
+                <div style={{ marginTop: '4px', fontSize: '0.8rem', color: '#666' }}>
+                  Logout distance: <strong>{calculateDistance(record.outLocation.latitude, record.outLocation.longitude)}m</strong>
+                </div>
+              )}
             </div>
 
             <div className="EmppAttendence-form-group">
@@ -912,10 +936,11 @@ const formatDate = (dateStr) => {
 };
 
 const getStatusClass = (status) => {
-  if (status === "present") return "EmppAttendence-status-present";
-  if (status === "absent") return "EmppAttendence-status-absent";
-  if (status === "halfday") return "EmppAttendence-status-halfday";
-  if (status === "late") return "EmppAttendence-status-late";
+  const normalizedStatus = normalizeAttendanceStatus(status);
+  if (normalizedStatus === "present") return "EmppAttendence-status-present";
+  if (normalizedStatus === "absent") return "EmppAttendence-status-absent";
+  if (normalizedStatus === "halfday") return "EmppAttendence-status-halfday";
+  if (normalizedStatus === "late") return "EmppAttendence-status-late";
   return "";
 };
 
@@ -930,11 +955,26 @@ const getEmployeeTypeClass = (type) => {
 };
 
 const getRowClass = (status) => {
-  if (status === "present") return "EmppAttendence-row-present";
-  if (status === "absent") return "EmppAttendence-row-absent";
-  if (status === "halfday") return "EmppAttendence-row-halfday";
-  if (status === "late") return "EmppAttendence-row-late";
+  const normalizedStatus = normalizeAttendanceStatus(status);
+  if (normalizedStatus === "present") return "EmppAttendence-row-present";
+  if (normalizedStatus === "absent") return "EmppAttendence-row-absent";
+  if (normalizedStatus === "halfday") return "EmppAttendence-row-halfday";
+  if (normalizedStatus === "late") return "EmppAttendence-row-late";
   return "";
+};
+
+const normalizeAttendanceStatus = (status) => {
+  const normalized = String(status || "absent")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+
+  if (normalized === "halfday") return "halfday";
+  if (normalized === "present") return "present";
+  if (normalized === "late") return "late";
+  if (normalized === "absent") return "absent";
+  if (normalized === "weekend") return "absent";
+  return normalized || "absent";
 };
 
 const getStatusFilterLabel = (statusFilter) => {
@@ -947,6 +987,18 @@ const getStatusFilterLabel = (statusFilter) => {
     ontime: "ON TIME",
   };
   return labels[statusFilter] || String(statusFilter || "").toUpperCase();
+};
+
+const formatStatusLabel = (status) => getStatusFilterLabel(normalizeAttendanceStatus(status));
+
+const getStatusExplanation = (status) => {
+  const normalizedStatus = normalizeAttendanceStatus(status);
+
+  if (normalizedStatus === 'present') return 'Arrived before 9:10 AM';
+  if (normalizedStatus === 'late') return 'Arrived between 9:10-9:30 AM';
+  if (normalizedStatus === 'halfday') return 'Arrived after 9:30 AM';
+  if (normalizedStatus === 'absent') return 'No attendance recorded';
+  return '';
 };
 
 const calculateHoursWorked = (inTime, outTime) => {
@@ -1272,7 +1324,7 @@ const EmployeeAttendance = () => {
             const userId = record.user._id || record.user.id;
             attendanceMap[userId] = {
               ...record,
-              status: record.status ? record.status.toLowerCase() : 'absent'
+              status: normalizeAttendanceStatus(record.status)
             };
           }
         });
@@ -1286,8 +1338,8 @@ const EmployeeAttendance = () => {
           const calculatedStatus = calculateStatusFromTime(attendanceRecord.inTime);
           const hoursWorked = calculateHoursWorked(attendanceRecord.inTime, attendanceRecord.outTime);
           
-          let finalStatus = attendanceRecord.status 
-            ? attendanceRecord.status.toLowerCase() 
+          let finalStatus = attendanceRecord.status
+            ? normalizeAttendanceStatus(attendanceRecord.status)
             : calculatedStatus;
 
           if (
@@ -1397,7 +1449,7 @@ const EmployeeAttendance = () => {
               const userId = record.user._id || record.user.id;
               attendanceMap[userId] = {
                 ...record,
-                status: record.status ? record.status.toLowerCase() : 'absent'
+                status: normalizeAttendanceStatus(record.status)
               };
             }
           });
@@ -1411,8 +1463,8 @@ const EmployeeAttendance = () => {
             const calculatedStatus = calculateStatusFromTime(attendanceRecord.inTime);
             const hoursWorked = calculateHoursWorked(attendanceRecord.inTime, attendanceRecord.outTime);
             
-            let finalStatus = attendanceRecord.status 
-              ? attendanceRecord.status.toLowerCase() 
+            let finalStatus = attendanceRecord.status
+              ? normalizeAttendanceStatus(attendanceRecord.status)
               : calculatedStatus;
 
             if (
@@ -1472,10 +1524,10 @@ const EmployeeAttendance = () => {
         
         allRecords.push(...dateCombinedRecords);
         
-        const present = dateCombinedRecords.filter(r => r.status === "present").length;
-        const absent = dateCombinedRecords.filter(r => r.status === "absent").length;
-        const halfDay = dateCombinedRecords.filter(r => r.status === "halfday").length;
-        const late = dateCombinedRecords.filter(r => r.status === "late").length;
+        const present = dateCombinedRecords.filter(r => normalizeAttendanceStatus(r.status) === "present").length;
+        const absent = dateCombinedRecords.filter(r => normalizeAttendanceStatus(r.status) === "absent").length;
+        const halfDay = dateCombinedRecords.filter(r => normalizeAttendanceStatus(r.status) === "halfday").length;
+        const late = dateCombinedRecords.filter(r => normalizeAttendanceStatus(r.status) === "late").length;
         
         dailyStats[date] = {
           total: dateCombinedRecords.length,
@@ -1490,10 +1542,10 @@ const EmployeeAttendance = () => {
       setRecords(allRecords);
       
       const totalDays = dateRange.length;
-      const totalPresent = allRecords.filter(r => r.status === "present").length;
-      const totalLate = allRecords.filter(r => r.status === "late").length;
-      const totalHalfDay = allRecords.filter(r => r.status === "halfday").length;
-      const totalAbsent = allRecords.filter(r => r.status === "absent").length;
+      const totalPresent = allRecords.filter(r => normalizeAttendanceStatus(r.status) === "present").length;
+      const totalLate = allRecords.filter(r => normalizeAttendanceStatus(r.status) === "late").length;
+      const totalHalfDay = allRecords.filter(r => normalizeAttendanceStatus(r.status) === "halfday").length;
+      const totalAbsent = allRecords.filter(r => normalizeAttendanceStatus(r.status) === "absent").length;
       
       const avgEmployeesPerDay = allUsers.length || 1;
       
@@ -1541,10 +1593,10 @@ const EmployeeAttendance = () => {
   };
 
   const calculateStats = (attendanceData) => {
-    const present = attendanceData.filter((r) => r.status === "present").length;
-    const absent = attendanceData.filter((r) => r.status === "absent").length;
-    const halfDay = attendanceData.filter((r) => r.status === "halfday").length;
-    const late = attendanceData.filter((r) => r.status === "late").length;
+    const present = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "present").length;
+    const absent = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "absent").length;
+    const halfDay = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "halfday").length;
+    const late = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "late").length;
     const onTime = attendanceData.filter((r) => r.calculatedStatus === "present").length;
     
     setStats({
@@ -1621,7 +1673,7 @@ const EmployeeAttendance = () => {
         if (statusFilter === "ontime") {
           return rec.calculatedStatus === "present";
         }
-        return rec.status === statusFilter;
+        return normalizeAttendanceStatus(rec.status) === statusFilter;
       });
     }
 
@@ -2014,7 +2066,7 @@ const EmployeeAttendance = () => {
       'Check In': formatTime(record.inTime),
       'Check Out': formatTime(record.outTime),
       'Hours Worked': record.hoursWorked || '00:00:00',
-      'Status': record.status.toUpperCase(),
+      'Status': formatStatusLabel(record.status),
       'Late By': record.lateBy || '00:00:00',
       'Early Leave': record.earlyLeave || '00:00:00',
       'Overtime': record.overTime || '00:00:00',
@@ -2077,7 +2129,7 @@ const EmployeeAttendance = () => {
       formatTime(record.inTime),
       formatTime(record.outTime),
       record.hoursWorked || '00:00:00',
-      record.status.toUpperCase(),
+      formatStatusLabel(record.status),
       record.lateBy || '00:00:00',
       record.earlyLeave || '00:00:00',
       record.overTime || '00:00:00'
@@ -2464,7 +2516,10 @@ const EmployeeAttendance = () => {
             iconClass: "EmppAttendence-stat-icon-secondary"
           },
         ]
-          .filter(stat => stat.count > 0)
+          .filter(stat =>
+            stat.count > 0 ||
+            ["all", "present", "late", "halfday", "absent"].includes(stat.filterValue)
+          )
           .map((stat) => (
             <div 
               key={stat.label}
@@ -2673,12 +2728,22 @@ const EmployeeAttendance = () => {
                             <div style={{ fontWeight: 500 }}>
                               {formatTime(rec.inTime)}
                             </div>
+                            {rec.inLocation && (
+                              <span style={{ fontSize: '0.75rem', color: '#888', display: 'block', marginTop: '2px' }}>
+                                Dist: {calculateDistance(rec.inLocation.latitude, rec.inLocation.longitude)}m
+                              </span>
+                            )}
                           </td>
 
                           <td className="EmppAttendence-col-checkout">
                             <div style={{ fontWeight: 500 }}>
                               {formatTime(rec.outTime)}
                             </div>
+                            {rec.outLocation && (
+                              <span style={{ fontSize: '0.75rem', color: '#888', display: 'block', marginTop: '2px' }}>
+                                Dist: {calculateDistance(rec.outLocation.latitude, rec.outLocation.longitude)}m
+                              </span>
+                            )}
                           </td>
 
                           <td className="EmppAttendence-col-hours">
@@ -2701,13 +2766,10 @@ const EmployeeAttendance = () => {
 
                           <td className="EmppAttendence-col-status">
                             <span className={`EmppAttendence-status-chip ${getStatusClass(rec.status)}`}>
-                              {rec.status.toUpperCase()}
+                              {formatStatusLabel(rec.status)}
                             </span>
                             <div className="EmppAttendence-status-explanation">
-                              {rec.status === 'present' && 'Arrived before 9:10 AM'}
-                              {rec.status === 'late' && 'Arrived between 9:10-9:30 AM'}
-                              {rec.status === 'halfday' && 'Arrived after 9:30 AM'}
-                              {rec.status === 'absent' && 'No attendance recorded'}
+                              {getStatusExplanation(rec.status)}
                             </div>
                           </td>
 
@@ -2811,12 +2873,22 @@ const EmployeeAttendance = () => {
                             <div style={{ fontWeight: 500 }}>
                               {formatTime(rec.inTime)}
                             </div>
+                            {rec.inLocation && (
+                              <span style={{ fontSize: '0.75rem', color: '#888', display: 'block', marginTop: '2px' }}>
+                                Dist: {calculateDistance(rec.inLocation.latitude, rec.inLocation.longitude)}m
+                              </span>
+                            )}
                           </td>
 
                           <td className="EmppAttendence-col-checkout">
                             <div style={{ fontWeight: 500 }}>
                               {formatTime(rec.outTime)}
                             </div>
+                            {rec.outLocation && (
+                              <span style={{ fontSize: '0.75rem', color: '#888', display: 'block', marginTop: '2px' }}>
+                                Dist: {calculateDistance(rec.outLocation.latitude, rec.outLocation.longitude)}m
+                              </span>
+                            )}
                           </td>
 
                           <td className="EmppAttendence-col-hours">
@@ -2839,13 +2911,10 @@ const EmployeeAttendance = () => {
 
                           <td className="EmppAttendence-col-status">
                             <span className={`EmppAttendence-status-chip ${getStatusClass(rec.status)}`}>
-                              {rec.status.toUpperCase()}
+                              {formatStatusLabel(rec.status)}
                             </span>
                             <div className="EmppAttendence-status-explanation">
-                              {rec.status === 'present' && 'Arrived before 9:10 AM'}
-                              {rec.status === 'late' && 'Arrived between 9:10-9:30 AM'}
-                              {rec.status === 'halfday' && 'Arrived after 9:30 AM'}
-                              {rec.status === 'absent' && 'No attendance recorded'}
+                              {getStatusExplanation(rec.status)}
                             </div>
                           </td>
 

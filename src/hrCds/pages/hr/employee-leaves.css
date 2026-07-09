@@ -605,7 +605,7 @@
 }
 
 .EmppLeaves-table-header {
-  padding: 20px 24px;
+  padding: 16px 20px;
   background: #f8fafc;
   border-bottom: 1px solid #e8ecef;
   display: flex;
@@ -641,7 +641,7 @@
 }
 
 .EmppLeaves-leaves-table th {
-  padding: 16px 24px;
+  padding: 14px 20px;
   text-align: left;
   font-weight: 600;
   color: #4a5568;
@@ -659,7 +659,7 @@
 }
 
 .EmppLeaves-leaves-table td {
-  padding: 20px 24px;
+  padding: 14px 20px;
   vertical-align: middle;
 }
 
@@ -681,13 +681,13 @@
 .EmppLeaves-employee-info {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
+  gap: 12px;
 }
 
 .EmppLeaves-employee-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
   background: linear-gradient(135deg, #4299e1 0%, #667eea 100%);
   color: white;
   display: flex;
@@ -709,14 +709,14 @@
   font-weight: 600;
   color: #2d3748;
   margin-bottom: 4px;
-  font-size: 15px;
+  font-size: 14px;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .EmppLeaves-employee-email {
-  font-size: 13px;
+  font-size: 12px;
   color: #718096;
   margin-bottom: 4px;
   display: flex;
@@ -725,7 +725,7 @@
 }
 
 .EmppLeaves-employee-phone {
-  font-size: 13px;
+  font-size: 12px;
   color: #718096;
   display: flex;
   align-items: center;
@@ -766,7 +766,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 3px 9px;
   background: #edf2f7;
   border-radius: 20px;
   font-size: 12px;
@@ -781,7 +781,7 @@
 .EmppLeaves-leave-details {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 .EmppLeaves-leave-type-wrapper {
@@ -791,7 +791,7 @@
 }
 
 .EmppLeaves-leave-type-chip {
-  padding: 6px 14px;
+  padding: 4px 11px;
   border-radius: 20px;
   font-size: 12px;
   font-weight: 600;
@@ -826,7 +826,7 @@
   font-size: 13px;
   color: #718096;
   line-height: 1.5;
-  margin: 8px 0;
+  margin: 3px 0;
   max-width: 250px;
 }
 
@@ -843,7 +843,7 @@
 .EmppLeaves-duration-info {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .EmppLeaves-date-range {
@@ -860,14 +860,14 @@
 
 .EmppLeaves-days-badge {
   font-size: 12px;
-  padding: 4px 10px;
+  padding: 3px 9px;
   background: #ebf8ff;
   color: #4299e1;
   border-radius: 20px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 6px;
+  margin-top: 3px;
   font-weight: 600;
   border: 1px solid #bee3f8;
 }
@@ -876,13 +876,13 @@
 /* STATUS CHIP */
 /* ============================================ */
 .EmppLeaves-status-chip {
-  padding: 8px 16px;
+  padding: 6px 12px;
   border-radius: 20px;
   font-size: 12px;
   font-weight: 600;
   display: inline-block;
   border: 1px solid;
-  min-width: 90px;
+  min-width: 76px;
   text-align: center;
 }
 
@@ -980,6 +980,94 @@ border-radius: 50px ;
   pointer-events: none;
 }
 
+.EmppLeaves-actions-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.EmppLeaves-actions-dropdown[open] {
+  z-index: 20;
+}
+
+.EmppLeaves-actions-trigger {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid #dbeafe;
+  background: #ffffff;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.EmppLeaves-actions-trigger span {
+  display: none;
+}
+
+.EmppLeaves-actions-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.EmppLeaves-actions-trigger:hover {
+  border-color: #60a5fa;
+  color: #2563eb;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.12);
+}
+
+.EmppLeaves-actions-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 132px;
+  padding: 5px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
+}
+
+.EmppLeaves-action-menu-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.EmppLeaves-action-menu-item:hover {
+  background: #f8fafc;
+  color: #2563eb;
+}
+
+.EmppLeaves-action-menu-item.EmppLeaves-approve:hover {
+  background: #ecfdf3;
+  color: #15803d;
+}
+
+.EmppLeaves-action-menu-item.EmppLeaves-reject:hover,
+.EmppLeaves-action-menu-item.EmppLeaves-delete:hover {
+  background: #fff1f2;
+  color: #be123c;
+}
+
 /* ============================================ */
 /* NO PERMISSION */
 /* ============================================ */
@@ -1002,7 +1090,7 @@ border-radius: 50px ;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 5px 10px;
   background: #f7fafc;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
@@ -1011,8 +1099,8 @@ border-radius: 50px ;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
-  margin-top: 8px;
-  width: 141px;
+  margin-top: 4px;
+  width: auto;
 }
 
 .EmppLeaves-view-details-button:hover {
@@ -1110,26 +1198,34 @@ border-radius: 50px ;
 }
 
 .EmppLeaves-delete-dialog {
-  width: min(90vw, 380px);
+  width: min(92vw, 360px);
   max-width: none;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
   box-shadow: 0 18px 46px rgba(15, 23, 42, 0.24);
 }
 
 .EmppLeaves-delete-overlay {
   align-items: center;
+  background: rgba(15, 23, 42, 0.62);
+  backdrop-filter: blur(10px) saturate(120%);
 }
 
 .EmppLeaves-delete-dialog .EmppLeaves-dialog-header {
-  padding: 16px 20px;
+  padding: 12px 16px;
   background: #ffffff;
+  border-bottom: 1px solid #edf0f4;
+  border-radius: 14px 14px 0 0;
 }
 
 .EmppLeaves-delete-dialog .EmppLeaves-dialog-header h3 {
-  color: #111827;
-  font-size: 16px;
+  color: #0f172a;
+  font-size: 14px;
   font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0;
 }
 
 .EmppLeaves-delete-title-icon {
@@ -1137,68 +1233,124 @@ border-radius: 50px ;
   height: 30px;
   display: inline-grid;
   place-items: center;
-  border-radius: 8px;
+  border-radius: 9px;
   background: #fee2e2;
   color: #dc2626;
+  box-shadow: none;
+}
+
+.EmppLeaves-delete-dialog .EmppLeaves-dialog-close {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: #94a3b8;
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.EmppLeaves-delete-dialog .EmppLeaves-dialog-close:hover {
+  color: #dc2626;
+  background: #fff1f2;
+  border-color: #fecdd3;
 }
 
 .EmppLeaves-delete-dialog .EmppLeaves-dialog-body {
   display: grid;
   justify-items: center;
-  padding: 24px 24px 22px;
+  padding: 20px 22px 18px;
   text-align: center;
 }
 
 .EmppLeaves-delete-dialog .EmppLeaves-warning-icon {
-  width: 48px;
-  height: 48px;
+  width: 46px;
+  height: 46px;
   display: grid;
   place-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   border-radius: 50%;
   background: #fef2f2;
   color: #dc2626;
   border: 1px solid #fecaca;
-  box-shadow: 0 12px 24px rgba(220, 38, 38, 0.14);
+  box-shadow: 0 8px 18px rgba(220, 38, 38, 0.1);
+}
+
+.EmppLeaves-delete-dialog .EmppLeaves-warning-icon svg {
+  width: 24px;
+  height: 24px;
 }
 
 .EmppLeaves-delete-dialog .EmppLeaves-dialog-body h4 {
-  margin: 0 0 8px;
-  color: #111827;
+  margin: 0 0 6px;
+  color: #0f172a;
   font-size: 18px;
   line-height: 1.25;
   font-weight: 800;
 }
 
 .EmppLeaves-delete-dialog .EmppLeaves-dialog-body p {
-  max-width: 280px;
+  max-width: 270px;
   margin: 0;
   color: #667085;
   font-size: 13px;
   line-height: 1.45;
-  font-weight: 500;
+  font-weight: 600;
+}
+
+.EmppLeaves-delete-context {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: 100%;
+  margin-top: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  color: #475467;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.EmppLeaves-delete-context-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #111827;
+  font-weight: 800;
+}
+
+.EmppLeaves-delete-context-dot {
+  width: 4px;
+  height: 4px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #cbd5e1;
 }
 
 .EmppLeaves-delete-dialog .EmppLeaves-dialog-footer {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  padding: 14px 20px 20px;
-  gap: 12px;
+  padding: 12px 16px 16px;
+  gap: 10px;
   background: #f8fafc;
+  border-top: 1px solid #eef2f7;
 }
 
 .EmppLeaves-delete-dialog .EmppLeaves-btn {
   width: 100%;
   flex: none;
   min-width: 0;
-  height: 42px;
+  height: 40px;
   justify-content: center;
-  border-radius: 7px;
+  border-radius: 8px;
   font-weight: 800;
   font-size: 13px;
   line-height: 1;
   white-space: nowrap;
   letter-spacing: 0;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease;
 }
 
 .EmppLeaves-delete-dialog .EmppLeaves-btn svg {
@@ -1207,7 +1359,7 @@ border-radius: 50px ;
 
 .EmppLeaves-delete-dialog .EmppLeaves-btn-error {
   background: #dc2626;
-  border: 1px solid #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.95);
   color: #fff;
   box-shadow: 0 6px 14px rgba(220, 38, 38, 0.18);
 }
@@ -1216,6 +1368,7 @@ border-radius: 50px ;
   background: #b91c1c;
   border-color: #b91c1c;
   transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(220, 38, 38, 0.24);
 }
 
 .EmppLeaves-delete-dialog .EmppLeaves-btn-outlined {
@@ -1230,14 +1383,129 @@ border-radius: 50px ;
   border-color: #cbd5e1;
   color: #334155;
   transform: translateY(-1px);
+  box-shadow: 0 12px 22px rgba(15, 23, 42, 0.08);
 }
 
 .EmppLeaves-history-dialog {
-  max-width: 640px;
+  width: min(92vw, 520px);
+  max-width: none;
+  max-height: calc(100vh - 150px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.EmppLeaves-history-dialog .EmppLeaves-dialog-header {
+  flex: 0 0 auto;
+  padding: 14px 20px;
+}
+
+.EmppLeaves-history-dialog .EmppLeaves-dialog-header h3 {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.EmppLeaves-history-dialog .EmppLeaves-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 24px;
+}
+
+.EmppLeaves-history-dialog .EmppLeaves-dialog-footer {
+  flex: 0 0 auto;
+  padding: 14px 20px;
+}
+
+.EmppLeaves-history-dialog .EmppLeaves-dialog-footer .EmppLeaves-btn {
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .EmppLeaves-status-dialog {
-  max-width: 500px !important;
+  width: min(92vw, 430px);
+  max-width: none !important;
+  max-height: calc(100vh - 150px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.EmppLeaves-status-dialog .EmppLeaves-dialog-header {
+  flex: 0 0 auto;
+  padding: 14px 20px;
+}
+
+.EmppLeaves-status-dialog .EmppLeaves-dialog-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.EmppLeaves-status-dialog .EmppLeaves-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 24px;
+}
+
+.EmppLeaves-status-dialog .EmppLeaves-user-info-compact {
+  align-items: center;
+  padding: 12px;
+  margin-bottom: 14px;
+  border: 1px solid #edf2f7;
+  border-radius: 12px;
+  background: #fbfdff;
+}
+
+.EmppLeaves-status-dialog .EmppLeaves-user-avatar.EmppLeaves-medium {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22);
+  border: 2px solid #ffffff;
+}
+
+.EmppLeaves-status-dialog .EmppLeaves-user-details {
+  min-width: 0;
+}
+
+.EmppLeaves-status-dialog .EmppLeaves-user-details h4,
+.EmppLeaves-status-dialog .EmppLeaves-user-details p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.EmppLeaves-status-dialog .EmppLeaves-dialog-footer {
+  flex: 0 0 auto;
+  padding: 14px 20px;
+  gap: 10px;
+}
+
+.EmppLeaves-status-dialog .EmppLeaves-btn {
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .EmppLeaves-dialog-header {
@@ -1547,29 +1815,29 @@ border-radius: 50px ;
 .EmppLeaves-user-info-compact {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
-  padding-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
   border-bottom: 1px solid #e8ecef;
 }
 
 .EmppLeaves-user-avatar.EmppLeaves-medium {
-  width: 48px;
-  height: 48px;
+  width: 42px;
+  height: 42px;
   border-radius: 10px;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .EmppLeaves-user-details h4 {
   margin: 0 0 4px 0;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 800;
   color: #2d3748;
 }
 
 .EmppLeaves-user-details p {
   margin: 2px 0;
-  font-size: 13px;
+  font-size: 12px;
   color: #718096;
 }
 
@@ -1582,9 +1850,10 @@ border-radius: 50px ;
 .EmppLeaves-status-change-info {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
-  padding: 16px;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px;
   background: #f8fafc;
   border-radius: 8px;
   border: 1px solid #e2e8f0;
@@ -1593,16 +1862,16 @@ border-radius: 50px ;
 .EmppLeaves-status-badge.EmppLeaves-current {
   background: #edf2f7;
   color: #4a5568;
-  padding: 8px 16px;
+  padding: 7px 12px;
   border-radius: 20px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .EmppLeaves-status-badge.EmppLeaves-new {
-  padding: 8px 16px;
+  padding: 7px 12px;
   border-radius: 20px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -1632,26 +1901,26 @@ border-radius: 50px ;
 
 /* Remarks Section */
 .EmppLeaves-remarks-section {
-  margin-bottom: 28px;
+  margin-bottom: 16px;
 }
 
 .EmppLeaves-remarks-section label {
   display: block;
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 700;
   color: #4a5568;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .EmppLeaves-remarks-input {
   width: 100%;
-  padding: 14px 16px;
+  padding: 11px 12px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  font-size: 15px;
+  font-size: 14px;
   font-family: inherit;
-  resize: vertical;
-  min-height: 100px;
+  resize: none;
+  min-height: 78px;
   transition: all 0.2s;
   color: #2d3748;
 }
@@ -1664,14 +1933,14 @@ border-radius: 50px ;
 
 /* Notification Info */
 .EmppLeaves-notification-info {
-  padding: 16px;
+  padding: 11px 12px;
   background: #ebf8ff;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
   color: #2c5282;
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
   border: 1px solid #bee3f8;
 }
 
@@ -1704,25 +1973,25 @@ border-radius: 50px ;
 
 /* History Title */
 .EmppLeaves-history-title h4 {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 800;
   color: #2d3748;
-  margin: 0 0 24px 0;
+  margin: 0 0 16px 0;
   text-align: center;
-  padding-bottom: 16px;
+  padding-bottom: 14px;
   border-bottom: 1px solid #e8ecef;
 }
 
 /* History Timeline */
 .EmppLeaves-history-timeline {
-  border-left: 3px solid #e2e8f0;
-  margin-left: 20px;
-  padding-left: 32px;
+  border-left: 2px solid #dbeafe;
+  margin-left: 10px;
+  padding-left: 22px;
 }
 
 .EmppLeaves-history-item {
   position: relative;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .EmppLeaves-history-item:last-child {
@@ -1732,53 +2001,57 @@ border-radius: 50px ;
 .EmppLeaves-history-item:before {
   content: '';
   position: absolute;
-  left: -35px;
-  top: 6px;
-  width: 16px;
-  height: 16px;
+  left: -29px;
+  top: 7px;
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
   background: #4299e1;
-  border: 3px solid white;
-  box-shadow: 0 2px 8px rgba(66, 153, 225, 0.4);
+  border: 2px solid white;
+  box-shadow: 0 0 0 3px #dbeafe;
 }
 
 .EmppLeaves-history-item-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  gap: 12px;
+  margin-bottom: 8px;
 }
 
 .EmppLeaves-history-action {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 800;
   color: #2d3748;
   background: #edf2f7;
-  padding: 4px 12px;
+  padding: 5px 11px;
   border-radius: 20px;
   border: 1px solid #e2e8f0;
+  line-height: 1;
 }
 
 .EmppLeaves-history-date {
-  font-size: 13px;
+  font-size: 12px;
   color: #718096;
-  font-weight: 500;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .EmppLeaves-history-item-body {
   background: #f8fafc;
-  padding: 20px;
-  border-radius: 12px;
-  font-size: 14px;
+  padding: 13px 14px;
+  border-radius: 10px;
+  font-size: 13px;
   border: 1px solid #e8ecef;
 }
 
 .EmppLeaves-history-by,
 .EmppLeaves-history-role,
 .EmppLeaves-history-remarks {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   display: flex;
   gap: 8px;
+  line-height: 1.45;
 }
 
 .EmppLeaves-history-by:last-child,
@@ -1791,7 +2064,7 @@ border-radius: 50px ;
 .EmppLeaves-history-role strong,
 .EmppLeaves-history-remarks strong {
   color: #4a5568;
-  min-width: 60px;
+  min-width: 52px;
 }
 
 .EmppLeaves-history-status-change {
@@ -2528,20 +2801,29 @@ border-radius: 50px ;
   }
 
   .EmppLeaves-delete-dialog {
-    width: min(90vw, 380px);
+    width: min(94vw, 360px);
     max-width: none;
-    border-radius: 12px;
+    border-radius: 14px;
     margin: auto;
   }
 
   .EmppLeaves-delete-dialog .EmppLeaves-dialog-footer {
     grid-template-columns: 1fr 1fr;
+    padding: 12px 14px 14px;
   }
 
   .EmppLeaves-delete-dialog .EmppLeaves-btn {
     width: 100%;
     flex: none;
     padding: 0 14px;
+  }
+
+  .EmppLeaves-delete-dialog .EmppLeaves-dialog-body {
+    padding: 20px 18px 18px;
+  }
+
+  .EmppLeaves-delete-dialog .EmppLeaves-dialog-body h4 {
+    font-size: 18px;
   }
 
   /* Details Dialog Mobile */
@@ -2612,38 +2894,53 @@ border-radius: 50px ;
   }
 
   /* Status Dialog Mobile */
+  .EmppLeaves-status-dialog {
+    width: min(94vw, 430px);
+    max-height: calc(100vh - 120px);
+    margin: auto;
+    border-radius: 14px;
+  }
+
   .EmppLeaves-status-dialog .EmppLeaves-user-info-compact {
-    flex-direction: column;
-    text-align: center;
+    flex-direction: row;
+    text-align: left;
     gap: 12px;
   }
 
   .EmppLeaves-status-change-info {
-    flex-direction: column;
+    flex-direction: row;
     text-align: center;
-    gap: 12px;
+    gap: 10px;
     padding: 12px;
   }
 
   .EmppLeaves-status-change-info svg {
-    transform: rotate(90deg);
+    transform: none;
   }
 
   .EmppLeaves-remarks-input {
     padding: 12px;
     font-size: 14px;
+    min-height: 74px;
   }
 
   /* History Dialog Mobile */
+  .EmppLeaves-history-dialog {
+    width: min(94vw, 520px);
+    max-height: calc(100vh - 120px);
+    margin: auto;
+    border-radius: 14px;
+  }
+
   .EmppLeaves-history-timeline {
-    margin-left: 12px;
+    margin-left: 8px;
     padding-left: 20px;
   }
 
   .EmppLeaves-history-item:before {
-    left: -23px;
-    width: 14px;
-    height: 14px;
+    left: -26px;
+    width: 10px;
+    height: 10px;
   }
 
   .EmppLeaves-history-item-header {
@@ -2653,7 +2950,7 @@ border-radius: 50px ;
   }
 
   .EmppLeaves-history-item-body {
-    padding: 16px;
+    padding: 12px;
   }
 
   .EmppLeaves-history-by,
@@ -2878,23 +3175,23 @@ border-radius: 50px ;
 .EmppLeaves-approval-flow {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-width: 150px;
+  gap: 4px;
+  min-width: 132px;
 }
 
 .EmppLeaves-approval-step {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 6px 8px;
-  border-radius: 8px;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 7px;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
 }
 
 .EmppLeaves-approval-name {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: #334155;
   overflow: hidden;
@@ -2903,10 +3200,10 @@ border-radius: 50px ;
 }
 
 .EmppLeaves-approval-status {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   border-radius: 999px;
-  padding: 2px 7px;
+  padding: 2px 6px;
   background: #e2e8f0;
   color: #475569;
   flex: 0 0 auto;

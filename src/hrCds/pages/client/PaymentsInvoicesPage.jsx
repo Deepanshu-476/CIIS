@@ -60,6 +60,7 @@ const PaymentsInvoicesPage = () => {
     amount: formatMoney(invoice.amount),
     dueDate: formatDate(invoice.dueDate),
     status: invoice.status || "Due",
+    note: invoice.billingCycle || invoice.note || "",
     isDue: true,
   }));
 
@@ -341,7 +342,10 @@ const PaymentsInvoicesPage = () => {
                   {invoices.map(invoice => (
                     <tr key={invoice.id}>
                       <td><strong>{invoice.id}</strong></td>
-                      <td>{invoice.period}</td>
+                      <td>
+                        <strong>{invoice.period}</strong>
+                        {invoice.note && <small className="PaymentsPage-invoiceNote">{invoice.note}</small>}
+                      </td>
                       <td><strong>{invoice.amount}</strong></td>
                       <td>{invoice.dueDate}</td>
                       <td>

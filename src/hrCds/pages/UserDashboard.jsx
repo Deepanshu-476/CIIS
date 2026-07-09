@@ -12,7 +12,7 @@ import {
   FiClock, FiCalendar, FiChevronLeft, FiChevronRight,
   FiPlay, FiSquare, FiRefreshCw, FiBriefcase, FiUser,
   FiCheckCircle, FiAlertCircle, FiTrendingUp, FiActivity,
-  FiX, FiAlertTriangle
+  FiX, FiAlertTriangle, FiCamera
 } from 'react-icons/fi';
 import {
   MdWork, MdOutlineCrop54, MdBeachAccess,
@@ -174,6 +174,13 @@ const UserDashboard = () => {
   
   const [showClockOutConfirm, setShowClockOutConfirm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [attendanceMode, setAttendanceMode] = useState('normal');
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [modalMode, setModalMode] = useState(null);
+  const [cameraStream, setCameraStream] = useState(null);
+  const [capturedImage, setCapturedImage] = useState(null);
+  const [selfieUploading, setSelfieUploading] = useState(false);
+  const videoRef = useRef(null);
 
   const [userJoinDate, setUserJoinDate] = useState(null);
   const [formattedJoinDate, setFormattedJoinDate] = useState('');
@@ -609,6 +616,24 @@ const UserDashboard = () => {
     setRecentActivity(allActivities.slice(0, 5));
   }, [taskActivity]);
 
+  const fetchDashboardConfig = useCallback(async () => {
+    const companyId = getCompanyId();
+    if (!companyId) return;
+
+    try {
+      const response = await axios.get(`/company/${companyId}/dashboard-config`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const dashboardConfig = response.data?.dashboardConfig || [];
+      const clockConfig = dashboardConfig.find(item => item.componentId === 'clock-in');
+      setAttendanceMode(clockConfig?.settings?.attendanceMode || 'normal');
+    } catch (err) {
+      console.error("Failed to load dashboard config:", err);
+      setAttendanceMode('normal');
+    }
+  }, [getCompanyId, token]);
+
   
   useEffect(() => {
     if (initialLoadRef.current) return;
@@ -624,6 +649,7 @@ const UserDashboard = () => {
       cancelPendingRequests();
       
       try {
+        await fetchDashboardConfig();
         await fetchJobRoles();
         await fetchHolidays(); 
         await fetchAttendanceData(true); 
@@ -643,7 +669,7 @@ const UserDashboard = () => {
     loadData();
     
     return () => cancelPendingRequests();
-  }, []);
+  }, [fetchDashboardConfig, fetchJobRoles, fetchHolidays, fetchAttendanceData, fetchLeaveData, fetchCurrentStatus, fetchRecentTaskActivity, cancelPendingRequests, isUserInCurrentCompany]);
 
   
   useEffect(() => {
@@ -668,11 +694,14 @@ const UserDashboard = () => {
   useEffect(() => {
     return () => {
       cancelPendingRequests();
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [cancelPendingRequests]);
+  }, [cancelPendingRequests, cameraStream]);
 
   const getJobRoleDisplayName = useCallback(() => {
     if (jobRolesLoading) return 'Loading...';
@@ -837,12 +866,117 @@ const UserDashboard = () => {
     }
   }, [getDayStatus]);
 
-  const handleIn = async () => {
+  const getCoordinates = () => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve({ error: "Geolocation is not supported by your browser." });
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          });
+        },
+        (error) => {
+          resolve({ error: error.message });
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    });
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+  };
+
+  const startCamera = async () => {
+    try {
+      setCapturedImage(null);
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 400, height: 300 } });
+      setCameraStream(stream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error("Camera access error:", err);
+      toast.error("Unable to access camera. Please check permissions.");
+    }
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = 400;
+    canvas.height = 300;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    setCapturedImage(canvas.toDataURL('image/jpeg'));
+    stopCamera();
+  };
+
+  const uploadSelfie = async (dataUrl) => {
+    try {
+      setSelfieUploading(true);
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const formData = new FormData();
+      formData.append('selfie', blob, 'selfie.jpg');
+
+      const uploadRes = await axios.post('/attendance/upload-selfie', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (uploadRes.data.success) return uploadRes.data.selfieUrl;
+      throw new Error("Selfie upload failed");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to upload image. Please try again.");
+      return null;
+    } finally {
+      setSelfieUploading(false);
+    }
+  };
+
+  const handleCancelCameraModal = () => {
+    stopCamera();
+    setShowCameraModal(false);
+    setCapturedImage(null);
+    setModalMode(null);
+  };
+
+  const buildAttendancePayload = async (selfieUrl = null) => {
+    const payload = {};
+    if (selfieUrl) payload.selfieUrl = selfieUrl;
+
+    if (attendanceMode === 'location' || attendanceMode === 'both') {
+      toast.info("Fetching location...");
+      const coords = await getCoordinates();
+      if (coords.error) {
+        toast.error(`Location error: ${coords.error}`);
+        return null;
+      }
+      payload.latitude = coords.latitude;
+      payload.longitude = coords.longitude;
+    }
+
+    return payload;
+  };
+
+  const handleIn = async (payload = {}) => {
     if (!isUserInCurrentCompany || isProcessing) return;
     
     setIsProcessing(true);
     try {
-      await axios.post('/attendance/in', {}, {
+      await axios.post('/attendance/in', payload, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 10000
       });
@@ -863,12 +997,12 @@ const UserDashboard = () => {
     }
   };
 
-  const handleClockOut = async () => {
+  const handleClockOut = async (payload = {}) => {
     if (!isUserInCurrentCompany || isProcessing) return;
     
     setIsProcessing(true);
     try {
-      await axios.post("/attendance/out", {}, {
+      await axios.post("/attendance/out", payload, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 10000
       });
@@ -883,10 +1017,45 @@ const UserDashboard = () => {
       }, 500);
 
     } catch (error) {
-      toast.error("Clock-out failed");
+      toast.error(error.response?.data?.message || "Clock-out failed");
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const runAttendanceFlow = async (mode, selfieUrl = null) => {
+    const payload = await buildAttendancePayload(selfieUrl);
+    if (!payload) return;
+
+    if (mode === 'in') {
+      await handleIn(payload);
+    } else {
+      await handleClockOut(payload);
+    }
+
+    setShowCameraModal(false);
+    setCapturedImage(null);
+    setModalMode(null);
+  };
+
+  const handleActionClick = (mode) => {
+    setModalMode(mode);
+    if (mode === 'out') setShowClockOutConfirm(false);
+
+    if (attendanceMode === 'image' || attendanceMode === 'both') {
+      setShowCameraModal(true);
+      setTimeout(() => startCamera(), 100);
+      return;
+    }
+
+    runAttendanceFlow(mode);
+  };
+
+  const handleConfirmCaptured = async () => {
+    if (!capturedImage) return;
+    const selfieUrl = await uploadSelfie(capturedImage);
+    if (!selfieUrl) return;
+    await runAttendanceFlow(modalMode, selfieUrl);
   };
 
   const handlePrevMonth = useCallback(() => {
@@ -1012,9 +1181,53 @@ const UserDashboard = () => {
               <button className="confirmation-btn confirmation-btn-cancel" onClick={() => setShowClockOutConfirm(false)} disabled={isProcessing}>
                 Cancel
               </button>
-              <button className="confirmation-btn confirmation-btn-confirm" onClick={handleClockOut} disabled={isProcessing}>
+              <button className="confirmation-btn confirmation-btn-confirm" onClick={() => handleActionClick('out')} disabled={isProcessing || selfieUploading}>
                 {isProcessing ? 'Processing...' : 'Confirm Clock Out'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCameraModal && (
+        <div className="confirmation-overlay" style={{ zIndex: 1000 }}>
+          <div className="confirmation-popup" style={{ maxWidth: '450px' }}>
+            <button className="confirmation-close-btn" onClick={handleCancelCameraModal} disabled={selfieUploading}>
+              <FiX size={20} />
+            </button>
+            <h3 className="confirmation-title">{modalMode === 'in' ? 'Clock In Verification' : 'Clock Out Verification'}</h3>
+            <p className="confirmation-message" style={{ marginBottom: '15px' }}>
+              Your company requires a selfie to verify attendance.
+            </p>
+
+            <div style={{ width: '100%', height: '300px', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden', position: 'relative', marginBottom: '20px' }}>
+              {capturedImage ? (
+                <img src={capturedImage} alt="Captured" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <video ref={videoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              )}
+            </div>
+
+            <div className="confirmation-buttons" style={{ justifyContent: 'center', gap: '15px' }}>
+              {capturedImage ? (
+                <>
+                  <button className="confirmation-btn confirmation-btn-cancel" onClick={startCamera} disabled={selfieUploading}>
+                    Retake
+                  </button>
+                  <button className="confirmation-btn confirmation-btn-confirm" onClick={handleConfirmCaptured} disabled={selfieUploading}>
+                    {selfieUploading ? 'Uploading...' : 'Confirm & Submit'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="confirmation-btn confirmation-btn-cancel" onClick={handleCancelCameraModal} disabled={selfieUploading}>
+                    Cancel
+                  </button>
+                  <button className="confirmation-btn confirmation-btn-confirm" onClick={capturePhoto} disabled={selfieUploading}>
+                    <FiCamera style={{ marginRight: '8px' }} /> Capture Photo
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -1056,15 +1269,15 @@ const UserDashboard = () => {
             </div>
             <div className="dashboard-clock-buttons">
               <button
-                onClick={handleIn}
-                disabled={isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing}
+                onClick={() => handleActionClick('in')}
+                disabled={isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
                 className={`dashboard-btn dashboard-btn-clockin ${isRunning ? 'btn-disabled' : ''}`}
               >
                 <FiPlay size={20} /> Clock In
               </button>
               <button
                 onClick={() => setShowClockOutConfirm(true)}
-                disabled={!isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing}
+                disabled={!isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
                 className={`dashboard-btn dashboard-btn-clockout ${!isRunning ? 'btn-disabled' : ''}`}
               >
                 <FiSquare size={20} /> Clock Out

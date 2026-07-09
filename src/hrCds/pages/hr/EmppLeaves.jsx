@@ -44,7 +44,8 @@ import {
   FiHome,
   FiUsers as FiUsersIcon,
   FiBriefcase as FiBriefcaseIcon,
-  FiBell
+  FiBell,
+  FiMoreVertical
 } from "react-icons/fi";
 
 
@@ -909,6 +910,12 @@ const EmployeeLeaves = () => {
     [filteredLeaves]
   );
 
+  const leavePendingDelete = useMemo(() => {
+    if (!deleteDialog) return null;
+    if (typeof deleteDialog === 'object') return deleteDialog;
+    return leaves.find(leave => leave._id === deleteDialog) || null;
+  }, [deleteDialog, leaves]);
+
   
   
   
@@ -1586,58 +1593,69 @@ const EmployeeLeaves = () => {
                       <ApprovalWorkflow leave={leave} />
                     </td>
                     <td>
-                      <div className="EmppLeaves-actions-container">
-                        <button 
-                          className="EmppLeaves-action-icon-button EmppLeaves-view-history"
-                          onClick={() => openHistoryDialog(leave)}
-                        >
-                          <FiList size={16} />
-                        </button>
+                      <details className="EmppLeaves-actions-dropdown">
+                        <summary className="EmppLeaves-actions-trigger">
+                          <FiMoreVertical size={16} />
+                          <span>Actions</span>
+                        </summary>
                         
-                        {leave.status === 'Pending' && canApproveLeave(leave) && (
-                          <>
-                            <button
-                              className="EmppLeaves-action-icon-button EmppLeaves-approve"
-                              onClick={() => openStatusDialog(
-                                leave._id, 
-                                'Approved', 
-                                leave.user?.email,
-                                leave.user?.name,
-                                leave.user?.phone,
-                                userId,
-                                leave.status,
-                                leave
-                              )}
-                            >
-                              <FiCheckCircle size={16} />
-                            </button>
-                            <button
-                              className="EmppLeaves-action-icon-button EmppLeaves-reject"
-                              onClick={() => openStatusDialog(
-                                leave._id, 
-                                'Rejected', 
-                                leave.user?.email,
-                                leave.user?.name,
-                                leave.user?.phone,
-                                userId,
-                                leave.status,
-                                leave
-                              )}
-                            >
-                              <FiXCircle size={16} />
-                            </button>
-                          </>
-                        )}
-                        
-                        {canDeleteLeave() && (
-                          <button 
-                            className="EmppLeaves-action-icon-button EmppLeaves-delete"
-                            onClick={() => setDeleteDialog(leave._id)}
+                        <div className="EmppLeaves-actions-menu">
+                          <button
+                            className="EmppLeaves-action-menu-item EmppLeaves-view-history"
+                            onClick={() => openHistoryDialog(leave)}
                           >
-                            <FiTrash2 size={16} />
+                            <FiList size={16} />
+                            <span>History</span>
                           </button>
-                        )}
-                      </div>
+
+                          {leave.status === 'Pending' && canApproveLeave(leave) && (
+                            <>
+                              <button
+                                className="EmppLeaves-action-menu-item EmppLeaves-approve"
+                                onClick={() => openStatusDialog(
+                                  leave._id,
+                                  'Approved',
+                                  leave.user?.email,
+                                  leave.user?.name,
+                                  leave.user?.phone,
+                                  userId,
+                                  leave.status,
+                                  leave
+                                )}
+                              >
+                                <FiCheckCircle size={16} />
+                                <span>Approve</span>
+                              </button>
+                              <button
+                                className="EmppLeaves-action-menu-item EmppLeaves-reject"
+                                onClick={() => openStatusDialog(
+                                  leave._id,
+                                  'Rejected',
+                                  leave.user?.email,
+                                  leave.user?.name,
+                                  leave.user?.phone,
+                                  userId,
+                                  leave.status,
+                                  leave
+                                )}
+                              >
+                                <FiXCircle size={16} />
+                                <span>Reject</span>
+                              </button>
+                            </>
+                          )}
+
+                          {canDeleteLeave() && (
+                            <button
+                              className="EmppLeaves-action-menu-item EmppLeaves-delete"
+                              onClick={() => setDeleteDialog(leave)}
+                            >
+                              <FiTrash2 size={16} />
+                              <span>Delete</span>
+                            </button>
+                          )}
+                        </div>
+                      </details>
                     </td>
                   </tr>
                 );
@@ -2019,6 +2037,15 @@ const EmployeeLeaves = () => {
               <p>
                 This leave request will be permanently deleted and cannot be recovered.
               </p>
+              {leavePendingDelete && (
+                <div className="EmppLeaves-delete-context">
+                  <span className="EmppLeaves-delete-context-name">
+                    {leavePendingDelete.user?.name || "Employee"}
+                  </span>
+                  <span className="EmppLeaves-delete-context-dot" aria-hidden="true"></span>
+                  <span>{leavePendingDelete.type || "Leave"} Leave</span>
+                </div>
+              )}
             </div>
             
             <div className="EmppLeaves-dialog-footer">
@@ -2027,7 +2054,7 @@ const EmployeeLeaves = () => {
               </button>
               <button 
                 className="EmppLeaves-btn EmppLeaves-btn-error" 
-                onClick={() => handleDeleteLeave(deleteDialog)}
+                onClick={() => handleDeleteLeave(leavePendingDelete?._id || deleteDialog)}
               >
                 <FiTrash2 size={16} />
                 Delete

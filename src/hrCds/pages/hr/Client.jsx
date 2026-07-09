@@ -32,12 +32,11 @@ import {
   FiChevronDown,
   FiChevronUp,
   FiCreditCard,
-  FiDollarSign,
   FiUpload
 } from 'react-icons/fi';
 
 
-import { FaTasks, FaProjectDiagram, FaCity } from 'react-icons/fa';
+import { FaTasks, FaProjectDiagram, FaCity, FaRupeeSign } from 'react-icons/fa';
 import { Repeat } from 'lucide-react';
 
 
@@ -638,7 +637,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
                     </div>
                     <div className="ClientManagement-renewal-actions">
                       <button type="submit" className="ClientManagement-btn ClientManagement-btn--primary" disabled={updating}>
-                        <FiDollarSign /> Add Due Payment
+                        <FaRupeeSign /> Add Due Payment
                       </button>
                     </div>
                   </form>
@@ -765,18 +764,21 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
 
                     <div className="ClientManagement-form-group">
                       <label className="ClientManagement-form-label">
-                        <FiDollarSign /> Price (₹)
+                        <FaRupeeSign /> Price
                       </label>
-                      <input
-                        type="number"
-                        className="ClientManagement-form-input"
-                        placeholder="Enter subscription price"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        disabled={updating}
-                        step="0.01"
-                        min="0"
-                      />
+                      <div className="ClientManagement-currency-input">
+                        <span className="ClientManagement-currency-prefix">₹</span>
+                        <input
+                          type="number"
+                          className="ClientManagement-form-input"
+                          placeholder="Enter subscription price"
+                          value={price}
+                          onChange={(e) => setPrice(e.target.value)}
+                          disabled={updating}
+                          step="0.01"
+                          min="0"
+                        />
+                      </div>
                       <small className="ClientManagement-text-muted">Enter the subscription amount</small>
                     </div>
 
@@ -983,7 +985,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
                   <div className="ClientManagement-payment-receipt-details">
                     <div className="ClientManagement-payment-detail-row">
                       <div className="ClientManagement-payment-detail-label">
-                        <FiDollarSign size={14} /> Amount:
+                        <FaRupeeSign size={14} /> Amount:
                       </div>
                       <div className="ClientManagement-payment-detail-value ClientManagement-amount-highlight">
                         ₹{typeof receipt.amount === 'number' ? receipt.amount.toLocaleString('en-IN') : receipt.amount}
@@ -2787,6 +2789,24 @@ const ClientManagement = () => {
 
   const pendingServiceRequestsCount = serviceRequests.filter(request => (request.status || 'Pending') === 'Pending').length;
 
+  useEffect(() => {
+    if (!editDialog.open) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+    document.body.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
+    };
+  }, [editDialog.open]);
+
   const loadServiceRequests = async (nextCompanyCode = companyCode, nextCompanyIdentifier = companyIdentifier) => {
     try {
       const response = await api.get('/service-enquiries', {
@@ -4276,7 +4296,7 @@ const ClientManagement = () => {
       )}
 
       {editDialog.open && editDialog.client && (
-        <div className="ClientManagement-modal-overlay" onClick={() => setEditDialog({ open: false, client: null })}>
+        <div className="ClientManagement-modal-overlay ClientManagement-edit-modal-overlay" onClick={() => setEditDialog({ open: false, client: null })}>
           <div className="ClientManagement-modal ClientManagement-edit-modal" onClick={e => e.stopPropagation()}>
             <div className="ClientManagement-modal__header">
               <h3>Edit Client</h3>
@@ -4404,25 +4424,28 @@ const ClientManagement = () => {
 
                   <div className="ClientManagement-form-group">
                     <label className="ClientManagement-form-label">
-                      <FiDollarSign className="ClientManagement-icon-inline" /> Subscription Price (₹)
+                      <FaRupeeSign className="ClientManagement-icon-inline" /> Subscription Price
                     </label>
-                    <input
-                      type="number"
-                      className="ClientManagement-form-input"
-                      placeholder="Enter subscription amount"
-                      value={editDialog.client.subscriptionPrice || ''}
-                      onChange={(e) => {
-                        setEditDialog({
-                          ...editDialog,
-                          client: { 
-                            ...editDialog.client, 
-                            subscriptionPrice: e.target.value
-                          }
-                        });
-                      }}
-                      step="0.01"
-                      min="0"
-                    />
+                    <div className="ClientManagement-currency-input">
+                      <span className="ClientManagement-currency-prefix">₹</span>
+                      <input
+                        type="number"
+                        className="ClientManagement-form-input"
+                        placeholder="Enter subscription amount"
+                        value={editDialog.client.subscriptionPrice || ''}
+                        onChange={(e) => {
+                          setEditDialog({
+                            ...editDialog,
+                            client: { 
+                              ...editDialog.client, 
+                              subscriptionPrice: e.target.value
+                            }
+                          });
+                        }}
+                        step="0.01"
+                        min="0"
+                      />
+                    </div>
                     <small className="ClientManagement-text-muted">Enter the subscription amount</small>
                   </div>
 

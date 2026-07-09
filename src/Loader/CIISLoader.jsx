@@ -8,7 +8,7 @@ const loadingMessages = [
   "Securing your workspace...",
   "Loading database clusters...",
   "Syncing intelligence nodes...",
-  "Optimizing dashboard interface...",
+  "Optimizing dashboard interface...",  
   "Verifying authentication tokens...",
   "Readying CIIS experience..."
 ];

@@ -807,7 +807,6 @@ const Dashboard = () => {
 
         <article className="ClientDashboard-card ClientDashboard-payment-summary">
           <h3>Payment Summary</h3>
-          <div className="ClientDashboard-payment-line"><span><FiCreditCard /> Total Paid</span><strong>{formatMoney(paymentSummary.paidAmount)}</strong></div>
           <div className="ClientDashboard-payment-line due"><span><FiFileText /> Total Due</span><strong>{formatMoney(paymentSummary.outstanding)}</strong></div>
           <div className="ClientDashboard-payment-line"><span><FiCalendar /> Next Due Date</span><strong>{formatDate(paymentSummary.nextDueDate)}</strong></div>
           <div className="ClientDashboard-due-box">

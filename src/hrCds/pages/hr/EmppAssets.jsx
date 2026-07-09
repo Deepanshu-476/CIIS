@@ -5,9 +5,10 @@ import {
   FiEdit, FiTrash2, FiPackage, FiCheckCircle,
   FiXCircle, FiClock, FiMessageCircle, FiSearch, 
   FiUsers, FiBriefcase, FiFilter, FiLock, FiEyeOff,
-  FiShield, FiHome
+  FiShield, FiHome, FiUpload, FiImage, FiX
 } from 'react-icons/fi';
 import './EmpAssets.css';
+import { API_URL_IMG } from '../../../config';
 
 const EmpAssets = () => {
   const [requests, setRequests] = useState([]);
@@ -16,6 +17,8 @@ const EmpAssets = () => {
   const [notification, setNotification] = useState(null);
   const [editingCommentReq, setEditingCommentReq] = useState(null);
   const [commentText, setCommentText] = useState('');
+  const [commentImage, setCommentImage] = useState(null);
+  const [commentImagePreview, setCommentImagePreview] = useState('');
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
@@ -52,6 +55,24 @@ const EmpAssets = () => {
   
   const companyCode = localStorage.getItem('companyCode') || 'Mohit';
 
+  const getUploadUrl = (filePath) => {
+    if (!filePath) return '';
+    if (/^https?:\/\//i.test(filePath)) return filePath;
+
+    const base = (API_URL_IMG || window.location.origin).replace(/\/$/, '');
+    const cleanPath = String(filePath).replace(/^\/+/, '');
+
+    if (cleanPath.startsWith('api/uploads/')) {
+      return `${base}/${cleanPath}`;
+    }
+
+    if (cleanPath.startsWith('uploads/')) {
+      return `${base}/${cleanPath}`;
+    }
+
+    return `${base}/uploads/${cleanPath}`;
+  };
+
   
   
   
@@ -72,6 +93,14 @@ const EmpAssets = () => {
       fetchDepartments();
     }
   }, [currentUserCompanyId]);
+
+  useEffect(() => {
+    return () => {
+      if (commentImagePreview) {
+        URL.revokeObjectURL(commentImagePreview);
+      }
+    };
+  }, [commentImagePreview]);
 
   
   
@@ -564,6 +593,41 @@ const EmpAssets = () => {
     
     setEditingCommentReq(req);
     setCommentText('');
+    setCommentImage(null);
+    setCommentImagePreview('');
+  };
+
+  const handleCommentImageChange = (event) => {
+    const file = event.target.files?.[0] || null;
+    event.target.value = '';
+
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      setNotification({ message: 'Only JPG, PNG, WEBP, or GIF images are allowed', severity: 'error' });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setNotification({ message: 'Image must be 5 MB or smaller', severity: 'error' });
+      return;
+    }
+
+    if (commentImagePreview) {
+      URL.revokeObjectURL(commentImagePreview);
+    }
+
+    setCommentImage(file);
+    setCommentImagePreview(URL.createObjectURL(file));
+  };
+
+  const clearCommentImage = () => {
+    if (commentImagePreview) {
+      URL.revokeObjectURL(commentImagePreview);
+    }
+    setCommentImage(null);
+    setCommentImagePreview('');
   };
 
   const handleCommentUpdate = async () => {
@@ -574,12 +638,22 @@ const EmpAssets = () => {
       });
       return;
     }
+
+    if (!commentText.trim() && !commentImage) {
+      setNotification({ message: 'Please write a comment or upload an image', severity: 'error' });
+      return;
+    }
     
     setActionLoading(true);
     try {
-      
-      await axios.patch(`/asset-requests/update/${editingCommentReq._id}`, {
-        adminComment: commentText,
+      const formData = new FormData();
+      formData.append('adminComment', commentText.trim());
+      if (commentImage) {
+        formData.append('commentImage', commentImage);
+      }
+
+      await axios.patch(`/asset-requests/update/${editingCommentReq._id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
       setNotification({ message: 'Comment updated successfully', severity: 'success' });
       
@@ -587,8 +661,10 @@ const EmpAssets = () => {
 
         
         setCommentText('');
+        clearCommentImage();
+        setEditingCommentReq(null);
     } catch (err) {
-      setNotification({ message: 'Failed to update comment', severity: 'error' });
+      setNotification({ message: err.response?.data?.message || 'Failed to update comment', severity: 'error' });
       console.error('Comment update error:', err);
     } finally { 
       setActionLoading(false); 
@@ -1077,19 +1153,52 @@ const EmpAssets = () => {
                 autoFocus
               />
 
+              <div className="EmpAssets-comment-upload">
+                <label className="EmpAssets-comment-upload-btn">
+                  <FiUpload size={16} />
+                  Upload Image
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/jpg,image/webp,image/gif"
+                    onChange={handleCommentImageChange}
+                    disabled={actionLoading}
+                  />
+                </label>
+                <span className="EmpAssets-comment-upload-hint">JPG, PNG, WEBP, GIF up to 5 MB</span>
+              </div>
+
+              {commentImagePreview && (
+                <div className="EmpAssets-comment-image-preview">
+                  <img src={commentImagePreview} alt="Selected comment attachment" />
+                  <div className="EmpAssets-comment-image-meta">
+                    <span>{commentImage?.name}</span>
+                    <button type="button" onClick={clearCommentImage} disabled={actionLoading}>
+                      <FiX size={14} /> Remove
+                    </button>
+                  </div>
+                </div>
+              )}
+
               
               {editingCommentReq?.adminComments?.length > 0 && (
-                <div style={{ marginTop: "10px" }}>
+                <div className="EmpAssets-comments-list">
                   <strong>Comments:</strong>
 
                   {editingCommentReq.adminComments.map((c, i) => (
-                    <div key={i} style={{
-                      marginTop: "6px",
-                      padding: "8px",
-                      background: "#f5f7ff",
-                      borderRadius: "6px"
-                    }}>
-                      {c.text}
+                    <div key={i} className="EmpAssets-comment-item">
+                      {c.text && <p>{c.text}</p>}
+                      {c.image && (
+                        <a
+                          className="EmpAssets-comment-image-link"
+                          href={getUploadUrl(c.image)}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <FiImage size={14} />
+                          <img src={getUploadUrl(c.image)} alt="Comment attachment" />
+                        </a>
+                      )}
+                      {!c.text && !c.image && <p>No comment text</p>}
                     </div>
                   ))}
                 </div>
@@ -1099,7 +1208,10 @@ const EmpAssets = () => {
             <div className="EmpAssets-dialog-footer">
               <button 
                 className="EmpAssets-btn EmpAssets-btn-cancel"
-                onClick={() => setEditingCommentReq(null)}
+                onClick={() => {
+                  clearCommentImage();
+                  setEditingCommentReq(null);
+                }}
                 disabled={actionLoading}
               >
                 Cancel
@@ -1107,7 +1219,7 @@ const EmpAssets = () => {
               <button 
                 className="EmpAssets-btn EmpAssets-btn-save"
                 onClick={handleCommentUpdate}
-                disabled={actionLoading}
+                disabled={actionLoading || (!commentText.trim() && !commentImage)}
               >
                 {actionLoading ? 'Adding...' : 'Add Comment'}
               </button>

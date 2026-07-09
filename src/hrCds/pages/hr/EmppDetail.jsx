@@ -1120,8 +1120,14 @@ const EditEmployeeForm = React.memo(({
   canEditOtherEmployees,
   isSelfEdit,
   currentUserId,
+  currentUserRole,
+  currentUserCompanyRole,
   isSuperAdmin
 }) => {
+  const handleDocumentsChange = useCallback((documents) => {
+    onInputChange('documents', documents);
+  }, [onInputChange]);
+
   if (!editingUser) {
     return null;
   }
@@ -1137,6 +1143,11 @@ const EditEmployeeForm = React.memo(({
   
   // Show info for users with edit access
   const showEditInfo = canEditOtherEmployees && !isEditingSelf;
+  const editableUserId = editingUser._id || editingUser.id;
+  const documentManagerRoles = ['super_admin', 'admin', 'owner', 'hr', 'manager'];
+  const canManageEmployeeDocuments = isEditingSelf ||
+    documentManagerRoles.includes(String(currentUserRole || '').toLowerCase()) ||
+    documentManagerRoles.includes(String(currentUserCompanyRole || '').toLowerCase());
   
   return (
     <>
@@ -1193,6 +1204,14 @@ const EditEmployeeForm = React.memo(({
             onInputChange={onInputChange}
             isReadOnly={false}
           />
+
+          {/* Upload Documents */}
+          <EmployeeDocuments
+            userId={editableUserId}
+            canUpload={canManageEmployeeDocuments}
+            canDelete={canManageEmployeeDocuments}
+            onDocumentsChange={handleDocumentsChange}
+          />
         </div>
       </form>
     </>
@@ -1201,21 +1220,40 @@ const EditEmployeeForm = React.memo(({
 
 // ==================== MAIN COMPONENT ====================
 
-const EmployeeDocuments = ({ userId }) => {
+const EmployeeDocuments = ({
+  userId,
+  canUpload = false,
+  canDelete = false,
+  onDocumentsChange
+}) => {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [documentName, setDocumentName] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState('');
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError('');
     axios.get(`/users/${userId}/documents`)
-      .then(({ data }) => active && setDocuments(data.documents || []))
+      .then(({ data }) => {
+        if (!active) return;
+        const nextDocuments = data.documents || [];
+        setDocuments(nextDocuments);
+        onDocumentsChange?.(nextDocuments);
+      })
       .catch(err => active && setError(err.response?.data?.message || 'Could not load documents'))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
-  }, [userId]);
+  }, [userId, onDocumentsChange]);
+
+  const updateDocuments = (nextDocuments) => {
+    setDocuments(nextDocuments);
+    onDocumentsChange?.(nextDocuments);
+  };
 
   const openDocument = async (document, download) => {
     try {
@@ -1239,13 +1277,100 @@ const EmployeeDocuments = ({ userId }) => {
     }
   };
 
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      setError('Please select a document to upload');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('document', selectedFile);
+    if (documentName.trim()) {
+      formData.append('name', documentName.trim());
+    }
+
+    setUploading(true);
+    setError('');
+
+    try {
+      const { data } = await axios.post(`/users/${userId}/documents`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      updateDocuments([...documents, data.document]);
+      setSelectedFile(null);
+      setDocumentName('');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not upload document');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDelete = async (documentId) => {
+    setDeletingId(documentId);
+    setError('');
+
+    try {
+      await axios.delete(`/users/${userId}/documents/${documentId}`);
+      updateDocuments(documents.filter(document => document._id !== documentId));
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not delete document');
+    } finally {
+      setDeletingId('');
+    }
+  };
+
   return (
     <div className="EmployeeDirectory-modal-section">
       <h3 className="EmployeeDirectory-section-title"><FiFileText /> Employee Documents</h3>
+      {canUpload && (
+        <div className="EmployeeDirectory-document-upload-panel">
+          <div className="EmployeeDirectory-document-upload-fields">
+            <div className="EmployeeDirectory-form-group">
+              <label className="EmployeeDirectory-form-label">Document Name</label>
+              <input
+                type="text"
+                className="EmployeeDirectory-form-input"
+                value={documentName}
+                onChange={(event) => setDocumentName(event.target.value)}
+                placeholder={selectedFile?.name || 'Enter document name'}
+                disabled={uploading}
+              />
+            </div>
+            <div className="EmployeeDirectory-form-group">
+              <label className="EmployeeDirectory-form-label">Upload Document</label>
+              <input
+                type="file"
+                className="EmployeeDirectory-form-input EmployeeDirectory-file-input"
+                accept=".pdf,.jpg,.jpeg,.jfif,.png,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.odt,.ods"
+                onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
+                disabled={uploading}
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            className="EmployeeDirectory-btn EmployeeDirectory-btn-contained EmployeeDirectory-document-upload-btn"
+            onClick={handleUpload}
+            disabled={uploading || !selectedFile}
+          >
+            {uploading ? (
+              <>
+                <div className="EmployeeDirectory-spinner" style={{ width: '16px', height: '16px', marginRight: '8px' }} />
+                Uploading...
+              </>
+            ) : (
+              <>
+                <FiUpload size={14} /> Upload Document
+              </>
+            )}
+          </button>
+        </div>
+      )}
       {loading && <div className="EmployeeDirectory-documents-empty">Loading documents...</div>}
       {!loading && error && <div className="EmployeeDirectory-documents-error">{error}</div>}
       {!loading && !error && documents.length === 0 && (
-        <div className="EmployeeDirectory-documents-empty">No documents uploaded by this employee.</div>
+        <div className="EmployeeDirectory-documents-empty">No documents uploaded yet.</div>
       )}
       <div className="EmployeeDirectory-documents-list">
         {documents.map(document => (
@@ -1272,6 +1397,16 @@ const EmployeeDocuments = ({ userId }) => {
               >
                 <FiDownload /> Download
               </button>
+              {canDelete && (
+                <button
+                  type="button"
+                  className="EmployeeDirectory-document-action EmployeeDirectory-document-action-delete"
+                  onClick={() => handleDelete(document._id)}
+                  disabled={deletingId === document._id}
+                >
+                  <FiTrash2 /> {deletingId === document._id ? 'Deleting...' : 'Delete'}
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -1322,6 +1457,7 @@ const EmployeeDirectory = () => {
   const currentUserDepartmentId = user.getCurrentUserDepartmentId();
   const currentUserCompanyCode = user.getCurrentUserCompanyCode();
   const currentUserCompanyName = user.getCurrentUserCompanyName();
+  const currentUserRole = user.getCurrentUserJobRole();
   const currentUserCompanyRole = user.getCurrentUserCompanyRole();
   const isSuperAdmin = user.isSuperAdmin;
   const canEditOtherEmployees = user.canEditOtherEmployees;
@@ -1703,6 +1839,8 @@ const EmployeeDirectory = () => {
       fieldsToDelete.forEach(field => {
         delete updateData[field];
       });
+
+      delete updateData.documents;
       
       if (!updateData.name?.trim()) {
         showSnackbar('Name is required', 'error');
@@ -2660,6 +2798,8 @@ const EmployeeDirectory = () => {
                 canEditOtherEmployees={canEditOtherEmployees}
                 isSelfEdit={currentUserId === (editingUser._id || editingUser.id)}
                 currentUserId={currentUserId}
+                currentUserRole={currentUserRole}
+                currentUserCompanyRole={currentUserCompanyRole}
                 isSuperAdmin={isSuperAdmin}
               />
             </div>

@@ -94,7 +94,7 @@ const notifyIncomingCall = (incomingCall) => {
         ? `${callerName} invited you to ${incomingCall.title || "a group call"}`
         : `${callerName} is calling`;
 
-    window.electronAPI?.showIncomingCall?.({
+    window.electronAPI?.showIncomingCall?.({         
         title,
         body,
         callerName,

@@ -46,7 +46,7 @@ const CiisFooter = () => {
           <div className="ciis-footer-section">
             <h4 className="ciis-footer-title">Quick Links</h4>
             <ul className="ciis-footer-list">
-              <li><a href="#about" onClick={() => navigate("/about")} className="ciis-footer-link">About Us</a></li>
+              <li><a href="#about" onC  lick={() => navigate("/about")} className="ciis-footer-link">About Us</a></li>
               <li><a href="#solutions" onClick={() => navigate("/solutions")} className="ciis-footer-link">Solutions</a></li>
               <li><a href="#pricing" onClick={() => navigate("/pricing")} className="ciis-footer-link">Pricing</a></li>
               <li><a href="#support" className="ciis-footer-link">Support</a></li>
@@ -74,7 +74,7 @@ const CiisFooter = () => {
               <li className="ciis-contact-item">
                 <FaPhone className="ciis-contact-icon" />
                 <span>+91  099922 29755</span>
-              </li>
+              </li>  
               <li className="ciis-contact-item">
                 <FaMapMarkerAlt className="ciis-contact-icon" />
                 <span>5th Floor, C210 8B, Sector-74, Mohali, Punjab, India</span>

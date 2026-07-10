@@ -7,6 +7,9 @@
   transform: scale(1);
   transform-origin: top left;
   width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .ClientMeetings-header {
@@ -614,6 +617,24 @@
   }
 }
 
+/* Upcoming Meetings must fit its container in every sidebar state. */
+.ClientMeetings-table {
+  width: 100%;
+  overflow: hidden;
+}
+
+.ClientMeetings-tableHead,
+.ClientMeetings-row {
+  min-width: 0 !important;
+}
+
+.ClientMeetings-tableHead > *,
+.ClientMeetings-row > * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 @media (max-width: 760px) {
   .ClientMeetings-root {
     padding: 18px 14px 24px;
@@ -722,5 +743,25 @@
 
   .ClientMeetings-slots > div {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Keep the laptop layout on MacBook-sized screens instead of stacking it early. */
+@media (min-width: 981px) and (max-width: 1280px) {
+  .ClientMeetings-layout {
+    grid-template-columns: minmax(0, 2fr) minmax(320px, 0.9fr);
+  }
+
+  .ClientMeetings-side {
+    grid-template-columns: 1fr;
+    margin-top: 24px;
+  }
+
+  .ClientMeetings-quick {
+    grid-column: auto;
+  }
+
+  .ClientMeetings-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

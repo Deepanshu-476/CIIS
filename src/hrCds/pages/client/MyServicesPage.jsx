@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import CIISLoader from '../../../Loader/CIISLoader';
 import {
   FiBarChart2,
@@ -7,8 +9,10 @@ import {
   FiCheck,
   FiCheckCircle,
   FiChevronDown,
+  FiChevronLeft,
   FiChevronRight,
   FiClock,
+  FiDownload,
   FiFileText,
   FiHeadphones,
   FiRefreshCw,
@@ -46,6 +50,9 @@ const MyServicesPage = () => {
   const [sortBy, setSortBy] = useState('Recently Updated');
   const [detailsService, setDetailsService] = useState(null);
   const [tasksService, setTasksService] = useState(null);
+  const [taskFilter, setTaskFilter] = useState('All');
+  const [taskSort, setTaskSort] = useState('Newest');
+  const [taskPage, setTaskPage] = useState(1);
   const [showAllServices, setShowAllServices] = useState(false);
 
   const serviceCards = useMemo(() => services.map((serviceName, index) => {
@@ -112,6 +119,62 @@ const MyServicesPage = () => {
   ] : [];
 
   const getServiceTasks = serviceName => tasks.filter(task => task.serviceName === serviceName);
+  const getTaskStatus = task => task?.completed ? 'Completed' : task?.status || 'Pending';
+  const normalizeTaskStatus = task => getTaskStatus(task).toLowerCase().replace(/\s+/g, '-');
+  const taskPageSize = 7;
+  const modalTasks = useMemo(() => {
+    if (!tasksService) return [];
+    const filtered = getServiceTasks(tasksService.rawTitle).filter(task => (
+      taskFilter === 'All' || normalizeTaskStatus(task) === taskFilter.toLowerCase().replace(/\s+/g, '-')
+    ));
+    return [...filtered].sort((a, b) => {
+      const aDate = new Date(a.updatedAt || a.createdAt || a.dueDate || 0).getTime();
+      const bDate = new Date(b.updatedAt || b.createdAt || b.dueDate || 0).getTime();
+      return taskSort === 'Oldest' ? aDate - bDate : bDate - aDate;
+    });
+  }, [taskFilter, taskSort, tasks, tasksService]);
+  const modalTaskPages = Math.max(1, Math.ceil(modalTasks.length / taskPageSize));
+  const visibleModalTasks = modalTasks.slice((taskPage - 1) * taskPageSize, taskPage * taskPageSize);
+
+  const openTasksModal = service => {
+    setTaskFilter('All');
+    setTaskSort('Newest');
+    setTaskPage(1);
+    setTasksService(service);
+  };
+
+  const exportServiceTasks = () => {
+    if (!tasksService || !modalTasks.length) return;
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    pdf.setFillColor(80, 70, 235);
+    pdf.rect(0, 0, pageWidth, 76, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(19);
+    pdf.text(`${tasksService.title} Tasks`, 38, 35);
+    pdf.setFontSize(9);
+    pdf.text(`Service progress: ${tasksService.progress}%  |  Exported: ${new Date().toLocaleDateString()}`, 38, 54);
+    autoTable(pdf, {
+      startY: 96,
+      head: [['Task', 'Description', 'Status', 'Due Date']],
+      body: modalTasks.map(task => [
+        getTaskTitle(task),
+        task.description || task.notes || 'No description added',
+        getTaskStatus(task),
+        formatDate(task.dueDate || task.updatedAt || task.createdAt)
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [80, 70, 235], textColor: 255, fontSize: 9 },
+      bodyStyles: { fontSize: 8, textColor: [35, 47, 71] },
+      alternateRowStyles: { fillColor: [248, 249, 255] },
+      margin: { left: 38, right: 38 }
+    });
+    pdf.save(`${tasksService.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-tasks.pdf`);
+  };
+
+  useEffect(() => {
+    if (taskPage > modalTaskPages) setTaskPage(modalTaskPages);
+  }, [modalTaskPages, taskPage]);
 
   if (loading) {
     return <CIISLoader />;
@@ -200,7 +263,7 @@ const MyServicesPage = () => {
                       <div className={`MyServices-progress ${service.tone}`}><span style={{ width: `${service.progress}%` }} /></div>
                       <footer>
                         <button type="button" onClick={() => setDetailsService(service)}><FiFileText /> View Details</button>
-                        <button type="button" onClick={() => setTasksService(service)}><FiFileText /> View Tasks</button>
+                        <button type="button" onClick={() => openTasksModal(service)}><FiFileText /> View Tasks</button>
                       </footer>
                     </article>
                   ))}
@@ -235,21 +298,43 @@ const MyServicesPage = () => {
 
       {detailsService && (
         <div className="MyServices-modalOverlay" onClick={() => setDetailsService(null)}>
-          <div className="MyServices-modal" onClick={event => event.stopPropagation()}>
-            <header>
-              <h3>{detailsService.title} Details</h3>
+          <div className="MyServices-modal MyServices-modalDetail" onClick={event => event.stopPropagation()}>
+            <header className="MyServices-detailHeader">
+              <div className="MyServices-detailHero">
+                <span className={`MyServices-detailHeroIcon ${detailsService.tone}`}>{detailsService.icon}</span>
+                <div>
+                  <h3>{detailsService.title} Details</h3>
+                  <p>Detailed overview of your {detailsService.title} service</p>
+                </div>
+              </div>
               <button type="button" onClick={() => setDetailsService(null)} aria-label="Close"><FiX /></button>
             </header>
             <div className="MyServices-modalBody">
-              <div className="MyServices-detailGrid">
-                <span>Status<strong>{detailsService.status}</strong></span>
-                <span>Progress<strong>{detailsService.progress}%</strong></span>
-                <span>Start Date<strong>{detailsService.start}</strong></span>
-                <span>End Date<strong>{detailsService.end}</strong></span>
-                <span>Total Tasks<strong>{getServiceTasks(detailsService.rawTitle).length}</strong></span>
-                <span>Team Members<strong>{projectManagers.length}</strong></span>
+              <div className="MyServices-detailGrid MyServices-detailVisualGrid">
+                <section className="MyServices-detailCard status">
+                  <i><FiCheckCircle /></i><div><small>Status</small><strong>{detailsService.status}</strong><em>Active</em></div>
+                </section>
+                <section className="MyServices-detailCard progress">
+                  <i><FiBarChart2 /></i><div><small>Progress</small><strong>{detailsService.progress}%</strong><b><span style={{ width: `${detailsService.progress}%` }} /></b></div>
+                </section>
+                <section className="MyServices-detailCard start">
+                  <i><FiCalendar /></i><div><small>Start Date</small><strong>{detailsService.start}</strong><em>Service start</em></div>
+                </section>
+                <section className="MyServices-detailCard end">
+                  <i><FiCalendar /></i><div><small>End Date</small><strong>{detailsService.end}</strong><em>Service end</em></div>
+                </section>
+                <section className="MyServices-detailCard tasks">
+                  <i><FiCheck /></i><div><small>Total Tasks</small><strong>{getServiceTasks(detailsService.rawTitle).length}</strong><p>Tasks to complete</p></div>
+                </section>
+                <section className="MyServices-detailCard team">
+                  <i><FiBriefcase /></i><div><small>Team Members</small><strong>{projectManagers.length}</strong><p>Working on this service</p></div>
+                </section>
               </div>
-              <p className="MyServices-detailText">{detailsService.description}</p>
+              <div className="MyServices-latestTask">
+                <i><FiFileText /></i>
+                <div><small>Latest Task</small><strong>{detailsService.description.replace(/^Latest task:\s*/i, '')}</strong><p>{detailsService.description}</p></div>
+                <span><FiClock /> Updated today</span>
+              </div>
             </div>
           </div>
         </div>
@@ -257,29 +342,43 @@ const MyServicesPage = () => {
 
       {tasksService && (
         <div className="MyServices-modalOverlay" onClick={() => setTasksService(null)}>
-          <div className="MyServices-modal MyServices-modalLarge" onClick={event => event.stopPropagation()}>
-            <header>
-              <h3>{tasksService.title} Tasks</h3>
+          <div className="MyServices-modal MyServices-modalTasks" onClick={event => event.stopPropagation()}>
+            <header className="MyServices-tasksHeader">
+              <div className="MyServices-tasksHero">
+                <i><FiFileText /></i>
+                <div><h3>{tasksService.title} Tasks</h3><p>Manage and track your {tasksService.title} tasks</p></div>
+              </div>
               <button type="button" onClick={() => setTasksService(null)} aria-label="Close"><FiX /></button>
             </header>
             <div className="MyServices-modalBody">
-              {getServiceTasks(tasksService.rawTitle).length ? (
-                <div className="MyServices-taskList">
-                  {getServiceTasks(tasksService.rawTitle).map(task => (
-                    <div className="MyServices-taskRow" key={task._id || task.id || `${tasksService.title}-${getTaskTitle(task)}`}>
-                      <div>
-                        <strong>{getTaskTitle(task)}</strong>
-                        <span>{task.description || task.notes || 'No description added'}</span>
-                      </div>
-                      <em>{task.completed ? 'Completed' : task.status || 'Pending'}</em>
-                      <time>{formatDate(task.dueDate || task.updatedAt || task.createdAt)}</time>
-                    </div>
+              <div className="MyServices-taskToolbar">
+                <div className="MyServices-taskTotal"><i><FiSend /></i><div><small>Total Tasks</small><strong>{getServiceTasks(tasksService.rawTitle).length}</strong></div></div>
+                <div className="MyServices-taskTabs" role="tablist" aria-label="Filter tasks">
+                  {['All', 'Pending', 'Completed', 'Overdue'].map(filter => <button key={filter} type="button" className={taskFilter === filter ? 'active' : ''} onClick={() => { setTaskFilter(filter); setTaskPage(1); }}>{filter}</button>)}
+                </div>
+                <label className="MyServices-taskSort"><span>Sort by:</span><select value={taskSort} onChange={event => { setTaskSort(event.target.value); setTaskPage(1); }}><option>Newest</option><option>Oldest</option></select><FiChevronDown /></label>
+              </div>
+              {visibleModalTasks.length ? (
+                <div className="MyServices-taskList MyServices-taskModernList">
+                  {visibleModalTasks.map((task, index) => (
+                    <article className="MyServices-taskRow MyServices-taskModernRow" key={task._id || task.id || `${tasksService.title}-${getTaskTitle(task)}`}>
+                      <i><FiFileText /></i>
+                      <div className="MyServices-taskCopy"><strong>{getTaskTitle(task)}</strong><span>{task.description || task.notes || 'No description added'}</span></div>
+                      <em className={normalizeTaskStatus(task)}>{getTaskStatus(task)}</em>
+                      <time><FiCalendar />{formatDate(task.dueDate || task.updatedAt || task.createdAt)}</time>
+                      <button type="button" aria-label={`View ${getTaskTitle(task)}`}><FiChevronRight /></button>
+                    </article>
                   ))}
                 </div>
               ) : (
-                <div className="MyServices-empty MyServices-emptyCompact"><FiFileText /><strong>No tasks found for this service</strong></div>
+                <div className="MyServices-empty MyServices-emptyCompact"><FiFileText /><strong>No {taskFilter.toLowerCase()} tasks found</strong><span>Try another status filter.</span></div>
               )}
             </div>
+            <footer className="MyServices-tasksFooter">
+              <div><i><FiBriefcase /></i><span>Showing {modalTasks.length ? ((taskPage - 1) * taskPageSize) + 1 : 0} to {Math.min(taskPage * taskPageSize, modalTasks.length)} of {modalTasks.length} tasks</span></div>
+              <nav aria-label="Task pages"><button type="button" className="MyServices-pageStep" disabled={taskPage === 1} onClick={() => setTaskPage(page => page - 1)}><FiChevronLeft /> Previous</button>{Array.from({ length: modalTaskPages }, (_, index) => index + 1).slice(0, 4).map(page => <button key={page} type="button" className={taskPage === page ? 'active' : ''} onClick={() => setTaskPage(page)}>{page}</button>)}<button type="button" className="MyServices-pageStep" disabled={taskPage === modalTaskPages} onClick={() => setTaskPage(page => page + 1)}>Next <FiChevronRight /></button></nav>
+              <button type="button" className="MyServices-exportTasks" onClick={exportServiceTasks}><FiDownload /> Export Tasks</button>
+            </footer>
           </div>
         </div>
       )}

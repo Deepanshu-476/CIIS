@@ -3258,6 +3258,11 @@ const UserCreateTask = () => {
                         const statusOptions = getStatusOptionsForTask(status, taskSource);
                         const isOnHoldActionSelect = normalizeStatus(status) === 'onhold' && taskSource !== 'client';
                         const selectValue = isOnHoldActionSelect ? '' : status;
+                        const displayStatusOptions = taskIsOverdue && !statusOptions.some(option => option.value === 'overdue')
+                          ? [...statusOptions, { value: 'overdue', label: 'Overdue' }]
+                          : statusOptions;
+                        const displayedSelectValue = taskIsOverdue ? 'overdue' : selectValue;
+                        const displayedStatus = taskIsOverdue ? 'overdue' : status;
 
                         return (
                           <div 
@@ -3317,7 +3322,7 @@ const UserCreateTask = () => {
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                         <span style={{ fontSize: '11px', color: '#666' }}>User:</span>
-                                        <StatusChip status={status} label={status} />
+                                        <StatusChip status={displayedStatus} label={displayedStatus} />
                                       </div>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                         <span style={{ fontSize: '11px', color: '#666' }}>Admin:</span>
@@ -3325,7 +3330,7 @@ const UserCreateTask = () => {
                                       </div>
                                     </div>
                                   ) : (
-                                    <StatusChip status={status} label={status} />
+                                    <StatusChip status={displayedStatus} label={displayedStatus} />
                                   )}
                                 </div>
 
@@ -3390,7 +3395,7 @@ const UserCreateTask = () => {
                                   </div>
                                   <div style={{ minWidth: '90px' }}>
                                     <select
-                                      value={selectValue}
+                                      value={displayedSelectValue}
                                       onChange={(e) => {
                                         const selectedStatus = e.target.value;
                                         const currentTaskId = task._id;
@@ -3416,14 +3421,14 @@ const UserCreateTask = () => {
                                       disabled={status === 'overdue' || taskIsOverdue || task.overallStatus === 'overdue'}
                                       style={{ 
                                         minWidth: '90px',
-                                        borderColor: shouldHighlightOverdue ? '#f44336' : undefined,
-                                        color: shouldHighlightOverdue ? '#f44336' : undefined,
-                                        fontWeight: shouldHighlightOverdue ? '600' : undefined,
+                                        borderColor: taskIsOverdue ? '#f44336' : undefined,
+                                        color: taskIsOverdue ? '#f44336' : undefined,
+                                        fontWeight: taskIsOverdue ? '600' : undefined,
                                         cursor: (status === 'overdue' || taskIsOverdue || task.overallStatus === 'overdue') ? 'not-allowed' : 'pointer'
                                       }}
                                     >
                                       {isOnHoldActionSelect && <option value="" disabled>Change Status</option>}
-                                      {statusOptions.map(option => (
+                                      {displayStatusOptions.map(option => (
                                         <option key={option.value} value={option.value}>{option.label}</option>
                                       ))}
                                     </select>
@@ -3484,6 +3489,11 @@ const UserCreateTask = () => {
                           const statusOptions = getStatusOptionsForTask(status, taskSource);
                           const isOnHoldActionSelect = normalizeStatus(status) === 'onhold' && taskSource !== 'client';
                           const selectValue = isOnHoldActionSelect ? '' : status;
+                          const displayStatusOptions = taskIsOverdue && !statusOptions.some(option => option.value === 'overdue')
+                            ? [...statusOptions, { value: 'overdue', label: 'Overdue' }]
+                            : statusOptions;
+                          const displayedSelectValue = taskIsOverdue ? 'overdue' : selectValue;
+                          const displayedStatus = taskIsOverdue ? 'overdue' : status;
 
                           return (
                             <tr 
@@ -3548,7 +3558,7 @@ const UserCreateTask = () => {
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                       <span style={{ fontSize: '11px', color: '#666', fontWeight: 600 }}>User:</span>
-                                      <StatusChip status={status} label={status} />
+                                      <StatusChip status={displayedStatus} label={displayedStatus} />
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                       <span style={{ fontSize: '11px', color: '#666', fontWeight: 600 }}>Admin:</span>
@@ -3556,7 +3566,7 @@ const UserCreateTask = () => {
                                     </div>
                                   </div>
                                 ) : (
-                                  <StatusChip status={status} label={status} />
+                                  <StatusChip status={displayedStatus} label={displayedStatus} />
                                 )}
                               </td>
                               
@@ -3697,7 +3707,7 @@ const UserCreateTask = () => {
                               </td>
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
                                 <select
-                                  value={selectValue}
+                                  value={displayedSelectValue}
                                   onChange={(e) => {
                                     const selectedStatus = e.target.value;
                                     const currentTaskId = task._id;
@@ -3730,14 +3740,14 @@ const UserCreateTask = () => {
                                   disabled={status === 'overdue' || taskIsOverdue || task.overallStatus === 'overdue'}
                                   style={{ 
                                     minWidth: isMobile ? '90px' : '100px',
-                                    borderColor: shouldHighlightOverdue ? '#f44336' : undefined,
-                                    color: shouldHighlightOverdue ? '#f44336' : undefined,
-                                    fontWeight: shouldHighlightOverdue ? '600' : undefined,
+                                    borderColor: taskIsOverdue ? '#f44336' : undefined,
+                                    color: taskIsOverdue ? '#f44336' : undefined,
+                                    fontWeight: taskIsOverdue ? '600' : undefined,
                                     cursor: (status === 'overdue' || taskIsOverdue || task.overallStatus === 'overdue') ? 'not-allowed' : 'pointer'
                                   }}
                                 >
                                   {isOnHoldActionSelect && <option value="" disabled>Change Status</option>}
-                                  {statusOptions.map(option => (
+                                  {displayStatusOptions.map(option => (
                                     <option key={option.value} value={option.value}>{option.label}</option>
                                   ))}
                                 </select>

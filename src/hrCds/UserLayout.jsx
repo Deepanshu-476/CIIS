@@ -155,6 +155,7 @@ const UserLayout = () => {
       )}
 
       <MainContent 
+        className={isSidebarHovered ? 'ClientDashboard-sidebar-open' : ''}
         isMobile={isMobile} 
         isSidebarHovered={isSidebarHovered}
         sx={{ 

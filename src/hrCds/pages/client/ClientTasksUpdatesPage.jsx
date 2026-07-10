@@ -15,11 +15,15 @@ import {
   FiClock,
   FiFilter,
   FiGrid,
+  FiBriefcase,
+  FiFlag,
   FiMail,
   FiPhone,
   FiPlus,
   FiSearch,
+  FiTrendingUp,
   FiUpload,
+  FiUser,
   FiX
 } from 'react-icons/fi';
 import { Doughnut } from 'react-chartjs-2';
@@ -621,25 +625,25 @@ const ServicesTasks = () => {
                 <tbody>
                   {taskRows.map((task, index) => (
                     <tr key={task.id}>
-                      <td>
+                      <td data-label="Task Name">
                         <div className="ClientTasksUpdatesPage-taskName">
                           <span>{pageStartIndex + index + 1}</span>
                           <strong>{task.title}</strong>
                         </div>
                       </td>
-                      <td>{task.service}</td>
-                      <td><span className={`ClientTasksUpdatesPage-priority ClientTasksUpdatesPage-${task.priority.toLowerCase()}`}>{task.priority}</span></td>
-                      <td>
+                      <td data-label="Service">{task.service}</td>
+                      <td data-label="Priority"><span className={`ClientTasksUpdatesPage-priority ClientTasksUpdatesPage-${task.priority.toLowerCase()}`}>{task.priority}</span></td>
+                      <td data-label="Created Date">
                         {formatDate(task.createdDate)}
                       </td>
-                      <td>
+                      <td data-label="Progress">
                         <div className="ClientTasksUpdatesPage-progress">
                           <span>{task.progress}%</span>
                           <div><i style={{ width: `${task.progress}%` }}></i></div>
                         </div>
                       </td>
-                      <td><span className={`ClientTasksUpdatesPage-status ClientTasksUpdatesPage-${task.status.replace(/\s/g, '').toLowerCase()}`}>{task.status}</span></td>
-                      <td>
+                      <td data-label="Status"><span className={`ClientTasksUpdatesPage-status ClientTasksUpdatesPage-${task.status.replace(/\s/g, '').toLowerCase()}`}>{task.status}</span></td>
+                      <td data-label="Action">
                         <button
                           className="ClientTasksUpdatesPage-review"
                           type="button"
@@ -790,14 +794,10 @@ const ServicesTasks = () => {
             aria-labelledby="ClientTasksUpdatesPage-modalTitle"
             onClick={event => event.stopPropagation()}
           >
-            <header className="ClientTasksUpdatesPage-modalHead">
-              <div>
-                <span>Tasks & Updates</span>
-                <h3 id="ClientTasksUpdatesPage-modalTitle">
-                  {detailsModal === 'tasks' && 'All Tasks'}
-                  {detailsModal === 'task' && 'Task Details'}
-                  {detailsModal === 'project' && 'Project Details'}
-                </h3>
+            <header className={`ClientTasksUpdatesPage-modalHead ${detailsModal === 'task' ? 'ClientTasksUpdatesPage-taskModalHead' : ''}`}>
+              <div className={detailsModal === 'task' ? 'ClientTasksUpdatesPage-taskModalTitle' : ''}>
+                {detailsModal === 'task' && <i><FiCalendar /></i>}
+                <div><span>Tasks & Updates</span><h3 id="ClientTasksUpdatesPage-modalTitle">{detailsModal === 'tasks' && 'All Tasks'}{detailsModal === 'task' && 'Task Details'}{detailsModal === 'project' && 'Project Details'}</h3></div>
               </div>
               <button type="button" aria-label="Close details" onClick={() => setDetailsModal(null)}>
                 <FiX />
@@ -831,39 +831,30 @@ const ServicesTasks = () => {
                     <h4>{selectedTask.title}</h4>
                     <p>{selectedTask.description || 'No description added for this task.'}</p>
                   </div>
-                  <div className="ClientTasksUpdatesPage-taskDetailsSide">
-                    <em className={`ClientTasksUpdatesPage-status ClientTasksUpdatesPage-${selectedTask.status.replace(/\s/g, '').toLowerCase()}`}>{selectedTask.status}</em>
-                    <strong>{selectedTask.progress}%</strong>
-                    <small>Progress</small>
+                  <div className={`ClientTasksUpdatesPage-taskDetailsSide ClientTasksUpdatesPage-taskStatus-${selectedTask.status.replace(/\s/g, '').toLowerCase()}`}>
+                    <div className="ClientTasksUpdatesPage-taskProgressCopy"><em className={`ClientTasksUpdatesPage-status ClientTasksUpdatesPage-${selectedTask.status.replace(/\s/g, '').toLowerCase()}`}>{selectedTask.status}</em><strong>{selectedTask.progress}%</strong><small>Progress</small></div>
+                    <span className="ClientTasksUpdatesPage-taskCompleteRing">{selectedTask.status.toLowerCase() === 'completed' ? <FiCheckCircle /> : selectedTask.status.toLowerCase() === 'overdue' ? <FiAlertCircle /> : selectedTask.status.toLowerCase() === 'pending' ? <FiClock /> : <FiTrendingUp />}</span>
                   </div>
                 </div>
 
                 <div className="ClientTasksUpdatesPage-taskDetailsGrid">
-                  <div>
-                    <span>Assigned To</span>
-                    <strong>{selectedTask.assigneeName}</strong>
-                    {selectedTask.assigneeEmail && <small>{selectedTask.assigneeEmail}</small>}
+                  <div className="ClientTasksUpdatesPage-detailCard">
+                    <i><FiUser /></i><div><span>Assigned To</span><strong>{selectedTask.assigneeName}</strong><small>{selectedTask.assigneeEmail || 'No assignee'}</small></div>
                   </div>
-                  <div>
-                    <span>Created Date</span>
-                    <strong>{formatDate(selectedTask.createdDate)}</strong>
+                  <div className="ClientTasksUpdatesPage-detailCard">
+                    <i><FiCalendar /></i><div><span>Created Date</span><strong>{formatDate(selectedTask.createdDate)}</strong><small>{selectedTask.createdDate ? 'Task created' : 'No date'}</small></div>
                   </div>
-                  <div>
-                    <span>Due Date</span>
-                    <strong>{formatDate(selectedTask.dueDate)}</strong>
+                  <div className="ClientTasksUpdatesPage-detailCard">
+                    <i><FiCalendar /></i><div><span>Due Date</span><strong>{formatDate(selectedTask.dueDate)}</strong><small>{selectedTask.dueDate ? 'Due date' : 'No due date'}</small></div>
                   </div>
-                  <div>
-                    <span>Priority</span>
-                    <strong>{selectedTask.priority}</strong>
+                  <div className="ClientTasksUpdatesPage-detailCard">
+                    <i><FiFlag /></i><div><span>Priority</span><strong>{selectedTask.priority}</strong><small>Priority level</small></div>
                   </div>
-                  <div>
-                    <span>Progress</span>
-                    <strong>{selectedTask.progress}% complete</strong>
-                    <div className="ClientTasksUpdatesPage-taskDetailsProgress"><i style={{ width: `${selectedTask.progress}%` }}></i></div>
+                  <div className="ClientTasksUpdatesPage-detailCard ClientTasksUpdatesPage-detailProgress">
+                    <i><FiTrendingUp /></i><div><span>Progress</span><strong>{selectedTask.progress}% complete</strong><small>Task progress</small><div className="ClientTasksUpdatesPage-taskDetailsProgress"><i style={{ width: `${selectedTask.progress}%` }}></i></div></div>
                   </div>
-                  <div>
-                    <span>Service</span>
-                    <strong>{selectedTask.service}</strong>
+                  <div className="ClientTasksUpdatesPage-detailCard">
+                    <i><FiBriefcase /></i><div><span>Service</span><strong>{selectedTask.service}</strong><small>Related service</small></div>
                   </div>
                 </div>
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCheck,
   ChevronDown,
@@ -61,6 +61,7 @@ const getEntityId = value => {
 };
 
 const SupportChatWidget = () => {
+  const widgetRef = useRef(null);
   const [widgetOpen, setWidgetOpen] = useState(false);
   const [widgetInput, setWidgetInput] = useState("");
   const [messages, setMessages] = useState(fallbackMessages);
@@ -109,6 +110,24 @@ const SupportChatWidget = () => {
     const interval = window.setInterval(fetchTickets, 30000);
     return () => window.clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!widgetOpen) return undefined;
+
+    const handleOutsideClick = event => {
+      if (widgetRef.current?.contains(event.target)) return;
+      setMenuOpen(false);
+      setWidgetOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("touchstart", handleOutsideClick);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("touchstart", handleOutsideClick);
+    };
+  }, [widgetOpen]);
 
   const activeThread = useMemo(() => {
     if (!selectedTicket?.messages?.length) return [];
@@ -217,7 +236,7 @@ const SupportChatWidget = () => {
   }
 
   return (
-    <aside className="portal-chat-widget" aria-label="Customer support chat widget">
+    <aside ref={widgetRef} className="portal-chat-widget" aria-label="Customer support chat widget">
       <div className="portal-chat-header">
         <button
           className="portal-chat-icon-btn"

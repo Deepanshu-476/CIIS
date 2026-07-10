@@ -131,7 +131,7 @@ function App() {
                 <SuperLayout />
               </ProtectedRoute>
             </ThemeContextProvider>
-          }
+          }   
         >
           <Route path="company-details" element={<CompanyDetails />} />
           <Route path="department" element={<Department />} />

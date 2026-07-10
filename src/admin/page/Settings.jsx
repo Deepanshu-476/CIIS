@@ -14,6 +14,9 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
   Alert,
   Chip,
   Paper,
@@ -88,7 +91,12 @@ function Settings() {
   const [newPwd, setNewPwd] = useState('');
   const [confirmPwd, setConfirmPwd] = useState('');
   const [dashboardConfig, setDashboardConfig] = useState(getDefaultDashboardConfig);
-  const [locationForm, setLocationForm] = useState({ latitude: '', longitude: '', allowedRadiusMeters: 100 });
+  const [locationForm, setLocationForm] = useState({
+    latitude: '',
+    longitude: '',
+    allowedRadiusMeters: 100,
+    allowedRadiusEnabled: true
+  });
   const [savingLocation, setSavingLocation] = useState(false);
 
   const activeCompanyId = currentCompany?._id || '';
@@ -130,7 +138,8 @@ function Settings() {
     setLocationForm({
       latitude: officeLocation?.latitude ?? '',
       longitude: officeLocation?.longitude ?? '',
-      allowedRadiusMeters: officeLocation?.allowedRadiusMeters ?? 100
+      allowedRadiusMeters: officeLocation?.allowedRadiusMeters ?? 100,
+      allowedRadiusEnabled: officeLocation?.allowedRadiusEnabled !== false
     });
   };
 
@@ -245,6 +254,7 @@ function Settings() {
     const latitude = Number(locationForm.latitude);
     const longitude = Number(locationForm.longitude);
     const allowedRadiusMeters = Number(locationForm.allowedRadiusMeters);
+    const allowedRadiusEnabled = locationForm.allowedRadiusEnabled !== false;
 
     if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
       toast.error("Latitude must be between -90 and 90.");
@@ -256,7 +266,7 @@ function Settings() {
       return;
     }
 
-    if (!Number.isFinite(allowedRadiusMeters) || allowedRadiusMeters < 10 || allowedRadiusMeters > 10000) {
+    if (allowedRadiusEnabled && (!Number.isFinite(allowedRadiusMeters) || allowedRadiusMeters < 10 || allowedRadiusMeters > 10000)) {
       toast.error("Allowed radius must be between 10 and 10000 meters.");
       return;
     }
@@ -267,7 +277,8 @@ function Settings() {
       const response = await axios.put(`/company/${activeCompanyId}/location`, {
         latitude,
         longitude,
-        allowedRadiusMeters
+        allowedRadiusMeters: allowedRadiusEnabled ? allowedRadiusMeters : null,
+        allowedRadiusEnabled
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -544,13 +555,13 @@ function Settings() {
           <AccordionDetails>
             <Box display="flex" flexDirection="column" gap={2.5}>
               <Alert severity="info" sx={{ borderRadius: 2 }}>
-                Users can clock in only when their current location is inside this office radius.
+                Choose whether users must be inside the allowed office radius while clocking in.
               </Alert>
 
               <Box
                 sx={{
                   display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' },
+                  gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
                   gap: 2
                 }}
               >
@@ -572,6 +583,23 @@ function Settings() {
                   placeholder="Example: 77.2090"
                   fullWidth
                 />
+              </Box>
+
+              <FormControl>
+                <Typography fontWeight={800} sx={{ mb: 1 }}>
+                  Allowed Radius
+                </Typography>
+                <RadioGroup
+                  row
+                  value={locationForm.allowedRadiusEnabled ? 'yes' : 'no'}
+                  onChange={(event) => handleLocationChange('allowedRadiusEnabled', event.target.value === 'yes')}
+                >
+                  <FormControlLabel value="yes" control={<Radio />} label="Yes" />
+                  <FormControlLabel value="no" control={<Radio />} label="No" />
+                </RadioGroup>
+              </FormControl>
+
+              {locationForm.allowedRadiusEnabled && (
                 <TextField
                   type="number"
                   label="Allowed Radius (meters)"
@@ -579,9 +607,9 @@ function Settings() {
                   onChange={(event) => handleLocationChange('allowedRadiusMeters', event.target.value)}
                   inputProps={{ min: 10, max: 10000, step: 1 }}
                   placeholder="Example: 100"
-                  fullWidth
+                  sx={{ maxWidth: { xs: '100%', md: 360 } }}
                 />
-              </Box>
+              )}
 
               <Button
                 variant="contained"

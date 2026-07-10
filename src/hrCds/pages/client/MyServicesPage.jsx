@@ -50,6 +50,7 @@ const MyServicesPage = () => {
   const [sortBy, setSortBy] = useState('Recently Updated');
   const [detailsService, setDetailsService] = useState(null);
   const [tasksService, setTasksService] = useState(null);
+  const [taskDetail, setTaskDetail] = useState(null);
   const [taskFilter, setTaskFilter] = useState('All');
   const [taskSort, setTaskSort] = useState('Newest');
   const [taskPage, setTaskPage] = useState(1);
@@ -366,7 +367,7 @@ const MyServicesPage = () => {
                       <div className="MyServices-taskCopy"><strong>{getTaskTitle(task)}</strong><span>{task.description || task.notes || 'No description added'}</span></div>
                       <em className={normalizeTaskStatus(task)}>{getTaskStatus(task)}</em>
                       <time><FiCalendar />{formatDate(task.dueDate || task.updatedAt || task.createdAt)}</time>
-                      <button type="button" aria-label={`View ${getTaskTitle(task)}`}><FiChevronRight /></button>
+                      <button type="button" onClick={() => setTaskDetail(task)} aria-label={`View ${getTaskTitle(task)}`}><FiChevronRight /></button>
                     </article>
                   ))}
                 </div>
@@ -379,6 +380,25 @@ const MyServicesPage = () => {
               <nav aria-label="Task pages"><button type="button" className="MyServices-pageStep" disabled={taskPage === 1} onClick={() => setTaskPage(page => page - 1)}><FiChevronLeft /> Previous</button>{Array.from({ length: modalTaskPages }, (_, index) => index + 1).slice(0, 4).map(page => <button key={page} type="button" className={taskPage === page ? 'active' : ''} onClick={() => setTaskPage(page)}>{page}</button>)}<button type="button" className="MyServices-pageStep" disabled={taskPage === modalTaskPages} onClick={() => setTaskPage(page => page + 1)}>Next <FiChevronRight /></button></nav>
               <button type="button" className="MyServices-exportTasks" onClick={exportServiceTasks}><FiDownload /> Export Tasks</button>
             </footer>
+          </div>
+        </div>
+      )}
+
+      {taskDetail && (
+        <div className="MyServices-modalOverlay" onClick={() => setTaskDetail(null)}>
+          <div className="MyServices-modal MyServices-taskDetailModal" role="dialog" aria-modal="true" aria-label="Task details" onClick={event => event.stopPropagation()}>
+            <header>
+              <div className="MyServices-taskDetailTitle"><i><FiFileText /></i><div><span>Task Details</span><h3>{getTaskTitle(taskDetail)}</h3></div></div>
+              <button type="button" onClick={() => setTaskDetail(null)} aria-label="Close"><FiX /></button>
+            </header>
+            <div className="MyServices-modalBody MyServices-taskDetailBody">
+              <p>{taskDetail.description || taskDetail.notes || 'No description added for this task.'}</p>
+              <div>
+                <span><small>Status</small><strong>{getTaskStatus(taskDetail)}</strong></span>
+                <span><small>Due Date</small><strong>{formatDate(taskDetail.dueDate || taskDetail.updatedAt || taskDetail.createdAt)}</strong></span>
+                <span><small>Priority</small><strong>{taskDetail.priority || 'Medium'}</strong></span>
+              </div>
+            </div>
           </div>
         </div>
       )}

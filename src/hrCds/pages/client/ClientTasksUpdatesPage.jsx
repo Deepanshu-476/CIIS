@@ -18,6 +18,7 @@ import {
   FiBriefcase,
   FiFlag,
   FiMail,
+  FiMoreVertical,
   FiPhone,
   FiPlus,
   FiSearch,
@@ -161,6 +162,9 @@ const ServicesTasks = () => {
   const [pageSize, setPageSize] = useState(10);
   const [detailsModal, setDetailsModal] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [modalSearch, setModalSearch] = useState('');
+  const [modalStatus, setModalStatus] = useState('all');
+  const [modalPage, setModalPage] = useState(1);
 
   const isMounted = useRef(true);
   const initialFetchDone = useRef(false);
@@ -254,6 +258,8 @@ const ServicesTasks = () => {
   };
 
   const fetchClientData = async () => {
+    let storedClient = null;
+    let storedUser = null;
     try {
       if (!isMounted.current) return;
       setLoading(true);
@@ -265,8 +271,9 @@ const ServicesTasks = () => {
         return;
       }
 
-      const user = JSON.parse(userStr);
-      const storedClient = (() => {
+      storedUser = JSON.parse(userStr);
+      const user = storedUser;
+      storedClient = (() => {
         try {
           return JSON.parse(localStorage.getItem('client') || 'null');
         } catch {
@@ -316,7 +323,27 @@ const ServicesTasks = () => {
     } catch (err) {
       console.error('Error fetching client services:', err);
       if (isMounted.current) {
-        setError(err.response?.data?.message || 'Failed to load services');
+        const fallbackClient = storedClient || storedUser?.client;
+
+        if (fallbackClient) {
+          const fallbackServices = Array.isArray(fallbackClient.services) ? fallbackClient.services : [];
+          const cachedTasks = fallbackServices.flatMap(service => {
+            try {
+              const saved = localStorage.getItem(`client_${fallbackClient._id || fallbackClient.id}_service_${service}_tasks`);
+              return saved ? JSON.parse(saved).map(task => ({ ...task, serviceName: service })) : [];
+            } catch {
+              return [];
+            }
+          });
+
+          setClient(fallbackClient);
+          setServices(fallbackServices);
+          setAllTasks(cachedTasks);
+          setProjectManagers([]);
+          setError('');
+        } else {
+          setError(err.response?.data?.message || 'Failed to load services');
+        }
       }
     } finally {
       if (isMounted.current) {
@@ -461,6 +488,22 @@ const ServicesTasks = () => {
   };
 
   const allFilteredTaskRows = filteredTaskSource.map(buildTaskRow);
+  const modalTaskRows = allFilteredTaskRows.filter(task => {
+    const search = modalSearch.trim().toLowerCase();
+    const matchesSearch = !search || [task.title, task.service, task.priority, task.status]
+      .some(value => String(value || '').toLowerCase().includes(search));
+    const matchesStatus = modalStatus === 'all' || task.status.toLowerCase().replace(/\s/g, '-') === modalStatus;
+    return matchesSearch && matchesStatus;
+  });
+  const modalTotalPages = Math.max(1, Math.ceil(modalTaskRows.length / pageSize));
+  const safeModalPage = Math.min(modalPage, modalTotalPages);
+  const modalStartIndex = (safeModalPage - 1) * pageSize;
+  const visibleModalTaskRows = modalTaskRows.slice(modalStartIndex, modalStartIndex + pageSize);
+  const modalPageNumbers = Array.from({ length: Math.min(3, modalTotalPages) }, (_, index) => index + 1);
+
+  useEffect(() => {
+    setModalPage(1);
+  }, [modalSearch, modalStatus, pageSize]);
 
   const stats = [
     { label: 'Total Tasks', filter: 'total', value: totalTasks, tone: 'blue', icon: <FiCalendar />, trend: '', helper: 'Live total', spark: 'M2 23 C10 19, 17 26, 25 21 S41 16, 50 22 S67 28, 76 17 S92 12, 104 19 S114 17, 120 10' },
@@ -728,7 +771,7 @@ const ServicesTasks = () => {
               ))}
             </div>
           </div>
-          <button type="button" onClick={() => setDetailsModal('tasks')}>View All Tasks <FiChevronRight /></button>
+          <button type="button" onClick={() => { setDetailsModal('tasks'); setModalPage(1); }}>View All Tasks <FiChevronRight /></button>
         </article>
 
         <article className="ClientTasksUpdatesPage-widget ClientTasksUpdatesPage-project">
@@ -797,29 +840,67 @@ const ServicesTasks = () => {
             <header className={`ClientTasksUpdatesPage-modalHead ${detailsModal === 'task' ? 'ClientTasksUpdatesPage-taskModalHead' : ''}`}>
               <div className={detailsModal === 'task' ? 'ClientTasksUpdatesPage-taskModalTitle' : ''}>
                 {detailsModal === 'task' && <i><FiCalendar /></i>}
-                <div><span>Tasks & Updates</span><h3 id="ClientTasksUpdatesPage-modalTitle">{detailsModal === 'tasks' && 'All Tasks'}{detailsModal === 'task' && 'Task Details'}{detailsModal === 'project' && 'Project Details'}</h3></div>
+                <div>
+                  <span>Tasks & Updates</span>
+                  <h3 id="ClientTasksUpdatesPage-modalTitle">{detailsModal === 'tasks' && 'All Tasks'}{detailsModal === 'task' && 'Task Details'}{detailsModal === 'project' && 'Project Details'}</h3>
+                  {detailsModal === 'tasks' && <p>Track and manage all your tasks in one place</p>}
+                </div>
               </div>
-              <button type="button" aria-label="Close details" onClick={() => setDetailsModal(null)}>
-                <FiX />
-              </button>
+              <div className="ClientTasksUpdatesPage-modalHeadActions">
+                {detailsModal === 'tasks' && (
+                  <>
+                    <label className="ClientTasksUpdatesPage-modalFilter">
+                      <FiFilter />
+                      <select value={modalStatus} onChange={event => setModalStatus(event.target.value)} aria-label="Filter tasks by status">
+                        <option value="all">Filter</option>
+                        <option value="completed">Completed</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="pending">Pending</option>
+                        <option value="overdue">Overdue</option>
+                      </select>
+                    </label>
+                    <label className="ClientTasksUpdatesPage-modalSearch">
+                      <FiSearch />
+                      <input value={modalSearch} onChange={event => setModalSearch(event.target.value)} placeholder="Search tasks..." aria-label="Search tasks" />
+                    </label>
+                  </>
+                )}
+                <button type="button" aria-label="Close details" onClick={() => setDetailsModal(null)}>
+                  <FiX />
+                </button>
+              </div>
             </header>
 
             {detailsModal === 'tasks' && (
               <div className="ClientTasksUpdatesPage-modalTable">
                 <div className="ClientTasksUpdatesPage-modalTableHead">
-                  <span>Task</span><span>Service</span><span>Priority</span><span>Created Date</span><span>Progress</span><span>Status</span>
+                  <span>Task</span><span>Service</span><span>Priority</span><span>Created Date</span><span>Progress</span><span>Status</span><span>Actions</span>
                 </div>
-                {allFilteredTaskRows.map(task => (
-                  <div className="ClientTasksUpdatesPage-modalTableRow" key={`${task.id}-modal`}>
-                    <strong>{task.title}</strong>
-                    <span>{task.service}</span>
-                    <span>{task.priority}</span>
-                    <span>{formatDate(task.createdDate)}</span>
-                    <span>{task.progress}%</span>
-                    <em className={`ClientTasksUpdatesPage-status ClientTasksUpdatesPage-${task.status.replace(/\s/g, '').toLowerCase()}`}>{task.status}</em>
-                  </div>
-                ))}
-                {!allFilteredTaskRows.length && <p className="ClientTasksUpdatesPage-modalEmpty">No tasks match this filter.</p>}
+                <div className="ClientTasksUpdatesPage-modalTableRows">
+                  {visibleModalTaskRows.map(task => (
+                    <div className="ClientTasksUpdatesPage-modalTableRow" key={`${task.id}-modal`}>
+                      <strong><i className="ClientTasksUpdatesPage-modalTaskIcon"><FiCalendar /></i>{task.title}</strong>
+                      <span>{task.service}</span>
+                      <span><b className={`ClientTasksUpdatesPage-priority ClientTasksUpdatesPage-priority-${task.priority.toLowerCase()}`}>{task.priority}</b></span>
+                      <span><FiCalendar />{formatDate(task.createdDate)}</span>
+                      <span className="ClientTasksUpdatesPage-modalProgress"><i><b style={{ width: `${task.progress}%` }} /></i>{task.progress}%</span>
+                      <em className={`ClientTasksUpdatesPage-status ClientTasksUpdatesPage-${task.status.replace(/\s/g, '').toLowerCase()}`}>{task.status}</em>
+                      <button type="button" className="ClientTasksUpdatesPage-modalRowAction" onClick={() => { setSelectedTask(task); setDetailsModal('task'); }} aria-label={`View ${task.title} details`}><FiMoreVertical /></button>
+                    </div>
+                  ))}
+                  {!modalTaskRows.length && <p className="ClientTasksUpdatesPage-modalEmpty">No tasks match this filter.</p>}
+                </div>
+                {modalTaskRows.length > 0 && (
+                  <footer className="ClientTasksUpdatesPage-modalPagination">
+                    <span>Showing {modalStartIndex + 1} to {Math.min(modalStartIndex + visibleModalTaskRows.length, modalTaskRows.length)} of {modalTaskRows.length} tasks</span>
+                    <div>
+                      <button type="button" onClick={() => setModalPage(Math.max(1, safeModalPage - 1))} disabled={safeModalPage === 1} aria-label="Previous page"><FiChevronLeft /></button>
+                      {modalPageNumbers.map(page => <button type="button" key={page} className={safeModalPage === page ? 'is-active' : ''} onClick={() => setModalPage(page)}>{page}</button>)}
+                      <button type="button" onClick={() => setModalPage(Math.min(modalTotalPages, safeModalPage + 1))} disabled={safeModalPage === modalTotalPages} aria-label="Next page"><FiChevronRight /></button>
+                    </div>
+                    <select value={pageSize} onChange={handlePageSizeChange} aria-label="Tasks per page"><option value="10">10 / page</option><option value="20">20 / page</option><option value="50">50 / page</option></select>
+                  </footer>
+                )}
               </div>
             )}
 

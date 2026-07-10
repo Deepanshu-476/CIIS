@@ -61,16 +61,16 @@ const quickPoints = [
   "Transparent data handling",
   "Role-based access",
   "No sale of personal data",
-  "Support for data requests",
-];
+    "Support for data requests",
+  ];
 
-const PrivacyPolicy = () => {
-  return (
-    <>
-      <Header />
+  const PrivacyPolicy = () => {
+    return (
+      <>
+        <Header />
 
-      <main className="privacy-page">
-        <section className="privacy-hero">
+        <main className="privacy-page">
+          <section className="privacy-hero">
           <div className="privacy-shell privacy-hero-grid">
             <div className="privacy-hero-copy">
               <span className="privacy-eyebrow">

@@ -1145,7 +1145,7 @@ const SidebarManagement = () => {
                       {activeStep > 1 ? '✓' : '2'}
                     </div>
                     <div className="SidebarManagement-step-label">Select Role</div>
-                  </div>
+                  </div>     
                   <div className={`SidebarManagement-step-connector ${activeStep >= 2 ? 'SidebarManagement-step-connector-active' : ''}`}></div>
                   
                   <div className={`SidebarManagement-step ${activeStep >= 2 ? 'SidebarManagement-step-active' : ''}`}>

@@ -218,6 +218,42 @@ button {
   padding-right: 120px;
 }
 
+/* The expanded 260px sidebar reduces available content width independently of viewport size. */
+.ClientDashboard-sidebar-open .ClientDashboard-client-dashboard {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ClientDashboard-sidebar-open .ClientDashboard-kpi-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ClientDashboard-sidebar-open .ClientDashboard-progress-overview,
+.ClientDashboard-sidebar-open .ClientDashboard-task-distribution {
+  grid-column: span 6;
+}
+
+.ClientDashboard-sidebar-open .ClientDashboard-active-services {
+  grid-column: span 12;
+}
+
+.ClientDashboard-sidebar-open .ClientDashboard-payment-summary,
+.ClientDashboard-sidebar-open .ClientDashboard-support-card {
+  grid-column: span 6;
+}
+
+.ClientDashboard-sidebar-open .ClientDashboard-actions-card {
+  grid-column: span 12;
+}
+
+/* Isolated Support Tickets modal — dashboard header and page layout remain unchanged. */
+.ClientDashboard-details-modal.ClientDashboard-support-ticket-modal { width: min(760px, calc(100vw - 48px)); height: min(700px, calc(100vh - 170px)); max-height: none; margin-top: 48px; grid-template-rows: 104px minmax(0, 1fr) 68px; border-radius: 10px; }
+.ClientDashboard-support-ticket-head { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px 24px; border-bottom: 1px solid #e6ebf3; background: #fff; }.ClientDashboard-support-ticket-title { display: flex; align-items: center; gap: 13px; min-width: 0; }.ClientDashboard-support-headset { width: 45px; height: 45px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid #d6dfff; border-radius: 11px; background: linear-gradient(135deg, #edf1ff, #e7ebff); color: #245ee9; font-size: 22px; }.ClientDashboard-support-ticket-title small { color: #285ee8; font-size: 9px; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; }.ClientDashboard-support-ticket-title h3 { margin: 5px 0 0; color: #111a36; font-size: 21px; line-height: 1; letter-spacing: -.4px; }.ClientDashboard-support-ticket-title p { margin: 7px 0 0; color: #5d6981; font-size: 10px; font-weight: 600; }.ClientDashboard-support-ticket-head > button { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid #dfe5f0; border-radius: 8px; background: #fff; color: #22324e; font-size: 17px; cursor: pointer; }
+.ClientDashboard-support-ticket-body { min-height: 0; display: grid; grid-template-rows: 51px minmax(0, 1fr); padding: 15px 26px 0; overflow: hidden; }.ClientDashboard-support-ticket-toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; border-bottom: 1px solid #e8edf5; }.ClientDashboard-support-ticket-tabs { display: flex; align-items: stretch; gap: 22px; height: 51px; }.ClientDashboard-support-ticket-tabs button { position: relative; padding: 0 0 12px; border: 0; background: transparent; color: #63708a; font-size: 12px; font-weight: 800; cursor: pointer; }.ClientDashboard-support-ticket-tabs button.active { color: #2460ea; }.ClientDashboard-support-ticket-tabs button.active::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: #2460ea; content: ""; }.ClientDashboard-support-ticket-tabs b { display: inline-grid; min-width: 22px; height: 19px; margin-left: 7px; place-items: center; border-radius: 99px; background: #e5edff; color: #3464e9; font-size: 10px; }.ClientDashboard-support-ticket-filter { position: relative; width: 117px; height: 37px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid #d7e0ee; border-radius: 8px; color: #263750; font-size: 11px; font-weight: 800; cursor: pointer; }.ClientDashboard-support-ticket-filter > svg:last-of-type { width: 12px; transform: rotate(90deg); }.ClientDashboard-support-ticket-filter select { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
+.ClientDashboard-support-ticket-scroll { min-height: 0; overflow: auto; padding: 10px 0 13px; }.ClientDashboard-support-ticket-row { width: 100%; min-height: 63px; display: grid; grid-template-columns: 44px minmax(0, 1fr) 166px 78px; align-items: center; gap: 14px; padding: 8px 13px; border: 0; border-bottom: 1px solid #e8edf5; background: #fff; color: inherit; text-align: left; cursor: pointer; }.ClientDashboard-support-ticket-row:hover { background: #fafcff; }.ClientDashboard-support-ticket-row:first-of-type { border: 1px solid #ccd7ff; border-radius: 9px; box-shadow: 0 4px 12px rgba(48, 82, 210, .08); }.ClientDashboard-support-ticket-row > span { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 9px; background: #edf1ff; color: #2760ec; font-size: 18px; }.ClientDashboard-support-ticket-row p { min-width: 0; margin: 0; }.ClientDashboard-support-ticket-row strong { display: block; color: #172440; font-size: 13px; font-weight: 800; }.ClientDashboard-support-ticket-row small { display: block; margin-top: 5px; overflow: hidden; color: #68758e; font-size: 10px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }.ClientDashboard-support-ticket-row time { color: #63718c; font-size: 10px; font-weight: 700; white-space: nowrap; }.ClientDashboard-support-ticket-row em { justify-self: end; padding: 7px 9px; border-radius: 6px; font-size: 10px; font-style: normal; font-weight: 800; white-space: nowrap; }
+.ClientDashboard-support-ticket-foot { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 12px 26px; border-top: 1px solid #e6ebf3; background: #fbfcff; }.ClientDashboard-support-ticket-foot > div { display: flex; align-items: center; gap: 12px; }.ClientDashboard-support-ticket-foot > div > span { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: #e8edff; color: #4f4ee9; font-size: 20px; }.ClientDashboard-support-ticket-foot p { margin: 0; }.ClientDashboard-support-ticket-foot strong, .ClientDashboard-support-ticket-foot small { display: block; }.ClientDashboard-support-ticket-foot strong { color: #172440; font-size: 11px; }.ClientDashboard-support-ticket-foot small { margin-top: 4px; color: #68758e; font-size: 10px; }.ClientDashboard-support-ticket-foot button { min-height: 39px; padding: 0 14px; border: 1px solid #9fb9ff; border-radius: 8px; background: #fff; color: #1f5fe5; display: inline-flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 800; cursor: pointer; }
+
+@media (max-width: 680px) { .ClientDashboard-details-modal.ClientDashboard-support-ticket-modal { width: calc(100vw - 20px); height: calc(100vh - 90px); margin-top: 35px; grid-template-rows: 92px minmax(0, 1fr) 66px; }.ClientDashboard-support-ticket-head { padding: 14px; }.ClientDashboard-support-ticket-title { gap: 10px; }.ClientDashboard-support-headset { width: 40px; height: 40px; font-size: 20px; }.ClientDashboard-support-ticket-title small { font-size: 8px; }.ClientDashboard-support-ticket-title h3 { font-size: 17px; }.ClientDashboard-support-ticket-title p { max-width: 215px; font-size: 9px; }.ClientDashboard-support-ticket-head > button { width: 34px; height: 34px; font-size: 16px; }.ClientDashboard-support-ticket-body { grid-template-rows: 47px minmax(0, 1fr); padding: 10px 12px 0; }.ClientDashboard-support-ticket-tabs { height: 47px; gap: 13px; }.ClientDashboard-support-ticket-tabs button { font-size: 10px; }.ClientDashboard-support-ticket-tabs b { min-width: 18px; height: 17px; margin-left: 3px; font-size: 8px; }.ClientDashboard-support-ticket-filter { width: 91px; height: 33px; font-size: 9px; }.ClientDashboard-support-ticket-row { grid-template-columns: 34px minmax(0, 1fr) 70px; gap: 8px; min-height: 65px; padding: 8px; }.ClientDashboard-support-ticket-row > span { width: 31px; height: 31px; font-size: 15px; }.ClientDashboard-support-ticket-row strong { font-size: 11px; }.ClientDashboard-support-ticket-row small { font-size: 8px; }.ClientDashboard-support-ticket-row time { display: none; }.ClientDashboard-support-ticket-row em { grid-column: 2 / 4; justify-self: start; margin-top: -10px; padding: 5px 7px; font-size: 8px; }.ClientDashboard-support-ticket-foot { padding: 10px 12px; }.ClientDashboard-support-ticket-foot > div > span { display: none; }.ClientDashboard-support-ticket-foot strong { font-size: 9px; }.ClientDashboard-support-ticket-foot small { max-width: 180px; overflow: hidden; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }.ClientDashboard-support-ticket-foot button { min-height: 33px; padding: 0 9px; font-size: 9px; } }
+
 .ClientDashboard-profile-info p {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
@@ -478,7 +514,7 @@ button {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: conic-gradient(#2563eb var(--progress), #e6eefb 0deg);
+  background: conic-gradient(#37c889 var(--progress), #e6eefb 0deg);
 }
 
 .ClientDashboard-progress-ring > div {
@@ -724,8 +760,46 @@ button {
 
 .ClientDashboard-doughnut-container {
   width: min(118px, 100%);
+  height: 118px;
   aspect-ratio: 1;
   justify-self: center;
+  position: relative;
+}
+
+.ClientDashboard-doughnut-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.ClientDashboard-doughnut-progress-label {
+  position: absolute;
+  inset: 24%;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 3px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.ClientDashboard-doughnut-progress-label strong {
+  color: #111a36;
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.ClientDashboard-doughnut-progress-label span,
+.ClientDashboard-doughnut-progress-label small {
+  color: #6d7690;
+  font-size: 6.5px;
+  line-height: 1;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ClientDashboard-doughnut-progress-label small {
+  color: #37c889;
 }
 
 .ClientDashboard-distribution-legend {
@@ -765,7 +839,10 @@ button {
 .ClientDashboard-payment-summary,
 .ClientDashboard-support-card,
 .ClientDashboard-actions-card {
-  min-height: 256px;
+  min-height: 390px;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
 }
 
 .ClientDashboard-recent-activity {
@@ -773,16 +850,29 @@ button {
 }
 
 .ClientDashboard-payment-summary {
-  grid-column: span 3;
+  grid-column: span 4;
 }
 
+.ClientDashboard-payment-summary {
+  padding: 20px 22px;
+  border-color: #e2e9f5;
+  background: linear-gradient(145deg, #ffffff 0%, #fbfdff 100%);
+}
+
+.ClientDashboard-payment-heading { display: flex; align-items: center; gap: 10px; }.ClientDashboard-payment-heading > span { width: 35px; height: 35px; display: grid; place-items: center; border-radius: 10px; background: #e8f0ff; color: #2563eb; font-size: 17px; }.ClientDashboard-payment-heading h3 { margin: 0; color: #13213c; font-size: 15px; font-weight: 800; }.ClientDashboard-payment-heading small { display: block; margin-top: 3px; color: #738097; font-size: 9px; font-weight: 600; }
+.ClientDashboard-payment-summary .ClientDashboard-payment-line { margin-top: 18px; padding-bottom: 12px; border-bottom: 1px solid #edf1f6; }.ClientDashboard-payment-summary .ClientDashboard-payment-line + .ClientDashboard-payment-line { margin-top: 12px; }.ClientDashboard-payment-summary .ClientDashboard-due-box { margin-top: 16px; padding: 15px; border: 1px solid #ffe6cc; background: linear-gradient(135deg, #fff8ef, #fffdf9); }.ClientDashboard-payment-summary .ClientDashboard-due-box button { height: 40px; border-radius: 8px; }
+.ClientDashboard-payment-summary .ClientDashboard-view-invoices-button { width: 100%; min-height: 40px; padding: 0 14px; border: 1px solid #b9ceff; border-radius: 8px; background: #fff; color: #225fe6; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 11px; font-weight: 800; }
+.ClientDashboard-payment-summary .ClientDashboard-view-invoices-button:hover { border-color: #6f9aff; background: #f4f8ff; }
+
 .ClientDashboard-support-card {
-  grid-column: span 3;
+  grid-column: span 4;
 }
 
 .ClientDashboard-actions-card {
-  grid-column: span 3;
+  grid-column: span 4;
 }
+
+.ClientDashboard-actions-card { padding: 20px 22px; border-color: #e2e9f5; background: linear-gradient(145deg, #ffffff 0%, #fbfdff 100%); }.ClientDashboard-actions-heading { display: flex; align-items: center; gap: 10px; }.ClientDashboard-actions-heading > span { width: 35px; height: 35px; display: grid; place-items: center; border-radius: 10px; background: #eef1ff; color: #6247df; font-size: 17px; }.ClientDashboard-actions-heading h3 { margin: 0; color: #13213c; font-size: 15px; font-weight: 800; }.ClientDashboard-actions-heading small { display: block; margin-top: 3px; color: #738097; font-size: 9px; font-weight: 600; }
 
 .ClientDashboard-timeline {
   display: grid;
@@ -875,7 +965,7 @@ button {
 }
 
 .ClientDashboard-link-button {
-  margin-top: 16px;
+  margin-top: auto;
   padding: 0;
 }
 
@@ -938,15 +1028,55 @@ button {
   font-weight: 800;
 }
 
+.ClientDashboard-support-view-all {
+  width: 100%;
+  margin-top: auto;
+  min-height: 38px;
+  border: 1px solid #dce5f5;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #2361e8;
+  font-size: 12px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.ClientDashboard-support-view-all:hover {
+  background: #eef5ff;
+  border-color: #bcd2ff;
+}
+
 .ClientDashboard-ticket-open { background: #ffe7ee; color: #ed4c64; }
 .ClientDashboard-ticket-in-progress { background: #e8f0ff; color: #2d66e8; }
+.ClientDashboard-ticket-waiting { background: #fff4d8; color: #c97800; }
 .ClientDashboard-ticket-resolved { background: #e6f8ef; color: #20a86c; }
+.ClientDashboard-ticket-closed { background: #e6f8ef; color: #20a86c; }
+
+.ClientDashboard-inline-state {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f6f8fc;
+  color: #53607a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ClientDashboard-inline-state--error {
+  background: #fff1f2;
+  color: #d33d50;
+}
 
 .ClientDashboard-action-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 16px;
+  margin-top: 18px;
+  margin-bottom: 16px;
 }
 
 .ClientDashboard-action-tile {
@@ -955,12 +1085,15 @@ button {
   align-items: center;
   min-height: 72px;
   padding: 12px;
-  border: 1px solid #e9edf5;
-  border-radius: 10px;
+  border: 1px solid #e3e9f3;
+  border-radius: 9px;
   background: #fff;
   text-align: left;
   cursor: pointer;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
 }
+
+.ClientDashboard-action-tile:hover { transform: translateY(-2px); border-color: #b7c9f8; box-shadow: 0 8px 16px rgba(33, 62, 117, .08); }
 
 .ClientDashboard-action-tile .ClientDashboard-icon {
   grid-row: span 2;
@@ -990,7 +1123,7 @@ button {
 .ClientDashboard-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  z-index: 1600;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -1251,6 +1384,10 @@ button {
   }
 }
 
+.ClientDashboard-actions-card .ClientDashboard-all-services { height: 40px; padding: 0 14px; border: 1px solid #b9ceff; border-radius: 8px; background: #fff; color: #225fe6; font-size: 11px; }
+.ClientDashboard-actions-card .ClientDashboard-all-services:hover { border-color: #6f9aff; background: #f4f8ff; }
+
+
 @media (max-width: 1180px) {
   .ClientDashboard-client-dashboard {
     grid-template-columns: 1fr;
@@ -1387,7 +1524,32 @@ button {
   }
 
   .ClientDashboard-actions-card .ClientDashboard-action-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
+/* A MacBook's open sidebar reduces the usable dashboard width by 260px. */
+@media (max-width: 1600px) {
+  .ClientDashboard-client-dashboard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1181px) and (max-width: 1500px) {
+  .ClientDashboard-progress-overview,
+  .ClientDashboard-task-distribution {
+    grid-column: span 3;
+  }
+
+  .ClientDashboard-active-services {
+    grid-column: span 6;
+  }
+
+  .ClientDashboard-payment-summary,
+  .ClientDashboard-support-card,
+  .ClientDashboard-actions-card {
+    grid-column: span 4;
   }
 }
 
@@ -1529,6 +1691,58 @@ button {
 }
 
 @media (max-width: 480px) {
+  .ClientDashboard-client-dashboard { gap: 12px; padding: 10px; overflow-x: hidden; }
+  .ClientDashboard-hero-card,
+  .ClientDashboard-card { min-width: 0; padding: 14px; }
+  .ClientDashboard-greeting-card h1 { font-size: 19px; }
+  .ClientDashboard-greeting-card > p { font-size: 11px; }
+  .ClientDashboard-hero-stats,
+  .ClientDashboard-kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .ClientDashboard-hero-stat,
+  .ClientDashboard-kpi-card { min-width: 0; min-height: 84px; padding: 9px; }
+  .ClientDashboard-kpi-card { grid-template-columns: 34px minmax(0, 1fr); }
+  .ClientDashboard-kpi-card .ClientDashboard-icon { width: 32px; height: 32px; font-size: 15px; }
+  .ClientDashboard-kpi-copy span { font-size: 9px; line-height: 1.2; }
+  .ClientDashboard-kpi-copy strong { font-size: 19px; }
+  .ClientDashboard-kpi-card > small,
+  .ClientDashboard-kpi-trend { display: none; }
+  .ClientDashboard-profile-summary { grid-template-columns: 1fr; padding-top: 14px; }
+  .ClientDashboard-profile-avatar { width: 66px; height: 66px; border-width: 4px; font-size: 28px; }
+  .ClientDashboard-profile-info h2 { font-size: 18px; }
+  .ClientDashboard-profile-info p { font-size: 10px; }
+  .ClientDashboard-progress-layout { gap: 16px; }
+  .ClientDashboard-progress-ring { width: 96px; height: 96px; }
+  .ClientDashboard-progress-ring > div { width: 64px; height: 64px; }
+  .ClientDashboard-progress-legend-row { grid-template-columns: minmax(78px, 1fr) minmax(54px, .8fr) max-content; font-size: 9px; }
+  .ClientDashboard-active-services { overflow: hidden; }
+  .ClientDashboard-service-table-row { grid-template-columns: 92px minmax(0, 1fr); gap: 7px 9px; }
+  .ClientDashboard-service-table-row > * { overflow-wrap: anywhere; font-size: 10px; }
+  .ClientDashboard-doughnut-container { width: 108px; height: 108px; }
+  .ClientDashboard-doughnut-progress-label strong { font-size: 14px; }
+  .ClientDashboard-payment-summary,
+  .ClientDashboard-support-card,
+  .ClientDashboard-actions-card { min-height: 0; padding: 14px; }
+  .ClientDashboard-payment-heading,
+  .ClientDashboard-actions-heading { gap: 8px; }
+  .ClientDashboard-payment-heading > span,
+  .ClientDashboard-actions-heading > span { width: 31px; height: 31px; font-size: 15px; }
+  .ClientDashboard-payment-heading h3,
+  .ClientDashboard-actions-heading h3,
+  .ClientDashboard-support-card h3 { font-size: 14px; }
+  .ClientDashboard-payment-summary .ClientDashboard-payment-line { margin-top: 13px; padding-bottom: 9px; }
+  .ClientDashboard-ticket-stats { gap: 8px; }
+  .ClientDashboard-ticket-stats > div { min-width: 0; padding: 10px 8px; }
+  .ClientDashboard-ticket-row { grid-template-columns: 22px minmax(0, 1fr) auto; gap: 7px; }
+  .ClientDashboard-ticket-row p strong { font-size: 10px; }
+  .ClientDashboard-ticket-row p span { font-size: 9px; }
+  .ClientDashboard-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .ClientDashboard-action-tile { grid-template-columns: 32px minmax(0, 1fr); min-height: 64px; gap: 7px; padding: 9px; }
+  .ClientDashboard-action-tile .ClientDashboard-icon { width: 30px; height: 30px; font-size: 14px; }
+  .ClientDashboard-action-tile strong { font-size: 10px; }
+  .ClientDashboard-action-tile small { font-size: 9px; line-height: 1.2; }
+}
+
+@media (max-width: 480px) {
   .ClientDashboard-client-dashboard {
     padding: 10px;
   }
@@ -1576,4 +1790,66 @@ button {
   .ClientDashboard-btn {
     width: 100%;
   }
+}
+
+/* Final phone layout overrides — kept last so desktop rules cannot re-expand it. */
+ .ClientDashboard-client-dashboard,
+ .ClientDashboard-client-dashboard * {
+  box-sizing: border-box;
+}
+
+@media (max-width: 1024px) {
+  .ClientDashboard-client-dashboard { grid-template-columns: 1fr; max-width: 100%; }
+  .ClientDashboard-content-grid { grid-template-columns: 1fr; }
+  .ClientDashboard-progress-overview,
+  .ClientDashboard-active-services,
+  .ClientDashboard-task-distribution,
+  .ClientDashboard-payment-summary,
+  .ClientDashboard-support-card,
+  .ClientDashboard-actions-card { grid-column: span 1; }
+  .ClientDashboard-payment-summary,
+  .ClientDashboard-support-card,
+  .ClientDashboard-actions-card { min-height: 0; }
+  .ClientDashboard-profile-summary { grid-template-columns: minmax(76px, auto) minmax(0, 1fr); }
+  .ClientDashboard-service-table-row { min-width: 0; }
+}
+
+@media (max-width: 768px) {
+  .ClientDashboard-client-dashboard { display: grid; grid-template-columns: 1fr; width: 100%; max-width: 100%; gap: 12px; padding: 10px; overflow-x: hidden; }
+  .ClientDashboard-client-dashboard > * { min-width: 0; max-width: 100%; }
+  .ClientDashboard-hero-card,
+  .ClientDashboard-card { min-width: 0; min-height: 0; padding: 14px; }
+  .ClientDashboard-hero-stats,
+  .ClientDashboard-kpi-row,
+  .ClientDashboard-ticket-stats,
+  .ClientDashboard-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .ClientDashboard-hero-stat,
+  .ClientDashboard-kpi-card { min-width: 0; min-height: 82px; padding: 9px; }
+  .ClientDashboard-kpi-card { grid-template-columns: 34px minmax(0, 1fr); }
+  .ClientDashboard-kpi-card > small,
+  .ClientDashboard-kpi-trend { display: none; }
+  .ClientDashboard-progress-overview,
+  .ClientDashboard-active-services,
+  .ClientDashboard-task-distribution,
+  .ClientDashboard-payment-summary,
+  .ClientDashboard-support-card,
+  .ClientDashboard-actions-card { grid-column: span 1; min-height: 0; }
+  .ClientDashboard-profile-summary { grid-template-columns: 1fr; padding-top: 14px; }
+  .ClientDashboard-profile-avatar { justify-self: start; width: 66px; height: 66px; font-size: 28px; }
+  .ClientDashboard-progress-layout,
+  .ClientDashboard-distribution-content { grid-template-columns: 1fr; justify-items: stretch; }
+  .ClientDashboard-progress-ring,
+  .ClientDashboard-doughnut-container { justify-self: center; }
+  .ClientDashboard-service-table { overflow: hidden; }
+  .ClientDashboard-service-table-row { grid-template-columns: 1fr; gap: 7px; padding: 11px 0; }
+  .ClientDashboard-service-table-row > * { min-width: 0; overflow-wrap: anywhere; }
+  .ClientDashboard-service-table-row > *::before { display: block; margin-bottom: 2px; color: #71809a; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+  .ClientDashboard-action-grid { margin-top: 14px; }
+  .ClientDashboard-action-tile { grid-template-columns: 30px minmax(0, 1fr); min-height: 64px; gap: 7px; padding: 9px; }
+  .ClientDashboard-action-tile .ClientDashboard-icon { width: 30px; height: 30px; font-size: 14px; }
+  .ClientDashboard-action-tile strong { font-size: 10px; }
+  .ClientDashboard-action-tile small { font-size: 9px; line-height: 1.2; }
+  .ClientDashboard-ticket-row { grid-template-columns: 22px minmax(0, 1fr) auto; gap: 7px; }
+  .ClientDashboard-ticket-row p { min-width: 0; }
+  .ClientDashboard-ticket-row p span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }

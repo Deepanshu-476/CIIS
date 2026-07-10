@@ -40,6 +40,8 @@ import {
   FiUser,
   FiUsers,
   FiMoreHorizontal,
+  FiFilter,
+  FiMessageCircle,
   FiPackage,
   FiInbox,
   FiX
@@ -277,6 +279,33 @@ const getUsersArrayFromResponse = responseData => {
   return [];
 };
 
+const closedTicketStatuses = new Set(['resolved', 'closed']);
+
+const getTicketStatusClass = status => {
+  const normalized = String(status || 'Open').trim().toLowerCase().replace(/\s+/g, '-');
+  if (normalized === 'closed') return 'resolved';
+  return normalized || 'open';
+};
+
+const mapSupportTicketRow = ticket => {
+  const status = ticket.status || 'Open';
+  return [
+    ticket.ticketNumber || formatPublicId(ticket._id || ticket.id, 'TK'),
+    ticket.subject || ticket.title || ticket.description || 'Support request',
+    status,
+    ticket.updatedAt || ticket.createdAt || ticket.lastMessageAt || '',
+    ticket._id || ticket.id || ticket.ticketNumber
+  ];
+};
+
+const formatSupportTicketTime = value => {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return 'Date unavailable';
+  const day = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  return `${day}  •  ${time}`;
+};
+
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -284,6 +313,9 @@ const Dashboard = () => {
   const [services, setServices] = useState([]);
   const [projectManagers, setProjectManagers] = useState([]);
   const [serviceTasks, setServiceTasks] = useState([]);
+  const [supportTicketsData, setSupportTicketsData] = useState([]);
+  const [supportTicketsLoading, setSupportTicketsLoading] = useState(false);
+  const [supportTicketsError, setSupportTicketsError] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [companyInfo, setCompanyInfo] = useState({
@@ -292,6 +324,8 @@ const Dashboard = () => {
   });
   const [dashboardFilter, setDashboardFilter] = useState('active-services');
   const [detailsModal, setDetailsModal] = useState(null);
+  const [supportTicketTab, setSupportTicketTab] = useState('all');
+  const [supportTicketFilter, setSupportTicketFilter] = useState('all');
 
   const isMounted = useRef(true);
   const initialFetchDone = useRef(false);
@@ -311,6 +345,11 @@ const Dashboard = () => {
     timeout: 10000,
   });
 
+  const supportApi = axios.create({
+    baseURL: API_URL,
+    timeout: 10000,
+  });
+
   const addAuthInterceptor = (axiosInstance) => {
     axiosInstance.interceptors.request.use(
       (config) => {
@@ -327,6 +366,7 @@ const Dashboard = () => {
   addAuthInterceptor(api);
   addAuthInterceptor(tasksApi);
   addAuthInterceptor(usersApi);
+  addAuthInterceptor(supportApi);
 
   useEffect(() => {
     isMounted.current = true;
@@ -403,6 +443,29 @@ const Dashboard = () => {
     }
   };
 
+  const fetchSupportTickets = async () => {
+    if (!isMounted.current) return;
+    setSupportTicketsLoading(true);
+    setSupportTicketsError('');
+
+    try {
+      const response = await supportApi.get('/support/tickets/my');
+      if (isMounted.current) {
+        setSupportTicketsData(Array.isArray(response.data?.tickets) ? response.data.tickets : []);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard support tickets:', error);
+      if (isMounted.current) {
+        setSupportTicketsError(error.response?.data?.message || 'Failed to load support tickets');
+        setSupportTicketsData([]);
+      }
+    } finally {
+      if (isMounted.current) {
+        setSupportTicketsLoading(false);
+      }
+    }
+  };
+
   const fetchClientData = async () => {
     try {
       if (!isMounted.current) return;
@@ -454,6 +517,7 @@ const Dashboard = () => {
         setError('');
         setClient(currentClient);
         setProjectManagers(collectProjectMembers(currentClient, companyUsers));
+        fetchSupportTickets();
         
         if (currentClient && currentClient.services) {
           setServices(currentClient.services);
@@ -534,26 +598,58 @@ const Dashboard = () => {
   const inProgressPercent = visibleTaskStats.totalTasks ? Math.round((visibleTaskStats.inProgressTasks / visibleTaskStats.totalTasks) * 100) : 0;
   const pendingPercent = visibleTaskStats.totalTasks ? Math.round((visibleTaskStats.pendingTasks / visibleTaskStats.totalTasks) * 100) : 0;
   const overduePercent = visibleTaskStats.totalTasks ? Math.round((visibleTaskStats.overdueTasks / visibleTaskStats.totalTasks) * 100) : 0;
-  const recentActivities = [
-    ...serviceTasks.slice(0, 4).map(task => [
-      `${getTaskTitle(task)} - ${task.completed ? 'completed' : 'updated'}`,
-      formatDate(task.updatedAt || task.createdAt || task.dueDate),
-      task.completed ? <FiCheckCircle /> : <FiFileText />
-    ]),
-    ...(paymentSummary.receipts[0] ? [[`Payment received for ${formatMoney(paymentSummary.receipts[0].amount || paymentSummary.subscriptionPrice)}`, formatDate(paymentSummary.receipts[0].createdAt || paymentSummary.receipts[0].paymentDate), rupee]] : [])
-  ].slice(0, 5);
-  const visibleRecentActivities = [
-    ...visibleTasks.slice(0, 4).map(task => [
-      `${getTaskTitle(task)} - ${task.completed ? 'completed' : 'updated'}`,
-      formatDate(task.updatedAt || task.createdAt || task.dueDate),
-      task.completed ? <FiCheckCircle /> : <FiFileText />
-    ]),
-  ].slice(0, 5);
-  const supportTickets = [
-    ['#TK-2026-021', 'Email not syncing on mobile', 'Open'],
-    ['#TK-2026-018', 'Website loading issue', 'In Progress'],
-    ['#TK-2026-015', 'Request for SSL Certificate', 'Resolved']
-  ];
+  const today = new Date();
+  const isToday = value => {
+    const date = value ? new Date(value) : null;
+    return date && !Number.isNaN(date.getTime()) && date.toDateString() === today.toDateString();
+  };
+  const isInProgressTask = task => (
+    task.completed !== true &&
+    !isClientTaskOverdue(task) &&
+    String(task.status || '').toLowerCase().includes('progress')
+  );
+  const inProgressTasks = serviceTasks.filter(isInProgressTask);
+  const todayInProgressTasks = inProgressTasks.filter(task => (
+    isToday(task.dueDate) || isToday(task.updatedAt) || isToday(task.createdAt)
+  ));
+  const todayTasks = serviceTasks.filter(task => (
+    isToday(task.dueDate) || isToday(task.updatedAt) || isToday(task.createdAt)
+  ));
+  const activityTasks = todayInProgressTasks.length
+    ? todayInProgressTasks
+    : inProgressTasks.length
+      ? inProgressTasks
+      : todayTasks.length
+        ? todayTasks
+        : serviceTasks;
+  const recentActivities = activityTasks
+    .slice()
+    .sort((a, b) => new Date(b.updatedAt || b.createdAt || b.dueDate || 0) - new Date(a.updatedAt || a.createdAt || a.dueDate || 0))
+    .slice(0, 10)
+    .map(task => [
+      `${getTaskTitle(task)} - ${task.completed ? 'Completed' : task.status || 'Pending'}`,
+      formatDate(task.dueDate || task.updatedAt || task.createdAt),
+      <FiClock />
+    ]);
+  const visibleRecentActivities = recentActivities.slice(0, 5);
+  const supportTickets = supportTicketsData
+    .slice()
+    .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))
+    .map(mapSupportTicketRow);
+  const recentSupportTickets = supportTickets.slice(0, 3);
+  const openSupportTicketCount = supportTicketsData.filter(ticket => !closedTicketStatuses.has(String(ticket.status || '').toLowerCase())).length;
+  const resolvedSupportTicketCount = supportTicketsData.filter(ticket => closedTicketStatuses.has(String(ticket.status || '').toLowerCase())).length;
+  const supportModalTickets = supportTickets.filter(ticket => {
+    const status = String(ticket[2] || '').toLowerCase();
+    const isClosed = closedTicketStatuses.has(status);
+    if (supportTicketTab === 'closed' && !isClosed) return false;
+    return supportTicketFilter === 'all' || status === supportTicketFilter;
+  });
+  const openSupportTickets = () => {
+    setSupportTicketTab('all');
+    setSupportTicketFilter('all');
+    setDetailsModal('support');
+  };
   const modalTitle = {
     services: 'Active Services',
     activities: 'Recent Activities',
@@ -565,7 +661,7 @@ const Dashboard = () => {
     datasets: [
       {
         data: [visibleTaskStats.completedTasks, visibleTaskStats.inProgressTasks, visibleTaskStats.pendingTasks, visibleTaskStats.overdueTasks],
-        backgroundColor: ['#35c985', '#4a90f3', '#ffc25a', '#f65470'],
+        backgroundColor: ['#37c889', '#4a90f3', '#ffc25a', '#f65470'],
         borderColor: '#ffffff',
         borderWidth: 0,
         spacing: 0,
@@ -774,9 +870,14 @@ const Dashboard = () => {
           <div className="ClientDashboard-card-head">
             <h3>Task Distribution</h3>
           </div>
-          <div className="ClientDashboard-distribution-content">
+            <div className="ClientDashboard-distribution-content">
             <div className="ClientDashboard-doughnut-container">
               <Doughnut data={doughnutData} options={doughnutOptions} />
+              <div className="ClientDashboard-doughnut-progress-label">
+                <strong>{completedPercent}%</strong>
+                <span>Overall Progress</span>
+                <small>Completed</small>
+              </div>
             </div>
             <div className="ClientDashboard-distribution-legend">
               <p><span className="ClientDashboard-dot green"></span><span>Completed</span><strong>{visibleTaskStats.completedTasks} ({completedPercent}%)</strong></p>
@@ -787,26 +888,8 @@ const Dashboard = () => {
           </div>
         </article>
 
-        <article className="ClientDashboard-card ClientDashboard-recent-activity">
-          <div className="ClientDashboard-card-head">
-            <h3>Recent Activities</h3>
-            <button type="button" onClick={() => setDetailsModal('activities')}>View All</button>
-          </div>
-          <div className="ClientDashboard-timeline">
-            {visibleRecentActivities.map(([title, time, icon], index) => (
-              <div className="ClientDashboard-timeline-item" key={title}>
-                <span className={`ClientDashboard-icon ClientDashboard-icon--${['green', 'green', 'blue', 'purple', 'blue'][index]}`}>{icon}</span>
-                <p><strong>{title}</strong><small>{time}</small></p>
-              </div>
-            ))}
-            {!visibleRecentActivities.length && (
-              <div className="ClientDashboard-empty-row">No updates match this filter.</div>
-            )}
-          </div>
-        </article>
-
         <article className="ClientDashboard-card ClientDashboard-payment-summary">
-          <h3>Payment Summary</h3>
+          <div className="ClientDashboard-payment-heading"><span><FiCreditCard /></span><div><h3>Payment Summary</h3><small>Billing overview and due details</small></div></div>
           <div className="ClientDashboard-payment-line due"><span><FiFileText /> Total Due</span><strong>{formatMoney(paymentSummary.outstanding)}</strong></div>
           <div className="ClientDashboard-payment-line"><span><FiCalendar /> Next Due Date</span><strong>{formatDate(paymentSummary.nextDueDate)}</strong></div>
           <div className="ClientDashboard-due-box">
@@ -814,30 +897,43 @@ const Dashboard = () => {
             <p>{paymentSummary.planName} <strong>{formatMoney(paymentSummary.outstanding)}</strong></p>
             <button type="button" onClick={() => navigate('/client/payments')}>Pay Now</button>
           </div>
-          <button type="button" className="ClientDashboard-link-button" onClick={() => navigate('/client/payments')}>View All Invoices <FiChevronRight /></button>
+          <button type="button" className="ClientDashboard-link-button ClientDashboard-view-invoices-button" onClick={() => navigate('/client/payments')}>View All Invoices <FiChevronRight /></button>
         </article>
 
         <article className="ClientDashboard-card ClientDashboard-support-card">
           <div className="ClientDashboard-card-head">
             <h3>Support Tickets</h3>
-            <button type="button" onClick={() => setDetailsModal('support')}>View All</button>
           </div>
           <div className="ClientDashboard-ticket-stats">
-            <div><FiHeadphones /><span>Open Tickets</span><strong>3</strong></div>
-            <div><FiCheckCircle /><span>Resolved Tickets</span><strong>27</strong></div>
+            <div><FiHeadphones /><span>Open Tickets</span><strong>{supportTicketsLoading ? '...' : openSupportTicketCount}</strong></div>
+            <div><FiCheckCircle /><span>Resolved Tickets</span><strong>{supportTicketsLoading ? '...' : resolvedSupportTicketCount}</strong></div>
           </div>
           <h4>Recent Tickets</h4>
-          {supportTickets.map(ticket => (
+          {supportTicketsLoading && <p className="ClientDashboard-inline-state">Loading support tickets...</p>}
+          {!supportTicketsLoading && supportTicketsError && <p className="ClientDashboard-inline-state ClientDashboard-inline-state--error">{supportTicketsError}</p>}
+          {!supportTicketsLoading && !supportTicketsError && recentSupportTickets.map(ticket => (
             <div className="ClientDashboard-ticket-row" key={ticket[0]}>
               <FiFileText />
               <p><strong>{ticket[0]}</strong><span>{ticket[1]}</span></p>
-              <em className={`ClientDashboard-ticket-${ticket[2].toLowerCase().replace(' ', '-')}`}>{ticket[2]}</em>
+              <em className={`ClientDashboard-ticket-${getTicketStatusClass(ticket[2])}`}>{ticket[2]}</em>
             </div>
           ))}
+          {!supportTicketsLoading && !supportTicketsError && !recentSupportTickets.length && (
+            <div className="ClientDashboard-empty-row">No support tickets found.</div>
+          )}
+          {!supportTicketsLoading && !supportTicketsError && (
+            <button
+              type="button"
+              className="ClientDashboard-support-view-all"
+              onClick={openSupportTickets}
+            >
+              View All <FiChevronRight />
+            </button>
+          )}
         </article>
 
         <article className="ClientDashboard-card ClientDashboard-actions-card">
-          <h3>Quick Actions</h3>
+          <div className="ClientDashboard-actions-heading"><span><FiGrid /></span><div><h3>Quick Actions</h3><small>Manage your services quickly</small></div></div>
           <div className="ClientDashboard-action-grid">
             {[
               ['Pay Invoice', 'Secure payments', <FiCreditCard />, 'green', '/client/payments'],
@@ -859,21 +955,26 @@ const Dashboard = () => {
       {detailsModal && (
         <div className="ClientDashboard-modal-backdrop" role="presentation" onClick={() => setDetailsModal(null)}>
           <section
-            className="ClientDashboard-details-modal"
+            className={`ClientDashboard-details-modal ${detailsModal === 'support' ? 'ClientDashboard-support-ticket-modal' : ''}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="ClientDashboard-details-title"
             onClick={event => event.stopPropagation()}
           >
-            <header className="ClientDashboard-modal-head">
-              <div>
-                <span>Client Dashboard</span>
-                <h3 id="ClientDashboard-details-title">{modalTitle[detailsModal]}</h3>
-              </div>
-              <button type="button" aria-label="Close details" onClick={() => setDetailsModal(null)}>
-                <FiX />
-              </button>
-            </header>
+            {detailsModal === 'support' ? (
+              <header className="ClientDashboard-support-ticket-head">
+                <div className="ClientDashboard-support-ticket-title">
+                  <span className="ClientDashboard-support-headset"><FiHeadphones /></span>
+                  <div><small>Client Dashboard</small><h3 id="ClientDashboard-details-title">Support Tickets</h3><p>View and manage all your support requests in one place.</p></div>
+                </div>
+                <button type="button" aria-label="Close support tickets" onClick={() => setDetailsModal(null)}><FiX /></button>
+              </header>
+            ) : (
+              <header className="ClientDashboard-modal-head">
+                <div><span>Client Dashboard</span><h3 id="ClientDashboard-details-title">{modalTitle[detailsModal]}</h3></div>
+                <button type="button" aria-label="Close details" onClick={() => setDetailsModal(null)}><FiX /></button>
+              </header>
+            )}
 
             {detailsModal === 'services' && (
               <div className="ClientDashboard-modal-table">
@@ -907,16 +1008,27 @@ const Dashboard = () => {
             )}
 
             {detailsModal === 'support' && (
-              <div className="ClientDashboard-modal-list">
-                {supportTickets.map(ticket => (
-                  <div className="ClientDashboard-modal-ticket" key={ticket[0]}>
-                    <FiFileText />
-                    <p><strong>{ticket[0]}</strong><span>{ticket[1]}</span></p>
-                    <em className={`ClientDashboard-ticket-${ticket[2].toLowerCase().replace(' ', '-')}`}>{ticket[2]}</em>
+              <div className="ClientDashboard-support-ticket-body">
+                <div className="ClientDashboard-support-ticket-toolbar">
+                  <div className="ClientDashboard-support-ticket-tabs" role="tablist" aria-label="Ticket categories">
+                    <button type="button" className={supportTicketTab === 'all' ? 'active' : ''} onClick={() => setSupportTicketTab('all')}>All Tickets <b>{supportTickets.length}</b></button>
+                    <button type="button" className={supportTicketTab === 'closed' ? 'active' : ''} onClick={() => setSupportTicketTab('closed')}>Closed <b>{resolvedSupportTicketCount}</b></button>
                   </div>
+                  <label className="ClientDashboard-support-ticket-filter"><FiFilter /><span>Filter</span><FiChevronRight /><select aria-label="Filter support tickets" value={supportTicketFilter} onChange={event => setSupportTicketFilter(event.target.value)}><option value="all">All tickets</option><option value="open">Open</option><option value="in-progress">In Progress</option><option value="resolved">Resolved</option><option value="closed">Closed</option></select></label>
+                </div>
+                <div className="ClientDashboard-support-ticket-scroll">
+                {supportTicketsLoading && <p className="ClientDashboard-modal-empty">Loading support tickets...</p>}
+                {!supportTicketsLoading && supportTicketsError && <p className="ClientDashboard-modal-empty">{supportTicketsError}</p>}
+                {!supportTicketsLoading && !supportTicketsError && supportModalTickets.map(ticket => (
+                  <button type="button" className="ClientDashboard-support-ticket-row" key={ticket[0]} onClick={() => navigate('/client/support-tickets', { state: { ticketId: ticket[4] } })}>
+                    <span><FiFileText /></span><p><strong>{ticket[0]}</strong><small>{ticket[1]}</small></p><time>{formatSupportTicketTime(ticket[3])}</time><em className={`ClientDashboard-ticket-${getTicketStatusClass(ticket[2])}`}>●&nbsp;{ticket[2]}</em>
+                  </button>
                 ))}
+                {!supportTicketsLoading && !supportTicketsError && !supportModalTickets.length && <p className="ClientDashboard-modal-empty">No support tickets match this filter.</p>}
+                </div>
               </div>
             )}
+            {detailsModal === 'support' && <footer className="ClientDashboard-support-ticket-foot"><div><span><FiHeadphones /></span><p><strong>Can't find what you're looking for?</strong><small>Contact our support team and we'll be happy to help.</small></p></div><button type="button" onClick={() => navigate('/client/support-tickets')}><FiMessageCircle /> Contact Support</button></footer>}
           </section>
         </div>
       )}

@@ -222,8 +222,8 @@
 }
 
 
-.CompanyDetails-right-column{
-  height: 60vh;
+.CompanyDetails-right-column {
+  min-height: 0;
 }
 
 
@@ -1245,14 +1245,16 @@
 }
 
 .CompanyDetails-users-list {
+  --CompanyDetails-user-row-height: 76px;
   flex: 1;
   overflow-y: auto;
-  max-height: 400px;
+  max-height: calc(var(--CompanyDetails-user-row-height) * 8);
+  min-height: 0;
 }
 
 @media (min-width: 1024px) {
   .CompanyDetails-users-list {
-    max-height: 500px;
+    max-height: calc(var(--CompanyDetails-user-row-height) * 8);
   }
 }
 
@@ -1274,6 +1276,7 @@
   align-items: center;
   gap: 16px;
   padding: 16px 20px;
+  min-height: var(--CompanyDetails-user-row-height);
   border-bottom: 1px solid #e2e8f0;
   transition: all 0.2s ease;
 }
@@ -1499,7 +1502,7 @@
 
 @media (min-width: 1024px) {
   .CompanyDetails-desktop-grid {
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: 1.55fr 0.95fr;
   }
 }
 
@@ -2734,7 +2737,7 @@ textarea.CompanyDetails-form-input {
 .CompanyDetails .CompanyDetails-stat-value {
   margin: 0;
   color: #0754b8 !important;
-  font-size: 2.35rem;
+  font-size: 1.5rem;
   font-weight: 900;
   line-height: 1;
 }
@@ -3280,7 +3283,7 @@ textarea.CompanyDetails-form-input {
 }
 
 .CompanyDetails .CompanyDetails-stat-card {
-  min-height: 128px;
+  min-height: 70px;
   gap: 16px;
   padding: 24px;
   border-radius: 24px;
@@ -3305,7 +3308,7 @@ textarea.CompanyDetails-form-input {
 
 .CompanyDetails-desktop-grid {
   gap: 20px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .CompanyDetails-left-column,
@@ -3314,6 +3317,16 @@ textarea.CompanyDetails-form-input {
   flex-direction: column;
   gap: 20px;
   min-width: 0;
+  min-height: 0;
+}
+
+.CompanyDetails-right-column .CompanyDetails-recent-users-card {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+.CompanyDetails-right-column .CompanyDetails-users-list {
+  max-height: calc(var(--CompanyDetails-user-row-height) * 8);
 }
 
 .CompanyDetails-chart-card,
@@ -3560,10 +3573,8 @@ textarea.CompanyDetails-form-input {
 
 .CompanyDetails-recent-users-card .CompanyDetails-branch-filter {
   grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: block;
   align-items: center;
-  gap: 10px;
   width: 100%;
   margin-left: 0;
 }

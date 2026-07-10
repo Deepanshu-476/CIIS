@@ -1833,9 +1833,6 @@ const CompanyDetails = () => {
     : "All Branches";
   const branchFilterControl = (
     <div className="CompanyDetails-branch-filter">
-      <label className="CompanyDetails-branch-filter-label" htmlFor="CompanyDetails-branch-filter-select">
-        Branch
-      </label>
       <select
         id="CompanyDetails-branch-filter-select"
         className="CompanyDetails-branch-filter-select"

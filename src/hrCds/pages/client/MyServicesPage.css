@@ -720,3 +720,70 @@
   .MyServices-tasksFooter nav { justify-self: start; }
   .MyServices-exportTasks { padding: 0 10px; font-size: 8px; }
 }
+
+/* Responsive page and dialog refinements. */
+.MyServices-taskDetailModal { width: min(520px, 100%); max-height: calc(100vh - 36px); }
+.MyServices-taskDetailTitle { display: flex; align-items: center; min-width: 0; gap: 10px; }
+.MyServices-taskDetailTitle > i { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 10px; color: #514cf0; background: #f0f0ff; font-style: normal; }
+.MyServices-taskDetailTitle span { display: block; color: #6b7790; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.MyServices-taskDetailTitle h3 { margin-top: 3px !important; }
+.MyServices-taskDetailBody { padding: 20px; }
+.MyServices-taskDetailBody > p { margin: 0; color: #58667d; font-size: 13px; line-height: 1.7; }
+.MyServices-taskDetailBody > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 20px; }
+.MyServices-taskDetailBody > div > span { padding: 12px; border: 1px solid #e4e9f3; border-radius: 9px; background: #fafbff; }
+.MyServices-taskDetailBody small { display: block; color: #71809a; font-size: 10px; font-weight: 800; }
+.MyServices-taskDetailBody strong { display: block; margin-top: 6px; overflow-wrap: anywhere; color: #24324d; font-size: 12px; }
+
+@media (max-width: 1200px) {
+  .MyServices-heading { grid-template-columns: 1fr; gap: 14px; }
+  .MyServices-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .MyServices-shell { margin: -12px; padding: 12px; }
+  .MyServices-heading h1 { font-size: 24px; }
+  .MyServices-heading p { line-height: 1.5; }
+  .MyServices-services-panel { padding: 12px; }
+  .MyServices-card { padding: 14px 12px 0; }
+  .MyServices-card h2 { font-size: 14px; }
+  .MyServices-card p { font-size: 10px; }
+  .MyServices-dates { grid-template-columns: auto 1fr; row-gap: 8px; font-size: 10px; }
+  .MyServices-dates span:nth-of-type(2) { grid-column: 1; }
+  .MyServices-dates time { font-size: 10px; }
+  .MyServices-card footer button { min-height: 40px; font-size: 10px; }
+  .MyServices-modalOverlay { align-items: flex-end; padding: 0; }
+  .MyServices-modal,
+  .MyServices-modal.MyServices-modalTasks,
+  .MyServices-modalDetail { width: 100%; max-height: min(88vh, 760px); border-radius: 16px 16px 0 0; }
+  .MyServices-modal.MyServices-modalTasks { height: min(88vh, 720px); }
+  .MyServices-modalDetail { height: auto; }
+  .MyServices-detailVisualGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+  .MyServices-detailCard { min-height: 92px; padding: 11px; }
+  .MyServices-latestTask { align-items: flex-start; }
+  .MyServices-latestTask > span { display: none; }
+  .MyServices-taskToolbar { grid-template-columns: 1fr !important; }
+  .MyServices-taskTotal, .MyServices-taskTabs { grid-column: auto !important; }
+  .MyServices-taskTabs { overflow-x: auto; }
+  .MyServices-taskTabs button { min-width: 74px; }
+  .MyServices-taskSort { width: 100%; }
+  .MyServices-tasksFooter { grid-template-columns: 1fr !important; gap: 9px; }
+  .MyServices-tasksFooter > div { display: none; }
+  .MyServices-tasksFooter nav { justify-self: center; max-width: 100%; overflow-x: auto; }
+  .MyServices-exportTasks { justify-self: center; }
+}
+
+@media (max-width: 480px) {
+  .MyServices-stats { grid-template-columns: 1fr; }
+  .MyServices-stat, .MyServices-stat:nth-child(2n) { border-right: 0; border-bottom: 1px solid #edf0f4; }
+  .MyServices-stat:last-child { border-bottom: 0; }
+  .MyServices-grid { grid-template-columns: 1fr; }
+  .MyServices-filterbar { gap: 8px; }
+  .MyServices-modal > header { padding: 14px; }
+  .MyServices-modalBody, .MyServices-modalDetail .MyServices-modalBody { padding: 14px; }
+  .MyServices-detailVisualGrid, .MyServices-taskDetailBody > div { grid-template-columns: 1fr; }
+  .MyServices-detailHeader, .MyServices-modal.MyServices-modalTasks > .MyServices-tasksHeader { min-height: 80px !important; padding: 13px 14px !important; }
+  .MyServices-tasksHero p, .MyServices-detailHero p { display: none; }
+  .MyServices-taskModernRow { grid-template-columns: 30px minmax(0, 1fr) 20px !important; }
+  .MyServices-taskModernRow em { grid-column: 2; grid-row: 2; margin-top: -8px; }
+  .MyServices-taskModernRow time { display: none; }
+}

@@ -1035,8 +1035,9 @@
 }
 
 .ClientTasksUpdatesPage-modal {
-  width: min(900px, 100%);
-  max-height: min(78vh, 720px);
+  width: min(980px, 100%);
+  height: min(78vh, 710px);
+  max-height: calc(100vh - 44px);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
@@ -1056,12 +1057,19 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px 20px;
+  min-height: 112px;
+  padding: 18px 22px;
   border-bottom: 1px solid #edf1f7;
 }
 
+.ClientTasksUpdatesPage-modalHeadActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .ClientTasksUpdatesPage-modalHead span {
-  color: #71809a;
+  color: #7057e8;
   font-size: 11px;
   font-weight: 900;
   text-transform: uppercase;
@@ -1070,7 +1078,7 @@
 .ClientTasksUpdatesPage-modalHead h3 {
   margin: 3px 0 0;
   color: #111827;
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 900;
 }
 
@@ -1079,9 +1087,9 @@
   height: 36px;
   display: grid;
   place-items: center;
-  border: 1px solid #dfe6f1;
-  border-radius: 8px;
-  background: #fff;
+  border: 0;
+  border-radius: 50%;
+  background: #f4f6fb;
   color: #17213b;
   cursor: pointer;
 }
@@ -1091,7 +1099,7 @@
 .ClientTasksUpdatesPage-projectDetails,
 .ClientTasksUpdatesPage-taskDetails {
   overflow: auto;
-  padding: 16px 20px 20px;
+  padding: 18px 24px 20px;
 }
 
 .ClientTasksUpdatesPage-modalList {
@@ -1138,21 +1146,22 @@
 .ClientTasksUpdatesPage-modalTableHead,
 .ClientTasksUpdatesPage-modalTableRow {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 0.75fr 0.8fr 0.65fr 0.8fr;
+  grid-template-columns: 1.45fr 1.05fr .62fr .85fr .82fr .78fr 36px;
   align-items: center;
   gap: 12px;
 }
 
 .ClientTasksUpdatesPage-modalTableHead {
-  padding-bottom: 10px;
-  color: #71809a;
+  padding: 14px 16px;
+  color: #1d2b4e;
+  background: #f7f7fe;
   font-size: 11px;
   font-weight: 900;
 }
 
 .ClientTasksUpdatesPage-modalTableRow {
-  min-height: 50px;
-  padding: 9px 0;
+  min-height: 60px;
+  padding: 9px 16px;
   border-top: 1px solid #edf1f7;
 }
 
@@ -1200,6 +1209,88 @@
   gap: 10px;
   padding: 14px 16px 16px;
   background: #f8fafc;
+}
+
+.ClientTasksUpdatesPage-modalToolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin: -2px 0 18px;
+}
+
+.ClientTasksUpdatesPage-modalFilter,
+.ClientTasksUpdatesPage-modalSearch {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  border: 1px solid #dce2ef;
+  border-radius: 8px;
+  color: #7057e8;
+  background: #fff;
+}
+
+.ClientTasksUpdatesPage-modalFilter { padding: 0 10px; gap: 7px; }
+.ClientTasksUpdatesPage-modalFilter select { width: 76px; border: 0; outline: 0; color: #273451; background: transparent; font: inherit; font-size: 12px; font-weight: 800; }
+.ClientTasksUpdatesPage-modalSearch { width: 220px; padding: 0 12px; gap: 8px; color: #71809a; }
+.ClientTasksUpdatesPage-modalSearch input { width: 100%; border: 0; outline: 0; color: #273451; font: inherit; font-size: 12px; }
+
+.ClientTasksUpdatesPage-modalTableRow strong { display: flex; align-items: center; gap: 10px; }
+.ClientTasksUpdatesPage-modalTaskIcon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; color: #7057e8; background: #f0edff; }
+.ClientTasksUpdatesPage-modalTableRow > span:nth-child(4) { display: flex; align-items: center; gap: 7px; }
+.ClientTasksUpdatesPage-modalTableRow > span:nth-child(4) svg { color: #6f7c98; }
+.ClientTasksUpdatesPage-priority { display: inline-flex; padding: 7px 10px; border-radius: 999px; font-size: 10px; font-weight: 900; }
+.ClientTasksUpdatesPage-priority-medium { color: #e88909; background: #fff5e5; }
+.ClientTasksUpdatesPage-priority-high { color: #ed4d5d; background: #fff0f2; }
+.ClientTasksUpdatesPage-priority-low { color: #168a5d; background: #e8fbf2; }
+.ClientTasksUpdatesPage-modalProgress { display: flex !important; align-items: center; gap: 9px; margin: 0 !important; white-space: nowrap; }
+.ClientTasksUpdatesPage-modalProgress > i { width: 76px; height: 5px; overflow: hidden; border-radius: 999px; background: #e8ebf1; }
+.ClientTasksUpdatesPage-modalProgress > i > b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7445ee, #4d6ff1); }
+.ClientTasksUpdatesPage-modalRowAction { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 50%; color: #33496e; background: transparent; cursor: pointer; }
+.ClientTasksUpdatesPage-modalRowAction:hover { background: #f0edff; color: #7057e8; }
+
+.ClientTasksUpdatesPage-modalPagination { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 16px; padding-top: 14px; border-top: 1px solid #e9edf4; color: #71809a; font-size: 12px; font-weight: 700; }
+.ClientTasksUpdatesPage-modalPagination > div { display: flex; gap: 6px; }
+.ClientTasksUpdatesPage-modalPagination button { display: grid; place-items: center; min-width: 30px; height: 30px; border: 1px solid #dfe5ef; border-radius: 6px; color: #4b5d7d; background: #fff; cursor: pointer; font: inherit; font-weight: 800; }
+.ClientTasksUpdatesPage-modalPagination button.is-active { border-color: #7251e8; color: #fff; background: #7251e8; }
+.ClientTasksUpdatesPage-modalPagination button:disabled { cursor: not-allowed; opacity: .45; }
+.ClientTasksUpdatesPage-modalPagination select { height: 34px; padding: 0 10px; border: 1px solid #dfe5ef; border-radius: 7px; color: #4b5d7d; background: #fff; font: inherit; font-size: 12px; font-weight: 800; }
+
+.ClientTasksUpdatesPage-modalTable {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.ClientTasksUpdatesPage-modalTableHead { margin: 0 18px; }
+
+.ClientTasksUpdatesPage-modalTableRows {
+  min-height: 0;
+  margin: 0 18px;
+  overflow-y: auto;
+}
+
+.ClientTasksUpdatesPage-modalTableRow {
+  min-height: 50px;
+  padding: 7px 16px;
+}
+
+.ClientTasksUpdatesPage-modalPagination { margin: 0 18px 12px; padding-top: 10px; }
+
+@media (max-width: 760px) {
+  .ClientTasksUpdatesPage-modalHead {
+    align-items: flex-start;
+    min-height: 0;
+    padding: 18px;
+  }
+
+  .ClientTasksUpdatesPage-modalHeadActions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .ClientTasksUpdatesPage-modalSearch { width: 190px; }
 }
 
 .ClientTasksUpdatesPage-taskDetailsHero,
@@ -1294,6 +1385,13 @@
   font-size: 12px;
   line-height: 1.3;
   font-weight: 900;
+}
+
+.ClientTasksUpdatesPage-modalHead p {
+  margin: 7px 0 0;
+  color: #71809a;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .ClientTasksUpdatesPage-taskDetailsGrid small {
@@ -1744,10 +1842,158 @@
 @media (max-width: 640px) {
   .ClientTasksUpdatesPage-taskModal { width: calc(100vw - 20px); max-height: calc(100vh - 30px); }
   .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetails { padding: 10px; }
-  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsHero { min-height: 0; padding: 12px; }
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsHero { min-height: 150px; display: grid; grid-template-columns: 1fr; grid-template-rows: auto 64px; align-items: start; gap: 8px; padding: 12px; overflow: visible; }
   .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsHero > div:first-child { width: 100%; }
-  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsSide { width: 100%; min-width: 0; height: 64px; display: grid; grid-template-columns: minmax(0, 1fr) 56px; align-items: center; justify-content: normal; gap: 12px; margin-top: 5px; }
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsSide { position: static; width: 100%; min-width: 0; height: 64px; display: grid; grid-template-columns: minmax(0, 1fr) 56px; align-items: center; justify-content: normal; gap: 12px; margin: 0; }
   .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsSide > .ClientTasksUpdatesPage-taskProgressCopy { justify-items: start; text-align: left; }
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskProgressCopy em { display: inline-flex; }
   .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskCompleteRing { width: 52px; height: 52px; justify-self: end; font-size: 24px; }
   .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskCompleteRing svg { width: 24px; height: 24px; }
+}
+
+/* Final task-details dialog layout. */
+.ClientTasksUpdatesPage-taskModal {
+  width: min(680px, calc(100vw - 32px));
+  height: min(700px, calc(100vh - 44px));
+  max-height: calc(100vh - 44px);
+  border-radius: 14px;
+}
+
+.ClientTasksUpdatesPage-taskModalHead {
+  min-height: 88px;
+  padding: 18px 22px !important;
+  background: linear-gradient(120deg, #ffffff, #f6f7ff);
+}
+
+.ClientTasksUpdatesPage-taskModalTitle > i {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  color: #6755e8;
+  background: #ece9ff;
+}
+
+.ClientTasksUpdatesPage-taskModalTitle h3 { font-size: 20px !important; }
+
+.ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetails {
+  gap: 14px;
+  padding: 18px 20px 20px;
+  background: #f8f9fc;
+}
+
+.ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsHero {
+  min-height: 142px;
+  padding: 18px;
+  border-color: #e4e8f2;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsHero h4 {
+  font-size: 19px;
+  line-height: 1.3;
+}
+
+.ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsHero p {
+  max-width: 390px;
+  color: #5c6b83;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsSide {
+  width: 166px;
+  min-width: 166px;
+  height: 82px;
+  gap: 12px;
+}
+
+.ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskCompleteRing {
+  width: 62px;
+  height: 62px;
+  border-width: 5px;
+}
+
+.ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsGrid > .ClientTasksUpdatesPage-detailCard {
+  min-height: 88px;
+  padding: 13px;
+  border-radius: 10px;
+}
+
+.ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-detailCard > i {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+}
+
+.ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-detailCard span { font-size: 9px; }
+.ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-detailCard strong { font-size: 12px; }
+.ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-detailCard small { font-size: 9px; }
+.ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-detailProgress { grid-column: span 2; }
+.ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskAssignees { padding: 13px; border-radius: 10px; }
+
+@media (max-width: 640px) {
+  .ClientTasksUpdatesPage-taskModal {
+    width: calc(100vw - 20px);
+    height: min(88vh, 720px);
+    max-height: calc(100vh - 20px);
+  }
+
+  .ClientTasksUpdatesPage-taskModalHead { min-height: 74px; padding: 14px 16px !important; }
+  .ClientTasksUpdatesPage-taskModalTitle h3 { font-size: 17px !important; }
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetails { padding: 12px; }
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsHero { min-height: auto; display: block; padding: 14px; }
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsHero h4 { font-size: 16px; }
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsSide { width: 100%; min-width: 0; height: 58px; margin-top: 12px; justify-content: center; }
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskCompleteRing { width: 50px; height: 50px; }
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsGrid { grid-template-columns: 1fr; }
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-detailProgress { grid-column: auto; }
+}
+
+/* Keep the mobile task status beside the summary instead of below it. */
+@media (max-width: 640px) {
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsHero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 112px;
+    grid-template-rows: 1fr;
+    align-items: center;
+    min-height: 116px;
+    gap: 10px;
+    padding: 13px;
+  }
+
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsHero > div:first-child { width: auto; }
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsHero h4 { margin: 4px 0; font-size: 15px; }
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsHero p { font-size: 9px; line-height: 1.4; }
+
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsSide {
+    display: flex;
+    width: 112px;
+    min-width: 112px;
+    height: 58px;
+    margin: 0;
+    padding: 0 0 0 8px;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+    border-top: 0;
+    border-left: 1px solid #e2e7f1;
+  }
+
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsSide > .ClientTasksUpdatesPage-taskProgressCopy {
+    min-width: 47px;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsSide em { padding: 3px 5px; font-size: 7px; }
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsSide strong { font-size: 15px; }
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsSide small { font-size: 7px; }
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskCompleteRing { width: 46px; height: 46px; border-width: 4px; }
+  .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskCompleteRing svg { width: 22px; height: 22px; }
 }

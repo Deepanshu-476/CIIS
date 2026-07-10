@@ -12,7 +12,7 @@ const CompanyDetails = () => {
   const requestedBranchId = searchParams.get("branch") || searchParams.get("branchId") || "";
   const [pageLoading, setPageLoading] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [company, setCompany] = useState(null);
+  const [company, setCompany] = useState(null);    
   const [stats, setStats] = useState({
     totalUsers: 0,
     activeUsers: 0,

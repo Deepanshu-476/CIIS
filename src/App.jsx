@@ -43,6 +43,9 @@ import ServiceMarketplacePage from "./hrCds/pages/client/ServiceMarketplacePage.
 import SupportTicketsPage from "./hrCds/pages/client/SupportTicketsPage.jsx";
 import DocumentsPage from "./hrCds/pages/client/DocumentsPage.jsx";
 import PaymentsInvoicesPage from "./hrCds/pages/client/PaymentsInvoicesPage.jsx";
+import NotificationsPage from "./hrCds/pages/client/NotificationsPage.jsx";
+import AccountSettingsPage from "./hrCds/pages/client/AccountSettingsPage.jsx";
+import AIAssistantPage from "./hrCds/pages/client/AIAssistantPage.jsx";
 
 
 import Alerts from "./hrCds/pages/Alerts";
@@ -75,6 +78,7 @@ import RegisterCompany from "./admin/components/CompanyRegister.jsx";
 import SuperAdminLogin from "./page/SuperAdminLogin";
 
 import CompanyManagement from "./page/CompanyManagement.jsx";
+import CompanyAccessManagement from "./admin/page/CompanyAccessManagement.jsx";
 import PlanManagement from "./admin/page/PlanManagement.jsx";
 import PageManagement from "./admin/page/PageManagement.jsx";
 import JobRoleManagement from "./admin/page/JobRoleManagement.jsx";
@@ -137,6 +141,7 @@ function App() {
           <Route path="company-assets" element={<CompanyAssetManagement/>}/>
           <Route path="company-assets/branch/:branchId" element={<CompanyAssetManagement/>}/>
           <Route path="CompanyManagement" element={<CompanyManagement />} />
+          <Route path="CompanyAccessManagement" element={<CompanyAccessManagement />} />
           <Route path="SidebarManagement" element={<SidebarManagement />} />
           <Route path="page-management" element={<PageManagement />} />
           <Route path="plans" element={<PlanManagement />} />
@@ -218,6 +223,10 @@ function App() {
           <Route path="support-tickets" element={<SupportTicketsPage />} />
           <Route path="documents" element={<DocumentsPage />} />
           <Route path="payments" element={<PaymentsInvoicesPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="settings" element={<AccountSettingsPage />} />
+          <Route path="account-settings" element={<AccountSettingsPage />} />
+          <Route path="ai-assistant" element={<AIAssistantPage />} />
           <Route path="change-password" element={<ChangePassword />} />
           <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
         </Route>

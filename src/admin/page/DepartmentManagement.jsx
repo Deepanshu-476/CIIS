@@ -23,16 +23,7 @@ const DepartmentManagement = () => {
     description: '',
     company: '',  
     companyCode: '',
-    branch: '',
-    shiftSettings: {
-      shiftStart: '09:00',
-      shiftEnd: '19:00',
-      earlyClockInMinutes: 30,
-      gracePeriodMinutes: 10,
-      halfDayLateMinutes: 120,
-      shortLeaveEarlyMinutes: 30,
-      halfDayEarlyMinutes: 240
-    }
+    branch: ''
   });
   const [loading, setLoading] = useState(false);
   const [loadingBranches, setLoadingBranches] = useState(false);
@@ -256,8 +247,7 @@ const DepartmentManagement = () => {
       const submitData = {
         name: formData.name.trim(),
         description: formData.description.trim(),
-        branch: formData.branch,
-        shiftSettings: formData.shiftSettings
+        branch: formData.branch
       };
       
       if (!isSuper || formData.company) {
@@ -303,16 +293,7 @@ const DepartmentManagement = () => {
         description: '',
         company: companyId || '',
         companyCode: companyCode || '',
-        branch: selectedBranchId || '',
-        shiftSettings: {
-          shiftStart: '09:00',
-          shiftEnd: '19:00',
-          earlyClockInMinutes: 30,
-          gracePeriodMinutes: 10,
-          halfDayLateMinutes: 120,
-          shortLeaveEarlyMinutes: 30,
-          halfDayEarlyMinutes: 240
-        }
+        branch: selectedBranchId || ''
       });
       setEditingDept(null);
       setRefreshKey(prev => prev + 1);
@@ -362,16 +343,7 @@ const DepartmentManagement = () => {
       description: dept.description || '',
       company: getRecordId(dept.company) || resolveCompanyId(user) || '',
       companyCode: dept.companyCode || resolveCompanyCode(user) || '',
-      branch: getDepartmentBranchId(dept) || '',
-      shiftSettings: dept.shiftSettings || {
-        shiftStart: '09:00',
-        shiftEnd: '19:00',
-        earlyClockInMinutes: 30,
-        gracePeriodMinutes: 10,
-        halfDayLateMinutes: 120,
-        shortLeaveEarlyMinutes: 30,
-        halfDayEarlyMinutes: 240
-      }
+      branch: getDepartmentBranchId(dept) || ''
     });
     setOpenDialog(true);
     setShowMenu(false);
@@ -1356,96 +1328,7 @@ const DepartmentManagement = () => {
                 </div>
               </div>
 
-              <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px' }}>
-                <h4 style={{ marginBottom: '15px', color: '#333' }}>Shift Settings</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                  <div className="DepartmentManagement-form-group">
-                    <label className="DepartmentManagement-form-label">Shift Start (HH:MM)</label>
-                    <input
-                      type="text"
-                      className="DepartmentManagement-form-input"
-                      value={formData.shiftSettings?.shiftStart || '09:00'}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        shiftSettings: { ...formData.shiftSettings, shiftStart: e.target.value }
-                      })}
-                    />
-                  </div>
-                  <div className="DepartmentManagement-form-group">
-                    <label className="DepartmentManagement-form-label">Shift End (HH:MM)</label>
-                    <input
-                      type="text"
-                      className="DepartmentManagement-form-input"
-                      value={formData.shiftSettings?.shiftEnd || '19:00'}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        shiftSettings: { ...formData.shiftSettings, shiftEnd: e.target.value }
-                      })}
-                    />
-                  </div>
-                  <div className="DepartmentManagement-form-group">
-                    <label className="DepartmentManagement-form-label">Early Buffer (Mins)</label>
-                    <input
-                      type="number"
-                      className="DepartmentManagement-form-input"
-                      value={formData.shiftSettings?.earlyClockInMinutes || 30}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        shiftSettings: { ...formData.shiftSettings, earlyClockInMinutes: Number(e.target.value) }
-                      })}
-                    />
-                  </div>
-                  <div className="DepartmentManagement-form-group">
-                    <label className="DepartmentManagement-form-label">Grace Period (Mins)</label>
-                    <input
-                      type="number"
-                      className="DepartmentManagement-form-input"
-                      value={formData.shiftSettings?.gracePeriodMinutes || 10}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        shiftSettings: { ...formData.shiftSettings, gracePeriodMinutes: Number(e.target.value) }
-                      })}
-                    />
-                  </div>
-                  <div className="DepartmentManagement-form-group">
-                    <label className="DepartmentManagement-form-label">Half-Day Late Cutoff (Mins)</label>
-                    <input
-                      type="number"
-                      className="DepartmentManagement-form-input"
-                      value={formData.shiftSettings?.halfDayLateMinutes || 120}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        shiftSettings: { ...formData.shiftSettings, halfDayLateMinutes: Number(e.target.value) }
-                      })}
-                    />
-                  </div>
-                  <div className="DepartmentManagement-form-group">
-                    <label className="DepartmentManagement-form-label">Short Leave Early Out (Mins)</label>
-                    <input
-                      type="number"
-                      className="DepartmentManagement-form-input"
-                      value={formData.shiftSettings?.shortLeaveEarlyMinutes || 30}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        shiftSettings: { ...formData.shiftSettings, shortLeaveEarlyMinutes: Number(e.target.value) }
-                      })}
-                    />
-                  </div>
-                  <div className="DepartmentManagement-form-group" style={{ gridColumn: 'span 2' }}>
-                    <label className="DepartmentManagement-form-label">Half-Day Early Out (Mins)</label>
-                    <input
-                      type="number"
-                      className="DepartmentManagement-form-input"
-                      value={formData.shiftSettings?.halfDayEarlyMinutes || 240}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        shiftSettings: { ...formData.shiftSettings, halfDayEarlyMinutes: Number(e.target.value) }
-                      })}
-                    />
-                  </div>
-                </div>
               </div>
-            </div>
 
             <div className="DepartmentManagement-modal-footer">
               <button 

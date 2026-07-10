@@ -3,6 +3,9 @@ import { FiPlay, FiSquare, FiClock, FiCamera, FiMapPin, FiX } from 'react-icons/
 import { toast } from 'react-toastify';
 import axios from '../../utils/axiosConfig';
 
+const MAX_LOCATION_ACCURACY_METERS = 200;
+const LOCATION_SAMPLE_COUNT = 3;
+
 const ClockInSection = ({
   timer,
   isRunning,
@@ -32,7 +35,7 @@ const ClockInSection = ({
   };
 
   const getCoordinates = () => {
-    return new Promise((resolve) => {
+    const getSinglePosition = () => new Promise((resolve) => {
       if (!navigator.geolocation) {
         resolve({ error: "Geolocation is not supported by your browser." });
         return;
@@ -41,14 +44,38 @@ const ClockInSection = ({
         (position) => {
           resolve({
             latitude: position.coords.latitude,
-            longitude: position.coords.longitude
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy
           });
         },
         (error) => {
           resolve({ error: error.message });
         },
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
+    });
+
+    return new Promise(async (resolve) => {
+      const readings = [];
+      let lastError = null;
+
+      for (let i = 0; i < LOCATION_SAMPLE_COUNT; i += 1) {
+        const reading = await getSinglePosition();
+        if (reading.error) {
+          lastError = reading.error;
+        } else {
+          readings.push(reading);
+          if (reading.accuracy <= 50) break;
+        }
+      }
+
+      if (!readings.length) {
+        resolve({ error: lastError || "Unable to fetch location." });
+        return;
+      }
+
+      readings.sort((a, b) => (a.accuracy || Infinity) - (b.accuracy || Infinity));
+      resolve(readings[0]);
     });
   };
 
@@ -146,8 +173,13 @@ const ClockInSection = ({
         toast.error(`Location error: ${coords.error}`);
         return;
       }
+      if (coords.accuracy && coords.accuracy > MAX_LOCATION_ACCURACY_METERS) {
+        toast.error(`Location accuracy is low (${Math.round(coords.accuracy)}m). Please use a phone/GPS device or connect to Wi-Fi and try again.`);
+        return;
+      }
       payload.latitude = coords.latitude;
       payload.longitude = coords.longitude;
+      payload.accuracy = coords.accuracy;
     }
 
     if (mode === 'in') {

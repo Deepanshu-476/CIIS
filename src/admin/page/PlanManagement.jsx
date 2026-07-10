@@ -22,6 +22,8 @@ const APP_ROUTES = [
   { id: "emp-leaves", path: "emp-leaves", name: "Employee Leaves", category: "administration" },
   { id: "emp-assets", path: "emp-assets", name: "Employee Assets", category: "administration" },
   { id: "emp-attendance", path: "emp-attendance", name: "Employee Attendance", category: "administration" },
+  { id: "department", path: "department", name: "Department Management", category: "administration" },
+  { id: "JobRoleManagement", path: "JobRoleManagement", name: "Job Role Management", category: "administration" },
   { id: "create-user", path: "create-user", name: "Create User", category: "administration" },
   { id: "SidebarManagement", path: "SidebarManagement", name: "Sidebar Management", category: "administration" },
   { id: "manage-groups", path: "manage-groups", name: "Manage Groups", category: "administration" },

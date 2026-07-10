@@ -11,6 +11,8 @@ const APP_ROUTES = [
   { path: 'emp-leaves', name: 'Employee Leaves', icon: 'EventNote', category: 'administration' },
   { path: 'emp-assets', name: 'Employee Assets', icon: 'Computer', category: 'administration' },
   { path: 'emp-attendance', name: 'Employee Attendance', icon: 'CalendarToday', category: 'administration' },
+  { path: 'department', name: 'Department Management', icon: 'Apartment', category: 'administration' },
+  { path: 'JobRoleManagement', name: 'Job Role Management', icon: 'Work', category: 'administration' },
   { path: 'admin-task-create', name: 'Admin Create Task', icon: 'Task', category: 'administration' },
   { path: 'manage-groups', name: 'Manage Groups', icon: 'GroupIcon', category: 'administration' },
   { path: 'create-user', name: 'Create User', icon: 'PersonAdd', category: 'administration' },
@@ -1148,7 +1150,7 @@ const SidebarManagement = () => {
                   
                   <div className={`SidebarManagement-step ${activeStep >= 2 ? 'SidebarManagement-step-active' : ''}`}>
                     <div className="SidebarManagement-step-indicator">3</div>
-                    <div className="SidebarManagement-step-label">Configure Menu Items</div>
+                    <div className="SidebarManagement-step-label">Select Menu Items</div>
                   </div>
                 </div>
               </div>

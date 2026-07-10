@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -21,6 +21,7 @@ import {
   alpha,
 } from "@mui/material";
 import {
+  ArrowBack as ArrowBackIcon,
   Business as BusinessIcon,
   CalendarMonth as CalendarIcon,
   CheckCircle as CheckCircleIcon,
@@ -45,6 +46,8 @@ const APP_ROUTES = [
   { id: "emp-leaves", path: "emp-leaves", name: "Employee Leaves", category: "administration" },
   { id: "emp-assets", path: "emp-assets", name: "Employee Assets", category: "administration" },
   { id: "emp-attendance", path: "emp-attendance", name: "Employee Attendance", category: "administration" },
+  { id: "department", path: "department", name: "Department Management", category: "administration" },
+  { id: "JobRoleManagement", path: "JobRoleManagement", name: "Job Role Management", category: "administration" },
   { id: "create-user", path: "create-user", name: "Create User", category: "administration" },
   { id: "SidebarManagement", path: "SidebarManagement", name: "Sidebar Management", category: "administration" },
   { id: "manage-groups", path: "manage-groups", name: "Manage Groups", category: "administration" },
@@ -109,6 +112,7 @@ const formatDate = value => {
 
 export default function CompanyAccessManagement() {
   const navigate = useNavigate();
+  const { companyId } = useParams();
   const [companies, setCompanies] = useState([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [selectedPages, setSelectedPages] = useState([]);
@@ -165,12 +169,32 @@ export default function CompanyAccessManagement() {
     fetchCompanies();
   }, []);
 
+  useEffect(() => {
+    if (!companyId || companies.length === 0) return;
+    const company = companies.find(item => item._id === companyId);
+    if (company) {
+      selectCompany(company);
+    }
+  }, [companyId, companies]);
+
   const selectCompany = company => {
     setSelectedCompanyId(company._id);
     setSelectedPages(Array.isArray(company.allowedPages) ? company.allowedPages : []);
     setIsActive(Boolean(company.isActive));
     setActiveDays(30);
     setNotice(null);
+  };
+
+  const openCompanyAccess = company => {
+    navigate(`/Ciis-network/CompanyAccessManagement/${company._id}`);
+  };
+
+  const goBackToCompanies = () => {
+    setSelectedCompanyId("");
+    setSelectedPages([]);
+    setSearch("");
+    setNotice(null);
+    navigate("/Ciis-network/CompanyAccessManagement");
   };
 
   const togglePage = pageId => {
@@ -296,6 +320,9 @@ export default function CompanyAccessManagement() {
 
         <div className="JobRoleManagement-header CompanyAccessManagement-access-header">
           <div className="JobRoleManagement-user-info">
+            <button className="JobRoleManagement-btn-outline" onClick={goBackToCompanies}>
+              Back to Companies
+            </button>
             <span className="JobRoleManagement-user-chip JobRoleManagement-chip-primary">
               Page Access
             </span>
@@ -454,7 +481,7 @@ export default function CompanyAccessManagement() {
               <h2 className="JobRoleManagement-header-title">Company Access</h2>
               <div className="JobRoleManagement-user-info">
                 <span className="JobRoleManagement-user-chip JobRoleManagement-chip-primary">
-                  Assign pages for Sidebar Management
+                  {companyId ? "Select pages for this company" : "Select company first"}
                 </span>
                 {selectedCompany && (
                   <span className="JobRoleManagement-user-chip">
@@ -466,6 +493,16 @@ export default function CompanyAccessManagement() {
           </div>
 
           <div className="JobRoleManagement-header-actions">
+            {companyId && (
+              <button
+                className="JobRoleManagement-btn-outline CompanyAccessManagement-back-btn"
+                onClick={goBackToCompanies}
+              >
+                <ArrowBackIcon fontSize="small" />
+                <span>Back to Companies</span>
+              </button>
+            )}
+            {companyId && (
             <div className="JobRoleManagement-search-container">
               <SearchIcon className="JobRoleManagement-search-icon" />
               <input
@@ -481,102 +518,99 @@ export default function CompanyAccessManagement() {
                 </button>
               )}
             </div>
+            )}
             <button className="JobRoleManagement-btn-outline" onClick={fetchCompanies}>
               Refresh
             </button>
           </div>
         </div>
 
-        <div className="JobRoleManagement-info-banner">
-          <BusinessIcon className="JobRoleManagement-info-icon" />
-          <div>
-            <div className="JobRoleManagement-info-title">Companies</div>
-            <div className="JobRoleManagement-info-subtitle">Click a company to open page access below it</div>
-          </div>
-        </div>
+        {!companyId && (
+          <>
+            <div className="JobRoleManagement-info-banner">
+              <BusinessIcon className="JobRoleManagement-info-icon" />
+              <div>
+                <div className="JobRoleManagement-info-title">Companies</div>
+                <div className="JobRoleManagement-info-subtitle">Click a company to open page access on the next page</div>
+              </div>
+            </div>
 
-        <div className="CompanyAccessManagement-company-list">
-          {companies.length > 0 ? (
-            companies.map(company => {
-              const selected = company._id === selectedCompanyId;
-              const companyPercent = Math.min(100, Math.round(((company.allowedPages?.length || 0) / APP_ROUTES.length) * 100));
-              return (
-                <div className="CompanyAccessManagement-company-row" key={company._id}>
-                  <div
-                    className="JobRoleManagement-mobile-card"
-                    onClick={() => selectCompany(company)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={event => {
-                      if (event.key === "Enter" || event.key === " ") selectCompany(company);
-                    }}
-                    style={{
-                      cursor: "pointer",
-                      borderColor: selected ? "#90caf9" : "#e0e0e0",
-                      background: selected ? "linear-gradient(145deg, #ffffff 0%, #e3f2fd 100%)" : "#ffffff",
-                    }}
-                  >
-                    <div
-                      className="JobRoleManagement-mobile-card-status"
-                      style={{ backgroundColor: company.isActive ? "#4caf50" : "#f44336" }}
-                    ></div>
-                    <div className="JobRoleManagement-mobile-card-content">
-                      <div className="JobRoleManagement-mobile-card-header">
-                        <div className="JobRoleManagement-mobile-card-avatar">
-                          <BusinessIcon className="JobRoleManagement-mobile-card-avatar-icon" />
-                        </div>
-                        <div className="JobRoleManagement-mobile-card-title-section">
-                          <div className="JobRoleManagement-mobile-card-title">{company.companyName}</div>
-                          <div className="JobRoleManagement-mobile-card-badges">
-                            <span className="JobRoleManagement-mobile-card-badge JobRoleManagement-badge-primary">
-                              {company.companyCode || "Company"}
-                            </span>
-                            <span className={`JobRoleManagement-mobile-card-badge JobRoleManagement-badge-${company.isActive ? "success" : "error"}`}>
-                              {company.isActive ? "Active" : "Inactive"}
-                            </span>
-                            <span className="JobRoleManagement-mobile-card-badge">
-                              {company.allowedPages?.length || 0}/{APP_ROUTES.length} pages
+            <div className="CompanyAccessManagement-company-list">
+              {companies.length > 0 ? (
+                companies.map(company => {
+                  const companyPercent = Math.min(100, Math.round(((company.allowedPages?.length || 0) / APP_ROUTES.length) * 100));
+                  return (
+                    <div className="CompanyAccessManagement-company-row" key={company._id}>
+                      <div
+                        className="JobRoleManagement-mobile-card"
+                        onClick={() => openCompanyAccess(company)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={event => {
+                          if (event.key === "Enter" || event.key === " ") openCompanyAccess(company);
+                        }}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <div
+                          className="JobRoleManagement-mobile-card-status"
+                          style={{ backgroundColor: company.isActive ? "#4caf50" : "#f44336" }}
+                        ></div>
+                        <div className="JobRoleManagement-mobile-card-content">
+                          <div className="JobRoleManagement-mobile-card-header">
+                            <div className="JobRoleManagement-mobile-card-avatar">
+                              <BusinessIcon className="JobRoleManagement-mobile-card-avatar-icon" />
+                            </div>
+                            <div className="JobRoleManagement-mobile-card-title-section">
+                              <div className="JobRoleManagement-mobile-card-title">{company.companyName}</div>
+                              <div className="JobRoleManagement-mobile-card-badges">
+                                <span className="JobRoleManagement-mobile-card-badge JobRoleManagement-badge-primary">
+                                  {company.companyCode || "Company"}
+                                </span>
+                                <span className={`JobRoleManagement-mobile-card-badge JobRoleManagement-badge-${company.isActive ? "success" : "error"}`}>
+                                  {company.isActive ? "Active" : "Inactive"}
+                                </span>
+                                <span className="JobRoleManagement-mobile-card-badge">
+                                  {company.allowedPages?.length || 0}/{APP_ROUTES.length} pages
+                                </span>
+                              </div>
+                            </div>
+                            <Chip size="small" label="Open Pages" color="primary" variant="outlined" />
+                          </div>
+                          <div className="JobRoleManagement-mobile-card-description">
+                            <CalendarIcon className="JobRoleManagement-description-icon" />
+                            <span className="JobRoleManagement-description-text">
+                              Expiry: {formatDate(company.subscriptionExpiry)}
                             </span>
                           </div>
+                          <LinearProgress
+                            variant="determinate"
+                            value={companyPercent}
+                            sx={{ height: 6, borderRadius: 99, bgcolor: "#edf2f7" }}
+                          />
                         </div>
-                        <Chip
-                          size="small"
-                          label={selected ? "Opened" : "Open"}
-                          color={selected ? "primary" : "default"}
-                        />
                       </div>
-                      <div className="JobRoleManagement-mobile-card-description">
-                        <CalendarIcon className="JobRoleManagement-description-icon" />
-                        <span className="JobRoleManagement-description-text">
-                          Expiry: {formatDate(company.subscriptionExpiry)}
-                        </span>
-                      </div>
-                      <LinearProgress
-                        variant="determinate"
-                        value={companyPercent}
-                        sx={{ height: 6, borderRadius: 99, bgcolor: "#edf2f7" }}
-                      />
                     </div>
-                  </div>
+                  );
+                })
+              ) : (
+                <div className="JobRoleManagement-empty-state">
+                  <AppsIcon className="JobRoleManagement-empty-icon" />
+                  <h3 className="JobRoleManagement-empty-title">No Companies Found</h3>
+                  <p className="JobRoleManagement-empty-text">Companies will appear here once they are available.</p>
                 </div>
-              );
-            })
-          ) : (
-            <div className="JobRoleManagement-empty-state">
-              <AppsIcon className="JobRoleManagement-empty-icon" />
-              <h3 className="JobRoleManagement-empty-title">No Companies Found</h3>
-              <p className="JobRoleManagement-empty-text">Companies will appear here once they are available.</p>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
 
-        {selectedCompany ? (
+        {companyId && selectedCompany ? (
           renderAccessPanel()
-        ) : companies.length > 0 && (
+        ) : companyId && companies.length > 0 && (
           <div className="JobRoleManagement-empty-state CompanyAccessManagement-select-empty">
             <AppsIcon className="JobRoleManagement-empty-icon" />
-            <h3 className="JobRoleManagement-empty-title">Select a Company</h3>
-            <p className="JobRoleManagement-empty-text">Click any company card above to open its page access settings.</p>
+            <h3 className="JobRoleManagement-empty-title">Company Not Found</h3>
+            <p className="JobRoleManagement-empty-text">Go back and select a company again.</p>
+            <button className="JobRoleManagement-btn-primary" onClick={goBackToCompanies}>Back to Companies</button>
           </div>
         )}
       </div>

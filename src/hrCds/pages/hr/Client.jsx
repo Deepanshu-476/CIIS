@@ -27,6 +27,7 @@ import {
   FiCalendar,
   FiUser,
   FiBriefcase,
+  FiFlag,
   FiMapPin,
   FiActivity,
   FiChevronDown,
@@ -60,10 +61,10 @@ const isClientTaskOverdue = taskOrDueDate => {
     : 'pending';
 
   if (!dueDateValue || completed) return false;
-  if (status === 'overdue') return true;
-  if (status !== 'pending') return false;
   const dueDate = new Date(dueDateValue);
   if (Number.isNaN(dueDate.getTime())) return false;
+  if (status === 'overdue') return dueDate < new Date();
+  if (status !== 'pending') return false;
   return dueDate < new Date();
 };
 
@@ -1225,6 +1226,7 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState({
     name: '',
+    description: '',
     dueDate: '',
     assignee: '',
     priority: 'Medium'
@@ -1280,17 +1282,16 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
 
   const completedTasks = tasks.filter(task => task.completed).length;
   const totalTasks = tasks.length;
+  const remainingTasks = Math.max(totalTasks - completedTasks, 0);
   const progressPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-  const formatTaskGroupDate = (value) => {
-    if (!value) return 'No due date';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'No due date';
-    return date.toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    });
+  const getTaskStatus = (task) => {
+    if (task.completed) return 'Completed';
+    if (isClientTaskOverdue(task)) return 'Overdue';
+    const status = String(task.status || 'pending').trim().toLowerCase();
+    if (status === 'overdue') return 'Pending';
+    return task.status || 'Pending';
   };
+  const getTaskDescription = (task) => task.description || task.taskDescription || task.details || '-';
   const formatTaskDueDate = (value) => {
     if (!value) return '-';
     const date = new Date(value);
@@ -1303,14 +1304,6 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
       minute: '2-digit',
     });
   };
-  const getTaskStatus = (task) => task.completed ? 'Completed' : (task.status || 'Pending');
-  const getTaskDescription = (task) => task.description || task.taskDescription || task.details || '-';
-  const groupedTasks = tasks.reduce((groups, task) => {
-    const groupKey = formatTaskGroupDate(task.dueDate || task.createdAt);
-    if (!groups[groupKey]) groups[groupKey] = [];
-    groups[groupKey].push(task);
-    return groups;
-  }, {});
 
   const handleAddTask = async () => {
     if (newTask.name.trim()) {
@@ -1321,6 +1314,7 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
 
         const response = await api.post(`/client/${clientId}/service/${encodedService}`, {
           name: newTask.name.trim(),
+          description: newTask.description.trim(),
           dueDate: convertToISODateString(newTask.dueDate),
           dueDateTime: convertToISODateString(newTask.dueDate),
           assignee: newTask.assignee,
@@ -1332,7 +1326,7 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
 
         if (response.data.success) {
           setTasks([...tasks, response.data.data]);
-          setNewTask({ name: '', dueDate: '', assignee: '', priority: 'Medium' });
+          setNewTask({ name: '', description: '', dueDate: '', assignee: '', priority: 'Medium' });
           setShowAddTask(false);
           if (onTaskUpdate) {
             onTaskUpdate(service, [...tasks, response.data.data]);
@@ -1343,6 +1337,7 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
         const newTaskObj = {
           id: Date.now(),
           name: newTask.name.trim(),
+          description: newTask.description.trim(),
           dueDate: convertToISODateString(newTask.dueDate),
           assignee: newTask.assignee,
           priority: newTask.priority,
@@ -1354,7 +1349,7 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
         const updatedTasks = [...tasks, newTaskObj];
         setTasks(updatedTasks);
         localStorage.setItem(`client_${clientId}_service_${service}_tasks`, JSON.stringify(updatedTasks));
-        setNewTask({ name: '', dueDate: '', assignee: '', priority: 'Medium' });
+        setNewTask({ name: '', description: '', dueDate: '', assignee: '', priority: 'Medium' });
         setShowAddTask(false);
         if (onTaskUpdate) {
           onTaskUpdate(service, updatedTasks);
@@ -1372,6 +1367,7 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
 
           const response = await api.put(`/${editTask._id}`, {
             name: editTask.name.trim(),
+            description: (editTask.description || '').trim(),
             dueDate: convertToISODateString(editTask.dueDate),
             dueDateTime: convertToISODateString(editTask.dueDate),
             assignee: editTask.assignee,
@@ -1393,7 +1389,8 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
           const updatedTasks = tasks.map(task => 
             isSameTask(task, editTask) ? {
               ...editTask,
-              name: editTask.name.trim()
+              name: editTask.name.trim(),
+              description: (editTask.description || '').trim()
             } : task
           );
           setTasks(updatedTasks);
@@ -1441,7 +1438,7 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
       } else {
         localStorage.setItem(`client_${clientId}_service_${service}_tasks`, JSON.stringify(updatedTasks));
       }
-      
+
       if (onTaskUpdate) {
         onTaskUpdate(service, updatedTasks);
       }
@@ -1452,6 +1449,9 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
   };
 
   const deleteTask = async (task) => {
+    const taskName = task?.name || task?.title || 'this task';
+    if (!window.confirm(`Are you sure you want to delete "${taskName}"?`)) return;
+
     try {
       const updatedTasks = tasks.filter(t => !isSameTask(t, task));
       setTasks(updatedTasks);
@@ -1479,6 +1479,20 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
     }
   };
 
+  const openEditTask = (task) => {
+    setShowAddTask(false);
+    setEditTask({
+      ...task,
+      name: task.name || task.title || '',
+      description: getTaskDescription(task) === '-' ? '' : getTaskDescription(task),
+      dueDate: task.dueDate || task.dueDateTime || '',
+      assignee: task.assignee || '',
+      priority: task.priority || 'Medium',
+      status: task.status || (task.completed ? 'completed' : 'pending'),
+      completed: Boolean(task.completed)
+    });
+  };
+
   const getPriorityColor = (priority) => {
     switch (priority) {
       case 'High': return 'ClientManagement-badge--error';
@@ -1502,76 +1516,108 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
   }
 
   return (
-    <div className="ClientManagement-card ClientManagement-mb-2">
-      <div className="ClientManagement-card__content">
-        <div className="ClientManagement-flex-align-center ClientManagement-justify-between ClientManagement-mb-2">
-          <div className="ClientManagement-flex-grow-1">
-            <h4 className="ClientManagement-mb-1">{service}</h4>
-            <p className="ClientManagement-text-muted">
-              {completedTasks} / {totalTasks} tasks completed
-            </p>
+    <div className="ClientManagement-service-workspace">
+      <div className="ClientManagement-service-progress-panel">
+        <div className="ClientManagement-service-progress-ring" style={{ '--progress': `${Math.round(progressPercentage)}%` }}>
+          <div>{Math.round(progressPercentage)}%</div>
+        </div>
+        <div className="ClientManagement-service-progress-count">
+          <span>Task Progress</span>
+          <strong>{completedTasks} / {totalTasks}</strong>
+          <p>Tasks Completed</p>
+        </div>
+        <div className="ClientManagement-service-progress-divider"></div>
+        <div className="ClientManagement-service-progress-main">
+          <div className="ClientManagement-service-progress-track">
+            <span style={{ width: `${progressPercentage}%` }}></span>
           </div>
-          <div className="ClientManagement-flex-align-center ClientManagement-gap-1">
-            <div className={`ClientManagement-badge ${
-              progressPercentage >= 100 ? 'ClientManagement-badge--success' :
-              progressPercentage >= 70 ? 'ClientManagement-badge--info' :
-              progressPercentage >= 40 ? 'ClientManagement-badge--warning' : ''
-            }`}>
-              {Math.round(progressPercentage)}%
-            </div>
-            <button 
-              className="ClientManagement-action-button ClientManagement-action-button--primary"
-              onClick={() => setShowAddTask(!showAddTask)}
-              title="Add Task"
-            >
-              <FiPlus />
-            </button>
-            <button 
-              className="ClientManagement-action-button"
-              onClick={() => fetchTasks()}
-              title="Refresh Tasks"
-            >
-              <FiRefreshCw />
-            </button>
+          <div className="ClientManagement-service-progress-stats">
+            <span><FiCheckCircle /> {completedTasks} Completed</span>
+            <span><FiClock /> {remainingTasks} Remaining</span>
+            <span><FiFlag /> {totalTasks} Total Tasks</span>
           </div>
         </div>
-
-        <div className="ClientManagement-progress-bar ClientManagement-mb-2">
-          <div 
-            className={`ClientManagement-progress-bar__fill ${
-              progressPercentage >= 100 ? 'ClientManagement-progress-bar__fill--success' :
-              progressPercentage >= 70 ? 'ClientManagement-progress-bar__fill--primary' :
-              progressPercentage >= 40 ? 'ClientManagement-progress-bar__fill--warning' : 'ClientManagement-progress-bar__fill--info'
-            }`}
-            style={{ width: `${progressPercentage}%` }}
-          ></div>
+        <div className="ClientManagement-service-progress-actions">
+          <button
+            className="ClientManagement-service-action"
+            onClick={() => setShowAddTask(!showAddTask)}
+            title="Add Task"
+          >
+            <FiPlus />
+            <span>Add Task</span>
+          </button>
+          <button
+            className="ClientManagement-service-action"
+            onClick={() => fetchTasks()}
+            title="Refresh Tasks"
+          >
+            <FiRefreshCw />
+            <span>Refresh</span>
+          </button>
         </div>
+      </div>
 
+      <div className="ClientManagement-card ClientManagement-mb-2 ClientManagement-service-inner-card">
+        <div className="ClientManagement-card__content">
         {(showAddTask || editTask) && (
-          <div className="ClientManagement-card ClientManagement-mb-2 ClientManagement-p-2 ClientManagement-bg-grey-50">
-            <h5 className="ClientManagement-mb-2">{editTask ? 'Edit Task' : 'Add New Task'}</h5>
-            <div className="ClientManagement-space-y-2">
-              <input
-                type="text"
-                className="ClientManagement-form-input"
-                placeholder="Enter task name..."
-                value={editTask ? editTask.name : newTask.name}
-                onChange={(e) => {
-                  if (editTask) {
-                    setEditTask({ ...editTask, name: e.target.value });
-                  } else {
-                    setNewTask({ ...newTask, name: e.target.value });
-                  }
-                }}
-                onKeyPress={handleKeyPress}
-                autoFocus
-              />
-              
-              <div className="ClientManagement-grid-2 ClientManagement-gap-2">
-                <div>
+          <div className="ClientManagement-task-editor-card">
+            <div className="ClientManagement-task-editor-heading">
+              <div className="ClientManagement-task-editor-heading-icon">
+                <FiEdit />
+              </div>
+              <div>
+                <h5>{editTask ? 'Edit Task' : 'Add Task'}</h5>
+                <p>{editTask ? 'Update task details and assign it to the right team member' : 'Create a task and assign it to the right team member'}</p>
+              </div>
+            </div>
+
+            <div className="ClientManagement-task-editor-form">
+              <label className="ClientManagement-task-editor-field ClientManagement-task-editor-field--full">
+                <span>Task Title <b>*</b></span>
+                <div className="ClientManagement-task-editor-control">
+                  <i><FiBriefcase /></i>
+                  <input
+                    type="text"
+                    placeholder="Enter task name..."
+                    value={editTask ? editTask.name : newTask.name}
+                    onChange={(e) => {
+                      if (editTask) {
+                        setEditTask({ ...editTask, name: e.target.value });
+                      } else {
+                        setNewTask({ ...newTask, name: e.target.value });
+                      }
+                    }}
+                    onKeyPress={handleKeyPress}
+                    autoFocus
+                  />
+                </div>
+              </label>
+
+              <label className="ClientManagement-task-editor-field ClientManagement-task-editor-field--full">
+                <span>Task Description <b>*</b></span>
+                <div className="ClientManagement-task-editor-control ClientManagement-task-editor-control--textarea">
+                  <i><FiInfo /></i>
+                  <textarea
+                    rows="2"
+                    placeholder="Enter task description..."
+                    value={editTask ? (editTask.description || '') : newTask.description}
+                    onChange={(e) => {
+                      if (editTask) {
+                        setEditTask({ ...editTask, description: e.target.value });
+                      } else {
+                        setNewTask({ ...newTask, description: e.target.value });
+                      }
+                    }}
+                  />
+                </div>
+              </label>
+
+              <label className="ClientManagement-task-editor-field">
+                <span>Due Date & Time <b>*</b></span>
+                <div className="ClientManagement-task-editor-control">
+                  <i><FiCalendar /></i>
                   <input
                     type="datetime-local"
-                    className="ClientManagement-form-input"
                     value={editTask ? formatDateTimeForInput(editTask.dueDate) : newTask.dueDate}
                     onChange={(e) => {
                       if (editTask) {
@@ -1582,10 +1628,13 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
                     }}
                   />
                 </div>
-                
-                <div>
+              </label>
+
+              <label className="ClientManagement-task-editor-field">
+                <span>Assign To</span>
+                <div className="ClientManagement-task-editor-control">
+                  <i><FiUsers /></i>
                   <select
-                    className="ClientManagement-form-input"
                     value={editTask ? editTask.assignee : newTask.assignee}
                     onChange={(e) => {
                       if (editTask) {
@@ -1603,29 +1652,32 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
                     ))}
                   </select>
                 </div>
-              </div>
-              
-              <div>
-                <select
-                  className="ClientManagement-form-input"
-                  value={editTask ? editTask.priority : newTask.priority}
-                  onChange={(e) => {
-                    if (editTask) {
-                      setEditTask({ ...editTask, priority: e.target.value });
-                    } else {
-                      setNewTask({ ...newTask, priority: e.target.value });
-                    }
-                  }}
-                >
-                  <option value="Low">Low</option>
-                  <option value="Medium">Medium</option>
-                  <option value="High">High</option>
-                </select>
-              </div>
-              
-              <div className="ClientManagement-flex ClientManagement-justify-end ClientManagement-gap-1">
-                <button 
-                  className="ClientManagement-btn ClientManagement-btn--outlined"
+              </label>
+
+              <label className="ClientManagement-task-editor-field">
+                <span>Priority</span>
+                <div className="ClientManagement-task-editor-control">
+                  <i><FiFlag /></i>
+                  <select
+                    value={editTask ? editTask.priority : newTask.priority}
+                    onChange={(e) => {
+                      if (editTask) {
+                        setEditTask({ ...editTask, priority: e.target.value });
+                      } else {
+                        setNewTask({ ...newTask, priority: e.target.value });
+                      }
+                    }}
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                  </select>
+                </div>
+              </label>
+
+              <div className="ClientManagement-task-editor-actions">
+                <button
+                  className="ClientManagement-task-editor-cancel"
                   onClick={() => {
                     if (editTask) {
                       setEditTask(null);
@@ -1633,6 +1685,7 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
                       setShowAddTask(false);
                       setNewTask({
                         name: '',
+                        description: '',
                         dueDate: '',
                         assignee: '',
                         priority: 'Medium'
@@ -1640,14 +1693,14 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
                     }
                   }}
                 >
-                  Cancel
+                  <FiX /> Cancel
                 </button>
-                <button 
-                  className="ClientManagement-btn ClientManagement-btn--primary"
+                <button
+                  className="ClientManagement-task-editor-save"
                   onClick={editTask ? handleEditTask : handleAddTask}
                   disabled={editTask ? !editTask.name.trim() : !newTask.name.trim()}
                 >
-                  {editTask ? 'Save Changes' : 'Add Task'}
+                  <FiSave /> {editTask ? 'Save Changes' : 'Add Task'}
                 </button>
               </div>
             </div>
@@ -1656,77 +1709,75 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
 
         <div className="ClientManagement-service-task-table-section">
           {tasks.length > 0 ? (
-            <div className="ClientManagement-task-table-groups">
-              {Object.entries(groupedTasks).map(([dateLabel, grouped]) => (
-                <div className="ClientManagement-task-date-group" key={dateLabel}>
-                  <div className="ClientManagement-task-date-heading">
-                    <span className="ClientManagement-task-date-icon">D</span>
-                    <strong>{dateLabel}</strong>
-                    <span>({grouped.length} {grouped.length === 1 ? 'task' : 'tasks'})</span>
-                  </div>
-                  <div className="ClientManagement-task-table-wrap">
-                    <table className="ClientManagement-task-table">
-                      <thead>
-                        <tr>
-                          <th>Title</th>
-                          <th>Description</th>
-                          <th>Due Date</th>
-                          <th>Priority</th>
-                          <th>Status</th>
-                          <th>Change Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {grouped.map((task) => (
-                          <tr key={task._id || task.id}>
-                            <td>
-                              <div className="ClientManagement-task-title-cell">
-                                <input
-                                  type="checkbox"
-                                  checked={!!task.completed}
-                                  onChange={() => toggleTaskCompletion(task)}
-                                />
-                                <span className={task.completed ? 'ClientManagement-text-line-through ClientManagement-text-muted' : ''}>
-                                  {task.name || task.title || 'Untitled Task'}
-                                </span>
-                              </div>
-                            </td>
-                            <td>
-                              <span className="ClientManagement-task-description-cell">
-                                {getTaskDescription(task)}
-                              </span>
-                            </td>
-                            <td>
-                              <span className="ClientManagement-task-due-cell">
-                                {formatTaskDueDate(task.dueDate)}
-                              </span>
-                            </td>
-                            <td>
-                              <span className={`ClientManagement-task-pill ClientManagement-task-pill--priority ${getPriorityColor(task.priority)}`}>
-                                {task.priority || 'Medium'}
-                              </span>
-                            </td>
-                            <td>
-                              <span className={`ClientManagement-task-pill ${task.completed ? 'ClientManagement-task-pill--success' : 'ClientManagement-task-pill--pending'}`}>
-                                {getTaskStatus(task)}
-                              </span>
-                            </td>
-                            <td>
-                              <button
-                                type="button"
-                                className={`ClientManagement-task-status-btn ${task.completed ? 'completed' : 'pending'}`}
-                                onClick={() => toggleTaskCompletion(task)}
-                              >
-                                {task.completed ? 'Completed' : 'Pending'}
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ))}
+            <div className="ClientManagement-task-table-wrap">
+              <table className="ClientManagement-task-table ClientManagement-task-table--no-date">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Description</th>
+                    <th>Due Date</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tasks.map((task) => (
+                    <tr key={task._id || task.id}>
+                      <td>
+                        <div className="ClientManagement-task-title-cell">
+                          <input
+                            type="checkbox"
+                            checked={!!task.completed}
+                            onChange={() => toggleTaskCompletion(task)}
+                          />
+                          <span className={task.completed ? 'ClientManagement-text-line-through ClientManagement-text-muted' : ''}>
+                            {task.name || task.title || 'Untitled Task'}
+                          </span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="ClientManagement-task-description-cell">
+                          {getTaskDescription(task)}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="ClientManagement-task-due-cell">
+                          {formatTaskDueDate(task.dueDate)}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`ClientManagement-task-pill ClientManagement-task-pill--priority ${getPriorityColor(task.priority)}`}>
+                          {task.priority || 'Medium'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`ClientManagement-task-pill ${task.completed ? 'ClientManagement-task-pill--success' : 'ClientManagement-task-pill--pending'}`}>
+                          {getTaskStatus(task)}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="ClientManagement-action-button"
+                          onClick={() => openEditTask(task)}
+                          title="Edit Task"
+                        >
+                          <FiEdit />
+                        </button>
+                        <button
+                          type="button"
+                          className="ClientManagement-action-button ClientManagement-action-button--error"
+                          onClick={() => deleteTask(task)}
+                          title="Delete Task"
+                        >
+                          <FiTrash2 />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             <div className="ClientManagement-text-center ClientManagement-py-3 ClientManagement-border-dashed ClientManagement-border ClientManagement-rounded ClientManagement-bg-grey-50">
@@ -1736,6 +1787,7 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
             </div>
           )}
         </div>
+      </div>
       </div>
 
       {showTaskDetails.open && (

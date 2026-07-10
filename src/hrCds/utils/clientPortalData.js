@@ -294,11 +294,21 @@ export const getClientTaskDueDate = (client, task = {}) => (
 );
 
 export const applyClientSubscriptionDueDates = (tasks = [], client) => (
-  tasks.map(task => ({
-    ...task,
-    dueDate: getClientTaskDueDate(client, task),
-    dueDateSource: 'subscription'
-  }))
+  tasks.map(task => {
+    const dueDate = getClientTaskDueDate(client, task);
+    const parsedDueDate = dueDate ? new Date(dueDate) : null;
+    const hasActiveSubscriptionWindow = parsedDueDate && !Number.isNaN(parsedDueDate.getTime()) && parsedDueDate >= new Date();
+    const status = hasActiveSubscriptionWindow && String(task?.status || '').toLowerCase() === 'overdue'
+      ? 'pending'
+      : task?.status;
+
+    return {
+      ...task,
+      dueDate,
+      status,
+      dueDateSource: 'subscription'
+    };
+  })
 );
 
 export const isClientTaskOverdue = task => {

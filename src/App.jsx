@@ -85,6 +85,7 @@ import JobRoleManagement from "./admin/page/JobRoleManagement.jsx";
 import SidebarManagement from "./admin/components/SidebarManagement.jsx";
 import CompanyDetails from "./admin/components/CompanyDetails.jsx";
 import AllCompany from "./page/AllCompany.jsx";
+import CompanyUsersPage from "./page/CompanyUsersPage.jsx";
 import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
 import BranchManagement from "./admin/page/BranchManagement.jsx"; 
@@ -138,10 +139,12 @@ function App() {
           <Route path="JobRoleManagement" element={<JobRoleManagement />} />
           <Route path="create-user" element={<CreateUser />} />
           <Route path="all-company" element={<AllCompany />} />
+          <Route path="all-company/:companyId/users" element={<CompanyUsersPage />} />
           <Route path="company-assets" element={<CompanyAssetManagement/>}/>
           <Route path="company-assets/branch/:branchId" element={<CompanyAssetManagement/>}/>
           <Route path="CompanyManagement" element={<CompanyManagement />} />
           <Route path="CompanyAccessManagement" element={<CompanyAccessManagement />} />
+          <Route path="CompanyAccessManagement/:companyId" element={<CompanyAccessManagement />} />
           <Route path="SidebarManagement" element={<SidebarManagement />} />
           <Route path="page-management" element={<PageManagement />} />
           <Route path="plans" element={<PlanManagement />} />
@@ -170,6 +173,9 @@ function App() {
           <Route path="emp-leaves" element={<EmppLeave />} />
           <Route path="emp-assets" element={<EmppAsset />} />
           <Route path="emp-attendance" element={<EmppAttendence />} />
+          <Route path="department" element={<Department />} />
+          <Route path="department/branch/:branchId" element={<Department />} />
+          <Route path="JobRoleManagement" element={<JobRoleManagement />} />
           <Route path="emp-task-details" element={<TaskDeatils />} />
           <Route path="admin-task-create" element={<AdminTaskCreate />} />
           <Route path="manage-groups" element={<ManageGroups />} />

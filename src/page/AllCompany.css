@@ -1182,8 +1182,88 @@
 .AllCompany-company-tags {
   display: flex;
   gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
+}
+
+.AllCompany-team-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 14px;
+  flex-wrap: wrap;
+}
+
+.AllCompany-team-preview-list {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.AllCompany-team-preview-member {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 172px;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.AllCompany-team-preview-member .AllCompany-member-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  font-size: 0.85rem;
+  flex: 0 0 auto;
+}
+
+.AllCompany-team-preview-member .AllCompany-member-name {
+  max-width: 94px;
+}
+
+.AllCompany-team-preview-member .AllCompany-member-role {
+  max-width: 90px;
+  padding: 0;
+  background: transparent;
+}
+
+.AllCompany-show-all-users-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 34px;
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  border-radius: 999px;
+  padding: 7px 12px;
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.05);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.AllCompany-show-all-users-link:hover {
+  background: rgba(37, 99, 235, 0.1);
+}
+
+.AllCompany-show-all-users-link .material-icons {
+  font-size: 18px;
+}
+
+.AllCompany-team-preview-empty {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 14px;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.AllCompany-team-preview-empty .material-icons {
+  font-size: 18px;
 }
 
 .AllCompany-tag {
@@ -1195,6 +1275,45 @@
   font-size: 0.75rem;
   border: 1px solid;
   background: white;
+}
+
+.AllCompany-users-page-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin: 24px 0;
+  padding: 24px;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 18px 44px -34px rgba(15, 23, 42, 0.55);
+}
+
+.AllCompany-users-page-table {
+  margin-bottom: 28px;
+}
+
+@media (max-width: 768px) {
+  .AllCompany-team-preview {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .AllCompany-team-preview-list {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .AllCompany-team-preview-member {
+    max-width: none;
+  }
+
+  .AllCompany-users-page-header {
+    align-items: flex-start;
+    flex-direction: column;
+    margin: 14px 0;
+    padding: 16px;
+  }
 }
 
 .AllCompany-tag-email {

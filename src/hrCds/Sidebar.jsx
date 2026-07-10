@@ -235,6 +235,10 @@ const iconMap = {
   'projecticon': GroupsIcon,
   'Project': GroupsIcon,
   'project': GroupsIcon,
+  'Apartment': GroupsIcon,
+  'apartment': GroupsIcon,
+  'Work': TaskIcon,
+  'work': TaskIcon,
   'Settings': SettingsIcon,
   'settings': SettingsIcon,
   'Logout': LogoutOutlined,
@@ -532,6 +536,22 @@ const allPagesItems = [
     order: 12
   },
   {
+    id: 'department',
+    name: 'Department Management',
+    icon: 'Apartment',
+    path: '/ciisUser/department',
+    category: 'administration',
+    order: 12.1
+  },
+  {
+    id: 'JobRoleManagement',
+    name: 'Job Role Management',
+    icon: 'Work',
+    path: '/ciisUser/JobRoleManagement',
+    category: 'administration',
+    order: 12.2
+  },
+  {
     id: 'create-task',
     name: 'Create Task',
     icon: 'Task',
@@ -663,6 +683,8 @@ const getPathFromName = (name) => {
     'Employee Leaves': '/ciisUser/emp-leaves',
     'Employee Assets': '/ciisUser/emp-assets',
     'Employee Attendance': '/ciisUser/emp-attendance',
+    'Department Management': '/ciisUser/department',
+    'Job Role Management': '/ciisUser/JobRoleManagement',
     'Create Task': '/ciisUser/task-management',
     'Admin Create Task': '/ciisUser/admin-task-create',
     'Manage Groups': '/ciisUser/manage-groups',

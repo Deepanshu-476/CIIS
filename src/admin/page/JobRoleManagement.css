@@ -1658,6 +1658,12 @@ input:checked + .JobRoleManagement-slider:before {
   margin-bottom: 16px;
 }
 
+.CompanyAccessManagement-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .CompanyAccessManagement-access-panel .JobRoleManagement-super-admin-panel {
   margin-bottom: 18px;
 }

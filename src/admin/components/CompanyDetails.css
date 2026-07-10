@@ -3582,3 +3582,9 @@ textarea.CompanyDetails-form-input {
     grid-column: 3;
   }
 }
+
+/* Simple typography for company details page */
+.CompanyDetails,
+.CompanyDetails * {
+  font-weight: 400 !important;
+}

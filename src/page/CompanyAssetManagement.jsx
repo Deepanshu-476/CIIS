@@ -51,6 +51,8 @@ const CompanyAssetManagement = () => {
     return record;
   };
 
+  const looksLikeObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || ''));
+
   const normalizeStatus = (status) => String(status || '').trim().toLowerCase();
 
   const getRequestAssetId = (request) => getRecordId(
@@ -100,6 +102,36 @@ const CompanyAssetManagement = () => {
   );
 
   const getBranchId = (record) => getRecordId(record?.branch || record?.branchId);
+
+  const getRequestBranchId = (request) => (
+    getBranchId(request) ||
+    getBranchId(request?.asset) ||
+    getBranchId(request?.user)
+  );
+
+  const getRequestBranchValue = (request) => (
+    request?.branch ||
+    request?.branchId ||
+    request?.asset?.branch ||
+    request?.asset?.branchId ||
+    request?.user?.branch ||
+    request?.user?.branchId
+  );
+
+  const getDepartmentLabel = (departmentValue) => {
+    if (!departmentValue) return 'N/A';
+    if (typeof departmentValue === 'object') {
+      return departmentValue.name || departmentValue.departmentName || departmentValue.title || 'N/A';
+    }
+    return looksLikeObjectId(departmentValue) ? 'N/A' : departmentValue;
+  };
+
+  const getRequestDepartmentLabel = (request) => {
+    if (request?.departmentName) return request.departmentName;
+    const requestDepartment = getDepartmentLabel(request?.department);
+    if (requestDepartment !== 'N/A') return requestDepartment;
+    return getDepartmentLabel(request?.user?.department);
+  };
 
   const normalizeBranch = (branchValue) => {
     const branchId = getRecordId(branchValue);
@@ -269,6 +301,7 @@ const CompanyAssetManagement = () => {
       setRequests(res.data.requests || []);
     } catch (err) {
       console.error(err);
+      toast.error(err.response?.data?.message || err.response?.data?.error || 'Failed to load asset requests');
     }
   };
 
@@ -436,7 +469,7 @@ const CompanyAssetManagement = () => {
 
   const filteredAssets = getFilteredAssets();
   const filteredRequests = selectedBranchId
-    ? requests.filter(req => getBranchId(req) === selectedBranchId || getBranchId(req.user) === selectedBranchId)
+    ? requests.filter(req => getRequestBranchId(req) === selectedBranchId)
     : requests;
   const user = getUser();
   const assignedAssetIds = new Set(
@@ -940,9 +973,9 @@ const CompanyAssetManagement = () => {
                         </div>
                       </td>
                       <td>{req.user?.email}</td>
-                      <td><span className="asset-name-cell">{req.assetName}</span></td>
-                      <td><span className="department-badge">{getBranchLabel(req.branch || req.branchId || req.user?.branch || req.user?.branchId)}</span></td>
-                      <td><span className="department-badge">{req.department || 'N/A'}</span></td>
+                      <td><span className="asset-name-cell">{req.assetName || req.asset?.name || 'N/A'}</span></td>
+                      <td><span className="department-badge">{getBranchLabel(getRequestBranchValue(req))}</span></td>
+                      <td><span className="department-badge">{getRequestDepartmentLabel(req)}</span></td>
                       <td>
                         <span className={`request-status-badge status-${req.status?.toLowerCase() || 'pending'}`}>
                           {req.status || 'Pending'}

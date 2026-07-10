@@ -27,7 +27,6 @@ const AllCompany = () => {
   const [filter, setFilter] = useState("active");
   const [sortBy, setSortBy] = useState("name");
   const [sortOrder, setSortOrder] = useState("asc");
-  const [expandedCompany, setExpandedCompany] = useState(null);
   const [page, setPage] = useState(1);
   const [selectedCompanies, setSelectedCompanies] = useState([]);
   const [bulkMode, setBulkMode] = useState(false);
@@ -634,11 +633,6 @@ const AllCompany = () => {
   };
 
   
-  const toggleCompanyExpansion = (companyId) => {
-    setExpandedCompany(expandedCompany === companyId ? null : companyId);
-  };
-
-  
   const handleNavigateToCreateUser = (companyId, companyCode, companyName) => {
     if (companyId && companyCode) {
       navigate(`/create-user?company=${companyId}&companyCode=${companyCode}&companyName=${encodeURIComponent(companyName || '')}`);
@@ -804,7 +798,7 @@ const AllCompany = () => {
           handleOpenCompanyDetails(selectedAction);
           break;
         case 'users':
-          handleOpenUsersPopup(selectedAction);
+          navigate(`/Ciis-network/all-company/${selectedAction._id}/users`);
           break;
         case 'status':
           handleToggleCompanyStatus(selectedAction, !selectedAction.isActive);
@@ -1125,7 +1119,7 @@ const AllCompany = () => {
         ) : (
           <>
             <div className="AllCompany-company-list">
-              {paginatedCompanies.map((company, index) => (
+              {paginatedCompanies.map((company) => (
                 <div key={company._id} className="AllCompany-company-card">
                   <div className="AllCompany-company-card-content">
                     {/* Header Row */}
@@ -1156,11 +1150,6 @@ const AllCompany = () => {
                       </div>
                       
                       <div className="AllCompany-company-actions">
-                        {/* <button className="AllCompany-action-icon-btn" onClick={() => toggleCompanyExpansion(company._id)}>
-                          <span className="material-icons">
-                            {expandedCompany === company._id ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
-                          </span>
-                        </button> */}
                         <button className="AllCompany-action-icon-btn" onClick={(e) => handleMenuOpen(e, company)}>
                           <span className="material-icons">more_vert</span>
                         </button>
@@ -1204,6 +1193,36 @@ const AllCompany = () => {
                               </span>
                             )}
                           </div>
+
+                          {company.userCount > 0 ? (
+                            <div className="AllCompany-team-preview">
+                              <div className="AllCompany-team-preview-list">
+                                {(company.users || []).slice(0, 5).map((user, idx) => (
+                                  <div key={user._id || user.id || idx} className="AllCompany-team-preview-member" title={user.name || "User"}>
+                                    <div className="AllCompany-member-avatar" style={{background: `linear-gradient(135deg, ${getRoleColor(getUserRole(user))} 0%, ${getRoleColor(getUserRole(user))}80 100%)`}}>
+                                      {user.name?.charAt(0) || 'U'}
+                                    </div>
+                                    <div className="AllCompany-member-info">
+                                      <span className="AllCompany-member-name">{user.name || "User"}</span>
+                                      <span className="AllCompany-member-role" style={{color: getRoleColor(getUserRole(user))}}>{getUserRole(user)}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              <button
+                                className="AllCompany-show-all-users-link"
+                                onClick={() => navigate(`/Ciis-network/all-company/${company._id}/users`)}
+                              >
+                                Show all users
+                                <span className="material-icons">chevron_right</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="AllCompany-team-preview-empty">
+                              <span className="material-icons">group_off</span>
+                              No team members yet
+                            </div>
+                          )}
 
                           <div className="AllCompany-company-metrics">
                             <div className="AllCompany-metric">
@@ -1320,69 +1339,6 @@ const AllCompany = () => {
                       </div>
                     )}
 
-                    {/* Team Section */}
-                    <div className="AllCompany-team-section">
-                      <div className="AllCompany-team-header">
-                        <div className="AllCompany-team-title">
-                          <div className="AllCompany-team-icon-box">
-                            <span className="material-icons AllCompany-team-icon">groups</span>
-                          </div>
-                          <span className="AllCompany-team-label">Team Members</span>
-                          <span className="AllCompany-team-count">{company.userCount || 0}</span>
-                        </div>
-                        
-                        <div className="AllCompany-team-actions">
-                          {(company.userCount || 0) > 0 && (
-                            <button className="AllCompany-view-all-btn" onClick={() => handleOpenUsersPopup(company)}>
-                              {isMobile ? 'View' : 'View All'}
-                              <span className="material-icons AllCompany-view-all-icon">chevron_right</span>
-                            </button>
-                          )}
-                          <button className="AllCompany-add-member-btn" onClick={() => handleAddNewUser(company)} title="Add Team Member">
-                            <span className="material-icons">person_add</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {company.userCount > 0 ? (
-                        <div className="AllCompany-team-grid">
-                          {(expandedCompany === company._id
-                            ? (company.users || [])
-                            : (company.users || []).slice(0, isMobile ? 2 : 4)
-                          ).map((user, idx) => (
-                            <div key={idx} className="AllCompany-team-member-card">
-                              <div className="AllCompany-team-member-content">
-                                <div className="AllCompany-member-avatar-container">
-                                  <div className="AllCompany-member-avatar" style={{background: `linear-gradient(135deg, ${getRoleColor(getUserRole(user))} 0%, ${getRoleColor(getUserRole(user))}80 100%)`}}>
-                                    {user.name?.charAt(0) || 'U'}
-                                  </div>
-                                  <span className={`AllCompany-member-status ${user.isActive !== false ? 'AllCompany-active' : 'AllCompany-inactive'}`}></span>
-                                </div>
-                                <div className="AllCompany-member-info">
-                                  <span className="AllCompany-member-name">{user.name || "User"}</span>
-                                  <span className="AllCompany-member-role" style={{color: getRoleColor(getUserRole(user))}}>{getUserRole(user)}</span>
-                                  <span className="AllCompany-member-meta">{getUserDepartment(user)}</span>
-                                  <span className="AllCompany-member-meta">{getUserPhone(user)}</span>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="AllCompany-empty-team">
-                          <span className="material-icons AllCompany-empty-team-icon">person_add</span>
-                          <span className="AllCompany-empty-team-text">No team members yet</span>
-                        </div>
-                      )}
-                      {(company.userCount || 0) > (isMobile ? 2 : 4) && (
-                        <button className="AllCompany-show-more-users-btn" onClick={() => toggleCompanyExpansion(company._id)}>
-                          <span>{expandedCompany === company._id ? "Show less users" : `Show all ${company.userCount} users`}</span>
-                          <span className="material-icons">
-                            {expandedCompany === company._id ? "keyboard_arrow_up" : "keyboard_arrow_down"}
-                          </span>
-                        </button>
-                      )}
-                    </div>
                   </div>
                 </div>
               ))}

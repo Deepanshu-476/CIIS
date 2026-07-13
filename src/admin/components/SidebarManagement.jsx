@@ -126,6 +126,7 @@ const SidebarManagement = () => {
   });
   const [availablePages, setAvailablePages] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
+  const [itemOrders, setItemOrders] = useState({});
   const [existingConfigs, setExistingConfigs] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [searchTerm, setSearchTerm] = useState('');
@@ -334,6 +335,7 @@ const SidebarManagement = () => {
     setSelectedDepartment('');
     setSelectedRole('');
     setSelectedItems([]);
+    setItemOrders({});
     setJobRoles([]);
     if (company && company._id) {
       await fetchDepartments(company._id, branchId);
@@ -565,6 +567,7 @@ const SidebarManagement = () => {
     setSelectedDepartment(departmentId);
     setSelectedRole('');
     setSelectedItems([]);
+    setItemOrders({});
     setJobRoles([]);
     setActiveStep(1);
     setShowDepartmentDropdown(false);
@@ -595,6 +598,7 @@ const SidebarManagement = () => {
       loadExistingConfig(company._id, selectedDepartment, roleId);
     } else {
       setSelectedItems([]);
+      setItemOrders({});
     }
   };
 
@@ -619,13 +623,21 @@ const SidebarManagement = () => {
       });
       
       if (response.data && response.data.success && response.data.data) {
-        setSelectedItems(response.data.data.menuItems.map(item => item.id));
+        const menuItems = response.data.data.menuItems || [];
+        setSelectedItems(menuItems.map(item => item.id));
+        const orders = {};
+        menuItems.forEach((item, idx) => {
+          orders[item.id] = item.order || (idx + 1);
+        });
+        setItemOrders(orders);
       } else {
         setSelectedItems([]);
+        setItemOrders({});
       }
     } catch (error) {
       console.error('Error loading existing config:', error);
       setSelectedItems([]);
+      setItemOrders({});
     }
   };
 
@@ -640,7 +652,13 @@ const SidebarManagement = () => {
       
       setSelectedDepartment(departmentId);
       setSelectedRole(roleId);
-      setSelectedItems(config.menuItems.map(item => item.id));
+      const menuItems = config.menuItems || [];
+      setSelectedItems(menuItems.map(item => item.id));
+      const orders = {};
+      menuItems.forEach((item, idx) => {
+        orders[item.id] = item.order || (idx + 1);
+      });
+      setItemOrders(orders);
       setActiveTab(0);
       setActiveStep(2);
       
@@ -669,9 +687,22 @@ const SidebarManagement = () => {
   
   const handleMenuItemToggle = (pageId) => {
     setSelectedItems(prev => {
-      if (prev.includes(pageId)) {
+      const isSelected = prev.includes(pageId);
+      if (isSelected) {
+        setItemOrders(orders => {
+          const next = { ...orders };
+          delete next[pageId];
+          return next;
+        });
         return prev.filter(id => id !== pageId);
       } else {
+        setItemOrders(orders => {
+          const maxOrder = Object.values(orders).reduce((max, val) => Math.max(max, val), 0);
+          return {
+            ...orders,
+            [pageId]: maxOrder + 1
+          };
+        });
         return [...prev, pageId];
       }
     });
@@ -685,8 +716,24 @@ const SidebarManagement = () => {
     setSelectedItems(prev => {
       const allSelected = categoryIds.every(id => prev.includes(id));
       if (allSelected) {
+        setItemOrders(orders => {
+          const next = { ...orders };
+          categoryIds.forEach(id => delete next[id]);
+          return next;
+        });
         return prev.filter(id => !categoryIds.includes(id));
       } else {
+        setItemOrders(orders => {
+          const next = { ...orders };
+          let maxOrder = Object.values(next).reduce((max, val) => Math.max(max, val), 0);
+          categoryIds.forEach(id => {
+            if (!next[id]) {
+              maxOrder += 1;
+              next[id] = maxOrder;
+            }
+          });
+          return next;
+        });
         return [...new Set([...prev, ...categoryIds])];
       }
     });
@@ -733,22 +780,27 @@ const SidebarManagement = () => {
       setLoading(prev => ({ ...prev, saving: true }));
       const token = localStorage.getItem('token');
       
+      const menuItemsMapped = selectedItems.map((id, index) => {
+        const page = availablePages.find(p => p.id === id);
+        const customOrder = parseInt(itemOrders[id], 10);
+        return {
+          id: page.id,
+          name: page.name,
+          icon: page.icon,
+          path: page.path,
+          category: page.category,
+          order: !isNaN(customOrder) ? customOrder : index + 1
+        };
+      });
+
+      menuItemsMapped.sort((a, b) => a.order - b.order);
+
       const configData = {
         companyId: company._id,
         branchId: selectedBranch || null,
         departmentId: selectedDepartment,
         role: selectedRole,
-        menuItems: selectedItems.map((id, index) => {
-          const page = availablePages.find(p => p.id === id);
-          return {
-            id: page.id,
-            name: page.name,
-            icon: page.icon,
-            path: page.path,
-            category: page.category,
-            order: index + 1
-          };
-        })
+        menuItems: menuItemsMapped
       };
 
       void 0;
@@ -1484,6 +1536,45 @@ const SidebarManagement = () => {
                                       <span className="SidebarManagement-menu-item-name">{page.name}</span>
                                       <span className="SidebarManagement-menu-item-path">{page.path}</span>
                                     </div>
+                                    {isSelected && (
+                                      <div 
+                                        className="SidebarManagement-menu-item-order-wrap" 
+                                        onClick={(e) => e.stopPropagation()}
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          marginLeft: 'auto',
+                                          marginRight: 12,
+                                          zIndex: 10
+                                        }}
+                                      >
+                                        <span style={{ fontSize: 12, color: '#64748b', marginRight: 4 }}>Sort:</span>
+                                        <input
+                                          type="number"
+                                          min="1"
+                                          value={itemOrders[page.id] || ''}
+                                          onChange={(e) => {
+                                            const val = parseInt(e.target.value, 10);
+                                            setItemOrders(prev => ({
+                                              ...prev,
+                                              [page.id]: isNaN(val) ? '' : val
+                                            }));
+                                          }}
+                                          style={{
+                                            width: 44,
+                                            height: 28,
+                                            border: '1px solid #cbd5e1',
+                                            borderRadius: 6,
+                                            textAlign: 'center',
+                                            fontSize: 13,
+                                            fontWeight: '600',
+                                            color: '#0f172a',
+                                            background: '#ffffff',
+                                            padding: 0
+                                          }}
+                                        />
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               );
@@ -1654,6 +1745,7 @@ const SidebarManagement = () => {
                           <div className="SidebarManagement-preview-item-meta">
                             <span className="SidebarManagement-preview-item-path">{item.path}</span>
                             <span className="SidebarManagement-preview-item-category">{getCategoryDisplayName(item.category)}</span>
+                            <span className="SidebarManagement-preview-item-order" style={{ marginLeft: 8, background: '#f1f5f9', padding: '2px 6px', borderRadius: 4, fontSize: 11, fontWeight: 'bold', color: '#64748b' }}>Sort: {item.order}</span>
                           </div>
                         </div>
                       </div>

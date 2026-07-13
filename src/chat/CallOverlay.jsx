@@ -96,7 +96,7 @@ const notifyIncomingCall = (incomingCall) => {
 
     window.electronAPI?.showIncomingCall?.({         
         title,
-        body,
+        body,     
         callerName,
         callType: incomingCall.type,
     });

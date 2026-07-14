@@ -11,7 +11,7 @@ export const useAuth = () => {
   }
   return context;
 };   
-  
+
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -32,17 +32,6 @@ export const AuthProvider = ({ children }) => {
       }
     }
   }, []);
-
-  
-  
-  
-  
-  
-  
-  
-  
-  
-
   return (
     <AuthContext.Provider value={{ user, setUser, isAuthenticated, setIsAuthenticated }}>
       {children}

@@ -43,9 +43,6 @@ import ServiceMarketplacePage from "./hrCds/pages/client/ServiceMarketplacePage.
 import SupportTicketsPage from "./hrCds/pages/client/SupportTicketsPage.jsx";
 import DocumentsPage from "./hrCds/pages/client/DocumentsPage.jsx";
 import PaymentsInvoicesPage from "./hrCds/pages/client/PaymentsInvoicesPage.jsx";
-import NotificationsPage from "./hrCds/pages/client/NotificationsPage.jsx";
-import AccountSettingsPage from "./hrCds/pages/client/AccountSettingsPage.jsx";
-import AIAssistantPage from "./hrCds/pages/client/AIAssistantPage.jsx";
 
 
 import Alerts from "./hrCds/pages/Alerts";
@@ -78,14 +75,12 @@ import RegisterCompany from "./admin/components/CompanyRegister.jsx";
 import SuperAdminLogin from "./page/SuperAdminLogin";
 
 import CompanyManagement from "./page/CompanyManagement.jsx";
-import CompanyAccessManagement from "./admin/page/CompanyAccessManagement.jsx";
 import PlanManagement from "./admin/page/PlanManagement.jsx";
 import PageManagement from "./admin/page/PageManagement.jsx";
 import JobRoleManagement from "./admin/page/JobRoleManagement.jsx";
 import SidebarManagement from "./admin/components/SidebarManagement.jsx";
 import CompanyDetails from "./admin/components/CompanyDetails.jsx";
 import AllCompany from "./page/AllCompany.jsx";
-import CompanyUsersPage from "./page/CompanyUsersPage.jsx";
 import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
 import BranchManagement from "./admin/page/BranchManagement.jsx"; 
@@ -131,7 +126,7 @@ function App() {
                 <SuperLayout />
               </ProtectedRoute>
             </ThemeContextProvider>
-          }   
+          }
         >
           <Route path="company-details" element={<CompanyDetails />} />
           <Route path="department" element={<Department />} />
@@ -139,12 +134,9 @@ function App() {
           <Route path="JobRoleManagement" element={<JobRoleManagement />} />
           <Route path="create-user" element={<CreateUser />} />
           <Route path="all-company" element={<AllCompany />} />
-          <Route path="all-company/:companyId/users" element={<CompanyUsersPage />} />
           <Route path="company-assets" element={<CompanyAssetManagement/>}/>
           <Route path="company-assets/branch/:branchId" element={<CompanyAssetManagement/>}/>
           <Route path="CompanyManagement" element={<CompanyManagement />} />
-          <Route path="CompanyAccessManagement" element={<CompanyAccessManagement />} />
-          <Route path="CompanyAccessManagement/:companyId" element={<CompanyAccessManagement />} />
           <Route path="SidebarManagement" element={<SidebarManagement />} />
           <Route path="page-management" element={<PageManagement />} />
           <Route path="plans" element={<PlanManagement />} />
@@ -173,9 +165,6 @@ function App() {
           <Route path="emp-leaves" element={<EmppLeave />} />
           <Route path="emp-assets" element={<EmppAsset />} />
           <Route path="emp-attendance" element={<EmppAttendence />} />
-          <Route path="department" element={<Department />} />
-          <Route path="department/branch/:branchId" element={<Department />} />
-          <Route path="JobRoleManagement" element={<JobRoleManagement />} />
           <Route path="emp-task-details" element={<TaskDeatils />} />
           <Route path="admin-task-create" element={<AdminTaskCreate />} />
           <Route path="manage-groups" element={<ManageGroups />} />
@@ -229,10 +218,6 @@ function App() {
           <Route path="support-tickets" element={<SupportTicketsPage />} />
           <Route path="documents" element={<DocumentsPage />} />
           <Route path="payments" element={<PaymentsInvoicesPage />} />
-          <Route path="notifications" element={<NotificationsPage />} />
-          <Route path="settings" element={<AccountSettingsPage />} />
-          <Route path="account-settings" element={<AccountSettingsPage />} />
-          <Route path="ai-assistant" element={<AIAssistantPage />} />
           <Route path="change-password" element={<ChangePassword />} />
           <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
         </Route>

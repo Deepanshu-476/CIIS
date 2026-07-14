@@ -132,6 +132,28 @@
   background: #ffffff;
 }
 
+.company-task-stat[role="button"] {
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.company-task-stat[role="button"]:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--stat-color) 45%, #dbe3ef);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.09);
+}
+
+.company-task-stat[role="button"]:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--stat-color) 22%, transparent);
+  outline-offset: 2px;
+}
+
+.company-task-stat.company-task-stat-active {
+  border-color: var(--stat-color);
+  background: color-mix(in srgb, var(--stat-color) 7%, #ffffff);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--stat-color) 18%, transparent);
+}
+
 .company-task-stat-icon {
   display: grid;
   place-items: center;

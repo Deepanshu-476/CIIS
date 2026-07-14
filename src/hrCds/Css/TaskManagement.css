@@ -1549,7 +1549,8 @@
 }
 
 /* Task remarks dialog */
-.task-remarks-dialog { width: min(500px, calc(100vw - 32px)) !important; max-width: 500px !important; max-height: 84vh; border-radius: 12px; overflow: hidden; }
+.remarks-dialog-overlay { top: 70px; left: 79px; padding: 24px 28px; }
+.task-remarks-dialog { width: min(480px, calc(100vw - 40px)) !important; max-width: 480px !important; max-height: calc(100vh - 122px); border-radius: 12px; overflow: hidden; }
 .task-remarks-dialog .user-create-task-dialog-title { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: #fff; }
 .remarks-heading { display: flex; align-items: center; gap: 14px; }
 .remarks-heading-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 7px; color: #fff; font-size: 19px; background: linear-gradient(145deg,#4f8cff,#1764e8); box-shadow: 0 6px 14px rgba(37,99,235,.22); }
@@ -1644,7 +1645,7 @@
 }
 
 @media (max-width: 767px) {
-    .remarks-dialog-overlay { padding: 12px; }
+    .remarks-dialog-overlay { top: 0; left: 0; padding: 12px; }
     .task-remarks-dialog { width: 100% !important; max-width: 500px !important; max-height: calc(100vh - 24px); }
     .task-remarks-dialog .user-create-task-dialog-title { padding: 14px 16px; }
     .task-remarks-dialog .user-create-task-dialog-content { padding: 14px 16px; }

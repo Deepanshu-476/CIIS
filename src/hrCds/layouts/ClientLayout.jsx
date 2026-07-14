@@ -66,7 +66,7 @@ const ClientLayout = () => {
   };
 
   return (
-    <div className="ClientLayout-container">
+    <div className={`ClientLayout-container ${sidebarOpen ? 'ClientLayout-sidebar-open' : 'ClientLayout-sidebar-collapsed'}`}>
       <aside className={`ClientLayout-sidebar ${sidebarOpen ? 'open' : 'collapsed'}`}>
         <div className="ClientLayout-sidebar-brand">
           <div className="ClientLayout-logo-icon">C</div>

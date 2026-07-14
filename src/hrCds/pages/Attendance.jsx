@@ -45,6 +45,23 @@ const calculateDistance = (lat1, lon1, lat2 = 30.707949, lon2 = 76.6860975) => {
   return Math.round(d);
 };
 
+const normalizeAttendanceStatus = (status) => {
+  const compactStatus = String(status || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[\s_-]+/g, '');
+
+  const statusMap = {
+    PRESENT: 'PRESENT',
+    LATE: 'LATE',
+    ABSENT: 'ABSENT',
+    HALFDAY: 'HALF DAY',
+    HOLIDAY: 'HOLIDAY',
+  };
+
+  return statusMap[compactStatus] || compactStatus;
+};
+
 const Attendance = () => {
   const [attendance, setAttendance] = useState([]);
   const [holidays, setHolidays] = useState([]);
@@ -201,7 +218,7 @@ const Attendance = () => {
   }, []);
 
   const isFutureAbsentRecord = useCallback((record) => (
-    String(record?.status || '').toUpperCase() === 'ABSENT' && isFutureDate(record?.date)
+    normalizeAttendanceStatus(record?.status) === 'ABSENT' && isFutureDate(record?.date)
   ), [isFutureDate]);
 
   
@@ -248,17 +265,7 @@ const Attendance = () => {
     else setLoading(true);
 
     try {
-      let url = "/attendance/list";
-      
-      
-      if (timeRange !== "ALL") {
-        const now = new Date();
-        const month = now.getMonth();
-        const year = now.getFullYear();
-        url = `/attendance/list?month=${month}&year=${year}`;
-      }
-
-      const response = await axios.get(url, {
+      const response = await axios.get("/attendance/list", {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -297,7 +304,7 @@ const Attendance = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [token, userJoinDate, isBeforeJoinDate, isFutureAbsentRecord, timeRange]);
+  }, [token, userJoinDate, isBeforeJoinDate, isFutureAbsentRecord]);
 
   
   const processedAttendance = useMemo(() => {
@@ -352,13 +359,13 @@ const Attendance = () => {
   
   const calculateStats = useCallback((data) => {
     const attendanceRecords = data.filter(record => (
-      (!record.isHoliday || record.status !== 'HOLIDAY') && !isFutureAbsentRecord(record)
+      (!record.isHoliday || normalizeAttendanceStatus(record.status) !== 'HOLIDAY') && !isFutureAbsentRecord(record)
     ));
     
-    const present = attendanceRecords.filter((record) => record.status === "PRESENT").length;
-    const late = attendanceRecords.filter((record) => record.status === "LATE").length;
-    const absent = attendanceRecords.filter((record) => record.status === "ABSENT").length;
-    const halfDay = attendanceRecords.filter((record) => record.status === "HALF DAY").length;
+    const present = attendanceRecords.filter((record) => normalizeAttendanceStatus(record.status) === "PRESENT").length;
+    const late = attendanceRecords.filter((record) => normalizeAttendanceStatus(record.status) === "LATE").length;
+    const absent = attendanceRecords.filter((record) => normalizeAttendanceStatus(record.status) === "ABSENT").length;
+    const halfDay = attendanceRecords.filter((record) => normalizeAttendanceStatus(record.status) === "HALF DAY").length;
     const total = attendanceRecords.length;
     
     const workingDays = present + late;
@@ -407,7 +414,7 @@ const Attendance = () => {
     if (userJoinDate) {
       fetchAttendance();
     }
-  }, [timeRange, userJoinDate, fetchAttendance]);
+  }, [userJoinDate, fetchAttendance]);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "--";
@@ -445,7 +452,7 @@ const Attendance = () => {
   };
 
   const getStatusIcon = (record) => {
-    const status = record.status;
+    const status = normalizeAttendanceStatus(record.status);
     const isHoliday = record.isHoliday;
     
     if (isHoliday && status === 'PRESENT') {
@@ -476,7 +483,7 @@ const Attendance = () => {
   };
 
   const getStatusColor = (record) => {
-    const status = record.status;
+    const status = normalizeAttendanceStatus(record.status);
     const isHoliday = record.isHoliday;
     
     if (isHoliday && status === 'PRESENT') return "#9c27b0";
@@ -497,7 +504,7 @@ const Attendance = () => {
   };
 
   const getStatusDisplayText = (record) => {
-    const status = record.status;
+    const status = normalizeAttendanceStatus(record.status);
     const isHoliday = record.isHoliday;
     
     if (isHoliday && status === 'PRESENT') return "HOLIDAY + PRESENT";
@@ -518,7 +525,7 @@ const Attendance = () => {
   };
 
   const getStatusClass = (record) => {
-    const status = record.status;
+    const status = normalizeAttendanceStatus(record.status);
     const isHoliday = record.isHoliday;
     
     if (isHoliday && status === 'PRESENT') return "holiday-present";
@@ -534,14 +541,17 @@ const Attendance = () => {
 
       const matchesSearch =
         formatDate(record.date).toLowerCase().includes(search.toLowerCase()) ||
-        (record.status && record.status.toLowerCase().includes(search.toLowerCase())) ||
+        normalizeAttendanceStatus(record.status).toLowerCase().includes(search.toLowerCase()) ||
         (record.holidayTitle && record.holidayTitle.toLowerCase().includes(search.toLowerCase()));
       
-      const statusDisplay = getStatusDisplayText(record);
+      const normalizedStatus = normalizeAttendanceStatus(record.status);
       const matchesStatus =
         statusFilter === "ALL" || 
-        statusDisplay.includes(statusFilter) ||
-        (statusFilter === "HOLIDAY" && (record.isHoliday || record.status === 'HOLIDAY'));
+        normalizedStatus === statusFilter ||
+        (statusFilter === "HOLIDAY" && (record.isHoliday || normalizedStatus === 'HOLIDAY'));
+
+      const matchesSelectedDate = !selectedDate ||
+        formatDateForInput(record.date) === formatDateForInput(selectedDate);
 
       const recordDate = new Date(record.date);
       const now = new Date();
@@ -590,9 +600,9 @@ const Attendance = () => {
         }
       }
 
-      return matchesSearch && matchesStatus && matchesTimeRange;
+      return matchesSearch && matchesStatus && matchesSelectedDate && matchesTimeRange;
     });
-  }, [processedAttendance, search, statusFilter, timeRange, isDateRangeActive, startDate, endDate, isFutureAbsentRecord]);
+  }, [processedAttendance, search, selectedDate, statusFilter, timeRange, isDateRangeActive, startDate, endDate, isFutureAbsentRecord]);
 
   
   useEffect(() => {
@@ -701,7 +711,9 @@ const Attendance = () => {
 
   const handleDateSelect = (date) => {
     setSelectedDate(date);
-    setSearch(date ? formatDate(date) : "");
+    setSearch("");
+    setTimeRange("ALL");
+    setIsDateRangeActive(false);
     setShowCalendar(false);
   };
 
@@ -759,10 +771,13 @@ const Attendance = () => {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              {search && (
+              {(search || selectedDate) && (
                 <button
                   className="Attendance-clear-search"
-                  onClick={() => setSearch("")}
+                  onClick={() => {
+                    setSearch("");
+                    setSelectedDate(null);
+                  }}
                 >
                   <FiX />
                 </button>
@@ -991,6 +1006,7 @@ const Attendance = () => {
         {[
           {
             key: "present",
+            filterValue: "PRESENT",
             label: "Present Days",
             value: stats.present,
             icon: FiCheckCircle,
@@ -999,6 +1015,7 @@ const Attendance = () => {
           },
           {
             key: "late",
+            filterValue: "LATE",
             label: "Late Days",
             value: stats.late,
             icon: FiAlertTriangle,
@@ -1006,6 +1023,7 @@ const Attendance = () => {
           },
           {
             key: "halfDay",
+            filterValue: "HALF DAY",
             label: "Half Days",
             value: stats.halfDay,
             icon: FiAlertCircle,
@@ -1013,6 +1031,7 @@ const Attendance = () => {
           },
           {
             key: "absent",
+            filterValue: "ABSENT",
             label: "Absent Days",
             value: stats.absent,
             icon: FiMinusCircle,
@@ -1031,16 +1050,12 @@ const Attendance = () => {
             <div
               key={stat.key}
               className={`Attendance-stat-card ${
-                statusFilter === stat.key.toUpperCase() ? "Attendance-active" : ""
+                statusFilter === stat.filterValue ? "Attendance-active" : ""
               }`}
               data-key={stat.key}
               onClick={() => {
                 if (stat.key !== "total") {
-                  setStatusFilter(
-                    statusFilter === stat.key.toUpperCase()
-                      ? "ALL"
-                      : stat.key.toUpperCase()
-                  );
+                  setStatusFilter(statusFilter === stat.filterValue ? "ALL" : stat.filterValue);
                 }
               }}
             >

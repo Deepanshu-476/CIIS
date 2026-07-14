@@ -39,7 +39,6 @@ import {
   FiArrowDown,
   FiUser,
   FiUsers,
-  FiMoreHorizontal,
   FiFilter,
   FiMessageCircle,
   FiPackage,
@@ -856,7 +855,6 @@ const Dashboard = () => {
                   <span>{deadline}</span>
                   <span className="ClientDashboard-progress-cell">{percent}% <b><em style={{ width: `${percent}%` }}></em></b></span>
                   <span className={`ClientDashboard-pill ${status === 'Active' ? 'ClientDashboard-pill--green' : ''}`}>{status}</span>
-                  <button type="button" aria-label="More"><FiMoreHorizontal /></button>
                 </div>
               );
             })}

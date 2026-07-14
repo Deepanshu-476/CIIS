@@ -1821,6 +1821,82 @@
   z-index: 10050;
 }
 
+/* Create-task dialog: visual treatment aligned with the project task workflow. */
+.EmployeeProject-create-task-modal {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(70vh, 560px);
+  border-radius: 12px;
+  box-shadow: 0 28px 70px rgba(26, 36, 74, .3);
+}
+
+.EmployeeProject-create-task-modal .EmployeeProject-modal-header {
+  min-height: 84px;
+  padding: 16px 22px;
+  border: 0;
+  background: linear-gradient(115deg, #3678ef 0%, #5635c7 52%, #6328b8 100%);
+}
+
+.EmployeeProject-create-task-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
+}
+
+.EmployeeProject-create-task-heading-icon {
+  width: 45px;
+  height: 45px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .9);
+  color: #5635d7;
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1;
+  box-shadow: 0 7px 16px rgba(29, 32, 117, .2);
+}
+
+.EmployeeProject-create-task-heading h3 { font-size: 17px; }
+.EmployeeProject-create-task-heading p { margin: 4px 0 0; color: rgba(255, 255, 255, .83); font-size: 11px; font-weight: 600; }
+.EmployeeProject-create-task-modal .EmployeeProject-modal-close { width: 32px; height: 32px; border-radius: 8px; }
+.EmployeeProject-create-task-modal .EmployeeProject-modal-body { padding: 18px 20px; background: #fff; }
+.EmployeeProject-create-task-modal .EmployeeProject-form-group { margin-bottom: 17px; }
+.EmployeeProject-create-task-modal .EmployeeProject-form-group > label { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; color: #1e2943; font-size: 11px; font-weight: 800; }
+.EmployeeProject-create-task-modal .EmployeeProject-input,
+.EmployeeProject-create-task-modal .EmployeeProject-select,
+.EmployeeProject-create-task-modal .EmployeeProject-textarea { padding: 10px 12px; border-color: #dce3ef; border-radius: 7px; color: #24324a; font-size: 11px; box-shadow: inset 0 1px 2px rgba(32, 51, 84, .02); }
+.EmployeeProject-create-task-modal .EmployeeProject-textarea { min-height: 74px; resize: vertical; }
+.EmployeeProject-create-task-modal .EmployeeProject-input:focus,
+.EmployeeProject-create-task-modal .EmployeeProject-select:focus,
+.EmployeeProject-create-task-modal .EmployeeProject-textarea:focus { border-color: #6552e7; box-shadow: 0 0 0 3px rgba(101, 82, 231, .11); }
+.EmployeeProject-create-task-modal .EmployeeProject-user-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: none; padding: 0; border: 0; background: transparent; }
+.EmployeeProject-create-task-modal .EmployeeProject-user-tab { grid-template-columns: 16px 30px minmax(0, 1fr); min-height: 48px; gap: 8px; padding: 8px 9px; border-color: #e0e6f0; border-radius: 7px; }
+.EmployeeProject-create-task-modal .EmployeeProject-user-tab-selected { border-color: #816cf2; background: #f6f4ff; box-shadow: none; }
+.EmployeeProject-create-task-modal .EmployeeProject-user-tab input { width: 14px; height: 14px; accent-color: #6243df; }
+.EmployeeProject-user-avatar { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: #ece9ff; color: #6243df; font-size: 10px; font-weight: 800; }
+.EmployeeProject-create-task-modal .EmployeeProject-user-tab:nth-child(3n + 2) .EmployeeProject-user-avatar { background: #e6f8ee; color: #1f9b61; }
+.EmployeeProject-create-task-modal .EmployeeProject-user-tab:nth-child(3n) .EmployeeProject-user-avatar { background: #fff0dc; color: #d9871f; }
+.EmployeeProject-create-task-modal .EmployeeProject-user-tab-copy strong { font-size: 10px; }
+.EmployeeProject-create-task-modal .EmployeeProject-user-tab-copy small { font-size: 8px; }
+.EmployeeProject-create-task-modal .EmployeeProject-modal-footer { padding: 12px 20px; background: #fbfcff; border-top-color: #e7eaf2; }
+.EmployeeProject-create-task-modal .EmployeeProject-button { min-width: 120px; min-height: 38px; border-radius: 7px; font-size: 11px; font-weight: 800; }
+.EmployeeProject-create-task-modal .EmployeeProject-button-primary { background: linear-gradient(135deg, #3c73e9, #6634cb); box-shadow: 0 7px 14px rgba(77, 65, 203, .22); }
+
+@media (max-width: 640px) {
+  .EmployeeProject-create-task-modal { width: calc(100vw - 20px); max-height: calc(100vh - 36px); }
+  .EmployeeProject-create-task-modal .EmployeeProject-modal-header { min-height: 72px; padding: 12px 14px; }
+  .EmployeeProject-create-task-heading { gap: 10px; }
+  .EmployeeProject-create-task-heading-icon { width: 38px; height: 38px; font-size: 25px; }
+  .EmployeeProject-create-task-heading h3 { font-size: 15px; }
+  .EmployeeProject-create-task-heading p { font-size: 9px; }
+  .EmployeeProject-create-task-modal .EmployeeProject-modal-body { padding: 14px; }
+  .EmployeeProject-create-task-modal .EmployeeProject-user-tabs { grid-template-columns: 1fr; max-height: 164px; }
+  .EmployeeProject-create-task-modal .EmployeeProject-modal-footer { padding: 12px 14px; }
+  .EmployeeProject-create-task-modal .EmployeeProject-button { flex: 1; min-width: 0; }
+}
+
 .EmployeeProject-pdf-modal .EmployeeProject-modal-backdrop {
   z-index: 10051;
 }

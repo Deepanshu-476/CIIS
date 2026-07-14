@@ -136,6 +136,15 @@ const MyServicesPage = () => {
   }, [taskFilter, taskSort, tasks, tasksService]);
   const modalTaskPages = Math.max(1, Math.ceil(modalTasks.length / taskPageSize));
   const visibleModalTasks = modalTasks.slice((taskPage - 1) * taskPageSize, taskPage * taskPageSize);
+  const taskFilterCounts = useMemo(() => {
+    const serviceTasks = tasksService ? getServiceTasks(tasksService.rawTitle) : [];
+    return ['All', 'Pending', 'Completed', 'Overdue'].reduce((counts, filter) => {
+      counts[filter] = filter === 'All'
+        ? serviceTasks.length
+        : serviceTasks.filter(task => normalizeTaskStatus(task) === filter.toLowerCase()).length;
+      return counts;
+    }, {});
+  }, [tasks, tasksService]);
 
   const openTasksModal = service => {
     setTaskFilter('All');
@@ -355,7 +364,7 @@ const MyServicesPage = () => {
               <div className="MyServices-taskToolbar">
                 <div className="MyServices-taskTotal"><i><FiSend /></i><div><small>Total Tasks</small><strong>{getServiceTasks(tasksService.rawTitle).length}</strong></div></div>
                 <div className="MyServices-taskTabs" role="tablist" aria-label="Filter tasks">
-                  {['All', 'Pending', 'Completed', 'Overdue'].map(filter => <button key={filter} type="button" className={taskFilter === filter ? 'active' : ''} onClick={() => { setTaskFilter(filter); setTaskPage(1); }}>{filter}</button>)}
+                  {['All', 'Pending', 'Completed', 'Overdue'].map(filter => <button key={filter} type="button" className={taskFilter === filter ? 'active' : ''} onClick={() => { setTaskFilter(filter); setTaskPage(1); }}>{filter}<span>{taskFilterCounts[filter]}</span></button>)}
                 </div>
                 <label className="MyServices-taskSort"><span>Sort by:</span><select value={taskSort} onChange={event => { setTaskSort(event.target.value); setTaskPage(1); }}><option>Newest</option><option>Oldest</option></select><FiChevronDown /></label>
               </div>

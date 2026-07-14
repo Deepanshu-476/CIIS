@@ -261,7 +261,7 @@
 .MyServices-taskTotal > i { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 8px; background: #e9e9ff; color: #4c46eb; font-style: normal; }
 .MyServices-taskTotal > div { display: flex; align-items: center; gap: 6px; }.MyServices-taskTotal small { color: #687690; font-size: 8px; font-weight: 800; white-space: nowrap; }.MyServices-taskTotal strong { color: #3942ec; font-size: 15px; line-height: 1; }
 .MyServices-taskTabs { display: flex; align-items: center; min-height: 34px; padding: 3px; border: 1px solid #e4e8f3; border-radius: 9px; background: #fff; box-shadow: 0 3px 8px rgba(25, 39, 75, .04); }
-.MyServices-taskTabs button { flex: 1; min-height: 27px; border: 0; border-radius: 6px; background: transparent; color: #43516b; font-size: 8px; font-weight: 800; cursor: pointer; }.MyServices-taskTabs button.active { background: linear-gradient(135deg, #4a46ed, #6050ef); color: #fff; box-shadow: 0 3px 7px rgba(79, 68, 235, .22); }
+.MyServices-taskTabs button { flex: 1; min-height: 27px; border: 0; border-radius: 6px; background: transparent; color: #43516b; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 8px; font-weight: 800; cursor: pointer; }.MyServices-taskTabs button span { min-width: 15px; height: 15px; padding: 0 3px; border-radius: 99px; background: #edf1f8; color: #65728a; display: inline-grid; place-items: center; font-size: 7px; line-height: 1; }.MyServices-taskTabs button.active { background: linear-gradient(135deg, #4a46ed, #6050ef); color: #fff; box-shadow: 0 3px 7px rgba(79, 68, 235, .22); }.MyServices-taskTabs button.active span { background: rgba(255, 255, 255, .2); color: #fff; }
 .MyServices-taskSort { position: relative; display: flex; align-items: center; justify-content: space-between; min-height: 34px; padding: 0 9px; border: 1px solid #e2e7f1; border-radius: 8px; color: #536078; font-size: 8px; font-weight: 800; white-space: nowrap; }.MyServices-taskSort select { flex: 1; min-width: 0; margin-left: 4px; border: 0; appearance: none; background: transparent; color: #263550; font: inherit; font-weight: 800; outline: 0; cursor: pointer; }.MyServices-taskSort svg { flex: 0 0 auto; pointer-events: none; color: #4b5c78; }
 
 .MyServices-taskModernList { gap: 8px; }.MyServices-taskModernRow { position: relative; grid-template-columns: 35px minmax(0, 1fr) 79px 104px 22px; min-height: 56px; max-height: none; padding: 9px 10px; border-color: #e7ebf4; background: #fff; box-shadow: 0 3px 10px rgba(24, 45, 84, .025); }.MyServices-taskModernRow:hover { border-color: #cdd6ff; background: #fbfcff; }.MyServices-taskModernRow > i { width: 29px; height: 29px; display: grid; place-items: center; border-radius: 9px; background: #f0f0ff; color: #514cf0; font-size: 14px; font-style: normal; }.MyServices-taskCopy { min-width: 0; }.MyServices-taskModernRow .MyServices-taskCopy strong { font-size: 10px; }.MyServices-taskModernRow .MyServices-taskCopy span { font-size: 8px; }.MyServices-taskModernRow em { justify-self: start; padding: 6px 9px; background: #f1efff; color: #5544ed; }.MyServices-taskModernRow em::before { content: "•"; margin-right: 4px; }.MyServices-taskModernRow em.completed { background: #e8f8f0; color: #1e9b61; }.MyServices-taskModernRow em.overdue { background: #fff0f2; color: #dc4158; }.MyServices-taskModernRow time { display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 0; background: transparent; color: #50607a; }.MyServices-taskModernRow time svg { color: #536ca5; }.MyServices-taskModernRow > button { padding: 0; border: 0; background: transparent; color: #3d5178; cursor: pointer; }
@@ -773,17 +773,44 @@
 }
 
 @media (max-width: 480px) {
-  .MyServices-stats { grid-template-columns: 1fr; }
-  .MyServices-stat, .MyServices-stat:nth-child(2n) { border-right: 0; border-bottom: 1px solid #edf0f4; }
-  .MyServices-stat:last-child { border-bottom: 0; }
+  .MyServices-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .MyServices-stat { border-right: 1px solid #edf0f4; border-bottom: 1px solid #edf0f4; }
+  .MyServices-stat:nth-child(2n) { border-right: 0; }
+  .MyServices-stat:nth-last-child(-n + 2) { border-bottom: 0; }
   .MyServices-grid { grid-template-columns: 1fr; }
   .MyServices-filterbar { gap: 8px; }
   .MyServices-modal > header { padding: 14px; }
   .MyServices-modalBody, .MyServices-modalDetail .MyServices-modalBody { padding: 14px; }
-  .MyServices-detailVisualGrid, .MyServices-taskDetailBody > div { grid-template-columns: 1fr; }
+  .MyServices-detailVisualGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .MyServices-taskDetailBody > div { grid-template-columns: 1fr; }
   .MyServices-detailHeader, .MyServices-modal.MyServices-modalTasks > .MyServices-tasksHeader { min-height: 80px !important; padding: 13px 14px !important; }
   .MyServices-tasksHero p, .MyServices-detailHero p { display: none; }
   .MyServices-taskModernRow { grid-template-columns: 30px minmax(0, 1fr) 20px !important; }
   .MyServices-taskModernRow em { grid-column: 2; grid-row: 2; margin-top: -8px; }
   .MyServices-taskModernRow time { display: none; }
+
+  .MyServices-detailHeader { min-height: 74px !important; padding: 12px 14px !important; }
+  .MyServices-detailHeader::after { right: 48px; top: -38px; width: 104px; height: 104px; border-width: 13px; }
+  .MyServices-detailHero { gap: 10px; }
+  .MyServices-detailHeroIcon { width: 38px; height: 38px; border-radius: 10px; font-size: 17px; }
+  .MyServices-detailHero h3 { font-size: 15px !important; text-transform: capitalize; }
+  .MyServices-modalDetail .MyServices-modalBody { padding: 12px 14px 14px; }
+  .MyServices-detailVisualGrid { gap: 8px; }
+  .MyServices-detailCard { min-height: 88px; gap: 7px; padding: 9px; border-radius: 10px; }
+  .MyServices-detailCard > i { width: 28px; height: 28px; border-radius: 8px; font-size: 13px; }
+  .MyServices-detailCard small { font-size: 7px; }
+  .MyServices-detailCard strong { margin-top: 3px; font-size: 10px; }
+  .MyServices-detailCard em { margin-top: 5px; padding: 3px 6px; font-size: 6px; }
+  .MyServices-detailCard p { margin-top: 5px; font-size: 7px; line-height: 1.25; }
+  .MyServices-detailCard b { height: 6px; margin-top: 8px; }
+  .MyServices-latestTask { gap: 9px; margin-top: 12px; padding: 10px; border-radius: 10px; }
+  .MyServices-latestTask > i { width: 34px; height: 34px; border-radius: 9px; font-size: 14px; }
+  .MyServices-latestTask strong { margin-top: 3px; font-size: 10px; }
+  .MyServices-latestTask p { margin-top: 2px; font-size: 7px; }
+  .MyServices-modalDetail {
+    width: calc(100% - 24px);
+    max-height: calc(100vh - 24px);
+    margin: 0 12px 12px;
+    border-radius: 16px;
+  }
 }

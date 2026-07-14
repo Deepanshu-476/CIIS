@@ -894,6 +894,10 @@ const EmployeeLeaves = () => {
   const filteredLeaves = useMemo(() => {
     let filtered = leaves;
 
+    if (selectedStat !== 'All') {
+      filtered = filtered.filter(leave => leave?.status === selectedStat);
+    }
+
     if (searchTerm) {
       filtered = filtered.filter(
         (leave) =>
@@ -906,7 +910,7 @@ const EmployeeLeaves = () => {
     }
 
     return filtered;
-  }, [leaves, searchTerm, getDepartmentName]);
+  }, [leaves, selectedStat, searchTerm, getDepartmentName]);
 
   const pendingLeaves = useMemo(() => 
     filteredLeaves.filter(leave => leave?.status === 'Pending'),
@@ -1188,7 +1192,6 @@ const EmployeeLeaves = () => {
 
   const handleStatFilter = (type) => {
     setSelectedStat(prev => (prev === type ? 'All' : type));
-    setStatusFilter(type === 'All' ? 'All' : type);
   };
 
   
@@ -1350,6 +1353,18 @@ const EmployeeLeaves = () => {
               </div>
 
               <div className="EmppLeaves-details-column">
+                <div className="EmppLeaves-details-card EmppLeaves-reason-card">
+                  <div className="EmppLeaves-card-header">
+                    <FiMessageSquare size={18} color="#1976d2" />
+                    <h4>Leave Reason</h4>
+                  </div>
+                  <div className="EmppLeaves-card-content">
+                    <div className="EmppLeaves-reason-box">
+                      {leave.reason?.trim() || "No reason provided"}
+                    </div>
+                  </div>
+                </div>
+
                 {leave.remarks && (
                   <div className="EmppLeaves-details-card EmppLeaves-remarks-card">
                     <div className="EmppLeaves-card-header">
@@ -1676,7 +1691,7 @@ const EmployeeLeaves = () => {
   
   
   
-  if (loading) {
+  if (loading && leaves.length === 0) {
     return <CIISLoader />;
   }
   
@@ -1863,9 +1878,7 @@ const EmployeeLeaves = () => {
             icon: <FiXCircle />,
             color: "error"
           },
-        ]
-          .filter(stat => stat.count > 0)
-          .map((stat) => (
+        ].map((stat) => (
             <div 
               key={stat.type}
               className={`EmppLeaves-stat-card EmppLeaves-stat-${stat.color} ${selectedStat === stat.type ? 'EmppLeaves-active' : ''}`}

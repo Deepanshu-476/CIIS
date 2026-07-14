@@ -645,7 +645,7 @@ button {
 .ClientDashboard-table-head,
 .ClientDashboard-service-table-row {
   display: grid;
-  grid-template-columns: 1.35fr 1.05fr 0.85fr 0.85fr 1fr 74px 16px;
+  grid-template-columns: 1.35fr 1.05fr 0.85fr 0.85fr 1fr 74px;
   align-items: center;
   gap: 10px;
 }
@@ -1852,4 +1852,337 @@ button {
   .ClientDashboard-ticket-row { grid-template-columns: 22px minmax(0, 1fr) auto; gap: 7px; }
   .ClientDashboard-ticket-row p { min-width: 0; }
   .ClientDashboard-ticket-row p span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+/* Mobile-only client profile header. Desktop and MacBook layouts keep their
+   existing presentation unchanged. */
+@media (max-width: 768px) {
+  .ClientDashboard-profile-summary {
+    position: relative;
+    grid-template-columns: 1fr;
+    min-height: 0;
+    padding: 70px 16px 16px;
+  }
+
+  .ClientDashboard-profile-avatar {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    width: 62px;
+    height: 62px;
+    justify-self: auto;
+    border-width: 4px;
+    font-size: 27px;
+  }
+
+  .ClientDashboard-profile-summary .ClientDashboard-date-pill {
+    top: 15px;
+    right: auto;
+    left: 14px;
+    height: 31px;
+    padding: 0 10px;
+    font-size: 10px;
+  }
+
+  .ClientDashboard-profile-info {
+    min-width: 0;
+    padding-right: 0;
+  }
+
+  .ClientDashboard-name-row {
+    margin-bottom: 9px;
+  }
+
+  .ClientDashboard-name-row h2 {
+    font-size: 18px;
+  }
+
+  .ClientDashboard-profile-info p {
+    grid-template-columns: 15px minmax(0, 1fr);
+    gap: 6px;
+    margin: 5px 0;
+    font-size: 10px;
+  }
+
+  .ClientDashboard-profile-info p span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* Desktop/MacBook: keep the Good Morning and client-profile cards side by
+   side, including while the client sidebar is expanded. */
+@media (min-width: 1100px) {
+  .ClientDashboard-client-dashboard,
+  .ClientDashboard-sidebar-open .ClientDashboard-client-dashboard {
+    grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  }
+}
+
+/* Final mobile polish: a calmer, more touch-friendly dashboard without
+   changing the desktop or MacBook presentation. */
+@media (max-width: 768px) {
+  .ClientDashboard-client-dashboard {
+    gap: 14px;
+    padding: 12px;
+    background: #f4f7fc;
+  }
+
+  .ClientDashboard-hero-card,
+  .ClientDashboard-card,
+  .ClientDashboard-kpi-card {
+    border-color: #e2e9f4;
+    border-radius: 14px;
+    box-shadow: 0 5px 16px rgba(28, 52, 95, 0.06);
+  }
+
+  .ClientDashboard-greeting-card {
+    padding: 18px;
+    background: linear-gradient(135deg, #f9fbff 0%, #edf4ff 100%);
+  }
+
+  .ClientDashboard-greeting-card h1 {
+    font-size: 20px;
+  }
+
+  .ClientDashboard-greeting-card > p {
+    margin-top: 6px;
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .ClientDashboard-hero-stats {
+    gap: 9px;
+    margin: 16px 0;
+  }
+
+  .ClientDashboard-hero-stat {
+    min-height: 76px;
+    padding: 9px;
+    border: 1px solid #e3ebf7;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.78);
+  }
+
+  .ClientDashboard-hero-stat .ClientDashboard-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 15px;
+  }
+
+  .ClientDashboard-hero-stat small {
+    font-size: 9px;
+    line-height: 1.2;
+  }
+
+  .ClientDashboard-hero-stat strong {
+    font-size: 19px;
+  }
+
+  .ClientDashboard-kpi-card {
+    min-height: 86px;
+    padding: 10px;
+    background: #fff;
+  }
+
+  .ClientDashboard-card-head {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .ClientDashboard-card-head h3 {
+    font-size: 15px;
+  }
+
+  .ClientDashboard-card-head button,
+  .ClientDashboard-view-invoices-button,
+  .ClientDashboard-support-view-all,
+  .ClientDashboard-all-services {
+    min-height: 40px;
+  }
+
+  .ClientDashboard-service-table-row {
+    margin-bottom: 8px;
+    padding: 12px;
+    border: 1px solid #e8edf6;
+    border-radius: 10px;
+    background: #fff;
+  }
+
+  .ClientDashboard-service-table-row:last-child {
+    margin-bottom: 0;
+  }
+
+  .ClientDashboard-payment-summary,
+  .ClientDashboard-support-card,
+  .ClientDashboard-actions-card {
+    padding: 16px;
+  }
+
+  .ClientDashboard-ticket-stats > div {
+    border-radius: 10px;
+  }
+
+  .ClientDashboard-action-tile {
+    min-height: 68px;
+    border-radius: 10px;
+  }
+}
+
+@media (max-width: 380px) {
+  .ClientDashboard-client-dashboard {
+    padding: 8px;
+  }
+
+  .ClientDashboard-hero-stats,
+  .ClientDashboard-kpi-row {
+    gap: 6px;
+  }
+
+  .ClientDashboard-hero-stat,
+  .ClientDashboard-kpi-card {
+    padding: 8px;
+  }
+}
+
+/* Match the MacBook three-card row on larger desktop screens as well. */
+@media (min-width: 1501px) {
+  .ClientDashboard-content-grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .ClientDashboard-payment-summary,
+  .ClientDashboard-support-card,
+  .ClientDashboard-actions-card {
+    grid-column: span 4;
+    min-height: 390px;
+    align-self: stretch;
+  }
+
+  .ClientDashboard-actions-card .ClientDashboard-action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
+/* Keep the three final dashboard cards visually aligned at every laptop and
+   desktop width: matching card height and matching footer-button baseline. */
+@media (min-width: 981px) {
+  .ClientDashboard-payment-summary,
+  .ClientDashboard-support-card,
+  .ClientDashboard-actions-card {
+    align-self: stretch;
+    min-height: 390px;
+  }
+
+  .ClientDashboard-payment-summary .ClientDashboard-view-invoices-button,
+  .ClientDashboard-support-card .ClientDashboard-support-view-all,
+  .ClientDashboard-actions-card .ClientDashboard-all-services {
+    margin-top: auto;
+  }
+}
+
+/* Compact phone profile card: information begins at the top instead of being
+   pushed below a large empty header area. */
+@media (max-width: 768px) {
+  .ClientDashboard-profile-summary {
+    min-height: 0;
+    padding: 16px;
+    border-color: #dfe7f5;
+    border-radius: 14px;
+    background: linear-gradient(145deg, #ffffff 0%, #f8fbff 100%);
+    box-shadow: 0 7px 20px rgba(30, 58, 108, 0.07);
+  }
+
+  .ClientDashboard-profile-avatar {
+    top: 14px;
+    right: 14px;
+    width: 58px;
+    height: 58px;
+    border-width: 4px;
+    font-size: 25px;
+    box-shadow: 0 8px 18px rgba(91, 76, 220, 0.24);
+  }
+
+  .ClientDashboard-profile-summary .ClientDashboard-date-pill {
+    top: 53px;
+    left: 16px;
+    height: 28px;
+    padding: 0 8px;
+    font-size: 9px;
+  }
+
+  .ClientDashboard-name-row {
+    min-height: 26px;
+    margin: 0 70px 48px 0;
+    align-items: center;
+  }
+
+  .ClientDashboard-name-row h2 {
+    font-size: 18px;
+  }
+
+  .ClientDashboard-name-row span {
+    padding: 4px 8px;
+    font-size: 9px;
+  }
+
+  .ClientDashboard-profile-info p {
+    min-height: 17px;
+    margin: 3px 0;
+    padding-bottom: 3px;
+    border-bottom: 1px solid #eef2f8;
+    color: #41506c;
+    font-size: 10px;
+    line-height: 1.25;
+  }
+
+  .ClientDashboard-profile-info p:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .ClientDashboard-profile-info p svg {
+    color: #3f72e7;
+  }
+}
+
+/* Keep the four greeting summary metrics in a compact 2 × 2 phone grid. */
+@media (max-width: 768px) {
+  .ClientDashboard-hero-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .ClientDashboard-hero-stat {
+    min-width: 0;
+  }
+}
+
+/* Remove the large gap below the client name on phone screens by keeping the
+   date in the same compact header row. */
+@media (max-width: 768px) {
+  .ClientDashboard-profile-summary .ClientDashboard-date-pill {
+    top: 15px;
+    right: 82px;
+    left: auto;
+  }
+
+  .ClientDashboard-name-row {
+    min-width: 0;
+    margin: 0 146px 12px 0;
+  }
+
+  .ClientDashboard-name-row h2 {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ClientDashboard-profile-info p:first-of-type {
+    padding-right: 70px;
+  }
 }

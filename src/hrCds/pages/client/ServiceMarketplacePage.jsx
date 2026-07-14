@@ -125,6 +125,7 @@ const ServiceMarketplacePage = () => {
   const [servicesLoading, setServicesLoading] = useState(true);
   const [servicesError, setServicesError] = useState("");
   const [activeCategory, setActiveCategory] = useState("All Services");
+  const [showAllServices, setShowAllServices] = useState(false);
   const [openModal, setOpenModal] = useState(false);
   const [selectedService, setSelectedService] = useState(clientServices[0] || "WhatsApp Marketing");
   const [enquiries, setEnquiries] = useState([]);
@@ -224,6 +225,12 @@ const ServiceMarketplacePage = () => {
     !activeServiceNames.some(active => service.title.toLowerCase().includes(active) || active.includes(service.title.toLowerCase()))
   )).slice(0, 5);
   const visibleServices = marketplaceServices.filter((service) => activeCategory === "All Services" || service.category === activeCategory);
+  const displayedServices = showAllServices ? visibleServices : visibleServices.slice(0, 10);
+
+  const handleCategoryChange = (category) => {
+    setActiveCategory(category);
+    setShowAllServices(false);
+  };
 
   const openEnquiry = (serviceTitle) => {
     setSelectedService(serviceTitle);
@@ -316,7 +323,7 @@ const ServiceMarketplacePage = () => {
                   type="button"
                   key={category}
                   className={activeCategory === category ? "active" : ""}
-                  onClick={() => setActiveCategory(category)}
+                  onClick={() => handleCategoryChange(category)}
                 >
                   {category}
                 </button>
@@ -326,7 +333,7 @@ const ServiceMarketplacePage = () => {
               {servicesLoading && <p>Loading company services...</p>}
               {!servicesLoading && servicesError && <p>{servicesError}</p>}
               {!servicesLoading && !servicesError && visibleServices.length === 0 && <p>No company services found for this company code.</p>}
-              {!servicesLoading && visibleServices.map((service) => (
+              {!servicesLoading && displayedServices.map((service) => (
                 <article className="ServiceMarketplacePage-serviceCard" key={`${service.title}-${service.category}-${service.tone}`}>
                   <div className={`ServiceMarketplacePage-cardIcon ServiceMarketplacePage-${service.tone}`}>{service.icon}</div>
                   <div className="ServiceMarketplacePage-cardContent">
@@ -338,7 +345,15 @@ const ServiceMarketplacePage = () => {
                 </article>
               ))}
             </div>
-            <button type="button" className="ServiceMarketplacePage-moreButton">View More Services</button>
+            {!servicesLoading && visibleServices.length > 10 && (
+              <button
+                type="button"
+                className="ServiceMarketplacePage-moreButton"
+                onClick={() => setShowAllServices((isShowingAll) => !isShowingAll)}
+              >
+                {showAllServices ? "Show Less Services" : "View All Services"}
+              </button>
+            )}
           </section>
           <section className="ServiceMarketplacePage-panel ServiceMarketplacePage-enquiriesPanel">
             <h2>My Service Enquiries</h2>

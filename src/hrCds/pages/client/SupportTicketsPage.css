@@ -690,8 +690,106 @@
   }
 
   .ClientMeetings-panel {
-    overflow-x: auto;
+    min-width: 0;
+    overflow: hidden;
     padding: 15px;
+  }
+
+  .ClientMeetings-table,
+  .ClientMeetings-history {
+    overflow: visible;
+    border: 0;
+  }
+
+  .ClientMeetings-tableHead,
+  .ClientMeetings-ticketHead {
+    display: none;
+  }
+
+  .ClientMeetings-row,
+  .ClientMeetings-ticketRow {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    min-width: 0;
+    margin-bottom: 12px;
+    padding: 4px 13px;
+    overflow: hidden;
+    border: 1px solid #e4e8f0;
+    border-radius: 8px;
+    background: #fff;
+  }
+
+  .ClientMeetings-row:last-child,
+  .ClientMeetings-ticketRow:last-child {
+    margin-bottom: 0;
+  }
+
+  .ClientMeetings-row > span,
+  .ClientMeetings-ticketRow > span {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 10px 0;
+    overflow: visible;
+    border-bottom: 1px solid #edf0f5;
+    text-align: right;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .ClientMeetings-row > span:last-child,
+  .ClientMeetings-ticketRow > span:last-child {
+    border-bottom: 0;
+  }
+
+  .ClientMeetings-row > span::before,
+  .ClientMeetings-ticketRow > span::before {
+    content: attr(data-label);
+    margin-right: auto;
+    color: #667085;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .ClientMeetings-row .ClientMeetings-meetingTitle,
+  .ClientMeetings-row .ClientMeetings-member,
+  .ClientMeetings-row .ClientMeetings-type {
+    display: flex;
+  }
+
+  .ClientMeetings-ticketRow > span:first-child {
+    display: grid;
+    grid-template-columns: minmax(72px, auto) minmax(0, 1fr);
+    align-items: start;
+    text-align: right;
+  }
+
+  .ClientMeetings-ticketRow > span:first-child::before {
+    grid-row: 1 / span 2;
+  }
+
+  .ClientMeetings-ticketRow > span:first-child > strong,
+  .ClientMeetings-ticketRow > span:first-child > small {
+    max-width: 100%;
+  }
+
+  .ClientMeetings-row button {
+    min-height: 44px;
+  }
+
+  .ClientMeetings-emptyRow > span::before {
+    display: none;
+  }
+
+  .ClientMeetings-emptyRow > span {
+    justify-content: flex-start;
+    text-align: left;
   }
 
   .ClientMeetings-side {
@@ -744,6 +842,108 @@
   .ClientMeetings-slots > div {
     grid-template-columns: 1fr;
   }
+
+  .ClientMeetings-notice {
+    align-items: flex-start;
+  }
+
+  .ClientMeetings-notice button {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 520px) {
+  .ClientMeetings-root {
+    padding: 14px 10px max(20px, env(safe-area-inset-bottom));
+  }
+
+  .ClientMeetings-header {
+    margin-bottom: 16px;
+  }
+
+  .ClientMeetings-title h1 {
+    font-size: 21px;
+  }
+
+  .ClientMeetings-title p {
+    margin-top: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .ClientMeetings-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .ClientMeetings-statCard {
+    min-height: 116px;
+    grid-template-columns: 44px minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+  }
+
+  .ClientMeetings-statCard small {
+    position: absolute;
+    bottom: 15px;
+    left: 14px;
+  }
+
+  .ClientMeetings-spark {
+    position: absolute;
+    right: 12px;
+    bottom: 11px;
+    width: 88px;
+  }
+
+  .ClientMeetings-panel {
+    padding: 13px;
+  }
+
+  .ClientMeetings-quick {
+    display: block;
+  }
+
+  .ClientMeetings-quick button {
+    min-height: 64px;
+    grid-template-columns: 34px minmax(0, 1fr) 18px;
+    align-content: center;
+  }
+
+  .ClientMeetings-quick button + button {
+    margin-top: 10px;
+  }
+
+  .ClientMeetings-quick button > span {
+    grid-column: auto;
+  }
+
+  .ClientMeetings-managerInfo {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .ClientMeetings-managerPhoto {
+    width: 60px;
+    height: 60px;
+    font-size: 18px;
+  }
+
+  .ClientMeetings-managerInfo > div:last-child {
+    min-width: 0;
+  }
+
+  .ClientMeetings-managerInfo a {
+    overflow-wrap: anywhere;
+  }
+
+  .ClientMeetings-slots button,
+  .ClientMeetings-quick button {
+    min-height: 48px;
+  }
+
+  .ClientMeetings-notice {
+    flex-direction: column;
+  }
 }
 
 /* Keep the laptop layout on MacBook-sized screens instead of stacking it early. */
@@ -763,5 +963,78 @@
 
   .ClientMeetings-stats {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* An expanded portal sidebar removes 280px from the page width.  At laptop
+   widths the meeting grid needs to reflow based on that remaining space, not
+   the browser viewport, otherwise the table and right rail collide. */
+@media (min-width: 761px) and (max-width: 1440px) {
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientMeetings-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientMeetings-side {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 0;
+  }
+
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientMeetings-quick {
+    grid-column: 1 / -1;
+  }
+
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientMeetings-manager,
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientMeetings-slots {
+    height: 100%;
+  }
+
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientMeetings-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Ticket history stays a four-column layout on laptop screens.  The prior
+     760px minimum grid could push Updated and Status outside the panel when
+     the portal sidebar was expanded. */
+  .ClientMeetings-history {
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .ClientMeetings-ticketHead,
+  .ClientMeetings-ticketRow {
+    grid-template-columns: minmax(150px, 1.5fr) minmax(74px, 0.8fr) minmax(88px, 0.9fr) minmax(82px, 0.8fr);
+    min-width: 0;
+    gap: 10px;
+  }
+
+  .ClientMeetings-ticketHead > span,
+  .ClientMeetings-ticketRow > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ClientMeetings-ticketRow small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ClientMeetings-ticketRow > span:last-child {
+    overflow: visible;
+  }
+
+  .ClientMeetings-historyStatus {
+    max-width: 100%;
+    padding-inline: 8px;
+    white-space: nowrap;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 980px) {
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientMeetings-layout,
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientMeetings-side {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

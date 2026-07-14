@@ -2310,9 +2310,18 @@ const EmployeeProject = () => {
       {openTaskDialog && (
         <div className="EmployeeProject-modal">
           <div className="EmployeeProject-modal-backdrop" onClick={handleCloseTaskDialog} />
-          <div className="EmployeeProject-modal-content EmployeeProject-modal-md">
+          <div className="EmployeeProject-modal-content EmployeeProject-modal-md EmployeeProject-create-task-modal">
             <div className="EmployeeProject-modal-header EmployeeProject-modal-header-primary">
-              <h3>{editingTask ? "Edit Pending Task" : "Create New Task"}</h3>
+              <div className="EmployeeProject-create-task-heading">
+                <span className="EmployeeProject-create-task-heading-icon">+</span>
+                <div>
+                  <h3>{editingTask ? "Edit Pending Task" : "Create New Task"}</h3>
+                  <p>{editingTask ? "Update task details and assignees" : "Add task details and assign to team members"}</p>
+                </div>
+              </div>
+              <button className="EmployeeProject-modal-close" onClick={handleCloseTaskDialog} aria-label="Close task dialog">
+                <Icons.Close />
+              </button>
             </div>
             <div className="EmployeeProject-modal-body">
               <div className="EmployeeProject-task-form">
@@ -2322,6 +2331,7 @@ const EmployeeProject = () => {
                     type="text"
                     className={`EmployeeProject-input ${taskErrors.title ? 'EmployeeProject-input-error' : ''}`}
                     value={newTask.title}
+                    placeholder="Enter task title..."
                     onChange={(e) =>
                       setNewTask({ ...newTask, title: e.target.value })
                     }
@@ -2338,6 +2348,7 @@ const EmployeeProject = () => {
                     className="EmployeeProject-textarea"
                     rows="3"
                     value={newTask.description}
+                    placeholder="Enter task description..."
                     onChange={(e) =>
                       setNewTask({ ...newTask, description: e.target.value })
                     }
@@ -2360,6 +2371,7 @@ const EmployeeProject = () => {
                             checked={isSelected}
                             onChange={() => toggleTaskAssignedUser(userId)}
                           />
+                          <span className="EmployeeProject-user-avatar">{String(u.name || 'U').trim().charAt(0).toUpperCase()}</span>
                           <span className="EmployeeProject-user-tab-copy">
                             <strong>{u.name || 'Unnamed User'}</strong>
                             <small>{u.email || 'No email'}</small>
@@ -2377,19 +2389,19 @@ const EmployeeProject = () => {
                 </div>
 
                 <div className="EmployeeProject-form-group">
-                  <label>Due Date & Time</label>
-                  <input
-                    type="datetime-local"
-                    className={`EmployeeProject-input ${taskErrors.dueDate ? 'EmployeeProject-input-error' : ''}`}
-                    value={newTask.dueDate}
-                    min={getCurrentDateTimeInputValue()}
-                    onChange={(e) =>
-                      setNewTask({ ...newTask, dueDate: e.target.value })
-                    }
-                  />
-                  {taskErrors.dueDate && (
-                    <span className="EmployeeProject-error-text">{taskErrors.dueDate}</span>
-                  )}
+                      <label>Due Date & Time</label>
+                      <input
+                        type="datetime-local"
+                        className={`EmployeeProject-input ${taskErrors.dueDate ? 'EmployeeProject-input-error' : ''}`}
+                        value={newTask.dueDate}
+                        min={getCurrentDateTimeInputValue()}
+                        onChange={(e) =>
+                          setNewTask({ ...newTask, dueDate: e.target.value })
+                        }
+                      />
+                      {taskErrors.dueDate && (
+                        <span className="EmployeeProject-error-text">{taskErrors.dueDate}</span>
+                      )}
                 </div>
 
                 <div className="EmployeeProject-form-row">

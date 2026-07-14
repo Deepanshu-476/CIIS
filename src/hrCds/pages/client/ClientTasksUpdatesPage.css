@@ -625,6 +625,176 @@
   white-space: nowrap;
 }
 
+/* On MacBook/laptop widths an expanded 280px client sidebar leaves less room
+   than the viewport suggests. Keep all seven task columns visible instead of
+   relying on the table's desktop 920px minimum width. */
+@media (min-width: 921px) and (max-width: 1440px) {
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-tableWrap table {
+    min-width: 0;
+  }
+
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-tableWrap th,
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-tableWrap td {
+    padding: 10px 6px;
+    font-size: 10px;
+  }
+
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-tableWrap th:nth-child(1),
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-tableWrap td:nth-child(1) { width: 22%; }
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-tableWrap th:nth-child(2),
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-tableWrap td:nth-child(2) { width: 19%; }
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-tableWrap th:nth-child(3),
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-tableWrap td:nth-child(3) { width: 9%; }
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-tableWrap th:nth-child(4),
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-tableWrap td:nth-child(4) { width: 12%; }
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-tableWrap th:nth-child(5),
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-tableWrap td:nth-child(5) { width: 14%; }
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-tableWrap th:nth-child(6),
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-tableWrap td:nth-child(6) { width: 12%; }
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-tableWrap th:nth-child(7),
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-tableWrap td:nth-child(7) { width: 12%; }
+
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-taskName {
+    gap: 5px;
+  }
+
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-taskName span {
+    flex-basis: 19px;
+    width: 19px;
+    height: 19px;
+    font-size: 8px;
+  }
+
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-taskName strong {
+    font-size: 10px;
+  }
+
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-progress {
+    min-width: 0;
+    gap: 4px;
+  }
+
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-progress span {
+    width: 30px;
+    font-size: 9px;
+  }
+
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-progress div {
+    width: auto;
+    min-width: 28px;
+    flex: 1 1 auto;
+  }
+
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-priority {
+    gap: 4px;
+    font-size: 9px;
+  }
+
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-priority::before {
+    width: 5px;
+    height: 5px;
+  }
+
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-status {
+    max-width: 100%;
+    padding: 5px 6px;
+    overflow: hidden;
+    font-size: 8px;
+    text-overflow: ellipsis;
+  }
+
+  .ClientLayout-container.ClientLayout-sidebar-open .ClientTasksUpdatesPage-review {
+    width: 100%;
+    min-width: 64px;
+    padding: 0 5px;
+    font-size: 9px;
+  }
+
+  /* Client pages are rendered inside UserLayout. Its expanded sidebar adds
+     ClientDashboard-sidebar-open to the content area, so apply the same
+     compact table rules to the actual route container as well. */
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-tableWrap table {
+    min-width: 0;
+  }
+
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-tableWrap th,
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-tableWrap td {
+    padding: 10px 6px;
+    font-size: 10px;
+  }
+
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-tableWrap th:nth-child(1),
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-tableWrap td:nth-child(1) { width: 22%; }
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-tableWrap th:nth-child(2),
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-tableWrap td:nth-child(2) { width: 19%; }
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-tableWrap th:nth-child(3),
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-tableWrap td:nth-child(3) { width: 9%; }
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-tableWrap th:nth-child(4),
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-tableWrap td:nth-child(4) { width: 12%; }
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-tableWrap th:nth-child(5),
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-tableWrap td:nth-child(5) { width: 14%; }
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-tableWrap th:nth-child(6),
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-tableWrap td:nth-child(6) { width: 12%; }
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-tableWrap th:nth-child(7),
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-tableWrap td:nth-child(7) { width: 12%; }
+
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-taskName {
+    gap: 5px;
+  }
+
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-taskName span {
+    flex-basis: 19px;
+    width: 19px;
+    height: 19px;
+    font-size: 8px;
+  }
+
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-taskName strong {
+    font-size: 10px;
+  }
+
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-progress {
+    min-width: 0;
+    gap: 4px;
+  }
+
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-progress span {
+    width: 30px;
+    font-size: 9px;
+  }
+
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-progress div {
+    width: auto;
+    min-width: 28px;
+    flex: 1 1 auto;
+  }
+
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-priority {
+    gap: 4px;
+    font-size: 9px;
+  }
+
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-priority::before {
+    width: 5px;
+    height: 5px;
+  }
+
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-status {
+    max-width: 100%;
+    padding: 5px 6px;
+    overflow: hidden;
+    font-size: 8px;
+    text-overflow: ellipsis;
+  }
+
+  .ClientDashboard-sidebar-open .ClientTasksUpdatesPage-review {
+    width: 100%;
+    min-width: 64px;
+    padding: 0 5px;
+    font-size: 9px;
+  }
+}
+
 .ClientTasksUpdatesPage-pagination {
   justify-content: space-between;
   gap: 10px;

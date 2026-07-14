@@ -682,7 +682,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
                   color: theme.palette.text.secondary 
                 }}
               >
-                {user?.name || "User"}
+                Welcome, {user?.name || "User"}
               </Typography>
             )}
           </Box>

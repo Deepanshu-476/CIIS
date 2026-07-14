@@ -350,12 +350,16 @@
     transform: translateX(-100%);
     position: fixed;
   }
+
+  .ClientLayout-sidebar.open {
+    transform: translateX(0);
+  }
   
-  .ClientLayout-sidebar--collapsed {
+  .ClientLayout-sidebar.collapsed {
     transform: translateX(-100%);
   }
   
-  .ClientLayout-sidebar--collapsed + .ClientLayout-main,
+  .ClientLayout-sidebar.collapsed + .ClientLayout-main,
   .ClientLayout-main {
     margin-left: 0;
   }

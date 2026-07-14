@@ -280,13 +280,13 @@ const SupportTicketsPage = () => {
             </div>
             {upcomingMeetings.length > 0 ? upcomingMeetings.map((meeting, index) => (
               <div className="ClientMeetings-row" key={meeting.id || meeting.title}>
-                <span className="ClientMeetings-meetingTitle"><i><FiCalendar /></i>{meeting.title}</span>
-                <span className="ClientMeetings-member"><b>{meeting.avatar}</b>{meeting.member}</span>
-                <span>{meeting.date}</span>
-                <span>{meeting.time}</span>
-                <span className="ClientMeetings-type"><i className={`type-${meeting.type.replace(/\s/g, "").toLowerCase()}`}>{meeting.icon}</i>{meeting.type}</span>
-                <span><em className="ClientMeetings-status">{meeting.status}</em></span>
-                <span>
+                <span className="ClientMeetings-meetingTitle" data-label="Meeting"><i><FiCalendar /></i>{meeting.title}</span>
+                <span className="ClientMeetings-member" data-label="Team Member"><b>{meeting.avatar}</b>{meeting.member}</span>
+                <span data-label="Date">{meeting.date}</span>
+                <span data-label="Time">{meeting.time}</span>
+                <span className="ClientMeetings-type" data-label="Meeting Type"><i className={`type-${meeting.type.replace(/\s/g, "").toLowerCase()}`}>{meeting.icon}</i>{meeting.type}</span>
+                <span data-label="Status"><em className="ClientMeetings-status">{meeting.status}</em></span>
+                <span data-label="Action">
                   <button
                     className={!meeting.link ? "outline" : index === 3 ? "outline" : ""}
                     type="button"
@@ -314,13 +314,13 @@ const SupportTicketsPage = () => {
             </div>
             {filteredTickets.length > 0 ? filteredTickets.map((ticket, index) => (
               <div className="ClientMeetings-ticketRow" key={ticket.id || ticket.ticketNumber}>
-                <span>
+                <span data-label="Ticket">
                   <strong>{ticket.ticketNumber || formatPublicId('TKT', ticket, index)}</strong>
                   <small>{ticket.subject}</small>
                 </span>
-                <span>{ticket.category || 'General'}</span>
-                <span>{formatDate(ticket.updated || ticket.createdAt)}</span>
-                <span><em className={`ClientMeetings-historyStatus ${String(ticket.status || 'open').toLowerCase().replace(/\s/g, '')}`}>{ticket.status}</em></span>
+                <span data-label="Category">{ticket.category || 'General'}</span>
+                <span data-label="Updated">{formatDate(ticket.updated || ticket.createdAt)}</span>
+                <span data-label="Status"><em className={`ClientMeetings-historyStatus ${String(ticket.status || 'open').toLowerCase().replace(/\s/g, '')}`}>{ticket.status}</em></span>
               </div>
             )) : (
               <div className="ClientMeetings-ticketRow ClientMeetings-emptyRow">

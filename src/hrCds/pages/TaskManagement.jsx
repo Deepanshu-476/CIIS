@@ -263,10 +263,35 @@ const API_PERIOD_BY_FILTER = {
   'last-month': 'last-month',
 };
 
+const formatActivityTimestamp = (value) => {
+  if (!value) return 'Date not available';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Date not available';
+  return `${date.toLocaleDateString()} at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+};
+
+const formatActivityAction = (value) => {
+  if (!value) return 'Update';
+  return String(value)
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase());
+};
+
+const renderActivityDescription = (description = '') => {
+  const statusPattern = /(in progress|pending|completed|cancelled|on hold)/gi;
+  return String(description).split(statusPattern).map((part, index) => {
+    const statusClass = part.toLowerCase().replace(/\s+/g, '-');
+    return /^(in progress|pending|completed|cancelled|on hold)$/i.test(part)
+      ? <span className={`activity-status-text ${statusClass}`} key={`${part}-${index}`}>{part}</span>
+      : <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>;
+  });
+};
+
 const UserCreateTask = () => {
   
   const [openDialog, setOpenDialog] = useState(false);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [priorityMenuOpen, setPriorityMenuOpen] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [userRole, setUserRole] = useState('');
   const [userId, setUserId] = useState('');
@@ -391,6 +416,7 @@ const UserCreateTask = () => {
   const [filePreviews, setFilePreviews] = useState([]);
   const mediaRecorderRef = useRef(null);
   const fileUploadInputRef = useRef(null);
+  const personalTaskContentRef = useRef(null);
   const chunks = useRef([]);
 
   const [overdueTasks, setOverdueTasks] = useState([]);
@@ -413,6 +439,14 @@ const UserCreateTask = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    if (openDialog) {
+      requestAnimationFrame(() => {
+        if (personalTaskContentRef.current) personalTaskContentRef.current.scrollTop = 0;
+      });
+    }
+  }, [openDialog]);
 
   
   const showSnackbar = (message, severity = 'info') => {
@@ -452,7 +486,7 @@ const UserCreateTask = () => {
         showSnackbar('Invalid user data. Please log in again.', 'error');
         return;
       }
-
+ 
       setUserRole(userRole);
       setUserId(userId);
       setUserName(userName);
@@ -2007,7 +2041,21 @@ const UserCreateTask = () => {
       
       void 0;
       
-      setActivityLogs(logs);
+      const normalizedLogs = logs.map((log) => {
+        const actor = log.user || log.performedBy || log.createdBy || null;
+        const actorName = log.userName || actor?.name || actor?.fullName || actor?.email || '';
+        const rawDate = log.createdAt || log.performedAt || log.updatedAt || log.timestamp || null;
+
+        return {
+          ...log,
+          user: typeof actor === 'object' ? actor : null,
+          userName: actorName,
+          action: log.action || log.type || 'update',
+          createdAt: rawDate
+        };
+      });
+
+      setActivityLogs(normalizedLogs);
       setActivityDialog({ open: true, taskId });
       
     } catch (error) {
@@ -3788,25 +3836,28 @@ const UserCreateTask = () => {
       </div>
 
       
-      <div className="user-create-task-dialog-overlay" style={{ display: openDialog ? 'flex' : 'none' }}>
-        <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
+      <div className="user-create-task-dialog-overlay personal-task-overlay" style={{ display: openDialog ? 'flex' : 'none' }}>
+        <div className={`user-create-task-dialog personal-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
           maxWidth: isMobile ? '95%' : isTablet ? '550px' : '600px',
           width: isMobile ? '95%' : 'auto'
         }}>
           <div className="user-create-task-dialog-title">
-            <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-2">
-              <FiPlus size={isMobile ? 18 : 24} />
-              <div style={{ fontSize: isMobile ? '18px' : '24px' }}>Create Personal Task</div>
+            <div className="personal-task-heading">
+              <span className="personal-task-heading-icon"><FiFileText /></span>
+              <div>
+                <div className="personal-task-heading-text">Create Personal Task</div>
+                <div className="personal-task-heading-subtitle">
+                  This task will be automatically assigned to you ({userName})
+                </div>
+              </div>
             </div>
-            <div style={{ fontSize: isMobile ? '12px' : '14px', color: '#666', marginTop: '4px' }}>
-              This task will be automatically assigned to you ({userName})
-            </div>
+            <button type="button" className="personal-task-close" onClick={() => setOpenDialog(false)} aria-label="Close dialog"><FiX /></button>
           </div>
           
-          <div className="user-create-task-dialog-content">
+          <div className="user-create-task-dialog-content" ref={personalTaskContentRef}>
             <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
-              <div className="user-create-task-alert info" style={{ padding: isMobile ? '12px' : '16px' }}>
-                This task will be automatically assigned to you ({userName})
+              <div className="user-create-task-alert info personal-task-info">
+                <FiInfo /> <span>This task will be automatically assigned to you ({userName})</span>
               </div>
 
               <div className="user-create-task-form-control">
@@ -3852,15 +3903,44 @@ const UserCreateTask = () => {
 
                 <div className="user-create-task-form-control" style={{ flex: 1 }}>
                   <label>Priority</label>
-                  <select
-                    className="user-create-task-select"
-                    value={newTask.priority}
-                    onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
+                  <div className={`personal-task-priority-select ${priorityMenuOpen ? 'is-open' : ''}`}>
+                    <button
+                      type="button"
+                      className="personal-task-priority-trigger"
+                      onClick={() => setPriorityMenuOpen(open => !open)}
+                      aria-haspopup="listbox"
+                      aria-expanded={priorityMenuOpen}
+                    >
+                      <FiFlag className={`priority-flag ${newTask.priority}`} />
+                      <span>{newTask.priority.charAt(0).toUpperCase() + newTask.priority.slice(1)}</span>
+                      <span className="priority-chevron">⌄</span>
+                    </button>
+                    {priorityMenuOpen && (
+                      <div className="personal-task-priority-menu" role="listbox">
+                        {[
+                          { value: 'low', label: 'Low', description: 'Low priority task' },
+                          { value: 'medium', label: 'Medium', description: 'Medium priority task' },
+                          { value: 'high', label: 'High', description: 'High priority task' }
+                        ].map(option => (
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={newTask.priority === option.value}
+                            className={`personal-task-priority-option ${newTask.priority === option.value ? 'selected' : ''}`}
+                            key={option.value}
+                            onClick={() => {
+                              setNewTask({ ...newTask, priority: option.value });
+                              setPriorityMenuOpen(false);
+                            }}
+                          >
+                            <span className={`priority-option-icon ${option.value}`}><FiFlag /></span>
+                            <span className="priority-option-copy"><strong>{option.label}</strong><small>{option.description}</small></span>
+                            {newTask.priority === option.value && <FiCheck className="priority-option-check" />}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -4002,10 +4082,10 @@ const UserCreateTask = () => {
                         </span>
                       </>
                     ) : (
-                      <>
-                        <FiFileText />
-                        {isMobile ? 'Upload' : 'Upload Files'}
-                      </>
+                      <span className="personal-task-attachment-content">
+                        <span className="personal-task-attachment-icon"><FiFileText /></span>
+                        <span><strong>{isMobile ? 'Upload' : 'Upload Files'}</strong><small>Drag & drop or click to upload</small></span>
+                      </span>
                     )}
                     <input
                       ref={fileUploadInputRef}
@@ -4028,8 +4108,10 @@ const UserCreateTask = () => {
                       borderColor: isRecording ? '#f44336' : undefined
                     }}
                   >
-                    <FiMic />
-                    {isRecording ? "Stop" : (isMobile ? "Record" : "Record Voice")}
+                    <span className="personal-task-attachment-content">
+                      <span className="personal-task-attachment-icon"><FiMic /></span>
+                      <span><strong>{isRecording ? "Stop" : (isMobile ? "Record" : "Record Voice")}</strong><small>{isRecording ? 'Recording in progress' : 'Record a voice note'}</small></span>
+                    </span>
                   </button>
                 </div>
 
@@ -4311,34 +4393,37 @@ const UserCreateTask = () => {
       </div>
 
       
-      <div className="user-create-task-dialog-overlay" style={{ display: remarksDialog.open ? 'flex' : 'none' }}>
-        <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ maxWidth: isMobile ? '95%' : isTablet ? '700px' : '800px', width: isMobile ? '95%' : 'auto' }}>
+      <div className="user-create-task-dialog-overlay remarks-dialog-overlay" style={{ display: remarksDialog.open ? 'flex' : 'none' }}>
+        <div className={`user-create-task-dialog task-remarks-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ maxWidth: isMobile ? '95%' : isTablet ? '700px' : '800px', width: isMobile ? '95%' : 'auto' }}>
           <div className="user-create-task-dialog-title">
-            <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
-              <FiMessageSquare />
-              <div>Task Remarks</div>
+            <div className="remarks-heading">
+              <span className="remarks-heading-icon"><FiMessageSquare /></span>
+              <div><div>Task Remarks</div><small>Add remarks, notes or feedback related to this task.</small></div>
             </div>
+            <button type="button" className="personal-task-close" onClick={() => setRemarksDialog({ open: false, taskId: null, remarks: [], source: null })}><FiX /></button>
           </div>
           
           <div className="user-create-task-dialog-content">
             <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
               
-              <div className="user-create-task-paper">
+              <div className="user-create-task-paper remarks-compose-card">
                 <div className="user-create-task-paper-content">
-                  <div style={{ marginBottom: isMobile ? '12px' : '16px', fontWeight: 600 }}>Add New Remark</div>
+                  <div className="remarks-section-title"><i className="remarks-add-dot" aria-hidden="true" />Add New Remark</div>
                   
                   <textarea
                     className="user-create-task-input"
                     rows={isMobile ? 2 : 3}
                     placeholder="Enter your remark here..."
                     value={newRemark}
+                    maxLength={1000}
                     onChange={(e) => setNewRemark(e.target.value)}
                     style={{ marginBottom: isMobile ? '12px' : '16px', width: '100%' }}
                   />
+                  <div className="remarks-character-count">{newRemark.length}/1000</div>
 
                   
                   <div style={{ marginBottom: isMobile ? '12px' : '16px' }}>
-                    <div style={{ marginBottom: isMobile ? '6px' : '8px', fontWeight: 600 }}>
+                    <div className="remarks-section-title"><svg className="remarks-title-dot" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="5" /></svg>
                       Attach Images (Optional)
                       {(remarksDialog.source === 'client' || taskViewMode === 'client') && (
                         <span style={{ fontSize: isMobile ? '10px' : '11px', color: '#666', marginLeft: '8px' }}>
@@ -4351,6 +4436,7 @@ const UserCreateTask = () => {
                       onDragOver={handleDragOver}
                       onDrop={handleDrop}
                       onClick={() => document.getElementById('remark-image-upload').click()}
+                      className="remarks-upload-zone"
                       style={{
                         border: '2px dashed #ccc',
                         borderRadius: isMobile ? '6px' : '8px',
@@ -4364,7 +4450,7 @@ const UserCreateTask = () => {
                       <div className="user-create-task-flex user-create-task-flex-column user-create-task-align-center user-create-task-gap-1">
                         <FiImage size={isMobile ? 24 : 32} color="#666" />
                         <div style={{ fontSize: isMobile ? '12px' : '14px', color: '#666' }}>
-                          Drag and drop images here, or click to select
+                          Drag and drop images here, or click to browse
                         </div>
                         <div style={{ fontSize: isMobile ? '10px' : '12px', color: '#999' }}>
                           {(remarksDialog.source === 'client' || taskViewMode === 'client')
@@ -4376,7 +4462,7 @@ const UserCreateTask = () => {
                           style={{ marginTop: '8px', padding: isMobile ? '8px 12px' : '10px 16px' }}
                         >
                           <FiCamera />
-                          {!isMobile && "Choose Images"}
+                          {!isMobile && "Choose Image"}
                         </button>
                       </div>
                       
@@ -4450,12 +4536,12 @@ const UserCreateTask = () => {
 
               
               <div>
-                <div style={{ marginBottom: isMobile ? '12px' : '16px', fontWeight: 600 }}>Remarks History</div>
+                <div className="remarks-section-title remarks-history-title"><svg className="remarks-history-dot" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="5" /></svg>Remarks History</div>
                 
                 {remarksDialog.remarks.length > 0 ? (
                   <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2">
                     {remarksDialog.remarks.map((remark, index) => (
-                      <div key={index} className="user-create-task-paper">
+                      <div key={index} className="user-create-task-paper remark-history-card">
                         <div className="user-create-task-paper-content">
                           <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-1.5">
                             <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center user-create-task-gap-1">
@@ -4730,56 +4816,42 @@ const UserCreateTask = () => {
       </div>
 
       
-      <div className="user-create-task-dialog-overlay" style={{ display: activityDialog.open ? 'flex' : 'none' }}>
-        <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
+      <div className="user-create-task-dialog-overlay activity-logs-overlay" style={{ display: activityDialog.open ? 'flex' : 'none' }}>
+        <div className={`user-create-task-dialog activity-logs-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
           maxWidth: isMobile ? '95%' : isTablet ? '700px' : '800px',
           width: isMobile ? '95%' : 'auto'
         }}>
           <div className="user-create-task-dialog-title">
-            <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
-              <FiActivity />
-              <div>Activity Logs</div>
+            <div className="activity-logs-heading">
+              <span className="activity-logs-heading-icon"><FiActivity /></span>
+              <div><div>Activity Logs</div><small>View recent activities and actions performed in the system.</small></div>
             </div>
+            <button type="button" className="personal-task-close" onClick={() => setActivityDialog({ open: false, taskId: null })}><FiX /></button>
           </div>
           <div className="user-create-task-dialog-content">
             {activityLogs.length > 0 ? (
-              <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-1">
+              <div className="activity-logs-timeline">
                 {activityLogs.map((log, index) => (
-                  <div key={index} className="user-create-task-paper">
+                  <div key={log._id || index} className="user-create-task-paper activity-log-card">
+                    <span className="activity-timeline-dot" />
                     <div className="user-create-task-paper-content">
-                      <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-1">
-                        <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center user-create-task-gap-1">
-                          <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1.5">
-                            <div style={{
-                              width: isMobile ? '28px' : '32px',
-                              height: isMobile ? '28px' : '32px',
-                              borderRadius: '50%',
-                              backgroundColor: '#f0f0f0',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontWeight: 600,
-                              fontSize: isMobile ? '12px' : '14px'
-                            }}>
-                              {log.userName?.charAt(0)?.toUpperCase() || log.user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                            </div>
-                            <div>
-                              <div style={{ fontWeight: 600, fontSize: isMobile ? '13px' : '14px' }}>
-                                {log.userName || log.user?.name || 'Unknown User'}
-                              </div>
-                              <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#666' }}>
-                                {log.action || 'Update'}
-                              </div>
-                            </div>
+                      <div className="activity-log-card-header">
+                        <div className="activity-log-user">
+                          <div className="activity-log-avatar">
+                            {(log.userName || log.user?.name || '?').split(/\s+/).slice(0, 2).map(part => part.charAt(0).toUpperCase()).join('')}
                           </div>
-                          <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#666' }}>
-                            {new Date(log.createdAt).toLocaleDateString()} at {new Date(log.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          <div className="activity-log-user-copy">
+                            <strong>{log.userName || log.user?.name || 'User details unavailable'}</strong>
+                            <span className={`activity-action-badge ${(log.action || '').toLowerCase().replace(/_/g, '-')}`}>
+                              {formatActivityAction(log.action)}
+                            </span>
                           </div>
                         </div>
-                        <div style={{ fontSize: isMobile ? '13px' : '14px' }}>
-                          {log.description}
+                        <div className="activity-log-date">
+                          {formatActivityTimestamp(log.createdAt)} <FiCalendar />
                         </div>
                       </div>
+                      <div className="activity-log-description">{renderActivityDescription(log.description)}</div>
                     </div>
                   </div>
                 ))}

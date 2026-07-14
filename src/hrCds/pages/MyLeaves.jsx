@@ -12,10 +12,8 @@ import {
   FiInfo,
   FiUser,
   FiList,
-  FiSearch,
   FiFilter,
   FiDownload,
-  FiRefreshCw,
   FiX,
   FiBriefcase,
   FiUsers,
@@ -30,6 +28,7 @@ import { margin } from "@mui/system";
 
 const MyLeaves = () => {
   const [tab, setTab] = useState(0);
+  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const [leaves, setLeaves] = useState([]);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [notification, setNotification] = useState(null);
@@ -77,6 +76,11 @@ const closeDetailModal = () => {
   setSelectedLeave(null);
   setIsDetailModalOpen(false);
 };
+
+  const openApplyLeaveModal = () => {
+    setTab(0);
+    setIsApplyModalOpen(true);
+  };
   
   const [jobRoles, setJobRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -648,6 +652,7 @@ const closeDetailModal = () => {
       await fetchLeaves();
       setForm({ type: "Casual", startDate: "", endDate: "", reason: "" });
       setTab(0);
+      setIsApplyModalOpen(false);
     } catch (err) {
       console.error('Error applying leave:', err);
       console.error('Apply leave response:', err?.response?.data);
@@ -734,24 +739,13 @@ const closeDetailModal = () => {
           </div>
 
           <div className="MyLeaves-header-actions">
-            <div className="MyLeaves-search-container">
-              <FiSearch className="MyLeaves-search-icon" />
-              <input
-                type="text"
-                placeholder="Search leaves..."
-                className="MyLeaves-search-input"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-
             <button
-              className="MyLeaves-icon-button"
-              onClick={forceRefreshUserInfo}
-              disabled={refreshing || jobRolesLoading || departmentsLoading}
-              title="Refresh all data"
+              type="button"
+              className="MyLeaves-header-apply-button"
+              onClick={openApplyLeaveModal}
             >
-              <FiRefreshCw className={refreshing ? "MyLeaves-spin" : ""} />
+              <FiPlus size={16} />
+              Apply Leave
             </button>
           </div>
         </div>
@@ -850,13 +844,6 @@ const closeDetailModal = () => {
             {stats.total > 0 && (
               <span className="MyLeaves-tab-badge">{stats.total}</span>
             )}
-          </button>
-          <button
-            className={`MyLeaves-tab ${tab === 1 ? "MyLeaves-active-tab" : ""}`}
-            onClick={() => setTab(1)}
-          >
-            <FiPlus />
-            <span>Apply Leave</span>
           </button>
         </div>
 
@@ -1154,13 +1141,26 @@ const closeDetailModal = () => {
 )}
 
         
-        {tab === 1 && (
-          <div className="MyLeaves-apply-tab">
-            <div className="MyLeaves-apply-form-container">
-              <h2 className="MyLeaves-form-title">Apply for New Leave</h2>
-              <p className="MyLeaves-form-subtitle">
-                Fill in the details to submit a leave request
-              </p>
+        {isApplyModalOpen && (
+          <div className="MyLeaves-apply-modal-overlay" onClick={() => setIsApplyModalOpen(false)}>
+            <div className="MyLeaves-apply-modal" onClick={(event) => event.stopPropagation()}>
+              <button
+                type="button"
+                className="MyLeaves-apply-modal-close"
+                onClick={() => setIsApplyModalOpen(false)}
+                aria-label="Close apply leave form"
+              >
+                <FiX />
+              </button>
+              <div className="MyLeaves-apply-tab">
+              <div className="MyLeaves-apply-form-container">
+              <div className="MyLeaves-apply-modal-heading">
+                <span className="MyLeaves-apply-title-icon"><FiCalendar /></span>
+                <h2 className="MyLeaves-form-title">Apply for New Leave</h2>
+                <p className="MyLeaves-form-subtitle">
+                  Fill in the details to submit a leave request
+                </p>
+              </div>
 
               
               <div className="MyLeaves-form">
@@ -1184,7 +1184,7 @@ const closeDetailModal = () => {
                   </select>
                 </div>
 
-                <div className="MyLeaves-form-row">
+                <div className="MyLeaves-form-row MyLeaves-date-range-group">
                   <div className="MyLeaves-form-group">
                     <label htmlFor="startDate">
                       <FiCalendar className="MyLeaves-form-icon" />
@@ -1218,7 +1218,7 @@ const closeDetailModal = () => {
                   </div>
                 </div>
 
-                <div className="MyLeaves-form-group">
+                <div className="MyLeaves-form-group MyLeaves-total-days-group">
                   <label htmlFor="days">
                     <FiClock className="MyLeaves-form-icon" />
                     Total Days
@@ -1228,7 +1228,7 @@ const closeDetailModal = () => {
                   </div>
                 </div>
 
-                <div className="MyLeaves-form-group">
+                <div className="MyLeaves-form-group MyLeaves-reason-group">
                   <label htmlFor="reason">
                     <FiInfo className="MyLeaves-form-icon" />
                     Reason for Leave
@@ -1242,13 +1242,14 @@ const closeDetailModal = () => {
                     placeholder="Please provide a reason for your leave request..."
                     rows={4}
                   />
+                  <span className="MyLeaves-reason-count">{form.reason.length}/500</span>
                 </div>
 
                 <div className="MyLeaves-form-actions">
                   <button
                     type="button"
                     className="MyLeaves-form-cancel"
-                    onClick={() => setTab(0)}
+                    onClick={() => setIsApplyModalOpen(false)}
                   >
                     Cancel
                   </button>
@@ -1261,13 +1262,25 @@ const closeDetailModal = () => {
                     {loading ? 'Applying...' : (
                       <>
                         <FiPlus size={16} />
-                        Apply for Leave
+                        Submit Request
                       </>
                     )}
                   </button>
                 </div>
               </div>
+              <aside className="MyLeaves-guidelines-panel">
+                <div className="MyLeaves-guidelines-title"><span>♢</span><h3>Leave Guidelines</h3></div>
+                <ul>
+                  <li>Submit your request in advance whenever possible.</li>
+                  <li>Ensure your work is handed over properly.</li>
+                  <li>Your manager will review and approve the request.</li>
+                  <li>You will be notified once the request is processed.</li>
+                </ul>
+                <div className="MyLeaves-guidelines-note">♥ <span>Take time to rest.<br /><strong>A fresh you, does better!</strong></span></div>
+              </aside>
             </div>
+            </div>
+          </div>
           </div>
         )}
       </div>

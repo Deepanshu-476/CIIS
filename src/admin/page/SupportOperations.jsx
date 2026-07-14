@@ -2,19 +2,39 @@ import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import axiosInstance from "../../utils/axiosConfig";
 import {
-  Bell,
   Building2,
-  BriefcaseBusiness,
-  Download,
-  Filter,
-  Inbox,
+  ChevronLeft,
+  ChevronRight,
+  Edit3,
+  Menu,
+  MoreVertical,
   Search,
-  ShieldAlert,
-  TicketCheck,
+  ShieldCheck,
   UserCheck,
+  UserPlus,
   Users,
 } from "lucide-react";
 import "../../hrCds/pages/SupportCenter.css";
+
+const fallbackDepartments = [
+  { id: "it", name: "IT Department", description: "Handles all IT related queries", employeeCount: 28, openTickets: 15, supportHeadName: "Akhil Mehta", supportHead: { name: "Akhil Mehta", jobRole: "IT Support Lead" } },
+  { id: "hr", name: "HR Department", description: "Handles HR & policy queries", employeeCount: 35, openTickets: 7, supportHeadName: "Pooja Yadav", supportHead: { name: "Pooja Yadav", jobRole: "HR Manager" } },
+  { id: "finance", name: "Finance Department", description: "Handles finance & payroll queries", employeeCount: 22, openTickets: 9, supportHeadName: "Sandeep Kumar", supportHead: { name: "Sandeep Kumar", jobRole: "Finance Manager" } },
+  { id: "ops", name: "Operations Department", description: "Handles operations queries", employeeCount: 18, openTickets: 4, supportHeadName: "Ritika Sharma", supportHead: { name: "Ritika Sharma", jobRole: "Operations Lead" } },
+  { id: "marketing", name: "Marketing Department", description: "Handles marketing queries", employeeCount: 16, openTickets: 3, supportHeadName: "Vikas Singh", supportHead: { name: "Vikas Singh", jobRole: "Marketing Manager" } },
+  { id: "sales", name: "Sales Department", description: "Handles sales related queries", employeeCount: 20, openTickets: 10, supportHeadName: "Neha Aggarwal", supportHead: { name: "Neha Aggarwal", jobRole: "Sales Manager" } },
+  { id: "cs", name: "Customer Support", description: "Handles customer support chats", employeeCount: 30, openTickets: 12, supportHeadName: "Manoj Patel", supportHead: { name: "Manoj Patel", jobRole: "Support Manager" } },
+  { id: "admin", name: "Admin Department", description: "Handles admin queries", employeeCount: 12, openTickets: 0, supportHeadName: "Unassigned" },
+  { id: "procurement", name: "Procurement Department", description: "Handles procurement queries", employeeCount: 9, openTickets: 0, supportHeadName: "Unassigned" },
+];
+
+const fallbackEmployees = [
+  { id: "emp-akhil", name: "Akhil Mehta", email: "akhil@ciisnetwork.com", jobRole: "IT Support Lead" },
+  { id: "emp-vikas", name: "Vikas Kumar", email: "vikas@ciisnetwork.com", jobRole: "Senior IT Engineer" },
+  { id: "emp-neha", name: "Neha Sharma", email: "neha@ciisnetwork.com", jobRole: "System Administrator" },
+  { id: "emp-rohit", name: "Rohit Verma", email: "rohit@ciisnetwork.com", jobRole: "Network Engineer" },
+  { id: "emp-priya", name: "Priya Singh", email: "priya@ciisnetwork.com", jobRole: "IT Support Executive" },
+];
 
 const fallbackTickets = [
   { id: "SUP-2208", employee: "Nisha Sharma", company: "CIIS Network", issue: "Payroll escalation", queue: "Payroll", status: "Escalated", priority: "Critical", owner: "Ritika", age: "1h 12m" },
@@ -80,6 +100,26 @@ const mapEmployee = employee => ({
   departmentName: employee.departmentName || getEntityName(employee.department),
 });
 
+const getInitials = value => String(value || "U")
+  .split(/\s+/)
+  .filter(Boolean)
+  .slice(0, 2)
+  .map(part => part.charAt(0).toUpperCase())
+  .join("") || "U";
+
+const isDepartmentAssigned = department => {
+  const headName = String(department?.supportHeadName || department?.supportHead?.name || "").trim().toLowerCase();
+  return Boolean(department?.supportHead || (headName && headName !== "unassigned"));
+};
+
+const ticketTone = count => {
+  const value = Number(count || 0);
+  if (value >= 12) return "hot";
+  if (value >= 7) return "warm";
+  if (value > 0) return "cool";
+  return "quiet";
+};
+
 const employeeBelongsToDepartment = (employee, department) => {
   if (!department) return true;
   const employeeDepartmentId = getEntityId(employee.department);
@@ -92,7 +132,8 @@ const employeeBelongsToDepartment = (employee, department) => {
 
 const SupportOperations = () => {
   const [query, setQuery] = useState("");
-  const [queue, setQueue] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("All Status");
+  const [departmentFilter, setDepartmentFilter] = useState("All Departments");
   const [tickets, setTickets] = useState(fallbackTickets);
   const [departments, setDepartments] = useState([]);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
@@ -148,6 +189,10 @@ const SupportOperations = () => {
       }
     }
 
+    if (!mapped.length) {
+      mapped = fallbackDepartments;
+    }
+
     setDepartments(mapped);
     setSelectedDepartmentId(current => mapped.some(department => department.id === current) ? current : mapped[0]?.id || "");
   };
@@ -193,8 +238,8 @@ const SupportOperations = () => {
       setSelectedEmployeeId(mapped[0]?.id || "");
     } catch (error) {
       console.warn("Company users fallback failed:", error.message);
-      setDepartmentEmployees([]);
-      setSelectedEmployeeId("");
+      setDepartmentEmployees(fallbackEmployees);
+      setSelectedEmployeeId(fallbackEmployees[0]?.id || "");
     }
   };
 
@@ -260,192 +305,196 @@ const SupportOperations = () => {
   const filteredTickets = useMemo(() => {
     const searchTerm = query.trim().toLowerCase();
     return tickets.filter(ticket => {
-      const matchesQueue = queue === "All" || ticket.queue === queue;
+      const matchesQueue = departmentFilter === "All Departments" || ticket.queue === departmentFilter;
       const matchesQuery = !searchTerm || Object.values(ticket).join(" ").toLowerCase().includes(searchTerm);
       return matchesQueue && matchesQuery;
     });
-  }, [query, queue, tickets]);
-
-  const adminStats = [
-    { icon: Inbox, title: "Enquiries", value: String(stats.enquiries), note: `+${stats.newEnquiriesToday} today`, tone: "blue" },
-    { icon: TicketCheck, title: "Open Tickets", value: String(stats.openTickets), note: `${stats.escalatedTickets} escalated`, tone: "green" },
-    { icon: ShieldAlert, title: "Employee Issues", value: String(stats.employeeIssues), note: `${stats.escalatedTickets} escalated`, tone: "rose" },
-  ];
+  }, [query, departmentFilter, tickets]);
 
   const selectedDepartment = departments.find(department => department.id === selectedDepartmentId);
+  const assignedDepartments = departments.filter(isDepartmentAssigned);
+  const unassignedDepartments = departments.filter(department => !isDepartmentAssigned(department));
+  const departmentHeads = assignedDepartments.length;
+  const departmentSearchTerm = query.trim().toLowerCase();
+  const filteredDepartments = departments.filter(department => {
+    const status = isDepartmentAssigned(department) ? "Assigned" : "Unassigned";
+    const matchesSearch = !departmentSearchTerm || [
+      department.name,
+      department.description,
+      department.supportHeadName,
+      status,
+    ].join(" ").toLowerCase().includes(departmentSearchTerm);
+    const matchesStatus = statusFilter === "All Status" || status === statusFilter;
+    const matchesDepartment = departmentFilter === "All Departments" || department.name === departmentFilter;
+    return matchesSearch && matchesStatus && matchesDepartment;
+  });
+  const assignableEmployees = departmentEmployees.length ? departmentEmployees : fallbackEmployees;
+  const selectedEmployee = assignableEmployees.find(employee => employee.id === selectedEmployeeId) || assignableEmployees[0];
 
   return (
-    <main className="support-page support-admin-page">
-      <section className="support-hero glass-card">
-        <div>
-          <div className="support-eyebrow">
-            <BriefcaseBusiness size={16} />
-            Super Admin Support Operations
-          </div>
-          <h1>Unified support command center.</h1>
-          <p>
-            Manage enquiries, ticket queues, and employee issue tracking from one focused support workspace.
-          </p>
-          <div className="support-hero-actions">
-            <button className="support-primary-btn" onClick={handleExportReport}>
-              <Download size={18} />
-              Export Report
-            </button>
-            <button className="support-secondary-btn" onClick={fetchDashboard}>
-              <Bell size={18} />
-              {loading ? "Refreshing..." : "Refresh Data"}
-            </button>
-          </div>
+    <main className="support-ops-page">
+      <header className="support-ops-topbar support-ops-topbar-simple">
+        <div className="support-ops-title">
+          <button type="button" aria-label="Menu"><Menu size={20} /></button>
+          <strong>Support Operations</strong>
+          <span><i /> Live</span>
         </div>
-        
-      </section>
+      </header>
 
-      <section className="support-stats-grid">
-        {adminStats.map(({ icon: Icon, title, value, note, tone }) => (
-          <article className={`support-stat glass-card support-tone-${tone}`} key={title}>
-            <div className="support-stat-icon"><Icon size={22} /></div>
-            <div>
-              <strong>{value}</strong>
-              <span>{title}</span>
-              <small>{note}</small>
-            </div>
+      <section className="support-ops-stats">
+        {[
+          { icon: Building2, label: "Total Departments", value: departments.length, note: "Active Departments", tone: "violet" },
+          { icon: Users, label: "Assigned Departments", value: assignedDepartments.length, note: "Chat Handled", tone: "green" },
+          { icon: UserPlus, label: "Unassigned Departments", value: unassignedDepartments.length, note: "No Department Head", tone: "orange" },
+          { icon: ShieldCheck, label: "Total Department Heads", value: departmentHeads, note: "Active Heads", tone: "blue" },
+        ].map(({ icon: Icon, label, value, note, tone }) => (
+          <article className={`support-ops-stat support-ops-${tone}`} key={label}>
+            <div><Icon size={30} /></div>
+            <span>{label}</span>
+            <strong>{value}</strong>
+            <small>{note}</small>
+            <button type="button">View All</button>
           </article>
         ))}
       </section>
 
-      <section className="support-department-admin glass-card">
-        <div className="support-panel-header">
-          <div>
-            <span className="support-panel-kicker">Support Management</span>
-            <h2>Department Heads</h2>
+      <section className="support-ops-grid">
+        <div className="support-ops-card support-ops-table-card">
+          <div className="support-ops-card-head">
+            <h2>Department Assignment</h2>
+            <p>Assign a Department Head to handle and manage department chats</p>
           </div>
-          <Building2 size={20} />
-        </div>
-
-        <div className="support-department-layout">
-          <div className="support-department-list">
-            {departments.length ? departments.map(department => (
-              <button
-                className={`support-department-card ${selectedDepartmentId === department.id ? "active" : ""}`}
-                key={department.id}
-                onClick={() => setSelectedDepartmentId(department.id)}
-              >
-                <strong>{department.name}</strong>
-                <span>{department.employeeCount} employees - {department.openTickets} open chats</span>
-                <small>Head: {department.supportHeadName}</small>
-              </button>
-            )) : (
-              <div className="support-empty-state">
-                <Building2 size={20} />
-                <span>No departments found for this company.</span>
-              </div>
-            )}
-          </div>
-
-          <div className="support-employee-assignment">
-            <div className="support-assignment-summary">
-              <UserCheck size={20} />
-              <div>
-                <strong>{selectedDepartment?.name || "Select department"}</strong>
-                <span>Current Head: {selectedDepartment?.supportHeadName || "Unassigned"}</span>
-              </div>
-            </div>
-
-            <div className="support-toolbar">
-              <select value={selectedEmployeeId} onChange={event => setSelectedEmployeeId(event.target.value)}>
-                {departmentEmployees.length ? departmentEmployees.map(employee => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name} - {employee.jobRole}
-                  </option>
-                )) : <option value="">No employees found</option>}
-              </select>
-              <button className="support-primary-btn" onClick={handleAssignHead} disabled={!departmentEmployees.length}>
-                <UserCheck size={18} />
-                Assign Head
-              </button>
-            </div>
-
-            <div className="support-employee-list">
-              {departmentEmployees.length ? departmentEmployees.map(employee => (
-                <div className="support-employee-row" key={employee.id}>
-                  <div>
-                    <strong>{employee.name}</strong>
-                    <span>{employee.email}</span>
-                  </div>
-                  <small>{employee.employeeId || employee.jobRole}</small>
-                </div>
-              )) : (
-                <div className="support-empty-state">
-                  <Users size={20} />
-                  <span>No employees found for the selected department.</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="support-workspace support-status-workspace">
-        <div className="support-panel glass-card support-ticket-panel">
-          <div className="support-panel-header">
-            <div>
-              <span className="support-panel-kicker">Tickets Management</span>
-              <h2>Active Employee Issues</h2>
-            </div>
-            <button className="support-icon-btn" aria-label="Filter tickets"><Filter size={18} /></button>
-          </div>
-          <div className="support-toolbar">
-            <label className="support-search">
-              <Search size={18} />
-              <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search employee, ticket, issue" />
+          <div className="support-ops-filters">
+            <label>
+              <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search department..." />
+              <Search size={17} />
             </label>
-            <select value={queue} onChange={event => setQueue(event.target.value)}>
-              <option>All</option>
-              <option>HR Policy</option>
-              <option>IT Helpdesk</option>
-              <option>Payroll</option>
-              <option>Assets</option>
-              <option>Facilities</option>
-              <option>Attendance</option>
-              <option>General</option>
+            <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)}>
+              <option>All Status</option>
+              <option>Assigned</option>
+              <option>Unassigned</option>
+            </select>
+            <select value={departmentFilter} onChange={event => setDepartmentFilter(event.target.value)}>
+              <option>All Departments</option>
+              {departments.map(department => <option key={department.id}>{department.name}</option>)}
             </select>
           </div>
-          <div className="support-table-wrap">
-            <table className="support-table">
+
+          <div className="support-ops-table-wrap">
+            <table className="support-ops-table">
               <thead>
                 <tr>
-                  <th>Issue</th>
-                  <th>Employee</th>
-                  <th>Queue</th>
+                  <th>Department</th>
+                  <th>Employees</th>
+                  <th>Open Tickets</th>
                   <th>Status</th>
-                  <th>Priority</th>
-                  <th>Owner</th>
-                  <th>Age</th>
+                  <th>Assigned Department Head</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredTickets.map(ticket => (
-                  <tr key={ticket.id} onDoubleClick={() => handleUpdateTicket(ticket)}>
-                    <td data-label="Issue">
-                      <strong>{ticket.id}</strong>
-                      <span>{ticket.issue}</span>
-                    </td>
-                    <td data-label="Employee">
-                      <strong>{ticket.employee}</strong>
-                      <span>{ticket.company}</span>
-                    </td>
-                    <td data-label="Queue">{ticket.queue}</td>
-                    <td data-label="Status"><span className={`support-badge ${statusClass(ticket.status)}`}>{ticket.status}</span></td>
-                    <td data-label="Priority"><span className={`support-priority ${ticket.priority.toLowerCase()}`}>{ticket.priority}</span></td>
-                    <td data-label="Owner">{ticket.owner}</td>
-                    <td data-label="Age">{ticket.age}</td>
-                  </tr>
-                ))}
+                {filteredDepartments.map(department => {
+                  const assigned = isDepartmentAssigned(department);
+                  const headName = assigned ? department.supportHeadName : "No Head Assigned";
+                  return (
+                    <tr key={department.id} className={selectedDepartmentId === department.id ? "active" : ""}>
+                      <td>
+                        <div className="support-ops-dept-cell">
+                          <span>{getInitials(department.name)}</span>
+                          <div><strong>{department.name}</strong><small>{department.description || "Handles department queries"}</small></div>
+                        </div>
+                      </td>
+                      <td>{department.employeeCount || 0}</td>
+                      <td><span className={`support-ops-ticket-pill ${ticketTone(department.openTickets)}`}>{department.openTickets || 0}</span></td>
+                      <td><span className={`support-ops-status ${assigned ? "assigned" : "unassigned"}`}>{assigned ? "Assigned" : "Unassigned"}</span></td>
+                      <td>
+                        <div className="support-ops-head-cell">
+                          {assigned ? <span>{getInitials(headName)}</span> : <b />}
+                          <div><strong>{assigned ? headName : "--"}</strong><small>{department.supportHead?.jobRole || (assigned ? "Department Head" : "No Head Assigned")}</small></div>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="support-ops-actions">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDepartmentId(department.id)}
+                          >
+                            {assigned ? <Edit3 size={15} /> : <UserPlus size={15} />}
+                            {assigned ? "Change Head" : "Assign Head"}
+                          </button>
+                          <button type="button" aria-label="More actions"><MoreVertical size={17} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+
+          <div className="support-ops-pagination">
+            <span>Showing 1 to {filteredDepartments.length} of {departments.length} departments</span>
+            <div>
+              <button type="button"><ChevronLeft size={16} /></button>
+              <button type="button" className="active">1</button>
+              <button type="button">2</button>
+              <button type="button"><ChevronRight size={16} /></button>
+            </div>
+          </div>
         </div>
 
+        <aside className="support-ops-side">
+          <div className="support-ops-card support-ops-assign">
+            <div className="support-ops-card-head">
+              <h2>Assign Department Head</h2>
+              <p>Select a department to assign or change the department head</p>
+            </div>
+            <label>
+              <span>Select Department</span>
+              <select value={selectedDepartmentId} onChange={event => setSelectedDepartmentId(event.target.value)}>
+                {departments.map(department => <option key={department.id} value={department.id}>{department.name}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>Select Department Head</span>
+              <div className="support-ops-employee-search">
+                <Search size={16} />
+                <input placeholder="Search employee..." readOnly />
+              </div>
+            </label>
+            <div className="support-ops-radio-list">
+              {assignableEmployees.map(employee => (
+                <button
+                  type="button"
+                  className={selectedEmployeeId === employee.id ? "active" : ""}
+                  key={employee.id}
+                  onClick={() => setSelectedEmployeeId(employee.id)}
+                >
+                  <span>{getInitials(employee.name)}</span>
+                  <div><strong>{employee.name}</strong><small>{employee.jobRole || employee.email}</small></div>
+                  <i />
+                </button>
+              ))}
+            </div>
+            <div className="support-ops-note">
+              <strong>About Assignment</strong>
+              <p>The assigned head will receive and handle all chat queries from employees of this department.</p>
+            </div>
+            <button className="support-ops-submit" type="button" onClick={handleAssignHead} disabled={!selectedEmployee?.id}>
+              Assign Department Head
+            </button>
+          </div>
+
+          <div className="support-ops-card support-ops-summary">
+            <h2>Assignment Summary</h2>
+            <dl>
+              <div><dt>Total Departments</dt><dd>{departments.length}</dd></div>
+              <div><dt>Assigned Departments</dt><dd>{assignedDepartments.length}</dd></div>
+              <div><dt>Unassigned Departments</dt><dd>{unassignedDepartments.length}</dd></div>
+              <div><dt>Total Department Heads</dt><dd>{departmentHeads}</dd></div>
+            </dl>
+          </div>
+        </aside>
       </section>
     </main>
   );

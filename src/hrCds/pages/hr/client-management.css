@@ -4520,3 +4520,92 @@ textarea.ClientManagement-form-input {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+.ClientManagement-company-drawer {
+  width: min(980px, calc(100vw - 32px));
+  max-height: 88vh;
+  overflow: hidden;
+}
+
+.ClientManagement-company-drawer .ClientManagement-modal__content {
+  max-height: calc(88vh - 92px);
+  overflow-y: auto;
+}
+
+.ClientManagement-company-drawer-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.ClientManagement-company-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.ClientManagement-company-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.ClientManagement-company-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.ClientManagement-company-card-header h4 {
+  margin: 0;
+  color: #111827;
+  font-size: 16px;
+}
+
+.ClientManagement-company-card-header p {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.ClientManagement-company-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: #eef2ff;
+  color: #3730a3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.ClientManagement-company-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ClientManagement-company-card-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  color: #4b5563;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.ClientManagement-company-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.ClientManagement-company-card-actions .ClientManagement-btn {
+  padding: 8px 10px;
+}

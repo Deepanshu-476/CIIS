@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Edit, Lock, MoreVertical, Search, SlidersHorizontal, Users } from "lucide-react";
+import { ArrowLeft, Check, Edit, Lock, MoreVertical, Search, SlidersHorizontal, Users, X } from "lucide-react";
 import { API_URL_IMG } from "../config";
 
 const ChatSidebar = ({
@@ -11,11 +11,19 @@ const ChatSidebar = ({
     setSelectedUser,
     currentUserId,
     companyUsers = [],
+    onCreateGroup,
     className = ""
 }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [newChatUserId, setNewChatUserId] = useState("");
     const [showNewChat, setShowNewChat] = useState(false);
+    const [showCreateGroup, setShowCreateGroup] = useState(false);
+    const [groupStep, setGroupStep] = useState("members");
+    const [groupSearch, setGroupSearch] = useState("");
+    const [groupName, setGroupName] = useState("");
+    const [selectedGroupMemberIds, setSelectedGroupMemberIds] = useState([]);
+    const [groupError, setGroupError] = useState("");
+    const [activeFilter, setActiveFilter] = useState("all");
 
     const getAvatarSrc = (avatar) => {
         if (!avatar) return null;
@@ -118,25 +126,39 @@ const ChatSidebar = ({
         return Number(item?.unreadCount) || 0;
     };
 
+    const hasStartedConversation = item => Boolean(
+        item?.lastMessage ||
+        item?.conversation?.lastMessage
+    );
+
     const filteredGroups = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();
-        if (!query) return groups || [];
-        return (groups || []).filter(group => [
-            getGroupName(group),
-            getLastMessageText(group),
-        ].some(value => String(value || "").toLowerCase().includes(query)));
-    }, [groups, searchTerm]);
+        return (groups || []).filter(group => {
+            if (!hasStartedConversation(group)) return false;
+            if (activeFilter === "unread" && getBadgeCount(group) <= 0) return false;
+            if (activeFilter === "favourites" && !(group.isFavourite || group.isFavorite || group.favorite)) return false;
+            return ["groups", "all", "unread", "favourites"].includes(activeFilter) && [
+                getGroupName(group),
+                getLastMessageText(group),
+            ].some(value => !query || String(value || "").toLowerCase().includes(query));
+        });
+    }, [groups, searchTerm, activeFilter, unreadCounts]);
 
     const filteredUsers = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();
-        if (!query) return users || [];
-        return (users || []).filter(user => [
-            user.name,
-            user.email,
-            user.companyRole,
-            getLastMessageText(user),
-        ].some(value => String(value || "").toLowerCase().includes(query)));
-    }, [users, searchTerm]);
+        return (users || []).filter(user => {
+            if (!hasStartedConversation(user)) return false;
+            if (activeFilter === "groups") return false;
+            if (activeFilter === "unread" && getBadgeCount(user) <= 0) return false;
+            if (activeFilter === "favourites" && !(user.isFavourite || user.isFavorite || user.favorite)) return false;
+            return [
+                user.name,
+                user.email,
+                user.companyRole,
+                getLastMessageText(user),
+            ].some(value => !query || String(value || "").toLowerCase().includes(query));
+        });
+    }, [users, searchTerm, activeFilter, unreadCounts]);
 
     const sortedCompanyUsers = useMemo(() => (
         [...companyUsers].sort((first, second) => (
@@ -144,22 +166,113 @@ const ChatSidebar = ({
         ))
     ), [companyUsers]);
 
-    const startNewChat = () => {
-        const user = sortedCompanyUsers.find(item => getItemId(item) === newChatUserId);
-        if (!user) return;
-        setSelectedUser(user);
+    const selectableCompanyUsers = useMemo(() => (
+        sortedCompanyUsers.filter(user => getItemId(user) !== currentUserId)
+    ), [sortedCompanyUsers, currentUserId]);
+
+    const filteredNewChatUsers = useMemo(() => {
+        const query = newChatUserId.trim().toLowerCase();
+        return selectableCompanyUsers.filter(user => [
+            user.name,
+            user.email,
+            user.phone,
+            getItemId(user),
+        ].some(value => !query || String(value || "").toLowerCase().includes(query)));
+    }, [selectableCompanyUsers, newChatUserId]);
+
+    const filteredGroupUsers = useMemo(() => {
+        const query = groupSearch.trim().toLowerCase();
+        return selectableCompanyUsers.filter(user => [
+            user.name,
+            user.email,
+            user.phone,
+            getItemId(user),
+        ].some(value => !query || String(value || "").toLowerCase().includes(query)));
+    }, [selectableCompanyUsers, groupSearch]);
+
+    const selectedGroupUsers = useMemo(() => (
+        selectableCompanyUsers.filter(user => selectedGroupMemberIds.includes(getItemId(user)))
+    ), [selectableCompanyUsers, selectedGroupMemberIds]);
+
+    const toggleGroupMember = user => {
+        const userId = getItemId(user);
+        if (!userId) return;
+        setSelectedGroupMemberIds(prev => (
+            prev.includes(userId)
+                ? prev.filter(id => id !== userId)
+                : [...prev, userId]
+        ));
+    };
+
+    const closeGroupPanel = () => {
+        setShowCreateGroup(false);
+        setGroupStep("members");
+        setGroupSearch("");
+        setGroupName("");
+        setSelectedGroupMemberIds([]);
+        setGroupError("");
+    };
+
+    const openNewChatPanel = () => {
+        closeGroupPanel();
+        setShowNewChat(true);
+    };
+
+    const closeNewChatPanel = () => {
+        setShowNewChat(false);
+        setNewChatUserId("");
+    };
+
+    const openGroupPanel = () => {
+        closeNewChatPanel();
+        setShowCreateGroup(true);
+    };
+
+    const startNewChat = user => {
+        const typedId = newChatUserId.trim();
+        const selectedChatUser = user || selectableCompanyUsers.find(item => getItemId(item) === typedId);
+        if (!selectedChatUser && !typedId) return;
+
+        setSelectedUser(selectedChatUser || { _id: typedId, name: typedId });
+        closeNewChatPanel();
+    };
+
+    const createGroup = async () => {
+        const name = groupName.trim();
+        const members = selectedGroupMemberIds;
+
+        if (!name) {
+            setGroupError("Group name required");
+            return;
+        }
+
+        if (members.length === 0) {
+            setGroupError("Add at least one user ID");
+            return;
+        }
+
+        try {
+            setGroupError("");
+            await onCreateGroup?.({ name, members });
+            closeGroupPanel();
+        } catch (error) {
+            setGroupError(error?.response?.data?.error || error?.response?.data?.message || "Group create failed");
+        }
     };
 
     return (
-        <aside className={`chat-sidebar ${className}`.trim()}>
+        <aside className={`chat-sidebar ${showCreateGroup || showNewChat ? "group-panel-open" : ""} ${className}`.trim()}>
             <section className="chat-sidebar-card conversations-card">
                 <div className="sidebar-top">
                     <div className="sidebar-title">Chats</div>
                     <div className="sidebar-actions">
-                        <button className="sidebar-icon" title="New chat" type="button" onClick={() => setShowNewChat(prev => !prev)}>
+                        <button className="sidebar-icon" title="New chat" type="button" onClick={openNewChatPanel}>
                             <Edit size={18} />
                         </button>
-                        <button className="sidebar-icon" title="Filter conversations" type="button">
+                        <button className="sidebar-icon" title="Create group" type="button" onClick={openGroupPanel}>
+                            <Users size={18} />
+                        </button>
+                        <button className="sidebar-icon" title="Show unread" type="button" onClick={() => setActiveFilter(prev => prev === "unread" ? "all" : "unread")}>
                             <SlidersHorizontal size={18} />
                         </button>
                         <button className="sidebar-icon" title="More" type="button">
@@ -179,10 +292,10 @@ const ChatSidebar = ({
                     />
                 </div>
                 <div className="chat-filter-tabs">
-                    <button type="button" className="active">All</button>
-                    <button type="button">Unread</button>
-                    <button type="button">Groups</button>
-                    <button type="button">Favourites</button>
+                    <button type="button" className={activeFilter === "all" ? "active" : ""} onClick={() => setActiveFilter("all")}>All</button>
+                    <button type="button" className={activeFilter === "unread" ? "active" : ""} onClick={() => setActiveFilter("unread")}>Unread</button>
+                    <button type="button" className={activeFilter === "groups" ? "active" : ""} onClick={() => setActiveFilter("groups")}>Groups</button>
+                    <button type="button" className={activeFilter === "favourites" ? "active" : ""} onClick={() => setActiveFilter("favourites")}>Favourites</button>
                 </div>
 
                 <div className="chat-sidebar-list">
@@ -301,29 +414,162 @@ const ChatSidebar = ({
                 </div>
             </section>
 
-            <section className={showNewChat ? "chat-sidebar-card start-chat-card open" : "chat-sidebar-card start-chat-card"}>
-                <h3>Start a New Chat</h3>
-                <p>Select a company user to start conversation</p>
-                <select
-                    value={newChatUserId}
-                    onChange={event => setNewChatUserId(event.target.value)}
-                >
-                    <option value="">Select User</option>
-                    {sortedCompanyUsers.map(user => (
-                        <option key={getItemId(user)} value={getItemId(user)}>
-                            {user.name || user.email || "Unnamed User"}
-                            {user.department?.name ? ` - ${user.department.name}` : ""}
-                        </option>
-                    ))}
-                </select>
-                <button
-                    type="button"
-                    onClick={startNewChat}
-                    disabled={!newChatUserId}
-                >
-                    Start Chat
-                </button>
-            </section>
+            {showNewChat && (
+                <section className="chat-group-slide-panel chat-new-slide-panel">
+                    <div className="chat-group-slide-head">
+                        <button type="button" onClick={closeNewChatPanel} title="Back">
+                            <X size={20} />
+                        </button>
+                        <div>
+                            <strong>New chat</strong>
+                            <small>Select contact or paste user ID</small>
+                        </div>
+                    </div>
+
+                    <div className="chat-group-search">
+                        <Search size={17} />
+                        <input
+                            value={newChatUserId}
+                            onChange={event => setNewChatUserId(event.target.value)}
+                            placeholder="Search name or user ID"
+                            autoFocus
+                        />
+                    </div>
+
+                    <div className="chat-group-user-list">
+                        {filteredNewChatUsers.map(user => {
+                            const userId = getItemId(user);
+                            return (
+                                <button
+                                    type="button"
+                                    key={userId}
+                                    className="chat-group-user"
+                                    onClick={() => startNewChat(user)}
+                                >
+                                    <span className="chat-user-avatar">
+                                        {getAvatarSrc(user.avatar || user.profileImage || user.image)
+                                            ? <img src={getAvatarSrc(user.avatar || user.profileImage || user.image)} alt={user.name} />
+                                            : user.name?.charAt(0).toUpperCase() || "U"}
+                                    </span>
+                                    <span>
+                                        <strong>{user.name || user.email || userId}</strong>
+                                        <small>{user.companyRole || user.email || userId}</small>
+                                    </span>
+                                </button>
+                            );
+                        })}
+
+                        {filteredNewChatUsers.length === 0 && (
+                            <div className="chat-sidebar-empty">No user found</div>
+                        )}
+                    </div>
+
+                    <button
+                        type="button"
+                        className="chat-group-next"
+                        onClick={() => startNewChat()}
+                        disabled={!newChatUserId.trim()}
+                    >
+                        Start
+                    </button>
+                </section>
+            )}
+
+            {showCreateGroup && (
+                <section className="chat-group-slide-panel">
+                    <div className="chat-group-slide-head">
+                        <button type="button" onClick={groupStep === "details" ? () => setGroupStep("members") : closeGroupPanel} title="Back">
+                            {groupStep === "details" ? <ArrowLeft size={20} /> : <X size={20} />}
+                        </button>
+                        <div>
+                            <strong>{groupStep === "details" ? "New group" : "Add group members"}</strong>
+                            <small>{selectedGroupMemberIds.length ? `${selectedGroupMemberIds.length} selected` : "Select contacts"}</small>
+                        </div>
+                    </div>
+
+                    {groupStep === "members" ? (
+                        <>
+                            <div className="chat-group-search">
+                                <Search size={17} />
+                                <input
+                                    value={groupSearch}
+                                    onChange={event => setGroupSearch(event.target.value)}
+                                    placeholder="Search name or user ID"
+                                />
+                            </div>
+
+                            {selectedGroupUsers.length > 0 && (
+                                <div className="chat-selected-members">
+                                    {selectedGroupUsers.map(user => (
+                                        <button type="button" key={getItemId(user)} onClick={() => toggleGroupMember(user)}>
+                                            <span>{user.name?.charAt(0).toUpperCase() || "U"}</span>
+                                            {user.name || user.email || getItemId(user)}
+                                            <X size={12} />
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div className="chat-group-user-list">
+                                {filteredGroupUsers.map(user => {
+                                    const userId = getItemId(user);
+                                    const isSelected = selectedGroupMemberIds.includes(userId);
+                                    return (
+                                        <button
+                                            type="button"
+                                            key={userId}
+                                            className={isSelected ? "chat-group-user selected" : "chat-group-user"}
+                                            onClick={() => toggleGroupMember(user)}
+                                        >
+                                            <span className="chat-user-avatar">
+                                                {getAvatarSrc(user.avatar || user.profileImage || user.image)
+                                                    ? <img src={getAvatarSrc(user.avatar || user.profileImage || user.image)} alt={user.name} />
+                                                    : user.name?.charAt(0).toUpperCase() || "U"}
+                                            </span>
+                                            <span>
+                                                <strong>{user.name || user.email || userId}</strong>
+                                                <small>{user.companyRole || user.email || userId}</small>
+                                            </span>
+                                            {isSelected && <span className="chat-group-check"><Check size={14} /></span>}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <button
+                                type="button"
+                                className="chat-group-next"
+                                onClick={() => setGroupStep("details")}
+                                disabled={selectedGroupMemberIds.length === 0}
+                            >
+                                Next
+                            </button>
+                        </>
+                    ) : (
+                        <div className="chat-group-details">
+                            <div className="chat-group-avatar-preview">
+                                <Users size={30} />
+                            </div>
+                            <input
+                                type="text"
+                                value={groupName}
+                                onChange={event => setGroupName(event.target.value)}
+                                placeholder="Group name"
+                                autoFocus
+                            />
+                            <small>{selectedGroupMemberIds.length} members selected</small>
+                            {groupError && <small className="chat-form-error">{groupError}</small>}
+                            <button
+                                type="button"
+                                onClick={createGroup}
+                                disabled={!groupName.trim() || selectedGroupMemberIds.length === 0}
+                            >
+                                Create Group
+                            </button>
+                        </div>
+                    )}
+                </section>
+            )}
 
         </aside>
     );

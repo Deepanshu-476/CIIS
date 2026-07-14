@@ -2197,10 +2197,13 @@ const AddClientModal = ({
   clientPlans = [],
   projectManagers,
   loading = false,
-  companyCode 
+  companyCode,
+  initialClient = null
 }) => {
-  const [newClient, setNewClient] = useState({
+  const getEmptyClientForm = () => ({
     client: '',
+    parentClientId: '',
+    parentClientName: '',
     company: '',
     city: '',
     projectManagers: [],
@@ -2209,12 +2212,22 @@ const AddClientModal = ({
     progress: '',
     email: '',
     phone: '',
+    companyLogo: '',
+    industry: '',
+    gst: '',
+    pan: '',
+    website: '',
+    state: '',
+    country: '',
+    pincode: '',
     address: '',
     description: '',
     notes: '',
     clientPlanId: '',
     subscriptionStartDate: ''
   });
+
+  const [newClient, setNewClient] = useState(getEmptyClientForm);
 
   const [managerSearch, setManagerSearch] = useState('');
   const [teamOpen, setTeamOpen] = useState(false);
@@ -2249,8 +2262,27 @@ const AddClientModal = ({
       setFormError('');
       setFieldErrors({});
       setDateError('');
+      const parentManagerNames = Array.isArray(initialClient?.projectManager) ? initialClient.projectManager : [];
+      const parentManagerIds = projectManagers
+        .filter(manager => parentManagerNames.includes(manager.name))
+        .map(manager => manager._id);
+
+      setNewClient({
+        ...getEmptyClientForm(),
+        client: initialClient?.client || initialClient?.parentClientName || '',
+        parentClientId: initialClient?.parentClientId || initialClient?._id || '',
+        parentClientName: initialClient?.parentClientName || initialClient?.client || '',
+        city: initialClient?.city || '',
+        projectManagers: parentManagerIds,
+        status: initialClient?.status || 'Active',
+        email: initialClient?.email || '',
+        phone: initialClient?.phone || '',
+        address: initialClient?.address || '',
+        description: initialClient?.description || '',
+        notes: initialClient?.notes || ''
+      });
     }
-  }, [open]);
+  }, [open, initialClient, projectManagers]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -2353,6 +2385,8 @@ const AddClientModal = ({
 
       const clientData = {
         client: newClient.client,
+        parentClientId: newClient.parentClientId,
+        parentClientName: newClient.parentClientName || newClient.client,
         company: newClient.company,
         city: newClient.city,
         projectManagers: formattedProjectManagers,
@@ -2361,6 +2395,14 @@ const AddClientModal = ({
         progress: newClient.progress,
         email: newClient.email,
         phone: newClient.phone,
+        companyLogo: newClient.companyLogo,
+        industry: newClient.industry,
+        gst: newClient.gst,
+        pan: newClient.pan,
+        website: newClient.website,
+        state: newClient.state,
+        country: newClient.country,
+        pincode: newClient.pincode,
         address: newClient.address,
         description: newClient.description,
         notes: newClient.notes,
@@ -2370,22 +2412,7 @@ const AddClientModal = ({
       };
 
       await onAddClient(clientData);
-      setNewClient({
-        client: '',
-        company: '',
-        city: '',
-        projectManagers: [],
-        services: [],
-        status: 'Active',
-        progress: '',
-        email: '',
-        phone: '',
-        address: '',
-        description: '',
-        notes: '',
-        clientPlanId: '',
-        subscriptionStartDate: ''
-      });
+      setNewClient(getEmptyClientForm());
     } catch (error) {
       console.error("Error adding client:", error);
       const responseData = error.response?.data || {};
@@ -2409,7 +2436,7 @@ const AddClientModal = ({
     <div className="ClientManagement-modal-overlay" onClick={onClose}>
       <div className="ClientManagement-modal ClientManagement-modal-lg" onClick={e => e.stopPropagation()}>
         <div className="ClientManagement-modal__header">
-          <h3>Add New Client</h3>
+          <h3>{initialClient ? 'Add New Company' : 'Add New Client / Company'}</h3>
           {companyCode && (
             <small className="ClientManagement-text-muted">Company: {companyCode}</small>
           )}
@@ -2772,6 +2799,94 @@ const AddClientModal = ({
                 />
               </div>
 
+              <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">Company Logo URL</label>
+                <input
+                  type="text"
+                  className="ClientManagement-form-input"
+                  value={newClient.companyLogo}
+                  onChange={(e) => setNewClient(prev => ({...prev, companyLogo: e.target.value}))}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">Industry</label>
+                <input
+                  type="text"
+                  className="ClientManagement-form-input"
+                  value={newClient.industry}
+                  onChange={(e) => setNewClient(prev => ({...prev, industry: e.target.value}))}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">GST</label>
+                <input
+                  type="text"
+                  className="ClientManagement-form-input"
+                  value={newClient.gst}
+                  onChange={(e) => setNewClient(prev => ({...prev, gst: e.target.value}))}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">PAN</label>
+                <input
+                  type="text"
+                  className="ClientManagement-form-input"
+                  value={newClient.pan}
+                  onChange={(e) => setNewClient(prev => ({...prev, pan: e.target.value}))}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">Website</label>
+                <input
+                  type="text"
+                  className="ClientManagement-form-input"
+                  value={newClient.website}
+                  onChange={(e) => setNewClient(prev => ({...prev, website: e.target.value}))}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">State</label>
+                <input
+                  type="text"
+                  className="ClientManagement-form-input"
+                  value={newClient.state}
+                  onChange={(e) => setNewClient(prev => ({...prev, state: e.target.value}))}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">Country</label>
+                <input
+                  type="text"
+                  className="ClientManagement-form-input"
+                  value={newClient.country}
+                  onChange={(e) => setNewClient(prev => ({...prev, country: e.target.value}))}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="ClientManagement-form-group">
+                <label className="ClientManagement-form-label">Pincode</label>
+                <input
+                  type="text"
+                  className="ClientManagement-form-input"
+                  value={newClient.pincode}
+                  onChange={(e) => setNewClient(prev => ({...prev, pincode: e.target.value}))}
+                  disabled={loading}
+                />
+              </div>
+
               <div className="ClientManagement-form-group ClientManagement-col-span-2">
                 <label className="ClientManagement-form-label">Address</label>
                 <input
@@ -2817,7 +2932,7 @@ const AddClientModal = ({
           >
             {loading ? 'Adding Client...' : 
              !companyCode ? 'Company Code Missing' :
-             filteredServices.length === 0 ? 'Add Services First' : 'Add Client'}
+             filteredServices.length === 0 ? 'Add Services First' : initialClient ? 'Add Company' : 'Add Client'}
           </button>
         </div>
       </div>
@@ -2848,6 +2963,7 @@ const ClientManagement = () => {
   const [servicesModal, setServicesModal] = useState(false);
   const [clientPlansModal, setClientPlansModal] = useState(false);
   const [addClientModal, setAddClientModal] = useState(false);
+  const [addCompanyParent, setAddCompanyParent] = useState(null);
   const [paymentReceiptsModal, setPaymentReceiptsModal] = useState({ open: false, client: null });
   const [overdueClientsModal, setOverdueClientsModal] = useState(false);
   const [taskCounts, setTaskCounts] = useState({});
@@ -2855,6 +2971,7 @@ const ClientManagement = () => {
   const [serviceRequests, setServiceRequests] = useState([]);
   const [serviceRequestsModal, setServiceRequestsModal] = useState(false);
   const [approvingRequestId, setApprovingRequestId] = useState('');
+  const [companiesDrawer, setCompaniesDrawer] = useState({ open: false, clientGroup: null });
   
   const [companyCode, setCompanyCode] = useState('');
   const [companyIdentifier, setCompanyIdentifier] = useState('');
@@ -2962,6 +3079,72 @@ const ClientManagement = () => {
       formattedEndDate: endDate ? new Date(endDate).toLocaleDateString() : null,
       price: latestSubscription.price
     };
+  };
+
+  const formatCurrency = (amount) => {
+    return `Rs ${Number(amount || 0).toLocaleString('en-IN')}`;
+  };
+
+  const getClientRevenue = (client) => {
+    const approvedReceiptTotal = Array.isArray(client.paymentReceipts)
+      ? client.paymentReceipts
+        .filter(receipt => ['Approved', 'Paid'].includes(receipt.status))
+        .reduce((sum, receipt) => sum + Number(receipt.amount || 0), 0)
+      : 0;
+
+    if (approvedReceiptTotal > 0) return approvedReceiptTotal;
+
+    const paidInvoiceTotal = Array.isArray(client.dueInvoices)
+      ? client.dueInvoices
+        .filter(invoice => invoice.status === 'Paid')
+        .reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0)
+      : 0;
+
+    if (paidInvoiceTotal > 0) return paidInvoiceTotal;
+
+    return Array.isArray(client.subscription)
+      ? client.subscription.reduce((sum, subscription) => sum + Number(subscription.price || 0), 0)
+      : 0;
+  };
+
+  const getLastPayment = (client) => {
+    const approvedReceipts = Array.isArray(client.paymentReceipts)
+      ? client.paymentReceipts.filter(receipt => receipt.status === 'Approved')
+      : [];
+    return approvedReceipts
+      .sort((a, b) => new Date(b.verifiedAt || b.uploadDate || 0) - new Date(a.verifiedAt || a.uploadDate || 0))[0] || null;
+  };
+
+  const getClientPortfolioGroups = (clientRows) => {
+    const groups = new Map();
+
+    clientRows.forEach((companyClient) => {
+      const key = String(companyClient.parentClientId || companyClient.parentClientName || companyClient.client || companyClient._id);
+      const subscriptionInfo = getLatestSubscriptionInfo(companyClient);
+      const isExpired = subscriptionInfo.isExpired || companyClient.status !== 'Active';
+
+      if (!groups.has(key)) {
+        groups.set(key, {
+          _id: companyClient.parentClientId || companyClient._id,
+          client: companyClient.parentClientName || companyClient.client || 'Unnamed Client',
+          companyCode: companyClient.companyCode,
+          totalCompanies: 0,
+          activeCompanies: 0,
+          expiredCompanies: 0,
+          totalRevenue: 0,
+          companies: []
+        });
+      }
+
+      const group = groups.get(key);
+      group.totalCompanies += 1;
+      group.activeCompanies += companyClient.status === 'Active' && !isExpired ? 1 : 0;
+      group.expiredCompanies += isExpired ? 1 : 0;
+      group.totalRevenue += getClientRevenue(companyClient);
+      group.companies.push(companyClient);
+    });
+
+    return Array.from(groups.values());
   };
 
   useEffect(() => {
@@ -3350,6 +3533,16 @@ const ClientManagement = () => {
         progress: clientData.progress,
         email: clientData.email,
         phone: clientData.phone,
+        parentClientId: clientData.parentClientId,
+        parentClientName: clientData.parentClientName,
+        companyLogo: clientData.companyLogo,
+        industry: clientData.industry,
+        gst: clientData.gst,
+        pan: clientData.pan,
+        website: clientData.website,
+        state: clientData.state,
+        country: clientData.country,
+        pincode: clientData.pincode,
         address: clientData.address,
         description: clientData.description,
         notes: clientData.notes,
@@ -3364,6 +3557,7 @@ const ClientManagement = () => {
         setSuccess('Client added successfully!');
         setError('');
         setAddClientModal(false);
+        setAddCompanyParent(null);
         fetchData();
       } else {
         const responseData = response.data || {};
@@ -3587,6 +3781,7 @@ const ClientManagement = () => {
   };
 
   const filteredClients = clients;
+  const clientPortfolioGroups = getClientPortfolioGroups(filteredClients);
 
   const getProjectManagersDetails = (client) => {
     if (!client) return [];
@@ -3662,7 +3857,10 @@ const ClientManagement = () => {
               </button>
               <button
                 className="ClientManagement-btn ClientManagement-btn--primary"
-                onClick={() => setAddClientModal(true)}
+                onClick={() => {
+                  setAddCompanyParent(null);
+                  setAddClientModal(true);
+                }}
                 disabled={services.length === 0 || (!companyCode && !companyIdentifier)}
               >
                 <FiPlus /> Add Client
@@ -3832,7 +4030,10 @@ const ClientManagement = () => {
             <div>
               <button
                 className="ClientManagement-btn ClientManagement-btn--primary ClientManagement-w-100"
-                onClick={() => setAddClientModal(true)}
+                onClick={() => {
+                  setAddCompanyParent(null);
+                  setAddClientModal(true);
+                }}
                 disabled={services.length === 0 || (!companyCode && !companyIdentifier)}
               >
                 <FiPlus /> New Client
@@ -3863,152 +4064,64 @@ const ClientManagement = () => {
               <div className="ClientManagement-spinner"></div>
               <p>Loading clients...</p>
             </div>
-          ) : filteredClients.length > 0 ? (
+          ) : clientPortfolioGroups.length > 0 ? (
             <>
               <div className="ClientManagement-table-container">
                 <table className="ClientManagement-data-table">
                   <thead>
                     <tr>
-                      <th>Client</th>
-                      <th className="ClientManagement-table-cell-hidden-sm">Company</th>
-                      <th className="ClientManagement-table-cell-hidden-md">Services</th>
-                      <th>Status</th>
-                      <th>Progress</th>
-                      <th>Subscription</th>
-                      <th className="ClientManagement-table-cell-hidden-sm">Tasks</th>
+                      <th>Client Name</th>
+                      <th>Total Companies</th>
+                      <th>Active Companies</th>
+                      <th>Expired Companies</th>
+                      <th>Total Revenue</th>
                       <th className="ClientManagement-text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredClients.map((client) => {
-                      const stats = taskCounts[client._id] || { total: 0, completed: 0, pending: 0 };
-                      const pending = stats.pending || 0;
-                      const progress = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
-                      const subscriptionInfo = getLatestSubscriptionInfo(client);
-                      
+                    {clientPortfolioGroups.map((clientGroup) => {
                       return (
-                        <tr key={client._id}>
+                        <tr key={clientGroup._id}>
                           <td>
                             <div className="ClientManagement-client-cell">
                               <div>
-                                <p className="ClientManagement-font-bold">{client.client || 'N/A'}</p>
+                                <p className="ClientManagement-font-bold">{clientGroup.client || 'N/A'}</p>
                                 <small className="ClientManagement-text-muted ClientManagement-client-cell-secondary">
-                                  ID: {client.clientId || client._id?.slice(-6)}
-                                  {client.companyCode && ` • Code: ${client.companyCode}`}
-                                  {client.companyIdentifier && ` • ID: ${client.companyIdentifier}`}
+                                  ID: {String(clientGroup._id || '').slice(-6)}
+                                  {clientGroup.companyCode && ` - Code: ${clientGroup.companyCode}`}
                                 </small>
                                 <small className="ClientManagement-text-muted ClientManagement-client-cell-mobile">
-                                  {client.company || 'N/A'}
+                                  {clientGroup.totalCompanies} companies
                                 </small>
                               </div>
                             </div>
                           </td>
-                          
-                          <td className="ClientManagement-table-cell-hidden-sm">
-                            <div>
-                              <p className="ClientManagement-font-medium">{client.company || 'N/A'}</p>
-                              <small className="ClientManagement-text-muted">{client.email || 'No email'}</small>
-                            </div>
-                          </td>
-                          
-                          <td className="ClientManagement-table-cell-hidden-md">
-                            <div className="ClientManagement-services-tags">
-                              {Array.isArray(client.services) && client.services.slice(0, 2).map((service, idx) => (
-                                <div key={idx} className="ClientManagement-badge ClientManagement-badge--info">
-                                  {service}
-                                </div>
-                              ))}
-                              {Array.isArray(client.services) && client.services.length > 2 && (
-                                <div className="ClientManagement-badge">
-                                  +{client.services.length - 2}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          
                           <td>
-                            <div className={`ClientManagement-status-chip ClientManagement-status-chip--${client.status === 'Active' ? 'active' : client.status === 'On Hold' ? 'on-hold' : 'default'}`}>
-                              {client.status || 'Unknown'}
+                            <div className="ClientManagement-badge ClientManagement-badge--info">
+                              {clientGroup.totalCompanies} Companies
                             </div>
                           </td>
-                          
                           <td>
-                            <div className="ClientManagement-progress-cell">
-                              <div className="ClientManagement-progress-header">
-                                <p className="ClientManagement-font-medium">{progress}%</p>
-                                <small className="ClientManagement-text-muted ClientManagement-progress-stats">
-                                  {stats.completed}/{stats.total}
-                                </small>
-                              </div>
-                              <div className="ClientManagement-progress-bar">
-                                <div 
-                                  className={`ClientManagement-progress-bar__fill ${
-                                    progress > 70 ? 'ClientManagement-progress-bar__fill--success' :
-                                    progress > 30 ? 'ClientManagement-progress-bar__fill--warning' :
-                                    'ClientManagement-progress-bar__fill--error'
-                                  }`}
-                                  style={{ width: `${progress}%` }}
-                                ></div>
-                              </div>
+                            <div className="ClientManagement-badge ClientManagement-badge--success">
+                              {clientGroup.activeCompanies} Active
                             </div>
                           </td>
-                          
                           <td>
-                            <div className="ClientManagement-subscription-cell">
-                              {subscriptionInfo.endDate ? (
-                                <div className={`ClientManagement-subscription-badge ${subscriptionInfo.isExpired ? 'ClientManagement-subscription-expired' : 'ClientManagement-subscription-active'}`}>
-                                  <div className="ClientManagement-subscription-date">
-                                    <small>Expires:</small>
-                                    <strong>{subscriptionInfo.formattedEndDate}</strong>
-                                  </div>
-                                  {subscriptionInfo.price && (
-                                    <div className="ClientManagement-subscription-price-badge">
-                                      <small>₹{typeof subscriptionInfo.price === 'number' ? subscriptionInfo.price.toLocaleString('en-IN') : subscriptionInfo.price}</small>
-                                    </div>
-                                  )}
-                                  <div className={`ClientManagement-subscription-status ${subscriptionInfo.isExpired ? 'status-expired' : 'status-active'}`}>
-                                    {subscriptionInfo.isExpired ? 'Expired' : 'Active'}
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="ClientManagement-subscription-badge ClientManagement-subscription-none">
-                                  <small>No subscription</small>
-                                </div>
-                              )}
+                            <div className={`ClientManagement-badge ${clientGroup.expiredCompanies > 0 ? 'ClientManagement-badge--warning' : 'ClientManagement-badge--success'}`}>
+                              {clientGroup.expiredCompanies} Expired
                             </div>
                           </td>
-                          
-                          <td className="ClientManagement-table-cell-hidden-sm">
-                            <div className="ClientManagement-tasks-cell">
-                              <div className={`ClientManagement-badge ${pending > 0 ? 'ClientManagement-badge--warning' : 'ClientManagement-badge--success'}`}>
-                                {pending}
-                              </div>
-                              <small className="ClientManagement-text-muted">pending</small>
-                            </div>
+                          <td>
+                            <p className="ClientManagement-font-bold">{formatCurrency(clientGroup.totalRevenue)}</p>
                           </td>
-                          
                           <td className="ClientManagement-text-center">
                             <div className="ClientManagement-actions-cell">
-                              <button 
+                              <button
                                 className="ClientManagement-action-button ClientManagement-action-button--primary"
-                                onClick={() => handleViewClick(client)}
-                                title="View Details"
+                                onClick={() => setCompaniesDrawer({ open: true, clientGroup })}
+                                title="View Companies"
                               >
                                 <FiEye />
-                              </button>
-                              <button 
-                                className="ClientManagement-action-button ClientManagement-action-button--success"
-                                onClick={() => handleEditClick(client)}
-                                title="Edit Client"
-                              >
-                                <FiEdit />
-                              </button>
-                              <button 
-                                className="ClientManagement-action-button ClientManagement-action-button--info"
-                                onClick={() => setPaymentReceiptsModal({ open: true, client: client })}
-                                title="View Payment Receipts"
-                              >
-                                <FiCreditCard />
                               </button>
                             </div>
                           </td>
@@ -4081,7 +4194,14 @@ const ClientManagement = () => {
                 </p>
                 <button 
                   className="ClientManagement-btn ClientManagement-btn--primary"
-                  onClick={() => services.length === 0 ? setServicesModal(true) : setAddClientModal(true)}
+                  onClick={() => {
+                    if (services.length === 0) {
+                      setServicesModal(true);
+                      return;
+                    }
+                    setAddCompanyParent(null);
+                    setAddClientModal(true);
+                  }}
                   disabled={!companyCode && !companyIdentifier}
                 >
                   {services.length === 0 ? 'Add Services First' : 'Create First Client'}
@@ -4092,15 +4212,126 @@ const ClientManagement = () => {
         </div>
       </div>
 
+      {companiesDrawer.open && companiesDrawer.clientGroup && (
+        <div className="ClientManagement-modal-overlay" onClick={() => setCompaniesDrawer({ open: false, clientGroup: null })}>
+          <div className="ClientManagement-modal ClientManagement-company-drawer" onClick={e => e.stopPropagation()}>
+            <div className="ClientManagement-modal__header">
+              <div>
+                <h3>{companiesDrawer.clientGroup.client}</h3>
+                <p className="ClientManagement-text-muted">
+                  {companiesDrawer.clientGroup.totalCompanies} companies - {formatCurrency(companiesDrawer.clientGroup.totalRevenue)} revenue
+                </p>
+              </div>
+              <button
+                className="ClientManagement-action-button"
+                onClick={() => setCompaniesDrawer({ open: false, clientGroup: null })}
+                title="Close"
+              >
+                <FiX />
+              </button>
+            </div>
+            <div className="ClientManagement-modal__content">
+              <div className="ClientManagement-company-drawer-actions">
+                <button
+                  className="ClientManagement-btn ClientManagement-btn--primary"
+                  onClick={() => {
+                    const parentCompany = companiesDrawer.clientGroup.companies[0];
+                    setAddCompanyParent(parentCompany || null);
+                    setCompaniesDrawer({ open: false, clientGroup: null });
+                    setAddClientModal(true);
+                  }}
+                  disabled={services.length === 0 || (!companyCode && !companyIdentifier)}
+                >
+                  <FiPlus /> Add New Company
+                </button>
+              </div>
+              <div className="ClientManagement-company-card-grid">
+                {companiesDrawer.clientGroup.companies.map((companyClient) => {
+                  const stats = taskCounts[companyClient._id] || { total: 0, completed: 0, pending: 0 };
+                  const subscriptionInfo = getLatestSubscriptionInfo(companyClient);
+                  const latestSubscription = Array.isArray(companyClient.subscription) && companyClient.subscription.length > 0
+                    ? companyClient.subscription[companyClient.subscription.length - 1]
+                    : null;
+                  const lastPayment = getLastPayment(companyClient);
+
+                  return (
+                    <div key={companyClient._id} className="ClientManagement-company-card">
+                      <div className="ClientManagement-company-card-header">
+                        <div className="ClientManagement-company-logo">
+                          {companyClient.companyLogo ? (
+                            <img src={companyClient.companyLogo} alt={companyClient.company || 'Company'} />
+                          ) : (
+                            <span>{(companyClient.company || 'C').charAt(0).toUpperCase()}</span>
+                          )}
+                        </div>
+                        <div>
+                          <h4>{companyClient.company || 'Company'}</h4>
+                          <p>{companyClient.email || 'No email'}</p>
+                        </div>
+                      </div>
+
+                      <div className="ClientManagement-company-card-meta">
+                        <span>GST: {companyClient.gst || 'N/A'}</span>
+                        <span>PAN: {companyClient.pan || 'N/A'}</span>
+                        <span>Phone: {companyClient.phone || 'N/A'}</span>
+                        <span>Status: {companyClient.status || 'N/A'}</span>
+                        <span>Active Plan: {latestSubscription?.planName || 'N/A'}</span>
+                        <span>Total Services: {Array.isArray(companyClient.services) ? companyClient.services.length : 0}</span>
+                        <span>Total Tasks: {stats.total || 0}</span>
+                        <span>
+                          Last Payment: {lastPayment ? `${formatCurrency(lastPayment.amount)} on ${new Date(lastPayment.verifiedAt || lastPayment.uploadDate).toLocaleDateString()}` : 'N/A'}
+                        </span>
+                      </div>
+
+                      {subscriptionInfo.endDate && (
+                        <div className={`ClientManagement-subscription-badge ${subscriptionInfo.isExpired ? 'ClientManagement-subscription-expired' : 'ClientManagement-subscription-active'}`}>
+                          <small>Expires</small>
+                          <strong>{subscriptionInfo.formattedEndDate}</strong>
+                        </div>
+                      )}
+
+                      <div className="ClientManagement-company-card-actions">
+                        <button
+                          className="ClientManagement-btn ClientManagement-btn--primary"
+                          onClick={() => handleViewClick(companyClient)}
+                        >
+                          <FiEye /> View Details
+                        </button>
+                        <button
+                          className="ClientManagement-btn ClientManagement-btn--outlined"
+                          onClick={() => handleEditClick(companyClient)}
+                        >
+                          <FiEdit /> Edit
+                        </button>
+                        <button
+                          className="ClientManagement-btn ClientManagement-btn--outlined"
+                          onClick={() => setPaymentReceiptsModal({ open: true, client: companyClient })}
+                        >
+                          <FiCreditCard /> Payments
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <AddClientModal
         open={addClientModal}
-        onClose={() => setAddClientModal(false)}
+        onClose={() => {
+          setAddClientModal(false);
+          setAddCompanyParent(null);
+        }}
         onAddClient={handleAddClient}
         services={services}
         clientPlans={clientPlans}
         projectManagers={projectManagers}
         loading={addLoading}
         companyCode={companyCode}
+        initialClient={addCompanyParent}
       />
 
       <ServicesModal

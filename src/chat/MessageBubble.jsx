@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Check, CheckCheck, Download, FileText, Forward, Mic, MoreVertical, Pause, Play, Trash2, X } from "lucide-react";
+import { Bot, Check, CheckCheck, CheckSquare, Copy, Download, FileText, Flag, Forward, MessageCircle, Mic, MoreVertical, Pause, Play, Reply, Star, Trash2, UserRound, X } from "lucide-react";
 import { API_URL_IMG } from "../config";
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif|bmp|svg)$/i;
@@ -25,7 +25,10 @@ const MessageBubble = ({
     users,
     onDeleteForMe,
     onDeleteForEveryone,
-    onForward
+    onForward,
+    onReply,
+    isStarredMessage,
+    onToggleStar
 }) => {
 
 
@@ -36,15 +39,24 @@ const MessageBubble = ({
     const [showForwardModal, setShowForwardModal] = useState(false);
     const [selectedTargets, setSelectedTargets] = useState([]);
     const [previewMedia, setPreviewMedia] = useState(null);
+    const [selectedReaction, setSelectedReaction] = useState(message.reaction || "");
+    const [isStarred, setIsStarred] = useState(Boolean(message.starred || isStarredMessage));
+    const [isSelected, setIsSelected] = useState(false);
     const [isAudioPlaying, setIsAudioPlaying] = useState(false);
     const [audioCurrentTime, setAudioCurrentTime] = useState(0);
     const [audioDuration, setAudioDuration] = useState(0);
     const [mediaUrlIndex, setMediaUrlIndex] = useState(0);
     const audioRef = useRef(null);
 
+    useEffect(() => {
+        setIsStarred(Boolean(message.starred || isStarredMessage));
+    }, [message.starred, isStarredMessage]);
+
     const currentUserId = (currentUser?._id || currentUser?.id || "").toString();
     const senderId = (message.sender?._id || message.sender || "").toString();
     const isOwn = senderId === currentUserId;
+    const senderName = message.sender?.name || "Unknown";
+    const senderPhone = message.sender?.phone || message.sender?.mobile || message.sender?.contact || "";
 
     const isDeletedForEveryone = Boolean(message.deletedForEveryone);
     const mediaType = message.mediaType || message.type || message.fileType;
@@ -179,6 +191,115 @@ const MessageBubble = ({
         setShowForwardModal(false);
         setSelectedTargets([]);
     };
+
+    const getCopyText = () => {
+        if (message.text) return message.text;
+        if (attachmentName && mediaUrl) return attachmentName;
+        return "";
+    };
+
+    const copyMessage = async () => {
+        const copyText = getCopyText();
+        if (!copyText) return;
+
+        try {
+            await navigator.clipboard.writeText(copyText);
+        } catch {
+            const textArea = document.createElement("textarea");
+            textArea.value = copyText;
+            textArea.style.position = "fixed";
+            textArea.style.opacity = "0";
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textArea);
+        }
+    };
+
+    const closeMenu = () => setShowMenu(false);
+
+    const quickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+
+    const menuActions = [
+        {
+            key: "reply",
+            label: "Reply",
+            icon: Reply,
+            run: () => onReply?.(message)
+        },
+        {
+            key: "private",
+            label: "Reply privately",
+            icon: UserRound,
+            run: () => onReply?.(message)
+        },
+        {
+            key: "message",
+            label: senderPhone ? `Message ${senderPhone}` : `Message ${senderName}`,
+            icon: MessageCircle,
+            run: () => onReply?.(message)
+        },
+        {
+            key: "copy",
+            label: "Copy",
+            icon: Copy,
+            run: copyMessage
+        },
+        {
+            key: "forward",
+            label: "Forward",
+            icon: Forward,
+            run: () => setShowForwardModal(true)
+        },
+        {
+            key: "ai",
+            label: "Ask Meta AI",
+            icon: Bot,
+            run: () => onReply?.({ ...message, text: `Ask AI: ${getCopyText()}` })
+        },
+        {
+            key: "star",
+            label: isStarred ? "Unstar" : "Star",
+            icon: Star,
+            run: () => {
+                const nextStarred = !isStarred;
+                setIsStarred(nextStarred);
+                onToggleStar?.(message, nextStarred);
+            }
+        },
+        {
+            key: "select",
+            label: isSelected ? "Unselect" : "Select",
+            icon: CheckSquare,
+            run: () => setIsSelected((prev) => !prev)
+        },
+        {
+            key: "report",
+            label: "Report",
+            icon: Flag,
+            run: () => setIsSelected(true)
+        },
+        {
+            key: "delete",
+            label: "Delete",
+            icon: Trash2,
+            run: () => onDeleteForMe(message),
+            danger: true
+        },
+        ...(isOwn ? [{
+            key: "delete-everyone",
+            label: "Delete for everyone",
+            icon: Trash2,
+            run: () => onDeleteForEveryone(message),
+            danger: true
+        }] : []),
+        ...(mediaUrl ? [{
+            key: "download",
+            label: "Download",
+            icon: Download,
+            run: () => downloadAttachment()
+        }] : [])
+    ];
 
     useEffect(() => {
         if (!previewMedia) return undefined;
@@ -385,11 +506,11 @@ const MessageBubble = ({
         }
     >
 
-        <div className={isAudioOnly ? "message-bubble voice-message-bubble" : "message-bubble"}>
+        <div className={`${isAudioOnly ? "message-bubble voice-message-bubble" : "message-bubble"} ${isSelected ? "is-selected" : ""} ${isStarred ? "is-starred" : ""}`}>
 
             {!isAudioOnly && (
                 <div className="message-top-row">
-                    <span className="message-sender">{message.sender?.name || "Unknown"}</span>
+                    <span className="message-sender">{senderName}</span>
                     <span className="message-time">{new Date(message.createdAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                     <button className="message-menu-btn" onClick={() => setShowMenu((prev) => !prev)} title="Message options">
                         <MoreVertical size={16} />
@@ -398,6 +519,7 @@ const MessageBubble = ({
             )}
 
             {message.isForwarded && <div className="forwarded-label">Forwarded</div>}
+            {selectedReaction && <div className="message-reaction-badge">{selectedReaction}</div>}
 
             {isDeletedForEveryone ? (
                 <div className="deleted-text">This message was deleted</div>
@@ -415,11 +537,47 @@ const MessageBubble = ({
             )}
 
             {showMenu && !isDeletedForEveryone && (
-                <div className="message-menu">
-                    {mediaUrl && <button onClick={() => { downloadAttachment(); setShowMenu(false); }}><Download size={13} />Download</button>}
-                    <button onClick={() => { onDeleteForMe(message); setShowMenu(false); }}><Trash2 size={13} />Delete For Me</button>
-                    {isOwn && <button onClick={() => { onDeleteForEveryone(message); setShowMenu(false); }}><Trash2 size={13} />Delete For Everyone</button>}
-                    <button onClick={() => { setShowForwardModal(true); setShowMenu(false); }}><Forward size={13} />Forward</button>
+                <div className="message-menu whatsapp-message-menu">
+                    <div className="message-reaction-strip" aria-label="Message reactions">
+                        {quickReactions.map((emoji) => (
+                            <button
+                                type="button"
+                                key={emoji}
+                                className={selectedReaction === emoji ? "active" : ""}
+                                onClick={() => {
+                                    setSelectedReaction(emoji);
+                                    closeMenu();
+                                }}
+                            >
+                                {emoji}
+                            </button>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSelectedReaction("+");
+                                closeMenu();
+                            }}
+                        >
+                            +
+                        </button>
+                    </div>
+                    <div className="message-menu-list">
+                        {menuActions.map(({ key, label, icon: Icon, run, danger }) => (
+                            <button
+                                type="button"
+                                key={key}
+                                className={danger ? "danger" : ""}
+                                onClick={() => {
+                                    run?.();
+                                    closeMenu();
+                                }}
+                            >
+                                <Icon size={17} />
+                                <span>{label}</span>
+                            </button>
+                        ))}
+                    </div>
                 </div>
             )}
 

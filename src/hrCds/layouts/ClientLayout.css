@@ -94,6 +94,34 @@
   color: rgba(226, 232, 240, 0.8);
 }
 
+.ClientLayout-company-selector {
+  margin: 0 24px 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.ClientLayout-company-selector span,
+.ClientLayout-header-company-select span {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ClientLayout-company-selector span {
+  color: rgba(226, 232, 240, 0.72);
+}
+
+.ClientLayout-company-selector select {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #f8fafc;
+  padding: 10px 12px;
+  outline: none;
+}
+
 .ClientLayout-nav {
   flex: 1;
   padding: 22px 14px;
@@ -233,6 +261,26 @@
   display: flex;
   align-items: center;
   gap: 14px;
+}
+
+.ClientLayout-header-company-select {
+  display: grid;
+  gap: 4px;
+}
+
+.ClientLayout-header-company-select span {
+  color: #64748b;
+}
+
+.ClientLayout-header-company-select select {
+  min-width: 180px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #0f172a;
+  padding: 9px 12px;
+  outline: none;
+  font-weight: 600;
 }
 
 .ClientLayout-quick-action {

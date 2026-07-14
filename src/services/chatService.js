@@ -30,6 +30,76 @@ export const getAllCompanyUsers = async () => {
     );
 };
 
+export const getMyProfile = async () => {
+    return axios.get(
+        `${API_URL}/users/me`,
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
+export const updateMyProfile = async (payload) => {
+    return axios.put(
+        `${API_URL}/users/me`,
+        payload,
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
+export const changeMyPassword = async ({ currentPassword, newPassword }) => {
+    return axios.put(
+        `${API_URL}/users/change-password`,
+        { currentPassword, newPassword },
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
+export const getNotificationPreferences = async () => {
+    return axios.get(
+        `${API_URL}/notifications/preferences`,
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
+export const updateNotificationPreferences = async (notificationPreferences) => {
+    return axios.put(
+        `${API_URL}/notifications/preferences`,
+        { notificationPreferences },
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
+export const createCompanyGroup = async ({ name, description = "", members = [] }) => {
+    return axios.post(
+        `${API_URL}/groups`,
+        { name, description, members },
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
 export const getConversations = async () => {
 
     return axios.get(

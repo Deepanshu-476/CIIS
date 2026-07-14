@@ -3,7 +3,12 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import CIISLoader from '../../../Loader/CIISLoader';
 import API_URL from '../../../config';
-import { collectProjectMembers, isClientForLoggedInUser } from '../../utils/clientPortalData';
+import {
+  CLIENT_PORTAL_SELECTED_CLIENT_KEY,
+  CLIENT_PORTAL_SELECTION_EVENT,
+  collectProjectMembers,
+  isClientForLoggedInUser
+} from '../../utils/clientPortalData';
 import './ClientTasksUpdatesPage.css';
 
 import {
@@ -200,8 +205,14 @@ const ServicesTasks = () => {
 
   useEffect(() => {
     isMounted.current = true;
+    const handleSelectionChange = () => {
+      initialFetchDone.current = true;
+      fetchClientData();
+    };
+    window.addEventListener(CLIENT_PORTAL_SELECTION_EVENT, handleSelectionChange);
     return () => {
       isMounted.current = false;
+      window.removeEventListener(CLIENT_PORTAL_SELECTION_EVENT, handleSelectionChange);
     };
   }, []);
 
@@ -297,12 +308,14 @@ const ServicesTasks = () => {
       }
 
       const allClients = response.data.data || [];
-      const storedClientId = normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
+      const matchingClients = allClients.filter(c => isClientForLoggedInUser(c, user));
+      const selectedClientId = normalizeMatchValue(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
+      const storedClientId = selectedClientId || normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
       const currentClient = (
         storedClientId
-          ? allClients.find(c => normalizeMatchValue(c?._id || c?.id) === storedClientId)
+          ? matchingClients.find(c => normalizeMatchValue(c?._id || c?.id) === storedClientId)
           : null
-      ) || allClients.find(c => isClientForLoggedInUser(c, user)) || (
+      ) || matchingClients[0] || (
         storedClient?._id || storedClient?.id ? storedClient : null
       );
 
@@ -317,6 +330,8 @@ const ServicesTasks = () => {
 
       const serviceList = Array.isArray(currentClient.services) ? currentClient.services : [];
       setClient(currentClient);
+      localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(currentClient._id));
+      localStorage.setItem('client', JSON.stringify(currentClient));
       setServices(serviceList);
       setProjectManagers(collectProjectMembers(currentClient, companyUsers));
       await fetchAllServiceTasks(currentClient, serviceList);
@@ -366,6 +381,8 @@ const ServicesTasks = () => {
     localStorage.removeItem('companyCode');
     localStorage.removeItem('companyIdentifier');
     localStorage.removeItem('company');
+    localStorage.removeItem('client');
+    localStorage.removeItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY);
     window.location.href = '/login';
   };
 

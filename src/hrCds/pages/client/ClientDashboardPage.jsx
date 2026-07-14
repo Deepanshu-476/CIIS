@@ -12,7 +12,9 @@ import {
   rupee,
   getTaskTitle,
   isClientTaskOverdue,
-  applyClientSubscriptionDueDates
+  applyClientSubscriptionDueDates,
+  CLIENT_PORTAL_SELECTED_CLIENT_KEY,
+  CLIENT_PORTAL_SELECTION_EVENT
 } from '../../utils/clientPortalData';
 import './ClientDashboardPage.css';
 
@@ -161,7 +163,10 @@ const getUserMatchValues = user => ({
     ...getIdValues(user?.employeeType),
     ...getIdValues(user?.client),
     ...getIdValues(user?.clientUser),
-    ...getIdValues(parseAdditionalDetails(user?.additionalDetails)?.clientId)
+    ...getIdValues(parseAdditionalDetails(user?.additionalDetails)?.clientId),
+    ...(Array.isArray(parseAdditionalDetails(user?.additionalDetails)?.clientIds)
+      ? parseAdditionalDetails(user?.additionalDetails).clientIds.flatMap(getIdValues)
+      : [])
   ],
   emails: [
     user?.email,
@@ -310,6 +315,7 @@ const formatSupportTicketTime = value => {
 const Dashboard = () => {
   const navigate = useNavigate();
   const [client, setClient] = useState(null);
+  const [availableClients, setAvailableClients] = useState([]);
   const [services, setServices] = useState([]);
   const [projectManagers, setProjectManagers] = useState([]);
   const [serviceTasks, setServiceTasks] = useState([]);
@@ -370,8 +376,14 @@ const Dashboard = () => {
 
   useEffect(() => {
     isMounted.current = true;
+    const handleSelectionChange = () => {
+      initialFetchDone.current = true;
+      fetchClientData();
+    };
+    window.addEventListener(CLIENT_PORTAL_SELECTION_EVENT, handleSelectionChange);
     return () => {
       isMounted.current = false;
+      window.removeEventListener(CLIENT_PORTAL_SELECTION_EVENT, handleSelectionChange);
     };
   }, []);
 
@@ -497,16 +509,20 @@ const Dashboard = () => {
 
       if (response.data?.success && isMounted.current) {
         const allClients = response.data.data || [];
-        const storedClientId = normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
+        const matchingClients = allClients.filter(item => isClientForLoggedInUser(item, user));
+        setAvailableClients(matchingClients);
+        const selectedClientId = normalizeMatchValue(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
+        const storedClientId = selectedClientId || normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
         
         const currentClient = (
           storedClientId
-            ? allClients.find(client => normalizeMatchValue(client?._id || client?.id) === storedClientId)
+            ? matchingClients.find(client => normalizeMatchValue(client?._id || client?.id) === storedClientId)
             : null
-        ) || allClients.find(client => isClientForLoggedInUser(client, user));
+        ) || matchingClients[0];
         
         if (!currentClient) {
           setClient(null);
+          setAvailableClients([]);
           setServices([]);
           setProjectManagers([]);
           setServiceTasks([]);
@@ -516,6 +532,8 @@ const Dashboard = () => {
         
         setError('');
         setClient(currentClient);
+        localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(currentClient._id));
+        localStorage.setItem('client', JSON.stringify(currentClient));
         setProjectManagers(collectProjectMembers(currentClient, companyUsers));
         fetchSupportTickets();
         
@@ -524,6 +542,7 @@ const Dashboard = () => {
           await fetchAllServicesTasks(currentClient, currentClient.services);
         }
       } else {
+        setAvailableClients([]);
         setError('No client data found');
       }
     } catch (err) {
@@ -552,7 +571,19 @@ const Dashboard = () => {
     localStorage.removeItem('companyCode');
     localStorage.removeItem('companyIdentifier');
     localStorage.removeItem('company');
+    localStorage.removeItem('client');
+    localStorage.removeItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY);
     window.location.href = '/login';
+  };
+
+  const handleCompanySelect = nextClient => {
+    if (!nextClient?._id) return;
+    const nextClientId = String(nextClient._id);
+    localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, nextClientId);
+    localStorage.setItem('client', JSON.stringify(nextClient));
+    window.dispatchEvent(new CustomEvent(CLIENT_PORTAL_SELECTION_EVENT, {
+      detail: { clientId: nextClientId }
+    }));
   };
 
   const taskStats = calculateTaskStats(serviceTasks);
@@ -686,6 +717,25 @@ const Dashboard = () => {
   };
 
   const clientName = client?.client || client?.name || 'Client';
+  const selectedClientId = normalizeMatchValue(client?._id || client?.id);
+  const companyCards = availableClients.map(item => {
+    const companyName = item.company || item.companyName || item.client || 'Company';
+    const serviceCount = Array.isArray(item.services) ? item.services.length : 0;
+    const taskCount = Array.isArray(item.tasks) ? item.tasks.length : 0;
+    const status = item.status || item.accountStatus || 'Active';
+    const id = normalizeMatchValue(item?._id || item?.id);
+    return {
+      client: item,
+      id,
+      companyName,
+      serviceCount,
+      taskCount,
+      status,
+      isActive: id && id === selectedClientId,
+      initial: companyName.charAt(0).toUpperCase(),
+      logo: item.companyLogo || item.logo || item.logoUrl || ''
+    };
+  });
   const todayLabel = new Date().toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -780,6 +830,39 @@ const Dashboard = () => {
           <p><FiUser /> <span>Account Manager: {sidebarManagers[0]?.name || 'Not assigned'}</span></p>
         </div>
       </section>
+
+      {companyCards.length > 0 && (
+        <section className="ClientDashboard-company-switcher" aria-label="Your companies">
+          <div className="ClientDashboard-company-switcher-head">
+            <div>
+              <h3>Your Companies</h3>
+              <p>Click a company to open its dashboard data.</p>
+            </div>
+            <span>{companyCards.length} {companyCards.length === 1 ? 'company' : 'companies'}</span>
+          </div>
+          <div className="ClientDashboard-company-list">
+            {companyCards.map(company => (
+              <button
+                type="button"
+                key={company.id || company.companyName}
+                className={`ClientDashboard-company-card ${company.isActive ? 'ClientDashboard-company-card--active' : ''}`}
+                onClick={() => handleCompanySelect(company.client)}
+                aria-pressed={company.isActive}
+              >
+                <span className="ClientDashboard-company-logo">
+                  {company.logo ? <img src={company.logo} alt="" /> : company.initial}
+                </span>
+                <span className="ClientDashboard-company-copy">
+                  <strong>{company.companyName}</strong>
+                  <small>{company.serviceCount} services • {company.taskCount} tasks</small>
+                </span>
+                <em>{company.status}</em>
+                <FiChevronRight />
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="ClientDashboard-kpi-row">
         {[

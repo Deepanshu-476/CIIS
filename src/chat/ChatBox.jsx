@@ -4,7 +4,7 @@ import React, {
     useState
 } from "react";
 import "../Pages/Chat/chat.css";
-import { ArrowLeft, Bell, ChevronRight, Image, Mic, MessageCircle, MoreVertical, Paperclip, Phone, Search, SendHorizontal, Smile, Square, Star, TimerReset, Video, Wallpaper, X } from "lucide-react";
+import { ArrowLeft, Bell, ChevronRight, Mic, MessageCircle, MoreVertical, Paperclip, Phone, Search, SendHorizontal, Smile, Square, Star, TimerReset, Video, Wallpaper, X } from "lucide-react";
 
 import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage } from "../services/chatService";
 
@@ -54,7 +54,8 @@ const ChatBox = ({
     socket,
     onlineUsers = [],
     onConversationChange,
-    onBack
+    onBack,
+    chatSettings = {}
 }) => {
 
     const [conversation, setConversation] =
@@ -91,6 +92,19 @@ const ChatBox = ({
     const [showActiveChatDate, setShowActiveChatDate] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showContactInfo, setShowContactInfo] = useState(false);
+    const [contactPanelView, setContactPanelView] = useState("info");
+    const [isMuted, setIsMuted] = useState(false);
+    const [disappearingMode, setDisappearingMode] = useState("off");
+    const [contactWallpaper, setContactWallpaper] = useState("");
+    const [contactSound, setContactSound] = useState("default");
+    const [starredMessageIds, setStarredMessageIds] = useState([]);
+    const [isContactSearchOpen, setIsContactSearchOpen] = useState(false);
+    const [contactSearchTerm, setContactSearchTerm] = useState("");
+    const effectiveChatSettings = {
+        chats: { enterToSend: true, mediaAutoDownload: true, wallpaper: "", ...(chatSettings.chats || {}) },
+        videoVoice: { cameraEnabled: true, microphoneEnabled: true, speakerEnabled: true, ...(chatSettings.videoVoice || {}) },
+        keyboard: { enabled: true, sendMessage: "Enter", newLine: "Shift+Enter", ...(chatSettings.keyboard || {}) },
+    };
     const quickReplies = [
         "Please share the report",
         "What's the next plan?",
@@ -138,6 +152,7 @@ const ChatBox = ({
     const selectedUserKey = selectedUser
         ? `${selectedUser?.isGroup ? "group" : "user"}:${selectedUser?._id || selectedUser?.id || selectedUser?.userId || ""}`
         : "";
+    const contactPrefsKey = `ciis-contact-info-${currentUser?._id || currentUser?.id || "user"}-${selectedUserKey || "none"}`;
 
     const getEntityId = (value) => {
         if (!value) return "";
@@ -260,6 +275,35 @@ const ChatBox = ({
         setShowContactInfo(false);
         startConversation();  
     }, [selectedUserKey]);
+
+    useEffect(() => {
+        setContactPanelView("info");
+        setIsContactSearchOpen(false);
+        setContactSearchTerm("");
+        try {
+            const savedPrefs = JSON.parse(localStorage.getItem(contactPrefsKey) || "{}");
+            setIsMuted(Boolean(savedPrefs.isMuted));
+            setDisappearingMode(savedPrefs.disappearingMode || "off");
+            setContactWallpaper(savedPrefs.wallpaper || "");
+            setContactSound(savedPrefs.sound || "default");
+            setStarredMessageIds(Array.isArray(savedPrefs.starredMessageIds) ? savedPrefs.starredMessageIds : []);
+        } catch {
+            setIsMuted(false);
+            setDisappearingMode("off");
+            setContactWallpaper("");
+            setContactSound("default");
+            setStarredMessageIds([]);
+        }
+    }, [contactPrefsKey]);
+
+    const saveContactPrefs = (patch) => {
+        try {
+            const existing = JSON.parse(localStorage.getItem(contactPrefsKey) || "{}");
+            localStorage.setItem(contactPrefsKey, JSON.stringify({ ...existing, ...patch }));
+        } catch {
+            void 0;
+        }
+    };
 
     useEffect(() => {
         const frameId = requestAnimationFrame(updateActiveChatDate);
@@ -804,6 +848,13 @@ useEffect(() => {
         }
     };
 
+    const handleMessageReply = (message) => {
+        const senderName = message.sender?.name || "User";
+        const replyText = message.text || message.fileName || message.name || "Attachment";
+        setText((prev) => `${prev ? `${prev}\n` : ""}> ${senderName}: ${replyText}\n`);
+        setTimeout(() => chatInputRef.current?.focus(), 0);
+    };
+
     const handleEmojiSelect = (emoji) => {
         setText((prev) => `${prev}${emoji}`);
         chatInputRef.current?.focus();
@@ -814,6 +865,280 @@ useEffect(() => {
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
+    };
+
+    const getMessageText = (message) => String(message?.text || message?.caption || "").trim();
+
+    const getMessageAttachmentUrl = (message) => {
+        const raw = message?.mediaUrl
+            || message?.fileUrl
+            || message?.attachmentUrl
+            || message?.file
+            || message?.url
+            || message?.path
+            || message?.filename
+            || message?.fileName
+            || message?.name
+            || "";
+
+        if (typeof raw === "object" && raw) {
+            return raw.url || raw.path || raw.fileUrl || raw.attachmentUrl || raw.filename || raw.fileName || raw.name || "";
+        }
+
+        return String(raw || "");
+    };
+
+    const getAttachmentName = (message) => {
+        const raw = getMessageAttachmentUrl(message);
+        const fallback = getMessageText(message) || "Attachment";
+        if (!raw) return fallback;
+        const fileName = raw.split(/[\\/]/).pop()?.split("?")[0] || fallback;
+        try {
+            return decodeURIComponent(fileName).replace(/^\d+-/, "") || fallback;
+        } catch {
+            return fileName.replace(/^\d+-/, "") || fallback;
+        }
+    };
+
+    const getAttachmentKind = (message) => {
+        const mediaType = String(message?.mediaType || message?.type || message?.fileType || "").toLowerCase();
+        const path = getMessageAttachmentUrl(message).split("?")[0].toLowerCase();
+        if (mediaType.startsWith("image") || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(path)) return "image";
+        if (mediaType.startsWith("video") || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i.test(path)) return "video";
+        if (mediaType.startsWith("audio") || /\.(mp3|wav|webm|ogg|m4a|aac)$/i.test(path)) return "audio";
+        if (path || mediaType) return "doc";
+        return "";
+    };
+
+    const contactMediaItems = messages
+        .filter((message) => getMessageAttachmentUrl(message) && !message.deletedForEveryone)
+        .map((message) => ({
+            id: message._id || message.createdAt || getAttachmentName(message),
+            message,
+            kind: getAttachmentKind(message),
+            name: getAttachmentName(message),
+            url: getMessageAttachmentUrl(message),
+        }));
+
+    const linkMessages = messages.filter((message) => /https?:\/\/\S+/i.test(getMessageText(message)));
+    const starredMessages = messages.filter((message) => starredMessageIds.includes(String(message._id || "")) || message.starred || message.isStarred);
+    const normalizedSearchTerm = contactSearchTerm.trim().toLowerCase();
+    const displayedMessages = normalizedSearchTerm
+        ? messages.filter((message) => {
+            const haystack = [
+                getMessageText(message),
+                getAttachmentName(message),
+                message.sender?.name,
+            ].join(" ").toLowerCase();
+            return haystack.includes(normalizedSearchTerm);
+        })
+        : messages;
+
+    const toggleStarredMessage = (message, shouldStar) => {
+        const messageId = String(message?._id || "");
+        if (!messageId) return;
+        const nextIds = shouldStar
+            ? Array.from(new Set([...starredMessageIds, messageId]))
+            : starredMessageIds.filter((id) => id !== messageId);
+        setStarredMessageIds(nextIds);
+        saveContactPrefs({ starredMessageIds: nextIds });
+    };
+
+    const openContactSearch = () => {
+        setShowContactInfo(false);
+        setIsContactSearchOpen(true);
+        setContactSearchTerm("");
+        requestAnimationFrame(() => chatInputRef.current?.focus());
+    };
+
+    const setMuteState = (value) => {
+        setIsMuted(value);
+        saveContactPrefs({ isMuted: value });
+    };
+
+    const setDisappearingState = (value) => {
+        setDisappearingMode(value);
+        saveContactPrefs({ disappearingMode: value });
+    };
+
+    const saveWallpaperAndSound = () => {
+        saveContactPrefs({ wallpaper: contactWallpaper, sound: contactSound });
+    };
+
+    const renderMediaTile = (item) => {
+        const canPreviewImage = item.kind === "image" && item.url;
+        return (
+            <a
+                key={item.id}
+                className="chat-contact-media-tile"
+                href={item.url || "#"}
+                target="_blank"
+                rel="noreferrer"
+                title={item.name}
+            >
+                {canPreviewImage ? (
+                    <img src={item.url} alt={item.name} />
+                ) : item.kind === "video" ? (
+                    <Video size={22} />
+                ) : item.kind === "audio" ? (
+                    <Mic size={22} />
+                ) : (
+                    <Paperclip size={22} />
+                )}
+                <small>{item.name}</small>
+            </a>
+        );
+    };
+
+    const renderStarredMessages = () => (
+        <div className="chat-contact-subpanel">
+            <button type="button" className="chat-contact-back-row" onClick={() => setContactPanelView("info")}>
+                <ArrowLeft size={17} /> Starred messages
+            </button>
+            {starredMessages.length ? (
+                starredMessages.map((message) => (
+                    <button type="button" className="chat-contact-message-row" key={message._id || message.createdAt}>
+                        <strong>{message.sender?.name || (message.sender === currentUserId ? "You" : selectedName)}</strong>
+                        <span>{getMessageText(message) || getAttachmentName(message)}</span>
+                        <small>{new Date(message.createdAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small>
+                    </button>
+                ))
+            ) : (
+                <p className="chat-contact-empty">No starred messages yet</p>
+            )}
+        </div>
+    );
+
+    const renderMediaPanel = () => (
+        <div className="chat-contact-subpanel">
+            <button type="button" className="chat-contact-back-row" onClick={() => setContactPanelView("info")}>
+                <ArrowLeft size={17} /> Media, links and docs
+            </button>
+            <div className="chat-contact-media-grid expanded">
+                {contactMediaItems.length ? contactMediaItems.map(renderMediaTile) : <p className="chat-contact-empty">No media, links or docs</p>}
+            </div>
+            {!!linkMessages.length && (
+                <div className="chat-contact-links">
+                    <strong>Links</strong>
+                    {linkMessages.slice(0, 10).map((message) => (
+                        <a key={message._id || message.createdAt} href={getMessageText(message).match(/https?:\/\/\S+/i)?.[0]} target="_blank" rel="noreferrer">
+                            {getMessageText(message).match(/https?:\/\/\S+/i)?.[0]}
+                        </a>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+
+    const renderWallpaperPanel = () => (
+        <div className="chat-contact-subpanel">
+            <button type="button" className="chat-contact-back-row" onClick={() => setContactPanelView("info")}>
+                <ArrowLeft size={17} /> Wallpaper & sound
+            </button>
+            <label className="chat-contact-field">
+                Wallpaper URL
+                <input value={contactWallpaper} onChange={(event) => setContactWallpaper(event.target.value)} placeholder="Paste image URL" />
+            </label>
+            <label className="chat-contact-field">
+                Message sound
+                <select value={contactSound} onChange={(event) => setContactSound(event.target.value)}>
+                    <option value="default">Default</option>
+                    <option value="soft">Soft</option>
+                    <option value="silent">Silent</option>
+                    <option value="bright">Bright</option>
+                </select>
+            </label>
+            <button type="button" className="chat-contact-save-btn" onClick={saveWallpaperAndSound}>Save</button>
+        </div>
+    );
+
+    const renderDisappearingPanel = () => (
+        <div className="chat-contact-subpanel">
+            <button type="button" className="chat-contact-back-row" onClick={() => setContactPanelView("info")}>
+                <ArrowLeft size={17} /> Disappearing messages
+            </button>
+            {[
+                ["off", "Off"],
+                ["24h", "24 hours"],
+                ["7d", "7 days"],
+                ["90d", "90 days"],
+            ].map(([value, label]) => (
+                <button type="button" className="chat-contact-choice" key={value} onClick={() => setDisappearingState(value)}>
+                    <span>{label}</span>
+                    <i className={disappearingMode === value ? "active" : ""} />
+                </button>
+            ))}
+        </div>
+    );
+
+    const renderContactInfoBody = () => {
+        if (contactPanelView === "media") return renderMediaPanel();
+        if (contactPanelView === "starred") return renderStarredMessages();
+        if (contactPanelView === "wallpaper") return renderWallpaperPanel();
+        if (contactPanelView === "disappearing") return renderDisappearingPanel();
+
+        return (
+            <>
+                <div className="chat-contact-profile">
+                    <div className="chat-contact-avatar">
+                        {selectedAvatar ? (
+                            <img src={selectedAvatar} alt={selectedName} />
+                        ) : (
+                            selectedName?.charAt(0).toUpperCase() || "U"
+                        )}
+                    </div>
+                    <h2>{selectedName}</h2>
+                    <span>{selectedUser.isGroup ? groupStatusLabel : (isSelectedUserOnline ? "online" : "offline")}</span>
+                </div>
+                <div className="chat-contact-actions">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setShowContactInfo(false);
+                            requestAnimationFrame(() => chatInputRef.current?.focus());
+                        }}
+                        title="Message"
+                    >
+                        <MessageCircle size={20} />
+                        <span>Message</span>
+                    </button>
+                    <button type="button" onClick={() => startDirectCall("audio")} disabled={!canStartCall || !effectiveChatSettings.videoVoice.microphoneEnabled} title="Voice call">
+                        <Phone size={20} />
+                        <span>Voice call</span>
+                    </button>
+                    <button type="button" onClick={() => startDirectCall("video")} disabled={!canStartCall || !effectiveChatSettings.videoVoice.cameraEnabled} title="Video call">
+                        <Video size={20} />
+                        <span>Video call</span>
+                    </button>
+                    <button type="button" title="Search" onClick={openContactSearch}>
+                        <Search size={20} />
+                        <span>Search</span>
+                    </button>
+                </div>
+                <div className="chat-contact-section">
+                    <h3>About</h3>
+                    <p>{selectedUser?.bio || selectedUser?.about || selectedUser?.companyRole || "Work hard in silence, let success make the noise."}</p>
+                </div>
+                <div className="chat-contact-section">
+                    <div className="chat-contact-section-head">
+                        <span>Media, links and docs</span>
+                        <button type="button" onClick={() => setContactPanelView("media")}>See all <ChevronRight size={15} /></button>
+                    </div>
+                    <div className="chat-media-thumbs">
+                        {contactMediaItems.slice(0, 3).map(renderMediaTile)}
+                        <button type="button" onClick={() => setContactPanelView("media")}>
+                            +{Math.max(contactMediaItems.length - 3, 0)}
+                        </button>
+                    </div>
+                </div>
+                <div className="chat-contact-list">
+                    <button type="button" onClick={() => setContactPanelView("starred")}><Star size={19} /><span>Starred messages<small>{starredMessages.length} saved</small></span><ChevronRight size={18} /></button>
+                    <button type="button" onClick={() => setMuteState(!isMuted)}><Bell size={19} /><span>Mute notifications<small>{isMuted ? "On" : "Off"}</small></span><i className={isMuted ? "active" : ""} /></button>
+                    <button type="button" onClick={() => setContactPanelView("wallpaper")}><Wallpaper size={19} /><span>Wallpaper & sound<small>{contactSound}</small></span><ChevronRight size={18} /></button>
+                    <button type="button" onClick={() => setContactPanelView("disappearing")}><TimerReset size={19} /><span>Disappearing messages<small>{disappearingMode === "off" ? "Off" : disappearingMode}</small></span><ChevronRight size={18} /></button>
+                </div>
+            </>
+        );
     };
 
 
@@ -948,17 +1273,17 @@ useEffect(() => {
                 <div className="chat-header-actions">
                     <button
                         type="button"
-                        title={selectedUser.isGroup ? (canStartCall ? "Start group video call" : "No group member online") : isSelectedUserOnline ? "Start video call" : "User is offline"}
+                        title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group video call" : "No group member online") : isSelectedUserOnline ? "Start video call" : "User is offline"}
                         onClick={() => startDirectCall("video")}
-                        disabled={!canStartCall}
+                        disabled={!canStartCall || !effectiveChatSettings.videoVoice.cameraEnabled}
                     >
                         <Video size={18} />
                     </button>
                     <button
                         type="button"
-                        title={selectedUser.isGroup ? (canStartCall ? "Start group voice call" : "No group member online") : isSelectedUserOnline ? "Start voice call" : "User is offline"}
+                        title={!effectiveChatSettings.videoVoice.microphoneEnabled ? "Microphone disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group voice call" : "No group member online") : isSelectedUserOnline ? "Start voice call" : "User is offline"}
                         onClick={() => startDirectCall("audio")}
-                        disabled={!canStartCall}
+                        disabled={!canStartCall || !effectiveChatSettings.videoVoice.microphoneEnabled}
                     >
                         <Phone size={18} />
                     </button>
@@ -979,7 +1304,26 @@ useEffect(() => {
                 <button type="button">Change Topic</button>
             </div>
 
-            <div className="chat-messages" ref={chatMessagesRef} onScroll={updateActiveChatDate}>
+            <div
+                className="chat-messages"
+                ref={chatMessagesRef}
+                onScroll={updateActiveChatDate}
+                style={(contactWallpaper || effectiveChatSettings.chats.wallpaper) ? { backgroundImage: `linear-gradient(rgba(255,255,255,0.76), rgba(255,255,255,0.76)), url("${contactWallpaper || effectiveChatSettings.chats.wallpaper}")` } : undefined}
+            >
+                {isContactSearchOpen && (
+                    <div className="chat-message-search-bar">
+                        <Search size={16} />
+                        <input
+                            value={contactSearchTerm}
+                            onChange={(event) => setContactSearchTerm(event.target.value)}
+                            placeholder="Search messages"
+                            autoFocus
+                        />
+                        <button type="button" onClick={() => { setIsContactSearchOpen(false); setContactSearchTerm(""); }}>
+                            <X size={16} />
+                        </button>
+                    </div>
+                )}
                 {showActiveChatDate && activeChatDateLabel && (
                     <div className="chat-active-date">
                         <span>{activeChatDateLabel}</span>
@@ -987,8 +1331,8 @@ useEffect(() => {
                 )}
 
                 {
-                    messages.map((message, index) => {
-                        const previousMessage = messages[index - 1];
+                    displayedMessages.map((message, index) => {
+                        const previousMessage = displayedMessages[index - 1];
                         const shouldShowDateSeparator = !previousMessage
                             || getMessageDateKey(previousMessage.createdAt) !== getMessageDateKey(message.createdAt);
                         const messageDateLabel = formatMessageDateSeparator(message.createdAt);
@@ -1009,6 +1353,9 @@ useEffect(() => {
                                         onDeleteForMe={handleDeleteForMe}
                                         onDeleteForEveryone={handleDeleteForEveryone}
                                         onForward={handleForward}
+                                        onReply={handleMessageReply}
+                                        isStarredMessage={starredMessageIds.includes(String(message._id || ""))}
+                                        onToggleStar={toggleStarredMessage}
                                     />
                                 </div>
                             </React.Fragment>
@@ -1116,7 +1463,12 @@ useEffect(() => {
                             }
                             placeholder="Type your message..."
                             onKeyDown={(e) => {
-                                if (e.key === "Enter") {
+                                if (
+                                    e.key === "Enter"
+                                    && effectiveChatSettings.chats.enterToSend
+                                    && (!effectiveChatSettings.keyboard.enabled || !e.shiftKey)
+                                ) {
+                                    e.preventDefault();
                                     handleSend();
                                 }
                             }}
@@ -1159,7 +1511,7 @@ useEffect(() => {
                     <button
                         className={recorderMode === "audio" ? "recording-btn active" : "recording-btn"}
                         onClick={() => recorderMode === "audio" ? stopRecording() : startRecording("audio")}
-                        disabled={isSendingAction || Boolean(recorderMode && recorderMode !== "audio")}
+                        disabled={isSendingAction || !effectiveChatSettings.videoVoice.microphoneEnabled || Boolean(recorderMode && recorderMode !== "audio")}
                         title={recorderMode === "audio" ? "Stop voice recording" : "Start voice recording"}
                         type="button"
                     >
@@ -1182,72 +1534,15 @@ useEffect(() => {
             {showContactInfo && (
             <aside className="chat-contact-info">
                 <div className="chat-contact-top">
-                    <button type="button" title="Back" onClick={() => setShowContactInfo(false)}>
+                    <button type="button" title="Back" onClick={() => contactPanelView === "info" ? setShowContactInfo(false) : setContactPanelView("info")}>
                         <ArrowLeft size={20} />
                     </button>
-                    <strong>Contact info</strong>
+                    <strong>{contactPanelView === "info" ? "Contact info" : contactPanelView === "media" ? "Media, links and docs" : contactPanelView === "starred" ? "Starred messages" : contactPanelView === "wallpaper" ? "Wallpaper & sound" : "Disappearing messages"}</strong>
                     <button type="button" title="Close" onClick={() => setShowContactInfo(false)}>
                         <X size={22} />
                     </button>
                 </div>
-                <div className="chat-contact-profile">
-                    <div className="chat-contact-avatar">
-                        {selectedAvatar ? (
-                            <img src={selectedAvatar} alt={selectedName} />
-                        ) : (
-                            selectedName?.charAt(0).toUpperCase() || "U"
-                        )}
-                    </div>
-                    <h2>{selectedName}</h2>
-                    <span>{selectedUser.isGroup ? groupStatusLabel : (isSelectedUserOnline ? "online" : "offline")}</span>
-                </div>
-                <div className="chat-contact-actions">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setShowContactInfo(false);
-                            requestAnimationFrame(() => chatInputRef.current?.focus());
-                        }}
-                        title="Message"
-                    >
-                        <MessageCircle size={20} />
-                        <span>Message</span>
-                    </button>
-                    <button type="button" onClick={() => startDirectCall("audio")} disabled={!canStartCall} title="Voice call">
-                        <Phone size={20} />
-                        <span>Voice call</span>
-                    </button>
-                    <button type="button" onClick={() => startDirectCall("video")} disabled={!canStartCall} title="Video call">
-                        <Video size={20} />
-                        <span>Video call</span>
-                    </button>
-                    <button type="button" title="Search">
-                        <Search size={20} />
-                        <span>Search</span>
-                    </button>
-                </div>
-                <div className="chat-contact-section">
-                    <h3>About</h3>
-                    <p>{selectedUser?.bio || selectedUser?.about || selectedUser?.companyRole || "Work hard in silence, let success make the noise."}</p>
-                </div>
-                <div className="chat-contact-section">
-                    <div className="chat-contact-section-head">
-                        <span>Media, links and docs</span>
-                        <button type="button">See all <ChevronRight size={15} /></button>
-                    </div>
-                    <div className="chat-media-thumbs">
-                        <div><Image size={22} /></div>
-                        <div><Wallpaper size={22} /></div>
-                        <div><Image size={22} /></div>
-                        <div>+12</div>
-                    </div>
-                </div>
-                <div className="chat-contact-list">
-                    <button type="button"><Star size={19} /><span>Starred messages</span><ChevronRight size={18} /></button>
-                    <button type="button"><Bell size={19} /><span>Mute notifications</span><i /></button>
-                    <button type="button"><Wallpaper size={19} /><span>Wallpaper & sound</span><ChevronRight size={18} /></button>
-                    <button type="button"><TimerReset size={19} /><span>Disappearing messages<small>Off</small></span><ChevronRight size={18} /></button>
-                </div>
+                {renderContactInfoBody()}
             </aside>
             )}
 

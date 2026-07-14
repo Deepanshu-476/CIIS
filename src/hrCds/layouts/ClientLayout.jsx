@@ -17,6 +17,10 @@ import {
   FiMenu,
   FiX
 } from 'react-icons/fi';
+import {
+  CLIENT_PORTAL_SELECTED_CLIENT_KEY,
+  useClientPortalData
+} from '../utils/clientPortalData';
 import './ClientLayout.css';
 
 const ClientLayout = () => {
@@ -24,6 +28,7 @@ const ClientLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const hideHeaderTools = location.pathname === '/client/support-tickets';
+  const { client, availableClients, switchClient } = useClientPortalData();
 
   const menuItems = [
     { path: '/client/dashboard', name: 'Dashboard', icon: <FiGrid size={18} /> },
@@ -45,6 +50,8 @@ const ClientLayout = () => {
     localStorage.removeItem('companyCode');
     localStorage.removeItem('companyIdentifier');
     localStorage.removeItem('company');
+    localStorage.removeItem('client');
+    localStorage.removeItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY);
     navigate('/');
   };
 
@@ -62,7 +69,12 @@ const ClientLayout = () => {
   };
 
   const getCompanyCode = () => {
-    return localStorage.getItem('companyCode') || localStorage.getItem('company') || 'Company';
+    return client?.company || localStorage.getItem('companyCode') || localStorage.getItem('company') || 'Company';
+  };
+
+  const handleCompanyChange = event => {
+    const selected = availableClients.find(item => String(item._id) === event.target.value);
+    if (selected) switchClient(selected);
   };
 
   return (
@@ -89,6 +101,19 @@ const ClientLayout = () => {
             </div>
           )}
         </div>
+
+        {sidebarOpen && availableClients.length > 1 && (
+          <label className="ClientLayout-company-selector">
+            <span>Company</span>
+            <select value={client?._id || ''} onChange={handleCompanyChange}>
+              {availableClients.map(item => (
+                <option key={item._id} value={item._id}>
+                  {item.company || item.client || 'Company'}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <nav className="ClientLayout-nav">
           {menuItems.map((item) => (
@@ -132,6 +157,18 @@ const ClientLayout = () => {
           {!hideHeaderTools && (
             <div className="ClientLayout-header-right">
               <button className="ClientLayout-quick-action">Request Service</button>
+              {availableClients.length > 1 && (
+                <label className="ClientLayout-header-company-select">
+                  <span>Company</span>
+                  <select value={client?._id || ''} onChange={handleCompanyChange}>
+                    {availableClients.map(item => (
+                      <option key={item._id} value={item._id}>
+                        {item.company || item.client || 'Company'}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <button className="ClientLayout-icon-button">
                 <FiBell size={20} />
                 <span>4</span>

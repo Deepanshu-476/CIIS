@@ -87,6 +87,16 @@ const getKnownParticipantUser = (target, userId) => {
     return memberSource.find(member => typeof member === "object" && getUserId(member) === userId) || null;
 };
 
+const getCurrentUserPublicInfo = (user = {}) => ({
+    _id: getUserId(user),
+    id: getUserId(user),
+    name: user.name || user.fullName || user.email || "User",
+    email: user.email,
+    avatar: user.avatar || user.profileImage || user.image,
+    profileImage: user.profileImage,
+    image: user.image,
+});
+
 const notifyIncomingCall = (incomingCall) => {
     const callerName = incomingCall.peerUser?.name || "User";
     const title = incomingCall.type === "video" ? "Incoming video call" : "Incoming voice call";
@@ -172,7 +182,7 @@ const RemoteAudioTrack = ({ participant }) => {
     return <audio ref={audioRef} autoPlay playsInline />;
 };
 
-const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
+const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const [call, setCall] = useState(null);
     const [error, setError] = useState("");
     const [isMuted, setIsMuted] = useState(false);
@@ -329,6 +339,24 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
         setIsCameraOff(false);
     };
 
+    const emitCallEvent = (callEvent, overrides = {}) => {
+        if (!callEvent?.callId) return;
+
+        onCallEvent?.({
+            callId: callEvent.callId,
+            type: callEvent.type,
+            direction: callEvent.isCaller ? "outgoing" : "incoming",
+            status: callEvent.status,
+            title: callEvent.title || callEvent.peerUser?.name || "User",
+            peerUser: callEvent.peerUser,
+            peerUserId: callEvent.peerUserId,
+            participantIds: callEvent.participantIds,
+            participantCount: callEvent.participantIds?.length || 1,
+            isGroupCall: callEvent.isGroupCall,
+            ...overrides,
+        });
+    };
+
     const emitToPeer = (peerUserId, eventName, payload = {}) => {
         const activeCall = activeCallRef.current;
         if (!socket || !activeCall?.callId || !peerUserId) return;
@@ -475,6 +503,10 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
 
         activeCallRef.current = nextCall;
         setCall(nextCall);
+        emitCallEvent(nextCall, {
+            status: "ringing",
+            startedAt: new Date().toISOString(),
+        });
         setRemoteParticipants(participantIds.map(userId => ({
             userId,
             user: getKnownParticipantUser(user, userId) || (participantIds.length === 1 ? user : { _id: userId, name: "Participant" }),
@@ -492,16 +524,19 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
                 toUserId: participantIds[0],
                 callType,
                 title: nextCall.title,
+                callerUser: getCurrentUserPublicInfo(currentUser),
             });
             callTimeoutRef.current = window.setTimeout(() => {
                 if (activeCallRef.current?.callId === nextCall.callId && activeCallRef.current?.status === "outgoing") {
                     socket.emit("call:end", { callId: nextCall.callId });
+                    emitCallEvent(nextCall, { status: "missed" });
                     resetCall();
                     setError("The call was not answered.");
                 }
             }, 45000);
         } catch (mediaError) {
             logCall("startCall media error", mediaError);
+            emitCallEvent(nextCall, { status: "failed" });
             resetCall();
         }
     };
@@ -520,6 +555,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
             const acceptedCall = { ...activeCall, status: "connecting" };
             activeCallRef.current = acceptedCall;
             setCall(acceptedCall);
+            emitCallEvent(acceptedCall, { status: "answered" });
             stopRingtone();
             window.clearTimeout(callTimeoutRef.current);
             callTimeoutRef.current = null;
@@ -537,7 +573,11 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
     };
 
     const rejectCall = () => {
-        socket?.emit("call:reject", { callId: activeCallRef.current?.callId });
+        const activeCall = activeCallRef.current;
+        socket?.emit("call:reject", { callId: activeCall?.callId });
+        if (activeCall) {
+            emitCallEvent(activeCall, { status: activeCall.isCaller ? "cancelled" : "declined" });
+        }
         resetCall();
     };
 
@@ -545,6 +585,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
         const activeCall = activeCallRef.current;
         if (activeCall) {
             socket?.emit("call:end", { callId: activeCall.callId });
+            emitCallEvent(activeCall, { status: "ended", endedAt: new Date().toISOString() });
         }
         resetCall();
     };
@@ -587,23 +628,29 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
             }
 
             const participantIds = uniqueIds(data.participantIds || [data.fromUserId]).filter(id => id !== currentUserId);
+            const callerUser = data.fromUser || data.callerUser || { _id: data.fromUserId, name: "User" };
+            const isGroupCall = participantIds.length > 1;
             const incomingCall = {
                 callId: data.callId,
                 type: data.callType === "video" ? "video" : "audio",
                 status: "incoming",
-                peerUser: data.fromUser,
+                peerUser: callerUser,
                 peerUserId: data.fromUserId,
                 participantIds,
                 isCaller: false,
-                isGroupCall: participantIds.length > 1,
-                title: data.title || data.fromUser?.name,
+                isGroupCall,
+                title: isGroupCall ? (data.title || callerUser?.name || "Group call") : (callerUser?.name || "User"),
             };
 
             activeCallRef.current = incomingCall;
             setCall(incomingCall);
+            emitCallEvent(incomingCall, {
+                status: "missed",
+                startedAt: new Date().toISOString(),
+            });
             setRemoteParticipants([{
                 userId: data.fromUserId,
-                user: data.fromUser,
+                user: callerUser,
                 stream: null,
             }]);
             setError("");
@@ -631,6 +678,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
             const activeNextCall = { ...activeCall, status: "active" };
             activeCallRef.current = activeNextCall;
             setCall(activeNextCall);
+            emitCallEvent(activeNextCall, { status: "answered" });
             stopRingtone();
 
             (data.participants || []).forEach(participant => {
@@ -650,6 +698,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
                 };
                 activeCallRef.current = activeNextCall;
                 setCall(activeNextCall);
+                emitCallEvent(activeNextCall, { status: "answered" });
                 stopRingtone();
                 window.clearTimeout(callTimeoutRef.current);
                 callTimeoutRef.current = null;
@@ -680,6 +729,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
                 };
                 activeCallRef.current = activeNextCall;
                 setCall(activeNextCall);
+                emitCallEvent(activeNextCall, { status: "answered" });
 
                 emitToPeer(data.fromUserId, "call:answer", { answer });
             } catch (error) {
@@ -700,6 +750,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
                 const activeNextCall = { ...activeCall, status: "active" };
                 activeCallRef.current = activeNextCall;
                 setCall(activeNextCall);
+                emitCallEvent(activeNextCall, { status: "answered" });
                 stopRingtone();
             } catch (error) {
                 logCall("call:answer failed", error);
@@ -733,6 +784,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
                 return;
             }
 
+            emitCallEvent(activeCall, { status: "ended", endedAt: new Date().toISOString() });
             resetCall();
         };
 
@@ -759,7 +811,7 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
             socket.off("call:rejected", handleCallClosed);
             socket.off("call:ended", handleCallClosed);
         };
-    }, [socket, currentUserId, remoteParticipants]);
+    }, [socket, currentUserId, remoteParticipants, onCallEvent]);
 
     useEffect(() => {
         if (!socket || !currentUserId) return;
@@ -800,6 +852,10 @@ const CallOverlay = forwardRef(({ socket, currentUser }, ref) => {
             };
             activeCallRef.current = incomingCall;
             setCall(incomingCall);
+            emitCallEvent(incomingCall, {
+                status: "missed",
+                startedAt: new Date().toISOString(),
+            });
             setRemoteParticipants([{
                 userId: callerId,
                 user: { _id: callerId, name: callerName || "User" },

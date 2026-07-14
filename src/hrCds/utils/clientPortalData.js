@@ -5,6 +5,8 @@ import API_URL from '../../config';
 export const rupee = '\u20b9';
 
 export const getAuthToken = () => localStorage.getItem('token') || localStorage.getItem('authToken');
+export const CLIENT_PORTAL_SELECTED_CLIENT_KEY = 'clientPortalSelectedClientId';
+export const CLIENT_PORTAL_SELECTION_EVENT = 'client-portal-company-change';
 
 const blockedDisplayPatterns = [/deepanshu/i, /dipanshu/i, /deepansu/i, /deepshu/i];
 
@@ -202,7 +204,10 @@ const getUserMatchValues = user => ({
     ...getIdValues(user?.employeeType),
     ...getIdValues(user?.client),
     ...getIdValues(user?.clientUser),
-    ...getIdValues(parseAdditionalDetails(user?.additionalDetails)?.clientId)
+    ...getIdValues(parseAdditionalDetails(user?.additionalDetails)?.clientId),
+    ...(Array.isArray(parseAdditionalDetails(user?.additionalDetails)?.clientIds)
+      ? parseAdditionalDetails(user?.additionalDetails).clientIds.flatMap(getIdValues)
+      : [])
   ],
   emails: [
     user?.email,
@@ -490,12 +495,14 @@ export const collectProjectMembers = (client, users = []) => {
 
 export const useClientPortalData = () => {
   const [client, setClient] = useState(null);
+  const [availableClients, setAvailableClients] = useState([]);
   const [services, setServices] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [projectManagers, setProjectManagers] = useState([]);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectionVersion, setSelectionVersion] = useState(0);
   const isMounted = useRef(true);
 
   const clientsApi = useMemo(() => axios.create({ baseURL: `${API_URL}/clientsservice`, timeout: 10000 }), []);
@@ -514,9 +521,19 @@ export const useClientPortalData = () => {
 
   useEffect(() => {
     isMounted.current = true;
+    const handleSelectionChange = () => setSelectionVersion(version => version + 1);
+    window.addEventListener(CLIENT_PORTAL_SELECTION_EVENT, handleSelectionChange);
     return () => {
       isMounted.current = false;
+      window.removeEventListener(CLIENT_PORTAL_SELECTION_EVENT, handleSelectionChange);
     };
+  }, []);
+
+  const persistSelectedClient = useCallback(nextClient => {
+    if (!nextClient?._id) return;
+    localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(nextClient._id));
+    localStorage.setItem('client', JSON.stringify(nextClient));
+    window.dispatchEvent(new CustomEvent(CLIENT_PORTAL_SELECTION_EVENT, { detail: { clientId: nextClient._id } }));
   }, []);
 
   const fetchCompanyUsers = useCallback(async user => {
@@ -576,14 +593,17 @@ export const useClientPortalData = () => {
       }
 
       const allClients = clientsResponse.data.data || [];
-      const storedClientId = normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
+      const matchingClients = allClients.filter(item => isClientForLoggedInUser(item, user));
+      const selectedClientId = normalizeMatchValue(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
+      const storedClientId = selectedClientId || normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
       const currentClient = (
         storedClientId
-          ? allClients.find(item => normalizeMatchValue(item?._id || item?.id) === storedClientId)
+          ? matchingClients.find(item => normalizeMatchValue(item?._id || item?.id) === storedClientId)
           : null
-      ) || allClients.find(item => isClientForLoggedInUser(item, user));
+      ) || matchingClients[0];
       if (!currentClient) {
         setClient(null);
+        setAvailableClients([]);
         setServices([]);
         setTasks([]);
         setProjectManagers([]);
@@ -597,6 +617,9 @@ export const useClientPortalData = () => {
 
       if (isMounted.current) {
         setClient(currentClient);
+        setAvailableClients(matchingClients);
+        localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(currentClient._id));
+        localStorage.setItem('client', JSON.stringify(currentClient));
         setServices(serviceList);
         setTasks(normalizedTasks);
         setProjectManagers(collectProjectMembers(currentClient, companyUsers));
@@ -607,11 +630,22 @@ export const useClientPortalData = () => {
     } finally {
       if (isMounted.current) setLoading(false);
     }
-  }, [clientsApi, fetchCompanyUsers, fetchServiceTasks]);
+  }, [clientsApi, fetchCompanyUsers, fetchServiceTasks, selectionVersion]);
 
   useEffect(() => {
     refetch();
   }, [refetch]);
 
-  return { client, services, tasks, projectManagers, user, loading, error, refetch };
+  return {
+    client,
+    availableClients,
+    services,
+    tasks,
+    projectManagers,
+    user,
+    loading,
+    error,
+    refetch,
+    switchClient: persistSelectedClient
+  };
 };

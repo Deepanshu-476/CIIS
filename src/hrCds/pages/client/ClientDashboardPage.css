@@ -57,21 +57,100 @@
 .ClientDashboard-hero-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
+  gap: 14px;
   margin: 24px 0 18px;
 }
 
 .ClientDashboard-hero-stat {
+  position: relative;
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr);
   align-items: center;
   column-gap: 12px;
+  min-width: 0;
+  min-height: 84px;
+  padding: 15px 14px;
+  overflow: hidden;
+  border: 1px solid var(--hero-stat-border);
+  border-radius: 15px;
+  background: linear-gradient(135deg, #ffffff 18%, var(--hero-stat-bg) 100%);
+  box-shadow: 0 8px 18px rgba(31, 51, 92, 0.08);
+  isolation: isolate;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.ClientDashboard-hero-stat::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--hero-stat-accent);
+}
+
+.ClientDashboard-hero-stat::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: 72px;
+  height: 72px;
+  right: -28px;
+  bottom: -38px;
+  border-radius: 50%;
+  background: var(--hero-stat-glow);
+  filter: blur(2px);
+}
+
+.ClientDashboard-hero-stat:hover {
+  transform: translateY(-3px);
+  border-color: var(--hero-stat-accent);
+  box-shadow: 0 13px 26px rgba(31, 51, 92, 0.13);
+}
+
+.ClientDashboard-hero-stat--blue {
+  --hero-stat-accent: #2563eb;
+  --hero-stat-border: #cfddfb;
+  --hero-stat-bg: #edf4ff;
+  --hero-stat-glow: rgba(37, 99, 235, 0.14);
+}
+.ClientDashboard-hero-stat--orange {
+  --hero-stat-accent: #f28b24;
+  --hero-stat-border: #f7ddbd;
+  --hero-stat-bg: #fff6e9;
+  --hero-stat-glow: rgba(242, 139, 36, 0.16);
+}
+.ClientDashboard-hero-stat--teal {
+  --hero-stat-accent: #18aaa7;
+  --hero-stat-border: #c6e9e7;
+  --hero-stat-bg: #eafafa;
+  --hero-stat-glow: rgba(24, 170, 167, 0.15);
+}
+.ClientDashboard-hero-stat--purple {
+  --hero-stat-accent: #7c3aed;
+  --hero-stat-border: #dfd1f8;
+  --hero-stat-bg: #f5efff;
+  --hero-stat-glow: rgba(124, 58, 237, 0.14);
+}
+
+.ClientDashboard-hero-stat > .ClientDashboard-icon {
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 5px 12px rgba(34, 51, 91, 0.1);
+}
+
+.ClientDashboard-hero-stat-copy {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .ClientDashboard-hero-stat small {
   color: #303a5c;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11px;
+  line-height: 1.25;
+  font-weight: 750;
 }
 
 .ClientDashboard-hero-stat strong {
@@ -80,6 +159,22 @@
   line-height: 1;
   font-weight: 800;
 }
+
+.ClientDashboard-hero-stat .ClientDashboard-count {
+  min-width: 44px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 11px;
+  text-align: center;
+  font-size: 21px;
+  box-shadow: 0 4px 10px rgba(34, 51, 91, 0.08);
+  letter-spacing: -0.4px;
+}
+
+.ClientDashboard-count--blue { background: #e7f0ff; color: #1d5ed8 !important; }
+.ClientDashboard-count--orange { background: #fff0dc; color: #d96c08 !important; }
+.ClientDashboard-count--teal { background: #dcf7f5; color: #078b88 !important; }
+.ClientDashboard-count--purple { background: #eee5ff; color: #6d2bd9 !important; }
 
 .ClientDashboard-icon {
   width: 40px;

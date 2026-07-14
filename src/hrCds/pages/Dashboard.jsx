@@ -2,6 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import API_URL from '../../config';
 import './Dashboard.css';
+import {
+  getClientPortalCompanyContext,
+  getCompanyScopedClientParams
+} from '../utils/clientPortalData';
 
 
 import {
@@ -364,14 +368,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchCompanyInfo = () => {
-      const companyCode = localStorage.getItem('companyCode') || '';
-      const companyIdentifier = localStorage.getItem('companyIdentifier') || '';
-      const company = localStorage.getItem('company') || '';
-      
-      setCompanyInfo({
-        companyCode: companyCode || company,
-        companyIdentifier: companyIdentifier
-      });
+      setCompanyInfo(getClientPortalCompanyContext());
     };
 
     fetchCompanyInfo();
@@ -468,11 +465,28 @@ const Dashboard = () => {
 
       const user = JSON.parse(userStr);
       const companyUsers = await fetchCompanyUsers(user);
+      const requestCompanyInfo = getClientPortalCompanyContext(user);
+
+      if (!requestCompanyInfo.companyCode) {
+        if (isMounted.current) {
+          setClient(null);
+          setServices([]);
+          setProjectManagers([]);
+          setServiceTasks([]);
+          setOverallStats({
+            totalTasks: 0,
+            completedTasks: 0,
+            pendingTasks: 0,
+            overdueTasks: 0
+          });
+          setError('Company code missing. Please login again from your company portal.');
+        }
+        return;
+      }
       
       const response = await api.get('/', {
         params: {
-          companyCode: companyInfo.companyCode,
-          companyIdentifier: companyInfo.companyIdentifier,
+          ...getCompanyScopedClientParams(requestCompanyInfo),
           limit: 1000
         }
       });

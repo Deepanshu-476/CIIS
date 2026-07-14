@@ -1,6 +1,8 @@
-    import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
+  FiBriefcase,
+  FiChevronRight,
   FiGrid,
   FiCheckSquare,
   FiPackage,
@@ -72,10 +74,28 @@ const ClientLayout = () => {
     return client?.company || localStorage.getItem('companyCode') || localStorage.getItem('company') || 'Company';
   };
 
+  const getCompanyName = item => (
+    item?.company || item?.companyName || item?.client || item?.name || 'Company'
+  );
+
+  const getCompanyInitial = item => getCompanyName(item).trim().charAt(0).toUpperCase() || 'C';
+
+  const getCompanyServicesCount = item => (
+    Array.isArray(item?.services) ? item.services.length : 0
+  );
+
+  const handleCompanySwitch = nextClient => {
+    if (nextClient?._id && String(nextClient._id) !== String(client?._id || '')) {
+      switchClient(nextClient);
+    }
+  };
+
   const handleCompanyChange = event => {
     const selected = availableClients.find(item => String(item._id) === event.target.value);
-    if (selected) switchClient(selected);
+    if (selected) handleCompanySwitch(selected);
   };
+
+  const sidebarCompanies = availableClients.length ? availableClients : (client ? [client] : []);
 
   return (
     <div className={`ClientLayout-container ${sidebarOpen ? 'ClientLayout-sidebar-open' : 'ClientLayout-sidebar-collapsed'}`}>
@@ -102,17 +122,40 @@ const ClientLayout = () => {
           )}
         </div>
 
-        {sidebarOpen && availableClients.length > 1 && (
-          <label className="ClientLayout-company-selector">
-            <span>Company</span>
-            <select value={client?._id || ''} onChange={handleCompanyChange}>
-              {availableClients.map(item => (
-                <option key={item._id} value={item._id}>
-                  {item.company || item.client || 'Company'}
-                </option>
-              ))}
-            </select>
-          </label>
+        {sidebarOpen && sidebarCompanies.length > 0 && (
+          <section className="ClientLayout-company-panel" aria-label="My Company">
+            <div className="ClientLayout-company-panel-head">
+              <span><FiBriefcase size={14} /> My Company</span>
+              {sidebarCompanies.length > 1 && <small>{sidebarCompanies.length}</small>}
+            </div>
+            <div className="ClientLayout-company-list">
+              {sidebarCompanies.map(item => {
+                const isActive = String(item._id || item.id || '') === String(client?._id || client?.id || '');
+                return (
+                  <button
+                    type="button"
+                    key={item._id || item.id || getCompanyName(item)}
+                    className={`ClientLayout-company-card ${isActive ? 'active' : ''}`}
+                    onClick={() => handleCompanySwitch(item)}
+                    aria-pressed={isActive}
+                  >
+                    <span className="ClientLayout-company-logo">
+                      {item.companyLogo || item.logo || item.logoUrl ? (
+                        <img src={item.companyLogo || item.logo || item.logoUrl} alt="" />
+                      ) : (
+                        getCompanyInitial(item)
+                      )}
+                    </span>
+                    <span className="ClientLayout-company-copy">
+                      <strong>{getCompanyName(item)}</strong>
+                      <small>{getCompanyServicesCount(item)} services</small>
+                    </span>
+                    {sidebarCompanies.length > 1 && <FiChevronRight size={16} />}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
         )}
 
         <nav className="ClientLayout-nav">

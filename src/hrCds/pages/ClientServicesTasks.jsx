@@ -2,6 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import API_URL from '../../config';
 import './ClientServicesTasks.css'; 
+import {
+  getClientPortalCompanyContext,
+  getCompanyScopedClientParams
+} from '../utils/clientPortalData';
 
 import {
   FiAlertCircle,
@@ -119,13 +123,7 @@ const ServicesTasks = () => {
   }, []);
 
   useEffect(() => {
-    const companyCode = localStorage.getItem('companyCode') || '';
-    const companyIdentifier = localStorage.getItem('companyIdentifier') || '';
-    const company = localStorage.getItem('company') || '';
-    setCompanyInfo({
-      companyCode: companyCode || company,
-      companyIdentifier
-    });
+    setCompanyInfo(getClientPortalCompanyContext());
   }, []);
 
   const fetchServiceTasks = async (clientId, serviceName) => {
@@ -172,10 +170,18 @@ const ServicesTasks = () => {
       }
 
       const user = JSON.parse(userStr);
+      const requestCompanyInfo = getClientPortalCompanyContext(user);
+      if (!requestCompanyInfo.companyCode) {
+        setClient(null);
+        setServices([]);
+        setAllTasks([]);
+        setError('Company code missing. Please login again from your company portal.');
+        return;
+      }
+
       const response = await api.get('/', {
         params: {
-          companyCode: companyInfo.companyCode,
-          companyIdentifier: companyInfo.companyIdentifier,
+          ...getCompanyScopedClientParams(requestCompanyInfo),
           limit: 1000
         }
       });

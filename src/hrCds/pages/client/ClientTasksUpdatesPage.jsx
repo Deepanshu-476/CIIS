@@ -7,6 +7,8 @@ import {
   CLIENT_PORTAL_SELECTED_CLIENT_KEY,
   CLIENT_PORTAL_SELECTION_EVENT,
   collectProjectMembers,
+  getClientPortalCompanyContext,
+  getCompanyScopedClientParams,
   isClientForLoggedInUser
 } from '../../utils/clientPortalData';
 import './ClientTasksUpdatesPage.css';
@@ -217,13 +219,7 @@ const ServicesTasks = () => {
   }, []);
 
   useEffect(() => {
-    const companyCode = localStorage.getItem('companyCode') || '';
-    const companyIdentifier = localStorage.getItem('companyIdentifier') || '';
-    const company = localStorage.getItem('company') || '';
-    setCompanyInfo({
-      companyCode: companyCode || company,
-      companyIdentifier
-    });
+    setCompanyInfo(getClientPortalCompanyContext());
   }, []);
 
   const fetchServiceTasks = async (clientId, serviceName) => {
@@ -291,11 +287,20 @@ const ServicesTasks = () => {
           return null;
         }
       })();
+      const requestCompanyInfo = getClientPortalCompanyContext(user, storedClient);
+      if (!requestCompanyInfo.companyCode) {
+        setClient(null);
+        setServices([]);
+        setAllTasks([]);
+        setProjectManagers([]);
+        setError('Company code missing. Please login again from your company portal.');
+        return;
+      }
+
       const [response, companyUsers] = await Promise.all([
         api.get('/', {
           params: {
-            companyCode: companyInfo.companyCode,
-            companyIdentifier: companyInfo.companyIdentifier,
+            ...getCompanyScopedClientParams(requestCompanyInfo),
             limit: 1000
           }
         }),

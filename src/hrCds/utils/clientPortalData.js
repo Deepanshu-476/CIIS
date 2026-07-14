@@ -8,6 +8,62 @@ export const getAuthToken = () => localStorage.getItem('token') || localStorage.
 export const CLIENT_PORTAL_SELECTED_CLIENT_KEY = 'clientPortalSelectedClientId';
 export const CLIENT_PORTAL_SELECTION_EVENT = 'client-portal-company-change';
 
+const readStoredJson = key => {
+  try {
+    return JSON.parse(localStorage.getItem(key) || 'null');
+  } catch {
+    return null;
+  }
+};
+
+const pickFirstString = values => (
+  values.map(value => String(value || '').trim()).find(Boolean) || ''
+);
+
+export const getClientPortalCompanyContext = (user = null, client = null) => {
+  const storedUser = user || readStoredJson('user') || {};
+  const storedClient = client || readStoredJson('client') || {};
+  const companyDetails = readStoredJson('companyDetails') || {};
+  const companyObject = readStoredJson('company') || {};
+  const rawCompany = localStorage.getItem('company') || '';
+
+  const companyCode = pickFirstString([
+    localStorage.getItem('companyCode'),
+    storedUser.companyCode,
+    storedUser.company?.companyCode,
+    storedUser.companyDetails?.companyCode,
+    storedClient.companyCode,
+    storedClient.company?.companyCode,
+    companyDetails.companyCode,
+    companyDetails.code,
+    companyObject.companyCode,
+    companyObject.code,
+    rawCompany && rawCompany[0] !== '{' ? rawCompany : ''
+  ]);
+
+  const companyIdentifier = pickFirstString([
+    localStorage.getItem('companyIdentifier'),
+    storedUser.companyIdentifier,
+    storedUser.company?._id,
+    storedUser.company,
+    storedClient.companyIdentifier,
+    storedClient.company?._id,
+    companyDetails._id,
+    companyDetails.id,
+    companyObject._id,
+    companyObject.id
+  ]);
+
+  return { companyCode, companyIdentifier };
+};
+
+export const getCompanyScopedClientParams = (context = {}) => {
+  const params = {};
+  if (context.companyCode) params.companyCode = context.companyCode;
+  if (context.companyIdentifier) params.companyIdentifier = context.companyIdentifier;
+  return params;
+};
+
 const blockedDisplayPatterns = [/deepanshu/i, /dipanshu/i, /deepansu/i, /deepshu/i];
 
 const containsBlockedDisplayValue = value => (
@@ -580,10 +636,18 @@ export const useClientPortalData = () => {
         }
       })();
       setUser(user);
-      const companyCode = localStorage.getItem('companyCode') || localStorage.getItem('company') || '';
-      const companyIdentifier = localStorage.getItem('companyIdentifier') || '';
+      const companyContext = getClientPortalCompanyContext(user, storedClient);
+      if (!companyContext.companyCode) {
+        setClient(null);
+        setAvailableClients([]);
+        setServices([]);
+        setTasks([]);
+        setProjectManagers([]);
+        setError('Company code missing. Please login again from your company portal.');
+        return;
+      }
       const [clientsResponse, companyUsers] = await Promise.all([
-        clientsApi.get('/', { params: { companyCode, companyIdentifier, limit: 1000 } }),
+        clientsApi.get('/', { params: { ...getCompanyScopedClientParams(companyContext), limit: 1000 } }),
         fetchCompanyUsers(user)
       ]);
 

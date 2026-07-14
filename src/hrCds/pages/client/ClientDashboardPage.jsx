@@ -14,7 +14,9 @@ import {
   isClientTaskOverdue,
   applyClientSubscriptionDueDates,
   CLIENT_PORTAL_SELECTED_CLIENT_KEY,
-  CLIENT_PORTAL_SELECTION_EVENT
+  CLIENT_PORTAL_SELECTION_EVENT,
+  getClientPortalCompanyContext,
+  getCompanyScopedClientParams
 } from '../../utils/clientPortalData';
 import './ClientDashboardPage.css';
 
@@ -388,14 +390,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchCompanyInfo = () => {
-      const companyCode = localStorage.getItem('companyCode') || '';
-      const companyIdentifier = localStorage.getItem('companyIdentifier') || '';
-      const company = localStorage.getItem('company') || '';
-      
-      setCompanyInfo({
-        companyCode: companyCode || company,
-        companyIdentifier: companyIdentifier
-      });
+      setCompanyInfo(getClientPortalCompanyContext());
     };
 
     fetchCompanyInfo();
@@ -497,11 +492,23 @@ const Dashboard = () => {
         }
       })();
       const companyUsers = await fetchCompanyUsers(user);
+      const requestCompanyInfo = getClientPortalCompanyContext(user, storedClient);
+
+      if (!requestCompanyInfo.companyCode) {
+        if (isMounted.current) {
+          setAvailableClients([]);
+          setClient(null);
+          setServices([]);
+          setProjectManagers([]);
+          setServiceTasks([]);
+          setError('Company code missing. Please login again from your company portal.');
+        }
+        return;
+      }
       
       const response = await api.get('/', {
         params: {
-          companyCode: companyInfo.companyCode,
-          companyIdentifier: companyInfo.companyIdentifier,
+          ...getCompanyScopedClientParams(requestCompanyInfo),
           limit: 1000
         }
       });

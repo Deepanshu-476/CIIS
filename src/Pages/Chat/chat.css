@@ -4880,6 +4880,7 @@ body.chat-route-active main > .MuiBox-root {
 .chat-settings-list {
     display: grid;
     padding: 12px 0;
+    gap: 4px;
 }
 
 .chat-settings-list button,
@@ -4891,26 +4892,68 @@ body.chat-route-active main > .MuiBox-root {
     align-items: center;
     gap: 12px;
     border: 0;
-    padding: 8px 4px;
+    border-radius: 12px;
+    padding: 8px 10px;
     color: #06152b;
     background: transparent;
     text-align: left;
+    position: relative;
+    cursor: pointer;
+    transition: background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease, color 180ms ease;
+}
+
+.chat-settings-list button::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 10px;
+    bottom: 10px;
+    width: 3px;
+    border-radius: 999px;
+    background: #0d63f3;
+    opacity: 0;
+    transform: scaleY(0.35);
+    transition: opacity 180ms ease, transform 180ms ease;
 }
 
 .chat-settings-list button:hover,
 .chat-settings-list button.active,
 .chat-block-list button:hover {
-    background: #f5f7fb;
+    background: #f6f9ff;
 }
 
 .chat-settings-list button.active {
-    outline: 1px solid #0d63f3;
-    outline-offset: -1px;
+    color: #0b4fc5;
+    background: linear-gradient(90deg, rgba(13, 99, 243, 0.1), rgba(13, 99, 243, 0.025) 64%, transparent);
+}
+
+.chat-settings-list button:hover {
+    transform: translateX(2px);
+}
+
+.chat-settings-list button:active {
+    transform: translateX(2px) scale(0.99);
+}
+
+.chat-settings-list button.active::before {
+    opacity: 1;
+    transform: scaleY(1);
+}
+
+.chat-settings-list button:focus-visible,
+.chat-block-list button:focus-visible {
+    outline: 2px solid rgba(13, 99, 243, 0.34);
+    outline-offset: 2px;
 }
 
 .chat-settings-list svg,
 .chat-block-head svg {
     color: #667085;
+    transition: color 180ms ease;
+}
+
+.chat-settings-list button.active svg {
+    color: #0d63f3;
 }
 
 .chat-settings-list strong,

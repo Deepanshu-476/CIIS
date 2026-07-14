@@ -94,13 +94,30 @@
   color: rgba(226, 232, 240, 0.8);
 }
 
-.ClientLayout-company-selector {
-  margin: 0 24px 12px;
-  display: grid;
-  gap: 8px;
+.ClientLayout-company-panel {
+  margin: 0 18px 12px;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.42);
 }
 
-.ClientLayout-company-selector span,
+.ClientLayout-company-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ClientLayout-company-panel-head span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: rgba(226, 232, 240, 0.82);
+}
+
+.ClientLayout-company-panel-head span,
 .ClientLayout-header-company-select span {
   font-size: 11px;
   font-weight: 700;
@@ -108,25 +125,107 @@
   letter-spacing: 0.04em;
 }
 
-.ClientLayout-company-selector span {
-  color: rgba(226, 232, 240, 0.72);
+.ClientLayout-company-panel-head small {
+  min-width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.22);
+  color: #bfdbfe;
+  font-size: 12px;
+  font-weight: 800;
 }
 
-.ClientLayout-company-selector select {
+.ClientLayout-company-list {
+  display: grid;
+  gap: 8px;
+  max-height: 164px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.ClientLayout-company-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.ClientLayout-company-list::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.32);
+  border-radius: 999px;
+}
+
+.ClientLayout-company-card {
   width: 100%;
-  border: 1px solid rgba(148, 163, 184, 0.24);
+  display: grid;
+  grid-template-columns: 38px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  color: rgba(248, 250, 252, 0.88);
+  padding: 9px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.ClientLayout-company-card:hover,
+.ClientLayout-company-card.active {
+  background: rgba(37, 99, 235, 0.14);
+  border-color: rgba(96, 165, 250, 0.26);
+}
+
+.ClientLayout-company-logo {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
   border-radius: 12px;
-  background: rgba(15, 23, 42, 0.72);
+  overflow: hidden;
+  background: rgba(37, 99, 235, 0.18);
+  color: #bfdbfe;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.ClientLayout-company-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ClientLayout-company-copy {
+  min-width: 0;
+}
+
+.ClientLayout-company-copy strong,
+.ClientLayout-company-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ClientLayout-company-copy strong {
+  font-size: 13px;
+  font-weight: 800;
   color: #f8fafc;
-  padding: 10px 12px;
-  outline: none;
+}
+
+.ClientLayout-company-copy small {
+  margin-top: 3px;
+  font-size: 11px;
+  color: rgba(226, 232, 240, 0.68);
 }
 
 .ClientLayout-nav {
   flex: 1;
-  padding: 22px 14px;
+  padding: 12px 14px 22px;
   display: grid;
   gap: 8px;
+  align-content: start;
+  overflow-y: auto;
 }
 
 .ClientLayout-nav-item {

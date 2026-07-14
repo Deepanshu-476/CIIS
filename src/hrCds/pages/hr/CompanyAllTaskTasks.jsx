@@ -345,13 +345,20 @@ const CompanyAllTaskTasks = () => {
       setTasks(nextTasks);
       setTotal(displayTotal);
       setTotalPages(displayPages);
-      setStats(displayStats);
+      // Status-card filtering should only change the task list. Keep the
+      // cross-status summary counts from the unfiltered response so Total and
+      // the other cards do not collapse to the selected status/zero.
+      if (status === "all") {
+        setStats(displayStats);
+      }
 
       if (nextTasks.length === 0) setTaskDetailsById({});
     } catch (err) {
       setTasks([]);
       setTaskDetailsById({});
-      setStats(emptyStats);
+      if (status === "all") {
+        setStats(emptyStats);
+      }
       setError(err?.response?.data?.message || err?.response?.data?.error || "Unable to load tasks.");
     } finally {
       setLoading(false);
@@ -439,11 +446,11 @@ const CompanyAllTaskTasks = () => {
   }, [fetchVisibleTaskDetails, taskDetailsById, tasks]);
 
   const filteredStats = [
-    { label: "Total", value: stats.total || total || 0, icon: FiList, color: "#2563eb" },
-    { label: "Pending", value: stats.pending?.count || 0, icon: FiClock, color: "#f59e0b" },
-    { label: "In Progress", value: stats.inProgress?.count || 0, icon: FiActivity, color: "#0ea5e9" },
-    { label: "Completed", value: stats.completed?.count || 0, icon: FiCheckCircle, color: "#16a34a" },
-    { label: "Overdue", value: stats.overdue?.count || 0, icon: FiAlertTriangle, color: "#dc2626" },
+    { label: "Total", value: stats.total || total || 0, status: "all", icon: FiList, color: "#2563eb" },
+    { label: "Pending", value: stats.pending?.count || 0, status: "pending", icon: FiClock, color: "#f59e0b" },
+    { label: "In Progress", value: stats.inProgress?.count || 0, status: "in-progress", icon: FiActivity, color: "#0ea5e9" },
+    { label: "Completed", value: stats.completed?.count || 0, status: "completed", icon: FiCheckCircle, color: "#16a34a" },
+    { label: "Overdue", value: stats.overdue?.count || 0, status: "overdue", icon: FiAlertTriangle, color: "#dc2626" },
   ];
 
   const employeeName = employee?.name || tasks[0]?.assignedUsers?.[0]?.name || "Employee";
@@ -495,7 +502,22 @@ const CompanyAllTaskTasks = () => {
         {filteredStats.map((item) => {
           const Icon = item.icon;
           return (
-            <article className="company-task-stat" key={item.label}>
+            <article
+              className={`company-task-stat ${status === item.status ? "company-task-stat-active" : ""}`}
+              key={item.label}
+              role="button"
+              tabIndex={0}
+              aria-pressed={status === item.status}
+              onClick={() => { setStatus(item.status); setPage(1); }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setStatus(item.status);
+                  setPage(1);
+                }
+              }}
+              style={{ "--stat-color": item.color }}
+            >
               <div className="company-task-stat-icon" style={{ color: item.color }}>
                 <Icon size={20} />
               </div>

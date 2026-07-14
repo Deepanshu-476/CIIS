@@ -31,6 +31,10 @@ import {
   FiSearch,
   FiUserCheck,
   FiLayers,
+  FiTrendingUp,
+  FiFilter,
+  FiX,
+  FiFileText,
 } from "react-icons/fi";
 import axiosInstance from "../../../utils/axiosConfig";
 import "./ManageGroups.css";
@@ -45,6 +49,7 @@ const ManageGroups = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [editingGroup, setEditingGroup] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [memberSearch, setMemberSearch] = useState("");
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -159,6 +164,7 @@ const ManageGroups = () => {
       });
     }
     setOpenDialog(true);
+    setMemberSearch("");
   };
 
   const handleCloseDialog = () => {
@@ -169,6 +175,7 @@ const ManageGroups = () => {
       description: "",
       members: [],
     });
+    setMemberSearch("");
   };
 
   const handleFormChange = (e) => {
@@ -232,6 +239,11 @@ const ManageGroups = () => {
     return Array.isArray(group.members) && group.members.length > 0;
   }).length;
 
+  const assignedUserIds = new Set(
+    groups.flatMap((group) => (group.members || []).map((member) => String(getEntityId(member))))
+  );
+  const availableUsers = users.filter((item) => !assignedUserIds.has(String(getEntityId(item)))).length;
+
   const filteredGroups = groups.filter((group) => {
     const query = searchTerm.trim().toLowerCase();
     if (!query) return true;
@@ -239,6 +251,12 @@ const ManageGroups = () => {
     return [group.name, group.description]
       .filter(Boolean)
       .some((value) => value.toLowerCase().includes(query));
+  });
+
+  const filteredMemberUsers = users.filter((item) => {
+    const query = memberSearch.trim().toLowerCase();
+    if (!query) return true;
+    return [item.name, item.email].filter(Boolean).some(value => value.toLowerCase().includes(query));
   });
 
   if (loading) {
@@ -288,6 +306,7 @@ const ManageGroups = () => {
             <Typography className="manage-groups-stat-label">
               Total Groups
             </Typography>
+            <Typography className="manage-groups-stat-caption">All groups in system</Typography>
           </Box>
         </Box>
         <Box className="manage-groups-stat-card">
@@ -301,6 +320,7 @@ const ManageGroups = () => {
             <Typography className="manage-groups-stat-label">
               Assigned Members
             </Typography>
+            <Typography className="manage-groups-stat-caption">Users in groups</Typography>
           </Box>
         </Box>
         <Box className="manage-groups-stat-card">
@@ -309,16 +329,17 @@ const ManageGroups = () => {
           </Box>
           <Box>
             <Typography className="manage-groups-stat-value">
-              {users.length}
+              {availableUsers}
             </Typography>
             <Typography className="manage-groups-stat-label">
               Available Users
             </Typography>
+            <Typography className="manage-groups-stat-caption">Users not in any group</Typography>
           </Box>
         </Box>
         <Box className="manage-groups-stat-card">
           <Box className="manage-groups-stat-icon active">
-            <FiUserCheck />
+            <FiTrendingUp />
           </Box>
           <Box>
             <Typography className="manage-groups-stat-value">
@@ -327,6 +348,7 @@ const ManageGroups = () => {
             <Typography className="manage-groups-stat-label">
               Active Groups
             </Typography>
+            <Typography className="manage-groups-stat-caption">Currently active</Typography>
           </Box>
         </Box>
       </Box>
@@ -338,12 +360,15 @@ const ManageGroups = () => {
             type="search"
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Search groups"
+            placeholder="Search groups..."
           />
         </Box>
-        <Typography className="manage-groups-result-count">
-          {filteredGroups.length} of {groups.length} groups
-        </Typography>
+        <Box className="manage-groups-toolbar-right">
+          <Typography className="manage-groups-result-count">
+            {filteredGroups.length} of {groups.length} groups
+          </Typography>
+          <FiFilter className="manage-groups-filter-icon" />
+        </Box>
       </Box>
 
       <TableContainer component={Paper} className="manage-groups-table">
@@ -409,8 +434,18 @@ const ManageGroups = () => {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Box className="manage-groups-member-pill">
-                        {memberCount} member{memberCount === 1 ? "" : "s"}
+                      <Box className="manage-groups-members-cell">
+                        <Box className="manage-groups-member-pill">
+                          {memberCount} member{memberCount === 1 ? "" : "s"}
+                        </Box>
+                        <Box className="manage-groups-member-avatars">
+                          {(group.members || []).slice(0, 3).map((member, memberIndex) => (
+                            <span key={getEntityId(member) || memberIndex}>
+                              {(member?.name || member?.email || 'U').split(/\s+/).slice(0, 2).map(part => part[0]?.toUpperCase()).join('')}
+                            </span>
+                          ))}
+                          {memberCount > 3 && <small>+{memberCount - 3} more</small>}
+                        </Box>
                       </Box>
                     </TableCell>
                     <TableCell align="center">
@@ -451,40 +486,35 @@ const ManageGroups = () => {
         PaperProps={{ className: "manage-groups-dialog" }}
       >
         <DialogTitle className="manage-groups-dialog-title">
-          {editingGroup ? "Edit Group" : "Create New Group"}
+          <Box className="manage-groups-dialog-heading">
+            <Box className="manage-groups-dialog-heading-icon"><FiUsers /></Box>
+            <Box>
+              <Typography>{editingGroup ? "Edit Group" : "Create New Group"}</Typography>
+              <span>{editingGroup ? "Update group details and members." : "Create a new group and add members to get started."}</span>
+            </Box>
+          </Box>
+          <IconButton onClick={handleCloseDialog} className="manage-groups-dialog-close"><FiX /></IconButton>
         </DialogTitle>
         <DialogContent className="manage-groups-dialog-content">
-          <TextField
-            fullWidth
-            label="Group Name"
-            name="name"
-            value={formData.name}
-            onChange={handleFormChange}
-            margin="normal"
-            required
-          />
-          <TextField
-            fullWidth
-            label="Description"
-            name="description"
-            value={formData.description}
-            onChange={handleFormChange}
-            margin="normal"
-            multiline
-            rows={3}
-          />
+          <Box className="manage-groups-dialog-field">
+            <label>Group Name <em>*</em></label>
+            <Box className="manage-groups-dialog-input"><span><FiUsers /></span><input name="name" value={formData.name} onChange={handleFormChange} placeholder="Enter group name" /></Box>
+          </Box>
+          <Box className="manage-groups-dialog-field">
+            <label>Description</label>
+            <Box className="manage-groups-dialog-input textarea"><span><FiFileText /></span><textarea name="description" value={formData.description} onChange={handleFormChange} placeholder="Enter group description (optional)" rows={3} /></Box>
+          </Box>
 
           <Box className="manage-groups-members-section">
-            <Typography className="manage-groups-members-title">
-              Select Members
-            </Typography>
+            <Box className="manage-groups-members-heading"><Box><Typography className="manage-groups-members-title">Select Members</Typography><span>Choose one or more users to add to this group.</span></Box><strong>{formData.members.length} selected</strong></Box>
+            <Box className="manage-groups-member-search"><FiSearch /><input value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} placeholder="Search users by name or email..." /></Box>
             <Box className="manage-groups-members-list">
-              {users.length === 0 ? (
+              {filteredMemberUsers.length === 0 ? (
                 <Typography className="manage-groups-no-users">
                   No users available
                 </Typography>
               ) : (
-                users.map((user) => {
+                filteredMemberUsers.map((user, userIndex) => {
                   const userId = user._id || user.id;
                   const isSelected = formData.members.includes(userId);
 
@@ -502,12 +532,13 @@ const ManageGroups = () => {
                         onChange={() => toggleMember(userId)}
                         size="small"
                       />
+                      <Box className={`manage-groups-user-avatar avatar-${userIndex % 5}`}>{(user.name || user.email || 'U').split(/\s+/).slice(0,2).map(part => part[0]?.toUpperCase()).join('')}</Box>
                       <Box className="manage-groups-user-copy">
                         <Typography className="manage-groups-user-name">
                           {user.name}
                         </Typography>
                         <Typography className="manage-groups-user-role">
-                          {user.companyRole || user.role || "User"}
+                          {user.email || user.companyRole || user.role || "User"}
                         </Typography>
                       </Box>
                     </Box>
@@ -519,7 +550,7 @@ const ManageGroups = () => {
         </DialogContent>
         <DialogActions className="manage-groups-dialog-actions">
           <Button onClick={handleCloseDialog} className="manage-groups-cancel-btn">
-            Cancel
+            <FiX /> Cancel
           </Button>
           <Button
             onClick={handleSaveGroup}
@@ -527,7 +558,7 @@ const ManageGroups = () => {
             color="primary"
             className="manage-groups-save-btn"
           >
-            {editingGroup ? "Update" : "Create"}
+            <FiUsers /> {editingGroup ? "Update Group" : "Create Group"}
           </Button>
         </DialogActions>
       </Dialog>

@@ -807,10 +807,17 @@ const Dashboard = () => {
             { label: 'Open Tasks', value: openTasksCount, icon: <FiInbox />, tone: 'teal' },
             { label: 'Recent Updates', value: recentActivities.length, icon: <FiCreditCard />, tone: 'purple' }
           ].map(item => (
-            <div className="ClientDashboard-hero-stat" key={item.label}>
+            <div
+              className={`ClientDashboard-hero-stat ClientDashboard-hero-stat--${item.tone}`}
+              key={item.label}
+            >
               <span className={`ClientDashboard-icon ClientDashboard-icon--${item.tone}`}>{item.icon}</span>
-              <small>{item.label}</small>
-              <strong>{item.value}</strong>
+              <span className="ClientDashboard-hero-stat-copy">
+                <small>{item.label}</small>
+                <strong className={`ClientDashboard-count ClientDashboard-count--${item.tone}`}>
+                  {item.value}
+                </strong>
+              </span>
             </div>
           ))}
         </div>

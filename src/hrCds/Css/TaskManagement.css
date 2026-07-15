@@ -259,6 +259,103 @@
     flex-shrink: 0;
 }
 
+.client-task-dialog {
+    overflow: hidden;
+}
+
+.client-task-dialog-content {
+    overflow-y: auto;
+}
+
+.client-task-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.client-task-field-help {
+    color: #b45309;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.client-task-refresh-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 0;
+    background: transparent;
+    color: #286ee5;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.client-task-refresh-link:disabled {
+    color: #94a3b8;
+    cursor: not-allowed;
+}
+
+.client-task-auto-assignee {
+    min-height: 40px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-items: center;
+    gap: 2px 10px;
+    padding: 7px 12px;
+    border: 1px solid #c7d2fe;
+    border-radius: 8px;
+    background: #eef2ff;
+    color: #312e81;
+}
+
+.client-task-auto-assignee svg {
+    grid-row: 1 / 3;
+    color: #4f46e5;
+}
+
+.client-task-auto-assignee strong,
+.client-task-auto-assignee small {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.client-task-auto-assignee strong {
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.client-task-auto-assignee small {
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.client-task-create-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.client-task-create-warning {
+    margin-right: auto;
+    color: #b45309;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+@media (max-width: 767px) {
+    .client-task-create-actions {
+        flex-direction: row;
+    }
+
+}
+
 @media (min-width: 768px) {
     .user-create-task-stat-dot {
         width: 10px;

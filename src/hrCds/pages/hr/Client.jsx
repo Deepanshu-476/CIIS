@@ -1235,6 +1235,8 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
   const [editTask, setEditTask] = useState(null);
   const [showTaskDetails, setShowTaskDetails] = useState({ open: false, task: null });
   const [loading, setLoading] = useState(true);
+  const [savingTask, setSavingTask] = useState(false);
+  const [taskEditorMessage, setTaskEditorMessage] = useState({ type: '', text: '' });
 
   const fetchTasks = async () => {
     try {
@@ -1291,6 +1293,16 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
     if (status === 'overdue') return 'Pending';
     return task.status || 'Pending';
   };
+  const getTaskAssigneeName = (task) => {
+    if (!task) return '';
+    if (task.assignee) return task.assignee;
+    const assigneeId = task.assigneeId?._id || task.assigneeId;
+    if (!assigneeId) return '';
+    const matchedManager = Array.isArray(clientProjectManagers)
+      ? clientProjectManagers.find(pm => String(pm._id || pm.id) === String(assigneeId))
+      : null;
+    return matchedManager?.name || '';
+  };
   const getTaskDescription = (task) => task.description || task.taskDescription || task.details || '-';
   const formatTaskDueDate = (value) => {
     if (!value) return '-';
@@ -1307,12 +1319,14 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
 
   const handleAddTask = async () => {
     if (newTask.name.trim()) {
+      setSavingTask(true);
+      setTaskEditorMessage({ type: '', text: '' });
       try {
         const encodedService = encodeURIComponent(service);
         const managerObj = Array.isArray(clientProjectManagers) ? clientProjectManagers.find(pm => pm.name === newTask.assignee) : null;
         const assigneeId = managerObj ? (managerObj._id || managerObj.id) : null;
 
-        const response = await api.post(`/client/${clientId}/service/${encodedService}`, {
+        const payload = {
           name: newTask.name.trim(),
           description: newTask.description.trim(),
           dueDate: convertToISODateString(newTask.dueDate),
@@ -1322,15 +1336,27 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
           priority: newTask.priority,
           subscriptionId,
           subscriptionNo
-        });
+        };
+
+        const response = await api.post(`/client/${clientId}/service/${encodedService}`, payload);
 
         if (response.data.success) {
-          setTasks([...tasks, response.data.data]);
+          const createdTask = { ...payload, ...(response.data.data || {}) };
+          setTasks([...tasks, createdTask]);
           setNewTask({ name: '', description: '', dueDate: '', assignee: '', priority: 'Medium' });
           setShowAddTask(false);
+          setTaskEditorMessage({
+            type: 'success',
+            text: createdTask.assignee ? `Task assigned to ${createdTask.assignee}.` : 'Task added successfully.'
+          });
           if (onTaskUpdate) {
-            onTaskUpdate(service, [...tasks, response.data.data]);
+            onTaskUpdate(service, [...tasks, createdTask]);
           }
+        } else {
+          setTaskEditorMessage({
+            type: 'error',
+            text: response.data?.message || 'Task add failed. Please try again.'
+          });
         }
       } catch (error) {
         console.error('Error adding task:', error);
@@ -1351,57 +1377,90 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
         localStorage.setItem(`client_${clientId}_service_${service}_tasks`, JSON.stringify(updatedTasks));
         setNewTask({ name: '', description: '', dueDate: '', assignee: '', priority: 'Medium' });
         setShowAddTask(false);
+        setTaskEditorMessage({
+          type: 'success',
+          text: newTaskObj.assignee ? `Task assigned to ${newTaskObj.assignee}.` : 'Task added successfully.'
+        });
         if (onTaskUpdate) {
           onTaskUpdate(service, updatedTasks);
         }
+      } finally {
+        setSavingTask(false);
       }
     }
   };
 
   const handleEditTask = async () => {
     if (editTask && editTask.name.trim()) {
+      setSavingTask(true);
+      setTaskEditorMessage({ type: '', text: '' });
       try {
-        if (editTask._id) {
-          const managerObj = Array.isArray(clientProjectManagers) ? clientProjectManagers.find(pm => pm.name === editTask.assignee) : null;
-          const assigneeId = managerObj ? (managerObj._id || managerObj.id) : null;
+        const managerObj = Array.isArray(clientProjectManagers) ? clientProjectManagers.find(pm => pm.name === editTask.assignee) : null;
+        const assigneeId = managerObj ? (managerObj._id || managerObj.id) : null;
+        const payload = {
+          name: editTask.name.trim(),
+          description: (editTask.description || '').trim(),
+          dueDate: convertToISODateString(editTask.dueDate),
+          dueDateTime: convertToISODateString(editTask.dueDate),
+          assignee: editTask.assignee,
+          assigneeId: assigneeId,
+          priority: editTask.priority
+        };
 
-          const response = await api.put(`/${editTask._id}`, {
-            name: editTask.name.trim(),
-            description: (editTask.description || '').trim(),
-            dueDate: convertToISODateString(editTask.dueDate),
-            dueDateTime: convertToISODateString(editTask.dueDate),
-            assignee: editTask.assignee,
-            assigneeId: assigneeId,
-            priority: editTask.priority
-          });
+        if (editTask._id) {
+          const response = await api.put(`/${editTask._id}`, payload);
 
           if (response.data.success) {
-            const updatedTasks = tasks.map(task => 
-              task._id === editTask._id ? response.data.data : task
+            const updatedTask = {
+              ...editTask,
+              ...(response.data.data || {}),
+              ...payload,
+              _id: editTask._id
+            };
+            const updatedTasks = tasks.map(task =>
+              task._id === editTask._id ? updatedTask : task
             );
             setTasks(updatedTasks);
             setEditTask(null);
+            setTaskEditorMessage({
+              type: 'success',
+              text: updatedTask.assignee ? `Task assigned to ${updatedTask.assignee}.` : 'Task updated successfully.'
+            });
             if (onTaskUpdate) {
               onTaskUpdate(service, updatedTasks);
             }
+          } else {
+            setTaskEditorMessage({
+              type: 'error',
+              text: response.data?.message || 'Task assign/update failed. Please try again.'
+            });
           }
         } else {
           const updatedTasks = tasks.map(task => 
             isSameTask(task, editTask) ? {
               ...editTask,
-              name: editTask.name.trim(),
-              description: (editTask.description || '').trim()
+              ...payload
             } : task
           );
           setTasks(updatedTasks);
           localStorage.setItem(`client_${clientId}_service_${service}_tasks`, JSON.stringify(updatedTasks));
           setEditTask(null);
+          setTaskEditorMessage({
+            type: 'success',
+            text: payload.assignee ? `Task assigned to ${payload.assignee}.` : 'Task updated successfully.'
+          });
           if (onTaskUpdate) {
             onTaskUpdate(service, updatedTasks);
           }
         }
       } catch (error) {
         console.error('Error updating task:', error);
+        setTaskEditorMessage({
+          type: 'error',
+          text: error.response?.data?.message || 'Task assign/update failed. Please try again.'
+        });
+      } finally {
+        setSavingTask(false);
       }
     }
   };
@@ -1481,12 +1540,13 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
 
   const openEditTask = (task) => {
     setShowAddTask(false);
+    setTaskEditorMessage({ type: '', text: '' });
     setEditTask({
       ...task,
       name: task.name || task.title || '',
       description: getTaskDescription(task) === '-' ? '' : getTaskDescription(task),
       dueDate: task.dueDate || task.dueDateTime || '',
-      assignee: task.assignee || '',
+      assignee: getTaskAssigneeName(task),
       priority: task.priority || 'Medium',
       status: task.status || (task.completed ? 'completed' : 'pending'),
       completed: Boolean(task.completed)
@@ -1540,7 +1600,10 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
         <div className="ClientManagement-service-progress-actions">
           <button
             className="ClientManagement-service-action"
-            onClick={() => setShowAddTask(!showAddTask)}
+            onClick={() => {
+              setTaskEditorMessage({ type: '', text: '' });
+              setShowAddTask(!showAddTask);
+            }}
             title="Add Task"
           >
             <FiPlus />
@@ -1559,6 +1622,12 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
 
       <div className="ClientManagement-card ClientManagement-mb-2 ClientManagement-service-inner-card">
         <div className="ClientManagement-card__content">
+        {taskEditorMessage.text && (
+          <div className={`ClientManagement-alert ClientManagement-alert--${taskEditorMessage.type} ClientManagement-mb-2`}>
+            {taskEditorMessage.type === 'success' ? <FiCheckCircle /> : <FiAlertCircle />}
+            <span>{taskEditorMessage.text}</span>
+          </div>
+        )}
         {(showAddTask || editTask) && (
           <div className="ClientManagement-task-editor-card">
             <div className="ClientManagement-task-editor-heading">
@@ -1681,8 +1750,10 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
                   onClick={() => {
                     if (editTask) {
                       setEditTask(null);
+                      setTaskEditorMessage({ type: '', text: '' });
                     } else {
                       setShowAddTask(false);
+                      setTaskEditorMessage({ type: '', text: '' });
                       setNewTask({
                         name: '',
                         description: '',
@@ -1698,9 +1769,9 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
                 <button
                   className="ClientManagement-task-editor-save"
                   onClick={editTask ? handleEditTask : handleAddTask}
-                  disabled={editTask ? !editTask.name.trim() : !newTask.name.trim()}
+                  disabled={savingTask || (editTask ? !editTask.name.trim() : !newTask.name.trim())}
                 >
-                  <FiSave /> {editTask ? 'Save Changes' : 'Add Task'}
+                  <FiSave /> {savingTask ? 'Saving...' : editTask ? 'Save & Assign' : 'Add Task'}
                 </button>
               </div>
             </div>
@@ -1716,6 +1787,7 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
                     <th>Title</th>
                     <th>Description</th>
                     <th>Due Date</th>
+                    <th>Assigned To</th>
                     <th>Priority</th>
                     <th>Status</th>
                     <th>Actions</th>
@@ -1745,6 +1817,16 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
                         <span className="ClientManagement-task-due-cell">
                           {formatTaskDueDate(task.dueDate)}
                         </span>
+                      </td>
+                      <td>
+                        {getTaskAssigneeName(task) ? (
+                          <span className="ClientManagement-task-assignee-cell">
+                            <FiUser />
+                            {getTaskAssigneeName(task)}
+                          </span>
+                        ) : (
+                          <span className="ClientManagement-task-unassigned">Unassigned</span>
+                        )}
                       </td>
                       <td>
                         <span className={`ClientManagement-task-pill ClientManagement-task-pill--priority ${getPriorityColor(task.priority)}`}>

@@ -96,7 +96,7 @@ const CompanyDetails = () => {
     dbIdentifier: companyData.dbIdentifier || `company_${companyData._id || Date.now()}`,
     createdAt: companyData.createdAt || new Date().toISOString(),
     updatedAt: companyData.updatedAt || new Date().toISOString(),
-    subscriptionExpiry: companyData.subscriptionExpiry || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    subscriptionExpiry: companyData.subscriptionExpiry || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()
   });
 
   const hydrateCompanyOverview = (overview = {}) => {
@@ -206,7 +206,7 @@ const CompanyDetails = () => {
             dbIdentifier: companyDetails.dbIdentifier || data.company?.dbIdentifier || `company_${companyId}`,
             createdAt: companyDetails.createdAt || data.company?.createdAt || new Date().toISOString(),
             updatedAt: companyDetails.updatedAt || data.company?.updatedAt || new Date().toISOString(),
-            subscriptionExpiry: companyDetails.subscriptionExpiry || data.company?.subscriptionExpiry || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+            subscriptionExpiry: companyDetails.subscriptionExpiry || data.company?.subscriptionExpiry || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()
           };
           
           void 0;
@@ -406,7 +406,7 @@ const CompanyDetails = () => {
             dbIdentifier: "company_dummy_001",
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            subscriptionExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+            subscriptionExpiry: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()
           };
           setCompany(dummyCompany);
           localStorage.setItem("company", JSON.stringify(dummyCompany));
@@ -437,7 +437,7 @@ const CompanyDetails = () => {
 
   
   const getDaysRemaining = (expiryDate) => {
-    if (!expiryDate) return 27; 
+    if (!expiryDate) return 90; 
     try {
       const expiry = new Date(expiryDate);
       const today = new Date();
@@ -445,7 +445,7 @@ const CompanyDetails = () => {
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       return diffDays > 0 ? diffDays : 0;
     } catch (error) {
-      return 27; 
+      return 90; 
     }
   };
 

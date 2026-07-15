@@ -1156,6 +1156,35 @@ textarea.ClientManagement-form-input {
   line-height: 1.35;
 }
 
+.ClientManagement-task-assignee-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 160px;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.ClientManagement-task-assignee-cell svg {
+  flex: 0 0 auto;
+}
+
+.ClientManagement-task-unassigned {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .ClientManagement-task-pill {
   display: inline-flex;
   align-items: center;
@@ -2558,6 +2587,17 @@ textarea.ClientManagement-form-input {
 
 .ClientManagement-service-card-body {
   padding: 16px;
+}
+
+.ClientDetailsPage-container .ClientManagement-service-task-table-section .ClientManagement-task-table-wrap {
+  max-height: 332px;
+  overflow: auto;
+}
+
+.ClientDetailsPage-container .ClientManagement-service-task-table-section .ClientManagement-task-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 /* Additional Info Section */

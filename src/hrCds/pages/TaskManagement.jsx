@@ -14,6 +14,7 @@ import {
 import "../Css/TaskManagement.css";
 import API_URL from '../../config';
 import CIISLoader from '../../Loader/CIISLoader';
+import { getClientPortalCompanyContext, getCompanyScopedClientParams } from '../utils/clientPortalData';
 
 
 const getImageUrl = (imagePath) => {
@@ -277,6 +278,21 @@ const formatActivityAction = (value) => {
     .replace(/\b\w/g, char => char.toUpperCase());
 };
 
+const formatDateTimeInputToIso = (value) => {
+  if (!value) return null;
+  const normalizedValue = value.includes('T') && value.split(':').length === 2 ? `${value}:00` : value;
+  const date = new Date(normalizedValue);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+};
+
+const readStoredObject = (key) => {
+  try {
+    return JSON.parse(localStorage.getItem(key) || 'null') || {};
+  } catch {
+    return {};
+  }
+};
+
 const renderActivityDescription = (description = '') => {
   const statusPattern = /(in progress|pending|completed|cancelled|on hold)/gi;
   return String(description).split(statusPattern).map((part, index) => {
@@ -290,6 +306,7 @@ const renderActivityDescription = (description = '') => {
 const UserCreateTask = () => {
   
   const [openDialog, setOpenDialog] = useState(false);
+  const [openClientTaskDialog, setOpenClientTaskDialog] = useState(false);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [priorityMenuOpen, setPriorityMenuOpen] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
@@ -317,11 +334,23 @@ const UserCreateTask = () => {
   
   const [assignedToMeTasksGrouped, setAssignedToMeTasksGrouped] = useState({});
   const [clientTasksGrouped, setClientTasksGrouped] = useState({});
+  const [clients, setClients] = useState([]);
+  const [loadingClients, setLoadingClients] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [clientTaskForm, setClientTaskForm] = useState({
+    name: '',
+    description: '',
+    service: '',
+    dueDateTime: '',
+    priority: 'Medium'
+  });
+  const [isCreatingClientTask, setIsCreatingClientTask] = useState(false);
   const [projectTasksGrouped, setProjectTasksGrouped] = useState({});
   const [allTasksGrouped, setAllTasksGrouped] = useState({});
   const [allTasksStatsGrouped, setAllTasksStatsGrouped] = useState({});
   const allTasksStatsLoadedRef = useRef(false);
   const allTasksLoadedRef = useRef(false);
+  const clientsLoadAttemptedRef = useRef(false);
   const autoOverdueTaskIdsRef = useRef(new Set());
   const [allTasksPagination, setAllTasksPagination] = useState({
     page: 1,
@@ -1138,6 +1167,14 @@ const UserCreateTask = () => {
     return mergeGroupedTasks(myTasksGrouped, assignedToMeTasksGrouped, clientTasksGrouped, projectTasksGrouped);
   }, [mergeGroupedTasks, myTasksGrouped, assignedToMeTasksGrouped, clientTasksGrouped, projectTasksGrouped]);
 
+  const selectedClient = useMemo(() => {
+    return clients.find(client => String(client._id || client.id) === String(selectedClientId)) || null;
+  }, [clients, selectedClientId]);
+
+  const selectedClientServices = useMemo(() => {
+    return Array.isArray(selectedClient?.services) ? selectedClient.services.filter(Boolean) : [];
+  }, [selectedClient]);
+
   const countGroupedTasks = useCallback((tasksGrouped) => {
     return Object.values(tasksGrouped || {}).reduce((count, dateTasks) => count + (dateTasks?.length || 0), 0);
   }, []);
@@ -1400,6 +1437,143 @@ const UserCreateTask = () => {
       setTaskViewsLoaded(prev => ({ ...prev, client: true }));
     }
   }, [authError, userId, enrichAssignedTasks, extractTasksFromResponse, groupTasksByDate, calculateClientStatsFromTasks, tagTasksWithSource, buildTaskQueryParams, syncOverdueTaskStatuses]);
+
+  const fetchClients = useCallback(async () => {
+    if (authError || !userId) return;
+
+    clientsLoadAttemptedRef.current = true;
+    setLoadingClients(true);
+    try {
+      const user = readStoredObject('user');
+      const storedClient = readStoredObject('client');
+      const companyContext = getClientPortalCompanyContext(user, storedClient);
+      const companyParams = getCompanyScopedClientParams(companyContext);
+
+      if (!companyParams.companyCode && !companyParams.companyIdentifier) {
+        setClients([]);
+        showSnackbar('Company information missing. Please login again from company portal.', 'error');
+        return;
+      }
+
+      const response = await axios.get('/clientsservice', {
+        params: { ...companyParams, limit: 500 }
+      });
+      const clientRows = Array.isArray(response.data?.data)
+        ? response.data.data
+        : Array.isArray(response.data?.clients)
+          ? response.data.clients
+          : Array.isArray(response.data)
+            ? response.data
+            : [];
+
+      const activeClients = clientRows.filter(Boolean);
+      setClients(activeClients);
+
+      if (!selectedClientId && activeClients.length > 0) {
+        const firstClient = activeClients[0];
+        const firstService = Array.isArray(firstClient.services) ? firstClient.services.find(Boolean) || '' : '';
+        setSelectedClientId(firstClient._id || firstClient.id || '');
+        setClientTaskForm(prev => ({ ...prev, service: firstService }));
+      }
+    } catch (err) {
+      console.error('Error loading clients:', err);
+      showSnackbar(err.response?.data?.message || 'Failed to load clients', 'error');
+      setClients([]);
+    } finally {
+      setLoadingClients(false);
+    }
+  }, [authError, userId, selectedClientId]);
+
+  const handleClientSelection = useCallback((clientId) => {
+    const nextClient = clients.find(client => String(client._id || client.id) === String(clientId));
+    const firstService = Array.isArray(nextClient?.services) ? nextClient.services.find(Boolean) || '' : '';
+
+    setSelectedClientId(clientId);
+    setClientTaskForm(prev => ({
+      ...prev,
+      service: firstService
+    }));
+  }, [clients]);
+
+  const handleCreateClientTask = useCallback(async () => {
+    if (!selectedClient) {
+      showSnackbar('Please select a client', 'error');
+      return;
+    }
+
+    if (!clientTaskForm.service) {
+      showSnackbar('Please select a service', 'error');
+      return;
+    }
+
+    if (!clientTaskForm.name.trim() || !clientTaskForm.description.trim() || !clientTaskForm.dueDateTime) {
+      showSnackbar('Please fill task title, description, and due date', 'error');
+      return;
+    }
+
+    const dueDateIso = formatDateTimeInputToIso(clientTaskForm.dueDateTime);
+    if (!dueDateIso) {
+      showSnackbar('Invalid due date', 'error');
+      return;
+    }
+
+    setIsCreatingClientTask(true);
+    try {
+      const payload = {
+        name: clientTaskForm.name.trim(),
+        description: clientTaskForm.description.trim(),
+        dueDate: dueDateIso,
+        dueDateTime: dueDateIso,
+        assignee: userName,
+        assigneeId: userId,
+        priority: clientTaskForm.priority
+      };
+
+      const encodedService = encodeURIComponent(clientTaskForm.service);
+      const response = await axios.post(`/tasks/client-tasks/client/${selectedClient._id || selectedClient.id}/service/${encodedService}`, payload);
+
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || 'Client task creation failed');
+      }
+
+      const createdTask = {
+        ...payload,
+        ...(response.data.data || {}),
+        clientId: response.data.data?.clientId || selectedClient,
+        clientName: selectedClient.company || selectedClient.client || selectedClient.name || 'Client',
+        clientCompany: selectedClient.company,
+        clientEmail: selectedClient.email,
+        service: clientTaskForm.service,
+        title: response.data.data?.name || payload.name,
+        status: normalizeStatus(response.data.data?.status || 'pending'),
+        __taskSource: 'client',
+        taskSource: 'client'
+      };
+
+      setClientTasksGrouped(prev => {
+        const existingTasks = Object.values(prev || {}).flat();
+        const updatedGrouped = groupTasksByDate([createdTask, ...existingTasks]);
+        calculateClientStatsFromTasks(updatedGrouped);
+        return updatedGrouped;
+      });
+
+      setClientTaskForm(prev => ({
+        ...prev,
+        name: '',
+        description: '',
+        dueDateTime: '',
+        priority: 'Medium'
+      }));
+      setTaskViewsLoaded(prev => ({ ...prev, client: true }));
+      setOpenClientTaskDialog(false);
+      showSnackbar(`Client task created for ${selectedClient.company || selectedClient.client || 'client'}`, 'success');
+    } catch (err) {
+      console.error('Error creating client task:', err);
+      showSnackbar(err.response?.data?.message || err.message || 'Client task creation failed', 'error');
+    } finally {
+      setIsCreatingClientTask(false);
+    }
+  }, [calculateClientStatsFromTasks, clientTaskForm, groupTasksByDate, selectedClient, userId, userName]);
 
   const fetchProjectTasks = useCallback(async () => {
     if (authError || !userId) return;
@@ -2633,6 +2807,12 @@ const UserCreateTask = () => {
     }
   }, [userId, authError, pageLoading, fetchAllTasks, fetchMyTasks, fetchAssignedToMeTasks, fetchClientTasks, fetchProjectTasks]);
 
+  useEffect(() => {
+    if (taskViewMode === 'client' && clients.length === 0 && !loadingClients && !clientsLoadAttemptedRef.current) {
+      fetchClients();
+    }
+  }, [clients.length, fetchClients, loadingClients, taskViewMode]);
+
   
   useEffect(() => {
     return () => {
@@ -2747,6 +2927,22 @@ const UserCreateTask = () => {
               >
                 <FiPlus size={isMobile ? 16 : 18} />
                 {isMobile ? 'Create Task' : 'Create Task'}
+              </button>
+            </div>
+          )}
+
+          {taskViewMode === 'client' && (
+            <div className={`user-create-task-header-actions ${isMobile ? 'user-create-task-flex-row user-create-task-justify-between' : ''}`}>
+              <button
+                className="user-create-task-button user-create-task-button-contained"
+                onClick={() => {
+                  fetchClients();
+                  setOpenClientTaskDialog(true);
+                }}
+                style={{ padding: isMobile ? '10px 14px' : '12px 20px' }}
+              >
+                <FiPlus size={isMobile ? 16 : 18} />
+                {isMobile ? 'Client Task' : 'Create Client Task'}
               </button>
             </div>
           )}
@@ -3104,6 +3300,172 @@ const UserCreateTask = () => {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {openClientTaskDialog && (
+        <div className="user-create-task-dialog-overlay personal-task-overlay">
+          <div className={`user-create-task-dialog personal-task-dialog client-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
+            maxWidth: isMobile ? '95%' : isTablet ? '550px' : '600px',
+            width: isMobile ? '95%' : 'auto'
+          }}>
+          <div className="user-create-task-dialog-title">
+            <div className="personal-task-heading">
+              <span className="personal-task-heading-icon"><FiUsers /></span>
+              <div>
+                <div className="personal-task-heading-text">Create Client Task</div>
+                <div className="personal-task-heading-subtitle">
+                  This task will be automatically assigned to you ({userName})
+                </div>
+              </div>
+            </div>
+            <button type="button" className="personal-task-close" onClick={() => setOpenClientTaskDialog(false)} aria-label="Close dialog"><FiX /></button>
+          </div>
+
+          <div className="user-create-task-dialog-content client-task-dialog-content">
+            <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
+              <div className="user-create-task-alert info personal-task-info">
+                <FiInfo /> <span>This client task will be automatically assigned to you ({userName})</span>
+              </div>
+
+              <div className="user-create-task-form-control">
+                <div className="client-task-label-row">
+                  <label>Client *</label>
+                  <button
+                    type="button"
+                    className="client-task-refresh-link"
+                    onClick={fetchClients}
+                    disabled={loadingClients}
+                  >
+                    <FiRefreshCw size={12} />
+                    {loadingClients ? 'Loading' : 'Refresh'}
+                  </button>
+                </div>
+                <select
+                  className="user-create-task-select"
+                  value={selectedClientId}
+                  onChange={(event) => handleClientSelection(event.target.value)}
+                  disabled={loadingClients || clients.length === 0}
+                >
+                  <option value="">{loadingClients ? 'Loading clients...' : 'Select Client'}</option>
+                  {clients.map(client => {
+                    const clientId = client._id || client.id;
+                    const clientName = client.client || client.company || 'Client';
+                    const clientMeta = client.company && client.company !== clientName ? ` - ${client.company}` : '';
+                    return (
+                      <option value={clientId} key={clientId}>
+                        {clientName}{clientMeta}
+                      </option>
+                    );
+                  })}
+                </select>
+                {!loadingClients && clients.length === 0 && (
+                  <small className="client-task-field-help">No clients found. Refresh clients or check company login.</small>
+                )}
+              </div>
+
+              <div className="user-create-task-form-control">
+                <label>Service *</label>
+                <select
+                  className="user-create-task-select"
+                  value={clientTaskForm.service}
+                  onChange={(event) => setClientTaskForm(prev => ({ ...prev, service: event.target.value }))}
+                  disabled={!selectedClient || selectedClientServices.length === 0}
+                >
+                  <option value="">Select Service</option>
+                  {selectedClientServices.map(service => (
+                    <option value={service} key={service}>{service}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="user-create-task-form-control">
+                <label>Assign To</label>
+                <div className="client-task-auto-assignee">
+                  <FiUser />
+                  <strong>{userName || 'You'}</strong>
+                  <small>Automatically assigned</small>
+                </div>
+              </div>
+
+              <div className="user-create-task-form-control">
+                <label>Task Title *</label>
+                <input
+                  className="user-create-task-input"
+                  value={clientTaskForm.name}
+                  placeholder="Enter client task title"
+                  onChange={(event) => setClientTaskForm(prev => ({ ...prev, name: event.target.value }))}
+                />
+              </div>
+
+              <div className="user-create-task-form-control">
+                <label>Description *</label>
+                <textarea
+                  className="user-create-task-input"
+                  rows={isMobile ? 3 : 4}
+                  value={clientTaskForm.description}
+                  placeholder="Enter task description"
+                  onChange={(event) => setClientTaskForm(prev => ({ ...prev, description: event.target.value }))}
+                />
+              </div>
+
+              <div className={`user-create-task-flex ${isMobile ? 'user-create-task-flex-column' : 'user-create-task-gap-2'}`}>
+                <div className="user-create-task-form-control" style={{ flex: 1 }}>
+                  <label>Due Date & Time *</label>
+                  <input
+                    type="datetime-local"
+                    className="user-create-task-input"
+                    value={clientTaskForm.dueDateTime}
+                    min={new Date().toISOString().slice(0, 16)}
+                    onChange={(event) => setClientTaskForm(prev => ({ ...prev, dueDateTime: event.target.value }))}
+                  />
+                </div>
+
+                <div className="user-create-task-form-control" style={{ flex: 1 }}>
+                  <label>Priority</label>
+                  <select
+                    className="user-create-task-select"
+                    value={clientTaskForm.priority}
+                    onChange={(event) => setClientTaskForm(prev => ({ ...prev, priority: event.target.value }))}
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="user-create-task-dialog-actions client-task-create-actions">
+            {selectedClient && selectedClientServices.length === 0 && (
+              <span className="client-task-create-warning">Selected client has no services.</span>
+            )}
+            <button
+              type="button"
+              className="user-create-task-button user-create-task-button-outlined"
+              onClick={() => setOpenClientTaskDialog(false)}
+              style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="user-create-task-button user-create-task-button-contained"
+              onClick={handleCreateClientTask}
+              disabled={
+                isCreatingClientTask ||
+                !selectedClient ||
+                !clientTaskForm.service ||
+                !clientTaskForm.name.trim() ||
+                !clientTaskForm.description.trim() ||
+                !clientTaskForm.dueDateTime
+              }
+            >
+              {isCreatingClientTask ? 'Creating...' : <><FiCheck size={16} /> Create Task</>}
+            </button>
+          </div>
           </div>
         </div>
       )}

@@ -874,11 +874,11 @@ const CompanyDetails = () => {
             subscriptionExpiry: loggedCompany?.subscriptionExpiry ||
                                companyDetails.subscriptionExpiry || 
                                data.company?.subscriptionExpiry || 
-                               new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                               new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
             selectedPlan: loggedCompany?.selectedPlan || companyDetails.selectedPlan || data.company?.selectedPlan || null,
             subscriptionPlan: loggedCompany?.subscriptionPlan || companyDetails.subscriptionPlan || data.company?.subscriptionPlan || "Standard",
             subscriptionAmount: loggedCompany?.subscriptionAmount ?? companyDetails.subscriptionAmount ?? data.company?.subscriptionAmount ?? 0,
-            planDurationDays: loggedCompany?.planDurationDays || companyDetails.planDurationDays || data.company?.planDurationDays || 30,
+            planDurationDays: loggedCompany?.planDurationDays || companyDetails.planDurationDays || data.company?.planDurationDays || 90,
             planFeatures: loggedCompany?.planFeatures || companyDetails.planFeatures || data.company?.planFeatures || [],
             allowedPages: loggedCompany?.allowedPages || companyDetails.allowedPages || data.company?.allowedPages || []
           };
@@ -974,11 +974,11 @@ const CompanyDetails = () => {
           createdAt: companyInfo.createdAt || new Date().toISOString(),
           updatedAt: companyInfo.updatedAt || new Date().toISOString(),
           subscriptionExpiry: companyInfo.subscriptionExpiry || 
-                            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                            new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
           selectedPlan: companyInfo.selectedPlan || null,
           subscriptionPlan: companyInfo.subscriptionPlan || "Standard",
           subscriptionAmount: companyInfo.subscriptionAmount || 0,
-          planDurationDays: companyInfo.planDurationDays || 30,
+          planDurationDays: companyInfo.planDurationDays || 90,
           planFeatures: companyInfo.planFeatures || [],
           allowedPages: companyInfo.allowedPages || [],
           isActive: companyInfo.isActive ?? true
@@ -1019,7 +1019,7 @@ const CompanyDetails = () => {
           dbIdentifier: `company_${Date.now()}`,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          subscriptionExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          subscriptionExpiry: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
           logo: DEFAULT_COMPANY_LOGO,
           isActive: true
         };
@@ -1108,7 +1108,7 @@ const CompanyDetails = () => {
 
   
   const getDaysRemaining = (expiryDate) => {
-    if (!expiryDate) return 30;
+    if (!expiryDate) return 90;
     try {
       const expiry = new Date(expiryDate);
       const today = new Date();
@@ -1116,7 +1116,7 @@ const CompanyDetails = () => {
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       return diffDays > 0 ? diffDays : 0;
     } catch (error) {
-      return 30;
+      return 90;
     }
   };
 
@@ -1786,10 +1786,10 @@ const CompanyDetails = () => {
   const currentPlan = company?.selectedPlan && typeof company.selectedPlan === "object" ? company.selectedPlan : null;
   const planName = currentPlan?.name || company?.subscriptionPlan || "Standard";
   const planAmount = currentPlan?.price ?? company?.subscriptionAmount ?? 0;
-  const planDurationDays = currentPlan?.durationDays || company?.planDurationDays || 30;
+  const planDurationDays = currentPlan?.durationDays || company?.planDurationDays || 90;
   const planFeatures = currentPlan?.features || company?.planFeatures || [];
   const allowedPagesCount = currentPlan?.allowedPages?.length || company?.allowedPages?.length || 0;
-  const subscriptionProgress = Math.min((daysRemaining / Math.max(planDurationDays || 30, 1)) * 100, 100);
+  const subscriptionProgress = Math.min((daysRemaining / Math.max(planDurationDays || 90, 1)) * 100, 100);
 
   
   if (pageLoading) {

@@ -114,6 +114,14 @@ const AllCompany = () => {
     return toDateInputValue(date);
   };
 
+  const getTrialPlanDurationDays = (plan) => {
+    const isFreeTrialPlan =
+      Number(plan?.price || 0) === 0 ||
+      String(plan?.name || "").trim().toLowerCase().includes("free");
+
+    return isFreeTrialPlan ? 90 : Number(plan?.durationDays || 90);
+  };
+
   const getPlanId = (company) => {
     if (!company?.selectedPlan) return "";
     return typeof company.selectedPlan === "object" ? company.selectedPlan._id : company.selectedPlan;
@@ -473,7 +481,7 @@ const AllCompany = () => {
     const selectedPlan = plans.find(plan => plan._id === selectedPlanId);
     setSubscriptionCompany(company);
     setSubscriptionPlanId(selectedPlanId);
-    setSubscriptionExpiryDate(toDateInputValue(company?.subscriptionExpiry) || getDateAfterDays(selectedPlan?.durationDays || 30));
+    setSubscriptionExpiryDate(toDateInputValue(company?.subscriptionExpiry) || getDateAfterDays(getTrialPlanDurationDays(selectedPlan)));
     setSubscriptionPlan(selectedPlan?.name || company?.subscriptionPlan || "Standard");
     setSubscriptionAmount(String(selectedPlan?.price ?? company?.subscriptionAmount ?? ""));
     setSubscriptionPaymentStatus(company?.subscriptionPaymentStatus || "paid");
@@ -491,7 +499,7 @@ const AllCompany = () => {
     if (!selectedPlan) return;
     setSubscriptionPlan(selectedPlan.name || "Standard");
     setSubscriptionAmount(String(selectedPlan.price ?? 0));
-    setSubscriptionExpiryDate(getDateAfterDays(selectedPlan.durationDays || 30));
+    setSubscriptionExpiryDate(getDateAfterDays(getTrialPlanDurationDays(selectedPlan)));
   };
 
   const handleCloseSubscriptionModal = () => {
@@ -1730,8 +1738,8 @@ const AllCompany = () => {
               />
 
               <div className="AllCompany-subscription-presets">
-                <button type="button" onClick={() => setSubscriptionExpiryDate(getDateAfterDays(30))}>+30 days</button>
-                <button type="button" onClick={() => setSubscriptionExpiryDate(getDateAfterDays(90))}>+90 days</button>
+                <button type="button" onClick={() => setSubscriptionExpiryDate(getDateAfterDays(90))}>+3 months</button>
+                <button type="button" onClick={() => setSubscriptionExpiryDate(getDateAfterDays(180))}>+6 months</button>
                 <button type="button" onClick={() => setSubscriptionExpiryDate(getDateAfterDays(365))}>+1 year</button>
               </div>
 
@@ -1747,7 +1755,7 @@ const AllCompany = () => {
                     <option value="">Select plan</option>
                     {plans.filter(plan => plan.isActive !== false).map(plan => (
                       <option key={plan._id} value={plan._id}>
-                        {plan.name} - ₹{Number(plan.price || 0).toLocaleString('en-IN')} / {plan.durationDays} days
+                        {plan.name} - ₹{Number(plan.price || 0).toLocaleString('en-IN')} / {getTrialPlanDurationDays(plan)} days
                       </option>
                     ))}
                   </select>

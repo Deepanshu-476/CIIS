@@ -99,6 +99,8 @@ const emptyTaskStats = {
   cancelled: 0
 };
 
+const TASK_STAT_KEYS = ['pending', 'inProgress', 'completed', 'rejected', 'overdue', 'onhold', 'reopen', 'cancelled'];
+
 const isTaskOverdueByDate = (dueDate, status) => {
   if (!dueDate) return false;
   const normalizedStatus = normalizeStatus(status);
@@ -639,12 +641,25 @@ const TaskDetails = () => {
     let totalTasks = 0;
     let totalCompleted = 0;
     let totalPending = 0;
+    const statusTotals = {
+      pending: 0,
+      inProgress: 0,
+      completed: 0,
+      rejected: 0,
+      overdue: 0,
+      onhold: 0,
+      reopen: 0,
+      cancelled: 0
+    };
 
     usersData.forEach(user => {
       const stats = user.taskStats || {};
       totalTasks += stats.total || 0;
       totalCompleted += stats.completed || 0;
       totalPending += stats.pending || 0;
+      TASK_STAT_KEYS.forEach(key => {
+        statusTotals[key] += Number(stats[key] || 0);
+      });
     });
 
     const overallRate = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
@@ -653,12 +668,12 @@ const TaskDetails = () => {
       total: totalTasks,
       completed: totalCompleted,
       pending: totalPending,
-      'in-progress': 0,
-      rejected: 0,
-      overdue: 0,
-      onhold: 0,
-      reopen: 0,
-      cancelled: 0
+      'in-progress': statusTotals.inProgress,
+      rejected: statusTotals.rejected,
+      overdue: statusTotals.overdue,
+      onhold: statusTotals.onhold,
+      reopen: statusTotals.reopen,
+      cancelled: statusTotals.cancelled
     });
 
     setSystemStats({

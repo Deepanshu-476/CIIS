@@ -41,6 +41,15 @@ import {
 } from '@mui/icons-material';
 import Swal from "sweetalert2";
 import axiosInstance from '../utils/axiosConfig';
+import {
+  CLIENT_PORTAL_SELECTED_CLIENT_KEY,
+  CLIENT_PORTAL_SELECTION_EVENT,
+  getClientDisplayName,
+  getClientPortalCompanyContext,
+  getClientServices,
+  getCompanyScopedClientParams,
+  isClientForLoggedInUser
+} from './utils/clientPortalData';
 
 const drawerWidthOpen = 260;
 const drawerWidthClosed = 70;
@@ -782,6 +791,9 @@ const Sidebar = ({ isMobile = false }) => {
   const [sidebarConfig, setSidebarConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [clientCompanies, setClientCompanies] = useState([]);
+  const [selectedClientCompanyId, setSelectedClientCompanyId] = useState("");
+  const [clientCompanyDropdownOpen, setClientCompanyDropdownOpen] = useState(true);
   const sidebarRef = useRef(null);
   const hoverTimer = useRef(null);
   const leaveTimer = useRef(null);
@@ -793,6 +805,72 @@ const Sidebar = ({ isMobile = false }) => {
   const isClientUser = useMemo(() => {
     return userData?.companyRole === "client";
   }, [userData]);
+
+  useEffect(() => {
+    if (!isClientUser || !userData) {
+      setClientCompanies([]);
+      setSelectedClientCompanyId("");
+      return;
+    }
+
+    let cancelled = false;
+
+    const readStoredClient = () => {
+      try {
+        return JSON.parse(localStorage.getItem("client") || "null");
+      } catch {
+        return null;
+      }
+    };
+
+    const loadClientCompanies = async () => {
+      const storedClient = readStoredClient();
+      try {
+        const companyContext = getClientPortalCompanyContext(userData, storedClient);
+        if (!companyContext.companyCode) {
+          const fallbackCompanies = storedClient ? [storedClient] : [];
+          if (!cancelled) {
+            setClientCompanies(fallbackCompanies);
+            setSelectedClientCompanyId(String(storedClient?._id || storedClient?.id || ""));
+          }
+          return;
+        }
+
+        const response = await axiosInstance.get("/clientsservice", {
+          params: { ...getCompanyScopedClientParams(companyContext), limit: 1000 }
+        });
+        const allClients = response.data?.data || response.data?.clients || [];
+        const matchingClients = Array.isArray(allClients)
+          ? allClients.filter(item => isClientForLoggedInUser(item, userData))
+          : [];
+        const companies = matchingClients.length ? matchingClients : (storedClient ? [storedClient] : []);
+        const selectedId =
+          localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY) ||
+          storedClient?._id ||
+          storedClient?.id ||
+          companies[0]?._id ||
+          companies[0]?.id ||
+          "";
+
+        if (!cancelled) {
+          setClientCompanies(companies);
+          setSelectedClientCompanyId(String(selectedId));
+          setClientCompanyDropdownOpen(companies.length > 0);
+        }
+      } catch (clientCompanyError) {
+        console.warn("Could not load client companies for sidebar:", clientCompanyError.message);
+        if (!cancelled && storedClient) {
+          setClientCompanies([storedClient]);
+          setSelectedClientCompanyId(String(storedClient._id || storedClient.id || ""));
+        }
+      }
+    };
+
+    loadClientCompanies();
+    return () => {
+      cancelled = true;
+    };
+  }, [isClientUser, userData]);
 
   
   const isSuperAdminWithManagement = useMemo(() => {
@@ -1015,6 +1093,26 @@ const Sidebar = ({ isMobile = false }) => {
     }
     
     navigate(path);
+    if (!isMobile) {
+      setIsHovered(false);
+    }
+  };
+
+  const handleClientCompanySwitch = (clientCompany) => {
+    const nextId = clientCompany?._id || clientCompany?.id;
+    if (!nextId) return;
+
+    localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(nextId));
+    localStorage.setItem("client", JSON.stringify(clientCompany));
+    setSelectedClientCompanyId(String(nextId));
+    window.dispatchEvent(new CustomEvent(CLIENT_PORTAL_SELECTION_EVENT, {
+      detail: { clientId: nextId }
+    }));
+
+    if (!location.pathname.startsWith("/client")) {
+      navigate("/client/dashboard");
+    }
+
     if (!isMobile) {
       setIsHovered(false);
     }
@@ -1504,6 +1602,109 @@ const Sidebar = ({ isMobile = false }) => {
     }
   };
 
+  const renderClientCompanySwitcher = () => {
+    if (!isClientUser || clientCompanies.length === 0) return null;
+
+    const selectedCompany = clientCompanies.find(item => (
+      String(item?._id || item?.id || "") === String(selectedClientCompanyId || "")
+    )) || clientCompanies[0];
+
+    if (!isSidebarOpen) {
+      return (
+        <Tooltip title="Your Company" placement="right">
+          <CollapsedHeading>
+            <FolderIcon />
+          </CollapsedHeading>
+        </Tooltip>
+      );
+    }
+
+    return (
+      <Box>
+        <StyledListItem disablePadding>
+          <StyledListItemButton
+            onClick={() => setClientCompanyDropdownOpen(open => !open)}
+            sx={{ minHeight: 44 }}
+          >
+            <StyledListItemIcon>
+              <FolderIcon />
+            </StyledListItemIcon>
+            <ListItemText
+              primary="Your Company"
+              secondary={getClientDisplayName(selectedCompany)}
+              primaryTypographyProps={{
+                variant: 'body2',
+                fontWeight: 700,
+                fontSize: '0.9rem'
+              }}
+              secondaryTypographyProps={{
+                variant: 'caption',
+                noWrap: true
+              }}
+            />
+            {clientCompanies.length > 1 && (
+              <Box sx={{
+                mr: 0.75,
+                px: 0.8,
+                py: 0.25,
+                borderRadius: 999,
+                bgcolor: 'action.hover',
+                color: 'primary.main',
+                fontSize: '0.68rem',
+                fontWeight: 800
+              }}>
+                {clientCompanies.length}
+              </Box>
+            )}
+            {clientCompanyDropdownOpen ? <ExpandLess /> : <ExpandMore />}
+          </StyledListItemButton>
+        </StyledListItem>
+
+        <Collapse in={clientCompanyDropdownOpen} timeout="auto" unmountOnExit>
+          <List sx={{ py: 0.25 }}>
+            {clientCompanies.map(item => {
+              const id = String(item?._id || item?.id || getClientDisplayName(item));
+              const isSelected = String(item?._id || item?.id || "") === String(selectedClientCompanyId || "");
+              return (
+                <StyledListItem key={id} disablePadding>
+                  <StyledListItemButton
+                    selected={isSelected}
+                    onClick={() => handleClientCompanySwitch(item)}
+                    sx={{
+                      minHeight: 38,
+                      pl: 4.75,
+                      pr: 1.5,
+                      py: 0.75
+                    }}
+                  >
+                    <StyledListItemIcon sx={{ marginRight: 1.5, fontSize: '1rem' }}>
+                      <FolderIcon fontSize="small" />
+                    </StyledListItemIcon>
+                    <ListItemText
+                      primary={getClientDisplayName(item)}
+                      secondary={`${getClientServices(item).length} services`}
+                      primaryTypographyProps={{
+                        variant: 'body2',
+                        fontWeight: isSelected ? 700 : 500,
+                        fontSize: '0.86rem',
+                        noWrap: true
+                      }}
+                      secondaryTypographyProps={{
+                        variant: 'caption',
+                        noWrap: true,
+                        sx: { fontSize: '0.7rem' }
+                      }}
+                    />
+                  </StyledListItemButton>
+                </StyledListItem>
+              );
+            })}
+          </List>
+        </Collapse>
+      </Box>
+    );
+  };
+
   return (
     <Container
       ref={sidebarRef}
@@ -1560,6 +1761,7 @@ const Sidebar = ({ isMobile = false }) => {
 
       
       <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+        {renderClientCompanySwitcher()}
         {Object.keys(groupedItems).map(category => (
           <Box key={category}>
             {renderCategoryHeading(category)}

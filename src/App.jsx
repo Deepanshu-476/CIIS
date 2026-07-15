@@ -81,6 +81,7 @@ import JobRoleManagement from "./admin/page/JobRoleManagement.jsx";
 import SidebarManagement from "./admin/components/SidebarManagement.jsx";
 import CompanyDetails from "./admin/components/CompanyDetails.jsx";
 import AllCompany from "./page/AllCompany.jsx";
+import CompanyUsersPage from "./page/CompanyUsersPage.jsx";
 import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
 import Holiday from "./page/Holidays.jsx";
 import BranchManagement from "./admin/page/BranchManagement.jsx"; 
@@ -134,6 +135,7 @@ function App() {
           <Route path="JobRoleManagement" element={<JobRoleManagement />} />
           <Route path="create-user" element={<CreateUser />} />
           <Route path="all-company" element={<AllCompany />} />
+          <Route path="all-company/:companyId/users" element={<CompanyUsersPage />} />
           <Route path="company-assets" element={<CompanyAssetManagement/>}/>
           <Route path="company-assets/branch/:branchId" element={<CompanyAssetManagement/>}/>
           <Route path="CompanyManagement" element={<CompanyManagement />} />

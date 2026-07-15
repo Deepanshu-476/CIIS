@@ -223,7 +223,7 @@ const PriorityChip = ({ priority }) => {
 };
 
 const getColorValue = (color) => {
-  const colors = {
+  const colors = {   
     primary: '#1976d2',
     success: '#4caf50',
     warning: '#ff9800',

@@ -38,10 +38,12 @@ import {
   CreditCard as CreditCardIcon,
   Folder as FolderIcon,
   SupportAgent as SupportAgentIcon,
+  Business as BusinessIcon,
 } from '@mui/icons-material';
 import Swal from "sweetalert2";
 import axiosInstance from '../utils/axiosConfig';
 import {
+<<<<<<< HEAD
   CLIENT_PORTAL_SELECTED_CLIENT_KEY,
   CLIENT_PORTAL_SELECTION_EVENT,
   getClientDisplayName,
@@ -49,6 +51,13 @@ import {
   getClientServices,
   getCompanyScopedClientParams,
   isClientForLoggedInUser
+=======
+  CLIENT_PORTAL_COMPANIES_EVENT,
+  CLIENT_PORTAL_COMPANIES_KEY,
+  CLIENT_PORTAL_SELECTED_CLIENT_KEY,
+  CLIENT_PORTAL_SELECTION_EVENT,
+  getCachedClientCompanies
+>>>>>>> 2048ba30d2583e09b846524091e5e8f152085cf7
 } from './utils/clientPortalData';
 
 const drawerWidthOpen = 260;
@@ -445,6 +454,152 @@ const clientMenuItems = [
     order: 7
   },
 ];
+
+const getClientCompanyName = company => (
+  company?.company || company?.companyName || company?.client || company?.name || 'Company'
+);
+
+const ClientCompaniesDropdown = ({ onCompanySelected }) => {
+  const [open, setOpen] = useState(false);
+  const [companies, setCompanies] = useState(() => getCachedClientCompanies());
+  const [selectedCompanyId, setSelectedCompanyId] = useState(() => (
+    String(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY) || '')
+  ));
+
+  useEffect(() => {
+    const refreshCompanies = () => setCompanies(getCachedClientCompanies());
+    const refreshSelection = () => setSelectedCompanyId(
+      String(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY) || '')
+    );
+    window.addEventListener(CLIENT_PORTAL_COMPANIES_EVENT, refreshCompanies);
+    window.addEventListener(CLIENT_PORTAL_SELECTION_EVENT, refreshSelection);
+    return () => {
+      window.removeEventListener(CLIENT_PORTAL_COMPANIES_EVENT, refreshCompanies);
+      window.removeEventListener(CLIENT_PORTAL_SELECTION_EVENT, refreshSelection);
+    };
+  }, []);
+
+  const handleSelectCompany = company => {
+    const companyId = String(company?._id || company?.id || '');
+    if (companyId && companyId !== selectedCompanyId) {
+      localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, companyId);
+      localStorage.setItem('client', JSON.stringify(company));
+      setSelectedCompanyId(companyId);
+      window.dispatchEvent(new CustomEvent(CLIENT_PORTAL_SELECTION_EVENT, {
+        detail: { clientId: companyId }
+      }));
+    }
+    onCompanySelected(company);
+  };
+
+  return (
+    <Box sx={{ mx: 1, mb: 0.5 }}>
+      <ListItemButton
+        onClick={() => setOpen(value => !value)}
+        aria-expanded={open}
+        aria-controls="client-companies-list"
+        sx={{
+          minHeight: 48,
+          px: 2,
+          borderRadius: 2,
+          color: 'text.secondary',
+          '&:hover': {
+            backgroundColor: 'action.hover',
+            transform: 'translateX(2px)',
+          },
+        }}
+      >
+        <ListItemIcon sx={{ minWidth: 0, mr: 2, color: 'inherit' }}>
+          <BusinessIcon />
+        </ListItemIcon>
+        <ListItemText
+          primary="Companies"
+          primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
+        />
+        {companies.length > 1 && (
+          <Box
+            component="span"
+            sx={{
+              minWidth: 22,
+              height: 22,
+              px: 0.75,
+              mr: 0.5,
+              display: 'grid',
+              placeItems: 'center',
+              borderRadius: 10,
+              backgroundColor: 'action.selected',
+              color: 'primary.main',
+              fontSize: '0.7rem',
+              fontWeight: 700,
+            }}
+          >
+            {companies.length}
+          </Box>
+        )}
+        {open ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
+      </ListItemButton>
+
+      <Collapse in={open} timeout="auto" unmountOnExit>
+        <List id="client-companies-list" disablePadding sx={{ mt: 0.5 }}>
+          {companies.length === 0 && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', py: 1.25, pl: 4.5 }}>
+              No companies available
+            </Typography>
+          )}
+
+          {companies.map(company => {
+            const companyId = String(company?._id || company?.id || '');
+            const isSelected = companyId === selectedCompanyId;
+            const companyName = getClientCompanyName(company);
+
+            return (
+              <ListItemButton
+                key={companyId || companyName}
+                selected={isSelected}
+                onClick={() => handleSelectCompany(company)}
+                sx={{
+                  minHeight: 42,
+                  ml: 2.5,
+                  mr: 0.5,
+                  pl: 1.5,
+                  pr: 1,
+                  borderRadius: 2,
+                  borderLeft: '2px solid',
+                  borderLeftColor: isSelected ? 'primary.main' : 'divider',
+                }}
+              >
+                <Box
+                  component="span"
+                  sx={{
+                    width: 28,
+                    height: 28,
+                    mr: 1.25,
+                    flex: '0 0 auto',
+                    display: 'grid',
+                    placeItems: 'center',
+                    borderRadius: 1.5,
+                    backgroundColor: isSelected ? 'primary.main' : 'action.hover',
+                    color: isSelected ? 'primary.contrastText' : 'primary.main',
+                    fontSize: '0.75rem',
+                    fontWeight: 800,
+                  }}
+                >
+                  {companyName.trim().charAt(0).toUpperCase() || 'C'}
+                </Box>
+                <ListItemText
+                  primary={companyName}
+                  secondary={isSelected ? 'Selected' : null}
+                  primaryTypographyProps={{ variant: 'body2', fontWeight: isSelected ? 700 : 500, noWrap: true }}
+                  secondaryTypographyProps={{ variant: 'caption', color: 'primary.main' }}
+                />
+              </ListItemButton>
+            );
+          })}
+        </List>
+      </Collapse>
+    </Box>
+  );
+};
 
 
 const allPagesItems = [
@@ -1142,6 +1297,7 @@ const Sidebar = ({ isMobile = false }) => {
       localStorage.removeItem("user");
       localStorage.removeItem("token");
       localStorage.removeItem("companyDetails");
+      localStorage.removeItem(CLIENT_PORTAL_COMPANIES_KEY);
 
       Swal.fire({
         title: "Logged Out!",
@@ -1484,9 +1640,19 @@ const Sidebar = ({ isMobile = false }) => {
         <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', mt: 2 }}>
           <List sx={{ py: 0 }}>
             {menuItems.map((item) => (
-              <StyledListItem key={item.id} disablePadding>
-                {renderMenuItem(item, isSidebarOpen)}
-              </StyledListItem>
+              <React.Fragment key={item.id}>
+                <StyledListItem disablePadding>
+                  {renderMenuItem(item, isSidebarOpen)}
+                </StyledListItem>
+                {item.id === 'client-dashboard' && isSidebarOpen && (
+                  <ClientCompaniesDropdown
+                    onCompanySelected={company => {
+                      const companyId = company?._id || company?.id;
+                      if (companyId) handleNavigate(`/client/company/${companyId}`);
+                    }}
+                  />
+                )}
+              </React.Fragment>
             ))}
           </List>
         </Box>

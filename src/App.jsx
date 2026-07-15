@@ -214,6 +214,7 @@ function App() {
         >
           <Route index element={<ClientDashboardPage />} />
           <Route path="dashboard" element={<ClientDashboardPage />} />
+          <Route path="company/:companyId" element={<ClientDashboardPage companyPage />} />
           <Route path="tasks-updates" element={<ClientTasksUpdatesPage />} />
           <Route path="my-services" element={<MyServicesPage />} />
           <Route path="marketplace" element={<ServiceMarketplacePage />} />

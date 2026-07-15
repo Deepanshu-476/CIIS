@@ -31,6 +31,47 @@
   background: linear-gradient(135deg, #f9fbff 0%, #eaf2ff 100%);
 }
 
+.ClientDashboard-greeting-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.ClientDashboard-selected-company {
+  min-width: 150px;
+  max-width: 260px;
+  padding: 10px 14px;
+  border: 1px solid #d6e3fb;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  text-align: right;
+  box-shadow: 0 5px 14px rgba(31, 75, 153, 0.07);
+}
+
+.ClientDashboard-selected-company span,
+.ClientDashboard-selected-company strong {
+  display: block;
+}
+
+.ClientDashboard-selected-company span {
+  margin-bottom: 4px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ClientDashboard-selected-company strong {
+  overflow: hidden;
+  color: #174ea6;
+  font-size: 15px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .ClientDashboard-greeting-card h1,
 .ClientDashboard-profile-info h2,
 .ClientDashboard-card h3 {
@@ -2405,5 +2446,17 @@ button {
 
   .ClientDashboard-profile-info p:first-of-type {
     padding-right: 70px;
+  }
+}
+@media (max-width: 640px) {
+  .ClientDashboard-greeting-head {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ClientDashboard-selected-company {
+    width: 100%;
+    max-width: none;
+    text-align: left;
   }
 }

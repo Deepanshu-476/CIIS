@@ -7,6 +7,27 @@ export const rupee = '\u20b9';
 export const getAuthToken = () => localStorage.getItem('token') || localStorage.getItem('authToken');
 export const CLIENT_PORTAL_SELECTED_CLIENT_KEY = 'clientPortalSelectedClientId';
 export const CLIENT_PORTAL_SELECTION_EVENT = 'client-portal-company-change';
+export const CLIENT_PORTAL_COMPANIES_KEY = 'clientPortalAvailableCompanies';
+export const CLIENT_PORTAL_COMPANIES_EVENT = 'client-portal-companies-ready';
+
+export const getCachedClientCompanies = () => {
+  try {
+    const companies = JSON.parse(localStorage.getItem(CLIENT_PORTAL_COMPANIES_KEY) || '[]');
+    return Array.isArray(companies) ? companies : [];
+  } catch {
+    return [];
+  }
+};
+
+export const cacheClientCompanies = companies => {
+  const safeCompanies = Array.isArray(companies) ? companies : [];
+  try {
+    localStorage.setItem(CLIENT_PORTAL_COMPANIES_KEY, JSON.stringify(safeCompanies));
+  } catch (error) {
+    console.warn('Could not cache client companies:', error);
+  }
+  window.dispatchEvent(new CustomEvent(CLIENT_PORTAL_COMPANIES_EVENT));
+};
 
 const readStoredJson = key => {
   try {
@@ -640,6 +661,7 @@ export const useClientPortalData = () => {
       if (!companyContext.companyCode) {
         setClient(null);
         setAvailableClients([]);
+        cacheClientCompanies([]);
         setServices([]);
         setTasks([]);
         setProjectManagers([]);
@@ -668,6 +690,7 @@ export const useClientPortalData = () => {
       if (!currentClient) {
         setClient(null);
         setAvailableClients([]);
+        cacheClientCompanies([]);
         setServices([]);
         setTasks([]);
         setProjectManagers([]);
@@ -682,6 +705,7 @@ export const useClientPortalData = () => {
       if (isMounted.current) {
         setClient(currentClient);
         setAvailableClients(matchingClients);
+        cacheClientCompanies(matchingClients);
         localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(currentClient._id));
         localStorage.setItem('client', JSON.stringify(currentClient));
         setServices(serviceList);

@@ -535,7 +535,10 @@ const Attendance = () => {
   };
 
   
-  const filteredData = useMemo(() => {
+  // Keep the summary cards based on the current date/search scope, not on the
+  // selected status card. Otherwise selecting (for example) "Present" makes
+  // every other count zero and incorrectly changes Total Records as well.
+  const summaryData = useMemo(() => {
     return processedAttendance.filter((record) => {
       if (isFutureAbsentRecord(record)) return false;
 
@@ -544,12 +547,6 @@ const Attendance = () => {
         normalizeAttendanceStatus(record.status).toLowerCase().includes(search.toLowerCase()) ||
         (record.holidayTitle && record.holidayTitle.toLowerCase().includes(search.toLowerCase()));
       
-      const normalizedStatus = normalizeAttendanceStatus(record.status);
-      const matchesStatus =
-        statusFilter === "ALL" || 
-        normalizedStatus === statusFilter ||
-        (statusFilter === "HOLIDAY" && (record.isHoliday || normalizedStatus === 'HOLIDAY'));
-
       const matchesSelectedDate = !selectedDate ||
         formatDateForInput(record.date) === formatDateForInput(selectedDate);
 
@@ -600,14 +597,24 @@ const Attendance = () => {
         }
       }
 
-      return matchesSearch && matchesStatus && matchesSelectedDate && matchesTimeRange;
+      return matchesSearch && matchesSelectedDate && matchesTimeRange;
     });
-  }, [processedAttendance, search, selectedDate, statusFilter, timeRange, isDateRangeActive, startDate, endDate, isFutureAbsentRecord]);
+  }, [processedAttendance, search, selectedDate, timeRange, isDateRangeActive, startDate, endDate, isFutureAbsentRecord]);
+
+  const filteredData = useMemo(() => {
+    if (statusFilter === "ALL") return summaryData;
+
+    return summaryData.filter((record) => {
+      const normalizedStatus = normalizeAttendanceStatus(record.status);
+      return normalizedStatus === statusFilter ||
+        (statusFilter === "HOLIDAY" && (record.isHoliday || normalizedStatus === "HOLIDAY"));
+    });
+  }, [summaryData, statusFilter]);
 
   
   useEffect(() => {
-    calculateStats(filteredData);
-  }, [filteredData, calculateStats]);
+    calculateStats(summaryData);
+  }, [summaryData, calculateStats]);
 
   
   const applyDateRange = () => {

@@ -171,42 +171,18 @@ export default function AdminMeetingPage() {
         }
       } catch (err) {
         void 0;
+        const res = await axios.get(`${API_URL}/meetings`, {
+          params: { page: 1, limit: 100 }
+        });
         
-        try {
-          const res = await axios.post(`${API_URL}/meetings/company-meetings`, {
-            companyCode: currentCompanyCode
-          });
-          
-          if (Array.isArray(res.data)) {
-            fetchedMeetings = res.data;
-          } else if (res.data?.data) {
-            fetchedMeetings = res.data.data;
-          } else if (res.data?.meetings) {
-            fetchedMeetings = res.data.meetings;
-          }
-        } catch (err2) {
-          void 0;
-          
-          const res = await axios.get(`${API_URL}/meetings`, {
-            params: { page: 1, limit: 100 }
-          });
-          
-          if (Array.isArray(res.data)) {
-            fetchedMeetings = res.data;
-          } else if (res.data?.data) {
-            fetchedMeetings = res.data.data;
-          } else if (res.data?.meetings) {
-            fetchedMeetings = res.data.meetings;
-          } else if (res.data?.success && res.data.data) {
-            fetchedMeetings = res.data.data;
-          }
-          
-          fetchedMeetings = fetchedMeetings.filter(meeting => {
-            return meeting.companyCode === currentCompanyCode || 
-                   meeting.company === currentCompanyCode ||
-                   meeting.companyId === currentCompanyCode ||
-                   !meeting.companyCode;
-          });
+        if (Array.isArray(res.data)) {
+          fetchedMeetings = res.data;
+        } else if (res.data?.data) {
+          fetchedMeetings = res.data.data;
+        } else if (res.data?.meetings) {
+          fetchedMeetings = res.data.meetings;
+        } else if (res.data?.success && res.data.data) {
+          fetchedMeetings = res.data.data;
         }
       }
       

@@ -634,6 +634,82 @@ const UserDashboard = () => {
     }
   }, [getCompanyId, token]);
 
+  const fetchDashboardSummary = useCallback(async () => {
+    if (!isUserInCurrentCompany) return false;
+
+    try {
+      setJobRolesLoading(true);
+      setHolidaysLoading(true);
+      setLoading(prev => ({ ...prev, attendance: true, leaves: true, status: true }));
+
+      const response = await axios.get('/dashboard/employee-summary', {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 15000
+      });
+
+      const summary = response.data?.data;
+      if (!response.data?.success || !summary) return false;
+
+      const dashboardConfig = summary.dashboardConfig || [];
+      const clockConfig = dashboardConfig.find(item => item.componentId === 'clock-in');
+      setAttendanceMode(clockConfig?.settings?.attendanceMode || 'normal');
+
+      const formattedJobRoles = (summary.jobRoles || []).map(role => ({
+        _id: role._id || role.id || role.roleId || 'employee',
+        roleName: role.roleName || role.name || role.jobRole || role.title || 'Employee',
+        roleNumber: role.roleNumber || role.roleNo || role.code || 'N/A',
+      }));
+      setJobRoles(formattedJobRoles.length ? formattedJobRoles : [
+        { _id: 'employee', roleName: 'Employee', roleNumber: 'EMP001' }
+      ]);
+
+      let holidaysData = summary.holidays || [];
+      if (userJoinDate) {
+        holidaysData = holidaysData.filter(holiday => !isBeforeJoinDate(new Date(holiday.date)));
+      }
+      setHolidays(holidaysData);
+
+      let attendanceRecords = (summary.attendance || []).map(normalizeAttendanceRecord);
+      if (userJoinDate) {
+        attendanceRecords = attendanceRecords.filter(record => !isBeforeJoinDate(record.date));
+      }
+      setAttendanceData(attendanceRecords);
+
+      let leaves = summary.leaves || [];
+      if (userJoinDate) {
+        leaves = leaves.filter(leave =>
+          !isBeforeJoinDate(leave.startDate) && !isBeforeJoinDate(leave.endDate)
+        );
+      }
+      setLeaveData(leaves);
+
+      const status = summary.attendanceStatus || {};
+      if (status.isClockedIn && status.inTime) {
+        const inTime = new Date(status.inTime);
+        setTimer(Math.floor((Date.now() - inTime.getTime()) / 1000));
+        setIsRunning(true);
+      } else {
+        setIsRunning(false);
+        setTimer(0);
+      }
+
+      const tasks = (summary.recentTasks?.length ? summary.recentTasks : pickTaskRecords(summary))
+        .slice(0, 8)
+        .map(mapTaskToActivity);
+      setTaskActivity(tasks);
+      updateRecentActivity(attendanceRecords, holidaysData, tasks);
+
+      return true;
+    } catch (error) {
+      console.error('Dashboard summary fetch error:', error);
+      return false;
+    } finally {
+      setJobRolesLoading(false);
+      setHolidaysLoading(false);
+      setLoading(prev => ({ ...prev, attendance: false, leaves: false, status: false }));
+    }
+  }, [isUserInCurrentCompany, token, userJoinDate, isBeforeJoinDate, updateRecentActivity]);
+
   
   useEffect(() => {
     if (initialLoadRef.current) return;
@@ -649,13 +725,16 @@ const UserDashboard = () => {
       cancelPendingRequests();
       
       try {
-        await fetchDashboardConfig();
-        await fetchJobRoles();
-        await fetchHolidays(); 
-        await fetchAttendanceData(true); 
-        await fetchLeaveData();
-        await fetchCurrentStatus();
-        await fetchRecentTaskActivity();
+        const summaryLoaded = await fetchDashboardSummary();
+        if (!summaryLoaded) {
+          await fetchDashboardConfig();
+          await fetchJobRoles();
+          await fetchHolidays(); 
+          await fetchAttendanceData(true); 
+          await fetchLeaveData();
+          await fetchCurrentStatus();
+          await fetchRecentTaskActivity();
+        }
       } catch (error) {
         console.error('Error loading dashboard data:', error);
       } finally {
@@ -669,7 +748,7 @@ const UserDashboard = () => {
     loadData();
     
     return () => cancelPendingRequests();
-  }, [fetchDashboardConfig, fetchJobRoles, fetchHolidays, fetchAttendanceData, fetchLeaveData, fetchCurrentStatus, fetchRecentTaskActivity, cancelPendingRequests, isUserInCurrentCompany]);
+  }, [fetchDashboardSummary, fetchDashboardConfig, fetchJobRoles, fetchHolidays, fetchAttendanceData, fetchLeaveData, fetchCurrentStatus, fetchRecentTaskActivity, cancelPendingRequests, isUserInCurrentCompany]);
 
   
   useEffect(() => {

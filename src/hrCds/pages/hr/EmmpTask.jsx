@@ -409,7 +409,7 @@ const EmmpTask = () => {
 
     setLoading(true);
     try {
-      const res = await axios.get('/task/assigned-tasks-status');
+      const res = await axios.get('/task/assigned');
       const sortedTasks = (res.data.tasks || []).sort(
         (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
       );

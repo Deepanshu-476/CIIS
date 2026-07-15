@@ -301,7 +301,7 @@ const CompanyAllTaskTasks = () => {
 
     if (companyId) urls.push(`/users/company-users?companyId=${companyId}`);
     if (departmentId) urls.push(`/users/department-users?department=${departmentId}`);
-    urls.push("/users/company-users", "/auth/users");
+    urls.push("/users/company-users");
 
     for (const url of urls) {
       try {

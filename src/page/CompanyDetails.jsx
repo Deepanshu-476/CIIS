@@ -81,6 +81,42 @@ const CompanyDetails = () => {
   const [saveLoading, setSaveLoading] = useState(false);
   const [departments, setDepartments] = useState([]);
 
+  const normalizeCompanyData = (companyData = {}) => ({
+    _id: companyData._id,
+    companyName: companyData.companyName || companyData.name || "Company",
+    companyCode: companyData.companyCode || "",
+    logo: companyData.logo || "",
+    isActive: companyData.isActive ?? true,
+    companyEmail: companyData.companyEmail || companyData.email || "ciisnetwork@gmail.com",
+    companyPhone: companyData.companyPhone || companyData.phone || "8340185442",
+    companyAddress: companyData.companyAddress || companyData.address || "123 Example Street",
+    companyDomain: companyData.companyDomain || companyData.domain || "gmail.com",
+    ownerName: companyData.ownerName || "company",
+    loginUrl: companyData.loginUrl || `/company/${companyData.companyCode || "COMPANY"}/login`,
+    dbIdentifier: companyData.dbIdentifier || `company_${companyData._id || Date.now()}`,
+    createdAt: companyData.createdAt || new Date().toISOString(),
+    updatedAt: companyData.updatedAt || new Date().toISOString(),
+    subscriptionExpiry: companyData.subscriptionExpiry || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+  });
+
+  const hydrateCompanyOverview = (overview = {}) => {
+    const companyData = normalizeCompanyData(overview.company || overview.data || {});
+    setCompany(companyData);
+    setRecentUsers(overview.recentUsers || (overview.users || []).slice(0, 5));
+    setDepartments((overview.departments || []).map(dept => (
+      typeof dept === "object" ? dept.name || dept.departmentName || dept.title || dept._id : dept
+    )).filter(Boolean));
+    setStats({
+      totalUsers: overview.stats?.totalUsers ?? overview.totalUsers ?? (overview.users || []).length,
+      activeUsers: overview.stats?.activeUsers ?? (overview.users || []).filter(user => user.isActive).length,
+      departments: overview.stats?.departments ?? (overview.departments || []).length,
+      todayLogins: overview.stats?.todayLogins ?? 0
+    });
+    setUserRole(overview.currentUser?.name || overview.currentUser?.role || "");
+    localStorage.setItem("company", JSON.stringify(companyData));
+    if (companyData.companyCode) localStorage.setItem("companyCode", companyData.companyCode);
+  };
+
   
   const fetchCurrentUserCompany = async () => {
     try {
@@ -95,6 +131,20 @@ const CompanyDetails = () => {
       }
 
       const headers = { Authorization: `Bearer ${token}` };
+
+      try {
+        const overviewRes = await axios.get(`${API_URL}/company/overview/current`, {
+          headers,
+          params: { limit: 100 }
+        });
+
+        if (overviewRes.data?.success) {
+          hydrateCompanyOverview(overviewRes.data);
+          return;
+        }
+      } catch (overviewError) {
+        console.error("Company overview API failed:", overviewError);
+      }
 
       
       try {
@@ -232,7 +282,7 @@ const CompanyDetails = () => {
         if (companyId) {
           
           const companyRes = await axios.get(
-            `${API_URL}/super-admin/company/${companyId}`,
+            `${API_URL}/company/${companyId}`,
             { headers }
           );
           
@@ -273,7 +323,7 @@ const CompanyDetails = () => {
   const fetchCompanyUsers = async (companyId, headers) => {
     try {
       const usersRes = await axios.get(
-        `${API_URL}/super-admin/company/${companyId}/users`,
+        `${API_URL}/company/${companyId}/users`,
         { headers }
       );
       

@@ -472,6 +472,71 @@ const Dashboard = () => {
     }
   };
 
+  const fetchDashboardOverview = async (user, storedClient) => {
+    const requestCompanyInfo = getClientPortalCompanyContext(user, storedClient);
+
+    if (!requestCompanyInfo.companyCode) {
+      if (isMounted.current) {
+        setAvailableClients([]);
+        setClient(null);
+        setServices([]);
+        setProjectManagers([]);
+        setServiceTasks([]);
+        setSupportTicketsData([]);
+        setError('Company code missing. Please login again from your company portal.');
+      }
+      return true;
+    }
+
+    try {
+      setSupportTicketsLoading(true);
+      setSupportTicketsError('');
+      const selectedClientId = normalizeMatchValue(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
+      const storedClientId = selectedClientId || normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
+      const response = await api.get('/dashboard-overview', {
+        params: {
+          ...getCompanyScopedClientParams(requestCompanyInfo),
+          selectedClientId: storedClientId || undefined
+        }
+      });
+
+      const overview = response.data?.data;
+      if (!response.data?.success || !overview) return false;
+      if (!isMounted.current) return true;
+
+      const matchingClients = overview.availableClients || [];
+      const currentClient = overview.client || null;
+      setAvailableClients(matchingClients);
+
+      if (!currentClient) {
+        setClient(null);
+        setServices([]);
+        setProjectManagers([]);
+        setServiceTasks([]);
+        setSupportTicketsData(overview.supportTickets || []);
+        setError('No client data found for this login.');
+        return true;
+      }
+
+      setError('');
+      setClient(currentClient);
+      localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(currentClient._id));
+      localStorage.setItem('client', JSON.stringify(currentClient));
+      setServices(overview.services || currentClient.services || []);
+      setProjectManagers(overview.projectManagers || []);
+      setServiceTasks(applyClientSubscriptionDueDates(overview.serviceTasks || [], currentClient));
+      setSupportTicketsData(Array.isArray(overview.supportTickets) ? overview.supportTickets : []);
+      return true;
+    } catch (error) {
+      console.error('Error fetching client dashboard overview:', error);
+      return false;
+    } finally {
+      if (isMounted.current) {
+        setSupportTicketsLoading(false);
+      }
+    }
+  };
+
   const fetchClientData = async () => {
     try {
       if (!isMounted.current) return;
@@ -491,6 +556,9 @@ const Dashboard = () => {
           return null;
         }
       })();
+      const overviewLoaded = await fetchDashboardOverview(user, storedClient);
+      if (overviewLoaded) return;
+
       const companyUsers = await fetchCompanyUsers(user);
       const requestCompanyInfo = getClientPortalCompanyContext(user, storedClient);
 

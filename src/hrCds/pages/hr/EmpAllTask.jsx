@@ -772,7 +772,28 @@ const TaskDetails = () => {
         let response = null;
         let usersData = [];
 
-        if (currentUser) {
+        try {
+          const overviewRes = await axios.get('/tasks/all/company-overview', {
+            ...config,
+            params: {
+              period: globalFromDate || globalToDate ? 'all' : 'today',
+              fromDate: globalFromDate || undefined,
+              toDate: globalToDate || undefined,
+              status: 'all',
+              priority: 'all',
+            },
+            _skipErrorNotify: true,
+          });
+
+          const overviewUsers = overviewRes.data?.users || overviewRes.data?.data || [];
+          if (overviewRes.data?.success && Array.isArray(overviewUsers)) {
+            usersData = overviewUsers;
+          }
+        } catch (overviewError) {
+          void 0;
+        }
+
+        if (usersData.length === 0 && currentUser) {
           let apiUrl = '';
 
           if (isOwner()) {
@@ -802,12 +823,12 @@ const TaskDetails = () => {
             void 0;
             throw apiError;
           }
-        } else {
+        } else if (usersData.length === 0) {
           try {
             response = await axios.get('/task/users-with-counts', config);
           } catch (generalError) {
             void 0;
-            const usersResponse = await axios.get('/auth/users', config);
+            const usersResponse = await axios.get('/users/company-users', config);
             if (usersResponse.data?.users) {
               usersData = usersResponse.data.users;
             }

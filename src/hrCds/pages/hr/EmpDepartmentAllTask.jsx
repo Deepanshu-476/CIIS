@@ -236,7 +236,7 @@ const TaskDetails = () => {
         void 0;
         try {
           
-          const usersResponse = await axios.get('/auth/users', config);
+          const usersResponse = await axios.get('/users/company-users', config);
           if (usersResponse.data?.users) {
             const usersWithEmptyStats = usersResponse.data.users.map(user => ({
               ...user,

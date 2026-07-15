@@ -2162,22 +2162,45 @@ const EmployeeProject = () => {
 
       
       {openActivityDrawer && (
-        <div className="EmployeeProject-drawer">
+        <div
+          className="EmployeeProject-drawer EmployeeProject-activity-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="EmployeeProject-activity-modal-title"
+        >
           <div className="EmployeeProject-drawer-backdrop" onClick={() => setOpenActivityDrawer(false)} />
-          <div className="EmployeeProject-drawer-content EmployeeProject-drawer-right">
+          <div className="EmployeeProject-drawer-content EmployeeProject-drawer-right EmployeeProject-activity-modal-content">
             <div className="EmployeeProject-drawer-header">
-              <h3>Activity Logs</h3>
-              <button className="EmployeeProject-drawer-close" onClick={() => setOpenActivityDrawer(false)}>
-                <Icons.Close />
-              </button>
+              <div className="EmployeeProject-activity-modal-heading">
+                <span className="EmployeeProject-activity-modal-icon"><Icons.History /></span>
+                <div>
+                  <h3 id="EmployeeProject-activity-modal-title">Activity Logs</h3>
+                  <p>{selectedTask?.title || 'Task history and updates'}</p>
+                </div>
+              </div>
+              <div className="EmployeeProject-activity-modal-actions">
+                <span className="EmployeeProject-activity-count">
+                  {selectedTask?.activityLogs?.length || 0} {(selectedTask?.activityLogs?.length || 0) === 1 ? 'update' : 'updates'}
+                </span>
+                <button
+                  type="button"
+                  className="EmployeeProject-drawer-close"
+                  onClick={() => setOpenActivityDrawer(false)}
+                  aria-label="Close activity logs"
+                >
+                  <Icons.Close />
+                </button>
+              </div>
             </div>
             <div className="EmployeeProject-drawer-body">
-              <p className="EmployeeProject-activity-task-title">{selectedTask?.title}</p>
-              <div className="EmployeeProject-divider" />
+              <div className="EmployeeProject-activity-summary">
+                <span>Task</span>
+                <strong>{selectedTask?.title}</strong>
+              </div>
               
               <div className="EmployeeProject-activity-list">
                 {selectedTask?.activityLogs?.map((log, index) => (
-                  <div className="EmployeeProject-activity-item" key={index}>
+                  <div className="EmployeeProject-activity-item" key={log._id || index}>
                     <div className="EmployeeProject-activity-icon">
                       <Icons.History />
                     </div>

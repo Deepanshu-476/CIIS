@@ -1314,7 +1314,7 @@ const DepartmentManagement = () => {
 
               <div className="DepartmentManagement-form-group">
                 <label className="DepartmentManagement-form-label">Description</label>
-                <div className="DepartmentManagement-input-wrapper">
+                <div className="DepartmentManagement-input-wrapper DepartmentManagement-textarea-wrapper">
                   <span className="DepartmentManagement-input-icon">
                     {getIconSvg('description', isMobile ? 18 : 20)}
                   </span>

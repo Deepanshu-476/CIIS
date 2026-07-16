@@ -952,7 +952,13 @@ const JobRoleManagement = () => {
             <div className="JobRoleManagement-modal-header">
               <div className="JobRoleManagement-modal-header-content">
                 <div className="JobRoleManagement-modal-avatar">
-                  {editingJobRole ? '✏️' : '+'}
+                  {editingJobRole ? (
+                    <span aria-hidden="true">✏️</span>
+                  ) : (
+                    <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
+                      <path d="M9 7V5.8C9 4.8 9.8 4 10.8 4h2.4c1 0 1.8.8 1.8 1.8V7m-9 0h12c.6 0 1 .4 1 1v10c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1V8c0-.6.4-1 1-1Zm5 5h2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    </svg>
+                  )}
                 </div>
                 <div className="JobRoleManagement-modal-title-section">
                   <h3 className="JobRoleManagement-modal-title">
@@ -961,10 +967,19 @@ const JobRoleManagement = () => {
                   <p className="JobRoleManagement-modal-subtitle">
                     {editingJobRole 
                       ? 'Update job role information' 
-                      : 'Add a new job role to define positions'}
+                      : 'Define role details and working-hour policies'}
                   </p>
                 </div>
               </div>
+              <button
+                type="button"
+                className="JobRoleManagement-modal-close"
+                onClick={() => setOpenDialog(false)}
+                disabled={loading}
+                aria-label="Close job role form"
+              >
+                ×
+              </button>
             </div>
             
             <div className="JobRoleManagement-modal-body">
@@ -983,6 +998,15 @@ const JobRoleManagement = () => {
                 </div>
               )}
               
+              <section className="JobRoleManagement-form-section">
+                <div className="JobRoleManagement-section-heading">
+                  <span className="JobRoleManagement-section-marker" aria-hidden="true" />
+                  <div>
+                    <h4>Basic Information</h4>
+                    <p>Define the role name, responsibilities and department.</p>
+                  </div>
+                </div>
+
               <div className="JobRoleManagement-form-group">
                 <label className="JobRoleManagement-form-label">Job Role Name *</label>
                 <div className="JobRoleManagement-input-wrapper">
@@ -1026,10 +1050,17 @@ const JobRoleManagement = () => {
                   ))}
                 </select>
               </div>
+              </section>
 
-              <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px' }}>
-                <h4 style={{ marginBottom: '15px', color: '#333', fontSize: '1rem', fontWeight: 600 }}>Shift & Clock-in Timing Settings</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '15px' }}>
+              <section className="JobRoleManagement-form-section">
+                <div className="JobRoleManagement-section-heading">
+                  <span className="JobRoleManagement-section-clock" aria-hidden="true">◷</span>
+                  <div>
+                    <h4>Shift &amp; Clock-in Settings</h4>
+                    <p>Configure shift timings, grace periods and working-hour policies.</p>
+                  </div>
+                </div>
+                <div className="JobRoleManagement-time-grid">
                   <div className="JobRoleManagement-form-group">
                     <label className="JobRoleManagement-form-label">Shift Start Time</label>
                     <input
@@ -1151,10 +1182,14 @@ const JobRoleManagement = () => {
                     />
                   </div>
                 </div>
-              </div>
+              </section>
             </div>
             
             <div className="JobRoleManagement-modal-footer">
+              <p className="JobRoleManagement-modal-note">
+                <span aria-hidden="true">i</span> All times are in 24-hour format.
+              </p>
+              <div className="JobRoleManagement-modal-actions">
               <button 
                 className="JobRoleManagement-btn-secondary"
                 onClick={() => setOpenDialog(false)}
@@ -1176,6 +1211,7 @@ const JobRoleManagement = () => {
                   editingJobRole ? 'Update Job Role' : 'Create Job Role'
                 )}
               </button>
+              </div>
             </div>
           </div>
         </div>

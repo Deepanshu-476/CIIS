@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import axios from '../utils/axiosConfig';
@@ -25,7 +26,7 @@ const CompanyAssetManagement = () => {
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
-  const [quantity, setQuantity] = useState('');
+  const [quantity, setQuantity] = useState('1');
   const [editingCommentReq, setEditingCommentReq] = useState(null);
   const [commentText, setCommentText] = useState('');
   const [animateIn, setAnimateIn] = useState(false);
@@ -344,7 +345,7 @@ const CompanyAssetManagement = () => {
       const response = await axios.post('/company-assets', {
         name: name.trim(),
         description: description.trim(),
-        quantity: quantity,
+        quantity: Math.max(1, Number(quantity) || 1),
         branch: selectedBranchId
       });
       
@@ -352,7 +353,7 @@ const CompanyAssetManagement = () => {
         toast.success('Company asset created successfully!');
         setName('');
         setDescription('');
-        setQuantity('');
+        setQuantity('1');
         setShowForm(false);
         fetchAssets();
       } else {
@@ -718,19 +719,30 @@ const CompanyAssetManagement = () => {
       </div>
 
       
-      {showForm && (
+      {showForm && createPortal((
         <div className="ca-modal-overlay-enhanced" onClick={() => setShowForm(false)}>
           <div className="ca-form-card-enhanced" onClick={(e) => e.stopPropagation()}>
             <div className="ca-form-header-enhanced">
-              <h3>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-                Create New Asset
-              </h3>
-              <button className="ca-close-btn-enhanced" onClick={() => setShowForm(false)}>✕</button>
+              <div className="ca-form-title-wrap-enhanced">
+                <span className="ca-form-title-icon-enhanced" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M5 7h14l-1 12H6L5 7Z" />
+                    <path d="M8 7V5h8v2M10 11h4" />
+                  </svg>
+                </span>
+                <div>
+                  <h3>Create New Asset</h3>
+                  <p>Add asset details and inventory information</p>
+                </div>
+              </div>
+              <button type="button" className="ca-close-btn-enhanced" onClick={() => setShowForm(false)} aria-label="Close create asset form">✕</button>
             </div>
             <form onSubmit={handleSubmit}>
+              <div className="ca-form-body-enhanced">
+              <div className="ca-asset-section-title-enhanced">
+                <span aria-hidden="true" />
+                <h4>Asset Details</h4>
+              </div>
               <div className="ca-form-group-enhanced">
                 <label>
                   Branch <span className="ca-required-enhanced">*</span>
@@ -756,30 +768,27 @@ const CompanyAssetManagement = () => {
                   ))}
                 </select>
               </div>
-              <div className="ca-form-group-enhanced">
-                <label>
-                  Asset Name <span className="ca-required-enhanced">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter asset name"
-                  disabled={loading}
-                  className="ca-form-input-enhanced"
-                  autoFocus
-                />
-              </div>
-              <div className="ca-form-group-enhanced form-row">
-                <div className="form-field">
-                  <label>Quantity</label>
+              <div className="ca-asset-fields-grid-enhanced">
+                <div className="ca-form-group-enhanced">
+                  <label>
+                    Asset Name <span className="ca-required-enhanced">*</span>
+                  </label>
                   <input
-                    type="number"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    placeholder="Enter quantity"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter asset name"
+                    disabled={loading}
                     className="ca-form-input-enhanced"
                   />
+                </div>
+                <div className="ca-form-group-enhanced">
+                  <label>Quantity</label>
+                  <div className="ca-quantity-stepper-enhanced">
+                    <button type="button" onClick={() => setQuantity(String(Math.max(1, (Number(quantity) || 1) - 1)))} disabled={loading || Number(quantity) <= 1} aria-label="Decrease quantity">−</button>
+                    <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} onBlur={() => setQuantity(String(Math.max(1, Number(quantity) || 1)))} disabled={loading} aria-label="Asset quantity" />
+                    <button type="button" onClick={() => setQuantity(String((Number(quantity) || 0) + 1))} disabled={loading} aria-label="Increase quantity">+</button>
+                  </div>
                 </div>
               </div>
               <div className="ca-form-group-enhanced">
@@ -793,13 +802,17 @@ const CompanyAssetManagement = () => {
                   className="ca-form-textarea-enhanced"
                 />
               </div>
+              </div>
               <div className="ca-form-actions-enhanced">
+                <p>Fields marked <span>*</span> are required</p>
+                <div className="ca-form-action-buttons-enhanced">
                 <button 
                   type="button"
                   onClick={() => {
                     setShowForm(false);
                     setName('');
                     setDescription('');
+                    setQuantity('1');
                   }}
                   disabled={loading}
                   className="ca-btn-enhanced ca-btn-secondary-enhanced"
@@ -817,14 +830,15 @@ const CompanyAssetManagement = () => {
                       Creating...
                     </>
                   ) : (
-                    'Create Asset'
+                    <><span className="ca-create-plus-enhanced" aria-hidden="true">+</span> Create Asset</>
                   )}
                 </button>
+                </div>
               </div>
             </form>
           </div>
         </div>
-      )}
+      ), document.body)}
 
       
       <div className="ca-assets-section-enhanced">

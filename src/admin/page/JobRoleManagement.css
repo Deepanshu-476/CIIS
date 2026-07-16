@@ -1332,11 +1332,13 @@ input:checked + .JobRoleManagement-slider:before {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
+  padding: 20px;
   animation: JobRoleManagement-fadeIn 0.3s ease;
 }
 
@@ -1346,12 +1348,17 @@ input:checked + .JobRoleManagement-slider:before {
 }
 
 .JobRoleManagement-modal {
-  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
-  border-radius: 32px;
-  max-width: 600px;
-  width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
+  background: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+  max-width: 680px;
+  width: min(100%, 680px);
+  height: min(90vh, 760px);
+  max-height: 760px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   animation: JobRoleManagement-scaleIn 0.3s ease;
 }
 
@@ -1362,6 +1369,7 @@ input:checked + .JobRoleManagement-slider:before {
   max-height: none;
   border-radius: 0;
   margin: 0;
+  height: 100dvh;
 }
 
 @keyframes JobRoleManagement-scaleIn {
@@ -1376,35 +1384,25 @@ input:checked + .JobRoleManagement-slider:before {
 }
 
 .JobRoleManagement-modal-header {
-  background: linear-gradient(145deg, #2196f3 0%, #1976d2 100%);
-  color: white;
-  padding: 24px;
+  background: #ffffff;
+  color: #172033;
+  padding: 18px 20px;
   position: relative;
-  overflow: hidden;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #e7ecf3;
+  z-index: 2;
 }
 
 .JobRoleManagement-modal-header::before {
-  content: '';
-  position: absolute;
-  top: -50px;
-  right: -50px;
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  animation: JobRoleManagement-float 8s ease-in-out infinite;
+  display: none;
 }
 
 .JobRoleManagement-modal-header::after {
-  content: '';
-  position: absolute;
-  bottom: -50px;
-  left: -50px;
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  animation: JobRoleManagement-float 10s ease-in-out infinite reverse;
+  display: none;
 }
 
 @keyframes JobRoleManagement-float {
@@ -1417,53 +1415,161 @@ input:checked + .JobRoleManagement-slider:before {
 .JobRoleManagement-modal-header-content {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   position: relative;
   z-index: 1;
 }
 
 .JobRoleManagement-modal-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: white;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 8px;
+  background: #1479d1;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
-  color: #1976d2;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  font-size: 20px;
+  color: #ffffff;
+  box-shadow: 0 7px 16px rgba(20, 121, 209, 0.22);
 }
 
 .JobRoleManagement-modal-title {
-  font-size: 1.25rem;
+  font-size: 1rem;
   font-weight: 700;
   margin: 0 0 4px 0;
 }
 
 .JobRoleManagement-modal-subtitle {
-  font-size: 0.75rem;
-  opacity: 0.9;
+  font-size: 0.72rem;
+  color: #718096;
   margin: 0;
 }
 
+.JobRoleManagement-modal-close {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #334155;
+  font-size: 23px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.JobRoleManagement-modal-close:hover {
+  background: #f1f5f9;
+}
+
 .JobRoleManagement-modal-body {
-  padding: 24px;
+  padding: 12px 14px 18px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 @media (min-width: 768px) {
   .JobRoleManagement-modal-body {
-    padding: 32px;
+    padding: 12px 14px 18px;
   }
 }
 
 .JobRoleManagement-modal-footer {
-  padding: 24px;
-  border-top: 1px solid #e0e0e0;
-  background: #fafafa;
+  padding: 12px 18px;
+  border-top: 1px solid #e7ecf3;
+  background: #ffffff;
   display: flex;
-  justify-content: flex-end;
-  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+  z-index: 2;
+  box-shadow: 0 -5px 18px rgba(15, 23, 42, 0.04);
+}
+
+.JobRoleManagement-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.JobRoleManagement-modal-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: #718096;
+  font-size: 0.68rem;
+}
+
+.JobRoleManagement-modal-note span {
+  width: 15px;
+  height: 15px;
+  border: 1px solid #1684dc;
+  border-radius: 50%;
+  color: #1684dc;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.JobRoleManagement-form-section {
+  background: #ffffff;
+  border: 1px solid #e7ecf3;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.035);
+}
+
+.JobRoleManagement-section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-bottom: 14px;
+}
+
+.JobRoleManagement-section-heading h4 {
+  margin: 0 0 2px;
+  color: #263245;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.JobRoleManagement-section-heading p {
+  margin: 0;
+  color: #8792a5;
+  font-size: 0.64rem;
+}
+
+.JobRoleManagement-section-marker {
+  width: 3px;
+  height: 20px;
+  border-radius: 99px;
+  background: #1b8be0;
+}
+
+.JobRoleManagement-section-clock {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #e8f4ff;
+  color: #1786dd;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+}
+
+.JobRoleManagement-time-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
 }
 
 /* Info Banner */
@@ -1568,6 +1674,94 @@ input:checked + .JobRoleManagement-slider:before {
 .JobRoleManagement-form-select:focus {
   border-color: #1976d2;
   box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+.JobRoleManagement-form-section .JobRoleManagement-form-group {
+  margin-bottom: 12px;
+}
+
+.JobRoleManagement-form-section .JobRoleManagement-form-group:last-child {
+  margin-bottom: 0;
+}
+
+.JobRoleManagement-form-section .JobRoleManagement-form-label {
+  margin-bottom: 6px;
+  color: #3d4758;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.JobRoleManagement-form-section .JobRoleManagement-form-input,
+.JobRoleManagement-form-section .JobRoleManagement-form-textarea,
+.JobRoleManagement-form-section .JobRoleManagement-form-select {
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-color: #dce3ec;
+  border-radius: 6px;
+  color: #273244;
+  font-size: 0.76rem;
+}
+
+.JobRoleManagement-form-section .JobRoleManagement-form-select {
+  padding-right: 38px;
+}
+
+.JobRoleManagement-form-section .JobRoleManagement-form-textarea {
+  min-height: 72px;
+}
+
+.JobRoleManagement-form-section .JobRoleManagement-input-icon,
+.JobRoleManagement-form-section .JobRoleManagement-textarea-icon {
+  display: none;
+}
+
+.JobRoleManagement-modal-body::-webkit-scrollbar {
+  width: 7px;
+}
+
+.JobRoleManagement-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.JobRoleManagement-modal-body::-webkit-scrollbar-thumb {
+  background: #8b8f96;
+  border-radius: 99px;
+}
+
+.JobRoleManagement-modal .JobRoleManagement-btn-primary,
+.JobRoleManagement-modal .JobRoleManagement-btn-secondary {
+  min-height: 38px;
+  padding: 9px 18px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+}
+
+.JobRoleManagement-modal .JobRoleManagement-btn-primary {
+  background: #1684dc;
+  box-shadow: 0 3px 9px rgba(22, 132, 220, 0.22);
+}
+
+@media (max-width: 767px) {
+  .JobRoleManagement-modal-overlay {
+    padding: 0;
+  }
+
+  .JobRoleManagement-time-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .JobRoleManagement-modal-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .JobRoleManagement-modal-actions {
+    width: 100%;
+  }
+
+  .JobRoleManagement-modal-actions button {
+    flex: 1;
+  }
 }
 
 /* Spinner */

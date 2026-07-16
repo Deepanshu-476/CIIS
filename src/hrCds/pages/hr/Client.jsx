@@ -3163,6 +3163,44 @@ const ClientManagement = () => {
     };
   };
 
+  const getCompanyStatusMeta = (status) => {
+    const normalizedStatus = String(status || 'N/A').trim();
+    const statusKey = normalizedStatus.toLowerCase();
+
+    if (statusKey === 'active') {
+      return { label: 'Active', className: 'ClientManagement-badge--success' };
+    }
+
+    if (statusKey === 'on hold') {
+      return { label: 'On Hold', className: 'ClientManagement-badge--warning' };
+    }
+
+    if (statusKey === 'inactive') {
+      return { label: 'Inactive', className: 'ClientManagement-badge--error' };
+    }
+
+    return { label: normalizedStatus || 'N/A', className: 'ClientManagement-badge--info' };
+  };
+
+  const getCompanyStatusSummary = (statusCounts) => {
+    const preferredLabels = ['Active', 'On Hold', 'Inactive'];
+    const preferredEntries = [
+      ['Active', statusCounts.Active || 0],
+      ['On Hold', statusCounts['On Hold'] || 0],
+      ['Inactive', statusCounts.Inactive || 0]
+    ].filter(([, count]) => count > 0);
+    const extraEntries = Object.entries(statusCounts || {})
+      .filter(([label, count]) => !preferredLabels.includes(label) && count > 0);
+    const entries = [...preferredEntries, ...extraEntries];
+
+    if (entries.length === 0) return [{ label: 'N/A', className: 'ClientManagement-badge--info' }];
+
+    return entries.map(([label, count]) => ({
+      label: `${count} ${label}`,
+      className: getCompanyStatusMeta(label).className
+    }));
+  };
+
   const formatCurrency = (amount) => {
     return `Rs ${Number(amount || 0).toLocaleString('en-IN')}`;
   };
@@ -3214,15 +3252,18 @@ const ClientManagement = () => {
           activeCompanies: 0,
           expiredCompanies: 0,
           totalRevenue: 0,
+          statusCounts: {},
           companies: []
         });
       }
 
       const group = groups.get(key);
+      const companyStatus = getCompanyStatusMeta(companyClient.status).label;
       group.totalCompanies += 1;
       group.activeCompanies += companyClient.status === 'Active' && !isExpired ? 1 : 0;
       group.expiredCompanies += isExpired ? 1 : 0;
       group.totalRevenue += getClientRevenue(companyClient);
+      group.statusCounts[companyStatus] = (group.statusCounts[companyStatus] || 0) + 1;
       group.companies.push(companyClient);
     });
 
@@ -4154,6 +4195,7 @@ const ClientManagement = () => {
                     <tr>
                       <th>Client Name</th>
                       <th>Total Companies</th>
+                      <th>Company Status</th>
                       <th>Active Companies</th>
                       <th>Expired Companies</th>
                       <th>Total Revenue</th>
@@ -4181,6 +4223,18 @@ const ClientManagement = () => {
                           <td>
                             <div className="ClientManagement-badge ClientManagement-badge--info">
                               {clientGroup.totalCompanies} Companies
+                            </div>
+                          </td>
+                          <td>
+                            <div className="ClientManagement-status-summary">
+                              {getCompanyStatusSummary(clientGroup.statusCounts).map((statusItem) => (
+                                <span
+                                  key={statusItem.label}
+                                  className={`ClientManagement-badge ${statusItem.className}`}
+                                >
+                                  {statusItem.label}
+                                </span>
+                              ))}
                             </div>
                           </td>
                           <td>
@@ -4335,6 +4389,7 @@ const ClientManagement = () => {
                     ? companyClient.subscription[companyClient.subscription.length - 1]
                     : null;
                   const lastPayment = getLastPayment(companyClient);
+                  const companyStatus = getCompanyStatusMeta(companyClient.status);
 
                   return (
                     <div key={companyClient._id} className="ClientManagement-company-card">
@@ -4347,7 +4402,12 @@ const ClientManagement = () => {
                           )}
                         </div>
                         <div>
-                          <h4>{companyClient.company || 'Company'}</h4>
+                          <div className="ClientManagement-company-card-title-row">
+                            <h4>{companyClient.company || 'Company'}</h4>
+                            <span className={`ClientManagement-badge ${companyStatus.className}`}>
+                              {companyStatus.label}
+                            </span>
+                          </div>
                           <p>{companyClient.email || 'No email'}</p>
                         </div>
                       </div>
@@ -4356,7 +4416,9 @@ const ClientManagement = () => {
                         <span>GST: {companyClient.gst || 'N/A'}</span>
                         <span>PAN: {companyClient.pan || 'N/A'}</span>
                         <span>Phone: {companyClient.phone || 'N/A'}</span>
-                        <span>Status: {companyClient.status || 'N/A'}</span>
+                        <span>
+                          Status: <span className={`ClientManagement-badge ${companyStatus.className}`}>{companyStatus.label}</span>
+                        </span>
                         <span>Active Plan: {latestSubscription?.planName || 'N/A'}</span>
                         <span>Total Services: {Array.isArray(companyClient.services) ? companyClient.services.length : 0}</span>
                         <span>Total Tasks: {stats.total || 0}</span>

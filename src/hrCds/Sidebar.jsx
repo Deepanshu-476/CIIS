@@ -42,10 +42,6 @@ import {
 import Swal from "sweetalert2";
 import axiosInstance from '../utils/axiosConfig';
 import {
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 5545b5aa1924f544fd85c0a9e83de1facd4130ec
   CLIENT_PORTAL_SELECTED_CLIENT_KEY,
   CLIENT_PORTAL_SELECTION_EVENT,
   getClientDisplayName,
@@ -53,16 +49,6 @@ import {
   getClientServices,
   getCompanyScopedClientParams,
   isClientForLoggedInUser
-<<<<<<< HEAD
-=======
-=======
-  CLIENT_PORTAL_COMPANIES_EVENT,
-  CLIENT_PORTAL_COMPANIES_KEY,
-  CLIENT_PORTAL_SELECTED_CLIENT_KEY,
-  CLIENT_PORTAL_SELECTION_EVENT,
-  getCachedClientCompanies
->>>>>>> 2048ba30d2583e09b846524091e5e8f152085cf7
->>>>>>> 5545b5aa1924f544fd85c0a9e83de1facd4130ec
 } from './utils/clientPortalData';
 
 const drawerWidthOpen = 260;

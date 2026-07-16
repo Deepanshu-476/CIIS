@@ -46,7 +46,6 @@ import {
   CLIENT_PORTAL_SELECTION_EVENT,
   getClientDisplayName,
   getClientPortalCompanyContext,
-  getClientServices,
   getCompanyScopedClientParams,
   isClientForLoggedInUser
 } from './utils/clientPortalData';

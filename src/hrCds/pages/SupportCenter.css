@@ -2165,6 +2165,14 @@
 .support-ops-assign {
   display: grid;
   gap: 16px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.support-ops-assign.assignment-highlight {
+  border-color: #7c5ce7;
+  box-shadow: 0 0 0 4px rgba(109, 69, 232, 0.14), 0 16px 34px rgba(58, 36, 130, 0.12);
+  transform: translateY(-2px);
 }
 
 .support-ops-assign label {

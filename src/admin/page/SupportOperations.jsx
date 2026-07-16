@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import axiosInstance from "../../utils/axiosConfig";
 import {
@@ -139,6 +139,9 @@ const SupportOperations = () => {
   const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
   const [departmentEmployees, setDepartmentEmployees] = useState([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  const [assignmentHighlight, setAssignmentHighlight] = useState(false);
+  const assignmentPanelRef = useRef(null);
+  const assignmentHighlightTimerRef = useRef(null);
   const [stats, setStats] = useState({
     enquiries: 186,
     newEnquiriesToday: 18,
@@ -210,8 +213,9 @@ const SupportOperations = () => {
       const users = extractList(response.data, ["users"]).map(mapEmployee);
       const filteredUsers = users.filter(employee => employeeBelongsToDepartment(employee, selected));
       const mapped = filteredUsers.length ? filteredUsers : users;
+      const currentHeadId = getEntityId(selected?.supportHead);
       setDepartmentEmployees(mapped);
-      setSelectedEmployeeId(mapped[0]?.id || "");
+      setSelectedEmployeeId(mapped.some(employee => String(employee.id) === currentHeadId) ? currentHeadId : mapped[0]?.id || "");
       if (mapped.length) return;
     } catch (error) {
       console.warn("Department users endpoint failed:", error.message);
@@ -251,6 +255,21 @@ const SupportOperations = () => {
   useEffect(() => {
     fetchDepartmentEmployees(selectedDepartmentId);
   }, [selectedDepartmentId]);
+
+  useEffect(() => () => window.clearTimeout(assignmentHighlightTimerRef.current), []);
+
+  const handleOpenHeadAssignment = department => {
+    setSelectedDepartmentId(department.id);
+    setAssignmentHighlight(true);
+    window.clearTimeout(assignmentHighlightTimerRef.current);
+
+    window.requestAnimationFrame(() => {
+      assignmentPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      assignmentPanelRef.current?.focus({ preventScroll: true });
+    });
+
+    assignmentHighlightTimerRef.current = window.setTimeout(() => setAssignmentHighlight(false), 1400);
+  };
 
   const handleUpdateTicket = async ticket => {
     if (!ticket.dbId) return;
@@ -410,14 +429,14 @@ const SupportOperations = () => {
                       <td>
                         <div className="support-ops-head-cell">
                           {assigned ? <span>{getInitials(headName)}</span> : <b />}
-                          <div><strong>{assigned ? headName : "--"}</strong><small>{department.supportHead?.jobRole || (assigned ? "Department Head" : "No Head Assigned")}</small></div>
+                          <div><strong>{assigned ? headName : "--"}</strong><small>{assigned ? department.name : "No Head Assigned"}</small></div>
                         </div>
                       </td>
                       <td>
                         <div className="support-ops-actions">
                           <button
                             type="button"
-                            onClick={() => setSelectedDepartmentId(department.id)}
+                            onClick={() => handleOpenHeadAssignment(department)}
                           >
                             {assigned ? <Edit3 size={15} /> : <UserPlus size={15} />}
                             {assigned ? "Change Head" : "Assign Head"}
@@ -444,7 +463,11 @@ const SupportOperations = () => {
         </div>
 
         <aside className="support-ops-side">
-          <div className="support-ops-card support-ops-assign">
+          <div
+            ref={assignmentPanelRef}
+            tabIndex={-1}
+            className={`support-ops-card support-ops-assign ${assignmentHighlight ? "assignment-highlight" : ""}`}
+          >
             <div className="support-ops-card-head">
               <h2>Assign Department Head</h2>
               <p>Select a department to assign or change the department head</p>

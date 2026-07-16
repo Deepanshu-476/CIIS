@@ -175,10 +175,10 @@ const BranchManagement = () => {
   const handleNameChange = (e) => {
     const name = e.target.value;
     setFormData((prev) => {
-      const previousAutoCode = prev.name.replace(/[^a-zA-Z0-9]/g, "").substring(0, 3).toUpperCase();
+      const previousAutoCode = prev.name.replace(/[^a-zA-Z0-9]/g, "").substring(0, 5).toUpperCase();
       const updates = { ...prev, name };
       if (!isEditMode && (!prev.branchCode || prev.branchCode === previousAutoCode)) {
-        updates.branchCode = name.replace(/[^a-zA-Z0-9]/g, "").substring(0, 3).toUpperCase();
+        updates.branchCode = name.replace(/[^a-zA-Z0-9]/g, "").substring(0, 5).toUpperCase();
       }
       return updates;
     });
@@ -212,6 +212,10 @@ const BranchManagement = () => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.branchCode.trim()) {
       toastAlert("warning", "Name and Branch Code are required");
+      return;
+    }
+    if (formData.branchCode.trim().length < 5 || formData.branchCode.trim().length > 20) {
+      toastAlert("warning", "Branch Code must be between 5 and 20 characters");
       return;
     }
 
@@ -513,6 +517,7 @@ const BranchManagement = () => {
                   fullWidth
                   label="Branch Login Code"
                   value={formData.branchCode}
+                  inputProps={{ minLength: 5, maxLength: 20 }}
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
@@ -520,7 +525,7 @@ const BranchManagement = () => {
                     }))
                   }
                   required
-                  helperText="Appended to company code for login (e.g. TCS-NOIDA)"
+                  helperText="Use 5-20 characters; appended to company code for login (e.g. TCS-NOIDA)"
                 />
               </Grid>
               <Grid item xs={12}>

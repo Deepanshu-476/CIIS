@@ -2103,10 +2103,22 @@ tr:hover .DepartmentManagement-action-buttons {
   justify-content: center;
 }
 
+.DepartmentManagement-textarea-wrapper {
+  align-items: stretch;
+}
+
+.DepartmentManagement-textarea-wrapper .DepartmentManagement-input-icon {
+  top: 13px;
+}
+
 /* Mobile input icon */
 @media (max-width: 767px) {
   .DepartmentManagement-input-icon {
     left: 10px;
+  }
+
+  .DepartmentManagement-textarea-wrapper .DepartmentManagement-input-icon {
+    top: 11px;
   }
 }
 

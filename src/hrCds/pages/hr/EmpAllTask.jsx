@@ -15,7 +15,7 @@ import {
   FiAlertTriangle, FiActivity, FiTrendingDown, FiTrendingUp as FiTrendUp,
   FiChevronDown, FiChevronUp, FiStar, FiAward, FiBarChart,
   FiEdit3, FiExternalLink, FiMoreVertical, FiShare2, FiInfo, FiHash,
-  FiPlay, FiPause, FiStopCircle, FiUserCheck, FiUserX, FiClock as FiTime,
+  FiPlay, FiPause, FiStopCircle, FiUserCheck, FiUserX, FiClock as FiTime, FiLogIn,
    FiClipboard,
   FiPaperclip, FiMic, FiFileText
 } from "react-icons/fi";
@@ -260,6 +260,9 @@ const TaskDetails = () => {
   const [toDate, setToDate] = useState("");
   const [globalFromDate, setGlobalFromDate] = useState(getDateInputValue());
   const [globalToDate, setGlobalToDate] = useState(getDateInputValue());
+  const [loggedInTodayOnly, setLoggedInTodayOnly] = useState(false);
+  const [todayLoggedInUserIds, setTodayLoggedInUserIds] = useState(new Set());
+  const [todayAttendanceLoading, setTodayAttendanceLoading] = useState(false);
   const [taskPage, setTaskPage] = useState(1);
   const [taskLimit, setTaskLimit] = useState(10);
   const [taskTotal, setTaskTotal] = useState(0);
@@ -685,6 +688,49 @@ const TaskDetails = () => {
     });
   }, []);
 
+  const fetchTodayLoggedInUsers = useCallback(async () => {
+    setTodayAttendanceLoading(true);
+
+    try {
+      const res = await axios.get('/attendance/all', {
+        params: {
+          date: getDateInputValue(),
+          limit: 1000
+        },
+        _skipErrorNotify: true,
+      });
+
+      const attendanceRows = Array.isArray(res.data?.data) ? res.data.data : [];
+      const loggedInIds = attendanceRows
+        .filter(record => {
+          const status = String(record?.status || '').trim().toLowerCase();
+          return record?.inTime && status !== 'absent';
+        })
+        .map(record => {
+          const user = record.user;
+          return String(user?._id || user?.id || user || '');
+        })
+        .filter(Boolean);
+
+      const uniqueIds = new Set(loggedInIds);
+      if (isMounted.current) {
+        setTodayLoggedInUserIds(uniqueIds);
+      }
+
+      return uniqueIds;
+    } catch (error) {
+      console.error('Failed to load today logged-in users:', error);
+      if (isMounted.current) {
+        setTodayLoggedInUserIds(new Set());
+      }
+      return new Set();
+    } finally {
+      if (isMounted.current) {
+        setTodayAttendanceLoading(false);
+      }
+    }
+  }, []);
+
   
 
   useEffect(() => {
@@ -786,6 +832,7 @@ const TaskDetails = () => {
 
         let response = null;
         let usersData = [];
+        fetchTodayLoggedInUsers();
 
         try {
           const overviewRes = await axios.get('/tasks/all/company-overview', {
@@ -956,7 +1003,12 @@ const TaskDetails = () => {
       }
     }, 300); 
 
-  }, [currentUser, isOwner, calculateOverallStats, globalFromDate, globalToDate]);
+  }, [currentUser, isOwner, calculateOverallStats, globalFromDate, globalToDate, fetchTodayLoggedInUsers]);
+
+  useEffect(() => {
+    if (!currentUser || isTaskPageMode) return;
+    fetchTodayLoggedInUsers();
+  }, [currentUser, isTaskPageMode, fetchTodayLoggedInUsers]);
 
   
   useEffect(() => {
@@ -977,6 +1029,10 @@ const TaskDetails = () => {
   const filteredUsers = useMemo(() => {
     let filtered = users;
 
+    if (loggedInTodayOnly) {
+      filtered = filtered.filter(user => todayLoggedInUserIds.has(String(user._id || user.id)));
+    }
+
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(user =>
@@ -987,7 +1043,7 @@ const TaskDetails = () => {
     }
 
     return filtered;
-  }, [users, searchQuery]);
+  }, [users, searchQuery, loggedInTodayOnly, todayLoggedInUserIds]);
 
   const getNonZeroStatuses = useMemo(() => {
     return STATUS_OPTIONS.filter(status => {
@@ -1639,6 +1695,7 @@ const TaskDetails = () => {
     setPriorityFilter('all');
     setFromDate('');
     setToDate('');
+    setLoggedInTodayOnly(false);
     setTaskPage(1);
     setShowStatusFilters(true);
   }, []);
@@ -3886,10 +3943,24 @@ const TaskDetails = () => {
               <button
                 className="TaskDetails-reset-filter-button"
                 onClick={resetFilters}
-                disabled={!searchQuery && activeStatusFilters.length === 1 && activeStatusFilters[0] === 'all'}
+                disabled={!searchQuery && !loggedInTodayOnly && activeStatusFilters.length === 1 && activeStatusFilters[0] === 'all'}
               >
                 <FiRefreshCw size={16} />
                 Reset
+              </button>
+              <button
+                type="button"
+                className={`TaskDetails-login-filter-button ${loggedInTodayOnly ? 'active' : ''}`}
+                onClick={() => setLoggedInTodayOnly(prev => !prev)}
+                disabled={todayAttendanceLoading}
+                title="Show only employees who logged in today"
+              >
+                <FiLogIn size={16} />
+                {todayAttendanceLoading
+                  ? 'Checking...'
+                  : loggedInTodayOnly
+                    ? `Logged In Today (${todayLoggedInUserIds.size})`
+                    : 'Today Logged In'}
               </button>
             </div>
           </div>
@@ -3956,9 +4027,11 @@ const TaskDetails = () => {
               </div>
               <h3>No Employees Found</h3>
               <p>
-                {isOwner()
-                  ? 'No employees found in your company'
-                  : 'No employees found in your department'}
+                {loggedInTodayOnly
+                  ? 'No employees have logged in today for the current view'
+                  : isOwner()
+                    ? 'No employees found in your company'
+                    : 'No employees found in your department'}
               </p>
               <button
                 className="TaskDetails-reset-button"

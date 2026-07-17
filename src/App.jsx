@@ -194,6 +194,7 @@ function App() {
           <Route path="create-user" element={<CreateUser />} />
           <Route path="department" element={<Department />} />
           <Route path="department/branch/:branchId" element={<Department />} />
+          <Route path="JobRoleManagement" element={<JobRoleManagement />} />
           <Route path="SidebarManagement" element={<SidebarManagement />} />
           <Route path="create-alert" element={<CreateAlerts />} />
           <Route path="user-profile" element={<UserProfile/>} />

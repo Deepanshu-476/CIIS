@@ -313,11 +313,13 @@ const ChatStatusPanel = ({
                   <p>{selectedStatus.text}</p>
                 )}
               </div>
-              <div className="chat-status-reply">
-                <button type="button" aria-label="Emoji">☺</button>
-                <input placeholder="Type a reply..." />
-                <button type="button" aria-label="Send">➤</button>
-              </div>
+              {!selectedStatus.isOwn && (
+                <div className="chat-status-reply">
+                  <button type="button" aria-label="Emoji">☺</button>
+                  <input placeholder="Type a reply..." />
+                  <button type="button" aria-label="Send">➤</button>
+                </div>
+              )}
             </div>
           </div>
         )}

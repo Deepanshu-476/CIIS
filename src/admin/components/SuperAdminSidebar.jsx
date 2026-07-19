@@ -131,35 +131,28 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
   
   const [companyRole, setCompanyRole] = useState('Owner');
   const [userEmail, setUserEmail] = useState('');
+  const [userData, setUserData] = useState(null);
   
   useEffect(() => {
     try {
       const userDataString = localStorage.getItem('superAdmin');
-      void 0;
       
       if (userDataString) {
-        const userData = JSON.parse(userDataString);
-        void 0;
+        const parsedData = JSON.parse(userDataString);
+        setUserData(parsedData);
         
-        if (userData && userData.companyRole) {
-          setCompanyRole(userData.companyRole);
-          void 0;
+        if (parsedData && parsedData.companyRole) {
+          setCompanyRole(parsedData.companyRole);
         } else {
-          void 0;
           setCompanyRole('Owner');
         }
 
-        
-        if (userData && userData.email) {
-          setUserEmail(userData.email);
-          void 0;
-        } else if (userData && userData.user && userData.user.email) {
-          
-          setUserEmail(userData.user.email);
-          void 0;
+        if (parsedData && parsedData.email) {
+          setUserEmail(parsedData.email);
+        } else if (parsedData && parsedData.user && parsedData.user.email) {
+          setUserEmail(parsedData.user.email);
         }
       } else {
-        void 0;
         setCompanyRole('Owner');
       }
     } catch (error) {
@@ -168,34 +161,32 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
     }
   }, []);
 
+  const isOwnerSuperAdmin = String(userEmail || '').trim().toLowerCase() === 'ashutoshrai130@gmail.com';
+
   const ciisUserMenuItems = [
     { heading: 'MPA Management' },
     { 
       icon: <CompanyIcon />, 
       name: 'Company Details', 
       route: '/Ciis-network/company-details',
-      
-      
       showForAll: true
     },
     { 
       icon: <CompanyIcon />, 
       name: 'All Company', 
       route: '/Ciis-network/all-company',
-      
-      showForEmail: ['ashutoshrai130@gmail.com']
+      showForOwnerSuperAdmin: true
     },
     { 
       icon: <CompanyIcon />, 
       name: 'Company Access', 
       route: '/Ciis-network/CompanyAccessManagement',
-      showForEmail: ['ashutoshrai130@gmail.com']
+      showForOwnerSuperAdmin: true
     },
     { 
       icon: <DepartmentIcon />, 
       name: 'Department', 
       route: '/Ciis-network/department',
-      
       showForAll: true
     },
     { 
@@ -208,29 +199,24 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       icon: <JobRoleIcon />, 
       name: 'Job Roles', 
       route: '/Ciis-network/JobRoleManagement',
-      
       showForAll: true
     },
     { 
       icon: <CreateUserIcon />, 
       name: 'Create User', 
       route: '/Ciis-network/create-user',
-      
       showForAll: true
     },
     { 
       icon: <AssetsIcon />,
       name: 'Assets Management', 
       route: '/Ciis-network/company-assets',
-      
       showForAll: true
     },
     { 
       icon: <DepartmentIcon />, 
       name: 'Sidebar Management', 
       route: '/Ciis-network/SidebarManagement',
-      
-      
       showForAll: true
     },
     {
@@ -243,7 +229,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       icon: <ManageAccountsIcon />,
       name: 'Plans',
       route: '/Ciis-network/plans',
-      showForEmail: ['ashutoshrai130@gmail.com']
+      showForOwnerSuperAdmin: true
     },
     {
       icon: <SupportAgentIcon />,
@@ -251,7 +237,6 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       route: '/Ciis-network/support-operations',
       showForAll: true
     },
- 
      { 
       icon: <CompanyIcon />, 
       name: 'Holiday', 
@@ -284,10 +269,10 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
         let shouldShow = false;
         
         if (item.showForAll) {
-          
           shouldShow = true;
+        } else if (item.showForOwnerSuperAdmin) {
+          shouldShow = !!isOwnerSuperAdmin;
         } else if (item.showForEmail && item.showForEmail.includes(userEmail)) {
-          
           shouldShow = true;
         }
         
@@ -301,7 +286,6 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
         }
       }
     }
-    
     
     return filteredItems.filter((item, index, array) => {
       if (item.heading) {

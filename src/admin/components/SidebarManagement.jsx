@@ -23,7 +23,13 @@ const APP_ROUTES = [
   
   { path: 'emp-client', name: 'Client Management', icon: 'ClientIcon', category: 'clients' },
   { path: 'active-clients', name: 'Active Clients', icon: 'Folder', category: 'clients' },
-  { path: 'ClienDashboard', name: 'Client Dashboard', icon: 'ClientIcon', category: 'clients' },
+  { path: 'client-dashboard', name: 'Client Dashboard', icon: 'Dashboard', category: 'clients' },
+  { path: 'client-my-services', name: 'My Services', icon: 'Folder', category: 'clients' },
+  { path: 'client-tasks-updates', name: 'Tasks & Updates', icon: 'Task', category: 'clients' },
+  { path: 'client-marketplace', name: 'Explore Services', icon: 'Folder', category: 'clients' },
+  { path: 'client-support-tickets', name: 'Meetings', icon: 'VideoCall', category: 'clients' },
+  { path: 'client-documents', name: 'Documents', icon: 'Folder', category: 'clients' },
+  { path: 'client-payments', name: 'Payments', icon: 'CreditCard', category: 'clients' },
   { path: 'alert', name: 'Alerts', icon: 'Notifications', category: 'communication' },
   { path: 'attendance', name: 'My Attendance', icon: 'CalendarToday', category: 'main' },
   { path: 'my-assets', name: 'My Assets', icon: 'Computer', category: 'main' },
@@ -241,14 +247,17 @@ const SidebarManagement = () => {
   }, []);
 
   const initializePages = (companyOverride = company) => {
-    const pages = APP_ROUTES.filter(route => isRouteAllowedForCompany(route, companyOverride)).map(route => ({
-      id: route.path,
-      name: route.name,
-      path: `/ciisUser/${route.path}`,
-      icon: route.icon,
-      category: route.category,
-      description: `Access: ${route.category === 'administration' ? 'Admin Only' : 'All Users'}`
-    }));
+    const pages = APP_ROUTES.filter(route => isRouteAllowedForCompany(route, companyOverride)).map(route => {
+      const isClientPath = route.path.startsWith('client-');
+      return {
+        id: route.path,
+        name: route.name,
+        path: isClientPath ? `/client/${route.path.substring(7)}` : `/ciisUser/${route.path}`,
+        icon: route.icon,
+        category: route.category,
+        description: `Access: ${route.category === 'administration' ? 'Admin Only' : 'All Users'}`
+      };
+    });
     setAvailablePages(pages);
   };
 
@@ -712,7 +721,7 @@ const SidebarManagement = () => {
 
   
   const handleSelectAllCategory = (category) => {
-    const categoryPages = availablePages.filter(page => page.category === category);
+    const categoryPages = filteredAvailablePages.filter(page => page.category === category);
     const categoryIds = categoryPages.map(page => page.id);
     
     setSelectedItems(prev => {
@@ -750,7 +759,27 @@ const SidebarManagement = () => {
   };
 
   
-  const groupedPages = availablePages.reduce((acc, page) => {
+  const isClientSelection = () => {
+    const dept = departments.find(d => d._id === selectedDepartment);
+    if (dept && String(dept.name).toLowerCase() === 'client') {
+      return true;
+    }
+    const role = jobRoles.find(r => r._id === selectedRole);
+    if (role && String(role.name).toLowerCase() === 'client') {
+      return true;
+    }
+    return false;
+  };
+
+  const filteredAvailablePages = React.useMemo(() => {
+    const isClient = isClientSelection();
+    return availablePages.filter(page => {
+      const isClientPage = page.category === 'clients' || page.path.startsWith('/client/');
+      return isClient ? isClientPage : !isClientPage;
+    });
+  }, [availablePages, selectedDepartment, selectedRole, departments, jobRoles]);
+
+  const groupedPages = filteredAvailablePages.reduce((acc, page) => {
     if (!acc[page.category]) {
       acc[page.category] = [];
     }
@@ -783,7 +812,7 @@ const SidebarManagement = () => {
       const token = localStorage.getItem('token');
       
       const menuItemsMapped = selectedItems.map((id, index) => {
-        const page = availablePages.find(p => p.id === id);
+        const page = filteredAvailablePages.find(p => p.id === id);
         const customOrder = parseInt(itemOrders[id], 10);
         return {
           id: page.id,

@@ -3981,8 +3981,7 @@ const ClientManagement = () => {
               <button
                 className="ClientManagement-btn ClientManagement-btn--primary"
                 onClick={() => {
-                  setAddCompanyParent(null);
-                  setAddClientModal(true);
+                  navigate('/ciisUser/emp-client/add-new');
                 }}
                 disabled={services.length === 0 || (!companyCode && !companyIdentifier)}
               >
@@ -4154,8 +4153,7 @@ const ClientManagement = () => {
               <button
                 className="ClientManagement-btn ClientManagement-btn--primary ClientManagement-w-100"
                 onClick={() => {
-                  setAddCompanyParent(null);
-                  setAddClientModal(true);
+                  navigate('/ciisUser/emp-client/add-new');
                 }}
                 disabled={services.length === 0 || (!companyCode && !companyIdentifier)}
               >
@@ -4335,8 +4333,7 @@ const ClientManagement = () => {
                       setServicesModal(true);
                       return;
                     }
-                    setAddCompanyParent(null);
-                    setAddClientModal(true);
+                    navigate('/ciisUser/emp-client/add-new');
                   }}
                   disabled={!companyCode && !companyIdentifier}
                 >
@@ -4372,9 +4369,8 @@ const ClientManagement = () => {
                   className="ClientManagement-btn ClientManagement-btn--primary"
                   onClick={() => {
                     const parentCompany = companiesDrawer.clientGroup.companies[0];
-                    setAddCompanyParent(parentCompany || null);
                     setCompaniesDrawer({ open: false, clientGroup: null });
-                    setAddClientModal(true);
+                    navigate('/ciisUser/emp-client/add-new', { state: { initialClient: parentCompany } });
                   }}
                   disabled={services.length === 0 || (!companyCode && !companyIdentifier)}
                 >
@@ -4463,20 +4459,7 @@ const ClientManagement = () => {
         </div>
       )}
 
-      <AddClientModal
-        open={addClientModal}
-        onClose={() => {
-          setAddClientModal(false);
-          setAddCompanyParent(null);
-        }}
-        onAddClient={handleAddClient}
-        services={services}
-        clientPlans={clientPlans}
-        projectManagers={projectManagers}
-        loading={addLoading}
-        companyCode={companyCode}
-        initialClient={addCompanyParent}
-      />
+      {/* Add Client page routing replacement */}
 
       <ServicesModal
         open={servicesModal}

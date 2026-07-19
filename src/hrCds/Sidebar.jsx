@@ -938,7 +938,22 @@ const Sidebar = ({ isMobile = false }) => {
 
   
   const fetchSidebarConfig = useCallback(async () => {
-    if (!userData || !companyData || isClientUser) return;
+    if (!userData || !companyData) return;
+
+    // Check localStorage first
+    const cachedConfig = localStorage.getItem("sidebarConfig");
+    if (cachedConfig) {
+      try {
+        const parsed = JSON.parse(cachedConfig);
+        if (parsed) {
+          setSidebarConfig(parsed);
+          setLoading(false);
+          return;
+        }
+      } catch (e) {
+        console.warn("Failed to parse cached sidebarConfig:", e);
+      }
+    }
 
     try {
       setLoading(true);
@@ -971,11 +986,14 @@ const Sidebar = ({ isMobile = false }) => {
       if (response.data && response.data.success) {
         if (response.data.data) {
           setSidebarConfig(response.data.data);
+          localStorage.setItem("sidebarConfig", JSON.stringify(response.data.data));
         } else {
-          setSidebarConfig({ 
+          const fallbackConfig = { 
             useFixedDefault: true,
             message: 'No custom config found, using fixed default items'
-          });
+          };
+          setSidebarConfig(fallbackConfig);
+          localStorage.setItem("sidebarConfig", JSON.stringify(fallbackConfig));
         }
       } else {
         throw new Error(response.data?.message || 'Failed to fetch sidebar config');
@@ -990,19 +1008,13 @@ const Sidebar = ({ isMobile = false }) => {
     } finally {
       setLoading(false);
     }
-  }, [userData, companyData, isClientUser]);
+  }, [userData, companyData]);
 
   useEffect(() => {
     if (userData && companyData) {
-      if (isClientUser) {
-        
-        setLoading(false);
-        setSidebarConfig(null);
-      } else {
-        fetchSidebarConfig();
-      }
+      fetchSidebarConfig();
     }
-  }, [userData, companyData, isClientUser, fetchSidebarConfig]);
+  }, [userData, companyData, fetchSidebarConfig]);
 
   useEffect(() => {
     const resolveJobRoleName = async () => {
@@ -1103,6 +1115,7 @@ const Sidebar = ({ isMobile = false }) => {
 
     localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(nextId));
     localStorage.setItem("client", JSON.stringify(clientCompany));
+    localStorage.removeItem("sidebarConfig");
     setSelectedClientCompanyId(String(nextId));
     window.dispatchEvent(new CustomEvent(CLIENT_PORTAL_SELECTION_EVENT, {
       detail: { clientId: nextId }
@@ -1141,6 +1154,7 @@ const Sidebar = ({ isMobile = false }) => {
       localStorage.removeItem("user");
       localStorage.removeItem("token");
       localStorage.removeItem("companyDetails");
+      localStorage.removeItem("sidebarConfig");
 
       Swal.fire({
         title: "Logged Out!",
@@ -1156,7 +1170,7 @@ const Sidebar = ({ isMobile = false }) => {
 
   const handleRetry = () => {
     setError(null);
-    if (userData && companyData && !isClientUser) {
+    if (userData && companyData) {
       fetchSidebarConfig();
     }
   };
@@ -1189,8 +1203,24 @@ const Sidebar = ({ isMobile = false }) => {
 
     
     if (isClientUser) {
-      void 0;
-      return removeHiddenSidebarItems(clientMenuItems);
+      let items = [];
+      if (sidebarConfig && sidebarConfig.menuItems && Array.isArray(sidebarConfig.menuItems)) {
+        items = sidebarConfig.menuItems
+          .map(item => ({
+            id: item.id || item._id || Math.random().toString(36).substr(2, 9),
+            name: getMenuDisplayName(item.name || 'Unnamed Item'),
+            icon: item.icon || 'Dashboard',
+            category: item.category || 'main',
+            order: Number.isFinite(Number(item.order)) ? Number(item.order) : 99,
+            path: getPathFromName(item.name) || item.path,
+            disabled: item.disabled || false,
+            visible: item.visible !== false
+          }))
+          .filter(item => item.visible && !item.disabled && (item.category === 'clients' || item.path.startsWith('/client/')));
+      } else {
+        items = [...clientMenuItems];
+      }
+      return removeHiddenSidebarItems(items);
     }
 
     
@@ -1219,15 +1249,15 @@ const Sidebar = ({ isMobile = false }) => {
 
           return processedItem;
         })
-        .filter(item => item.visible && !item.disabled);
+        .filter(item => item.visible && !item.disabled && item.category !== 'clients' && !item.path.startsWith('/client/'));
     } 
     else if (sidebarConfig && (sidebarConfig.useFixedDefault || !sidebarConfig.menuItems)) {
       void 0;
-      items = [...fixedDefaultItems];
+      items = isClientUser ? [...clientMenuItems] : [...fixedDefaultItems];
     }
     else {
       void 0;
-      items = [...fixedDefaultItems];
+      items = isClientUser ? [...clientMenuItems] : [...fixedDefaultItems];
     }
 
     const accessFilteredItems = filterItemsByCompanyAccess(

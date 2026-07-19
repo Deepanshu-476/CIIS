@@ -17,6 +17,7 @@ const clearPreviousLoginStorage = () => {
     'companyIdentifier',
     'companyCode',
     'client',
+    'sidebarConfig',
   ].forEach(key => localStorage.removeItem(key));
 };
 

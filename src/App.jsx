@@ -34,6 +34,7 @@ import AdminProject from "./hrCds/pages/AdminProject";
 import Client from "./hrCds/pages/hr/Client";
 import ClientPlansPage from "./hrCds/pages/hr/ClientPlansPage.jsx";
 import ClientDetailsPage from "./hrCds/pages/hr/ClientDetailsPage.jsx";
+import AddClientPage from "./hrCds/pages/hr/AddClientPage.jsx";
 
 
 import ClientDashboardPage from "./hrCds/pages/client/ClientDashboardPage.jsx";
@@ -80,6 +81,7 @@ import PageManagement from "./admin/page/PageManagement.jsx";
 import JobRoleManagement from "./admin/page/JobRoleManagement.jsx";
 import SidebarManagement from "./admin/components/SidebarManagement.jsx";
 import CompanyDetails from "./admin/components/CompanyDetails.jsx";
+import CompanyAccessManagement from "./admin/page/CompanyAccessManagement.jsx";
 import AllCompany from "./page/AllCompany.jsx";
 import CompanyUsersPage from "./page/CompanyUsersPage.jsx";
 import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
@@ -130,6 +132,8 @@ function App() {
           }
         >
           <Route path="company-details" element={<CompanyDetails />} />
+          <Route path="CompanyAccessManagement" element={<CompanyAccessManagement />} />
+          <Route path="CompanyAccessManagement/:companyId" element={<CompanyAccessManagement />} />
           <Route path="department" element={<Department />} />
           <Route path="department/branch/:branchId" element={<Department />} />
           <Route path="JobRoleManagement" element={<JobRoleManagement />} />
@@ -177,6 +181,7 @@ function App() {
           <Route path="company-all-task/tasks/:userId" element={<CompanyAllTaskTasks />} />
           <Route path="company-all-task/:userId/tasks" element={<CompanyAllTaskTasks />} />
           <Route path="emp-client" element={<Client />} />
+          <Route path="emp-client/add-new" element={<AddClientPage />} />
           <Route path="emp-client/:clientId" element={<ClientDetailsPage />} />
           <Route path="client-plans" element={<ClientPlansPage />} />
           <Route path="active-clients" element={<ActiveClientsOverview />} />

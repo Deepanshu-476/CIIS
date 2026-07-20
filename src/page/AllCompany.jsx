@@ -55,6 +55,7 @@ const AllCompany = () => {
   const [plans, setPlans] = useState([]);
   const [subscriptionPlanId, setSubscriptionPlanId] = useState("");
   const [subscriptionExpiryDate, setSubscriptionExpiryDate] = useState("");
+  const [subscriptionStartDate, setSubscriptionStartDate] = useState("");
   const [subscriptionPlan, setSubscriptionPlan] = useState("Standard");
   const [subscriptionAmount, setSubscriptionAmount] = useState("");
   const [subscriptionPaymentStatus, setSubscriptionPaymentStatus] = useState("paid");
@@ -476,18 +477,35 @@ const AllCompany = () => {
     }
   };
 
+  const calculateExpiryDate = (startDateStr, planId, plansList = plans) => {
+    if (!startDateStr || !planId) return "";
+    const selectedPlan = plansList.find(plan => plan._id === planId);
+    if (!selectedPlan) return "";
+    const duration = getTrialPlanDurationDays(selectedPlan);
+    
+    const date = new Date(startDateStr);
+    date.setDate(date.getDate() + Number(duration));
+    return date.toISOString().split("T")[0];
+  };
+
   const handleOpenSubscriptionModal = (company) => {
     const selectedPlanId = getPlanId(company);
     const selectedPlan = plans.find(plan => plan._id === selectedPlanId);
+    const todayStr = new Date().toISOString().split("T")[0];
+    
     setSubscriptionCompany(company);
     setSubscriptionPlanId(selectedPlanId);
-    setSubscriptionExpiryDate(toDateInputValue(company?.subscriptionExpiry) || getDateAfterDays(getTrialPlanDurationDays(selectedPlan)));
+    setSubscriptionStartDate(todayStr);
+    
+    const calculatedExpiry = calculateExpiryDate(todayStr, selectedPlanId);
+    setSubscriptionExpiryDate(calculatedExpiry || toDateInputValue(company?.subscriptionExpiry));
+    
     setSubscriptionPlan(selectedPlan?.name || company?.subscriptionPlan || "Standard");
     setSubscriptionAmount(String(selectedPlan?.price ?? company?.subscriptionAmount ?? ""));
     setSubscriptionPaymentStatus(company?.subscriptionPaymentStatus || "paid");
     setSubscriptionPaymentMode(company?.subscriptionPayments?.[0]?.paymentMode || "upi");
     setSubscriptionTransactionId("");
-    setSubscriptionPaymentDate(toDateInputValue(new Date()));
+    setSubscriptionPaymentDate(todayStr);
     setSubscriptionNotes("");
     setSubscriptionActivateCompany(company?.isActive !== false);
     setSubscriptionModalOpen(true);
@@ -499,13 +517,24 @@ const AllCompany = () => {
     if (!selectedPlan) return;
     setSubscriptionPlan(selectedPlan.name || "Standard");
     setSubscriptionAmount(String(selectedPlan.price ?? 0));
-    setSubscriptionExpiryDate(getDateAfterDays(getTrialPlanDurationDays(selectedPlan)));
+    
+    const newExpiry = calculateExpiryDate(subscriptionStartDate, planId);
+    setSubscriptionExpiryDate(newExpiry);
+  };
+
+  const handleStartDateChange = (newStartDate) => {
+    setSubscriptionStartDate(newStartDate);
+    if (subscriptionPlanId) {
+      const newExpiry = calculateExpiryDate(newStartDate, subscriptionPlanId);
+      setSubscriptionExpiryDate(newExpiry);
+    }
   };
 
   const handleCloseSubscriptionModal = () => {
     setSubscriptionModalOpen(false);
     setSubscriptionCompany(null);
     setSubscriptionPlanId("");
+    setSubscriptionStartDate("");
     setSubscriptionExpiryDate("");
     setSubscriptionPlan("Standard");
     setSubscriptionAmount("");
@@ -534,6 +563,7 @@ const AllCompany = () => {
         `${API_URL}/company/${subscriptionCompany._id}/subscription`,
         {
           subscriptionExpiry: subscriptionExpiryDate,
+          subscriptionStartDate: subscriptionStartDate,
           planId: subscriptionPlanId || undefined,
           planName: subscriptionPlan,
           amount: Number(subscriptionAmount || 0),
@@ -1726,21 +1756,22 @@ const AllCompany = () => {
                 </div>
               </div>
 
-              <label className="AllCompany-subscription-label" htmlFor="subscriptionExpiryDate">
-                New expiry date
+              <label className="AllCompany-subscription-label" htmlFor="subscriptionStartDate">
+                Plan Start Date
               </label>
               <input
-                id="subscriptionExpiryDate"
+                id="subscriptionStartDate"
                 type="date"
                 className="AllCompany-detail-input"
-                value={subscriptionExpiryDate}
-                onChange={(e) => setSubscriptionExpiryDate(e.target.value)}
+                value={subscriptionStartDate}
+                onChange={(e) => handleStartDateChange(e.target.value)}
               />
 
-              <div className="AllCompany-subscription-presets">
-                <button type="button" onClick={() => setSubscriptionExpiryDate(getDateAfterDays(90))}>+3 months</button>
-                <button type="button" onClick={() => setSubscriptionExpiryDate(getDateAfterDays(180))}>+6 months</button>
-                <button type="button" onClick={() => setSubscriptionExpiryDate(getDateAfterDays(365))}>+1 year</button>
+              <label className="AllCompany-subscription-label">
+                New Expiry Date (Auto-calculated)
+              </label>
+              <div className="AllCompany-detail-input" style={{ background: '#f5f5f5', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', fontWeight: 'bold' }}>
+                {subscriptionExpiryDate ? formatDate(subscriptionExpiryDate) : 'Select plan and start date'}
               </div>
 
               <div className="AllCompany-subscription-form-grid">

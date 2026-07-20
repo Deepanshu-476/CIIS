@@ -576,6 +576,7 @@ const Header = ({ toggleSidebar, isMobile }) => {
       localStorage.removeItem("user");
       localStorage.removeItem("token");
       localStorage.removeItem('unreadCount');
+      localStorage.removeItem("sidebarConfig");
       navigate("/login");
 
       Swal.fire({

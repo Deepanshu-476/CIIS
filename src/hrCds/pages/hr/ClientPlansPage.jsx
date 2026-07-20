@@ -152,13 +152,14 @@ const ClientPlansPage = () => {
 
   
   const updateTaskDraft = (serviceName, key, value) => {
+    const maxDueDays = Number(form.months || 1) * 30;
     setTaskDrafts(prev => ({
       ...prev,
       [serviceName]: {
         name: '',
         description: '',
         priority: 'Medium',
-        dueInDays: 0,
+        dueInDays: maxDueDays,
         ...(prev[serviceName] || {}),
         [key]: value
       }
@@ -167,9 +168,27 @@ const ClientPlansPage = () => {
 
   
   const addTaskToService = serviceName => {
-    const draft = taskDrafts[serviceName] || {};
+    const maxDueDays = Number(form.months || 1) * 30;
+    const rawDraft = taskDrafts[serviceName] || {};
+    const draft = {
+      name: '',
+      description: '',
+      priority: 'Medium',
+      dueInDays: maxDueDays,
+      ...rawDraft
+    };
+
     const name = draft.name || '';
     if (!name?.trim()) return;
+
+    const dueDays = Number(draft.dueInDays || 0);
+    if (dueDays > maxDueDays) {
+      setError(`Task due days cannot exceed the plan duration of ${maxDueDays} days.`);
+      return;
+    }
+    
+    setError('');
+
     setForm(prev => ({
       ...prev,
       services: prev.services.map(item => item.service === serviceName
@@ -179,14 +198,14 @@ const ClientPlansPage = () => {
             name: name.trim(),
             description: (draft.description || name).trim(),
             priority: draft.priority || 'Medium',
-            dueInDays: Number(draft.dueInDays || 0)
+            dueInDays: dueDays
           }]
         }
         : item)
     }));
     setTaskDrafts(prev => ({
       ...prev,
-      [serviceName]: { name: '', description: '', priority: 'Medium', dueInDays: 0 }
+      [serviceName]: { name: '', description: '', priority: 'Medium', dueInDays: maxDueDays }
     }));
   };
 
@@ -423,7 +442,15 @@ const ClientPlansPage = () => {
                 
                 <div className="ClientPlansPage-services-tasks-list">
                   {form.services.map((service) => {
-                    const draft = taskDrafts[service.service] || { name: '', description: '', priority: 'Medium', dueInDays: 0 };
+                    const maxDueDays = Number(form.months || 1) * 30;
+                    const rawDraft = taskDrafts[service.service] || {};
+                    const draft = {
+                      name: '',
+                      description: '',
+                      priority: 'Medium',
+                      dueInDays: maxDueDays,
+                      ...rawDraft
+                    };
                     return (
                       <div className="ClientPlansPage-service-task-card" key={service.service}>
                         <div className="ClientPlansPage-service-task-header">
@@ -444,9 +471,19 @@ const ClientPlansPage = () => {
                               className="ClientManagement-form-input"
                               type="number"
                               min="0"
+                              max={maxDueDays}
                               placeholder="Due in (days)"
-                              value={draft.dueInDays || ''}
-                              onChange={e => updateTaskDraft(service.service, 'dueInDays', e.target.value)}
+                              value={draft.dueInDays}
+                              onChange={e => {
+                                const val = e.target.value === '' ? '' : Number(e.target.value);
+                                if (val !== '' && val > maxDueDays) {
+                                  setError(`Task due days cannot exceed the plan duration of ${maxDueDays} days.`);
+                                  updateTaskDraft(service.service, 'dueInDays', maxDueDays);
+                                } else {
+                                  setError('');
+                                  updateTaskDraft(service.service, 'dueInDays', val);
+                                }
+                              }}
                               style={{ width: '120px' }}
                             />
                             <select

@@ -411,6 +411,36 @@
   cursor: not-allowed;
 }
 
+.TaskDetails-login-filter-button {
+  width: 100%;
+  min-height: 38px;
+  padding: 0.6rem;
+  border-radius: 0.6rem;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+}
+
+.TaskDetails-login-filter-button:hover:not(:disabled),
+.TaskDetails-login-filter-button.active {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.TaskDetails-login-filter-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 /* Stats Grid - Mobile */
 .TaskDetails-stats-grid {
   display: grid;

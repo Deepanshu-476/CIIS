@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { ArrowLeft, Check, Edit, Lock, MoreVertical, Search, SlidersHorizontal, Users, X } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, BellOff, Check, Edit, Lock, MoreVertical, Search, SlidersHorizontal, Users, X } from "lucide-react";
 import { API_URL_IMG } from "../config";
 
 const ChatSidebar = ({
@@ -36,8 +36,40 @@ const ChatSidebar = ({
         const message = item?.lastMessage;
         if (!message) return item?.isGroup ? "Group chat" : (item?.companyRole || "Direct message");
         if (message.deletedForEveryone) return "This message was deleted";
-        if (message.text) return message.text;
-        if (message.file) return "Attachment";
+        if (message.messageType === "system" && message.systemEvent?.type === "disappearing_messages_changed") {
+            const actorId = message.systemEvent.actor?._id || message.systemEvent.actor || message.sender?._id || message.sender;
+            const actor = String(actorId || "") === String(currentUserId || "")
+                ? "You"
+                : message.systemEvent.actor?.name || message.sender?.name || "A participant";
+            const mode = message.systemEvent.mode;
+            if (mode === "off") return `${actor} turned off disappearing messages`;
+            const duration = mode === "24h" ? "24 hours" : mode === "7d" ? "7 days" : "90 days";
+            return `${actor} enabled disappearing messages · ${duration}`;
+        }
+        if (message.text) {
+            const rawText = String(message.text);
+            const disappearingNoticeMatch = rawText.match(/^\[\[ciis-system-disappearing:([^\]]+)\]\]$/);
+            if (disappearingNoticeMatch) {
+                try {
+                    const notice = JSON.parse(decodeURIComponent(disappearingNoticeMatch[1]));
+                    const actor = String(notice.actorId || "") === String(currentUserId || "")
+                        ? "You"
+                        : notice.actorName || "A participant";
+                    if (notice.mode === "off") return `${actor} turned off disappearing messages`;
+                    const duration = notice.mode === "24h" ? "24 hours" : notice.mode === "7d" ? "7 days" : "90 days";
+                    return `${actor} enabled disappearing messages · ${duration}`;
+                } catch {
+                    return "Disappearing messages updated";
+                }
+            }
+
+            const visibleText = rawText
+                .replace(/^\[\[ciis-reply:[^\]]+\]\]/, "")
+                .replace(/\[\[ciis-expire:\d+\]\]/g, "")
+                .trim();
+            if (visibleText) return visibleText;
+        }
+        if (message.file || message.mediaUrl || message.fileUrl || message.attachmentUrl) return "Attachment";
         return "New message";
     };
 
@@ -126,6 +158,11 @@ const ChatSidebar = ({
         return Number(item?.unreadCount) || 0;
     };
 
+    const isConversationMuted = item => Boolean(
+        item?.notificationPreference?.muted
+        || item?.conversation?.notificationPreference?.muted
+    );
+
     const hasStartedConversation = item => Boolean(
         item?.lastMessage ||
         item?.conversation?.lastMessage
@@ -194,6 +231,19 @@ const ChatSidebar = ({
         selectableCompanyUsers.filter(user => selectedGroupMemberIds.includes(getItemId(user)))
     ), [selectableCompanyUsers, selectedGroupMemberIds]);
 
+    const conversationStats = useMemo(() => {
+        const startedUsers = (users || []).filter(hasStartedConversation);
+        const startedGroups = (groups || []).filter(hasStartedConversation);
+        const allItems = [...startedUsers, ...startedGroups];
+
+        return {
+            all: allItems.length,
+            unread: allItems.filter(item => getBadgeCount(item) > 0).length,
+            groups: startedGroups.length,
+            favourites: allItems.filter(item => item.isFavourite || item.isFavorite || item.favorite).length,
+        };
+    }, [users, groups, unreadCounts]);
+
     const toggleGroupMember = user => {
         const userId = getItemId(user);
         if (!userId) return;
@@ -217,6 +267,12 @@ const ChatSidebar = ({
         closeGroupPanel();
         setShowNewChat(true);
     };
+
+    useEffect(() => {
+        const handleOpenNewChat = () => openNewChatPanel();
+        window.addEventListener("chat:open-new-chat", handleOpenNewChat);
+        return () => window.removeEventListener("chat:open-new-chat", handleOpenNewChat);
+    }, []);
 
     const closeNewChatPanel = () => {
         setShowNewChat(false);
@@ -264,7 +320,10 @@ const ChatSidebar = ({
         <aside className={`chat-sidebar ${showCreateGroup || showNewChat ? "group-panel-open" : ""} ${className}`.trim()}>
             <section className="chat-sidebar-card conversations-card">
                 <div className="sidebar-top">
-                    <div className="sidebar-title">Chats</div>
+                    <div>
+                        <div className="sidebar-title">Chats</div>
+                        <div className="sidebar-subtitle">{conversationStats.all} conversations</div>
+                    </div>
                     <div className="sidebar-actions">
                         <button className="sidebar-icon" title="New chat" type="button" onClick={openNewChatPanel}>
                             <Edit size={18} />
@@ -286,18 +345,22 @@ const ChatSidebar = ({
                     <input
                         type="text"
                         className="chat-search"
-                        placeholder="Search or start new chat"
+                        placeholder="Search conversations"
                         value={searchTerm}
                         onChange={event => setSearchTerm(event.target.value)}
                     />
                 </div>
                 <div className="chat-filter-tabs">
-                    <button type="button" className={activeFilter === "all" ? "active" : ""} onClick={() => setActiveFilter("all")}>All</button>
-                    <button type="button" className={activeFilter === "unread" ? "active" : ""} onClick={() => setActiveFilter("unread")}>Unread</button>
-                    <button type="button" className={activeFilter === "groups" ? "active" : ""} onClick={() => setActiveFilter("groups")}>Groups</button>
-                    <button type="button" className={activeFilter === "favourites" ? "active" : ""} onClick={() => setActiveFilter("favourites")}>Favourites</button>
+                    <button type="button" className={activeFilter === "all" ? "active" : ""} onClick={() => setActiveFilter("all")}>All <span>{conversationStats.all}</span></button>
+                    <button type="button" className={activeFilter === "unread" ? "active" : ""} onClick={() => setActiveFilter("unread")}>Unread <span>{conversationStats.unread}</span></button>
+                    <button type="button" className={activeFilter === "groups" ? "active" : ""} onClick={() => setActiveFilter("groups")}>Groups <span>{conversationStats.groups}</span></button>
+                    <button type="button" className={activeFilter === "favourites" ? "active" : ""} onClick={() => setActiveFilter("favourites")}>Favourites <span>{conversationStats.favourites}</span></button>
                 </div>
 
+                <div className="chat-list-heading">
+                    <span>Recent</span>
+                    <SlidersHorizontal size={14} />
+                </div>
                 <div className="chat-sidebar-list">
                     {filteredUsers.map((user, index) => (
                         <div
@@ -307,9 +370,7 @@ const ChatSidebar = ({
                                     ? "chat-user active"
                                     : "chat-user"
                             }
-                            onClick={() =>
-                                setSelectedUser(user)
-                            }
+                            onClick={() => setSelectedUser(user)}
                         >
                             <div className="chat-user-avatar">
                                 {
@@ -329,7 +390,12 @@ const ChatSidebar = ({
                                     <div className="chat-user-name">
                                         {user.name}
                                     </div>
-                                    <span className="chat-user-time">{getLastMessageTime(user) || (index === 0 ? "10:30 AM" : "May 10")}</span>
+                                    <span className="chat-user-time">{getLastMessageTime(user)}</span>
+                                    {isConversationMuted(user) && (
+                                        <span className="chat-user-muted" title="Notifications muted" aria-label="Notifications muted">
+                                            <BellOff size={13} />
+                                        </span>
+                                    )}
 
                                     {getBadgeCount(user) > 0 && (
                                         <div className="chat-user-badge">
@@ -339,7 +405,7 @@ const ChatSidebar = ({
                                 </div>
 
                                 <div className="chat-user-department">
-                                    {user.companyRole || "Account Manager"}
+                                    {user.companyRole || user.department || ""}
                                 </div>
                                 <div className="chat-user-role">
                                     <span className={
@@ -363,9 +429,7 @@ const ChatSidebar = ({
                                     ? "chat-user active"
                                     : "chat-user"
                             }
-                            onClick={() =>
-                                setSelectedUser({ ...group, isGroup: true })
-                            }
+                            onClick={() => setSelectedUser({ ...group, isGroup: true })}
                         >
                             <div className="chat-user-avatar">
                                 <Users size={20} />
@@ -376,7 +440,12 @@ const ChatSidebar = ({
                                     <div className="chat-user-name">
                                         {getGroupName(group)}
                                     </div>
-                                    <span className="chat-user-time">{getLastMessageTime(group) || (index === 0 ? "09:15 AM" : "May 12")}</span>
+                                    <span className="chat-user-time">{getLastMessageTime(group)}</span>
+                                    {isConversationMuted(group) && (
+                                        <span className="chat-user-muted" title="Notifications muted" aria-label="Notifications muted">
+                                            <BellOff size={13} />
+                                        </span>
+                                    )}
                                     {getBadgeCount(group) > 0 && (
                                         <div className="chat-user-badge">
                                             {getBadgeCount(group)}
@@ -384,7 +453,7 @@ const ChatSidebar = ({
                                     )}
                                 </div>
                                 <div className="chat-user-department">
-                                    {group.department || "SEO Department"}
+                                    {group.department || ""}
                                 </div>
                                 <div className="chat-user-role">
                                     <span className={getGroupOnlineCount(group) > 0 ? "status-dot" : "status-dot offline"} />

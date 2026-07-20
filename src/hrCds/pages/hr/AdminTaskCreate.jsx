@@ -14,18 +14,8 @@ import {
   FiEye, FiClock, FiCheckCircle, FiXCircle, FiAlertTriangle,
   FiMoreVertical, FiRefreshCw, FiUserCheck, FiUserX,
   FiLogOut, FiEdit3, FiMessageCircle,
-  FiZoomIn, FiImage, FiBriefcase
+  FiZoomIn, FiImage, FiCamera, FiBriefcase
 } from 'react-icons/fi';
-
-const getRemarkImageUrl = (imagePath) => {
-  if (!imagePath) return '';
-  if (/^https?:\/\//i.test(imagePath)) return imagePath;
-
-  const baseUrl = API_URL_IMG.replace(/\/$/, '');
-  const cleanPath = String(imagePath).replace(/^\/+/, '');
-  const uploadPath = cleanPath.startsWith('uploads/') ? cleanPath : `uploads/${cleanPath}`;
-  return `${baseUrl}/${uploadPath}`;
-};
 
 const AdminTaskManagement = () => {
   const [tasks, setTasks] = useState([]);
@@ -1693,17 +1683,15 @@ const AdminTaskManagement = () => {
 
   
   const renderRemarksDialog = () => (
-    <div className={`AdminTaskManagement-modal AdminTaskManagement-remarks-modal ${openRemarksDialog ? 'AdminTaskManagement-modal-open' : ''}`}>
-      <div className="AdminTaskManagement-modal-content AdminTaskManagement-modal-large AdminTaskManagement-remarks-modal-content">
+    <div className={`AdminTaskManagement-modal ${openRemarksDialog ? 'AdminTaskManagement-modal-open' : ''}`}>
+      <div className="AdminTaskManagement-modal-content AdminTaskManagement-modal-large">
         <div className="AdminTaskManagement-modal-header AdminTaskManagement-modal-info">
           <div className="AdminTaskManagement-modal-title-row">
             <div className="AdminTaskManagement-modal-title-icon">
               <FiMessageSquare />
               <h3>Remarks for: {selectedTask?.title}</h3>
             </div>
-            <div className="AdminTaskManagement-modal-subtitle">
-              {remarks.length} {remarks.length === 1 ? 'remark' : 'remarks'}
-            </div>
+            <div className="AdminTaskManagement-modal-subtitle">{remarks.length} remark(s)</div>
           </div>
           <button 
             className="AdminTaskManagement-icon-btn"
@@ -1718,25 +1706,20 @@ const AdminTaskManagement = () => {
             
             <div className="AdminTaskManagement-card AdminTaskManagement-card-outline">
               <div className="AdminTaskManagement-card-content">
-                <h4>New remark</h4>
+                <h4>Add New Remark</h4>
                 
-                <label className="AdminTaskManagement-remarks-field-label" htmlFor="AdminTaskManagement-remark-text">
-                  Remark
-                </label>
+                
                 <textarea
-                  id="AdminTaskManagement-remark-text"
                   className="AdminTaskManagement-remark-textarea"
-                  placeholder="Write your remark here..."
+                  placeholder="Enter your remark here... (Optional if uploading images)"
                   value={newRemark}
                   onChange={(e) => setNewRemark(e.target.value)}
                   rows={3}
-                  maxLength={500}
                 />
-                <div className="AdminTaskManagement-remarks-character-count">{newRemark.length} / 500</div>
 
                 
                 <div className="AdminTaskManagement-image-upload-section">
-                  <label>Attachments (optional)</label>
+                  <label>Attach Image (Optional)</label>
                   
                   <div 
                     className="AdminTaskManagement-image-upload-area"
@@ -1747,13 +1730,13 @@ const AdminTaskManagement = () => {
                     <div className="AdminTaskManagement-upload-content">
                       <FiImage size={32} className="AdminTaskManagement-upload-icon" />
                       <div className="AdminTaskManagement-upload-text">
-                        Drop images here or <span>browse</span>
+                        Click to upload or drag & drop
                       </div>
                       <div className="AdminTaskManagement-upload-subtext">
-                        JPG, PNG or GIF • Max 5 MB each
+                        Supports JPG, PNG, GIF • Max 5MB
                       </div>
                       <button className="AdminTaskManagement-btn AdminTaskManagement-btn-outline AdminTaskManagement-upload-btn">
-                        Browse files
+                        <FiCamera /> Choose Image
                       </button>
                     </div>
                     
@@ -1792,10 +1775,6 @@ const AdminTaskManagement = () => {
                       </div>
                     </div>
                   )}
-                  <div className="AdminTaskManagement-remarks-visibility-note">
-                    <FiInfo />
-                    <span>Images are visible to assigned members</span>
-                  </div>
                 </div>
 
                 
@@ -1811,7 +1790,7 @@ const AdminTaskManagement = () => {
 
             
             <div className="AdminTaskManagement-remarks-history">
-              <h4>Remarks History <span>{remarks.length}</span></h4>
+              <h4>Remarks History</h4>
               
               {remarks.length > 0 ? (
                 <div className="AdminTaskManagement-remarks-list">
@@ -1828,12 +1807,9 @@ const AdminTaskManagement = () => {
                               <div className="AdminTaskManagement-remark-user-info">
                                 <div className="AdminTaskManagement-remark-user-name">
                                   {getUserName(remark.user)}
-                                  <span className="AdminTaskManagement-remark-role-badge">
-                                    {users.find(u => u.id === remark.user || u._id === remark.user)?.role || 'User'}
-                                  </span>
                                 </div>
                                 <div className="AdminTaskManagement-remark-user-details">
-                                  {new Date(remark.createdAt).toLocaleDateString()} • {' '}
+                                  {users.find(u => u.id === remark.user || u._id === remark.user)?.role || 'User'} • {new Date(remark.createdAt).toLocaleDateString()} at {' '}
                                   {new Date(remark.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </div>
                               </div>
@@ -1850,16 +1826,16 @@ const AdminTaskManagement = () => {
                           
                           {remark.image && (
                             <div className="AdminTaskManagement-remark-image-container">
-                              <label>Attached Image</label>
+                              <label>Attached Image:</label>
                               <div className="AdminTaskManagement-remark-image-preview">
                                 <img
-                                  src={getRemarkImageUrl(remark.image)}
+                                  src={`${API_URL_IMG}/${remark.image}`}
                                   alt="Remark attachment"
-                                  onClick={() => setZoomImage(getRemarkImageUrl(remark.image))}
+                                  onClick={() => setZoomImage(`${API_URL_IMG}/${remark.image}`)}
                                 />
                                 <button
                                   className="AdminTaskManagement-zoom-image-btn"
-                                  onClick={() => setZoomImage(getRemarkImageUrl(remark.image))}
+                                  onClick={() => setZoomImage(`${API_URL_IMG}/${remark.image}`)}
                                 >
                                   <FiZoomIn size={14} />
                                 </button>
@@ -1883,19 +1859,12 @@ const AdminTaskManagement = () => {
             </div>
           </div>
         </div>
-        <div className="AdminTaskManagement-modal-footer AdminTaskManagement-remarks-modal-footer">
+        <div className="AdminTaskManagement-modal-footer">
           <button 
             className="AdminTaskManagement-btn" 
             onClick={() => setOpenRemarksDialog(false)}
           >
-            Cancel
-          </button>
-          <button
-            className="AdminTaskManagement-btn AdminTaskManagement-btn-primary AdminTaskManagement-remarks-footer-submit"
-            onClick={addRemark}
-            disabled={isUploadingRemark || (!newRemark.trim() && remarkImages.length === 0)}
-          >
-            {isUploadingRemark ? 'Uploading...' : 'Add remark'}
+            Close
           </button>
         </div>
       </div>

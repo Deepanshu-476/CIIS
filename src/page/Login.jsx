@@ -15,7 +15,19 @@ const clearPreviousLoginStorage = () => {
     'companyIdentifier',
     'companyCode',
     'client',
+    'sidebarConfig',
   ].forEach(key => localStorage.removeItem(key));
+};
+
+const getCompanyAuthPath = (companyIdentifier, action) => {
+  const safeIdentifier = encodeURIComponent(companyIdentifier);
+  const paths = {
+    login: `/auth/company/${safeIdentifier}/login`,
+    verifyOtp: `/auth/company/${safeIdentifier}/verify-otp`,
+    resendOtp: `/auth/company/${safeIdentifier}/resend-otp`,
+  };
+
+  return paths[action] || '/auth/login';
 };
 
 const Login = () => {
@@ -181,7 +193,10 @@ const Login = () => {
 
       void 0;
 
-      const res = await axios.post('/auth/login', loginData, { _skipErrorNotify: true });
+      const loginEndpoint = companyIdentifier
+        ? getCompanyAuthPath(companyIdentifier, 'login')
+        : '/auth/login';
+      const res = await axios.post(loginEndpoint, loginData, { _skipErrorNotify: true });
 
       
       if (res.data.requiresOTP) {
@@ -317,7 +332,10 @@ const Login = () => {
     setOtpError('');
 
     try {
-      const response = await axios.post('/auth/verify-login-otp', {
+      const verifyEndpoint = companyIdentifier
+        ? getCompanyAuthPath(companyIdentifier, 'verifyOtp')
+        : '/auth/verify-login-otp';
+      const response = await axios.post(verifyEndpoint, {
         email: otpEmail,
         otp: otpString,
         tempToken: tempToken
@@ -390,7 +408,10 @@ const Login = () => {
     setOtpLoading(true);
     
     try {
-      const response = await axios.post('/auth/resend-login-otp', {
+      const resendEndpoint = companyIdentifier
+        ? getCompanyAuthPath(companyIdentifier, 'resendOtp')
+        : '/auth/resend-login-otp';
+      const response = await axios.post(resendEndpoint, {
         email: otpEmail
       }, { _skipErrorNotify: true });
 

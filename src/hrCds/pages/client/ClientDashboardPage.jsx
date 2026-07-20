@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import CIISLoader from '../../../Loader/CIISLoader';
 import API_URL from '../../../config';
 import {
@@ -15,7 +15,6 @@ import {
   applyClientSubscriptionDueDates,
   CLIENT_PORTAL_SELECTED_CLIENT_KEY,
   CLIENT_PORTAL_SELECTION_EVENT,
-  cacheClientCompanies,
   getClientPortalCompanyContext,
   getCompanyScopedClientParams
 } from '../../utils/clientPortalData';
@@ -314,9 +313,8 @@ const formatSupportTicketTime = value => {
 };
 
 
-const Dashboard = ({ companyPage = false }) => {
+const Dashboard = () => {
   const navigate = useNavigate();
-  const { companyId: routeCompanyId = '' } = useParams();
   const [client, setClient] = useState(null);
   const [availableClients, setAvailableClients] = useState([]);
   const [services, setServices] = useState([]);
@@ -335,12 +333,6 @@ const Dashboard = ({ companyPage = false }) => {
   const [detailsModal, setDetailsModal] = useState(null);
   const [supportTicketTab, setSupportTicketTab] = useState('all');
   const [supportTicketFilter, setSupportTicketFilter] = useState('all');
-
-  const updateAvailableClients = clients => {
-    const safeClients = Array.isArray(clients) ? clients : [];
-    setAvailableClients(safeClients);
-    cacheClientCompanies(safeClients);
-  };
 
   const isMounted = useRef(true);
   const initialFetchDone = useRef(false);
@@ -485,7 +477,7 @@ const Dashboard = ({ companyPage = false }) => {
 
     if (!requestCompanyInfo.companyCode) {
       if (isMounted.current) {
-        updateAvailableClients([]);
+        setAvailableClients([]);
         setClient(null);
         setServices([]);
         setProjectManagers([]);
@@ -499,11 +491,7 @@ const Dashboard = ({ companyPage = false }) => {
     try {
       setSupportTicketsLoading(true);
       setSupportTicketsError('');
-      const selectedClientId = normalizeMatchValue(
-        companyPage && routeCompanyId
-          ? routeCompanyId
-          : localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY)
-      );
+      const selectedClientId = normalizeMatchValue(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
       const storedClientId = selectedClientId || normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
       const response = await api.get('/dashboard-overview', {
         params: {
@@ -518,7 +506,7 @@ const Dashboard = ({ companyPage = false }) => {
 
       const matchingClients = overview.availableClients || [];
       const currentClient = overview.client || null;
-      updateAvailableClients(matchingClients);
+      setAvailableClients(matchingClients);
 
       if (!currentClient) {
         setClient(null);
@@ -576,7 +564,7 @@ const Dashboard = ({ companyPage = false }) => {
 
       if (!requestCompanyInfo.companyCode) {
         if (isMounted.current) {
-          updateAvailableClients([]);
+          setAvailableClients([]);
           setClient(null);
           setServices([]);
           setProjectManagers([]);
@@ -596,12 +584,8 @@ const Dashboard = ({ companyPage = false }) => {
       if (response.data?.success && isMounted.current) {
         const allClients = response.data.data || [];
         const matchingClients = allClients.filter(item => isClientForLoggedInUser(item, user));
-        updateAvailableClients(matchingClients);
-        const selectedClientId = normalizeMatchValue(
-          companyPage && routeCompanyId
-            ? routeCompanyId
-            : localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY)
-        );
+        setAvailableClients(matchingClients);
+        const selectedClientId = normalizeMatchValue(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
         const storedClientId = selectedClientId || normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
         
         const currentClient = (
@@ -612,7 +596,7 @@ const Dashboard = ({ companyPage = false }) => {
         
         if (!currentClient) {
           setClient(null);
-          updateAvailableClients([]);
+          setAvailableClients([]);
           setServices([]);
           setProjectManagers([]);
           setServiceTasks([]);
@@ -632,7 +616,7 @@ const Dashboard = ({ companyPage = false }) => {
           await fetchAllServicesTasks(currentClient, currentClient.services);
         }
       } else {
-        updateAvailableClients([]);
+        setAvailableClients([]);
         setError('No client data found');
       }
     } catch (err) {
@@ -654,12 +638,6 @@ const Dashboard = ({ companyPage = false }) => {
     }
   }, [companyInfo.companyCode, companyInfo.companyIdentifier]);
 
-  useEffect(() => {
-    if (companyPage && routeCompanyId && initialFetchDone.current) {
-      fetchClientData();
-    }
-  }, [companyPage, routeCompanyId]);
-
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('authToken');
@@ -669,7 +647,6 @@ const Dashboard = ({ companyPage = false }) => {
     localStorage.removeItem('company');
     localStorage.removeItem('client');
     localStorage.removeItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY);
-    cacheClientCompanies([]);
     window.location.href = '/login';
   };
 
@@ -681,7 +658,6 @@ const Dashboard = ({ companyPage = false }) => {
     window.dispatchEvent(new CustomEvent(CLIENT_PORTAL_SELECTION_EVENT, {
       detail: { clientId: nextClientId }
     }));
-    navigate(`/client/company/${nextClientId}`);
   };
 
   const taskStats = calculateTaskStats(serviceTasks);
@@ -888,17 +864,9 @@ const Dashboard = ({ companyPage = false }) => {
   return (
     <div className="ClientDashboard-client-dashboard">
       <section className="ClientDashboard-hero-card ClientDashboard-greeting-card">
-        <div className="ClientDashboard-greeting-head">
-          <div>
-            <h1>{greeting.text} <span>{greeting.icon}</span></h1>
-            <p>Stay on top of your services, tasks, and payments.</p>
-          </div>
-          {companyPage && (
-            <div className="ClientDashboard-selected-company">
-              <span>Selected Company</span>
-              <strong>{client?.company || client?.companyName || client?.client || 'Company'}</strong>
-            </div>
-          )}
+        <div>
+          <h1>{greeting.text} <span>{greeting.icon}</span></h1>
+          <p>Stay on top of your services, tasks, and payments.</p>
         </div>
         <div className="ClientDashboard-hero-stats">
           {[
@@ -944,7 +912,7 @@ const Dashboard = ({ companyPage = false }) => {
         </div>
       </section>
 
-      {!companyPage && companyCards.length > 0 && (
+      {companyCards.length > 0 && (
         <section className="ClientDashboard-company-switcher" aria-label="Your companies">
           <div className="ClientDashboard-company-switcher-head">
             <div>

@@ -235,6 +235,42 @@ export const forwardMessage = async ({ messageId, targetUserIds = [] }) => {
     );
 };
 
+export const updateConversationMute = async (conversationId, muted, mutedUntil = null) => {
+    return axios.patch(
+        `${API}/conversation/${conversationId}/mute`,
+        { muted, mutedUntil },
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
+export const updateDisappearingMessages = async (conversationId, mode) => {
+    return axios.patch(
+        `${API}/conversation/${conversationId}/disappearing-messages`,
+        { mode },
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
+export const updateMessageReaction = async (messageId, emoji) => {
+    return axios.patch(
+        `${API}/message/${messageId}/reaction`,
+        { emoji },
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
 const authConfig = () => ({
     headers: { Authorization: `Bearer ${getToken()}` }
 });

@@ -14,7 +14,7 @@ import {
 import "../Css/TaskManagement.css";
 import API_URL from '../../config';
 import CIISLoader from '../../Loader/CIISLoader';
-import { getClientPortalCompanyContext, getCompanyScopedClientParams } from '../utils/clientPortalData';
+import { getCompanyScopedClientParams } from '../utils/clientPortalData';
 
 
 const getImageUrl = (imagePath) => {
@@ -293,6 +293,54 @@ const readStoredObject = (key) => {
   }
 };
 
+const firstNonEmptyString = (values) => (
+  values.map(value => String(value || '').trim()).find(Boolean) || ''
+);
+
+const getTaskManagementCompanyContext = (user = {}, storedClient = {}) => {
+  const companyDetails = readStoredObject('companyDetails');
+  const storedCompany = readStoredObject('company');
+  const userCompany = user.company && typeof user.company === 'object' ? user.company : {};
+  const clientCompany = storedClient.company && typeof storedClient.company === 'object' ? storedClient.company : {};
+
+  const companyCode = firstNonEmptyString([
+    user.companyCode,
+    userCompany.companyCode,
+    user.companyDetails?.companyCode,
+    companyDetails.companyCode,
+    companyDetails.code,
+    storedCompany.companyCode,
+    storedCompany.code,
+    storedClient.companyCode,
+    clientCompany.companyCode,
+    localStorage.getItem('companyCode')
+  ]);
+
+  const companyIdentifier = firstNonEmptyString([
+    user.companyIdentifier,
+    user.companyId,
+    userCompany._id,
+    userCompany.id,
+    user.companyDetails?._id,
+    user.companyDetails?.id,
+    companyDetails._id,
+    companyDetails.id,
+    storedCompany._id,
+    storedCompany.id,
+    storedClient.companyIdentifier,
+    clientCompany._id,
+    clientCompany.id,
+    localStorage.getItem('companyIdentifier')
+  ]);
+
+  return { companyCode, companyIdentifier };
+};
+
+const isClientInCompany = (client, companyCode) => {
+  if (!companyCode) return true;
+  return String(client?.companyCode || '').trim().toUpperCase() === String(companyCode).trim().toUpperCase();
+};
+
 const renderActivityDescription = (description = '') => {
   const statusPattern = /(in progress|pending|completed|cancelled|on hold)/gi;
   return String(description).split(statusPattern).map((part, index) => {
@@ -564,16 +612,32 @@ const UserCreateTask = () => {
   }, []);
 
   
-  const isOverdue = useCallback((dueDateTime, status) => {
+  const getEffectiveOverdueDate = useCallback((dueDateTime, task) => {
+    if (!dueDateTime) return null;
+    const dueDate = new Date(dueDateTime);
+    if (Number.isNaN(dueDate.getTime())) return null;
+
+    const isSelfTask = task?.taskFor === 'self' || task?.taskSource === 'self' || task?.__taskSource === 'self' || task?.source === 'self';
+    if (isSelfTask && task?.onHoldReleasedAt) {
+      const releasedAt = new Date(task.onHoldReleasedAt);
+      if (!Number.isNaN(releasedAt.getTime()) && dueDate <= releasedAt) {
+        return new Date(releasedAt.getTime() + 24 * 60 * 60 * 1000);
+      }
+    }
+
+    return dueDate;
+  }, []);
+
+  const isOverdue = useCallback((dueDateTime, status, task = null) => {
     if (!dueDateTime) return false;
     if (status === 'overdue') return true;
     
-    const dueDate = new Date(dueDateTime);
-    if (Number.isNaN(dueDate.getTime())) return false;
+    const dueDate = getEffectiveOverdueDate(dueDateTime, task);
+    if (!dueDate) return false;
     
     const isPastDue = dueDate < new Date();
     return isPastDue && canMoveToOverdue(status);
-  }, []);
+  }, [getEffectiveOverdueDate]);
 
   const syncOverdueTaskStatuses = useCallback(async (tasks = [], source) => {
     if (!Array.isArray(tasks) || tasks.length === 0) return false;
@@ -591,7 +655,7 @@ const UserCreateTask = () => {
           taskId &&
           dueDate &&
           !autoOverdueTaskIdsRef.current.has(syncKey) &&
-          isOverdue(dueDate, status)
+          isOverdue(dueDate, status, task)
         );
       })
       .map(task => {
@@ -724,7 +788,7 @@ const UserCreateTask = () => {
           statusCounts[myStatus]++;
         }
 
-        if (isOverdue(task.dueDateTime || task.dueDate, myStatus) && myStatus !== 'overdue') {
+        if (isOverdue(task.dueDateTime || task.dueDate, myStatus, task) && myStatus !== 'overdue') {
           statusCounts.overdue++;
         }
       });
@@ -794,7 +858,7 @@ const UserCreateTask = () => {
         
         const dueDate = task.dueDate || task.dueDateTime;
         if (dueDate && status !== 'completed') {
-          const isTaskOverdue = isOverdue(dueDate, status);
+          const isTaskOverdue = isOverdue(dueDate, status, task);
           if (isTaskOverdue && status !== 'overdue') {
             overdue++;
           }
@@ -1024,7 +1088,7 @@ const UserCreateTask = () => {
       return String(task?.priority || '').toLowerCase() === priorityFilterMap[statusFilter];
     }
     if (statusFilter === 'overdue') {
-      return status === 'overdue' || isOverdue(getDueDateForTask(task), status);
+      return status === 'overdue' || isOverdue(getDueDateForTask(task), status, task);
     }
 
     return status === statusFilter;
@@ -1086,7 +1150,7 @@ const UserCreateTask = () => {
         total++;
         const status = getStatusForTask(task);
         const dueDate = getDueDateForTask(task);
-        const taskIsOverdue = isOverdue(dueDate, status);
+        const taskIsOverdue = isOverdue(dueDate, status, task);
         const priority = String(task?.priority || '').toLowerCase();
         const isCompleted = status === 'completed';
 
@@ -1446,7 +1510,7 @@ const UserCreateTask = () => {
     try {
       const user = readStoredObject('user');
       const storedClient = readStoredObject('client');
-      const companyContext = getClientPortalCompanyContext(user, storedClient);
+      const companyContext = getTaskManagementCompanyContext(user, storedClient);
       const companyParams = getCompanyScopedClientParams(companyContext);
 
       if (!companyParams.companyCode && !companyParams.companyIdentifier) {
@@ -1466,7 +1530,9 @@ const UserCreateTask = () => {
             ? response.data
             : [];
 
-      const activeClients = clientRows.filter(Boolean);
+      const activeClients = clientRows
+        .filter(Boolean)
+        .filter(client => isClientInCompany(client, companyParams.companyCode));
       setClients(activeClients);
 
       if (!selectedClientId && activeClients.length > 0) {
@@ -2326,7 +2392,7 @@ const UserCreateTask = () => {
       tasks.forEach(task => {
         const status = getStatusForTask(task);
         const dueDate = getDueDateForTask(task);
-        if (isOverdue(dueDate, status) || status === 'overdue') {
+        if (isOverdue(dueDate, status, task) || status === 'overdue') {
           count++;
         }
       });
@@ -2346,7 +2412,7 @@ const UserCreateTask = () => {
     const currentStatus = task ? getStatusForTask(task) : '';
     if (
       normalizeStatus(newStatus) !== 'overdue' &&
-      (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus))
+      (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus, task))
     ) {
       showSnackbar('Overdue task status cannot be changed', 'error');
       return;
@@ -2389,7 +2455,7 @@ const UserCreateTask = () => {
     const currentStatus = task ? getStatusForTask(task) : '';
     if (
       normalizeStatus(newStatus) !== 'overdue' &&
-      (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus))
+      (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus, task))
     ) {
       showSnackbar('Overdue task status cannot be changed', 'error');
       return;
@@ -2441,7 +2507,7 @@ const UserCreateTask = () => {
     const currentStatus = task ? getStatusForTask(task) : '';
     if (
       normalizeStatus(newStatus) !== 'overdue' &&
-      (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus))
+      (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus, task))
     ) {
       showSnackbar('Overdue task status cannot be changed', 'error');
       return;
@@ -2495,7 +2561,7 @@ const UserCreateTask = () => {
     const currentStatus = task ? getStatusForTask(task) : '';
     if (
       normalizeStatus(newStatus) !== 'overdue' &&
-      (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus))
+      (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus, task))
     ) {
       showSnackbar('Overdue task status cannot be changed', 'error');
       return;
@@ -3214,7 +3280,7 @@ const UserCreateTask = () => {
               
               const overdueTasksForDate = tasksToCheck[dateKey]?.filter(task => {
                 const status = getStatusForTask(task);
-                return isOverdue(getDueDateForTask(task), status);
+                return isOverdue(getDueDateForTask(task), status, task);
               }) || [];
 
               if (overdueTasksForDate.length === 0) return null;
@@ -3591,7 +3657,7 @@ const UserCreateTask = () => {
                 Object.entries(tasksToDisplay).forEach(([dateKey, tasks]) => {
                   const overdueTasks = tasks.filter(task => {
                     const status = getStatusForTask(task);
-                    return isOverdue(getDueDateForTask(task), status);
+                    return isOverdue(getDueDateForTask(task), status, task);
                   });
                   if (overdueTasks.length > 0) {
                     filtered[dateKey] = overdueTasks;
@@ -3657,7 +3723,7 @@ const UserCreateTask = () => {
                         const status = getStatusForTask(task);
                         const dueDate = getDueDateForTask(task);
                         
-                        const taskIsOverdue = isOverdue(dueDate, status);
+                        const taskIsOverdue = isOverdue(dueDate, status, task);
                         const shouldHighlightOverdue = (statusFilter === 'overdue' || showOverdueOnly) && taskIsOverdue;
                         const priority = task.priority || 'medium';
                         const clientName = getClientNameFromTask(task);
@@ -3888,7 +3954,7 @@ const UserCreateTask = () => {
                           const status = getStatusForTask(task);
                           const dueDate = getDueDateForTask(task);
                           
-                          const taskIsOverdue = isOverdue(dueDate, status);
+                          const taskIsOverdue = isOverdue(dueDate, status, task);
                           const shouldHighlightOverdue = (statusFilter === 'overdue' || showOverdueOnly) && taskIsOverdue;
                           const priority = task.priority || 'medium';
                           const clientName = getClientNameFromTask(task);

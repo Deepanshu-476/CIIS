@@ -926,12 +926,69 @@ const ChatPage = () => {
   const [statusesLoading, setStatusesLoading] = useState(false);
   const [statusesError, setStatusesError] = useState("");
   const [effectiveChatSettings, setEffectiveChatSettings] = useState(() => mergeChatSettings(currentUser?.chatSettings));
+  const [chatSidebarWidth, setChatSidebarWidth] = useState(() => {
+    const savedWidth = Number(localStorage.getItem("chatSidebarWidth"));
+    return Number.isFinite(savedWidth) ? Math.min(560, Math.max(300, savedWidth)) : 360;
+  });
 
   const socketContext = useSocket();
   const { startCall, callHistory, clearCallHistory } = useCall();
   const socket = socketContext?.socket;
   const isSocketConnected = socketContext?.isConnected;
   const currentUserId = (currentUser._id || currentUser.id || "").toString();
+
+  const startSidebarResize = event => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+
+    const page = event.currentTarget.closest(".chat-page");
+    const rail = page?.querySelector(".chat-app-rail");
+    if (!page || !rail) return;
+
+    const pageRect = page.getBoundingClientRect();
+    const railWidth = rail.getBoundingClientRect().width;
+
+    const handlePointerMove = moveEvent => {
+      const nextWidth = moveEvent.clientX - pageRect.left - railWidth;
+      const availableMaximum = Math.max(300, pageRect.width - railWidth - 420);
+      const maximumWidth = Math.min(560, availableMaximum);
+      setChatSidebarWidth(Math.min(maximumWidth, Math.max(300, Math.round(nextWidth))));
+    };
+
+    const stopResize = () => {
+      document.body.classList.remove("chat-sidebar-resizing");
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopResize);
+      window.removeEventListener("pointercancel", stopResize);
+    };
+
+    document.body.classList.add("chat-sidebar-resizing");
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopResize);
+    window.addEventListener("pointercancel", stopResize);
+  };
+
+  useEffect(() => {
+    localStorage.setItem("chatSidebarWidth", String(chatSidebarWidth));
+  }, [chatSidebarWidth]);
+
+  useEffect(() => {
+    const keepSidebarWithinViewport = () => {
+      const page = document.querySelector(".chat-page.view-chats");
+      const rail = page?.querySelector(".chat-app-rail");
+      if (!page || !rail || window.innerWidth <= 860) return;
+
+      const availableMaximum = Math.max(
+        300,
+        page.getBoundingClientRect().width - rail.getBoundingClientRect().width - 420
+      );
+      setChatSidebarWidth(width => Math.min(width, Math.min(560, availableMaximum)));
+    };
+
+    keepSidebarWithinViewport();
+    window.addEventListener("resize", keepSidebarWithinViewport);
+    return () => window.removeEventListener("resize", keepSidebarWithinViewport);
+  }, [activeView]);
 
   const findDirectConversation = user => conversations.find(conversation => {
     if (conversation.isGroup) return false;
@@ -1240,7 +1297,10 @@ const ChatPage = () => {
   }, [selectedUser]);
 
   return (
-    <div className={`chat-page ${selectedUser ? "has-selected-chat" : "is-chat-list"} view-${activeView} chat-theme-${effectiveChatSettings.chats.theme || "system"} ${effectiveChatSettings.general.compactMode ? "chat-compact-mode" : ""}`}>
+    <div
+      className={`chat-page ${selectedUser ? "has-selected-chat" : "is-chat-list"} view-${activeView} chat-theme-${effectiveChatSettings.chats.theme || "system"} ${effectiveChatSettings.general.compactMode ? "chat-compact-mode" : ""}`}
+      style={{ "--chat-sidebar-width": `${chatSidebarWidth}px` }}
+    >
       <aside className="chat-app-rail">
         <div className="chat-rail-profile">
           <div className="chat-rail-avatar">
@@ -1318,6 +1378,34 @@ const ChatPage = () => {
         <ChatSettingsPanel currentUser={currentUser} users={users} onSettingsChange={setEffectiveChatSettings} />
       )}
 
+      {activeView === "chats" && (
+        <div
+          className="chat-sidebar-resizer"
+          role="separator"
+          aria-label="Resize conversation sidebar"
+          aria-orientation="vertical"
+          aria-valuemin={300}
+          aria-valuemax={560}
+          aria-valuenow={chatSidebarWidth}
+          tabIndex={0}
+          onPointerDown={startSidebarResize}
+          onKeyDown={event => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+            event.preventDefault();
+            const direction = event.key === "ArrowLeft" ? -1 : 1;
+            const page = event.currentTarget.closest(".chat-page");
+            const rail = page?.querySelector(".chat-app-rail");
+            const availableMaximum = page && rail
+              ? Math.max(300, page.getBoundingClientRect().width - rail.getBoundingClientRect().width - 420)
+              : 560;
+            const maximumWidth = Math.min(560, availableMaximum);
+            setChatSidebarWidth(width => Math.min(maximumWidth, Math.max(300, width + (direction * 16))));
+          }}
+        >
+          <span />
+        </div>
+      )}
+
       {activeView === "status" ? (
         <section className="chat-empty status-page-empty">
           <div className="chat-empty-card">
@@ -1354,6 +1442,7 @@ const ChatPage = () => {
           chatSettings={effectiveChatSettings}
         />
       )}
+
     </div>
   );
 };

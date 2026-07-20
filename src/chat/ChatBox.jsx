@@ -4,9 +4,9 @@ import React, {
     useState
 } from "react";
 import "../Pages/Chat/chat.css";
-import { ArrowLeft, Bell, ChevronRight, Mic, MessageCircle, MoreVertical, Paperclip, Phone, Search, SendHorizontal, Smile, Square, Star, TimerReset, Video, Wallpaper, X } from "lucide-react";
+import { ArrowLeft, Bell, ChevronRight, Download, ExternalLink, FileText, Images, Info, Link2, Mic, MessageCircle, MoreVertical, Paperclip, Phone, Play, Search, SendHorizontal, Smile, Square, TimerReset, Trash2, Video, Wallpaper, X } from "lucide-react";
 
-import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage } from "../services/chatService";
+import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage, updateConversationMute, updateDisappearingMessages, updateMessageReaction } from "../services/chatService";
 
 import MessageBubble from "./MessageBubble";
 import { API_URL_IMG } from "../config";
@@ -66,6 +66,7 @@ const ChatBox = ({
 
     const [text, setText] =
         useState("");
+    const [replyingTo, setReplyingTo] = useState(null);
 
     const [files, setFiles] =
         useState([]);
@@ -82,6 +83,8 @@ const ChatBox = ({
     const recordingTimerRef = useRef(null);
     const recordingPreviewRef = useRef(null);
     const emojiPickerRef = useRef(null);
+    const headerMenuRef = useRef(null);
+    const chatBoxRef = useRef(null);
     const chatInputRef = useRef(null);
     const fileInputRef = useRef(null);
     const activeConversationIdRef = useRef(null);
@@ -91,8 +94,14 @@ const ChatBox = ({
     const [activeChatDateLabel, setActiveChatDateLabel] = useState("");
     const [showActiveChatDate, setShowActiveChatDate] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [showHeaderMenu, setShowHeaderMenu] = useState(false);
     const [showContactInfo, setShowContactInfo] = useState(false);
     const [contactPanelView, setContactPanelView] = useState("info");
+    const [contactMediaTab, setContactMediaTab] = useState("media");
+    const [contactSidebarWidth, setContactSidebarWidth] = useState(() => {
+        const savedWidth = Number(localStorage.getItem("ciis-chat-contact-sidebar-width"));
+        return Number.isFinite(savedWidth) && savedWidth >= 280 ? savedWidth : 360;
+    });
     const [isMuted, setIsMuted] = useState(false);
     const [disappearingMode, setDisappearingMode] = useState("off");
     const [contactWallpaper, setContactWallpaper] = useState("");
@@ -272,29 +281,53 @@ const ChatBox = ({
 
         setConversation(null);
         setMessages([]);
+        setReplyingTo(null);
         setShowContactInfo(false);
         startConversation();  
     }, [selectedUserKey]);
 
     useEffect(() => {
+        if (!showHeaderMenu) return undefined;
+        const closeHeaderMenu = event => {
+            if (!headerMenuRef.current?.contains(event.target)) setShowHeaderMenu(false);
+        };
+        const closeOnEscape = event => {
+            if (event.key === "Escape") setShowHeaderMenu(false);
+        };
+        document.addEventListener("pointerdown", closeHeaderMenu);
+        document.addEventListener("keydown", closeOnEscape);
+        return () => {
+            document.removeEventListener("pointerdown", closeHeaderMenu);
+            document.removeEventListener("keydown", closeOnEscape);
+        };
+    }, [showHeaderMenu]);
+
+    useEffect(() => {
         setContactPanelView("info");
+        setContactMediaTab("media");
         setIsContactSearchOpen(false);
         setContactSearchTerm("");
         try {
             const savedPrefs = JSON.parse(localStorage.getItem(contactPrefsKey) || "{}");
-            setIsMuted(Boolean(savedPrefs.isMuted));
-            setDisappearingMode(savedPrefs.disappearingMode || "off");
             setContactWallpaper(savedPrefs.wallpaper || "");
             setContactSound(savedPrefs.sound || "default");
             setStarredMessageIds(Array.isArray(savedPrefs.starredMessageIds) ? savedPrefs.starredMessageIds : []);
         } catch {
-            setIsMuted(false);
-            setDisappearingMode("off");
             setContactWallpaper("");
             setContactSound("default");
             setStarredMessageIds([]);
         }
     }, [contactPrefsKey]);
+
+    useEffect(() => {
+        const keepSidebarInBounds = () => {
+            const availableWidth = chatBoxRef.current?.getBoundingClientRect().width || window.innerWidth;
+            const maximumWidth = Math.max(280, Math.min(560, availableWidth - 420));
+            setContactSidebarWidth((width) => Math.min(width, maximumWidth));
+        };
+        window.addEventListener("resize", keepSidebarInBounds);
+        return () => window.removeEventListener("resize", keepSidebarInBounds);
+    }, []);
 
     const saveContactPrefs = (patch) => {
         try {
@@ -364,7 +397,7 @@ useEffect(() => {
     const handleReceiveMessage = (message) => {
             const senderId = getEntityId(message.sender);
             const currentUserId = getEntityId(currentUser);
-            if (message?._id && senderId && senderId !== currentUserId) {
+            if (message?._id && senderId && senderId !== currentUserId && message.messageType !== "system") {
                 markMessageSeen(message._id).catch(() => {});
                 socket.emit(
                     "chat:seen",
@@ -378,7 +411,8 @@ useEffect(() => {
                 );
 
                 const incomingConversationId = (message.conversationId || message.conversation?._id || "").toString();
-                if (incomingConversationId !== currentConversationId || document.visibilityState !== "visible") {
+                const isCurrentConversationMuted = incomingConversationId === currentConversationId && isMuted;
+                if (!isCurrentConversationMuted && (incomingConversationId !== currentConversationId || document.visibilityState !== "visible")) {
                     notifyIncomingMessage(message);
                 }
             }
@@ -456,6 +490,27 @@ useEffect(() => {
         );
     };
 
+    const handleMuteUpdated = (data) => {
+        if (String(data?.conversationId || "") !== String(currentConversationId || "")) return;
+        setIsMuted(Boolean(data?.notificationPreference?.muted));
+    };
+
+    const handleDisappearingUpdated = (data) => {
+        if (String(data?.conversationId || "") !== String(currentConversationId || "")) return;
+        if (!["off", "24h", "7d", "90d"].includes(data?.mode)) return;
+        setDisappearingMode(data.mode);
+        setConversation((current) => current ? { ...current, disappearingMode: data.mode } : current);
+    };
+
+    const handleMessageReactionUpdated = (data) => {
+        if (String(data?.conversationId || "") !== String(currentConversationId || "")) return;
+        setMessages((current) => current.map((message) => (
+            String(message._id || "") === String(data?.messageId || "")
+                ? { ...message, reactions: data.reactions || [] }
+                : message
+        )));
+    };
+
     socket.on("chat:receive-message", handleReceiveMessage);
     socket.on("chat:typing", handleTyping);
     socket.on("chat:stop-typing", handleStopTyping);
@@ -463,6 +518,9 @@ useEffect(() => {
     socket.on("chat:message-deleted-for-everyone", handleDeletedForEveryone);
     socket.on("chat:message-forwarded", handleForwarded);
     socket.on("chat:message-seen", handleMessageSeen);
+    socket.on("chat:mute-updated", handleMuteUpdated);
+    socket.on("chat:disappearing-updated", handleDisappearingUpdated);
+    socket.on("chat:message-reaction", handleMessageReactionUpdated);
 
     return () => {
 
@@ -473,9 +531,12 @@ useEffect(() => {
     socket.off("chat:message-deleted-for-me", handleDeletedForMe);
     socket.off("chat:message-deleted-for-everyone", handleDeletedForEveryone);
     socket.off("chat:message-forwarded", handleForwarded);
+    socket.off("chat:mute-updated", handleMuteUpdated);
+    socket.off("chat:disappearing-updated", handleDisappearingUpdated);
+    socket.off("chat:message-reaction", handleMessageReactionUpdated);
 };
 
-}, [socket, currentConversationId, currentUser?._id, currentUser?.id, selectedUser?._id, selectedUser?.id, showToast]);
+}, [socket, currentConversationId, currentUser?._id, currentUser?.id, selectedUser?._id, selectedUser?.id, showToast, isMuted]);
 
     const joinConversationRoom =
     (conversationId) => {
@@ -528,6 +589,8 @@ useEffect(() => {
             setConversation(
                 conversationData
             );
+            setIsMuted(Boolean(conversationData?.notificationPreference?.muted));
+            setDisappearingMode(conversationData?.disappearingMode || "off");
 
             if (conversationData?._id) {
                 fetchMessages(
@@ -736,6 +799,7 @@ useEffect(() => {
 
         try {
             const messagesToAppend = [];
+            const outgoingText = text;
 
             if (files.length > 0) {
                 for (let index = 0; index < files.length; index += 1) {
@@ -747,11 +811,15 @@ useEffect(() => {
                         conversation._id
                     );
 
-                    if (index === 0 && text.trim()) {
+                    if (index === 0 && outgoingText.trim()) {
                         formData.append(
                             "text",
-                            text
+                            outgoingText
                         );
+                    }
+
+                    if (index === 0 && replyingTo?._id) {
+                        formData.append("replyToMessageId", replyingTo._id);
                     }
 
                     formData.append(
@@ -779,8 +847,11 @@ useEffect(() => {
 
                 formData.append(
                     "text",
-                    text
+                    outgoingText
                 );
+                if (replyingTo?._id) {
+                    formData.append("replyToMessageId", replyingTo._id);
+                }
 
                 const res = await sendMessage(formData);
                 messagesToAppend.push(res.data.message);
@@ -791,6 +862,7 @@ useEffect(() => {
             appendSentMessages(messagesToAppend);
 
             setText("");
+            setReplyingTo(null);
             setFiles([]);
             if (fileInputRef.current) {
                 fileInputRef.current.value = "";
@@ -849,10 +921,17 @@ useEffect(() => {
     };
 
     const handleMessageReply = (message) => {
-        const senderName = message.sender?.name || "User";
-        const replyText = message.text || message.fileName || message.name || "Attachment";
-        setText((prev) => `${prev ? `${prev}\n` : ""}> ${senderName}: ${replyText}\n`);
+        setReplyingTo(message);
         setTimeout(() => chatInputRef.current?.focus(), 0);
+    };
+
+    const scrollToRepliedMessage = messageId => {
+        if (!messageId) return;
+        const target = chatMessagesRef.current?.querySelector(`[data-message-id="${CSS.escape(String(messageId))}"]`);
+        if (!target) return;
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        target.classList.add("chat-replied-message-highlight");
+        window.setTimeout(() => target.classList.remove("chat-replied-message-highlight"), 1400);
     };
 
     const handleEmojiSelect = (emoji) => {
@@ -867,7 +946,42 @@ useEffect(() => {
         }
     };
 
-    const getMessageText = (message) => String(message?.text || message?.caption || "").trim();
+    const getMessageText = (message) => String(message?.text || message?.caption || "")
+        .replace(/\[\[ciis-reply:[^\]]+\]\]/g, "")
+        .replace(/\[\[ciis-expire:\d+\]\]/g, "")
+        .replace(/\[\[ciis-system-disappearing:[^\]]+\]\]/g, "")
+        .trim();
+
+    const getDisappearingSystemNotice = (message) => {
+        if (message?.messageType === "system" && message?.systemEvent?.type === "disappearing_messages_changed") {
+            return {
+                actorId: message.systemEvent.actor?._id || message.systemEvent.actor || message.sender?._id || message.sender,
+                actorName: message.systemEvent.actor?.name || message.sender?.name || "A participant",
+                mode: message.systemEvent.mode,
+            };
+        }
+        const match = String(message?.text || "").match(/^\[\[ciis-system-disappearing:([^\]]+)\]\]$/);
+        if (!match) return null;
+        try {
+            return JSON.parse(decodeURIComponent(match[1]));
+        } catch {
+            return null;
+        }
+    };
+
+    const handleReaction = async (message, emoji) => {
+        if (!message?._id) return;
+        try {
+            const response = await updateMessageReaction(message._id, emoji);
+            setMessages((current) => current.map((item) => (
+                String(item._id || "") === String(message._id)
+                    ? { ...item, reactions: response.data?.reactions || [] }
+                    : item
+            )));
+        } catch {
+            showToast?.("Unable to update reaction.", "error");
+        }
+    };
 
     const getMessageAttachmentUrl = (message) => {
         const raw = message?.mediaUrl
@@ -921,7 +1035,8 @@ useEffect(() => {
         }));
 
     const linkMessages = messages.filter((message) => /https?:\/\/\S+/i.test(getMessageText(message)));
-    const starredMessages = messages.filter((message) => starredMessageIds.includes(String(message._id || "")) || message.starred || message.isStarred);
+    const visualMediaItems = contactMediaItems.filter((item) => item.kind === "image" || item.kind === "video");
+    const documentItems = contactMediaItems.filter((item) => item.kind !== "image" && item.kind !== "video");
     const normalizedSearchTerm = contactSearchTerm.trim().toLowerCase();
     const displayedMessages = normalizedSearchTerm
         ? messages.filter((message) => {
@@ -951,14 +1066,46 @@ useEffect(() => {
         requestAnimationFrame(() => chatInputRef.current?.focus());
     };
 
-    const setMuteState = (value) => {
+    const setMuteState = async (value) => {
+        if (!conversation?._id) return;
+        const previousValue = isMuted;
         setIsMuted(value);
-        saveContactPrefs({ isMuted: value });
+        try {
+            const response = await updateConversationMute(conversation._id, value);
+            setIsMuted(Boolean(response.data?.notificationPreference?.muted));
+            showToast?.(
+                value
+                    ? `Notifications muted for ${selectedUser?.name || "this chat"}.`
+                    : `Notifications unmuted for ${selectedUser?.name || "this chat"}.`,
+                "success"
+            );
+            onConversationChange?.();
+        } catch {
+            setIsMuted(previousValue);
+            showToast?.("Unable to update notification preference.", "error");
+        }
     };
 
-    const setDisappearingState = (value) => {
+    const setDisappearingState = async (value) => {
+        if (!conversation?._id) return;
+        const previousMode = disappearingMode;
         setDisappearingMode(value);
-        saveContactPrefs({ disappearingMode: value });
+        try {
+            const response = await updateDisappearingMessages(conversation._id, value);
+            const systemMessage = response.data?.message;
+            setConversation((current) => current ? { ...current, disappearingMode: value } : current);
+            if (systemMessage) appendSentMessages([systemMessage]);
+            onConversationChange?.();
+            showToast?.(
+                value === "off"
+                    ? "Disappearing messages turned off."
+                    : `New messages will disappear after ${value === "24h" ? "24 hours" : value === "7d" ? "7 days" : "90 days"}.`,
+                "success"
+            );
+        } catch {
+            setDisappearingMode(previousMode);
+            showToast?.("Unable to update disappearing messages.", "error");
+        }
     };
 
     const saveWallpaperAndSound = () => {
@@ -979,7 +1126,7 @@ useEffect(() => {
                 {canPreviewImage ? (
                     <img src={item.url} alt={item.name} />
                 ) : item.kind === "video" ? (
-                    <Video size={22} />
+                    <><Video size={22} /><span className="chat-contact-play"><Play size={15} fill="currentColor" /></span></>
                 ) : item.kind === "audio" ? (
                     <Mic size={22} />
                 ) : (
@@ -990,41 +1137,121 @@ useEffect(() => {
         );
     };
 
-    const renderStarredMessages = () => (
-        <div className="chat-contact-subpanel">
-            <button type="button" className="chat-contact-back-row" onClick={() => setContactPanelView("info")}>
-                <ArrowLeft size={17} /> Starred messages
-            </button>
-            {starredMessages.length ? (
-                starredMessages.map((message) => (
-                    <button type="button" className="chat-contact-message-row" key={message._id || message.createdAt}>
-                        <strong>{message.sender?.name || (message.sender === currentUserId ? "You" : selectedName)}</strong>
-                        <span>{getMessageText(message) || getAttachmentName(message)}</span>
-                        <small>{new Date(message.createdAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small>
-                    </button>
-                ))
-            ) : (
-                <p className="chat-contact-empty">No starred messages yet</p>
-            )}
-        </div>
-    );
+    const formatContactItemDate = (message) => getMessageDate(message?.createdAt).toLocaleDateString([], {
+        day: "numeric",
+        month: "short",
+        year: "numeric"
+    });
+
+    const getMessageLink = (message) => getMessageText(message).match(/https?:\/\/[^\s]+/i)?.[0] || "";
+
+    const getLinkHost = (url) => {
+        try {
+            return new URL(url).hostname.replace(/^www\./, "");
+        } catch {
+            return "Link";
+        }
+    };
+
+    const startContactSidebarResize = (event) => {
+        if (window.innerWidth <= 900) return;
+        event.preventDefault();
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        document.body.classList.add("chat-contact-resizing");
+
+        const resize = (pointerEvent) => {
+            const bounds = chatBoxRef.current?.getBoundingClientRect();
+            if (!bounds) return;
+            const maximumWidth = Math.max(280, Math.min(560, bounds.width - 420));
+            setContactSidebarWidth(Math.min(maximumWidth, Math.max(280, bounds.right - pointerEvent.clientX)));
+        };
+        const stop = () => {
+            document.body.classList.remove("chat-contact-resizing");
+            window.removeEventListener("pointermove", resize);
+            window.removeEventListener("pointerup", stop);
+            setContactSidebarWidth((width) => {
+                localStorage.setItem("ciis-chat-contact-sidebar-width", String(Math.round(width)));
+                return width;
+            });
+        };
+        window.addEventListener("pointermove", resize);
+        window.addEventListener("pointerup", stop, { once: true });
+    };
+
+    const resizeContactSidebarByKeyboard = (event) => {
+        if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+        event.preventDefault();
+        const bounds = chatBoxRef.current?.getBoundingClientRect();
+        const maximumWidth = Math.max(280, Math.min(560, (bounds?.width || window.innerWidth) - 420));
+        const direction = event.key === "ArrowLeft" ? 20 : -20;
+        setContactSidebarWidth((width) => {
+            const nextWidth = Math.min(maximumWidth, Math.max(280, width + direction));
+            localStorage.setItem("ciis-chat-contact-sidebar-width", String(Math.round(nextWidth)));
+            return nextWidth;
+        });
+    };
 
     const renderMediaPanel = () => (
         <div className="chat-contact-subpanel">
             <button type="button" className="chat-contact-back-row" onClick={() => setContactPanelView("info")}>
                 <ArrowLeft size={17} /> Media, links and docs
             </button>
-            <div className="chat-contact-media-grid expanded">
-                {contactMediaItems.length ? contactMediaItems.map(renderMediaTile) : <p className="chat-contact-empty">No media, links or docs</p>}
+            <div className="chat-contact-media-tabs" role="tablist" aria-label="Shared content">
+                {[
+                    ["media", "Media", visualMediaItems.length],
+                    ["links", "Links", linkMessages.length],
+                    ["docs", "Docs", documentItems.length],
+                ].map(([value, label, count]) => (
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={contactMediaTab === value}
+                        className={contactMediaTab === value ? "active" : ""}
+                        onClick={() => setContactMediaTab(value)}
+                        key={value}
+                    >
+                        {label}<span>{count}</span>
+                    </button>
+                ))}
             </div>
-            {!!linkMessages.length && (
-                <div className="chat-contact-links">
-                    <strong>Links</strong>
-                    {linkMessages.slice(0, 10).map((message) => (
-                        <a key={message._id || message.createdAt} href={getMessageText(message).match(/https?:\/\/\S+/i)?.[0]} target="_blank" rel="noreferrer">
-                            {getMessageText(message).match(/https?:\/\/\S+/i)?.[0]}
+
+            {contactMediaTab === "media" && (
+                <div className="chat-contact-media-grid expanded">
+                    {visualMediaItems.length ? visualMediaItems.map(renderMediaTile) : <p className="chat-contact-empty">No photos or videos shared</p>}
+                </div>
+            )}
+
+            {contactMediaTab === "links" && (
+                <div className="chat-contact-links-list">
+                    {linkMessages.length ? linkMessages.map((message) => {
+                        const url = getMessageLink(message);
+                        return (
+                            <a key={message._id || message.createdAt} href={url} target="_blank" rel="noreferrer">
+                                <span className="chat-contact-link-icon"><Link2 size={20} /></span>
+                                <span className="chat-contact-link-copy">
+                                    <strong>{getLinkHost(url)}</strong>
+                                    <small>{url}</small>
+                                    <time>{formatContactItemDate(message)}</time>
+                                </span>
+                                <ExternalLink size={16} />
+                            </a>
+                        );
+                    }) : <p className="chat-contact-empty">No links shared</p>}
+                </div>
+            )}
+
+            {contactMediaTab === "docs" && (
+                <div className="chat-contact-doc-list">
+                    {documentItems.length ? documentItems.map((item) => (
+                        <a key={item.id} href={item.url} target="_blank" rel="noreferrer" title={item.name}>
+                            <span className={`chat-contact-doc-icon ${item.kind}`}><FileText size={21} /></span>
+                            <span className="chat-contact-doc-copy">
+                                <strong>{item.name}</strong>
+                                <small>{item.kind === "audio" ? "Audio" : (item.name.split(".").pop() || "Document").toUpperCase()} · {formatContactItemDate(item.message)}</small>
+                            </span>
+                            <Download size={17} />
                         </a>
-                    ))}
+                    )) : <p className="chat-contact-empty">No documents shared</p>}
                 </div>
             )}
         </div>
@@ -1057,13 +1284,26 @@ useEffect(() => {
             <button type="button" className="chat-contact-back-row" onClick={() => setContactPanelView("info")}>
                 <ArrowLeft size={17} /> Disappearing messages
             </button>
+            <div className="chat-disappearing-intro">
+                <TimerReset size={25} />
+                <div>
+                    <strong>Message timer</strong>
+                    <p>New messages sent after selecting a timer will automatically disappear. Existing messages will not be affected.</p>
+                </div>
+            </div>
             {[
                 ["off", "Off"],
                 ["24h", "24 hours"],
                 ["7d", "7 days"],
                 ["90d", "90 days"],
             ].map(([value, label]) => (
-                <button type="button" className="chat-contact-choice" key={value} onClick={() => setDisappearingState(value)}>
+                <button
+                    type="button"
+                    className="chat-contact-choice"
+                    key={value}
+                    onClick={() => setDisappearingState(value)}
+                    aria-pressed={disappearingMode === value}
+                >
                     <span>{label}</span>
                     <i className={disappearingMode === value ? "active" : ""} />
                 </button>
@@ -1073,7 +1313,6 @@ useEffect(() => {
 
     const renderContactInfoBody = () => {
         if (contactPanelView === "media") return renderMediaPanel();
-        if (contactPanelView === "starred") return renderStarredMessages();
         if (contactPanelView === "wallpaper") return renderWallpaperPanel();
         if (contactPanelView === "disappearing") return renderDisappearingPanel();
 
@@ -1132,7 +1371,6 @@ useEffect(() => {
                     </div>
                 </div>
                 <div className="chat-contact-list">
-                    <button type="button" onClick={() => setContactPanelView("starred")}><Star size={19} /><span>Starred messages<small>{starredMessages.length} saved</small></span><ChevronRight size={18} /></button>
                     <button type="button" onClick={() => setMuteState(!isMuted)}><Bell size={19} /><span>Mute notifications<small>{isMuted ? "On" : "Off"}</small></span><i className={isMuted ? "active" : ""} /></button>
                     <button type="button" onClick={() => setContactPanelView("wallpaper")}><Wallpaper size={19} /><span>Wallpaper & sound<small>{contactSound}</small></span><ChevronRight size={18} /></button>
                     <button type="button" onClick={() => setContactPanelView("disappearing")}><TimerReset size={19} /><span>Disappearing messages<small>{disappearingMode === "off" ? "Off" : disappearingMode}</small></span><ChevronRight size={18} /></button>
@@ -1141,7 +1379,53 @@ useEffect(() => {
         );
     };
 
+    useEffect(() => {
+        const latestNotice = [...messages]
+            .reverse()
+            .map(getDisappearingSystemNotice)
+            .find(Boolean);
+        if (!latestNotice || !["off", "24h", "7d", "90d"].includes(latestNotice.mode)) return;
+        setDisappearingMode(latestNotice.mode);
+    }, [messages]);
 
+    useEffect(() => {
+        const expiryTimes = messages
+            .map((message) => new Date(message.expiresAt || 0).getTime())
+            .filter((timestamp) => Number.isFinite(timestamp) && timestamp > 0);
+        if (!expiryTimes.length) return undefined;
+
+        const nextExpiry = Math.min(...expiryTimes);
+        const timerId = window.setTimeout(() => {
+            const now = Date.now();
+            setMessages((current) => {
+                const filtered = current.filter((message) => {
+                    const expiry = new Date(message.expiresAt || 0).getTime();
+                    return !expiry || expiry > now;
+                });
+                return filtered.length === current.length ? [...current] : filtered;
+            });
+            onConversationChange?.();
+        }, Math.min(Math.max(nextExpiry - Date.now(), 0), 2147483647));
+
+        return () => window.clearTimeout(timerId);
+    }, [messages, onConversationChange]);
+
+
+
+    useEffect(() => {
+        if (selectedUser) return undefined;
+
+        const handleNewChatShortcut = event => {
+            if (event.key.toLowerCase() !== "n" || event.ctrlKey || event.metaKey || event.altKey) return;
+            const target = event.target;
+            if (target?.matches?.("input, textarea, [contenteditable='true']")) return;
+            event.preventDefault();
+            window.dispatchEvent(new CustomEvent("chat:open-new-chat"));
+        };
+
+        window.addEventListener("keydown", handleNewChatShortcut);
+        return () => window.removeEventListener("keydown", handleNewChatShortcut);
+    }, [selectedUser]);
 
     if (!selectedUser) {
 
@@ -1150,10 +1434,30 @@ useEffect(() => {
                 <div
                     className="chat-empty"
                 >
+                    <div className={socket?.connected ? "chat-system-status online" : "chat-system-status"}>
+                        <span />
+                        {socket?.connected ? "All systems operational" : "Connecting to chat"}
+                    </div>
                     <div className="chat-empty-card">
-                        <div className="chat-empty-icon">C</div>
-                        <h2>Choose a conversation</h2>
-                        <p>Messages, files, and group chats will appear here.</p>
+                        <div className="chat-welcome-art" aria-hidden="true">
+                            <div className="chat-welcome-bubble"><i /><i /><i /></div>
+                            <div className="chat-welcome-reply"><i /><i /></div>
+                            <div className="chat-welcome-note"><i /><i /></div>
+                            <span className="spark spark-one">✦</span>
+                            <span className="spark spark-two">✦</span>
+                            <span className="spark spark-three">✦</span>
+                        </div>
+                        <h2>Start a conversation</h2>
+                        <p>Connect with your team and keep work moving.</p>
+                        <button
+                            type="button"
+                            className="chat-start-conversation"
+                            onClick={() => window.dispatchEvent(new CustomEvent("chat:open-new-chat"))}
+                        >
+                            <MessageCircle size={20} />
+                            New conversation
+                        </button>
+                        <small className="chat-new-shortcut">Press <kbd>N</kbd> to start quickly</small>
                     </div>
                 </div>
             </>
@@ -1217,6 +1521,29 @@ useEffect(() => {
         if (!canStartCall) return;
         startCall(callType, selectedUser);
     };
+
+    const clearCurrentChat = async () => {
+        if (!messages.length || isSendingAction) {
+            setShowHeaderMenu(false);
+            return;
+        }
+        if (!window.confirm("Clear all messages in this chat for you?")) return;
+
+        setShowHeaderMenu(false);
+        setIsSendingAction(true);
+        try {
+            const messageIds = messages.map(item => item._id).filter(Boolean);
+            await Promise.allSettled(messageIds.map(messageId => deleteMessageForMe(messageId)));
+            messageIds.forEach(messageId => {
+                socket?.emit("chat:delete-for-me", { messageId, conversationId: conversation?._id });
+            });
+            setMessages([]);
+            onConversationChange?.();
+            showToast?.("Chat cleared successfully.", "success");
+        } finally {
+            setIsSendingAction(false);
+        }
+    };
     const selectedAvatar = selectedUser?.isGroup
         ? null
         : getAvatarSrc(selectedUser.avatar || selectedUser.profileImage || selectedUser.image);
@@ -1224,7 +1551,11 @@ useEffect(() => {
 
     return (
 
-        <div className={showContactInfo ? "chat-box contact-info-open" : "chat-box"}>
+        <div
+            ref={chatBoxRef}
+            className={showContactInfo ? "chat-box contact-info-open" : "chat-box"}
+            style={{ "--chat-contact-width": `${contactSidebarWidth}px` }}
+        >
             <div className="chat-conversation">
             <div className="chat-header">
                 <div className="chat-header-left">
@@ -1270,7 +1601,7 @@ useEffect(() => {
                         </span>
                     </button>
                 </div>
-                <div className="chat-header-actions">
+                <div className="chat-header-actions" ref={headerMenuRef}>
                     <button
                         type="button"
                         title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group video call" : "No group member online") : isSelectedUserOnline ? "Start video call" : "User is offline"}
@@ -1290,12 +1621,38 @@ useEffect(() => {
                     <button
                         type="button"
                         title="Search"
+                        onClick={() => { setIsContactSearchOpen(true); setShowHeaderMenu(false); }}
                     >
                         <Search size={18} />
                     </button>
-                    <button type="button" title="More">
+                    <button type="button" title="More" onClick={() => setShowHeaderMenu(value => !value)}>
                         <MoreVertical size={18} />
                     </button>
+                    {showHeaderMenu && (
+                        <div className="chat-profile-menu">
+                            <button type="button" onClick={() => { setContactPanelView("info"); setShowContactInfo(true); setShowHeaderMenu(false); }}>
+                                <Info size={17} />
+                                {selectedUser.isGroup ? "Group info" : "Contact info"}
+                            </button>
+                            <button type="button" onClick={() => { setIsContactSearchOpen(true); setShowHeaderMenu(false); }}>
+                                <Search size={17} />
+                                Search messages
+                            </button>
+                            <button type="button" onClick={() => { setContactPanelView("media"); setShowContactInfo(true); setShowHeaderMenu(false); }}>
+                                <Images size={17} />
+                                Media, links and docs
+                            </button>
+                            <button type="button" onClick={() => { setMuteState(!isMuted); setShowHeaderMenu(false); }}>
+                                <Bell size={17} />
+                                {isMuted ? "Unmute notifications" : "Mute notifications"}
+                            </button>
+                            <span className="chat-profile-menu-divider" />
+                            <button type="button" className="danger" onClick={clearCurrentChat} disabled={!messages.length || isSendingAction}>
+                                <Trash2 size={17} />
+                                Clear chat
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -1333,6 +1690,7 @@ useEffect(() => {
                 {
                     displayedMessages.map((message, index) => {
                         const previousMessage = displayedMessages[index - 1];
+                        const disappearingNotice = getDisappearingSystemNotice(message);
                         const shouldShowDateSeparator = !previousMessage
                             || getMessageDateKey(previousMessage.createdAt) !== getMessageDateKey(message.createdAt);
                         const messageDateLabel = formatMessageDateSeparator(message.createdAt);
@@ -1345,19 +1703,39 @@ useEffect(() => {
                                     </div>
                                 )}
 
-                                <div className="chat-message-date-anchor" data-date-label={messageDateLabel}>
-                                    <MessageBubble
-                                        message={message}
-                                        currentUser={currentUser}
-                                        users={users}
-                                        onDeleteForMe={handleDeleteForMe}
-                                        onDeleteForEveryone={handleDeleteForEveryone}
-                                        onForward={handleForward}
-                                        onReply={handleMessageReply}
-                                        isStarredMessage={starredMessageIds.includes(String(message._id || ""))}
-                                        onToggleStar={toggleStarredMessage}
-                                    />
-                                </div>
+                                {disappearingNotice ? (
+                                    <div className="chat-disappearing-notice" data-message-id={message._id || ""}>
+                                        <TimerReset size={14} />
+                                        <span>
+                                            <strong>
+                                                {String(disappearingNotice.actorId || "") === String(currentUser?._id || currentUser?.id || "")
+                                                    ? "You"
+                                                    : disappearingNotice.actorName || "A participant"}
+                                            </strong>
+                                            {disappearingNotice.mode === "off"
+                                                ? " turned off disappearing messages"
+                                                : ` turned on disappearing messages. New messages disappear after ${
+                                                    disappearingNotice.mode === "24h" ? "24 hours" : disappearingNotice.mode === "7d" ? "7 days" : "90 days"
+                                                }`}
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <div className="chat-message-date-anchor" data-date-label={messageDateLabel} data-message-id={message._id || ""}>
+                                        <MessageBubble
+                                            message={message}
+                                            currentUser={currentUser}
+                                            users={users}
+                                            onDeleteForMe={handleDeleteForMe}
+                                            onDeleteForEveryone={handleDeleteForEveryone}
+                                            onForward={handleForward}
+                                            onReply={handleMessageReply}
+                                            onReplyJump={scrollToRepliedMessage}
+                                            onReact={handleReaction}
+                                            isStarredMessage={starredMessageIds.includes(String(message._id || ""))}
+                                            onToggleStar={toggleStarredMessage}
+                                        />
+                                    </div>
+                                )}
                             </React.Fragment>
                         );
                     })
@@ -1391,6 +1769,21 @@ useEffect(() => {
                     </label>
 
                     <div className="chat-input-wrapper">
+                        {replyingTo && (
+                            <div className="chat-reply-preview">
+                                <div>
+                                    <strong>
+                                        {String(replyingTo.sender?._id || replyingTo.sender || "") === currentUserId
+                                            ? "You"
+                                            : replyingTo.sender?.name || selectedName || "User"}
+                                    </strong>
+                                    <span>{replyingTo.text || replyingTo.fileName || replyingTo.name || "Attachment"}</span>
+                                </div>
+                                <button type="button" onClick={() => setReplyingTo(null)} aria-label="Cancel reply">
+                                    <X size={17} />
+                                </button>
+                            </div>
+                        )}
                         {files.length > 0 && (
                             <div className="selected-files-wrap">
                                 <div className="selected-files-list">
@@ -1532,12 +1925,30 @@ useEffect(() => {
             </div>
 
             {showContactInfo && (
+            <div
+                className="chat-contact-resizer"
+                role="separator"
+                aria-label="Resize contact info panel"
+                aria-orientation="vertical"
+                aria-valuemin="280"
+                aria-valuemax="560"
+                aria-valuenow={Math.round(contactSidebarWidth)}
+                tabIndex={0}
+                onPointerDown={startContactSidebarResize}
+                onKeyDown={resizeContactSidebarByKeyboard}
+                title="Drag to resize"
+            >
+                <span />
+            </div>
+            )}
+
+            {showContactInfo && (
             <aside className="chat-contact-info">
                 <div className="chat-contact-top">
                     <button type="button" title="Back" onClick={() => contactPanelView === "info" ? setShowContactInfo(false) : setContactPanelView("info")}>
                         <ArrowLeft size={20} />
                     </button>
-                    <strong>{contactPanelView === "info" ? "Contact info" : contactPanelView === "media" ? "Media, links and docs" : contactPanelView === "starred" ? "Starred messages" : contactPanelView === "wallpaper" ? "Wallpaper & sound" : "Disappearing messages"}</strong>
+                    <strong>{contactPanelView === "info" ? "Contact info" : contactPanelView === "media" ? "Media, links and docs" : contactPanelView === "wallpaper" ? "Wallpaper & sound" : "Disappearing messages"}</strong>
                     <button type="button" title="Close" onClick={() => setShowContactInfo(false)}>
                         <X size={22} />
                     </button>

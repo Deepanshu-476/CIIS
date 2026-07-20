@@ -234,3 +234,58 @@ export const forwardMessage = async ({ messageId, targetUserIds = [] }) => {
         }
     );
 };
+
+export const updateConversationMute = async (conversationId, muted, mutedUntil = null) => {
+    return axios.patch(
+        `${API}/conversation/${conversationId}/mute`,
+        { muted, mutedUntil },
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
+export const updateDisappearingMessages = async (conversationId, mode) => {
+    return axios.patch(
+        `${API}/conversation/${conversationId}/disappearing-messages`,
+        { mode },
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
+export const updateMessageReaction = async (messageId, emoji) => {
+    return axios.patch(
+        `${API}/message/${messageId}/reaction`,
+        { emoji },
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
+const authConfig = () => ({
+    headers: { Authorization: `Bearer ${getToken()}` }
+});
+
+export const getStatuses = async () => axios.get(`${API}/statuses`, authConfig());
+
+export const createStatus = async ({ text = "", file = null }) => {
+    const formData = new FormData();
+    if (text) formData.append("text", text);
+    if (file) formData.append("file", file);
+    return axios.post(`${API}/statuses`, formData, authConfig());
+};
+
+export const markStatusViewed = async statusId =>
+    axios.patch(`${API}/statuses/${statusId}/view`, {}, authConfig());
+
+export const deleteStatus = async statusId =>
+    axios.delete(`${API}/statuses/${statusId}`, authConfig());

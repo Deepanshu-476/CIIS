@@ -888,11 +888,22 @@
   font-weight: 600;
 }
 
-.EmployeeProject-task-attachment-main span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+  .EmployeeProject-task-attachment-main span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .EmployeeProject-task-attachment-thumbnail {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    border: 1px solid #dbe4ee;
+    border-radius: 7px;
+    object-fit: cover;
+    background: #ffffff;
+    cursor: pointer;
+  }
 
 .EmployeeProject-task-description {
   color: #666;

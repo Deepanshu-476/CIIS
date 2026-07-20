@@ -535,7 +535,7 @@ const Attendance = () => {
   };
 
   
-  const filteredData = useMemo(() => {
+  const statsData = useMemo(() => {
     return processedAttendance.filter((record) => {
       if (isFutureAbsentRecord(record)) return false;
 
@@ -543,12 +543,6 @@ const Attendance = () => {
         formatDate(record.date).toLowerCase().includes(search.toLowerCase()) ||
         normalizeAttendanceStatus(record.status).toLowerCase().includes(search.toLowerCase()) ||
         (record.holidayTitle && record.holidayTitle.toLowerCase().includes(search.toLowerCase()));
-      
-      const normalizedStatus = normalizeAttendanceStatus(record.status);
-      const matchesStatus =
-        statusFilter === "ALL" || 
-        normalizedStatus === statusFilter ||
-        (statusFilter === "HOLIDAY" && (record.isHoliday || normalizedStatus === 'HOLIDAY'));
 
       const matchesSelectedDate = !selectedDate ||
         formatDateForInput(record.date) === formatDateForInput(selectedDate);
@@ -600,14 +594,24 @@ const Attendance = () => {
         }
       }
 
-      return matchesSearch && matchesStatus && matchesSelectedDate && matchesTimeRange;
+      return matchesSearch && matchesSelectedDate && matchesTimeRange;
     });
-  }, [processedAttendance, search, selectedDate, statusFilter, timeRange, isDateRangeActive, startDate, endDate, isFutureAbsentRecord]);
+  }, [processedAttendance, search, selectedDate, timeRange, isDateRangeActive, startDate, endDate, isFutureAbsentRecord]);
+
+  const filteredData = useMemo(() => {
+    if (statusFilter === "ALL") return statsData;
+
+    return statsData.filter((record) => {
+      const normalizedStatus = normalizeAttendanceStatus(record.status);
+      return normalizedStatus === statusFilter ||
+        (statusFilter === "HOLIDAY" && (record.isHoliday || normalizedStatus === "HOLIDAY"));
+    });
+  }, [statsData, statusFilter]);
 
   
   useEffect(() => {
-    calculateStats(filteredData);
-  }, [filteredData, calculateStats]);
+    calculateStats(statsData);
+  }, [statsData, calculateStats]);
 
   
   const applyDateRange = () => {

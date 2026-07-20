@@ -101,9 +101,42 @@ const getTaskCreatedTieBreaker = (task) => {
   return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 };
 
+const normalizeTaskAttachment = (task = {}) => {
+  if (task.pdfFile?.path) return task;
+  const attachment = [
+    ...(Array.isArray(task.files) ? task.files : []),
+    ...(Array.isArray(task.attachments) ? task.attachments : []),
+    task.attachment,
+    task.image,
+  ].find(Boolean);
+  if (!attachment) return task;
+
+  if (typeof attachment === "string") {
+    return {
+      ...task,
+      pdfFile: {
+        path: attachment,
+        filename: attachment.replace(/\\/g, "/").split("/").pop() || "Task attachment",
+      },
+    };
+  }
+
+  const attachmentPath = attachment.path || attachment.url || attachment.fileUrl || attachment.location || attachment.filename;
+  if (!attachmentPath) return task;
+  return {
+    ...task,
+    pdfFile: {
+      ...attachment,
+      path: attachmentPath,
+      filename: attachment.originalName || attachment.originalname || attachment.filename || attachmentPath.replace(/\\/g, "/").split("/").pop(),
+      mimetype: attachment.mimetype || attachment.mimeType || attachment.type,
+    },
+  };
+};
+
 const sortTasksByCreatedAt = (tasks = []) => (
   Array.isArray(tasks)
-    ? [...tasks].sort((a, b) => {
+    ? tasks.map(normalizeTaskAttachment).sort((a, b) => {
         const createdDiff = getTaskCreatedTime(b) - getTaskCreatedTime(a);
         if (createdDiff !== 0) return createdDiff;
         return getTaskCreatedTieBreaker(b) - getTaskCreatedTieBreaker(a);
@@ -696,9 +729,7 @@ const EmployeeProject = () => {
     
     const pathParts = pdfPath.split('/');
     const pdfFilename = pathParts[pathParts.length - 1];
-    const pdfUrl = isImagePath(filename || pdfPath)
-      ? (getLiveUploadUrl(pdfPath) || getUploadUrl(pdfPath))
-      : getUploadUrl(pdfPath);
+    const pdfUrl = getUploadUrl(pdfPath) || getLiveUploadUrl(pdfPath);
 
     if (isImagePath(filename || pdfPath)) {
       if (detailTaskId) {
@@ -1143,7 +1174,17 @@ const EmployeeProject = () => {
                 {t.pdfFile?.path ? (
                   <>
                   <div className="EmployeeProject-task-attachment-main">
-                    {isImagePath(t.pdfFile) ? <Icons.Image /> : <Icons.InsertDriveFile />}
+                    {isImagePath(t.pdfFile) ? (
+                      <img
+                        src={getUploadUrl(t.pdfFile.path)}
+                        alt={getFileDisplayName(t.pdfFile)}
+                        className="EmployeeProject-task-attachment-thumbnail"
+                        onError={(event) => {
+                          const fallbackUrl = getLiveUploadUrl(t.pdfFile.path);
+                          if (fallbackUrl && event.currentTarget.src !== fallbackUrl) event.currentTarget.src = fallbackUrl;
+                        }}
+                      />
+                    ) : <Icons.InsertDriveFile />}
                     <span>{getFileDisplayName(t.pdfFile, "Task attachment")}</span>
                   </div>
                   <div className="EmployeeProject-task-pdf-actions">
@@ -1215,9 +1256,9 @@ const EmployeeProject = () => {
                 alt={imagePreview.name || "Attachment preview"}
                 className="EmployeeProject-image-preview-full"
                 onError={(event) => {
-                  const liveUrl = getLiveUploadUrl(imagePreview.path);
-                  if (liveUrl && event.currentTarget.src !== liveUrl) {
-                    event.currentTarget.src = liveUrl;
+                  const fallbackUrl = getLiveUploadUrl(imagePreview.path);
+                  if (fallbackUrl && event.currentTarget.src !== fallbackUrl) {
+                    event.currentTarget.src = fallbackUrl;
                   }
                 }}
               />
@@ -1931,6 +1972,10 @@ const EmployeeProject = () => {
                           src={getUploadUrl(detailTask.pdfFile.path)}
                           alt={getFileDisplayName(detailTask.pdfFile)}
                           className="EmployeeProject-detail-image-preview"
+                          onError={(event) => {
+                            const fallbackUrl = getLiveUploadUrl(detailTask.pdfFile.path);
+                            if (fallbackUrl && event.currentTarget.src !== fallbackUrl) event.currentTarget.src = fallbackUrl;
+                          }}
                         />
                       </button>
                     )}

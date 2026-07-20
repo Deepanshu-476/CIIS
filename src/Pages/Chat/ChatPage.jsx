@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import "./chat.css";
 import ChatSidebar from "../../chat/ChatSidebar";
 import ChatBox from "../../chat/ChatBox";
+import StatusPanel from "./StatusPanel";
 import {
   changeMyPassword,
   createCompanyGroup,
@@ -13,6 +14,10 @@ import {
   getNotificationPreferences,
   updateMyProfile,
   updateNotificationPreferences,
+  getStatuses,
+  createStatus,
+  markStatusViewed,
+  deleteStatus as deleteStatusRequest,
 } from "../../services/chatService";
 import { useSocket } from "../../context/SocketContext";
 import { useCall } from "../../context/CallContext";
@@ -99,7 +104,7 @@ const getCallLabel = call => {
   return `${direction} ${type} call`;
 };
 
-const ChatStatusPanel = ({
+const LegacyChatStatusPanel = ({
   users,
   groups,
   statuses,
@@ -918,14 +923,72 @@ const ChatPage = () => {
   const [groups, setGroups] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [statuses, setStatuses] = useState([]);
+  const [statusesLoading, setStatusesLoading] = useState(false);
+  const [statusesError, setStatusesError] = useState("");
   const [effectiveChatSettings, setEffectiveChatSettings] = useState(() => mergeChatSettings(currentUser?.chatSettings));
+  const [chatSidebarWidth, setChatSidebarWidth] = useState(() => {
+    const savedWidth = Number(localStorage.getItem("chatSidebarWidth"));
+    return Number.isFinite(savedWidth) ? Math.min(560, Math.max(300, savedWidth)) : 360;
+  });
 
   const socketContext = useSocket();
   const { startCall, callHistory, clearCallHistory } = useCall();
   const socket = socketContext?.socket;
   const isSocketConnected = socketContext?.isConnected;
   const currentUserId = (currentUser._id || currentUser.id || "").toString();
-  const statusStorageKey = `ciis-chat-statuses-${currentUserId || "user"}`;
+
+  const startSidebarResize = event => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+
+    const page = event.currentTarget.closest(".chat-page");
+    const rail = page?.querySelector(".chat-app-rail");
+    if (!page || !rail) return;
+
+    const pageRect = page.getBoundingClientRect();
+    const railWidth = rail.getBoundingClientRect().width;
+
+    const handlePointerMove = moveEvent => {
+      const nextWidth = moveEvent.clientX - pageRect.left - railWidth;
+      const availableMaximum = Math.max(300, pageRect.width - railWidth - 420);
+      const maximumWidth = Math.min(560, availableMaximum);
+      setChatSidebarWidth(Math.min(maximumWidth, Math.max(300, Math.round(nextWidth))));
+    };
+
+    const stopResize = () => {
+      document.body.classList.remove("chat-sidebar-resizing");
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopResize);
+      window.removeEventListener("pointercancel", stopResize);
+    };
+
+    document.body.classList.add("chat-sidebar-resizing");
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopResize);
+    window.addEventListener("pointercancel", stopResize);
+  };
+
+  useEffect(() => {
+    localStorage.setItem("chatSidebarWidth", String(chatSidebarWidth));
+  }, [chatSidebarWidth]);
+
+  useEffect(() => {
+    const keepSidebarWithinViewport = () => {
+      const page = document.querySelector(".chat-page.view-chats");
+      const rail = page?.querySelector(".chat-app-rail");
+      if (!page || !rail || window.innerWidth <= 860) return;
+
+      const availableMaximum = Math.max(
+        300,
+        page.getBoundingClientRect().width - rail.getBoundingClientRect().width - 420
+      );
+      setChatSidebarWidth(width => Math.min(width, Math.min(560, availableMaximum)));
+    };
+
+    keepSidebarWithinViewport();
+    window.addEventListener("resize", keepSidebarWithinViewport);
+    return () => window.removeEventListener("resize", keepSidebarWithinViewport);
+  }, [activeView]);
 
   const findDirectConversation = user => conversations.find(conversation => {
     if (conversation.isGroup) return false;
@@ -1056,43 +1119,43 @@ const ChatPage = () => {
     }
   };
 
-  const addStatus = status => {
-    const nextStatus = {
-      id: `${Date.now()}`,
-      text: status.text || "",
-      image: status.image || "",
-      createdAt: new Date().toISOString(),
-    };
-
-    setStatuses(prev => {
-      const next = [nextStatus, ...prev].slice(0, 20);
-      try {
-        localStorage.setItem(statusStorageKey, JSON.stringify(next));
-      } catch {
-        void 0;
-      }
-      return next;
-    });
+  const fetchStatuses = async ({ quiet = false } = {}) => {
+    if (!quiet) setStatusesLoading(true);
+    setStatusesError("");
+    try {
+      const response = await getStatuses();
+      setStatuses(response.data.statuses || []);
+    } catch (error) {
+      setStatusesError(error.response?.data?.message || "Unable to load statuses");
+    } finally {
+      if (!quiet) setStatusesLoading(false);
+    }
   };
 
-  const deleteStatus = statusId => {
-    setStatuses(prev => {
-      const next = statusId
-        ? prev.filter(status => status.id !== statusId)
-        : prev.slice(1);
-      try {
-        localStorage.setItem(statusStorageKey, JSON.stringify(next));
-      } catch {
-        void 0;
-      }
-      return next;
-    });
+  const addStatus = async payload => {
+    await createStatus(payload);
+    await fetchStatuses({ quiet: true });
+  };
+
+  const deleteStatus = async statusId => {
+    await deleteStatusRequest(statusId);
+    setStatuses(prev => prev.filter(status => status.id !== statusId));
+  };
+
+  const viewStatus = async statusId => {
+    setStatuses(prev => prev.map(status => status.id === statusId ? { ...status, viewed: true } : status));
+    try {
+      await markStatusViewed(statusId);
+    } catch {
+      fetchStatuses({ quiet: true });
+    }
   };
 
   useEffect(() => {
     fetchUsers();
     fetchGroups();
     fetchConversations();
+    fetchStatuses();
 
     const userRefreshTimer = window.setInterval(fetchUsers, 60000);
 
@@ -1108,15 +1171,6 @@ const ChatPage = () => {
       document.body.classList.remove("chat-route-active");
     };
   }, []);
-
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(statusStorageKey) || "[]");
-      setStatuses(Array.isArray(saved) ? saved : []);
-    } catch {
-      setStatuses([]);
-    }
-  }, [statusStorageKey]);
 
   useEffect(() => {
     if (!socket) return undefined;
@@ -1160,6 +1214,7 @@ const ChatPage = () => {
     const handleDisconnect = () => handleOnline([]);
     const handleChatUserOnline = data => setSingleUserPresence(data, true);
     const handleChatUserOffline = data => setSingleUserPresence(data, false);
+    const handleStatusUpdate = () => fetchStatuses({ quiet: true });
 
     const refreshOnlineUsers = () => {
       if (!socket.connected) {
@@ -1192,6 +1247,7 @@ const ChatPage = () => {
     socket.on("user:online", handleChatUserOnline);
     socket.on("user:offline", handleChatUserOffline);
     socket.on("chat:unread-update", handleUnread);
+    socket.on("chat:status-update", handleStatusUpdate);
     socket.on("connect", refreshOnlineUsers);
     socket.on("disconnect", handleDisconnect);
     socket.io?.on("reconnect", refreshOnlineUsers);
@@ -1212,6 +1268,7 @@ const ChatPage = () => {
       socket.off("user:online", handleChatUserOnline);
       socket.off("user:offline", handleChatUserOffline);
       socket.off("chat:unread-update", handleUnread);
+      socket.off("chat:status-update", handleStatusUpdate);
       socket.off("connect", refreshOnlineUsers);
       socket.off("disconnect", handleDisconnect);
       socket.io?.off("reconnect", refreshOnlineUsers);
@@ -1240,7 +1297,10 @@ const ChatPage = () => {
   }, [selectedUser]);
 
   return (
-    <div className={`chat-page ${selectedUser ? "has-selected-chat" : "is-chat-list"} view-${activeView} chat-theme-${effectiveChatSettings.chats.theme || "system"} ${effectiveChatSettings.general.compactMode ? "chat-compact-mode" : ""}`}>
+    <div
+      className={`chat-page ${selectedUser ? "has-selected-chat" : "is-chat-list"} view-${activeView} chat-theme-${effectiveChatSettings.chats.theme || "system"} ${effectiveChatSettings.general.compactMode ? "chat-compact-mode" : ""}`}
+      style={{ "--chat-sidebar-width": `${chatSidebarWidth}px` }}
+    >
       <aside className="chat-app-rail">
         <div className="chat-rail-profile">
           <div className="chat-rail-avatar">
@@ -1277,14 +1337,14 @@ const ChatPage = () => {
       )}
 
       {activeView === "status" && (
-        <ChatStatusPanel
-          users={enrichedUsers}
-          groups={enrichedGroups}
+        <StatusPanel
           statuses={statuses}
-          addStatus={addStatus}
-          deleteStatus={deleteStatus}
-          setSelectedUser={setSelectedUser}
-          onOpenChats={() => setActiveView("chats")}
+          currentUser={currentUser}
+          onCreate={addStatus}
+          onDelete={deleteStatus}
+          onViewed={viewStatus}
+          loading={statusesLoading}
+          error={statusesError}
         />
       )}
 
@@ -1301,7 +1361,7 @@ const ChatPage = () => {
       )}
 
       {activeView === "communities" && (
-        <ChatStatusPanel
+        <LegacyChatStatusPanel
           users={[]}
           groups={enrichedGroups}
           statuses={[]}
@@ -1318,7 +1378,44 @@ const ChatPage = () => {
         <ChatSettingsPanel currentUser={currentUser} users={users} onSettingsChange={setEffectiveChatSettings} />
       )}
 
-      {activeView === "calls" ? (
+      {activeView === "chats" && (
+        <div
+          className="chat-sidebar-resizer"
+          role="separator"
+          aria-label="Resize conversation sidebar"
+          aria-orientation="vertical"
+          aria-valuemin={300}
+          aria-valuemax={560}
+          aria-valuenow={chatSidebarWidth}
+          tabIndex={0}
+          onPointerDown={startSidebarResize}
+          onKeyDown={event => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+            event.preventDefault();
+            const direction = event.key === "ArrowLeft" ? -1 : 1;
+            const page = event.currentTarget.closest(".chat-page");
+            const rail = page?.querySelector(".chat-app-rail");
+            const availableMaximum = page && rail
+              ? Math.max(300, page.getBoundingClientRect().width - rail.getBoundingClientRect().width - 420)
+              : 560;
+            const maximumWidth = Math.min(560, availableMaximum);
+            setChatSidebarWidth(width => Math.min(maximumWidth, Math.max(300, width + (direction * 16))));
+          }}
+        >
+          <span />
+        </div>
+      )}
+
+      {activeView === "status" ? (
+        <section className="chat-empty status-page-empty">
+          <div className="chat-empty-card">
+            <TimerReset size={40} />
+            <h2>Share updates with your team</h2>
+            <p>Create photo, video or text statuses and view updates shared by your team.</p>
+            <small>Status updates disappear automatically after 24 hours.</small>
+          </div>
+        </section>
+      ) : activeView === "calls" ? (
         <ChatCallsDetail
           call={callHistory.find(call => call.callId === selectedCallId)}
           users={enrichedUsers}
@@ -1345,6 +1442,7 @@ const ChatPage = () => {
           chatSettings={effectiveChatSettings}
         />
       )}
+
     </div>
   );
 };

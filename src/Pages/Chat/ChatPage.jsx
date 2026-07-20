@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import "./chat.css";
 import ChatSidebar from "../../chat/ChatSidebar";
 import ChatBox from "../../chat/ChatBox";
+import StatusPanel from "./StatusPanel";
 import {
   changeMyPassword,
   createCompanyGroup,
@@ -13,6 +14,10 @@ import {
   getNotificationPreferences,
   updateMyProfile,
   updateNotificationPreferences,
+  getStatuses,
+  createStatus,
+  markStatusViewed,
+  deleteStatus as deleteStatusRequest,
 } from "../../services/chatService";
 import { useSocket } from "../../context/SocketContext";
 import { useCall } from "../../context/CallContext";
@@ -99,7 +104,7 @@ const getCallLabel = call => {
   return `${direction} ${type} call`;
 };
 
-const ChatStatusPanel = ({
+const LegacyChatStatusPanel = ({
   users,
   groups,
   statuses,
@@ -918,6 +923,8 @@ const ChatPage = () => {
   const [groups, setGroups] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [statuses, setStatuses] = useState([]);
+  const [statusesLoading, setStatusesLoading] = useState(false);
+  const [statusesError, setStatusesError] = useState("");
   const [effectiveChatSettings, setEffectiveChatSettings] = useState(() => mergeChatSettings(currentUser?.chatSettings));
 
   const socketContext = useSocket();
@@ -925,7 +932,6 @@ const ChatPage = () => {
   const socket = socketContext?.socket;
   const isSocketConnected = socketContext?.isConnected;
   const currentUserId = (currentUser._id || currentUser.id || "").toString();
-  const statusStorageKey = `ciis-chat-statuses-${currentUserId || "user"}`;
 
   const findDirectConversation = user => conversations.find(conversation => {
     if (conversation.isGroup) return false;
@@ -1056,43 +1062,43 @@ const ChatPage = () => {
     }
   };
 
-  const addStatus = status => {
-    const nextStatus = {
-      id: `${Date.now()}`,
-      text: status.text || "",
-      image: status.image || "",
-      createdAt: new Date().toISOString(),
-    };
-
-    setStatuses(prev => {
-      const next = [nextStatus, ...prev].slice(0, 20);
-      try {
-        localStorage.setItem(statusStorageKey, JSON.stringify(next));
-      } catch {
-        void 0;
-      }
-      return next;
-    });
+  const fetchStatuses = async ({ quiet = false } = {}) => {
+    if (!quiet) setStatusesLoading(true);
+    setStatusesError("");
+    try {
+      const response = await getStatuses();
+      setStatuses(response.data.statuses || []);
+    } catch (error) {
+      setStatusesError(error.response?.data?.message || "Unable to load statuses");
+    } finally {
+      if (!quiet) setStatusesLoading(false);
+    }
   };
 
-  const deleteStatus = statusId => {
-    setStatuses(prev => {
-      const next = statusId
-        ? prev.filter(status => status.id !== statusId)
-        : prev.slice(1);
-      try {
-        localStorage.setItem(statusStorageKey, JSON.stringify(next));
-      } catch {
-        void 0;
-      }
-      return next;
-    });
+  const addStatus = async payload => {
+    await createStatus(payload);
+    await fetchStatuses({ quiet: true });
+  };
+
+  const deleteStatus = async statusId => {
+    await deleteStatusRequest(statusId);
+    setStatuses(prev => prev.filter(status => status.id !== statusId));
+  };
+
+  const viewStatus = async statusId => {
+    setStatuses(prev => prev.map(status => status.id === statusId ? { ...status, viewed: true } : status));
+    try {
+      await markStatusViewed(statusId);
+    } catch {
+      fetchStatuses({ quiet: true });
+    }
   };
 
   useEffect(() => {
     fetchUsers();
     fetchGroups();
     fetchConversations();
+    fetchStatuses();
 
     const userRefreshTimer = window.setInterval(fetchUsers, 60000);
 
@@ -1108,15 +1114,6 @@ const ChatPage = () => {
       document.body.classList.remove("chat-route-active");
     };
   }, []);
-
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(statusStorageKey) || "[]");
-      setStatuses(Array.isArray(saved) ? saved : []);
-    } catch {
-      setStatuses([]);
-    }
-  }, [statusStorageKey]);
 
   useEffect(() => {
     if (!socket) return undefined;
@@ -1160,6 +1157,7 @@ const ChatPage = () => {
     const handleDisconnect = () => handleOnline([]);
     const handleChatUserOnline = data => setSingleUserPresence(data, true);
     const handleChatUserOffline = data => setSingleUserPresence(data, false);
+    const handleStatusUpdate = () => fetchStatuses({ quiet: true });
 
     const refreshOnlineUsers = () => {
       if (!socket.connected) {
@@ -1192,6 +1190,7 @@ const ChatPage = () => {
     socket.on("user:online", handleChatUserOnline);
     socket.on("user:offline", handleChatUserOffline);
     socket.on("chat:unread-update", handleUnread);
+    socket.on("chat:status-update", handleStatusUpdate);
     socket.on("connect", refreshOnlineUsers);
     socket.on("disconnect", handleDisconnect);
     socket.io?.on("reconnect", refreshOnlineUsers);
@@ -1212,6 +1211,7 @@ const ChatPage = () => {
       socket.off("user:online", handleChatUserOnline);
       socket.off("user:offline", handleChatUserOffline);
       socket.off("chat:unread-update", handleUnread);
+      socket.off("chat:status-update", handleStatusUpdate);
       socket.off("connect", refreshOnlineUsers);
       socket.off("disconnect", handleDisconnect);
       socket.io?.off("reconnect", refreshOnlineUsers);
@@ -1277,14 +1277,14 @@ const ChatPage = () => {
       )}
 
       {activeView === "status" && (
-        <ChatStatusPanel
-          users={enrichedUsers}
-          groups={enrichedGroups}
+        <StatusPanel
           statuses={statuses}
-          addStatus={addStatus}
-          deleteStatus={deleteStatus}
-          setSelectedUser={setSelectedUser}
-          onOpenChats={() => setActiveView("chats")}
+          currentUser={currentUser}
+          onCreate={addStatus}
+          onDelete={deleteStatus}
+          onViewed={viewStatus}
+          loading={statusesLoading}
+          error={statusesError}
         />
       )}
 
@@ -1301,7 +1301,7 @@ const ChatPage = () => {
       )}
 
       {activeView === "communities" && (
-        <ChatStatusPanel
+        <LegacyChatStatusPanel
           users={[]}
           groups={enrichedGroups}
           statuses={[]}
@@ -1318,7 +1318,16 @@ const ChatPage = () => {
         <ChatSettingsPanel currentUser={currentUser} users={users} onSettingsChange={setEffectiveChatSettings} />
       )}
 
-      {activeView === "calls" ? (
+      {activeView === "status" ? (
+        <section className="chat-empty status-page-empty">
+          <div className="chat-empty-card">
+            <TimerReset size={40} />
+            <h2>Share updates with your team</h2>
+            <p>Create photo, video or text statuses and view updates shared by your team.</p>
+            <small>Status updates disappear automatically after 24 hours.</small>
+          </div>
+        </section>
+      ) : activeView === "calls" ? (
         <ChatCallsDetail
           call={callHistory.find(call => call.callId === selectedCallId)}
           users={enrichedUsers}

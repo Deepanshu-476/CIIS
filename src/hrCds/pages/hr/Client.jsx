@@ -381,7 +381,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
         
         if (onRenewSubscription) {
           onRenewSubscription();
-        }
+        }   
 
         setTimeout(() => {
           setShowRenewForm(false);

@@ -234,3 +234,22 @@ export const forwardMessage = async ({ messageId, targetUserIds = [] }) => {
         }
     );
 };
+
+const authConfig = () => ({
+    headers: { Authorization: `Bearer ${getToken()}` }
+});
+
+export const getStatuses = async () => axios.get(`${API}/statuses`, authConfig());
+
+export const createStatus = async ({ text = "", file = null }) => {
+    const formData = new FormData();
+    if (text) formData.append("text", text);
+    if (file) formData.append("file", file);
+    return axios.post(`${API}/statuses`, formData, authConfig());
+};
+
+export const markStatusViewed = async statusId =>
+    axios.patch(`${API}/statuses/${statusId}/view`, {}, authConfig());
+
+export const deleteStatus = async statusId =>
+    axios.delete(`${API}/statuses/${statusId}`, authConfig());

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from '../../../utils/axiosConfig';
 import { API_URL_IMG } from '../../../config';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +29,7 @@ const AdminTaskManagement = () => {
   const [userId, setUserId] = useState('');
   const [authError, setAuthError] = useState(false);
   const [initialAuthCheck, setInitialAuthCheck] = useState(false);
+  const supportingDataLoadedRef = useRef(false);
   
   
   const [currentUser, setCurrentUser] = useState({
@@ -2693,7 +2694,11 @@ const AdminTaskManagement = () => {
       if (authError && !localStorage.getItem('token')) {
         void 0;
       } else if (userId) {
-        fetchAllData(page, rowsPerPage);
+        fetchTasks(page, rowsPerPage, getCurrentFilters());
+        if (!supportingDataLoadedRef.current) {
+          supportingDataLoadedRef.current = true;
+          fetchSupportingData();
+        }
       }
     }
   }, [authError, initialAuthCheck, userId, page, rowsPerPage]);

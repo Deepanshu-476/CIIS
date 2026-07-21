@@ -2863,13 +2863,14 @@ const UserCreateTask = () => {
 
   useEffect(() => {
     if (userId && !authError && !pageLoading) {
-      Promise.allSettled([
-        fetchAllTasks(),
-        fetchMyTasks(),
-        fetchAssignedToMeTasks(),
-        fetchClientTasks(),
-        fetchProjectTasks()
-      ]);
+      fetchAllTasks().finally(() => {
+        Promise.allSettled([
+          fetchMyTasks(),
+          fetchAssignedToMeTasks(),
+          fetchClientTasks(),
+          fetchProjectTasks()
+        ]);
+      });
     }
   }, [userId, authError, pageLoading, fetchAllTasks, fetchMyTasks, fetchAssignedToMeTasks, fetchClientTasks, fetchProjectTasks]);
 

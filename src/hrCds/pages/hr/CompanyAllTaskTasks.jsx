@@ -407,17 +407,21 @@ const CompanyAllTaskTasks = () => {
   const fetchVisibleTaskDetails = useCallback(async (tasksList) => {
     if (!Array.isArray(tasksList) || tasksList.length === 0) return;
 
-    const entries = await Promise.all(
-      tasksList.map(async (task) => {
-        const details = await fetchTaskDetails(task);
-        return [task._id, { ...details, loading: false }];
-      })
-    );
+    const batchSize = 4;
+    for (let index = 0; index < tasksList.length; index += batchSize) {
+      const batch = tasksList.slice(index, index + batchSize);
+      const entries = await Promise.all(
+        batch.map(async (task) => {
+          const details = await fetchTaskDetails(task);
+          return [task._id, { ...details, loading: false }];
+        })
+      );
 
-    setTaskDetailsById((previous) => ({
-      ...previous,
-      ...Object.fromEntries(entries),
-    }));
+      setTaskDetailsById((previous) => ({
+        ...previous,
+        ...Object.fromEntries(entries),
+      }));
+    }
   }, [fetchTaskDetails]);
 
   useEffect(() => {

@@ -934,6 +934,7 @@ const TaskDetails = () => {
         if (isMounted.current) {
           setUsers(filteredUsers);
           calculateOverallStats(filteredUsers);
+          setUsersLoading(false);
         }
 
         const requestId = usersFetchRequestRef.current + 1;

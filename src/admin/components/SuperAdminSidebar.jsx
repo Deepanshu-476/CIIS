@@ -26,6 +26,7 @@ import {
   SupportAgent as SupportAgentIcon,
   Web as WebIcon,
   Settings as SettingsIcon,
+  Email as EmailIcon,
 } from '@mui/icons-material';
 
 
@@ -229,6 +230,12 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       icon: <ManageAccountsIcon />,
       name: 'Plans',
       route: '/Ciis-network/plans',
+      showForOwnerSuperAdmin: true
+    },
+    {
+      icon: <EmailIcon />,
+      name: 'Email Settings',
+      route: '/Ciis-network/email-settings',
       showForOwnerSuperAdmin: true
     },
     {

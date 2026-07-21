@@ -728,6 +728,40 @@ const getMenuDisplayName = (name) => {
 };
 
 const getMenuRouteKey = item => String(item?.path || '').split('/').filter(Boolean).pop();
+const managementClientPageIds = new Set(['emp-client', 'active-clients']);
+
+const getMenuAccessKeys = item => {
+  const id = String(item?.id || '').trim();
+  const rawPath = String(item?.path || '').trim();
+  const cleanPath = rawPath.replace(/^\/+/, '');
+  const keys = new Set([id, rawPath, cleanPath, getMenuRouteKey(item)].filter(Boolean));
+
+  if (id) {
+    keys.add(`/ciisUser/${id}`);
+    keys.add(`ciisUser/${id}`);
+  }
+
+  if (cleanPath) {
+    keys.add(`/ciisUser/${cleanPath}`);
+    keys.add(`ciisUser/${cleanPath}`);
+  }
+
+  const clientKey = id.startsWith('client-')
+    ? id.substring(7)
+    : cleanPath.startsWith('client-')
+      ? cleanPath.substring(7)
+      : cleanPath.startsWith('client/')
+        ? cleanPath.substring(7)
+        : '';
+
+  if (clientKey) {
+    keys.add(clientKey);
+    keys.add(`/client/${clientKey}`);
+    keys.add(`client/${clientKey}`);
+  }
+
+  return keys;
+};
 
 const companyAccessFallbackItems = [
   {
@@ -744,12 +778,10 @@ const filterItemsByCompanyAccess = (items, companyData) => {
   const allowedPages = Array.isArray(companyData?.allowedPages) ? companyData.allowedPages : [];
   if (allowedPages.length === 0) return items;
 
-  const normalizeKey = value => String(value || '').trim().toLowerCase();
+  const normalizeKey = value => String(value || '').trim().replace(/^\/+/, '').toLowerCase();
   const allowedSet = new Set(allowedPages.map(item => normalizeKey(item)).filter(Boolean));
   return items.filter(item => (
-    allowedSet.has(normalizeKey(item.id)) ||
-    allowedSet.has(normalizeKey(item.path)) ||
-    allowedSet.has(normalizeKey(getMenuRouteKey(item)))
+    [...getMenuAccessKeys(item)].some(key => allowedSet.has(normalizeKey(key)))
   ));
 };
 
@@ -757,23 +789,17 @@ const addCompanyAccessFallbackItems = (items, companyData) => {
   const allowedPages = Array.isArray(companyData?.allowedPages) ? companyData.allowedPages : [];
   if (allowedPages.length === 0) return items;
 
-  const normalizeKey = value => String(value || '').trim().toLowerCase();
+  const normalizeKey = value => String(value || '').trim().replace(/^\/+/, '').toLowerCase();
   const allowedSet = new Set(allowedPages.map(item => normalizeKey(item)).filter(Boolean));
-  const existingKeys = new Set(items.flatMap(item => [
-    normalizeKey(item.id),
-    normalizeKey(item.path),
-    normalizeKey(getMenuRouteKey(item))
-  ]).filter(Boolean));
+  const existingKeys = new Set(items.flatMap(item => (
+    [...getMenuAccessKeys(item)].map(key => normalizeKey(key))
+  )).filter(Boolean));
 
   const fallbackItems = companyAccessFallbackItems.filter(item => (
     (
-      allowedSet.has(normalizeKey(item.id)) ||
-      allowedSet.has(normalizeKey(item.path)) ||
-      allowedSet.has(normalizeKey(getMenuRouteKey(item)))
+      [...getMenuAccessKeys(item)].some(key => allowedSet.has(normalizeKey(key)))
     ) &&
-    !existingKeys.has(normalizeKey(item.id)) &&
-    !existingKeys.has(normalizeKey(item.path)) &&
-    !existingKeys.has(normalizeKey(getMenuRouteKey(item)))
+    ![...getMenuAccessKeys(item)].some(key => existingKeys.has(normalizeKey(key)))
   ));
 
   return fallbackItems.length ? [...items, ...fallbackItems] : items;
@@ -948,7 +974,6 @@ const Sidebar = ({ isMobile = false }) => {
         if (parsed) {
           setSidebarConfig(parsed);
           setLoading(false);
-          return;
         }
       } catch (e) {
         console.warn("Failed to parse cached sidebarConfig:", e);
@@ -1186,15 +1211,7 @@ const Sidebar = ({ isMobile = false }) => {
       return id !== "contact-support"
         && name !== "support center"
         && name !== "contact support"
-        && !path.includes("contact-support")
-        && id !== "profile"
-        && id !== "change-password"
-        && name !== "my profile"
-        && name !== "my details"
-        && name !== "profile"
-        && name !== "change password"
-        && !path.endsWith("/profile")
-        && !path.endsWith("/change-password");
+        && !path.includes("contact-support");
     });
 
     void 0;
@@ -1216,7 +1233,12 @@ const Sidebar = ({ isMobile = false }) => {
             disabled: item.disabled || false,
             visible: item.visible !== false
           }))
-          .filter(item => item.visible && !item.disabled && (item.category === 'clients' || item.path.startsWith('/client/')));
+          .filter(item => (
+            item.visible &&
+            !item.disabled &&
+            !managementClientPageIds.has(item.id) &&
+            (item.category === 'clients' || item.path.startsWith('/client/'))
+          ));
       } else {
         items = [...clientMenuItems];
       }
@@ -1249,7 +1271,12 @@ const Sidebar = ({ isMobile = false }) => {
 
           return processedItem;
         })
-        .filter(item => item.visible && !item.disabled && item.category !== 'clients' && !item.path.startsWith('/client/'));
+        .filter(item => {
+          const isClientPortalItem = item.category === 'clients' || item.path.startsWith('/client/');
+          return item.visible
+            && !item.disabled
+            && (!isClientPortalItem || managementClientPageIds.has(item.id));
+        });
     } 
     else if (sidebarConfig && (sidebarConfig.useFixedDefault || !sidebarConfig.menuItems)) {
       void 0;

@@ -89,6 +89,7 @@ import Holiday from "./page/Holidays.jsx";
 import BranchManagement from "./admin/page/BranchManagement.jsx"; 
 import ChatPage from "./Pages/Chat/ChatPage";
 import Settings from "./admin/page/Settings.jsx";
+import EmailSettings from "./admin/page/EmailSettings.jsx";
 
 function App() {
 
@@ -150,6 +151,7 @@ function App() {
           <Route path="branch" element={<BranchManagement />} />
           <Route path="support-operations" element={<SupportOperations />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="email-settings" element={<EmailSettings />} />
         </Route>
 
         

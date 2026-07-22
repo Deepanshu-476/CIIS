@@ -50,7 +50,7 @@ import {
   isClientForLoggedInUser
 } from './utils/clientPortalData';
 
-const drawerWidthOpen = 260;
+const drawerWidthOpen = 224;
 const drawerWidthClosed = 70;
 
 const getRecordId = value => {
@@ -352,14 +352,6 @@ const fixedDefaultItems = [
     order: 4
   },
   {
-    id: 'profile',
-    name: 'My Profile',
-    icon: 'Person',
-    path: '/ciisUser/profile',
-    category: 'main',
-    order: 5
-  },
-  {
     id: 'chat',
     name: 'Chat',
     icon: 'Chat',
@@ -486,14 +478,6 @@ const allPagesItems = [
     path: '/ciisUser/alert',
     category: 'communication',
     order: 5
-  },
-  {
-    id: 'profile',
-    name: 'My Profile',
-    icon: 'Person',
-    path: '/ciisUser/profile',
-    category: 'main',
-    order: 6
   },
   {
     id: 'projects',
@@ -824,7 +808,7 @@ const Sidebar = ({ isMobile = false }) => {
   const leaveTimer = useRef(null);
 
   
-  const isSidebarOpen = isMobile ? true : isHovered;
+  const isSidebarOpen = isMobile || isHovered;
 
   
   const isClientUser = useMemo(() => {
@@ -1209,9 +1193,12 @@ const Sidebar = ({ isMobile = false }) => {
       const name = String(item?.name || "").toLowerCase();
       const path = String(item?.path || "").toLowerCase();
       return id !== "contact-support"
+        && id !== "profile"
         && name !== "support center"
         && name !== "contact support"
-        && !path.includes("contact-support");
+        && name !== "my profile"
+        && !path.includes("contact-support")
+        && path !== "/ciisuser/profile";
     });
 
     void 0;
@@ -1320,6 +1307,10 @@ const Sidebar = ({ isMobile = false }) => {
       'Employee'
     );
   }, [userData, isClientUser, resolvedJobRoleName]);
+
+  // Visual placeholder for the profile-completion feature. The actual
+  // percentage will be calculated from profile fields in the next step.
+  const profileCompletion = 75;
 
   const renderMenuItem = (item, showFull) => {
     const selected = location.pathname === item.path;
@@ -1772,43 +1763,64 @@ const Sidebar = ({ isMobile = false }) => {
     >
       
       {isSidebarOpen && (
-        <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.25 }}>
+        <Box sx={{ px: 2, py: 2.25, borderBottom: `1px solid ${theme.palette.divider}` }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 1.35 }}>
             <Box sx={{ minWidth: 0 }}>
-              <Typography variant="subtitle2" fontWeight={600} noWrap>
+              <Typography variant="subtitle1" fontWeight={800} noWrap sx={{ lineHeight: 1.25, color: 'text.primary' }}>
                 {userData?.name || 'User'}
               </Typography>
-              <Typography variant="caption" color="text.secondary" noWrap>
+              <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', mt: 0.35, textTransform: 'capitalize' }}>
                 {userSubtitle}
               </Typography>
             </Box>
             <Tooltip title="My Profile">
               <Button
-                size="small"
                 onClick={() => handleNavigate('/ciisUser/profile')}
-                startIcon={<PersonIcon fontSize="small" />}
                 sx={{
                   flex: '0 0 auto',
-                  minWidth: 86,
-                  height: 32,
-                  px: 1,
-                  borderRadius: 2,
+                  width: '100%',
+                  minWidth: 0,
+                  height: 50,
+                  px: 1.5,
+                  borderRadius: 2.25,
                   textTransform: 'none',
-                  fontSize: '0.72rem',
                   fontWeight: 700,
                   color: 'primary.main',
-                  backgroundColor: 'action.hover',
-                  border: `1px solid ${theme.palette.divider}`,
-                  '& .MuiButton-startIcon': {
-                    mr: 0.5,
-                  },
+                  background: 'linear-gradient(135deg, #ffffff 0%, #f4f8ff 100%)',
+                  border: '1px solid #cfe0ff',
+                  boxShadow: '0 5px 14px rgba(37, 99, 235, 0.14)',
                   '&:hover': {
-                    backgroundColor: 'primary.light',
-                    color: 'primary.contrastText',
+                    background: 'linear-gradient(135deg, #f8fbff 0%, #eaf2ff 100%)',
+                    boxShadow: '0 7px 18px rgba(37, 99, 235, 0.2)',
                   },
                 }}
               >
-                Profile
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.45, fontSize: '0.78rem', lineHeight: 1 }}>
+                    <PersonIcon sx={{ fontSize: 20 }} />
+                    <span>Profile</span>
+                  </Box>
+                  <Divider orientation="vertical" flexItem sx={{ mx: 0.55 }} />
+                  <Box sx={{ position: 'relative', width: 34, height: 34, flex: '0 0 34px', display: 'grid', placeItems: 'center' }}>
+                    <CircularProgress
+                      variant="determinate"
+                      value={100}
+                      size={34}
+                      thickness={4}
+                      sx={{ position: 'absolute', color: '#dbe7f8' }}
+                    />
+                    <CircularProgress
+                      variant="determinate"
+                      value={profileCompletion}
+                      size={34}
+                      thickness={4}
+                      sx={{ position: 'absolute', color: '#2878db', '& .MuiCircularProgress-circle': { strokeLinecap: 'round' } }}
+                    />
+                    <Typography component="span" sx={{ color: '#172033', fontSize: '0.62rem', fontWeight: 700 }}>
+                      {profileCompletion}%
+                    </Typography>
+                  </Box>
+                </Box>
               </Button>
             </Tooltip>
           </Box>

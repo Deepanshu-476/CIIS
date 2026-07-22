@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "../../utils/axiosConfig";
 import CIISLoader from "../../Loader/CIISLoader";
 import "./Profile.css";
@@ -11,12 +11,10 @@ import {
   FiHeart,
   FiLock,
   FiPhone,
-  FiPlus,
   FiSave,
   FiTrash2,
   FiUpload,
   FiUser,
-  FiUsers,
   FiX,
 } from "react-icons/fi";
 
@@ -35,76 +33,32 @@ const buildInitialForm = (user = {}) => ({
   phone: user.phone || user.mobile || "",
   bankHolderName: user.bankHolderName || "",
   accountNumber: user.accountNumber || "",
+  confirmAccountNumber: user.accountNumber || "",
   ifsc: user.ifsc || "",
   bankName: user.bankName || "",
   fatherName: user.fatherName || "",
   motherName: user.motherName || "",
   spouseName: user.spouseName || "",
-  children: Array.isArray(user.children) ? user.children : [],
+  aadhaar: user.aadhaar || user.aadhar || user.aadharCard || "",
+  panCard: user.panCard || user.pan || "",
 });
 
 const displayValue = (value) => value || "Not provided";
 
-const ChildrenEditor = ({ childrenList, onChange }) => {
-  const updateChild = (index, field, value) => {
-    const updated = [...childrenList];
-    updated[index] = { ...updated[index], [field]: value };
-    onChange(updated);
-  };
-
-  const addChild = () => {
-    onChange([...childrenList, { name: "", age: "", dob: "" }]);
-  };
-
-  const removeChild = (index) => {
-    onChange(childrenList.filter((_, childIndex) => childIndex !== index));
-  };
-
-  return (
-    <div className="UserDetails-children-editor">
-      <div className="UserDetails-field-head">
-        <label>Children</label>
-        <button type="button" onClick={addChild}>
-          <FiPlus /> Add Child
-        </button>
-      </div>
-
-      {childrenList.length === 0 && (
-        <p className="UserDetails-empty-note">No children added yet.</p>
-      )}
-
-      {childrenList.map((child, index) => (
-        <div className="UserDetails-child-row" key={index}>
-          <input
-            type="text"
-            placeholder="Name"
-            value={child.name || ""}
-            onChange={(event) => updateChild(index, "name", event.target.value)}
-          />
-          <input
-            type="number"
-            placeholder="Age"
-            value={child.age || ""}
-            onChange={(event) => updateChild(index, "age", event.target.value)}
-          />
-          <input
-            type="date"
-            value={child.dob ? String(child.dob).split("T")[0] : ""}
-            onChange={(event) => updateChild(index, "dob", event.target.value)}
-          />
-          <button type="button" className="UserDetails-icon-btn danger" onClick={() => removeChild(index)}>
-            <FiTrash2 />
-          </button>
-        </div>
-      ))}
-    </div>
-  );
+const maskAccountNumber = (value) => {
+  const accountNumber = String(value || "");
+  if (!accountNumber) return "";
+  if (accountNumber.length <= 4) return accountNumber;
+  return `${"X".repeat(Math.min(8, accountNumber.length - 4))}${accountNumber.slice(-4)}`;
 };
 
-const InfoItem = ({ label, value }) => (
-  <div className="UserDetails-info-item">
-    <span>{label}</span>
-    <strong>{displayValue(value)}</strong>
+const InfoItem = ({ label, value, required = false }) => (
+  <div className={`UserDetails-info-item${required && !value ? " is-missing" : ""}`}>
+    <span>
+      {label}
+      {required && <em className="UserDetails-required-badge">* Required</em>}
+    </span>
+    <strong>{required && !value ? "Required field" : displayValue(value)}</strong>
   </div>
 );
 
@@ -126,9 +80,10 @@ const Profile = () => {
   const [message, setMessage] = useState(null);
   const [documents, setDocuments] = useState([]);
   const [documentName, setDocumentName] = useState("");
-  const [documentFile, setDocumentFile] = useState(null);
+  const documentInputRef = useRef(null);
   const [documentsLoading, setDocumentsLoading] = useState(true);
   const [uploadingDocument, setUploadingDocument] = useState(false);
+  const [documentPreview, setDocumentPreview] = useState(null);
 
   const loadProfile = useCallback(async () => {
     if (!userId) {
@@ -176,23 +131,27 @@ const Profile = () => {
     loadDocuments();
   }, [loadDocuments]);
 
-  const handleDocumentUpload = async (event) => {
-    event.preventDefault();
-    if (!documentFile) {
-      setMessage({ type: "error", text: "Please select a document first." });
+  const handleDocumentButtonClick = () => {
+    if (!documentName.trim()) {
+      setMessage({ type: "error", text: "Please enter the document name first." });
       return;
     }
+    documentInputRef.current?.click();
+  };
+
+  const handleDocumentSelected = async (event) => {
+    const selectedFile = event.target.files?.[0];
+    if (!selectedFile) return;
+
     setUploadingDocument(true);
     setMessage(null);
     try {
       const formData = new FormData();
-      formData.append("document", documentFile);
-      formData.append("name", documentName.trim() || documentFile.name);
+      formData.append("document", selectedFile);
+      formData.append("name", documentName.trim());
       const response = await axios.post(`/users/${userId}/documents`, formData);
       setDocuments((current) => [...current, response.data.document]);
       setDocumentName("");
-      setDocumentFile(null);
-      event.currentTarget.reset();
       setMessage({ type: "success", text: "Document uploaded successfully." });
     } catch (error) {
       const backendMessage = error.response?.data?.message;
@@ -204,6 +163,7 @@ const Profile = () => {
       });
     } finally {
       setUploadingDocument(false);
+      event.target.value = "";
     }
   };
 
@@ -218,13 +178,27 @@ const Profile = () => {
         link.click();
         setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
       } else {
-        window.open(blobUrl, "_blank", "noopener,noreferrer");
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        setDocumentPreview({
+          url: blobUrl,
+          name: item.name || "Document Preview",
+          type: response.data.type || "",
+        });
       }
     } catch (error) {
       setMessage({ type: "error", text: error.response?.data?.message || "Document could not be opened." });
     }
   };
+
+  const closeDocumentPreview = () => {
+    setDocumentPreview((current) => {
+      if (current?.url) URL.revokeObjectURL(current.url);
+      return null;
+    });
+  };
+
+  useEffect(() => () => {
+    if (documentPreview?.url) URL.revokeObjectURL(documentPreview.url);
+  }, [documentPreview]);
 
   const deleteDocument = async (documentId) => {
     if (!window.confirm("Delete this document?")) return;
@@ -282,8 +256,52 @@ const Profile = () => {
   const handleSave = async (event) => {
     event.preventDefault();
 
-    if (!formData.name.trim()) {
-      setMessage({ type: "error", text: "Name is required." });
+    const requiredFields = [
+      ["name", "Full Name"],
+      ["phone", "Mobile Number"],
+      ["bankHolderName", "Account Holder Name"],
+      ["accountNumber", "Account Number"],
+      ["ifsc", "IFSC Code"],
+      ["bankName", "Bank Name"],
+      ["fatherName", "Father's Name"],
+      ["motherName", "Mother's Name"],
+      ["aadhaar", "Aadhaar Number"],
+      ["panCard", "PAN Number"],
+    ];
+    const missingFields = requiredFields
+      .filter(([field]) => !String(formData[field] || "").trim())
+      .map(([, label]) => label);
+
+    if (missingFields.length) {
+      setMessage({ type: "error", text: `Please fill all required fields: ${missingFields.join(", ")}.` });
+      return;
+    }
+
+    if (!/^\d{12}$/.test(formData.aadhaar.trim())) {
+      setMessage({ type: "error", text: "Aadhaar Number must contain exactly 12 digits." });
+      return;
+    }
+
+    const normalizedPan = formData.panCard.trim().toUpperCase();
+    if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(normalizedPan)) {
+      setMessage({ type: "error", text: "Please enter a valid PAN Number (for example: ABCDE1234F)." });
+      return;
+    }
+
+    const normalizedAccountNumber = formData.accountNumber.trim();
+    if (!/^\d{9,18}$/.test(normalizedAccountNumber)) {
+      setMessage({ type: "error", text: "Account Number must contain 9 to 18 digits." });
+      return;
+    }
+
+    if (normalizedAccountNumber !== formData.confirmAccountNumber.trim()) {
+      setMessage({ type: "error", text: "Account Number and Confirm Account Number do not match." });
+      return;
+    }
+
+    const normalizedIfsc = formData.ifsc.trim().toUpperCase();
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(normalizedIfsc)) {
+      setMessage({ type: "error", text: "Please enter a valid IFSC Code (for example: SBIN0001234)." });
       return;
     }
 
@@ -292,15 +310,17 @@ const Profile = () => {
 
     const updateData = {
       name: formData.name.trim(),
-      phone: formData.phone,
-      bankHolderName: formData.bankHolderName,
-      accountNumber: formData.accountNumber,
-      ifsc: formData.ifsc,
-      bankName: formData.bankName,
-      fatherName: formData.fatherName,
-      motherName: formData.motherName,
-      spouseName: formData.spouseName,
-      children: formData.children || [],
+      phone: formData.phone.trim(),
+      bankHolderName: formData.bankHolderName.trim(),
+      accountNumber: normalizedAccountNumber,
+      confirmAccountNumber: formData.confirmAccountNumber.trim(),
+      ifsc: normalizedIfsc,
+      bankName: formData.bankName.trim(),
+      fatherName: formData.fatherName.trim(),
+      motherName: formData.motherName.trim(),
+      spouseName: formData.spouseName.trim(),
+      aadhaar: formData.aadhaar.trim(),
+      panCard: normalizedPan,
     };
 
     try {
@@ -398,7 +418,7 @@ const Profile = () => {
         <div>
           <span className="UserDetails-eyebrow">My Profile</span>
           <h1>Personal Information</h1>
-          <p>View and update your name, mobile, bank details, and family details.</p>
+          <p>View and update your personal, identity, bank, and family details.</p>
         </div>
         <div className="UserDetails-header-actions">
           <button className="UserDetails-primary-btn" onClick={openEdit}>
@@ -431,42 +451,35 @@ const Profile = () => {
         <section className="UserDetails-section-card">
           <h3><FiUser /> Basic Details</h3>
           <div className="UserDetails-info-grid">
-            <InfoItem label="Full Name" value={profile?.name} />
-            <InfoItem label="Mobile Number" value={profile?.phone || profile?.mobile} />
+            <InfoItem label="Full Name" value={profile?.name} required />
+            <InfoItem label="Mobile Number" value={profile?.phone || profile?.mobile} required />
+          </div>
+        </section>
+
+        <section className="UserDetails-section-card">
+          <h3><FiFileText /> Identity Details</h3>
+          <div className="UserDetails-info-grid">
+            <InfoItem label="Aadhaar Number" value={profile?.aadhaar || profile?.aadhar || profile?.aadharCard} required />
+            <InfoItem label="PAN Number" value={profile?.panCard || profile?.pan} required />
           </div>
         </section>
 
         <section className="UserDetails-section-card">
           <h3><FiCreditCard /> Bank Details</h3>
           <div className="UserDetails-info-grid">
-            <InfoItem label="Account Holder Name" value={profile?.bankHolderName} />
-            <InfoItem label="Account Number" value={profile?.accountNumber} />
-            <InfoItem label="IFSC Code" value={profile?.ifsc} />
-            <InfoItem label="Bank Name" value={profile?.bankName} />
+            <InfoItem label="Account Holder Name" value={profile?.bankHolderName} required />
+            <InfoItem label="Account Number" value={maskAccountNumber(profile?.accountNumber)} required />
+            <InfoItem label="IFSC Code" value={profile?.ifsc} required />
+            <InfoItem label="Bank Name" value={profile?.bankName} required />
           </div>
         </section>
 
         <section className="UserDetails-section-card UserDetails-section-wide">
           <h3><FiHeart /> Family Details</h3>
           <div className="UserDetails-info-grid three">
-            <InfoItem label="Father's Name" value={profile?.fatherName} />
-            <InfoItem label="Mother's Name" value={profile?.motherName} />
-            <InfoItem label="Spouse Name" value={profile?.spouseName} />
-          </div>
-
-          <div className="UserDetails-children-list">
-            <h4><FiUsers /> Children</h4>
-            {profile?.children?.length ? (
-              profile.children.map((child, index) => (
-                <div className="UserDetails-child-pill" key={index}>
-                  <strong>{displayValue(child.name)}</strong>
-                  {child.age && <span>Age: {child.age}</span>}
-                  {child.dob && <span>DOB: {String(child.dob).split("T")[0]}</span>}
-                </div>
-              ))
-            ) : (
-              <p className="UserDetails-empty-note">No children details added.</p>
-            )}
+            <InfoItem label="Father's Name" value={profile?.fatherName} required />
+            <InfoItem label="Mother's Name" value={profile?.motherName} required />
+            <InfoItem label="Spouse Name (Optional)" value={profile?.spouseName} />
           </div>
         </section>
 
@@ -478,29 +491,30 @@ const Profile = () => {
             </div>
           </div>
 
-          <form className="UserDetails-document-form" onSubmit={handleDocumentUpload}>
+          <div className="UserDetails-document-form">
             <label>
-              Document Name
+              Document Name *
               <input
                 type="text"
                 value={documentName}
                 onChange={(event) => setDocumentName(event.target.value)}
                 placeholder="e.g. Aadhaar Card, PAN Card"
-              />
-            </label>
-            <label>
-              Select Document *
-              <input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.jfif,.png,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.odt,.ods"
-                onChange={(event) => setDocumentFile(event.target.files?.[0] || null)}
                 required
               />
             </label>
-            <button className="UserDetails-primary-btn" type="submit" disabled={uploadingDocument}>
+            <input
+              ref={documentInputRef}
+              className="UserDetails-hidden-file-input"
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.jfif,.png,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.odt,.ods"
+              onChange={handleDocumentSelected}
+              tabIndex={-1}
+            />
+            <button className="UserDetails-primary-btn" type="button" onClick={handleDocumentButtonClick} disabled={uploadingDocument}>
               <FiUpload /> {uploadingDocument ? "Uploading..." : "Upload Document"}
             </button>
-          </form>
+          </div>
+          <p className="UserDetails-document-hint">Enter a document name, then click Upload Document to choose and upload the file.</p>
           <p className="UserDetails-document-hint">Allowed: PDF, images, Word, Excel and text documents · Maximum 25 MB</p>
 
           <div className="UserDetails-document-list">
@@ -553,11 +567,43 @@ const Profile = () => {
                     />
                   </label>
                   <label>
-                    Mobile Number
+                    Mobile Number *
                     <input
                       type="tel"
                       value={formData.phone}
                       onChange={(event) => handleChange("phone", event.target.value)}
+                      required
+                    />
+                  </label>
+                </div>
+              </section>
+
+              <section className="UserDetails-form-section">
+                <h3><FiFileText /> Identity Details</h3>
+                <div className="UserDetails-form-grid">
+                  <label>
+                    Aadhaar Number *
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={12}
+                      pattern="[0-9]{12}"
+                      placeholder="12-digit Aadhaar number"
+                      value={formData.aadhaar}
+                      onChange={(event) => handleChange("aadhaar", event.target.value.replace(/\D/g, ""))}
+                      required
+                    />
+                  </label>
+                  <label>
+                    PAN Number *
+                    <input
+                      type="text"
+                      maxLength={10}
+                      pattern="[A-Za-z]{5}[0-9]{4}[A-Za-z]{1}"
+                      placeholder="ABCDE1234F"
+                      value={formData.panCard}
+                      onChange={(event) => handleChange("panCard", event.target.value.toUpperCase())}
+                      required
                     />
                   </label>
                 </div>
@@ -567,35 +613,61 @@ const Profile = () => {
                 <h3><FiCreditCard /> Bank Details</h3>
                 <div className="UserDetails-form-grid">
                   <label>
-                    Account Holder Name
+                    Account Holder Name *
                     <input
                       type="text"
                       value={formData.bankHolderName}
                       onChange={(event) => handleChange("bankHolderName", event.target.value)}
+                      required
                     />
                   </label>
                   <label>
-                    Account Number
+                    Account Number *
                     <input
                       type="text"
+                      inputMode="numeric"
+                      minLength={9}
+                      maxLength={18}
+                      pattern="[0-9]{9,18}"
+                      placeholder="9 to 18-digit account number"
                       value={formData.accountNumber}
-                      onChange={(event) => handleChange("accountNumber", event.target.value)}
+                      onChange={(event) => handleChange("accountNumber", event.target.value.replace(/\D/g, ""))}
+                      required
                     />
                   </label>
                   <label>
-                    IFSC Code
+                    Confirm Account Number *
                     <input
                       type="text"
-                      value={formData.ifsc}
-                      onChange={(event) => handleChange("ifsc", event.target.value)}
+                      inputMode="numeric"
+                      minLength={9}
+                      maxLength={18}
+                      pattern="[0-9]{9,18}"
+                      placeholder="Re-enter account number"
+                      value={formData.confirmAccountNumber}
+                      onChange={(event) => handleChange("confirmAccountNumber", event.target.value.replace(/\D/g, ""))}
+                      required
                     />
                   </label>
                   <label>
-                    Bank Name
+                    IFSC Code *
+                    <input
+                      type="text"
+                      maxLength={11}
+                      pattern="[A-Za-z]{4}0[A-Za-z0-9]{6}"
+                      placeholder="SBIN0001234"
+                      value={formData.ifsc}
+                      onChange={(event) => handleChange("ifsc", event.target.value.toUpperCase())}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Bank Name *
                     <input
                       type="text"
                       value={formData.bankName}
                       onChange={(event) => handleChange("bankName", event.target.value)}
+                      required
                     />
                   </label>
                 </div>
@@ -605,23 +677,25 @@ const Profile = () => {
                 <h3><FiHeart /> Family Details</h3>
                 <div className="UserDetails-form-grid">
                   <label>
-                    Father's Name
+                    Father's Name *
                     <input
                       type="text"
                       value={formData.fatherName}
                       onChange={(event) => handleChange("fatherName", event.target.value)}
+                      required
                     />
                   </label>
                   <label>
-                    Mother's Name
+                    Mother's Name *
                     <input
                       type="text"
                       value={formData.motherName}
                       onChange={(event) => handleChange("motherName", event.target.value)}
+                      required
                     />
                   </label>
                   <label>
-                    Spouse Name
+                    Spouse Name (Optional)
                     <input
                       type="text"
                       value={formData.spouseName}
@@ -630,10 +704,6 @@ const Profile = () => {
                   </label>
                 </div>
 
-                <ChildrenEditor
-                  childrenList={formData.children}
-                  onChange={(children) => handleChange("children", children)}
-                />
               </section>
             </div>
 
@@ -713,6 +783,35 @@ const Profile = () => {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {documentPreview && (
+        <div className="UserDetails-document-preview-overlay" onClick={closeDocumentPreview} role="presentation">
+          <div className="UserDetails-document-preview-modal" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label={documentPreview.name}>
+            <div className="UserDetails-document-preview-header">
+              <div>
+                <h2>{documentPreview.name}</h2>
+                <p>Document preview</p>
+              </div>
+              <button type="button" className="UserDetails-icon-btn" onClick={closeDocumentPreview} aria-label="Close preview">
+                <FiX />
+              </button>
+            </div>
+            <div className="UserDetails-document-preview-content">
+              {documentPreview.type.startsWith("image/") ? (
+                <img src={documentPreview.url} alt={documentPreview.name} />
+              ) : documentPreview.type === "application/pdf" ? (
+                <iframe src={documentPreview.url} title={documentPreview.name} />
+              ) : (
+                <div className="UserDetails-document-preview-unsupported">
+                  <FiFileText />
+                  <strong>Preview is not available for this file type.</strong>
+                  <span>Please use the Download button to open this document.</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

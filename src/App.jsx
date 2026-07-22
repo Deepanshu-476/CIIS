@@ -90,6 +90,7 @@ import BranchManagement from "./admin/page/BranchManagement.jsx";
 import ChatPage from "./Pages/Chat/ChatPage";
 import Settings from "./admin/page/Settings.jsx";
 import EmailSettings from "./admin/page/EmailSettings.jsx";
+import SpeechToTextControl from "./components/SpeechToTextControl.jsx";
 
 function App() {
 
@@ -237,6 +238,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
+      <SpeechToTextControl />
       <ToastContainer position="top-right" autoClose={3000} />
     </>
   );

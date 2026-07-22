@@ -1211,7 +1211,7 @@
 
 .EmployeeDirectory-document-upload-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(220px, 1fr) auto;
   gap: 14px;
   align-items: end;
   padding: 16px;
@@ -1221,15 +1221,12 @@
   background: #f8faff;
 }
 
-.EmployeeDirectory-document-upload-fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+.EmployeeDirectory-document-name-field {
+  min-width: 0;
 }
 
-.EmployeeDirectory-file-input {
-  padding: 12px;
-  cursor: pointer;
+.EmployeeDirectory-hidden-file-input {
+  display: none;
 }
 
 .EmployeeDirectory-document-upload-btn {
@@ -1292,9 +1289,96 @@
   border-color: #ef476f;
 }
 
+.EmployeeDirectory-document-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.EmployeeDirectory-document-preview-modal {
+  width: min(980px, 100%);
+  height: min(82vh, 760px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.35);
+}
+
+.EmployeeDirectory-document-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.EmployeeDirectory-document-preview-header div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.EmployeeDirectory-document-preview-header strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #172033;
+  font-size: 15px;
+}
+
+.EmployeeDirectory-document-preview-header span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.EmployeeDirectory-document-preview-header button {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #334155;
+  cursor: pointer;
+}
+
+.EmployeeDirectory-document-preview-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+}
+
+.EmployeeDirectory-document-preview-body img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.EmployeeDirectory-document-preview-body iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+
 @media (max-width: 700px) {
-  .EmployeeDirectory-document-upload-panel,
-  .EmployeeDirectory-document-upload-fields {
+  .EmployeeDirectory-document-upload-panel {
     grid-template-columns: 1fr;
   }
 
@@ -1320,6 +1404,15 @@
 
   .EmployeeDirectory-document-action {
     width: 100%;
+  }
+
+  .EmployeeDirectory-document-preview-overlay {
+    padding: 12px;
+  }
+
+  .EmployeeDirectory-document-preview-modal {
+    height: 86vh;
+    border-radius: 10px;
   }
 }
 

@@ -17,6 +17,16 @@ import {
   FiZoomIn, FiImage, FiCamera, FiBriefcase
 } from 'react-icons/fi';
 
+const createEmptyCheckpoint = () => ({ title: '', completed: false });
+
+const getCleanCheckpoints = (checkpoints = []) => (
+  Array.isArray(checkpoints)
+    ? checkpoints
+        .map(item => ({ title: String(item?.title || '').trim(), completed: Boolean(item?.completed) }))
+        .filter(item => item.title)
+    : []
+);
+
 const AdminTaskManagement = () => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -104,7 +114,8 @@ const AdminTaskManagement = () => {
     priorityDays: '1',
     priority: 'medium',
     files: null,
-    voiceNote: null
+    voiceNote: null,
+    checkpoints: []
   });
 
   const [editTask, setEditTask] = useState({
@@ -145,6 +156,18 @@ const AdminTaskManagement = () => {
   const [createDueDateTime, setCreateDueDateTime] = useState('');
 
   const navigate = useNavigate();
+  const addCheckpoint = () => {
+    setNewTask(prev => ({ ...prev, checkpoints: [...(prev.checkpoints || []), createEmptyCheckpoint()] }));
+  };
+  const updateCheckpoint = (index, title) => {
+    setNewTask(prev => ({
+      ...prev,
+      checkpoints: (prev.checkpoints || []).map((item, itemIndex) => itemIndex === index ? { ...item, title } : item)
+    }));
+  };
+  const removeCheckpoint = (index) => {
+    setNewTask(prev => ({ ...prev, checkpoints: (prev.checkpoints || []).filter((_, itemIndex) => itemIndex !== index) }));
+  };
 
   
   const showSnackbar = (message, severity = 'success') => {
@@ -739,6 +762,7 @@ const AdminTaskManagement = () => {
       formData.append('priority', newTask.priority);
       formData.append('assignedUsers', JSON.stringify(newTask.assignedUsers));
       formData.append('assignedGroups', JSON.stringify(newTask.assignedGroups));
+      formData.append('checkpoints', JSON.stringify(getCleanCheckpoints(newTask.checkpoints)));
 
       if (newTask.files) {
         for (let i = 0; i < newTask.files.length; i++) {
@@ -1112,7 +1136,8 @@ const AdminTaskManagement = () => {
       priorityDays: '1',
       priority: 'medium',
       files: null,
-      voiceNote: null
+      voiceNote: null,
+      checkpoints: []
     });
     setUserSearch('');
     setGroupSearch('');
@@ -2339,6 +2364,31 @@ const AdminTaskManagement = () => {
                       </span>
                     ) : null;
                   })}
+                </div>
+              )}
+            </div>
+
+            <div className="AdminTaskManagement-form-group">
+              <label>Checkpoints (Optional)</label>
+              <button type="button" className="AdminTaskManagement-btn" onClick={addCheckpoint}>
+                + Add Checkpoint
+              </button>
+              {(newTask.checkpoints || []).length > 0 && (
+                <div style={{ display: 'grid', gap: '10px', marginTop: '12px' }}>
+                  {newTask.checkpoints.map((checkpoint, index) => (
+                    <div key={`checkpoint-${index}`} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px', alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        className="AdminTaskManagement-form-input"
+                        placeholder={`Checkpoint ${index + 1}`}
+                        value={checkpoint.title}
+                        onChange={(event) => updateCheckpoint(index, event.target.value)}
+                      />
+                      <button type="button" className="AdminTaskManagement-btn" onClick={() => removeCheckpoint(index)}>
+                        Remove
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

@@ -143,6 +143,16 @@ const normalizeProjectTaskOrder = (project) => ({
   tasks: sortTasksByCreatedAt(project?.tasks)
 });
 
+const createEmptyCheckpoint = () => ({ title: "", completed: false });
+
+const getCleanCheckpoints = (checkpoints = []) => (
+  Array.isArray(checkpoints)
+    ? checkpoints
+        .map(item => ({ title: String(item?.title || "").trim(), completed: Boolean(item?.completed) }))
+        .filter(item => item.title)
+    : []
+);
+
 const LIVE_UPLOAD_BASE = "https://backendcds.ciisnetwork.in/api/uploads";
 
 const EmployeeProject = () => {
@@ -173,6 +183,7 @@ const EmployeeProject = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [tabValue, setTabValue] = useState(0);
   const [taskFilter, setTaskFilter] = useState("all");
+  const [taskAssigneeFilter, setTaskAssigneeFilter] = useState("all");
   const [detailTaskId, setDetailTaskId] = useState(null);
   const [taskDetailToRestore, setTaskDetailToRestore] = useState(null);
   const [stats, setStats] = useState({
@@ -191,6 +202,7 @@ const EmployeeProject = () => {
     dueDate: "",
     priority: "Medium",
     status: "pending",
+    checkpoints: [],
   });
 
   const [taskErrors, setTaskErrors] = useState({});
@@ -347,6 +359,26 @@ const EmployeeProject = () => {
     });
   };
 
+  const addTaskCheckpoint = () => {
+    setNewTask(prev => ({ ...prev, checkpoints: [...(prev.checkpoints || []), createEmptyCheckpoint()] }));
+  };
+
+  const updateTaskCheckpointTitle = (index, title) => {
+    setNewTask(prev => ({
+      ...prev,
+      checkpoints: (prev.checkpoints || []).map((checkpoint, itemIndex) => (
+        itemIndex === index ? { ...checkpoint, title } : checkpoint
+      ))
+    }));
+  };
+
+  const removeTaskCheckpoint = (index) => {
+    setNewTask(prev => ({
+      ...prev,
+      checkpoints: (prev.checkpoints || []).filter((_, itemIndex) => itemIndex !== index)
+    }));
+  };
+
   const formatDateTimeForInput = (value) => {
     if (!value) return "";
     const date = new Date(value);
@@ -370,6 +402,7 @@ const EmployeeProject = () => {
       dueDate: "",
       priority: "Medium",
       status: "pending",
+      checkpoints: [],
     });
     setFile(null);
     setFileName("");
@@ -401,6 +434,7 @@ const EmployeeProject = () => {
       dueDate: formatDateTimeForInput(task?.dueDate),
       priority: getPriorityInputValue(task?.priority),
       status: normalizeTaskStatus(task?.status),
+      checkpoints: getCleanCheckpoints(task?.checkpoints),
     });
     setFile(null);
     setFileName("");
@@ -489,6 +523,7 @@ const EmployeeProject = () => {
       setProjectUsers(res.data.users || []);
       setTasks(sortedTasks);
       setTaskFilter("all");
+      setTaskAssigneeFilter("all");
       setTabValue(0); 
     } catch (error) {
       console.error("Error loading project details:", error);
@@ -603,6 +638,8 @@ const EmployeeProject = () => {
       Object.keys(newTask).forEach((key) => {
         if (key === "assignedUsers") {
           newTask.assignedUsers.forEach(userId => formData.append("assignedUsers", userId));
+        } else if (key === "checkpoints") {
+          formData.append("checkpoints", JSON.stringify(getCleanCheckpoints(newTask.checkpoints)));
         } else {
           formData.append(key, newTask[key]);
         }
@@ -644,6 +681,7 @@ const EmployeeProject = () => {
         dueDate: newTask.dueDate || "",
         priority: newTask.priority,
         status: newTask.status,
+        checkpoints: getCleanCheckpoints(newTask.checkpoints),
       };
 
       await axios.patch(`/projects/${selectedProject}/tasks/${editingTask._id}`, payload);
@@ -900,7 +938,25 @@ const EmployeeProject = () => {
     : taskFilter === "high priority"
       ? highPriorityTasks
       : tasks.filter(task => normalizeTaskStatus(task.status) === taskFilter);
-  const displayedTasks = sortTasksByCreatedAt(filteredTasks);
+  const assigneeFilteredTasks = taskAssigneeFilter === "all"
+    ? filteredTasks
+    : taskAssigneeFilter === "unassigned"
+      ? filteredTasks.filter(task => getTaskAssignedUserIds(task).length === 0)
+      : filteredTasks.filter(task => getTaskAssignedUserIds(task).includes(taskAssigneeFilter));
+  const displayedTasks = sortTasksByCreatedAt(assigneeFilteredTasks);
+
+  const taskAssigneeOptions = [
+    { value: "all", label: "All assignees" },
+    ...projectUsers
+      .map(user => ({
+        value: getUserId(user),
+        label: user?.name || user?.email || "Unnamed user"
+      }))
+      .filter(option => option.value),
+    { value: "unassigned", label: "Unassigned" }
+  ];
+
+  const selectedAssigneeLabel = taskAssigneeOptions.find(option => option.value === taskAssigneeFilter)?.label || "";
 
   const normalizedProjectSearch = projectSearchTerm.trim().toLowerCase();
   const filteredProjects = normalizedProjectSearch
@@ -1655,6 +1711,30 @@ const EmployeeProject = () => {
                   </div>
                 </div>
 
+                <div className="EmployeeProject-task-filter-bar">
+                  <div className="EmployeeProject-task-filter-copy">
+                    <strong>Task Filter</strong>
+                    <span>
+                      {displayedTasks.length} of {filteredTasks.length} tasks
+                      {selectedAssigneeLabel && taskAssigneeFilter !== "all" ? ` for ${selectedAssigneeLabel}` : ""}
+                    </span>
+                  </div>
+                  <div className="EmployeeProject-form-group EmployeeProject-task-assignee-filter">
+                    <label>Assigned To</label>
+                    <select
+                      className="EmployeeProject-select"
+                      value={taskAssigneeFilter}
+                      onChange={(event) => setTaskAssigneeFilter(event.target.value)}
+                    >
+                      {taskAssigneeOptions.map(option => (
+                        <option value={option.value} key={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
                 {tasks.length === 0
                   ? renderTaskList([], {
                       emptyTitle: "No tasks yet",
@@ -1662,8 +1742,8 @@ const EmployeeProject = () => {
                       showCreateButton: true
                     })
                   : renderTaskList(displayedTasks, {
-                      emptyTitle: `No ${taskFilter === "all" ? "" : taskFilter} tasks found`,
-                      emptyMessage: "Click another status card to view different tasks."
+                      emptyTitle: "No tasks found",
+                      emptyMessage: "Change the status card or assigned-to filter to view different tasks."
                     })}
               </>
             )}
@@ -2470,6 +2550,33 @@ const EmployeeProject = () => {
                       ))}
                     </select>
                   </div>
+                </div>
+
+                <div className="EmployeeProject-form-group">
+                  <div className="EmployeeProject-checkpoint-header">
+                    <label>Checkpoints (Optional)</label>
+                    <button type="button" className="EmployeeProject-checkpoint-add" onClick={addTaskCheckpoint}>
+                      + Add
+                    </button>
+                  </div>
+                  {(newTask.checkpoints || []).length > 0 && (
+                    <div className="EmployeeProject-checkpoint-input-list">
+                      {newTask.checkpoints.map((checkpoint, index) => (
+                        <div className="EmployeeProject-checkpoint-input-row" key={`project-checkpoint-${index}`}>
+                          <input
+                            type="text"
+                            className="EmployeeProject-input"
+                            value={checkpoint.title}
+                            placeholder={`Checkpoint ${index + 1}`}
+                            onChange={(event) => updateTaskCheckpointTitle(index, event.target.value)}
+                          />
+                          <button type="button" className="EmployeeProject-checkpoint-remove" onClick={() => removeTaskCheckpoint(index)}>
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {!editingTask ? (

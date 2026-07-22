@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import axios from '../../utils/axiosConfig';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -75,6 +77,22 @@ const formatFileSize = (bytes = 0) => {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${Math.max(0.1, bytes / 1024).toFixed(1)} KB`;
 };
+
+const createEmptyCheckpoint = () => ({
+  title: '',
+  completed: false
+});
+
+const getCleanCheckpoints = (checkpoints = []) => (
+  Array.isArray(checkpoints)
+    ? checkpoints
+        .map(item => ({
+          title: String(item?.title || '').trim(),
+          completed: Boolean(item?.completed)
+        }))
+        .filter(item => item.title)
+    : []
+);
 
 const getAttachmentName = (file) => {
   if (!file) return 'Attachment';
@@ -390,7 +408,8 @@ const UserCreateTask = () => {
     description: '',
     service: '',
     dueDateTime: '',
-    priority: 'Medium'
+    priority: 'Medium',
+    checkpoints: []
   });
   const [isCreatingClientTask, setIsCreatingClientTask] = useState(false);
   const [projectTasksGrouped, setProjectTasksGrouped] = useState({});
@@ -485,6 +504,7 @@ const UserCreateTask = () => {
     priorityDays: '1',
     files: null,
     voiceNote: null,
+    checkpoints: [],
   });
 
   const [pendingStatusChange, setPendingStatusChange] = useState({ taskId: null, status: '', source: null });
@@ -505,6 +525,30 @@ const UserCreateTask = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
   const selectedTaskFiles = useMemo(() => Array.from(newTask.files || []), [newTask.files]);
+  const updatePersonalCheckpoint = (index, title) => {
+    setNewTask(prev => ({
+      ...prev,
+      checkpoints: (prev.checkpoints || []).map((item, itemIndex) => itemIndex === index ? { ...item, title } : item)
+    }));
+  };
+  const addPersonalCheckpoint = () => {
+    setNewTask(prev => ({ ...prev, checkpoints: [...(prev.checkpoints || []), createEmptyCheckpoint()] }));
+  };
+  const removePersonalCheckpoint = (index) => {
+    setNewTask(prev => ({ ...prev, checkpoints: (prev.checkpoints || []).filter((_, itemIndex) => itemIndex !== index) }));
+  };
+  const updateClientCheckpoint = (index, title) => {
+    setClientTaskForm(prev => ({
+      ...prev,
+      checkpoints: (prev.checkpoints || []).map((item, itemIndex) => itemIndex === index ? { ...item, title } : item)
+    }));
+  };
+  const addClientCheckpoint = () => {
+    setClientTaskForm(prev => ({ ...prev, checkpoints: [...(prev.checkpoints || []), createEmptyCheckpoint()] }));
+  };
+  const removeClientCheckpoint = (index) => {
+    setClientTaskForm(prev => ({ ...prev, checkpoints: (prev.checkpoints || []).filter((_, itemIndex) => itemIndex !== index) }));
+  };
 
   
   useEffect(() => {
@@ -1592,7 +1636,8 @@ const UserCreateTask = () => {
         dueDateTime: dueDateIso,
         assignee: userName,
         assigneeId: userId,
-        priority: clientTaskForm.priority
+        priority: clientTaskForm.priority,
+        checkpoints: getCleanCheckpoints(clientTaskForm.checkpoints)
       };
 
       const encodedService = encodeURIComponent(clientTaskForm.service);
@@ -1628,7 +1673,8 @@ const UserCreateTask = () => {
         name: '',
         description: '',
         dueDateTime: '',
-        priority: 'Medium'
+        priority: 'Medium',
+        checkpoints: []
       }));
       setTaskViewsLoaded(prev => ({ ...prev, client: true }));
       setOpenClientTaskDialog(false);
@@ -2333,12 +2379,13 @@ const UserCreateTask = () => {
           );
         }
 
-        if (dateRange.start && dateRange.end) {
-          const start = new Date(dateRange.start);
-          const end = new Date(dateRange.end);
-          end.setHours(23, 59, 59, 999);
+        if (dateRange.start || dateRange.end) {
+          const start = dateRange.start ? new Date(dateRange.start) : null;
+          const end = dateRange.end ? new Date(dateRange.end) : null;
+          if (start) start.setHours(0, 0, 0, 0);
+          if (end) end.setHours(23, 59, 59, 999);
 
-          return taskDate >= start && taskDate <= end;
+          return (!start || taskDate >= start) && (!end || taskDate <= end);
         }
 
         return true;
@@ -2367,6 +2414,12 @@ const UserCreateTask = () => {
     if (dateRange.start && dateRange.end) {
       return `Range: ${new Date(dateRange.start).toLocaleDateString('en-IN')} - ${new Date(dateRange.end).toLocaleDateString('en-IN')}`;
     }
+    if (dateRange.start) {
+      return `From: ${new Date(dateRange.start).toLocaleDateString('en-IN')}`;
+    }
+    if (dateRange.end) {
+      return `Until: ${new Date(dateRange.end).toLocaleDateString('en-IN')}`;
+    }
     return null;
   };
 
@@ -2384,6 +2437,156 @@ const UserCreateTask = () => {
   const filteredTaskStats = useMemo(() => {
     return calculateUnifiedStatsFromTasks(statsBaseTasks);
   }, [statsBaseTasks, calculateUnifiedStatsFromTasks]);
+
+  const filteredTasksForExport = useMemo(() => {
+    if (!showOverdueOnly) return filteredTasks;
+
+    const overdueFiltered = {};
+    Object.entries(filteredTasks).forEach(([dateKey, tasks]) => {
+      const overdueTasksForDate = tasks.filter(task => {
+        const status = getStatusForTask(task);
+        return status === 'overdue' || isOverdue(getDueDateForTask(task), status, task);
+      });
+
+      if (overdueTasksForDate.length > 0) {
+        overdueFiltered[dateKey] = overdueTasksForDate;
+      }
+    });
+
+    return overdueFiltered;
+  }, [filteredTasks, showOverdueOnly, getStatusForTask, getDueDateForTask, isOverdue]);
+
+  const exportTaskCount = useMemo(() => countGroupedTasks(filteredTasksForExport), [countGroupedTasks, filteredTasksForExport]);
+
+  const getTaskViewLabel = useCallback(() => ({
+    all: 'All Tasks',
+    self: 'My Personal Tasks',
+    assigned: 'Assigned to Me',
+    client: 'Client Tasks',
+    project: 'Project Tasks'
+  }[taskViewMode] || 'Tasks'), [taskViewMode]);
+
+  const getTimeFilterLabel = useCallback(() => ({
+    all: 'All Time',
+    today: 'Today',
+    yesterday: 'Yesterday',
+    'this-week': 'This Week',
+    'last-week': 'Last Week',
+    'this-month': 'This Month',
+    'last-month': 'Last Month'
+  }[timeFilter] || timeFilter), [timeFilter]);
+
+  const getStatusFilterLabel = useCallback(() => ({
+    completed: 'Completed',
+    'high-priority': 'High Priority',
+    'medium-priority': 'Medium Priority',
+    'low-priority': 'Low Priority',
+    'in-progress': 'In Progress',
+    pending: 'Pending',
+    onhold: 'On Hold',
+    overdue: 'Overdue'
+  }[statusFilter] || statusFilter.replace('-', ' ')), [statusFilter]);
+
+  const exportFilteredTasksPdf = useCallback(() => {
+    const rows = Object.entries(filteredTasksForExport).flatMap(([dateKey, tasks]) => (
+      tasks.map(task => {
+        const taskSource = getTaskSource(task);
+        const status = getStatusForTask(task);
+        const dueDate = getDueDateForTask(task);
+        const displayStatus = isOverdue(dueDate, status, task) ? 'overdue' : status;
+        const checkpoints = Array.isArray(task.checkpoints) && task.checkpoints.length > 0
+          ? `${task.checkpoints.filter(item => item.completed).length}/${task.checkpoints.length}`
+          : '-';
+        const typeLabel = taskSource === 'client'
+          ? getClientNameFromTask(task)
+          : taskSource === 'project'
+          ? `Project: ${task.projectName || 'Project Task'}`
+          : taskSource === 'self'
+          ? 'Personal'
+          : 'Assigned';
+        const assignedInfo = taskSource === 'project' ? getProjectAssignmentDisplay(task) : '';
+
+        return [
+          dateKey,
+          task.title || task.name || 'Untitled',
+          task.description || task.name || '-',
+          formatDueDateTime(dueDate),
+          String(task.priority || 'medium').replace(/\b\w/g, char => char.toUpperCase()),
+          displayStatus.replace('-', ' ').replace(/\b\w/g, char => char.toUpperCase()),
+          checkpoints,
+          assignedInfo ? `${typeLabel} (${assignedInfo})` : typeLabel
+        ];
+      })
+    ));
+
+    if (rows.length === 0) {
+      showSnackbar('No tasks available for selected filters', 'warning');
+      return;
+    }
+
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const exportedAt = new Date();
+    const filterSummary = [
+      `View: ${getTaskViewLabel()}`,
+      `Time: ${getTimeFilterLabel()}`,
+      statusFilter ? `Status/Priority: ${getStatusFilterLabel()}` : '',
+      searchTerm.trim() ? `Search: ${searchTerm.trim()}` : '',
+      getDateFilterSummary(),
+      showOverdueOnly ? 'Overdue Only' : ''
+    ].filter(Boolean).join(' | ');
+
+    pdf.setFillColor(80, 70, 235);
+    pdf.rect(0, 0, pageWidth, 82, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(18);
+    pdf.text(`${getTaskViewLabel()} Report`, 34, 34);
+    pdf.setFontSize(9);
+    pdf.text(`Exported: ${exportedAt.toLocaleString('en-IN')} | Total: ${rows.length}`, 34, 54);
+    pdf.text(filterSummary.slice(0, 160), 34, 69);
+
+    autoTable(pdf, {
+      startY: 104,
+      head: [['Date Group', 'Title', 'Description', 'Due Date', 'Priority', 'Status', 'Checkpoints', 'Type']],
+      body: rows,
+      theme: 'grid',
+      headStyles: { fillColor: [80, 70, 235], textColor: 255, fontSize: 8 },
+      bodyStyles: { fontSize: 7, textColor: [35, 47, 71], cellPadding: 5 },
+      alternateRowStyles: { fillColor: [248, 249, 255] },
+      margin: { left: 24, right: 24 },
+      styles: { overflow: 'linebreak', valign: 'top' },
+      columnStyles: {
+        0: { cellWidth: 74 },
+        1: { cellWidth: 120 },
+        2: { cellWidth: 190 },
+        3: { cellWidth: 92 },
+        4: { cellWidth: 62 },
+        5: { cellWidth: 70 },
+        6: { cellWidth: 66 },
+        7: { cellWidth: 150 }
+      }
+    });
+
+    const fileDate = exportedAt.toISOString().slice(0, 10);
+    const fileView = getTaskViewLabel().replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    pdf.save(`${fileView}-filtered-tasks-${fileDate}.pdf`);
+    showSnackbar('Filtered tasks PDF exported successfully', 'success');
+  }, [
+    filteredTasksForExport,
+    getTaskSource,
+    getStatusForTask,
+    getDueDateForTask,
+    isOverdue,
+    getProjectAssignmentDisplay,
+    getTaskViewLabel,
+    getTimeFilterLabel,
+    getStatusFilterLabel,
+    statusFilter,
+    searchTerm,
+    showOverdueOnly,
+    getDateFilterSummary,
+    showSnackbar
+  ]);
 
   const getOverdueCount = useMemo(() => {
     let count = 0;
@@ -2533,6 +2736,51 @@ const UserCreateTask = () => {
     } catch (err) {
       console.error("❌ Error updating client task:", err);
       showSnackbar(err.response?.data?.message || err.response?.data?.error || 'Failed to update client task status', 'error');
+    } finally {
+      setPageLoading(false);
+    }
+  };
+
+  const refreshCurrentTaskView = async (source = taskViewMode) => {
+    if (taskViewMode === 'all') {
+      await fetchAllTasks();
+    }
+    if (source === 'self' || taskViewMode === 'self') {
+      await fetchMyTasks();
+    } else if (source === 'client' || taskViewMode === 'client') {
+      await fetchClientTasks();
+    } else if (source === 'project' || taskViewMode === 'project') {
+      await fetchProjectTasks();
+    } else {
+      await fetchAssignedToMeTasks();
+    }
+  };
+
+  const handleCheckpointToggle = async (task, checkpoint) => {
+    const taskId = task?._id || task?.id;
+    const checkpointId = checkpoint?._id || checkpoint?.id;
+    const taskSource = getTaskSource(task);
+
+    if (!taskId || !checkpointId) return;
+
+    setPageLoading(true);
+    try {
+      const endpoint = taskSource === 'client'
+        ? `/tasks/client-tasks/${taskId}/checkpoints/${checkpointId}`
+        : taskSource === 'project'
+          ? `/tasks/project/${task.projectId}/tasks/${taskId}/checkpoints/${checkpointId}`
+        : taskSource === 'self'
+          ? `/tasks/self/${taskId}/checkpoints/${checkpointId}`
+          : `/tasks/assigned/${taskId}/checkpoints/${checkpointId}`;
+
+      const nextCompleted = !checkpoint.completed;
+      await axios.patch(endpoint, { completed: nextCompleted });
+      await refreshCurrentTaskView(taskSource);
+      await fetchOverdueTasks();
+      showSnackbar(nextCompleted ? 'Checkpoint completed' : 'Checkpoint reopened', 'success');
+    } catch (err) {
+      console.error('Error updating checkpoint:', err);
+      showSnackbar(err.response?.data?.message || err.response?.data?.error || 'Failed to update checkpoint', 'error');
     } finally {
       setPageLoading(false);
     }
@@ -2770,6 +3018,7 @@ const UserCreateTask = () => {
       formData.append('dueDateTime', dueDate.toISOString());
       formData.append('priorityDays', newTask.priorityDays || '1');
       formData.append('priority', newTask.priority);
+      formData.append('checkpoints', JSON.stringify(getCleanCheckpoints(newTask.checkpoints)));
 
       if (newTask.files) {
         for (let i = 0; i < newTask.files.length; i++) {
@@ -2800,6 +3049,7 @@ const UserCreateTask = () => {
         priorityDays: '1', 
         files: null, 
         voiceNote: null,
+        checkpoints: [],
       });
 
       fetchMyTasks();
@@ -3087,15 +3337,26 @@ const UserCreateTask = () => {
                 <div className="user-create-task-time-filter-title">Filter by Time Period</div>
                 <div className="user-create-task-time-filter-subtitle">Select a timeframe to view task statistics</div>
               </div>
-              {timeFilter !== 'all' && (
+              <div className="user-create-task-time-filter-actions">
                 <button
-                  className="user-create-task-button user-create-task-button-text"
-                  onClick={() => handleTimeFilterChange('all')}
+                  className="user-create-task-button user-create-task-button-outlined user-create-task-export-pdf-button"
+                  onClick={exportFilteredTasksPdf}
+                  disabled={exportTaskCount === 0}
+                  title={exportTaskCount === 0 ? 'No filtered tasks to export' : `Export ${exportTaskCount} filtered tasks`}
                 >
-                  <FiRotateCcw size={14} />
-                  {!isMobile && "Reset"}
+                  <FiDownload size={14} />
+                  Export Pdf
                 </button>
-              )}
+                {timeFilter !== 'all' && (
+                  <button
+                    className="user-create-task-button user-create-task-button-text"
+                    onClick={() => handleTimeFilterChange('all')}
+                  >
+                    <FiRotateCcw size={14} />
+                    {!isMobile && "Reset"}
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="user-create-task-time-filter-buttons">
@@ -3121,6 +3382,45 @@ const UserCreateTask = () => {
                   </button>
                 );
               })}
+            </div>
+
+            <div className="user-create-task-date-range-filter">
+              <div className="user-create-task-date-range-field">
+                <label>Start Date</label>
+                <input
+                  type="date"
+                  className="user-create-task-input"
+                  value={dateRange.start ? new Date(dateRange.start).toISOString().split('T')[0] : ''}
+                  onChange={(event) => {
+                    setSelectedDate(null);
+                    setDateRange(prev => ({ ...prev, start: event.target.value }));
+                  }}
+                  max={dateRange.end || undefined}
+                />
+              </div>
+              <div className="user-create-task-date-range-field">
+                <label>End Date</label>
+                <input
+                  type="date"
+                  className="user-create-task-input"
+                  value={dateRange.end ? new Date(dateRange.end).toISOString().split('T')[0] : ''}
+                  onChange={(event) => {
+                    setSelectedDate(null);
+                    setDateRange(prev => ({ ...prev, end: event.target.value }));
+                  }}
+                  min={dateRange.start || undefined}
+                />
+              </div>
+              {(selectedDate || dateRange.start || dateRange.end) && (
+                <button
+                  type="button"
+                  className="user-create-task-button user-create-task-button-text user-create-task-date-clear"
+                  onClick={clearDateFilter}
+                >
+                  <FiX size={14} />
+                  Clear Date
+                </button>
+              )}
             </div>
           </div>
 
@@ -3195,7 +3495,7 @@ const UserCreateTask = () => {
             })()}
           </div>
 
-          {(statusFilter || timeFilter !== 'all' || showOverdueOnly) && (
+          {(statusFilter || timeFilter !== 'all' || selectedDate || dateRange.start || dateRange.end || showOverdueOnly) && (
             <div className="user-create-task-alert info" style={{ marginTop: '16px', padding: isMobile ? '12px' : '16px' }}>
               <div style={{ fontSize: isMobile ? '13px' : '14px' }}>
                 Active Filters:
@@ -3224,6 +3524,17 @@ const UserCreateTask = () => {
                     Time: {timeFilter}
                     <button
                       onClick={() => setTimeFilter('all')}
+                      style={{ marginLeft: '4px', background: 'none', border: 'none', cursor: 'pointer' }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+                {getDateFilterSummary() && (
+                  <div className="user-create-task-priority-chip" style={{ display: 'inline-flex', margin: '0 4px', padding: '2px 8px' }}>
+                    {getDateFilterSummary()}
+                    <button
+                      onClick={clearDateFilter}
                       style={{ marginLeft: '4px', background: 'none', border: 'none', cursor: 'pointer' }}
                     >
                       ×
@@ -3501,6 +3812,33 @@ const UserCreateTask = () => {
                     <option value="High">High</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="user-create-task-form-control">
+                <div className="task-checkpoint-header">
+                  <label>Checkpoints (Optional)</label>
+                  <button type="button" className="task-checkpoint-add" onClick={addClientCheckpoint}>
+                    <FiPlus size={14} /> Add
+                  </button>
+                </div>
+                {(clientTaskForm.checkpoints || []).length > 0 && (
+                  <div className="task-checkpoint-input-list">
+                    {clientTaskForm.checkpoints.map((checkpoint, index) => (
+                      <div className="task-checkpoint-input-row" key={`client-checkpoint-${index}`}>
+                        <FiCheckSquare size={16} />
+                        <input
+                          className="user-create-task-input"
+                          value={checkpoint.title}
+                          placeholder={`Checkpoint ${index + 1}`}
+                          onChange={(event) => updateClientCheckpoint(index, event.target.value)}
+                        />
+                        <button type="button" className="task-checkpoint-remove" onClick={() => removeClientCheckpoint(index)} aria-label="Remove checkpoint">
+                          <FiX size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -3840,6 +4178,24 @@ const UserCreateTask = () => {
                                   <PriorityChip priority={priority} />
                                 </div>
 
+                                {Array.isArray(task.checkpoints) && task.checkpoints.length > 0 && (
+                                  <div className="task-checkpoint-list">
+                                    <div className="task-checkpoint-progress">
+                                      {task.checkpoints.filter(item => item.completed).length}/{task.checkpoints.length} checkpoints
+                                    </div>
+                                    {task.checkpoints.map(checkpoint => (
+                                      <label className={`task-checkpoint-item ${checkpoint.completed ? 'completed' : ''}`} key={checkpoint._id || checkpoint.id || checkpoint.title}>
+                                        <input
+                                          type="checkbox"
+                                          checked={Boolean(checkpoint.completed)}
+                                          onChange={() => handleCheckpointToggle(task, checkpoint)}
+                                        />
+                                        <span>{checkpoint.title}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                )}
+
                                 <div className="user-create-task-mobile-card-actions">
                                   <div className="user-create-task-flex user-create-task-gap-1">
                                     <button 
@@ -3943,6 +4299,7 @@ const UserCreateTask = () => {
                           <th style={{ padding: isMobile ? '8px' : '12px' }}>Due Date</th>
                           <th style={{ padding: isMobile ? '8px' : '12px' }}>Priority</th>
                           <th style={{ padding: isMobile ? '8px' : '12px' }}>Status</th>
+                          <th style={{ padding: isMobile ? '8px' : '12px' }}>Checkpoints</th>
                           {(taskViewMode === 'client' || taskViewMode === 'project' || taskViewMode === 'all') && <th style={{ padding: isMobile ? '8px' : '12px' }}>Type</th>}
                           <th style={{ padding: isMobile ? '8px' : '12px' }}>Files</th>
                           <th style={{ padding: isMobile ? '8px' : '12px' }}>Actions</th>
@@ -3990,6 +4347,23 @@ const UserCreateTask = () => {
                                     {(task.description || '').length > 50 
                                       ? (task.description || '').substring(0, 50) + '...' 
                                       : task.description || ''}
+                                  </div>
+                                )}
+                                {isMobile && Array.isArray(task.checkpoints) && task.checkpoints.length > 0 && (
+                                  <div className="task-checkpoint-list compact">
+                                    <div className="task-checkpoint-progress">
+                                      {task.checkpoints.filter(item => item.completed).length}/{task.checkpoints.length} checkpoints
+                                    </div>
+                                    {task.checkpoints.map(checkpoint => (
+                                      <label className={`task-checkpoint-item ${checkpoint.completed ? 'completed' : ''}`} key={checkpoint._id || checkpoint.id || checkpoint.title}>
+                                        <input
+                                          type="checkbox"
+                                          checked={Boolean(checkpoint.completed)}
+                                          onChange={() => handleCheckpointToggle(task, checkpoint)}
+                                        />
+                                        <span>{checkpoint.title}</span>
+                                      </label>
+                                    ))}
                                   </div>
                                 )}
                               </td>
@@ -4044,6 +4418,27 @@ const UserCreateTask = () => {
                                   </div>
                                 ) : (
                                   <StatusChip status={displayedStatus} label={displayedStatus} />
+                                )}
+                              </td>
+                              <td style={{ padding: isMobile ? '8px' : '12px', minWidth: '220px' }}>
+                                {Array.isArray(task.checkpoints) && task.checkpoints.length > 0 ? (
+                                  <div className="task-checkpoint-list compact in-table">
+                                    <div className="task-checkpoint-progress">
+                                      {task.checkpoints.filter(item => item.completed).length}/{task.checkpoints.length} checkpoints
+                                    </div>
+                                    {task.checkpoints.map(checkpoint => (
+                                      <label className={`task-checkpoint-item ${checkpoint.completed ? 'completed' : ''}`} key={checkpoint._id || checkpoint.id || checkpoint.title}>
+                                        <input
+                                          type="checkbox"
+                                          checked={Boolean(checkpoint.completed)}
+                                          onChange={() => handleCheckpointToggle(task, checkpoint)}
+                                        />
+                                        <span>{checkpoint.title}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="task-checkpoint-empty">No checkpoints</span>
                                 )}
                               </td>
                               
@@ -4382,6 +4777,33 @@ const UserCreateTask = () => {
                   value={newTask.priorityDays}
                   onChange={(e) => setNewTask({ ...newTask, priorityDays: e.target.value })}
                 />
+              </div>
+
+              <div className="user-create-task-form-control">
+                <div className="task-checkpoint-header">
+                  <label>Checkpoints (Optional)</label>
+                  <button type="button" className="task-checkpoint-add" onClick={addPersonalCheckpoint}>
+                    <FiPlus size={14} /> Add
+                  </button>
+                </div>
+                {(newTask.checkpoints || []).length > 0 && (
+                  <div className="task-checkpoint-input-list">
+                    {newTask.checkpoints.map((checkpoint, index) => (
+                      <div className="task-checkpoint-input-row" key={`personal-checkpoint-${index}`}>
+                        <FiCheckSquare size={16} />
+                        <input
+                          className="user-create-task-input"
+                          value={checkpoint.title}
+                          placeholder={`Checkpoint ${index + 1}`}
+                          onChange={(event) => updatePersonalCheckpoint(index, event.target.value)}
+                        />
+                        <button type="button" className="task-checkpoint-remove" onClick={() => removePersonalCheckpoint(index)} aria-label="Remove checkpoint">
+                          <FiX size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>

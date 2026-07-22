@@ -3,6 +3,16 @@ import axios from '../../utils/axiosConfig';
 import { API_URL_IMG } from '../../config';
 import '../Css/MyTaskManagement.css';
 
+const createEmptyCheckpoint = () => ({ title: '', completed: false });
+
+const getCleanCheckpoints = (checkpoints = []) => (
+  Array.isArray(checkpoints)
+    ? checkpoints
+        .map(item => ({ title: String(item?.title || '').trim(), completed: Boolean(item?.completed) }))
+        .filter(item => item.title)
+    : []
+);
+
 const MyTaskManagement = () => {
   const [tab, setTab] = useState(0);
   const [myTasksGrouped, setMyTasksGrouped] = useState({});
@@ -40,7 +50,8 @@ const MyTaskManagement = () => {
     files: null,
     voiceNote: null,
     repeatPattern: 'none',
-    repeatDays: []
+    repeatDays: [],
+    checkpoints: []
   });
   const [newGroup, setNewGroup] = useState({
     name: '', description: '', members: []
@@ -60,6 +71,18 @@ const MyTaskManagement = () => {
   const [isMobile, setIsMobile] = useState(false);
   const fileInputRef = useRef(null);
   const voiceNoteInputRef = useRef(null);
+  const addCheckpoint = () => {
+    setNewTask(prev => ({ ...prev, checkpoints: [...(prev.checkpoints || []), createEmptyCheckpoint()] }));
+  };
+  const updateCheckpoint = (index, title) => {
+    setNewTask(prev => ({
+      ...prev,
+      checkpoints: (prev.checkpoints || []).map((item, itemIndex) => itemIndex === index ? { ...item, title } : item)
+    }));
+  };
+  const removeCheckpoint = (index) => {
+    setNewTask(prev => ({ ...prev, checkpoints: (prev.checkpoints || []).filter((_, itemIndex) => itemIndex !== index) }));
+  };
 
   
   useEffect(() => {
@@ -547,6 +570,7 @@ const MyTaskManagement = () => {
       formData.append('assignedGroups', JSON.stringify(newTask.assignedGroups || []));
       formData.append('repeatPattern', newTask.repeatPattern);
       formData.append('repeatDays', JSON.stringify(newTask.repeatDays || []));
+      formData.append('checkpoints', JSON.stringify(getCleanCheckpoints(newTask.checkpoints)));
 
       if (newTask.files) {
         for (let i = 0; i < newTask.files.length; i++) {
@@ -591,7 +615,8 @@ const MyTaskManagement = () => {
         files: null, 
         voiceNote: null,
         repeatPattern: 'none',
-        repeatDays: []
+        repeatDays: [],
+        checkpoints: []
       });
 
     } catch (err) {
@@ -1612,6 +1637,31 @@ const MyTaskManagement = () => {
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+          </div>
+
+          <div className="MyTaskManagement-create-task-section">
+            <h3>Checkpoints (Optional)</h3>
+            <button type="button" className="MyTaskManagement-upload-btn" onClick={addCheckpoint}>
+              + Add Checkpoint
+            </button>
+            {(newTask.checkpoints || []).length > 0 && (
+              <div style={{ display: 'grid', gap: '10px', marginTop: '12px' }}>
+                {newTask.checkpoints.map((checkpoint, index) => (
+                  <div key={`checkpoint-${index}`} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      className="MyTaskManagement-form-input"
+                      placeholder={`Checkpoint ${index + 1}`}
+                      value={checkpoint.title}
+                      onChange={(event) => updateCheckpoint(index, event.target.value)}
+                    />
+                    <button type="button" className="MyTaskManagement-cancel-btn" onClick={() => removeCheckpoint(index)}>
+                      Remove
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>

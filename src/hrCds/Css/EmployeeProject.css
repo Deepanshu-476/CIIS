@@ -151,6 +151,42 @@
   color: #8a94a6;
 }
 
+.EmployeeProject-checkpoint-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.EmployeeProject-checkpoint-add,
+.EmployeeProject-checkpoint-remove {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #1f2937;
+  border-radius: 6px;
+  min-height: 34px;
+  padding: 6px 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.EmployeeProject-checkpoint-remove {
+  color: #dc2626;
+}
+
+.EmployeeProject-checkpoint-input-list {
+  display: grid;
+  gap: 10px;
+}
+
+.EmployeeProject-checkpoint-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
 .EmployeeProject-search-clear {
   width: 30px;
   height: 30px;
@@ -745,6 +781,49 @@
   font-size: 0.875rem;
   color: #666;
   margin-top: 0.5rem;
+}
+
+.EmployeeProject-task-filter-bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(102, 126, 234, 0.14);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.EmployeeProject-task-filter-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.EmployeeProject-task-filter-copy strong {
+  color: #2d3748;
+  font-size: 0.95rem;
+}
+
+.EmployeeProject-task-filter-copy span {
+  color: #718096;
+  font-size: 0.85rem;
+}
+
+.EmployeeProject-task-assignee-filter {
+  width: min(280px, 100%);
+  margin: 0;
+}
+
+.EmployeeProject-task-assignee-filter label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: #4a5568;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 /* Loading */
@@ -2357,6 +2436,15 @@
 
   .EmployeeProject-tasks-list {
     grid-template-columns: 1fr;
+  }
+
+  .EmployeeProject-task-filter-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .EmployeeProject-task-assignee-filter {
+    width: 100%;
   }
 
   .EmployeeProject-task-detail-grid {

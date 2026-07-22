@@ -34,6 +34,8 @@ const EmpAssets = () => {
   const [currentUserCompanyCode, setCurrentUserCompanyCode] = useState('');
   const [currentUserName, setCurrentUserName] = useState('');
   const [allUsers, setAllUsers] = useState([]);
+  const [approverPermissionUserIds, setApproverPermissionUserIds] = useState([]);
+  const [deletePermissionUserIds, setDeletePermissionUserIds] = useState([]);
   
   
   const [isOwner, setIsOwner] = useState(false);
@@ -81,12 +83,13 @@ const EmpAssets = () => {
     if (currentUserCompanyCode) {
       fetchRequests();
     }
-  }, [currentUserCompanyCode, isOwner]);
+  }, [currentUserCompanyCode, isOwner, approverPermissionUserIds, deletePermissionUserIds, currentUserId]);
 
   
   useEffect(() => {
     if (currentUserCompanyId) {
       fetchDepartments();
+      fetchAssetPagePermissions();
     }
   }, [currentUserCompanyId]);
 
@@ -249,6 +252,27 @@ const EmpAssets = () => {
     }
   };
 
+  const fetchAssetPagePermissions = async () => {
+    try {
+      const res = await axios.get('/page-permissions/by-path', {
+        params: { path: '/ciisUser/emp-assets' }
+      });
+      const approverIds = (res.data?.page?.approvers || [])
+        .map(user => String(user?._id || user?.id || user))
+        .filter(Boolean);
+      const deleteIds = (res.data?.page?.deleteUsers || [])
+        .map(user => String(user?._id || user?.id || user))
+        .filter(Boolean);
+
+      setApproverPermissionUserIds(approverIds);
+      setDeletePermissionUserIds(deleteIds);
+    } catch (error) {
+      console.error('Failed to load asset page permissions:', error);
+      setApproverPermissionUserIds([]);
+      setDeletePermissionUserIds([]);
+    }
+  };
+
   
   
   
@@ -335,7 +359,7 @@ const EmpAssets = () => {
       }
       
       
-      if (!isOwner && !isAdmin && !isHR) {
+      if (!isOwner && !isAdmin && !isHR && !hasConfiguredPageAccess()) {
         if (currentUserDepartment) {
           void 0;
           const deptValue = typeof currentUserDepartment === 'object' 
@@ -367,7 +391,7 @@ const EmpAssets = () => {
       void 0;
       
       
-      if (!isOwner && !isAdmin && !isHR && currentUserDepartment) {
+      if (!isOwner && !isAdmin && !isHR && !hasConfiguredPageAccess() && currentUserDepartment) {
         const beforeFilter = requestsData.length;
         const deptValue = typeof currentUserDepartment === 'object' 
           ? currentUserDepartment._id || currentUserDepartment.id 
@@ -407,16 +431,33 @@ const EmpAssets = () => {
   
   
   const canApproveRequest = () => {
+    if (approverPermissionUserIds.length > 0 || deletePermissionUserIds.length > 0) {
+      return hasConfiguredPageAccess();
+    }
+
     return isOwner === true || isAdmin === true || isHR === true || isManager === true;
   };
 
   const canDeleteRequest = () => {
+    if (deletePermissionUserIds.length > 0) {
+      return deletePermissionUserIds.includes(String(currentUserId));
+    }
+
     return isOwner === true || isAdmin === true || isHR === true;
   };
 
   const canEditComment = () => {
+    if (approverPermissionUserIds.length > 0 || deletePermissionUserIds.length > 0) {
+      return hasConfiguredPageAccess();
+    }
+
     return isOwner === true || isAdmin === true || isHR === true || isManager === true;
   };
+
+  const hasConfiguredPageAccess = () => (
+    approverPermissionUserIds.includes(String(currentUserId)) ||
+    deletePermissionUserIds.includes(String(currentUserId))
+  );
 
   
   
@@ -765,7 +806,7 @@ const EmpAssets = () => {
         <p>
           Review and manage employee asset requests 
           <RoleBadge />
-          {!isOwner && !isAdmin && !isHR && !isManager && (
+          {!canApproveRequest() && (
             <span className="EmpAssets-view-only-badge">
               <FiEyeOff size={14} />
               View Only
@@ -781,14 +822,14 @@ const EmpAssets = () => {
             <FiLock size={20} />
             <div className="EmpAssets-warning-text">
               <strong>🔒 View Only Mode</strong>
-              <p>You are viewing asset requests from your department only. Only Owners, Admins, HR, and Managers can approve/reject requests.</p>
+              <p>You are viewing asset requests from your department only. Users selected in Page Management can approve/reject requests.</p>
             </div>
           </div>
         </div>
       )}
 
       
-      {!isOwner && !isAdmin && !isHR && !isManager && currentUserDepartment && (
+      {!isOwner && !isAdmin && !isHR && !isManager && !hasConfiguredPageAccess() && currentUserDepartment && (
         <div className="EmpAssets-department-info-banner">
           <div className="EmpAssets-info-content">
             <FiHome size={20} />

@@ -180,6 +180,7 @@ const EmployeeLeaves = () => {
   const [currentUserName, setCurrentUserName] = useState("");
   const [allUsers, setAllUsers] = useState([]);
   const [usersMap, setUsersMap] = useState({});
+  const [approverPermissionUserIds, setApproverPermissionUserIds] = useState([]);
   const [deletePermissionUserIds, setDeletePermissionUserIds] = useState([]);
   
   
@@ -458,6 +459,11 @@ const EmployeeLeaves = () => {
     return isOwner || isAdmin || isHR || isManager;
   }, [isOwner, isAdmin, isHR, isManager]);
 
+  const hasConfiguredPageAccess = useMemo(() => (
+    approverPermissionUserIds.includes(String(currentUserId)) ||
+    deletePermissionUserIds.includes(String(currentUserId))
+  ), [approverPermissionUserIds, deletePermissionUserIds, currentUserId]);
+
   const canDeleteLeave = useCallback(() => {
     if (deletePermissionUserIds.length > 0) {
       return deletePermissionUserIds.includes(String(currentUserId));
@@ -472,8 +478,12 @@ const EmployeeLeaves = () => {
       return isCurrentUserPendingApprover(leave);
     }
 
+    if (approverPermissionUserIds.length > 0) {
+      return approverPermissionUserIds.includes(String(currentUserId));
+    }
+
     return isOwner || isAdmin || isHR || isManager;
-  }, [isOwner, isAdmin, isHR, isManager, currentUserId]);
+  }, [approverPermissionUserIds, isOwner, isAdmin, isHR, isManager, currentUserId]);
 
   
   
@@ -665,12 +675,17 @@ const EmployeeLeaves = () => {
       const res = await axios.get("/page-permissions/by-path", {
         params: { path: "/ciisUser/emp-leaves" }
       });
-      const ids = (res.data?.page?.deleteUsers || [])
+      const approverIds = (res.data?.page?.approvers || [])
         .map(user => String(user?._id || user?.id || user))
         .filter(Boolean);
-      setDeletePermissionUserIds(ids);
+      const deleteIds = (res.data?.page?.deleteUsers || [])
+        .map(user => String(user?._id || user?.id || user))
+        .filter(Boolean);
+      setApproverPermissionUserIds(approverIds);
+      setDeletePermissionUserIds(deleteIds);
     } catch (error) {
       console.error("Failed to load leave page permissions:", error);
+      setApproverPermissionUserIds([]);
       setDeletePermissionUserIds([]);
     }
   }, []);
@@ -686,7 +701,7 @@ const EmployeeLeaves = () => {
       const params = new URLSearchParams();
       params.append('company', currentUserCompanyId);
       
-      if (!isOwner) {
+      if (!isOwner && !hasConfiguredPageAccess) {
         if (currentUserDepartment) {
           params.append('department', currentUserDepartment);
         }
@@ -716,7 +731,7 @@ const EmployeeLeaves = () => {
         data = res.data.message;
       }
       
-      if (!isOwner && currentUserDepartment) {
+      if (!isOwner && !hasConfiguredPageAccess && currentUserDepartment) {
         data = data.filter(leave => {
           const leaveDept = leave.user?.department?._id || 
                            leave.user?.department || 
@@ -747,6 +762,7 @@ const EmployeeLeaves = () => {
   }, [
     currentUserCompanyId, 
     isOwner, 
+    hasConfiguredPageAccess,
     currentUserDepartment, 
     departmentFilter, 
     filterDate, 
@@ -796,7 +812,8 @@ const EmployeeLeaves = () => {
     const unsubscribeNewLeave = onNewLeave((data) => {
       const newLeave = data.data;
       
-      const shouldShow = isOwner || 
+      const shouldShow = isOwner ||
+        hasConfiguredPageAccess ||
         (newLeave.user?.department?._id === currentUserDepartment) ||
         (newLeave.user?.department === currentUserDepartment) ||
         (newLeave.department === currentUserDepartment);
@@ -886,7 +903,7 @@ const EmployeeLeaves = () => {
         }
       });
     };
-  }, [currentUserId, isOwner, currentUserDepartment, leaves, onNewLeave, onLeaveStatusChanged, onLeaveDeleted, joinLeaveRoom, leaveLeaveRoom, updateStats, showToast]);
+  }, [currentUserId, isOwner, hasConfiguredPageAccess, currentUserDepartment, leaves, onNewLeave, onLeaveStatusChanged, onLeaveDeleted, joinLeaveRoom, leaveLeaveRoom, updateStats, showToast]);
 
   
   

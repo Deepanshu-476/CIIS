@@ -95,6 +95,41 @@ const categoryColors = {
   communication: "#475569",
 };
 
+const getRouteAccessKeys = route => {
+  const cleanPath = String(route.path || "").replace(/^\/+/, "");
+  const keys = new Set([route.id, route.path, cleanPath, `/ciisUser/${cleanPath}`, `ciisUser/${cleanPath}`].filter(Boolean));
+
+  if (cleanPath.startsWith("client-")) {
+    const clientPath = cleanPath.substring(7);
+    keys.add(`/client/${clientPath}`);
+    keys.add(`client/${clientPath}`);
+    keys.add(clientPath);
+  }
+
+  return keys;
+};
+
+const normalizeAllowedPages = pages => {
+  if (!Array.isArray(pages)) return [];
+
+  const routeByAccessKey = new Map();
+  APP_ROUTES.forEach(route => {
+    getRouteAccessKeys(route).forEach(key => {
+      routeByAccessKey.set(String(key).trim(), route.id);
+      routeByAccessKey.set(String(key).trim().replace(/^\/+/, ""), route.id);
+    });
+  });
+
+  return [...new Set(
+    pages
+      .map(page => {
+        const cleanPage = String(page || "").trim();
+        return routeByAccessKey.get(cleanPage) || routeByAccessKey.get(cleanPage.replace(/^\/+/, "")) || cleanPage;
+      })
+      .filter(Boolean)
+  )];
+};
+
 const getStoredAdminId = () => {
   try {
     const raw = localStorage.getItem("superAdmin") || localStorage.getItem("user");
@@ -186,7 +221,7 @@ export default function CompanyAccessManagement() {
 
   const selectCompany = company => {
     setSelectedCompanyId(company._id);
-    setSelectedPages(Array.isArray(company.allowedPages) ? company.allowedPages : []);
+    setSelectedPages(normalizeAllowedPages(company.allowedPages));
     setIsActive(Boolean(company.isActive));
     setActiveDays(30);
     setNotice(null);

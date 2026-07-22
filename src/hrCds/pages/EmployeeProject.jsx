@@ -68,12 +68,6 @@ const getProjectCompanyCode = (project) => String(
   || ""
 ).trim();
 
-const getCurrentDateTimeInputValue = () => {
-  const now = new Date();
-  const timezoneOffsetMs = now.getTimezoneOffset() * 60000;
-  return new Date(now.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
-};
-
 const getObjectIdTime = (id) => {
   const value = String(id || "");
   if (!/^[a-f\d]{24}$/i.test(value)) return 0;
@@ -394,8 +388,8 @@ const EmployeeProject = () => {
   };
 
   const handleOpenEditTaskDialog = (task) => {
-    if (normalizeTaskStatus(task?.status) !== "pending") {
-      showSnackbar("Only pending tasks can be edited", "warning");
+    if (!["pending", "overdue"].includes(normalizeTaskStatus(task?.status))) {
+      showSnackbar("Only pending or overdue tasks can be edited", "warning");
       return;
     }
 
@@ -508,13 +502,8 @@ const EmployeeProject = () => {
   const validateTaskForm = () => {
     const errors = {};
 
-    if (newTask.dueDate) {
-      const selectedDueDate = new Date(newTask.dueDate);
-      const now = new Date();
-
-      if (Number.isNaN(selectedDueDate.getTime()) || selectedDueDate < now) {
-        errors.dueDate = "Back date/time select nahi kar sakte.";
-      }
+    if (newTask.dueDate && Number.isNaN(new Date(newTask.dueDate).getTime())) {
+      errors.dueDate = "Valid date/time select karein.";
     }
 
     setTaskErrors(errors);
@@ -886,6 +875,7 @@ const EmployeeProject = () => {
       case "completed": return "#66BB6A";
       case "in progress": return "#29B6F6";
       case "pending": return "#FFA726";
+      case "overdue": return "#D32F2F";
       case "cancelled": return "#EF5350";
       case "on hold": return "#AB47BC";
       default: return "#9E9E9E";
@@ -1115,7 +1105,7 @@ const EmployeeProject = () => {
                   </div>
                 </div>
                 <div className="EmployeeProject-task-actions">
-                  {normalizeTaskStatus(t.status) === "pending" && (
+                  {["pending", "overdue"].includes(normalizeTaskStatus(t.status)) && (
                     <Tooltip title="Edit Task">
                       <button
                         className="EmployeeProject-icon-button"
@@ -2049,7 +2039,7 @@ const EmployeeProject = () => {
             </div>
 
             <div className="EmployeeProject-modal-footer EmployeeProject-task-detail-footer">
-              {normalizeTaskStatus(detailTask.status) === "pending" && (
+              {["pending", "overdue"].includes(normalizeTaskStatus(detailTask.status)) && (
                 <button
                   className="EmployeeProject-button EmployeeProject-button-outline"
                   onClick={() => {
@@ -2439,7 +2429,6 @@ const EmployeeProject = () => {
                         type="datetime-local"
                         className={`EmployeeProject-input ${taskErrors.dueDate ? 'EmployeeProject-input-error' : ''}`}
                         value={newTask.dueDate}
-                        min={getCurrentDateTimeInputValue()}
                         onChange={(e) =>
                           setNewTask({ ...newTask, dueDate: e.target.value })
                         }

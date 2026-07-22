@@ -102,12 +102,33 @@ const getIconHtml = (iconName) => {
 
 const getRouteKey = (path = '') => String(path).split('/').filter(Boolean).pop();
 
+const getRouteAccessKeys = (route) => {
+  const rawPath = String(route?.path || '').trim();
+  const cleanPath = rawPath.replace(/^\/+/, '');
+  const keys = new Set([route?.id, rawPath, cleanPath, getRouteKey(rawPath)].filter(Boolean));
+
+  if (cleanPath) {
+    keys.add(`/ciisUser/${cleanPath}`);
+    keys.add(`ciisUser/${cleanPath}`);
+  }
+
+  if (cleanPath.startsWith('client-')) {
+    const clientPath = cleanPath.substring(7);
+    keys.add(`/client/${clientPath}`);
+    keys.add(`client/${clientPath}`);
+    keys.add(clientPath);
+  }
+
+  return keys;
+};
+
 const isRouteAllowedForCompany = (route, company) => {
   const allowedPages = Array.isArray(company?.allowedPages) ? company.allowedPages : [];
   if (allowedPages.length === 0) return true;
 
   const allowedSet = new Set(allowedPages.map(item => String(item).trim()).filter(Boolean));
-  return allowedSet.has(route.id) || allowedSet.has(route.path) || allowedSet.has(getRouteKey(route.path));
+  const routeKeys = getRouteAccessKeys(route);
+  return [...allowedSet].some(page => routeKeys.has(page) || routeKeys.has(page.replace(/^\/+/, '')));
 };
 
 
@@ -758,26 +779,31 @@ const SidebarManagement = () => {
     }));
   };
 
-  
-  const isClientSelection = () => {
-    const dept = departments.find(d => d._id === selectedDepartment);
-    if (dept && String(dept.name).toLowerCase() === 'client') {
-      return true;
-    }
-    const role = jobRoles.find(r => r._id === selectedRole);
-    if (role && String(role.name).toLowerCase() === 'client') {
-      return true;
-    }
-    return false;
-  };
+  const isClientSelection = React.useMemo(() => {
+    const selectedDept = departments.find(d => d._id === selectedDepartment);
+    const selectedRoleData = [...jobRoles, ...customRoles, ...companyRoles].find(r => r._id === selectedRole);
+    const selectedDeptName = String(selectedDept?.name || '').trim().toLowerCase();
+    const selectedRoleName = String(selectedRoleData?.name || '').trim().toLowerCase();
+
+    return selectedDeptName === 'client' || selectedRoleName === 'client';
+  }, [departments, jobRoles, customRoles, companyRoles, selectedDepartment, selectedRole]);
 
   const filteredAvailablePages = React.useMemo(() => {
-    const isClient = isClientSelection();
-    return availablePages.filter(page => {
-      const isClientPage = page.category === 'clients' || page.path.startsWith('/client/');
-      return isClient ? isClientPage : !isClientPage;
+    const hiddenForClient = new Set(['emp-client', 'active-clients']);
+    return availablePages.filter(page => !isClientSelection || !hiddenForClient.has(page.id));
+  }, [availablePages, isClientSelection]);
+
+  useEffect(() => {
+    const visiblePageIds = new Set(filteredAvailablePages.map(page => page.id));
+    setSelectedItems(prev => prev.filter(id => visiblePageIds.has(id)));
+    setItemOrders(prev => {
+      const next = {};
+      Object.entries(prev).forEach(([id, order]) => {
+        if (visiblePageIds.has(id)) next[id] = order;
+      });
+      return next;
     });
-  }, [availablePages, selectedDepartment, selectedRole, departments, jobRoles]);
+  }, [filteredAvailablePages]);
 
   const groupedPages = filteredAvailablePages.reduce((acc, page) => {
     if (!acc[page.category]) {
@@ -810,19 +836,34 @@ const SidebarManagement = () => {
     try {
       setLoading(prev => ({ ...prev, saving: true }));
       const token = localStorage.getItem('token');
+      const availablePageMap = new Map(filteredAvailablePages.map(page => [page.id, page]));
       
-      const menuItemsMapped = selectedItems.map((id, index) => {
-        const page = filteredAvailablePages.find(p => p.id === id);
+      const menuItemsMapped = selectedItems.reduce((items, id) => {
+        const page = availablePageMap.get(id);
+        if (!page) return items;
+
         const customOrder = parseInt(itemOrders[id], 10);
-        return {
+        items.push({
           id: page.id,
           name: page.name,
           icon: page.icon,
           path: page.path,
           category: page.category,
-          order: !isNaN(customOrder) ? customOrder : index + 1
-        };
-      });
+          order: !isNaN(customOrder) ? customOrder : items.length + 1
+        });
+        return items;
+      }, []);
+
+      if (menuItemsMapped.length === 0) {
+        setSelectedItems([]);
+        setItemOrders({});
+        setSnackbar({
+          open: true,
+          message: 'Selected menu items are no longer available for this role. Please select menu items again.',
+          severity: 'warning'
+        });
+        return;
+      }
 
       menuItemsMapped.sort((a, b) => a.order - b.order);
 

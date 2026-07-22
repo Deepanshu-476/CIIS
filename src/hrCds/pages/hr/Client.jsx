@@ -49,6 +49,59 @@ const getAuthToken = () => {
   return localStorage.getItem('token') || localStorage.getItem('authToken');
 };
 
+const parseStoredJson = value => {
+  if (!value) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+};
+
+const pickCompanyCode = (...sources) => {
+  for (const source of sources) {
+    if (!source) continue;
+    if (typeof source === 'string') {
+      const parsed = parseStoredJson(source);
+      if (parsed) {
+        const parsedCode = pickCompanyCode(parsed);
+        if (parsedCode) return parsedCode;
+        continue;
+      }
+      const clean = source.trim();
+      if (clean && !clean.startsWith('{') && !clean.startsWith('[')) return clean;
+      continue;
+    }
+    if (typeof source === 'object') {
+      const code = source.companyCode || source.code || source.companyIdentifier || source.company?.companyCode || source.company?.code;
+      if (code) return String(code).trim();
+    }
+  }
+  return '';
+};
+
+const pickCompanyIdentifier = (...sources) => {
+  for (const source of sources) {
+    if (!source) continue;
+    if (typeof source === 'string') {
+      const parsed = parseStoredJson(source);
+      if (parsed) {
+        const parsedId = pickCompanyIdentifier(parsed);
+        if (parsedId) return parsedId;
+        continue;
+      }
+      const clean = source.trim();
+      if (clean && !clean.startsWith('{') && !clean.startsWith('[')) return clean;
+      continue;
+    }
+    if (typeof source === 'object') {
+      const id = source._id || source.id || source.companyId || source.company?._id || source.company?.id;
+      if (id) return String(id).trim();
+    }
+  }
+  return '';
+};
+
 const isClientTaskOverdue = taskOrDueDate => {
   const dueDateValue = typeof taskOrDueDate === 'object' && taskOrDueDate !== null
     ? taskOrDueDate.dueDate
@@ -3291,16 +3344,28 @@ const ClientManagement = () => {
   useEffect(() => {
     const fetchCompanyInfo = () => {
       try {
+        const user = parseStoredJson(localStorage.getItem('user'));
         const localStorageCompany = localStorage.getItem('company') || '';
         const localStorageCompanyDetails = localStorage.getItem('companyDetails') || '';
-        
-        const companyCodeFromStorage = localStorage.getItem('companyCode') || localStorageCompany;
-        const companyIdentifierFromStorage = localStorage.getItem('companyIdentifier') || localStorageCompanyDetails;
+
+        const companyCodeFromStorage = pickCompanyCode(
+          localStorage.getItem('companyCode'),
+          user,
+          localStorageCompany,
+          localStorageCompanyDetails,
+        );
+        const companyIdentifierFromStorage = pickCompanyIdentifier(
+          localStorage.getItem('companyIdentifier'),
+          user,
+          localStorageCompanyDetails,
+          localStorageCompany,
+        );
         
         setCompanyCode(companyCodeFromStorage);
         setCompanyIdentifier(companyIdentifierFromStorage);
         if (!companyCodeFromStorage && !companyIdentifierFromStorage) {
           setError('Company information not found. Please login again.');
+          setLoading(false);
         } else {
           setError('');
         }

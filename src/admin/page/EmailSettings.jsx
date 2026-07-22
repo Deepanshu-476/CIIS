@@ -115,14 +115,42 @@ function EmailSettings() {
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const updateModuleSetting = (moduleKey, enabled) => {
-    setForm(prev => ({
-      ...prev,
+  const updateModuleSetting = async (moduleKey, enabled) => {
+    const previousForm = form;
+    const nextForm = {
+      ...form,
       moduleSettings: {
-        ...prev.moduleSettings,
+        ...form.moduleSettings,
         [moduleKey]: enabled
       }
-    }));
+    };
+
+    setForm(nextForm);
+    setSaving(true);
+
+    try {
+      const response = await axios.put('/email-settings', {
+        activeSenderProfileId: nextForm.activeSenderProfileId,
+        moduleSettings: nextForm.moduleSettings,
+        saveSenderProfile: false
+      });
+
+      if (response.data?.success) {
+        syncSettings(response.data.settings);
+        toast.success(enabled ? 'Email module enabled' : 'Email module disabled');
+        return true;
+      }
+
+      setForm(previousForm);
+      return false;
+    } catch (error) {
+      console.error('Email module setting update failed:', error);
+      setForm(previousForm);
+      toast.error(error.response?.data?.message || 'Failed to update email module');
+      return false;
+    } finally {
+      setSaving(false);
+    }
   };
 
   const updateLoginSetting = (field, enabled) => {
@@ -444,6 +472,7 @@ function EmailSettings() {
                           <Stack alignItems="center" spacing={0.5}>
                             <Switch
                               checked={enabled}
+                              disabled={saving}
                               onChange={(event) => updateModuleSetting(moduleItem.key, event.target.checked)}
                               color="success"
                             />

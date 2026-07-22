@@ -150,7 +150,7 @@ const RemoteVideoTile = ({ participant }) => {
             audioRef.current.srcObject = participant.stream;
             audioRef.current.play?.().catch(error => logCall("Remote audio autoplay failed", error));
         }
-    }, [participant.stream]);
+    }, [participant.stream]);   
   
     const avatarSrc = getAvatarSrc(participant.user?.avatar || participant.user?.profileImage || participant.user?.image);
 

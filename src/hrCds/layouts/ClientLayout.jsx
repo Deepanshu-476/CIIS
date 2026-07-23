@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   FiBriefcase,
@@ -26,11 +26,27 @@ import {
 import './ClientLayout.css';
 
 const ClientLayout = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 768);
   const navigate = useNavigate();
   const location = useLocation();
   const hideHeaderTools = location.pathname === '/client/support-tickets';
   const { client, availableClients, switchClient } = useClientPortalData();
+
+  useEffect(() => {
+    const mobileQuery = window.matchMedia('(max-width: 768px)');
+    const handleViewportChange = event => {
+      setIsMobile(event.matches);
+      setSidebarOpen(!event.matches);
+    };
+
+    mobileQuery.addEventListener('change', handleViewportChange);
+    return () => mobileQuery.removeEventListener('change', handleViewportChange);
+  }, []);
+
+  useEffect(() => {
+    if (isMobile) setSidebarOpen(false);
+  }, [location.pathname, isMobile]);
 
   const menuItems = [
     { path: '/client/dashboard', name: 'Dashboard', icon: <FiGrid size={18} /> },
@@ -163,7 +179,10 @@ const ClientLayout = () => {
             <button
               key={item.path}
               className={`ClientLayout-nav-item ${location.pathname === item.path ? 'active' : ''}`}
-              onClick={() => navigate(item.path)}
+              onClick={() => {
+                navigate(item.path);
+                if (isMobile) setSidebarOpen(false);
+              }}
             >
               <span className="ClientLayout-nav-icon">{item.icon}</span>
               {sidebarOpen && <span className="ClientLayout-nav-label">{item.name}</span>}
@@ -179,12 +198,23 @@ const ClientLayout = () => {
         </div>
       </aside>
 
+      {isMobile && sidebarOpen && (
+        <button
+          type="button"
+          className="ClientLayout-sidebar-backdrop"
+          aria-label="Close navigation"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       <div className="ClientLayout-main">
         <header className={`ClientLayout-header ${hideHeaderTools ? 'ClientLayout-header--minimal' : ''}`}>
           <div className="ClientLayout-header-left">
             <button
               className="ClientLayout-toggle-btn"
               onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label={sidebarOpen ? 'Close navigation' : 'Open navigation'}
+              aria-expanded={sidebarOpen}
             >
               {sidebarOpen ? <FiX size={20} /> : <FiMenu size={20} />}
             </button>

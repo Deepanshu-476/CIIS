@@ -946,7 +946,9 @@
   font-weight: 600;
 }
 
-@media (max-width: 1320px) {
+/* A MacBook viewport still loses 280px to the portal navigation, so the
+   dashboard switches to its compact composition before cards get cramped. */
+@media (max-width: 1536px) {
   .ClientDashboard-client-dashboard { grid-template-columns: 1fr; }
   .ClientDashboard-sidebar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .ClientDashboard-overall-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -969,7 +971,16 @@
 }
 
 @media (max-width: 640px) {
-  .ClientDashboard-client-dashboard { padding: 12px; }
+  .ClientDashboard-client-dashboard {
+    width: 100%;
+    padding: 10px 12px;
+    gap: 12px;
+  }
+  .ClientDashboard-header {
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .ClientDashboard-header-actions { padding-top: 0; }
   .ClientDashboard-greeting h1 { font-size: 23px; }
   .ClientDashboard-overall-stats,
   .ClientDashboard-summary-cards { gap: 10px; }
@@ -1019,4 +1030,40 @@
   .ClientDashboard-activity-item { grid-template-columns: 36px minmax(0, 1fr); }
   .ClientDashboard-activity-item .ClientDashboard-task-status,
   .ClientDashboard-activity-item small { grid-column: 2; justify-self: start; }
+  .ClientDashboard-card,
+  .ClientDashboard-side-card { padding: 14px; }
+  .ClientDashboard-reports-card { padding: 16px; }
+  .ClientDashboard-report-art {
+    width: 160px;
+    margin-inline: auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .ClientDashboard-overall-stats,
+  .ClientDashboard-summary-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .ClientDashboard-stat-card {
+    grid-template-columns: 42px minmax(0, 1fr) 72px;
+  }
+
+  .ClientDashboard-sparkline {
+    display: block;
+    width: 72px;
+  }
+
+  .ClientDashboard-distribution-legend footer {
+    white-space: normal;
+  }
+
+  .ClientDashboard-deadline-item {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .ClientDashboard-deadline-item small {
+    grid-column: 2;
+    justify-self: start;
+  }
 }

@@ -5,6 +5,7 @@ import axios from '../../utils/axiosConfig';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './UserDashboard.css';
+import './UserDashboardMobileV2.css';
 import useIsMobile from '../../hooks/useIsMobile';
 import CIISLoader from '../../Loader/CIISLoader';
 import {
@@ -2017,7 +2018,146 @@ const UserDashboard = () => {
         </div>
       )}
 
-      <div className="dashboard-reference-grid">
+      {isMobile && (
+        <main className="MobileDashV2-shell">
+          <section className="MobileDashV2-hero">
+            <div className="MobileDashV2-heroTop">
+              <span className="MobileDashV2-eyebrow">
+                {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'}
+              </span>
+              <span className={`MobileDashV2-live ${isRunning ? 'is-active' : ''}`}>
+                <i /> {isRunning ? 'Working' : 'Ready'}
+              </span>
+            </div>
+            <h1>{user?.name || 'Welcome back'}</h1>
+            <p>Here’s what’s happening with your work today.</p>
+            <div className="MobileDashV2-date">
+              <span><FiCalendar /> {currentDate.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}</span>
+              <span><FiSun /> {weather.loading ? 'Weather…' : weather.temperature === null ? weather.label : `${weather.temperature}°C ${weather.label}`}</span>
+            </div>
+            <div className="MobileDashV2-progress">
+              <div>
+                <span>Today’s progress</span>
+                <strong>{focusStats.loading ? '—' : `${focusStats.dailyProgress}%`}</strong>
+              </div>
+              <i><span style={{ width: `${focusStats.dailyProgress}%` }} /></i>
+              <small>{focusStats.completedToday} tasks completed today</small>
+            </div>
+          </section>
+
+          <section className="MobileDashV2-clock">
+            <div>
+              <span>Work session</span>
+              <strong>{formatTime(timer)}</strong>
+              <small>{isRunning ? 'Timer is running' : 'Start when you’re ready'}</small>
+            </div>
+            <button
+              type="button"
+              className={isRunning ? 'is-stop' : ''}
+              onClick={() => isRunning ? setShowClockOutConfirm(true) : handleActionClick('in')}
+              disabled={loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
+            >
+              {isRunning ? <FiSquare /> : <FiPlay />}
+              {isRunning ? 'Clock out' : 'Clock in'}
+            </button>
+          </section>
+
+          <section className="MobileDashV2-focus">
+            <header><div><FiZap /><span>Today’s focus</span></div><b>{focusStats.dueToday + focusStats.inProgress}</b></header>
+            <div>
+              <article><i className="violet"><FiCheckCircle /></i><span><strong>{focusStats.dueToday}</strong><small>Due today</small></span></article>
+              <article><i className="blue"><FiActivity /></i><span><strong>{focusStats.inProgress}</strong><small>In progress</small></span></article>
+              <article><i className="green"><FiClock /></i><span><strong>{hasTodayAttendance ? 'Done' : 'Pending'}</strong><small>Attendance</small></span></article>
+            </div>
+          </section>
+
+          <section className="MobileDashV2-stats">
+            {[
+              ['Present', monthlyStats.presentDays, 'green'],
+              ['Late', monthlyStats.lateDays, 'amber'],
+              ['Half day', monthlyStats.halfDays, 'blue'],
+              ['Leave', monthlyStats.leavesTaken, 'violet'],
+              ['Absent', monthlyStats.absentDays, 'red']
+            ].map(([label, value, tone]) => (
+              <article className={tone} key={label}>
+                <span>{label}</span>
+                <strong>{String(value).padStart(2, '0')}</strong>
+                <small>days this month</small>
+              </article>
+            ))}
+          </section>
+
+          <section className="MobileDashV2-card MobileDashV2-calendar">
+            <header>
+              <div><i><FiCalendar /></i><span><strong>Attendance</strong><small>{monthNames[calendarMonth]} {calendarYear}</small></span></div>
+              <button type="button" onClick={() => navigate('/ciisUser/attendance')}>View all</button>
+            </header>
+            <nav>
+              <button type="button" onClick={handlePrevMonth} disabled={isMonthBeforeJoin(calendarYear, calendarMonth)}><FiChevronLeft /></button>
+              <strong>{monthNames[calendarMonth]} {calendarYear}</strong>
+              <button type="button" onClick={resetToCurrentMonth}>Today</button>
+              <button type="button" onClick={handleNextMonth}><FiChevronRight /></button>
+            </nav>
+            <div className="MobileDashV2-weekdays">{daysOfWeek.map(day => <span key={day}>{day.slice(0, 1)}</span>)}</div>
+            <div className="MobileDashV2-days">
+              {calendarDays.flat().map((day, index) => (
+                <span
+                  key={`${day || 'empty'}-${index}`}
+                  className={day ? `${getDayStatus(day) || 'empty'} ${isToday(day) ? 'today' : ''}` : 'blank'}
+                >
+                  {day || ''}
+                </span>
+              ))}
+            </div>
+            <footer>
+              <span><i className="present" /> Present</span>
+              <span><i className="late" /> Late</span>
+              <span><i className="leave" /> Leave</span>
+              <span><i className="absent" /> Absent</span>
+            </footer>
+          </section>
+
+          <section className="MobileDashV2-card MobileDashV2-recent">
+            <header>
+              <div><i><FiActivity /></i><span><strong>Recent activity</strong><small>Your latest updates</small></span></div>
+              <button type="button" onClick={() => setShowAllActivities(true)}>View all</button>
+            </header>
+            <div>
+              {recentActivity.slice(0, 4).map((item, index) => {
+                const itemDate = new Date(item.date || Date.now());
+                return (
+                  <article key={item._id || item.id || `${item.type}-${index}`}>
+                    <time>{Number.isNaN(itemDate.getTime()) ? '--:--' : itemDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+                    <i className={`type-${item.type || 'default'}`}><FiCheckCircle /></i>
+                    <span><strong>{item.title || `${item.status || 'Activity'} recorded`}</strong><small>{item.subtitle || item.assignedTo || item.totalTime || 'Your workspace'}</small></span>
+                  </article>
+                );
+              })}
+              {!recentActivity.length && <p className="MobileDashV2-empty">No recent activity yet.</p>}
+            </div>
+          </section>
+
+          <section className="MobileDashV2-card MobileDashV2-tasks">
+            <header>
+              <div><i><FiCheckCircle /></i><span><strong>Task overview</strong><small>This month</small></span></div>
+              <button type="button" onClick={() => navigate('/ciisUser/task-management')}>Open tasks</button>
+            </header>
+            <div className="MobileDashV2-taskTotal"><strong>{taskSummary.total}</strong><span>Total tasks</span></div>
+            <div className="MobileDashV2-taskBars">
+              {[
+                ['Completed', taskSummary.completed, 'green'],
+                ['In progress', taskSummary.inProgress, 'blue'],
+                ['Pending', taskSummary.pending, 'amber'],
+                ['Overdue', taskSummary.overdue, 'red']
+              ].map(([label, value, tone]) => (
+                <div key={label}><span>{label}<b>{value}</b></span><i><em className={tone} style={{ width: `${taskSummary.total ? value / taskSummary.total * 100 : 0}%` }} /></i></div>
+              ))}
+            </div>
+          </section>
+        </main>
+      )}
+
+      <div className={`dashboard-reference-grid ${isMobile ? 'MobileDashV2-legacyHidden' : ''}`}>
       <main className="dashboard-main-column">
       
       <div className="dashboard-header">

@@ -88,6 +88,7 @@ function configureDesktopPermissions() {
     'media',
     'mediaKeySystem',
     'notifications',
+    'geolocation',
   ]);
 
   session.defaultSession.setPermissionCheckHandler((_webContents, permission, requestingOrigin) => (

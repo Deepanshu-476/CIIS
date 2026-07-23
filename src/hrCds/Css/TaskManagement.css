@@ -243,6 +243,105 @@
     font-size: 12px;
 }
 
+.task-checkpoint-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.task-checkpoint-add,
+.task-checkpoint-remove {
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #1e293b;
+    border-radius: 6px;
+    min-height: 34px;
+    padding: 6px 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.task-checkpoint-remove {
+    width: 36px;
+    padding: 0;
+    color: #dc2626;
+}
+
+.task-checkpoint-input-list,
+.task-checkpoint-list {
+    display: grid;
+    gap: 8px;
+}
+
+.task-checkpoint-input-row {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) 36px;
+    align-items: center;
+    gap: 8px;
+}
+
+.task-checkpoint-list {
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.task-checkpoint-list.compact {
+    max-width: 280px;
+}
+
+.task-checkpoint-list.in-table {
+    margin-top: 0;
+    min-width: 210px;
+    max-width: 320px;
+}
+
+.task-checkpoint-empty {
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.task-checkpoint-progress {
+    color: #475569;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.task-checkpoint-item {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    align-items: start;
+    gap: 8px;
+    color: #334155;
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.task-checkpoint-item input {
+    width: 16px;
+    height: 16px;
+    margin: 1px 0 0;
+    accent-color: #16a34a;
+}
+
+.task-checkpoint-item span {
+    overflow-wrap: anywhere;
+}
+
+.task-checkpoint-item.completed span {
+    color: #15803d;
+    text-decoration: line-through;
+}
+
 @media (min-width: 768px) {
     .user-create-task-stat-indicator {
         padding: 10px 16px;
@@ -801,6 +900,52 @@
     margin-bottom: 16px;
 }
 
+.user-create-task-time-filter-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.user-create-task-export-pdf-button {
+    min-width: 124px;
+    background: #ffffff;
+    color: #4f46e5;
+    border-color: #c7d2fe;
+}
+
+.user-create-task-export-pdf-button:hover {
+    background: #eef2ff;
+    border-color: #818cf8;
+}
+
+.user-create-task-date-range-filter {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.user-create-task-date-range-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.user-create-task-date-range-field label {
+    color: #475569;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.user-create-task-date-clear {
+    align-self: end;
+    min-height: 40px;
+}
+
 @media (min-width: 768px) {
     .user-create-task-time-filter-header {
         flex-direction: row;
@@ -808,6 +953,11 @@
         align-items: center;
         gap: 0;
         margin-bottom: 20px;
+    }
+
+    .user-create-task-date-range-filter {
+        grid-template-columns: 1fr 1fr auto;
+        align-items: end;
     }
 }
 

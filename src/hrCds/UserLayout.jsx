@@ -6,14 +6,14 @@ import {
   Drawer,
   Box
 } from '@mui/material';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 
 import Header from './Header';
 import Sidebar from './Sidebar';
 import SupportChatWidget from './pages/SupportChatWidget';
 import { CallProvider } from '../context/CallContext';
 
-const drawerWidthOpen = 260;
+const drawerWidthOpen = 224;
 const drawerWidthClosed = 70;
 
 const LayoutContainer = styled(Box)({
@@ -59,18 +59,20 @@ const MainContent = styled('main', {
 }));
 
 const UserLayout = () => {
+  const location = useLocation();
+  const normalizedPath = location.pathname.replace(/\/+$/, '');
+  const isDashboard = normalizedPath === '/ciisUser/user-dashboard';
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
-  
+
   const handleSidebarMouseEnter = () => {
     if (!isMobile) {
       setIsSidebarHovered(true);
     }
   };
-  
+
   const handleSidebarMouseLeave = () => {
     if (!isMobile) {
       setIsSidebarHovered(false);
@@ -103,6 +105,7 @@ const UserLayout = () => {
       <Header
         toggleSidebar={toggleMobileSidebar}
         isMobile={isMobile}
+        isDashboard={isDashboard}
       />
 
       
@@ -119,7 +122,6 @@ const UserLayout = () => {
         >
           <Sidebar
             isOpen={isSidebarHovered}
-            closeSidebar={() => setIsSidebarHovered(false)}
             drawerWidthOpen={drawerWidthOpen}
             drawerWidthClosed={drawerWidthClosed}
           />
@@ -164,7 +166,7 @@ const UserLayout = () => {
           padding: { 
             xs: 1, 
             sm: 2, 
-            md: 3 
+            md: isDashboard ? 0 : 3
           },
           mt: isMobile ? 7 : 8,
           transition: theme.transitions.create(['margin', 'width'], {
@@ -177,7 +179,7 @@ const UserLayout = () => {
           <Box sx={{ 
             maxWidth: '100%', 
             overflow: 'hidden',
-            padding: { xs: 1, sm: 2, md: 3 }
+            padding: { xs: 1, sm: 2, md: isDashboard ? 0 : 3 }
           }}>
             <Outlet />
           </Box>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import axios from "../../../utils/axiosConfig";
 import './employee-directory.css';
 import CIISLoader from '../../../Loader/CIISLoader';
@@ -1223,10 +1223,11 @@ const EmployeeDocuments = ({
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedFile, setSelectedFile] = useState(null);
   const [documentName, setDocumentName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState('');
+  const [previewDocument, setPreviewDocument] = useState(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -1249,6 +1250,21 @@ const EmployeeDocuments = ({
     onDocumentsChange?.(nextDocuments);
   };
 
+  const closeDocumentPreview = () => {
+    if (previewDocument?.url) {
+      URL.revokeObjectURL(previewDocument.url);
+    }
+    setPreviewDocument(null);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (previewDocument?.url) {
+        URL.revokeObjectURL(previewDocument.url);
+      }
+    };
+  }, [previewDocument]);
+
   const openDocument = async (document, download) => {
     try {
       const { data, headers } = await axios.get(
@@ -1263,25 +1279,34 @@ const EmployeeDocuments = ({
         link.click();
         setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
       } else {
-        window.open(blobUrl, '_blank', 'noopener,noreferrer');
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        if (previewDocument?.url) {
+          URL.revokeObjectURL(previewDocument.url);
+        }
+        setPreviewDocument({
+          url: blobUrl,
+          name: document.name,
+          type: data.type || headers['content-type'] || document.type || ''
+        });
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Could not open document');
     }
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile) {
+  const handleUpload = async (file) => {
+    if (!file) {
       setError('Please select a document to upload');
+      return;
+    }
+    const uploadName = documentName.trim();
+    if (!uploadName) {
+      setError('Please enter document name before upload');
       return;
     }
 
     const formData = new FormData();
-    formData.append('document', selectedFile);
-    if (documentName.trim()) {
-      formData.append('name', documentName.trim());
-    }
+    formData.append('document', file);
+    formData.append('name', uploadName);
 
     setUploading(true);
     setError('');
@@ -1291,12 +1316,21 @@ const EmployeeDocuments = ({
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       updateDocuments([...documents, data.document]);
-      setSelectedFile(null);
       setDocumentName('');
     } catch (err) {
       setError(err.response?.data?.message || 'Could not upload document');
     } finally {
       setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleUpload(file);
     }
   };
 
@@ -1319,34 +1353,35 @@ const EmployeeDocuments = ({
       <h3 className="EmployeeDirectory-section-title"><FiFileText /> Employee Documents</h3>
       {canUpload && (
         <div className="EmployeeDirectory-document-upload-panel">
-          <div className="EmployeeDirectory-document-upload-fields">
-            <div className="EmployeeDirectory-form-group">
-              <label className="EmployeeDirectory-form-label">Document Name</label>
-              <input
-                type="text"
-                className="EmployeeDirectory-form-input"
-                value={documentName}
-                onChange={(event) => setDocumentName(event.target.value)}
-                placeholder={selectedFile?.name || 'Enter document name'}
-                disabled={uploading}
-              />
-            </div>
-            <div className="EmployeeDirectory-form-group">
-              <label className="EmployeeDirectory-form-label">Upload Document</label>
-              <input
-                type="file"
-                className="EmployeeDirectory-form-input EmployeeDirectory-file-input"
-                accept=".pdf,.jpg,.jpeg,.jfif,.png,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.odt,.ods"
-                onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
-                disabled={uploading}
-              />
-            </div>
+          <div className="EmployeeDirectory-form-group EmployeeDirectory-document-name-field">
+            <label className="EmployeeDirectory-form-label">Document Name</label>
+            <input
+              type="text"
+              className="EmployeeDirectory-form-input"
+              value={documentName}
+              onChange={(event) => {
+                setDocumentName(event.target.value);
+                if (error === 'Please enter document name before upload') {
+                  setError('');
+                }
+              }}
+              placeholder="Enter document name"
+              disabled={uploading}
+            />
           </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="EmployeeDirectory-hidden-file-input"
+            accept=".pdf,.jpg,.jpeg,.jfif,.png,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.odt,.ods"
+            onChange={handleFileSelect}
+            disabled={uploading}
+          />
           <button
             type="button"
             className="EmployeeDirectory-btn EmployeeDirectory-btn-contained EmployeeDirectory-document-upload-btn"
-            onClick={handleUpload}
-            disabled={uploading || !selectedFile}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading || !documentName.trim()}
           >
             {uploading ? (
               <>
@@ -1405,6 +1440,28 @@ const EmployeeDocuments = ({
           </div>
         ))}
       </div>
+      {previewDocument && (
+        <div className="EmployeeDirectory-document-preview-overlay" onClick={closeDocumentPreview}>
+          <div className="EmployeeDirectory-document-preview-modal" role="dialog" aria-modal="true" aria-label={previewDocument.name} onClick={(event) => event.stopPropagation()}>
+            <div className="EmployeeDirectory-document-preview-header">
+              <div>
+                <strong>{previewDocument.name}</strong>
+                <span>Document preview</span>
+              </div>
+              <button type="button" onClick={closeDocumentPreview} aria-label="Close preview">
+                <FiX />
+              </button>
+            </div>
+            <div className="EmployeeDirectory-document-preview-body">
+              {previewDocument.type.startsWith('image/') ? (
+                <img src={previewDocument.url} alt={previewDocument.name} />
+              ) : (
+                <iframe src={previewDocument.url} title={previewDocument.name} />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

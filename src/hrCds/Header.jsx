@@ -23,6 +23,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ErrorIcon from "@mui/icons-material/Error";
 import InfoIcon from "@mui/icons-material/Info";
 import WarningIcon from "@mui/icons-material/Warning";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../src/context/useAuth";
 import { useSocket } from "../../src/context/SocketContext";
@@ -33,7 +34,7 @@ import API_URL from "../../src/config";
 import Swal from "sweetalert2";
 import { openNotificationRoute } from "../../src/utils/notificationNavigation";
 
-const Header = ({ toggleSidebar, isMobile }) => {
+const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
   const { user } = useAuth();
 
   const isClient = user?.companyRole === "client";
@@ -660,7 +661,21 @@ const Header = ({ toggleSidebar, isMobile }) => {
 
           
           <Box sx={{ flex: 1, textAlign: "center" }}>
-            {!isMobile ? (
+            {isDashboard && !isMobile ? (
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 500,
+                  color: theme.palette.text.secondary,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 1
+                }}
+              >
+                Welcome, {user?.name || "User"}
+              </Typography>
+            ) : !isMobile ? (
               <Typography 
                 variant="subtitle1" 
                 sx={{ 
@@ -690,6 +705,9 @@ const Header = ({ toggleSidebar, isMobile }) => {
 
           
           <Box sx={{ display: "flex", alignItems: "center", gap: isMobile ? 1 : 2 }}>
+            {isDashboard && !isMobile && (
+              <Button onClick={() => navigate('/ciisUser/chat')} startIcon={<AutoAwesomeIcon />} sx={{ textTransform: 'none', color: '#5541bf', bgcolor: '#f2efff', borderRadius: 2.5, px: 2, fontWeight: 700, '&:hover': { bgcolor: '#eae5ff' } }}>Ask AI</Button>
+            )}
             
             <Tooltip title="Notifications">
               <IconButton 

@@ -2878,7 +2878,7 @@
 @media (min-width: 1400px) {
   html .dashboard-container {
     width: 100%;
-    max-width: calc(100vw - 224px) !important;
+    max-width: calc(100vw - 24px) !important;
     margin-inline: auto;
   }
 }

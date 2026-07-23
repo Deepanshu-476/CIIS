@@ -30,6 +30,7 @@ const CompanyAssetManagement = () => {
   const [editingCommentReq, setEditingCommentReq] = useState(null);
   const [commentText, setCommentText] = useState('');
   const [animateIn, setAnimateIn] = useState(false);
+  const isModalOpen = Boolean(showForm || showDetailsModal || showDeleteConfirm || editingCommentReq);
 
   useEffect(() => {
     const user = getUser();
@@ -45,6 +46,27 @@ const CompanyAssetManagement = () => {
   useEffect(() => {
     setSelectedBranchId(requestedBranchId);
   }, [requestedBranchId]);
+
+  useEffect(() => {
+    if (!isModalOpen) return undefined;
+
+    const bodyOverflow = document.body.style.overflow;
+    const bodyPaddingRight = document.body.style.paddingRight;
+    const htmlOverflow = document.documentElement.style.overflow;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+
+    return () => {
+      document.body.style.overflow = bodyOverflow;
+      document.body.style.paddingRight = bodyPaddingRight;
+      document.documentElement.style.overflow = htmlOverflow;
+    };
+  }, [isModalOpen]);
 
   const getRecordId = (record) => {
     if (!record) return '';

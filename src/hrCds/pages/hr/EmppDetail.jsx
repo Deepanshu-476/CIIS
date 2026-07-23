@@ -28,6 +28,25 @@ const getValueId = (value) => {
   return String(value);
 };
 
+const sameId = (left, right) => {
+  const leftId = getValueId(left);
+  const rightId = getValueId(right);
+  return Boolean(leftId && rightId && leftId === rightId);
+};
+
+const getRoleShiftOptions = (role = {}) => {
+  const shifts = Array.isArray(role.shifts) && role.shifts.length > 0
+    ? role.shifts
+    : (role.shiftSettings ? [role.shiftSettings] : []);
+
+  return shifts.map((shift, index) => ({
+    ...shift,
+    shiftId: shift.shiftId || shift.id || shift._id || `${getValueId(role)}-shift-${index}`,
+    shiftName: shift.shiftName || shift.name || `Shift ${index + 1}`,
+    shiftType: shift.shiftType || 'custom'
+  }));
+};
+
 
 
 
@@ -224,10 +243,29 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
     const jobRole = jobRoles.find(role => 
       role._id === roleId || 
       role.id === roleId ||
-      role.roleNumber === roleId
+      role.roleNumber === roleId ||
+      role.roleName === roleId ||
+      role.name === roleId
     );
     
     return jobRole ? jobRole.roleName : (typeof emp.jobRole === 'string' ? emp.jobRole : 'N/A');
+  };
+
+  const getShiftName = () => {
+    if (emp.shiftName) return emp.shiftName;
+
+    const roleId = typeof emp.jobRole === 'object' ? emp.jobRole._id || emp.jobRole.id : emp.jobRole;
+    const jobRole = jobRoles.find(role =>
+      role._id === roleId ||
+      role.id === roleId ||
+      role.roleNumber === roleId ||
+      role.roleName === roleId
+    );
+    const shift = getRoleShiftOptions(jobRole || {}).find(item =>
+      String(item.shiftId) === String(emp.shiftId || '')
+    );
+
+    return shift?.shiftName || '';
   };
   
   const getDepartmentName = (dept) => {
@@ -254,7 +292,7 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
     return 'EmployeeDirectory-company-role-employee';
   };
   
-  const isCurrentUserEmp = currentUserId === (emp._id || emp.id);
+  const isCurrentUserEmp = sameId(currentUserId, emp._id || emp.id);
   const isOtherUser = !isCurrentUserEmp;
   
   
@@ -343,6 +381,17 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
               </div>
               <div className="EmployeeDirectory-detail-text">
                 {getJobRoleName(emp.jobRole)}
+              </div>
+            </div>
+          )}
+
+          {(emp.shiftId || emp.shiftName) && (
+            <div className="EmployeeDirectory-detail-row">
+              <div className="EmployeeDirectory-detail-icon EmployeeDirectory-detail-icon-info">
+                <FiClock size={12} />
+              </div>
+              <div className="EmployeeDirectory-detail-text">
+                {getShiftName() || 'Shift not assigned'}
               </div>
             </div>
           )}
@@ -793,9 +842,21 @@ const EmploymentDetailsForm = ({
     ? jobRoles.filter(role => getRoleDepartmentId(role) === selectedDepartmentId)
     : [];
 
+  const selectedJobRole = filteredJobRoles.find(role => {
+    const roleValue = String(formData.jobRole || '');
+    return getValueId(role) === roleValue || role.roleName === roleValue || role.name === roleValue;
+  });
+  const shiftOptions = selectedJobRole ? getRoleShiftOptions(selectedJobRole) : [];
+
   const handleDepartmentChange = (departmentId) => {
     onInputChange('department', departmentId);
     onInputChange('jobRole', '');
+    onInputChange('shiftId', '');
+  };
+
+  const handleJobRoleChange = (jobRoleId) => {
+    onInputChange('jobRole', jobRoleId);
+    onInputChange('shiftId', '');
   };
 
   return (
@@ -827,7 +888,7 @@ const EmploymentDetailsForm = ({
           <select
             className="EmployeeDirectory-form-select"
             value={formData.jobRole || ''}
-            onChange={(e) => onInputChange('jobRole', e.target.value)}
+            onChange={(e) => handleJobRoleChange(e.target.value)}
             disabled={!canEditAllFields || !selectedDepartmentId}
           >
             <option value="">
@@ -836,6 +897,32 @@ const EmploymentDetailsForm = ({
             {filteredJobRoles.map(role => (
               <option key={role._id} value={role._id}>
                 {role.roleNumber ? `${role.roleName} (${role.roleNumber})` : role.roleName}
+              </option>
+            ))}
+          </select>
+          {!canEditAllFields && (
+            <span className="EmployeeDirectory-field-note">You don't have permission to edit</span>
+          )}
+        </div>
+
+        <div className="EmployeeDirectory-form-group">
+          <label className="EmployeeDirectory-form-label">Shift</label>
+          <select
+            className="EmployeeDirectory-form-select"
+            value={formData.shiftId || ''}
+            onChange={(e) => onInputChange('shiftId', e.target.value)}
+            disabled={!canEditAllFields || !formData.jobRole || shiftOptions.length === 0}
+          >
+            <option value="">
+              {!formData.jobRole
+                ? 'Select Job Role First'
+                : shiftOptions.length === 0
+                  ? 'No Shifts Available'
+                  : 'Select Shift'}
+            </option>
+            {shiftOptions.map(shift => (
+              <option key={shift.shiftId} value={shift.shiftId}>
+                {shift.shiftName} ({shift.shiftStart || '09:00'} - {shift.shiftEnd || '19:00'})
               </option>
             ))}
           </select>
@@ -1132,7 +1219,7 @@ const EditEmployeeForm = React.memo(({
     return null;
   }
   
-  const isEditingSelf = currentUserId === (editingUser._id || editingUser.id);
+  const isEditingSelf = sameId(currentUserId, editingUser._id || editingUser.id);
   
   const hasFullEditAccess = isEditingSelf || canEditOtherEmployees;
   
@@ -1568,7 +1655,9 @@ const EmployeeDirectory = () => {
           roleNumber: role.roleNumber || role.roleNo || role.number || '',
           description: role.description || '',
           department: role.department || role.departmentId || '',
-          company: role.company || currentUserCompanyId
+          company: role.company || currentUserCompanyId,
+          shiftSettings: role.shiftSettings,
+          shifts: role.shifts || []
         }));
         
         setJobRoles(formattedJobRoles);
@@ -1624,6 +1713,18 @@ const EmployeeDirectory = () => {
     
     return jobRole;
   }, [jobRoles]);
+
+  const getShiftName = useCallback((employee) => {
+    if (!employee) return 'Not assigned';
+    if (employee.shiftName) return employee.shiftName;
+
+    const role = getJobRoleDetails(employee.jobRole);
+    const shift = getRoleShiftOptions(role || {}).find(item =>
+      String(item.shiftId) === String(employee.shiftId || '')
+    );
+
+    return shift?.shiftName || 'Not assigned';
+  }, [getJobRoleDetails]);
   
   // Helper function to check if current user can delete a specific user
   const canDeleteUser = useCallback((targetUser) => {
@@ -1632,7 +1733,7 @@ const EmployeeDirectory = () => {
     const targetUserId = targetUser._id || targetUser.id;
     
     // Cannot delete self
-    if (currentUserId === targetUserId) {
+    if (sameId(currentUserId, targetUserId)) {
       return false;
     }
     
@@ -1793,7 +1894,7 @@ const EmployeeDirectory = () => {
     
     setEditingUser(userData);
     
-    const isEditingSelf = currentUserId === (userData._id || userData.id);
+    const isEditingSelf = sameId(currentUserId, userData._id || userData.id);
     
     const departmentId = userData.department?._id || userData.department || '';
     const rawJobRole = userData.jobRole?._id || userData.jobRole || '';
@@ -1807,11 +1908,19 @@ const EmployeeDirectory = () => {
         (!departmentId || roleDepartmentId === departmentId)
       );
     });
+    const matchedRoleShifts = matchedJobRole ? getRoleShiftOptions(matchedJobRole) : [];
+    const matchedShift = matchedRoleShifts.find(shift =>
+      String(shift.shiftId) === String(userData.shiftId || '') ||
+      shift.shiftName === userData.shiftName
+    ) || matchedRoleShifts[0];
 
     let formDataToSet = { 
       ...userData,
       department: departmentId,
       jobRole: matchedJobRole?._id || rawJobRole,
+      shiftId: userData.shiftId || matchedShift?.shiftId || '',
+      shiftName: userData.shiftName || matchedShift?.shiftName || '',
+      shiftType: userData.shiftType || matchedShift?.shiftType || '',
       children: userData.children || [],
       documents: userData.documents || [],
       properties: userData.properties || [],
@@ -1861,14 +1970,32 @@ const EmployeeDirectory = () => {
         updateData.department = updateData.department._id;
       }
       
-      if (updateData.jobRole) {
-        const roleObj = jobRoles.find(r => r._id === updateData.jobRole);
-        if (roleObj) {
-          updateData.jobRole = roleObj.roleName;
+      const selectedRoleForShift = jobRoles.find(r =>
+        r._id === updateData.jobRole ||
+        r.id === updateData.jobRole ||
+        r.roleName === updateData.jobRole ||
+        r.name === updateData.jobRole
+      );
+      const availableShifts = getRoleShiftOptions(selectedRoleForShift || {});
+
+      if (selectedRoleForShift && availableShifts.length > 0 && !updateData.shiftId) {
+        showSnackbar('Please select a shift for this job role', 'error');
+        setSaving(false);
+        return;
+      }
+
+      if (updateData.jobRole && updateData.shiftId) {
+        const selectedShift = availableShifts.find(shift =>
+          String(shift.shiftId) === String(updateData.shiftId)
+        );
+
+        if (selectedShift) {
+          updateData.shiftName = selectedShift.shiftName;
+          updateData.shiftType = selectedShift.shiftType;
         }
       }
      
-      const isSelfEdit = currentUserId === userId;
+      const isSelfEdit = sameId(currentUserId, userId);
       
       // Permission check: Can edit if self OR has permission to edit others
       const canEdit = isSelfEdit || canEditOtherEmployees;
@@ -1907,27 +2034,46 @@ const EmployeeDirectory = () => {
         }
       };
       
-      const apiUrl = isSelfEdit ? '/users/me' : `/users/${userId}`;
+      const updateUrls = isSelfEdit
+        ? ['/users/me', `/users/profile-update/${userId}`, `/users/${userId}`]
+        : [`/users/${userId}`, `/users/profile-update/${userId}`];
       
       void 0;
       void 0;
       
-      const res = await axios.put(apiUrl, updateData, config);
+      let res = null;
+      let lastError = null;
+
+      for (const apiUrl of updateUrls) {
+        try {
+          res = await axios.put(apiUrl, updateData, config);
+          break;
+        } catch (err) {
+          lastError = err;
+          if (err?.response?.status !== 404) {
+            throw err;
+          }
+        }
+      }
+
+      if (!res) {
+        throw lastError;
+      }
       
       if (res.data && res.data.success) {
         const updatedUser = res.data.message?.user || res.data.user || res.data.data;
 
-        if (selectedUser && (selectedUser._id === userId || selectedUser.id === userId)) {
+        if (selectedUser && (sameId(selectedUser._id, userId) || sameId(selectedUser.id, userId))) {
           setSelectedUser(updatedUser);
         }
         
         setEmployees(prev => prev.map(emp => 
-          (emp._id === userId || emp.id === userId) 
+          (sameId(emp._id, userId) || sameId(emp.id, userId)) 
             ? { ...updatedUser } 
             : emp
         ));
 
-        if (selectedUser && (selectedUser._id === userId)) {
+        if (selectedUser && sameId(selectedUser._id, userId)) {
           setSelectedUser(updatedUser);
         }
 
@@ -2006,7 +2152,7 @@ const EmployeeDirectory = () => {
       return;
     }
     
-    const isSelfDelete = currentUserId === (userToDelete._id || userToDelete.id);
+    const isSelfDelete = sameId(currentUserId, userToDelete._id || userToDelete.id);
     
     if (isSelfDelete) {
       showSnackbar('You cannot delete your own account', 'error');
@@ -2039,7 +2185,7 @@ const EmployeeDirectory = () => {
         setUserToDelete(null);
         showSnackbar('Employee deleted successfully');
         
-        if (selectedUser && (selectedUser.id === userId || selectedUser._id === userId)) {
+        if (selectedUser && (sameId(selectedUser.id, userId) || sameId(selectedUser._id, userId))) {
           handleCloseUser();
         }
         
@@ -2650,6 +2796,13 @@ const EmployeeDirectory = () => {
                         {getJobRoleName(selectedUser.jobRole)}
                       </div>
                     </div>
+
+                    <div className="EmployeeDirectory-detail-item">
+                      <div className="EmployeeDirectory-detail-label">Shift</div>
+                      <div className="EmployeeDirectory-detail-value">
+                        {getShiftName(selectedUser)}
+                      </div>
+                    </div>
                     
                     <div className="EmployeeDirectory-detail-item">
                       <div className="EmployeeDirectory-detail-label">Department</div>
@@ -2804,7 +2957,7 @@ const EmployeeDirectory = () => {
             </div>
             
             <div className="EmployeeDirectory-modal-footer">
-              {(canEditOtherEmployees || currentUserId === (selectedUser._id || selectedUser.id)) && (
+              {(canEditOtherEmployees || sameId(currentUserId, selectedUser._id || selectedUser.id)) && (
                 <button 
                   className="EmployeeDirectory-btn EmployeeDirectory-btn-contained"
                   onClick={() => handleEdit(selectedUser)}
@@ -2828,7 +2981,7 @@ const EmployeeDirectory = () => {
             <div className="EmployeeDirectory-modal-header">
               <div className="EmployeeDirectory-modal-header-content">
                 <h2 className="EmployeeDirectory-modal-title">
-                  {currentUserId === (editingUser._id || editingUser.id) ? 'Edit Your Profile' : `Edit ${editingUser.name}`}
+                  {sameId(currentUserId, editingUser._id || editingUser.id) ? 'Edit Your Profile' : `Edit ${editingUser.name}`}
                 </h2>
                 <div className="EmployeeDirectory-modal-subtitle">
                   Update employee information across all sections
@@ -2847,7 +3000,7 @@ const EmployeeDirectory = () => {
                 departments={departments}
                 jobRoles={jobRoles}
                 canEditOtherEmployees={canEditOtherEmployees}
-                isSelfEdit={currentUserId === (editingUser._id || editingUser.id)}
+                isSelfEdit={sameId(currentUserId, editingUser._id || editingUser.id)}
                 currentUserId={currentUserId}
                 currentUserRole={currentUserRole}
                 currentUserCompanyRole={currentUserCompanyRole}

@@ -1,6 +1,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useSocket } from './SocketContext';
+import { useAuth } from './AuthContext';
 import '../components/notifications.css';
 
 const NotificationContext = createContext();
@@ -17,8 +18,14 @@ export const NotificationProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
   const recentToastKeys = useRef(new Set());
   const { onNewNotification = () => () => {} } = useSocket();
+  const { isAuthenticated, user, token } = useAuth();
+  const canReceivePortalNotifications = Boolean(isAuthenticated && user && token);
 
   const showToast = useCallback((message, type = 'info', duration = 3000, options = {}) => {
+    if (options.requiresAuth && !canReceivePortalNotifications) {
+      return;
+    }
+
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const toastContent = typeof message === 'object' && message !== null
       ? message
@@ -29,14 +36,24 @@ export const NotificationProvider = ({ children }) => {
     setTimeout(() => {
       setToasts(prev => prev.filter(toast => toast.id !== id));
     }, duration);
-  }, []);
+  }, [canReceivePortalNotifications]);
 
   const removeToast = useCallback((id) => {
     setToasts(prev => prev.filter(toast => toast.id !== id));
   }, []);
 
   useEffect(() => {
+    if (!canReceivePortalNotifications) {
+      recentToastKeys.current.clear();
+      setToasts(prev => prev.filter(toast => !toast.requiresAuth));
+      return undefined;
+    }
+
     const unsubscribe = onNewNotification((notification = {}) => {
+      if (!canReceivePortalNotifications) {
+        return;
+      }
+
       const toastKey = String(
         notification._id ||
         notification.id ||
@@ -58,14 +75,15 @@ export const NotificationProvider = ({ children }) => {
           message: notification.message || notification.body || notification.description || 'You have a new update',
         },
         notification.type === 'error' ? 'error' : 'info',
-        6000
+        6000,
+        { requiresAuth: true }
       );
     });
 
     return () => {
       unsubscribe?.();
     };
-  }, [onNewNotification, showToast]);
+  }, [canReceivePortalNotifications, onNewNotification, showToast]);
 
   const value = {
     toasts,

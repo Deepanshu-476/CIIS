@@ -101,6 +101,49 @@ const emptyTaskStats = {
 
 const TASK_STAT_KEYS = ['pending', 'inProgress', 'completed', 'rejected', 'overdue', 'onhold', 'reopen', 'cancelled'];
 
+const isObjectIdLike = value => /^[a-f\d]{24}$/i.test(String(value || '').trim());
+
+const getRoleText = value => {
+  if (!value) return '';
+  if (typeof value === 'string') {
+    const text = value.trim();
+    return isObjectIdLike(text) ? '' : text;
+  }
+  return String(
+    value.roleName ||
+    value.name ||
+    value.title ||
+    value.jobRole ||
+    value.companyRole ||
+    ''
+  ).trim();
+};
+
+const getMappedRoleText = (value, roleMap = {}) => {
+  if (!value) return '';
+  const roleId = typeof value === 'object' ? value._id || value.id || value.roleId || value.roleNumber : value;
+  const mapped = roleMap[String(roleId || '')];
+  return mapped || getRoleText(value);
+};
+
+const getUserDisplayRole = (user, roleMap = {}) => {
+  const jobRole =
+    getMappedRoleText(user?.jobRole, roleMap) ||
+    getMappedRoleText(user?.roleId, roleMap);
+
+  return (
+    getRoleText(user?.roleName) ||
+    getRoleText(user?.jobRoleName) ||
+    jobRole ||
+    getRoleText(user?.role) ||
+    getRoleText(user?.designation) ||
+    getRoleText(user?.position) ||
+    getRoleText(user?.employeeRole) ||
+    getRoleText(user?.companyRole) ||
+    'Employee'
+  );
+};
+
 const isTaskOverdueByDate = (dueDate, status) => {
   if (!dueDate) return false;
   const normalizedStatus = normalizeStatus(status);
@@ -225,6 +268,7 @@ const TaskDetails = () => {
 
   
   const [departmentMap, setDepartmentMap] = useState({});
+  const [jobRoleMap, setJobRoleMap] = useState({});
 
   
   const [activityLogs, setActivityLogs] = useState([]);
@@ -373,6 +417,40 @@ const TaskDetails = () => {
       }
     } catch (err) {
       console.error("❌ Error fetching departments:", err);
+    }
+  };
+
+  const fetchJobRoles = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
+
+      const response = await axios.get('/job-roles', config);
+      const roles = response.data?.jobRoles || response.data?.data || response.data?.roles || [];
+
+      if (Array.isArray(roles)) {
+        const map = {};
+        roles.forEach(role => {
+          const roleName = getRoleText(role);
+          if (!roleName) return;
+
+          [role._id, role.id, role.roleId, role.roleNumber, role.roleNo, role.code, role.name, role.roleName]
+            .filter(Boolean)
+            .forEach(key => {
+              map[String(key)] = roleName;
+            });
+        });
+        setJobRoleMap(map);
+      }
+    } catch (err) {
+      console.error("❌ Error fetching job roles:", err);
     }
   };
 
@@ -796,7 +874,8 @@ const TaskDetails = () => {
     };
 
     fetchUserData();
-    fetchDepartments(); 
+    fetchDepartments();
+    fetchJobRoles();
   }, []);
 
   
@@ -912,6 +991,7 @@ const TaskDetails = () => {
         let filteredUsers = usersData.map(user => ({
           ...user,
           _id: user._id || user.id,
+          role: getUserDisplayRole(user, jobRoleMap),
           taskStats: emptyTaskStats
         }));
 
@@ -1004,7 +1084,7 @@ const TaskDetails = () => {
       }
     }, 300); 
 
-  }, [currentUser, isOwner, calculateOverallStats, globalFromDate, globalToDate, fetchTodayLoggedInUsers]);
+  }, [currentUser, isOwner, calculateOverallStats, globalFromDate, globalToDate, fetchTodayLoggedInUsers, jobRoleMap]);
 
   useEffect(() => {
     if (!currentUser || isTaskPageMode) return;
@@ -2183,7 +2263,7 @@ const TaskDetails = () => {
               </div>
               <div className="TaskDetails-user-role">
                 <FiBriefcase size={12} />
-                {user.role || "No Role"}
+                {getUserDisplayRole(user, jobRoleMap)}
               </div>
               <div className="TaskDetails-user-email">
                 {user.email || "No Email"}
@@ -2785,7 +2865,7 @@ const TaskDetails = () => {
                 <div className="TaskDetails-modal-user-meta">
                   <span className="TaskDetails-modal-user-role">
                     <FiBriefcase size={14} />
-                    {selectedUser?.role || 'Employee'}
+                    {getUserDisplayRole(selectedUser, jobRoleMap)}
                   </span>
                   <span className="TaskDetails-modal-user-email">
                     <FiMail size={14} />
@@ -3304,7 +3384,7 @@ const TaskDetails = () => {
                   <div className="TaskDetails-modal-user-meta">
                     <span className="TaskDetails-modal-user-role">
                       <FiBriefcase size={14} />
-                      {selectedUser?.role || 'Employee'}
+                      {getUserDisplayRole(selectedUser, jobRoleMap)}
                     </span>
                     <span className="TaskDetails-modal-user-email">
                       <FiMail size={14} />

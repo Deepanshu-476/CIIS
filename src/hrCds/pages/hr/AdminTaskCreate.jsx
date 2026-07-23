@@ -33,6 +33,8 @@ const AdminTaskManagement = () => {
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [departmentMap, setDepartmentMap] = useState({});
+  const [companyMap, setCompanyMap] = useState({});
   const [userRole, setUserRole] = useState('');
   const [companyRole, setCompanyRole] = useState('');
   const [jobRole, setJobRole] = useState('');
@@ -190,40 +192,52 @@ const AdminTaskManagement = () => {
     return !hasStatusChanged;
   };
 
+  const isObjectIdLike = (value) => /^[a-f\d]{24}$/i.test(String(value || '').trim());
+
+  const getLookupKey = (value) => String(value || '').trim().toLowerCase();
+
+  const getReadableCompanyName = (company) => {
+    if (!company) return '';
+    if (typeof company === 'object') {
+      return company.companyName || company.name || company.title || company.companyCode || '';
+    }
+    const key = getLookupKey(company);
+    return companyMap[key] || (isObjectIdLike(key) ? '' : key);
+  };
+
+  const getReadableDepartmentName = (department) => {
+    if (!department) return '';
+    if (typeof department === 'object') {
+      return department.name || department.departmentName || department.title || '';
+    }
+    const key = getLookupKey(department);
+    return departmentMap[key] || (isObjectIdLike(key) ? '' : key);
+  };
+
   
   const getCompanyName = (company) => {
-    if (!company) return 'N/A';
-    if (typeof company === 'object') {
-      return company.companyName || company.name || company._id || 'N/A';
-    }
-    return company;
+    return getReadableCompanyName(company) || 'N/A';
   };
 
   
   const getDepartmentName = (department) => {
-    if (!department) return 'N/A';
-    if (typeof department === 'object') {
-      return department.name || department._id || 'N/A';
-    }
-    return department;
+    return getReadableDepartmentName(department) || 'N/A';
   };
 
   
   const getUserCompanyDisplay = (user) => {
-    if (!user?.company) return 'No Company';
-    if (typeof user.company === 'object') {
-      return user.company.companyName || user.company.name || 'N/A';
-    }
-    return user.company;
+    return getReadableCompanyName(user?.company) ||
+      getReadableCompanyName(currentUser?.company) ||
+      user?.companyName ||
+      user?.companyCode ||
+      'N/A';
   };
 
   
   const getUserDepartmentDisplay = (user) => {
-    if (!user?.department) return 'No Department';
-    if (typeof user.department === 'object') {
-      return user.department.name || 'N/A';
-    }
-    return user.department;
+    return getReadableDepartmentName(user?.department) ||
+      user?.departmentName ||
+      'N/A';
   };
 
   
@@ -613,6 +627,7 @@ const AdminTaskManagement = () => {
   const fetchSupportingData = async () => {
     try {
       const companyId = currentUser.company?._id || currentUser.company;
+      let loadedDepartmentMap = {};
       
       
       try {
@@ -623,18 +638,30 @@ const AdminTaskManagement = () => {
         const deptRes = await apiCall('get', deptUrl);
         
         let departmentsData = [];
-        if (deptRes.data && deptRes.data.success) {
-          if (deptRes.data.data && Array.isArray(deptRes.data.data)) {
-            departmentsData = deptRes.data.data;
-          } else if (deptRes.data.departments && Array.isArray(deptRes.data.departments)) {
-            departmentsData = deptRes.data.departments;
-          } else if (Array.isArray(deptRes.data)) {
+        if (deptRes?.success) {
+          if (deptRes.data && Array.isArray(deptRes.data)) {
             departmentsData = deptRes.data;
+          } else if (deptRes.departments && Array.isArray(deptRes.departments)) {
+            departmentsData = deptRes.departments;
           }
+        } else if (deptRes?.data && Array.isArray(deptRes.data)) {
+          departmentsData = deptRes.data;
+        } else if (deptRes?.departments && Array.isArray(deptRes.departments)) {
+          departmentsData = deptRes.departments;
+        } else if (Array.isArray(deptRes?.data)) {
+          departmentsData = deptRes.data;
         } else if (Array.isArray(deptRes)) {
           departmentsData = deptRes;
         }
         setDepartments(departmentsData);
+        const nextDepartmentMap = {};
+        departmentsData.forEach(dept => {
+          const deptId = dept?._id || dept?.id;
+          const deptName = dept?.name || dept?.departmentName || dept?.title;
+          if (deptId && deptName) nextDepartmentMap[getLookupKey(deptId)] = deptName;
+        });
+        loadedDepartmentMap = nextDepartmentMap;
+        setDepartmentMap(nextDepartmentMap);
       } catch (deptErr) {
         console.error('Failed to load departments', deptErr);
       }
@@ -679,6 +706,28 @@ const AdminTaskManagement = () => {
         });
       }
       
+      const nextCompanyMap = {};
+      const nextDepartmentMapFromUsers = {};
+      const currentCompanyId = currentUser.company?._id || currentUser.company;
+      const currentCompanyName = getReadableCompanyName(currentUser.company);
+      if (currentCompanyId && currentCompanyName) {
+        nextCompanyMap[getLookupKey(currentCompanyId)] = currentCompanyName;
+      }
+
+      usersArray.forEach(user => {
+        const companyId = user.company?._id || user.company || user.companyId;
+        const companyName = getReadableCompanyName(user.company) || user.companyName || user.companyCode;
+        if (companyId && companyName) nextCompanyMap[getLookupKey(companyId)] = companyName;
+
+        const deptId = user.department?._id || user.department || user.departmentId;
+        const deptName = getReadableDepartmentName(user.department) || loadedDepartmentMap[getLookupKey(deptId)] || user.departmentName;
+        if (deptId && deptName) {
+          nextDepartmentMapFromUsers[getLookupKey(deptId)] = deptName;
+        }
+      });
+
+      setDepartmentMap(prev => ({ ...prev, ...nextDepartmentMapFromUsers }));
+      setCompanyMap(nextCompanyMap);
       setUsers(usersArray);
 
       

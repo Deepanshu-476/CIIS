@@ -85,6 +85,9 @@ function Settings() {
   const [loadingCompany, setLoadingCompany] = useState(true);
   const [loadingConfig, setLoadingConfig] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [branches, setBranches] = useState([]);
+  const [selectedBranchId, setSelectedBranchId] = useState('');
+  const [loadingBranches, setLoadingBranches] = useState(false);
   const [showOldPwd, setShowOldPwd] = useState(false);
   const [showNewPwd, setShowNewPwd] = useState(false);
   const [oldPwd, setOldPwd] = useState('');
@@ -100,6 +103,8 @@ function Settings() {
   const [savingLocation, setSavingLocation] = useState(false);
 
   const activeCompanyId = currentCompany?._id || '';
+  const selectedBranch = branches.find(branch => getEntityId(branch) === selectedBranchId) || null;
+  const activeSettingsId = selectedBranchId;
   const enabledDashboardCount = dashboardConfig.filter(item => item.isEnabled).length;
   const attendanceMode = dashboardConfig.find(item => item.componentId === 'clock-in')?.settings?.attendanceMode || 'normal';
   const hasCompanyLocation = locationForm.latitude !== '' && locationForm.longitude !== '';
@@ -110,25 +115,34 @@ function Settings() {
       : currentCompany.companyName;
   }, [currentCompany]);
 
-  const fetchDashboardConfig = async (companyId) => {
-    if (!companyId) return;
+  const branchLabel = selectedBranch
+    ? selectedBranch.branchCode
+      ? `${selectedBranch.name} (${selectedBranch.branchCode})`
+      : selectedBranch.name
+    : 'Select branch';
 
+  const fetchBranchSettings = async (branchId) => {
+    if (!branchId) {
+      setDashboardConfig(getDefaultDashboardConfig());
+      syncLocationForm(null);
+      return;
+    }
     setLoadingConfig(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`/company/${companyId}/dashboard-config`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.get(`/branches/${branchId}`);
+      const branch = response.data?.branch;
 
-      if (response.data.success && Array.isArray(response.data.dashboardConfig) && response.data.dashboardConfig.length > 0) {
-        setDashboardConfig(response.data.dashboardConfig);
+      if (Array.isArray(branch?.dashboardConfig) && branch.dashboardConfig.length > 0) {
+        setDashboardConfig(branch.dashboardConfig);
       } else {
         setDashboardConfig(getDefaultDashboardConfig());
       }
+      syncLocationForm(branch?.officeLocation);
     } catch (err) {
-      console.error("Failed to load dashboard config:", err);
-      toast.error(err.response?.data?.message || "Failed to load dashboard configuration");
+      console.error("Failed to load branch settings:", err);
+      toast.error(err.response?.data?.message || "Failed to load branch settings");
       setDashboardConfig(getDefaultDashboardConfig());
+      syncLocationForm(null);
     } finally {
       setLoadingConfig(false);
     }
@@ -143,20 +157,21 @@ function Settings() {
     });
   };
 
-  const fetchCompanyLocation = async (companyId) => {
-    if (!companyId) return;
-
+  const fetchBranches = async (companyId) => {
+    if (!companyId) return [];
+    setLoadingBranches(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`/company/${companyId}/location`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (response.data.success) {
-        syncLocationForm(response.data.officeLocation);
-      }
+      const response = await axios.get(`/branches/company/${companyId}`);
+      const nextBranches = response.data?.branches || [];
+      setBranches(nextBranches);
+      return nextBranches;
     } catch (err) {
-      console.warn("Could not load company location:", err.response?.data?.message || err.message);
+      console.error("Could not load branches:", err.response?.data?.message || err.message);
+      toast.error(err.response?.data?.message || "Failed to load branches");
+      setBranches([]);
+      return [];
+    } finally {
+      setLoadingBranches(false);
     }
   };
 
@@ -184,14 +199,28 @@ function Settings() {
       }
 
       setCurrentCompany(activeCompany);
-      syncLocationForm(activeCompany.officeLocation);
       setLoadingCompany(false);
-      fetchDashboardConfig(activeCompany._id);
-      fetchCompanyLocation(activeCompany._id);
+      const companyBranches = await fetchBranches(activeCompany._id);
+      const initialBranch = companyBranches.find(branch => branch.isDefault && branch.isActive !== false) ||
+        companyBranches.find(branch => branch.isActive !== false) ||
+        companyBranches[0];
+
+      if (initialBranch) {
+        setSelectedBranchId(getEntityId(initialBranch));
+      } else {
+        setDashboardConfig(getDefaultDashboardConfig());
+        syncLocationForm(null);
+      }
     };
 
     initializeCompanySettings();
   }, []);
+
+  useEffect(() => {
+    if (selectedBranchId) {
+      fetchBranchSettings(selectedBranchId);
+    }
+  }, [selectedBranchId]);
 
   const handleToggleComponent = (index) => {
     setDashboardConfig(prev => prev.map((item, itemIndex) => (
@@ -214,22 +243,19 @@ function Settings() {
   };
 
   const saveDashboardConfig = async () => {
-    if (!activeCompanyId) {
-      toast.error("Company details not found. Please login again.");
+    if (!activeSettingsId) {
+      toast.error("Please select a branch first.");
       return;
     }
 
     setSavingConfig(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.put(`/company/${activeCompanyId}/dashboard-config`, {
+      const response = await axios.put(`/branches/${activeSettingsId}`, {
         dashboardConfig
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
       });
 
       if (response.data.success) {
-        toast.success("Dashboard settings saved for your company.");
+        toast.success("Dashboard settings saved for selected branch.");
       } else {
         toast.error("Failed to save dashboard settings");
       }
@@ -246,8 +272,8 @@ function Settings() {
   };
 
   const saveCompanyLocation = async () => {
-    if (!activeCompanyId) {
-      toast.error("Company details not found. Please login again.");
+    if (!activeSettingsId) {
+      toast.error("Please select a branch first.");
       return;
     }
 
@@ -273,26 +299,29 @@ function Settings() {
 
     setSavingLocation(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.put(`/company/${activeCompanyId}/location`, {
-        latitude,
-        longitude,
-        allowedRadiusMeters: allowedRadiusEnabled ? allowedRadiusMeters : null,
-        allowedRadiusEnabled
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await axios.put(`/branches/${activeSettingsId}`, {
+        officeLocation: {
+          latitude,
+          longitude,
+          allowedRadiusMeters: allowedRadiusEnabled ? allowedRadiusMeters : null,
+          allowedRadiusEnabled
+        }
       });
 
       if (response.data.success) {
-        syncLocationForm(response.data.officeLocation);
-        setCurrentCompany(prev => prev ? { ...prev, officeLocation: response.data.officeLocation } : prev);
-        toast.success("Company location saved successfully.");
+        const updatedLocation = response.data.branch?.officeLocation;
+        syncLocationForm(updatedLocation);
+        setBranches(prev => prev.map(branch => getEntityId(branch) === activeSettingsId
+          ? { ...branch, officeLocation: updatedLocation }
+          : branch
+        ));
+        toast.success("Branch location saved successfully.");
       } else {
-        toast.error("Failed to save company location");
+        toast.error("Failed to save branch location");
       }
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.message || "Failed to save company location");
+      toast.error(err.response?.data?.message || "Failed to save branch location");
     } finally {
       setSavingLocation(false);
     }
@@ -381,7 +410,7 @@ function Settings() {
                   {loadingCompany ? 'Loading company...' : companyLabel}
                 </Typography>
                 <Typography sx={{ mt: 1, fontSize: 14, opacity: 0.9 }}>
-                  Manage dashboard visibility, attendance mode and account security for your company.
+                  Manage dashboard visibility, attendance mode and office location for the selected branch.
                 </Typography>
               </Box>
             </Stack>
@@ -410,7 +439,7 @@ function Settings() {
               />
               <Chip
                 icon={<LocationOnIcon />}
-                label={hasCompanyLocation ? 'Location added' : 'Location pending'}
+                label={hasCompanyLocation ? 'Branch location added' : 'Branch location pending'}
                 sx={{
                   color: '#fff',
                   fontWeight: 800,
@@ -428,8 +457,55 @@ function Settings() {
           </Alert>
         )}
 
+        {activeCompanyId && (
+          <Paper
+            elevation={0}
+            sx={{
+              mb: 3,
+              p: 2,
+              borderRadius: 3,
+              border: '1px solid #e7edf6',
+              bgcolor: '#fff'
+            }}
+          >
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between">
+              <Box>
+                <Typography fontWeight={900}>Branch Scope</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  All settings below will load and save only for the selected branch.
+                </Typography>
+              </Box>
+              <FormControl size="small" sx={{ minWidth: { xs: '100%', md: 320 } }}>
+                <InputLabel>Branch</InputLabel>
+                <Select
+                  value={selectedBranchId}
+                  label="Branch"
+                  onChange={(event) => setSelectedBranchId(event.target.value)}
+                  disabled={loadingBranches || branches.length === 0}
+                >
+                  {branches.map(branch => (
+                    <MenuItem key={getEntityId(branch)} value={getEntityId(branch)}>
+                      {branch.branchCode ? `${branch.name} (${branch.branchCode})` : branch.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Stack>
+            {!loadingBranches && branches.length === 0 && (
+              <Alert severity="warning" sx={{ mt: 2, borderRadius: 2 }}>
+                No branches found for this company. Please create a branch first.
+              </Alert>
+            )}
+            {selectedBranch && (
+              <Alert severity="info" sx={{ mt: 2, borderRadius: 2 }}>
+                Currently editing settings for {branchLabel}.
+              </Alert>
+            )}
+          </Paper>
+        )}
+
         <Stack spacing={2.5}>
-        <Accordion defaultExpanded disabled={!activeCompanyId} elevation={0} sx={settingCardSx}>
+        <Accordion defaultExpanded disabled={!activeSettingsId} elevation={0} sx={settingCardSx}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" spacing={1.5} alignItems="center">
               <Box sx={{ width: 42, height: 42, borderRadius: 2, display: 'grid', placeItems: 'center', color: '#6757ec', bgcolor: '#f0efff' }}>
@@ -518,7 +594,7 @@ function Settings() {
                     color="primary"
                     startIcon={<SaveIcon />}
                     onClick={saveDashboardConfig}
-                    disabled={savingConfig || loadingConfig || !activeCompanyId}
+                    disabled={savingConfig || loadingConfig || !activeSettingsId}
                     sx={{
                       mt: 1,
                       alignSelf: { xs: 'stretch', sm: 'flex-start' },
@@ -538,16 +614,16 @@ function Settings() {
           </AccordionDetails>
         </Accordion>
 
-        <Accordion elevation={0} sx={settingCardSx}>
+        <Accordion disabled={!activeSettingsId} elevation={0} sx={settingCardSx}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" spacing={1.5} alignItems="center">
               <Box sx={{ width: 42, height: 42, borderRadius: 2, display: 'grid', placeItems: 'center', color: '#0f766e', bgcolor: '#ecfdf5' }}>
                 <LocationOnIcon />
               </Box>
               <Box>
-                <Typography fontWeight={900}>Company Location</Typography>
+                <Typography fontWeight={900}>Branch Location</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Add office coordinates and allowed attendance radius.
+                  Add branch office coordinates and allowed attendance radius.
                 </Typography>
               </Box>
             </Stack>
@@ -555,7 +631,7 @@ function Settings() {
           <AccordionDetails>
             <Box display="flex" flexDirection="column" gap={2.5}>
               <Alert severity="info" sx={{ borderRadius: 2 }}>
-                Choose whether users must be inside the allowed office radius while clocking in.
+                Choose whether users must be inside the selected branch radius while clocking in.
               </Alert>
 
               <Box
@@ -615,7 +691,7 @@ function Settings() {
                 variant="contained"
                 startIcon={<SaveIcon />}
                 onClick={saveCompanyLocation}
-                disabled={savingLocation || !activeCompanyId}
+                disabled={savingLocation || !activeSettingsId}
                 sx={{
                   alignSelf: { xs: 'stretch', sm: 'flex-start' },
                   px: 3,
@@ -626,7 +702,7 @@ function Settings() {
                   background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)'
                 }}
               >
-                {savingLocation ? 'Saving Location...' : 'Save Company Location'}
+                {savingLocation ? 'Saving Location...' : 'Save Branch Location'}
               </Button>
             </Box>
           </AccordionDetails>

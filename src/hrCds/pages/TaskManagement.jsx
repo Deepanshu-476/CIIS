@@ -21,15 +21,17 @@ import { getCompanyScopedClientParams } from '../utils/clientPortalData';
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return '';
+  const rawPath = typeof imagePath === 'string' ? imagePath : getRemarkImagePath(imagePath);
+  if (!rawPath) return '';
 
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-    return imagePath;
+  if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) {
+    return rawPath;
   }
 
   const baseUrl = API_URL;
   const baseUrlWithoutApi = baseUrl.replace(/\/api$/, '');
 
-  let cleanPath = imagePath.replace(/\\/g, '/').replace(/^\/+/, '');
+  let cleanPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
   
   if (cleanPath.startsWith('uploads/client-remarks/')) {
     return `${baseUrlWithoutApi}/${cleanPath}`;
@@ -103,6 +105,41 @@ const getAttachmentName = (file) => {
 const isImageAttachment = (file) => {
   const value = `${file?.mimeType || file?.mimetype || getAttachmentPath(file) || getAttachmentName(file)}`.toLowerCase();
   return /\.(png|jpe?g|webp|gif)$/i.test(value) || value.startsWith('image/');
+};
+
+const getRemarkImagePath = (image) => {
+  if (!image) return '';
+  if (typeof image === 'string') return image;
+  return image.url || image.path || image.image || image.filename || '';
+};
+
+const getRemarkImages = (remark) => {
+  const paths = [];
+  if (Array.isArray(remark?.images)) {
+    remark.images.forEach(image => {
+      const path = getRemarkImagePath(image);
+      if (path) paths.push(path);
+    });
+  }
+  if (remark?.image) paths.push(remark.image);
+  return [...new Set(paths)];
+};
+
+const normalizeRemark = (remark = {}) => {
+  const images = getRemarkImages(remark).map(path => ({
+    url: path,
+    filename: path.split('/').pop(),
+    originalName: path.split('/').pop(),
+    size: 0,
+    mimeType: 'image/jpeg'
+  }));
+
+  return {
+    ...remark,
+    text: remark.text || remark.remark || remark.message || remark.remarks || '',
+    userName: remark.userName || remark.user?.name || remark.createdBy?.name || '',
+    images
+  };
 };
 
 
@@ -1959,23 +1996,7 @@ const UserCreateTask = () => {
         remarks = res.data;
       }
       
-      remarks = remarks.map(remark => {
-        if (remark.image && !remark.images) {
-          remark.images = [{
-            url: remark.image,
-            filename: remark.image.split('/').pop(),
-            originalName: remark.image.split('/').pop(),
-            size: 0,
-            mimeType: 'image/jpeg'
-          }];
-        }
-        
-        if (!remark.images) {
-          remark.images = [];
-        }
-        
-        return remark;
-      });
+      remarks = remarks.map(normalizeRemark);
       
       void 0;
       
@@ -2075,19 +2096,28 @@ const UserCreateTask = () => {
         }
 
         endpoint = `/tasks/project/${projectId}/tasks/${taskId}/remarks`;
-        const response = await axios.post(endpoint, { text: newRemark.trim() }, {
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        });
+        if (remarkImages.length > 0) {
+          formData.append('text', newRemark.trim());
+          formData.append('image', remarkImages[0].file);
+          await axios.post(endpoint, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            }
+          });
+        } else {
+          await axios.post(endpoint, { text: newRemark.trim() }, {
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          });
+        }
 
-        void 0;
         setNewRemark('');
         remarkImages.forEach(image => {
           if (image.preview) URL.revokeObjectURL(image.preview);
         });
         setRemarkImages([]);
-        showSnackbar('Remark added successfully', 'success');
+        showSnackbar(`Remark added successfully${remarkImages.length > 0 ? ' with image' : ''}`, 'success');
         return true;
       } else if (isClientTask) {
         if (remarkImages.length > 0) {
@@ -5391,7 +5421,10 @@ const UserCreateTask = () => {
                 
                 {remarksDialog.remarks.length > 0 ? (
                   <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2">
-                    {remarksDialog.remarks.map((remark, index) => (
+                    {remarksDialog.remarks.map((remark, index) => {
+                      const remarkImages = getRemarkImages(remark);
+
+                      return (
                       <div key={index} className="user-create-task-paper remark-history-card">
                         <div className="user-create-task-paper-content">
                           <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-1.5">
@@ -5434,25 +5467,18 @@ const UserCreateTask = () => {
                             )}
 
                             
-                            {remark.images && remark.images.length > 0 && (
+                            {remarkImages.length > 0 && (
                               <div style={{ marginTop: isMobile ? '6px' : '8px' }}>
                                 <div style={{ fontSize: isMobile ? '11px' : '12px', marginBottom: '4px' }}>
-                                  Attached Images ({remark.images.length}):
+                                  Attached Images ({remarkImages.length}):
                                 </div>
                                 <div style={{ 
                                   display: 'grid', 
                                   gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', 
                                   gap: isMobile ? '6px' : '8px' 
                                 }}>
-                                  {remark.images.map((image, imgIndex) => {
-                                    let imageUrl = '';
-                                    if (image.url) {
-                                      imageUrl = getImageUrl(image.url);
-                                    } else if (image.path) {
-                                      imageUrl = getImageUrl(image.path);
-                                    } else if (typeof image === 'string') {
-                                      imageUrl = getImageUrl(image);
-                                    }
+                                  {remarkImages.map((imagePath, imgIndex) => {
+                                    const imageUrl = getImageUrl(imagePath);
                                     
                                     return (
                                       <div 
@@ -5528,84 +5554,11 @@ const UserCreateTask = () => {
                                 </div>
                               </div>
                             )}
-
-                            
-                            {remark.image && !remark.images && (
-                              <div style={{ marginTop: isMobile ? '6px' : '8px' }}>
-                                <div style={{ fontSize: isMobile ? '11px' : '12px', marginBottom: '4px' }}>
-                                  Attached Image:
-                                </div>
-                                <div 
-                                  onClick={() => setZoomImage(getImageUrl(remark.image))}
-                                  style={{ cursor: 'pointer' }}
-                                >
-                                  <img
-                                    src={getImageUrl(remark.image)}
-                                    alt="Remark attachment"
-                                    style={{
-                                      width: '100%',
-                                      height: 'auto',
-                                      borderRadius: '4px',
-                                      maxHeight: '300px',
-                                      objectFit: 'contain',
-                                      border: '1px solid #eee'
-                                    }}
-                                    onError={(e) => {
-                                      const filename = remark.image.split('/').pop();
-                                      const baseUrl = API_URL.replace(/\/api$/, '');
-                                      const alternativeUrls = [
-                                        `${baseUrl}/uploads/client-remarks/${filename}`,
-                                        `${baseUrl}/uploads/${filename}`,
-                                        `${baseUrl}/${filename}`
-                                      ];
-                                      
-                                      let currentIndex = 0;
-                                      const tryNextUrl = () => {
-                                        if (currentIndex < alternativeUrls.length && e.target.src !== alternativeUrls[currentIndex]) {
-                                          e.target.src = alternativeUrls[currentIndex];
-                                          currentIndex++;
-                                        } else {
-                                          e.target.style.display = 'none';
-                                          const parent = e.target.parentElement;
-                                          if (parent && !parent.querySelector('.image-error-fallback')) {
-                                            const fallback = document.createElement('div');
-                                            fallback.className = 'image-error-fallback';
-                                            fallback.style.cssText = `
-                                              padding: 20px;
-                                              background: #fff3f3;
-                                              border: 1px solid #ffcdd2;
-                                              border-radius: 8px;
-                                              text-align: center;
-                                              color: #d32f2f;
-                                              font-size: 14px;
-                                              display: flex;
-                                              flex-direction: column;
-                                              align-items: center;
-                                              gap: 8px;
-                                            `;
-                                            fallback.innerHTML = `
-                                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <circle cx="12" cy="12" r="10"></circle>
-                                                <line x1="12" y1="8" x2="12" y2="12"></line>
-                                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                                              </svg>
-                                              <span>Image not available</span>
-                                            `;
-                                            parent.appendChild(fallback);
-                                          }
-                                        }
-                                      };
-                                      
-                                      tryNextUrl();
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            )}
                           </div>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="user-create-task-paper" style={{ textAlign: 'center', padding: isMobile ? '24px' : '32px' }}>

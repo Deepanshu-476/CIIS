@@ -1038,6 +1038,14 @@
   flex-direction: column;
   gap: 12px;
   position: relative;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.activity-list::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .activity-item {
@@ -2852,7 +2860,12 @@
   .dashboard-container .dashboard-calendar-card .calendar-day.late { background: linear-gradient(145deg, #fff9eb, rgba(245,166,35,.20)); color: #9b6004 !important; border: 1px solid rgba(245,166,35,.24); }
   .dashboard-container .dashboard-calendar-card .calendar-day.halfday { background: linear-gradient(145deg, #fffbed, rgba(245,181,51,.18)); color: #9d6507 !important; border: 1px solid rgba(245,181,51,.21); }
   .dashboard-container .dashboard-calendar-card .calendar-day.leave { background: linear-gradient(145deg, #f4f9ff, rgba(61,139,232,.17)); color: #246cb8 !important; border: 1px solid rgba(61,139,232,.19); }
-  .dashboard-container .dashboard-calendar-card .calendar-day.absent { background: linear-gradient(145deg, #fff7f8, rgba(236,73,94,.17)); color: #b82d45 !important; border: 1px solid rgba(236,73,94,.20); }
+  .dashboard-container .dashboard-calendar-card .calendar-day.absent {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #fff !important;
+    border: 1px solid #b91c1c;
+    box-shadow: 0 3px 8px rgba(220, 38, 38, .28);
+  }
   .dashboard-container .dashboard-calendar-card .calendar-day.weekend { background: linear-gradient(145deg, #f5f7f9, rgba(120,135,157,.21)); color: #5f697a !important; border: 1px solid rgba(120,135,157,.25); }
   .dashboard-container .dashboard-calendar-card .calendar-day.holiday { background: linear-gradient(145deg, #faf7ff, rgba(125,76,224,.17)); color: #6c3abb !important; border: 1px solid rgba(125,76,224,.19); }
   .dashboard-container .dashboard-calendar-card .calendar-day.before-join { background: rgba(148,163,184,.07); color: #a3a9b4 !important; border: 1px solid rgba(148,163,184,.12); opacity: .78; }
@@ -2887,7 +2900,11 @@
   .dashboard-container .dashboard-calendar-card .late .day-status-icon::after { content: 'L'; color: #d48712; font-size: 6px; }
   .dashboard-container .dashboard-calendar-card .halfday .day-status-icon::after { content: '◐'; color: #e89b20; }
   .dashboard-container .dashboard-calendar-card .leave .day-status-icon::after { content: '•'; color: #3d8be8; }
-  .dashboard-container .dashboard-calendar-card .absent .day-status-icon::after { content: '×'; color: #e84a60; }
+  .dashboard-container .dashboard-calendar-card .absent .day-status-icon::after {
+    content: 'A';
+    color: #fff;
+    font-size: 7px;
+  }
   .dashboard-container .dashboard-calendar-card .weekend .day-status-icon::after { content: '•'; color: #a3abba; }
   .dashboard-container .dashboard-calendar-card .holiday .day-status-icon::after { content: '•'; color: #8050dd; }
   .dashboard-container .dashboard-calendar-card .day-today .day-status-icon { display: none; }
@@ -3433,6 +3450,14 @@
 .project-progress-list { display: grid; gap: 16px; }
 .project-progress-list > div { display: grid; gap: 7px; }
 .project-progress-list span { display: grid; grid-template-columns: 17px 1fr auto; align-items: center; gap: 6px; font-size: 10px; font-weight: 650; }
+.project-progress-list span strong {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .project-progress-list span svg { color: #654ae0; font-size: 15px; }.project-progress-list span b { font-size: 9px; }
 .project-progress-list span svg { width: 16px; height: 16px; stroke-width: 1.8; }
 .project-progress-list i { height: 4px; overflow: hidden; border-radius: 4px; background: #edf0f5; }
@@ -3618,7 +3643,7 @@
 @media (min-width: 1400px) {
   html .dashboard-container {
     width: 100%;
-    max-width: calc(100vw - 224px) !important;
+    max-width: calc(100vw - 24px) !important;
     margin-inline: auto;
   }
 }

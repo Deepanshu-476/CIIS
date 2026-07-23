@@ -130,7 +130,11 @@
   .MobileDashV2-days span.present { background: #e3f8ef; color: #0b9a66; }
   .MobileDashV2-days span.late, .MobileDashV2-days span.halfday { background: #fff3dd; color: #d8840d; }
   .MobileDashV2-days span.leave { background: #e9f2ff; color: #2d73dc; }
-  .MobileDashV2-days span.absent { background: #ffe9ec; color: #df4053; }
+  .MobileDashV2-days span.absent {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(220, 38, 38, .25);
+  }
   .MobileDashV2-days span.weekend { background: #edf0f5; color: #778296; }
   .MobileDashV2-days span.holiday { background: #f1eaff; color: #7247d9; }
   .MobileDashV2-days span.today { outline: 2px solid var(--v2-purple); outline-offset: 1px; }
@@ -161,6 +165,39 @@
   .MobileDashV2-taskBars em { display: block; height: 100%; border-radius: inherit; }
   .MobileDashV2-taskBars em.green { background: #10aa70; } .MobileDashV2-taskBars em.blue { background: #377ee8; }
   .MobileDashV2-taskBars em.amber { background: #ee9a16; } .MobileDashV2-taskBars em.red { background: #ed5262; }
+
+  .MobileDashV2-projectList { display: grid; gap: 14px; }
+  .MobileDashV2-projectList article { min-width: 0; display: grid; gap: 6px; }
+  .MobileDashV2-projectList article > div {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 7px;
+  }
+  .MobileDashV2-projectList article > div svg { width: 16px; height: 16px; color: var(--v2-purple); }
+  .MobileDashV2-projectList article strong {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .MobileDashV2-projectList article b { font-size: 10px; }
+  .MobileDashV2-projectList article > i {
+    display: block;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 99px;
+    background: #edf0f5;
+  }
+  .MobileDashV2-projectList article > i em {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #6748e7, #9175f4);
+  }
+  .MobileDashV2-projectList article > small { color: var(--v2-muted); font-size: 9px; }
 }
 
 @media (max-width: 360px) {
@@ -306,32 +343,47 @@
   html .dashboard-container .dashboard-activity-card .activity-list { max-height: 270px; }
   html .dashboard-container .dashboard-activity-card .activity-item { min-height: 44px; padding: 5px 2px; }
   html .dashboard-container .dashboard-activity-card .timeline-activity {
-    grid-template-columns: 40px minmax(0, 1fr) auto;
+    grid-template-columns: 40px minmax(0, 1fr);
     gap: 6px;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  html .dashboard-container .dashboard-activity-card .activity-item-content,
+  html .dashboard-container .dashboard-activity-card .activity-details {
+    width: 100%;
+    min-width: 0;
+    overflow: visible !important;
   }
   html .dashboard-container .dashboard-activity-card .activity-title {
-    display: -webkit-box;
-    overflow: hidden;
-    font-size: 9px;
+    display: block;
+    width: 100%;
+    max-width: none;
+    overflow: visible !important;
+    font-size: 10px;
     line-height: 1.25;
-    white-space: normal;
-    text-overflow: ellipsis;
+    white-space: normal !important;
+    text-overflow: unset !important;
     overflow-wrap: anywhere;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    word-break: break-word;
   }
   html .dashboard-container .dashboard-activity-card .activity-time {
-    font-size: 7px;
+    font-size: 8px;
   }
   html .dashboard-container .dashboard-activity-card .activity-status {
+    grid-column: 2;
+    justify-self: start;
     max-width: 58px;
     padding-inline: 5px;
     font-size: 7px;
   }
+  html .dashboard-container .dashboard-activity-card .activity-list {
+    overflow-x: visible !important;
+    overflow-y: auto !important;
+  }
   html .dashboard-container .dashboard-activity-card .activity-header .activity-title {
     display: block;
     overflow: visible;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.2;
     white-space: nowrap;
     text-overflow: clip;
@@ -448,6 +500,100 @@
     flex: 1 1 auto;
     min-height: 0;
     margin: 0 !important;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-overview-body {
+    min-width: 0;
+    justify-content: space-between;
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-donut {
+    width: 72px;
+    min-width: 72px;
+    padding: 8px;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-donut span {
+    font-size: 6px;
+    line-height: 1.15;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-donut b {
+    font-size: 17px;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-legend {
+    min-width: 0;
+    flex: 1 1 auto;
+    gap: 5px;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-legend span {
+    min-width: 0;
+    grid-template-columns: 6px minmax(0, 1fr) auto;
+    gap: 4px;
+    font-size: 7px;
+    white-space: nowrap;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-legend i {
+    width: 5px;
+    height: 5px;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-legend b {
+    font-size: 7px;
+  }
+
+  html .dashboard-container .dashboard-projects-card {
+    min-width: 0;
+    overflow: hidden !important;
+  }
+
+  html .dashboard-container .dashboard-projects-card .project-progress-list {
+    display: grid;
+    align-content: start;
+    gap: 7px !important;
+    padding-right: 3px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  html .dashboard-container .dashboard-projects-card .project-progress-list > div {
+    min-width: 0;
+    gap: 3px;
+  }
+
+  html .dashboard-container .dashboard-projects-card .project-progress-list span {
+    min-width: 0;
+    grid-template-columns: 14px minmax(0, 1fr) auto;
+    gap: 4px;
+    font-size: 8px;
+  }
+
+  html .dashboard-container .dashboard-projects-card .project-progress-list span svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  html .dashboard-container .dashboard-projects-card .project-progress-list span strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  html .dashboard-container .dashboard-projects-card .project-progress-list span b,
+  html .dashboard-container .dashboard-projects-card .project-progress-list small {
+    font-size: 7px;
+  }
+
+  html .dashboard-container .dashboard-projects-card .project-progress-list i {
+    height: 3px;
   }
 
   html .dashboard-container .dashboard-productivity-card .productivity-chart {
@@ -728,3 +874,70 @@
   }
 }
 */
+
+/* Recent Activity must never truncate task names on desktop. This rule is
+   intentionally outside the laptop-only media query so wide Windows
+   viewports receive the same fix. */
+@media (min-width: 769px) {
+  html .dashboard-container .dashboard-activity-card .activity-item {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  html .dashboard-container .dashboard-activity-card .activity-item-content,
+  html .dashboard-container .dashboard-activity-card .activity-details {
+    min-width: 0 !important;
+    overflow: visible !important;
+  }
+
+  html .dashboard-container .dashboard-activity-card .activity-title {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    text-overflow: clip !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    -webkit-line-clamp: unset !important;
+  }
+
+  html .dashboard-container .dashboard-activity-card .activity-list {
+    overflow-x: visible !important;
+    overflow-y: auto !important;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-overview-body {
+    display: flex !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    flex: 1 1 auto !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: clamp(8px, 1vw, 18px) !important;
+    overflow: visible !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-donut {
+    display: block !important;
+    width: clamp(72px, 7vw, 108px) !important;
+    min-width: clamp(72px, 7vw, 108px) !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-legend {
+    display: grid !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-legend span {
+    grid-template-columns: 7px minmax(0, 1fr) auto !important;
+    min-width: 0 !important;
+  }
+}

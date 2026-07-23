@@ -97,6 +97,12 @@ const UserLayout = () => {
       setMobileSidebarOpen(false);
     }
   }, [isMobile]);
+
+  useEffect(() => {
+    if (isMobile) {
+      setMobileSidebarOpen(false);
+    }
+  }, [location.pathname, isMobile]);
   
   return (
     <LayoutContainer>
@@ -143,8 +149,8 @@ const UserLayout = () => {
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
               width: drawerWidthOpen,
-              top: 64,
-              height: 'calc(100% - 64px)',
+              top: 56,
+              height: 'calc(100% - 56px)',
             },
           }}
         >

@@ -625,10 +625,27 @@
 
 /* ========== MOBILE RESPONSIVE STYLES (900px and below) ========== */
 @media (max-width: 900px) {
+  .login-page-container {
+    min-height: 100vh;
+    min-height: 100dvh;
+    height: auto;
+    align-items: flex-start;
+    justify-content: center;
+    padding: max(16px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom));
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .login-paper {
+    flex: 0 0 auto;
     flex-direction: column;
+    width: min(100%, 500px);
     min-height: auto;
     max-width: 500px;
+    margin: auto 0;
+    border-radius: 18px;
+    overflow: visible;
   }
 
   /* Hide left section on mobile - exactly like SuperAdminLogin.css */
@@ -688,7 +705,47 @@
 
   /* Right section adjustments */
   .login-right-section {
+    width: 100%;
+    min-width: 0;
     padding: 32px 24px;
+    box-sizing: border-box;
+  }
+
+  .form-container,
+  .forgot-password-form,
+  .login-otp-form,
+  .two-factor-form {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .form-container form {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .input-group,
+  .input-container {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .input-icon {
+    z-index: 2;
+    left: 15px;
+    width: 20px;
+    height: 20px;
+  }
+
+  .input-icon .login-icon {
+    display: block;
+    width: 18px;
+    height: 18px;
+  }
+
+  .login-input {
+    padding-left: 50px !important;
   }
 
   .form-header {
@@ -709,38 +766,52 @@
 /* Small mobile devices (480px and below) */
 @media (max-width: 480px) {
   .login-page-container {
-    padding: 8px;
+    padding: max(10px, env(safe-area-inset-top)) 8px max(10px, env(safe-area-inset-bottom));
   }
 
   .login-right-section {
-    padding: 24px 20px;
+    padding: 22px 16px;
   }
 
   .mobile-logo-wrapper {
-    width: 80px;
-    height: 80px;
+    width: 76px;
+    height: 76px;
+    margin-bottom: 10px;
+  }
+
+  .mobile-logo-container {
+    margin-bottom: 18px;
   }
 
   .mobile-company-name {
     font-size: 1.5rem;
+    margin: 0 0 3px;
+    line-height: 1.2;
   }
 
   .mobile-company-subtitle {
+    margin: 0;
     font-size: 0.8rem;
+  }
+
+  .form-header {
+    margin-bottom: 18px;
   }
 
   .form-title {
     font-size: 1.5rem;
+    margin: 0 0 4px;
   }
 
   .form-subtitle {
+    margin: 0;
     font-size: 0.875rem;
   }
 
   .login-input {
     min-height: 50px;
-    padding: 12px 46px 12px 48px;
-    font-size: 0.95rem;
+    padding: 12px 46px 12px 50px;
+    font-size: 16px;
   }
 
   .login-button,
@@ -759,19 +830,106 @@
   }
 
   .terms-privacy {
-    margin-top: 24px;
+    margin-top: 20px;
+  }
+}
+
+/* iPhone portrait browser viewport (Safari toolbars reduce usable height). */
+@media (max-width: 480px) and (max-height: 700px) {
+  .login-page-container {
+    display: block;
+    padding-top: 8px;
+    padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  }
+
+  .login-paper {
+    margin: 0 auto;
+    border-radius: 14px;
+  }
+
+  .login-right-section {
+    padding: 14px 13px 16px;
+  }
+
+  .mobile-logo-container {
+    margin-bottom: 10px;
+  }
+
+  .mobile-logo-wrapper {
+    width: 58px;
+    height: 58px;
+    margin-bottom: 7px;
+    border-radius: 12px;
+    padding: 7px;
+  }
+
+  .mobile-company-name {
+    max-width: 310px;
+    font-size: 1.2rem;
+    line-height: 1.12;
+  }
+
+  .mobile-company-subtitle {
+    font-size: .72rem;
+  }
+
+  .form-header {
+    margin-bottom: 12px;
+  }
+
+  .form-title {
+    font-size: 1.25rem;
+  }
+
+  .form-subtitle {
+    font-size: .78rem;
+  }
+
+  .input-group {
+    margin-bottom: 10px;
+  }
+
+  .input-label {
+    margin-bottom: 4px;
+    font-size: .78rem;
+  }
+
+  .login-input {
+    min-height: 44px;
+    padding-top: 9px;
+    padding-bottom: 9px;
+  }
+
+  .forgot-password-link {
+    margin-top: 2px;
+  }
+
+  .forgot-password-link span {
+    font-size: .76rem;
+  }
+
+  .login-button {
+    min-height: 44px;
+    margin-top: 14px;
+    padding-block: 10px;
+  }
+
+  .terms-privacy {
+    margin-top: 13px;
+    padding-bottom: 4px;
+    font-size: .68rem;
   }
 }
 
 /* Extra small devices (360px and below) */
 @media (max-width: 360px) {
   .login-right-section {
-    padding: 20px 16px;
+    padding: 18px 13px;
   }
 
   .mobile-logo-wrapper {
-    width: 70px;
-    height: 70px;
+    width: 64px;
+    height: 64px;
   }
 
   .mobile-company-name {
@@ -780,6 +938,71 @@
 
   .form-title {
     font-size: 1.35rem;
+  }
+
+  .input-icon {
+    left: 13px;
+  }
+
+  .input-adornment {
+    right: 13px;
+  }
+
+  .login-input {
+    padding-left: 43px;
+    padding-right: 42px;
+  }
+}
+
+/* Short mobile screens and landscape mode: keep every login step reachable. */
+@media (max-width: 900px) and (max-height: 620px) {
+  .login-page-container {
+    display: block;
+  }
+
+  .login-paper {
+    margin: 0 auto;
+  }
+
+  .login-right-section {
+    padding-block: 16px;
+  }
+
+  .mobile-logo-container {
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr);
+    column-gap: 12px;
+    align-items: center;
+    margin-bottom: 14px;
+    text-align: left;
+  }
+
+  .mobile-logo-wrapper {
+    grid-row: 1 / span 2;
+    width: 54px;
+    height: 54px;
+    margin: 0;
+  }
+
+  .mobile-company-name,
+  .mobile-company-subtitle {
+    text-align: left;
+  }
+
+  .form-header {
+    margin-bottom: 14px;
+  }
+
+  .input-group {
+    margin-bottom: 12px;
+  }
+
+  .login-button {
+    margin-top: 16px;
+  }
+
+  .terms-privacy {
+    margin-top: 14px;
   }
 }
 

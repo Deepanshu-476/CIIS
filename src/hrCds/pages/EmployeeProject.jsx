@@ -166,6 +166,8 @@ const EmployeeProject = () => {
   const [loading, setLoading] = useState({ projects: false, tasks: false });
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState("");
+  const [taskImagePreviewUrl, setTaskImagePreviewUrl] = useState("");
+  const [deletingTaskAttachment, setDeletingTaskAttachment] = useState(false);
   const [isTaskFileDragging, setIsTaskFileDragging] = useState(false);
   const [openTaskDialog, setOpenTaskDialog] = useState(false);
   const [openStatusDialog, setOpenStatusDialog] = useState(false);
@@ -183,6 +185,30 @@ const EmployeeProject = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [tabValue, setTabValue] = useState(0);
   const [taskFilter, setTaskFilter] = useState("all");
+
+  useEffect(() => {
+    if (!openActivityDrawer) return undefined;
+
+    const handleActivityModalKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setOpenActivityDrawer(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleActivityModalKeyDown);
+    return () => window.removeEventListener("keydown", handleActivityModalKeyDown);
+  }, [openActivityDrawer]);
+
+  useEffect(() => {
+    if (!file || !String(file.type || "").startsWith("image/")) {
+      setTaskImagePreviewUrl("");
+      return undefined;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    setTaskImagePreviewUrl(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [file]);
   const [taskAssigneeFilter, setTaskAssigneeFilter] = useState("all");
   const [detailTaskId, setDetailTaskId] = useState(null);
   const [taskDetailToRestore, setTaskDetailToRestore] = useState(null);
@@ -406,6 +432,7 @@ const EmployeeProject = () => {
     });
     setFile(null);
     setFileName("");
+    setTaskImagePreviewUrl("");
     setTaskErrors({});
     setEditingTask(null);
   };
@@ -431,7 +458,7 @@ const EmployeeProject = () => {
       title: task?.title || "",
       description: task?.description || "",
       assignedUsers: getTaskAssignedUserIds(task),
-      dueDate: formatDateTimeForInput(task?.dueDate),
+      dueDate: formatDateTimeForInput(task?.dueDate || task?.dueDateTime),
       priority: getPriorityInputValue(task?.priority),
       status: normalizeTaskStatus(task?.status),
       checkpoints: getCleanCheckpoints(task?.checkpoints),
@@ -673,12 +700,15 @@ const EmployeeProject = () => {
     setLoading(prev => ({ ...prev, tasks: true }));
     try {
       const assignedTo = newTask.assignedUsers[0] || "";
+      const dueDate = newTask.dueDate
+        ? new Date(newTask.dueDate).toISOString()
+        : "";
       const payload = {
         title: newTask.title,
         description: newTask.description,
         assignedUsers: newTask.assignedUsers,
         assignedTo,
-        dueDate: newTask.dueDate || "",
+        dueDate,
         priority: newTask.priority,
         status: newTask.status,
         checkpoints: getCleanCheckpoints(newTask.checkpoints),
@@ -690,7 +720,7 @@ const EmployeeProject = () => {
       setOpenTaskDialog(false);
       setDetailTaskId(null);
 
-      handleSelectProject(selectedProject);
+      await handleSelectProject(selectedProject);
       loadNotifications();
 
       showSnackbar("Task updated successfully!", "success");
@@ -699,6 +729,34 @@ const EmployeeProject = () => {
       showSnackbar(error.response?.data?.message || "Error updating task", "error");
     } finally {
       setLoading(prev => ({ ...prev, tasks: false }));
+    }
+  };
+
+  const handleDeleteExistingTaskAttachment = async () => {
+    if (!editingTask?._id || !editingTask.pdfFile?.path || deletingTaskAttachment) return;
+
+    const confirmed = window.confirm("Delete this image permanently?");
+    if (!confirmed) return;
+
+    setDeletingTaskAttachment(true);
+    try {
+      await axios.delete(`/projects/${selectedProject}/tasks/${editingTask._id}/attachment`);
+      setEditingTask(current => current ? { ...current, pdfFile: null } : current);
+      setTasks(current => current.map(task =>
+        task._id === editingTask._id ? { ...task, pdfFile: null } : task
+      ));
+      setProjectDetails(current => current ? {
+        ...current,
+        tasks: (current.tasks || []).map(task =>
+          task._id === editingTask._id ? { ...task, pdfFile: null } : task
+        )
+      } : current);
+      showSnackbar("Task image deleted successfully", "success");
+    } catch (error) {
+      console.error("Error deleting task attachment:", error);
+      showSnackbar(error.response?.data?.message || "Unable to delete task image", "error");
+    } finally {
+      setDeletingTaskAttachment(false);
     }
   };
 
@@ -2277,19 +2335,33 @@ const EmployeeProject = () => {
 
       
       {openActivityDrawer && (
-        <div className="EmployeeProject-drawer">
-          <div className="EmployeeProject-drawer-backdrop" onClick={() => setOpenActivityDrawer(false)} />
-          <div className="EmployeeProject-drawer-content EmployeeProject-drawer-right">
-            <div className="EmployeeProject-drawer-header">
-              <h3>Activity Logs</h3>
-              <button className="EmployeeProject-drawer-close" onClick={() => setOpenActivityDrawer(false)}>
+        <div
+          className="EmployeeProject-activity-modal"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setOpenActivityDrawer(false);
+          }}
+        >
+          <div
+            className="EmployeeProject-activity-modal-content"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="EmployeeProject-activity-modal-title"
+          >
+            <div className="EmployeeProject-activity-modal-header">
+              <h3 id="EmployeeProject-activity-modal-title">Activity Logs</h3>
+              <button
+                className="EmployeeProject-activity-modal-close"
+                onClick={() => setOpenActivityDrawer(false)}
+                aria-label="Close activity logs"
+              >
                 <Icons.Close />
               </button>
             </div>
-            <div className="EmployeeProject-drawer-body">
+            <div className="EmployeeProject-activity-modal-body">
               <p className="EmployeeProject-activity-task-title">{selectedTask?.title}</p>
               <div className="EmployeeProject-divider" />
-              
+
               <div className="EmployeeProject-activity-list">
                 {selectedTask?.activityLogs?.map((log, index) => (
                   <div className="EmployeeProject-activity-item" key={index}>
@@ -2620,27 +2692,72 @@ const EmployeeProject = () => {
                       onChange={handleFileChange}
                     />
                     {fileName && (
-                      <div className="EmployeeProject-file-info">
-                        <Icons.PictureAsPdf />
-                        <span>Selected: {fileName}</span>
-                        <button
-                          type="button"
-                          className="EmployeeProject-file-remove"
-                          onClick={() => {
-                            setFile(null);
-                            setFileName("");
-                          }}
-                          aria-label="Remove selected file"
-                        >
-                          Remove
-                        </button>
-                      </div>
+                      <>
+                        {taskImagePreviewUrl && (
+                          <div className="EmployeeProject-upload-preview">
+                            <img src={taskImagePreviewUrl} alt={`Preview of ${fileName}`} />
+                            <div className="EmployeeProject-upload-preview-overlay">
+                              <span title={fileName}>{fileName}</span>
+                              <button
+                                type="button"
+                                className="EmployeeProject-upload-preview-delete"
+                                onClick={() => {
+                                  setFile(null);
+                                  setFileName("");
+                                }}
+                                aria-label={`Delete ${fileName}`}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {!taskImagePreviewUrl && (
+                          <div className="EmployeeProject-file-info">
+                            <Icons.PictureAsPdf />
+                            <span>Selected: {fileName}</span>
+                            <button
+                              type="button"
+                              className="EmployeeProject-file-remove"
+                              onClick={() => {
+                                setFile(null);
+                                setFileName("");
+                              }}
+                              aria-label="Remove selected file"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 ) : editingTask.pdfFile?.filename ? (
-                  <div className="EmployeeProject-file-info">
-                    <Icons.PictureAsPdf />
-                    <span>Current file: {editingTask.pdfFile.filename}</span>
+                  <div className="EmployeeProject-existing-attachment">
+                    {isImagePath(editingTask.pdfFile) && (
+                      <img
+                        src={getUploadUrl(editingTask.pdfFile.path)}
+                        alt={editingTask.pdfFile.filename}
+                        onError={(event) => {
+                          const fallbackUrl = getLiveUploadUrl(editingTask.pdfFile.path);
+                          if (fallbackUrl && event.currentTarget.src !== fallbackUrl) {
+                            event.currentTarget.src = fallbackUrl;
+                          }
+                        }}
+                      />
+                    )}
+                    <div className="EmployeeProject-file-info">
+                      {isImagePath(editingTask.pdfFile) ? <Icons.Image /> : <Icons.PictureAsPdf />}
+                      <span>Current file: {editingTask.pdfFile.filename}</span>
+                      <button
+                        type="button"
+                        className="EmployeeProject-file-remove"
+                        onClick={handleDeleteExistingTaskAttachment}
+                        disabled={deletingTaskAttachment}
+                      >
+                        {deletingTaskAttachment ? "Deleting..." : "Delete"}
+                      </button>
+                    </div>
                   </div>
                 ) : null}
               </div>

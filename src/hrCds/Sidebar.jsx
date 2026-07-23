@@ -158,18 +158,18 @@ const StyledListItem = styled(ListItem)({
 });
 
 const StyledListItemButton = styled(ListItemButton)(({ theme, selected }) => ({
-  minHeight: 48,
+  minHeight: 44,
   justifyContent: 'initial',
   padding: theme.spacing(1, 2),
   color: selected ? theme.palette.primary.main : theme.palette.text.secondary,
-  backgroundColor: selected ? theme.palette.action.selected : 'transparent',
-  borderRight: selected ? `3px solid ${theme.palette.primary.main}` : '3px solid transparent',
+  backgroundColor: selected ? `${theme.palette.primary.main}12` : 'transparent',
+  borderLeft: selected ? `4px solid ${theme.palette.primary.main}` : '4px solid transparent',
   margin: theme.spacing(0.2, 1),
-  borderRadius: 8,
+  borderRadius: '0px 8px 8px 0px',
+  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
   '&:hover': {
-    backgroundColor: theme.palette.action.hover,
+    backgroundColor: selected ? `${theme.palette.primary.main}1a` : theme.palette.action.hover,
     transform: 'translateX(2px)',
-    transition: 'all 0.2s ease',
   },
   '& .MuiListItemIcon-root': {
     color: selected ? theme.palette.primary.main : theme.palette.text.secondary,
@@ -670,6 +670,22 @@ const allPagesItems = [
     path: '/ciisUser/support-desk',
     category: 'communication',
     order: 28
+  },
+  {
+    id: 'create-user',
+    name: 'Create User',
+    icon: 'Person',
+    path: '/ciisUser/create-user',
+    category: 'admin',
+    order: 29
+  },
+  {
+    id: 'change-password',
+    name: 'Change Password',
+    icon: 'Settings',
+    path: '/ciisUser/change-password',
+    category: 'settings',
+    order: 30
   }
 ];
 
@@ -717,7 +733,9 @@ const getPathFromName = (name) => {
   'Meetings': '/client/support-tickets',
   'Support Tickets': '/client/support-tickets',
   'Documents': '/client/documents',
-    'Services & Tasks': '/client/services-tasks'
+    'Services & Tasks': '/client/services-tasks',
+    'Create User': '/ciisUser/create-user',
+    'Change Password': '/ciisUser/change-password'
   };
   
   return pathMap[name] || '/ciisUser/user-dashboard';
@@ -1385,16 +1403,53 @@ const Sidebar = ({ isMobile = false }) => {
   };
 
   
+  const getWebsiteCategory = (item) => {
+    const id = String(item?.id || '').toLowerCase();
+    const name = String(item?.name || '').toLowerCase();
+    
+    // Main
+    if (id === 'dashboard' || name === 'dashboard') return 'main';
+    if (id === 'alerts' || name === 'alerts' || name === 'notifications' || id === 'notifications') return 'main';
+    
+    // Work
+    if (id === 'attendance' || name === 'attendance') return 'work';
+    if (id === 'my-leaves' || name === 'my leaves') return 'work';
+    if (id === 'my-assets' || name === 'my assets') return 'work';
+    if (id === 'create-task' || id === 'task-management' || name === 'create task' || name === 'task management') return 'work';
+    
+    // Communication
+    if (id === 'chat' || name === 'chat') return 'communication';
+    if (id === 'employee-meeting' || name === 'employee meeting' || name === 'meeting') return 'communication';
+    if (id === 'client-meeting' || name === 'client meeting') return 'communication';
+    
+    // Admin
+    if (id === 'create-user' || name === 'create user') return 'admin';
+    if (id === 'employee-details' || id === 'emp-details' || name === 'employee details') return 'admin';
+    if (id === 'admin-projects' || id === 'adminproject' || name === 'admin projects') return 'admin';
+    if (id === 'manage-groups' || name === 'manage groups') return 'admin';
+    
+    // Settings
+    if (id === 'profile' || name === 'profile' || name === 'my profile') return 'settings';
+    if (id === 'change-password' || name === 'change password') return 'settings';
+    if (id === 'logout' || name === 'logout') return 'settings';
+    
+    // Keep original database category if not matching the targeted 15 items!
+    return item.category || 'main';
+  };
+
   const groupedItems = useMemo(() => {
     const groups = {};
-    const categoryOrder = ['main', 'administration', 'tasks', 'projects', 'meetings', 'communication', 'clients'];
+    const categoryOrder = ['main', 'work', 'communication', 'admin', 'settings', 'administration', 'tasks', 'projects', 'meetings', 'clients'];
     
     menuItems.forEach(item => {
-      const category = item.category || 'main';
+      const category = getWebsiteCategory(item);
       if (!groups[category]) {
         groups[category] = [];
       }
-      groups[category].push(item);
+      groups[category].push({
+        ...item,
+        category
+      });
     });
 
     Object.values(groups).forEach(items => {
@@ -1502,6 +1557,27 @@ const Sidebar = ({ isMobile = false }) => {
               <Typography variant="caption" color="text.secondary" noWrap>
                 Client Portal
               </Typography>
+              {(companyData?.companyName || userData?.companyName || userData?.companyDetails?.companyName) && (
+                <Typography 
+                  variant="caption" 
+                  display="block" 
+                  color="text.secondary" 
+                  sx={{ 
+                    fontSize: '0.7rem', 
+                    fontWeight: 500,
+                    mt: 0.5,
+                    opacity: 0.8,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    whiteSpace: 'normal',
+                  }}
+                >
+                  {companyData?.companyName || userData?.companyName || userData?.companyDetails?.companyName}
+                </Typography>
+              )}
             </Box>
             <Tooltip title="My Profile">
               <Button
@@ -1624,12 +1700,15 @@ const Sidebar = ({ isMobile = false }) => {
   
   const renderCategoryHeading = (category) => {
     const categoryLabels = {
-      'main': 'Main Menu',
+      'main': 'Main',
+      'work': 'Work',
+      'communication': 'Communication',
+      'admin': 'Admin',
+      'settings': 'Settings',
       'administration': 'Administration',
       'tasks': 'Tasks',
       'projects': 'Projects',
       'meetings': 'Meetings',
-      'communication': 'Communication',
       'clients': 'Clients'
     };
     
@@ -1645,13 +1724,18 @@ const Sidebar = ({ isMobile = false }) => {
       return (
         <Tooltip key={`heading-${category}`} title={label} placement="right">
           <CollapsedHeading>
-            {getIconComponent(category === 'main' ? 'Dashboard' : 
+            {getIconComponent(
+              category === 'main' ? 'Dashboard' : 
+              category === 'work' ? 'Task' :
+              category === 'communication' ? 'Notifications' :
+              category === 'admin' ? 'Person' :
+              category === 'settings' ? 'Settings' : 
               category === 'administration' ? 'Person' :
               category === 'tasks' ? 'Task' :
               category === 'projects' ? 'Groups' :
               category === 'meetings' ? 'VideoCall' :
-              category === 'communication' ? 'Notifications' :
-              category === 'clients' ? 'Person' : 'Dashboard')}
+              category === 'clients' ? 'Person' : 'Dashboard'
+            )}
           </CollapsedHeading>
         </Tooltip>
       );
@@ -1781,6 +1865,27 @@ const Sidebar = ({ isMobile = false }) => {
               <Typography variant="caption" color="text.secondary" noWrap>
                 {userSubtitle}
               </Typography>
+              {(companyData?.companyName || userData?.companyName || userData?.companyDetails?.companyName) && (
+                <Typography 
+                  variant="caption" 
+                  display="block" 
+                  color="text.secondary" 
+                  sx={{ 
+                    fontSize: '0.7rem', 
+                    fontWeight: 500,
+                    mt: 0.5,
+                    opacity: 0.8,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    whiteSpace: 'normal',
+                  }}
+                >
+                  {companyData?.companyName || userData?.companyName || userData?.companyDetails?.companyName}
+                </Typography>
+              )}
             </Box>
             <Tooltip title="My Profile">
               <Button

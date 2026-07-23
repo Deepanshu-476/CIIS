@@ -130,7 +130,11 @@
   .MobileDashV2-days span.present { background: #e3f8ef; color: #0b9a66; }
   .MobileDashV2-days span.late, .MobileDashV2-days span.halfday { background: #fff3dd; color: #d8840d; }
   .MobileDashV2-days span.leave { background: #e9f2ff; color: #2d73dc; }
-  .MobileDashV2-days span.absent { background: #ffe9ec; color: #df4053; }
+  .MobileDashV2-days span.absent {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(220, 38, 38, .25);
+  }
   .MobileDashV2-days span.weekend { background: #edf0f5; color: #778296; }
   .MobileDashV2-days span.holiday { background: #f1eaff; color: #7247d9; }
   .MobileDashV2-days span.today { outline: 2px solid var(--v2-purple); outline-offset: 1px; }
@@ -161,6 +165,39 @@
   .MobileDashV2-taskBars em { display: block; height: 100%; border-radius: inherit; }
   .MobileDashV2-taskBars em.green { background: #10aa70; } .MobileDashV2-taskBars em.blue { background: #377ee8; }
   .MobileDashV2-taskBars em.amber { background: #ee9a16; } .MobileDashV2-taskBars em.red { background: #ed5262; }
+
+  .MobileDashV2-projectList { display: grid; gap: 14px; }
+  .MobileDashV2-projectList article { min-width: 0; display: grid; gap: 6px; }
+  .MobileDashV2-projectList article > div {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 7px;
+  }
+  .MobileDashV2-projectList article > div svg { width: 16px; height: 16px; color: var(--v2-purple); }
+  .MobileDashV2-projectList article strong {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .MobileDashV2-projectList article b { font-size: 10px; }
+  .MobileDashV2-projectList article > i {
+    display: block;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 99px;
+    background: #edf0f5;
+  }
+  .MobileDashV2-projectList article > i em {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #6748e7, #9175f4);
+  }
+  .MobileDashV2-projectList article > small { color: var(--v2-muted); font-size: 9px; }
 }
 
 @media (max-width: 360px) {
@@ -245,7 +282,7 @@
 
   html .dashboard-container .dashboard-content-grid {
     height: 324px !important;
-    grid-template-columns: minmax(0, 1.45fr) minmax(215px, .7fr) !important;
+    grid-template-columns: minmax(0, 1.35fr) minmax(250px, .78fr) !important;
     gap: 10px !important;
     margin: 0 !important;
   }
@@ -305,8 +342,52 @@
   html .dashboard-container .dashboard-activity-card { padding: 10px !important; }
   html .dashboard-container .dashboard-activity-card .activity-list { max-height: 270px; }
   html .dashboard-container .dashboard-activity-card .activity-item { min-height: 44px; padding: 5px 2px; }
-  html .dashboard-container .dashboard-activity-card .timeline-activity { grid-template-columns: 38px minmax(0, 1fr) auto; }
-  html .dashboard-container .dashboard-activity-card .activity-title { font-size: 8px; }
+  html .dashboard-container .dashboard-activity-card .timeline-activity {
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 6px;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  html .dashboard-container .dashboard-activity-card .activity-item-content,
+  html .dashboard-container .dashboard-activity-card .activity-details {
+    width: 100%;
+    min-width: 0;
+    overflow: visible !important;
+  }
+  html .dashboard-container .dashboard-activity-card .activity-title {
+    display: block;
+    width: 100%;
+    max-width: none;
+    overflow: visible !important;
+    font-size: 10px;
+    line-height: 1.25;
+    white-space: normal !important;
+    text-overflow: unset !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  html .dashboard-container .dashboard-activity-card .activity-time {
+    font-size: 8px;
+  }
+  html .dashboard-container .dashboard-activity-card .activity-status {
+    grid-column: 2;
+    justify-self: start;
+    max-width: 58px;
+    padding-inline: 5px;
+    font-size: 7px;
+  }
+  html .dashboard-container .dashboard-activity-card .activity-list {
+    overflow-x: visible !important;
+    overflow-y: auto !important;
+  }
+  html .dashboard-container .dashboard-activity-card .activity-header .activity-title {
+    display: block;
+    overflow: visible;
+    font-size: 12px;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-overflow: clip;
+  }
   html .dashboard-container .dashboard-activity-card .activity-time,
   html .dashboard-container .dashboard-activity-card .activity-date,
   html .dashboard-container .dashboard-activity-card .activity-timeline-time { font-size: 7px; }
@@ -322,14 +403,244 @@
 
   html .dashboard-container .dashboard-insights-row {
     height: 158px !important;
+    min-height: 158px !important;
+    grid-auto-rows: 158px !important;
+    align-items: stretch !important;
     gap: 10px !important;
     margin: 0 !important;
   }
 
-  html .dashboard-container .dashboard-insight-card {
+  html .dashboard-container .dashboard-insights-row > .dashboard-insight-card {
+    align-self: stretch !important;
+    position: relative;
+    top: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+    box-sizing: border-box;
+    margin: 0 !important;
     height: 158px !important;
     min-height: 158px !important;
+    max-height: 158px !important;
     padding: 10px !important;
+  }
+
+  html .dashboard-container .dashboard-insights-row > .dashboard-insight-card > .dashboard-section-heading {
+    flex: 0 0 30px;
+    min-height: 30px !important;
+    height: 30px !important;
+    margin: 0 0 8px !important;
+    align-items: center !important;
+  }
+
+  html .dashboard-container .dashboard-section-heading,
+  html .dashboard-container .activity-header,
+  html .dashboard-container .calendar-header {
+    align-items: center !important;
+  }
+
+  html .dashboard-container .dashboard-section-heading > strong,
+  html .dashboard-container .dashboard-section-heading > em,
+  html .dashboard-container .dashboard-section-heading > span {
+    margin-block: 0 !important;
+    align-self: center !important;
+  }
+
+  html .dashboard-container .dashboard-section-heading > button,
+  html .dashboard-container .activity-view-all {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    align-self: center !important;
+    flex: 0 0 auto;
+    min-width: 48px;
+    height: 24px !important;
+    min-height: 24px !important;
+    margin: 0 !important;
+    padding: 0 8px !important;
+    border-radius: 7px !important;
+    line-height: 1 !important;
+    white-space: nowrap;
+    vertical-align: middle;
+    transform: none !important;
+  }
+
+  html .dashboard-container .calendar-controls {
+    align-items: center !important;
+  }
+
+  html .dashboard-container .calendar-controls > button,
+  html .dashboard-container .calendar-controls > strong {
+    align-self: center !important;
+    margin-block: 0 !important;
+    line-height: 1 !important;
+  }
+
+  html .dashboard-container .dashboard-clock-buttons {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+
+  html .dashboard-container .dashboard-clock-buttons > button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    margin: 0 !important;
+    padding: 0 8px !important;
+    line-height: 1 !important;
+    transform: none !important;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-overview-body,
+  html .dashboard-container .dashboard-projects-card .project-progress-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin: 0 !important;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-overview-body {
+    min-width: 0;
+    justify-content: space-between;
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-donut {
+    width: 72px;
+    min-width: 72px;
+    padding: 8px;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-donut span {
+    font-size: 6px;
+    line-height: 1.15;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-donut b {
+    font-size: 17px;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-legend {
+    min-width: 0;
+    flex: 1 1 auto;
+    gap: 5px;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-legend span {
+    min-width: 0;
+    grid-template-columns: 6px minmax(0, 1fr) auto;
+    gap: 4px;
+    font-size: 7px;
+    white-space: nowrap;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-legend i {
+    width: 5px;
+    height: 5px;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-legend b {
+    font-size: 7px;
+  }
+
+  html .dashboard-container .dashboard-projects-card {
+    min-width: 0;
+    overflow: hidden !important;
+  }
+
+  html .dashboard-container .dashboard-projects-card .project-progress-list {
+    display: grid;
+    align-content: start;
+    gap: 7px !important;
+    padding-right: 3px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  html .dashboard-container .dashboard-projects-card .project-progress-list > div {
+    min-width: 0;
+    gap: 3px;
+  }
+
+  html .dashboard-container .dashboard-projects-card .project-progress-list span {
+    min-width: 0;
+    grid-template-columns: 14px minmax(0, 1fr) auto;
+    gap: 4px;
+    font-size: 8px;
+  }
+
+  html .dashboard-container .dashboard-projects-card .project-progress-list span svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  html .dashboard-container .dashboard-projects-card .project-progress-list span strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  html .dashboard-container .dashboard-projects-card .project-progress-list span b,
+  html .dashboard-container .dashboard-projects-card .project-progress-list small {
+    font-size: 7px;
+  }
+
+  html .dashboard-container .dashboard-projects-card .project-progress-list i {
+    height: 3px;
+  }
+
+  html .dashboard-container .dashboard-productivity-card .productivity-chart {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* Keep the final dashboard row level on laptop/MacBook viewports. */
+  html .dashboard-container .dashboard-quick-actions-panel {
+    flex: 0 0 158px !important;
+    height: 158px !important;
+    min-height: 158px !important;
+    max-height: 158px !important;
+    padding: 10px !important;
+    box-sizing: border-box;
+  }
+
+  html .dashboard-container .dashboard-quick-actions-panel .dashboard-section-heading {
+    flex: 0 0 30px;
+    height: 30px !important;
+    min-height: 30px !important;
+    margin: 0 0 8px !important;
+  }
+
+  html .dashboard-container .dashboard-quick-grid {
+    gap: 6px !important;
+  }
+
+  html .dashboard-container .dashboard-quick-grid button {
+    min-height: 0;
+    gap: 4px;
+    padding: 4px 3px;
+    border-radius: 10px;
+    font-size: 8px;
+  }
+
+  html .dashboard-container .dashboard-quick-grid i {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+  }
+
+  html .dashboard-container .dashboard-quick-grid i svg {
+    width: 17px;
+    height: 17px;
   }
 }
 
@@ -344,7 +655,7 @@
   }
 
   html .dashboard-container .dashboard-content-grid {
-    grid-template-columns: minmax(0, 1.35fr) minmax(190px, .68fr) !important;
+    grid-template-columns: minmax(0, 1.25fr) minmax(235px, .8fr) !important;
   }
 
   html .dashboard-container .dashboard-calendar-card {
@@ -353,5 +664,280 @@
 
   html .dashboard-container .dashboard-calendar-card .attendance-day-summary {
     width: 31% !important;
+  }
+
+  /* The expanded employee sidebar removes 154px of usable width. Let the
+     dashboard rail wrap below the main column so Recent Activity stays usable. */
+  .ClientDashboard-sidebar-open .dashboard-container .dashboard-reference-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .ClientDashboard-sidebar-open .dashboard-container .dashboard-right-rail {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .ClientDashboard-sidebar-open .dashboard-container .activity-title-section {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .ClientDashboard-sidebar-open .dashboard-container .activity-header .activity-title {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+  }
+}
+
+/* MacBook laptop-parity mode
+   Preserve the exact desktop composition from Task Overview through Quick
+   Actions. The whole dashboard is scaled uniformly instead of independently
+   shrinking/repositioning its cards. */
+/*
+@media (min-width: 901px) and (max-width: 1500px) {
+  html .dashboard-container {
+    width: 121.952% !important;
+    max-width: none !important;
+    padding: 16px 18px 22px !important;
+    zoom: .82;
+  }
+
+  html .dashboard-container .dashboard-reference-grid {
+    grid-template-columns: minmax(0, 1fr) 375px !important;
+    gap: 16px !important;
+  }
+
+  html .dashboard-container .dashboard-main-column {
+    display: block;
+  }
+
+  html .dashboard-container .dashboard-header {
+    height: 190px !important;
+    min-height: 190px !important;
+    margin-bottom: 16px !important;
+    padding: 24px 26px !important;
+  }
+
+  html .dashboard-container .dashboard-header-content {
+    grid-template-columns: minmax(280px, 1.35fr) minmax(240px, 1fr) 150px !important;
+    gap: 22px !important;
+  }
+
+  html .dashboard-container .dashboard-greeting { margin-bottom: 10px; font-size: 16px; }
+  html .dashboard-container .dashboard-user-name { margin-bottom: 10px; font-size: clamp(27px, 2vw, 34px); }
+  html .dashboard-container .dashboard-user-welcome { margin-bottom: 20px; font-size: 14px; }
+  html .dashboard-container .dashboard-date-info { gap: 6px; font-size: 14px; }
+  html .dashboard-container .dashboard-weather { margin-left: 24px; padding-left: 20px; }
+  html .dashboard-container .dashboard-focus-card { gap: 12px; padding-left: 22px; font-size: 12px; }
+  html .dashboard-container .dashboard-focus-card strong { font-size: inherit; }
+  html .dashboard-container .dashboard-progress-dial { width: 150px !important; height: 150px !important; }
+
+  html .dashboard-container .dashboard-stats-grid {
+    height: 148px !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 14px !important;
+    margin-bottom: 14px !important;
+  }
+
+  html .dashboard-container .dashboard-stat-card {
+    height: 148px !important;
+    min-height: 148px !important;
+    padding: 14px !important;
+  }
+
+  html .dashboard-container .dashboard-stat-card .stat-icon-container {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+  }
+
+  html .dashboard-container .dashboard-stat-card .stat-image-icon { width: 24px; height: 24px; }
+  html .dashboard-container .dashboard-stat-card .stat-label { left: 58px !important; top: 19px !important; font-size: 12px !important; }
+  html .dashboard-container .dashboard-stat-card .stat-value { margin: 8px 0 0 !important; font-size: 25px !important; }
+  html .dashboard-container .dashboard-stat-card .dashboard-mini-spark { bottom: 28px; height: 31px; }
+  html .dashboard-container .dashboard-stat-card .stat-footer { left: 14px; bottom: 8px; }
+  html .dashboard-container .dashboard-stat-card .stat-month-text { font-size: 9px; }
+
+  html .dashboard-container .dashboard-content-grid {
+    height: 355px !important;
+    grid-template-columns: minmax(0, 1.55fr) minmax(285px, .75fr) !important;
+    gap: 14px !important;
+    margin-bottom: 14px !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card,
+  html .dashboard-container .dashboard-activity-card {
+    height: 355px !important;
+    min-height: 355px !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card {
+    padding: 14px calc(38% + 25px) 12px 15px !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card .calendar-title { font-size: 13px; }
+  html .dashboard-container .dashboard-calendar-card .calendar-icon-container { width: 29px; height: 29px; min-width: 29px; }
+  html .dashboard-container .dashboard-calendar-card .calendar-controls { gap: 5px; }
+  html .dashboard-container .dashboard-calendar-card .calendar-nav-btn,
+  html .dashboard-container .dashboard-calendar-card .calendar-today-btn { height: 29px; min-height: 29px; }
+  html .dashboard-container .dashboard-calendar-card .calendar-current-month { font-size: 10px; }
+
+  html .dashboard-container .dashboard-calendar-card .calendar-week-header,
+  html .dashboard-container .dashboard-calendar-card .calendar-week {
+    grid-template-columns: repeat(7, 30px) !important;
+    column-gap: 15px !important;
+    justify-content: center;
+  }
+
+  html .dashboard-container .dashboard-calendar-card .calendar-day-wrapper,
+  html .dashboard-container .dashboard-calendar-card .calendar-day,
+  html .dashboard-container .dashboard-calendar-card .calendar-empty-day {
+    width: 30px !important;
+    height: 27px !important;
+    min-height: 27px !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card .calendar-day.day-today {
+    width: 27px !important;
+    height: 27px !important;
+    min-height: 27px !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card .attendance-day-summary {
+    top: 14px !important;
+    right: 14px !important;
+    bottom: 14px !important;
+    width: 37% !important;
+    padding: 13px !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card .attendance-summary-head strong { font-size: 10px; }
+  html .dashboard-container .dashboard-calendar-card .attendance-day-summary dt,
+  html .dashboard-container .dashboard-calendar-card .attendance-day-summary dd { font-size: 9px; }
+  html .dashboard-container .dashboard-calendar-card .attendance-day-summary dl div { padding: 5px 0; }
+  html .dashboard-container .dashboard-calendar-card .legend-item { font-size: 7.5px; }
+
+  html .dashboard-container .dashboard-activity-card { padding: 14px !important; }
+  html .dashboard-container .dashboard-activity-card .activity-list { max-height: 285px; }
+  html .dashboard-container .dashboard-activity-card .activity-item { min-height: 51px; padding: 7px 3px; }
+  html .dashboard-container .dashboard-activity-card .timeline-activity { grid-template-columns: 52px minmax(0, 1fr) auto; }
+  html .dashboard-container .dashboard-activity-card .activity-title { font-size: 10px; }
+  html .dashboard-container .dashboard-activity-card .activity-time,
+  html .dashboard-container .dashboard-activity-card .activity-date { font-size: 9px; }
+  html .dashboard-container .dashboard-activity-card .activity-timeline-time { font-size: 8.5px; }
+
+  html .dashboard-container .dashboard-insights-row {
+    height: 205px !important;
+    min-height: 205px !important;
+    grid-auto-rows: 205px !important;
+    grid-template-columns: 1.05fr 1.35fr 1fr !important;
+    gap: 14px !important;
+    margin-top: 14px !important;
+  }
+
+  html .dashboard-container .dashboard-insights-row > .dashboard-insight-card {
+    height: 205px !important;
+    min-height: 205px !important;
+    max-height: 205px !important;
+    padding: 15px !important;
+  }
+
+  html .dashboard-container .dashboard-insights-row > .dashboard-insight-card > .dashboard-section-heading {
+    height: 34px !important;
+    min-height: 34px !important;
+    flex-basis: 34px;
+    margin-bottom: 10px !important;
+  }
+
+  html .dashboard-container .dashboard-section-heading > button,
+  html .dashboard-container .activity-view-all {
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  html .dashboard-container .dashboard-right-rail { gap: 14px !important; }
+  html .dashboard-container .dashboard-clock-rail,
+  html .dashboard-container .dashboard-ai-card,
+  html .dashboard-container .dashboard-schedule-card { padding: 16px !important; }
+  html .dashboard-container .dashboard-clock-rail { min-height: 190px; }
+  html .dashboard-container .dashboard-clock-rail .dashboard-timer-value { font-size: 34px; }
+  html .dashboard-container .dashboard-ai-card { min-height: 315px; }
+  html .dashboard-container .dashboard-schedule-card { min-height: 205px; }
+}
+
+@media (min-width: 901px) and (max-width: 1180px) {
+  html .dashboard-container {
+    width: 133.334% !important;
+    zoom: .75;
+  }
+}
+*/
+
+/* Recent Activity must never truncate task names on desktop. This rule is
+   intentionally outside the laptop-only media query so wide Windows
+   viewports receive the same fix. */
+@media (min-width: 769px) {
+  html .dashboard-container .dashboard-activity-card .activity-item {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  html .dashboard-container .dashboard-activity-card .activity-item-content,
+  html .dashboard-container .dashboard-activity-card .activity-details {
+    min-width: 0 !important;
+    overflow: visible !important;
+  }
+
+  html .dashboard-container .dashboard-activity-card .activity-title {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    text-overflow: clip !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    -webkit-line-clamp: unset !important;
+  }
+
+  html .dashboard-container .dashboard-activity-card .activity-list {
+    overflow-x: visible !important;
+    overflow-y: auto !important;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-overview-body {
+    display: flex !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    flex: 1 1 auto !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: clamp(8px, 1vw, 18px) !important;
+    overflow: visible !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-donut {
+    display: block !important;
+    width: clamp(72px, 7vw, 108px) !important;
+    min-width: clamp(72px, 7vw, 108px) !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-legend {
+    display: grid !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  html .dashboard-container .dashboard-task-overview .task-legend span {
+    grid-template-columns: 7px minmax(0, 1fr) auto !important;
+    min-width: 0 !important;
   }
 }

@@ -134,7 +134,8 @@ const MobileSidebarContainer = styled(Box)(({ theme }) => ({
   boxSizing: 'border-box',
   backgroundColor: theme.palette.background.paper,
   borderRight: `1px solid ${theme.palette.divider}`,
-  height: 'calc(100vh - 64px)',
+  height: '100%',
+  minHeight: 0,
   overflowY: 'auto',
   overflowX: 'hidden',
   '&::-webkit-scrollbar': { 
@@ -807,7 +808,7 @@ const addCompanyAccessFallbackItems = (items, companyData) => {
   return fallbackItems.length ? [...items, ...fallbackItems] : items;
 };
 
-const Sidebar = ({ isMobile = false }) => {
+const Sidebar = ({ isMobile = false, closeSidebar }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -1146,7 +1147,9 @@ const Sidebar = ({ isMobile = false }) => {
     }
     
     navigate(path);
-    if (!isMobile) {
+    if (isMobile) {
+      closeSidebar?.();
+    } else {
       setIsHovered(false);
     }
   };
@@ -1167,7 +1170,9 @@ const Sidebar = ({ isMobile = false }) => {
       navigate("/client/dashboard");
     }
 
-    if (!isMobile) {
+    if (isMobile) {
+      closeSidebar?.();
+    } else {
       setIsHovered(false);
     }
   };

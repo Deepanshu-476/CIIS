@@ -1785,6 +1785,101 @@
   color: #d32f2f;
 }
 
+.EmployeeProject-file-remove:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.EmployeeProject-existing-attachment {
+  width: min(100%, 360px);
+  margin-top: 0.65rem;
+  overflow: hidden;
+  border: 1px solid #dce3f5;
+  border-radius: 12px;
+  background: #f8faff;
+}
+
+.EmployeeProject-existing-attachment > img {
+  display: block;
+  width: 100%;
+  height: 180px;
+  object-fit: contain;
+  background: #f1f3f8;
+}
+
+.EmployeeProject-existing-attachment .EmployeeProject-file-info {
+  margin-top: 0;
+  padding: 0.65rem 0.75rem;
+  border-top: 1px solid #e4e8f2;
+  background: #fff;
+}
+
+.EmployeeProject-upload-preview {
+  position: relative;
+  width: min(100%, 360px);
+  margin-top: 0.75rem;
+  overflow: hidden;
+  border: 1px solid #dce3f5;
+  border-radius: 12px;
+  background: #f5f7fb;
+  box-shadow: 0 8px 22px rgba(31, 42, 68, 0.1);
+}
+
+.EmployeeProject-upload-preview img {
+  display: block;
+  width: 100%;
+  height: 190px;
+  object-fit: contain;
+  background:
+    linear-gradient(45deg, #eef1f7 25%, transparent 25%),
+    linear-gradient(-45deg, #eef1f7 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #eef1f7 75%),
+    linear-gradient(-45deg, transparent 75%, #eef1f7 75%);
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-size: 16px 16px;
+}
+
+.EmployeeProject-upload-preview-overlay {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-top: 1px solid #e4e8f2;
+  background: #fff;
+}
+
+.EmployeeProject-upload-preview-overlay span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: #344054;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.EmployeeProject-upload-preview-delete {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff1f2;
+  color: #dc2626;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 800;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.EmployeeProject-upload-preview-delete:hover,
+.EmployeeProject-upload-preview-delete:focus-visible {
+  border-color: #fca5a5;
+  outline: none;
+  background: #ffe4e6;
+}
+
 /* Status Form */
 .EmployeeProject-status-form {
   display: flex;
@@ -2217,6 +2312,81 @@
   flex: 1;
 }
 
+/* Centered Activity Log modal */
+.EmployeeProject-activity-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.62);
+  backdrop-filter: blur(3px);
+}
+
+.EmployeeProject-activity-modal-content {
+  width: min(620px, calc(100vw - 2rem));
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.32);
+}
+
+.EmployeeProject-activity-modal-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.25rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  background: #fff;
+}
+
+.EmployeeProject-activity-modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.EmployeeProject-activity-modal-close {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #344054;
+  cursor: pointer;
+}
+
+.EmployeeProject-activity-modal-close:hover,
+.EmployeeProject-activity-modal-close:focus-visible {
+  outline: none;
+  background: #eef1f6;
+}
+
+.EmployeeProject-activity-modal-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 1.25rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.EmployeeProject-activity-modal .EmployeeProject-activity-list {
+  height: auto;
+  overflow: visible;
+}
+
 /* Activity */
 .EmployeeProject-activity-task-title {
   font-size: 1rem;
@@ -2469,6 +2639,22 @@
   .EmployeeProject-remark-selected-image {
     width: 100%;
   }
+
+  .EmployeeProject-upload-preview {
+    width: 100%;
+  }
+
+  .EmployeeProject-existing-attachment {
+    width: 100%;
+  }
+
+  .EmployeeProject-upload-preview img {
+    height: clamp(150px, 48vw, 220px);
+  }
+
+  .EmployeeProject-existing-attachment > img {
+    height: clamp(150px, 48vw, 220px);
+  }
   
   .EmployeeProject-info-grid {
     grid-template-columns: 1fr;
@@ -2496,6 +2682,23 @@
   
   .EmployeeProject-drawer-right {
     width: 100vw;
+  }
+
+  .EmployeeProject-activity-modal {
+    padding: 0.75rem;
+  }
+
+  .EmployeeProject-activity-modal-content {
+    width: calc(100vw - 1.5rem);
+    max-height: 80vh;
+  }
+
+  .EmployeeProject-activity-modal-header {
+    padding: 0.9rem 1rem;
+  }
+
+  .EmployeeProject-activity-modal-body {
+    padding: 1rem;
   }
   
   .EmployeeProject-modal-sm,

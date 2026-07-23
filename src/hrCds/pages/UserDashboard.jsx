@@ -727,26 +727,45 @@ const UserDashboard = () => {
     setFocusStats(current => ({ ...current, loading: true }));
     try {
       const config = { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 };
-      const [todayResponse, allResponse] = await Promise.all([
+      const [todayResponse, allResponse, tasksResponse] = await Promise.all([
         axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'today' } }),
-        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'all' } })
+        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'all' } }),
+        axios.get(`/task/user/${userId}/all-tasks`, { ...config, params: { page: 1, limit: 500, period: 'all' } })
       ]);
       const today = todayResponse.data?.statusCounts || {};
       const all = allResponse.data?.statusCounts || {};
-      const dueToday = Number(today.total) || 0;
-      const completedToday = Number(today.completed?.count) || 0;
-      setDashboardTaskStats({
-        loading: false,
-        total: Number(all.total) || 0,
+      const taskRecords = pickTaskRecords(tasksResponse.data);
+      const fallbackCounts = taskRecords.reduce((counts, task) => {
+        const status = String(task.userStatus || task.overallStatus || task.status || 'pending')
+          .trim()
+          .toLowerCase()
+          .replace(/[_\s]+/g, '-');
+        counts.total += 1;
+        if (status === 'completed' || status === 'complete' || status === 'done') counts.completed += 1;
+        else if (status === 'in-progress' || status === 'inprogress') counts.inProgress += 1;
+        else if (status === 'overdue') counts.overdue += 1;
+        else counts.pending += 1;
+        return counts;
+      }, { total: 0, completed: 0, inProgress: 0, pending: 0, overdue: 0 });
+      const apiTotal = Number(all.total) || 0;
+      const useTaskFallback = apiTotal === 0 && fallbackCounts.total > 0;
+      const resolvedCounts = useTaskFallback ? fallbackCounts : {
+        total: apiTotal,
         completed: Number(all.completed?.count) || 0,
         inProgress: Number(all.inProgress?.count) || 0,
         pending: Number(all.pending?.count) || 0,
         overdue: Number(all.overdue?.count) || 0
+      };
+      const dueToday = Number(today.total) || 0;
+      const completedToday = Number(today.completed?.count) || 0;
+      setDashboardTaskStats({
+        loading: false,
+        ...resolvedCounts
       });
       const nextFocusStats = {
         loading: false,
         dueToday,
-        inProgress: Number(all.inProgress?.count) || 0,
+        inProgress: resolvedCounts.inProgress,
         completedToday,
         dailyProgress: dueToday ? Math.round((completedToday / dueToday) * 100) : 0
       };
@@ -1190,15 +1209,23 @@ const UserDashboard = () => {
     if (holidayDates.includes(key)) return "holiday";
     
     if (isBeforeJoinDate(dateObj)) return "before-join";
+    // An explicit absence must win if duplicate attendance records exist for a day.
+    if (absentDates.includes(key)) return "absent";
     if (lateDates.includes(key)) return "late";
     if (halfDayDates.includes(key)) return "halfday";
     if (leaveDates.includes(key)) return "leave";
-    if (absentDates.includes(key)) return "absent";
     if (markedDates.includes(key)) return "present";
     if (isWeekend) return "weekend";
+
+    // A past working day without any attendance, leave, or holiday record is
+    // an absence. Keep today pending until the day has finished, and never
+    // mark future dates absent.
+    const todayStart = new Date(currentDate);
+    todayStart.setHours(0, 0, 0, 0);
+    if (dateObj < todayStart) return "absent";
     
     return null;
-  }, [calendarYear, calendarMonth, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDates, absentDates, holidayDates]);
+  }, [calendarYear, calendarMonth, currentDate, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDates, absentDates, holidayDates]);
 
   const isToday = useCallback((day) => {
     return day === currentDate.getDate() && 
@@ -1215,7 +1242,7 @@ const UserDashboard = () => {
       case 'late': return 'L';
       case 'halfday': return '½';
       case 'leave': return 'L';
-      case 'absent': return '✗';
+      case 'absent': return 'A';
       case 'weekend': return '⚭';
       default: return '';
     }
@@ -2154,6 +2181,29 @@ const UserDashboard = () => {
               ))}
             </div>
           </section>
+
+          <section className="MobileDashV2-card MobileDashV2-projects">
+            <header>
+              <div><i><FiBriefcase /></i><span><strong>Top projects</strong><small>Progress overview</small></span></div>
+              <button type="button" onClick={() => navigate('/ciisUser/project')}>View all</button>
+            </header>
+            <div className="MobileDashV2-projectList">
+              {topProjects.map((project, index) => {
+                const icons = [BriefcaseBusiness, Smartphone, LayoutDashboard];
+                const ProjectIcon = icons[index % icons.length];
+                const projectName = project.projectName || project.name || project.title || 'Untitled project';
+                return (
+                  <article key={project._id || project.id || index}>
+                    <div><ProjectIcon /><strong>{projectName}</strong><b>{project.progress}%</b></div>
+                    <i><em style={{ width: `${project.progress}%` }} /></i>
+                    <small>{project.taskCount} task{project.taskCount === 1 ? '' : 's'}</small>
+                  </article>
+                );
+              })}
+              {projectsLoading && <p className="MobileDashV2-empty">Loading projects...</p>}
+              {!projectsLoading && !topProjects.length && <p className="MobileDashV2-empty">No project data available</p>}
+            </div>
+          </section>
         </main>
       )}
 
@@ -2380,7 +2430,7 @@ const UserDashboard = () => {
                 <div><dt>Check In</dt><dd>{formatClockTime(todayAttendance?.inTime)}</dd></div>
                 <div><dt>Check Out</dt><dd>{isRunning ? 'In progress' : formatClockTime(todayAttendance?.outTime)}</dd></div>
                 <div><dt>Total Working</dt><dd>{isRunning ? formatTime(timer) : todayAttendance?.totalTime || '00:00:00'}</dd></div>
-                <div><dt>Late</dt><dd>{todayAttendance ? (normalizeAttendanceStatus(todayAttendance.status) === 'LATE' || (todayAttendance.lateBy && todayAttendance.lateBy !== '00:00:00') ? `Yes${todayAttendance.lateBy && todayAttendance.lateBy !== '00:00:00' ? ` (${todayAttendance.lateBy})` : ''}` : 'No') : '--'}</dd></div>
+                <div><dt>Late</dt><dd>{todayAttendance ? (['LATE', 'HALF DAY'].includes(normalizeAttendanceStatus(todayAttendance.status)) ? `Yes${todayAttendance.lateBy && todayAttendance.lateBy !== '00:00:00' ? ` (${todayAttendance.lateBy})` : ''}` : 'No') : '--'}</dd></div>
                 <div><dt>Break Time</dt><dd>{getTrackedBreakTime(todayAttendance)}</dd></div>
                 <div><dt>Tasks Completed</dt><dd>{focusStats.loading ? '—' : focusStats.completedToday}</dd></div>
               </dl>
@@ -2593,8 +2643,10 @@ const UserDashboard = () => {
           <div className="dashboard-section-heading"><strong>Top Projects</strong><button onClick={() => navigate('/ciisUser/project')}>View All</button></div>
           <div className="project-progress-list">
             {topProjects.map((project, index) => {
-              const ProjectIcon = [BriefcaseBusiness, Smartphone, LayoutDashboard][index];
-              return <div key={project._id || project.id || index}><span><ProjectIcon /> {project.projectName || project.name || project.title || 'Untitled project'} <b>{project.progress}%</b></span><i><em style={{ width: `${project.progress}%` }} /></i><small>{project.taskCount} task{project.taskCount === 1 ? '' : 's'}</small></div>;
+              const icons = [BriefcaseBusiness, Smartphone, LayoutDashboard];
+              const ProjectIcon = icons[index % icons.length];
+              const projectName = project.projectName || project.name || project.title || 'Untitled project';
+              return <div key={project._id || project.id || index}><span><ProjectIcon /><strong title={projectName}>{projectName}</strong><b>{project.progress}%</b></span><i><em style={{ width: `${project.progress}%` }} /></i><small>{project.taskCount} task{project.taskCount === 1 ? '' : 's'}</small></div>;
             })}
             {projectsLoading && <div className="dashboard-empty-schedule">Loading projects...</div>}
             {!projectsLoading && !topProjects.length && <div className="dashboard-empty-schedule">No project data available</div>}

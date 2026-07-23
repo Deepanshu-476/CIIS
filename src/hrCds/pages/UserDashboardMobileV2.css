@@ -1,0 +1,357 @@
+.MobileDashV2-shell { display: none; }
+
+@media (max-width: 768px) {
+  .MobileDashV2-legacyHidden { display: none !important; }
+
+  .MobileDashV2-shell {
+    --v2-ink: #11182b;
+    --v2-muted: #748096;
+    --v2-line: #e8ecf3;
+    --v2-purple: #6c4cf1;
+    display: grid;
+    gap: 14px;
+    width: 100%;
+    padding: 12px;
+    overflow: hidden;
+    background: #f5f7fb;
+    color: var(--v2-ink);
+    font-family: Inter, "Segoe UI", sans-serif;
+  }
+
+  .MobileDashV2-shell * { box-sizing: border-box; }
+  .MobileDashV2-shell button { font: inherit; }
+
+  .MobileDashV2-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 20px;
+    border-radius: 22px;
+    background: linear-gradient(145deg, #26204f 0%, #5940cd 58%, #7956f3 100%);
+    color: white;
+    box-shadow: 0 14px 32px rgba(78, 56, 180, .24);
+  }
+
+  .MobileDashV2-hero::after {
+    content: "";
+    position: absolute;
+    width: 170px;
+    height: 170px;
+    right: -72px;
+    top: -78px;
+    border: 30px solid rgba(255,255,255,.08);
+    border-radius: 50%;
+  }
+
+  .MobileDashV2-heroTop,
+  .MobileDashV2-date,
+  .MobileDashV2-clock,
+  .MobileDashV2-focus header,
+  .MobileDashV2-card > header,
+  .MobileDashV2-card > header > div,
+  .MobileDashV2-taskBars > div > span {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .MobileDashV2-eyebrow { font-size: 12px; font-weight: 700; opacity: .82; }
+  .MobileDashV2-live { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; }
+  .MobileDashV2-live i { width: 7px; height: 7px; border-radius: 50%; background: #c7c4d3; }
+  .MobileDashV2-live.is-active i { background: #5df0af; box-shadow: 0 0 0 4px rgba(93,240,175,.14); }
+  .MobileDashV2-hero h1 { position: relative; margin: 13px 0 5px; font-size: 25px; line-height: 1.1; }
+  .MobileDashV2-hero > p { position: relative; margin: 0; color: rgba(255,255,255,.72); font-size: 12px; }
+  .MobileDashV2-date { position: relative; justify-content: flex-start; flex-wrap: wrap; gap: 8px 16px; margin-top: 17px; font-size: 10px; font-weight: 600; }
+  .MobileDashV2-date span { display: flex; align-items: center; gap: 6px; }
+
+  .MobileDashV2-progress { position: relative; margin-top: 18px; padding: 13px; border: 1px solid rgba(255,255,255,.13); border-radius: 14px; background: rgba(255,255,255,.09); }
+  .MobileDashV2-progress > div { display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+  .MobileDashV2-progress > div strong { font-size: 15px; }
+  .MobileDashV2-progress > i { display: block; height: 6px; margin: 9px 0 7px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.15); }
+  .MobileDashV2-progress > i span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #8ff0cb, #fff); }
+  .MobileDashV2-progress small { color: rgba(255,255,255,.66); font-size: 9px; }
+
+  .MobileDashV2-clock,
+  .MobileDashV2-focus,
+  .MobileDashV2-card {
+    padding: 16px;
+    border: 1px solid var(--v2-line);
+    border-radius: 18px;
+    background: white;
+    box-shadow: 0 5px 18px rgba(34,48,77,.05);
+  }
+
+  .MobileDashV2-clock > div { display: grid; gap: 3px; }
+  .MobileDashV2-clock > div span,
+  .MobileDashV2-clock > div small { color: var(--v2-muted); font-size: 10px; }
+  .MobileDashV2-clock > div strong { font-size: 24px; letter-spacing: -.04em; }
+  .MobileDashV2-clock button { display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 15px; border: 0; border-radius: 12px; background: var(--v2-purple); color: white; font-size: 12px; font-weight: 700; }
+  .MobileDashV2-clock button.is-stop { background: #ef5362; }
+
+  .MobileDashV2-focus header div { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; }
+  .MobileDashV2-focus header div svg { color: var(--v2-purple); }
+  .MobileDashV2-focus header b { display: grid; place-items: center; min-width: 25px; height: 25px; border-radius: 8px; background: #f0ecff; color: var(--v2-purple); font-size: 11px; }
+  .MobileDashV2-focus > div { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; margin-top: 14px; }
+  .MobileDashV2-focus article { min-width: 0; padding: 10px 7px; border-radius: 12px; background: #f8f9fc; text-align: center; }
+  .MobileDashV2-focus article > i { width: 30px; height: 30px; display: grid; place-items: center; margin: 0 auto 7px; border-radius: 9px; font-size: 14px; }
+  .MobileDashV2-focus article > i.violet { background: #eee9ff; color: #6746e8; }
+  .MobileDashV2-focus article > i.blue { background: #e8f1ff; color: #3478e5; }
+  .MobileDashV2-focus article > i.green { background: #e4f8ef; color: #12a86f; }
+  .MobileDashV2-focus article span { display: grid; gap: 2px; }
+  .MobileDashV2-focus article strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; }
+  .MobileDashV2-focus article small { color: var(--v2-muted); font-size: 8px; white-space: nowrap; }
+
+  .MobileDashV2-stats { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+  .MobileDashV2-stats article { position: relative; min-height: 112px; padding: 14px; overflow: hidden; border: 1px solid var(--v2-line); border-radius: 16px; background: white; }
+  .MobileDashV2-stats article::after { content: ""; position: absolute; right: -18px; bottom: -22px; width: 66px; height: 66px; border-radius: 50%; background: currentColor; opacity: .08; }
+  .MobileDashV2-stats article span { display: block; color: var(--v2-muted); font-size: 10px; font-weight: 700; }
+  .MobileDashV2-stats article strong { display: block; margin: 12px 0 2px; color: var(--v2-ink); font-size: 27px; line-height: 1; }
+  .MobileDashV2-stats article small { color: var(--v2-muted); font-size: 9px; }
+  .MobileDashV2-stats .green { color: #10aa70; } .MobileDashV2-stats .amber { color: #ee9a16; }
+  .MobileDashV2-stats .blue { color: #377ee8; } .MobileDashV2-stats .violet { color: #744de6; } .MobileDashV2-stats .red { color: #ed5262; }
+
+  .MobileDashV2-card > header { margin-bottom: 15px; }
+  .MobileDashV2-card > header > div { justify-content: flex-start; gap: 10px; }
+  .MobileDashV2-card > header > div > i { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; background: #efebff; color: var(--v2-purple); }
+  .MobileDashV2-card > header span { display: grid; gap: 2px; }
+  .MobileDashV2-card > header strong { font-size: 14px; }
+  .MobileDashV2-card > header small { color: var(--v2-muted); font-size: 9px; }
+  .MobileDashV2-card > header button { border: 0; background: transparent; color: var(--v2-purple); font-size: 10px; font-weight: 700; }
+
+  .MobileDashV2-calendar nav { display: grid; grid-template-columns: 36px 1fr 65px 36px; gap: 6px; align-items: center; margin-bottom: 14px; }
+  .MobileDashV2-calendar nav button { height: 34px; border: 1px solid var(--v2-line); border-radius: 9px; background: #f8f9fc; color: #556176; }
+  .MobileDashV2-calendar nav button:nth-of-type(2) { border: 0; background: var(--v2-purple); color: white; font-size: 10px; font-weight: 700; }
+  .MobileDashV2-calendar nav strong { font-size: 10px; text-align: center; }
+  .MobileDashV2-weekdays,
+  .MobileDashV2-days { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 5px; }
+  .MobileDashV2-weekdays { margin-bottom: 7px; }
+  .MobileDashV2-weekdays span { color: #8b95a8; font-size: 9px; font-weight: 700; text-align: center; }
+  .MobileDashV2-days span { height: 34px; display: grid; place-items: center; border-radius: 9px; background: #f6f8fb; color: #4c586c; font-size: 10px; font-weight: 700; }
+  .MobileDashV2-days span.blank { background: transparent; }
+  .MobileDashV2-days span.present { background: #e3f8ef; color: #0b9a66; }
+  .MobileDashV2-days span.late, .MobileDashV2-days span.halfday { background: #fff3dd; color: #d8840d; }
+  .MobileDashV2-days span.leave { background: #e9f2ff; color: #2d73dc; }
+  .MobileDashV2-days span.absent { background: #ffe9ec; color: #df4053; }
+  .MobileDashV2-days span.weekend { background: #edf0f5; color: #778296; }
+  .MobileDashV2-days span.holiday { background: #f1eaff; color: #7247d9; }
+  .MobileDashV2-days span.today { outline: 2px solid var(--v2-purple); outline-offset: 1px; }
+  .MobileDashV2-calendar footer { display: flex; flex-wrap: wrap; gap: 8px 13px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--v2-line); }
+  .MobileDashV2-calendar footer span { display: flex; align-items: center; gap: 5px; color: var(--v2-muted); font-size: 8px; }
+  .MobileDashV2-calendar footer i { width: 7px; height: 7px; border-radius: 50%; }
+  .MobileDashV2-calendar footer .present { background: #10aa70; } .MobileDashV2-calendar footer .late { background: #ee9a16; }
+  .MobileDashV2-calendar footer .leave { background: #377ee8; } .MobileDashV2-calendar footer .absent { background: #ed5262; }
+
+  .MobileDashV2-recent > div { display: grid; gap: 4px; }
+  .MobileDashV2-recent article { display: grid; grid-template-columns: 44px 34px minmax(0,1fr); gap: 9px; align-items: center; padding: 10px 0; border-bottom: 1px solid #eef1f5; }
+  .MobileDashV2-recent article:last-child { border-bottom: 0; }
+  .MobileDashV2-recent time { color: var(--v2-muted); font-size: 9px; }
+  .MobileDashV2-recent article > i { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 10px; background: #e9f8f1; color: #10a66e; }
+  .MobileDashV2-recent article > i.type-task { background: #efebff; color: #6c4cf1; }
+  .MobileDashV2-recent article span { min-width: 0; display: grid; gap: 3px; }
+  .MobileDashV2-recent article strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+  .MobileDashV2-recent article small { overflow: hidden; color: var(--v2-muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+  .MobileDashV2-empty { margin: 16px 0; color: var(--v2-muted); font-size: 11px; text-align: center; }
+
+  .MobileDashV2-taskTotal { display: flex; align-items: baseline; gap: 7px; margin-bottom: 15px; }
+  .MobileDashV2-taskTotal strong { font-size: 30px; }
+  .MobileDashV2-taskTotal span { color: var(--v2-muted); font-size: 10px; }
+  .MobileDashV2-taskBars { display: grid; gap: 12px; }
+  .MobileDashV2-taskBars > div > span { margin-bottom: 6px; color: #556176; font-size: 9px; }
+  .MobileDashV2-taskBars > div > span b { color: var(--v2-ink); }
+  .MobileDashV2-taskBars > div > i { display: block; height: 6px; overflow: hidden; border-radius: 99px; background: #edf0f5; }
+  .MobileDashV2-taskBars em { display: block; height: 100%; border-radius: inherit; }
+  .MobileDashV2-taskBars em.green { background: #10aa70; } .MobileDashV2-taskBars em.blue { background: #377ee8; }
+  .MobileDashV2-taskBars em.amber { background: #ee9a16; } .MobileDashV2-taskBars em.red { background: #ed5262; }
+}
+
+@media (max-width: 360px) {
+  .MobileDashV2-shell { padding: 9px; }
+  .MobileDashV2-hero { padding: 17px; }
+  .MobileDashV2-focus > div { gap: 5px; }
+  .MobileDashV2-stats { grid-template-columns: 1fr 1fr; gap: 7px; }
+  .MobileDashV2-days span { height: 31px; }
+}
+
+/* Loaded after the legacy dashboard stylesheet, so this is the authoritative
+   MacBook layout and cannot be overwritten by older desktop declarations. */
+@media (min-width: 901px) and (max-width: 1500px) {
+  html .dashboard-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 12px !important;
+    overflow-x: hidden !important;
+  }
+
+  html .dashboard-container .dashboard-reference-grid {
+    width: 100% !important;
+    max-width: none !important;
+    grid-template-columns: minmax(0, 1fr) 286px !important;
+    gap: 12px !important;
+  }
+
+  html .dashboard-container .dashboard-main-column {
+    min-width: 0;
+    display: grid;
+    align-content: start;
+    gap: 12px;
+  }
+
+  html .dashboard-container .dashboard-header {
+    height: 160px !important;
+    min-height: 160px !important;
+    margin: 0 !important;
+    padding: 17px 19px !important;
+  }
+
+  html .dashboard-container .dashboard-header-content {
+    grid-template-columns: minmax(205px, 1.25fr) minmax(160px, .88fr) 98px !important;
+    gap: 13px !important;
+  }
+
+  html .dashboard-container .dashboard-greeting { margin-bottom: 5px; font-size: 12px; }
+  html .dashboard-container .dashboard-user-name { margin-bottom: 5px; font-size: clamp(20px, 1.8vw, 27px); }
+  html .dashboard-container .dashboard-user-welcome { margin-bottom: 11px; font-size: 10px; }
+  html .dashboard-container .dashboard-date-info { gap: 4px; font-size: 8px; }
+  html .dashboard-container .dashboard-weather { margin-left: 9px; padding-left: 9px; }
+  html .dashboard-container .dashboard-focus-card { gap: 7px; padding-left: 13px; font-size: 8px; }
+  html .dashboard-container .dashboard-focus-card strong { font-size: 10px; }
+  html .dashboard-container .dashboard-progress-dial { width: 92px !important; height: 92px !important; }
+
+  html .dashboard-container .dashboard-stats-grid {
+    height: 114px !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin: 0 !important;
+  }
+
+  html .dashboard-container .dashboard-stat-card {
+    height: 114px !important;
+    min-height: 114px !important;
+    padding: 9px !important;
+  }
+
+  html .dashboard-container .dashboard-stat-card .stat-icon-container {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+  }
+
+  html .dashboard-container .dashboard-stat-card .stat-image-icon { width: 18px; height: 18px; }
+  html .dashboard-container .dashboard-stat-card .stat-label { left: 44px !important; top: 12px !important; font-size: 8px !important; }
+  html .dashboard-container .dashboard-stat-card .stat-value { margin: -13px 0 0 35px !important; font-size: 19px !important; }
+  html .dashboard-container .dashboard-stat-card .dashboard-mini-spark { bottom: 21px; height: 22px; }
+  html .dashboard-container .dashboard-stat-card .stat-footer { left: 9px; bottom: 5px; }
+  html .dashboard-container .dashboard-stat-card .stat-month-text { font-size: 7px; }
+
+  html .dashboard-container .dashboard-content-grid {
+    height: 324px !important;
+    grid-template-columns: minmax(0, 1.45fr) minmax(215px, .7fr) !important;
+    gap: 10px !important;
+    margin: 0 !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card,
+  html .dashboard-container .dashboard-activity-card {
+    height: 324px !important;
+    min-height: 324px !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card {
+    padding: 11px calc(34% + 16px) 9px 11px !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card .calendar-title { font-size: 10px; }
+  html .dashboard-container .dashboard-calendar-card .calendar-icon-container { width: 25px; height: 25px; min-width: 25px; }
+  html .dashboard-container .dashboard-calendar-card .calendar-controls { gap: 3px; }
+  html .dashboard-container .dashboard-calendar-card .calendar-nav-btn,
+  html .dashboard-container .dashboard-calendar-card .calendar-today-btn { height: 25px; min-height: 25px; }
+  html .dashboard-container .dashboard-calendar-card .calendar-current-month { font-size: 8px; }
+
+  html .dashboard-container .dashboard-calendar-card .calendar-week-header,
+  html .dashboard-container .dashboard-calendar-card .calendar-week {
+    width: 100%;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    column-gap: 4px !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card .calendar-day-wrapper,
+  html .dashboard-container .dashboard-calendar-card .calendar-day,
+  html .dashboard-container .dashboard-calendar-card .calendar-empty-day {
+    width: 100% !important;
+    height: 24px !important;
+    min-height: 24px !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card .calendar-day.day-today {
+    width: 24px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card .attendance-day-summary {
+    top: 11px !important;
+    right: 11px !important;
+    bottom: 11px !important;
+    width: 33% !important;
+    padding: 8px !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card .attendance-summary-head strong,
+  html .dashboard-container .dashboard-calendar-card .attendance-day-summary dt,
+  html .dashboard-container .dashboard-calendar-card .attendance-day-summary dd { font-size: 7px; }
+  html .dashboard-container .dashboard-calendar-card .attendance-day-summary dl div { padding: 3px 0; }
+  html .dashboard-container .dashboard-calendar-card .legend-item { font-size: 6px; }
+
+  html .dashboard-container .dashboard-activity-card { padding: 10px !important; }
+  html .dashboard-container .dashboard-activity-card .activity-list { max-height: 270px; }
+  html .dashboard-container .dashboard-activity-card .activity-item { min-height: 44px; padding: 5px 2px; }
+  html .dashboard-container .dashboard-activity-card .timeline-activity { grid-template-columns: 38px minmax(0, 1fr) auto; }
+  html .dashboard-container .dashboard-activity-card .activity-title { font-size: 8px; }
+  html .dashboard-container .dashboard-activity-card .activity-time,
+  html .dashboard-container .dashboard-activity-card .activity-date,
+  html .dashboard-container .dashboard-activity-card .activity-timeline-time { font-size: 7px; }
+
+  html .dashboard-container .dashboard-right-rail { min-width: 0; gap: 10px !important; }
+  html .dashboard-container .dashboard-clock-rail,
+  html .dashboard-container .dashboard-ai-card,
+  html .dashboard-container .dashboard-schedule-card { min-width: 0; padding: 11px !important; }
+  html .dashboard-container .dashboard-clock-rail { min-height: 145px; }
+  html .dashboard-container .dashboard-clock-rail .dashboard-timer-value { font-size: 26px; }
+  html .dashboard-container .dashboard-ai-card { min-height: 240px; }
+  html .dashboard-container .dashboard-schedule-card { min-height: 155px; }
+
+  html .dashboard-container .dashboard-insights-row {
+    height: 158px !important;
+    gap: 10px !important;
+    margin: 0 !important;
+  }
+
+  html .dashboard-container .dashboard-insight-card {
+    height: 158px !important;
+    min-height: 158px !important;
+    padding: 10px !important;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1180px) {
+  html .dashboard-container .dashboard-reference-grid {
+    grid-template-columns: minmax(0, 1fr) 250px !important;
+  }
+
+  html .dashboard-container .dashboard-header-content {
+    grid-template-columns: minmax(190px, 1.2fr) minmax(145px, .85fr) 88px !important;
+    gap: 10px !important;
+  }
+
+  html .dashboard-container .dashboard-content-grid {
+    grid-template-columns: minmax(0, 1.35fr) minmax(190px, .68fr) !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card {
+    padding-right: calc(32% + 14px) !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card .attendance-day-summary {
+    width: 31% !important;
+  }
+}

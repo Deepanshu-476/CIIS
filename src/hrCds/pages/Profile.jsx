@@ -338,6 +338,7 @@ const Profile = () => {
       setProfile(mergedUser);
       setFormData(buildInitialForm(mergedUser));
       localStorage.setItem("user", JSON.stringify({ ...storedUser, ...mergedUser }));
+      window.dispatchEvent(new CustomEvent("ciis-profile-updated", { detail: mergedUser }));
       setEditOpen(false);
       setMessage({ type: "success", text: "Your details have been updated successfully." });
     } catch (error) {

@@ -916,6 +916,21 @@ const Sidebar = ({ isMobile = false }) => {
         if (user) {
           parsedUser = JSON.parse(user);
           setUserData(parsedUser);
+
+          const parsedUserId = parsedUser?._id || parsedUser?.id;
+          if (parsedUserId && parsedUser?.companyRole !== 'client') {
+            try {
+              const profileResponse = await axiosInstance.get(`/users/profile/${parsedUserId}`);
+              const latestProfile = profileResponse.data?.user || profileResponse.data?.data || profileResponse.data;
+              if (latestProfile && typeof latestProfile === 'object') {
+                parsedUser = { ...parsedUser, ...latestProfile };
+                setUserData(parsedUser);
+                localStorage.setItem('user', JSON.stringify(parsedUser));
+              }
+            } catch (profileError) {
+              console.warn('Could not refresh profile completion data:', profileError.message);
+            }
+          }
         }
         
         if (companyDetails) {
@@ -1326,9 +1341,35 @@ const Sidebar = ({ isMobile = false }) => {
     );
   }, [userData, isClientUser, resolvedJobRoleName]);
 
-  // Visual placeholder for the profile-completion feature. The actual
-  // percentage will be calculated from profile fields in the next step.
-  const profileCompletion = 75;
+  useEffect(() => {
+    const handleProfileUpdated = event => {
+      const updatedProfile = event.detail;
+      if (!updatedProfile || typeof updatedProfile !== 'object') return;
+      setUserData(current => ({ ...current, ...updatedProfile }));
+    };
+
+    window.addEventListener('ciis-profile-updated', handleProfileUpdated);
+    return () => window.removeEventListener('ciis-profile-updated', handleProfileUpdated);
+  }, []);
+
+  const profileCompletion = useMemo(() => {
+    if (!userData) return 0;
+
+    const requiredValues = [
+      userData.name,
+      userData.phone || userData.mobile,
+      userData.aadhaar || userData.aadhar || userData.aadharCard,
+      userData.panCard || userData.pan,
+      userData.bankHolderName,
+      userData.accountNumber,
+      userData.ifsc,
+      userData.bankName,
+      userData.fatherName,
+      userData.motherName,
+    ];
+    const completedFields = requiredValues.filter(value => String(value || '').trim()).length;
+    return Math.round((completedFields / requiredValues.length) * 100);
+  }, [userData]);
 
   const renderMenuItem = (item, showFull) => {
     const selected = location.pathname === item.path;

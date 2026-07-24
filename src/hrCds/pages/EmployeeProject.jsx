@@ -420,6 +420,26 @@ const EmployeeProject = () => {
     return new Date(date.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
   };
 
+  const toDueDateISOString = (value) => {
+    if (!value) return "";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+  };
+
+  const formatDueDateTime = (value) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
   const getPriorityInputValue = (priority) => {
     const normalized = String(priority || "Medium").trim().toLowerCase();
     if (normalized === "low") return "Low";
@@ -675,6 +695,8 @@ const EmployeeProject = () => {
           newTask.assignedUsers.forEach(userId => formData.append("assignedUsers", userId));
         } else if (key === "checkpoints") {
           formData.append("checkpoints", JSON.stringify(getCleanCheckpoints(newTask.checkpoints)));
+        } else if (key === "dueDate") {
+          formData.append("dueDate", toDueDateISOString(newTask.dueDate));
         } else {
           formData.append(key, newTask[key]);
         }
@@ -708,9 +730,7 @@ const EmployeeProject = () => {
     setLoading(prev => ({ ...prev, tasks: true }));
     try {
       const assignedTo = newTask.assignedUsers[0] || "";
-      const dueDate = newTask.dueDate
-        ? new Date(newTask.dueDate).toISOString()
-        : "";
+      const dueDate = toDueDateISOString(newTask.dueDate);
       const payload = {
         title: newTask.title,
         description: newTask.description,
@@ -1273,7 +1293,7 @@ const EmployeeProject = () => {
                 {t.dueDate && (
                   <div className="EmployeeProject-task-meta-item">
                     <Icons.CalendarToday />
-                    <span>Due: {new Date(t.dueDate).toLocaleDateString()}</span>
+                    <span>Due: {formatDueDateTime(t.dueDate)}</span>
                   </div>
                 )}
                 <div className="EmployeeProject-task-meta-item">
@@ -2091,7 +2111,7 @@ const EmployeeProject = () => {
                 {detailTask.dueDate && (
                   <div className="EmployeeProject-task-meta-item">
                     <Icons.CalendarToday />
-                    <span>Due: {new Date(detailTask.dueDate).toLocaleString()}</span>
+                    <span>Due: {formatDueDateTime(detailTask.dueDate)}</span>
                   </div>
                 )}
                 <div className="EmployeeProject-task-meta-item">

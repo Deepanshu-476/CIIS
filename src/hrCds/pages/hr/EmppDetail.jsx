@@ -1315,14 +1315,16 @@ const PersonalInfoForm = ({ formData, onInputChange, isReadOnly = false }) => {
         </div>
 
         <div className="EmployeeDirectory-form-group">
-          <label className="EmployeeDirectory-form-label">Zip Code</label>
+          <label className="EmployeeDirectory-form-label">PIN Code</label>
           <input
             type="text"
+            inputMode="numeric"
+            maxLength={6}
             className="EmployeeDirectory-form-input"
-            value={formData.zipCode || ''}
-            onChange={(e) => onInputChange('zipCode', e.target.value)}
+            value={formData.pinCode || ''}
+            onChange={(e) => onInputChange('pinCode', e.target.value.replace(/\D/g, ''))}
             disabled={isReadOnly}
-            placeholder="Zip code"
+            placeholder="6-digit PIN code"
           />
         </div>
 
@@ -1872,7 +1874,7 @@ const EmployeeDirectory = () => {
       role.name === roleId
     );
     
-    return jobRole ? jobRole.roleName : roleId;
+    return jobRole ? (jobRole.roleName || jobRole.name) : roleId;
   }, [jobRoles]);
   
   // Helper function to get job role details by ID
@@ -2167,6 +2169,8 @@ const EmployeeDirectory = () => {
         };
       }
     }
+
+    formDataToSet.pinCode = formDataToSet.pinCode || formDataToSet.zipCode || '';
     
     resetEditForm(formDataToSet);
     handleMenuClose();
@@ -2247,6 +2251,7 @@ const EmployeeDirectory = () => {
         delete updateData[field];
       });
 
+      delete updateData.zipCode;
       delete updateData.documents;
       
       if (!updateData.name?.trim()) {
@@ -2921,6 +2926,12 @@ const EmployeeDirectory = () => {
               >
                 <FiCreditCard size={14} /> Bank
               </button>
+              <button
+                className={`EmployeeDirectory-tab ${activeTab === 'identity' ? 'active' : ''}`}
+                onClick={() => setActiveTab('identity')}
+              >
+                <FiShield size={14} /> Identity
+              </button>
               <button 
                 className={`EmployeeDirectory-tab ${activeTab === 'family' ? 'active' : ''}`}
                 onClick={() => setActiveTab('family')}
@@ -2998,10 +3009,10 @@ const EmployeeDirectory = () => {
                       </div>
                     )}
 
-                    {selectedUser.zipCode && (
+                    {(selectedUser.pinCode || selectedUser.zipCode) && (
                       <div className="EmployeeDirectory-detail-item">
-                        <div className="EmployeeDirectory-detail-label">Zip Code</div>
-                        <div className="EmployeeDirectory-detail-value">{selectedUser.zipCode}</div>
+                        <div className="EmployeeDirectory-detail-label">PIN Code</div>
+                        <div className="EmployeeDirectory-detail-value">{selectedUser.pinCode || selectedUser.zipCode}</div>
                       </div>
                     )}
 
@@ -3059,6 +3070,21 @@ const EmployeeDirectory = () => {
                       <div className="EmployeeDirectory-detail-label">Employee Type</div>
                       <div className="EmployeeDirectory-detail-value">{selectedUser.employeeType || 'Not specified'}</div>
                     </div>
+
+                    <div className="EmployeeDirectory-detail-item">
+                      <div className="EmployeeDirectory-detail-label">Work Location</div>
+                      <div className="EmployeeDirectory-detail-value">{selectedUser.workLocation || 'Not specified'}</div>
+                    </div>
+
+                    <div className="EmployeeDirectory-detail-item">
+                      <div className="EmployeeDirectory-detail-label">Shift</div>
+                      <div className="EmployeeDirectory-detail-value">{selectedUser.shift || 'Not specified'}</div>
+                    </div>
+
+                    <div className="EmployeeDirectory-detail-item">
+                      <div className="EmployeeDirectory-detail-label">Notice Period</div>
+                      <div className="EmployeeDirectory-detail-value">{selectedUser.noticePeriod || 'Not specified'}</div>
+                    </div>
                     
                     <div className="EmployeeDirectory-detail-item">
                       <div className="EmployeeDirectory-detail-label">Salary</div>
@@ -3102,6 +3128,23 @@ const EmployeeDirectory = () => {
                         <div className="EmployeeDirectory-detail-value">{formatDate(selectedUser.dateOfJoining)}</div>
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Bank Details Tab */}
+              {activeTab === 'identity' && (
+                <div className="EmployeeDirectory-modal-section">
+                  <h3 className="EmployeeDirectory-section-title"><FiShield /> Identity & Compliance</h3>
+                  <div className="EmployeeDirectory-detail-grid">
+                    <div className="EmployeeDirectory-detail-item">
+                      <div className="EmployeeDirectory-detail-label">Aadhaar Number</div>
+                      <div className="EmployeeDirectory-detail-value">{selectedUser.aadhaar || selectedUser.aadhar || selectedUser.aadharCard || 'Not provided'}</div>
+                    </div>
+                    <div className="EmployeeDirectory-detail-item">
+                      <div className="EmployeeDirectory-detail-label">PAN Number</div>
+                      <div className="EmployeeDirectory-detail-value">{selectedUser.panCard || selectedUser.pan || 'Not provided'}</div>
+                    </div>
                   </div>
                 </div>
               )}

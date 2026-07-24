@@ -6,6 +6,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './UserDashboard.css';
 import './UserDashboardMobileV2.css';
+import './UserDashboardResponsive.css';
 import useIsMobile from '../../hooks/useIsMobile';
 import CIISLoader from '../../Loader/CIISLoader';
 import {
@@ -214,6 +215,25 @@ const UserDashboard = () => {
   const [timer, setTimer] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const intervalRef = useRef(null);
+  const dashboardRootRef = useRef(null);
+
+  useEffect(() => {
+    if (pageLoading) return undefined;
+
+    const frameId = requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+
+      let parent = dashboardRootRef.current?.parentElement;
+      while (parent) {
+        if (parent.scrollTop) parent.scrollTop = 0;
+        parent = parent.parentElement;
+      }
+    });
+
+    return () => cancelAnimationFrame(frameId);
+  }, [pageLoading]);
 
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
@@ -1497,7 +1517,7 @@ const UserDashboard = () => {
   }, []);
 
   const calendarDays = useMemo(() => getCalendarGrid(calendarYear, calendarMonth), [calendarYear, calendarMonth]);
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(1200);
   const shouldBlockMobileDashboard = false;
   const displayUser = dashboardUser || user;
   const dashboardShift = displayUser?.shift || null;
@@ -1848,7 +1868,7 @@ const UserDashboard = () => {
   }
 
   return (
-    <div className="dashboard-container">
+    <div ref={dashboardRootRef} className="dashboard-container">
       <ToastContainer position="top-right" autoClose={3000} theme="colored" pauseOnHover />
       
       {showClockOutConfirm && (

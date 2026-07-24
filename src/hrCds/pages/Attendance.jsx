@@ -27,6 +27,45 @@ import { MdCelebration } from "react-icons/md";
 import '../Css/Attendance.css';
 import CIISLoader from '../../Loader/CIISLoader';
 import VirtualList from '../../components/VirtualList';
+import EmployeeAttendance from './hr/EmppAttendence';
+
+const getRoleText = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') {
+    return value.name || value.roleName || value.title || value.slug || value.code || '';
+  }
+  return String(value);
+};
+
+const normalizeRoleText = (value) => getRoleText(value)
+  .trim()
+  .toLowerCase()
+  .replace(/[\s-]+/g, '_');
+
+const canViewTeamAttendance = (user) => {
+  const roleValues = [
+    user?.companyRole,
+    user?.role,
+    user?.jobRole,
+    user?.jobRoleName,
+    user?.designation,
+    user?.position,
+  ].map(normalizeRoleText);
+
+  return roleValues.some((role) => [
+    'owner',
+    'admin',
+    'company_admin',
+    'super_admin',
+    'superadmin',
+    'hr',
+    'human_resources',
+    'manager',
+    'team_lead',
+    'team_leader',
+  ].includes(role));
+};
 
 const calculateDistance = (lat1, lon1, lat2 = 30.707949, lon2 = 76.6860975) => {
   if (lat1 === undefined || lat1 === null || lon1 === undefined || lon1 === null) return null;
@@ -735,6 +774,10 @@ const Attendance = () => {
   };
 
   const statusOptions = ["ALL", "PRESENT", "LATE", "HALF DAY", "ABSENT", "HOLIDAY"];
+
+  if (canViewTeamAttendance(user)) {
+    return <EmployeeAttendance />;
+  }
 
   
   if (pageLoading) {

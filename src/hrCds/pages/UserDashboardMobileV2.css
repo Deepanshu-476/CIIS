@@ -59,6 +59,7 @@
   .MobileDashV2-live i { width: 7px; height: 7px; border-radius: 50%; background: #c7c4d3; }
   .MobileDashV2-live.is-active i { background: #5df0af; box-shadow: 0 0 0 4px rgba(93,240,175,.14); }
   .MobileDashV2-hero h1 { position: relative; margin: 13px 0 5px; font-size: 25px; line-height: 1.1; }
+  .MobileDashV2-shift-chip { position: relative; margin: 3px 0 8px; }
   .MobileDashV2-hero > p { position: relative; margin: 0; color: rgba(255,255,255,.72); font-size: 12px; }
   .MobileDashV2-date { position: relative; justify-content: flex-start; flex-wrap: wrap; gap: 8px 16px; margin-top: 17px; font-size: 10px; font-weight: 600; }
   .MobileDashV2-date span { display: flex; align-items: center; gap: 6px; }

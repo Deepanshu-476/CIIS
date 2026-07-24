@@ -3162,6 +3162,7 @@
 }
 
 .dashboard-header-content {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(280px, 1.35fr) minmax(240px, 1fr) 150px;
   align-items: center;
@@ -3174,6 +3175,49 @@
 .dashboard-user-name { width: auto; font-size: clamp(27px, 2vw, 34px); letter-spacing: -.7px; margin: 0 0 10px; }
 .dashboard-user-welcome { width: auto; margin: 0 0 20px; color: #667085; }
 .dashboard-user-tags { display: none; }
+
+.dashboard-shift-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 23px;
+    max-width: 100%;
+    padding: 5px 9px;
+    border: 1px solid rgba(255,255,255,.24);
+    border-radius: 999px;
+    background: rgba(255,255,255,.14);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+    backdrop-filter: blur(10px);
+}
+
+.dashboard-shift-chip small {
+  color: rgba(255,255,255,.78);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.dashboard-shift-slot {
+    position: absolute;
+    left: 25%;
+    top: 20px;
+    z-index: 1;
+    max-width: 190px;
+}
+
+.dashboard-shift-chip-desktop {
+  margin: 0;
+  border-color: #cfe8dc;
+  background: #f1fbf6;
+  color: #136c48;
+  box-shadow: 0 4px 12px rgba(32, 52, 89, .045);
+}
+
+.dashboard-shift-chip-desktop small {
+  color: #4b826b;
+}
 .dashboard-date-info { color: #344054; font-weight: 600; }
 .dashboard-weather { display: inline-flex; align-items: center; gap: 6px; margin-left: 24px; padding-left: 20px; border-left: 1px solid #edf0f5; font-weight: 500; }
 .dashboard-weather svg { color: #f5a524; font-size: 17px; }
@@ -3517,6 +3561,7 @@
 @media (max-width: 860px) {
   .dashboard-container { padding: 10px; }
   .dashboard-header-content, .dashboard-content-grid, .dashboard-insights-row, .dashboard-right-rail { grid-template-columns: 1fr; }
+  .dashboard-shift-slot { position: static; max-width: 100%; }
   .dashboard-focus-card { border-left: 0; border-top: 1px solid #edf0f6; padding: 15px 0 0; }
   .dashboard-progress-dial { position:absolute; right:24px; top:22px; width:82px; }
   .dashboard-header { position:relative; }

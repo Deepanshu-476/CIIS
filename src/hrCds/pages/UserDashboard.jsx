@@ -256,6 +256,7 @@ const UserDashboard = () => {
   const [hoveredProductivityDay, setHoveredProductivityDay] = useState(null);
   const [jobRoles, setJobRoles] = useState([]);
   const [jobRolesLoading, setJobRolesLoading] = useState(false);
+  const [dashboardUser, setDashboardUser] = useState(null);
   
   const [showClockOutConfirm, setShowClockOutConfirm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -953,8 +954,13 @@ const UserDashboard = () => {
         _id: role._id || role.id || role.roleId,
         roleName: role.roleName || role.name || role.jobRole || role.title || '',
         roleNumber: role.roleNumber || role.roleNo || role.code || '',
+        shiftSettings: role.shiftSettings,
+        shifts: role.shifts || [],
       })).filter(role => role.roleName);
       setJobRoles(formattedJobRoles);
+      if (summary.currentUser) {
+        setDashboardUser(summary.currentUser);
+      }
 
       let holidaysData = summary.holidays || [];
       if (userJoinDate) {
@@ -1081,7 +1087,7 @@ const UserDashboard = () => {
     if (jobRolesLoading) return 'Loading...';
     if (!jobRoles.length) return '';
     
-    const userJobRole = user?.jobRole;
+    const userJobRole = dashboardUser?.jobRole || user?.jobRole;
     if (!userJobRole) return '';
     
     const foundRole = jobRoles.find(role => 
@@ -1091,7 +1097,7 @@ const UserDashboard = () => {
     );
     
     return foundRole?.roleName || (typeof userJobRole === 'string' ? userJobRole : '');
-  }, [jobRoles, jobRolesLoading, user?.jobRole]);
+  }, [dashboardUser?.jobRole, jobRoles, jobRolesLoading, user?.jobRole]);
 
   const filteredAttendanceData = useMemo(() => {
     if (!userJoinDate) return attendanceData;
@@ -1493,6 +1499,12 @@ const UserDashboard = () => {
   const calendarDays = useMemo(() => getCalendarGrid(calendarYear, calendarMonth), [calendarYear, calendarMonth]);
   const isMobile = useIsMobile();
   const shouldBlockMobileDashboard = false;
+  const displayUser = dashboardUser || user;
+  const dashboardShift = displayUser?.shift || null;
+  const dashboardShiftLabel = dashboardShift?.shiftName || displayUser?.shiftName || '';
+  const dashboardShiftTime = dashboardShift?.shiftStart && dashboardShift?.shiftEnd
+    ? `${dashboardShift.shiftStart} - ${dashboardShift.shiftEnd}`
+    : '';
   const userJobRoleDisplay = getJobRoleDisplayName();
 
   const taskSummary = useMemo(() => ({
@@ -2056,7 +2068,14 @@ const UserDashboard = () => {
                 <i /> {isRunning ? 'Working' : 'Ready'}
               </span>
             </div>
-            <h1>{user?.name || 'Welcome back'}</h1>
+            <h1>{displayUser?.name || 'Welcome back'}</h1>
+            {dashboardShiftLabel && (
+              <div className="dashboard-shift-chip MobileDashV2-shift-chip">
+                <FiClock size={14} />
+                <span>{dashboardShiftLabel}</span>
+                {dashboardShiftTime && <small>{dashboardShiftTime}</small>}
+              </div>
+            )}
             <p>Here’s what’s happening with your work today.</p>
             <div className="MobileDashV2-date">
               <span><FiCalendar /> {currentDate.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}</span>
@@ -2216,7 +2235,7 @@ const UserDashboard = () => {
             <p className="dashboard-greeting">
               {new Date().getHours() < 12 ? 'Good Morning' : new Date().getHours() < 18 ? 'Good Afternoon' : 'Good Evening'}, <span>👋</span>
             </p>
-            <h1 className="dashboard-user-name">{user?.name || ''}</h1>
+            <h1 className="dashboard-user-name">{displayUser?.name || ''}</h1>
             <p className="dashboard-user-welcome">Stay focused and make today productive!</p>
             <div className="dashboard-user-tags">
               {userJobRoleDisplay && <span className="dashboard-tag dashboard-tag-role">
@@ -2235,6 +2254,16 @@ const UserDashboard = () => {
               <span className="dashboard-weather" title={weather.temperature === null ? weather.label : 'Live local weather'}><FiSun /> {weather.loading ? 'Loading weather…' : weather.temperature === null ? weather.label : `${weather.temperature}°C\u00A0 ${weather.label}`}</span>
             </div>
           </div>
+
+          {dashboardShiftLabel && (
+            <div className="dashboard-shift-slot" aria-label="Current shift">
+              <div className="dashboard-shift-chip dashboard-shift-chip-desktop">
+                <FiClock size={14} />
+                <span>{dashboardShiftLabel}</span>
+                {dashboardShiftTime && <small>{dashboardShiftTime}</small>}
+              </div>
+            </div>
+          )}
 
           <div className="dashboard-focus-card">
             <strong>Today's Focus</strong>

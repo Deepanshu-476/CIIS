@@ -1789,29 +1789,27 @@ const UserCreateTask = () => {
       const query = buildTaskQueryParams({ includeAll: true });
       const res = await axios.get(`/tasks/all?${query}`);
       let responseTasks = Array.isArray(res.data?.tasks) ? res.data.tasks : extractTasksFromResponse(res.data);
-      let tasksArray = responseTasks.map(task => ({
+      const tasksArray = responseTasks.map(task => ({
         ...task,
         __taskSource: task.__taskSource || task.taskSource || (task.clientId ? 'client' : 'assigned')
       }));
-      const syncedSources = await Promise.all([
-        syncOverdueTaskStatuses(tasksArray.filter(task => task.__taskSource === 'self'), 'self'),
-        syncOverdueTaskStatuses(tasksArray.filter(task => task.__taskSource === 'client'), 'client'),
-        syncOverdueTaskStatuses(tasksArray.filter(task => task.__taskSource === 'project'), 'project'),
-        syncOverdueTaskStatuses(tasksArray.filter(task => !['self', 'client', 'project'].includes(task.__taskSource)), 'assigned')
-      ]);
-
-      if (syncedSources.some(Boolean)) {
-        const refreshedRes = await axios.get(`/tasks/all?${query}`);
-        responseTasks = Array.isArray(refreshedRes.data?.tasks) ? refreshedRes.data.tasks : extractTasksFromResponse(refreshedRes.data);
-        tasksArray = responseTasks.map(task => ({
-          ...task,
-          __taskSource: task.__taskSource || task.taskSource || (task.clientId ? 'client' : 'assigned')
-        }));
-      }
       const groupedTasks = groupTasksByDate(tasksArray);
+      const selfGrouped = groupTasksByDate(tasksArray.filter(task => task.__taskSource === 'self'));
+      const assignedGrouped = groupTasksByDate(enrichAssignedTasks(tasksArray.filter(task => task.__taskSource === 'assigned')));
+      const clientGrouped = groupTasksByDate(enrichAssignedTasks(tasksArray.filter(task => task.__taskSource === 'client')));
+      const projectGrouped = groupTasksByDate(tasksArray.filter(task => task.__taskSource === 'project'));
+
       setAllTasksGrouped(groupedTasks);
       setAllTasksStatsGrouped(groupedTasks);
+      setMyTasksGrouped(selfGrouped);
+      setAssignedToMeTasksGrouped(assignedGrouped);
+      setClientTasksGrouped(clientGrouped);
+      setProjectTasksGrouped(projectGrouped);
       setAllTaskStats(res.data?.stats || calculateUnifiedStatsFromTasks(groupedTasks));
+      calculateStatsFromTasks(selfGrouped);
+      calculateAssignedStatsFromTasks(assignedGrouped);
+      calculateClientStatsFromTasks(clientGrouped);
+      calculateProjectStatsFromTasks(projectGrouped);
       allTasksStatsLoadedRef.current = true;
       setAllTasksPagination(prev => ({
         ...prev,
@@ -1835,9 +1833,9 @@ const UserCreateTask = () => {
     } finally {
       if (shouldShowLoader) setLoadingAllTasks(false);
       allTasksLoadedRef.current = true;
-      setTaskViewsLoaded(prev => ({ ...prev, all: true }));
+      setTaskViewsLoaded({ all: true, self: true, assigned: true, client: true, project: true });
     }
-  }, [authError, userId, buildTaskQueryParams, extractTasksFromResponse, groupTasksByDate, calculateUnifiedStatsFromTasks, syncOverdueTaskStatuses]);
+  }, [authError, userId, buildTaskQueryParams, extractTasksFromResponse, groupTasksByDate, enrichAssignedTasks, calculateUnifiedStatsFromTasks, calculateStatsFromTasks, calculateAssignedStatsFromTasks, calculateClientStatsFromTasks, calculateProjectStatsFromTasks]);
 
   
   const fetchMyTasks = useCallback(async () => {
@@ -3143,16 +3141,9 @@ const UserCreateTask = () => {
 
   useEffect(() => {
     if (userId && !authError && !pageLoading) {
-      fetchAllTasks().finally(() => {
-        Promise.allSettled([
-          fetchMyTasks(),
-          fetchAssignedToMeTasks(),
-          fetchClientTasks(),
-          fetchProjectTasks()
-        ]);
-      });
+      fetchAllTasks();
     }
-  }, [userId, authError, pageLoading, fetchAllTasks, fetchMyTasks, fetchAssignedToMeTasks, fetchClientTasks, fetchProjectTasks]);
+  }, [userId, authError, pageLoading, fetchAllTasks]);
 
   useEffect(() => {
     if (taskViewMode === 'client' && clients.length === 0 && !loadingClients && !clientsLoadAttemptedRef.current) {

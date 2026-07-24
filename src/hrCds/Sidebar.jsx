@@ -984,20 +984,6 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   const fetchSidebarConfig = useCallback(async () => {
     if (!userData || !companyData) return;
 
-    // Check localStorage first
-    const cachedConfig = localStorage.getItem("sidebarConfig");
-    if (cachedConfig) {
-      try {
-        const parsed = JSON.parse(cachedConfig);
-        if (parsed) {
-          setSidebarConfig(parsed);
-          setLoading(false);
-        }
-      } catch (e) {
-        console.warn("Failed to parse cached sidebarConfig:", e);
-      }
-    }
-
     try {
       setLoading(true);
       setError(null);
@@ -1007,7 +993,15 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       const companyId = getRecordId(userData.company || userData.companyId || companyData?._id || companyData?.id);
       const departmentId = getRecordId(userData.department || userData.departmentId);
       const branchId = getRecordId(userData.branch || userData.branchId || userData.branchDetails);
-      const role = getRecordId(userData.jobRole || userData.role || userData.roleId);
+      const role = (
+        getRecordId(userData.jobRole || userData.role || userData.roleId) ||
+        resolvedJobRoleName ||
+        userData.jobRoleName ||
+        userData.roleName ||
+        getRecordDisplayName(userData.jobRole) ||
+        getRecordDisplayName(userData.role) ||
+        getRecordDisplayName(userData.roleId)
+      );
 
       void 0;
 
@@ -1029,14 +1023,12 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       if (response.data && response.data.success) {
         if (response.data.data) {
           setSidebarConfig(response.data.data);
-          localStorage.setItem("sidebarConfig", JSON.stringify(response.data.data));
         } else {
           const fallbackConfig = { 
             useFixedDefault: true,
             message: 'No custom config found, using fixed default items'
           };
           setSidebarConfig(fallbackConfig);
-          localStorage.setItem("sidebarConfig", JSON.stringify(fallbackConfig));
         }
       } else {
         throw new Error(response.data?.message || 'Failed to fetch sidebar config');
@@ -1051,7 +1043,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     } finally {
       setLoading(false);
     }
-  }, [userData, companyData]);
+  }, [userData, companyData, resolvedJobRoleName]);
 
   useEffect(() => {
     if (userData && companyData) {
@@ -1312,10 +1304,13 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       items = isClientUser ? [...clientMenuItems] : [...fixedDefaultItems];
     }
 
-    const accessFilteredItems = filterItemsByCompanyAccess(
-      addCompanyAccessFallbackItems(items, companyData),
-      companyData
-    );
+    const hasRoleConfig = sidebarConfig && Array.isArray(sidebarConfig.menuItems);
+    const accessFilteredItems = hasRoleConfig
+      ? items
+      : filterItemsByCompanyAccess(
+          addCompanyAccessFallbackItems(items, companyData),
+          companyData
+        );
 
     // Sidebar Management stores the click/selection sequence as `order`.
     // Keep that exact sequence across categories in the employee menu.

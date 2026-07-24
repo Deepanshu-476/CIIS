@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import axios from "../../../utils/axiosConfig";
 import './employee-directory.css';
 import CIISLoader from '../../../Loader/CIISLoader';
+import PageBranchDropdown, { usePageBranchScope } from '../../components/PageBranchDropdown';
 
 
 import {
@@ -23,15 +24,36 @@ import { FaLaptop, FaDesktop, FaHeadphones, FaTabletAlt, FaTruck, FaMoneyBillWav
 const getValueId = (value) => {
   if (!value) return '';
   if (typeof value === 'object') {
-    return String(value._id || value.id || value.departmentId || '');
+    return String(value._id || value.id || value.departmentId || value.branchId || value.companyId || value.value || '');
   }
   return String(value);
+};
+
+const getRecordName = (value) => {
+  if (!value) return '';
+  if (typeof value === 'object') {
+    return String(
+      value.name ||
+      value.departmentName ||
+      value.branchName ||
+      value.roleName ||
+      value.title ||
+      value.label ||
+      ''
+    ).trim();
+  }
+  return '';
 };
 
 const sameId = (left, right) => {
   const leftId = getValueId(left);
   const rightId = getValueId(right);
   return Boolean(leftId && rightId && leftId === rightId);
+};
+
+const getIdList = (value) => {
+  const input = Array.isArray(value) ? value : value ? [value] : [];
+  return [...new Set(input.map(getValueId).filter(Boolean))];
 };
 
 const getRoleShiftOptions = (role = {}) => {
@@ -212,6 +234,7 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
   currentUserId,
   jobRoles,
   departments,
+  branches,
   canEditOtherEmployees
 }) => {
   const getInitials = (name) => {
@@ -272,15 +295,15 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
     if (!dept) return 'Not assigned';
     
     if (typeof dept === 'object') {
-      return dept.name || dept.departmentName || 'Department';
+      return getRecordName(dept) || 'Not assigned';
     }
     
     if (typeof dept === 'string') {
-      const department = departments.find(d => d._id === dept || d.id === dept);
-      return department ? department.name : 'Department';
+      const department = departments.find(d => sameId(d, dept));
+      return department ? getRecordName(department) || department.name : 'Not assigned';
     }
     
-    return 'Department';
+    return 'Not assigned';
   };
   
   const getCompanyRoleBadge = (role) => {
@@ -291,6 +314,27 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
     if (roleLower === 'hr') return 'EmployeeDirectory-company-role-hr';
     return 'EmployeeDirectory-company-role-employee';
   };
+
+  const getBranchLabel = (branchValue) => {
+    if (!branchValue) return '';
+    if (typeof branchValue === 'object') {
+      const name = branchValue.name || branchValue.branchName || '';
+      const code = branchValue.branchCode || branchValue.code || '';
+      return name ? `${name}${code ? ` (${code})` : ''}` : code;
+    }
+
+    const branch = branches.find(item => sameId(item, branchValue));
+    if (!branch) return String(branchValue);
+    return `${branch.name}${branch.branchCode ? ` (${branch.branchCode})` : ''}`;
+  };
+
+  const assignedBranchLabels = getIdList([
+    emp.branch,
+    ...(Array.isArray(emp.assignedBranches) ? emp.assignedBranches : []),
+    ...(Array.isArray(emp.branchIds) ? emp.branchIds : [])
+  ])
+    .map(branchId => getBranchLabel(branches.find(item => sameId(item, branchId)) || branchId))
+    .filter(Boolean);
   
   const isCurrentUserEmp = sameId(currentUserId, emp._id || emp.id);
   const isOtherUser = !isCurrentUserEmp;
@@ -404,6 +448,17 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
               <div className="EmployeeDirectory-detail-text">
                 {emp.employeeType}
               </div>
+            </div>
+          )}
+
+          {assignedBranchLabels.length > 0 && (
+            <div className="EmployeeDirectory-card-branch-list">
+              {assignedBranchLabels.slice(0, 2).map(label => (
+                <span className="EmployeeDirectory-card-branch-chip" key={label}>{label}</span>
+              ))}
+              {assignedBranchLabels.length > 2 && (
+                <span className="EmployeeDirectory-card-branch-chip more">+{assignedBranchLabels.length - 2}</span>
+              )}
             </div>
           )}
         </div>
@@ -808,6 +863,7 @@ const EmploymentDetailsForm = ({
   onInputChange, 
   departments, 
   jobRoles,
+  branches,
   canEditAllFields,
   isSuperAdmin
 }) => {
@@ -857,6 +913,23 @@ const EmploymentDetailsForm = ({
   const handleJobRoleChange = (jobRoleId) => {
     onInputChange('jobRole', jobRoleId);
     onInputChange('shiftId', '');
+  };
+
+  const [isBranchDropdownOpen, setIsBranchDropdownOpen] = useState(false);
+  const selectedBranchIds = Array.isArray(formData.assignedBranches) ? formData.assignedBranches : [];
+  const selectedBranches = branches.filter(branch => selectedBranchIds.includes(getValueId(branch)));
+
+  const toggleBranchSelection = (branchId) => {
+    if (!canEditAllFields) return;
+    const nextBranches = selectedBranchIds.includes(branchId)
+      ? selectedBranchIds.filter(id => id !== branchId)
+      : [...selectedBranchIds, branchId];
+    onInputChange('assignedBranches', nextBranches);
+  };
+
+  const removeAssignedBranch = (branchId) => {
+    if (!canEditAllFields) return;
+    onInputChange('assignedBranches', selectedBranchIds.filter(id => id !== branchId));
   };
 
   return (
@@ -964,6 +1037,78 @@ const EmploymentDetailsForm = ({
           {!canEditAllFields && (
             <span className="EmployeeDirectory-field-note">You don't have permission to edit</span>
           )}
+        </div>
+
+        <div className="EmployeeDirectory-form-group EmployeeDirectory-form-group-full">
+          <label className="EmployeeDirectory-form-label">Branch Access</label>
+          <div className="EmployeeDirectory-branch-picker">
+            <button
+              type="button"
+              className={`EmployeeDirectory-branch-trigger ${isBranchDropdownOpen ? 'open' : ''}`}
+              onClick={() => canEditAllFields && branches.length > 0 && setIsBranchDropdownOpen(prev => !prev)}
+              disabled={!canEditAllFields || branches.length === 0}
+            >
+              <span>
+                {selectedBranches.length > 0
+                  ? `${selectedBranches.length} branch${selectedBranches.length > 1 ? 'es' : ''} selected`
+                  : branches.length === 0
+                    ? 'No branches available'
+                    : 'Select branches'}
+              </span>
+              <span className="EmployeeDirectory-branch-trigger-icon">v</span>
+            </button>
+
+            {isBranchDropdownOpen && canEditAllFields && branches.length > 0 && (
+              <div className="EmployeeDirectory-branch-menu">
+                {branches.map(branch => {
+                  const branchId = getValueId(branch);
+                  const isSelected = selectedBranchIds.includes(branchId);
+                  return (
+                    <button
+                      type="button"
+                      key={branchId}
+                      className={`EmployeeDirectory-branch-option ${isSelected ? 'selected' : ''}`}
+                      onClick={() => toggleBranchSelection(branchId)}
+                    >
+                      <span className="EmployeeDirectory-branch-option-check">
+                        {isSelected ? '✓' : ''}
+                      </span>
+                      <span className="EmployeeDirectory-branch-option-text">
+                        <strong>{branch.name}</strong>
+                        {branch.branchCode && <small>{branch.branchCode}</small>}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {selectedBranches.length > 0 && (
+              <div className="EmployeeDirectory-branch-chips">
+                {selectedBranches.map(branch => {
+                  const branchId = getValueId(branch);
+                  return (
+                    <span className="EmployeeDirectory-branch-chip" key={branchId}>
+                      {branch.name}
+                      {branch.branchCode && <small>{branch.branchCode}</small>}
+                      {canEditAllFields && (
+                        <button
+                          type="button"
+                          onClick={() => removeAssignedBranch(branchId)}
+                          aria-label={`Remove ${branch.name}`}
+                        >
+                          <FiX size={13} />
+                        </button>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <span className="EmployeeDirectory-field-note">
+            Branch manager ko sirf selected branches ka data dikhega.
+          </span>
         </div>
         
         <div className="EmployeeDirectory-form-group">
@@ -1204,6 +1349,7 @@ const EditEmployeeForm = React.memo(({
   onInputChange, 
   departments, 
   jobRoles,
+  branches,
   canEditOtherEmployees,
   isSelfEdit,
   currentUserId,
@@ -1261,6 +1407,7 @@ const EditEmployeeForm = React.memo(({
             onInputChange={onInputChange}
             departments={departments}
             jobRoles={jobRoles}
+            branches={branches}
             canEditAllFields={hasFullEditAccess}
             isSuperAdmin={isSuperAdmin}
           />
@@ -1558,11 +1705,18 @@ const EmployeeDirectory = () => {
   
   // Custom hooks
   const user = useUser();
+  const {
+    branchOptions,
+    selectedBranchId,
+    setSelectedBranchId,
+    branchQueryParams
+  } = usePageBranchScope();
   
   // State
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [jobRoles, setJobRoles] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -1673,6 +1827,30 @@ const EmployeeDirectory = () => {
       return [];
     }
   }, [currentUserCompanyId, currentUserCompanyCode, user.getAuthToken]);
+
+  const fetchBranches = useCallback(async () => {
+    if (!currentUserCompanyId) {
+      setBranches([]);
+      return [];
+    }
+
+    try {
+      const token = user.getAuthToken();
+      const response = await axios.get(`/branches/company/${currentUserCompanyId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const branchData = response.data?.branches || response.data?.data || [];
+      setBranches(Array.isArray(branchData) ? branchData : []);
+      return Array.isArray(branchData) ? branchData : [];
+    } catch (err) {
+      console.error("Failed to fetch branches:", err);
+      setBranches([]);
+      return [];
+    }
+  }, [currentUserCompanyId, user.getAuthToken]);
   
   // Helper function to get job role name by ID
   const getJobRoleName = useCallback((jobRoleId) => {
@@ -1725,6 +1903,31 @@ const EmployeeDirectory = () => {
 
     return shift?.shiftName || 'Not assigned';
   }, [getJobRoleDetails]);
+
+  const getBranchLabel = useCallback((branchValue) => {
+    if (!branchValue) return '';
+    if (typeof branchValue === 'object') {
+      const name = branchValue.name || branchValue.branchName || '';
+      const code = branchValue.branchCode || branchValue.code || '';
+      return name ? `${name}${code ? ` (${code})` : ''}` : code;
+    }
+
+    const branch = branches.find(item => sameId(item, branchValue));
+    if (!branch) return String(branchValue);
+    return `${branch.name}${branch.branchCode ? ` (${branch.branchCode})` : ''}`;
+  }, [branches]);
+
+  const getUserAssignedBranchLabels = useCallback((employee) => {
+    if (!employee) return [];
+
+    return getIdList([
+      employee.branch,
+      ...(Array.isArray(employee.assignedBranches) ? employee.assignedBranches : []),
+      ...(Array.isArray(employee.branchIds) ? employee.branchIds : [])
+    ])
+      .map(branchId => getBranchLabel(branches.find(item => sameId(item, branchId)) || branchId))
+      .filter(Boolean);
+  }, [branches, getBranchLabel]);
   
   // Helper function to check if current user can delete a specific user
   const canDeleteUser = useCallback((targetUser) => {
@@ -1797,13 +2000,24 @@ const EmployeeDirectory = () => {
       
       if (canSeeAllCompanyUsers) {
         void 0;
-        usersRes = await axios.get(`/users/company-users?companyId=${currentUserCompanyId}&includeInactive=true`, config);
+        usersRes = await axios.get('/users/company-users', {
+          ...config,
+          params: {
+            companyId: currentUserCompanyId,
+            includeInactive: true,
+            ...branchQueryParams
+          }
+        });
       } else {
         void 0;
-        usersRes = await axios.get(
-          `/users/department-users?department=${currentUserDepartmentId}&includeInactive=true`,
-          config
-        );
+        usersRes = await axios.get('/users/department-users', {
+          ...config,
+          params: {
+            department: currentUserDepartmentId,
+            includeInactive: true,
+            ...branchQueryParams
+          }
+        });
       }
       
       let employeesData = [];
@@ -1828,9 +2042,10 @@ const EmployeeDirectory = () => {
       
       if (deptRes.data && deptRes.data.success && Array.isArray(deptRes.data.departments)) {
         const filteredDepartments = deptRes.data.departments.filter(dept => {
-          const deptCompanyId = dept.company?._id || dept.company;
-          const deptCompanyCode = dept.companyCode || dept.company?.companyCode;
-          return String(deptCompanyId || '') === String(currentUserCompanyId || '') ||
+          const deptCompanyId = getValueId(dept.company || dept.companyId);
+          const deptCompanyCode = dept.companyCode || dept.company?.companyCode || dept.company?.code;
+          return !currentUserCompanyId ||
+            sameId(deptCompanyId, currentUserCompanyId) ||
             Boolean(currentUserCompanyCode && deptCompanyCode === currentUserCompanyCode);
         });
         
@@ -1840,6 +2055,7 @@ const EmployeeDirectory = () => {
       }
       
       await fetchJobRoles();
+      await fetchBranches();
       
     } catch (err) {
       console.error("❌ Failed to fetch data:", err);
@@ -1855,13 +2071,19 @@ const EmployeeDirectory = () => {
     canSeeAllCompanyUsers,
     showSnackbar, 
     user.getAuthToken,
-    fetchJobRoles
+    fetchJobRoles,
+    fetchBranches,
+    branchQueryParams.branchId
   ]);
   
   // Initial data fetch
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    setSelectedDepartment('all');
+  }, [branchQueryParams.branchId]);
   
   // Handle view user
   const handleOpenUser = useCallback((userData) => {
@@ -1913,6 +2135,11 @@ const EmployeeDirectory = () => {
       String(shift.shiftId) === String(userData.shiftId || '') ||
       shift.shiftName === userData.shiftName
     ) || matchedRoleShifts[0];
+    const assignedBranchIds = getIdList([
+      userData.branch,
+      ...(Array.isArray(userData.assignedBranches) ? userData.assignedBranches : []),
+      ...(Array.isArray(userData.branchIds) ? userData.branchIds : [])
+    ]);
 
     let formDataToSet = { 
       ...userData,
@@ -1924,6 +2151,7 @@ const EmployeeDirectory = () => {
       children: userData.children || [],
       documents: userData.documents || [],
       properties: userData.properties || [],
+      assignedBranches: assignedBranchIds,
       currentlyAssignedAssets: userData.currentlyAssignedAssets || []
     };
     
@@ -1935,6 +2163,7 @@ const EmployeeDirectory = () => {
           ...latestUserData,
           department: latestUserData.department?._id || latestUserData.department || formDataToSet.department,
           jobRole: formDataToSet.jobRole,
+          assignedBranches: formDataToSet.assignedBranches,
         };
       }
     }
@@ -2036,7 +2265,7 @@ const EmployeeDirectory = () => {
       
       const updateUrls = isSelfEdit
         ? ['/users/me', `/users/profile-update/${userId}`, `/users/${userId}`]
-        : [`/users/${userId}`, `/users/profile-update/${userId}`];
+        : [`/users/admin-update/${userId}`, '/users/admin-update-by-email', `/users/${userId}`];
       
       void 0;
       void 0;
@@ -2216,12 +2445,12 @@ const EmployeeDirectory = () => {
     if (!dept) return 'Not assigned';
     
     if (typeof dept === 'object') {
-      return dept.name || dept.departmentName || 'Department';
+      return getRecordName(dept) || 'Not assigned';
     }
     
     if (typeof dept === 'string') {
-      const department = departments.find(d => d._id === dept || d.id === dept);
-      return department ? department.name : 'Not assigned';
+      const department = departments.find(d => sameId(d, dept));
+      return department ? getRecordName(department) || department.name : 'Not assigned';
     }
     
     return 'Not assigned';
@@ -2430,6 +2659,12 @@ const EmployeeDirectory = () => {
         </div>
       </div>
 
+      <PageBranchDropdown
+        branchOptions={branchOptions}
+        selectedBranchId={selectedBranchId}
+        onChange={setSelectedBranchId}
+      />
+
       {!isMobile && (
         <div className="EmployeeDirectory-search-filter-container">
           <div className="EmployeeDirectory-search-filter-header">
@@ -2609,6 +2844,7 @@ const EmployeeDirectory = () => {
                       currentUserId={currentUserId}
                       jobRoles={jobRoles}
                       departments={departments}
+                      branches={branches}
                       canEditOtherEmployees={canEditOtherEmployees}
                     />
                   ))}
@@ -2627,6 +2863,7 @@ const EmployeeDirectory = () => {
                 currentUserId={currentUserId}
                 jobRoles={jobRoles}
                 departments={departments}
+                branches={branches}
                 canEditOtherEmployees={canEditOtherEmployees}
               />
             ))}
@@ -2836,6 +3073,23 @@ const EmployeeDirectory = () => {
                         </span>
                       </div>
                     </div>
+
+                    <div className="EmployeeDirectory-detail-item" style={{ gridColumn: '1 / -1' }}>
+                      <div className="EmployeeDirectory-detail-label">Branch Access</div>
+                      <div className="EmployeeDirectory-detail-value">
+                        {getUserAssignedBranchLabels(selectedUser).length > 0 ? (
+                          <div className="EmployeeDirectory-profile-branch-chips">
+                            {getUserAssignedBranchLabels(selectedUser).map(label => (
+                              <span className="EmployeeDirectory-profile-branch-chip" key={label}>
+                                {label}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          'No branch assigned'
+                        )}
+                      </div>
+                    </div>
                     
                     <div className="EmployeeDirectory-detail-item">
                       <div className="EmployeeDirectory-detail-label">Member Since</div>
@@ -2999,6 +3253,7 @@ const EmployeeDirectory = () => {
                 onInputChange={handleInputChange}
                 departments={departments}
                 jobRoles={jobRoles}
+                branches={branches}
                 canEditOtherEmployees={canEditOtherEmployees}
                 isSelfEdit={sameId(currentUserId, editingUser._id || editingUser.id)}
                 currentUserId={currentUserId}

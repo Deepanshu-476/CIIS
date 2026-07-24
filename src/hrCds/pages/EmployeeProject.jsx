@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import axios from "../../utils/axiosConfig";
 import "../Css/EmployeeProject.css";
 import CIISLoader from '../../Loader/CIISLoader'; 
+import PageBranchDropdown, { usePageBranchScope } from "../components/PageBranchDropdown";
 
 const parseStoredJson = (key) => {
   try {
@@ -185,6 +186,12 @@ const EmployeeProject = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [tabValue, setTabValue] = useState(0);
   const [taskFilter, setTaskFilter] = useState("all");
+  const {
+    branchOptions,
+    selectedBranchId,
+    setSelectedBranchId,
+    branchQueryParams
+  } = usePageBranchScope();
 
   useEffect(() => {
     if (!openActivityDrawer) return undefined;
@@ -488,7 +495,7 @@ const EmployeeProject = () => {
     };
     
     loadData();
-  }, []);
+  }, [branchQueryParams.branchId]);
 
   useEffect(() => {
     const completed = tasks.filter(t => normalizeTaskStatus(t.status) === "completed").length;
@@ -520,7 +527,8 @@ const EmployeeProject = () => {
       const res = await axios.get("/projects", {
         params: {
           companyCode,
-          companyIdentifier: companyIdentifier || undefined
+          companyIdentifier: companyIdentifier || undefined,
+          ...branchQueryParams
         }
       });
       const loadedProjects = getProjectsFromResponse(res.data);
@@ -1481,6 +1489,12 @@ const EmployeeProject = () => {
             <p className="EmployeeProject-subtitle">Manage your projects and tasks efficiently</p>
           </div>
         </div>
+
+        <PageBranchDropdown
+          branchOptions={branchOptions}
+          selectedBranchId={selectedBranchId}
+          onChange={setSelectedBranchId}
+        />
 
         <div className="EmployeeProject-search-row">
           <div className="EmployeeProject-search-box">

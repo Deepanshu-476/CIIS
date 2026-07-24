@@ -1927,6 +1927,14 @@ textarea.CompanyDetails-form-input {
   margin-top: 4px;
 }
 
+.CompanyDetails-field-note {
+  display: block;
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
 .CompanyDetails-error-message {
   font-size: 0.75rem;
   color: #ef4444;

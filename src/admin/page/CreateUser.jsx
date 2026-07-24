@@ -54,7 +54,7 @@ const getRoleShiftOptions = (role = {}) => {
 
 const initialFormState = {
   name: '', email: '', password: '', confirmPassword: '',
-  branch: '', department: '', jobRole: '', shiftId: '',
+  branch: '', assignedBranches: [], department: '', jobRole: '', shiftId: '',
   phone: '', address: '', gender: '', maritalStatus: '', dob: '', salary: '',
   accountNumber: '', ifsc: '', bankName: '', bankHolderName: '',
   employeeType: '', properties: [], propertyOwned: '', additionalDetails: '',
@@ -68,6 +68,7 @@ const CreateUser = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [isBranchAccessOpen, setIsBranchAccessOpen] = useState(false);
   const [departments, setDepartments] = useState([]);
   const [jobRoles, setJobRoles] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -511,7 +512,14 @@ const CreateUser = () => {
   const handleSelectChange = (e) => {
     const { name, value } = e.target;
     if (name === 'branch') {
-      setForm(prev => ({ ...prev, branch: value, department: '', jobRole: '', shiftId: '' }));
+      setForm(prev => ({
+        ...prev,
+        branch: value,
+        assignedBranches: value ? [...new Set([value, ...prev.assignedBranches])] : prev.assignedBranches,
+        department: '',
+        jobRole: '',
+        shiftId: ''
+      }));
       setDepartments([]);
       setJobRoles([]);
       return;
@@ -526,6 +534,22 @@ const CreateUser = () => {
     if (name === 'jobRole') {
       setForm(prev => ({ ...prev, shiftId: '' }));
     }
+  };
+
+  const toggleAssignedBranch = (branchId) => {
+    setForm(prev => ({
+      ...prev,
+      assignedBranches: prev.assignedBranches.includes(branchId)
+        ? prev.assignedBranches.filter(id => id !== branchId || id === prev.branch)
+        : [...new Set([prev.branch, ...prev.assignedBranches, branchId].filter(Boolean))]
+    }));
+  };
+
+  const removeAssignedBranch = (branchId) => {
+    setForm(prev => ({
+      ...prev,
+      assignedBranches: prev.assignedBranches.filter(id => id !== branchId || id === prev.branch)
+    }));
   };
 
   const validateForm = () => {
@@ -583,6 +607,7 @@ const CreateUser = () => {
 
       const userData = {
         ...submitData,
+        assignedBranches: [...new Set([submitData.branch, ...(submitData.assignedBranches || [])].filter(Boolean))],
         shiftName: selectedShift?.shiftName || '',
         shiftType: selectedShift?.shiftType || '',
         company: companyId,
@@ -596,6 +621,7 @@ const CreateUser = () => {
       toast.success('✅ User created successfully');
       
       setForm({ ...initialFormState });
+      setIsBranchAccessOpen(false);
       
       
       setDepartments([]);
@@ -624,6 +650,7 @@ const CreateUser = () => {
   const selectedJobRole = jobRoles.find(role => getId(role) === form.jobRole);
   const shiftOptions = selectedJobRole ? getRoleShiftOptions(selectedJobRole) : [];
   const selectedShift = shiftOptions.find(shift => String(shift.shiftId) === String(form.shiftId));
+  const selectedAssignedBranches = branches.filter(branch => form.assignedBranches.includes(getId(branch)));
 
   
   void 0;
@@ -818,6 +845,93 @@ const CreateUser = () => {
                     No branches available. Please create branches first.
                   </small>
                 )}
+                {branches.length > 0 && (
+                  <small className="CreateUser-helper-text">
+                    Primary branch department and shift rules ke liye use hogi.
+                  </small>
+                )}
+              </div>
+
+              <div className="CreateUser-form-group">
+                <label htmlFor="assignedBranches" className="CreateUser-label">
+                  Additional Branch Access
+                </label>
+                <div className="CreateUser-branch-picker">
+                  <button
+                    type="button"
+                    className={`CreateUser-branch-trigger ${isBranchAccessOpen ? 'open' : ''}`}
+                    onClick={() => branches.length > 0 && setIsBranchAccessOpen(prev => !prev)}
+                    disabled={loadingBranches || branches.length === 0}
+                  >
+                    <span>
+                      {selectedAssignedBranches.length > 0
+                        ? `${selectedAssignedBranches.length} branch${selectedAssignedBranches.length > 1 ? 'es' : ''} selected`
+                        : branches.length === 0
+                          ? 'No branches available'
+                          : 'Select branches'}
+                    </span>
+                    <span className="CreateUser-branch-trigger-icon">v</span>
+                  </button>
+
+                  {isBranchAccessOpen && branches.length > 0 && (
+                    <div className="CreateUser-branch-menu">
+                      {branches.map(br => {
+                        const branchId = getId(br);
+                        const isSelected = form.assignedBranches.includes(branchId);
+                        const isPrimaryBranch = branchId === form.branch;
+
+                        return (
+                          <button
+                            type="button"
+                            className={`CreateUser-branch-option ${isSelected ? 'selected' : ''}`}
+                            key={branchId}
+                            onClick={() => toggleAssignedBranch(branchId)}
+                          >
+                            <span className="CreateUser-branch-option-check">
+                              {isSelected ? '✓' : ''}
+                            </span>
+                            <span className="CreateUser-branch-option-text">
+                              <strong>{br.name}</strong>
+                              <small>
+                                {br.branchCode}
+                                {isPrimaryBranch ? ' · Primary' : ''}
+                              </small>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {selectedAssignedBranches.length > 0 && (
+                    <div className="CreateUser-branch-chips">
+                      {selectedAssignedBranches.map(br => {
+                        const branchId = getId(br);
+                        const isPrimaryBranch = branchId === form.branch;
+
+                        return (
+                          <span className="CreateUser-branch-chip" key={branchId}>
+                            {br.name}
+                            {br.branchCode && <small>{br.branchCode}</small>}
+                            {isPrimaryBranch && <small>Primary</small>}
+                            {!isPrimaryBranch && (
+                              <button
+                                type="button"
+                                onClick={() => removeAssignedBranch(branchId)}
+                                aria-label={`Remove ${br.name}`}
+                              >
+                                x
+                              </button>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <small className="CreateUser-helper-text">
+                  Dropdown se branches select karo. Primary branch auto include hogi.
+                </small>
               </div>
 
               <div className="CreateUser-form-group">

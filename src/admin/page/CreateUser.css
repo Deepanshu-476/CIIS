@@ -321,6 +321,163 @@
   color: #f44336;
 }
 
+.CreateUser-branch-picker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.CreateUser-branch-trigger {
+  width: 100%;
+  min-height: 50px;
+  padding: 14px 14px;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  background: #fff;
+  color: #263238;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.CreateUser-branch-trigger:hover:not(:disabled),
+.CreateUser-branch-trigger.open {
+  border-color: #3f51b5;
+  box-shadow: 0 4px 16px rgba(63, 81, 181, 0.12);
+}
+
+.CreateUser-branch-trigger:disabled {
+  background: #f5f5f5;
+  color: #9e9e9e;
+  cursor: not-allowed;
+}
+
+.CreateUser-branch-trigger-icon {
+  color: #757575;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.CreateUser-branch-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  max-height: 230px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.14);
+}
+
+.CreateUser-branch-option {
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.CreateUser-branch-option:hover,
+.CreateUser-branch-option.selected {
+  background: rgba(63, 81, 181, 0.08);
+}
+
+.CreateUser-branch-option-check {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #cfd8dc;
+  border-radius: 6px;
+  background: #fff;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  flex: 0 0 20px;
+}
+
+.CreateUser-branch-option.selected .CreateUser-branch-option-check {
+  border-color: #3f51b5;
+  background: #3f51b5;
+}
+
+.CreateUser-branch-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: #263238;
+}
+
+.CreateUser-branch-option-text small {
+  color: #757575;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.CreateUser-branch-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.CreateUser-branch-chip {
+  min-height: 32px;
+  padding: 6px 8px 6px 10px;
+  border: 1px solid rgba(63, 81, 181, 0.18);
+  border-radius: 999px;
+  background: rgba(63, 81, 181, 0.08);
+  color: #3f51b5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.CreateUser-branch-chip small {
+  color: #607d8b;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.CreateUser-branch-chip button {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(63, 81, 181, 0.14);
+  color: #3f51b5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  transition: all 0.2s ease;
+}
+
+.CreateUser-branch-chip button:hover {
+  background: #3f51b5;
+  color: #fff;
+}
+
 /* Dropdown Styles */
 .CreateUser-dropdown-container {
   position: relative;

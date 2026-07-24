@@ -4,6 +4,7 @@ import { API_URL_IMG } from '../../../config';
 import { useNavigate } from 'react-router-dom';
 import './AdminTaskManagement.css';
 import CIISLoader from '../../../Loader/CIISLoader';
+import PageBranchDropdown, { usePageBranchScope } from '../../components/PageBranchDropdown';
 
 
 import {
@@ -30,6 +31,7 @@ const getCleanCheckpoints = (checkpoints = []) => (
 const AdminTaskManagement = () => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [tasksRefreshing, setTasksRefreshing] = useState(false);
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -42,6 +44,13 @@ const AdminTaskManagement = () => {
   const [authError, setAuthError] = useState(false);
   const [initialAuthCheck, setInitialAuthCheck] = useState(false);
   const supportingDataLoadedRef = useRef(false);
+  const supportingDataBranchRef = useRef(null);
+  const {
+    branchOptions,
+    selectedBranchId,
+    setSelectedBranchId,
+    branchQueryParams
+  } = usePageBranchScope();
   
   
   const [currentUser, setCurrentUser] = useState({
@@ -152,6 +161,7 @@ const AdminTaskManagement = () => {
   
   const [userSearch, setUserSearch] = useState('');
   const [groupSearch, setGroupSearch] = useState('');
+  const [selectedCreateDepartment, setSelectedCreateDepartment] = useState('all');
   const [activeGroupMenu, setActiveGroupMenu] = useState(null);
 
   
@@ -296,6 +306,51 @@ const AdminTaskManagement = () => {
            user.email?.toLowerCase().includes(userSearch.toLowerCase()) ||
            user.role?.toLowerCase().includes(userSearch.toLowerCase());
   });
+
+  const getUserDepartmentId = (user = {}) => {
+    return String(user.department?._id || user.department || user.departmentId || '').trim();
+  };
+
+  const departmentOptionsForCreate = (() => {
+    const optionsMap = new Map();
+
+    departments.forEach(department => {
+      const id = String(department?._id || department?.id || '').trim();
+      const name = getReadableDepartmentName(department) || department?.name || department?.departmentName || '';
+      if (id && name) {
+        optionsMap.set(id, { id, name, count: 0 });
+      }
+    });
+
+    users.forEach(user => {
+      if (!checkSameCompany(user) || (user.id || user._id) === currentUser.id) return;
+      if (!isOwner()) {
+        const userDept = getUserDepartmentId(user);
+        const currentDept = String(currentUser.department?._id || currentUser.department || '').trim();
+        if (userDept !== currentDept) return;
+      }
+
+      const departmentId = getUserDepartmentId(user);
+      if (!departmentId) return;
+      const departmentName = getUserDepartmentDisplay(user) || departmentMap[getLookupKey(departmentId)] || 'Department';
+      const current = optionsMap.get(departmentId) || { id: departmentId, name: departmentName, count: 0 };
+      current.count += 1;
+      optionsMap.set(departmentId, current);
+    });
+
+    return Array.from(optionsMap.values())
+      .filter(option => option.count > 0)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  })();
+
+  const createAssignableUsers = filteredUsers.filter(user => {
+    if (selectedCreateDepartment === 'all') return true;
+    return getUserDepartmentId(user) === selectedCreateDepartment;
+  });
+
+  const modalUserRenderLimit = 120;
+  const visibleCreateAssignableUsers = createAssignableUsers.slice(0, modalUserRenderLimit);
+  const visibleFilteredUsers = filteredUsers.slice(0, modalUserRenderLimit);
 
   
   const filteredGroups = groups.filter(group => 
@@ -547,12 +602,18 @@ const AdminTaskManagement = () => {
       return;
     }
 
-    setLoading(true);
+    const showInitialLoader = tasks.length === 0;
+    if (showInitialLoader) {
+      setLoading(true);
+    } else {
+      setTasksRefreshing(true);
+    }
     try {
       const params = {
         page: page + 1,
         limit: limit,
-        createdBy: userId
+        createdBy: userId,
+        ...branchQueryParams
       };
 
       if (filters.search) params.search = filters.search;
@@ -592,21 +653,24 @@ const AdminTaskManagement = () => {
       calculateFilteredStats(tasksArray);
 
     } catch (error) {
-      setTasks([]);
-      setTotalTasks(0);
-      setFilteredStats({
-        total: 0,
-        pending: 0,
-        inProgress: 0,
-        completed: 0,
-        rejected: 0,
-        overdue: 0
-      });
+      if (showInitialLoader) {
+        setTasks([]);
+        setTotalTasks(0);
+        setFilteredStats({
+          total: 0,
+          pending: 0,
+          inProgress: 0,
+          completed: 0,
+          rejected: 0,
+          overdue: 0
+        });
+      }
       if (error.response?.status !== 401 && error.response?.status !== 403) {
         showSnackbar('Failed to load tasks', 'error');
       }
     } finally {
       setLoading(false);
+      setTasksRefreshing(false);
     }
   };
 
@@ -670,13 +734,13 @@ const AdminTaskManagement = () => {
       let usersUrl;
       
       if (isOwner()) {
-        usersUrl = `/users/company-users?companyId=${companyId}`;
+        usersUrl = `/users/company-users?companyId=${companyId}${branchQueryParams.branchId ? `&branchId=${branchQueryParams.branchId}` : ''}`;
       } else {
         const deptId = currentUser.department?._id || currentUser.department;
         if (deptId) {
-          usersUrl = `/users/department-users?department=${deptId}`;
+          usersUrl = `/users/department-users?department=${deptId}${branchQueryParams.branchId ? `&branchId=${branchQueryParams.branchId}` : ''}`;
         } else {
-          usersUrl = '/users/company-users';
+          usersUrl = `/users/company-users${branchQueryParams.branchId ? `?branchId=${branchQueryParams.branchId}` : ''}`;
         }
       }
       
@@ -734,22 +798,22 @@ const AdminTaskManagement = () => {
       const groupsResult = await apiCall('get', '/groups');
       setGroups(groupsResult.groups || groupsResult.data || []);
 
-      
-      const notificationsResult = await apiCall('get', '/task/notifications/all');
-      setNotifications(notificationsResult.notifications || []);
-      setUnreadNotificationCount(notificationsResult.unreadCount || 0);
-
     } catch (error) {
       console.error('Error fetching supporting data:', error);
     }
   };
 
   
-  const fetchAllData = async (page = 0, limit = rowsPerPage) => {
-    await Promise.all([
-      fetchTasks(page, limit, getCurrentFilters()),
-      fetchSupportingData()
-    ]);
+  const fetchAllData = async (page = 0, limit = rowsPerPage, options = {}) => {
+    if (options.includeSupportingData) {
+      await Promise.all([
+        fetchTasks(page, limit, getCurrentFilters()),
+        fetchSupportingData()
+      ]);
+      return;
+    }
+
+    await fetchTasks(page, limit, getCurrentFilters());
   };
 
   
@@ -782,14 +846,12 @@ const AdminTaskManagement = () => {
     }
 
     setIsCreatingTask(true);
-    setLoading(true);
     try {
       const parsedDueDateTime = parseDateTimeInput(newTask.dueDateTime);
       
       if (!parsedDueDateTime || isNaN(parsedDueDateTime.getTime())) {
         showSnackbar('Invalid date format. Please select a valid date and time.', 'error');
         setIsCreatingTask(false);
-        setLoading(false);
         return;
       }
 
@@ -798,7 +860,6 @@ const AdminTaskManagement = () => {
       if (parsedDueDateTime < new Date(now.getTime() - buffer)) {
         showSnackbar('Due date cannot be in the past. Please select a future date and time.', 'error');
         setIsCreatingTask(false);
-        setLoading(false);
         return;
       }
 
@@ -839,7 +900,6 @@ const AdminTaskManagement = () => {
       fetchSupportingData();
     } catch (error) {
       console.error('Error creating task:', error);
-      setLoading(false);
     } finally {
       setIsCreatingTask(false);
     }
@@ -853,14 +913,12 @@ const AdminTaskManagement = () => {
     }
 
     setIsUpdatingTask(true);
-    setLoading(true);
     try {
       const parsedDueDateTime = parseDateTimeInput(editTask.dueDateTime);
       
       if (!parsedDueDateTime || isNaN(parsedDueDateTime.getTime())) {
         showSnackbar('Invalid date format', 'error');
         setIsUpdatingTask(false);
-        setLoading(false);
         return;
       }
 
@@ -881,7 +939,6 @@ const AdminTaskManagement = () => {
       fetchAllData(page, rowsPerPage);
     } catch (error) {
       console.error('Error updating task:', error);
-      setLoading(false);
     } finally {
       setIsUpdatingTask(false);
     }
@@ -947,7 +1004,7 @@ const AdminTaskManagement = () => {
       return;
     }
 
-    setLoading(true);
+    setTasksRefreshing(true);
     try {
       await apiCall('patch', `/task/${statusChange.taskId}/status`, {
         status: statusChange.status,
@@ -961,7 +1018,8 @@ const AdminTaskManagement = () => {
       fetchAllData(page, rowsPerPage);
     } catch (error) {
       console.error('Error updating status:', error);
-      setLoading(false);
+    } finally {
+      setTasksRefreshing(false);
     }
   };
 
@@ -1190,6 +1248,7 @@ const AdminTaskManagement = () => {
     });
     setUserSearch('');
     setGroupSearch('');
+    setSelectedCreateDepartment('all');
     setCreateDueDateTime('');
     setActiveGroupMenu(null);
   };
@@ -2244,6 +2303,35 @@ const AdminTaskManagement = () => {
                 )}
               </label>
               <div className="AdminTaskManagement-multi-select-container">
+                <div className="AdminTaskManagement-form-group" style={{ marginBottom: '12px' }}>
+                  <label>Select Department</label>
+                  <select
+                    className="AdminTaskManagement-form-select"
+                    value={selectedCreateDepartment}
+                    onChange={(event) => {
+                      const nextDepartment = event.target.value;
+                      setSelectedCreateDepartment(nextDepartment);
+                      setNewTask(prev => ({
+                        ...prev,
+                        assignedUsers: prev.assignedUsers.filter(userId => {
+                          if (nextDepartment === 'all') return true;
+                          const assignedUser = users.find(user => (user.id || user._id) === userId);
+                          return assignedUser && getUserDepartmentId(assignedUser) === nextDepartment;
+                        })
+                      }));
+                    }}
+                  >
+                    <option value="all">All Departments ({filteredUsers.length})</option>
+                    {departmentOptionsForCreate.map(department => (
+                      <option key={department.id} value={department.id}>
+                        {department.name} ({department.count})
+                      </option>
+                    ))}
+                  </select>
+                  <small className="AdminTaskManagement-form-hint">
+                    Department select karte hi niche sirf us department ke users dikhenge.
+                  </small>
+                </div>
                 <div className="AdminTaskManagement-select-search-bar">
                   <FiSearch className="AdminTaskManagement-select-search-icon" />
                   <input
@@ -2260,8 +2348,8 @@ const AdminTaskManagement = () => {
                   )}
                 </div>
                 <div className="AdminTaskManagement-multi-select-options">
-                  {filteredUsers.length > 0 ? (
-                    filteredUsers.map((user) => (
+                  {createAssignableUsers.length > 0 ? (
+                    visibleCreateAssignableUsers.map((user) => (
                       <div key={user.id || user._id} className="AdminTaskManagement-multi-select-option">
                         <input
                           type="checkbox"
@@ -2297,6 +2385,11 @@ const AdminTaskManagement = () => {
                             : 'No other users found in your department'}
                         </p>
                       </div>
+                    </div>
+                  )}
+                  {createAssignableUsers.length > visibleCreateAssignableUsers.length && (
+                    <div className="AdminTaskManagement-multi-select-empty">
+                      <p>Showing first {visibleCreateAssignableUsers.length} users. Search ya department select karke list narrow karo.</p>
                     </div>
                   )}
                 </div>
@@ -2581,7 +2674,7 @@ const AdminTaskManagement = () => {
               </label>
               <div className="AdminTaskManagement-multi-select-container">
                 {filteredUsers.length > 0 ? (
-                  filteredUsers.map((user) => (
+                  visibleFilteredUsers.map((user) => (
                     <div key={user.id || user._id} className="AdminTaskManagement-checkbox-option">
                       <input
                         type="checkbox"
@@ -2615,6 +2708,11 @@ const AdminTaskManagement = () => {
                         ? 'No other users found in your company' 
                         : 'No other users found in your department'}
                     </p>
+                  </div>
+                )}
+                {filteredUsers.length > visibleFilteredUsers.length && (
+                  <div className="AdminTaskManagement-multi-select-empty">
+                    <p>Showing first {visibleFilteredUsers.length} users. Search karke list narrow karo.</p>
                   </div>
                 )}
               </div>
@@ -2719,7 +2817,7 @@ const AdminTaskManagement = () => {
               <label>Select Members *</label>
               <div className="AdminTaskManagement-multi-select-container">
                 {filteredUsers.length > 0 ? (
-                  filteredUsers.map((user) => (
+                  visibleFilteredUsers.map((user) => (
                     <div key={user.id || user._id} className="AdminTaskManagement-checkbox-option">
                       <input
                         type="checkbox"
@@ -2756,9 +2854,14 @@ const AdminTaskManagement = () => {
                 <div className="AdminTaskManagement-selected-chips">
                   <div className="AdminTaskManagement-selected-label">{newGroup.members.length} member(s) selected</div>
                 </div>
-              )}
+                )}
+                {filteredUsers.length > visibleFilteredUsers.length && (
+                  <div className="AdminTaskManagement-multi-select-empty">
+                    <p>Showing first {visibleFilteredUsers.length} users. Search karke list narrow karo.</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
         </div>
         <div className="AdminTaskManagement-modal-footer">
           <button 
@@ -2794,13 +2897,15 @@ const AdminTaskManagement = () => {
         void 0;
       } else if (userId) {
         fetchTasks(page, rowsPerPage, getCurrentFilters());
-        if (!supportingDataLoadedRef.current) {
+        const branchKey = branchQueryParams.branchId || 'all';
+        if (!supportingDataLoadedRef.current || supportingDataBranchRef.current !== branchKey) {
           supportingDataLoadedRef.current = true;
+          supportingDataBranchRef.current = branchKey;
           fetchSupportingData();
         }
       }
     }
-  }, [authError, initialAuthCheck, userId, page, rowsPerPage]);
+  }, [authError, initialAuthCheck, userId, page, rowsPerPage, branchQueryParams.branchId]);
 
   
   useEffect(() => {
@@ -2873,15 +2978,16 @@ const AdminTaskManagement = () => {
                         disabled={task.overallStatus === 'overdue'}
                         onChange={async (e) => {
                           const newAdminStatus = e.target.value;
+                          setTasksRefreshing(true);
                           try {
-                            setLoading(true);
                             await apiCall('patch', `/task/${task._id}/creator-status`, { status: newAdminStatus });
                             showSnackbar('Admin status updated successfully', 'success');
                             fetchAllData(page, rowsPerPage);
                           } catch (error) {
                             console.error('Error updating admin status:', error);
                             showSnackbar(error.response?.data?.error || 'Failed to update admin status', 'error');
-                            setLoading(false);
+                          } finally {
+                            setTasksRefreshing(false);
                           }
                         }}
                         style={{
@@ -3026,7 +3132,7 @@ const AdminTaskManagement = () => {
     </div>
   );
 
-  if (loading) {
+  if (loading && tasks.length === 0) {
     return <CIISLoader />;
   }
 
@@ -3063,6 +3169,12 @@ const AdminTaskManagement = () => {
         </div>
       </div>
 
+      <PageBranchDropdown
+        branchOptions={branchOptions}
+        selectedBranchId={selectedBranchId}
+        onChange={setSelectedBranchId}
+      />
+
       
       {authError && initialAuthCheck && (
         <div className="AdminTaskManagement-auth-error">
@@ -3091,13 +3203,18 @@ const AdminTaskManagement = () => {
             <div className="AdminTaskManagement-card-header">
               <div className="AdminTaskManagement-card-title">
                 <FiCalendar /> Tasks ({filteredStats.total})
+                {tasksRefreshing && (
+                  <span style={{ marginLeft: 10, fontSize: 12, color: '#64748b', fontWeight: 600 }}>
+                    Refreshing...
+                  </span>
+                )}
               </div>
               <button 
                 className="AdminTaskManagement-icon-btn"
                 onClick={() => fetchAllData(page, rowsPerPage)}
-                disabled={loading}
+                disabled={tasksRefreshing}
               >
-                <FiRefreshCw className={loading ? 'AdminTaskManagement-spin' : ''} />
+                <FiRefreshCw className={tasksRefreshing ? 'AdminTaskManagement-spin' : ''} />
               </button>
             </div>
             <div className="AdminTaskManagement-card-content">
@@ -3108,14 +3225,14 @@ const AdminTaskManagement = () => {
       )}
 
       
-      {renderCreateTaskDialog()}
-      {renderEditTaskDialog()}
-      {renderGroupDialog()}
-      {renderStatusChangeDialog()}
-      {renderRemarksDialog()}
-      {renderActivityLogsDialog()}
-      {renderUserStatusDialog()}
-      {renderImageZoomModal()}
+      {openCreateDialog && renderCreateTaskDialog()}
+      {openEditDialog && renderEditTaskDialog()}
+      {openGroupDialog && renderGroupDialog()}
+      {openStatusDialog && renderStatusChangeDialog()}
+      {openRemarksDialog && renderRemarksDialog()}
+      {openActivityDialog && renderActivityLogsDialog()}
+      {openUserStatusDialog && renderUserStatusDialog()}
+      {zoomImage && renderImageZoomModal()}
       
       
       {renderSnackbar()}

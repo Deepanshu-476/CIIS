@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import axios from "../../utils/axiosConfig";
 import "../Css/AdminProject.css";
 import CIISLoader from "../../Loader/CIISLoader"; 
+import PageBranchDropdown, { usePageBranchScope } from "../components/PageBranchDropdown";
 
 
 const Icons = {
@@ -146,6 +147,12 @@ export const AdminProject = () => {
   
   const [users, setUsers] = useState([]);
   const [projects, setProjects] = useState([]);
+  const {
+    branchOptions,
+    selectedBranchId,
+    setSelectedBranchId,
+    branchQueryParams
+  } = usePageBranchScope();
   const [selectedProject, setSelectedProject] = useState(null);
 
   
@@ -181,7 +188,7 @@ export const AdminProject = () => {
     };
     
     initializeData();
-  }, []);
+  }, [branchQueryParams.branchId]);
 
   useEffect(() => {
     const active = projects.filter(p => p.status?.toLowerCase() === "active").length;
@@ -253,7 +260,7 @@ export const AdminProject = () => {
 
       
       const res = await axios.get("/users/company-users", {
-        params: { companyCode, companyIdentifier: companyIdentifier || undefined },
+        params: { companyCode, companyIdentifier: companyIdentifier || undefined, ...branchQueryParams },
         timeout: 10000 
       });
       
@@ -288,7 +295,7 @@ export const AdminProject = () => {
 
       
       const res = await axios.get("/projects", {
-        params: { companyCode, companyIdentifier: companyIdentifier || undefined },
+        params: { companyCode, companyIdentifier: companyIdentifier || undefined, ...branchQueryParams },
         timeout: 10000 
       });
 
@@ -960,6 +967,12 @@ export const AdminProject = () => {
             <StatCard icon={<Icons.Flag />} value={stats.highPriority} label="High Priority" color="#ef4444" subtext="Urgent" />
           </div>
         </div>
+
+        <PageBranchDropdown
+          branchOptions={branchOptions}
+          selectedBranchId={selectedBranchId}
+          onChange={setSelectedBranchId}
+        />
 
         
         <div id="ap-project-form" className="ap-form-card">

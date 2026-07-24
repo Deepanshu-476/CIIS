@@ -1,0 +1,856 @@
+/* Final responsive contract for the employee dashboard.
+   Container queries use the space left after the application sidebar. */
+
+.dashboard-container {
+  container-name: employee-dashboard;
+  container-type: inline-size;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  overflow-x: clip !important;
+}
+
+.dashboard-container *,
+.MobileDashV2-shell * {
+  box-sizing: border-box;
+}
+
+.dashboard-container :is(
+  .dashboard-reference-grid,
+  .dashboard-main-column,
+  .dashboard-right-rail,
+  .dashboard-header-content,
+  .dashboard-stats-grid,
+  .dashboard-content-grid,
+  .dashboard-insights-row,
+  .dashboard-calendar-card,
+  .dashboard-activity-card,
+  .dashboard-insight-card,
+  .dashboard-side-panel,
+  .dashboard-ai-card
+) {
+  min-width: 0 !important;
+}
+
+.dashboard-container :is(img, svg, video, canvas) {
+  max-width: 100%;
+}
+
+/* The ring SVG is absolutely positioned, so its parent must always remain
+   the containing block. A legacy compact rule changed it to static and made
+   the SVG expand to the entire header. */
+.dashboard-container .dashboard-progress-dial {
+  position: relative !important;
+  isolation: isolate;
+  width: clamp(88px, 11cqi, 126px) !important;
+  min-width: 88px !important;
+  max-width: 126px !important;
+  height: auto !important;
+  aspect-ratio: 1;
+  justify-self: center;
+}
+
+.dashboard-container .dashboard-progress-ring {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+}
+
+.dashboard-container :is(
+  .dashboard-user-name,
+  .dashboard-user-welcome,
+  .activity-title,
+  .activity-details,
+  .project-progress-list strong,
+  .schedule-row strong
+) {
+  overflow-wrap: anywhere;
+}
+
+/* Never tie document flow to viewport height. */
+.dashboard-container :is(
+  .dashboard-content-grid,
+  .dashboard-calendar-card,
+  .dashboard-activity-card,
+  .dashboard-insights-row,
+  .dashboard-insight-card
+) {
+  max-height: none !important;
+}
+
+@container employee-dashboard (min-width: 1200px) {
+  .dashboard-reference-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(290px, 340px) !important;
+  }
+}
+
+@container employee-dashboard (max-width: 1199px) {
+  .dashboard-reference-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .dashboard-right-rail {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    align-items: stretch !important;
+  }
+
+  .dashboard-right-rail > * {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    max-width: none !important;
+  }
+}
+
+@container employee-dashboard (max-width: 950px) {
+  .dashboard-header {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  .dashboard-header-content {
+    grid-template-columns: minmax(0, 1fr) minmax(190px, .8fr) 110px !important;
+    gap: 14px !important;
+  }
+
+  .dashboard-content-grid {
+    height: auto !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .dashboard-calendar-card,
+  .dashboard-activity-card {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  .dashboard-insights-row {
+    height: auto !important;
+    min-height: 0 !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-auto-rows: minmax(205px, auto) !important;
+  }
+
+  .dashboard-insights-row > .dashboard-insight-card {
+    height: auto !important;
+    min-height: 205px !important;
+    max-height: none !important;
+  }
+
+  .dashboard-projects-card {
+    grid-column: 1 / -1;
+  }
+}
+
+@container employee-dashboard (max-width: 760px) {
+  .dashboard-container {
+    padding: 10px !important;
+  }
+
+  .dashboard-header-content {
+    grid-template-columns: minmax(0, 1fr) 120px !important;
+  }
+
+  .dashboard-progress-dial {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: center;
+  }
+
+  .dashboard-user-details {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .dashboard-focus-card {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .dashboard-stats-grid {
+    display: grid !important;
+    height: auto !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    overflow: visible !important;
+  }
+
+  .dashboard-stat-card {
+    width: auto !important;
+    min-width: 0 !important;
+  }
+
+  .dashboard-right-rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .dashboard-schedule-card {
+    grid-column: 1 / -1;
+  }
+
+  .dashboard-calendar-card {
+    padding: 14px !important;
+  }
+
+  .attendance-day-summary {
+    position: static !important;
+    width: 100% !important;
+    margin-top: 14px !important;
+  }
+
+  .calendar-week-header,
+  .calendar-week {
+    width: 100% !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    column-gap: clamp(3px, 1vw, 8px) !important;
+  }
+
+  .calendar-day-wrapper,
+  .calendar-day,
+  .calendar-empty-day {
+    width: 100% !important;
+  }
+}
+
+@container employee-dashboard (max-width: 540px) {
+  .dashboard-header-content,
+  .dashboard-insights-row,
+  .dashboard-right-rail {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .dashboard-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .dashboard-projects-card,
+  .dashboard-schedule-card {
+    grid-column: auto;
+  }
+
+  .dashboard-task-overview .task-overview-body {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+  }
+
+  .dashboard-task-overview .task-legend {
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  .activity-item,
+  .timeline-activity {
+    min-width: 0 !important;
+  }
+}
+
+/* React renders the dedicated mobile/tablet dashboard at <=1200px. */
+@media (max-width: 1200px) {
+  html,
+  body,
+  #root {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .MobileDashV2-shell {
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: clamp(8px, 3vw, 12px) !important;
+    overflow-x: clip !important;
+  }
+
+  .MobileDashV2-shell > *,
+  .MobileDashV2-card,
+  .MobileDashV2-hero,
+  .MobileDashV2-clock,
+  .MobileDashV2-focus {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .MobileDashV2-calendar nav {
+    grid-template-columns: 34px minmax(0, 1fr) minmax(48px, 62px) 34px !important;
+  }
+
+  .MobileDashV2-weekdays,
+  .MobileDashV2-days {
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    gap: clamp(2px, 1.2vw, 5px) !important;
+  }
+
+  .MobileDashV2-days span {
+    width: 100%;
+    min-width: 0;
+    height: clamp(28px, 9vw, 34px);
+  }
+
+  .MobileDashV2-card > header,
+  .MobileDashV2-clock,
+  .MobileDashV2-hero-top {
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .MobileDashV2-card > header span,
+  .MobileDashV2-hero-copy,
+  .MobileDashV2-recent article span {
+    min-width: 0;
+  }
+}
+
+/* Tablet/F12 range: use the stable dashboard components in a balanced
+   two-column layout instead of stretching the phone layout. */
+@media (min-width: 769px) and (max-width: 1200px) {
+  .MobileDashV2-shell {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 12px !important;
+  }
+
+  .MobileDashV2-hero,
+  .MobileDashV2-stats {
+    grid-column: 1 / -1;
+  }
+
+  .MobileDashV2-stats {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .MobileDashV2-stats article {
+    min-height: 104px;
+  }
+
+  .MobileDashV2-clock,
+  .MobileDashV2-focus,
+  .MobileDashV2-card {
+    height: 100%;
+  }
+
+  .MobileDashV2-calendar,
+  .MobileDashV2-recent {
+    min-height: 390px;
+  }
+
+  .MobileDashV2-tasks,
+  .MobileDashV2-projects {
+    min-height: 250px;
+  }
+}
+
+@media (max-width: 380px) {
+  .MobileDashV2-hero,
+  .MobileDashV2-clock,
+  .MobileDashV2-focus,
+  .MobileDashV2-card {
+    padding: 12px !important;
+    border-radius: 15px;
+  }
+
+  .MobileDashV2-calendar nav {
+    grid-template-columns: 30px minmax(0, 1fr) 48px 30px !important;
+    gap: 3px !important;
+  }
+
+  .MobileDashV2-focus > div {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .MobileDashV2-stats {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .MobileDashV2-recent article {
+    grid-template-columns: 38px 30px minmax(0, 1fr) !important;
+    gap: 6px !important;
+  }
+}
+
+@media (max-height: 700px) and (min-width: 769px) {
+  .dashboard-container :is(
+    .dashboard-content-grid,
+    .dashboard-calendar-card,
+    .dashboard-activity-card,
+    .dashboard-insights-row,
+    .dashboard-insight-card
+  ) {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+
+  .dashboard-activity-card .activity-list {
+    max-height: none !important;
+    overflow-y: visible !important;
+  }
+}
+
+/* Final MacBook/laptop contract. This file loads last, so these rules
+   neutralize legacy fixed-width desktop overrides from the older stylesheets. */
+@media (min-width: 951px) and (max-width: 1512px) {
+  .dashboard-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: clamp(12px, 1.5vw, 20px) !important;
+    margin: 0 !important;
+    overflow-x: clip !important;
+  }
+
+  .dashboard-container :is(
+    .dashboard-header,
+    .dashboard-reference-grid,
+    .dashboard-main-column,
+    .dashboard-right-rail,
+    .dashboard-content-grid,
+    .dashboard-insights-row
+  ) {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+
+  .dashboard-header-content {
+    grid-template-columns: minmax(220px, 1.25fr) minmax(175px, .9fr) 100px !important;
+    gap: 12px !important;
+  }
+
+  .dashboard-progress-dial {
+    width: 94px !important;
+    min-width: 94px !important;
+    max-width: 94px !important;
+  }
+
+  .dashboard-stats-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    overflow: visible !important;
+  }
+
+  .dashboard-stat-card {
+    width: auto !important;
+    min-width: 0 !important;
+    padding: 12px !important;
+  }
+
+  .dashboard-content-grid {
+    grid-template-columns: minmax(0, 1.45fr) minmax(250px, .8fr) !important;
+    gap: 12px !important;
+    height: auto !important;
+  }
+
+  .dashboard-insights-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+    height: auto !important;
+  }
+
+  .dashboard-insight-card,
+  .dashboard-calendar-card,
+  .dashboard-activity-card {
+    min-width: 0 !important;
+    height: auto !important;
+  }
+}
+
+@container employee-dashboard (min-width: 1000px) and (max-width: 1300px) {
+  .dashboard-reference-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(250px, 280px) !important;
+    gap: 12px !important;
+  }
+
+  .dashboard-right-rail {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    align-content: start !important;
+    gap: 10px !important;
+  }
+
+  .dashboard-right-rail > * {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: auto !important;
+  }
+}
+
+@container employee-dashboard (min-width: 951px) and (max-width: 999px) {
+  .dashboard-reference-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .dashboard-right-rail {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .dashboard-content-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+/* Keep the full desktop composition on MacBook viewports even when the
+   application sidebar reduces the dashboard's measured container width. */
+@media (min-width: 951px) and (max-width: 1512px) {
+  .dashboard-container .dashboard-reference-grid {
+    grid-template-columns: minmax(0, 1fr) clamp(220px, 22vw, 286px) !important;
+    gap: clamp(10px, 1.2vw, 14px) !important;
+    align-items: start !important;
+  }
+
+  .dashboard-container .dashboard-main-column {
+    min-width: 0 !important;
+  }
+
+  .dashboard-container .dashboard-right-rail {
+    min-width: 0 !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-auto-flow: row !important;
+    align-content: start !important;
+    gap: 12px !important;
+  }
+
+  .dashboard-container .dashboard-right-rail > * {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: auto !important;
+  }
+
+  .dashboard-container .dashboard-clock-rail {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    min-height: 190px !important;
+    padding: clamp(14px, 1.4vw, 18px) !important;
+    overflow: hidden !important;
+  }
+
+  .dashboard-container .dashboard-clock-rail .dashboard-timer-display {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .dashboard-container .dashboard-clock-rail .dashboard-timer-value {
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 7px !important;
+    min-width: 0 !important;
+    font-size: clamp(25px, 2.45vw, 34px) !important;
+    line-height: 1 !important;
+    letter-spacing: .5px !important;
+    white-space: nowrap !important;
+  }
+
+  .dashboard-container .dashboard-clock-rail .dashboard-timer-value small {
+    flex: 0 0 auto !important;
+    font-size: clamp(10px, 1vw, 14px) !important;
+  }
+
+  .dashboard-container .dashboard-clock-rail .dashboard-clock-date {
+    margin-top: 8px !important;
+    font-size: clamp(10px, .9vw, 12px) !important;
+    white-space: normal !important;
+  }
+
+  .dashboard-container .dashboard-clock-rail .dashboard-clock-buttons {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 9px !important;
+    width: 100% !important;
+  }
+
+  .dashboard-container .dashboard-clock-rail .dashboard-btn {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 42px !important;
+    padding: 8px 6px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    font-size: clamp(10px, .9vw, 12px) !important;
+    white-space: nowrap !important;
+  }
+
+  .dashboard-container .dashboard-ai-card,
+  .dashboard-container .dashboard-schedule-card {
+    min-height: 0 !important;
+  }
+
+  .dashboard-container .dashboard-quick-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .dashboard-container .dashboard-content-grid {
+    grid-template-columns: minmax(0, 1.35fr) minmax(220px, .85fr) !important;
+  }
+}
+
+@media (min-width: 951px) and (max-width: 1120px) {
+  .dashboard-container .dashboard-reference-grid {
+    grid-template-columns: minmax(0, 1fr) 220px !important;
+  }
+
+  .dashboard-container .dashboard-header-content {
+    grid-template-columns: minmax(190px, 1fr) minmax(150px, .8fr) 88px !important;
+    gap: 9px !important;
+  }
+
+  .dashboard-container .dashboard-progress-dial {
+    width: 82px !important;
+    min-width: 82px !important;
+    max-width: 82px !important;
+  }
+
+  .dashboard-container .dashboard-stats-grid {
+    gap: 8px !important;
+  }
+
+  .dashboard-container .dashboard-clock-rail {
+    min-height: 176px !important;
+    gap: 9px !important;
+    padding: 13px !important;
+  }
+
+  .dashboard-container .dashboard-clock-rail .dashboard-timer-value {
+    font-size: 25px !important;
+  }
+
+  .dashboard-container .dashboard-clock-rail .dashboard-clock-buttons {
+    gap: 7px !important;
+  }
+
+  .dashboard-container .dashboard-clock-rail .dashboard-btn {
+    min-height: 38px !important;
+    font-size: 10px !important;
+  }
+
+  .dashboard-container .dashboard-stat-card {
+    padding: 10px !important;
+  }
+
+  .dashboard-container .dashboard-content-grid {
+    grid-template-columns: minmax(0, 1.25fr) minmax(200px, .75fr) !important;
+    gap: 10px !important;
+  }
+
+  .dashboard-container .dashboard-insights-row {
+    gap: 10px !important;
+  }
+}
+
+/* MacBook parity: keep the 1920px desktop composition and scale the complete
+   dashboard as one unit. This intentionally loads after every older laptop
+   override so cards do not independently wrap or change order on macOS. */
+@media (min-width: 951px) and (max-width: 1500px) {
+  html .dashboard-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 16px 18px 22px !important;
+    margin: 0 !important;
+    zoom: 1;
+    transform: none;
+    overflow-x: clip !important;
+  }
+
+  html .dashboard-container .dashboard-reference-grid {
+    grid-template-columns: minmax(0, 1fr) clamp(250px, 25%, 340px) !important;
+    gap: 16px !important;
+    align-items: start !important;
+  }
+
+  html .dashboard-container .dashboard-main-column {
+    display: block !important;
+  }
+
+  html .dashboard-container .dashboard-right-rail {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: none !important;
+    gap: 14px !important;
+  }
+
+  html .dashboard-container .dashboard-header {
+    height: 190px !important;
+    min-height: 190px !important;
+    margin-bottom: 16px !important;
+    padding: 24px 26px !important;
+  }
+
+  html .dashboard-container .dashboard-header-content {
+    grid-template-columns: minmax(280px, 1.35fr) minmax(240px, 1fr) 150px !important;
+    gap: 22px !important;
+  }
+
+  html .dashboard-container .dashboard-progress-dial {
+    width: 150px !important;
+    min-width: 150px !important;
+    max-width: 150px !important;
+    height: 150px !important;
+  }
+
+  html .dashboard-container .dashboard-stats-grid {
+    height: 148px !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 14px !important;
+    margin-bottom: 14px !important;
+  }
+
+  html .dashboard-container .dashboard-stat-card {
+    height: 148px !important;
+    min-height: 148px !important;
+    padding: 14px !important;
+  }
+
+  html .dashboard-container .dashboard-content-grid {
+    height: 355px !important;
+    grid-template-columns: minmax(0, 1.55fr) minmax(285px, .75fr) !important;
+    gap: 14px !important;
+    margin-bottom: 14px !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card,
+  html .dashboard-container .dashboard-activity-card {
+    height: 355px !important;
+    min-height: 355px !important;
+  }
+
+  html .dashboard-container .dashboard-insights-row {
+    height: 205px !important;
+    min-height: 205px !important;
+    grid-auto-rows: 205px !important;
+    grid-template-columns: 1.05fr 1.35fr 1fr !important;
+    gap: 14px !important;
+    margin-top: 14px !important;
+  }
+
+  html .dashboard-container .dashboard-insights-row > .dashboard-insight-card {
+    height: 205px !important;
+    min-height: 205px !important;
+    max-height: 205px !important;
+  }
+
+  html .dashboard-container .dashboard-clock-rail {
+    min-height: 190px !important;
+  }
+
+  html .dashboard-container .dashboard-quick-actions-panel {
+    flex: 0 0 205px !important;
+    height: 205px !important;
+    min-height: 205px !important;
+    max-height: none !important;
+  }
+
+  html .dashboard-container .dashboard-quick-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    grid-template-rows: repeat(2, minmax(64px, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  html .dashboard-container .dashboard-quick-grid button {
+    grid-column: span 2 !important;
+    min-height: 64px !important;
+    padding: 8px 4px !important;
+  }
+
+  html .dashboard-container .dashboard-quick-grid button:nth-child(4) {
+    grid-column: 2 / span 2 !important;
+  }
+}
+
+@media (min-width: 951px) and (max-width: 1180px) {
+  html .dashboard-container {
+    width: 100% !important;
+    zoom: 1;
+    transform: none;
+  }
+
+  html .dashboard-container .dashboard-reference-grid {
+    grid-template-columns: minmax(0, 1fr) 250px !important;
+  }
+}
+
+/* The application sidebar grows from 70px to 224px on hover. Keep every
+   desktop panel inside the reduced MacBook content width while it is open. */
+@media (min-width: 951px) and (max-width: 1500px) {
+  .ClientDashboard-sidebar-open .dashboard-container {
+    padding: 12px !important;
+  }
+
+  .ClientDashboard-sidebar-open .dashboard-container .dashboard-reference-grid {
+    grid-template-columns: minmax(0, 1fr) clamp(230px, 22%, 280px) !important;
+    gap: 10px !important;
+  }
+
+  .ClientDashboard-sidebar-open .dashboard-container .dashboard-header-content {
+    grid-template-columns: minmax(210px, 1.2fr) minmax(175px, .9fr) 110px !important;
+    gap: 12px !important;
+  }
+
+  .ClientDashboard-sidebar-open .dashboard-container .dashboard-progress-dial {
+    width: 110px !important;
+    min-width: 110px !important;
+    max-width: 110px !important;
+    height: 110px !important;
+  }
+
+  .ClientDashboard-sidebar-open .dashboard-container .dashboard-stats-grid {
+    gap: 8px !important;
+  }
+
+  .ClientDashboard-sidebar-open .dashboard-container .dashboard-stat-card {
+    padding: 10px !important;
+  }
+
+  .ClientDashboard-sidebar-open .dashboard-container .dashboard-content-grid {
+    grid-template-columns: minmax(0, 1.35fr) minmax(235px, .8fr) !important;
+    gap: 10px !important;
+  }
+
+  .ClientDashboard-sidebar-open .dashboard-container .dashboard-calendar-card {
+    padding-right: calc(34% + 14px) !important;
+  }
+
+  .ClientDashboard-sidebar-open .dashboard-container .dashboard-calendar-card .attendance-day-summary {
+    width: 33% !important;
+    right: 10px !important;
+  }
+
+  .ClientDashboard-sidebar-open .dashboard-container .calendar-week-header,
+  .ClientDashboard-sidebar-open .dashboard-container .calendar-week {
+    width: 100% !important;
+    grid-template-columns: repeat(7, minmax(22px, 1fr)) !important;
+    column-gap: 6px !important;
+    justify-content: stretch !important;
+  }
+
+  .ClientDashboard-sidebar-open .dashboard-container :is(
+    .calendar-day-wrapper,
+    .calendar-day,
+    .calendar-empty-day
+  ) {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .ClientDashboard-sidebar-open .dashboard-container .dashboard-insights-row {
+    gap: 10px !important;
+  }
+}
+
+@media (min-width: 951px) and (max-width: 1120px) {
+  .ClientDashboard-sidebar-open .dashboard-container .dashboard-reference-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .ClientDashboard-sidebar-open .dashboard-container .dashboard-right-rail {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}

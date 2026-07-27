@@ -221,13 +221,11 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
   
   useEffect(() => {
     if (!hasFetched) {
-      fetchNotifications();
-      fetchUnreadCount(); 
+      fetchUnreadCount();
     }
     
-    
     const interval = setInterval(() => {
-      fetchNotifications(true); 
+      fetchUnreadCount();
     }, 120000);
     
     return () => clearInterval(interval);

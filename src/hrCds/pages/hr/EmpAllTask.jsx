@@ -1440,8 +1440,21 @@ const TaskDetails = () => {
         setTaskTotal(response.data?.pagination?.total || response.data?.total || nextTasks.length);
         setTaskTotalPages(response.data?.pagination?.pages || 1);
         setTaskPage(page);
-        await fetchAllTaskLogs(nextTasks.slice(0, taskLimit));
-        await fetchTaskStatusCounts(userId);
+
+        const statusCounts = response.data?.statusCounts;
+        if (statusCounts) {
+          setUserTaskStats({
+            total: statusCounts.total || 0,
+            pending: statusCounts.pending || { count: 0, percentage: 0 },
+            inProgress: statusCounts.inProgress || { count: 0, percentage: 0 },
+            completed: statusCounts.completed || { count: 0, percentage: 0 },
+            rejected: statusCounts.rejected || { count: 0, percentage: 0 },
+            overdue: statusCounts.overdue || { count: 0, percentage: 0 },
+            onhold: statusCounts.onhold || statusCounts.onHold || { count: 0, percentage: 0 },
+            reopen: statusCounts.reopen || { count: 0, percentage: 0 },
+            cancelled: statusCounts.cancelled || { count: 0, percentage: 0 }
+          });
+        }
 
         if (nextTasks.length === 0) {
           showSnackbar(`No tasks found for ${user.name}`, 'info');

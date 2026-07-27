@@ -178,6 +178,7 @@ const EmployeeProject = () => {
   const [editingTask, setEditingTask] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [statusRemark, setStatusRemark] = useState("");
+  const [remarkSubmittingTaskId, setRemarkSubmittingTaskId] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   const [openPdfDialog, setOpenPdfDialog] = useState(false);
   const [selectedPdfUrl, setSelectedPdfUrl] = useState("");
@@ -790,6 +791,8 @@ const EmployeeProject = () => {
 
   
   const handleAddRemark = async (taskId, text) => {
+    if (remarkSubmittingTaskId === taskId) return;
+
     const task = tasks.find(item => item._id === taskId);
     const remarkImage = task?._newRemarkImage || null;
     const remarkText = text?.trim() || "";
@@ -799,37 +802,91 @@ const EmployeeProject = () => {
       return;
     }
 
+    const storedUser = parseStoredJson("user") || {};
+    const optimisticRemarkId = `pending-${Date.now()}`;
+    const optimisticRemark = {
+      _id: optimisticRemarkId,
+      text: remarkText || (remarkImage ? "Image attachment" : ""),
+      createdAt: new Date().toISOString(),
+      createdBy: {
+        _id: storedUser._id || storedUser.id,
+        name: storedUser.name || "You",
+        email: storedUser.email
+      },
+      _isPending: true
+    };
+    const addOptimisticRemark = taskItem => taskItem._id === taskId
+      ? {
+          ...taskItem,
+          remarks: [...(taskItem.remarks || []), optimisticRemark],
+          _newRemark: "",
+          _newRemarkImage: null,
+          _newRemarkImageName: ""
+        }
+      : taskItem;
+
+    setTasks(prev => prev.map(addOptimisticRemark));
+    setProjectDetails(prev => prev
+      ? { ...prev, tasks: (prev.tasks || []).map(addOptimisticRemark) }
+      : prev
+    );
+    setRemarkSubmittingTaskId(taskId);
+
     try {
+      let response;
       if (remarkImage) {
         const formData = new FormData();
         formData.append("text", remarkText);
         formData.append("image", remarkImage);
-        await axios.post(
+        response = await axios.post(
           `/projects/${selectedProject}/tasks/${taskId}/remarks`,
           formData,
           { headers: { "Content-Type": "multipart/form-data" } }
         );
       } else {
-        await axios.post(
+        response = await axios.post(
           `/projects/${selectedProject}/tasks/${taskId}/remarks`,
           { text: remarkText }
         );
       }
-      
-      handleSelectProject(selectedProject);
-      loadNotifications();
-      
-      
-      setTasks(prev => prev.map(task => 
-        task._id === taskId
-          ? { ...task, _newRemark: "", _newRemarkImage: null, _newRemarkImageName: "" }
-          : task
-      ));
+
+      const savedRemark = response.data?.remark;
+      const confirmRemark = taskItem => taskItem._id === taskId
+        ? {
+            ...taskItem,
+            remarks: (taskItem.remarks || []).map(item =>
+              item._id === optimisticRemarkId ? (savedRemark || item) : item
+            )
+          }
+        : taskItem;
+
+      setTasks(prev => prev.map(confirmRemark));
+      setProjectDetails(prev => prev
+        ? { ...prev, tasks: (prev.tasks || []).map(confirmRemark) }
+        : prev
+      );
       
       showSnackbar("Remark added successfully!", "success");
     } catch (error) {
       console.error("Error adding remark:", error);
+      const rollbackRemark = taskItem => taskItem._id === taskId
+        ? {
+            ...taskItem,
+            remarks: (taskItem.remarks || []).filter(item => item._id !== optimisticRemarkId),
+            _newRemark: remarkText,
+            _newRemarkImage: remarkImage,
+            _newRemarkImageName: remarkImage?.name || ""
+          }
+        : taskItem;
+
+      setTasks(prev => prev.map(rollbackRemark));
+      setProjectDetails(prev => prev
+        ? { ...prev, tasks: (prev.tasks || []).map(rollbackRemark) }
+        : prev
+      );
       showSnackbar("Error adding remark", "error");
+    } finally {
+      setRemarkSubmittingTaskId(null);
     }
   };
 
@@ -2200,6 +2257,9 @@ const EmployeeProject = () => {
                               {r.createdBy?.name?.charAt(0)}
                             </Avatar>
                             <span>{r.createdBy?.name}</span>
+                            {r._isPending && (
+                              <span className="EmployeeProject-remark-saving">Saving...</span>
+                            )}
                           </div>
                           <span className="EmployeeProject-remark-date">
                             {new Date(r.createdAt).toLocaleString()}
@@ -2227,8 +2287,8 @@ const EmployeeProject = () => {
                   Edit
                 </button>
               )}
-              <input
-                type="text"
+              <textarea
+                rows={2}
                 className="EmployeeProject-remark-input"
                 placeholder="Add a remark..."
                 value={detailTask._newRemark || ""}
@@ -2241,7 +2301,7 @@ const EmployeeProject = () => {
                     ))
                   )
                 }
-                onKeyPress={(e) => {
+                onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     handleAddRemark(detailTask._id, detailTask._newRemark);
@@ -2282,10 +2342,13 @@ const EmployeeProject = () => {
               <button
                 className="EmployeeProject-button EmployeeProject-button-primary"
                 onClick={() => handleAddRemark(detailTask._id, detailTask._newRemark)}
-                disabled={!detailTask._newRemark?.trim() && !detailTask._newRemarkImage}
+                disabled={
+                  remarkSubmittingTaskId === detailTask._id ||
+                  (!detailTask._newRemark?.trim() && !detailTask._newRemarkImage)
+                }
               >
                 <Icons.Comment />
-                Add
+                {remarkSubmittingTaskId === detailTask._id ? "Adding..." : "Add"}
               </button>
             </div>
           </div>

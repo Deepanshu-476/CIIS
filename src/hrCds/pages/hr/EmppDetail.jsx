@@ -349,7 +349,9 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
     >
       {showMenu && (
         <button 
+          type="button"
           className="EmployeeDirectory-employee-card-menu"
+          aria-label={`Open actions for ${emp.name || 'employee'}`}
           onClick={(e) => {
             e.stopPropagation();
             onMenuOpen(e, emp);
@@ -464,6 +466,7 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
         </div>
         
         <button 
+          type="button"
           className="EmployeeDirectory-view-profile-btn"
           onClick={(e) => {
             e.stopPropagation();
@@ -1736,7 +1739,8 @@ const EmployeeDirectory = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [viewMode, setViewMode] = useState('grid');
   const [activeTab, setActiveTab] = useState('personal');
-  const isOverlayOpen = Boolean(selectedUser || editingUser || deleteConfirmOpen || menuAnchorEl);
+  const contextMenuRef = useRef(null);
+  const isOverlayOpen = Boolean(selectedUser || editingUser || deleteConfirmOpen);
   
   // Form handling
   const {
@@ -2102,7 +2106,11 @@ const EmployeeDirectory = () => {
     const rect = event.currentTarget.getBoundingClientRect();
     setMenuAnchorEl({
       top: rect.bottom,
-      left: rect.left
+      left: rect.left,
+      anchorTop: rect.top,
+      anchorBottom: rect.bottom,
+      anchorLeft: rect.left,
+      anchorRight: rect.right
     });
     setSelectedMenuUser(userData);
   }, []);
@@ -2111,6 +2119,44 @@ const EmployeeDirectory = () => {
     setMenuAnchorEl(null);
     setSelectedMenuUser(null);
   }, []);
+
+  useEffect(() => {
+    if (!menuAnchorEl) return undefined;
+
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') handleMenuClose();
+    };
+    const closeOnViewportChange = () => handleMenuClose();
+
+    document.addEventListener('keydown', closeOnEscape);
+    window.addEventListener('scroll', closeOnViewportChange, true);
+    window.addEventListener('resize', closeOnViewportChange);
+
+    if (window.innerWidth > 425 && window.innerWidth <= 1024 && contextMenuRef.current) {
+      const viewportGap = 8;
+      const anchorGap = 6;
+      const menuRect = contextMenuRef.current.getBoundingClientRect();
+      const maxLeft = Math.max(viewportGap, window.innerWidth - menuRect.width - viewportGap);
+      const left = Math.min(
+        Math.max(viewportGap, menuAnchorEl.anchorRight - menuRect.width),
+        maxLeft
+      );
+      const spaceBelow = window.innerHeight - menuAnchorEl.anchorBottom - viewportGap;
+      const top = spaceBelow >= menuRect.height + anchorGap
+        ? menuAnchorEl.anchorBottom + anchorGap
+        : Math.max(viewportGap, menuAnchorEl.anchorTop - menuRect.height - anchorGap);
+
+      if (left !== menuAnchorEl.left || top !== menuAnchorEl.top) {
+        setMenuAnchorEl(current => current ? { ...current, left, top } : current);
+      }
+    }
+
+    return () => {
+      document.removeEventListener('keydown', closeOnEscape);
+      window.removeEventListener('scroll', closeOnViewportChange, true);
+      window.removeEventListener('resize', closeOnViewportChange);
+    };
+  }, [handleMenuClose, menuAnchorEl]);
   
   // Handle edit
   const handleEdit = useCallback((userData) => {
@@ -3402,11 +3448,11 @@ const EmployeeDirectory = () => {
             className="EmployeeDirectory-modal-overlay"
             style={{ background: 'transparent', zIndex: 1099 }}
             onClick={handleMenuClose}
-            onWheel={(event) => event.preventDefault()}
-            onTouchMove={(event) => event.preventDefault()}
           />
           <div 
+            ref={contextMenuRef}
             className="EmployeeDirectory-context-menu"
+            role="menu"
             style={{
               position: 'fixed',
               top: menuAnchorEl.top + 'px',
@@ -3415,7 +3461,9 @@ const EmployeeDirectory = () => {
             }}
           >
             <button 
+              type="button"
               className="EmployeeDirectory-menu-item" 
+              role="menuitem"
               onClick={() => handleEdit(selectedMenuUser)}
             >
               <FiEdit size={16} color="#1976d2" />
@@ -3424,7 +3472,9 @@ const EmployeeDirectory = () => {
             
             {canDeleteUser(selectedMenuUser) && (
               <button 
+                type="button"
                 className="EmployeeDirectory-menu-item" 
+                role="menuitem"
                 onClick={() => handleDeleteClick(selectedMenuUser)}
                 style={{ color: '#d32f2f' }}
               >

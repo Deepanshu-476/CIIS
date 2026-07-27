@@ -79,6 +79,7 @@ const closeDetailModal = () => {
 
   const openApplyLeaveModal = () => {
     setTab(0);
+    setReasonError("");
     setIsApplyModalOpen(true);
   };
   
@@ -101,6 +102,7 @@ const closeDetailModal = () => {
     endDate: "",
     reason: "",
   });
+  const [reasonError, setReasonError] = useState("");
   const [historyDialog, setHistoryDialog] = useState({
     open: false,
     title: "",
@@ -592,6 +594,9 @@ const closeDetailModal = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    if (name === "reason" && value.trim().length >= 20) {
+      setReasonError("");
+    }
   };
 
   const calculateDays = (startDate, endDate) => {
@@ -610,9 +615,24 @@ const closeDetailModal = () => {
   };
 
   const applyLeave = async () => {
-    if (!form.startDate || !form.endDate || !form.reason.trim()) {
+    const trimmedReason = form.reason.trim();
+
+    if (!form.startDate || !form.endDate) {
+      showToast("Please fill all required leave fields", "error");
       setNotification({
         message: "Please fill all fields",
+        severity: "error",
+      });
+      return;
+    }
+    if (trimmedReason.length < 20) {
+      setReasonError("Please enter at least 20 characters.");
+      showToast(
+        `Reason for leave needs at least 20 characters (${20 - trimmedReason.length} more required)`,
+        "error"
+      );
+      setNotification({
+        message: "Reason for leave must be at least 20 characters",
         severity: "error",
       });
       return;
@@ -629,7 +649,7 @@ const closeDetailModal = () => {
       type: form.type,
       startDate: new Date(form.startDate).toISOString().split("T")[0],
       endDate: new Date(form.endDate).toISOString().split("T")[0],
-      reason: form.reason,
+      reason: trimmedReason,
       days: calculateDays(form.startDate, form.endDate),
     };
 
@@ -651,6 +671,7 @@ const closeDetailModal = () => {
       
       await fetchLeaves();
       setForm({ type: "Casual", startDate: "", endDate: "", reason: "" });
+      setReasonError("");
       setTab(0);
       setIsApplyModalOpen(false);
     } catch (err) {
@@ -660,6 +681,14 @@ const closeDetailModal = () => {
         err?.response?.data?.message ||
         err?.response?.data?.error ||
         "Failed to apply leave";
+      const reasonValidationError = err?.response?.data?.validationErrors?.find(
+        validationError => validationError?.field === "reason"
+      );
+      if (reasonValidationError?.message) {
+        setReasonError(reasonValidationError.message);
+      } else if (/reason|20 characters|500 characters/i.test(errorMsg)) {
+        setReasonError(errorMsg);
+      }
       
       try {
         showToast(errorMsg, "error");
@@ -1162,7 +1191,6 @@ const closeDetailModal = () => {
                 </p>
               </div>
 
-              
               <div className="MyLeaves-form">
                 <div className="MyLeaves-form-group">
                   <label htmlFor="type">
@@ -1238,11 +1266,21 @@ const closeDetailModal = () => {
                     name="reason"
                     value={form.reason}
                     onChange={handleChange}
-                    className="MyLeaves-form-textarea"
+                    className={`MyLeaves-form-textarea ${reasonError ? "MyLeaves-form-textarea-error" : ""}`}
                     placeholder="Please provide a reason for your leave request..."
                     rows={4}
+                    maxLength={500}
+                    aria-invalid={Boolean(reasonError)}
+                    aria-describedby={reasonError ? "reason-error reason-count" : "reason-count"}
                   />
-                  <span className="MyLeaves-reason-count">{form.reason.length}/500</span>
+                  <span id="reason-count" className="MyLeaves-reason-count">
+                    {form.reason.trim().length}/500 (minimum 20 characters)
+                  </span>
+                  {reasonError && (
+                    <span id="reason-error" className="MyLeaves-reason-error" role="alert">
+                      {reasonError}
+                    </span>
+                  )}
                 </div>
 
                 <div className="MyLeaves-form-actions">
@@ -1257,7 +1295,7 @@ const closeDetailModal = () => {
                     type="button"
                     className="MyLeaves-form-submit"
                     onClick={applyLeave}
-                    disabled={!form.startDate || !form.endDate || !form.reason.trim() || loading}
+                    disabled={loading}
                   >
                     {loading ? 'Applying...' : (
                       <>

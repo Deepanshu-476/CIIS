@@ -239,6 +239,19 @@
   color: #777;
 }
 
+.ciis-login-icon-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: inline-flex;
+}
+
+.ciis-login-forgot-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -6px;
+}
+
 .ciis-login-error-text {
   color: #f44336;
   font-size: 0.75rem;

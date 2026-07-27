@@ -1105,7 +1105,8 @@
 }
 
 .EmployeeProject-task-detail-footer .EmployeeProject-remark-input {
-  min-width: 220px;
+  flex: 1 1 420px;
+  min-width: 280px;
 }
 
 .EmployeeProject-detail-attachment {
@@ -1180,9 +1181,11 @@
 }
 
 .EmployeeProject-remark-text {
-  font-size: 0.875rem;
+  font-size: 1rem;
+  line-height: 1.55;
   margin-bottom: 0.75rem;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .EmployeeProject-remark-image {
@@ -1216,6 +1219,12 @@
   overflow-wrap: anywhere;
 }
 
+.EmployeeProject-remark-saving {
+  color: #667eea;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
 /* Add Remark */
 .EmployeeProject-add-remark {
   padding: 1rem;
@@ -1232,10 +1241,15 @@
 .EmployeeProject-remark-input {
   flex: 1;
   min-width: 0;
-  padding: 10px 16px;
+  min-height: 68px;
+  max-height: 160px;
+  padding: 12px 16px;
   border: 1px solid #ddd;
   border-radius: 8px;
-  font-size: 0.875rem;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.45;
+  resize: vertical;
 }
 
 .EmployeeProject-remark-input-row .EmployeeProject-button {
@@ -2805,7 +2819,9 @@
   }
 
   .EmployeeProject-remark-input {
-    min-height: 40px;
+    min-width: 0;
+    width: 100%;
+    min-height: 76px;
   }
 
   .EmployeeProject-remark-input-row .EmployeeProject-button {

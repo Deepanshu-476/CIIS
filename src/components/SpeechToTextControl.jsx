@@ -13,6 +13,19 @@ const getSpeechRecognition = () => (
   window.SpeechRecognition || window.webkitSpeechRecognition || null
 );
 
+const getTopOverlayBoundary = () => {
+  const overlays = document.querySelectorAll(
+    ".navbar, .ClientLayout-header, .MuiAppBar-positionFixed, .MuiAppBar-positionSticky, [role='banner']",
+  );
+  return Array.from(overlays).reduce((boundary, overlay) => {
+    const style = window.getComputedStyle(overlay);
+    if (style.position !== "fixed" && style.position !== "sticky") return boundary;
+
+    const rect = overlay.getBoundingClientRect();
+    return rect.top <= 0 && rect.bottom > 0 ? Math.max(boundary, rect.bottom) : boundary;
+  }, 0);
+};
+
 const isEditableTextTarget = (element) => {
   if (!element) return false;
   if (element.isContentEditable) return true;
@@ -89,9 +102,8 @@ const SpeechToTextControl = () => {
   const snapshotRef = useRef(null);
   const shouldKeepListeningRef = useRef(false);
   const restartTimerRef = useRef(null);
-  const lockedTopRef = useRef(null);
 
-  const updatePosition = (preserveVerticalPosition = false) => {
+  const updatePosition = () => {
     const element = targetRef.current;
     if (!isEditableTextTarget(element)) {
       setPosition(null);
@@ -105,12 +117,22 @@ const SpeechToTextControl = () => {
     }
 
     const fieldCenter = rect.top + rect.height / 2;
-    if (!preserveVerticalPosition || lockedTopRef.current === null) {
-      lockedTopRef.current = fieldCenter;
+    const topOverlayBoundary = getTopOverlayBoundary();
+    const isOutsideVisibleArea = (
+      rect.bottom <= topOverlayBoundary
+      || fieldCenter <= topOverlayBoundary
+      || rect.top >= window.innerHeight
+      || rect.right <= 0
+      || rect.left >= window.innerWidth
+    );
+
+    if (isOutsideVisibleArea) {
+      setPosition((currentPosition) => currentPosition === null ? currentPosition : null);
+      return;
     }
 
     const nextPosition = {
-      top: lockedTopRef.current,
+      top: fieldCenter,
       left: Math.max(8, rect.right - 38),
     };
 
@@ -131,7 +153,6 @@ const SpeechToTextControl = () => {
     const handleFocusIn = (event) => {
       if (!isEditableTextTarget(event.target)) return;
       targetRef.current = event.target;
-      lockedTopRef.current = null;
       setTarget(event.target);
       requestAnimationFrame(updatePosition);
     };
@@ -142,14 +163,13 @@ const SpeechToTextControl = () => {
         if (activeElement?.closest?.(".speech-to-text-control")) return;
         if (isListening) return;
         targetRef.current = isEditableTextTarget(activeElement) ? activeElement : null;
-        lockedTopRef.current = null;
         setTarget(targetRef.current);
         updatePosition();
       }, 120);
     };
 
-    const handleResize = () => updatePosition(true);
-    const handleScroll = () => updatePosition(false);
+    const handleResize = () => updatePosition();
+    const handleScroll = () => updatePosition();
 
     document.addEventListener("focusin", handleFocusIn);
     document.addEventListener("focusout", handleFocusOut);
@@ -171,7 +191,7 @@ const SpeechToTextControl = () => {
   useEffect(() => {
     if (!target || typeof ResizeObserver === "undefined") return undefined;
 
-    const resizeObserver = new ResizeObserver(() => updatePosition(true));
+    const resizeObserver = new ResizeObserver(updatePosition);
     resizeObserver.observe(target);
     return () => resizeObserver.disconnect();
   }, [target]);
@@ -180,12 +200,12 @@ const SpeechToTextControl = () => {
     if (!target) return undefined;
 
     let animationFrameId;
-    const followHorizontalMovement = () => {
-      updatePosition(true);
-      animationFrameId = window.requestAnimationFrame(followHorizontalMovement);
+    const followInputMovement = () => {
+      updatePosition();
+      animationFrameId = window.requestAnimationFrame(followInputMovement);
     };
 
-    animationFrameId = window.requestAnimationFrame(followHorizontalMovement);
+    animationFrameId = window.requestAnimationFrame(followInputMovement);
     return () => window.cancelAnimationFrame(animationFrameId);
   }, [target]);
 

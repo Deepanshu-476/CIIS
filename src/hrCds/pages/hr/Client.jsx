@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import API_URL from '../../../config';
 import './client-management.css';
-import PageBranchDropdown, { usePageBranchScope } from '../../components/PageBranchDropdown';
 
 
 import {
@@ -98,6 +97,28 @@ const pickCompanyIdentifier = (...sources) => {
     if (typeof source === 'object') {
       const id = source._id || source.id || source.companyId || source.company?._id || source.company?.id;
       if (id) return String(id).trim();
+    }
+  }
+  return '';
+};
+
+const pickCompanyName = (...sources) => {
+  for (const source of sources) {
+    if (!source) continue;
+    if (typeof source === 'string') {
+      const parsed = parseStoredJson(source);
+      if (parsed) {
+        const parsedName = pickCompanyName(parsed);
+        if (parsedName) return parsedName;
+        continue;
+      }
+      const clean = source.trim();
+      if (clean && !clean.startsWith('{') && !clean.startsWith('[')) return clean;
+      continue;
+    }
+    if (typeof source === 'object') {
+      const name = source.companyName || source.name || source.company?.companyName || source.company?.name;
+      if (name) return String(name).trim();
     }
   }
   return '';
@@ -3081,12 +3102,6 @@ const AddClientModal = ({
 
 const ClientManagement = () => {
   const navigate = useNavigate();
-  const {
-    branchOptions,
-    selectedBranchId,
-    setSelectedBranchId,
-    branchQueryParams
-  } = usePageBranchScope();
   const [clients, setClients] = useState([]);
   const [services, setServices] = useState([]);
   const [clientPlans, setClientPlans] = useState([]);
@@ -3117,11 +3132,12 @@ const ClientManagement = () => {
   
   const [companyCode, setCompanyCode] = useState('');
   const [companyIdentifier, setCompanyIdentifier] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [userRole, setUserRole] = useState('');
   
   const [filters, setFilters] = useState({
     page: 1,
-    limit: 10,
+    limit: 1000,
     sortBy: 'createdAt',
     sortOrder: 'desc',
     search: '',
@@ -3136,6 +3152,11 @@ const ClientManagement = () => {
   });
 
   const pendingServiceRequestsCount = serviceRequests.filter(request => (request.status || 'Pending') === 'Pending').length;
+  const clientScopeParams = {
+    companyCode: companyCode || undefined,
+    companyName: companyName || undefined,
+    companyIdentifier: companyIdentifier || undefined
+  };
 
   useEffect(() => {
     if (!editDialog.open) return undefined;
@@ -3160,8 +3181,8 @@ const ClientManagement = () => {
       const response = await api.get('/service-enquiries', {
         params: {
           companyCode: nextCompanyCode || undefined,
-          companyIdentifier: nextCompanyIdentifier || undefined,
-          ...branchQueryParams
+          companyName: companyName || undefined,
+          companyIdentifier: nextCompanyIdentifier || undefined
         }
       });
       if (response.data?.success) {
@@ -3362,6 +3383,12 @@ const ClientManagement = () => {
           localStorageCompany,
           localStorageCompanyDetails,
         );
+        const companyNameFromStorage = pickCompanyName(
+          localStorage.getItem('companyName'),
+          user,
+          localStorageCompanyDetails,
+          localStorageCompany,
+        );
         const companyIdentifierFromStorage = pickCompanyIdentifier(
           localStorage.getItem('companyIdentifier'),
           user,
@@ -3370,6 +3397,7 @@ const ClientManagement = () => {
         );
         
         setCompanyCode(companyCodeFromStorage);
+        setCompanyName(companyNameFromStorage);
         setCompanyIdentifier(companyIdentifierFromStorage);
         if (!companyCodeFromStorage && !companyIdentifierFromStorage) {
           setError('Company information not found. Please login again.');
@@ -3393,7 +3421,7 @@ const ClientManagement = () => {
     return () => {
       window.removeEventListener('focus', handleFocus);
     };
-  }, [companyCode, companyIdentifier, branchQueryParams.branchId]);
+  }, [companyCode, companyIdentifier, companyName]);
 
   const fetchProjectManagers = async () => {
     try {
@@ -3428,7 +3456,6 @@ const ClientManagement = () => {
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
-        params: branchQueryParams
       });
 
       let usersArray = [];
@@ -3479,18 +3506,14 @@ const ClientManagement = () => {
       
       const apiParams = {
         ...filters,
-        companyCode: companyCode || undefined,
-        companyIdentifier: companyIdentifier || undefined,
-        ...branchQueryParams
+        ...clientScopeParams,
       };
       
       const [clientsRes, servicesRes, plansRes, statsRes, enquiriesRes] = await Promise.all([
         api.get('/', { params: apiParams }),
         api.get('/services', { 
           params: { 
-            companyCode: companyCode || undefined,
-            companyIdentifier: companyIdentifier || undefined,
-            ...branchQueryParams
+            ...clientScopeParams
           } 
         }),
         clientPlansApi.get('/', {
@@ -3504,9 +3527,7 @@ const ClientManagement = () => {
         }),
         api.get('/stats', {
           params: {
-            companyCode: companyCode || undefined,
-            companyIdentifier: companyIdentifier || undefined,
-            ...branchQueryParams
+            ...clientScopeParams,
           }
         }).catch(err => {
           console.warn('Stats fetch failed:', err);
@@ -3514,9 +3535,7 @@ const ClientManagement = () => {
         }),
         api.get('/service-enquiries', {
           params: {
-            companyCode: companyCode || undefined,
-            companyIdentifier: companyIdentifier || undefined,
-            ...branchQueryParams
+            ...clientScopeParams
           }
         }).catch(err => {
           console.warn('Service enquiries fetch failed:', err);
@@ -3584,7 +3603,7 @@ const ClientManagement = () => {
     if (companyCode || companyIdentifier) {
       fetchData();
     }
-  }, [filters, companyCode, companyIdentifier, branchQueryParams.branchId]);
+  }, [filters, companyCode, companyIdentifier, companyName]);
 
   useEffect(() => {
     if (!paymentReceiptsModal.open || !paymentReceiptsModal.client?._id) return;
@@ -3748,7 +3767,6 @@ const ClientManagement = () => {
         description: clientData.description,
         notes: clientData.notes,
         companyCode: clientData.companyCode,
-        branch: selectedBranchId || undefined,
         clientPlanId: clientData.clientPlanId,
         subscription: clientData.subscription || []
       };
@@ -3956,7 +3974,6 @@ const ClientManagement = () => {
       description: client.description || '',
       notes: client.notes || '',
       companyCode: companyCode,
-      branch: selectedBranchId || undefined,
       subscription: subscriptionData
     };
     
@@ -4077,12 +4094,6 @@ const ClientManagement = () => {
           </div>
         </div>
       </div>
-
-      <PageBranchDropdown
-        branchOptions={branchOptions}
-        selectedBranchId={selectedBranchId}
-        onChange={setSelectedBranchId}
-      />
 
       <div className="ClientManagement-stats-griddd">
         {[
@@ -4359,10 +4370,11 @@ const ClientManagement = () => {
                     value={filters.limit}
                     onChange={(e) => handleFilterChange('limit', e.target.value)}
                   >
-                    <option value={5}>5 per page</option>
-                    <option value={10}>10 per page</option>
                     <option value={25}>25 per page</option>
                     <option value={50}>50 per page</option>
+                    <option value={100}>100 per page</option>
+                    <option value={250}>250 per page</option>
+                    <option value={1000}>All clients</option>
                   </select>
                   <p className="ClientManagement-pagination-info">
                     Showing <strong>{((filters.page - 1) * filters.limit) + 1}-{Math.min(filters.page * filters.limit, totalItems)}</strong> of <strong>{totalItems}</strong>

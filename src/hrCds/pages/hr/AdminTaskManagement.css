@@ -2019,6 +2019,62 @@
   box-shadow: var(--shadow-md);
 }
 
+/* ===== VOICE NOTE ===== */
+.AdminTaskManagement-voice-note-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.AdminTaskManagement-voice-note-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.AdminTaskManagement-voice-note-actions .AdminTaskManagement-btn {
+  width: auto;
+}
+
+.AdminTaskManagement-voice-note-hint {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--gray-200);
+  background: linear-gradient(135deg, var(--gray-100), var(--white));
+  color: var(--gray-600);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.AdminTaskManagement-voice-note-recording {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(220, 38, 38, 0.1);
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.AdminTaskManagement-voice-note-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #dc2626;
+  animation: AdminTaskManagement-pulse 1.4s ease-in-out infinite;
+}
+
+.AdminTaskManagement-voice-note-preview {
+  padding: 16px;
+  border: 1px solid var(--gray-200);
+  border-radius: 16px;
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+
 /* ===== IMAGE UPLOAD ===== */
 .AdminTaskManagement-image-upload-section {
   display: flex;

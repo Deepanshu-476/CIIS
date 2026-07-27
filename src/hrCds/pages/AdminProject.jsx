@@ -119,6 +119,18 @@ const getProjectsFromResponse = (data) => {
   return [];
 };
 
+const dedupeByRecordId = (items = []) => {
+  const seen = new Set();
+  return items.filter((item) => {
+    const id = getProjectId(item) || getUserId(item);
+    const key = String(id || "").trim();
+    if (!key) return true;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 const getProjectFromResponse = (data) => data?.project || data?.data || data?.item || null;
 
 const toProjectPriorityValue = (value = "Medium") => {
@@ -312,7 +324,7 @@ export const AdminProject = () => {
       });
 
       const normalizedCompanyCode = companyCode.toLowerCase();
-      const companyProjects = getProjectsFromResponse(res.data).filter(project => {
+      const companyProjects = dedupeByRecordId(getProjectsFromResponse(res.data)).filter(project => {
         const projectCompanyCode = getProjectCompanyCode(project);
         return !projectCompanyCode || projectCompanyCode.toLowerCase() === normalizedCompanyCode;
       });
@@ -853,8 +865,8 @@ export const AdminProject = () => {
                   <div className="ap-card">
                     <h4 className="ap-card-title"><Icons.Group /> Team Members ({selectedProject.users?.length || 0})</h4>
                     <div className="ap-team-grid">
-                      {(selectedProject.users || []).map((user) => (
-                        <div key={getUserId(user)} className="ap-team-member">
+                      {(selectedProject.users || []).map((user, index) => (
+                        <div key={`${getUserId(user) || 'user'}-${index}`} className="ap-team-member">
                           <div className="ap-avatar">{user.name?.charAt(0) || "U"}</div>
                           <div className="ap-member-info">
                             <div className="ap-member-name">{user.name || "Unknown User"}</div>
@@ -873,8 +885,8 @@ export const AdminProject = () => {
                   <h4 className="ap-section-title">Tasks ({selectedProject.tasks?.length || 0})</h4>
                   {selectedProject.tasks?.length > 0 ? (
                     <div className="ap-task-list">
-                      {selectedProject.tasks.map((task) => (
-                        <div key={task._id || task.id} className="ap-task-item">
+                      {selectedProject.tasks.map((task, index) => (
+                        <div key={`${task._id || task.id || 'task'}-${index}`} className="ap-task-item">
                           <div className="ap-task-header">
                             <div className="ap-task-title-wrapper">
                               <Icons.Task />
@@ -942,8 +954,8 @@ export const AdminProject = () => {
                     <div className="ap-document-list">
                       {selectedProject.tasks
                         .filter(task => task.pdfFile?.path)
-                        .map((task) => (
-                          <div key={task._id || task.id} className="ap-document-item">
+                        .map((task, index) => (
+                          <div key={`${task._id || task.id || 'doc'}-${index}`} className="ap-document-item">
                             <div className="ap-document-icon"><Icons.File /></div>
                             <div className="ap-document-info">
                               <div className="ap-document-name">{task.pdfFile.filename || "Task Document"}</div>
@@ -1314,10 +1326,10 @@ export const AdminProject = () => {
             </div>
           ) : (
             <div className="ap-project-grid">
-              {filteredProjects.map((p) => {
+              {filteredProjects.map((p, index) => {
                 const projectId = getProjectId(p);
                 return (
-                  <div key={projectId} className="ap-project-card">
+                  <div key={`${projectId || 'project'}-${index}`} className="ap-project-card">
                     <div className="ap-project-top-bar" style={{
                       background: `linear-gradient(90deg, ${getStatusColor(p.status)} 0%, ${getPriorityColor(p.priority)} 100%)`
                     }} />

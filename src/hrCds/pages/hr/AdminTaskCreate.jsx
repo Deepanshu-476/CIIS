@@ -128,6 +128,12 @@ const AdminTaskManagement = () => {
     voiceNote: null,
     checkpoints: []
   });
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [voicePreviewUrl, setVoicePreviewUrl] = useState('');
+  const mediaRecorderRef = useRef(null);
+  const voiceStreamRef = useRef(null);
+  const voiceChunksRef = useRef([]);
+  const discardVoiceRecordingRef = useRef(false);
 
   const [editTask, setEditTask] = useState({
     title: '',
@@ -179,6 +185,88 @@ const AdminTaskManagement = () => {
   };
   const removeCheckpoint = (index) => {
     setNewTask(prev => ({ ...prev, checkpoints: (prev.checkpoints || []).filter((_, itemIndex) => itemIndex !== index) }));
+  };
+
+  const clearVoiceRecordingPreview = () => {
+    setVoicePreviewUrl('');
+  };
+
+  const stopVoiceRecording = (discard = false) => {
+    const recorder = mediaRecorderRef.current;
+    discardVoiceRecordingRef.current = discard;
+
+    if (recorder && recorder.state === 'recording') {
+      recorder.stop();
+      return;
+    }
+
+    voiceStreamRef.current?.getTracks()?.forEach(track => track.stop());
+    voiceStreamRef.current = null;
+    voiceChunksRef.current = [];
+    mediaRecorderRef.current = null;
+    setIsRecordingVoice(false);
+  };
+
+  const startVoiceRecording = async () => {
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      showSnackbar('Voice recording is not supported in this browser', 'error');
+      return;
+    }
+
+    try {
+      const supportedTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/ogg',
+      ];
+      const mimeType = supportedTypes.find(type => window.MediaRecorder.isTypeSupported?.(type)) || '';
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+
+      mediaRecorderRef.current = recorder;
+      voiceStreamRef.current = stream;
+      voiceChunksRef.current = [];
+      discardVoiceRecordingRef.current = false;
+      setNewTask(prev => ({ ...prev, voiceNote: null }));
+      clearVoiceRecordingPreview();
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          voiceChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const shouldDiscard = discardVoiceRecordingRef.current;
+        discardVoiceRecordingRef.current = false;
+
+        const finalStream = voiceStreamRef.current;
+        voiceStreamRef.current = null;
+        const finalMimeType = recorder.mimeType || mimeType || 'audio/webm';
+        const blob = new Blob(voiceChunksRef.current, { type: finalMimeType });
+        voiceChunksRef.current = [];
+
+        finalStream?.getTracks()?.forEach(track => track.stop());
+        mediaRecorderRef.current = null;
+        setIsRecordingVoice(false);
+
+        if (shouldDiscard || blob.size === 0) {
+          return;
+        }
+
+        const extension = finalMimeType.includes('ogg') ? 'ogg' : 'webm';
+        const file = new File([blob], `voice-note.${extension}`, { type: finalMimeType });
+        setNewTask(prev => ({ ...prev, voiceNote: file }));
+      };
+
+      recorder.start();
+      setIsRecordingVoice(true);
+    } catch (error) {
+      console.error('Error starting voice recording:', error);
+      setIsRecordingVoice(false);
+      showSnackbar('Microphone access denied', 'error');
+    }
   };
 
   
@@ -881,6 +969,11 @@ const AdminTaskManagement = () => {
       return;
     }
 
+    if (isRecordingVoice) {
+      showSnackbar('Please stop the voice recording before creating the task', 'warning');
+      return;
+    }
+
     if (branchOptions.length > 1 && !selectedBranchId) {
       showSnackbar('Please select a branch first', 'error');
       return;
@@ -1289,6 +1382,7 @@ const AdminTaskManagement = () => {
 
   
   const resetNewTaskForm = () => {
+    stopVoiceRecording(true);
     setNewTask({
       title: '',
       description: '',
@@ -1301,6 +1395,7 @@ const AdminTaskManagement = () => {
       voiceNote: null,
       checkpoints: []
     });
+    clearVoiceRecordingPreview();
     setUserSearch('');
     setGroupSearch('');
     setSelectedCreateDepartment('');
@@ -2250,6 +2345,29 @@ const AdminTaskManagement = () => {
     }
   }, [openCreateDialog]);
 
+  useEffect(() => {
+    if (!newTask.voiceNote) {
+      clearVoiceRecordingPreview();
+      return undefined;
+    }
+
+    const previewUrl = URL.createObjectURL(newTask.voiceNote);
+    setVoicePreviewUrl(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [newTask.voiceNote]);
+
+  useEffect(() => () => {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      discardVoiceRecordingRef.current = true;
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (error) {
+        console.warn('Voice recorder cleanup failed:', error);
+      }
+    }
+    voiceStreamRef.current?.getTracks()?.forEach(track => track.stop());
+  }, []);
+
   
   const renderCreateTaskDialog = () => (
     <div className={`AdminTaskManagement-modal ${openCreateDialog ? 'AdminTaskManagement-modal-open' : ''}`}>
@@ -2259,7 +2377,10 @@ const AdminTaskManagement = () => {
             <h3>Create New Task</h3>
             <button 
               className="AdminTaskManagement-icon-btn"
-              onClick={() => setOpenCreateDialog(false)}
+              onClick={() => {
+                resetNewTaskForm();
+                setOpenCreateDialog(false);
+              }}
             >
               <FiX size={20} />
             </button>
@@ -2629,15 +2750,47 @@ const AdminTaskManagement = () => {
 
             <div className="AdminTaskManagement-form-group">
               <label>Voice Note (Optional)</label>
-              <div className="AdminTaskManagement-file-upload">
-                <input
-                  type="file"
-                  accept="audio/*"
-                  onChange={(e) => setNewTask({ ...newTask, voiceNote: e.target.files[0] })}
-                />
-                <div className="AdminTaskManagement-file-upload-hint">
-                  <FiMic /> Record or upload voice note
+              <div className="AdminTaskManagement-voice-note-section">
+                <div className="AdminTaskManagement-voice-note-actions">
+                  <button
+                    type="button"
+                    className={`AdminTaskManagement-btn ${isRecordingVoice ? 'AdminTaskManagement-btn-danger' : 'AdminTaskManagement-btn-outline'}`}
+                    onClick={isRecordingVoice ? () => stopVoiceRecording(false) : startVoiceRecording}
+                  >
+                    <FiMic />
+                    {isRecordingVoice ? 'Stop Recording' : 'Record Voice'}
+                  </button>
+                  {newTask.voiceNote && !isRecordingVoice && (
+                    <button
+                      type="button"
+                      className="AdminTaskManagement-btn AdminTaskManagement-btn-outline"
+                      onClick={() => {
+                        setNewTask(prev => ({ ...prev, voiceNote: null }));
+                        clearVoiceRecordingPreview();
+                      }}
+                    >
+                      <FiX />
+                      Remove Voice
+                    </button>
+                  )}
                 </div>
+                <div className="AdminTaskManagement-voice-note-hint">
+                  Tap the mic to record audio directly here. The recording will be attached to this task.
+                </div>
+                {isRecordingVoice && (
+                  <div className="AdminTaskManagement-voice-note-recording">
+                    <span className="AdminTaskManagement-voice-note-dot" />
+                    Recording in progress
+                  </div>
+                )}
+                {!isRecordingVoice && voicePreviewUrl && (
+                  <div className="AdminTaskManagement-voice-note-preview">
+                    <div style={{ fontWeight: 600, marginBottom: '10px' }}>Voice Note Preview</div>
+                    <audio controls preload="metadata" src={voicePreviewUrl} style={{ width: '100%', display: 'block' }}>
+                      Your browser does not support audio playback.
+                    </audio>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -2645,7 +2798,10 @@ const AdminTaskManagement = () => {
         <div className="AdminTaskManagement-modal-footer">
           <button 
             className="AdminTaskManagement-btn" 
-            onClick={() => setOpenCreateDialog(false)}
+            onClick={() => {
+              resetNewTaskForm();
+              setOpenCreateDialog(false);
+            }}
             disabled={isCreatingTask}
           >
             Cancel
@@ -2653,7 +2809,7 @@ const AdminTaskManagement = () => {
           <button
             className="AdminTaskManagement-btn AdminTaskManagement-btn-primary"
             onClick={handleCreateTask}
-            disabled={isCreatingTask}
+            disabled={isCreatingTask || isRecordingVoice}
           >
             {isCreatingTask ? 'Creating...' : 'Create Task'}
           </button>

@@ -89,8 +89,9 @@ const SpeechToTextControl = () => {
   const snapshotRef = useRef(null);
   const shouldKeepListeningRef = useRef(false);
   const restartTimerRef = useRef(null);
+  const lockedTopRef = useRef(null);
 
-  const updatePosition = () => {
+  const updatePosition = (preserveVerticalPosition = false) => {
     const element = targetRef.current;
     if (!isEditableTextTarget(element)) {
       setPosition(null);
@@ -103,10 +104,23 @@ const SpeechToTextControl = () => {
       return;
     }
 
-    setPosition({
-      top: rect.top + rect.height / 2,
+    const fieldCenter = rect.top + rect.height / 2;
+    if (!preserveVerticalPosition || lockedTopRef.current === null) {
+      lockedTopRef.current = fieldCenter;
+    }
+
+    const nextPosition = {
+      top: lockedTopRef.current,
       left: Math.max(8, rect.right - 38),
-    });
+    };
+
+    setPosition((currentPosition) => (
+      currentPosition
+      && currentPosition.top === nextPosition.top
+      && currentPosition.left === nextPosition.left
+        ? currentPosition
+        : nextPosition
+    ));
   };
 
   useEffect(() => {
@@ -117,6 +131,7 @@ const SpeechToTextControl = () => {
     const handleFocusIn = (event) => {
       if (!isEditableTextTarget(event.target)) return;
       targetRef.current = event.target;
+      lockedTopRef.current = null;
       setTarget(event.target);
       requestAnimationFrame(updatePosition);
     };
@@ -127,26 +142,51 @@ const SpeechToTextControl = () => {
         if (activeElement?.closest?.(".speech-to-text-control")) return;
         if (isListening) return;
         targetRef.current = isEditableTextTarget(activeElement) ? activeElement : null;
+        lockedTopRef.current = null;
         setTarget(targetRef.current);
         updatePosition();
       }, 120);
     };
 
+    const handleResize = () => updatePosition(true);
+    const handleScroll = () => updatePosition(false);
+
     document.addEventListener("focusin", handleFocusIn);
     document.addEventListener("focusout", handleFocusOut);
-    window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("scroll", handleScroll, true);
 
     return () => {
       document.removeEventListener("focusin", handleFocusIn);
       document.removeEventListener("focusout", handleFocusOut);
-      window.removeEventListener("resize", updatePosition);
-      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("scroll", handleScroll, true);
     };
   }, [isListening]);
 
   useEffect(() => {
     targetRef.current = target;
+  }, [target]);
+
+  useEffect(() => {
+    if (!target || typeof ResizeObserver === "undefined") return undefined;
+
+    const resizeObserver = new ResizeObserver(() => updatePosition(true));
+    resizeObserver.observe(target);
+    return () => resizeObserver.disconnect();
+  }, [target]);
+
+  useEffect(() => {
+    if (!target) return undefined;
+
+    let animationFrameId;
+    const followHorizontalMovement = () => {
+      updatePosition(true);
+      animationFrameId = window.requestAnimationFrame(followHorizontalMovement);
+    };
+
+    animationFrameId = window.requestAnimationFrame(followHorizontalMovement);
+    return () => window.cancelAnimationFrame(animationFrameId);
   }, [target]);
 
   const stopListening = () => {

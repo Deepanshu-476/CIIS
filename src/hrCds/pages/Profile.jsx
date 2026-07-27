@@ -135,6 +135,9 @@ const Profile = () => {
   const [documentsLoading, setDocumentsLoading] = useState(true);
   const [uploadingDocument, setUploadingDocument] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [documentDragActive, setDocumentDragActive] = useState(false);
+  const [documentUploadError, setDocumentUploadError] = useState("");
   const [documentPreview, setDocumentPreview] = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
@@ -233,23 +236,50 @@ const Profile = () => {
   }, [loadDocuments]);
 
   const handleDocumentButtonClick = () => {
-    if (!documentName.trim()) {
-      setMessage({ type: "error", text: "Please enter the document name first." });
-      return;
-    }
     documentInputRef.current?.click();
   };
 
-  const handleDocumentSelected = async (event) => {
-    const selectedFile = event.target.files?.[0];
+  const selectDocumentFile = (selectedFile) => {
     if (!selectedFile) return;
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
+    if (!allowedTypes.includes(selectedFile.type)) {
+      setDocumentUploadError("Please choose a PDF, JPG, or PNG file.");
+      return;
+    }
+    if (selectedFile.size > 5 * 1024 * 1024) {
+      setDocumentUploadError("Document must be 5 MB or smaller.");
+      return;
+    }
+    setSelectedDocument(selectedFile);
+    setDocumentUploadError("");
+    setMessage(null);
+  };
 
+  const handleDocumentSelected = (event) => {
+    selectDocumentFile(event.target.files?.[0]);
+    event.target.value = "";
+  };
+
+  const uploadSelectedDocument = async () => {
+    if (!documentName.trim() && !selectedDocument) {
+      setDocumentUploadError("Enter a document name and choose a file.");
+      return;
+    }
+    if (!documentName.trim()) {
+      setDocumentUploadError("Document Name is required.");
+      return;
+    }
+    if (!selectedDocument) {
+      setDocumentUploadError("Please choose a document to upload.");
+      return;
+    }
+    setDocumentUploadError("");
     setUploadingDocument(true);
     setUploadProgress(0);
     setMessage(null);
     try {
       const formData = new FormData();
-      formData.append("document", selectedFile);
+      formData.append("document", selectedDocument);
       formData.append("name", documentName.trim());
       const response = await axios.post(`/users/${userId}/documents`, formData, {
         onUploadProgress: (progressEvent) => {
@@ -258,6 +288,7 @@ const Profile = () => {
       });
       setDocuments((current) => [...current, response.data.document]);
       setDocumentName("");
+      setSelectedDocument(null);
       setDocumentUploadOpen(false);
       setMessage({ type: "success", text: "Document uploaded successfully." });
     } catch (error) {
@@ -271,8 +302,16 @@ const Profile = () => {
     } finally {
       setUploadingDocument(false);
       setUploadProgress(0);
-      event.target.value = "";
     }
+  };
+
+  const closeDocumentUpload = () => {
+    if (uploadingDocument) return;
+    setDocumentUploadOpen(false);
+    setDocumentName("");
+    setSelectedDocument(null);
+    setDocumentDragActive(false);
+    setDocumentUploadError("");
   };
 
   const openDocument = async (item, download = false) => {
@@ -405,18 +444,21 @@ const Profile = () => {
       return;
     }
 
-    const normalizedAccountNumber = formData.accountNumber.trim();
+    const normalizedAccountNumber = String(formData.accountNumber || "").trim();
     if ((editSection === "all" || editSection === "bank") && !/^\d{9,18}$/.test(normalizedAccountNumber)) {
       setMessage({ type: "error", text: "Account Number must contain 9 to 18 digits." });
       return;
     }
 
-    if ((editSection === "all" || editSection === "bank") && normalizedAccountNumber !== formData.confirmAccountNumber.trim()) {
+    if (
+      (editSection === "all" || editSection === "bank") &&
+      normalizedAccountNumber !== String(formData.confirmAccountNumber || "").trim()
+    ) {
       setMessage({ type: "error", text: "Account Number and Confirm Account Number do not match." });
       return;
     }
 
-    const normalizedIfsc = formData.ifsc.trim().toUpperCase();
+    const normalizedIfsc = String(formData.ifsc || "").replace(/\s+/g, "").toUpperCase();
     if ((editSection === "all" || editSection === "bank") && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(normalizedIfsc)) {
       setMessage({ type: "error", text: "Please enter a valid IFSC Code (for example: SBIN0001234)." });
       return;
@@ -440,11 +482,11 @@ const Profile = () => {
       state: formData.state.trim(),
       pinCode: formData.pinCode.trim(),
       country: formData.country.trim(),
-      bankHolderName: formData.bankHolderName.trim(),
+      bankHolderName: String(formData.bankHolderName || "").trim(),
       accountNumber: normalizedAccountNumber,
-      confirmAccountNumber: formData.confirmAccountNumber.trim(),
+      confirmAccountNumber: String(formData.confirmAccountNumber || "").trim(),
       ifsc: normalizedIfsc,
-      bankName: formData.bankName.trim(),
+      bankName: String(formData.bankName || "").trim(),
       fatherName: formData.fatherName.trim(),
       motherName: formData.motherName.trim(),
       spouseName: formData.spouseName.trim(),
@@ -689,18 +731,13 @@ const Profile = () => {
             <h3><FiShield /> Identity & Compliance</h3>
             <div className="UserDetails-section-actions">
               <button type="button" onClick={() => openEdit("identity")}><FiEdit /> Edit</button>
-              <button className="UserDetails-identity-upload-btn" type="button" onClick={() => setDocumentUploadOpen((open) => !open)}><FiUpload /> Upload</button>
+              <button className="UserDetails-identity-upload-btn" type="button" onClick={() => setDocumentUploadOpen(true)}><FiUpload /> Upload</button>
             </div>
           </div>
           <div className="UserDetails-info-grid UserDetails-identity-fields">
             <InfoItem label="Aadhaar Number" value={maskAccountNumber(profile?.aadhaar || profile?.aadhar || profile?.aadharCard)} required />
             <InfoItem label="PAN Number" value={maskAccountNumber(profile?.panCard || profile?.pan)} required />
           </div>
-          {documentUploadOpen && <div className="UserDetails-identity-upload">
-            <input type="text" value={documentName} onChange={(event) => setDocumentName(event.target.value)} placeholder="Document name" autoFocus />
-            <input ref={documentInputRef} className="UserDetails-hidden-file-input" type="file" accept=".pdf,.jpg,.jpeg,.jfif,.png,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.odt,.ods" onChange={handleDocumentSelected} tabIndex={-1} />
-            <button className="UserDetails-primary-btn" type="button" onClick={handleDocumentButtonClick} disabled={uploadingDocument}><FiUpload /> {uploadingDocument ? `${uploadProgress}%` : "Choose File"}</button>
-          </div>}
           <div className="UserDetails-identity-documents">
             <div className="UserDetails-identity-documents-head">
               <span><FiFileText /> Documents</span>
@@ -818,6 +855,13 @@ const Profile = () => {
                 <FiX />
               </button>
             </div>
+
+            {message && (
+              <div className={`UserDetails-alert ${message.type}`} role="alert">
+                {message.text}
+                <button type="button" onClick={() => setMessage(null)} aria-label="Dismiss message"><FiX /></button>
+              </div>
+            )}
 
             <div className="UserDetails-modal-content">
               {(editSection === "all" || editSection === "personal") && <section className="UserDetails-form-section">
@@ -1103,6 +1147,53 @@ const Profile = () => {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {documentUploadOpen && (
+        <div className="UserDetails-upload-modal-overlay" onClick={closeDocumentUpload}>
+          <div className="UserDetails-upload-modal" role="dialog" aria-modal="true" aria-labelledby="upload-document-title" onClick={(event) => event.stopPropagation()}>
+            <div className="UserDetails-upload-modal-header">
+              <span><FiFileText /></span>
+              <div><h2 id="upload-document-title">Upload Document</h2><p>Add an identity document securely</p></div>
+              <button type="button" onClick={closeDocumentUpload} disabled={uploadingDocument} aria-label="Close upload dialog"><FiX /></button>
+            </div>
+            <div className="UserDetails-upload-modal-body">
+              <label className="UserDetails-upload-name">
+                <span>Document Name <b>*</b></span>
+                <input value={documentName} onChange={(event) => { setDocumentName(event.target.value); if (event.target.value.trim()) setDocumentUploadError(""); }} placeholder="e.g., PAN Card, Aadhaar Card, Driving Licence" autoFocus />
+                <small>Enter the name that will appear in the document list.</small>
+              </label>
+              <div
+                className={`UserDetails-upload-dropzone${documentDragActive ? " is-dragging" : ""}`}
+                onDragEnter={(event) => { event.preventDefault(); setDocumentDragActive(true); }}
+                onDragOver={(event) => event.preventDefault()}
+                onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setDocumentDragActive(false); }}
+                onDrop={(event) => { event.preventDefault(); setDocumentDragActive(false); selectDocumentFile(event.dataTransfer.files?.[0]); }}
+              >
+                <FiUpload />
+                {selectedDocument ? (
+                  <>
+                    <strong>{selectedDocument.name}</strong>
+                    <span>{Math.round(selectedDocument.size / 1024)} KB · Ready to upload</span>
+                  </>
+                ) : (
+                  <>
+                    <strong>Drag & drop your file here</strong>
+                    <span>or click to browse</span>
+                    <span>PDF, JPG or PNG · Max 5 MB</span>
+                  </>
+                )}
+                <button type="button" onClick={handleDocumentButtonClick} disabled={uploadingDocument}>{selectedDocument ? "Change File" : "Browse Files"}</button>
+                <input ref={documentInputRef} className="UserDetails-hidden-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={handleDocumentSelected} tabIndex={-1} />
+              </div>
+              {documentUploadError && <p className="UserDetails-upload-error"><FiAlertTriangle /> {documentUploadError}</p>}
+            </div>
+            <div className="UserDetails-upload-modal-footer">
+              <button type="button" className="UserDetails-secondary-btn" onClick={closeDocumentUpload} disabled={uploadingDocument}>Cancel</button>
+              <button type="button" className="UserDetails-primary-btn" onClick={uploadSelectedDocument} disabled={uploadingDocument}>{uploadingDocument ? `Uploading ${uploadProgress}%` : "Upload Document"}</button>
+            </div>
+          </div>
         </div>
       )}
 

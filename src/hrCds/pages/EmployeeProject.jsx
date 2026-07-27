@@ -1022,6 +1022,8 @@ const EmployeeProject = () => {
       ? filteredTasks.filter(task => getTaskAssignedUserIds(task).length === 0)
       : filteredTasks.filter(task => getTaskAssignedUserIds(task).includes(taskAssigneeFilter));
   const displayedTasks = sortTasksByCreatedAt(assigneeFilteredTasks);
+  const documentCount = (projectDetails?.pdfFile?.path ? 1 : 0)
+    + tasks.filter(task => task?.pdfFile?.path).length;
 
   const taskAssigneeOptions = [
     { value: "all", label: "All assignees" },
@@ -1738,6 +1740,7 @@ const EmployeeProject = () => {
               >
                 <Icons.Task />
                 Tasks
+                <span className="EmployeeProject-tab-count">{tasks.length}</span>
               </button>
               <button 
                 className={`EmployeeProject-tab ${tabValue === 1 ? 'EmployeeProject-tab-active' : ''}`}
@@ -1745,6 +1748,7 @@ const EmployeeProject = () => {
               >
                 <Icons.PictureAsPdf />
                 Documents
+                <span className="EmployeeProject-tab-count">{documentCount}</span>
               </button>
               <button 
                 className={`EmployeeProject-tab ${tabValue === 2 ? 'EmployeeProject-tab-active' : ''}`}

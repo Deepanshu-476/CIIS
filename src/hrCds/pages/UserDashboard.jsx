@@ -689,7 +689,7 @@ const UserDashboard = () => {
     try {
       const config = { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 };
       const [tasksResult, logsResult] = await Promise.allSettled([
-        axios.get(`/task/user/${userId}/all-tasks`, { ...config, params: { page: 1, limit: 50, period: 'all' } }),
+        axios.get(`/task/user/${userId}/all-tasks`, { ...config, params: { page: 1, limit: 50, period: 'all', scope: 'assigned' } }),
         axios.get(`/task/user-activity/${userId}`, config)
       ]);
 
@@ -748,9 +748,9 @@ const UserDashboard = () => {
     try {
       const config = { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 };
       const [todayResponse, allResponse, tasksResponse] = await Promise.all([
-        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'today' } }),
-        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'all' } }),
-        axios.get(`/task/user/${userId}/all-tasks`, { ...config, params: { page: 1, limit: 500, period: 'all' } })
+        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'today', scope: 'assigned' } }),
+        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'all', scope: 'assigned' } }),
+        axios.get(`/task/user/${userId}/all-tasks`, { ...config, params: { page: 1, limit: 500, period: 'all', scope: 'assigned' } })
       ]);
       const today = todayResponse.data?.statusCounts || {};
       const all = allResponse.data?.statusCounts || {};
@@ -879,7 +879,7 @@ const UserDashboard = () => {
       const clockIn = record.inTime || record.checkInTime || record.clockIn || record.punchIn;
       const clockOut = record.outTime || record.checkOutTime || record.clockOut || record.punchOut;
       if (clockIn) allActivities.push({ ...record, type: 'clock-in', date: clockIn, title: 'Clock In', subtitle: 'Checked in from Web', status: 'PRESENT' });
-      if (clockOut) allActivities.push({ ...record, type: 'clock-out', date: clockOut, title: 'Clock Out', subtitle: 'Checked out from Web', status: 'ABSENT' });
+      if (clockOut) allActivities.push({ ...record, type: 'clock-out', date: clockOut, title: 'Clock Out', subtitle: 'Checked out from Web', status: 'PRESENT' });
       if (!clockIn && !clockOut) allActivities.push({ ...record, type: 'attendance', date: record.date, status: record.status, displayDate: new Date(record.date) });
     });
 
@@ -1187,34 +1187,65 @@ const UserDashboard = () => {
     return map;
   }, [holidays]);
 
-  const monthlyStats = useMemo(() => {
-    const presentDays = filteredAttendanceData.filter(record => {
-      const d = new Date(record.date);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear && record.status === 'PRESENT';
-    }).length;
+  const { monthlyStats, previousMonthlyStats, previousMonthLabel } = useMemo(() => {
+    const todayStart = new Date(currentDate);
+    todayStart.setHours(0, 0, 0, 0);
 
-    const lateDays = filteredAttendanceData.filter(record => {
-      const d = new Date(record.date);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear && record.status === 'LATE';
-    }).length;
+    const calculateMonth = (year, month) => {
+      const records = filteredAttendanceData.filter(record => {
+        const date = new Date(record.date);
+        return !Number.isNaN(date.getTime()) && date.getMonth() === month && date.getFullYear() === year;
+      });
+      const toDateKey = record => {
+        const date = new Date(record.date);
+        return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      };
+      const attendanceKeys = new Set(records.map(toDateKey));
+      const explicitAbsentKeys = new Set(
+        records.filter(record => record.status === 'ABSENT').map(toDateKey)
+      );
+      const inferredAbsentKeys = new Set();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-    const halfDays = filteredAttendanceData.filter(record => {
-      const d = new Date(record.date);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear && record.status === 'HALF DAY';
-    }).length;
+      for (let day = 1; day <= daysInMonth; day += 1) {
+        const date = new Date(year, month, day);
+        const key = `${year}-${month}-${day}`;
+        if (
+          date >= todayStart ||
+          date.getDay() === 0 ||
+          date.getDay() === 6 ||
+          isBeforeJoinDate(date) ||
+          holidayDates.includes(key) ||
+          leaveDates.includes(key) ||
+          attendanceKeys.has(key)
+        ) continue;
+        inferredAbsentKeys.add(key);
+      }
 
-    const absentDays = filteredAttendanceData.filter(record => {
-      const d = new Date(record.date);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear && record.status === 'ABSENT';
-    }).length;
+      return {
+        presentDays: records.filter(record => record.status === 'PRESENT').length,
+        lateDays: records.filter(record => record.status === 'LATE').length,
+        halfDays: records.filter(record => record.status === 'HALF DAY').length,
+        absentDays: new Set([...explicitAbsentKeys, ...inferredAbsentKeys]).size,
+        leavesTaken: leaveDates.filter(dateStr => {
+          const [leaveYear, leaveMonth] = dateStr.split('-').map(Number);
+          return leaveYear === year && leaveMonth === month;
+        }).length
+      };
+    };
 
-    const leavesTaken = leaveDates.filter(dateStr => {
-      const [year, month] = dateStr.split('-').map(Number);
-      return month === currentMonth && year === currentYear;
-    }).length;
+    const previousDate = new Date(currentYear, currentMonth - 1, 1);
+    return {
+      monthlyStats: calculateMonth(currentYear, currentMonth),
+      previousMonthlyStats: calculateMonth(previousDate.getFullYear(), previousDate.getMonth()),
+      previousMonthLabel: previousDate.toLocaleDateString('en-US', { month: 'short' })
+    };
+  }, [filteredAttendanceData, leaveDates, holidayDates, currentMonth, currentYear, currentDate, isBeforeJoinDate]);
 
-    return { presentDays, lateDays, halfDays, absentDays, leavesTaken };
-  }, [filteredAttendanceData, leaveDates, currentMonth, currentYear]);
+  const getMonthlyChange = useCallback((currentValue, previousValue) => {
+    if (!previousValue) return currentValue ? 100 : 0;
+    return Math.round(((currentValue - previousValue) / previousValue) * 100);
+  }, []);
 
   
   const getDayStatus = useCallback((day) => {
@@ -2314,7 +2345,7 @@ const UserDashboard = () => {
             <div className="stat-label">Present</div>
             <div className="stat-footer">
               <FiTrendingUp className="stat-trend-icon" />
-              <span className="stat-month-text">20% vs Jun</span>
+              <span className="stat-month-text">{getMonthlyChange(monthlyStats.presentDays, previousMonthlyStats.presentDays)}% vs {previousMonthLabel}</span>
             </div>
             <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,22 14,10 28,18 42,7 56,20 70,12 84,23 100,5 120,16" /></svg>
           </div>
@@ -2328,7 +2359,7 @@ const UserDashboard = () => {
             <div className="stat-label">Late</div>
             <div className="stat-footer">
               <FiAlertTriangle className="stat-trend-icon" />
-              <span className="stat-month-text">0% vs Jun</span>
+              <span className="stat-month-text">{getMonthlyChange(monthlyStats.lateDays, previousMonthlyStats.lateDays)}% vs {previousMonthLabel}</span>
             </div>
             <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,8 14,23 28,14 42,19 56,10 70,21 84,13 100,24 120,7" /></svg>
           </div>
@@ -2342,7 +2373,7 @@ const UserDashboard = () => {
             <div className="stat-label">Half Day</div>
             <div className="stat-footer">
               <FiActivity className="stat-trend-icon" />
-              <span className="stat-month-text">12% vs Jun</span>
+              <span className="stat-month-text">{getMonthlyChange(monthlyStats.halfDays, previousMonthlyStats.halfDays)}% vs {previousMonthLabel}</span>
             </div>
             <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,19 14,7 28,13 42,9 56,22 70,15 84,20 100,10 120,12" /></svg>
           </div>
@@ -2356,7 +2387,7 @@ const UserDashboard = () => {
             <div className="stat-label">Leave</div>
             <div className="stat-footer">
               <FiCheckCircle className="stat-trend-icon" />
-              <span className="stat-month-text">0% vs Jun</span>
+              <span className="stat-month-text">{getMonthlyChange(monthlyStats.leavesTaken, previousMonthlyStats.leavesTaken)}% vs {previousMonthLabel}</span>
             </div>
             <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,6 14,8 28,22 42,13 56,24 70,11 84,20 100,9 120,18" /></svg>
           </div>
@@ -2370,7 +2401,7 @@ const UserDashboard = () => {
             <div className="stat-label">Absent</div>
             <div className="stat-footer">
               <FiAlertCircle className="stat-trend-icon" />
-              <span className="stat-month-text">5% vs Jun</span>
+              <span className="stat-month-text">{getMonthlyChange(monthlyStats.absentDays, previousMonthlyStats.absentDays)}% vs {previousMonthLabel}</span>
             </div>
             <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,7 14,9 28,24 42,19 56,22 70,11 84,25 100,18 120,20" /></svg>
           </div>

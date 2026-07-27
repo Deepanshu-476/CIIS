@@ -303,33 +303,73 @@ const AdminTaskManagement = () => {
     return currentCompany?.toString() === targetCompany?.toString();
   };
 
-  
+  const getUserDepartmentId = (user = {}) => {
+    return String(user.department?._id || user.department || user.departmentId || '').trim();
+  };
+
+  const getDepartmentId = (department = {}) => String(department?._id || department?.id || '').trim();
+
+  const normalizeDepartmentName = (value) => String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+
+  const getDepartmentById = (departmentId) => {
+    const targetId = String(departmentId || '').trim();
+    return departments.find(department => getDepartmentId(department) === targetId) || null;
+  };
+
+  const getDepartmentIdFromUser = (user = {}) => {
+    const rawDepartmentId = getUserDepartmentId(user);
+    if (!rawDepartmentId) return '';
+    if (departments.some(department => getDepartmentId(department) === rawDepartmentId)) {
+      return rawDepartmentId;
+    }
+
+    const rawDepartmentName = normalizeDepartmentName(
+      getReadableDepartmentName(user.department) ||
+      user.departmentName ||
+      rawDepartmentId
+    );
+    const matchedDepartment = departments.find(department => (
+      normalizeDepartmentName(getReadableDepartmentName(department) || department?.name || department?.departmentName) === rawDepartmentName
+    ));
+
+    return getDepartmentId(matchedDepartment) || rawDepartmentId;
+  };
+
+  const isUserInDepartment = (user, departmentId) => {
+    const selectedDepartmentId = String(departmentId || '').trim();
+    if (!selectedDepartmentId) return false;
+
+    const userDepartmentId = getDepartmentIdFromUser(user);
+    if (userDepartmentId === selectedDepartmentId) return true;
+
+    const selectedDepartment = getDepartmentById(selectedDepartmentId);
+    const selectedDepartmentName = normalizeDepartmentName(
+      getReadableDepartmentName(selectedDepartment) ||
+      selectedDepartment?.name ||
+      selectedDepartment?.departmentName
+    );
+    const userDepartmentName = normalizeDepartmentName(
+      getReadableDepartmentName(user?.department) ||
+      user?.departmentName ||
+      getUserDepartmentId(user)
+    );
+
+    return Boolean(selectedDepartmentName && userDepartmentName && selectedDepartmentName === userDepartmentName);
+  };
+
   const filteredUsers = users.filter(user => {
-    
     const isSameCompany = checkSameCompany(user);
     const isSelf = (user.id || user._id) === currentUser.id;
-    
+
     if (!isSameCompany || isSelf) return false;
-    
-    
-    if (!canAssignAcrossDepartments()) {
-      const userDept = user.department?._id || user.department;
-      const currentDept = currentUser.department?._id || currentUser.department;
-      
-      if (userDept?.toString() !== currentDept?.toString()) {
-        return false;
-      }
-    }
-    
-    
+
     return user.name?.toLowerCase().includes(userSearch.toLowerCase()) ||
            user.email?.toLowerCase().includes(userSearch.toLowerCase()) ||
            user.role?.toLowerCase().includes(userSearch.toLowerCase());
   });
-
-  const getUserDepartmentId = (user = {}) => {
-    return String(user.department?._id || user.department || user.departmentId || '').trim();
-  };
 
   const departmentOptionsForCreate = (() => {
     if (branchOptions.length > 1 && !selectedBranchId) return [];
@@ -337,7 +377,7 @@ const AdminTaskManagement = () => {
     const optionsMap = new Map();
 
     departments.forEach(department => {
-      const id = String(department?._id || department?.id || '').trim();
+      const id = getDepartmentId(department);
       const name = getReadableDepartmentName(department) || department?.name || department?.departmentName || '';
       if (id && name) {
         optionsMap.set(id, { id, name, count: 0 });
@@ -346,13 +386,7 @@ const AdminTaskManagement = () => {
 
     users.forEach(user => {
       if (!checkSameCompany(user) || (user.id || user._id) === currentUser.id) return;
-      if (!canAssignAcrossDepartments()) {
-        const userDept = getUserDepartmentId(user);
-        const currentDept = String(currentUser.department?._id || currentUser.department || '').trim();
-        if (userDept !== currentDept) return;
-      }
-
-      const departmentId = getUserDepartmentId(user);
+      const departmentId = getDepartmentIdFromUser(user);
       if (!departmentId) return;
       const departmentName = getUserDepartmentDisplay(user) || departmentMap[getLookupKey(departmentId)] || 'Department';
       const current = optionsMap.get(departmentId) || { id: departmentId, name: departmentName, count: 0 };
@@ -361,14 +395,13 @@ const AdminTaskManagement = () => {
     });
 
     return Array.from(optionsMap.values())
-      .filter(option => option.count > 0)
       .sort((a, b) => a.name.localeCompare(b.name));
   })();
 
   const createAssignableUsers = filteredUsers.filter(user => {
     if (branchOptions.length > 1 && !selectedBranchId) return false;
     if (!selectedCreateDepartment) return false;
-    return getUserDepartmentId(user) === selectedCreateDepartment;
+    return isUserInDepartment(user, selectedCreateDepartment);
   });
 
   useEffect(() => {
@@ -716,6 +749,22 @@ const AdminTaskManagement = () => {
     setFilteredStats(stats);
   };
 
+  const getUsersFromApiResult = (usersResult) => {
+    if (usersResult?.message?.users && Array.isArray(usersResult.message.users)) {
+      return usersResult.message.users;
+    }
+    if (usersResult?.users && Array.isArray(usersResult.users)) {
+      return usersResult.users;
+    }
+    if (usersResult?.data && Array.isArray(usersResult.data)) {
+      return usersResult.data;
+    }
+    if (Array.isArray(usersResult)) {
+      return usersResult;
+    }
+    return [];
+  };
+
   
   const fetchSupportingData = async () => {
     try {
@@ -761,35 +810,14 @@ const AdminTaskManagement = () => {
       }
       
       
-      let usersUrl;
-      
-      if (canAssignAcrossDepartments()) {
-        usersUrl = `/users/company-users?companyId=${companyId}${branchQueryParams.branchId ? `&branchId=${branchQueryParams.branchId}` : ''}`;
-      } else {
-        const deptId = currentUser.department?._id || currentUser.department;
-        if (deptId) {
-          usersUrl = `/users/department-users?department=${deptId}${branchQueryParams.branchId ? `&branchId=${branchQueryParams.branchId}` : ''}`;
-        } else {
-          usersUrl = `/users/company-users${branchQueryParams.branchId ? `?branchId=${branchQueryParams.branchId}` : ''}`;
-        }
-      }
+      const userParams = new URLSearchParams();
+      if (companyId) userParams.set('companyId', companyId);
+      if (branchQueryParams.branchId) userParams.set('branchId', branchQueryParams.branchId);
+      const usersQuery = userParams.toString();
+      const usersUrl = usersQuery ? `/users/company-users?${usersQuery}` : '/users/company-users';
       
       const usersResult = await apiCall('get', usersUrl);
-      
-      let usersArray = [];
-      
-      if (usersResult.message && usersResult.message.users && Array.isArray(usersResult.message.users)) {
-        usersArray = usersResult.message.users;
-      }
-      else if (usersResult.users && Array.isArray(usersResult.users)) {
-        usersArray = usersResult.users;
-      }
-      else if (usersResult.data && Array.isArray(usersResult.data)) {
-        usersArray = usersResult.data;
-      }
-      else if (Array.isArray(usersResult)) {
-        usersArray = usersResult;
-      }
+      let usersArray = getUsersFromApiResult(usersResult);
       
       
       if (currentUser.company) {
@@ -866,23 +894,6 @@ const AdminTaskManagement = () => {
     if (newTask.assignedUsers.length === 0 && newTask.assignedGroups.length === 0) {
       showSnackbar('Please assign to at least one user or group', 'error');
       return;
-    }
-
-    
-    if (!canAssignAcrossDepartments() && newTask.assignedUsers.length > 0) {
-      const currentDept = currentUser.department?._id || currentUser.department;
-      
-      for (const assignedUserId of newTask.assignedUsers) {
-        const assignedUser = users.find(u => (u.id || u._id) === assignedUserId);
-        if (assignedUser) {
-          const userDept = assignedUser.department?._id || assignedUser.department;
-          
-          if (userDept?.toString() !== currentDept?.toString()) {
-            showSnackbar(`Cannot assign task to ${assignedUser.name} - they are in a different department.`, 'error');
-            return;
-          }
-        }
-      }
     }
 
     setIsCreatingTask(true);
@@ -2259,15 +2270,9 @@ const AdminTaskManagement = () => {
             
             <div className="AdminTaskManagement-form-group">
               <div className="AdminTaskManagement-role-hint">
-                {canAssignAcrossDepartments() ? (
-                  <span className="AdminTaskManagement-role-hint-admin">
-                    <FiUserCheck /> Branch select karke department-wise users assign karein
-                  </span>
-                ) : (
-                  <span className="AdminTaskManagement-role-hint-employee">
-                    <FiUsers /> Employee: You can only assign tasks to users in your department
-                  </span>
-                )}
+                <span className="AdminTaskManagement-role-hint-admin">
+                  <FiUserCheck /> Select a branch to assign tasks to departments and users in that branch
+                </span>
               </div>
             </div>
 
@@ -2340,11 +2345,7 @@ const AdminTaskManagement = () => {
             <div className="AdminTaskManagement-form-group">
               <label>
                 Assign to Users 
-                {canAssignAcrossDepartments() ? (
-                  <span className="AdminTaskManagement-role-badge">(Branch & Department Wise)</span>
-                ) : (
-                  <span className="AdminTaskManagement-role-badge">(Same Department Only)</span>
-                )}
+                <span className="AdminTaskManagement-role-badge">(Branch Departments)</span>
               </label>
               <div className="AdminTaskManagement-multi-select-container">
                 {branchOptions.length > 1 && (
@@ -2367,7 +2368,7 @@ const AdminTaskManagement = () => {
                       ))}
                     </select>
                     <small className="AdminTaskManagement-form-hint">
-                      Branch select karte hi us branch ke departments load honge.
+                      Selecting a branch will load departments for that branch.
                     </small>
                   </div>
                 )}
@@ -2386,7 +2387,7 @@ const AdminTaskManagement = () => {
                         assignedUsers: prev.assignedUsers.filter(userId => {
                           if (!nextDepartment) return false;
                           const assignedUser = users.find(user => (user.id || user._id) === userId);
-                          return assignedUser && getUserDepartmentId(assignedUser) === nextDepartment;
+                          return assignedUser && isUserInDepartment(assignedUser, nextDepartment);
                         })
                       }));
                     }}
@@ -2403,7 +2404,7 @@ const AdminTaskManagement = () => {
                     ))}
                   </select>
                   <small className="AdminTaskManagement-form-hint">
-                    Department select karte hi niche sirf us department ke users dikhenge.
+                    Selecting a department will show users from that department in the selected branch.
                   </small>
                 </div>
                 <div className="AdminTaskManagement-select-search-bar">
@@ -2459,16 +2460,14 @@ const AdminTaskManagement = () => {
                             ? 'Select a branch first'
                             : !selectedCreateDepartment
                               ? 'Select a department to view users'
-                              : canAssignAcrossDepartments()
-                                ? 'No users found in selected department'
-                                : 'No other users found in your department'}
+                              : 'No users found in selected department'}
                         </p>
                       </div>
                     </div>
                   )}
                   {createAssignableUsers.length > visibleCreateAssignableUsers.length && (
                     <div className="AdminTaskManagement-multi-select-empty">
-                      <p>Showing first {visibleCreateAssignableUsers.length} users. Search ya department select karke list narrow karo.</p>
+                      <p>Showing the first {visibleCreateAssignableUsers.length} users. Use search or select a department to narrow the list.</p>
                     </div>
                   )}
                 </div>
@@ -2479,7 +2478,7 @@ const AdminTaskManagement = () => {
                     const user = users.find(u => u.id === value || u._id === value);
                     return user ? (
                       <span key={value} className="AdminTaskManagement-selected-chip">
-                        {user.name} {!canAssignAcrossDepartments() && getUserDepartmentDisplay(user) && `(${getUserDepartmentDisplay(user)})`}
+                        {user.name} {getUserDepartmentDisplay(user) && `(${getUserDepartmentDisplay(user)})`}
                       </span>
                     ) : null;
                   })}
@@ -2745,11 +2744,7 @@ const AdminTaskManagement = () => {
             <div className="AdminTaskManagement-form-group">
               <label>
                 Assign to Users 
-                {isOwner() ? (
-                  <span className="AdminTaskManagement-role-badge">(All Company Users)</span>
-                ) : (
-                  <span className="AdminTaskManagement-role-badge">(Same Department Only)</span>
-                )}
+                <span className="AdminTaskManagement-role-badge">(Branch Departments)</span>
               </label>
               <div className="AdminTaskManagement-multi-select-container">
                 {filteredUsers.length > 0 ? (
@@ -2783,15 +2778,13 @@ const AdminTaskManagement = () => {
                     <FiUsers size={32} className="AdminTaskManagement-empty-icon" />
                     <h5>No users available</h5>
                     <p>
-                      {isOwner() 
-                        ? 'No other users found in your company' 
-                        : 'No other users found in your department'}
+                      No users found in selected branch
                     </p>
                   </div>
                 )}
                 {filteredUsers.length > visibleFilteredUsers.length && (
                   <div className="AdminTaskManagement-multi-select-empty">
-                    <p>Showing first {visibleFilteredUsers.length} users. Search karke list narrow karo.</p>
+                    <p>Showing the first {visibleFilteredUsers.length} users. Use search to narrow the list.</p>
                   </div>
                 )}
               </div>
@@ -2936,7 +2929,7 @@ const AdminTaskManagement = () => {
                 )}
                 {filteredUsers.length > visibleFilteredUsers.length && (
                   <div className="AdminTaskManagement-multi-select-empty">
-                    <p>Showing first {visibleFilteredUsers.length} users. Search karke list narrow karo.</p>
+                    <p>Showing the first {visibleFilteredUsers.length} users. Use search to narrow the list.</p>
                   </div>
                 )}
               </div>

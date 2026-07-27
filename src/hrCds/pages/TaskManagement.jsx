@@ -304,8 +304,40 @@ const emptyExternalStats = () => ({
   overdue: { count: 0, percentage: 0 }
 });
 
+const getLatestTaskActivityDate = (task, predicate) => (
+  (Array.isArray(task?.activityLogs) ? task.activityLogs : [])
+    .filter(predicate)
+    .map(log => log?.performedAt || log?.createdAt)
+    .filter(Boolean)
+    .sort((a, b) => new Date(b) - new Date(a))[0] || null
+);
+
 const getTaskSourceAwareDate = (task) => {
   if (!task) return null;
+
+  const source = task.__taskSource || task.taskSource || task.source;
+  if (source === 'project') {
+    const status = normalizeStatus(task.userStatus || task.status || 'pending');
+    const latestAssignmentAt = task.assignedAt || getLatestTaskActivityDate(
+      task,
+      log => log?.type === 'assignment'
+    );
+    const latestStatusAt = task.statusUpdatedAt || getLatestTaskActivityDate(
+      task,
+      log => log?.type === 'status_change' || log?.type === 'status_changed'
+    );
+    const completedAt = task.completedAt || getLatestTaskActivityDate(
+      task,
+      log => (
+        (log?.type === 'status_change' || log?.type === 'status_changed') &&
+        normalizeStatus(log?.newValue) === 'completed'
+      )
+    );
+
+    if (status === 'completed' && completedAt) return completedAt;
+    return latestAssignmentAt || latestStatusAt || task.updatedAt || task.createdAt || task.createdDate;
+  }
+
   return task.dueDateTime || task.dueDate || task.createdAt || task.createdDate || task.updatedAt;
 };
 
@@ -1396,6 +1428,18 @@ const UserCreateTask = () => {
         .map(task => {
           const assignedBy = task.createdBy || task.activityLogs?.find(log => log.type === 'creation')?.performedBy || project.createdBy;
           const status = normalizeStatus(task.status || 'pending');
+          const assignedAt = getLatestTaskActivityDate(task, log => log?.type === 'assignment');
+          const statusUpdatedAt = getLatestTaskActivityDate(
+            task,
+            log => log?.type === 'status_change' || log?.type === 'status_changed'
+          );
+          const completedAt = getLatestTaskActivityDate(
+            task,
+            log => (
+              (log?.type === 'status_change' || log?.type === 'status_changed') &&
+              normalizeStatus(log?.newValue) === 'completed'
+            )
+          );
 
           return {
             _id: task._id || task.id,
@@ -1425,6 +1469,9 @@ const UserCreateTask = () => {
             createdAt: task.createdAt || project.createdAt,
             updatedAt: task.updatedAt || project.updatedAt,
             lastActivityAt: task.updatedAt || task.createdAt || project.updatedAt || project.createdAt,
+            assignedAt,
+            statusUpdatedAt,
+            completedAt,
             source: 'project',
             taskSource: 'project',
             __taskSource: 'project'
@@ -4484,45 +4531,6 @@ const UserCreateTask = () => {
                                         lineHeight: 1.35
                                       }}>
                                         {getProjectAssignmentDisplay(task)}
-                                      </div>
-                                    )}
-                                    {attachment && (
-                                      <div style={{ marginTop: '10px' }}>
-                                        {attachmentIsImage ? (
-                                          <button
-                                            type="button"
-                                            onClick={() => setZoomImage(attachmentUrl)}
-                                            style={{
-                                              border: '1px solid #dbe4ff',
-                                              background: '#f8fbff',
-                                              padding: 0,
-                                              borderRadius: '8px',
-                                              overflow: 'hidden',
-                                              cursor: 'pointer',
-                                              width: '120px',
-                                              height: '82px'
-                                            }}
-                                            title={attachmentName}
-                                          >
-                                            <img
-                                              src={attachmentUrl}
-                                              alt={attachmentName}
-                                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                                            />
-                                          </button>
-                                        ) : (
-                                          <a
-                                            href={attachmentUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="user-create-task-action-button"
-                                            style={{ width: 'fit-content', gap: '6px', padding: '8px 10px' }}
-                                            title={attachmentName}
-                                          >
-                                            <FiFileText size={14} />
-                                            View File
-                                          </a>
-                                        )}
                                       </div>
                                     )}
                                   </div>

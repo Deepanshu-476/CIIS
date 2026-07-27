@@ -41,6 +41,16 @@ const formatTime = seconds => {
   return `${h}:${m}:${s}`;
 };
 
+const getDailyProgressMessage = progress => {
+  const percentage = Math.max(0, Math.min(100, Number(progress) || 0));
+  if (percentage === 0) return 'Ready to get started';
+  if (percentage < 25) return 'A good start';
+  if (percentage < 50) return 'Keep going';
+  if (percentage < 75) return 'Good progress';
+  if (percentage < 100) return 'Almost there';
+  return 'Goal completed';
+};
+
 const getWeatherLabel = code => {
   if (code === 0) return 'Clear';
   if ([1, 2].includes(code)) return 'Partly cloudy';
@@ -261,6 +271,7 @@ const UserDashboard = () => {
   const [activeQuickAction, setActiveQuickAction] = useState(null);
   const [quickForm, setQuickForm] = useState({});
   const [quickSubmitting, setQuickSubmitting] = useState(false);
+  const [quickLeaveReasonError, setQuickLeaveReasonError] = useState('');
   const [quickTaskType, setQuickTaskType] = useState('personal');
   const [quickClients, setQuickClients] = useState([]);
   const [quickClientsLoading, setQuickClientsLoading] = useState(false);
@@ -688,9 +699,9 @@ const UserDashboard = () => {
     fetchInProgress.current.taskActivity = true;
 
     try {
-      const config = { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 };
+      const config = { headers: { Authorization: `Bearer ${token}` }, timeout: 30000 };
       const [tasksResult, logsResult] = await Promise.allSettled([
-        axios.get(`/task/user/${userId}/all-tasks`, { ...config, params: { page: 1, limit: 50, period: 'all' } }),
+        axios.get(`/task/user/${userId}/all-tasks`, { ...config, params: { page: 1, limit: 50, period: 'all', scope: 'assigned' } }),
         axios.get(`/task/user-activity/${userId}`, config)
       ]);
 
@@ -747,11 +758,11 @@ const UserDashboard = () => {
 
     setFocusStats(current => ({ ...current, loading: true }));
     try {
-      const config = { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 };
+      const config = { headers: { Authorization: `Bearer ${token}` }, timeout: 30000 };
       const [todayResponse, allResponse, tasksResponse] = await Promise.all([
-        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'today' } }),
-        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'all' } }),
-        axios.get(`/task/user/${userId}/all-tasks`, { ...config, params: { page: 1, limit: 500, period: 'all' } })
+        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'today', scope: 'assigned' } }),
+        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'all', scope: 'assigned' } }),
+        axios.get(`/task/user/${userId}/all-tasks`, { ...config, params: { page: 1, limit: 500, period: 'all', scope: 'assigned' } })
       ]);
       const today = todayResponse.data?.statusCounts || {};
       const all = allResponse.data?.statusCounts || {};
@@ -788,7 +799,9 @@ const UserDashboard = () => {
         dueToday,
         inProgress: resolvedCounts.inProgress,
         completedToday,
-        dailyProgress: dueToday ? Math.round((completedToday / dueToday) * 100) : 0
+        dailyProgress: dueToday
+          ? Math.min(100, Math.round((completedToday / dueToday) * 100))
+          : 0
       };
       setFocusStats(nextFocusStats);
       writeDashboardCache({ focusStats: nextFocusStats });
@@ -810,7 +823,7 @@ const UserDashboard = () => {
       const response = await axios.get(`/meetings/user/${userId}`, {
         params: { page: 1, limit: 100 },
         headers: { Authorization: `Bearer ${token}` },
-        timeout: 10000
+        timeout: 30000
       });
       const records = Array.isArray(response.data)
         ? response.data
@@ -847,7 +860,7 @@ const UserDashboard = () => {
       const response = await axios.get('/projects', {
         params: { companyCode, page: 1, limit: 100 },
         headers: { Authorization: `Bearer ${token}` },
-        timeout: 10000
+        timeout: 30000
       });
       const data = response.data;
       const projects = Array.isArray(data) ? data
@@ -880,7 +893,7 @@ const UserDashboard = () => {
       const clockIn = record.inTime || record.checkInTime || record.clockIn || record.punchIn;
       const clockOut = record.outTime || record.checkOutTime || record.clockOut || record.punchOut;
       if (clockIn) allActivities.push({ ...record, type: 'clock-in', date: clockIn, title: 'Clock In', subtitle: 'Checked in from Web', status: 'PRESENT' });
-      if (clockOut) allActivities.push({ ...record, type: 'clock-out', date: clockOut, title: 'Clock Out', subtitle: 'Checked out from Web', status: 'ABSENT' });
+      if (clockOut) allActivities.push({ ...record, type: 'clock-out', date: clockOut, title: 'Clock Out', subtitle: 'Checked out from Web', status: 'PRESENT' });
       if (!clockIn && !clockOut) allActivities.push({ ...record, type: 'attendance', date: record.date, status: record.status, displayDate: new Date(record.date) });
     });
 
@@ -1193,34 +1206,65 @@ const UserDashboard = () => {
     return map;
   }, [holidays]);
 
-  const monthlyStats = useMemo(() => {
-    const presentDays = filteredAttendanceData.filter(record => {
-      const d = new Date(record.date);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear && record.status === 'PRESENT';
-    }).length;
+  const { monthlyStats, previousMonthlyStats, previousMonthLabel } = useMemo(() => {
+    const todayStart = new Date(currentDate);
+    todayStart.setHours(0, 0, 0, 0);
 
-    const lateDays = filteredAttendanceData.filter(record => {
-      const d = new Date(record.date);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear && record.status === 'LATE';
-    }).length;
+    const calculateMonth = (year, month) => {
+      const records = filteredAttendanceData.filter(record => {
+        const date = new Date(record.date);
+        return !Number.isNaN(date.getTime()) && date.getMonth() === month && date.getFullYear() === year;
+      });
+      const toDateKey = record => {
+        const date = new Date(record.date);
+        return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      };
+      const attendanceKeys = new Set(records.map(toDateKey));
+      const explicitAbsentKeys = new Set(
+        records.filter(record => record.status === 'ABSENT').map(toDateKey)
+      );
+      const inferredAbsentKeys = new Set();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-    const halfDays = filteredAttendanceData.filter(record => {
-      const d = new Date(record.date);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear && record.status === 'HALF DAY';
-    }).length;
+      for (let day = 1; day <= daysInMonth; day += 1) {
+        const date = new Date(year, month, day);
+        const key = `${year}-${month}-${day}`;
+        if (
+          date >= todayStart ||
+          date.getDay() === 0 ||
+          date.getDay() === 6 ||
+          isBeforeJoinDate(date) ||
+          holidayDates.includes(key) ||
+          leaveDates.includes(key) ||
+          attendanceKeys.has(key)
+        ) continue;
+        inferredAbsentKeys.add(key);
+      }
 
-    const absentDays = filteredAttendanceData.filter(record => {
-      const d = new Date(record.date);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear && record.status === 'ABSENT';
-    }).length;
+      return {
+        presentDays: records.filter(record => record.status === 'PRESENT').length,
+        lateDays: records.filter(record => record.status === 'LATE').length,
+        halfDays: records.filter(record => record.status === 'HALF DAY').length,
+        absentDays: new Set([...explicitAbsentKeys, ...inferredAbsentKeys]).size,
+        leavesTaken: leaveDates.filter(dateStr => {
+          const [leaveYear, leaveMonth] = dateStr.split('-').map(Number);
+          return leaveYear === year && leaveMonth === month;
+        }).length
+      };
+    };
 
-    const leavesTaken = leaveDates.filter(dateStr => {
-      const [year, month] = dateStr.split('-').map(Number);
-      return month === currentMonth && year === currentYear;
-    }).length;
+    const previousDate = new Date(currentYear, currentMonth - 1, 1);
+    return {
+      monthlyStats: calculateMonth(currentYear, currentMonth),
+      previousMonthlyStats: calculateMonth(previousDate.getFullYear(), previousDate.getMonth()),
+      previousMonthLabel: previousDate.toLocaleDateString('en-US', { month: 'short' })
+    };
+  }, [filteredAttendanceData, leaveDates, holidayDates, currentMonth, currentYear, currentDate, isBeforeJoinDate]);
 
-    return { presentDays, lateDays, halfDays, absentDays, leavesTaken };
-  }, [filteredAttendanceData, leaveDates, currentMonth, currentYear]);
+  const getMonthlyChange = useCallback((currentValue, previousValue) => {
+    if (!previousValue) return currentValue ? 100 : 0;
+    return Math.round(((currentValue - previousValue) / previousValue) * 100);
+  }, []);
 
   
   const getDayStatus = useCallback((day) => {
@@ -1642,6 +1686,7 @@ const UserDashboard = () => {
 
   const openQuickAction = action => {
     setActiveQuickAction(action);
+    setQuickLeaveReasonError('');
     if (action.label === 'New Task') {
       setQuickTaskType('personal');
       setQuickForm({ priority: 'medium' });
@@ -1731,10 +1776,19 @@ const UserDashboard = () => {
   const submitQuickAction = async event => {
     event.preventDefault();
     if (!activeQuickAction) return;
+    const trimmedLeaveReason = activeQuickAction.label === 'Apply Leave'
+      ? String(quickForm.reason || '').trim()
+      : '';
+    if (activeQuickAction.label === 'Apply Leave' && trimmedLeaveReason.length < 20) {
+      setQuickLeaveReasonError('Please enter at least 20 characters.');
+      return;
+    }
     const requiredFields = activeQuickAction.label === 'Add Client'
       ? ['client', 'company', 'city', 'projectManagerId']
       : activeQuickAction.fields.map(([name]) => name);
-    if (requiredFields.some(name => !String(quickForm[name] || '').trim())) return toast.error('Please fill all fields');
+    if (requiredFields.some(name => !String(quickForm[name] || '').trim())) {
+      return toast.error('Please fill all fields');
+    }
     setQuickSubmitting(true);
     try {
       const companyCode = companyDetails?.companyCode || user?.companyCode;
@@ -1744,7 +1798,7 @@ const UserDashboard = () => {
           if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) throw new Error('Please select valid leave dates');
           if (end < start) throw new Error('End date cannot be before start date');
           const days = Math.floor((end - start) / 86400000) + 1;
-          await axios.post('/leaves/apply', { ...quickForm, days }); break;
+          await axios.post('/leaves/apply', { ...quickForm, reason: trimmedLeaveReason, days }); break;
         }
         case 'Request Asset': {
           const asset = quickAssets.find(item => String(item._id || item.id) === String(quickForm.assetId));
@@ -1800,7 +1854,10 @@ const UserDashboard = () => {
               dueDateTime: dueDate.toISOString(),
               assignee: user?.name || '',
               assigneeId: getCurrentUserId(user),
-              priority: quickForm.priority || 'medium'
+              priority: (() => {
+                const value = String(quickForm.priority || 'medium').trim().toLowerCase();
+                return value === 'high' ? 'High' : value === 'low' ? 'Low' : 'Medium';
+              })()
             });
           }
           break;
@@ -1818,6 +1875,19 @@ const UserDashboard = () => {
       if (activeQuickAction.label === 'Apply Leave') fetchLeaveData();
       setActiveQuickAction(null); setQuickForm({});
     } catch (error) {
+      if (activeQuickAction.label === 'Apply Leave') {
+        const validationErrors = error.response?.data?.validationErrors;
+        const reasonValidationError = Array.isArray(validationErrors)
+          ? validationErrors.find(item => item?.field === 'reason' || item?.path === 'reason' || item?.param === 'reason')
+          : null;
+        const apiMessage = reasonValidationError?.message
+          || reasonValidationError?.msg
+          || error.response?.data?.message
+          || error.response?.data?.error;
+        if (reasonValidationError || /reason|20 characters|500 characters/i.test(String(apiMessage || ''))) {
+          setQuickLeaveReasonError(apiMessage || 'Please enter at least 20 characters.');
+        }
+      }
       toast.error(error.response?.data?.message || error.response?.data?.error || error.message || `Unable to save ${activeQuickAction.label.toLowerCase()}`);
     } finally { setQuickSubmitting(false); }
   };
@@ -1870,7 +1940,7 @@ const UserDashboard = () => {
   return (
     <div ref={dashboardRootRef} className="dashboard-container">
       <ToastContainer position="top-right" autoClose={3000} theme="colored" pauseOnHover />
-      
+
       {showClockOutConfirm && (
         <div className="confirmation-overlay">
           <div className="confirmation-popup">
@@ -2010,7 +2080,14 @@ const UserDashboard = () => {
                       <label><span>Service</span><select value={quickForm.service || ''} disabled={!quickForm.clientId} onChange={e => setQuickForm(current => ({ ...current, service: e.target.value }))}><option value="">Select service</option>{(quickClients.find(client => String(client._id || client.id) === String(quickForm.clientId))?.services || []).map(service => { const value = typeof service === 'string' ? service : service?.service || service?.name || ''; return value ? <option key={value} value={value}>{value}</option> : null; })}</select></label>
                     </>}
                     <label><span>Task title</span><input type="text" value={quickForm.title || ''} onChange={e => setQuickForm(current => ({ ...current, title: e.target.value }))} /></label>
-                    <label><span>Due date</span><input type="datetime-local" value={quickForm.dueDateTime || ''} onChange={e => setQuickForm(current => ({ ...current, dueDateTime: e.target.value }))} /></label>
+                    <label><span>Due date</span><input type="datetime-local" value={quickForm.dueDateTime || ''} onChange={e => {
+                      const input = e.currentTarget;
+                      const value = input.value;
+                      setQuickForm(current => ({ ...current, dueDateTime: value }));
+                      if (value.includes('T') && value.split('T')[1]) {
+                        requestAnimationFrame(() => input.blur());
+                      }
+                    }} /></label>
                     <label><span>Priority</span><select value={quickForm.priority || 'medium'} onChange={e => setQuickForm(current => ({ ...current, priority: e.target.value }))}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
                     <label className="wide"><span>Description</span><textarea value={quickForm.description || ''} onChange={e => setQuickForm(current => ({ ...current, description: e.target.value }))} rows="3" /></label>
                   </div>
@@ -2026,25 +2103,67 @@ const UserDashboard = () => {
                     ].map(([type, hint]) => <button type="button" key={type} className={quickForm.type === type ? 'active' : ''} onClick={() => setQuickForm(current => ({ ...current, type }))}><span>{type.charAt(0)}</span><strong>{type}</strong><small>{hint}</small></button>)}
                   </div>
                   <div className="quick-leave-date-card">
-                    <label><span>Start date</span><input type="date" min={new Date().toISOString().slice(0, 10)} value={quickForm.startDate || ''} onChange={e => setQuickForm(current => ({ ...current, startDate: e.target.value, endDate: current.endDate && current.endDate < e.target.value ? '' : current.endDate }))} /></label>
+                    <label><span>Start date</span><input type="date" min={new Date().toISOString().slice(0, 10)} value={quickForm.startDate || ''} onChange={e => {
+                      const input = e.currentTarget;
+                      const value = input.value;
+                      setQuickForm(current => ({ ...current, startDate: value, endDate: current.endDate && current.endDate < value ? '' : current.endDate }));
+                      if (value) requestAnimationFrame(() => input.blur());
+                    }} /></label>
                     <div className="quick-leave-date-line"><i /><span>{quickForm.startDate && quickForm.endDate ? `${Math.floor((new Date(quickForm.endDate) - new Date(quickForm.startDate)) / 86400000) + 1} day(s)` : 'Select dates'}</span><i /></div>
-                    <label><span>End date</span><input type="date" min={quickForm.startDate || new Date().toISOString().slice(0, 10)} value={quickForm.endDate || ''} onChange={e => setQuickForm(current => ({ ...current, endDate: e.target.value }))} /></label>
+                    <label><span>End date</span><input type="date" min={quickForm.startDate || new Date().toISOString().slice(0, 10)} value={quickForm.endDate || ''} onChange={e => {
+                      const input = e.currentTarget;
+                      const value = input.value;
+                      setQuickForm(current => ({ ...current, endDate: value }));
+                      if (value) requestAnimationFrame(() => input.blur());
+                    }} /></label>
                   </div>
-                  <label className="quick-leave-reason"><span>Reason for leave</span><textarea value={quickForm.reason || ''} onChange={e => setQuickForm(current => ({ ...current, reason: e.target.value }))} rows="3" placeholder="Briefly explain your leave request…" /></label>
+                  <label className="quick-leave-reason">
+                    <span>Reason for leave</span>
+                    <textarea
+                      value={quickForm.reason || ''}
+                      onChange={e => {
+                        const value = e.target.value;
+                        setQuickForm(current => ({ ...current, reason: value }));
+                        if (value.trim().length >= 20) setQuickLeaveReasonError('');
+                      }}
+                      rows="3"
+                      maxLength={500}
+                      className={quickLeaveReasonError ? 'quick-leave-reason-error-input' : ''}
+                      aria-invalid={Boolean(quickLeaveReasonError)}
+                      aria-describedby={quickLeaveReasonError ? 'quick-leave-reason-error' : undefined}
+                      placeholder="Briefly explain your leave request…"
+                    />
+                    <small>{String(quickForm.reason || '').trim().length}/500 (minimum 20 characters)</small>
+                    {quickLeaveReasonError && <span id="quick-leave-reason-error" className="quick-leave-reason-error">{quickLeaveReasonError}</span>}
+                  </label>
                   <div className="quick-leave-note"><FiCheckCircle /> Your request will be sent through the configured approval workflow.</div>
                 </div>
               ) : activeQuickAction.label === 'Request Asset' ? (
                 <div className="quick-asset-form">
-                  <div className="quick-asset-heading"><div><strong>Available company assets</strong><span>Select the asset you need for your work.</span></div><em>{quickAssets.length} available</em></div>
+                  <div className="quick-asset-heading"><div><strong>Company assets</strong><span>Select the asset you need for your work.</span></div></div>
                   {quickAssetsLoading ? <div className="quick-asset-loading"><span /> Loading available assets…</div> : quickAssets.length ? (
-                    <div className="quick-asset-grid">
-                      {quickAssets.map(asset => <button type="button" key={asset._id || asset.id} className={String(quickForm.assetId) === String(asset._id || asset.id) ? 'active' : ''} onClick={() => setQuickForm(current => ({ ...current, assetId: asset._id || asset.id }))}>
-                        <i><FiBox /></i>
-                        <span><strong>{asset.name || asset.assetName || 'Asset'}</strong><small>{[asset.category || asset.type, asset.model].filter(Boolean).join(' · ') || 'Company asset'}</small></span>
-                        <em>{asset.quantity} available</em>
-                        <CheckCircle2 />
-                      </button>)}
-                    </div>
+                    <label className="quick-asset-select">
+                      <span>Choose asset</span>
+                      <div>
+                        <FiBox />
+                        <select
+                          value={quickForm.assetId || ''}
+                          onChange={event => setQuickForm(current => ({ ...current, assetId: event.target.value }))}
+                        >
+                          <option value="">Select an available asset</option>
+                          {quickAssets.map(asset => {
+                            const assetId = asset._id || asset.id;
+                            const assetName = asset.name || asset.assetName || 'Asset';
+                            const assetDetails = [asset.category || asset.type, asset.model].filter(Boolean).join(' · ');
+                            return (
+                              <option key={assetId} value={assetId}>
+                                {assetName}{assetDetails ? ` - ${assetDetails}` : ''}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    </label>
                   ) : <div className="quick-asset-empty"><FiBox /><strong>No assets available</strong><span>Please check again later or contact your administrator.</span></div>}
                   <label className="quick-asset-reason"><span>Why do you need this asset?</span><textarea value={quickForm.reason || ''} onChange={e => setQuickForm(current => ({ ...current, reason: e.target.value }))} rows="3" placeholder="Describe how this asset will help with your work…" /></label>
                   <div className="quick-asset-note"><FiCheckCircle /> The asset team will review your request and update its status.</div>
@@ -2298,7 +2417,11 @@ const UserDashboard = () => {
               <circle className="dashboard-progress-track" cx="60" cy="60" r="51" pathLength="100" />
               <circle className="dashboard-progress-value" cx="60" cy="60" r="51" pathLength="100" strokeDasharray={`${Math.max(0, Math.min(100, focusStats.dailyProgress))} 100`} />
             </svg>
-            <div><span className="progress-title">Daily Progress</span><strong>{focusStats.loading ? '—' : `${focusStats.dailyProgress}%`}</strong><small>{focusStats.loading ? 'Loading…' : 'Great going!'}</small></div>
+            <div>
+              <span className="progress-title">Daily Progress</span>
+              <strong>{focusStats.loading ? '—' : `${focusStats.dailyProgress}%`}</strong>
+              <small>{focusStats.loading ? 'Loading…' : getDailyProgressMessage(focusStats.dailyProgress)}</small>
+            </div>
           </div>
           
           <div className="dashboard-clock-section dashboard-clock-inline">
@@ -2343,7 +2466,7 @@ const UserDashboard = () => {
             <div className="stat-label">Present</div>
             <div className="stat-footer">
               <FiTrendingUp className="stat-trend-icon" />
-              <span className="stat-month-text">20% vs Jun</span>
+              <span className="stat-month-text">{getMonthlyChange(monthlyStats.presentDays, previousMonthlyStats.presentDays)}% vs {previousMonthLabel}</span>
             </div>
             <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,22 14,10 28,18 42,7 56,20 70,12 84,23 100,5 120,16" /></svg>
           </div>
@@ -2357,7 +2480,7 @@ const UserDashboard = () => {
             <div className="stat-label">Late</div>
             <div className="stat-footer">
               <FiAlertTriangle className="stat-trend-icon" />
-              <span className="stat-month-text">0% vs Jun</span>
+              <span className="stat-month-text">{getMonthlyChange(monthlyStats.lateDays, previousMonthlyStats.lateDays)}% vs {previousMonthLabel}</span>
             </div>
             <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,8 14,23 28,14 42,19 56,10 70,21 84,13 100,24 120,7" /></svg>
           </div>
@@ -2371,7 +2494,7 @@ const UserDashboard = () => {
             <div className="stat-label">Half Day</div>
             <div className="stat-footer">
               <FiActivity className="stat-trend-icon" />
-              <span className="stat-month-text">12% vs Jun</span>
+              <span className="stat-month-text">{getMonthlyChange(monthlyStats.halfDays, previousMonthlyStats.halfDays)}% vs {previousMonthLabel}</span>
             </div>
             <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,19 14,7 28,13 42,9 56,22 70,15 84,20 100,10 120,12" /></svg>
           </div>
@@ -2385,7 +2508,7 @@ const UserDashboard = () => {
             <div className="stat-label">Leave</div>
             <div className="stat-footer">
               <FiCheckCircle className="stat-trend-icon" />
-              <span className="stat-month-text">0% vs Jun</span>
+              <span className="stat-month-text">{getMonthlyChange(monthlyStats.leavesTaken, previousMonthlyStats.leavesTaken)}% vs {previousMonthLabel}</span>
             </div>
             <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,6 14,8 28,22 42,13 56,24 70,11 84,20 100,9 120,18" /></svg>
           </div>
@@ -2399,7 +2522,7 @@ const UserDashboard = () => {
             <div className="stat-label">Absent</div>
             <div className="stat-footer">
               <FiAlertCircle className="stat-trend-icon" />
-              <span className="stat-month-text">5% vs Jun</span>
+              <span className="stat-month-text">{getMonthlyChange(monthlyStats.absentDays, previousMonthlyStats.absentDays)}% vs {previousMonthLabel}</span>
             </div>
             <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,7 14,9 28,24 42,19 56,22 70,11 84,25 100,18 120,20" /></svg>
           </div>

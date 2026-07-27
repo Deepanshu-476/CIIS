@@ -13,6 +13,19 @@ const getSpeechRecognition = () => (
   window.SpeechRecognition || window.webkitSpeechRecognition || null
 );
 
+const getTopOverlayBoundary = () => {
+  const overlays = document.querySelectorAll(
+    ".navbar, .ClientLayout-header, .MuiAppBar-positionFixed, .MuiAppBar-positionSticky, [role='banner']",
+  );
+  return Array.from(overlays).reduce((boundary, overlay) => {
+    const style = window.getComputedStyle(overlay);
+    if (style.position !== "fixed" && style.position !== "sticky") return boundary;
+
+    const rect = overlay.getBoundingClientRect();
+    return rect.top <= 0 && rect.bottom > 0 ? Math.max(boundary, rect.bottom) : boundary;
+  }, 0);
+};
+
 const isEditableTextTarget = (element) => {
   if (!element) return false;
   if (element.isContentEditable) return true;
@@ -103,10 +116,33 @@ const SpeechToTextControl = () => {
       return;
     }
 
-    setPosition({
-      top: rect.top + rect.height / 2,
+    const fieldCenter = rect.top + rect.height / 2;
+    const topOverlayBoundary = getTopOverlayBoundary();
+    const isOutsideVisibleArea = (
+      rect.bottom <= topOverlayBoundary
+      || fieldCenter <= topOverlayBoundary
+      || rect.top >= window.innerHeight
+      || rect.right <= 0
+      || rect.left >= window.innerWidth
+    );
+
+    if (isOutsideVisibleArea) {
+      setPosition((currentPosition) => currentPosition === null ? currentPosition : null);
+      return;
+    }
+
+    const nextPosition = {
+      top: fieldCenter,
       left: Math.max(8, rect.right - 38),
-    });
+    };
+
+    setPosition((currentPosition) => (
+      currentPosition
+      && currentPosition.top === nextPosition.top
+      && currentPosition.left === nextPosition.left
+        ? currentPosition
+        : nextPosition
+    ));
   };
 
   useEffect(() => {
@@ -132,21 +168,45 @@ const SpeechToTextControl = () => {
       }, 120);
     };
 
+    const handleResize = () => updatePosition();
+    const handleScroll = () => updatePosition();
+
     document.addEventListener("focusin", handleFocusIn);
     document.addEventListener("focusout", handleFocusOut);
-    window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("scroll", handleScroll, true);
 
     return () => {
       document.removeEventListener("focusin", handleFocusIn);
       document.removeEventListener("focusout", handleFocusOut);
-      window.removeEventListener("resize", updatePosition);
-      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("scroll", handleScroll, true);
     };
   }, [isListening]);
 
   useEffect(() => {
     targetRef.current = target;
+  }, [target]);
+
+  useEffect(() => {
+    if (!target || typeof ResizeObserver === "undefined") return undefined;
+
+    const resizeObserver = new ResizeObserver(updatePosition);
+    resizeObserver.observe(target);
+    return () => resizeObserver.disconnect();
+  }, [target]);
+
+  useEffect(() => {
+    if (!target) return undefined;
+
+    let animationFrameId;
+    const followInputMovement = () => {
+      updatePosition();
+      animationFrameId = window.requestAnimationFrame(followInputMovement);
+    };
+
+    animationFrameId = window.requestAnimationFrame(followInputMovement);
+    return () => window.cancelAnimationFrame(animationFrameId);
   }, [target]);
 
   const stopListening = () => {

@@ -1855,6 +1855,7 @@
   font-weight: 500;
 }
 
+
 /* MacBook compact layout: 13"/14" screens lose usable width to the app
    navigation. This layout keeps both dashboard columns visible without
    clipping or relying on browser zoom. */
@@ -3649,6 +3650,9 @@
 .quick-leave-date-card input:focus, .quick-leave-reason textarea:focus { border-color: #56bf96; box-shadow: 0 0 0 3px rgba(30, 174, 119, .08); }
 .quick-leave-date-line { display: flex; align-items: center; gap: 4px; padding-bottom: 12px; color: #159767; font-size: 8px; font-weight: 700; white-space: nowrap; }.quick-leave-date-line i { height: 1px; flex: 1; background: #cfeadd; }
 .quick-leave-reason textarea { resize: vertical; min-height: 72px; }
+.quick-leave-reason > small { color: #7b8496; font-size: 9px; text-align: right; }
+.quick-leave-reason textarea.quick-leave-reason-error-input { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220, 38, 38, .08); }
+.quick-leave-reason-error { color: #dc2626; font-size: 10px; font-weight: 600; }
 .quick-leave-note { display: flex; align-items: center; gap: 7px; padding: 9px 11px; border-radius: 9px; color: #527065; background: #f0faf6; font-size: 8px; }.quick-leave-note svg { width: 14px; height: 14px; color: #19a873; }
 .quick-asset-form { display: grid; gap: 14px; }
 .quick-asset-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }.quick-asset-heading > div { display: grid; gap: 3px; }.quick-asset-heading strong { color: #293044; font-size: 11px; }.quick-asset-heading span { color: #9299a9; font-size: 8px; }.quick-asset-heading > em { flex: 0 0 auto; padding: 4px 8px; border-radius: 99px; color: #b8730d; background: #fff4df; font-size: 8px; font-style: normal; font-weight: 700; }
@@ -3658,6 +3662,12 @@
 .quick-asset-grid > button > span { display: grid; gap: 3px; min-width: 0; }.quick-asset-grid > button > span strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }.quick-asset-grid > button > span small { overflow: hidden; color: #9299a8; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
 .quick-asset-grid > button > em { color: #8a91a0; font-size: 8px; font-style: normal; }.quick-asset-grid > button > svg { position: absolute; top: -5px; right: -5px; width: 17px; height: 17px; display: none; padding: 3px; border-radius: 50%; color: #fff; background: #e89b26; }
 .quick-asset-grid > button.active { border-color: #efae4e; background: #fffaf2; box-shadow: 0 0 0 3px rgba(239, 166, 57, .1); }.quick-asset-grid > button.active > svg { display: block; }
+.quick-asset-select { display: grid; gap: 7px; }
+.quick-asset-select > span { color: #4e586b; font-size: 10px; font-weight: 650; }
+.quick-asset-select > div { position: relative; display: flex; align-items: center; }
+.quick-asset-select svg { position: absolute; left: 12px; width: 18px; height: 18px; color: #e49117; pointer-events: none; }
+.quick-asset-select select { width: 100%; min-height: 46px; padding: 10px 38px; border: 1px solid #dfe3ec; border-radius: 10px; color: #293044; background: #fbfcfe; font: inherit; font-size: 11px; outline: none; cursor: pointer; }
+.quick-asset-select select:focus { border-color: #e4a039; box-shadow: 0 0 0 3px rgba(228, 160, 57, .09); background: #fff; }
 .quick-asset-loading, .quick-asset-empty { min-height: 105px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px dashed #e0e3ea; border-radius: 12px; color: #8b93a4; background: #fafbfc; font-size: 9px; }.quick-asset-loading > span { width: 16px; height: 16px; border: 2px solid #f0d9b6; border-top-color: #e4931b; border-radius: 50%; animation: spin 1s linear infinite; }
 .quick-asset-empty { flex-direction: column; }.quick-asset-empty > svg { width: 25px; height: 25px; color: #c2a06a; }.quick-asset-empty strong { color: #555e70; font-size: 10px; }.quick-asset-empty span { color: #969dac; font-size: 8px; }
 .quick-asset-reason { display: grid; gap: 6px; }.quick-asset-reason > span { color: #4e586b; font-size: 10px; font-weight: 650; }.quick-asset-reason textarea { width: 100%; min-height: 72px; resize: vertical; border: 1px solid #dfe3ec; border-radius: 10px; padding: 10px 11px; color: #20283a; background: #fbfcfe; font: inherit; font-size: 11px; outline: none; }.quick-asset-reason textarea:focus { border-color: #e4a039; box-shadow: 0 0 0 3px rgba(228, 160, 57, .09); background: #fff; }

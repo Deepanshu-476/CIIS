@@ -1370,14 +1370,12 @@ const AdminTaskManagement = () => {
   
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
-    fetchTasks(newPage, rowsPerPage, getCurrentFilters());
   };
 
   const handleChangeRowsPerPage = (event) => {
     const newRowsPerPage = parseInt(event.target.value, 10);
     setRowsPerPage(newRowsPerPage);
     setPage(0);
-    fetchTasks(0, newRowsPerPage, getCurrentFilters());
   };
 
   

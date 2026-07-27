@@ -2295,7 +2295,9 @@
 .MyLeaves-guidelines-note { display: flex; align-items: center; gap: 12px; margin-top: 22px; padding: 14px; border-radius: 12px; background: #f0e9ff; color: #652bea; font-size: 20px; }
 .MyLeaves-guidelines-note span { font-size: 12px; line-height: 1.35; }
 .MyLeaves-reason-group { position: relative; }
-.MyLeaves-reason-count { position: absolute; right: 13px; bottom: 12px; color: #667085; font-size: 12px; }
+.MyLeaves-reason-count { display: block; margin-top: 6px; color: #667085; font-size: 12px; text-align: right; }
+.MyLeaves-form-textarea-error { border-color: #dc2626 !important; box-shadow: 0 0 0 3px rgba(220, 38, 38, .08) !important; }
+.MyLeaves-reason-error { display: block; margin-top: 5px; color: #dc2626; font-size: 12px; font-weight: 600; }
 @media (max-width: 768px) { .MyLeaves-apply-modal { width: calc(100vw - 24px); } .MyLeaves-apply-modal .MyLeaves-apply-form-container { grid-template-columns: 1fr; } .MyLeaves-guidelines-panel { margin: 4px 0 20px; padding: 20px; } .MyLeaves-guidelines-panel ul { gap: 14px; margin-top: 20px; } }
 
 /* Final modal alignment: fixed shell, natural header, and a single scroll area. */

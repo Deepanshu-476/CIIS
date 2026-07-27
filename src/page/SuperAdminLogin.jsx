@@ -36,6 +36,16 @@ const SuperAdminLogin = () => {
   const [tempToken, setTempToken] = useState('');
   const [email, setEmail] = useState('');
   const [resendTimer, setResendTimer] = useState(0);
+  const [resetStep, setResetStep] = useState('login');
+  const [resetForm, setResetForm] = useState({
+    email: '',
+    otp: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [resetSessionToken, setResetSessionToken] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [resetApiMode, setResetApiMode] = useState('dedicated');
   
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -225,6 +235,145 @@ const SuperAdminLogin = () => {
     setEmail('');
     setErrors({ email: '', password: '', otp: '', general: '' });
     setResendTimer(0);
+  };
+
+  const updateResetField = (event) => {
+    const { name, value } = event.target;
+    const nextValue = name === 'otp' ? value.replace(/\D/g, '').slice(0, 6) : value;
+    setResetForm((current) => ({ ...current, [name]: nextValue }));
+    setErrors((current) => ({ ...current, [name]: '', general: '' }));
+  };
+
+  const openForgotPassword = () => {
+    setResetForm((current) => ({ ...current, email: form.email.trim() }));
+    setResetStep('email');
+    setErrors({});
+  };
+
+  const closeForgotPassword = () => {
+    setResetStep('login');
+    setResetForm({ email: '', otp: '', newPassword: '', confirmPassword: '' });
+    setResetSessionToken('');
+    setResetToken('');
+    setResetApiMode('dedicated');
+    setResendTimer(0);
+    setErrors({});
+  };
+
+  const requestResetOtp = async (event) => {
+    event?.preventDefault();
+    const cleanEmail = resetForm.email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setErrors({ email: 'Please enter a valid email address' });
+      return;
+    }
+
+    setLoading(true);
+    setErrors({});
+    try {
+      let response;
+      let apiMode = 'dedicated';
+      try {
+        response = await axios.post(`${API_URL}/auth/superadmin/forgot-password`, { email: cleanEmail });
+      } catch (dedicatedError) {
+        if (dedicatedError.response?.status !== 404) throw dedicatedError;
+        apiMode = 'legacy';
+        response = await axios.post(`${API_URL}/auth/forgot-password`, { email: cleanEmail });
+      }
+
+      setResetApiMode(apiMode);
+      if (response.data.resetSessionToken) {
+        setResetSessionToken(response.data.resetSessionToken);
+        setResetForm((current) => ({ ...current, email: cleanEmail, otp: '' }));
+        setResetStep('otp');
+        startResendTimer();
+      } else if (apiMode === 'legacy' && response.data.success) {
+        setResetSessionToken('legacy');
+        setResetForm((current) => ({ ...current, email: cleanEmail, otp: '' }));
+        setResetStep('otp');
+        startResendTimer();
+      }
+      toast.success(response.data.devOtp
+        ? `Development OTP: ${response.data.devOtp}`
+        : response.data.message);
+    } catch (error) {
+      const message = error.response?.data?.message || 'Failed to send reset OTP';
+      setErrors({ general: message });
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyResetOtp = async (event) => {
+    event.preventDefault();
+    if (!/^\d{6}$/.test(resetForm.otp)) {
+      setErrors({ otp: 'Enter a valid 6-digit OTP' });
+      return;
+    }
+
+    setLoading(true);
+    setErrors({});
+    try {
+      if (resetApiMode === 'legacy') {
+        setResetStep('password');
+        toast.success('OTP accepted. Enter your new password.');
+        return;
+      }
+
+      const response = await axios.post(`${API_URL}/auth/superadmin/verify-reset-otp`, {
+        email: resetForm.email,
+        otp: resetForm.otp,
+        resetSessionToken,
+      });
+      setResetToken(response.data.resetToken);
+      setResetStep('password');
+      toast.success('OTP verified successfully');
+    } catch (error) {
+      const message = error.response?.data?.message || 'OTP verification failed';
+      setErrors({ otp: message });
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitNewPassword = async (event) => {
+    event.preventDefault();
+    if (resetForm.newPassword.length < 8 || !/[A-Za-z]/.test(resetForm.newPassword) || !/\d/.test(resetForm.newPassword)) {
+      setErrors({ newPassword: 'Use at least 8 characters with a letter and number' });
+      return;
+    }
+    if (resetForm.newPassword !== resetForm.confirmPassword) {
+      setErrors({ confirmPassword: 'Passwords do not match' });
+      return;
+    }
+
+    setLoading(true);
+    setErrors({});
+    try {
+      if (resetApiMode === 'legacy') {
+        await axios.post(`${API_URL}/auth/reset-password`, {
+          email: resetForm.email,
+          otp: resetForm.otp,
+          newPassword: resetForm.newPassword,
+        });
+      } else {
+        await axios.post(`${API_URL}/auth/superadmin/reset-password`, {
+          resetToken,
+          newPassword: resetForm.newPassword,
+        });
+      }
+      toast.success('Password reset successful. Please login.');
+      closeForgotPassword();
+      setForm({ email: resetForm.email, password: '' });
+    } catch (error) {
+      const message = error.response?.data?.message || 'Failed to reset password';
+      setErrors({ general: message });
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   
@@ -559,10 +708,16 @@ const SuperAdminLogin = () => {
               </div>
               
               <h2 className="ciis-login-form-title">
-                CIIS NETWORK
+                {resetStep === 'email' && 'Forgot Password'}
+                {resetStep === 'otp' && 'Verify Reset OTP'}
+                {resetStep === 'password' && 'Create New Password'}
+                {resetStep === 'login' && 'CIIS NETWORK'}
               </h2>
               <p className="ciis-login-form-subtitle">
-                Access the master control panel
+                {resetStep === 'email' && 'Enter your registered Super Admin email.'}
+                {resetStep === 'otp' && `Enter the 6-digit code sent to ${resetForm.email}.`}
+                {resetStep === 'password' && 'Choose a strong password for your Super Admin account.'}
+                {resetStep === 'login' && 'Access the master control panel'}
               </p>
             </div>
 
@@ -578,8 +733,132 @@ const SuperAdminLogin = () => {
               </div>
             )}
 
+            {resetStep === 'email' && (
+              <form onSubmit={requestResetOtp}>
+                <div className="ciis-login-input-group">
+                  <label className="ciis-login-input-label">Super Admin Email</label>
+                  <div className="ciis-login-input-container">
+                    <div className="ciis-login-input-icon"><EmailIcon /></div>
+                    <input
+                      type="email"
+                      name="email"
+                      value={resetForm.email}
+                      onChange={updateResetField}
+                      disabled={loading}
+                      autoComplete="email"
+                      className={`ciis-login-input ${errors.email ? 'ciis-login-input-error' : ''}`}
+                      placeholder="Enter registered email"
+                      autoFocus
+                    />
+                  </div>
+                  {errors.email && <span className="ciis-login-error-text">{errors.email}</span>}
+                </div>
+                <button type="submit" className="ciis-login-button" disabled={loading}>
+                  {loading ? 'Sending OTP...' : 'Send Reset OTP'}
+                </button>
+                <div className="ciis-login-link-text">
+                  <button type="button" className="ciis-login-link-button" onClick={closeForgotPassword}>
+                    ← Back to Login
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {resetStep === 'otp' && (
+              <form onSubmit={verifyResetOtp}>
+                <div className="ciis-login-input-group">
+                  <label className="ciis-login-input-label">6-Digit OTP</label>
+                  <div className="ciis-login-input-container">
+                    <div className="ciis-login-input-icon"><SecurityIcon /></div>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      name="otp"
+                      value={resetForm.otp}
+                      onChange={updateResetField}
+                      disabled={loading}
+                      maxLength="6"
+                      className={`ciis-login-input ${errors.otp ? 'ciis-login-input-error' : ''}`}
+                      placeholder="Enter reset OTP"
+                      autoFocus
+                    />
+                  </div>
+                  {errors.otp && <span className="ciis-login-error-text">{errors.otp}</span>}
+                </div>
+                <div className="ciis-login-resend-container">
+                  <button
+                    type="button"
+                    className="ciis-login-resend-button"
+                    disabled={loading || resendTimer > 0}
+                    onClick={requestResetOtp}
+                  >
+                    {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : 'Resend OTP'}
+                  </button>
+                </div>
+                <button type="submit" className="ciis-login-button" disabled={loading}>
+                  {loading ? 'Verifying...' : 'Verify OTP'}
+                </button>
+                <div className="ciis-login-link-text">
+                  <button type="button" className="ciis-login-link-button" onClick={closeForgotPassword}>
+                    ← Back to Login
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {resetStep === 'password' && (
+              <form onSubmit={submitNewPassword}>
+                <div className="ciis-login-input-group">
+                  <label className="ciis-login-input-label">New Password</label>
+                  <div className="ciis-login-input-container">
+                    <div className="ciis-login-input-icon"><LockIcon /></div>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      name="newPassword"
+                      value={resetForm.newPassword}
+                      onChange={updateResetField}
+                      disabled={loading}
+                      autoComplete="new-password"
+                      className={`ciis-login-input ${errors.newPassword ? 'ciis-login-input-error' : ''}`}
+                      placeholder="Minimum 8 characters"
+                      autoFocus
+                    />
+                    <button type="button" className="ciis-login-input-adornment ciis-login-icon-button" onClick={() => setShowPassword((value) => !value)}>
+                      {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                    </button>
+                  </div>
+                  {errors.newPassword && <span className="ciis-login-error-text">{errors.newPassword}</span>}
+                </div>
+                <div className="ciis-login-input-group">
+                  <label className="ciis-login-input-label">Confirm Password</label>
+                  <div className="ciis-login-input-container">
+                    <div className="ciis-login-input-icon"><LockIcon /></div>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      name="confirmPassword"
+                      value={resetForm.confirmPassword}
+                      onChange={updateResetField}
+                      disabled={loading}
+                      autoComplete="new-password"
+                      className={`ciis-login-input ${errors.confirmPassword ? 'ciis-login-input-error' : ''}`}
+                      placeholder="Re-enter new password"
+                    />
+                  </div>
+                  {errors.confirmPassword && <span className="ciis-login-error-text">{errors.confirmPassword}</span>}
+                </div>
+                <button type="submit" className="ciis-login-button" disabled={loading}>
+                  {loading ? 'Resetting Password...' : 'Reset Password'}
+                </button>
+                <div className="ciis-login-link-text">
+                  <button type="button" className="ciis-login-link-button" onClick={closeForgotPassword}>
+                    ← Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+
             {/* Login Form */}
-            <form onSubmit={handleSubmit}>
+            {resetStep === 'login' && <form onSubmit={handleSubmit}>
               {/* Email Input */}
               <div className="ciis-login-input-group">
                 <label className="ciis-login-input-label">Email Address</label>
@@ -628,6 +907,12 @@ const SuperAdminLogin = () => {
                 {errors.password && <span className="ciis-login-error-text">{errors.password}</span>}
               </div>
 
+              <div className="ciis-login-forgot-row">
+                <button type="button" className="ciis-login-link-button" onClick={openForgotPassword}>
+                  Forgot Password?
+                </button>
+              </div>
+
               {/* Sign In Button */}
               <button
                 type="submit"
@@ -661,7 +946,7 @@ const SuperAdminLogin = () => {
                   Go to Home
                 </a>
               </div>
-            </form>
+            </form>}
 
             {/* Terms & Privacy */}
             <div className="ciis-login-terms">

@@ -736,7 +736,6 @@ const Attendance = () => {
 
   const statusOptions = ["ALL", "PRESENT", "LATE", "HALF DAY", "ABSENT", "HOLIDAY"];
 
-  
   if (pageLoading) {
     return <CIISLoader />;
   }

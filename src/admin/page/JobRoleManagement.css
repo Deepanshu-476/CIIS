@@ -1710,6 +1710,69 @@ input:checked + .JobRoleManagement-slider:before {
   min-height: 72px;
 }
 
+.JobRoleManagement-shift-builder {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid #dce3ec;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.JobRoleManagement-shift-list {
+  display: grid;
+  gap: 12px;
+}
+
+.JobRoleManagement-shift-card {
+  border: 1px solid #dce3ec;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.JobRoleManagement-shift-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: #263245;
+  font-size: 0.78rem;
+}
+
+.JobRoleManagement-shift-remove,
+.JobRoleManagement-add-shift-btn {
+  border: 1px solid #cfd8e3;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #263245;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 700;
+  min-height: 32px;
+  padding: 7px 12px;
+}
+
+.JobRoleManagement-shift-remove {
+  color: #c62828;
+}
+
+.JobRoleManagement-add-shift-btn {
+  margin-top: 12px;
+  background: #eff7ff;
+  border-color: #b7dcfb;
+  color: #126db5;
+}
+
+.JobRoleManagement-shift-remove:disabled,
+.JobRoleManagement-add-shift-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .JobRoleManagement-form-section .JobRoleManagement-input-icon,
 .JobRoleManagement-form-section .JobRoleManagement-textarea-icon {
   display: none;
@@ -1747,6 +1810,10 @@ input:checked + .JobRoleManagement-slider:before {
   }
 
   .JobRoleManagement-time-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .JobRoleManagement-shift-builder {
     grid-template-columns: 1fr;
   }
 

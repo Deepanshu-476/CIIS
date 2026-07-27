@@ -61,7 +61,8 @@ const CompanyDetails = () => {
     isActive: true,
     properties: [],
     propertyOwned: "",
-    additionalDetails: ""
+    additionalDetails: "",
+    assignedBranches: []
   });
   
   const [saveLoading, setSaveLoading] = useState(false);
@@ -448,6 +449,17 @@ const CompanyDetails = () => {
     const branch = branches.find(br => [...getBranchValues(br)].some(value => branchValues.has(value))) || (typeof branchValue === "object" ? branchValue : null);
     if (!branch) return branchId ? "Assigned Branch" : "No Branch";
     return branch.branchCode ? `${branch.name} (${branch.branchCode})` : branch.name;
+  };
+
+  const getAssignedBranchIds = user => {
+    const ids = new Set();
+    [user?.branch, user?.branchId, user?.assignedBranches, user?.branchIds, user?.branches].forEach(value => {
+      getBranchValues(value).forEach(branchValue => {
+        const branch = branches.find(br => getBranchValues(br).has(branchValue));
+        ids.add(getRecordId(branch) || branchValue);
+      });
+    });
+    return [...ids].filter(Boolean);
   };
 
   const fetchBranches = async (companyId, headers) => {
@@ -1512,7 +1524,8 @@ const CompanyDetails = () => {
       isActive: user.isActive ?? true,
       properties: user.properties || [],
       propertyOwned: user.propertyOwned || "",
-      additionalDetails: user.additionalDetails || ""
+      additionalDetails: user.additionalDetails || "",
+      assignedBranches: getAssignedBranchIds(user)
     });
     setFormErrors({});
     setEditSuccess(false);
@@ -1541,6 +1554,14 @@ const CompanyDetails = () => {
     setEditFormData(prev => ({
       ...prev,
       [name]: value
+    }));
+  };
+
+  const handleAssignedBranchesChange = (e) => {
+    const selectedValues = Array.from(e.target.selectedOptions).map(option => option.value);
+    setEditFormData(prev => ({
+      ...prev,
+      assignedBranches: selectedValues
     }));
   };
 
@@ -1615,85 +1636,38 @@ const CompanyDetails = () => {
         emergencyAddress: editFormData.emergencyAddress,
         isActive: editFormData.isActive,
         propertyOwned: editFormData.propertyOwned,
-        additionalDetails: editFormData.additionalDetails
+        additionalDetails: editFormData.additionalDetails,
+        assignedBranches: editFormData.assignedBranches
       };
       
       let success = false;
       let response;
-      
-      
-      try {
-        response = await axios.put(
-          `${API_URL}/users/${userId}`,
-          updateData,
-          { headers }
-        );
-        if (response.data && (response.data.success || response.data._id)) success = true;
-      } catch (error) {
-        void 0;
-      }
-      
-      if (!success) {
+      let lastError = null;
+      const updateUrls = [
+        `${API_URL}/users/admin-update/${userId}`,
+        `${API_URL}/users/admin-update-by-email`,
+        `${API_URL}/users/${userId}`
+      ];
+
+      for (const url of updateUrls) {
         try {
-          response = await axios.patch(
-            `${API_URL}/users/${userId}`,
-            updateData,
-            { headers }
-          );
-          if (response.data && (response.data.success || response.data._id)) success = true;
+          response = await axios.put(url, updateData, { headers });
+          if (response.data && (response.data.success || response.data._id)) {
+            success = true;
+            break;
+          }
         } catch (error) {
-          void 0;
-        }
-      }
-      
-      if (!success) {
-        try {
-          response = await axios.put(
-            `${API_URL}/admin/users/${userId}`,
-            updateData,
-            { headers }
-          );
-          if (response.data && (response.data.success || response.data._id)) success = true;
-        } catch (error) {
-          void 0;
+          lastError = error;
+          if (error?.response?.status && ![404, 500].includes(error.response.status)) {
+            throw error;
+          }
         }
       }
       
       if (success) {
         handleUpdateSuccess(response?.data);
       } else {
-        
-        const updatedUsers = recentUsers.map(user => 
-          (user.id === userId || user._id === userId) 
-            ? { 
-                ...user, 
-                ...editFormData,
-                departmentName: editFormData.department 
-              }
-            : user
-        );
-        setRecentUsers(updatedUsers);
-        
-        const activeUsers = updatedUsers.filter(user => user.isActive).length;
-        setStats(prev => ({
-          ...prev,
-          activeUsers
-        }));
-        
-        toast.success(
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <svg style={{ color: '#4caf50', width: '24px', height: '24px' }} viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-            <div>
-              <div style={{ fontWeight: 600 }}>User Updated Successfully!</div>
-              <div style={{ fontSize: '0.75rem', color: '#666' }}>{editFormData.name} has been updated</div>
-            </div>
-          </div>,
-          { icon: false, autoClose: 4000 }
-        );
-        
-        setEditModalOpen(false);
+        throw lastError || new Error("User update failed");
       }
       
     } catch (error) {
@@ -3456,6 +3430,35 @@ const CompanyDetails = () => {
                       ))}
                     </datalist>
                   </div>
+                </div>
+
+                <div className="CompanyDetails-form-group CompanyDetails-full-width">
+                  <label className="CompanyDetails-form-label">Branch Access</label>
+                  <div className="CompanyDetails-input-wrapper">
+                    <span className="CompanyDetails-input-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M3 21V7l9-4 9 4v14h-6v-6H9v6H3zm4-8h2v-2H7v2zm0-4h2V7H7v2zm4 4h2v-2h-2v2zm0-4h2V7h-2v2zm4 4h2v-2h-2v2zm0-4h2V7h-2v2z"/>
+                      </svg>
+                    </span>
+                    <select
+                      name="assignedBranches"
+                      value={editFormData.assignedBranches || []}
+                      onChange={handleAssignedBranchesChange}
+                      className="CompanyDetails-form-input"
+                      multiple
+                      style={{ minHeight: 118, paddingTop: 12, paddingBottom: 12 }}
+                      disabled={branches.length === 0}
+                    >
+                      {branches.map(branch => (
+                        <option key={getRecordId(branch)} value={getRecordId(branch)}>
+                          {branch.name} {branch.branchCode ? `(${branch.branchCode})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <small className="CompanyDetails-field-note">
+                    Ctrl hold karke multiple branches select karo. Empty chhodne par user primary branch se scoped rahega.
+                  </small>
                 </div>
 
                 <div className="CompanyDetails-form-group">

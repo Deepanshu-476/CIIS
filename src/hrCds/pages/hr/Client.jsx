@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import API_URL from '../../../config';
 import './client-management.css';
+import PageBranchDropdown, { usePageBranchScope } from '../../components/PageBranchDropdown';
 
 
 import {
@@ -3080,6 +3081,12 @@ const AddClientModal = ({
 
 const ClientManagement = () => {
   const navigate = useNavigate();
+  const {
+    branchOptions,
+    selectedBranchId,
+    setSelectedBranchId,
+    branchQueryParams
+  } = usePageBranchScope();
   const [clients, setClients] = useState([]);
   const [services, setServices] = useState([]);
   const [clientPlans, setClientPlans] = useState([]);
@@ -3153,7 +3160,8 @@ const ClientManagement = () => {
       const response = await api.get('/service-enquiries', {
         params: {
           companyCode: nextCompanyCode || undefined,
-          companyIdentifier: nextCompanyIdentifier || undefined
+          companyIdentifier: nextCompanyIdentifier || undefined,
+          ...branchQueryParams
         }
       });
       if (response.data?.success) {
@@ -3385,7 +3393,7 @@ const ClientManagement = () => {
     return () => {
       window.removeEventListener('focus', handleFocus);
     };
-  }, [companyCode, companyIdentifier]);
+  }, [companyCode, companyIdentifier, branchQueryParams.branchId]);
 
   const fetchProjectManagers = async () => {
     try {
@@ -3420,6 +3428,7 @@ const ClientManagement = () => {
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
+        params: branchQueryParams
       });
 
       let usersArray = [];
@@ -3471,7 +3480,8 @@ const ClientManagement = () => {
       const apiParams = {
         ...filters,
         companyCode: companyCode || undefined,
-        companyIdentifier: companyIdentifier || undefined
+        companyIdentifier: companyIdentifier || undefined,
+        ...branchQueryParams
       };
       
       const [clientsRes, servicesRes, plansRes, statsRes, enquiriesRes] = await Promise.all([
@@ -3479,7 +3489,8 @@ const ClientManagement = () => {
         api.get('/services', { 
           params: { 
             companyCode: companyCode || undefined,
-            companyIdentifier: companyIdentifier || undefined
+            companyIdentifier: companyIdentifier || undefined,
+            ...branchQueryParams
           } 
         }),
         clientPlansApi.get('/', {
@@ -3494,7 +3505,8 @@ const ClientManagement = () => {
         api.get('/stats', {
           params: {
             companyCode: companyCode || undefined,
-            companyIdentifier: companyIdentifier || undefined
+            companyIdentifier: companyIdentifier || undefined,
+            ...branchQueryParams
           }
         }).catch(err => {
           console.warn('Stats fetch failed:', err);
@@ -3503,7 +3515,8 @@ const ClientManagement = () => {
         api.get('/service-enquiries', {
           params: {
             companyCode: companyCode || undefined,
-            companyIdentifier: companyIdentifier || undefined
+            companyIdentifier: companyIdentifier || undefined,
+            ...branchQueryParams
           }
         }).catch(err => {
           console.warn('Service enquiries fetch failed:', err);
@@ -3571,7 +3584,7 @@ const ClientManagement = () => {
     if (companyCode || companyIdentifier) {
       fetchData();
     }
-  }, [filters, companyCode, companyIdentifier]);
+  }, [filters, companyCode, companyIdentifier, branchQueryParams.branchId]);
 
   useEffect(() => {
     if (!paymentReceiptsModal.open || !paymentReceiptsModal.client?._id) return;
@@ -3735,6 +3748,7 @@ const ClientManagement = () => {
         description: clientData.description,
         notes: clientData.notes,
         companyCode: clientData.companyCode,
+        branch: selectedBranchId || undefined,
         clientPlanId: clientData.clientPlanId,
         subscription: clientData.subscription || []
       };
@@ -3942,6 +3956,7 @@ const ClientManagement = () => {
       description: client.description || '',
       notes: client.notes || '',
       companyCode: companyCode,
+      branch: selectedBranchId || undefined,
       subscription: subscriptionData
     };
     
@@ -4062,6 +4077,12 @@ const ClientManagement = () => {
           </div>
         </div>
       </div>
+
+      <PageBranchDropdown
+        branchOptions={branchOptions}
+        selectedBranchId={selectedBranchId}
+        onChange={setSelectedBranchId}
+      />
 
       <div className="ClientManagement-stats-griddd">
         {[

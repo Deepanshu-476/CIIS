@@ -41,6 +41,27 @@ const DepartmentManagement = () => {
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
 
+  useEffect(() => {
+    if (!openDialog) return undefined;
+
+    const bodyOverflow = document.body.style.overflow;
+    const bodyPaddingRight = document.body.style.paddingRight;
+    const htmlOverflow = document.documentElement.style.overflow;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+
+    return () => {
+      document.body.style.overflow = bodyOverflow;
+      document.body.style.paddingRight = bodyPaddingRight;
+      document.documentElement.style.overflow = htmlOverflow;
+    };
+  }, [openDialog]);
+
   const getRecordId = (record) => {
     if (!record) return '';
     if (typeof record === 'object') return record._id || record.id || '';
@@ -94,9 +115,9 @@ const DepartmentManagement = () => {
 
   
   const getUserFromStorage = () => {
-    let userStr = localStorage.getItem('superAdmin');
-    if (!userStr) userStr = localStorage.getItem('user');
-    if (!userStr) userStr = sessionStorage.getItem('superAdmin') || sessionStorage.getItem('user');
+    let userStr = localStorage.getItem('user');
+    if (!userStr) userStr = sessionStorage.getItem('user');
+    if (!userStr) userStr = localStorage.getItem('superAdmin') || sessionStorage.getItem('superAdmin');
     
     if (!userStr) {
       void 0;
@@ -183,10 +204,8 @@ const DepartmentManagement = () => {
       let params = {};
       const companyId = resolveCompanyId(user);
       
-      if (!isSuper && !showAllCompanies) {
-        if (companyId) {
-          params.company = companyId;
-        }
+      if (companyId) {
+        params.company = companyId;
       }
 
       if (selectedBranchId) {

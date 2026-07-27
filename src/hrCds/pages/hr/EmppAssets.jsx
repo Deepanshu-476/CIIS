@@ -10,6 +10,7 @@ import {
 } from 'react-icons/fi';
 import './EmpAssets.css';
 import { API_URL_IMG } from '../../../config';
+import PageBranchDropdown, { usePageBranchScope } from '../../components/PageBranchDropdown';
 
 const EmpAssets = () => {
   const [requests, setRequests] = useState([]);
@@ -48,6 +49,12 @@ const EmpAssets = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isHR, setIsHR] = useState(false);
   const [isManager, setIsManager] = useState(false);
+  const {
+    branchOptions,
+    selectedBranchId,
+    setSelectedBranchId,
+    branchQueryParams
+  } = usePageBranchScope();
   const [permissions, setPermissions] = useState({
     canViewAllRequests: false,
     canApproveRequests: false,
@@ -111,7 +118,7 @@ const EmpAssets = () => {
     if (currentUserCompanyCode) {
       fetchRequests();
     }
-  }, [currentUserCompanyCode, isOwner, approverPermissionUserIds, deletePermissionUserIds, currentUserId]);
+  }, [currentUserCompanyCode, isOwner, approverPermissionUserIds, deletePermissionUserIds, currentUserId, branchQueryParams.branchId]);
 
   
   useEffect(() => {
@@ -376,6 +383,9 @@ const EmpAssets = () => {
       
       if (currentUserCompanyCode) {
         params.push(`companyCode=${currentUserCompanyCode}`);
+      }
+      if (branchQueryParams.branchId) {
+        params.push(`branchId=${branchQueryParams.branchId}`);
       }
       
       
@@ -878,6 +888,12 @@ const EmpAssets = () => {
           )}
         </p>
       </div>
+
+      <PageBranchDropdown
+        branchOptions={branchOptions}
+        selectedBranchId={selectedBranchId}
+        onChange={setSelectedBranchId}
+      />
 
       
       {!canApproveRequest() && (

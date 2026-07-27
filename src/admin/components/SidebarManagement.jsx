@@ -268,7 +268,7 @@ const SidebarManagement = () => {
   }, []);
 
   const initializePages = (companyOverride = company) => {
-    const pages = APP_ROUTES.filter(route => isRouteAllowedForCompany(route, companyOverride)).map(route => {
+    const pages = APP_ROUTES.map(route => {
       const isClientPath = route.path.startsWith('client-');
       return {
         id: route.path,

@@ -27,6 +27,7 @@ import {
   getTaskStatus,
   getTaskTitle,
 } from '../utils/clientPortalData';
+import PageBranchDropdown, { usePageBranchScope } from '../components/PageBranchDropdown';
 import './ActiveClientsOverview.css';
 
 const getAuthToken = () => localStorage.getItem('token') || localStorage.getItem('authToken');
@@ -268,6 +269,12 @@ const normalizeTaskStats = (tasks, apiStats = null) => {
 };
 
 const ActiveClientsOverview = () => {
+  const {
+    branchOptions,
+    selectedBranchId,
+    setSelectedBranchId,
+    branchQueryParams
+  } = usePageBranchScope();
   const [clients, setClients] = useState([]);
   const [clientTaskMap, setClientTaskMap] = useState({});
   const [clientStatsMap, setClientStatsMap] = useState({});
@@ -388,6 +395,7 @@ const ActiveClientsOverview = () => {
         page: 1,
         sortBy: 'client',
         sortOrder: 'asc',
+        ...branchQueryParams,
       },
     });
 
@@ -592,7 +600,9 @@ const ActiveClientsOverview = () => {
       ));
       setClientDocumentMap(Object.fromEntries(documentResults));
       setApiInfo({ totalItems: pagination.totalItems || active.length, companyCode });
-      setSelectedClientId(current => current || active[0]?._id || '');
+      setSelectedClientId(current => (
+        active.some(client => client._id === current) ? current : active[0]?._id || ''
+      ));
     } catch (err) {
       console.error('Failed to load active clients overview', err);
       setError(err.response?.data?.message || 'Failed to load active clients');
@@ -603,7 +613,7 @@ const ActiveClientsOverview = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [branchQueryParams.branchId]);
 
   if (isClientUser) {
     return (
@@ -619,6 +629,12 @@ const ActiveClientsOverview = () => {
 
   return (
     <section className="ActiveClientsOverview-page">
+      <PageBranchDropdown
+        branchOptions={branchOptions}
+        selectedBranchId={selectedBranchId}
+        onChange={setSelectedBranchId}
+      />
+
       {error && (
         <div className="ActiveClientsOverview-alert">
           <FiAlertCircle /> {error}

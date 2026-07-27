@@ -3,6 +3,7 @@ import axios from "../../../utils/axiosConfig";
 import API_URL from "../../../config";
 import { useNavigate, useParams } from "react-router-dom";
 import "./EmpAllTask.css";
+import PageBranchDropdown, { getRecordId, usePageBranchScope } from "../../components/PageBranchDropdown";
 import {
   FiUsers, FiUser, FiCalendar, FiCheckCircle, FiClock,
   FiAlertCircle, FiXCircle, FiTrendingUp, FiList,
@@ -100,6 +101,66 @@ const emptyTaskStats = {
 };
 
 const TASK_STAT_KEYS = ['pending', 'inProgress', 'completed', 'rejected', 'overdue', 'onhold', 'reopen', 'cancelled'];
+
+const isObjectIdLike = value => /^[a-f\d]{24}$/i.test(String(value || '').trim());
+
+const getUserBranchIds = (user = {}) => {
+  const branchValues = [
+    user.branch,
+    user.branchId,
+    user.branchDetails,
+    ...(Array.isArray(user.assignedBranches) ? user.assignedBranches : []),
+    ...(Array.isArray(user.branchIds) ? user.branchIds : [])
+  ];
+
+  return [...new Set(branchValues.map(getRecordId).filter(Boolean))];
+};
+
+const isUserInBranch = (user, branchId) => {
+  if (!branchId) return true;
+  return getUserBranchIds(user).includes(String(branchId));
+};
+
+const getRoleText = value => {
+  if (!value) return '';
+  if (typeof value === 'string') {
+    const text = value.trim();
+    return isObjectIdLike(text) ? '' : text;
+  }
+  return String(
+    value.roleName ||
+    value.name ||
+    value.title ||
+    value.jobRole ||
+    value.companyRole ||
+    ''
+  ).trim();
+};
+
+const getMappedRoleText = (value, roleMap = {}) => {
+  if (!value) return '';
+  const roleId = typeof value === 'object' ? value._id || value.id || value.roleId || value.roleNumber : value;
+  const mapped = roleMap[String(roleId || '')];
+  return mapped || getRoleText(value);
+};
+
+const getUserDisplayRole = (user, roleMap = {}) => {
+  const jobRole =
+    getMappedRoleText(user?.jobRole, roleMap) ||
+    getMappedRoleText(user?.roleId, roleMap);
+
+  return (
+    getRoleText(user?.roleName) ||
+    getRoleText(user?.jobRoleName) ||
+    jobRole ||
+    getRoleText(user?.role) ||
+    getRoleText(user?.designation) ||
+    getRoleText(user?.position) ||
+    getRoleText(user?.employeeRole) ||
+    getRoleText(user?.companyRole) ||
+    'Employee'
+  );
+};
 
 const isTaskOverdueByDate = (dueDate, status) => {
   if (!dueDate) return false;
@@ -202,6 +263,12 @@ const getImageUrl = (imagePath) => {
 
 const TaskDetails = () => {
   const navigate = useNavigate();
+  const {
+    branchOptions,
+    selectedBranchId,
+    setSelectedBranchId,
+    branchQueryParams
+  } = usePageBranchScope();
   const { userId: routeUserId } = useParams();
   const isTaskPageMode = Boolean(routeUserId);
 
@@ -225,6 +292,7 @@ const TaskDetails = () => {
 
   
   const [departmentMap, setDepartmentMap] = useState({});
+  const [jobRoleMap, setJobRoleMap] = useState({});
 
   
   const [activityLogs, setActivityLogs] = useState([]);
@@ -260,9 +328,9 @@ const TaskDetails = () => {
   const [toDate, setToDate] = useState("");
   const [globalFromDate, setGlobalFromDate] = useState(getDateInputValue());
   const [globalToDate, setGlobalToDate] = useState(getDateInputValue());
-  const [loggedInTodayOnly, setLoggedInTodayOnly] = useState(false);
-  const [todayLoggedInUserIds, setTodayLoggedInUserIds] = useState(new Set());
-  const [todayAttendanceLoading, setTodayAttendanceLoading] = useState(false);
+  const [clockedInTodayOnly, setClockedInTodayOnly] = useState(false);
+  const [todayClockedInUserIds, setTodayClockedInUserIds] = useState(new Set());
+  const [todayClockedInLoading, setTodayClockedInLoading] = useState(false);
   const [taskPage, setTaskPage] = useState(1);
   const [taskLimit, setTaskLimit] = useState(10);
   const [taskTotal, setTaskTotal] = useState(0);
@@ -274,10 +342,13 @@ const TaskDetails = () => {
 
   const openUserTasksPage = useCallback((userId) => {
     if (!userId) return;
+    const params = new URLSearchParams();
     const selectedDate = globalFromDate || globalToDate;
-    const query = selectedDate ? `?date=${encodeURIComponent(selectedDate)}` : '';
+    if (selectedDate) params.set('date', selectedDate);
+    if (selectedBranchId) params.set('branchId', selectedBranchId);
+    const query = params.toString() ? `?${params.toString()}` : '';
     navigate(`/ciisUser/company-all-task/tasks/${userId}${query}`);
-  }, [globalFromDate, globalToDate, navigate]);
+  }, [globalFromDate, globalToDate, navigate, selectedBranchId]);
 
   
   useEffect(() => {
@@ -373,6 +444,40 @@ const TaskDetails = () => {
       }
     } catch (err) {
       console.error("❌ Error fetching departments:", err);
+    }
+  };
+
+  const fetchJobRoles = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
+
+      const response = await axios.get('/job-roles', config);
+      const roles = response.data?.jobRoles || response.data?.data || response.data?.roles || [];
+
+      if (Array.isArray(roles)) {
+        const map = {};
+        roles.forEach(role => {
+          const roleName = getRoleText(role);
+          if (!roleName) return;
+
+          [role._id, role.id, role.roleId, role.roleNumber, role.roleNo, role.code, role.name, role.roleName]
+            .filter(Boolean)
+            .forEach(key => {
+              map[String(key)] = roleName;
+            });
+        });
+        setJobRoleMap(map);
+      }
+    } catch (err) {
+      console.error("❌ Error fetching job roles:", err);
     }
   };
 
@@ -688,20 +793,21 @@ const TaskDetails = () => {
     });
   }, []);
 
-  const fetchTodayLoggedInUsers = useCallback(async () => {
-    setTodayAttendanceLoading(true);
+  const fetchTodayClockedInUsers = useCallback(async () => {
+    setTodayClockedInLoading(true);
 
     try {
       const res = await axios.get('/attendance/all', {
         params: {
           date: getDateInputValue(),
-          limit: 1000
+          limit: 10000,
+          ...branchQueryParams
         },
         _skipErrorNotify: true,
       });
 
       const attendanceRows = Array.isArray(res.data?.data) ? res.data.data : [];
-      const loggedInIds = attendanceRows
+      const clockedInIds = attendanceRows
         .filter(record => {
           const status = String(record?.status || '').trim().toLowerCase();
           return record?.inTime && status !== 'absent';
@@ -712,26 +818,37 @@ const TaskDetails = () => {
         })
         .filter(Boolean);
 
-      const uniqueIds = new Set(loggedInIds);
+      const uniqueIds = new Set(clockedInIds);
       if (isMounted.current) {
-        setTodayLoggedInUserIds(uniqueIds);
+        setTodayClockedInUserIds(uniqueIds);
       }
 
       return uniqueIds;
     } catch (error) {
-      console.error('Failed to load today logged-in users:', error);
+      console.error('Failed to load today clocked-in users:', error);
       if (isMounted.current) {
-        setTodayLoggedInUserIds(new Set());
+        setTodayClockedInUserIds(new Set());
       }
+      showSnackbar('Unable to load today clock-in users.', 'error');
       return new Set();
     } finally {
       if (isMounted.current) {
-        setTodayAttendanceLoading(false);
+        setTodayClockedInLoading(false);
       }
     }
-  }, []);
+  }, [branchQueryParams.branchId, showSnackbar]);
 
-  
+  const handleTodayClockInToggle = useCallback(async () => {
+    if (clockedInTodayOnly) {
+      setClockedInTodayOnly(false);
+      return;
+    }
+
+    await fetchTodayClockedInUsers();
+    if (isMounted.current) {
+      setClockedInTodayOnly(true);
+    }
+  }, [clockedInTodayOnly, fetchTodayClockedInUsers]);
 
   useEffect(() => {
     const fetchUserData = () => {
@@ -796,7 +913,8 @@ const TaskDetails = () => {
     };
 
     fetchUserData();
-    fetchDepartments(); 
+    fetchDepartments();
+    fetchJobRoles();
   }, []);
 
   
@@ -832,69 +950,18 @@ const TaskDetails = () => {
 
         let response = null;
         let usersData = [];
-        fetchTodayLoggedInUsers();
 
         try {
-          const overviewRes = await axios.get('/tasks/all/company-overview', {
+          response = await axios.get('/users/company-users', {
             ...config,
             params: {
-              period: globalFromDate || globalToDate ? 'all' : 'today',
-              fromDate: globalFromDate || undefined,
-              toDate: globalToDate || undefined,
-              status: 'all',
-              priority: 'all',
-            },
-            _skipErrorNotify: true,
+              noPagination: 'true',
+              ...branchQueryParams
+            }
           });
-
-          const overviewUsers = overviewRes.data?.users || overviewRes.data?.data || [];
-          if (overviewRes.data?.success && Array.isArray(overviewUsers)) {
-            usersData = overviewUsers;
-          }
-        } catch (overviewError) {
+        } catch (apiError) {
           void 0;
-        }
-
-        if (usersData.length === 0 && currentUser) {
-          let apiUrl = '';
-
-          if (isOwner()) {
-            const companyId = currentUser?.company?._id || currentUser?.company;
-            if (companyId) {
-              apiUrl = `/users/company-users?companyId=${companyId}`;
-            } else {
-              apiUrl = '/users/company-users';
-            }
-          } else {
-            const deptId = currentUser?.department?._id || currentUser?.department;
-            if (deptId) {
-              apiUrl = `/users/department-users?department=${deptId}`;
-            } else {
-              const companyId = currentUser?.company?._id || currentUser?.company;
-              if (companyId) {
-                apiUrl = `/users/company-users?companyId=${companyId}`;
-              } else {
-                apiUrl = '/users/company-users';
-              }
-            }
-          }
-
-          try {
-            response = await axios.get(apiUrl, config);
-          } catch (apiError) {
-            void 0;
-            throw apiError;
-          }
-        } else if (usersData.length === 0) {
-          try {
-            response = await axios.get('/task/users-with-counts', config);
-          } catch (generalError) {
-            void 0;
-            const usersResponse = await axios.get('/users/company-users', config);
-            if (usersResponse.data?.users) {
-              usersData = usersResponse.data.users;
-            }
-          }
+          throw apiError;
         }
 
         if (response?.data?.users && Array.isArray(response.data.users)) {
@@ -909,27 +976,18 @@ const TaskDetails = () => {
 
         void 0;
 
-        let filteredUsers = usersData.map(user => ({
-          ...user,
-          _id: user._id || user.id,
-          taskStats: emptyTaskStats
-        }));
-
-        if (currentUser?.company) {
-          const currentCompanyId = currentUser.company._id || currentUser.company;
-          filteredUsers = filteredUsers.filter(user => {
-            const userCompanyId = user.company?._id || user.company;
-            return userCompanyId?.toString() === currentCompanyId?.toString();
-          });
-        }
-
-        if (!isOwner() && currentUser?.department) {
-          const currentDeptId = currentUser.department._id || currentUser.department;
-          filteredUsers = filteredUsers.filter(user => {
-            const userDeptId = user.department?._id || user.department;
-            return userDeptId?.toString() === currentDeptId?.toString();
-          });
-        }
+        let filteredUsers = usersData
+          .filter(user => {
+            const statusText = String(user?.status || '').trim().toLowerCase();
+            return user?.isActive !== false && statusText !== 'inactive';
+          })
+          .filter(user => isUserInBranch(user, selectedBranchId))
+          .map(user => ({
+            ...user,
+            _id: user._id || user.id,
+            role: getUserDisplayRole(user, jobRoleMap),
+            taskStats: emptyTaskStats
+          }));
 
         if (isMounted.current) {
           setUsers(filteredUsers);
@@ -957,6 +1015,7 @@ const TaskDetails = () => {
                 toDate: toDateParam,
                 status: 'all',
                 priority: 'all',
+                ...branchQueryParams,
               },
             },
             {
@@ -1004,12 +1063,7 @@ const TaskDetails = () => {
       }
     }, 300); 
 
-  }, [currentUser, isOwner, calculateOverallStats, globalFromDate, globalToDate, fetchTodayLoggedInUsers]);
-
-  useEffect(() => {
-    if (!currentUser || isTaskPageMode) return;
-    fetchTodayLoggedInUsers();
-  }, [currentUser, isTaskPageMode, fetchTodayLoggedInUsers]);
+  }, [currentUser, isOwner, calculateOverallStats, globalFromDate, globalToDate, jobRoleMap, selectedBranchId, branchQueryParams.branchId]);
 
   
   useEffect(() => {
@@ -1030,8 +1084,8 @@ const TaskDetails = () => {
   const filteredUsers = useMemo(() => {
     let filtered = users;
 
-    if (loggedInTodayOnly) {
-      filtered = filtered.filter(user => todayLoggedInUserIds.has(String(user._id || user.id)));
+    if (clockedInTodayOnly) {
+      filtered = filtered.filter(user => todayClockedInUserIds.has(String(user._id || user.id)));
     }
 
     if (searchQuery.trim()) {
@@ -1044,7 +1098,35 @@ const TaskDetails = () => {
     }
 
     return filtered;
-  }, [users, searchQuery, loggedInTodayOnly, todayLoggedInUserIds]);
+  }, [users, searchQuery, clockedInTodayOnly, todayClockedInUserIds]);
+
+  const departmentUserGroups = useMemo(() => {
+    const groups = new Map();
+
+    filteredUsers.forEach(user => {
+      const department = user.department;
+      const departmentKey = typeof department === 'object'
+        ? String(department?._id || department?.id || department?.name || department?.departmentName || 'unassigned')
+        : String(department || 'unassigned');
+      const departmentName = department ? getDepartmentName(department) : 'Unassigned Department';
+
+      if (!groups.has(departmentKey)) {
+        groups.set(departmentKey, {
+          key: departmentKey,
+          name: departmentName,
+          users: []
+        });
+      }
+
+      groups.get(departmentKey).users.push(user);
+    });
+
+    return Array.from(groups.values()).sort((a, b) => {
+      if (a.key === 'unassigned') return 1;
+      if (b.key === 'unassigned') return -1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [filteredUsers, departmentMap]);
 
   const getNonZeroStatuses = useMemo(() => {
     return STATUS_OPTIONS.filter(status => {
@@ -1696,7 +1778,7 @@ const TaskDetails = () => {
     setPriorityFilter('all');
     setFromDate('');
     setToDate('');
-    setLoggedInTodayOnly(false);
+    setClockedInTodayOnly(false);
     setTaskPage(1);
     setShowStatusFilters(true);
   }, []);
@@ -2183,7 +2265,7 @@ const TaskDetails = () => {
               </div>
               <div className="TaskDetails-user-role">
                 <FiBriefcase size={12} />
-                {user.role || "No Role"}
+                {getUserDisplayRole(user, jobRoleMap)}
               </div>
               <div className="TaskDetails-user-email">
                 {user.email || "No Email"}
@@ -2785,7 +2867,7 @@ const TaskDetails = () => {
                 <div className="TaskDetails-modal-user-meta">
                   <span className="TaskDetails-modal-user-role">
                     <FiBriefcase size={14} />
-                    {selectedUser?.role || 'Employee'}
+                    {getUserDisplayRole(selectedUser, jobRoleMap)}
                   </span>
                   <span className="TaskDetails-modal-user-email">
                     <FiMail size={14} />
@@ -3304,7 +3386,7 @@ const TaskDetails = () => {
                   <div className="TaskDetails-modal-user-meta">
                     <span className="TaskDetails-modal-user-role">
                       <FiBriefcase size={14} />
-                      {selectedUser?.role || 'Employee'}
+                      {getUserDisplayRole(selectedUser, jobRoleMap)}
                     </span>
                     <span className="TaskDetails-modal-user-email">
                       <FiMail size={14} />
@@ -3875,7 +3957,7 @@ const TaskDetails = () => {
               <div className="TaskDetails-stats-text">
                 <h2>{filteredUsers.length}</h2>
                 <p>
-                  {isOwner() ? 'COMPANY EMPLOYEES' : 'DEPARTMENT EMPLOYEES'}
+                  COMPANY EMPLOYEES
                 </p>
               </div>
             </div>
@@ -3913,6 +3995,12 @@ const TaskDetails = () => {
         </div>
       </div>
 
+      <PageBranchDropdown
+        branchOptions={branchOptions}
+        selectedBranchId={selectedBranchId}
+        onChange={setSelectedBranchId}
+      />
+
       <div className="TaskDetails-card">
         <div className="TaskDetails-card-content">
           <div className="TaskDetails-card-header">
@@ -3922,13 +4010,11 @@ const TaskDetails = () => {
               </div>
               <div>
                 <h3 className="TaskDetails-card-title">
-                  {isOwner() ? 'Company Employee Directory' : 'Department Employee Directory'}
+                  Company Employee Directory
                 </h3>
                 <p className="TaskDetails-card-subtitle">
                   <FiInfo size={14} />
-                  {isOwner()
-                    ? 'Viewing all employees across the company'
-                    : `Viewing employees in your department only`}
+                  Viewing all employees across the company, grouped by department
                 </p>
               </div>
             </div>
@@ -3937,31 +4023,31 @@ const TaskDetails = () => {
               <input
                 type="text"
                 className="TaskDetails-search-input"
-                placeholder={`Search ${isOwner() ? 'company' : 'department'} employees by name, email or ID...`}
+                placeholder="Search company employees by name, email or ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
               <button
                 className="TaskDetails-reset-filter-button"
                 onClick={resetFilters}
-                disabled={!searchQuery && !loggedInTodayOnly && activeStatusFilters.length === 1 && activeStatusFilters[0] === 'all'}
+                disabled={!searchQuery && !clockedInTodayOnly && activeStatusFilters.length === 1 && activeStatusFilters[0] === 'all'}
               >
                 <FiRefreshCw size={16} />
                 Reset
               </button>
               <button
                 type="button"
-                className={`TaskDetails-login-filter-button ${loggedInTodayOnly ? 'active' : ''}`}
-                onClick={() => setLoggedInTodayOnly(prev => !prev)}
-                disabled={todayAttendanceLoading}
-                title="Show only employees who logged in today"
+                className={`TaskDetails-login-filter-button ${clockedInTodayOnly ? 'active' : ''}`}
+                onClick={handleTodayClockInToggle}
+                disabled={todayClockedInLoading}
+                title="Show only employees who clocked in today"
               >
                 <FiLogIn size={16} />
-                {todayAttendanceLoading
+                {todayClockedInLoading
                   ? 'Checking...'
-                  : loggedInTodayOnly
-                    ? `Logged In Today (${todayLoggedInUserIds.size})`
-                    : 'Today Logged In'}
+                  : clockedInTodayOnly
+                    ? `Clocked In (${todayClockedInUserIds.size})`
+                    : 'Today Clock In'}
               </button>
             </div>
           </div>
@@ -3974,7 +4060,7 @@ const TaskDetails = () => {
                 </div>
                 <div className="TaskDetails-stat-text">
                   <h4>{systemStats.totalEmployees}</h4>
-                  <p>{isOwner() ? 'Total Employees' : 'Dept Employees'}</p>
+                  <p>Total Employees</p>
                 </div>
               </div>
             </div>
@@ -4013,6 +4099,17 @@ const TaskDetails = () => {
             </div>
           </div>
 
+          {!usersLoading && departmentUserGroups.length > 0 && (
+            <div className="TaskDetails-department-summary">
+              {departmentUserGroups.map(group => (
+                <div className="TaskDetails-department-summary-item" key={group.key}>
+                  <span className="TaskDetails-department-summary-name">{group.name}</span>
+                  <span className="TaskDetails-department-summary-count">{group.users.length}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {usersLoading ? (
             <div className="TaskDetails-loading-container">
               <div className="TaskDetails-loading-spinner"></div>
@@ -4028,11 +4125,9 @@ const TaskDetails = () => {
               </div>
               <h3>No Employees Found</h3>
               <p>
-                {loggedInTodayOnly
-                  ? 'No employees have logged in today for the current view'
-                  : isOwner()
-                    ? 'No employees found in your company'
-                    : 'No employees found in your department'}
+                {clockedInTodayOnly
+                  ? 'No employees have clocked in today'
+                  : 'No employees found in your company'}
               </p>
               <button
                 className="TaskDetails-reset-button"
@@ -4043,8 +4138,21 @@ const TaskDetails = () => {
               </button>
             </div>
           ) : (
-            <div className="TaskDetails-users-grid">
-              {filteredUsers.map((user) => renderEnhancedUserCard(user))}
+            <div className="TaskDetails-department-groups">
+              {departmentUserGroups.map(group => (
+                <section className="TaskDetails-department-group" key={group.key}>
+                  <div className="TaskDetails-department-group-header">
+                    <div>
+                      <h4>{group.name}</h4>
+                      <p>{group.users.length} users</p>
+                    </div>
+                    <span>{group.users.length}</span>
+                  </div>
+                  <div className="TaskDetails-users-grid">
+                    {group.users.map((user) => renderEnhancedUserCard(user))}
+                  </div>
+                </section>
+              ))}
             </div>
           )}
         </div>

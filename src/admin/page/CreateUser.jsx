@@ -28,10 +28,33 @@ const roleBelongsToDepartment = (role, departmentId) => {
   return !roleDepartmentId || roleDepartmentId === departmentId;
 };
 
+const departmentBelongsToBranch = (department, branchId) => {
+  if (!branchId) return true;
+
+  const departmentBranchId =
+    getId(department.branch) ||
+    getId(department.branchId) ||
+    getId(department.branch_id);
+
+  return departmentBranchId === branchId;
+};
+
+const getRoleShiftOptions = (role = {}) => {
+  const shifts = Array.isArray(role.shifts) && role.shifts.length > 0
+    ? role.shifts
+    : (role.shiftSettings ? [role.shiftSettings] : []);
+
+  return shifts.map((shift, index) => ({
+    ...shift,
+    shiftId: shift.shiftId || shift.id || shift._id || `${getId(role)}-shift-${index}`,
+    shiftName: shift.shiftName || shift.name || `Shift ${index + 1}`,
+    shiftType: shift.shiftType || 'custom'
+  }));
+};
 
 const initialFormState = {
   name: '', email: '', password: '', confirmPassword: '',
-  branch: '', department: '', jobRole: '',
+  branch: '', assignedBranches: [], department: '', jobRole: '', shiftId: '',
   phone: '', address: '', gender: '', maritalStatus: '', dob: '', salary: '',
   accountNumber: '', ifsc: '', bankName: '', bankHolderName: '',
   employeeType: '', properties: [], propertyOwned: '', additionalDetails: '',
@@ -45,6 +68,7 @@ const CreateUser = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [isBranchAccessOpen, setIsBranchAccessOpen] = useState(false);
   const [departments, setDepartments] = useState([]);
   const [jobRoles, setJobRoles] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -141,10 +165,7 @@ const CreateUser = () => {
     const loadData = async () => {
       if (companyId) {
         void 0;
-        await Promise.all([
-          fetchDepartments(),
-          fetchBranches()
-        ]);
+        await fetchBranches();
       } else if (companyCode) {
         void 0;
         await fetchDepartmentsByCode();
@@ -165,30 +186,45 @@ const CreateUser = () => {
     loadData();
   }, [companyId, companyCode]);
 
+  useEffect(() => {
+    if (form.branch) {
+      fetchDepartments(form.branch);
+    } else {
+      setDepartments([]);
+      setJobRoles([]);
+      setForm(prev => ({ ...prev, department: '', jobRole: '', shiftId: '' }));
+    }
+  }, [form.branch]);
+
   
   useEffect(() => {
     if (form.department) {
       fetchJobRolesByDepartment(form.department);
     } else {
       setJobRoles([]);
-      setForm(prev => ({ ...prev, jobRole: '' }));
+      setForm(prev => ({ ...prev, jobRole: '', shiftId: '' }));
     }
   }, [form.department]);
 
   
   useEffect(() => {
-    if (companyId && (departments.length > 0 || !loadingDepartments)) {
+    if (companyId && !loadingBranches) {
       setTimeout(() => {
         setPageLoading(false);
       }, 500);
     }
-  }, [companyId, departments, loadingDepartments]);
+  }, [companyId, loadingBranches]);
 
   
-  const fetchDepartments = async () => {
+  const fetchDepartments = async (branchId = form.branch) => {
     try {
       if (!companyId) {
         console.warn("No company ID available");
+        return;
+      }
+
+      if (!branchId) {
+        setDepartments([]);
         return;
       }
       
@@ -200,9 +236,9 @@ const CreateUser = () => {
       
       
       const endpoints = [
-        `/departments?companyId=${companyId}`,
-        `/departments?company=${companyId}`,
-        `/departments/company/${companyId}`,
+        `/departments?company=${companyId}&branch=${branchId}`,
+        `/departments?companyId=${companyId}&branch=${branchId}`,
+        `/departments/company/${companyId}?branch=${branchId}`,
         `/api/departments?companyId=${companyId}`,
         `/department/company/${companyId}`,
         `/departments/by-company/${companyId}`
@@ -251,17 +287,18 @@ const CreateUser = () => {
       }
       
       void 0;
-      setDepartments(departmentsData);
+      const branchDepartments = departmentsData.filter(dept => departmentBelongsToBranch(dept, branchId));
+      setDepartments(branchDepartments);
 
-      if (departmentsData.length === 0) {
-        toast.warning('No departments found for this company');
+      if (branchDepartments.length === 0) {
+        toast.warning('No departments found for this branch');
       } else {
-        toast.success(`${departmentsData.length} departments loaded`);
+        toast.success(`${branchDepartments.length} departments loaded`);
       }
 
     } catch (err) {
       console.error("❌ All department fetch attempts failed:", err);
-      toast.error('Failed to load departments. Please check API endpoint.');
+      toast.error('Failed to load departments for selected branch.');
       setDepartments([]);
       
       void 0;
@@ -474,11 +511,45 @@ const CreateUser = () => {
 
   const handleSelectChange = (e) => {
     const { name, value } = e.target;
+    if (name === 'branch') {
+      setForm(prev => ({
+        ...prev,
+        branch: value,
+        assignedBranches: value ? [...new Set([value, ...prev.assignedBranches])] : prev.assignedBranches,
+        department: '',
+        jobRole: '',
+        shiftId: ''
+      }));
+      setDepartments([]);
+      setJobRoles([]);
+      return;
+    }
+
     setForm(prev => ({ ...prev, [name]: value }));
     
     if (name === 'department') {
-      setForm(prev => ({ ...prev, jobRole: '' }));
+      setForm(prev => ({ ...prev, jobRole: '', shiftId: '' }));
     }
+
+    if (name === 'jobRole') {
+      setForm(prev => ({ ...prev, shiftId: '' }));
+    }
+  };
+
+  const toggleAssignedBranch = (branchId) => {
+    setForm(prev => ({
+      ...prev,
+      assignedBranches: prev.assignedBranches.includes(branchId)
+        ? prev.assignedBranches.filter(id => id !== branchId || id === prev.branch)
+        : [...new Set([prev.branch, ...prev.assignedBranches, branchId].filter(Boolean))]
+    }));
+  };
+
+  const removeAssignedBranch = (branchId) => {
+    setForm(prev => ({
+      ...prev,
+      assignedBranches: prev.assignedBranches.filter(id => id !== branchId || id === prev.branch)
+    }));
   };
 
   const validateForm = () => {
@@ -510,6 +581,10 @@ const CreateUser = () => {
       toast.error('Please select a job role');
       return false;
     }
+    if (!form.shiftId) {
+      toast.error('Please select a shift');
+      return false;
+    }
     if (!companyId && !companyCode) {
       toast.error('Company information is missing');
       return false;
@@ -532,6 +607,9 @@ const CreateUser = () => {
 
       const userData = {
         ...submitData,
+        assignedBranches: [...new Set([submitData.branch, ...(submitData.assignedBranches || [])].filter(Boolean))],
+        shiftName: selectedShift?.shiftName || '',
+        shiftType: selectedShift?.shiftType || '',
         company: companyId,
         companyCode: companyCode
       };
@@ -543,8 +621,10 @@ const CreateUser = () => {
       toast.success('✅ User created successfully');
       
       setForm({ ...initialFormState });
+      setIsBranchAccessOpen(false);
       
       
+      setDepartments([]);
       setJobRoles([]);
 
     } catch (err) {
@@ -566,6 +646,11 @@ const CreateUser = () => {
     }
     return 'USER';
   };
+
+  const selectedJobRole = jobRoles.find(role => getId(role) === form.jobRole);
+  const shiftOptions = selectedJobRole ? getRoleShiftOptions(selectedJobRole) : [];
+  const selectedShift = shiftOptions.find(shift => String(shift.shiftId) === String(form.shiftId));
+  const selectedAssignedBranches = branches.filter(branch => form.assignedBranches.includes(getId(branch)));
 
   
   void 0;
@@ -607,7 +692,7 @@ const CreateUser = () => {
               Company ID: {companyId || 'Loading...'}
             </p>
             <p className="CreateUser-company-details CreateUser-company-details-highlight">
-              Departments Loaded: {departments.length}
+              Branches Loaded: {branches.length} | Departments Loaded: {departments.length}
             </p>
           </div>
         )}
@@ -760,6 +845,93 @@ const CreateUser = () => {
                     No branches available. Please create branches first.
                   </small>
                 )}
+                {branches.length > 0 && (
+                  <small className="CreateUser-helper-text">
+                    Primary branch department and shift rules ke liye use hogi.
+                  </small>
+                )}
+              </div>
+
+              <div className="CreateUser-form-group">
+                <label htmlFor="assignedBranches" className="CreateUser-label">
+                  Additional Branch Access
+                </label>
+                <div className="CreateUser-branch-picker">
+                  <button
+                    type="button"
+                    className={`CreateUser-branch-trigger ${isBranchAccessOpen ? 'open' : ''}`}
+                    onClick={() => branches.length > 0 && setIsBranchAccessOpen(prev => !prev)}
+                    disabled={loadingBranches || branches.length === 0}
+                  >
+                    <span>
+                      {selectedAssignedBranches.length > 0
+                        ? `${selectedAssignedBranches.length} branch${selectedAssignedBranches.length > 1 ? 'es' : ''} selected`
+                        : branches.length === 0
+                          ? 'No branches available'
+                          : 'Select branches'}
+                    </span>
+                    <span className="CreateUser-branch-trigger-icon">v</span>
+                  </button>
+
+                  {isBranchAccessOpen && branches.length > 0 && (
+                    <div className="CreateUser-branch-menu">
+                      {branches.map(br => {
+                        const branchId = getId(br);
+                        const isSelected = form.assignedBranches.includes(branchId);
+                        const isPrimaryBranch = branchId === form.branch;
+
+                        return (
+                          <button
+                            type="button"
+                            className={`CreateUser-branch-option ${isSelected ? 'selected' : ''}`}
+                            key={branchId}
+                            onClick={() => toggleAssignedBranch(branchId)}
+                          >
+                            <span className="CreateUser-branch-option-check">
+                              {isSelected ? '✓' : ''}
+                            </span>
+                            <span className="CreateUser-branch-option-text">
+                              <strong>{br.name}</strong>
+                              <small>
+                                {br.branchCode}
+                                {isPrimaryBranch ? ' · Primary' : ''}
+                              </small>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {selectedAssignedBranches.length > 0 && (
+                    <div className="CreateUser-branch-chips">
+                      {selectedAssignedBranches.map(br => {
+                        const branchId = getId(br);
+                        const isPrimaryBranch = branchId === form.branch;
+
+                        return (
+                          <span className="CreateUser-branch-chip" key={branchId}>
+                            {br.name}
+                            {br.branchCode && <small>{br.branchCode}</small>}
+                            {isPrimaryBranch && <small>Primary</small>}
+                            {!isPrimaryBranch && (
+                              <button
+                                type="button"
+                                onClick={() => removeAssignedBranch(branchId)}
+                                aria-label={`Remove ${br.name}`}
+                              >
+                                x
+                              </button>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <small className="CreateUser-helper-text">
+                  Dropdown se branches select karo. Primary branch auto include hogi.
+                </small>
               </div>
 
               <div className="CreateUser-form-group">
@@ -774,15 +946,17 @@ const CreateUser = () => {
                     value={form.department}
                     onChange={handleSelectChange}
                     className="CreateUser-select"
-                    disabled={loadingDepartments || departments.length === 0}
+                    disabled={!form.branch || loadingDepartments || departments.length === 0}
                     required
                   >
                     <option value="">
-                      {loadingDepartments 
-                        ? "Loading departments..." 
-                        : departments.length === 0 
-                          ? "No departments available" 
-                          : "Select Department"}
+                      {!form.branch
+                        ? "Select branch first"
+                        : loadingDepartments 
+                          ? "Loading departments..." 
+                          : departments.length === 0 
+                            ? "No departments available in this branch" 
+                            : "Select Department"}
                     </option>
                     {departments.map(dept => (
                       <option key={dept._id || dept.id} value={dept._id || dept.id}>
@@ -792,9 +966,9 @@ const CreateUser = () => {
                   </select>
                   <span className="CreateUser-select-arrow">▼</span>
                 </div>
-                {departments.length === 0 && !loadingDepartments && (
+                {form.branch && departments.length === 0 && !loadingDepartments && (
                   <small className="CreateUser-helper-text CreateUser-helper-text-error">
-                    No departments available. Please create departments first.
+                    No departments available in this branch. Please create branch departments first.
                   </small>
                 )}
               </div>
@@ -819,7 +993,7 @@ const CreateUser = () => {
                   >
                     <option value="">
                       {!form.department 
-                        ? "Select a department first" 
+                        ? "Select branch and department first" 
                         : loadingJobRoles 
                           ? "Loading job roles..." 
                           : jobRoles.length === 0 
@@ -841,11 +1015,41 @@ const CreateUser = () => {
                 )}
               </div>
 
-              <div className="CreateUser-form-group" style={{ visibility: 'hidden' }}>
-                <label className="CreateUser-label">Spacer</label>
-                <div className="CreateUser-input-wrapper">
-                  <input type="text" className="CreateUser-input" disabled />
+              <div className="CreateUser-form-group">
+                <label htmlFor="shiftId" className="CreateUser-label">
+                  Shift <span className="CreateUser-required-star">*</span>
+                </label>
+                <div className="CreateUser-select-wrapper">
+                  <span className="CreateUser-select-icon">T</span>
+                  <select
+                    id="shiftId"
+                    name="shiftId"
+                    value={form.shiftId}
+                    onChange={handleSelectChange}
+                    className="CreateUser-select"
+                    disabled={!form.jobRole || shiftOptions.length === 0}
+                    required
+                  >
+                    <option value="">
+                      {!form.jobRole
+                        ? "Select job role first"
+                        : shiftOptions.length === 0
+                          ? "No shifts available"
+                          : "Select Shift"}
+                    </option>
+                    {shiftOptions.map(shift => (
+                      <option key={shift.shiftId} value={shift.shiftId}>
+                        {shift.shiftName} ({shift.shiftStart || '09:00'} - {shift.shiftEnd || '19:00'})
+                      </option>
+                    ))}
+                  </select>
+                  <span className="CreateUser-select-arrow">â–¼</span>
                 </div>
+                {form.jobRole && shiftOptions.length === 0 && (
+                  <small className="CreateUser-helper-text CreateUser-helper-text-error">
+                    No shifts defined for this job role
+                  </small>
+                )}
               </div>
             </div>
 
@@ -978,7 +1182,7 @@ const CreateUser = () => {
           <button
             type="submit"
             className="CreateUser-submit-button"
-            disabled={loading || (!companyId && !companyCode) || departments.length === 0 || !form.jobRole}
+            disabled={loading || (!companyId && !companyCode) || !form.branch || !form.department || !form.jobRole || !form.shiftId}
           >
             {loading ? (
               <>
@@ -1000,9 +1204,9 @@ const CreateUser = () => {
             </div>
           )}
 
-          {departments.length === 0 && (companyId || companyCode) && !loadingDepartments && (
+          {form.branch && departments.length === 0 && (companyId || companyCode) && !loadingDepartments && (
             <div className="CreateUser-info-message CreateUser-warning-message">
-              ⚠️ No departments found. Please create departments first before adding users.
+              ⚠️ No departments found for selected branch. Please create departments first before adding users.
               <br />
               <small>Company ID: {companyId || 'Not found'} | Code: {companyCode || 'Not found'}</small>
             </div>

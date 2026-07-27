@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import CIISLoader from '../../../Loader/CIISLoader'; 
+import PageBranchDropdown, { usePageBranchScope } from '../../components/PageBranchDropdown';
 
 import {
   FiCalendar,
@@ -1128,6 +1129,12 @@ const EmployeeAttendance = () => {
   
   const [canEditAttendance, setCanEditAttendance] = useState(true);
   const [canViewAllAttendance, setCanViewAllAttendance] = useState(true);
+  const {
+    branchOptions,
+    selectedBranchId,
+    setSelectedBranchId,
+    branchQueryParams
+  } = usePageBranchScope();
 
   const tableRef = useRef(null);
   const exportMenuRef = useRef(null);
@@ -1160,7 +1167,7 @@ const EmployeeAttendance = () => {
     if (currentUserCompanyId) {
       fetchAllUsers();
     }
-  }, [currentUserCompanyId]);
+  }, [currentUserCompanyId, branchQueryParams.branchId]);
 
   
   useEffect(() => {
@@ -1171,7 +1178,7 @@ const EmployeeAttendance = () => {
         fetchAttendanceData(selectedDate);
       }
     }
-  }, [selectedDate, selectedStartDate, selectedEndDate, dateRangeMode, allUsers, currentUserCompanyId, initialLoadComplete]);
+  }, [selectedDate, selectedStartDate, selectedEndDate, dateRangeMode, allUsers, currentUserCompanyId, initialLoadComplete, branchQueryParams.branchId]);
 
   
   useEffect(() => {
@@ -1271,7 +1278,9 @@ const EmployeeAttendance = () => {
       }
       
       
-      const res = await axios.get('/users/company-users');
+      const res = await axios.get('/users/company-users', {
+        params: branchQueryParams
+      });
       
       let usersData = [];
       
@@ -1356,7 +1365,9 @@ const EmployeeAttendance = () => {
       const formatted = date;
       void 0;
       
-      const res = await axios.get(`/attendance/all?date=${formatted}`);
+      const res = await axios.get('/attendance/all', {
+        params: { date: formatted, ...branchQueryParams }
+      });
       
       const attendanceMap = {};
       if (res.data && res.data.data && Array.isArray(res.data.data)) {
@@ -1471,7 +1482,9 @@ const EmployeeAttendance = () => {
       
       const fetchPromises = dateRange.map(async (date) => {
         try {
-          const res = await axios.get(`/attendance/all?date=${date}`);
+          const res = await axios.get('/attendance/all', {
+            params: { date, ...branchQueryParams }
+          });
           return { date, data: res.data };
         } catch (error) {
           console.error(`Error fetching attendance for ${date}:`, error);
@@ -2414,6 +2427,12 @@ const EmployeeAttendance = () => {
           </div>
         </div>
       </div>
+
+      <PageBranchDropdown
+        branchOptions={branchOptions}
+        selectedBranchId={selectedBranchId}
+        onChange={setSelectedBranchId}
+      />
 
       
       <div className="EmppAttendence-filter-section">

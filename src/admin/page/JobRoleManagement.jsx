@@ -281,9 +281,9 @@ const JobRoleManagement = () => {
 
   
   const getUserFromStorage = () => {
-    let userStr = localStorage.getItem('superAdmin');
-    if (!userStr) userStr = localStorage.getItem('user');
-    if (!userStr) userStr = sessionStorage.getItem('superAdmin') || sessionStorage.getItem('user');
+    let userStr = localStorage.getItem('user');
+    if (!userStr) userStr = sessionStorage.getItem('user');
+    if (!userStr) userStr = localStorage.getItem('superAdmin') || sessionStorage.getItem('superAdmin');
     
     if (!userStr) {
       void 0;
@@ -374,11 +374,9 @@ const JobRoleManagement = () => {
       
       let params = {};
       
-      if (!isSuper && !showAllCompanies) {
-        const companyId = resolveCompanyId(user);
-        if (companyId) {
-          params.company = companyId;
-        }
+      const companyId = resolveCompanyId(user);
+      if (companyId) {
+        params.company = companyId;
       }
       
       void 0;
@@ -414,11 +412,9 @@ const JobRoleManagement = () => {
       
       let params = {};
       
-      if (!isSuper) {
-        const companyId = resolveCompanyId(user);
-        if (companyId) {
-          params.company = companyId;
-        }
+      const companyId = resolveCompanyId(user);
+      if (companyId) {
+        params.company = companyId;
       }
       
       const response = await axios.get('/departments', { params });

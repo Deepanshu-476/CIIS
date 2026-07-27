@@ -161,7 +161,7 @@ const AdminTaskManagement = () => {
   
   const [userSearch, setUserSearch] = useState('');
   const [groupSearch, setGroupSearch] = useState('');
-  const [selectedCreateDepartment, setSelectedCreateDepartment] = useState('all');
+  const [selectedCreateDepartment, setSelectedCreateDepartment] = useState('');
   const [activeGroupMenu, setActiveGroupMenu] = useState(null);
 
   
@@ -193,6 +193,26 @@ const AdminTaskManagement = () => {
   
   const isOwner = () => {
     return companyRole === 'Owner' || userRole === 'Owner' || userRole === 'CAREER INFOWIS Admin';
+  };
+
+  const normalizeRoleToken = (value) => String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '');
+
+  const canAssignAcrossDepartments = () => {
+    const roles = [companyRole, userRole, jobRole, currentUser.role, currentUser.companyRole].map(normalizeRoleToken);
+    return roles.some(role => [
+      'owner',
+      'admin',
+      'companyadmin',
+      'superadmin',
+      'superadministrator',
+      'careerinfowisadmin',
+      'hr',
+      'humanresources',
+      'manager'
+    ].includes(role));
   };
 
   const isTaskEditable = (task) => {
@@ -292,7 +312,7 @@ const AdminTaskManagement = () => {
     if (!isSameCompany || isSelf) return false;
     
     
-    if (!isOwner()) {
+    if (!canAssignAcrossDepartments()) {
       const userDept = user.department?._id || user.department;
       const currentDept = currentUser.department?._id || currentUser.department;
       
@@ -312,6 +332,8 @@ const AdminTaskManagement = () => {
   };
 
   const departmentOptionsForCreate = (() => {
+    if (branchOptions.length > 1 && !selectedBranchId) return [];
+
     const optionsMap = new Map();
 
     departments.forEach(department => {
@@ -324,7 +346,7 @@ const AdminTaskManagement = () => {
 
     users.forEach(user => {
       if (!checkSameCompany(user) || (user.id || user._id) === currentUser.id) return;
-      if (!isOwner()) {
+      if (!canAssignAcrossDepartments()) {
         const userDept = getUserDepartmentId(user);
         const currentDept = String(currentUser.department?._id || currentUser.department || '').trim();
         if (userDept !== currentDept) return;
@@ -344,9 +366,16 @@ const AdminTaskManagement = () => {
   })();
 
   const createAssignableUsers = filteredUsers.filter(user => {
-    if (selectedCreateDepartment === 'all') return true;
+    if (branchOptions.length > 1 && !selectedBranchId) return false;
+    if (!selectedCreateDepartment) return false;
     return getUserDepartmentId(user) === selectedCreateDepartment;
   });
+
+  useEffect(() => {
+    setSelectedCreateDepartment('');
+    setUserSearch('');
+    setNewTask(prev => ({ ...prev, assignedUsers: [] }));
+  }, [selectedBranchId]);
 
   const modalUserRenderLimit = 120;
   const visibleCreateAssignableUsers = createAssignableUsers.slice(0, modalUserRenderLimit);
@@ -695,10 +724,11 @@ const AdminTaskManagement = () => {
       
       
       try {
-        let deptUrl = '/departments';
-        if (companyId) {
-          deptUrl = `/departments?company=${companyId}`;
-        }
+        const departmentParams = new URLSearchParams();
+        if (companyId) departmentParams.set('company', companyId);
+        if (branchQueryParams.branchId) departmentParams.set('branch', branchQueryParams.branchId);
+        const departmentQuery = departmentParams.toString();
+        const deptUrl = departmentQuery ? `/departments?${departmentQuery}` : '/departments';
         const deptRes = await apiCall('get', deptUrl);
         
         let departmentsData = [];
@@ -733,7 +763,7 @@ const AdminTaskManagement = () => {
       
       let usersUrl;
       
-      if (isOwner()) {
+      if (canAssignAcrossDepartments()) {
         usersUrl = `/users/company-users?companyId=${companyId}${branchQueryParams.branchId ? `&branchId=${branchQueryParams.branchId}` : ''}`;
       } else {
         const deptId = currentUser.department?._id || currentUser.department;
@@ -823,13 +853,23 @@ const AdminTaskManagement = () => {
       return;
     }
 
+    if (branchOptions.length > 1 && !selectedBranchId) {
+      showSnackbar('Please select a branch first', 'error');
+      return;
+    }
+
+    if (newTask.assignedUsers.length > 0 && !selectedCreateDepartment) {
+      showSnackbar('Please select a department before assigning users', 'error');
+      return;
+    }
+
     if (newTask.assignedUsers.length === 0 && newTask.assignedGroups.length === 0) {
       showSnackbar('Please assign to at least one user or group', 'error');
       return;
     }
 
     
-    if (!isOwner() && newTask.assignedUsers.length > 0) {
+    if (!canAssignAcrossDepartments() && newTask.assignedUsers.length > 0) {
       const currentDept = currentUser.department?._id || currentUser.department;
       
       for (const assignedUserId of newTask.assignedUsers) {
@@ -873,6 +913,10 @@ const AdminTaskManagement = () => {
       formData.append('assignedUsers', JSON.stringify(newTask.assignedUsers));
       formData.append('assignedGroups', JSON.stringify(newTask.assignedGroups));
       formData.append('checkpoints', JSON.stringify(getCleanCheckpoints(newTask.checkpoints)));
+      if (selectedBranchId) {
+        formData.append('branchId', selectedBranchId);
+        formData.append('branch', selectedBranchId);
+      }
 
       if (newTask.files) {
         for (let i = 0; i < newTask.files.length; i++) {
@@ -1248,7 +1292,7 @@ const AdminTaskManagement = () => {
     });
     setUserSearch('');
     setGroupSearch('');
-    setSelectedCreateDepartment('all');
+    setSelectedCreateDepartment('');
     setCreateDueDateTime('');
     setActiveGroupMenu(null);
   };
@@ -2215,9 +2259,9 @@ const AdminTaskManagement = () => {
             
             <div className="AdminTaskManagement-form-group">
               <div className="AdminTaskManagement-role-hint">
-                {isOwner() ? (
+                {canAssignAcrossDepartments() ? (
                   <span className="AdminTaskManagement-role-hint-admin">
-                    <FiUserCheck /> Owner: You can assign tasks to any user in the company
+                    <FiUserCheck /> Branch select karke department-wise users assign karein
                   </span>
                 ) : (
                   <span className="AdminTaskManagement-role-hint-employee">
@@ -2296,32 +2340,62 @@ const AdminTaskManagement = () => {
             <div className="AdminTaskManagement-form-group">
               <label>
                 Assign to Users 
-                {isOwner() ? (
-                  <span className="AdminTaskManagement-role-badge">(All Company Users)</span>
+                {canAssignAcrossDepartments() ? (
+                  <span className="AdminTaskManagement-role-badge">(Branch & Department Wise)</span>
                 ) : (
                   <span className="AdminTaskManagement-role-badge">(Same Department Only)</span>
                 )}
               </label>
               <div className="AdminTaskManagement-multi-select-container">
+                {branchOptions.length > 1 && (
+                  <div className="AdminTaskManagement-form-group" style={{ marginBottom: '12px' }}>
+                    <label>Select Branch</label>
+                    <select
+                      className="AdminTaskManagement-form-select"
+                      value={selectedBranchId}
+                      onChange={(event) => {
+                        setSelectedBranchId(event.target.value);
+                        setSelectedCreateDepartment('');
+                        setUserSearch('');
+                        setNewTask(prev => ({ ...prev, assignedUsers: [] }));
+                      }}
+                    >
+                      {branchOptions.map(branch => (
+                        <option key={branch.id || 'select-branch'} value={branch.id}>
+                          {branch.id ? branch.label : 'Select Branch'}
+                        </option>
+                      ))}
+                    </select>
+                    <small className="AdminTaskManagement-form-hint">
+                      Branch select karte hi us branch ke departments load honge.
+                    </small>
+                  </div>
+                )}
+
                 <div className="AdminTaskManagement-form-group" style={{ marginBottom: '12px' }}>
                   <label>Select Department</label>
                   <select
                     className="AdminTaskManagement-form-select"
                     value={selectedCreateDepartment}
+                    disabled={branchOptions.length > 1 && !selectedBranchId}
                     onChange={(event) => {
                       const nextDepartment = event.target.value;
                       setSelectedCreateDepartment(nextDepartment);
                       setNewTask(prev => ({
                         ...prev,
                         assignedUsers: prev.assignedUsers.filter(userId => {
-                          if (nextDepartment === 'all') return true;
+                          if (!nextDepartment) return false;
                           const assignedUser = users.find(user => (user.id || user._id) === userId);
                           return assignedUser && getUserDepartmentId(assignedUser) === nextDepartment;
                         })
                       }));
                     }}
                   >
-                    <option value="all">All Departments ({filteredUsers.length})</option>
+                    <option value="">
+                      {branchOptions.length > 1 && !selectedBranchId
+                        ? 'Select branch first'
+                        : 'Select Department'}
+                    </option>
                     {departmentOptionsForCreate.map(department => (
                       <option key={department.id} value={department.id}>
                         {department.name} ({department.count})
@@ -2337,9 +2411,10 @@ const AdminTaskManagement = () => {
                   <input
                     type="text"
                     className="AdminTaskManagement-select-search-input"
-                    placeholder="Search users..."
+                    placeholder={!selectedBranchId && branchOptions.length > 1 ? 'Select branch first...' : !selectedCreateDepartment ? 'Select department first...' : 'Search users...'}
                     value={userSearch}
                     onChange={(e) => setUserSearch(e.target.value)}
+                    disabled={(branchOptions.length > 1 && !selectedBranchId) || !selectedCreateDepartment}
                   />
                   {userSearch && (
                     <button className="AdminTaskManagement-select-search-clear" onClick={() => setUserSearch('')}>
@@ -2380,9 +2455,13 @@ const AdminTaskManagement = () => {
                         <FiUsers size={32} className="AdminTaskManagement-empty-icon" />
                         <h5>No users available</h5>
                         <p>
-                          {isOwner() 
-                            ? 'No other users found in your company' 
-                            : 'No other users found in your department'}
+                          {branchOptions.length > 1 && !selectedBranchId
+                            ? 'Select a branch first'
+                            : !selectedCreateDepartment
+                              ? 'Select a department to view users'
+                              : canAssignAcrossDepartments()
+                                ? 'No users found in selected department'
+                                : 'No other users found in your department'}
                         </p>
                       </div>
                     </div>
@@ -2400,7 +2479,7 @@ const AdminTaskManagement = () => {
                     const user = users.find(u => u.id === value || u._id === value);
                     return user ? (
                       <span key={value} className="AdminTaskManagement-selected-chip">
-                        {user.name} {!isOwner() && getUserDepartmentDisplay(user) && `(${getUserDepartmentDisplay(user)})`}
+                        {user.name} {!canAssignAcrossDepartments() && getUserDepartmentDisplay(user) && `(${getUserDepartmentDisplay(user)})`}
                       </span>
                     ) : null;
                   })}

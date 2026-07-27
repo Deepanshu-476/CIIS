@@ -60,6 +60,12 @@ const readCurrentUser = () => {
   }
 };
 
+const readRequestedBranchId = () => {
+  if (typeof window === 'undefined') return '';
+  const params = new URLSearchParams(window.location.search);
+  return params.get('branchId') || params.get('branch') || '';
+};
+
 export const getAssignedBranchIds = (user = {}) => {
   const items = [
     user.branch,
@@ -84,15 +90,17 @@ export const usePageBranchScope = () => {
   const [companyBranches, setCompanyBranches] = useState([]);
   const canViewAllBranches = useMemo(() => canViewAllPageBranches(user), [user]);
   const assignedBranchIds = useMemo(() => getAssignedBranchIds(user), [user]);
-  const [selectedBranchId, setSelectedBranchId] = useState('');
+  const [selectedBranchId, setSelectedBranchId] = useState(() => readRequestedBranchId());
 
   useEffect(() => {
     const latestUser = readCurrentUser();
+    const requestedBranchId = readRequestedBranchId();
     setUser(latestUser);
     setSelectedBranchId(current => {
-      if (canViewAllPageBranches(latestUser)) return '';
+      if (canViewAllPageBranches(latestUser)) return requestedBranchId || current || '';
       const ids = getAssignedBranchIds(latestUser);
       if (!ids.length) return '';
+      if (requestedBranchId && ids.includes(requestedBranchId)) return requestedBranchId;
       return ids.includes(current) ? current : ids[0];
     });
   }, []);

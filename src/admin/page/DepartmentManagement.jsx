@@ -115,9 +115,9 @@ const DepartmentManagement = () => {
 
   
   const getUserFromStorage = () => {
-    let userStr = localStorage.getItem('superAdmin');
-    if (!userStr) userStr = localStorage.getItem('user');
-    if (!userStr) userStr = sessionStorage.getItem('superAdmin') || sessionStorage.getItem('user');
+    let userStr = localStorage.getItem('user');
+    if (!userStr) userStr = sessionStorage.getItem('user');
+    if (!userStr) userStr = localStorage.getItem('superAdmin') || sessionStorage.getItem('superAdmin');
     
     if (!userStr) {
       void 0;
@@ -204,10 +204,8 @@ const DepartmentManagement = () => {
       let params = {};
       const companyId = resolveCompanyId(user);
       
-      if (!isSuper && !showAllCompanies) {
-        if (companyId) {
-          params.company = companyId;
-        }
+      if (companyId) {
+        params.company = companyId;
       }
 
       if (selectedBranchId) {

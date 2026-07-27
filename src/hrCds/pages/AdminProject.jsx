@@ -103,6 +103,13 @@ const getProjectCompanyCode = (project) => String(
   || ""
 ).trim();
 
+const getProjectBranchId = (project) => {
+  const branch = project?.branch || project?.branchId;
+  if (!branch) return "";
+  if (typeof branch === "object") return String(branch._id || branch.id || "").trim();
+  return String(branch).trim();
+};
+
 const getProjectsFromResponse = (data) => {
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.items)) return data.items;
@@ -221,6 +228,11 @@ export const AdminProject = () => {
     (u.name?.toLowerCase() || "").includes(memberSearchTerm.toLowerCase()) ||
     (u.email?.toLowerCase() || "").includes(memberSearchTerm.toLowerCase())
   );
+
+  useEffect(() => {
+    const visibleUserIds = new Set(users.map(getUserId).filter(Boolean));
+    setMembers((currentMembers) => currentMembers.filter(memberId => visibleUserIds.has(memberId)));
+  }, [users]);
 
   const handleMemberToggle = (userId) => {
     if (members.includes(userId)) {
@@ -345,6 +357,9 @@ export const AdminProject = () => {
     const newErrors = {};
     if (!projectName.trim()) newErrors.projectName = "Project name required";
     if (!description.trim()) newErrors.description = "Description required";
+    if (branchOptions.length > 1 && !selectedBranchId) {
+      newErrors.branch = "Select a branch before creating project";
+    }
     if (!startDate) newErrors.startDate = "Start date required";
     else if (!projectId && startDate < new Date().toISOString().split('T')[0]) newErrors.startDate = "Start date cannot be in the past";
     if (!endDate) newErrors.endDate = "End date required";
@@ -388,6 +403,10 @@ export const AdminProject = () => {
     formData.append("status", status);
     formData.append("users", JSON.stringify(members));
     formData.append("companyCode", companyCode);
+    if (selectedBranchId) {
+      formData.append("branchId", selectedBranchId);
+      formData.append("branch", selectedBranchId);
+    }
     if (companyIdentifier) {
       formData.append("companyIdentifier", companyIdentifier);
       formData.append("companyId", companyIdentifier);
@@ -405,7 +424,7 @@ export const AdminProject = () => {
         headers: { 
           "Content-Type": "multipart/form-data"
         },
-        params: { companyCode, companyIdentifier: companyIdentifier || undefined },
+        params: { companyCode, companyIdentifier: companyIdentifier || undefined, ...branchQueryParams },
         timeout: 60000, 
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -467,7 +486,7 @@ export const AdminProject = () => {
     
     try {
       const response = await axios.delete(`/projects/${id}`, {
-        params: { companyCode, companyIdentifier: companyIdentifier || undefined },
+        params: { companyCode, companyIdentifier: companyIdentifier || undefined, ...branchQueryParams },
         timeout: 10000
       });
       
@@ -499,6 +518,10 @@ export const AdminProject = () => {
     setStatus(toProjectStatusValue(p.status));
     const userIDs = (p.users || []).map(u => getUserId(u)).filter(Boolean);
     setMembers(userIDs);
+    const projectBranchId = getProjectBranchId(p);
+    if (projectBranchId) {
+      setSelectedBranchId(projectBranchId);
+    }
     setFile(null);
     setFileName("");
     
@@ -971,8 +994,12 @@ export const AdminProject = () => {
         <PageBranchDropdown
           branchOptions={branchOptions}
           selectedBranchId={selectedBranchId}
-          onChange={setSelectedBranchId}
+          onChange={(branchId) => {
+            setSelectedBranchId(branchId);
+            setErrors((currentErrors) => ({ ...currentErrors, branch: undefined }));
+          }}
         />
+        {errors.branch && <div className="ap-error-text" style={{ marginTop: -8, marginBottom: 12 }}>{errors.branch}</div>}
 
         
         <div id="ap-project-form" className="ap-form-card">

@@ -3,7 +3,7 @@ import axios from "../../../utils/axiosConfig";
 import API_URL from "../../../config";
 import { useNavigate, useParams } from "react-router-dom";
 import "./EmpAllTask.css";
-import PageBranchDropdown, { usePageBranchScope } from "../../components/PageBranchDropdown";
+import PageBranchDropdown, { getRecordId, usePageBranchScope } from "../../components/PageBranchDropdown";
 import {
   FiUsers, FiUser, FiCalendar, FiCheckCircle, FiClock,
   FiAlertCircle, FiXCircle, FiTrendingUp, FiList,
@@ -103,6 +103,23 @@ const emptyTaskStats = {
 const TASK_STAT_KEYS = ['pending', 'inProgress', 'completed', 'rejected', 'overdue', 'onhold', 'reopen', 'cancelled'];
 
 const isObjectIdLike = value => /^[a-f\d]{24}$/i.test(String(value || '').trim());
+
+const getUserBranchIds = (user = {}) => {
+  const branchValues = [
+    user.branch,
+    user.branchId,
+    user.branchDetails,
+    ...(Array.isArray(user.assignedBranches) ? user.assignedBranches : []),
+    ...(Array.isArray(user.branchIds) ? user.branchIds : [])
+  ];
+
+  return [...new Set(branchValues.map(getRecordId).filter(Boolean))];
+};
+
+const isUserInBranch = (user, branchId) => {
+  if (!branchId) return true;
+  return getUserBranchIds(user).includes(String(branchId));
+};
 
 const getRoleText = value => {
   if (!value) return '';
@@ -325,10 +342,13 @@ const TaskDetails = () => {
 
   const openUserTasksPage = useCallback((userId) => {
     if (!userId) return;
+    const params = new URLSearchParams();
     const selectedDate = globalFromDate || globalToDate;
-    const query = selectedDate ? `?date=${encodeURIComponent(selectedDate)}` : '';
+    if (selectedDate) params.set('date', selectedDate);
+    if (selectedBranchId) params.set('branchId', selectedBranchId);
+    const query = params.toString() ? `?${params.toString()}` : '';
     navigate(`/ciisUser/company-all-task/tasks/${userId}${query}`);
-  }, [globalFromDate, globalToDate, navigate]);
+  }, [globalFromDate, globalToDate, navigate, selectedBranchId]);
 
   
   useEffect(() => {
@@ -932,7 +952,7 @@ const TaskDetails = () => {
         let usersData = [];
 
         try {
-          response = await axios.get('/users/department-users', {
+          response = await axios.get('/users/company-users', {
             ...config,
             params: {
               noPagination: 'true',
@@ -961,6 +981,7 @@ const TaskDetails = () => {
             const statusText = String(user?.status || '').trim().toLowerCase();
             return user?.isActive !== false && statusText !== 'inactive';
           })
+          .filter(user => isUserInBranch(user, selectedBranchId))
           .map(user => ({
             ...user,
             _id: user._id || user.id,
@@ -994,6 +1015,7 @@ const TaskDetails = () => {
                 toDate: toDateParam,
                 status: 'all',
                 priority: 'all',
+                ...branchQueryParams,
               },
             },
             {
@@ -1041,7 +1063,7 @@ const TaskDetails = () => {
       }
     }, 300); 
 
-  }, [currentUser, isOwner, calculateOverallStats, globalFromDate, globalToDate, jobRoleMap, branchQueryParams.branchId]);
+  }, [currentUser, isOwner, calculateOverallStats, globalFromDate, globalToDate, jobRoleMap, selectedBranchId, branchQueryParams.branchId]);
 
   
   useEffect(() => {

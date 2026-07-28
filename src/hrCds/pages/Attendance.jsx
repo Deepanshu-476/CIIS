@@ -62,6 +62,13 @@ const normalizeAttendanceStatus = (status) => {
   return statusMap[compactStatus] || compactStatus;
 };
 
+const getShiftLabel = (record = {}) => {
+  const shiftName = record.shiftName || record.user?.shiftName || 'Assigned Shift';
+  const shiftStart = record.shiftStart || record.shiftWindow?.startTime;
+  const shiftEnd = record.shiftEnd || record.shiftWindow?.endTime;
+  return shiftStart && shiftEnd ? `${shiftName} (${shiftStart} - ${shiftEnd})` : shiftName;
+};
+
 const Attendance = () => {
   const [attendance, setAttendance] = useState([]);
   const [holidays, setHolidays] = useState([]);
@@ -1142,6 +1149,7 @@ const Attendance = () => {
             <thead>
               <tr>
                 <th>Date</th>
+                <th>Shift</th>
                 <th>Login</th>
                 <th>Logout</th>
                 <th>Status</th>
@@ -1168,6 +1176,14 @@ const Attendance = () => {
                             {record.holidayTitle}
                           </div>
                         )}
+                      </td>
+                      <td>
+                        <div className="Attendance-time-cell" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <FiClock />
+                            <span>{getShiftLabel(record)}</span>
+                          </div>
+                        </div>
                       </td>
                       <td>
                         {record.inTime ? (
@@ -1239,7 +1255,7 @@ const Attendance = () => {
                 })
               ) : (
                 <tr>
-                  <td colSpan="7" className="Attendance-no-data-cell">
+                  <td colSpan="8" className="Attendance-no-data-cell">
                     <FiUser className="Attendance-no-data-icon" />
                     <h3>No attendance records found</h3>
                     <p>
@@ -1262,7 +1278,7 @@ const Attendance = () => {
             <VirtualList
               items={filteredData}
               height={Math.min(620, Math.max(320, window.innerHeight - 280))}
-              rowHeight={178}
+              rowHeight={204}
               renderItem={(record) => {
                 const statusClass = getStatusClass(record);
                 const displayStatus = getStatusDisplayText(record);
@@ -1284,6 +1300,10 @@ const Attendance = () => {
                         <FiChevronRight className="Attendance-card-arrow" />
                       </div>
                       <div className="Attendance-mobile-card-times">
+                        <div className="Attendance-time-item">
+                          <FiClock />
+                          <span>{getShiftLabel(record)}</span>
+                        </div>
                         {record.inTime && (
                           <div className="Attendance-time-item">
                             <FiClock />

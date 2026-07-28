@@ -62,7 +62,10 @@ const CompanyDetails = () => {
     properties: [],
     propertyOwned: "",
     additionalDetails: "",
-    assignedBranches: []
+    assignedBranches: [],
+    shiftId: "",
+    shiftName: "",
+    shiftType: ""
   });
   
   const [saveLoading, setSaveLoading] = useState(false);
@@ -326,11 +329,16 @@ const CompanyDetails = () => {
         
         const jobRoleOptions = jobRolesData.map(role => ({
           id: role._id,
+          _id: role._id,
           name: role.name,
+          roleName: role.name,
           label: role.name,
           value: role._id,
-          departmentId: role.department?._id,
-          departmentName: role.department?.name
+          department: role.department || role.departmentId || "",
+          departmentId: role.department?._id || role.departmentId || "",
+          departmentName: role.department?.name,
+          shiftSettings: role.shiftSettings,
+          shifts: role.shifts || []
         }));
         
         setJobRoles(jobRoleOptions);
@@ -360,6 +368,41 @@ const CompanyDetails = () => {
       return String(value._id || value.id || value.value || "");
     }
     return String(value);
+  };
+
+  const getRoleDepartmentId = role => getRecordId(role?.department || role?.departmentId);
+
+  const getRoleShiftOptions = (role = {}) => {
+    const shifts = Array.isArray(role.shifts) && role.shifts.length > 0
+      ? role.shifts
+      : (role.shiftSettings ? [role.shiftSettings] : []);
+
+    return shifts.map((shift, index) => ({
+      ...shift,
+      shiftId: shift.shiftId || shift.id || shift._id || `${getRecordId(role)}-shift-${index}`,
+      shiftName: shift.shiftName || shift.name || `Shift ${index + 1}`,
+      shiftType: shift.shiftType || "custom"
+    }));
+  };
+
+  const findDepartmentOption = value => {
+    const rawId = getRecordId(value);
+    const rawText = String(value?.name || value?.departmentName || value || "").trim().toLowerCase();
+    return departments.find(dept =>
+      getRecordId(dept) === rawId ||
+      String(dept.name || "").trim().toLowerCase() === rawText
+    );
+  };
+
+  const findJobRoleOption = (value, departmentId = "") => {
+    const rawId = getRecordId(value);
+    const rawText = String(value?.name || value?.roleName || value || "").trim().toLowerCase();
+    return jobRoles.find(role => {
+      const roleDeptId = getRoleDepartmentId(role);
+      const roleMatches = getRecordId(role) === rawId ||
+        String(role.name || role.roleName || "").trim().toLowerCase() === rawText;
+      return roleMatches && (!departmentId || !roleDeptId || roleDeptId === departmentId);
+    });
   };
 
   const normalizeBranchValue = value => String(value || "").trim().toLowerCase();
@@ -1467,23 +1510,21 @@ const CompanyDetails = () => {
     void 0;
     
     
-    let departmentName = "";
-    if (user.departmentName) {
-      departmentName = user.departmentName;
-    } else if (user.department && typeof user.department === 'object') {
-      departmentName = user.department.name || user.department._id;
-    } else if (user.department) {
-      departmentName = getDepartmentName(user.department);
-    }
-    
-    
-    let jobRoleName = "";
-    if (user.jobRole && typeof user.jobRole === 'object') {
-      jobRoleName = user.jobRole.name || user.jobRole._id;
-    } else if (user.jobRole) {
-      const role = jobRoles.find(r => r.id === user.jobRole || r.value === user.jobRole);
-      jobRoleName = role?.name || user.jobRole;
-    }
+    const matchedDepartment = findDepartmentOption(
+      user.department || user.departmentId || user.departmentName
+    );
+    const departmentId = getRecordId(matchedDepartment) || getRecordId(user.department || user.departmentId);
+
+    const matchedJobRole = findJobRoleOption(
+      user.jobRole || user.jobRoleId || user.jobRoleName,
+      departmentId
+    );
+    const jobRoleId = getRecordId(matchedJobRole) || getRecordId(user.jobRole || user.jobRoleId);
+    const roleShifts = matchedJobRole ? getRoleShiftOptions(matchedJobRole) : [];
+    const matchedShift = roleShifts.find(shift =>
+      String(shift.shiftId) === String(user.shiftId || "") ||
+      String(shift.shiftName || "").trim().toLowerCase() === String(user.shiftName || "").trim().toLowerCase()
+    );
     
     setSelectedUser(user);
     setEditFormData({
@@ -1497,8 +1538,11 @@ const CompanyDetails = () => {
       dob: formatDateForInput(user.dob) || "",
       
       
-      department: departmentName || "",
-      jobRole: jobRoleName || "",
+      department: departmentId || "",
+      jobRole: jobRoleId || "",
+      shiftId: user.shiftId || matchedShift?.shiftId || "",
+      shiftName: user.shiftName || matchedShift?.shiftName || "",
+      shiftType: user.shiftType || matchedShift?.shiftType || "",
       role: user.role || "user",
       employeeType: user.employeeType || "",
       designation: user.designation || user.jobTitle || user.position || "",
@@ -1551,10 +1595,47 @@ const CompanyDetails = () => {
   
   const handleSelectChange = (e) => {
     const { name, value } = e.target;
-    setEditFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setEditFormData(prev => {
+      if (name === "department") {
+        return {
+          ...prev,
+          department: value,
+          jobRole: "",
+          shiftId: "",
+          shiftName: "",
+          shiftType: ""
+        };
+      }
+
+      if (name === "jobRole") {
+        return {
+          ...prev,
+          jobRole: value,
+          shiftId: "",
+          shiftName: "",
+          shiftType: ""
+        };
+      }
+
+      if (name === "shiftId") {
+        const selectedRole = findJobRoleOption(prev.jobRole, prev.department);
+        const selectedShift = getRoleShiftOptions(selectedRole || {}).find(shift =>
+          String(shift.shiftId) === String(value)
+        );
+
+        return {
+          ...prev,
+          shiftId: value,
+          shiftName: selectedShift?.shiftName || "",
+          shiftType: selectedShift?.shiftType || ""
+        };
+      }
+
+      return {
+        ...prev,
+        [name]: value
+      };
+    });
   };
 
   const handleAssignedBranchesChange = (e) => {
@@ -1573,6 +1654,10 @@ const CompanyDetails = () => {
     }
     if (editFormData.email && !/\S+@\S+\.\S+/.test(editFormData.email)) {
       errors.email = "Invalid email format";
+    }
+    const selectedRole = findJobRoleOption(editFormData.jobRole, editFormData.department);
+    if (selectedRole && getRoleShiftOptions(selectedRole).length > 0 && !editFormData.shiftId) {
+      errors.shiftId = "Shift is required for selected job role";
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -1609,6 +1694,10 @@ const CompanyDetails = () => {
       void 0;
       void 0;
       
+      const selectedRoleForShift = findJobRoleOption(editFormData.jobRole, editFormData.department);
+      const selectedShift = getRoleShiftOptions(selectedRoleForShift || {}).find(shift =>
+        String(shift.shiftId) === String(editFormData.shiftId || "")
+      );
       
       const updateData = {
         name: editFormData.name,
@@ -1637,7 +1726,10 @@ const CompanyDetails = () => {
         isActive: editFormData.isActive,
         propertyOwned: editFormData.propertyOwned,
         additionalDetails: editFormData.additionalDetails,
-        assignedBranches: editFormData.assignedBranches
+        assignedBranches: editFormData.assignedBranches,
+        shiftId: editFormData.shiftId,
+        shiftName: selectedShift?.shiftName || editFormData.shiftName,
+        shiftType: selectedShift?.shiftType || editFormData.shiftType
       };
       
       let success = false;
@@ -1701,7 +1793,8 @@ const CompanyDetails = () => {
         ? { 
             ...user, 
             ...editFormData,
-            departmentName: editFormData.department
+            departmentName: departmentsMap[editFormData.department] || editFormData.department,
+            shiftName: editFormData.shiftName
           }
         : user
     );
@@ -2114,6 +2207,15 @@ const CompanyDetails = () => {
   const activeDepartment = hoveredDepartment
     ? departmentSplit.find(item => item.name === hoveredDepartment)
     : null;
+  const selectedEditDepartmentId = getRecordId(editFormData.department);
+  const editJobRoleOptions = selectedEditDepartmentId
+    ? jobRoles.filter(role => {
+        const roleDepartmentId = getRoleDepartmentId(role);
+        return !roleDepartmentId || roleDepartmentId === selectedEditDepartmentId;
+      })
+    : [];
+  const selectedEditJobRole = findJobRoleOption(editFormData.jobRole, selectedEditDepartmentId);
+  const editShiftOptions = selectedEditJobRole ? getRoleShiftOptions(selectedEditJobRole) : [];
 
   return (
     <div className="CompanyDetails">
@@ -3383,31 +3485,6 @@ const CompanyDetails = () => {
 
               <div className="CompanyDetails-form-grid">
                 <div className="CompanyDetails-form-group">
-                  <label className="CompanyDetails-form-label">Job Role</label>
-                  <div className="CompanyDetails-input-wrapper">
-                    <span className="CompanyDetails-input-icon">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2z"/>
-                      </svg>
-                    </span>
-                    <input
-                      type="text"
-                      name="jobRole"
-                      value={editFormData.jobRole}
-                      onChange={handleInputChange}
-                      className="CompanyDetails-form-input"
-                      placeholder="Enter job role"
-                      list="CompanyDetails-job-roles"
-                    />
-                    <datalist id="CompanyDetails-job-roles">
-                      {jobRoles.map(role => (
-                        <option key={role.id} value={role.name} />
-                      ))}
-                    </datalist>
-                  </div>
-                </div>
-
-                <div className="CompanyDetails-form-group">
                   <label className="CompanyDetails-form-label">Department</label>
                   <div className="CompanyDetails-input-wrapper">
                     <span className="CompanyDetails-input-icon">
@@ -3415,21 +3492,88 @@ const CompanyDetails = () => {
                         <path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10z"/>
                       </svg>
                     </span>
-                    <input
-                      type="text"
+                    <select
                       name="department"
                       value={editFormData.department}
-                      onChange={handleInputChange}
+                      onChange={handleSelectChange}
                       className="CompanyDetails-form-input"
-                      placeholder="Enter department"
-                      list="CompanyDetails-departments"
-                    />
-                    <datalist id="CompanyDetails-departments">
+                      disabled={loadingDepartments || departments.length === 0}
+                    >
+                      <option value="">
+                        {loadingDepartments ? "Loading departments..." : "Select Department"}
+                      </option>
                       {departments.map(dept => (
-                        <option key={dept.id} value={dept.name} />
+                        <option key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </option>
                       ))}
-                    </datalist>
+                    </select>
                   </div>
+                </div>
+
+                <div className="CompanyDetails-form-group">
+                  <label className="CompanyDetails-form-label">Job Role</label>
+                  <div className="CompanyDetails-input-wrapper">
+                    <span className="CompanyDetails-input-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2z"/>
+                      </svg>
+                    </span>
+                    <select
+                      name="jobRole"
+                      value={editFormData.jobRole}
+                      onChange={handleSelectChange}
+                      className="CompanyDetails-form-input"
+                      disabled={!editFormData.department || loadingJobRoles || editJobRoleOptions.length === 0}
+                    >
+                      <option value="">
+                        {!editFormData.department
+                          ? "Select Department First"
+                          : loadingJobRoles
+                            ? "Loading job roles..."
+                            : editJobRoleOptions.length === 0
+                              ? "No Job Roles Available"
+                              : "Select Job Role"}
+                      </option>
+                      {editJobRoleOptions.map(role => (
+                        <option key={role.id} value={role.id}>
+                          {role.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="CompanyDetails-form-group">
+                  <label className="CompanyDetails-form-label">Shift</label>
+                  <div className="CompanyDetails-input-wrapper">
+                    <span className="CompanyDetails-input-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 1C5.93 1 1 5.93 1 12s4.93 11 11 11 11-4.93 11-11S18.07 1 12 1zm1 11.41V6h-2v7.59l6.3 3.78 1-1.64-5.3-3.32z"/>
+                      </svg>
+                    </span>
+                    <select
+                      name="shiftId"
+                      value={editFormData.shiftId || ""}
+                      onChange={handleSelectChange}
+                      className={`CompanyDetails-form-input ${formErrors.shiftId ? 'CompanyDetails-error' : ''}`}
+                      disabled={!editFormData.jobRole || editShiftOptions.length === 0}
+                    >
+                      <option value="">
+                        {!editFormData.jobRole
+                          ? "Select Job Role First"
+                          : editShiftOptions.length === 0
+                            ? "No Shifts Available"
+                            : "Select Shift"}
+                      </option>
+                      {editShiftOptions.map(shift => (
+                        <option key={shift.shiftId} value={shift.shiftId}>
+                          {shift.shiftName} ({shift.shiftStart || "09:00"} - {shift.shiftEnd || "19:00"})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {formErrors.shiftId && <span className="CompanyDetails-error-message">{formErrors.shiftId}</span>}
                 </div>
 
                 <div className="CompanyDetails-form-group CompanyDetails-full-width">

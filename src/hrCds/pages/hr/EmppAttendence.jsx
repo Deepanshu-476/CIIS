@@ -104,6 +104,13 @@ const LocationMeta = ({ location, label = "Location", compact = false }) => {
   );
 };
 
+const getShiftLabel = (record = {}) => {
+  const shiftName = record.shiftName || record.user?.shiftName || 'Assigned Shift';
+  const shiftStart = record.shiftStart || record.shiftWindow?.startTime;
+  const shiftEnd = record.shiftEnd || record.shiftWindow?.endTime;
+  return shiftStart && shiftEnd ? `${shiftName} (${shiftStart} - ${shiftEnd})` : shiftName;
+};
+
 const DateRangeFilter = ({ startDate, endDate, onStartDateChange, onEndDateChange, onApply, onClear }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -2687,6 +2694,7 @@ const EmployeeAttendance = () => {
                 <th className="EmppAttendence-col-employee">Employee</th>
                 <th className="EmppAttendence-col-department">Department</th>
                 <th className="EmppAttendence-col-type">Type</th>
+                <th className="EmppAttendence-col-shift">Shift</th>
                 {!dateRangeMode && <th className="EmppAttendence-col-date">Date</th>}
                 <th className="EmppAttendence-col-checkin">Check In</th>
                 <th className="EmppAttendence-col-checkout">Check Out</th>
@@ -2706,7 +2714,7 @@ const EmployeeAttendance = () => {
                     <React.Fragment key={date}>
                       
                       <tr className="EmppAttendence-date-header">
-                        <td colSpan={bulkEditMode ? 12 : 11}>
+                        <td colSpan={bulkEditMode ? 13 : 12}>
                           <div className="EmppAttendence-date-title">
                             <FiCalendar size={18} />
                             <strong>{new Date(date).toLocaleDateString("en-US", {
@@ -2773,6 +2781,12 @@ const EmployeeAttendance = () => {
                           <td className="EmppAttendence-col-type">
                             <span className={`EmppAttendence-type-chip ${getEmployeeTypeClass(rec.user?.employeeType)}`}>
                               {rec.user?.employeeType?.toUpperCase() || "N/A"}
+                            </span>
+                          </td>
+
+                          <td className="EmppAttendence-col-shift">
+                            <span className="EmppAttendence-time-chip">
+                              {getShiftLabel(rec)}
                             </span>
                           </td>
 
@@ -2861,7 +2875,7 @@ const EmployeeAttendance = () => {
                     <React.Fragment key={department}>
                       
                       <tr className="EmppAttendence-department-header">
-                        <td colSpan={bulkEditMode ? 12 : 11}>
+                        <td colSpan={bulkEditMode ? 13 : 12}>
                           <div className="EmppAttendence-department-title">
                             <FiUsers size={18} />
                             <strong>{department} Department</strong>
@@ -2912,6 +2926,12 @@ const EmployeeAttendance = () => {
                           <td className="EmppAttendence-col-type">
                             <span className={`EmppAttendence-type-chip ${getEmployeeTypeClass(rec.user?.employeeType)}`}>
                               {rec.user?.employeeType?.toUpperCase() || "N/A"}
+                            </span>
+                          </td>
+
+                          <td className="EmppAttendence-col-shift">
+                            <span className="EmppAttendence-time-chip">
+                              {getShiftLabel(rec)}
                             </span>
                           </td>
 
@@ -2988,7 +3008,7 @@ const EmployeeAttendance = () => {
                 )
               ) : (
                 <tr>
-                  <td colSpan={bulkEditMode ? (dateRangeMode ? 12 : 11) : (dateRangeMode ? 11 : 10)}>
+                  <td colSpan={bulkEditMode ? (dateRangeMode ? 13 : 12) : (dateRangeMode ? 12 : 11)}>
                     <div className="EmppAttendence-empty-state">
                       <div className="EmppAttendence-empty-state-icon">
                         <FiCalendar size={48} />

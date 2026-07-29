@@ -8,7 +8,7 @@ import CIISLoader from '../../Loader/CIISLoader';
 
 const genderOptions = ['male', 'female', 'other'];
 const maritalStatusOptions = ['single', 'married', 'divorced', 'widowed'];
-const employeeTypeOptions = ['permanent', 'probation', 'contract', 'intern', 'trainee'];
+const employeeTypeOptions = ['permanent', 'probation', 'contract', 'intern', 'trainee', 'work-from-home'];
 
 const getId = (value) => {
   if (!value) return '';

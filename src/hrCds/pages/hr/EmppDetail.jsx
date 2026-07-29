@@ -875,7 +875,8 @@ const EmploymentDetailsForm = ({
     { value: 'part-time', label: 'Part Time' },
     { value: 'contract', label: 'Contract' },
     { value: 'intern', label: 'Intern' },
-    { value: 'probation', label: 'Probation' }
+    { value: 'probation', label: 'Probation' },
+    { value: 'work-from-home', label: 'Work from Home' }
   ];
 
   const companyRoleOptions = [
@@ -916,6 +917,10 @@ const EmploymentDetailsForm = ({
   const handleJobRoleChange = (jobRoleId) => {
     onInputChange('jobRole', jobRoleId);
     onInputChange('shiftId', '');
+  };
+
+  const handleEmployeeTypeChange = (employeeType) => {
+    onInputChange('employeeType', employeeType);
   };
 
   const [isBranchDropdownOpen, setIsBranchDropdownOpen] = useState(false);
@@ -1109,9 +1114,6 @@ const EmploymentDetailsForm = ({
               </div>
             )}
           </div>
-          <span className="EmployeeDirectory-field-note">
-            Branch manager ko sirf selected branches ka data dikhega.
-          </span>
         </div>
         
         <div className="EmployeeDirectory-form-group">
@@ -1119,7 +1121,7 @@ const EmploymentDetailsForm = ({
           <select
             className="EmployeeDirectory-form-select"
             value={formData.employeeType || ''}
-            onChange={(e) => onInputChange('employeeType', e.target.value)}
+            onChange={(e) => handleEmployeeTypeChange(e.target.value)}
             disabled={!canEditAllFields}
           >
             <option value="">Select Type</option>
@@ -2196,6 +2198,7 @@ const EmployeeDirectory = () => {
       shiftId: userData.shiftId || matchedShift?.shiftId || '',
       shiftName: userData.shiftName || matchedShift?.shiftName || '',
       shiftType: userData.shiftType || matchedShift?.shiftType || '',
+      employeeType: userData.employeeType || '',
       children: userData.children || [],
       documents: userData.documents || [],
       properties: userData.properties || [],
@@ -2244,6 +2247,8 @@ const EmployeeDirectory = () => {
       }
       
       const updateData = { ...editFormData };
+      updateData.userId = userId;
+      updateData.targetUserId = userId;
       
       if (updateData.department && typeof updateData.department === 'object') {
         updateData.department = updateData.department._id;
@@ -2273,7 +2278,7 @@ const EmployeeDirectory = () => {
           updateData.shiftType = selectedShift.shiftType;
         }
       }
-     
+
       const isSelfEdit = sameId(currentUserId, userId);
       
       // Permission check: Can edit if self OR has permission to edit others
@@ -2315,7 +2320,7 @@ const EmployeeDirectory = () => {
       };
       
       const updateUrls = isSelfEdit
-        ? ['/users/me', `/users/profile-update/${userId}`, `/users/${userId}`]
+        ? [`/users/profile-update/${userId}`, `/users/${userId}`, '/users/me']
         : [`/users/admin-update/${userId}`, '/users/admin-update-by-email', `/users/${userId}`];
       
       void 0;
@@ -3115,11 +3120,6 @@ const EmployeeDirectory = () => {
                     <div className="EmployeeDirectory-detail-item">
                       <div className="EmployeeDirectory-detail-label">Employee Type</div>
                       <div className="EmployeeDirectory-detail-value">{selectedUser.employeeType || 'Not specified'}</div>
-                    </div>
-
-                    <div className="EmployeeDirectory-detail-item">
-                      <div className="EmployeeDirectory-detail-label">Work Location</div>
-                      <div className="EmployeeDirectory-detail-value">{selectedUser.workLocation || 'Not specified'}</div>
                     </div>
 
                     <div className="EmployeeDirectory-detail-item">

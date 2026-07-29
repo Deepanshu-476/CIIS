@@ -1,7 +1,7 @@
 import React, { useState, useCallback, memo, useEffect } from "react";
 import axios from "axios";
 import API_URL from "../../config";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const FormField = memo(
   ({ label, name, type = "text", placeholder, required, value, onChange, error, autoComplete, ...rest }) => {
@@ -222,6 +222,9 @@ const CompanyRegister = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const isCiisNetworkRegisterRoute = location.pathname === "/Ciis-network/RegisterCompany";
+  const returnTo = location.state?.returnTo || (isCiisNetworkRegisterRoute ? "/Ciis-network/all-company" : "/");
 
   useEffect(() => {
     const loadPlans = async () => {
@@ -243,7 +246,7 @@ const CompanyRegister = () => {
   }, []);
 
   const handleBackToHome = () => {
-    navigate("/");
+    navigate(returnTo);
   };
 
   const clearMessages = () => {

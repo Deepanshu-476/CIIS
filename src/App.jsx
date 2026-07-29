@@ -134,6 +134,7 @@ function App() {
           }
         >
           <Route path="company-details" element={<CompanyDetails />} />
+          <Route path="RegisterCompany" element={<RegisterCompany />} />
           <Route path="CompanyAccessManagement" element={<CompanyAccessManagement />} />
           <Route path="CompanyAccessManagement/:companyId" element={<CompanyAccessManagement />} />
           <Route path="department" element={<Department />} />

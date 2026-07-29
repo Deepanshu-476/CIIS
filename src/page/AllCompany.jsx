@@ -509,7 +509,13 @@ const AllCompany = () => {
               <span className="material-icons">download</span>
               <span>Export</span>
             </button>
-            <button type="button" className="AllCompany-btn AllCompany-btn-primary" onClick={() => navigate("/Ciis-network/CompanyManagement")}>
+            <button
+              type="button"
+              className="AllCompany-btn AllCompany-btn-primary"
+              onClick={() => navigate("/Ciis-network/RegisterCompany", {
+                state: { returnTo: "/Ciis-network/all-company" }
+              })}
+            >
               <span className="material-icons">add</span>
               <span>Add Company</span>
             </button>

@@ -183,7 +183,7 @@ const useUser = () => {
     const jobRole = getCurrentUserJobRole();
     const companyRole = getCurrentUserCompanyRole();
     
-    const allowedRoles = ['super_admin', 'admin', 'owner', 'hr', 'manager', 'employee'];
+    const allowedRoles = ['super_admin', 'admin', 'owner', 'hr', 'manager'];
     return allowedRoles.includes(jobRole) || allowedRoles.includes(companyRole);
   }, [getCurrentUserJobRole, getCurrentUserCompanyRole]);
   
@@ -886,9 +886,12 @@ const EmploymentDetailsForm = ({
     { value: 'owner', label: 'Owner' }
   ];
 
-  const selectedDepartmentId = typeof formData.department === 'object'
+  const rawSelectedDepartmentId = typeof formData.department === 'object'
     ? formData.department?._id || formData.department?.id
     : formData.department;
+  const selectedDepartmentId = departments.some(department =>
+    getValueId(department) === String(rawSelectedDepartmentId || '')
+  ) ? String(rawSelectedDepartmentId) : '';
 
   const getRoleDepartmentId = (role) => {
     if (!role?.department) return '';
@@ -899,7 +902,7 @@ const EmploymentDetailsForm = ({
 
   const filteredJobRoles = selectedDepartmentId
     ? jobRoles.filter(role => getRoleDepartmentId(role) === selectedDepartmentId)
-    : [];
+    : jobRoles;
 
   const selectedJobRole = filteredJobRoles.find(role => {
     const roleValue = String(formData.jobRole || '');
@@ -914,6 +917,11 @@ const EmploymentDetailsForm = ({
   };
 
   const handleJobRoleChange = (jobRoleId) => {
+    const selectedRole = jobRoles.find(role => getValueId(role) === String(jobRoleId));
+    const roleDepartmentId = getRoleDepartmentId(selectedRole);
+    if (roleDepartmentId && roleDepartmentId !== selectedDepartmentId) {
+      onInputChange('department', roleDepartmentId);
+    }
     onInputChange('jobRole', jobRoleId);
     onInputChange('shiftId', '');
   };
@@ -965,10 +973,10 @@ const EmploymentDetailsForm = ({
             className="EmployeeDirectory-form-select"
             value={formData.jobRole || ''}
             onChange={(e) => handleJobRoleChange(e.target.value)}
-            disabled={!canEditAllFields || !selectedDepartmentId}
+            disabled={!canEditAllFields || jobRoles.length === 0}
           >
             <option value="">
-              {selectedDepartmentId ? 'Select Job Role' : 'Select Department First'}
+              {jobRoles.length === 0 ? 'No Job Roles Available' : 'Select Job Role'}
             </option>
             {filteredJobRoles.map(role => (
               <option key={role._id} value={role._id}>
@@ -1011,7 +1019,7 @@ const EmploymentDetailsForm = ({
           <label className="EmployeeDirectory-form-label">Department</label>
           <select
             className="EmployeeDirectory-form-select"
-            value={formData.department || ''}
+            value={selectedDepartmentId}
             onChange={(e) => handleDepartmentChange(e.target.value)}
             disabled={!canEditAllFields}
           >
@@ -1413,7 +1421,7 @@ const EditEmployeeForm = React.memo(({
             departments={departments}
             jobRoles={jobRoles}
             branches={branches}
-            canEditAllFields={hasFullEditAccess}
+            canEditAllFields={canEditOtherEmployees}
             isSuperAdmin={isSuperAdmin}
           />
 
@@ -2192,6 +2200,7 @@ const EmployeeDirectory = () => {
     let formDataToSet = { 
       ...userData,
       department: departmentId,
+      branch: getValueId(userData.branch) || undefined,
       jobRole: matchedJobRole?._id || rawJobRole,
       shiftId: userData.shiftId || matchedShift?.shiftId || '',
       shiftName: userData.shiftName || matchedShift?.shiftName || '',
@@ -2248,6 +2257,14 @@ const EmployeeDirectory = () => {
       if (updateData.department && typeof updateData.department === 'object') {
         updateData.department = updateData.department._id;
       }
+      if (updateData.branch && typeof updateData.branch === 'object') {
+        updateData.branch = getValueId(updateData.branch);
+      }
+      if (updateData.reportingManager && typeof updateData.reportingManager === 'object') {
+        updateData.reportingManager = getValueId(updateData.reportingManager);
+      }
+      if (!updateData.branch) delete updateData.branch;
+      if (!updateData.reportingManager) delete updateData.reportingManager;
       
       const selectedRoleForShift = jobRoles.find(r =>
         r._id === updateData.jobRole ||
@@ -2314,8 +2331,8 @@ const EmployeeDirectory = () => {
         }
       };
       
-      const updateUrls = isSelfEdit
-        ? ['/users/me', `/users/profile-update/${userId}`, `/users/${userId}`]
+      const updateUrls = isSelfEdit && !canEditOtherEmployees
+        ? ['/users/me', `/users/profile-update/${userId}`]
         : [`/users/admin-update/${userId}`, '/users/admin-update-by-email', `/users/${userId}`];
       
       void 0;
@@ -2382,7 +2399,9 @@ const EmployeeDirectory = () => {
         
     } catch (err) {
       console.error("❌ Update failed:", err);
-      const errorMessage = err.response?.data?.message || 'Failed to update employee';
+      const errorMessage = err.response?.data?.message
+        || err.response?.data?.error
+        || 'Failed to update employee';
       
       if (err.response?.status === 403) {
         showSnackbar('You do not have permission to edit this user', 'error');

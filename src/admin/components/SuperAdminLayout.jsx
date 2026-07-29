@@ -139,8 +139,8 @@ const SuperAdminLayout = () => {
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
               width: drawerWidthOpen,
-              top: 64,
-              height: 'calc(100% - 64px)',
+              top: { xs: 56, sm: 64 },
+              height: { xs: 'calc(100% - 56px)', sm: 'calc(100% - 64px)' },
             },
           }}
         >

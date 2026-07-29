@@ -1992,6 +1992,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 1;
+  pointer-events: none;
 }
 
 .CompanyDetails-form-input {
@@ -2004,10 +2006,34 @@
   background: white;
 }
 
+.CompanyDetails-textarea-wrapper {
+  align-items: flex-start;
+}
+
+.CompanyDetails-textarea-wrapper .CompanyDetails-input-icon {
+  top: 14px;
+}
+
+.CompanyDetails-textarea-wrapper textarea.CompanyDetails-form-input {
+  min-height: 88px;
+  padding: 12px 12px 12px 44px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
 @media (max-width: 768px) {
   .CompanyDetails-form-input {
     padding: 10px 10px 10px 40px;
     font-size: 0.85rem;
+  }
+
+  .CompanyDetails-textarea-wrapper .CompanyDetails-input-icon {
+    top: 12px;
+  }
+
+  .CompanyDetails-textarea-wrapper textarea.CompanyDetails-form-input {
+    min-height: 70px;
+    padding: 10px 10px 10px 40px;
   }
 }
 
@@ -3937,4 +3963,190 @@ textarea.CompanyDetails-form-input {
 .CompanyDetails,
 .CompanyDetails * {
   font-weight: 400 !important;
+}
+
+/*
+ * Keep the desktop dashboard fluid when the fixed sidebar expands.
+ * The viewport can still be desktop-sized while the page itself becomes narrow.
+ */
+.CompanyDetails-header-content {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.CompanyDetails-header-left {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.CompanyDetails-company-info,
+.CompanyDetails-company-name,
+.CompanyDetails-company-subtitle {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.CompanyDetails-company-name,
+.CompanyDetails-company-subtitle {
+  overflow-wrap: anywhere;
+}
+
+.CompanyDetails-desktop-login-url {
+  flex: 1 1 300px;
+  min-width: 240px;
+  max-width: 420px;
+  margin-inline: 0;
+}
+
+.CompanyDetails-url-wrapper,
+.CompanyDetails-url-container-desktop,
+.CompanyDetails-url-display-desktop,
+.CompanyDetails-url-text-desktop {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.CompanyDetails-header-actions {
+  flex: 0 0 auto;
+}
+
+.CompanyDetails-analytics-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+}
+
+.CompanyDetails-desktop-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+}
+
+.CompanyDetails-info-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+}
+
+.CompanyDetails-info-item {
+  min-width: 0;
+}
+
+.CompanyDetails-info-icon {
+  flex: 0 0 auto;
+}
+
+.CompanyDetails-info-content {
+  min-width: 0;
+}
+
+.CompanyDetails-info-value {
+  word-break: normal;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+.CompanyDetails-recent-users-card {
+  container-type: inline-size;
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  height: fit-content;
+  max-height: none;
+}
+
+.CompanyDetails-right-column .CompanyDetails-recent-users-card {
+  width: 100%;
+  height: fit-content;
+}
+
+.CompanyDetails-recent-users-card .CompanyDetails-users-list {
+  flex: none;
+  height: auto;
+  min-height: 0;
+}
+
+.CompanyDetails-user-avatar-wrapper,
+.CompanyDetails-edit-user-btn {
+  flex: 0 0 auto;
+}
+
+.CompanyDetails-user-name,
+.CompanyDetails-tag {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.CompanyDetails-tag {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@container (max-width: 430px) {
+  .CompanyDetails-recent-users-card > .CompanyDetails-card-header {
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 9px;
+    padding: 14px;
+  }
+
+  .CompanyDetails-recent-users-card .CompanyDetails-branch-filter {
+    grid-column: 1 / -1;
+  }
+
+  .CompanyDetails-user-item {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) 32px;
+    gap: 8px;
+    min-height: 68px;
+    padding: 10px;
+  }
+
+  .CompanyDetails-user-avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .CompanyDetails-user-name {
+    overflow: hidden;
+    font-size: 0.86rem;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .CompanyDetails-user-tags {
+    min-width: 0;
+    gap: 4px;
+  }
+
+  .CompanyDetails-tag {
+    padding-inline: 6px;
+    font-size: 0.56rem;
+  }
+
+  .CompanyDetails-edit-user-btn {
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    padding: 0;
+    justify-content: center;
+    font-size: 0;
+  }
+
+  .CompanyDetails-edit-user-btn svg {
+    width: 15px;
+    height: 15px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1180px) {
+  .CompanyDetails-header-content {
+    align-items: stretch;
+  }
+
+  .CompanyDetails-desktop-login-url {
+    order: 3;
+    flex-basis: 100%;
+    width: 100%;
+    max-width: none;
+  }
+
+  .CompanyDetails-header-actions {
+    align-self: flex-start;
+  }
 }

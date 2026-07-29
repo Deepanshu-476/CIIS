@@ -37,11 +37,15 @@ const SidebarContainer = styled(Box)(({ theme }) => ({
   boxSizing: 'border-box',
   backgroundColor: theme.palette.background.paper,
   borderRight: `1px solid ${theme.palette.divider}`,
-  height: '100vh',
+  height: 'calc(100vh - 64px)',
   position: 'fixed',
-  top: 0,
+  top: 64,
   left: 0,
   zIndex: theme.zIndex.drawer,
+  [theme.breakpoints.down('sm')]: {
+    top: 56,
+    height: 'calc(100vh - 56px)',
+  },
   transition: theme.transitions.create('width', {
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.enteringScreen,
@@ -58,13 +62,6 @@ const SidebarContainer = styled(Box)(({ theme }) => ({
 const CollapsedSidebar = styled(SidebarContainer)(({ theme }) => ({
   width: 72,
   overflowX: 'hidden',
-}));
-
-const HeaderSpacer = styled(Box)(({ theme }) => ({
-  height: 64,
-  [theme.breakpoints.down('sm')]: {
-    height: 56,
-  },
 }));
 
 const SectionHeading = styled(Typography)(({ theme }) => ({
@@ -334,8 +331,6 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
 
   return (
     <SidebarComponent>
-      <HeaderSpacer />
-      
       <ContentWrapper>
         <List sx={{ pt: 1 }}>
           {filteredMenuItems.map((item, idx) =>

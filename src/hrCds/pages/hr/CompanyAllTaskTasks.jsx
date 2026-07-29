@@ -381,6 +381,7 @@ const CompanyAllTaskTasks = () => {
           search,
           status,
           priority,
+          _ts: Date.now(),
         },
       });
 

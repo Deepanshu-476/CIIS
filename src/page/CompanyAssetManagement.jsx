@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { FiAlertTriangle, FiLoader, FiTrash2, FiX } from 'react-icons/fi';
 import axios from '../utils/axiosConfig';
 import './CompanyAssetManagement.css';
 
@@ -26,10 +27,15 @@ const CompanyAssetManagement = () => {
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [deletingAsset, setDeletingAsset] = useState(false);
   const [quantity, setQuantity] = useState('1');
   const [editingCommentReq, setEditingCommentReq] = useState(null);
   const [commentText, setCommentText] = useState('');
   const [animateIn, setAnimateIn] = useState(false);
+  const deleteModalRef = useRef(null);
+  const deleteCancelButtonRef = useRef(null);
+  const deleteTriggerRef = useRef(null);
+  const deletingAssetRef = useRef(false);
   const isModalOpen = Boolean(showForm || showDetailsModal || showDeleteConfirm || editingCommentReq);
 
   useEffect(() => {
@@ -67,6 +73,47 @@ const CompanyAssetManagement = () => {
       document.documentElement.style.overflow = htmlOverflow;
     };
   }, [isModalOpen]);
+
+  useEffect(() => {
+    deletingAssetRef.current = deletingAsset;
+  }, [deletingAsset]);
+
+  useEffect(() => {
+    if (!showDeleteConfirm) return undefined;
+
+    deleteTriggerRef.current = document.activeElement;
+    const focusTimer = window.setTimeout(() => deleteCancelButtonRef.current?.focus(), 0);
+    const handleDeleteModalKeyDown = (event) => {
+      if (event.key === 'Escape' && !deletingAssetRef.current) {
+        event.preventDefault();
+        setShowDeleteConfirm(null);
+        return;
+      }
+
+      if (event.key !== 'Tab' || !deleteModalRef.current) return;
+      const focusable = [...deleteModalRef.current.querySelectorAll(
+        'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+      )];
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleDeleteModalKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener('keydown', handleDeleteModalKeyDown);
+      deleteTriggerRef.current?.focus?.();
+    };
+  }, [showDeleteConfirm]);
 
   const getRecordId = (record) => {
     if (!record) return '';
@@ -417,21 +464,24 @@ const CompanyAssetManagement = () => {
 
   
   const handleDelete = async (id) => {
+    if (deletingAsset || !id) return;
+
     try {
-      setLoading(true);
+      setDeletingAsset(true);
       const response = await axios.delete(`/company-assets/${id}`);
       
       if (response.data.success) {
         toast.success('Company asset deleted successfully!');
         setAssets(prevAssets => prevAssets.filter(asset => asset._id !== id));
         setShowDeleteConfirm(null);
+        await fetchAssets();
       } else {
         toast.error(response.data.message || 'Failed to delete asset');
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to delete company asset');
     } finally {
-      setLoading(false);
+      setDeletingAsset(false);
     }
   };
 
@@ -1056,9 +1106,9 @@ const CompanyAssetManagement = () => {
       </div>
 
       
-      {showDetailsModal && selectedAsset && (
+      {showDetailsModal && selectedAsset && createPortal((
         <div className="ca-modal-overlay-enhanced" onClick={() => setShowDetailsModal(false)}>
-          <div className="ca-modal-enhanced" onClick={(e) => e.stopPropagation()}>
+          <div className="ca-modal-enhanced ca-asset-details-modal" onClick={(e) => e.stopPropagation()}>
             <div className="ca-modal-header-enhanced">
               <h3>Asset Details</h3>
               <button className="ca-close-btn-enhanced" onClick={() => setShowDetailsModal(false)}>✕</button>
@@ -1100,7 +1150,24 @@ const CompanyAssetManagement = () => {
                 </div>
                 <div className="ca-detail-item-enhanced full-width">
                   <label>Asset ID</label>
-                  <div className="ca-detail-value-enhanced ca-monospace-enhanced">{selectedAsset._id}</div>
+                  <div className="ca-detail-value-enhanced ca-monospace-enhanced">
+                    <code>{selectedAsset._id}</code>
+                    <button
+                      type="button"
+                      className="ca-copy-asset-id"
+                      aria-label="Copy Asset ID"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(String(selectedAsset._id || ''));
+                          toast.success('Asset ID copied');
+                        } catch {
+                          toast.error('Could not copy Asset ID');
+                        }
+                      }}
+                    >
+                      Copy
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1111,10 +1178,76 @@ const CompanyAssetManagement = () => {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
 
       
-      {showDeleteConfirm && (
+      {showDeleteConfirm && createPortal((
+        <div
+          className="ca-delete-confirm-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !deletingAsset) setShowDeleteConfirm(null);
+          }}
+        >
+          <section
+            ref={deleteModalRef}
+            className="ca-delete-confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ca-delete-confirm-title"
+            aria-describedby="ca-delete-confirm-description"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="ca-delete-confirm-header">
+              <span className="ca-delete-confirm-title-icon" aria-hidden="true"><FiTrash2 /></span>
+              <h2 id="ca-delete-confirm-title">Delete asset?</h2>
+              <button
+                type="button"
+                className="ca-delete-confirm-close"
+                aria-label="Close delete confirmation"
+                disabled={deletingAsset}
+                onClick={() => setShowDeleteConfirm(null)}
+              >
+                <FiX />
+              </button>
+            </header>
+
+            <div className="ca-delete-confirm-body">
+              <p id="ca-delete-confirm-description">
+                Are you sure you want to delete <strong>{showDeleteConfirm.name}</strong>?
+              </p>
+              <p className="ca-delete-confirm-supporting">This action is permanent and cannot be undone.</p>
+              <div className="ca-delete-confirm-warning" role="alert">
+                <FiAlertTriangle aria-hidden="true" />
+                <span>This action cannot be undone.</span>
+              </div>
+            </div>
+
+            <footer className="ca-delete-confirm-footer">
+              <button
+                ref={deleteCancelButtonRef}
+                type="button"
+                className="ca-delete-confirm-cancel"
+                disabled={deletingAsset}
+                onClick={() => setShowDeleteConfirm(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="ca-delete-confirm-submit"
+                disabled={deletingAsset}
+                aria-label={`Delete ${showDeleteConfirm.name || 'asset'}`}
+                onClick={() => handleDelete(showDeleteConfirm._id)}
+              >
+                {deletingAsset ? <FiLoader className="ca-delete-confirm-spinner" aria-hidden="true" /> : <FiTrash2 aria-hidden="true" />}
+                <span>{deletingAsset ? 'Deleting...' : 'Delete Asset'}</span>
+              </button>
+            </footer>
+          </section>
+        </div>
+      ), document.body)}
+
+      {showDeleteConfirm && deletingAsset === null && (
         <div className="ca-modal-overlay-enhanced" onClick={() => setShowDeleteConfirm(null)}>
           <div className="ca-modal-enhanced ca-modal-sm-enhanced" onClick={(e) => e.stopPropagation()}>
             <div className="ca-modal-header-enhanced">

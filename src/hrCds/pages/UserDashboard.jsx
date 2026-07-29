@@ -129,10 +129,47 @@ const writeDashboardCache = patch => {
   }
 };
 
+const getIndiaDateKey = value => {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+};
+
+const getActiveClockState = record => {
+  if (!record?.inTime || record?.outTime || record?.isClockedIn === false) return null;
+  const inTime = new Date(record.inTime);
+  if (Number.isNaN(inTime.getTime()) || getIndiaDateKey(inTime) !== getIndiaDateKey()) return null;
+  return {
+    inTime: inTime.toISOString(),
+    isClockedIn: true,
+  };
+};
+
 const normalizeAttendanceStatus = status => {
   const normalized = String(status || '').trim().toUpperCase().replace(/[-_]/g, ' ');
   if (normalized === 'HALFDAY' || normalized === 'HALF DAY') return 'HALF DAY';
   return normalized;
+};
+
+const getAttendanceStatusMeta = status => {
+  const normalized = normalizeAttendanceStatus(status);
+  const statusMap = {
+    PRESENT: { label: 'Present', className: 'present' },
+    LATE: { label: 'Late', className: 'late' },
+    'HALF DAY': { label: 'Half Day', className: 'halfday' },
+    LEAVE: { label: 'Leave', className: 'leave' },
+    ABSENT: { label: 'Absent', className: 'absent' },
+    WEEKEND: { label: 'Weekend', className: 'weekend' },
+    HOLIDAY: { label: 'Holiday 🎉', className: 'holiday' },
+    'BEFORE JOINING': { label: 'Before Joining', className: 'before-join' },
+  };
+
+  return statusMap[normalized] || { label: normalized || 'Pending', className: 'pending' };
 };
 
 const normalizeAttendanceRecord = record => ({
@@ -219,11 +256,17 @@ const RefreshOverlay = () => (
 const UserDashboard = () => {
   const navigate = useNavigate();
   const initialDashboardSnapshot = useMemo(readDashboardCache, []);
+  const initialActiveClock = useMemo(
+    () => getActiveClockState(initialDashboardSnapshot.activeClock),
+    [initialDashboardSnapshot.activeClock]
+  );
   
   const [pageLoading, setPageLoading] = useState(true);
   
-  const [timer, setTimer] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
+  const [timer, setTimer] = useState(() => initialActiveClock
+    ? Math.max(0, Math.floor((Date.now() - new Date(initialActiveClock.inTime).getTime()) / 1000))
+    : 0);
+  const [isRunning, setIsRunning] = useState(Boolean(initialActiveClock));
   const intervalRef = useRef(null);
   const dashboardRootRef = useRef(null);
 
@@ -665,11 +708,17 @@ const UserDashboard = () => {
         
         if (response.data?.isClockedIn) {
           const inTime = new Date(response.data.inTime);
-          setTimer(Math.floor((Date.now() - inTime.getTime()) / 1000));
-          setIsRunning(true);
+          if (!Number.isNaN(inTime.getTime())) {
+            setTimer(Math.max(0, Math.floor((Date.now() - inTime.getTime()) / 1000)));
+            setIsRunning(true);
+            writeDashboardCache({
+              activeClock: { inTime: inTime.toISOString(), isClockedIn: true },
+            });
+          }
         } else {
           setIsRunning(false);
           setTimer(0);
+          writeDashboardCache({ activeClock: null });
         }
         
       } catch (error) {
@@ -790,6 +839,7 @@ const UserDashboard = () => {
       };
       const dueToday = Number(today.total) || 0;
       const completedToday = Number(today.completed?.count) || 0;
+      const inProgressToday = Number(today.inProgress?.count) || 0;
       setDashboardTaskStats({
         loading: false,
         ...resolvedCounts
@@ -797,10 +847,10 @@ const UserDashboard = () => {
       const nextFocusStats = {
         loading: false,
         dueToday,
-        inProgress: resolvedCounts.inProgress,
+        inProgress: inProgressToday,
         completedToday,
         dailyProgress: dueToday
-          ? Math.min(100, Math.round((completedToday / dueToday) * 100))
+          ? Math.min(100, Math.round(((completedToday + (inProgressToday * 0.5)) / dueToday) * 100))
           : 0
       };
       setFocusStats(nextFocusStats);
@@ -1007,6 +1057,16 @@ const UserDashboard = () => {
       }
       setAttendanceData(attendanceRecords);
 
+      const activeAttendance = attendanceRecords
+        .map(getActiveClockState)
+        .find(Boolean);
+      if (activeAttendance) {
+        const inTime = new Date(activeAttendance.inTime);
+        setTimer(Math.max(0, Math.floor((Date.now() - inTime.getTime()) / 1000)));
+        setIsRunning(true);
+        writeDashboardCache({ activeClock: activeAttendance });
+      }
+
       let leaves = summary.leaves || [];
       if (userJoinDate) {
         leaves = leaves.filter(leave =>
@@ -1014,16 +1074,6 @@ const UserDashboard = () => {
         );
       }
       setLeaveData(leaves);
-
-      const status = summary.attendanceStatus || {};
-      if (status.isClockedIn && status.inTime) {
-        const inTime = new Date(status.inTime);
-        setTimer(Math.floor((Date.now() - inTime.getTime()) / 1000));
-        setIsRunning(true);
-      } else {
-        setIsRunning(false);
-        setTimer(0);
-      }
 
       const tasks = (summary.recentTasks?.length ? summary.recentTasks : pickTaskRecords(summary))
         .slice(0, 8)
@@ -1057,6 +1107,9 @@ const UserDashboard = () => {
       cancelPendingRequests();
       
       try {
+        // Attendance status is intentionally fetched independently of the larger
+        // dashboard summary so a clock-in made on another device is shown at once.
+        fetchCurrentStatus();
         const summaryLoaded = await fetchDashboardSummary();
         if (summaryLoaded) {
           await fetchRecentTaskActivity();
@@ -1066,7 +1119,6 @@ const UserDashboard = () => {
           await fetchHolidays(); 
           await fetchAttendanceData(true); 
           await fetchLeaveData();
-          await fetchCurrentStatus();
           await fetchRecentTaskActivity();
         }
       } catch (error) {
@@ -1102,6 +1154,26 @@ const UserDashboard = () => {
     }
     return () => clearInterval(intervalRef.current);
   }, [isRunning]);
+
+  useEffect(() => {
+    if (!initialLoadDone || !isUserInCurrentCompany) return undefined;
+
+    const syncAttendanceStatus = () => {
+      if (document.visibilityState === 'visible') {
+        fetchCurrentStatus();
+      }
+    };
+
+    const statusSyncInterval = setInterval(syncAttendanceStatus, 60000);
+    window.addEventListener('focus', syncAttendanceStatus);
+    document.addEventListener('visibilitychange', syncAttendanceStatus);
+
+    return () => {
+      clearInterval(statusSyncInterval);
+      window.removeEventListener('focus', syncAttendanceStatus);
+      document.removeEventListener('visibilitychange', syncAttendanceStatus);
+    };
+  }, [initialLoadDone, isUserInCurrentCompany, fetchCurrentStatus]);
 
   
   useEffect(() => {
@@ -1434,7 +1506,11 @@ const UserDashboard = () => {
       });
       
       setIsRunning(true);
-      setTimer(5);
+      const clockedInAt = new Date();
+      setTimer(0);
+      writeDashboardCache({
+        activeClock: { inTime: clockedInAt.toISOString(), isClockedIn: true },
+      });
       toast.success('Clocked in successfully!');
       
       setTimeout(() => {
@@ -1460,6 +1536,8 @@ const UserDashboard = () => {
       });
 
       setIsRunning(false);
+      setTimer(0);
+      writeDashboardCache({ activeClock: null });
       setShowClockOutConfirm(false);
       toast.success("Clocked out successfully!");
 
@@ -2597,7 +2675,17 @@ const UserDashboard = () => {
             </div>
 
             <div className="attendance-day-summary">
-              <div className="attendance-summary-head"><strong>{currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</strong><span>{todayAttendance?.status ? normalizeAttendanceStatus(todayAttendance.status).replace('HALF DAY', 'Half Day').replace('PRESENT', 'Present').replace('LATE', 'Late').replace('ABSENT', 'Absent') : 'Pending'}</span></div>
+              <div className="attendance-summary-head">
+                <strong>{currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</strong>
+                {(() => {
+                  const statusMeta = getAttendanceStatusMeta(todayAttendance?.status);
+                  return (
+                    <span className={`attendance-summary-status attendance-summary-status--${statusMeta.className}`}>
+                      {statusMeta.label}
+                    </span>
+                  );
+                })()}
+              </div>
               <dl>
                 <div><dt>Check In</dt><dd>{formatClockTime(todayAttendance?.inTime)}</dd></div>
                 <div><dt>Check Out</dt><dd>{isRunning ? 'In progress' : formatClockTime(todayAttendance?.outTime)}</dd></div>

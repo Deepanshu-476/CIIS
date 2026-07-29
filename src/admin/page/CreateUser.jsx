@@ -111,8 +111,19 @@ const CreateUser = () => {
           setCurrentUser(userData);
           
           
-          const companyIdValue = userData.companyId || userData.company || userData.company_id || userData.CompanyId;
-          const companyCodeValue = userData.companyCode || userData.code || userData.company_code;
+          const companyIdValue = getId(
+            userData.companyId ||
+            userData.company ||
+            userData.company_id ||
+            userData.CompanyId ||
+            userData.companyDetails
+          );
+          const companyCodeValue =
+            userData.companyCode ||
+            userData.code ||
+            userData.company_code ||
+            userData.companyDetails?.companyCode ||
+            (typeof userData.company === 'object' ? userData.company?.companyCode : '');
           
           void 0;
           void 0;
@@ -122,7 +133,7 @@ const CreateUser = () => {
             setCompanyCode(companyCodeValue);
           } else {
             
-            const companyStr = localStorage.getItem('company');
+            const companyStr = localStorage.getItem('company') || localStorage.getItem('companyDetails');
             if (companyStr) {
               const companyData = JSON.parse(companyStr);
               void 0;
@@ -135,7 +146,7 @@ const CreateUser = () => {
           }
         } else if (token) {
           
-          const companyStr = localStorage.getItem('company');
+          const companyStr = localStorage.getItem('company') || localStorage.getItem('companyDetails');
           if (companyStr) {
             const companyData = JSON.parse(companyStr);
             void 0;
@@ -173,10 +184,13 @@ const CreateUser = () => {
         void 0;
         
         const timer = setTimeout(() => {
-          const retryCompanyId = localStorage.getItem('companyId') || 
-                                 JSON.parse(localStorage.getItem('company')?._id);
+          const storedCompanyValue = localStorage.getItem('company') || localStorage.getItem('companyDetails');
+          const storedCompany = storedCompanyValue ? JSON.parse(storedCompanyValue) : null;
+          const retryCompanyId = localStorage.getItem('companyId') || getId(storedCompany);
           if (retryCompanyId) {
-            setCompanyId(retryCompanyId);
+            setCompanyId(String(retryCompanyId));
+          } else {
+            setPageLoading(false);
           }
         }, 1000);
         return () => clearTimeout(timer);

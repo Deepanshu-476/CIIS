@@ -37,6 +37,42 @@ import {
 } from "@mui/material";
 
 const getBranchUsers = (branch) => Number(branch.totalUsers || branch.employeeCount || branch.usersCount || 0);
+const getRecordId = (value) => {
+  if (!value) return "";
+  if (typeof value === "object") return value._id || value.id || "";
+  return value;
+};
+
+const readStoredJson = (key) => {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : null;
+  } catch {
+    return null;
+  }
+};
+
+const getStoredCompanyContext = () => {
+  const company = readStoredJson("company");
+  const companyDetails = readStoredJson("companyDetails");
+  const user = readStoredJson("user") || readStoredJson("superAdmin");
+  const record = company || companyDetails || user?.companyDetails ||
+    (typeof user?.company === "object" ? user.company : null);
+  const id = (
+    getRecordId(record) ||
+    getRecordId(user?.companyId) ||
+    getRecordId(user?.company)
+  );
+  const companyCode = (
+    record?.companyCode ||
+    record?.code ||
+    user?.companyCode ||
+    localStorage.getItem("companyCode") ||
+    ""
+  );
+
+  return { id, companyCode, record };
+};
 
 const BranchManagement = () => {
   const navigate = useNavigate();
@@ -58,21 +94,48 @@ const BranchManagement = () => {
   });
 
   useEffect(() => {
-    try {
-      const companyStr = localStorage.getItem("company");
-      if (companyStr) {
-        const companyObj = JSON.parse(companyStr);
-        if (companyObj?._id) {
-          setCompanyId(companyObj._id);
-          fetchBranches(companyObj._id);
+    let cancelled = false;
+
+    const initializeCompany = async () => {
+      try {
+        const context = getStoredCompanyContext();
+        let resolvedCompanyId = context.id;
+
+        if (!resolvedCompanyId && context.companyCode) {
+          const response = await axiosInstance.get(
+            `/company/code/${encodeURIComponent(context.companyCode)}`
+          );
+          const resolvedCompany = response.data?.company || response.data?.data || response.data;
+          resolvedCompanyId = getRecordId(resolvedCompany);
+
+          if (resolvedCompanyId) {
+            localStorage.setItem("company", JSON.stringify(resolvedCompany));
+            localStorage.setItem("companyDetails", JSON.stringify(resolvedCompany));
+          }
+        }
+
+        if (cancelled) return;
+
+        if (!resolvedCompanyId) {
+          setLoading(false);
+          toastAlert("error", "Active company not found. Please select or login to the company again.");
           return;
         }
+
+        setCompanyId(resolvedCompanyId);
+        await fetchBranches(resolvedCompanyId);
+      } catch (err) {
+        if (cancelled) return;
+        console.error("Error resolving active company:", err);
+        setLoading(false);
+        toastAlert("error", err.response?.data?.message || "Failed to resolve active company");
       }
-      setLoading(false);
-    } catch (err) {
-      console.error("Error reading company from storage:", err);
-      setLoading(false);
-    }
+    };
+
+    initializeCompany();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const toastAlert = (icon, title) => {
@@ -92,7 +155,8 @@ const BranchManagement = () => {
       setLoading(true);
       const response = await axiosInstance.get(`/branches/company/${cId}`);
       if (response.data?.success) {
-        setBranches(response.data.branches || []);
+        const branchData = response.data?.branches || response.data?.data || [];
+        setBranches(Array.isArray(branchData) ? branchData : []);
       }
     } catch (error) {
       console.error("Error fetching branches:", error);

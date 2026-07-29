@@ -97,6 +97,18 @@ const CompanyDetails = () => {
   const [subscriptionPaymentDate, setSubscriptionPaymentDate] = useState("");
   const [subscriptionNotes, setSubscriptionNotes] = useState("");
   const [subscriptionSaving, setSubscriptionSaving] = useState(false);
+
+  useEffect(() => {
+    const hasOpenModal = editModalOpen || companyEditModalOpen || upgradeModalOpen;
+    if (!hasOpenModal) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [editModalOpen, companyEditModalOpen, upgradeModalOpen]);
   
   
   const [departments, setDepartments] = useState([]);
@@ -1563,6 +1575,18 @@ const CompanyDetails = () => {
       ...prev,
       assignedBranches: selectedValues
     }));
+  };
+
+  const toggleAssignedBranch = (branchId) => {
+    setEditFormData(prev => {
+      const selectedBranches = prev.assignedBranches || [];
+      return {
+        ...prev,
+        assignedBranches: selectedBranches.includes(branchId)
+          ? selectedBranches.filter(id => id !== branchId)
+          : [...selectedBranches, branchId]
+      };
+    });
   };
 
   
@@ -3182,7 +3206,7 @@ const CompanyDetails = () => {
       
 {editModalOpen && selectedUser && (
   <div className="CompanyDetails-modal-overlay" onClick={() => !saveLoading && setEditModalOpen(false)}>
-    <div className={`CompanyDetails-modal-content CompanyDetails-large ${isMobile ? 'CompanyDetails-fullscreen' : ''}`} onClick={e => e.stopPropagation()}>
+    <div className={`CompanyDetails-modal-content CompanyDetails-large CompanyDetails-user-edit-modal ${isMobile ? 'CompanyDetails-fullscreen' : ''}`} onClick={e => e.stopPropagation()}>
       <div className="CompanyDetails-modal-header CompanyDetails-primary-header">
         <div className="CompanyDetails-modal-header-left">
           <div className="CompanyDetails-modal-header-icon">
@@ -3440,25 +3464,71 @@ const CompanyDetails = () => {
                         <path d="M3 21V7l9-4 9 4v14h-6v-6H9v6H3zm4-8h2v-2H7v2zm0-4h2V7H7v2zm4 4h2v-2h-2v2zm0-4h2V7h-2v2zm4 4h2v-2h-2v2zm0-4h2V7h-2v2z"/>
                       </svg>
                     </span>
-                    <select
-                      name="assignedBranches"
-                      value={editFormData.assignedBranches || []}
-                      onChange={handleAssignedBranchesChange}
-                      className="CompanyDetails-form-input"
-                      multiple
-                      style={{ minHeight: 118, paddingTop: 12, paddingBottom: 12 }}
-                      disabled={branches.length === 0}
-                    >
-                      {branches.map(branch => (
-                        <option key={getRecordId(branch)} value={getRecordId(branch)}>
-                          {branch.name} {branch.branchCode ? `(${branch.branchCode})` : ""}
-                        </option>
-                      ))}
-                    </select>
+                    <details className="CompanyDetails-multiselect CompanyDetails-branch-multiselect">
+                      <summary
+                        className={`CompanyDetails-form-input CompanyDetails-multiselect-summary ${
+                          branches.length === 0 ? "CompanyDetails-disabled" : ""
+                        }`}
+                        onClick={(event) => {
+                          if (branches.length === 0) event.preventDefault();
+                        }}
+                      >
+                        <span className="CompanyDetails-multiselect-value">
+                          {(editFormData.assignedBranches || []).length > 0
+                            ? branches
+                                .filter(branch => (editFormData.assignedBranches || []).includes(getRecordId(branch)))
+                                .map(branch => branch.name)
+                                .join(", ")
+                            : branches.length === 0
+                              ? "No branches available"
+                              : "Select branches"}
+                        </span>
+                        {(editFormData.assignedBranches || []).length > 0 && (
+                          <span className="CompanyDetails-multiselect-count">
+                            {editFormData.assignedBranches.length}
+                          </span>
+                        )}
+                      </summary>
+                      <div className="CompanyDetails-multiselect-menu">
+                        <div className="CompanyDetails-multiselect-menu-header">
+                          <span>Select branch access</span>
+                          {(editFormData.assignedBranches || []).length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setEditFormData(prev => ({ ...prev, assignedBranches: [] }))}
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                        {branches.map(branch => {
+                          const branchId = getRecordId(branch);
+                          const isSelected = (editFormData.assignedBranches || []).includes(branchId);
+                          return (
+                            <label
+                              key={branchId}
+                              className={`CompanyDetails-multiselect-option ${isSelected ? "CompanyDetails-selected" : ""}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleAssignedBranch(branchId)}
+                              />
+                              <span className="CompanyDetails-multiselect-check" aria-hidden="true">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                              </span>
+                              <span className="CompanyDetails-multiselect-option-text">
+                                <strong>{branch.name}</strong>
+                                {branch.branchCode && <small>{branch.branchCode}</small>}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </details>
                   </div>
-                  <small className="CompanyDetails-field-note">
-                    Ctrl hold karke multiple branches select karo. Empty chhodne par user primary branch se scoped rahega.
-                  </small>
                 </div>
 
                 <div className="CompanyDetails-form-group">

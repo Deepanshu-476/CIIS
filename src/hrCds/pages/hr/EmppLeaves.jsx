@@ -1516,7 +1516,6 @@ const EmployeeLeaves = () => {
                 const isOwnLeave = userId === currentUserId;
                 const departmentName = getDepartmentName(leave.user?.department);
                 const canApproveThisLeave = leave.status === 'Pending' && canApproveLeave(leave);
-                const canDeleteThisLeave = canDeleteLeave(leave);
                 
                 return (
                   <tr key={leave._id} className={`${getRowClass(leave.status)} ${isOwnLeave ? 'EmppLeaves-own-leave-row' : ''}`}>
@@ -1666,18 +1665,6 @@ const EmployeeLeaves = () => {
                             </>
                           )}
 
-                          {canDeleteThisLeave && (
-                            <button
-                              className="EmppLeaves-action-menu-item EmppLeaves-delete"
-                              onClick={() => {
-                                setOpenActionMenuId(null);
-                                setDeleteDialog(leave);
-                              }}
-                            >
-                              <FiTrash2 size={16} />
-                              <span>Delete</span>
-                            </button>
-                          )}
                         </div>
                       </details>
                     </td>

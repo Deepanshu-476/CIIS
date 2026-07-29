@@ -111,6 +111,14 @@ const getShiftLabel = (record = {}) => {
   return shiftStart && shiftEnd ? `${shiftName} (${shiftStart} - ${shiftEnd})` : shiftName;
 };
 
+const getClockOutModeLabel = (record = {}) => {
+  if (!record?.outTime) return '';
+  const mode = String(record.clockOutMode || '').trim().toUpperCase();
+  if (mode === 'AUTO') return 'Auto Clock Out';
+  if (mode === 'MANUAL') return 'Manual Clock Out';
+  return 'Manual Clock Out';
+};
+
 const DateRangeFilter = ({ startDate, endDate, onStartDateChange, onEndDateChange, onApply, onClear }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -2126,6 +2134,7 @@ const EmployeeAttendance = () => {
       'Employee Type': record.user?.employeeType?.toUpperCase() || 'N/A',
       'Check In': formatTime(record.inTime),
       'Check Out': formatTime(record.outTime),
+      'Check Out Type': getClockOutModeLabel(record),
       'Hours Worked': record.hoursWorked || '00:00:00',
       'Status': formatStatusLabel(record.status),
       'Late By': record.lateBy || '00:00:00',
@@ -2161,7 +2170,7 @@ const EmployeeAttendance = () => {
     const allData = [...excelData, ...summaryRows];
     
     const worksheet = XLSX.utils.json_to_sheet(allData, {
-      header: ['Date', 'Department', 'Employee ID', 'Name', 'Email', 'Employee Type', 'Check In', 'Check Out', 
+      header: ['Date', 'Department', 'Employee ID', 'Name', 'Email', 'Employee Type', 'Check In', 'Check Out', 'Check Out Type',
                'Hours Worked', 'Status', 'Late By', 'Early Leave', 'Overtime', 'Total Hours']
     });
     
@@ -2178,7 +2187,7 @@ const EmployeeAttendance = () => {
   const exportToCSV = () => {
     setExportMenuOpen(false);
     
-    const headers = ['Date', 'Department', 'Employee Name', 'Email', 'Employee Type', 'Check In', 'Check Out', 
+    const headers = ['Date', 'Department', 'Employee Name', 'Email', 'Employee Type', 'Check In', 'Check Out', 'Check Out Type',
                      'Hours Worked', 'Status', 'Late By', 'Early Leave', 'Overtime'];
     
     const csvData = filteredRecords.map(record => [
@@ -2189,6 +2198,7 @@ const EmployeeAttendance = () => {
       record.user?.employeeType?.toUpperCase() || 'N/A',
       formatTime(record.inTime),
       formatTime(record.outTime),
+      getClockOutModeLabel(record),
       record.hoursWorked || '00:00:00',
       formatStatusLabel(record.status),
       record.lateBy || '00:00:00',
@@ -2809,6 +2819,11 @@ const EmployeeAttendance = () => {
                             <div style={{ fontWeight: 500 }}>
                               {formatTime(rec.outTime)}
                             </div>
+                            {rec.outTime && (
+                              <div style={{ fontSize: '0.76rem', color: rec.clockOutMode === 'AUTO' ? '#b45309' : '#2563eb', marginTop: '3px' }}>
+                                {getClockOutModeLabel(rec)}
+                              </div>
+                            )}
                             <LocationMeta location={rec.outLocation} label="Logout" compact />
                           </td>
 
@@ -2952,6 +2967,11 @@ const EmployeeAttendance = () => {
                             <div style={{ fontWeight: 500 }}>
                               {formatTime(rec.outTime)}
                             </div>
+                            {rec.outTime && (
+                              <div style={{ fontSize: '0.76rem', color: rec.clockOutMode === 'AUTO' ? '#b45309' : '#2563eb', marginTop: '3px' }}>
+                                {getClockOutModeLabel(rec)}
+                              </div>
+                            )}
                             <LocationMeta location={rec.outLocation} label="Logout" compact />
                           </td>
 

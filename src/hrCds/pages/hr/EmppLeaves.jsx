@@ -455,6 +455,11 @@ const EmployeeLeaves = () => {
             </div>
           );
         })}
+        {['Approved', 'Rejected'].includes(leave.status) && (
+          <div className="EmppLeaves-approval-note">
+            This leave is finalized after the first approval or rejection.
+          </div>
+        )}
       </div>
     );
   };

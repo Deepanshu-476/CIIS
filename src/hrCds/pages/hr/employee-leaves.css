@@ -3388,3 +3388,11 @@ border-radius: 50px ;
   background: #e11d48;
   color: #ffffff;
 }
+
+.EmppLeaves-approval-note {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #64748b;
+  font-style: italic;
+}

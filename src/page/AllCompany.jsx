@@ -1,61 +1,138 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
 import API_URL from "../config";
-import "./AllCompany.css"; 
-import CIISLoader from '../Loader/CIISLoader'; 
+import CIISLoader from "../Loader/CIISLoader";
+import "./AllCompany.css";
+
+const getId = value => {
+  if (!value) return "";
+  if (typeof value === "object") return value._id || value.id || "";
+  return String(value);
+};
+
+const extractList = data => {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.companies)) return data.companies;
+  if (Array.isArray(data?.users)) return data.users;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.message)) return data.message;
+  return [];
+};
+
+const formatDate = value => {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const getDaysLeft = value => {
+  if (!value) return null;
+  const diff = new Date(value).getTime() - Date.now();
+  if (Number.isNaN(diff)) return null;
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+};
+
+const getCompanyStatus = company => {
+  if (company?.isActive === false) {
+    return { label: "Inactive", tone: "danger" };
+  }
+
+  const daysLeft = getDaysLeft(company?.subscriptionExpiry);
+  if (daysLeft === null) return { label: "Active", tone: "success" };
+  if (daysLeft <= 0) return { label: "Expired", tone: "danger" };
+  if (daysLeft <= 7) return { label: "Critical", tone: "warning" };
+  if (daysLeft <= 30) return { label: "Expiring Soon", tone: "warning" };
+  return { label: "Active", tone: "success" };
+};
+
+const getCompanyTone = company => {
+  const status = getCompanyStatus(company).tone;
+  if (status === "danger") return "danger";
+  if (status === "warning") return "warning";
+  return "success";
+};
+
+const getAvatarLabel = value => {
+  const text = String(value || "").trim();
+  if (!text) return "C";
+  const parts = text.split(/\s+/).filter(Boolean);
+  const first = parts[0]?.[0] || "C";
+  const second = parts[1]?.[0] || parts[0]?.[1] || "";
+  return `${first}${second}`.toUpperCase();
+};
+
+const getSparkPath = tone => {
+  switch (tone) {
+    case "success":
+      return "M2 28 C10 28, 14 15, 20 18 S32 30, 39 22 S52 6, 60 12 S73 28, 81 18 S93 12, 100 8";
+    case "warning":
+      return "M2 26 C10 25, 16 18, 22 21 S35 30, 43 20 S57 10, 66 14 S78 28, 86 18 S94 14, 100 10";
+    default:
+      return "M2 28 C10 28, 16 20, 22 22 S35 30, 43 20 S57 10, 66 14 S78 28, 86 18 S94 14, 100 10";
+  }
+};
+
+const Sparkline = ({ tone }) => (
+  <svg className="AllCompany-sparkline" viewBox="0 0 102 32" aria-hidden="true">
+    <path d={getSparkPath(tone)} />
+  </svg>
+);
+
+const getPaginationItems = (currentPage, totalPages) => {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const pages = [1];
+  if (currentPage > 3) pages.push("ellipsis-left");
+
+  const start = Math.max(2, currentPage - 1);
+  const end = Math.min(totalPages - 1, currentPage + 1);
+  for (let page = start; page <= end; page += 1) {
+    pages.push(page);
+  }
+
+  if (currentPage < totalPages - 2) pages.push("ellipsis-right");
+  pages.push(totalPages);
+
+  return [...new Set(pages)];
+};
+
+const getTrialPlanDurationDays = plan => {
+  const isFreeTrialPlan =
+    Number(plan?.price || 0) === 0 ||
+    String(plan?.name || "").trim().toLowerCase().includes("free");
+
+  return isFreeTrialPlan ? 90 : Number(plan?.durationDays || 90);
+};
 
 const AllCompany = () => {
   const navigate = useNavigate();
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
-  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
-
-  
-  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
-  
-  
-  const [bottomNavValue, setBottomNavValue] = useState(0);
-
-  
-  const [pageLoading, setPageLoading] = useState(true); 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [companies, setCompanies] = useState([]);
-  const [filteredCompanies, setFilteredCompanies] = useState([]);
+  const [plans, setPlans] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filter, setFilter] = useState("active");
-  const [sortBy, setSortBy] = useState("name");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("companyName");
   const [sortOrder, setSortOrder] = useState("asc");
   const [page, setPage] = useState(1);
-  const [selectedCompanies, setSelectedCompanies] = useState([]);
-  const [bulkMode, setBulkMode] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notificationAnchor, setNotificationAnchor] = useState(null);
-  const [notifications, setNotifications] = useState([
-    { id: 1, message: 'New company registered', time: '5 min ago', read: false, type: 'registration' },
-    { id: 2, message: 'Subscription expiring soon', time: '1 hour ago', read: false, type: 'subscription' },
-    { id: 3, message: 'User limit reached', time: '2 hours ago', read: true, type: 'alert' },
-  ]);
-  
-  const [usersPopupOpen, setUsersPopupOpen] = useState(false);
-  const [companyDetailsPopupOpen, setCompanyDetailsPopupOpen] = useState(false);
-  const [selectedCompany, setSelectedCompany] = useState(null);
-  const [companyUsers, setCompanyUsers] = useState([]);
-  const [usersLoading, setUsersLoading] = useState(false);
-  const [companyDetails, setCompanyDetails] = useState(null);
-  const [companyDetailsLoading, setCompanyDetailsLoading] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [editedCompany, setEditedCompany] = useState(null);
-  const [departmentNamesById, setDepartmentNamesById] = useState({});
-  const [jobRoleNamesById, setJobRoleNamesById] = useState({});
-  const [statusSavingId, setStatusSavingId] = useState(null);
+  const [pageSize, setPageSize] = useState(10);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
+  const [rowMenuOpenId, setRowMenuOpenId] = useState(null);
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
   const [subscriptionCompany, setSubscriptionCompany] = useState(null);
-  const [plans, setPlans] = useState([]);
   const [subscriptionPlanId, setSubscriptionPlanId] = useState("");
-  const [subscriptionExpiryDate, setSubscriptionExpiryDate] = useState("");
   const [subscriptionStartDate, setSubscriptionStartDate] = useState("");
+  const [subscriptionExpiryDate, setSubscriptionExpiryDate] = useState("");
   const [subscriptionPlan, setSubscriptionPlan] = useState("Standard");
   const [subscriptionAmount, setSubscriptionAmount] = useState("");
   const [subscriptionPaymentStatus, setSubscriptionPaymentStatus] = useState("paid");
@@ -66,414 +143,212 @@ const AllCompany = () => {
   const [subscriptionActivateCompany, setSubscriptionActivateCompany] = useState(true);
   const [subscriptionSaving, setSubscriptionSaving] = useState(false);
 
-  
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [selectedAction, setSelectedAction] = useState(null);
-  const [filterMenuAnchor, setFilterMenuAnchor] = useState(null);
+  const getAuthHeaders = () => ({
+    Authorization: `Bearer ${localStorage.getItem("token")}`,
+  });
 
-  
-  const itemsPerPage = isMobile ? 5 : isTablet ? 8 : 10;
+  const getSeatLimit = company => {
+    return (
+      company?.maxEmployees ||
+      company?.maxUsers ||
+      company?.userLimit ||
+      company?.planMaxUsers ||
+      company?.selectedPlan?.maxUsers ||
+      100
+    );
+  };
 
-  
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-      setIsTablet(window.innerWidth >= 768 && window.innerWidth < 1024);
-      setIsDesktop(window.innerWidth >= 1024);
-    };
-    
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const getUserCount = company => Number(company?.userCount || 0);
 
-  
-  const checkAuth = () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      toast.error("Please login first");
-      navigate("/super-admin/login");
-      return false;
+  const getCompanyInitials = company => getAvatarLabel(company?.companyName || company?.companyCode || "Company");
+
+  const getCompanySearchText = company => [
+    company?.companyName,
+    company?.companyEmail,
+    company?.companyCode,
+    company?.ownerName,
+    company?.subscriptionPlan,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  const fetchCompanies = async () => {
+    try {
+      setLoading(true);
+      const headers = getAuthHeaders();
+      const [companiesRes, usersRes] = await Promise.all([
+        axios.get(`${API_URL}/superAdmin/companies`, { headers }),
+        axios.get(`${API_URL}/superAdmin/users`, { headers }),
+      ]);
+
+      const allCompanies = extractList(companiesRes.data);
+      const allUsers = extractList(usersRes.data);
+      const usersByCompany = allUsers.reduce((acc, user) => {
+        const companyId = getId(user?.company || user?.companyId);
+        if (!companyId) return acc;
+        if (!acc[companyId]) acc[companyId] = [];
+        acc[companyId].push(user);
+        return acc;
+      }, {});
+
+      const nextCompanies = allCompanies.map(company => {
+        const companyId = getId(company);
+        const companyUsers = usersByCompany[companyId] || [];
+        return {
+          ...company,
+          _id: companyId,
+          userCount: companyUsers.length,
+          users: companyUsers,
+        };
+      });
+
+      setCompanies(nextCompanies);
+    } catch (error) {
+      console.error("Failed to load companies:", error);
+      toast.error(error.response?.data?.message || "Failed to load companies");
+      setCompanies([]);
+    } finally {
+      setLoading(false);
     }
-    return true;
-  };
-
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem("token");
-    return { Authorization: `Bearer ${token}` };
-  };
-
-  const toDateInputValue = (dateString) => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
-    if (Number.isNaN(date.getTime())) return "";
-    return date.toISOString().split("T")[0];
-  };
-
-  const getDateAfterDays = (days) => {
-    const date = new Date();
-    date.setDate(date.getDate() + days);
-    return toDateInputValue(date);
-  };
-
-  const getTrialPlanDurationDays = (plan) => {
-    const isFreeTrialPlan =
-      Number(plan?.price || 0) === 0 ||
-      String(plan?.name || "").trim().toLowerCase().includes("free");
-
-    return isFreeTrialPlan ? 90 : Number(plan?.durationDays || 90);
-  };
-
-  const getPlanId = (company) => {
-    if (!company?.selectedPlan) return "";
-    return typeof company.selectedPlan === "object" ? company.selectedPlan._id : company.selectedPlan;
-  };
-
-  const getPlanName = (company) => {
-    if (company?.selectedPlan && typeof company.selectedPlan === "object") {
-      return company.selectedPlan.name || company.subscriptionPlan || "No Plan";
-    }
-    return company?.subscriptionPlan || "No Plan";
-  };
-
-  const getSubscriptionStatus = (company) => {
-    if (company?.isActive === false) return { label: "Inactive", className: "AllCompany-status-inactive" };
-    if (!company?.subscriptionExpiry) return { label: "No Expiry", className: "AllCompany-status-pending" };
-    const daysLeft = Math.ceil((new Date(company.subscriptionExpiry) - new Date()) / (1000 * 60 * 60 * 24));
-    if (daysLeft <= 0) return { label: "Expired", className: "AllCompany-status-inactive" };
-    if (daysLeft <= 7) return { label: "Critical", className: "AllCompany-status-pending" };
-    if (daysLeft <= 15) return { label: "Expiring Soon", className: "AllCompany-status-pending" };
-    return { label: "Active", className: "AllCompany-status-active" };
   };
 
   const fetchPlans = async () => {
     try {
-      const response = await axios.get(`${API_URL}/plans?includeInactive=true`, { headers: getAuthHeaders() });
-      setPlans(response.data?.plans || []);
-    } catch (error) {
-      console.error("❌ ERROR fetching plans:", error);
-      toast.error(error.response?.data?.message || "Failed to load plans");
-    }
-  };
-
-  const updateCompanyEverywhere = (updatedCompany) => {
-    if (!updatedCompany?._id) return;
-    setCompanies(prev => prev.map(company =>
-      company._id === updatedCompany._id
-        ? { ...company, ...updatedCompany, users: company.users, userCount: company.userCount }
-        : company
-    ));
-    setFilteredCompanies(prev => prev.map(company =>
-      company._id === updatedCompany._id
-        ? { ...company, ...updatedCompany, users: company.users, userCount: company.userCount }
-        : company
-    ));
-    setSelectedCompany(prev => prev?._id === updatedCompany._id ? { ...prev, ...updatedCompany } : prev);
-    setCompanyDetails(prev => prev?._id === updatedCompany._id ? { ...prev, ...updatedCompany } : prev);
-    setEditedCompany(prev => prev?._id === updatedCompany._id ? { ...prev, ...updatedCompany } : prev);
-  };
-
-  
-  const fetchCompanyDetails = async (companyId) => {
-    try {
-      setCompanyDetailsLoading(true);
-      const token = localStorage.getItem("token");
-      const headers = { Authorization: `Bearer ${token}` };
-      
-      const response = await axios.get(
-        `${API_URL}/company/${companyId}`,
-        { headers }
-      );
-      
-      if (response.data) {
-        setCompanyDetails(response.data.company);
-        setEditedCompany(response.data.company);
-        setCompanyDetailsPopupOpen(true);
-      } else {
-        toast.error("Company details not found");
-      }
-    } catch (error) {
-      console.error("❌ ERROR fetching company details:", error);
-      
-      if (error.response?.status === 401) {
-        toast.error("You are not authorized to load this data.");
-        return;
-      }
-      
-      toast.error("Failed to load company details");
-    } finally {
-      setCompanyDetailsLoading(false);
-    }
-  };
-
-  
-  const handleUpdateCompany = async () => {
-    try {
-      if (!checkAuth()) return;
-      
       const headers = getAuthHeaders();
-      const previousCompany = companyDetails || selectedCompany;
-      let updatedCompany = null;
-      
-      const response = await axios.put(
-        `${API_URL}/company/${editedCompany?._id}`,
-        editedCompany,
-        { headers }
-      );
-
-      updatedCompany = response.data?.company || response.data;
-
-      if (previousCompany && previousCompany.isActive !== editedCompany.isActive) {
-        const statusEndpoint = editedCompany.isActive ? "activate" : "deactivate";
-        const statusResponse = await axios.patch(
-          `${API_URL}/company/${editedCompany._id}/${statusEndpoint}`,
-          {},
-          { headers }
-        );
-        updatedCompany = statusResponse.data?.company || {
-          ...updatedCompany,
-          isActive: editedCompany.isActive,
-          deactivatedAt: editedCompany.isActive ? null : new Date().toISOString()
-        };
-      }
-      
-      if (updatedCompany) {
-        toast.success("Company updated successfully!");
-        updateCompanyEverywhere(updatedCompany);
-        setCompanyDetails(updatedCompany);
-        setSelectedCompany(prev => prev ? { ...prev, ...updatedCompany } : updatedCompany);
-        setEditMode(false);
-        
-        fetchCompaniesWithUsers();
-      }
+      const response = await axios.get(`${API_URL}/plans?includeInactive=true`, { headers });
+      setPlans(response.data?.plans || response.data?.data || []);
     } catch (error) {
-      console.error("❌ ERROR updating company:", error);
-      toast.error(error.response?.data?.message || "Failed to update company");
+      console.error("Failed to load plans:", error);
+      setPlans([]);
     }
   };
 
-  
-  const fetchAllUsers = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const headers = { Authorization: `Bearer ${token}` };
-      
-      const response = await axios.get(`${API_URL}/superAdmin/users`, { headers });
-      
-      if (response.data && response.data.length > 0) {
-        const usersByCompany = {};
-        
-        response.data.forEach(user => {
-          const companyId = user.company?._id || user.company;
-          if (companyId) {
-            if (!usersByCompany[companyId]) {
-              usersByCompany[companyId] = [];
-            }
-            usersByCompany[companyId].push(user);
-          }
-        });
-        
-        return usersByCompany;
-      }
-      return {};
-    } catch (error) {
-      console.error("❌ ERROR in fetchAllUsers:", error);
-      return {};
-    }
-  };
-
-  
-  const fetchCompaniesWithUsers = async () => {
-    if (!checkAuth()) return;
-
-    try {
-      setLoading(true);
-      
-      const token = localStorage.getItem("token");
-      const headers = { Authorization: `Bearer ${token}` };
-
-      const companiesRes = await axios.get(
-        `${API_URL}/superAdmin/companies`,
-        { headers }
-      );
-
-      const companiesData = companiesRes.data || [];
-      const usersByCompany = await fetchAllUsers();
-
-      const companiesWithUsers = companiesData.map(company => {
-        const companyUsers = usersByCompany[company._id] || [];
-        return {
-          ...company,
-          userCount: companyUsers.length,
-          users: companyUsers
-        };
-      });
-
-      setCompanies(companiesWithUsers);
-      setFilteredCompanies(companiesWithUsers);
-
-    } catch (error) {
-      console.error("❌ ERROR in fetchCompaniesWithUsers:", error);
-      
-      if (error.response?.status === 401) {
-        toast.error("You are not authorized to load this data.");
-        return;
-      }
-
-      toast.error("Failed to load data. Please try again.");
-    } finally {
-      setLoading(false);
-      setPageLoading(false); 
-    }
-  };
-
-  
   useEffect(() => {
-    let results = [...companies];
-
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      results = results.filter(company =>
-        company.companyName?.toLowerCase().includes(term) ||
-        company.companyEmail?.toLowerCase().includes(term) ||
-        company.companyCode?.toLowerCase().includes(term) ||
-        company.ownerName?.toLowerCase().includes(term)
-      );
-    }
-
-    if (filter === "active") {
-      results = results.filter(company => company.isActive === true);
-    } else if (filter === "inactive") {
-      results = results.filter(company => company.isActive === false);
-    }
-
-    results.sort((a, b) => {
-      let comparison = 0;
-      switch (sortBy) {
-        case 'name':
-          comparison = (a.companyName || '').localeCompare(b.companyName || '');
-          break;
-        case 'users':
-          comparison = (a.userCount || 0) - (b.userCount || 0);
-          break;
-        case 'date':
-          comparison = new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
-          break;
-        default:
-          comparison = 0;
-      }
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
-
-    setPage(1);
-    setFilteredCompanies(results);
-  }, [searchTerm, filter, sortBy, sortOrder, companies]);
-
-  
-  useEffect(() => {
-    const loadData = async () => {
-      setPageLoading(true);
-      try {
-        await Promise.all([fetchCompaniesWithUsers(), fetchPlans()]);
-      } catch (error) {
-        console.error("Error loading companies:", error);
-        toast.error("Failed to load companies");
-      } finally {
-        
-        setTimeout(() => {
-          setPageLoading(false);
-        }, 500);
-      }
-    };
-    
-    loadData();
+    fetchCompanies();
+    fetchPlans();
   }, []);
 
-  
-  const fetchCompanyUsers = async (companyId) => {
-    try {
-      setUsersLoading(true);
-      
-      const token = localStorage.getItem("token");
-      const headers = { Authorization: `Bearer ${token}` };
-      const allUsersRes = await axios.get(
-        `${API_URL}/superAdmin/users`,
-        { headers }
-      );
-      const allUsers = extractList(allUsersRes.data, ["users", "companyUsers"]);
-      const users = allUsers.filter(user => {
-        const userCompanyId = getEntityId(user.company || user.companyId);
-        return userCompanyId?.toString() === companyId?.toString();
-      });
-      
-      const { departmentMap, jobRoleMap } = await fetchCompanyLookups(companyId, headers);
-      setCompanyUsers(enrichUsersWithLookupNames(users, departmentMap, jobRoleMap));
-    } catch (error) {
-      console.error("❌ Error fetching company users:", error);
-      toast.error("Failed to load users");
-      setCompanyUsers([]);
-    } finally {
-      setUsersLoading(false);
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, statusFilter, sortBy, sortOrder, pageSize]);
+
+  const stats = useMemo(() => {
+    const total = companies.length;
+    const active = companies.filter(company => company.isActive !== false).length;
+    const inactive = total - active;
+    const expiringSoon = companies.filter(company => {
+      if (company.isActive === false) return false;
+      const daysLeft = getDaysLeft(company.subscriptionExpiry);
+      return daysLeft !== null && daysLeft > 0 && daysLeft <= 30;
+    }).length;
+
+    return { total, active, inactive, expiringSoon };
+  }, [companies]);
+
+  const filteredCompanies = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    const next = companies.filter(company => {
+      const matchesSearch = !term || getCompanySearchText(company).includes(term);
+      const status = getCompanyStatus(company);
+
+      let matchesFilter = true;
+      if (statusFilter === "active") matchesFilter = company.isActive !== false;
+      if (statusFilter === "inactive") matchesFilter = company.isActive === false;
+      if (statusFilter === "expiring") matchesFilter = status.label === "Expiring Soon" || status.label === "Critical";
+
+      return matchesSearch && matchesFilter;
+    });
+
+    next.sort((first, second) => {
+      let compare = 0;
+      switch (sortBy) {
+        case "companyId":
+          compare = String(first.companyCode || "").localeCompare(String(second.companyCode || ""));
+          break;
+        case "users":
+          compare = getUserCount(first) - getUserCount(second);
+          break;
+        case "status":
+          compare = getCompanyStatus(first).label.localeCompare(getCompanyStatus(second).label);
+          break;
+        case "expiry":
+          compare = (new Date(first.subscriptionExpiry || 0)).getTime() - (new Date(second.subscriptionExpiry || 0)).getTime();
+          break;
+        default:
+          compare = String(first.companyName || "").localeCompare(String(second.companyName || ""));
+      }
+      return sortOrder === "asc" ? compare : -compare;
+    });
+
+    return next;
+  }, [companies, searchTerm, statusFilter, sortBy, sortOrder]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredCompanies.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedCompanies = filteredCompanies.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const startItem = filteredCompanies.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(filteredCompanies.length, currentPage * pageSize);
+  const visibleIds = paginatedCompanies.map(company => getId(company));
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.includes(id));
+  const selectedCompanies = companies.filter(company => selectedIds.includes(getId(company)));
+
+  const handleToggleVisibleSelection = () => {
+    if (!visibleIds.length) return;
+    if (allVisibleSelected) {
+      setSelectedIds(prev => prev.filter(id => !visibleIds.includes(id)));
+      return;
     }
+    setSelectedIds(prev => Array.from(new Set([...prev, ...visibleIds])));
   };
 
-  
-  const handleOpenUsersPopup = async (company) => {
-    setSelectedCompany(company);
-    await fetchCompanyUsers(company._id);
-    setUsersPopupOpen(true);
+  const toggleSelectedId = id => {
+    setSelectedIds(prev => (prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]));
   };
 
-  
-  const handleCloseUsersPopup = () => {
-    setUsersPopupOpen(false);
-    setSelectedCompany(null);
-    setCompanyUsers([]);
+  const handleExport = (rows = filteredCompanies) => {
+    if (!rows.length) {
+      toast.info("No companies to export");
+      return;
+    }
+
+    const headers = ["Company", "Company ID", "Email", "Owner", "Users", "Plan", "Status", "Expiry"];
+    const csvRows = rows.map(company => ([
+      company.companyName || "",
+      company.companyCode || "",
+      company.companyEmail || "",
+      company.ownerName || "",
+      getUserCount(company),
+      company.subscriptionPlan || company.selectedPlan?.name || "",
+      getCompanyStatus(company).label,
+      formatDate(company.subscriptionExpiry),
+    ]));
+
+    const csv = [headers, ...csvRows]
+      .map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `companies-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
   };
 
-  
-  const handleOpenCompanyDetails = async (company) => {
-    setSelectedCompany(company);
-    await fetchCompanyDetails(company._id);
-  };
-
-  
-  const handleCloseCompanyDetails = () => {
-    setCompanyDetailsPopupOpen(false);
-    setSelectedCompany(null);
-    setCompanyDetails(null);
-    setEditMode(false);
-    setEditedCompany(null);
-  };
-
-  const handleToggleCompanyStatus = async (company, nextActive = !company?.isActive) => {
-    if (!company?._id || !checkAuth()) return;
-
-    const action = nextActive ? "activate" : "deactivate";
-    const label = nextActive ? "activate" : "deactivate";
-    const confirmed = window.confirm(`Are you sure you want to ${label} ${company.companyName || "this company"}?`);
+  const handleDeleteCompanies = async ids => {
+    if (!ids.length) return;
+    const confirmed = window.confirm(`Delete ${ids.length} company(s)? This action cannot be undone.`);
     if (!confirmed) return;
 
     try {
-      setStatusSavingId(company._id);
-      const response = await axios.patch(
-        `${API_URL}/company/${company._id}/${action}`,
-        {},
-        { headers: getAuthHeaders() }
-      );
-      const updatedCompany = response.data?.company || {
-        ...company,
-        isActive: nextActive,
-        deactivatedAt: nextActive ? null : new Date().toISOString()
-      };
-
-      updateCompanyEverywhere(updatedCompany);
-      toast.success(`Company ${nextActive ? "activated" : "deactivated"} successfully`);
-      fetchCompaniesWithUsers();
+      await Promise.all(ids.map(id => axios.delete(`${API_URL}/company/${id}`, { headers: getAuthHeaders() })));
+      toast.success("Company deleted successfully");
+      setSelectedIds(prev => prev.filter(id => !ids.includes(id)));
+      await fetchCompanies();
     } catch (error) {
-      console.error("Company status update error:", error);
-      toast.error(error.response?.data?.message || `Failed to ${label} company`);
-    } finally {
-      setStatusSavingId(null);
+      console.error("Failed to delete company:", error);
+      toast.error(error.response?.data?.message || "Failed to delete company");
     }
   };
 
@@ -482,24 +357,20 @@ const AllCompany = () => {
     const selectedPlan = plansList.find(plan => plan._id === planId);
     if (!selectedPlan) return "";
     const duration = getTrialPlanDurationDays(selectedPlan);
-    
     const date = new Date(startDateStr);
     date.setDate(date.getDate() + Number(duration));
     return date.toISOString().split("T")[0];
   };
 
-  const handleOpenSubscriptionModal = (company) => {
-    const selectedPlanId = getPlanId(company);
+  const openSubscriptionModal = company => {
+    const selectedPlanId = typeof company?.selectedPlan === "object" ? company?.selectedPlan?._id : company?.selectedPlan || "";
     const selectedPlan = plans.find(plan => plan._id === selectedPlanId);
     const todayStr = new Date().toISOString().split("T")[0];
-    
+
     setSubscriptionCompany(company);
     setSubscriptionPlanId(selectedPlanId);
     setSubscriptionStartDate(todayStr);
-    
-    const calculatedExpiry = calculateExpiryDate(todayStr, selectedPlanId);
-    setSubscriptionExpiryDate(calculatedExpiry || toDateInputValue(company?.subscriptionExpiry));
-    
+    setSubscriptionExpiryDate(calculateExpiryDate(todayStr, selectedPlanId) || (company?.subscriptionExpiry ? company.subscriptionExpiry.split("T")[0] : ""));
     setSubscriptionPlan(selectedPlan?.name || company?.subscriptionPlan || "Standard");
     setSubscriptionAmount(String(selectedPlan?.price ?? company?.subscriptionAmount ?? ""));
     setSubscriptionPaymentStatus(company?.subscriptionPaymentStatus || "paid");
@@ -511,26 +382,7 @@ const AllCompany = () => {
     setSubscriptionModalOpen(true);
   };
 
-  const handleSubscriptionPlanChange = (planId) => {
-    const selectedPlan = plans.find(plan => plan._id === planId);
-    setSubscriptionPlanId(planId);
-    if (!selectedPlan) return;
-    setSubscriptionPlan(selectedPlan.name || "Standard");
-    setSubscriptionAmount(String(selectedPlan.price ?? 0));
-    
-    const newExpiry = calculateExpiryDate(subscriptionStartDate, planId);
-    setSubscriptionExpiryDate(newExpiry);
-  };
-
-  const handleStartDateChange = (newStartDate) => {
-    setSubscriptionStartDate(newStartDate);
-    if (subscriptionPlanId) {
-      const newExpiry = calculateExpiryDate(newStartDate, subscriptionPlanId);
-      setSubscriptionExpiryDate(newExpiry);
-    }
-  };
-
-  const handleCloseSubscriptionModal = () => {
+  const closeSubscriptionModal = () => {
     setSubscriptionModalOpen(false);
     setSubscriptionCompany(null);
     setSubscriptionPlanId("");
@@ -544,1577 +396,620 @@ const AllCompany = () => {
     setSubscriptionPaymentDate("");
     setSubscriptionNotes("");
     setSubscriptionActivateCompany(true);
+    setSubscriptionSaving(false);
   };
 
-  const handleSaveSubscriptionDate = async () => {
-    if (!subscriptionCompany?._id || !checkAuth()) return;
-    if (!subscriptionExpiryDate) {
-      toast.error("Please select subscription expiry date");
-      return;
+  const handleSubscriptionPlanChange = planId => {
+    const selectedPlan = plans.find(plan => plan._id === planId);
+    setSubscriptionPlanId(planId);
+    if (!selectedPlan) return;
+    setSubscriptionPlan(selectedPlan.name || "Standard");
+    setSubscriptionAmount(String(selectedPlan.price ?? 0));
+    setSubscriptionExpiryDate(calculateExpiryDate(subscriptionStartDate, planId));
+  };
+
+  const handleStartDateChange = nextDate => {
+    setSubscriptionStartDate(nextDate);
+    if (subscriptionPlanId) {
+      setSubscriptionExpiryDate(calculateExpiryDate(nextDate, subscriptionPlanId));
     }
-    if (!subscriptionPlanId) {
-      toast.error("Please select a plan");
+  };
+
+  const handleSaveSubscription = async () => {
+    if (!subscriptionCompany?._id || !subscriptionExpiryDate) {
+      toast.error("Please select plan and expiry date");
       return;
     }
 
     try {
       setSubscriptionSaving(true);
-      const response = await axios.patch(
-        `${API_URL}/company/${subscriptionCompany._id}/subscription`,
-        {
-          subscriptionExpiry: subscriptionExpiryDate,
-          subscriptionStartDate: subscriptionStartDate,
-          planId: subscriptionPlanId || undefined,
-          planName: subscriptionPlan,
-          amount: Number(subscriptionAmount || 0),
-          paymentStatus: subscriptionPaymentStatus,
-          paymentMode: subscriptionPaymentMode,
-          transactionId: subscriptionTransactionId,
-          paymentDate: subscriptionPaymentDate || new Date().toISOString(),
-          notes: subscriptionNotes,
-          isActive: subscriptionActivateCompany
-        },
-        { headers: getAuthHeaders() }
-      );
-      const updatedCompany = response.data?.company || {
-        ...subscriptionCompany,
+      const payload = {
         subscriptionExpiry: subscriptionExpiryDate,
-        subscriptionPlan,
-        subscriptionAmount: Number(subscriptionAmount || 0),
-        subscriptionPaymentStatus
+        subscriptionStartDate,
+        planId: subscriptionPlanId || undefined,
+        planName: subscriptionPlan,
+        amount: subscriptionAmount === "" ? 0 : Number(subscriptionAmount),
+        paymentDate: subscriptionPaymentDate || subscriptionStartDate,
+        paymentMode: subscriptionPaymentMode,
+        transactionId: subscriptionTransactionId,
+        paymentStatus: subscriptionPaymentStatus,
+        notes: subscriptionNotes,
+        isActive: subscriptionActivateCompany,
       };
 
-      updateCompanyEverywhere(updatedCompany);
-      toast.success("Company subscription payment updated successfully");
-      handleCloseSubscriptionModal();
-      fetchCompaniesWithUsers();
+      const response = await axios.patch(
+        `${API_URL}/company/${subscriptionCompany._id}/subscription`,
+        payload,
+        { headers: getAuthHeaders() }
+      );
+
+      toast.success(response.data?.message || "Subscription updated successfully");
+      closeSubscriptionModal();
+      await fetchCompanies();
     } catch (error) {
-      console.error("Subscription update error:", error);
-      toast.error(error.response?.data?.message || "Failed to update subscription date");
+      console.error("Failed to save subscription:", error);
+      toast.error(error.response?.data?.message || "Failed to update subscription");
     } finally {
       setSubscriptionSaving(false);
     }
   };
 
-  
-  const handleEditChange = (field, value) => {
-    setEditedCompany(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  
-  const formatDate = (dateString) => {
-    if (!dateString) return "Not available";
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      });
-    } catch (error) {
-      return "Invalid date";
-    }
-  };
-
-  
-  const formatRelativeTime = (dateString) => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now - date);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-    return formatDate(dateString);
-  };
-
-  
-  const handleExportCSV = () => {
-    try {
-      const csvRows = [];
-      csvRows.push(['Company Code', 'Company Name', 'Email', 'Phone', 'Owner', 'Users', 'Status', 'Created'].join(','));
-      
-      filteredCompanies.forEach(company => {
-        csvRows.push([
-          company.companyCode || '',
-          `"${company.companyName || ''}"`,
-          company.companyEmail || '',
-          company.companyPhone || '',
-          `"${company.ownerName || ''}"`,
-          company.userCount || 0,
-          company.isActive ? 'Active' : 'Inactive',
-          new Date(company.createdAt).toLocaleDateString()
-        ].join(','));
-      });
-      
-      const csvString = csvRows.join('\n');
-      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      
-      link.setAttribute('href', url);
-      link.setAttribute('download', `companies_${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast.success("Report exported successfully!");
-    } catch (error) {
-      toast.error("Failed to export report");
-    }
-  };
-
-  
-  const handleNavigateToCreateUser = (companyId, companyCode, companyName) => {
-    if (companyId && companyCode) {
-      navigate(`/create-user?company=${companyId}&companyCode=${companyCode}&companyName=${encodeURIComponent(companyName || '')}`);
-    } else {
-      toast.error("Company information is missing");
-    }
-  };
-
-  
-  const getRoleColor = (role) => {
-    switch (role?.toLowerCase()) {
-      case 'admin': return '#2563eb';
-      case 'manager': return '#7e22ce';
-      case 'supervisor': return '#0891b2';
-      case 'employee': return '#0a5e0a';
-      default: return '#64748b';
-    }
-  };
-
-  const getEntityId = (value) => {
-    if (!value) return "";
-    if (typeof value === "object") return value._id || value.id || "";
-    return value;
-  };
-
-  const looksLikeObjectId = (value) => {
-    return typeof value === "string" && /^[0-9a-fA-F]{24}$/.test(value);
-  };
-
-  const extractList = (data, keys = []) => {
-    if (Array.isArray(data)) return data;
-    for (const key of keys) {
-      if (Array.isArray(data?.[key])) return data[key];
-    }
-    if (Array.isArray(data?.data)) return data.data;
-    if (Array.isArray(data?.message)) return data.message;
-    if (Array.isArray(data?.message?.data)) return data.message.data;
-    return [];
-  };
-
-  const fetchCompanyLookups = async (companyId, headers) => {
-    if (!companyId) return { departmentMap: {}, jobRoleMap: {} };
-
-    const [departmentsRes, jobRolesRes] = await Promise.allSettled([
-      axios.get(`${API_URL}/departments`, { headers, params: { company: companyId } }),
-      axios.get(`${API_URL}/job-roles`, { headers, params: { company: companyId } })
-    ]);
-
-    const departments = departmentsRes.status === "fulfilled"
-      ? extractList(departmentsRes.value.data, ["departments"])
-      : [];
-    const jobRoles = jobRolesRes.status === "fulfilled"
-      ? extractList(jobRolesRes.value.data, ["jobRoles", "roles"])
-      : [];
-
-    const departmentMap = {};
-    departments.forEach(dept => {
-      const id = dept?._id || dept?.id;
-      const name = dept?.name || dept?.departmentName || dept?.title;
-      if (id && name) departmentMap[id] = name;
-    });
-
-    const jobRoleMap = {};
-    jobRoles.forEach(role => {
-      const id = role?._id || role?.id;
-      const name = role?.name || role?.jobRoleName || role?.roleName || role?.title;
-      if (id && name) jobRoleMap[id] = name;
-    });
-
-    setDepartmentNamesById(prev => ({ ...prev, ...departmentMap }));
-    setJobRoleNamesById(prev => ({ ...prev, ...jobRoleMap }));
-
-    return { departmentMap, jobRoleMap };
-  };
-
-  const enrichUsersWithLookupNames = (users, departmentMap = {}, jobRoleMap = {}) => {
-    return (Array.isArray(users) ? users : []).map(user => {
-      const departmentId = getEntityId(user.department || user.departmentId || user.deptId);
-      const jobRoleId = getEntityId(user.jobRole || user.jobRoleId || user.companyRole || user.designation);
-
-      return {
-        ...user,
-        departmentName: user.departmentName || user.deptName || departmentMap[departmentId] || departmentNamesById[departmentId],
-        jobRoleName: user.jobRoleName || user.companyRoleName || user.designationName || jobRoleMap[jobRoleId] || jobRoleNamesById[jobRoleId]
-      };
-    });
-  };
-
-  const getUserDepartment = (user) => {
-    const department = user?.department;
-    if (user?.departmentName) return user.departmentName;
-    if (user?.deptName) return user.deptName;
-    if (department && typeof department === "object") {
-      const departmentId = getEntityId(department);
-      return department.name || department.departmentName || department.title || departmentNamesById[departmentId] || "Not assigned";
-    }
-    const departmentId = getEntityId(department || user?.departmentId || user?.deptId);
-    if (departmentNamesById[departmentId]) return departmentNamesById[departmentId];
-    return looksLikeObjectId(departmentId) ? "Not assigned" : departmentId || "Not assigned";
-  };
-
-  const getUserPhone = (user) => {
-    return user?.mobile || user?.phone || user?.contact || user?.contactNumber || user?.phoneNumber || "N/A";
-  };
-
-  const getUserJobRole = (user) => {
-    if (user?.jobRoleName) return user.jobRoleName;
-    if (user?.companyRoleName) return user.companyRoleName;
-    if (user?.designationName) return user.designationName;
-
-    const jobRole = user?.jobRole || user?.jobRoleId || user?.companyRole || user?.designation || user?.employeeType;
-    if (jobRole && typeof jobRole === "object") {
-      const jobRoleId = getEntityId(jobRole);
-      return jobRole.name || jobRole.title || jobRole.roleName || jobRoleNamesById[jobRoleId] || "N/A";
-    }
-    const jobRoleId = getEntityId(jobRole);
-    if (jobRoleNamesById[jobRoleId]) return jobRoleNamesById[jobRoleId];
-    return looksLikeObjectId(jobRoleId) ? "N/A" : jobRoleId || "N/A";
-  };
-
-  const getUserRole = (user) => {
-    return user?.role || user?.userRole || "User";
-  };
-
-  
-  const handleMenuOpen = (event, company) => {
-    setAnchorEl(event.currentTarget);
-    setSelectedAction(company);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setSelectedAction(null);
-  };
-
-  const handleDeleteCompany = async (company) => {
-    if (!company?._id) return;
-
-    const confirmed = window.confirm(
-      `Permanently delete "${company.companyName || 'this company'}"? This will also delete all of its users and company data. This action cannot be undone.`
-    );
+  const handleToggleCompanyStatus = async company => {
+    const nextActive = company.isActive === false;
+    const endpoint = nextActive ? "activate" : "deactivate";
+    const confirmed = window.confirm(`${nextActive ? "Activate" : "Deactivate"} ${company.companyName || "this company"}?`);
     if (!confirmed) return;
 
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.delete(`${API_URL}/company/${company._id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      setCompanies(prev => prev.filter(item => item._id !== company._id));
-      setSelectedCompanies(prev => prev.filter(id => id !== company._id));
-      toast.success(response.data?.message || "Company and all related data deleted");
+      await axios.patch(`${API_URL}/company/${company._id}/${endpoint}`, {}, { headers: getAuthHeaders() });
+      toast.success(`Company ${nextActive ? "activated" : "deactivated"} successfully`);
+      await fetchCompanies();
     } catch (error) {
-      console.error("Error deleting company:", error);
-      toast.error(error.response?.data?.message || "Failed to delete company");
+      console.error("Failed to update company status:", error);
+      toast.error(error.response?.data?.message || "Failed to update company status");
     }
   };
 
-  const handleAction = (action) => {
-    if (selectedAction) {
-      switch (action) {
-        case 'edit':
-          handleOpenCompanyDetails(selectedAction);
-          break;
-        case 'users':
-          navigate(`/Ciis-network/all-company/${selectedAction._id}/users`);
-          break;
-        case 'status':
-          handleToggleCompanyStatus(selectedAction, !selectedAction.isActive);
-          break;
-        case 'subscription':
-          handleOpenSubscriptionModal(selectedAction);
-          break;
-        case 'delete':
-          handleDeleteCompany(selectedAction);
-          break;
-        default:
-          break;
-      }
-    }
-    handleMenuClose();
-  };
+  const handleRowAction = (action, company) => {
+    setRowMenuOpenId(null);
 
-  const handleNotificationsOpen = (event) => {
-    setNotificationAnchor(event.currentTarget);
-    setNotificationsOpen(true);
-  };
-
-  const handleNotificationsClose = () => {
-    setNotificationsOpen(false);
-    setNotificationAnchor(null);
-  };
-
-  
-  const handleAddNewUser = (company) => {
-    if (company && company._id && company.companyCode) {
-      navigate(`/create-user?company=${company._id}&companyCode=${company.companyCode}&companyName=${encodeURIComponent(company.companyName || '')}`);
-    } else {
-      toast.error("Company information is incomplete");
-    }
-  };
-
-  const markNotificationAsRead = (notificationId) => {
-    setNotifications(prev =>
-      prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
-    );
-  };
-
-  const clearAllNotifications = () => {
-    setNotifications([]);
-    handleNotificationsClose();
-    toast.success('All notifications cleared');
-  };
-
-  
-  const handleSelectCompany = (companyId) => {
-    setSelectedCompanies(prev =>
-      prev.includes(companyId)
-        ? prev.filter(id => id !== companyId)
-        : [...prev, companyId]
-    );
-  };
-
-  const handleSelectAll = () => {
-    if (selectedCompanies.length === filteredCompanies.length) {
-      setSelectedCompanies([]);
-    } else {
-      setSelectedCompanies(filteredCompanies.map(c => c._id));
-    }
-  };
-
-  
-  const handleFilterMenuOpen = (event) => {
-    setFilterMenuAnchor(event.currentTarget);
-  };
-
-  const handleFilterMenuClose = () => {
-    setFilterMenuAnchor(null);
-  };
-
-  
-  const totalCompanies = companies.length;
-  const activeCompanies = companies.filter(c => c.isActive).length;
-  const totalUsers = companies.reduce((total, company) => total + (company.userCount || 0), 0);
-  const activePercentage = totalCompanies > 0 ? Math.round((activeCompanies / totalCompanies) * 100) : 0;
-
-  
-  const getCompanyColor = (company) => {
-    if (!company) return '#2563eb';
-    const colors = ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#16a34a', '#0891b2'];
-    const index = (company.companyName?.length || 0) % colors.length;
-    return colors[index];
-  };
-
-  
-  const paginatedCompanies = filteredCompanies.slice(
-    (page - 1) * itemsPerPage,
-    page * itemsPerPage
-  );
-
-  
-  const toggleMobileDrawer = () => {
-    setMobileDrawerOpen(!mobileDrawerOpen);
-  };
-
-  
-  const handleBottomNavChange = (value) => {
-    setBottomNavValue(value);
-    switch (value) {
-      case 0:
+    switch (action) {
+      case "users":
+        navigate(`/Ciis-network/all-company/${company._id}/users`);
         break;
-      case 1:
-        fetchCompaniesWithUsers();
+      case "subscription":
+        openSubscriptionModal(company);
         break;
-      case 2:
-        handleExportCSV();
+      case "status":
+        handleToggleCompanyStatus(company);
+        break;
+      case "delete":
+        handleDeleteCompanies([company._id]);
         break;
       default:
         break;
     }
   };
 
-  
-  if (pageLoading) {
+  if (loading) {
     return <CIISLoader />;
   }
 
   return (
-    <div className="AllCompany-all-company-container">
-      
-      <div className="AllCompany-animated-bg">
-        <div className="AllCompany-bg-circle AllCompany-circle-1"></div>
-        <div className="AllCompany-bg-circle AllCompany-circle-2"></div>
-      </div>
-
-      
-      {isMobile && (
-        <div className="AllCompany-mobile-app-bar">
-          <div className="AllCompany-toolbar">
-            
-            <h6 className="AllCompany-app-bar-title">Companies</h6>
+    <div className="AllCompany-page">
+      <div className="AllCompany-page-inner">
+        <section className="AllCompany-hero">
+          <div className="AllCompany-hero-copy">
+            <h1>All Companies</h1>
+            <p>Manage and monitor all registered companies in the system.</p>
           </div>
-        </div>
-      )}
 
-      
-      
+          <div className="AllCompany-hero-actions">
+            <button type="button" className="AllCompany-btn AllCompany-btn-ghost" onClick={() => handleExport(filteredCompanies)}>
+              <span className="material-icons">download</span>
+              <span>Export</span>
+            </button>
+            <button type="button" className="AllCompany-btn AllCompany-btn-primary" onClick={() => navigate("/Ciis-network/CompanyManagement")}>
+              <span className="material-icons">add</span>
+              <span>Add Company</span>
+            </button>
+          </div>
+        </section>
 
-      <div className="AllCompany-responsive-container">
-        
-        {!isMobile && (
-          <div className="AllCompany-desktop-header">
-            
+        <section className="AllCompany-stats-grid">
+          <article className="AllCompany-stat-card AllCompany-card">
+            <div className="AllCompany-stat-icon AllCompany-stat-icon-purple">
+              <span className="material-icons">apartment</span>
+            </div>
+            <div className="AllCompany-stat-copy">
+              <span className="AllCompany-stat-label">Total Companies</span>
+              <strong className="AllCompany-stat-value">{stats.total}</strong>
+              <span className="AllCompany-stat-meta">All registered companies</span>
+            </div>
+            <div className="AllCompany-stat-spark">
+              <Sparkline tone="warning" />
+              <span className="AllCompany-stat-trend AllCompany-trend-purple">+ 12%</span>
+              <small>vs last month</small>
+            </div>
+          </article>
 
-            <div className="AllCompany-header-content">
-              <div className="AllCompany-header-left">
-                <div className="AllCompany-header-icon-box">
-                  <span className="material-icons AllCompany-header-icon">corporate_fare</span>
-                </div>
-                <div className="AllCompany-header-text">
-                  <h1 className="AllCompany-header-title">Companies</h1>
-                  <div className="AllCompany-header-stats">
-                    <span className="AllCompany-header-subtitle">{totalCompanies} organizations • {totalUsers} total users</span>
-                    <span className="AllCompany-active-chip">{activePercentage}% active</span>
+          <article className="AllCompany-stat-card AllCompany-card">
+            <div className="AllCompany-stat-icon AllCompany-stat-icon-green">
+              <span className="material-icons">domain_verification</span>
+            </div>
+            <div className="AllCompany-stat-copy">
+              <span className="AllCompany-stat-label">Active Companies</span>
+              <strong className="AllCompany-stat-value">{stats.active}</strong>
+              <span className="AllCompany-stat-meta">{stats.total ? `${Math.round((stats.active / stats.total) * 100)}% of total companies` : "0% of total companies"}</span>
+            </div>
+            <div className="AllCompany-stat-spark">
+              <Sparkline tone="success" />
+              <span className="AllCompany-stat-trend">+ 8%</span>
+              <small>vs last month</small>
+            </div>
+          </article>
+
+          <article className="AllCompany-stat-card AllCompany-card">
+            <div className="AllCompany-stat-icon AllCompany-stat-icon-orange">
+              <span className="material-icons">pause_circle</span>
+            </div>
+            <div className="AllCompany-stat-copy">
+              <span className="AllCompany-stat-label">Inactive Companies</span>
+              <strong className="AllCompany-stat-value">{stats.inactive}</strong>
+              <span className="AllCompany-stat-meta">{stats.total ? `${Math.round((stats.inactive / stats.total) * 100)}% of total companies` : "0% of total companies"}</span>
+            </div>
+            <div className="AllCompany-stat-spark">
+              <Sparkline tone="danger" />
+              <span className="AllCompany-stat-trend AllCompany-trend-orange">+ 4%</span>
+              <small>vs last month</small>
+            </div>
+          </article>
+
+          <article className="AllCompany-stat-card AllCompany-card">
+            <div className="AllCompany-stat-icon AllCompany-stat-icon-blue">
+              <span className="material-icons">schedule</span>
+            </div>
+            <div className="AllCompany-stat-copy">
+              <span className="AllCompany-stat-label">Expiring Soon</span>
+              <strong className="AllCompany-stat-value">{stats.expiringSoon}</strong>
+              <span className="AllCompany-stat-meta">Within next 30 days</span>
+            </div>
+            <div className="AllCompany-stat-spark">
+              <Sparkline tone="warning" />
+              <span className="AllCompany-stat-trend">+ 15%</span>
+              <small>vs last month</small>
+            </div>
+          </article>
+        </section>
+
+        <section className="AllCompany-card AllCompany-toolbar-card">
+          <div className="AllCompany-toolbar-grid">
+            <div className="AllCompany-search-wrap">
+              <span className="material-icons AllCompany-search-icon">search</span>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={event => setSearchTerm(event.target.value)}
+                placeholder="Search companies, ID, email..."
+                className="AllCompany-input AllCompany-search-input"
+              />
+            </div>
+
+            <label className="AllCompany-field">
+              <span>Status</span>
+              <select className="AllCompany-input" value={statusFilter} onChange={event => setStatusFilter(event.target.value)}>
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="expiring">Expiring Soon</option>
+              </select>
+            </label>
+
+            <label className="AllCompany-field">
+              <span>Sort By</span>
+              <select className="AllCompany-input" value={sortBy} onChange={event => setSortBy(event.target.value)}>
+                <option value="companyName">Company Name</option>
+                <option value="companyId">Company ID</option>
+                <option value="users">Users</option>
+                <option value="status">Status</option>
+                <option value="expiry">Expiry Date</option>
+              </select>
+            </label>
+
+            <label className="AllCompany-field">
+              <span>Order</span>
+              <select className="AllCompany-input" value={sortOrder} onChange={event => setSortOrder(event.target.value)}>
+                <option value="asc">Ascending</option>
+                <option value="desc">Descending</option>
+              </select>
+            </label>
+
+            <div className="AllCompany-toolbar-actions">
+              <div className="AllCompany-popover-wrap">
+                <button type="button" className="AllCompany-btn AllCompany-btn-outline" onClick={() => setFiltersOpen(prev => !prev)}>
+                  <span className="material-icons">filter_alt</span>
+                  <span>Filters</span>
+                  <span className="AllCompany-chip">{[statusFilter !== "all", sortBy !== "companyName", sortOrder !== "asc"].filter(Boolean).length}</span>
+                </button>
+
+                {filtersOpen && (
+                  <div className="AllCompany-mini-menu">
+                    <button type="button" onClick={() => setStatusFilter("all")}>All Companies</button>
+                    <button type="button" onClick={() => setStatusFilter("active")}>Active</button>
+                    <button type="button" onClick={() => setStatusFilter("inactive")}>Inactive</button>
+                    <button type="button" onClick={() => setStatusFilter("expiring")}>Expiring Soon</button>
+                    <button type="button" onClick={() => {
+                      setStatusFilter("all");
+                      setSortBy("companyName");
+                      setSortOrder("asc");
+                    }}>
+                      Reset Filters
+                    </button>
                   </div>
-                </div>
+                )}
               </div>
-              
-              <div className="AllCompany-header-actions">
-                <button className="AllCompany-btn-outline" onClick={fetchCompaniesWithUsers}>
-                  <span className="material-icons AllCompany-btn-icon">refresh</span>
-                  Refresh
+
+              <div className="AllCompany-popover-wrap">
+                <button type="button" className="AllCompany-btn AllCompany-btn-outline" onClick={() => setBulkMenuOpen(prev => !prev)}>
+                  <span className="material-icons">inventory_2</span>
+                  <span>Bulk Actions</span>
                 </button>
-              </div>
-            </div>
-          </div>
-        )}
 
-        
-        <div className="AllCompany-stats-grid">
-          <div className="AllCompany-stat-card">
-            <div className="AllCompany-stat-card-content">
-              <div>
-                <span className="AllCompany-stat-label">Total Companies</span>
-                <h3 className="AllCompany-stat-value">{totalCompanies}</h3>
-                {!isMobile && (
-                  <span className="AllCompany-stat-trend">
-                    <span className="material-icons AllCompany-trend-icon">trending_up</span>
-                    +12% from last month
-                  </span>
-                )}
-              </div>
-              <div className="AllCompany-stat-icon AllCompany-stat-icon-blue">
-                <span className="material-icons">apartment</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="AllCompany-stat-card">
-            <div className="AllCompany-stat-card-content">
-              <div>
-                <span className="AllCompany-stat-label">Active Companies</span>
-                <h3 className="AllCompany-stat-value">{activeCompanies}</h3>
-                {!isMobile && (
-                  <span className="AllCompany-stat-subtext">{activePercentage}% of total</span>
-                )}
-              </div>
-              <div className="AllCompany-stat-icon AllCompany-stat-icon-green">
-                <span className="material-icons">check_circle</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="AllCompany-stat-card">
-            <div className="AllCompany-stat-card-content">
-              <div>
-                <span className="AllCompany-stat-label">Total Users</span>
-                <h3 className="AllCompany-stat-value">{totalUsers}</h3>
-                {!isMobile && (
-                  <span className="AllCompany-stat-trend AllCompany-stat-trend-purple">
-                    <span className="material-icons AllCompany-trend-icon">people</span>
-                    Avg 24 per company
-                  </span>
-                )}
-              </div>
-              <div className="AllCompany-stat-icon AllCompany-stat-icon-purple">
-                <span className="material-icons">groups</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="AllCompany-stat-card">
-            <div className="AllCompany-stat-card-content">
-              <div>
-                <span className="AllCompany-stat-label">Current View</span>
-                <h3 className="AllCompany-stat-value">{filteredCompanies.length}</h3>
-                {!isMobile && (
-                  <span className="AllCompany-stat-trend AllCompany-stat-trend-orange">
-                    <span className="material-icons AllCompany-trend-icon">filter_list</span>
-                    Filtered results
-                  </span>
-                )}
-              </div>
-              <div className="AllCompany-stat-icon AllCompany-stat-icon-orange">
-                <span className="material-icons">filter_list</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        
-        <div className="AllCompany-search-filter-section">
-          <div className="AllCompany-search-filter-grid">
-            <div className="AllCompany-search-field">
-              <div className="AllCompany-search-input-container">
-                <span className="material-icons AllCompany-search-icon">search</span>
-                <input
-                  type="text"
-                  className="AllCompany-search-input"
-                  placeholder={isMobile ? "Search companies..." : "Search by name, email, code or owner..."}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                {searchTerm && (
-                  <button className="AllCompany-clear-search" onClick={() => setSearchTerm("")}>
-                    <span className="material-icons">close</span>
-                  </button>
+                {bulkMenuOpen && (
+                  <div className="AllCompany-mini-menu AllCompany-mini-menu-right">
+                    <button type="button" onClick={() => handleExport(selectedIds.length ? selectedCompanies : filteredCompanies)}>
+                      Export {selectedIds.length ? "Selected" : "Filtered"}
+                    </button>
+                    <button type="button" disabled={!selectedIds.length} onClick={() => handleDeleteCompanies(selectedIds)}>
+                      Delete Selected
+                    </button>
+                    <button type="button" disabled={!selectedIds.length} onClick={() => setSelectedIds([])}>
+                      Clear Selection
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
-            
-            <div className="AllCompany-filter-actions">
-              <div className="AllCompany-filter-toggle">
-                <button
-                  className={`AllCompany-filter-btn ${filter === 'active' ? 'AllCompany-active' : ''}`}
-                  onClick={() => setFilter('active')}
-                >
-                  Active
-                </button>
-                <button 
-                  className={`AllCompany-filter-btn ${filter === 'inactive' ? 'AllCompany-active' : ''}`}
-                  onClick={() => setFilter('inactive')}
-                >
-                  Inactive
-                </button>
-              </div>
-
-              <button className="AllCompany-sort-btn" onClick={handleFilterMenuOpen}>
-                <span className="material-icons AllCompany-sort-icon">sort</span>
-                Sort by {sortBy}
-                <span className="material-icons AllCompany-sort-arrow">
-                  {sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'}
-                </span>
-              </button>
-
-              {!isMobile && (
-                <button className="AllCompany-btn-outline" onClick={handleExportCSV}>
-                  <span className="material-icons AllCompany-btn-icon">download</span>
-                  Export
-                </button>
-              )}
-
-              {selectedCompanies.length > 0 && (
-                <div className="AllCompany-selected-chip">
-                  <span>{selectedCompanies.length} selected</span>
-                  <button onClick={() => setSelectedCompanies([])}>
-                    <span className="material-icons">close</span>
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
-        </div>
+        </section>
 
-        
-        {filteredCompanies.length === 0 ? (
-          <div className="AllCompany-empty-state">
-            <div className="AllCompany-empty-state-icon">
-              <span className="material-icons">corporate_fare</span>
-            </div>
-            <h6 className="AllCompany-empty-state-title">No companies found</h6>
-            <p className="AllCompany-empty-state-text">Try adjusting your search or filter to find what you're looking for.</p>
-          </div>
-        ) : (
-          <>
-            <div className="AllCompany-company-list">
-              {paginatedCompanies.map((company) => (
-                <div key={company._id} className="AllCompany-company-card">
-                  <div className="AllCompany-company-card-content">
-                    {/* Header Row */}
-                    <div className="AllCompany-company-header">
-                      <div className="AllCompany-company-badges">
-                        {bulkMode && (
+        <section className="AllCompany-card AllCompany-table-card">
+          <div className="AllCompany-table-wrap">
+            <table className="AllCompany-table">
+              <thead>
+                <tr>
+                  <th>
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={handleToggleVisibleSelection}
+                      aria-label="Select visible companies"
+                    />
+                  </th>
+                  <th>Company</th>
+                  <th>Company ID</th>
+                  <th>Users</th>
+                  <th>Subscription</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedCompanies.length > 0 ? (
+                  paginatedCompanies.map(company => {
+                    const companyId = getId(company);
+                    const status = getCompanyStatus(company);
+                    const tone = getCompanyTone(company);
+                    const userCount = getUserCount(company);
+                    const seatLimit = getSeatLimit(company);
+                    const planName = company?.selectedPlan?.name || company?.subscriptionPlan || "No Plan";
+                    const expiryText = formatDate(company?.subscriptionExpiry);
+
+                    return (
+                      <tr key={companyId}>
+                        <td>
                           <input
                             type="checkbox"
-                            className="AllCompany-company-checkbox"
-                            checked={selectedCompanies.includes(company._id)}
-                            onChange={() => handleSelectCompany(company._id)}
+                            checked={selectedIds.includes(companyId)}
+                            onChange={() => toggleSelectedId(companyId)}
+                            aria-label={`Select ${company.companyName}`}
                           />
-                        )}
-                        <span className="AllCompany-company-code" style={{backgroundColor: `${getCompanyColor(company)}20`, color: getCompanyColor(company), borderColor: `${getCompanyColor(company)}40`}}>
-                          {company.companyCode || 'N/A'}
-                        </span>
-                        <span className={`AllCompany-status-badge ${company.isActive ? 'AllCompany-active' : 'AllCompany-inactive'}`}>
-                          <span className="material-icons AllCompany-status-icon">
-                            {company.isActive ? 'check_circle' : 'cancel'}
+                        </td>
+                        <td>
+                          <div className="AllCompany-company-cell">
+                            <div className={`AllCompany-avatar AllCompany-avatar-${tone}`}>
+                              {company?.logo ? (
+                                <img src={company.logo} alt={company.companyName || "Company"} />
+                              ) : (
+                                <span>{getCompanyInitials(company)}</span>
+                              )}
+                            </div>
+                            <div className="AllCompany-company-meta">
+                              <strong>{company.companyName || "Company"}</strong>
+                              <span>{company.companyEmail || "N/A"}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="AllCompany-code">{company.companyCode || "N/A"}</td>
+                        <td>
+                          <div className="AllCompany-users-count">
+                            <span className="material-icons">groups</span>
+                            <strong>{userCount}</strong>
+                            <span>/ {seatLimit}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="AllCompany-subscription-cell">
+                            <strong>{planName}</strong>
+                            <span>Exp: {expiryText}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`AllCompany-status-badge AllCompany-status-${status.tone}`}>
+                            <span className="AllCompany-status-dot" />
+                            {status.label}
                           </span>
-                          {!isMobile && (company.isActive ? "Active" : "Inactive")}
-                        </span>
-                        
-                        {/* Rating/Importance Indicator */}
-                        {company.userCount > 50 && (
-                          <span className="AllCompany-star-icon" title="High Impact Company">★</span>
-                        )}
-                      </div>
-                      
-                      <div className="AllCompany-company-actions">
-                        <button className="AllCompany-action-icon-btn" onClick={(e) => handleMenuOpen(e, company)}>
-                          <span className="material-icons">more_vert</span>
-                        </button>
-                      </div>
-                    </div>
+                        </td>
+                        <td>
+                          <div className="AllCompany-row-actions">
+                            <button
+                              type="button"
+                              className="AllCompany-icon-button"
+                              onClick={() => setRowMenuOpenId(prev => (prev === companyId ? null : companyId))}
+                              aria-label="Open actions"
+                            >
+                              <span className="material-icons">more_vert</span>
+                            </button>
 
-                    {/* Main Company Info */}
-                    <div className="AllCompany-company-info-grid">
-                      <div className="AllCompany-company-main-info">
-                        <div className="AllCompany-company-logo-container">
-                          {company.logo ? (
-                            <img src={company.logo} alt={company.companyName} className="AllCompany-company-logo" />
-                          ) : (
-                            <div className="AllCompany-company-avatar" style={{background: `linear-gradient(135deg, ${getCompanyColor(company)} 0%, ${getCompanyColor(company)}80 100%)`}}>
-                              {company.companyName?.charAt(0) || 'C'}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="AllCompany-company-details">
-                          <h3 className="AllCompany-company-name">{company.companyName || "Unnamed Company"}</h3>
-                          
-                          <div className="AllCompany-company-tags">
-                            <span className="AllCompany-tag AllCompany-tag-email">
-                              <span className="material-icons AllCompany-tag-icon">email</span>
-                              {isMobile && company.companyEmail?.length > 15 ? 
-                                `${company.companyEmail?.substring(0, 12)}...` : 
-                                company.companyEmail || "No email"
-                              }
-                            </span>
-                            {company.companyPhone && !isMobile && (
-                              <span className="AllCompany-tag AllCompany-tag-phone">
-                                <span className="material-icons AllCompany-tag-icon">phone</span>
-                                {company.companyPhone}
-                              </span>
-                            )}
-                            {company.ownerName && !isMobile && (
-                              <span className="AllCompany-tag AllCompany-tag-person">
-                                <span className="material-icons AllCompany-tag-icon">person</span>
-                                {company.ownerName}
-                              </span>
+                            {rowMenuOpenId === companyId && (
+                              <div className="AllCompany-row-menu">
+                                <button type="button" onClick={() => handleRowAction("users", company)}>
+                                  <span className="material-icons">groups</span>
+                                  View Users
+                                </button>
+                                <button type="button" onClick={() => handleRowAction("subscription", company)}>
+                                  <span className="material-icons">workspace_premium</span>
+                                  Subscription
+                                </button>
+                                <button type="button" onClick={() => handleRowAction("status", company)}>
+                                  <span className="material-icons">{company.isActive === false ? "check_circle" : "block"}</span>
+                                  {company.isActive === false ? "Activate" : "Deactivate"}
+                                </button>
+                                <button type="button" onClick={() => handleRowAction("delete", company)}>
+                                  <span className="material-icons">delete</span>
+                                  Delete
+                                </button>
+                              </div>
                             )}
                           </div>
-
-                          {company.userCount > 0 ? (
-                            <div className="AllCompany-team-preview">
-                              <div className="AllCompany-team-preview-list">
-                                {(company.users || []).slice(0, 5).map((user, idx) => (
-                                  <div key={user._id || user.id || idx} className="AllCompany-team-preview-member" title={user.name || "User"}>
-                                    <div className="AllCompany-member-avatar" style={{background: `linear-gradient(135deg, ${getRoleColor(getUserRole(user))} 0%, ${getRoleColor(getUserRole(user))}80 100%)`}}>
-                                      {user.name?.charAt(0) || 'U'}
-                                    </div>
-                                    <div className="AllCompany-member-info">
-                                      <span className="AllCompany-member-name">{user.name || "User"}</span>
-                                      <span className="AllCompany-member-role" style={{color: getRoleColor(getUserRole(user))}}>{getUserRole(user)}</span>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                              <button
-                                className="AllCompany-show-all-users-link"
-                                onClick={() => navigate(`/Ciis-network/all-company/${company._id}/users`)}
-                              >
-                                Show all users
-                                <span className="material-icons">chevron_right</span>
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="AllCompany-team-preview-empty">
-                              <span className="material-icons">group_off</span>
-                              No team members yet
-                            </div>
-                          )}
-
-                          <div className="AllCompany-company-metrics">
-                            <div className="AllCompany-metric">
-                              <span className="AllCompany-metric-label">Users</span>
-                              <div className="AllCompany-metric-value">
-                                <span className="AllCompany-metric-number">{company.userCount || 0}</span>
-                                <span className="AllCompany-metric-percent">{company.userCount > 0 ? `${Math.round((company.userCount / totalUsers) * 100)}%` : '0%'}</span>
-                              </div>
-                            </div>
-                            {!isMobile && (
-                              <>
-                                <div className="AllCompany-metric-divider"></div>
-                                <div className="AllCompany-metric">
-                                  <span className="AllCompany-metric-label">Created</span>
-                                  <div className="AllCompany-metric-value">
-                                    <span className="material-icons AllCompany-calendar-icon">calendar_today</span>
-                                    <span className="AllCompany-metric-text">{formatRelativeTime(company.createdAt)}</span>
-                                  </div>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={7}>
+                      <div className="AllCompany-empty-state">
+                        <span className="material-icons">domain_disabled</span>
+                        <strong>No companies found</strong>
+                        <p>Try clearing filters or search with a different keyword.</p>
                       </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
-                      {!isMobile && (
-                        <div className="AllCompany-company-stats">
-                          <span className="AllCompany-stats-title">Quick Stats</span>
-                          
-                          <div className="AllCompany-stats-list">
-                            {company.companyAddress && (
-                              <div className="AllCompany-stat-item">
-                                <span className="material-icons AllCompany-location-icon">location_on</span>
-                                <span className="AllCompany-stat-text">
-                                  {company.companyAddress?.substring(0, 40)}
-                                  {company.companyAddress?.length > 40 ? '...' : ''}
-                                </span>
-                              </div>
-                            )}
-                            
-                            {company.subscriptionExpiry && (
-                              <div className="AllCompany-stat-item">
-                                <span className="material-icons AllCompany-schedule-icon">schedule</span>
-                                <span className="AllCompany-stat-text">Expires: {formatDate(company.subscriptionExpiry)}</span>
-                              </div>
-                            )}
+          <div className="AllCompany-footer">
+            <p>
+              Showing {startItem} to {endItem} of {filteredCompanies.length} companies
+            </p>
 
-                            <div className="AllCompany-stat-item">
-                              <span className="material-icons AllCompany-schedule-icon">workspace_premium</span>
-                              <span className="AllCompany-stat-text">
-                                {getPlanName(company)} · {getSubscriptionStatus(company).label}
-                              </span>
-                            </div>
+            <div className="AllCompany-pagination">
+              <button type="button" className="AllCompany-page-btn" disabled={currentPage === 1} onClick={() => setPage(prev => Math.max(1, prev - 1))}>
+                <span className="material-icons">chevron_left</span>
+              </button>
 
-                            <div className="AllCompany-stat-item">
-                              <span className="material-icons AllCompany-schedule-icon">payments</span>
-                              <span className="AllCompany-stat-text">
-                                {company.subscriptionPaymentStatus || 'unpaid'} · ₹{Number(company.subscriptionAmount || 0).toLocaleString('en-IN')}
-                              </span>
-                            </div>
-
-                            <div className="AllCompany-company-admin-actions">
-                              <button
-                                className={`AllCompany-mini-action-btn ${company.isActive ? 'AllCompany-mini-warning' : 'AllCompany-mini-success'}`}
-                                onClick={() => handleToggleCompanyStatus(company, !company.isActive)}
-                                disabled={statusSavingId === company._id}
-                              >
-                                <span className="material-icons">{company.isActive ? 'block' : 'check_circle'}</span>
-                                {statusSavingId === company._id ? 'Saving...' : company.isActive ? 'Deactivate' : 'Activate'}
-                              </button>
-                              <button
-                                className="AllCompany-mini-action-btn AllCompany-mini-primary"
-                                onClick={() => handleOpenSubscriptionModal(company)}
-                              >
-                                <span className="material-icons">event_available</span>
-                                Upgrade / Renew
-                              </button>
-                            </div>
-
-                            <div className="AllCompany-stat-item AllCompany-activity-item">
-                              <span className="material-icons AllCompany-activity-icon">auto_graph</span>
-                              <div className="AllCompany-activity-progress">
-                                <div className="AllCompany-activity-header">
-                                  <span className="AllCompany-activity-label">Activity</span>
-                                  <span className="AllCompany-activity-value">High</span>
-                                </div>
-                                <div className="AllCompany-progress-bar">
-                                  <div className="AllCompany-progress-fill AllCompany-activity-fill" style={{width: `${Math.min((company.userCount || 0) * 2, 100)}%`}}></div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Mobile Metrics Row */}
-                    {isMobile && (
-                      <div className="AllCompany-mobile-metrics">
-                        <div className="AllCompany-mobile-metric">
-                          <span className="material-icons AllCompany-mobile-icon AllCompany-location-icon">location_on</span>
-                          <span className="AllCompany-mobile-text">{company.companyAddress?.substring(0, 30) || "No address"}</span>
-                        </div>
-                        {company.subscriptionExpiry && (
-                          <div className="AllCompany-mobile-metric">
-                            <span className="material-icons AllCompany-mobile-icon AllCompany-schedule-icon">schedule</span>
-                            <span className="AllCompany-mobile-text">{formatDate(company.subscriptionExpiry)}</span>
-                          </div>
-                        )}
-                        <div className="AllCompany-mobile-metric">
-                          <span className="material-icons AllCompany-mobile-icon AllCompany-schedule-icon">workspace_premium</span>
-                          <span className="AllCompany-mobile-text">{getPlanName(company)} · {getSubscriptionStatus(company).label}</span>
-                        </div>
-                      </div>
-                    )}
-
-                  </div>
-                </div>
+              {getPaginationItems(currentPage, totalPages).map(item => (
+                item === "ellipsis-left" || item === "ellipsis-right" ? (
+                  <span key={item} className="AllCompany-page-ellipsis">...</span>
+                ) : (
+                  <button
+                    type="button"
+                    key={item}
+                    className={`AllCompany-page-btn ${item === currentPage ? "is-active" : ""}`}
+                    onClick={() => setPage(item)}
+                  >
+                    {item}
+                  </button>
+                )
               ))}
+
+              <button type="button" className="AllCompany-page-btn" disabled={currentPage === totalPages} onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}>
+                <span className="material-icons">chevron_right</span>
+              </button>
             </div>
 
-            {/* Pagination */}
-            {filteredCompanies.length > 0 && (
-              <div className="AllCompany-pagination-container">
-                <div className="AllCompany-pagination-info">
-                  Showing {Math.min((page - 1) * itemsPerPage + 1, filteredCompanies.length)} - {Math.min(page * itemsPerPage, filteredCompanies.length)} of {filteredCompanies.length} companies
-                </div>
-                <div className="AllCompany-pagination-controls">
-                  {Array.from({ length: Math.ceil(filteredCompanies.length / itemsPerPage) }, (_, i) => i + 1).map((pageNum) => (
-                    <button
-                      key={pageNum}
-                      className={`AllCompany-pagination-btn ${pageNum === page ? 'AllCompany-active' : ''}`}
-                      onClick={() => setPage(pageNum)}
-                    >
-                      {pageNum}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Mobile Bottom Navigation */}
-      {isMobile && (
-        <div className="AllCompany-bottom-nav">
-          <button 
-            className={`AllCompany-bottom-nav-item ${bottomNavValue === 0 ? 'AllCompany-active' : ''}`}
-            onClick={() => handleBottomNavChange(0)}
-          >
-            <span className="material-icons AllCompany-bottom-nav-icon">corporate_fare</span>
-            <span className="AllCompany-bottom-nav-label">Companies</span>
-          </button>
-          <button 
-            className={`AllCompany-bottom-nav-item ${bottomNavValue === 1 ? 'AllCompany-active' : ''}`}
-            onClick={() => handleBottomNavChange(1)}
-          >
-            <span className="material-icons AllCompany-bottom-nav-icon">refresh</span>
-            <span className="AllCompany-bottom-nav-label">Refresh</span>
-          </button>
-          <button 
-            className={`AllCompany-bottom-nav-item ${bottomNavValue === 2 ? 'AllCompany-active' : ''}`}
-            onClick={() => handleBottomNavChange(2)}
-          >
-            <span className="material-icons AllCompany-bottom-nav-icon">download</span>
-            <span className="AllCompany-bottom-nav-label">Export</span>
-          </button>
-        </div>
-      )}
-
-      {/* Floating Action Button for Mobile */}
-      {isMobile && (
-        <div className="AllCompany-fab-container">
-          <button className="AllCompany-fab-main">
-            <span className="material-icons AllCompany-fab-icon">add</span>
-          </button>
-          <div className="AllCompany-fab-actions">
-            <button className="AllCompany-fab-action AllCompany-fab-green" onClick={() => {
-              if (companies.length > 0) {
-                handleAddNewUser(companies[0]);
-              } else {
-                toast.info('Please create a company first');
-              }
-            }} title="Add User">
-              <span className="material-icons">person_add</span>
-            </button>
-            <button className="AllCompany-fab-action AllCompany-fab-purple" onClick={fetchCompaniesWithUsers} title="Refresh">
-              <span className="material-icons">refresh</span>
-            </button>
-            <button className="AllCompany-fab-action AllCompany-fab-orange" onClick={handleExportCSV} title="Export">
-              <span className="material-icons">download</span>
-            </button>
+            <label className="AllCompany-page-size">
+              <span>Per page</span>
+              <select value={pageSize} onChange={event => setPageSize(Number(event.target.value))}>
+                {[10, 20, 50].map(size => (
+                  <option key={size} value={size}>
+                    {size} per page
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-        </div>
-      )}
+        </section>
 
-      {/* Company Details Dialog */}
-      {companyDetailsPopupOpen && (
-        <div className="AllCompany-modal-overlay" onClick={handleCloseCompanyDetails}>
-          <div className={`AllCompany-modal-content ${isMobile ? 'AllCompany-modal-fullscreen' : ''}`} onClick={e => e.stopPropagation()}>
-            <div className="AllCompany-modal-header">
-              <div className="AllCompany-modal-header-left">
-                <div className="AllCompany-modal-logo">
-                  <div className="AllCompany-modal-avatar" style={{background: `linear-gradient(135deg, ${getCompanyColor(selectedCompany)} 0%, ${getCompanyColor(selectedCompany)}80 100%)`}}>
-                    {selectedCompany?.companyName?.charAt(0) || 'C'}
-                  </div>
+        {subscriptionModalOpen && (
+          <div className="AllCompany-modal-overlay" onClick={closeSubscriptionModal}>
+            <div className="AllCompany-modal-content AllCompany-subscription-modal" onClick={event => event.stopPropagation()}>
+              <div className="AllCompany-modal-header">
+                <div>
+                  <p className="AllCompany-modal-eyebrow">Subscription</p>
+                  <h3 className="AllCompany-modal-title">{subscriptionCompany?.companyName || "Company"}</h3>
+                  <p className="AllCompany-modal-subtitle">
+                    {subscriptionCompany?.companyCode || "N/A"} • {subscriptionCompany?.subscriptionPlan || "No Plan"}
+                  </p>
                 </div>
-                <div className="AllCompany-modal-title">
-                  <h3 className="AllCompany-modal-company-name">{selectedCompany?.companyName}</h3>
-                  <div className="AllCompany-modal-badges">
-                    <span className="AllCompany-company-code-small">{selectedCompany?.companyCode}</span>
-                    <span className={`AllCompany-status-badge-small ${selectedCompany?.isActive ? 'AllCompany-active' : 'AllCompany-inactive'}`}>
-                      {selectedCompany?.isActive ? <span className="material-icons AllCompany-status-icon-small">check_circle</span> : <span className="material-icons AllCompany-status-icon-small">cancel</span>}
-                      {selectedCompany?.isActive ? "Active" : "Inactive"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="AllCompany-modal-header-actions">
-                {!editMode ? (
-                  <button className="AllCompany-btn-primary AllCompany-btn-small" onClick={() => setEditMode(true)}>
-                    <span className="material-icons AllCompany-btn-icon">edit</span>
-                    Edit
-                  </button>
-                ) : (
-                  <>
-                    <button className="AllCompany-btn-outline AllCompany-btn-small" onClick={() => { 
-                      setEditMode(false); 
-                      setEditedCompany(companyDetails); 
-                    }}>
-                      Cancel
-                    </button>
-                    <button className="AllCompany-btn-primary AllCompany-btn-small" onClick={handleUpdateCompany}>
-                      Save Changes
-                    </button>
-                  </>
-                )}
-                <button className="AllCompany-icon-btn AllCompany-close-btn" onClick={handleCloseCompanyDetails}>
+                <button type="button" className="AllCompany-icon-button" onClick={closeSubscriptionModal} aria-label="Close subscription modal">
                   <span className="material-icons">close</span>
                 </button>
               </div>
-            </div>
 
-            <div className="AllCompany-modal-body">
-              {companyDetailsLoading ? (
-                <div className="AllCompany-loading-state">
-                  <div className="AllCompany-spinner"></div>
-                  <p>Loading company details...</p>
-                </div>
-              ) : companyDetails ? (
-                <div className="AllCompany-company-details-grid">
-                  <div className="AllCompany-detail-card">
-                    <p className="AllCompany-detail-description">{companyDetails.description || "No description provided."}</p>
+              <div className="AllCompany-modal-body">
+                <div className="AllCompany-subscription-current">
+                  <div className="AllCompany-subscription-current-item">
+                    <span>Current expiry</span>
+                    <strong>{formatDate(subscriptionCompany?.subscriptionExpiry)}</strong>
                   </div>
-
-                  <div className="AllCompany-details-row">
-                    <div className="AllCompany-details-column">
-                      <h4 className="AllCompany-details-section-title">Basic Information</h4>
-                      <div className="AllCompany-details-card">
-                        <div className="AllCompany-detail-item">
-                          <span className="AllCompany-detail-label">Company Name</span>
-                          {editMode ? (
-                            <input 
-                              type="text"
-                              className="AllCompany-detail-input"
-                              value={editedCompany?.companyName || ''} 
-                              onChange={(e) => handleEditChange('companyName', e.target.value)}
-                            />
-                          ) : (
-                            <span className="AllCompany-detail-value">{companyDetails.companyName}</span>
-                          )}
-                        </div>
-                        
-                        <div className="AllCompany-detail-item">
-                          <span className="AllCompany-detail-label">Company Code</span>
-                          {editMode ? (
-                            <input 
-                              type="text"
-                              className="AllCompany-detail-input"
-                              value={editedCompany?.companyCode || ''} 
-                              onChange={(e) => handleEditChange('companyCode', e.target.value)}
-                            />
-                          ) : (
-                            <span className="AllCompany-detail-value">{companyDetails.companyCode}</span>
-                          )}
-                        </div>
-                        
-                        <div className="AllCompany-detail-item">
-                          <span className="AllCompany-detail-label">Owner Name</span>
-                          {editMode ? (
-                            <input 
-                              type="text"
-                              className="AllCompany-detail-input"
-                              value={editedCompany?.ownerName || ''} 
-                              onChange={(e) => handleEditChange('ownerName', e.target.value)}
-                            />
-                          ) : (
-                            <span className="AllCompany-detail-value">{companyDetails.ownerName || "Not specified"}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="AllCompany-details-column">
-                      <h4 className="AllCompany-details-section-title">Contact Information</h4>
-                      <div className="AllCompany-details-card">
-                        <div className="AllCompany-detail-item">
-                          <span className="AllCompany-detail-label">Email Address</span>
-                          {editMode ? (
-                            <input 
-                              type="email"
-                              className="AllCompany-detail-input"
-                              value={editedCompany?.companyEmail || ''} 
-                              onChange={(e) => handleEditChange('companyEmail', e.target.value)}
-                            />
-                          ) : (
-                            <span className="AllCompany-detail-value">{companyDetails.companyEmail || "Not provided"}</span>
-                          )}
-                        </div>
-                        
-                        <div className="AllCompany-detail-item">
-                          <span className="AllCompany-detail-label">Phone Number</span>
-                          {editMode ? (
-                            <input 
-                              type="tel"
-                              className="AllCompany-detail-input"
-                              value={editedCompany?.companyPhone || ''} 
-                              onChange={(e) => handleEditChange('companyPhone', e.target.value)}
-                            />
-                          ) : (
-                            <span className="AllCompany-detail-value">{companyDetails.companyPhone || "Not provided"}</span>
-                          )}
-                        </div>
-                        
-                        <div className="AllCompany-detail-item">
-                          <span className="AllCompany-detail-label">Domain</span>
-                          {editMode ? (
-                            <input 
-                              type="text"
-                              className="AllCompany-detail-input"
-                              value={editedCompany?.companyDomain || ''} 
-                              onChange={(e) => handleEditChange('companyDomain', e.target.value)}
-                            />
-                          ) : (
-                            <span className="AllCompany-detail-value">{companyDetails.companyDomain || "Not specified"}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Address Section - Full Width */}
-                  <div className="AllCompany-details-full-width">
-                    <h4 className="AllCompany-details-section-title">Address</h4>
-                    <div className="AllCompany-details-card">
-                      {editMode ? (
-                        <textarea
-                          className="AllCompany-detail-textarea"
-                          rows="3"
-                          value={editedCompany?.companyAddress || ''}
-                          onChange={(e) => handleEditChange('companyAddress', e.target.value)}
-                          placeholder="Enter full address"
-                        />
-                      ) : (
-                        <span className="AllCompany-detail-value">{companyDetails.companyAddress || "No address provided"}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* System Information Section */}
-                  <div className="AllCompany-details-full-width">
-                    <h4 className="AllCompany-details-section-title">System Information</h4>
-                    <div className="AllCompany-system-info-grid">
-                      <div className="AllCompany-system-info-card">
-                        <span className="material-icons AllCompany-system-icon">storage</span>
-                        <span className="AllCompany-system-label">Database ID</span>
-                        <span className="AllCompany-system-value">{companyDetails.dbIdentifier || "N/A"}</span>
-                      </div>
-                      <div className="AllCompany-system-info-card">
-                        <span className="material-icons AllCompany-system-icon">schedule</span>
-                        <span className="AllCompany-system-label">Subscription</span>
-                        {editMode ? (
-                          <input
-                            type="date"
-                            className="AllCompany-detail-input AllCompany-date-input"
-                            value={toDateInputValue(editedCompany?.subscriptionExpiry)}
-                            onChange={(e) => handleEditChange('subscriptionExpiry', e.target.value)}
-                          />
-                        ) : (
-                          <span className="AllCompany-system-value">{formatDate(companyDetails.subscriptionExpiry)}</span>
-                        )}
-                      </div>
-                      <div className="AllCompany-system-info-card">
-                        <span className="material-icons AllCompany-system-icon">workspace_premium</span>
-                        <span className="AllCompany-system-label">Plan</span>
-                        <span className="AllCompany-system-value">
-                          {getPlanName(companyDetails)} · ₹{Number(companyDetails.subscriptionAmount || 0).toLocaleString('en-IN')}
-                        </span>
-                      </div>
-                      <div className="AllCompany-system-info-card">
-                        <span className="material-icons AllCompany-system-icon">verified</span>
-                        <span className="AllCompany-system-label">Subscription Status</span>
-                        <span className="AllCompany-system-value">{getSubscriptionStatus(companyDetails).label}</span>
-                      </div>
-                      <div className="AllCompany-system-info-card">
-                        <span className="material-icons AllCompany-system-icon">toggle_on</span>
-                        <span className="AllCompany-system-label">Status</span>
-                        {editMode ? (
-                          <select
-                            className="AllCompany-detail-input AllCompany-status-select"
-                            value={editedCompany?.isActive === false ? 'inactive' : 'active'}
-                            onChange={(e) => handleEditChange('isActive', e.target.value === 'active')}
-                          >
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                          </select>
-                        ) : (
-                          <span className={`AllCompany-status-badge-small ${companyDetails.isActive ? 'AllCompany-active' : 'AllCompany-inactive'}`}>
-                            {companyDetails.isActive ? "Active" : "Inactive"}
-                          </span>
-                        )}
-                      </div>
-                      <div className="AllCompany-system-info-card">
-                        <span className="material-icons AllCompany-system-icon">calendar_today</span>
-                        <span className="AllCompany-system-label">Created</span>
-                        <span className="AllCompany-system-value">{formatDate(companyDetails.createdAt)}</span>
-                      </div>
-                      <div className="AllCompany-system-info-card">
-                        <span className="material-icons AllCompany-system-icon">auto_graph</span>
-                        <span className="AllCompany-system-label">Last Updated</span>
-                        <span className="AllCompany-system-value">{formatDate(companyDetails.updatedAt)}</span>
-                      </div>
-                    </div>
+                  <div className="AllCompany-subscription-current-item">
+                    <span>Current plan</span>
+                    <strong>{subscriptionCompany?.subscriptionPlan || subscriptionCompany?.selectedPlan?.name || "No Plan"}</strong>
                   </div>
                 </div>
-              ) : (
-                <div className="AllCompany-error-alert">
-                  <span className="material-icons AllCompany-error-icon">error</span>
-                  <div>
-                    <h4 className="AllCompany-error-title">Error</h4>
-                    <p className="AllCompany-error-message">Company details could not be loaded</p>
-                  </div>
-                </div>
-              )}
-            </div>
 
-            <div className="AllCompany-modal-footer">
-              <button className="AllCompany-btn-outline" onClick={handleCloseCompanyDetails}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Subscription Dialog */}
-      {subscriptionModalOpen && (
-        <div className="AllCompany-modal-overlay" onClick={handleCloseSubscriptionModal}>
-          <div className="AllCompany-subscription-modal" onClick={e => e.stopPropagation()}>
-            <div className="AllCompany-modal-header">
-              <div className="AllCompany-modal-header-left">
-                <div className="AllCompany-modal-avatar-small" style={{background: `linear-gradient(135deg, ${getCompanyColor(subscriptionCompany)} 0%, ${getCompanyColor(subscriptionCompany)}80 100%)`}}>
-                  <span className="material-icons">event_available</span>
-                </div>
-                <div className="AllCompany-modal-title">
-                  <h3 className="AllCompany-modal-company-name">Upgrade / Renew Plan</h3>
-                  <div className="AllCompany-modal-subtitle">
-                    <span>{subscriptionCompany?.companyName}</span>
-                  </div>
-                </div>
-              </div>
-              <button className="AllCompany-icon-btn AllCompany-close-btn" onClick={handleCloseSubscriptionModal}>
-                <span className="material-icons">close</span>
-              </button>
-            </div>
-
-            <div className="AllCompany-modal-body">
-              <div className="AllCompany-subscription-current">
-                <span className="material-icons">schedule</span>
-                <div>
-                  <span>Current expiry</span>
-                  <strong>{formatDate(subscriptionCompany?.subscriptionExpiry)}</strong>
-                </div>
-              </div>
-
-              <div className="AllCompany-subscription-current">
-                <span className="material-icons">workspace_premium</span>
-                <div>
-                  <span>Current plan</span>
-                  <strong>{getPlanName(subscriptionCompany)} · {getSubscriptionStatus(subscriptionCompany).label}</strong>
-                </div>
-              </div>
-
-              <label className="AllCompany-subscription-label" htmlFor="subscriptionStartDate">
-                Plan Start Date
-              </label>
-              <input
-                id="subscriptionStartDate"
-                type="date"
-                className="AllCompany-detail-input"
-                value={subscriptionStartDate}
-                onChange={(e) => handleStartDateChange(e.target.value)}
-              />
-
-              <label className="AllCompany-subscription-label">
-                New Expiry Date (Auto-calculated)
-              </label>
-              <div className="AllCompany-detail-input" style={{ background: '#f5f5f5', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', fontWeight: 'bold' }}>
-                {subscriptionExpiryDate ? formatDate(subscriptionExpiryDate) : 'Select plan and start date'}
-              </div>
-
-              <div className="AllCompany-subscription-form-grid">
-                <div className="AllCompany-subscription-field">
-                  <label className="AllCompany-subscription-label" htmlFor="subscriptionPlan">Plan</label>
-                  <select
-                    id="subscriptionPlan"
-                    className="AllCompany-detail-input"
-                    value={subscriptionPlanId}
-                    onChange={(e) => handleSubscriptionPlanChange(e.target.value)}
-                  >
-                    <option value="">Select plan</option>
-                    {plans.filter(plan => plan.isActive !== false).map(plan => (
-                      <option key={plan._id} value={plan._id}>
-                        {plan.name} - ₹{Number(plan.price || 0).toLocaleString('en-IN')} / {getTrialPlanDurationDays(plan)} days
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="AllCompany-subscription-field">
-                  <label className="AllCompany-subscription-label" htmlFor="subscriptionAmount">Amount</label>
-                  <input
-                    id="subscriptionAmount"
-                    type="number"
-                    min="0"
-                    className="AllCompany-detail-input"
-                    value={subscriptionAmount}
-                    onChange={(e) => setSubscriptionAmount(e.target.value)}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="AllCompany-subscription-field">
-                  <label className="AllCompany-subscription-label" htmlFor="subscriptionPaymentStatus">Payment Status</label>
-                  <select
-                    id="subscriptionPaymentStatus"
-                    className="AllCompany-detail-input"
-                    value={subscriptionPaymentStatus}
-                    onChange={(e) => setSubscriptionPaymentStatus(e.target.value)}
-                  >
-                    <option value="paid">Paid</option>
-                    <option value="partial">Partial</option>
-                    <option value="unpaid">Unpaid</option>
-                    <option value="waived">Waived</option>
-                  </select>
-                </div>
-                <div className="AllCompany-subscription-field">
-                  <label className="AllCompany-subscription-label" htmlFor="subscriptionPaymentMode">Payment Mode</label>
-                  <select
-                    id="subscriptionPaymentMode"
-                    className="AllCompany-detail-input"
-                    value={subscriptionPaymentMode}
-                    onChange={(e) => setSubscriptionPaymentMode(e.target.value)}
-                  >
-                    <option value="upi">UPI</option>
-                    <option value="bank_transfer">Bank Transfer</option>
-                    <option value="cash">Cash</option>
-                    <option value="card">Card</option>
-                    <option value="cheque">Cheque</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                <div className="AllCompany-subscription-field">
-                  <label className="AllCompany-subscription-label" htmlFor="subscriptionPaymentDate">Payment Date</label>
-                  <input
-                    id="subscriptionPaymentDate"
-                    type="date"
-                    className="AllCompany-detail-input"
-                    value={subscriptionPaymentDate}
-                    onChange={(e) => setSubscriptionPaymentDate(e.target.value)}
-                  />
-                </div>
-                <div className="AllCompany-subscription-field">
-                  <label className="AllCompany-subscription-label" htmlFor="subscriptionTransactionId">Transaction ID</label>
-                  <input
-                    id="subscriptionTransactionId"
-                    type="text"
-                    className="AllCompany-detail-input"
-                    value={subscriptionTransactionId}
-                    onChange={(e) => setSubscriptionTransactionId(e.target.value)}
-                    placeholder="Optional"
-                  />
-                </div>
-              </div>
-
-              <label className="AllCompany-subscription-toggle">
+                <label className="AllCompany-subscription-label" htmlFor="subscriptionStartDate">
+                  Plan Start Date
+                </label>
                 <input
-                  type="checkbox"
-                  checked={subscriptionActivateCompany}
-                  onChange={(e) => setSubscriptionActivateCompany(e.target.checked)}
+                  id="subscriptionStartDate"
+                  type="date"
+                  className="AllCompany-input"
+                  value={subscriptionStartDate}
+                  onChange={event => handleStartDateChange(event.target.value)}
                 />
-                <span>Keep company active after saving</span>
-              </label>
 
-              <label className="AllCompany-subscription-label" htmlFor="subscriptionNotes">
-                Notes
-              </label>
-              <textarea
-                id="subscriptionNotes"
-                className="AllCompany-detail-textarea AllCompany-subscription-notes"
-                rows="3"
-                value={subscriptionNotes}
-                onChange={(e) => setSubscriptionNotes(e.target.value)}
-                placeholder="Payment or renewal notes"
-              />
-            </div>
-
-            <div className="AllCompany-modal-footer">
-              <button className="AllCompany-btn-outline" onClick={handleCloseSubscriptionModal}>
-                Cancel
-              </button>
-              <button
-                className="AllCompany-btn-primary"
-                onClick={handleSaveSubscriptionDate}
-                disabled={subscriptionSaving}
-              >
-                {subscriptionSaving ? "Saving..." : "Save Date"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Users Dialog */}
-      {usersPopupOpen && (
-        <div className="AllCompany-modal-overlay" onClick={handleCloseUsersPopup}>
-          <div className={`AllCompany-modal-content ${isMobile ? 'AllCompany-modal-fullscreen' : ''}`} onClick={e => e.stopPropagation()}>
-            <div className="AllCompany-modal-header">
-              <div className="AllCompany-modal-header-left">
-                <div className="AllCompany-modal-avatar-small" style={{background: `linear-gradient(135deg, ${getCompanyColor(selectedCompany)} 0%, ${getCompanyColor(selectedCompany)}80 100%)`}}>
-                  <span className="material-icons">groups</span>
+                <label className="AllCompany-subscription-label">
+                  New Expiry Date
+                </label>
+                <div className="AllCompany-subscription-preview">
+                  {subscriptionExpiryDate ? formatDate(subscriptionExpiryDate) : "Select plan and start date"}
                 </div>
-                <div className="AllCompany-modal-title">
-                  <h3 className="AllCompany-modal-company-name">{selectedCompany?.companyName}</h3>
-                  <div className="AllCompany-modal-subtitle">
-                    <span>{companyUsers.length} team members</span>
-                    <span className="AllCompany-active-percent">{companyUsers.length > 0 ? `${Math.round((companyUsers.filter(u => u.isActive !== false).length / companyUsers.length) * 100)}% active` : '0% active'}</span>
-                  </div>
-                </div>
-              </div>
-              <button className="AllCompany-icon-btn AllCompany-close-btn" onClick={handleCloseUsersPopup}>
-                <span className="material-icons">close</span>
-              </button>
-            </div>
 
-            <div className="AllCompany-modal-body">
-              {usersLoading ? (
-                <div className="AllCompany-loading-state">
-                  <div className="AllCompany-spinner"></div>
-                  <p>Loading team members...</p>
-                </div>
-              ) : companyUsers.length > 0 ? (
-                <div className="AllCompany-users-table-container">
-                  <table className="AllCompany-users-table">
-                    <thead>
-                      <tr>
-                        <th>Member</th>
-                        <th>Mobile</th>
-                        <th>Email</th>
-                        <th>Department</th>
-                        <th>Job Role</th>
-                        <th>Role</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {companyUsers.map((user, index) => (
-                        <tr key={user._id || user.id || index}>
-                          <td>
-                            <div className="AllCompany-user-cell">
-                              <div className="AllCompany-user-avatar" style={{background: `linear-gradient(135deg, ${getRoleColor(getUserRole(user))} 0%, ${getRoleColor(getUserRole(user))}80 100%)`}}>
-                                {user.name?.charAt(0) || 'U'}
-                              </div>
-                              <div className="AllCompany-user-primary-info">
-                                <span className="AllCompany-user-name">{user.name || "User"}</span>
-                                <span className="AllCompany-user-id">{user.employeeId || user.empId || user.userCode || ""}</span>
-                              </div>
-                            </div>
-                          </td>
-                          <td>{getUserPhone(user)}</td>
-                          <td>{user.email || "N/A"}</td>
-                          <td>
-                            <span className="AllCompany-info-chip">{getUserDepartment(user)}</span>
-                          </td>
-                          <td>{getUserJobRole(user)}</td>
-                          <td>
-                            <span className="AllCompany-role-badge" style={{color: getRoleColor(getUserRole(user))}}>
-                              {getUserRole(user)}
-                            </span>
-                          </td>
-                          <td>
-                            <span className={`AllCompany-status-badge-small ${user.isActive !== false ? 'AllCompany-active' : 'AllCompany-inactive'}`}>
-                              {user.isActive !== false ? 'Active' : 'Inactive'}
-                            </span>
-                          </td>
-                        </tr>
+                <div className="AllCompany-subscription-grid">
+                  <label className="AllCompany-subscription-field">
+                    <span>Plan</span>
+                    <select
+                      className="AllCompany-input"
+                      value={subscriptionPlanId}
+                      onChange={event => handleSubscriptionPlanChange(event.target.value)}
+                    >
+                      <option value="">Select plan</option>
+                      {plans.filter(plan => plan.isActive !== false).map(plan => (
+                        <option key={plan._id} value={plan._id}>
+                          {plan.name} - ₹{Number(plan.price || 0).toLocaleString("en-IN")} / {getTrialPlanDurationDays(plan)} days
+                        </option>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="AllCompany-empty-users-state">
-                  <div className="AllCompany-empty-users-icon">
-                    <span className="material-icons">person_add</span>
-                  </div>
-                  <h6 className="AllCompany-empty-users-title">No team members yet</h6>
-                  <p className="AllCompany-empty-users-text">Start building your team by adding members</p>
-                  <button className="AllCompany-btn-primary" onClick={() => {
-                    handleCloseUsersPopup();
-                    handleAddNewUser(selectedCompany);
-                  }}>
-                    <span className="material-icons AllCompany-btn-icon">person_add</span>
-                    Add Team Member
-                  </button>
-                </div>
-              )}
-            </div>
+                    </select>
+                  </label>
 
-            {companyUsers.length > 0 && (
+                  <label className="AllCompany-subscription-field">
+                    <span>Amount</span>
+                    <input
+                      type="number"
+                      min="0"
+                      className="AllCompany-input"
+                      value={subscriptionAmount}
+                      onChange={event => setSubscriptionAmount(event.target.value)}
+                      placeholder="0"
+                    />
+                  </label>
+
+                  <label className="AllCompany-subscription-field">
+                    <span>Payment Status</span>
+                    <select
+                      className="AllCompany-input"
+                      value={subscriptionPaymentStatus}
+                      onChange={event => setSubscriptionPaymentStatus(event.target.value)}
+                    >
+                      <option value="paid">Paid</option>
+                      <option value="partial">Partial</option>
+                      <option value="unpaid">Unpaid</option>
+                      <option value="waived">Waived</option>
+                    </select>
+                  </label>
+
+                  <label className="AllCompany-subscription-field">
+                    <span>Payment Mode</span>
+                    <select
+                      className="AllCompany-input"
+                      value={subscriptionPaymentMode}
+                      onChange={event => setSubscriptionPaymentMode(event.target.value)}
+                    >
+                      <option value="upi">UPI</option>
+                      <option value="bank_transfer">Bank Transfer</option>
+                      <option value="cash">Cash</option>
+                      <option value="card">Card</option>
+                      <option value="cheque">Cheque</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </label>
+
+                  <label className="AllCompany-subscription-field">
+                    <span>Payment Date</span>
+                    <input
+                      type="date"
+                      className="AllCompany-input"
+                      value={subscriptionPaymentDate}
+                      onChange={event => setSubscriptionPaymentDate(event.target.value)}
+                    />
+                  </label>
+
+                  <label className="AllCompany-subscription-field">
+                    <span>Transaction ID</span>
+                    <input
+                      type="text"
+                      className="AllCompany-input"
+                      value={subscriptionTransactionId}
+                      onChange={event => setSubscriptionTransactionId(event.target.value)}
+                      placeholder="Optional"
+                    />
+                  </label>
+                </div>
+
+                <label className="AllCompany-subscription-toggle">
+                  <input
+                    type="checkbox"
+                    checked={subscriptionActivateCompany}
+                    onChange={event => setSubscriptionActivateCompany(event.target.checked)}
+                  />
+                  <span>Keep company active after saving</span>
+                </label>
+
+                <label className="AllCompany-subscription-label" htmlFor="subscriptionNotes">
+                  Notes
+                </label>
+                <textarea
+                  id="subscriptionNotes"
+                  className="AllCompany-detail-textarea AllCompany-subscription-notes"
+                  rows="3"
+                  value={subscriptionNotes}
+                  onChange={event => setSubscriptionNotes(event.target.value)}
+                  placeholder="Payment or renewal notes"
+                />
+              </div>
+
               <div className="AllCompany-modal-footer">
-                <button className="AllCompany-btn-outline" onClick={handleCloseUsersPopup}>
-                  Close
+                <button type="button" className="AllCompany-btn AllCompany-btn-ghost" onClick={closeSubscriptionModal}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="AllCompany-btn AllCompany-btn-primary"
+                  onClick={handleSaveSubscription}
+                  disabled={subscriptionSaving}
+                >
+                  {subscriptionSaving ? "Saving..." : "Save Subscription"}
                 </button>
               </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Notifications Popover */}
-      {notificationsOpen && (
-        <div className="AllCompany-popover-overlay" onClick={handleNotificationsClose}>
-          <div className="AllCompany-popover-content" onClick={e => e.stopPropagation()}>
-            <div className="AllCompany-popover-header">
-              <h6 className="AllCompany-popover-title">Notifications</h6>
-              {notifications.length > 0 && (
-                <button className="AllCompany-clear-all-btn" onClick={clearAllNotifications}>
-                  Clear All
-                </button>
-              )}
             </div>
-
-            {notifications.length > 0 ? (
-              <div className="AllCompany-notifications-list">
-                {notifications.map((notification) => (
-                  <div key={notification.id} className={`AllCompany-notification-item ${notification.read ? '' : 'AllCompany-unread'}`}>
-                    <div className="AllCompany-notification-avatar" style={{
-                      background: notification.type === 'registration' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' :
-                                 notification.type === 'subscription' ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' :
-                                 notification.type === 'alert' ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 
-                                 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)'
-                    }}>
-                      <span className="material-icons">
-                        {notification.type === 'registration' ? 'business' :
-                         notification.type === 'subscription' ? 'schedule' :
-                         notification.type === 'alert' ? 'info' : 'person'}
-                      </span>
-                    </div>
-                    <div className="AllCompany-notification-content">
-                      <p className="AllCompany-notification-message">{notification.message}</p>
-                      <div className="AllCompany-notification-time">
-                        <span className="material-icons AllCompany-time-icon">schedule</span>
-                        <span>{notification.time}</span>
-                      </div>
-                    </div>
-                    {!notification.read && (
-                      <button className="AllCompany-mark-read-btn" onClick={() => markNotificationAsRead(notification.id)}>
-                        <span className="material-icons">check_circle</span>
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="AllCompany-empty-notifications">
-                <span className="material-icons AllCompany-empty-notifications-icon">notifications_none</span>
-                <p className="AllCompany-empty-notifications-title">No notifications</p>
-                <p className="AllCompany-empty-notifications-text">You're all caught up!</p>
-              </div>
-            )}
           </div>
-        </div>
-      )}
-
-      
-      {anchorEl && (
-        <div className="AllCompany-menu-overlay" onClick={handleMenuClose}>
-          <div className="AllCompany-menu-content" style={{top: anchorEl.getBoundingClientRect().bottom, left: anchorEl.getBoundingClientRect().left}}>
-            <button className="AllCompany-menu-item" onClick={() => handleAction('edit')}>
-              <span className="material-icons AllCompany-menu-icon" style={{color: '#2563eb'}}>edit</span>
-              <span>Edit Company</span>
-            </button>
-            <button className="AllCompany-menu-item" onClick={() => handleAction('users')}>
-              <span className="material-icons AllCompany-menu-icon" style={{color: '#8b5cf6'}}>groups</span>
-              <span>View Users</span>
-            </button>
-            <button className="AllCompany-menu-item" onClick={() => handleAction('subscription')}>
-              <span className="material-icons AllCompany-menu-icon" style={{color: '#2563eb'}}>event_available</span>
-              <span>Upgrade / Renew Plan</span>
-            </button>
-            <hr className="AllCompany-menu-divider" />
-            <button className="AllCompany-menu-item" onClick={() => handleAction('status')}>
-              <span className="material-icons AllCompany-menu-icon" style={{color: selectedAction?.isActive ? '#f59e0b' : '#10b981'}}>
-                {selectedAction?.isActive ? 'block' : 'check_circle'}
-              </span>
-              <span>{selectedAction?.isActive ? 'Deactivate' : 'Activate'}</span>
-            </button>
-            <button className="AllCompany-menu-item" onClick={() => handleAction('delete')} style={{color: '#ef4444'}}>
-              <span className="material-icons AllCompany-menu-icon" style={{color: '#ef4444'}}>delete</span>
-              <span>Delete</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      
-      {filterMenuAnchor && (
-        <div className="AllCompany-menu-overlay" onClick={handleFilterMenuClose}>
-          <div className="AllCompany-menu-content" style={{top: filterMenuAnchor.getBoundingClientRect().bottom, left: filterMenuAnchor.getBoundingClientRect().left}}>
-            <div className="AllCompany-menu-section">
-              <span className="AllCompany-menu-section-title">Sort By</span>
-            </div>
-            <button className="AllCompany-menu-item" onClick={() => { setSortBy('name'); handleFilterMenuClose(); }}>
-              <span>Company Name</span>
-              {sortBy === 'name' && <span className="material-icons AllCompany-check-icon">check_circle</span>}
-            </button>
-            <button className="AllCompany-menu-item" onClick={() => { setSortBy('users'); handleFilterMenuClose(); }}>
-              <span>User Count</span>
-              {sortBy === 'users' && <span className="material-icons AllCompany-check-icon">check_circle</span>}
-            </button>
-            <button className="AllCompany-menu-item" onClick={() => { setSortBy('date'); handleFilterMenuClose(); }}>
-              <span>Created Date</span>
-              {sortBy === 'date' && <span className="material-icons AllCompany-check-icon">check_circle</span>}
-            </button>
-            <hr className="AllCompany-menu-divider" />
-            <button className="AllCompany-menu-item" onClick={() => { setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); handleFilterMenuClose(); }}>
-              <span className="material-icons AllCompany-menu-icon" style={{color: '#2563eb'}}>
-                {sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'}
-              </span>
-              <span>{sortOrder === 'asc' ? 'Ascending' : 'Descending'}</span>
-            </button>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

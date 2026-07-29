@@ -69,6 +69,14 @@ const getShiftLabel = (record = {}) => {
   return shiftStart && shiftEnd ? `${shiftName} (${shiftStart} - ${shiftEnd})` : shiftName;
 };
 
+const getClockOutModeLabel = (record = {}) => {
+  if (!record?.outTime) return '';
+  const mode = String(record.clockOutMode || '').trim().toUpperCase();
+  if (mode === 'AUTO') return 'Auto Clock Out';
+  if (mode === 'MANUAL') return 'Manual Clock Out';
+  return 'Manual Clock Out';
+};
+
 const Attendance = () => {
   const [attendance, setAttendance] = useState([]);
   const [holidays, setHolidays] = useState([]);
@@ -678,6 +686,7 @@ const Attendance = () => {
         "Date",
         "Login Time",
         "Logout Time",
+        "Logout Type",
         "Status",
         "Total Time",
         "Late By",
@@ -689,6 +698,7 @@ const Attendance = () => {
         formatDate(record.date),
         record.inTime ? formatTime(record.inTime) : "--",
         record.outTime ? formatTime(record.outTime) : "--",
+        getClockOutModeLabel(record) || "--",
         getStatusDisplayText(record),
         record.totalTime || "00:00:00",
         record.lateBy || "00:00:00",
@@ -1209,6 +1219,9 @@ const Attendance = () => {
                               <FiClock />
                               <span>{formatTime(record.outTime)}</span>
                             </div>
+                            <span style={{ fontSize: '0.75rem', color: record.clockOutMode === 'AUTO' ? '#b45309' : '#2563eb', marginLeft: '21px' }}>
+                              {getClockOutModeLabel(record)}
+                            </span>
                             {record.outLocation && (
                               <span style={{ fontSize: '0.75rem', color: '#888', marginLeft: '21px' }}>
                                 Dist: {calculateDistance(record.outLocation.latitude, record.outLocation.longitude)}m
@@ -1320,6 +1333,9 @@ const Attendance = () => {
                               Out: {formatTime(record.outTime)}
                               {record.outLocation && ` (${calculateDistance(record.outLocation.latitude, record.outLocation.longitude)}m)`}
                             </span>
+                            <span style={{ fontSize: '0.75rem', color: record.clockOutMode === 'AUTO' ? '#b45309' : '#2563eb' }}>
+                              {getClockOutModeLabel(record)}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -1408,6 +1424,11 @@ const Attendance = () => {
                       <p className="Attendance-modal-time">
                         {selectedRecord.outTime ? formatTime(selectedRecord.outTime) : "--"}
                       </p>
+                      {selectedRecord.outTime && (
+                        <p style={{ marginTop: '4px', fontSize: '0.82rem', color: selectedRecord.clockOutMode === 'AUTO' ? '#b45309' : '#2563eb' }}>
+                          {getClockOutModeLabel(selectedRecord)}
+                        </p>
+                      )}
                     </div>
                   </div>
                   

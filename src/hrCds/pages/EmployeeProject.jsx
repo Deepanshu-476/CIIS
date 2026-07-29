@@ -154,6 +154,25 @@ const getCleanCheckpoints = (checkpoints = []) => (
     : []
 );
 
+const normalizeTaskStatus = (status) => String(status || "pending").trim().toLowerCase().replace(/-/g, " ");
+
+const getTaskDueDate = (task) => {
+  const rawDueDate = task?.dueDateTime || task?.dueDate;
+  if (!rawDueDate) return null;
+  const dueDate = new Date(rawDueDate);
+  return Number.isNaN(dueDate.getTime()) ? null : dueDate;
+};
+
+const isTaskOverdue = (task) => {
+  if (!task) return false;
+  const status = normalizeTaskStatus(task.status);
+  if (status === "overdue") return true;
+  if (["completed", "cancelled", "on hold"].includes(status)) return false;
+
+  const dueDate = getTaskDueDate(task);
+  return Boolean(dueDate && dueDate < new Date());
+};
+
 const LIVE_UPLOAD_BASE = "https://backendcds.ciisnetwork.in/api/uploads";
 
 const EmployeeProject = () => {
@@ -225,6 +244,7 @@ const EmployeeProject = () => {
     completedTasks: 0,
     pendingTasks: 0,
     inProgressTasks: 0,
+    overdueTasks: 0,
     onHoldTasks: 0,
     cancelledTasks: 0
   });
@@ -350,8 +370,6 @@ const EmployeeProject = () => {
       : `${fileObj?.filename || ""} ${fileObj?.path || ""} ${fileObj?.mimetype || ""}`;
     return /\.(png|jpe?g|webp|gif)$/i.test(value) || /image\//i.test(value);
   };
-
-  const normalizeTaskStatus = (status) => String(status || "pending").trim().toLowerCase().replace(/-/g, " ");
   const getTaskAssigneeNames = (task) => {
     const users = Array.isArray(task?.assignedUsers) && task.assignedUsers.length
       ? task.assignedUsers
@@ -522,6 +540,7 @@ const EmployeeProject = () => {
     const completed = tasks.filter(t => normalizeTaskStatus(t.status) === "completed").length;
     const pending = tasks.filter(t => normalizeTaskStatus(t.status) === "pending").length;
     const inProgress = tasks.filter(t => normalizeTaskStatus(t.status) === "in progress").length;
+    const overdue = tasks.filter(task => isTaskOverdue(task)).length;
     const onHold = tasks.filter(t => normalizeTaskStatus(t.status) === "on hold").length;
     const cancelled = tasks.filter(t => normalizeTaskStatus(t.status) === "cancelled").length;
     setStats({
@@ -529,6 +548,7 @@ const EmployeeProject = () => {
       completedTasks: completed,
       pendingTasks: pending,
       inProgressTasks: inProgress,
+      overdueTasks: overdue,
       onHoldTasks: onHold,
       cancelledTasks: cancelled
     });
@@ -1076,10 +1096,13 @@ const EmployeeProject = () => {
   const highPriorityProgress = highPriorityTasks.length
     ? Math.round((completedHighPriorityTasks / highPriorityTasks.length) * 100)
     : 0;
+  const overdueTasks = tasks.filter(task => isTaskOverdue(task));
   const filteredTasks = taskFilter === "all"
     ? tasks
     : taskFilter === "high priority"
       ? highPriorityTasks
+      : taskFilter === "overdue"
+        ? overdueTasks
       : tasks.filter(task => normalizeTaskStatus(task.status) === taskFilter);
   const assigneeFilteredTasks = taskAssigneeFilter === "all"
     ? filteredTasks
@@ -1648,6 +1671,17 @@ const EmployeeProject = () => {
                 color="#29B6F6"
                 filter="in progress"
                 active={taskFilter === "in progress"}
+              />
+            </div>
+            <div className="EmployeeProject-stat-item">
+              <StatCard
+                icon={<Icons.Bolt />}
+                value={stats.overdueTasks}
+                label="Overdue"
+                color="#D32F2F"
+                subtext="Past due tasks"
+                filter="overdue"
+                active={taskFilter === "overdue"}
               />
             </div>
             <div className="EmployeeProject-stat-item">

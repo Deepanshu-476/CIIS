@@ -14,9 +14,12 @@ const ClockInSection = ({
   isProcessing,
   handleIn,
   handleClockOut,
-  config
+  config,
+  user
 }) => {
   const attendanceMode = config?.settings?.attendanceMode || 'normal';
+  const employeeType = String(user?.employeeType || '').trim().toLowerCase();
+  const isWorkFromHomeUser = ['work-from-home', 'work from home', 'wfh'].includes(employeeType);
   const token = localStorage.getItem('token');
 
   const [showCameraModal, setShowCameraModal] = useState(false);
@@ -166,7 +169,7 @@ const ClockInSection = ({
       payload.selfieUrl = uploadedSelfieUrl;
     }
 
-    if (attendanceMode === 'location' || attendanceMode === 'both') {
+    if ((attendanceMode === 'location' || attendanceMode === 'both') && !isWorkFromHomeUser) {
       toast.info("Fetching location...");
       const coords = await getCoordinates();
       if (coords.error) {

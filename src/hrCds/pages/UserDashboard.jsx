@@ -356,6 +356,11 @@ const UserDashboard = () => {
     }
   }, []);
 
+  const isWorkFromHomeUser = useMemo(() => {
+    const employeeType = String(dashboardUser?.employeeType || user?.employeeType || '').trim().toLowerCase();
+    return ['work-from-home', 'work from home', 'wfh'].includes(employeeType);
+  }, [dashboardUser?.employeeType, user?.employeeType]);
+
   const token = useMemo(() => localStorage.getItem('token'), []);
   
   const companyDetails = useMemo(() => {
@@ -1481,7 +1486,7 @@ const UserDashboard = () => {
     const payload = {};
     if (selfieUrl) payload.selfieUrl = selfieUrl;
 
-    if (attendanceMode === 'location' || attendanceMode === 'both') {
+    if ((attendanceMode === 'location' || attendanceMode === 'both') && !isWorkFromHomeUser) {
       toast.info("Fetching location...");
       const coords = await getCoordinates();
       if (coords.error) {

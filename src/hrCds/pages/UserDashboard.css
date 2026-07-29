@@ -3317,7 +3317,16 @@
 .dashboard-calendar-card { position: relative; padding-right: calc(38% + 28px); min-height: 355px; }
 .attendance-day-summary { position: absolute; top: 64px; right: 16px; bottom: 16px; width: 37%; padding: 14px; border: 1px solid #edf0f5; border-radius: 13px; background: #fff; }
 .attendance-summary-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid #edf0f5; font-size: 11px; }
-.attendance-summary-head span { padding: 4px 8px; border-radius: 12px; color: #129967; background: #e8f8f1; font-size: 9px; }
+.attendance-summary-head .attendance-summary-status { padding: 4px 8px; border: 1px solid transparent; border-radius: 12px; font-size: 9px; font-weight: 700; white-space: nowrap; }
+.attendance-summary-status--present { color: #047857; background: #d1fae5; border-color: #a7f3d0; }
+.attendance-summary-status--late { color: #b45309; background: #fff7ed; border-color: #fdba74; }
+.attendance-summary-status--halfday { color: #92400e; background: #fef3c7; border-color: #fcd34d; }
+.attendance-summary-status--leave { color: #1d4ed8; background: #dbeafe; border-color: #93c5fd; }
+.attendance-summary-status--absent { color: #b91c1c; background: #fee2e2; border-color: #fca5a5; }
+.attendance-summary-status--weekend { color: #475569; background: #e2e8f0; border-color: #cbd5e1; }
+.attendance-summary-status--holiday { color: #7e22ce; background: #f3e8ff; border-color: #d8b4fe; }
+.attendance-summary-status--before-join { color: #64748b; background: #f1f5f9; border-color: #cbd5e1; border-style: dashed; }
+.attendance-summary-status--pending { color: #475569; background: #f8fafc; border-color: #e2e8f0; }
 .attendance-day-summary dl { margin: 7px 0; }
 .attendance-day-summary dl div { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f0f2f6; font-size: 10px; }
 .attendance-day-summary dt { color: #4e5669; }.attendance-day-summary dd { margin: 0; color: #172033; font-weight: 700; }

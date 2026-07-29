@@ -52,6 +52,34 @@ import {
 
 const drawerWidthOpen = 224;
 const drawerWidthClosed = 70;
+const BADGE_REFRESH_INTERVAL = 120000;
+
+const flattenGroupedRecords = grouped => (
+  grouped && typeof grouped === 'object'
+    ? Object.values(grouped).flatMap(records => Array.isArray(records) ? records : [])
+    : []
+);
+
+const isPendingRecord = record => {
+  const status = String(
+    record?.statusInfo?.find(entry => entry?.status)?.status ||
+    record?.status ||
+    record?.taskStatus ||
+    ''
+  ).toLowerCase();
+
+  return !['completed', 'complete', 'closed', 'cancelled', 'canceled', 'rejected'].includes(status);
+};
+
+const getResponseRecords = (response, keys = []) => {
+  const payload = response?.data;
+  const candidates = [
+    payload,
+    payload?.data,
+    ...keys.flatMap(key => [payload?.[key], payload?.data?.[key]])
+  ];
+  return candidates.find(Array.isArray) || [];
+};
 
 const getRecordId = value => {
   if (!value) return '';
@@ -822,6 +850,8 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   const [clientCompanies, setClientCompanies] = useState([]);
   const [selectedClientCompanyId, setSelectedClientCompanyId] = useState("");
   const [clientCompanyDropdownOpen, setClientCompanyDropdownOpen] = useState(true);
+  const [menuBadgeCounts, setMenuBadgeCounts] = useState({});
+  const [seenBadgeCounts, setSeenBadgeCounts] = useState({});
   const sidebarRef = useRef(null);
   const hoverTimer = useRef(null);
   const leaveTimer = useRef(null);
@@ -980,6 +1010,156 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     fetchLocalData();
   }, []);
 
+  const fetchMenuBadgeCounts = useCallback(async () => {
+    const userId = userData?._id || userData?.id;
+    if (!userId) return;
+
+    const requests = await Promise.allSettled([
+      axiosInstance.get('/tasks/self', { _skipErrorNotify: true }),
+      axiosInstance.get('/tasks/assigned/to-me', { _skipErrorNotify: true }),
+      axiosInstance.get('/asset-requests/my-requests', { _skipErrorNotify: true }),
+      axiosInstance.get(`/meetings/user/${userId}`, {
+        params: { page: 1, limit: 100 },
+        _skipErrorNotify: true
+      }),
+      axiosInstance.get('/alerts', { _skipErrorNotify: true }),
+      axiosInstance.get(`/users/${userId}/groups`, { _skipErrorNotify: true }),
+      axiosInstance.get('/leaves/status', { _skipErrorNotify: true })
+    ]);
+
+    const [
+      selfTasksResult,
+      assignedTasksResult,
+      assetsResult,
+      meetingsResult,
+      alertsResult,
+      groupsResult,
+      leavesResult
+    ] = requests;
+    const nextCounts = {};
+
+    if (selfTasksResult.status === 'fulfilled' || assignedTasksResult.status === 'fulfilled') {
+      const selfTasks = selfTasksResult.status === 'fulfilled'
+        ? flattenGroupedRecords(selfTasksResult.value?.data?.groupedTasks || selfTasksResult.value?.data?.data?.groupedTasks)
+        : [];
+      const assignedTasks = assignedTasksResult.status === 'fulfilled'
+        ? flattenGroupedRecords(assignedTasksResult.value?.data?.groupedTasks || assignedTasksResult.value?.data?.data?.groupedTasks)
+        : [];
+      const uniquePendingTasks = new Map();
+
+      [...selfTasks, ...assignedTasks].filter(isPendingRecord).forEach((task, index) => {
+        uniquePendingTasks.set(String(task?._id || task?.id || `task-${index}`), task);
+      });
+      nextCounts.tasks = uniquePendingTasks.size;
+    }
+
+    if (assetsResult.status === 'fulfilled') {
+      const requestsData = getResponseRecords(assetsResult.value, ['requests']);
+      nextCounts.assets = requestsData.filter(request => (
+        String(request?.status || '').toLowerCase() === 'pending'
+      )).length;
+    }
+
+    if (leavesResult.status === 'fulfilled') {
+      const leaves = getResponseRecords(leavesResult.value, ['leaves']);
+      nextCounts.leaves = leaves.filter(leave => (
+        String(leave?.status || '').toLowerCase() === 'pending'
+      )).length;
+    }
+
+    if (meetingsResult.status === 'fulfilled') {
+      const meetings = getResponseRecords(meetingsResult.value, ['meetings']);
+      const now = Date.now();
+      nextCounts.meetings = meetings.filter(meeting => {
+        const status = String(meeting?.status || '').toLowerCase();
+        if (['completed', 'closed', 'cancelled', 'canceled'].includes(status)) return false;
+        const dateValue = meeting?.meetingDate || meeting?.date || meeting?.startDate || meeting?.scheduledAt;
+        const timestamp = dateValue ? new Date(dateValue).getTime() : NaN;
+        return Number.isNaN(timestamp) || timestamp >= now;
+      }).length;
+    }
+
+    if (alertsResult.status === 'fulfilled') {
+      const alerts = getResponseRecords(alertsResult.value, ['alerts']);
+      const userGroupIds = groupsResult.status === 'fulfilled'
+        ? getResponseRecords(groupsResult.value, ['groups']).map(group => String(group?._id || group?.id || group))
+        : [];
+      const visibleAlerts = alerts.filter(alert => {
+        const assignedUsers = Array.isArray(alert?.assignedUsers) ? alert.assignedUsers : [];
+        const assignedGroups = Array.isArray(alert?.assignedGroups) ? alert.assignedGroups : [];
+        if (assignedUsers.length === 0 && assignedGroups.length === 0) return true;
+
+        const assignedToUser = assignedUsers.some(user => String(user?._id || user?.id || user) === String(userId));
+        const assignedToGroup = assignedGroups.some(group => (
+          userGroupIds.includes(String(group?._id || group?.id || group))
+        ));
+        return assignedToUser || assignedToGroup;
+      });
+
+      nextCounts.alerts = visibleAlerts.filter(alert => (
+        !Array.isArray(alert?.readBy) ||
+        !alert.readBy.some(reader => String(reader?._id || reader?.id || reader) === String(userId))
+      )).length;
+    }
+
+    setMenuBadgeCounts(current => ({ ...current, ...nextCounts }));
+  }, [userData]);
+
+  const badgeSeenStorageKey = useMemo(() => {
+    const userId = userData?._id || userData?.id;
+    return userId ? `ciis-sidebar-badges-seen:${userId}` : '';
+  }, [userData]);
+
+  useEffect(() => {
+    if (!badgeSeenStorageKey) {
+      setSeenBadgeCounts({});
+      return;
+    }
+
+    try {
+      setSeenBadgeCounts(JSON.parse(localStorage.getItem(badgeSeenStorageKey) || '{}'));
+    } catch {
+      setSeenBadgeCounts({});
+    }
+  }, [badgeSeenStorageKey]);
+
+  useEffect(() => {
+    if (!badgeSeenStorageKey) return;
+
+    setSeenBadgeCounts(current => {
+      let changed = false;
+      const next = { ...current };
+
+      Object.entries(menuBadgeCounts).forEach(([key, rawCount]) => {
+        const count = Math.max(0, Number(rawCount) || 0);
+        const seenCount = Math.max(0, Number(next[key]) || 0);
+        if (seenCount > count) {
+          next[key] = count;
+          changed = true;
+        }
+      });
+
+      if (changed) localStorage.setItem(badgeSeenStorageKey, JSON.stringify(next));
+      return changed ? next : current;
+    });
+  }, [badgeSeenStorageKey, menuBadgeCounts]);
+
+  useEffect(() => {
+    if (!userData) return undefined;
+
+    fetchMenuBadgeCounts();
+    const intervalId = window.setInterval(fetchMenuBadgeCounts, BADGE_REFRESH_INTERVAL);
+    const refreshBadges = () => fetchMenuBadgeCounts();
+    window.addEventListener('focus', refreshBadges);
+    window.addEventListener('ciis-sidebar-badges-refresh', refreshBadges);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refreshBadges);
+      window.removeEventListener('ciis-sidebar-badges-refresh', refreshBadges);
+    };
+  }, [userData, fetchMenuBadgeCounts]);
+
   
   const fetchSidebarConfig = useCallback(async () => {
     if (!userData || !companyData) return;
@@ -1132,12 +1312,24 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     }, 100);
   };
 
-  const handleNavigate = (path) => {
+  const markSidebarBadgeSeen = (badgeKey) => {
+    if (!badgeKey || !badgeSeenStorageKey) return;
+    const currentCount = Math.max(0, Number(menuBadgeCounts[badgeKey]) || 0);
+
+    setSeenBadgeCounts(current => {
+      const next = { ...current, [badgeKey]: currentCount };
+      localStorage.setItem(badgeSeenStorageKey, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const handleNavigate = (path, badgeKey) => {
     if (path === 'logout') {
       handleLogout();
       return;
     }
-    
+
+    markSidebarBadgeSeen(badgeKey);
     navigate(path);
     if (isMobile) {
       closeSidebar?.();
@@ -1373,12 +1565,77 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
 
   const renderMenuItem = (item, showFull) => {
     const selected = location.pathname === item.path;
+    const itemKey = `${item.id || ''} ${item.name || ''} ${item.category || ''}`.toLowerCase();
+    const isMyLeavesItem = (
+      String(item.id || '').toLowerCase() === 'my-leaves' ||
+      String(item.name || '').toLowerCase() === 'my leaves'
+    );
+    const badgeKey = (
+      itemKey.includes('task') ? 'tasks' :
+      itemKey.includes('meeting') ? 'meetings' :
+      itemKey.includes('asset') ? 'assets' :
+      isMyLeavesItem ? 'leaves' :
+      itemKey.includes('alert') ? 'alerts' :
+      ''
+    );
+    const rawBadgeValue = badgeKey ? menuBadgeCounts[badgeKey] : item.badge;
+    const rawNumericBadge = Number(rawBadgeValue);
+    const seenCount = badgeKey ? Math.max(0, Number(seenBadgeCounts[badgeKey]) || 0) : 0;
+    const badgeValue = badgeKey && Number.isFinite(rawNumericBadge)
+      ? Math.max(0, rawNumericBadge - seenCount)
+      : rawBadgeValue;
+    const numericBadge = Number(badgeValue);
+    const hasBadge = badgeValue === true || (Number.isFinite(numericBadge) && numericBadge > 0);
+    const icon = (
+      <Box
+        component="span"
+        sx={{
+          position: 'relative',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 24,
+          height: 24,
+          flexShrink: 0,
+          '& > svg': { fontSize: 22 }
+        }}
+      >
+        {getIconComponent(item.icon)}
+        {hasBadge && (
+          <Box
+            component="span"
+            sx={{
+              position: 'absolute',
+              top: -4,
+              right: -5,
+              minWidth: badgeValue === true ? 7 : 14,
+              height: badgeValue === true ? 7 : 14,
+              px: badgeValue === true ? 0 : '3px',
+              boxSizing: 'border-box',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '999px',
+              bgcolor: '#dc2626',
+              color: '#fff',
+              border: `1.5px solid ${theme.palette.background.paper}`,
+              fontSize: '8px',
+              lineHeight: 1,
+              fontWeight: 700,
+              zIndex: 1
+            }}
+          >
+            {badgeValue === true ? null : (numericBadge > 99 ? '99+' : numericBadge)}
+          </Box>
+        )}
+      </Box>
+    );
     
     if (showFull) {
       return (
         <StyledListItemButton
           selected={selected}
-          onClick={() => !item.disabled && handleNavigate(item.path)}
+          onClick={() => !item.disabled && handleNavigate(item.path, badgeKey)}
           disabled={item.disabled}
           sx={{
             opacity: item.disabled ? 0.5 : 1,
@@ -1386,7 +1643,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
           }}
         >
           <StyledListItemIcon>
-            {getIconComponent(item.icon)}
+            {icon}
           </StyledListItemIcon>
           <ListItemText
             primary={item.name}
@@ -1396,20 +1653,6 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
               fontSize: '0.9rem'
             }}
           />
-          {item.badge && (
-            <Box sx={{ 
-              ml: 1,
-              bgcolor: 'primary.main',
-              color: 'white',
-              borderRadius: '12px',
-              px: 1,
-              py: 0.25,
-              fontSize: '0.7rem',
-              fontWeight: 'bold'
-            }}>
-              {item.badge}
-            </Box>
-          )}
         </StyledListItemButton>
       );
     } else {
@@ -1417,7 +1660,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         <Tooltip title={item.name} placement="right">
           <StyledListItemButton
             selected={selected}
-            onClick={() => !item.disabled && handleNavigate(item.path)}
+            onClick={() => !item.disabled && handleNavigate(item.path, badgeKey)}
             disabled={item.disabled}
             sx={{ 
               justifyContent: 'center',
@@ -1426,7 +1669,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
             }}
           >
             <StyledListItemIcon sx={{ marginRight: 0, fontSize: '1.2rem' }}>
-              {getIconComponent(item.icon)}
+              {icon}
             </StyledListItemIcon>
           </StyledListItemButton>
         </Tooltip>

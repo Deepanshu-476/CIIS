@@ -232,19 +232,16 @@ const formatDueDateTime = (dueDate) => {
   if (!dueDate) return '—';
   const dateObj = new Date(dueDate);
   if (Number.isNaN(dateObj.getTime())) return '—';
-  
-  const day = String(dateObj.getDate()).padStart(2, '0');
-  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-  const year = dateObj.getFullYear();
-  
-  let hours = dateObj.getHours();
-  const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12;
-  hours = hours ? hours : 12;
-  const strHours = String(hours).padStart(2, '0');
-  
-  return `${day}/${month}/${year} ${strHours}:${minutes} ${ampm}`;
+
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  }).format(dateObj).replace(',', '');
 };
 
 const StatCard = ({ color = 'primary', clickable = true, active = false, children, onClick }) => {
@@ -368,9 +365,14 @@ const formatActivityAction = (value) => {
 const formatDateTimeInputToIso = (value) => {
   if (!value) return null;
   const normalizedValue = value.includes('T') && value.split(':').length === 2 ? `${value}:00` : value;
-  const date = new Date(normalizedValue);
+  // datetime-local has no timezone; client task dates are entered in IST.
+  const date = new Date(`${normalizedValue}+05:30`);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
+
+const getIndiaDateTimeLocalValue = () => (
+  new Date(Date.now() + (5.5 * 60 * 60 * 1000)).toISOString().slice(0, 16)
+);
 
 const readStoredObject = (key) => {
   try {
@@ -827,6 +829,7 @@ const UserCreateTask = () => {
       
       if (dateToUse) {
         const dateKey = new Date(dateToUse).toLocaleDateString('en-IN', {
+          timeZone: 'Asia/Kolkata',
           year: 'numeric',
           month: 'long',
           day: 'numeric'
@@ -3863,7 +3866,7 @@ const UserCreateTask = () => {
                     type="datetime-local"
                     className="user-create-task-input"
                     value={clientTaskForm.dueDateTime}
-                    min={new Date().toISOString().slice(0, 16)}
+                    min={getIndiaDateTimeLocalValue()}
                     onChange={(event) => setClientTaskForm(prev => ({ ...prev, dueDateTime: event.target.value }))}
                   />
                 </div>

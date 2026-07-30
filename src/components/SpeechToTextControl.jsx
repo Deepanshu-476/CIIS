@@ -9,6 +9,8 @@ const TEXT_INPUT_TYPES = new Set([
   "url",
 ]);
 
+const CONTROL_EDGE_CLEARANCE = 17;
+
 const getSpeechRecognition = () => (
   window.SpeechRecognition || window.webkitSpeechRecognition || null
 );
@@ -24,6 +26,47 @@ const getTopOverlayBoundary = () => {
     const rect = overlay.getBoundingClientRect();
     return rect.top <= 0 && rect.bottom > 0 ? Math.max(boundary, rect.bottom) : boundary;
   }, 0);
+};
+
+const getVisibleBounds = (element) => {
+  const bounds = {
+    top: getTopOverlayBoundary(),
+    right: window.innerWidth,
+    bottom: window.innerHeight,
+    left: 0,
+  };
+
+  let ancestor = element.parentElement;
+  while (ancestor && ancestor !== document.body && ancestor !== document.documentElement) {
+    const style = window.getComputedStyle(ancestor);
+    const clipsX = /(auto|scroll|hidden|clip)/.test(style.overflowX);
+    const clipsY = /(auto|scroll|hidden|clip)/.test(style.overflowY);
+
+    if (clipsX || clipsY) {
+      const rect = ancestor.getBoundingClientRect();
+      if (clipsX) {
+        bounds.left = Math.max(bounds.left, rect.left);
+        bounds.right = Math.min(bounds.right, rect.right);
+      }
+      if (clipsY) {
+        bounds.top = Math.max(bounds.top, rect.top);
+        bounds.bottom = Math.min(bounds.bottom, rect.bottom);
+      }
+    }
+
+    ancestor = ancestor.parentElement;
+  }
+
+  return bounds;
+};
+
+const isTargetVisibleAt = (element, x, y) => {
+  if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) return false;
+
+  return document.elementsFromPoint(x, y).some((hitElement) => (
+    hitElement === element
+    || element.contains(hitElement)
+  ));
 };
 
 const isEditableTextTarget = (element) => {
@@ -116,14 +159,18 @@ const SpeechToTextControl = () => {
       return;
     }
 
-    const fieldCenter = rect.top + rect.height / 2;
-    const topOverlayBoundary = getTopOverlayBoundary();
+    const fieldCenterY = rect.top + rect.height / 2;
+    const fieldCenterX = rect.left + rect.width / 2;
+    const visibleBounds = getVisibleBounds(element);
     const isOutsideVisibleArea = (
-      rect.bottom <= topOverlayBoundary
-      || fieldCenter <= topOverlayBoundary
-      || rect.top >= window.innerHeight
-      || rect.right <= 0
-      || rect.left >= window.innerWidth
+      rect.bottom <= visibleBounds.top
+      || fieldCenterY - CONTROL_EDGE_CLEARANCE <= visibleBounds.top
+      || rect.top >= visibleBounds.bottom
+      || fieldCenterY + CONTROL_EDGE_CLEARANCE >= visibleBounds.bottom
+      || rect.right <= visibleBounds.left
+      || fieldCenterX - CONTROL_EDGE_CLEARANCE <= visibleBounds.left
+      || rect.left >= visibleBounds.right
+      || fieldCenterX + CONTROL_EDGE_CLEARANCE >= visibleBounds.right
     );
 
     if (isOutsideVisibleArea) {
@@ -132,9 +179,15 @@ const SpeechToTextControl = () => {
     }
 
     const nextPosition = {
-      top: fieldCenter,
-      left: Math.max(8, rect.right - 38),
+      top: fieldCenterY,
+      left: Math.max(visibleBounds.left + 8, Math.min(rect.right - 38, visibleBounds.right - 38)),
     };
+
+    const controlCenterX = nextPosition.left + 15;
+    if (!isTargetVisibleAt(element, controlCenterX, nextPosition.top)) {
+      setPosition((currentPosition) => currentPosition === null ? currentPosition : null);
+      return;
+    }
 
     setPosition((currentPosition) => (
       currentPosition

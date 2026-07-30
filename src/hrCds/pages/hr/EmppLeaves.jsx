@@ -1523,7 +1523,23 @@ const EmployeeLeaves = () => {
                 const canApproveThisLeave = leave.status === 'Pending' && canApproveLeave(leave);
                 
                 return (
-                  <tr key={leave._id} className={`${getRowClass(leave.status)} ${isOwnLeave ? 'EmppLeaves-own-leave-row' : ''}`}>
+                  <tr
+                    key={leave._id}
+                    className={`${getRowClass(leave.status)} ${isOwnLeave ? 'EmppLeaves-own-leave-row' : ''} EmppLeaves-clickable-leave-row`}
+                    onClick={() => openDetailsModal(leave)}
+                    onKeyDown={(event) => {
+                      if (
+                        event.target === event.currentTarget &&
+                        (event.key === 'Enter' || event.key === ' ')
+                      ) {
+                        event.preventDefault();
+                        openDetailsModal(leave);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`View leave details for ${leave.user?.name || 'employee'}`}
+                  >
                     <td>
                       <div className="EmppLeaves-employee-info">
                         <div className="EmppLeaves-employee-avatar">
@@ -1579,7 +1595,10 @@ const EmployeeLeaves = () => {
 
                         <button 
                           className="EmppLeaves-view-details-button"
-                          onClick={() => openDetailsModal(leave)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openDetailsModal(leave);
+                          }}
                         >
                           <FiEye size={13} />
                           View Details
@@ -1608,6 +1627,7 @@ const EmployeeLeaves = () => {
                       <details
                         className="EmppLeaves-actions-dropdown"
                         open={openActionMenuId === leave._id}
+                        onClick={(event) => event.stopPropagation()}
                         onToggle={(event) => handleActionMenuToggle(leave._id, event)}
                       >
                         <summary className="EmppLeaves-actions-trigger">

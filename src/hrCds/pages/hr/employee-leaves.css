@@ -658,6 +658,15 @@
   transition: all 0.2s;
 }
 
+.EmppLeaves-leaves-table tbody tr.EmppLeaves-clickable-leave-row {
+  cursor: pointer;
+}
+
+.EmppLeaves-leaves-table tbody tr.EmppLeaves-clickable-leave-row:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
+}
+
 .EmppLeaves-leaves-table tbody tr:hover {
   background: #f8fafc;
 }

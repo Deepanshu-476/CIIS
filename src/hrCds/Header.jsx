@@ -23,7 +23,6 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ErrorIcon from "@mui/icons-material/Error";
 import InfoIcon from "@mui/icons-material/Info";
 import WarningIcon from "@mui/icons-material/Warning";
-import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../src/context/useAuth";
 import { useSocket } from "../../src/context/SocketContext";
@@ -703,10 +702,6 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
 
           
           <Box sx={{ display: "flex", alignItems: "center", gap: isMobile ? 1 : 2 }}>
-            {isDashboard && !isMobile && (
-              <Button onClick={() => navigate('/ciisUser/chat')} startIcon={<AutoAwesomeIcon />} sx={{ textTransform: 'none', color: '#5541bf', bgcolor: '#f2efff', borderRadius: 2.5, px: 2, fontWeight: 700, '&:hover': { bgcolor: '#eae5ff' } }}>Ask AI</Button>
-            )}
-            
             <Tooltip title="Notifications">
               <IconButton 
                 onClick={handleNotificationClick}

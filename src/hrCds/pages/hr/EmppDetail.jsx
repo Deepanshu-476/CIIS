@@ -3,6 +3,7 @@ import axios from "../../../utils/axiosConfig";
 import './employee-directory.css';
 import CIISLoader from '../../../Loader/CIISLoader';
 import PageBranchDropdown, { usePageBranchScope } from '../../components/PageBranchDropdown';
+import { getCurrentUserId, getStoredUser, getUserIds, loadPagePermission } from '../../../utils/pageAccess';
 
 
 import {
@@ -1768,8 +1769,11 @@ const EmployeeDirectory = () => {
   const currentUserRole = user.getCurrentUserJobRole();
   const currentUserCompanyRole = user.getCurrentUserCompanyRole();
   const isSuperAdmin = user.isSuperAdmin;
-  const canEditOtherEmployees = user.canEditOtherEmployees;
-  const canSeeAllCompanyUsers = user.canSeeAllCompanyUsers;
+  const [pageAccessReady, setPageAccessReady] = useState(false);
+  const [pageCanViewEmployees, setPageCanViewEmployees] = useState(true);
+  const [pageCanEditEmployees, setPageCanEditEmployees] = useState(true);
+  const canEditOtherEmployees = pageAccessReady ? pageCanEditEmployees : user.canEditOtherEmployees;
+  const canSeeAllCompanyUsers = pageAccessReady ? pageCanViewEmployees : user.canSeeAllCompanyUsers;
   
   // Snackbar helper
   const showSnackbar = useCallback((message, severity = 'success') => {
@@ -1780,9 +1784,49 @@ const EmployeeDirectory = () => {
       id: Date.now()
     });
     
-    setTimeout(() => {
-      setSnackbar(prev => ({ ...prev, open: false }));
-    }, 3000);
+      setTimeout(() => {
+        setSnackbar(prev => ({ ...prev, open: false }));
+      }, 3000);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadEmployeePagePermissions = async () => {
+      try {
+        const page = await loadPagePermission('/ciisUser/emp-details');
+        if (!active) return;
+
+        const currentUserIdValue = getCurrentUserId();
+        const currentUser = getStoredUser();
+        const viewUserIds = getUserIds(page.viewUsers);
+        const editUserIds = getUserIds(page.editUsers);
+        const configuredIds = [
+          ...getUserIds(page.approvers),
+          ...viewUserIds,
+          ...editUserIds,
+          ...getUserIds(page.deleteUsers)
+        ];
+        const hasConfig = configuredIds.length > 0;
+        const fallbackRole = String(currentUser?.jobRole || currentUser?.companyRole || currentUser?.role || '').toLowerCase();
+        const fallbackAllowed = ['owner', 'admin', 'hr', 'manager', 'super_admin', 'superadmin'].includes(fallbackRole);
+
+        const canEdit = editUserIds.includes(currentUserIdValue) || (!hasConfig && fallbackAllowed);
+        const canView = canEdit || viewUserIds.includes(currentUserIdValue) || (!hasConfig && fallbackAllowed);
+
+        setPageCanEditEmployees(canEdit);
+        setPageCanViewEmployees(canView);
+      } catch (error) {
+        console.error('Failed to load employee page permissions:', error);
+      } finally {
+        if (active) setPageAccessReady(true);
+      }
+    };
+
+    loadEmployeePagePermissions();
+    return () => {
+      active = false;
+    };
   }, []);
   
   // Fetch Job Roles from API
@@ -2094,8 +2138,11 @@ const EmployeeDirectory = () => {
   
   // Initial data fetch
   useEffect(() => {
+    if (!pageAccessReady) {
+      return;
+    }
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, pageAccessReady]);
 
   useEffect(() => {
     setSelectedDepartment('all');
@@ -2336,13 +2383,8 @@ const EmployeeDirectory = () => {
         }
       };
       
-<<<<<<< HEAD
-      const updateUrls = isSelfEdit
-        ? [`/users/profile-update/${userId}`, `/users/${userId}`, '/users/me']
-=======
       const updateUrls = isSelfEdit && !canEditOtherEmployees
         ? ['/users/me', `/users/profile-update/${userId}`]
->>>>>>> e1596cc22a5efc86315a1c5d54ac374261e314f9
         : [`/users/admin-update/${userId}`, '/users/admin-update-by-email', `/users/${userId}`];
       
       void 0;

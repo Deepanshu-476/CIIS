@@ -4,6 +4,7 @@ import axiosInstance from "../../utils/axiosConfig";
 import Swal from 'sweetalert2';
 import './SidebarManagement.css';
 import CIISLoader from '../../Loader/CIISLoader';
+import { getCurrentUserId, getStoredUser, getUserIds, loadPagePermission } from "../../utils/pageAccess";
 
 
 const APP_ROUTES = [
@@ -137,6 +138,9 @@ const SidebarManagement = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 600);
   const [isTablet, setIsTablet] = useState(window.innerWidth < 960);
   const [pageLoading, setPageLoading] = useState(true);
+  const [pageAccessReady, setPageAccessReady] = useState(false);
+  const [canViewSidebar, setCanViewSidebar] = useState(true);
+  const [canEditSidebar, setCanEditSidebar] = useState(true);
 
   const [company, setCompany] = useState(null);
   const [departments, setDepartments] = useState([]);
@@ -265,6 +269,46 @@ const SidebarManagement = () => {
   useEffect(() => {
     initializePages();
     initializeCompanyFromLocalStorage();
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadSidebarAccess = async () => {
+      try {
+        const page = await loadPagePermission('/ciisUser/SidebarManagement');
+        if (!active) return;
+
+        const currentUserId = getCurrentUserId();
+        const currentUser = getStoredUser();
+        const viewUserIds = getUserIds(page.viewUsers);
+        const editUserIds = getUserIds(page.editUsers);
+        const configuredIds = [
+          ...getUserIds(page.approvers),
+          ...viewUserIds,
+          ...editUserIds,
+          ...getUserIds(page.deleteUsers)
+        ];
+        const hasConfig = configuredIds.length > 0;
+        const fallbackRole = String(currentUser?.jobRole || currentUser?.companyRole || currentUser?.role || '').toLowerCase();
+        const fallbackAllowed = ['owner', 'admin', 'hr', 'manager', 'super_admin', 'superadmin'].includes(fallbackRole);
+
+        const canEdit = editUserIds.includes(currentUserId) || (!hasConfig && fallbackAllowed);
+        const canView = canEdit || viewUserIds.includes(currentUserId) || (!hasConfig && fallbackAllowed);
+
+        setCanEditSidebar(canEdit);
+        setCanViewSidebar(canView);
+      } catch (error) {
+        console.error('Failed to load sidebar permissions:', error);
+      } finally {
+        if (active) setPageAccessReady(true);
+      }
+    };
+
+    loadSidebarAccess();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const initializePages = (companyOverride = company) => {
@@ -675,6 +719,7 @@ const SidebarManagement = () => {
 
   
   const handleEdit = async (config) => {
+    if (!canEditSidebar) return;
     try {
       const departmentId = typeof config.departmentId === 'object' 
         ? config.departmentId._id 
@@ -815,6 +860,14 @@ const SidebarManagement = () => {
 
   
   const handleSave = async () => {
+    if (!canEditSidebar) {
+      setSnackbar({
+        open: true,
+        message: 'You do not have permission to edit sidebar configurations.',
+        severity: 'error'
+      });
+      return;
+    }
     if (!company || !company._id || !selectedDepartment || !selectedRole) {
       setSnackbar({
         open: true,
@@ -948,6 +1001,7 @@ const SidebarManagement = () => {
 
   
   const handleDelete = (configId) => {
+    if (!canEditSidebar) return;
     setModalState({
       isOpen: true,
       type: 'delete',
@@ -1662,7 +1716,7 @@ const SidebarManagement = () => {
                     <button
                       className="SidebarManagement-save-button"
                       onClick={handleSave}
-                      disabled={loading.saving || selectedItems.length === 0}
+                      disabled={loading.saving || selectedItems.length === 0 || !canEditSidebar}
                     >
                       {loading.saving ? (
                         <>
@@ -1745,6 +1799,7 @@ const SidebarManagement = () => {
                             className="SidebarManagement-config-item-btn" 
                             onClick={() => handleEdit(config)}
                             title="Edit"
+                            disabled={!canEditSidebar}
                           >
                             ✏️
                           </button>
@@ -1752,6 +1807,7 @@ const SidebarManagement = () => {
                             className="SidebarManagement-config-item-btn SidebarManagement-config-item-btn-delete" 
                             onClick={() => handleDelete(config._id)}
                             title="Delete"
+                            disabled={!canEditSidebar}
                           >
                             🗑️
                           </button>

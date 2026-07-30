@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import axios from "../../../utils/axiosConfig";
+import { getCurrentUserId, getStoredUser, getUserIds, loadPagePermission } from "../../../utils/pageAccess";
 import API_URL from "../../../config";
 import "./CompanyAllTaskTasks.css";
 import {
@@ -17,6 +18,7 @@ import {
   FiList,
   FiMail,
   FiMessageSquare,
+  FiLock,
   FiPlus,
   FiRefreshCw,
   FiSearch,
@@ -211,17 +213,6 @@ const getInitials = (name = "") => {
   return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 };
 
-const getStoredUser = () => {
-  try {
-    const stored = localStorage.getItem("user") || localStorage.getItem("currentUser");
-    if (!stored) return null;
-    const parsed = JSON.parse(stored);
-    return parsed?.user || parsed;
-  } catch {
-    return null;
-  }
-};
-
 const extractUsers = (response) => {
   const data = response?.data;
   if (Array.isArray(data)) return data;
@@ -323,6 +314,9 @@ const CompanyAllTaskTasks = () => {
   const [activityModal, setActivityModal] = useState({ open: false, task: null, logs: [] });
   const [remarksModal, setRemarksModal] = useState({ open: false, task: null, remarks: [] });
   const [editModal, setEditModal] = useState({ open: false, task: null });
+  const [pageAccessReady, setPageAccessReady] = useState(false);
+  const [canViewCompanyTasks, setCanViewCompanyTasks] = useState(true);
+  const [canEditCompanyTasks, setCanEditCompanyTasks] = useState(true);
   const [editForm, setEditForm] = useState({
     title: "",
     description: "",
@@ -338,6 +332,46 @@ const CompanyAllTaskTasks = () => {
     setLoading(false);
     setError("Please select an employee from Company All Task.");
   }, [userId]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadTaskPermissions = async () => {
+      try {
+        const page = await loadPagePermission("/ciisUser/company-all-task");
+        if (!active) return;
+
+        const currentUserIdValue = getCurrentUserId();
+        const currentUser = getStoredUser();
+        const viewUserIds = getUserIds(page.viewUsers);
+        const editUserIds = getUserIds(page.editUsers);
+        const configuredIds = [
+          ...getUserIds(page.approvers),
+          ...viewUserIds,
+          ...editUserIds,
+          ...getUserIds(page.deleteUsers)
+        ];
+        const hasConfig = configuredIds.length > 0;
+        const fallbackRole = String(currentUser?.jobRole || currentUser?.companyRole || currentUser?.role || "").toLowerCase();
+        const fallbackAllowed = ["owner", "admin", "hr", "manager", "super_admin", "superadmin"].includes(fallbackRole);
+
+        const canEdit = editUserIds.includes(currentUserIdValue) || (!hasConfig && fallbackAllowed);
+        const canView = canEdit || viewUserIds.includes(currentUserIdValue) || (!hasConfig && fallbackAllowed);
+
+        setCanEditCompanyTasks(canEdit);
+        setCanViewCompanyTasks(canView);
+      } catch (error) {
+        console.error("Failed to load company task permissions:", error);
+      } finally {
+        if (active) setPageAccessReady(true);
+      }
+    };
+
+    loadTaskPermissions();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const fetchEmployee = useCallback(async () => {
     if (!userId) return;
@@ -517,7 +551,7 @@ const CompanyAllTaskTasks = () => {
     setPage(1);
   };
 
-  const canEditTask = (task) => ["self", "assigned", "client", "project"].includes(getTaskSource(task));
+  const canEditTask = (task) => canEditCompanyTasks && ["self", "assigned", "client", "project"].includes(getTaskSource(task));
 
   const openEditModal = (task) => {
     setEditForm({
@@ -771,6 +805,14 @@ const CompanyAllTaskTasks = () => {
 
   return (
     <main className="company-task-page">
+      {pageAccessReady && !canViewCompanyTasks ? (
+        <section className="company-task-empty">
+          <FiLock size={30} />
+          <h3>Access denied</h3>
+          <p>You do not have permission to view Company All Task.</p>
+        </section>
+      ) : (
+      <>
       <section className="company-task-hero">
         <button className="company-task-back" type="button" onClick={() => navigate("/ciisUser/company-all-task")}>
           <FiArrowLeft size={18} />
@@ -1240,6 +1282,8 @@ const CompanyAllTaskTasks = () => {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </main>
   );

@@ -38,7 +38,7 @@ const getDepartmentToken = (department) => {
   return normalizeRoleToken(department);
 };
 
-export const canViewAllPageBranches = (user = {}) => {
+export const isCompanyOwner = (user = {}) => {
   const roles = [
     user.companyRole,
     user.role,
@@ -46,10 +46,8 @@ export const canViewAllPageBranches = (user = {}) => {
     user.jobRole,
     user.userType
   ].map(normalizeRoleToken);
-  const department = getDepartmentToken(user.department || user.departmentName || user.departmentDetails);
 
-  return roles.some(role => ['owner', 'admin', 'hr', 'superadmin', 'superadministrator'].includes(role)) ||
-    (department === 'management' && roles.includes('superadmin'));
+  return roles.some(role => ['owner', 'companyowner'].includes(role));
 };
 
 const readCurrentUser = () => {
@@ -88,8 +86,9 @@ export const getAssignedBranchIds = (user = {}) => {
 export const usePageBranchScope = () => {
   const [user, setUser] = useState(() => readCurrentUser());
   const [companyBranches, setCompanyBranches] = useState([]);
-  const canViewAllBranches = useMemo(() => canViewAllPageBranches(user), [user]);
+  const canViewAllBranches = useMemo(() => isCompanyOwner(user), [user]);
   const assignedBranchIds = useMemo(() => getAssignedBranchIds(user), [user]);
+  const hasMultipleAssignedBranches = assignedBranchIds.length > 1;
   const [selectedBranchId, setSelectedBranchId] = useState(() => readRequestedBranchId());
 
   useEffect(() => {
@@ -97,10 +96,11 @@ export const usePageBranchScope = () => {
     const requestedBranchId = readRequestedBranchId();
     setUser(latestUser);
     setSelectedBranchId(current => {
-      if (canViewAllPageBranches(latestUser)) return requestedBranchId || current || '';
+      if (isCompanyOwner(latestUser)) return requestedBranchId || current || '';
       const ids = getAssignedBranchIds(latestUser);
       if (!ids.length) return '';
       if (requestedBranchId && ids.includes(requestedBranchId)) return requestedBranchId;
+      if (ids.length === 1) return ids[0];
       return ids.includes(current) ? current : ids[0];
     });
   }, []);
@@ -170,7 +170,11 @@ export const usePageBranchScope = () => {
     selectedBranchId,
     setSelectedBranchId,
     branchQueryParams,
-    hasMultipleBranches: branchOptions.length > 1
+    hasMultipleBranches: branchOptions.length > 1,
+    showBranchSelector: branchOptions.length > 1,
+    canViewAllBranches,
+    isCompanyOwner: canViewAllBranches,
+    hasMultipleAssignedBranches
   };
 };
 

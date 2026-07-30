@@ -4,13 +4,53 @@ import "./PageManagement.css";
 import CIISLoader from "../../Loader/CIISLoader";
 
 const getUserId = (user) => String(user?._id || user?.id || "");
+const getPagePermissionPattern = (page) => page?.permissionPattern || null;
 const hasConfiguredPermission = (page) =>
-  (page?.approvers || []).length > 0 || (page?.deleteUsers || []).length > 0;
+  (page?.approvers || []).length > 0 ||
+  (page?.viewUsers || []).length > 0 ||
+  (page?.editUsers || []).length > 0 ||
+  (page?.deleteUsers || []).length > 0;
+
+const getPermissionTabs = (page) => {
+  const pattern = getPagePermissionPattern(page);
+
+  if (pattern === "approveReject") {
+    return [
+      { key: "approve", label: "Approve / Reject", count: (page?.approvers || []).length },
+      { key: "delete", label: "Delete", count: (page?.deleteUsers || []).length }
+    ];
+  }
+
+  if (pattern === "viewEdit") {
+    return [
+      { key: "view", label: "View", count: (page?.viewUsers || []).length },
+      { key: "edit", label: "Edit", count: (page?.editUsers || []).length },
+      { key: "delete", label: "Delete", count: (page?.deleteUsers || []).length }
+    ];
+  }
+
+  return [
+    { key: "delete", label: "Delete", count: (page?.deleteUsers || []).length }
+  ];
+};
+
+const getPermissionSummary = (page) => {
+  const pattern = getPagePermissionPattern(page);
+  if (pattern === "approveReject") {
+    return `${(page?.approvers || []).length} approve/reject user(s) / ${(page?.deleteUsers || []).length} delete user(s)`;
+  }
+  if (pattern === "viewEdit") {
+    return `${(page?.viewUsers || []).length} view user(s) / ${(page?.editUsers || []).length} edit user(s) / ${(page?.deleteUsers || []).length} delete user(s)`;
+  }
+  return `${(page?.deleteUsers || []).length} delete user(s)`;
+};
 
 const PageManagement = () => {
   const [pages, setPages] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedPageKey, setSelectedPageKey] = useState("emp-leaves");
+  const [selectedViewUsers, setSelectedViewUsers] = useState([]);
+  const [selectedEditUsers, setSelectedEditUsers] = useState([]);
   const [selectedApprovers, setSelectedApprovers] = useState([]);
   const [selectedDeleteUsers, setSelectedDeleteUsers] = useState([]);
   const [permissionMode, setPermissionMode] = useState("approve");
@@ -24,6 +64,13 @@ const PageManagement = () => {
     () => pages.find((page) => page.pageKey === selectedPageKey) || pages[0],
     [pages, selectedPageKey]
   );
+
+  const permissionTabs = useMemo(
+    () => getPermissionTabs(selectedPage),
+    [selectedPage]
+  );
+
+  const selectedPermissionPattern = getPagePermissionPattern(selectedPage);
 
   const searchedPages = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -49,9 +96,17 @@ const PageManagement = () => {
   );
 
   const activeSelectedUsers = permissionMode === "delete" ? selectedDeleteUsers : selectedApprovers;
+  const activeSelectedUsersResolved = useMemo(() => {
+    if (permissionMode === "delete") return selectedDeleteUsers;
+    if (permissionMode === "view") {
+      return [...new Set([...selectedViewUsers, ...selectedEditUsers])];
+    }
+    if (permissionMode === "edit") return selectedEditUsers;
+    return selectedApprovers;
+  }, [permissionMode, selectedApprovers, selectedDeleteUsers, selectedEditUsers, selectedViewUsers]);
   const activeSelectedUserSet = useMemo(
-    () => new Set(activeSelectedUsers.map(String)),
-    [activeSelectedUsers]
+    () => new Set(activeSelectedUsersResolved.map(String)),
+    [activeSelectedUsersResolved]
   );
 
   const filteredUsers = useMemo(() => {
@@ -94,8 +149,12 @@ const PageManagement = () => {
       const initialPage = loadedPages.find((page) => page.pageKey === selectedPageKey) || loadedPages[0];
       if (initialPage) {
         setSelectedPageKey(initialPage.pageKey);
+        setSelectedViewUsers((initialPage.viewUsers || []).map(getUserId).filter(Boolean));
+        setSelectedEditUsers((initialPage.editUsers || []).map(getUserId).filter(Boolean));
         setSelectedApprovers((initialPage.approvers || []).map(getUserId).filter(Boolean));
         setSelectedDeleteUsers((initialPage.deleteUsers || []).map(getUserId).filter(Boolean));
+        const initialTabs = getPermissionTabs(initialPage);
+        setPermissionMode(initialTabs[0]?.key || "delete");
       }
     } catch (error) {
       console.error("Failed to load page management data:", error);
@@ -111,14 +170,46 @@ const PageManagement = () => {
 
   const selectPage = (page) => {
     setSelectedPageKey(page.pageKey);
+    setSelectedViewUsers((page.viewUsers || []).map(getUserId).filter(Boolean));
+    setSelectedEditUsers((page.editUsers || []).map(getUserId).filter(Boolean));
     setSelectedApprovers((page.approvers || []).map(getUserId).filter(Boolean));
     setSelectedDeleteUsers((page.deleteUsers || []).map(getUserId).filter(Boolean));
+    const tabs = getPermissionTabs(page);
+    setPermissionMode(tabs[0]?.key || "delete");
     setMessage(null);
   };
 
   const toggleSelectedUser = (userId) => {
-    const setter = permissionMode === "delete" ? setSelectedDeleteUsers : setSelectedApprovers;
-    setter((prev) =>
+    if (permissionMode === "delete") {
+      setSelectedDeleteUsers((prev) =>
+        prev.includes(userId)
+          ? prev.filter((id) => id !== userId)
+          : [...prev, userId]
+      );
+      return;
+    }
+
+    if (permissionMode === "view") {
+      setSelectedViewUsers((prev) =>
+        prev.includes(userId)
+          ? prev.filter((id) => id !== userId)
+          : [...prev, userId]
+      );
+      setSelectedEditUsers((prev) => prev.filter((id) => id !== userId));
+      return;
+    }
+
+    if (permissionMode === "edit") {
+      setSelectedEditUsers((prev) =>
+        prev.includes(userId)
+          ? prev.filter((id) => id !== userId)
+          : [...prev, userId]
+      );
+      setSelectedViewUsers((prev) => (prev.includes(userId) ? prev : [...prev, userId]));
+      return;
+    }
+
+    setSelectedApprovers((prev) =>
       prev.includes(userId)
         ? prev.filter((id) => id !== userId)
         : [...prev, userId]
@@ -133,6 +224,8 @@ const PageManagement = () => {
     try {
       const res = await axios.put(`/page-permissions/${selectedPage.pageKey}`, {
         approverIds: selectedApprovers,
+        viewUserIds: selectedViewUsers,
+        editUserIds: selectedEditUsers,
         deleteUserIds: selectedDeleteUsers
       });
 
@@ -140,7 +233,13 @@ const PageManagement = () => {
       setPages((prev) =>
         prev.map((page) =>
           page.pageKey === selectedPage.pageKey
-            ? { ...page, approvers: updatedPage?.approvers || [], deleteUsers: updatedPage?.deleteUsers || [] }
+            ? {
+                ...page,
+                approvers: updatedPage?.approvers || [],
+                viewUsers: updatedPage?.viewUsers || [],
+                editUsers: updatedPage?.editUsers || [],
+                deleteUsers: updatedPage?.deleteUsers || []
+              }
             : page
         )
       );
@@ -228,26 +327,25 @@ const PageManagement = () => {
           </div>
 
           <div className="PageManagement-note">
-            Configure who can approve/reject and who can delete records for the selected page. For `/ciisUser/emp-leaves`, all selected approvers must approve before a leave becomes Approved.
+            {selectedPermissionPattern === "approveReject"
+              ? "Configure who can approve/reject and who can delete records for the selected page. For `/ciisUser/emp-leaves`, all selected approvers must approve before a leave becomes Approved."
+              : selectedPermissionPattern === "viewEdit"
+                ? "Configure who can only view the selected page and who can edit it. Edit access always includes View access."
+                : "Configure delete access for this page."}
           </div>
 
           <div className="PageManagement-mode-tabs">
-            <button
-              type="button"
-              className={permissionMode === "approve" ? "PageManagement-mode-active" : ""}
-              onClick={() => setPermissionMode("approve")}
-            >
-              Approve / Reject
-              <span>{selectedApprovers.length}</span>
-            </button>
-            <button
-              type="button"
-              className={permissionMode === "delete" ? "PageManagement-mode-active" : ""}
-              onClick={() => setPermissionMode("delete")}
-            >
-              Delete
-              <span>{selectedDeleteUsers.length}</span>
-            </button>
+            {permissionTabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                className={permissionMode === tab.key ? "PageManagement-mode-active" : ""}
+                onClick={() => setPermissionMode(tab.key)}
+              >
+                {tab.label}
+                <span>{tab.count}</span>
+              </button>
+            ))}
           </div>
 
           <input
@@ -293,7 +391,7 @@ const PageGroup = ({ title, pages, selectedPage, onSelectPage }) => (
         <span className="PageManagement-page-name">{page.name}</span>
         <span className="PageManagement-page-url">{page.path}</span>
         <span className="PageManagement-page-count">
-          {(page.approvers || []).length} approver / {(page.deleteUsers || []).length} delete
+          {getPermissionSummary(page)}
         </span>
       </button>
     ))}

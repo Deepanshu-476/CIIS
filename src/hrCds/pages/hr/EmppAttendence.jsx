@@ -6,6 +6,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import CIISLoader from '../../../Loader/CIISLoader'; 
 import PageBranchDropdown, { usePageBranchScope } from '../../components/PageBranchDropdown';
+import { getCurrentUserId, getStoredUser, getUserIds, loadPagePermission } from '../../../utils/pageAccess';
 
 import {
   FiCalendar,
@@ -586,8 +587,8 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   
-  const canEditRecord = true;
-  const canDeleteRecord = true;
+  const canEditRecord = Boolean(canEdit);
+  const canDeleteRecord = Boolean(canEdit);
 
   useEffect(() => {
     if (record) {
@@ -1144,6 +1145,7 @@ const EmployeeAttendance = () => {
   
   const [canEditAttendance, setCanEditAttendance] = useState(true);
   const [canViewAllAttendance, setCanViewAllAttendance] = useState(true);
+  const [pageAccessReady, setPageAccessReady] = useState(false);
   const {
     branchOptions,
     selectedBranchId,
@@ -1177,6 +1179,49 @@ const EmployeeAttendance = () => {
     initializeData();
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    const loadAttendancePermission = async () => {
+      try {
+        const page = await loadPagePermission('/ciisUser/emp-attendance');
+        if (!active) return;
+
+        const currentUserIdValue = getCurrentUserId();
+        const currentUser = getStoredUser();
+        const viewUserIds = getUserIds(page.viewUsers);
+        const editUserIds = getUserIds(page.editUsers);
+        const configuredIds = [
+          ...getUserIds(page.approvers),
+          ...viewUserIds,
+          ...editUserIds,
+          ...getUserIds(page.deleteUsers)
+        ];
+        const hasPermissionConfig = configuredIds.length > 0;
+        const fallbackRole = String(currentUser?.jobRole || currentUser?.companyRole || currentUser?.role || '')
+          .trim()
+          .toLowerCase();
+        const fallbackAllowed = ['owner', 'admin', 'hr', 'manager', 'super_admin', 'superadmin'].includes(fallbackRole);
+
+        const canEdit = editUserIds.includes(currentUserIdValue) || (!hasPermissionConfig && fallbackAllowed);
+        const canView = canEdit || viewUserIds.includes(currentUserIdValue) || (!hasPermissionConfig && fallbackAllowed);
+
+        setCanEditAttendance(canEdit);
+        setCanViewAllAttendance(canView);
+      } catch (error) {
+        console.error('Failed to load attendance page permissions:', error);
+      } finally {
+        if (active) setPageAccessReady(true);
+      }
+    };
+
+    loadAttendancePermission();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   
   useEffect(() => {
     if (currentUserCompanyId) {
@@ -1186,14 +1231,15 @@ const EmployeeAttendance = () => {
 
   
   useEffect(() => {
-    if (allUsers.length > 0 && currentUserCompanyId && initialLoadComplete) {
+    if (!pageAccessReady) return;
+    if (allUsers.length > 0 && currentUserCompanyId && initialLoadComplete && canViewAllAttendance) {
       if (dateRangeMode) {
         fetchAttendanceDataRange(selectedStartDate, selectedEndDate);
       } else {
         fetchAttendanceData(selectedDate);
       }
     }
-  }, [selectedDate, selectedStartDate, selectedEndDate, dateRangeMode, allUsers, currentUserCompanyId, initialLoadComplete, branchQueryParams.branchId]);
+  }, [selectedDate, selectedStartDate, selectedEndDate, dateRangeMode, allUsers, currentUserCompanyId, initialLoadComplete, branchQueryParams.branchId, pageAccessReady, canViewAllAttendance]);
 
   
   useEffect(() => {
@@ -1823,11 +1869,19 @@ const EmployeeAttendance = () => {
   };
 
   const handleEditRecord = (record) => {
+    if (!canEditAttendance) {
+      showSnackbar("You don't have permission to edit attendance", "error");
+      return;
+    }
     setSelectedRecord(record);
     setEditModalOpen(true);
   };
 
   const handleAddRecord = () => {
+    if (!canEditAttendance) {
+      showSnackbar("You don't have permission to add attendance", "error");
+      return;
+    }
     setAddModalOpen(true);
   };
 
@@ -1885,6 +1939,10 @@ const EmployeeAttendance = () => {
   };
 
   const handleDeleteRecord = async (recordId) => {
+    if (!canEditAttendance) {
+      showSnackbar("You don't have permission to delete attendance", "error");
+      return;
+    }
     try {
       setLoading(true);
       
@@ -2288,6 +2346,18 @@ const EmployeeAttendance = () => {
     return <CIISLoader />;
   }
 
+  if (pageAccessReady && !canViewAllAttendance) {
+    return (
+      <div className="EmppAttendence-loading-container">
+        <div className="EmppAttendence-access-denied">
+          <FiLock size={24} />
+          <h2>Access Denied</h2>
+          <p>You do not have permission to view the Employee Attendance page.</p>
+        </div>
+      </div>
+    );
+  }
+
   
   if (loading && !initialLoadComplete) {
     return (
@@ -2325,10 +2395,10 @@ const EmployeeAttendance = () => {
             <div className="EmppAttendence-date-range-indicator">
               <FiRangeCalendar size={16} />
               <span>Viewing from <strong>{new Date(selectedStartDate).toLocaleDateString()}</strong> to <strong>{new Date(selectedEndDate).toLocaleDateString()}</strong></span>
-              <button className="EmppAttendence-btn-icon-small" onClick={handleDateRangeClear} >
-                <FiX size={14} />
-              </button>
-            </div>
+            <button className="EmppAttendence-btn-icon-small" onClick={handleDateRangeClear} >
+              <FiX size={14} />
+            </button>
+          </div>
           )}
           
           {bulkEditMode && selectedRecords.length > 0 && (
@@ -2341,24 +2411,28 @@ const EmployeeAttendance = () => {
                 <button 
                   className="EmppAttendence-btn EmppAttendence-btn-outlined EmppAttendence-btn-sm"
                   onClick={() => handleBulkStatusChange('present')}
+                  disabled={!canEditAttendance}
                 >
                   Mark as Present
                 </button>
                 <button 
                   className="EmppAttendence-btn EmppAttendence-btn-outlined EmppAttendence-btn-sm"
                   onClick={() => handleBulkStatusChange('late')}
+                  disabled={!canEditAttendance}
                 >
                   Mark as Late
                 </button>
                 <button 
                   className="EmppAttendence-btn EmppAttendence-btn-outlined EmppAttendence-btn-sm"
                   onClick={() => handleBulkStatusChange('halfday')}
+                  disabled={!canEditAttendance}
                 >
                   Mark as Half Day
                 </button>
                 <button 
                   className="EmppAttendence-btn EmppAttendence-btn-outlined EmppAttendence-btn-sm"
                   onClick={() => handleBulkStatusChange('absent')}
+                  disabled={!canEditAttendance}
                 >
                   Mark as Absent
                 </button>
@@ -2384,12 +2458,13 @@ const EmployeeAttendance = () => {
 
         
         <div className="EmppAttendence-header-actions">
-          <button
-            className="EmppAttendence-date-chip"
-            onClick={handleAddRecord}
-            title="Add Attendance Record"
-            style={{ marginRight: '8px' }}
-          >
+              <button
+                className="EmppAttendence-date-chip"
+                onClick={handleAddRecord}
+                title="Add Attendance Record"
+                style={{ marginRight: '8px' }}
+                disabled={!canEditAttendance}
+              >
             <FiPlus size={16} />
             <span>Add Attendance</span>
           </button>
@@ -2867,6 +2942,7 @@ const EmployeeAttendance = () => {
                                   className="EmppAttendence-btn-icon EmppAttendence-edit-btn"
                                   onClick={() => handleEditRecord(rec)}
                                   title="Edit Attendance"
+                                  disabled={!canEditAttendance}
                                 >
                                   <FiEdit size={16} />
                                 </button>
@@ -3015,6 +3091,7 @@ const EmployeeAttendance = () => {
                                   className="EmppAttendence-btn-icon EmppAttendence-edit-btn"
                                   onClick={() => handleEditRecord(rec)}
                                   title="Edit Attendance"
+                                  disabled={!canEditAttendance}
                                 >
                                   <FiEdit size={16} />
                                 </button>
@@ -3040,6 +3117,7 @@ const EmployeeAttendance = () => {
                       <button
                         className="EmppAttendence-btn EmppAttendence-btn-contained"
                         onClick={handleAddRecord}
+                        disabled={!canEditAttendance}
                       >
                         Add Attendance
                       </button>

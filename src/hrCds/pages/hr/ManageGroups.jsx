@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../../context/useAuth";
+import { getCurrentUserId, getStoredUser, getUserIds, loadPagePermission } from "../../../utils/pageAccess";
 import {
   Box,
   Button,
@@ -35,6 +36,7 @@ import {
   FiFilter,
   FiX,
   FiFileText,
+  FiLock,
 } from "react-icons/fi";
 import axiosInstance from "../../../utils/axiosConfig";
 import "./ManageGroups.css";
@@ -50,6 +52,9 @@ const ManageGroups = () => {
   const [editingGroup, setEditingGroup] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
+  const [pageAccessReady, setPageAccessReady] = useState(false);
+  const [canViewGroups, setCanViewGroups] = useState(true);
+  const [canEditGroups, setCanEditGroups] = useState(true);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -140,12 +145,52 @@ const ManageGroups = () => {
     fetchUsers();
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const loadPageAccess = async () => {
+      try {
+        const page = await loadPagePermission("/ciisUser/manage-groups");
+        if (!active) return;
+
+        const currentUserId = getCurrentUserId();
+        const currentUser = getStoredUser();
+        const viewUserIds = getUserIds(page.viewUsers);
+        const editUserIds = getUserIds(page.editUsers);
+        const configuredIds = [
+          ...getUserIds(page.approvers),
+          ...viewUserIds,
+          ...editUserIds,
+          ...getUserIds(page.deleteUsers)
+        ];
+        const hasConfig = configuredIds.length > 0;
+        const fallbackRole = String(currentUser?.jobRole || currentUser?.companyRole || currentUser?.role || "").toLowerCase();
+        const fallbackAllowed = ["owner", "admin", "hr", "manager", "super_admin", "superadmin"].includes(fallbackRole);
+
+        const canEdit = editUserIds.includes(currentUserId) || (!hasConfig && fallbackAllowed);
+        const canView = canEdit || viewUserIds.includes(currentUserId) || (!hasConfig && fallbackAllowed);
+
+        setCanEditGroups(canEdit);
+        setCanViewGroups(canView);
+      } catch (error) {
+        console.error("Failed to load manage-groups permissions:", error);
+      } finally {
+        if (active) setPageAccessReady(true);
+      }
+    };
+
+    loadPageAccess();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const getEntityId = (entity) => {
     if (!entity) return "";
     return entity._id || entity.id || entity;
   };
 
   const handleOpenDialog = (group = null) => {
+    if (!canEditGroups) return;
     if (group) {
       setEditingGroup(group);
       setFormData({
@@ -196,6 +241,10 @@ const ManageGroups = () => {
   };
 
   const handleSaveGroup = async () => {
+    if (!canEditGroups) {
+      showSnackbar("You don't have permission to edit groups", "error");
+      return;
+    }
     if (!formData.name.trim()) {
       showSnackbar("Group name is required", "error");
       return;
@@ -220,6 +269,10 @@ const ManageGroups = () => {
   };
 
   const handleDeleteGroup = async (groupId) => {
+    if (!canEditGroups) {
+      showSnackbar("You don't have permission to delete groups", "error");
+      return;
+    }
     if (window.confirm("Are you sure you want to delete this group?")) {
       try {
         await apiCall("delete", `/groups/${groupId}`);
@@ -267,6 +320,20 @@ const ManageGroups = () => {
     );
   }
 
+  if (pageAccessReady && !canViewGroups) {
+    return (
+      <Box className="manage-groups-loading">
+        <Box className="manage-groups-empty">
+          <FiLock />
+          <Typography className="manage-groups-empty-title">Access denied</Typography>
+          <Typography className="manage-groups-empty-text">
+            You do not have permission to view Manage Groups.
+          </Typography>
+        </Box>
+      </Box>
+    );
+  }
+
   return (
     <Box className="manage-groups-container">
       <Box className="manage-groups-hero">
@@ -289,6 +356,7 @@ const ManageGroups = () => {
           startIcon={<FiPlus />}
           onClick={() => handleOpenDialog()}
           className="manage-groups-create-btn"
+          disabled={!canEditGroups}
         >
           Create Group
         </Button>
@@ -455,6 +523,7 @@ const ManageGroups = () => {
                             size="small"
                             onClick={() => handleOpenDialog(group)}
                             className="manage-groups-action-btn manage-groups-edit-btn"
+                            disabled={!canEditGroups}
                           >
                             <FiEdit2 />
                           </IconButton>
@@ -464,6 +533,7 @@ const ManageGroups = () => {
                             size="small"
                             onClick={() => handleDeleteGroup(group._id)}
                             className="manage-groups-action-btn manage-groups-delete-btn"
+                            disabled={!canEditGroups}
                           >
                             <FiTrash2 />
                           </IconButton>

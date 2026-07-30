@@ -397,6 +397,19 @@ const CompanyDetails = () => {
     }));
   };
 
+  const findRoleShiftOption = (role, shiftId = "", shiftName = "") => {
+    const normalizedShiftName = String(shiftName || "").trim().toLowerCase();
+    return getRoleShiftOptions(role || {}).find(shift =>
+      String(shift.shiftId) === String(shiftId || "") ||
+      (normalizedShiftName && String(shift.shiftName || "").trim().toLowerCase() === normalizedShiftName)
+    );
+  };
+
+  const getInitialRoleShift = (role, shiftId = "", shiftName = "") => {
+    const roleShifts = getRoleShiftOptions(role || {});
+    return findRoleShiftOption(role, shiftId, shiftName) || roleShifts[0] || null;
+  };
+
   const findDepartmentOption = value => {
     const rawId = getRecordId(value);
     const rawText = String(value?.name || value?.departmentName || value || "").trim().toLowerCase();
@@ -1532,11 +1545,9 @@ const CompanyDetails = () => {
       departmentId
     );
     const jobRoleId = getRecordId(matchedJobRole) || getRecordId(user.jobRole || user.jobRoleId);
-    const roleShifts = matchedJobRole ? getRoleShiftOptions(matchedJobRole) : [];
-    const matchedShift = roleShifts.find(shift =>
-      String(shift.shiftId) === String(user.shiftId || "") ||
-      String(shift.shiftName || "").trim().toLowerCase() === String(user.shiftName || "").trim().toLowerCase()
-    );
+    const matchedShift = matchedJobRole
+      ? getInitialRoleShift(matchedJobRole, user.shiftId, user.shiftName)
+      : null;
     
     setSelectedUser(user);
     setEditFormData({
@@ -1552,9 +1563,9 @@ const CompanyDetails = () => {
       
       department: departmentId || "",
       jobRole: jobRoleId || "",
-      shiftId: user.shiftId || matchedShift?.shiftId || "",
-      shiftName: user.shiftName || matchedShift?.shiftName || "",
-      shiftType: user.shiftType || matchedShift?.shiftType || "",
+      shiftId: matchedShift?.shiftId || "",
+      shiftName: matchedShift?.shiftName || "",
+      shiftType: matchedShift?.shiftType || "",
       role: user.role || "user",
       employeeType: user.employeeType || "",
       designation: user.designation || user.jobTitle || user.position || "",
@@ -1620,20 +1631,21 @@ const CompanyDetails = () => {
       }
 
       if (name === "jobRole") {
+        const selectedRole = findJobRoleOption(value, prev.department);
+        const initialShift = getInitialRoleShift(selectedRole);
+
         return {
           ...prev,
           jobRole: value,
-          shiftId: "",
-          shiftName: "",
-          shiftType: ""
+          shiftId: initialShift?.shiftId || "",
+          shiftName: initialShift?.shiftName || "",
+          shiftType: initialShift?.shiftType || ""
         };
       }
 
       if (name === "shiftId") {
         const selectedRole = findJobRoleOption(prev.jobRole, prev.department);
-        const selectedShift = getRoleShiftOptions(selectedRole || {}).find(shift =>
-          String(shift.shiftId) === String(value)
-        );
+        const selectedShift = findRoleShiftOption(selectedRole, value);
 
         return {
           ...prev,
@@ -1680,8 +1692,14 @@ const CompanyDetails = () => {
       errors.email = "Invalid email format";
     }
     const selectedRole = findJobRoleOption(editFormData.jobRole, editFormData.department);
-    if (selectedRole && getRoleShiftOptions(selectedRole).length > 0 && !editFormData.shiftId) {
-      errors.shiftId = "Shift is required for selected job role";
+    if (selectedRole) {
+      const roleShifts = getRoleShiftOptions(selectedRole);
+      const selectedShift = findRoleShiftOption(selectedRole, editFormData.shiftId);
+      if (roleShifts.length > 0 && !editFormData.shiftId) {
+        errors.shiftId = "Shift is required for selected job role";
+      } else if (editFormData.shiftId && !selectedShift) {
+        errors.shiftId = "Select a valid shift for selected job role";
+      }
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -1719,9 +1737,7 @@ const CompanyDetails = () => {
       void 0;
       
       const selectedRoleForShift = findJobRoleOption(editFormData.jobRole, editFormData.department);
-      const selectedShift = getRoleShiftOptions(selectedRoleForShift || {}).find(shift =>
-        String(shift.shiftId) === String(editFormData.shiftId || "")
-      );
+      const selectedShift = findRoleShiftOption(selectedRoleForShift, editFormData.shiftId);
       
       const updateData = {
         name: editFormData.name,
@@ -1751,9 +1767,9 @@ const CompanyDetails = () => {
         propertyOwned: editFormData.propertyOwned,
         additionalDetails: editFormData.additionalDetails,
         assignedBranches: editFormData.assignedBranches,
-        shiftId: editFormData.shiftId,
-        shiftName: selectedShift?.shiftName || editFormData.shiftName,
-        shiftType: selectedShift?.shiftType || editFormData.shiftType
+        shiftId: selectedShift?.shiftId || "",
+        shiftName: selectedShift?.shiftName || "",
+        shiftType: selectedShift?.shiftType || ""
       };
       
       let success = false;

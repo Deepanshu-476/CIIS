@@ -221,6 +221,16 @@ const getLocalDateStart = (value = new Date()) => {
   return date;
 };
 
+const parseLocalDateInput = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) return getLocalDateStart(value);
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  }
+  return getLocalDateStart(value);
+};
+
 const isSameLocalDay = (left, right) => {
   const leftDate = getLocalDateStart(left);
   const rightDate = getLocalDateStart(right);
@@ -245,10 +255,17 @@ const formatDueDateTime = (dueDate) => {
 };
 
 const StatCard = ({ color = 'primary', clickable = true, active = false, children, onClick }) => {
+  const cardColor = getColorValue(color);
   return (
     <div 
       className={`user-create-task-stat-card ${active ? 'active' : ''}`}
-      style={{ borderLeftColor: getColorValue(color) }}
+      style={{
+        borderLeftColor: cardColor,
+        borderTopColor: `${cardColor}38`,
+        borderRightColor: `${cardColor}38`,
+        borderBottomColor: `${cardColor}38`,
+        background: `linear-gradient(135deg, #ffffff 12%, ${cardColor}${active ? '1F' : '12'} 100%)`
+      }}
       onClick={clickable ? onClick : undefined}
     >
       {children}
@@ -440,24 +457,71 @@ const renderActivityDescription = (description = '') => {
   });
 };
 
+const getStoredTaskUser = () => {
+  try {
+    const rawUser = localStorage.getItem('user');
+    if (!rawUser) return null;
+    const user = JSON.parse(rawUser);
+    const id = user.id || user._id;
+    const role = user.role || user.jobRole;
+    const name = user.name;
+    return id && role && name ? { id, role, name } : null;
+  } catch {
+    return null;
+  }
+};
+
+let taskManagementMemoryCache = null;
+const TASK_MANAGEMENT_CACHE_TTL = 2 * 60 * 1000;
+const TASK_MANAGEMENT_SESSION_CACHE_KEY = 'ciis-task-management-cache-v1';
+
+const getTaskManagementSessionCache = () => {
+  try {
+    return JSON.parse(sessionStorage.getItem(TASK_MANAGEMENT_SESSION_CACHE_KEY) || 'null');
+  } catch {
+    return null;
+  }
+};
+
+const persistTaskManagementCache = (cache) => {
+  try {
+    sessionStorage.setItem(TASK_MANAGEMENT_SESSION_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // Large task attachments can exceed browser storage; memory cache still works.
+  }
+};
+
 const UserCreateTask = () => {
+  const storedTaskUser = useMemo(() => getStoredTaskUser(), []);
+  const cachedTaskData = useMemo(() => {
+    const availableCache = taskManagementMemoryCache || getTaskManagementSessionCache();
+    if (
+      !availableCache ||
+      availableCache.userId !== storedTaskUser?.id ||
+      Date.now() - availableCache.cachedAt > TASK_MANAGEMENT_CACHE_TTL
+    ) {
+      return null;
+    }
+    taskManagementMemoryCache = availableCache;
+    return availableCache;
+  }, [storedTaskUser?.id]);
   
   const [openDialog, setOpenDialog] = useState(false);
   const [openClientTaskDialog, setOpenClientTaskDialog] = useState(false);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [priorityMenuOpen, setPriorityMenuOpen] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [userRole, setUserRole] = useState('');
-  const [userId, setUserId] = useState('');
-  const [userName, setUserName] = useState('');
-  const [authError, setAuthError] = useState(false);
-  const [pageLoading, setPageLoading] = useState(true);
+  const [userRole, setUserRole] = useState(storedTaskUser?.role || '');
+  const [userId, setUserId] = useState(storedTaskUser?.id || '');
+  const [userName, setUserName] = useState(storedTaskUser?.name || '');
+  const [authError, setAuthError] = useState(!storedTaskUser);
+  const [pageLoading, setPageLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingAssigned, setLoadingAssigned] = useState(false);
   const [loadingClientTasks, setLoadingClientTasks] = useState(false);
   const [loadingProjectTasks, setLoadingProjectTasks] = useState(false);
   const [loadingAllTasks, setLoadingAllTasks] = useState(false);
-  const [taskViewsLoaded, setTaskViewsLoaded] = useState({
+  const [taskViewsLoaded, setTaskViewsLoaded] = useState(cachedTaskData?.taskViewsLoaded || {
     all: false,
     self: false,
     assigned: false,
@@ -466,11 +530,11 @@ const UserCreateTask = () => {
   });
 
   
-  const [myTasksGrouped, setMyTasksGrouped] = useState({});
+  const [myTasksGrouped, setMyTasksGrouped] = useState(cachedTaskData?.myTasksGrouped || {});
   
   
-  const [assignedToMeTasksGrouped, setAssignedToMeTasksGrouped] = useState({});
-  const [clientTasksGrouped, setClientTasksGrouped] = useState({});
+  const [assignedToMeTasksGrouped, setAssignedToMeTasksGrouped] = useState(cachedTaskData?.assignedToMeTasksGrouped || {});
+  const [clientTasksGrouped, setClientTasksGrouped] = useState(cachedTaskData?.clientTasksGrouped || {});
   const [clients, setClients] = useState([]);
   const [loadingClients, setLoadingClients] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState('');
@@ -483,14 +547,14 @@ const UserCreateTask = () => {
     checkpoints: []
   });
   const [isCreatingClientTask, setIsCreatingClientTask] = useState(false);
-  const [projectTasksGrouped, setProjectTasksGrouped] = useState({});
-  const [allTasksGrouped, setAllTasksGrouped] = useState({});
-  const [allTasksStatsGrouped, setAllTasksStatsGrouped] = useState({});
-  const allTasksStatsLoadedRef = useRef(false);
-  const allTasksLoadedRef = useRef(false);
+  const [projectTasksGrouped, setProjectTasksGrouped] = useState(cachedTaskData?.projectTasksGrouped || {});
+  const [allTasksGrouped, setAllTasksGrouped] = useState(cachedTaskData?.allTasksGrouped || {});
+  const [allTasksStatsGrouped, setAllTasksStatsGrouped] = useState(cachedTaskData?.allTasksStatsGrouped || {});
+  const allTasksStatsLoadedRef = useRef(Boolean(cachedTaskData));
+  const allTasksLoadedRef = useRef(Boolean(cachedTaskData));
   const clientsLoadAttemptedRef = useRef(false);
   const autoOverdueTaskIdsRef = useRef(new Set());
-  const [allTasksPagination, setAllTasksPagination] = useState({
+  const [allTasksPagination, setAllTasksPagination] = useState(cachedTaskData?.allTasksPagination || {
     page: 1,
     limit: 10,
     total: 0,
@@ -546,18 +610,31 @@ const UserCreateTask = () => {
 
   const [allTaskStats, setAllTaskStats] = useState(emptyExternalStats());
 
-  const [timeFilter, setTimeFilter] = useState("today");
+  const [timeFilter, setTimeFilter] = useState("all");
+  const [trendHoverIndex, setTrendHoverIndex] = useState(null);
+  const [trendPeriod, setTrendPeriod] = useState('this-week');
   const [notifications, setNotifications] = useState([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [remarksDialog, setRemarksDialog] = useState({ open: false, taskId: null, remarks: [], source: null });
+  const [isLoadingRemarks, setIsLoadingRemarks] = useState(false);
   const [newRemark, setNewRemark] = useState('');
   const [remarkImages, setRemarkImages] = useState([]);
   const [isUploadingRemark, setIsUploadingRemark] = useState(false);
   const [isSavingRemarkStatus, setIsSavingRemarkStatus] = useState(false);
   const [activityLogs, setActivityLogs] = useState([]);
   const [activityDialog, setActivityDialog] = useState({ open: false, taskId: null });
+  const [isLoadingActivity, setIsLoadingActivity] = useState(false);
+  const remarksCacheRef = useRef(new Map());
+  const activityCacheRef = useRef(new Map());
+  const remarksRequestRef = useRef(0);
+  const activityRequestRef = useRef(0);
   
   const [zoomImage, setZoomImage] = useState(null);
+  const [selectedTaskDetails, setSelectedTaskDetails] = useState(null);
+  const [newCheckpointTitle, setNewCheckpointTitle] = useState('');
+  const [isAddingCheckpoint, setIsAddingCheckpoint] = useState(false);
+  const [deletingCheckpointId, setDeletingCheckpointId] = useState(null);
+  const [updatingCheckpointId, setUpdatingCheckpointId] = useState(null);
 
   const [calendarFilterOpen, setCalendarFilterOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -639,6 +716,17 @@ const UserCreateTask = () => {
       });
     }
   }, [openDialog]);
+
+  useEffect(() => {
+    if (!selectedTaskDetails) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [selectedTaskDetails]);
 
   
   const showSnackbar = (message, severity = 'info') => {
@@ -1861,15 +1949,28 @@ const UserCreateTask = () => {
       calculateClientStatsFromTasks(clientGrouped);
       calculateProjectStatsFromTasks(projectGrouped);
       allTasksStatsLoadedRef.current = true;
-      setAllTasksPagination(prev => ({
-        ...prev,
+      const nextPagination = {
         page: 1,
         limit: Math.max(tasksArray.length, 1),
         total: res.data?.total ?? tasksArray.length,
         pages: 1,
         hasNext: false,
         hasPrev: false
-      }));
+      };
+      setAllTasksPagination(nextPagination);
+      taskManagementMemoryCache = {
+        userId,
+        cachedAt: Date.now(),
+        allTasksGrouped: groupedTasks,
+        allTasksStatsGrouped: groupedTasks,
+        myTasksGrouped: selfGrouped,
+        assignedToMeTasksGrouped: assignedGrouped,
+        clientTasksGrouped: clientGrouped,
+        projectTasksGrouped: projectGrouped,
+        allTasksPagination: nextPagination,
+        taskViewsLoaded: { all: true, self: true, assigned: true, client: true, project: true }
+      };
+      persistTaskManagementCache(taskManagementMemoryCache);
     } catch (err) {
       console.error('❌ Error in fetchAllTasks:', err);
       setAllTasksGrouped({});
@@ -2001,6 +2102,7 @@ const UserCreateTask = () => {
 
   
   const fetchTaskRemarks = async (taskOrId, taskSource = taskViewMode) => {
+    const requestId = ++remarksRequestRef.current;
     try {
       const { task, taskId, projectId } = getProjectTaskContext(taskOrId);
       const source = taskSource || getTaskSource(task);
@@ -2023,11 +2125,18 @@ const UserCreateTask = () => {
         showSnackbar('Project task details are missing. Please refresh and try again.', 'error');
         return;
       }
-      
-      void 0;
+
+      const cacheKey = `${source}:${projectId || ''}:${taskId}`;
+      const cachedRemarks = remarksCacheRef.current.get(cacheKey);
+      setRemarksDialog({
+        open: true,
+        taskId,
+        remarks: cachedRemarks || [],
+        source
+      });
+      setIsLoadingRemarks(!cachedRemarks);
       
       const res = await axios.get(endpoint);
-      void 0;
       
       let remarks = [];
       if (res.data.success && res.data.data) {
@@ -2045,8 +2154,9 @@ const UserCreateTask = () => {
       }
       
       remarks = remarks.map(normalizeRemark);
-      
-      void 0;
+
+      remarksCacheRef.current.set(cacheKey, remarks);
+      if (requestId !== remarksRequestRef.current) return;
       
       setRemarksDialog({ 
         open: true, 
@@ -2058,6 +2168,8 @@ const UserCreateTask = () => {
     } catch (error) {
       console.error('Error fetching remarks:', error);
       showSnackbar('Failed to load remarks', 'error');
+    } finally {
+      if (requestId === remarksRequestRef.current) setIsLoadingRemarks(false);
     }
   };
 
@@ -2365,6 +2477,7 @@ const UserCreateTask = () => {
 
   
   const fetchActivityLogs = async (taskOrId, taskSource = taskViewMode) => {
+    const requestId = ++activityRequestRef.current;
     try {
       const { task, taskId, projectId } = getProjectTaskContext(taskOrId);
       const source = taskSource || getTaskSource(task);
@@ -2380,11 +2493,14 @@ const UserCreateTask = () => {
         showSnackbar('Project task details are missing. Please refresh and try again.', 'error');
         return;
       }
-      
-      void 0;
+
+      const cacheKey = `${source}:${projectId || ''}:${taskId}`;
+      const cachedLogs = activityCacheRef.current.get(cacheKey);
+      setActivityLogs(cachedLogs || []);
+      setActivityDialog({ open: true, taskId });
+      setIsLoadingActivity(!cachedLogs);
       
       const res = await axios.get(endpoint);
-      void 0;
       
       let logs = [];
       if (res.data.success && res.data.data) {
@@ -2403,8 +2519,6 @@ const UserCreateTask = () => {
         logs = res.data;
       }
       
-      void 0;
-      
       const normalizedLogs = logs.map((log) => {
         const actor = log.user || log.performedBy || log.createdBy || null;
         const actorName = log.userName || actor?.name || actor?.fullName || actor?.email || '';
@@ -2419,12 +2533,15 @@ const UserCreateTask = () => {
         };
       });
 
+      activityCacheRef.current.set(cacheKey, normalizedLogs);
+      if (requestId !== activityRequestRef.current) return;
       setActivityLogs(normalizedLogs);
-      setActivityDialog({ open: true, taskId });
       
     } catch (error) {
       console.error('Error fetching activity logs:', error);
       showSnackbar('Failed to load activity logs', 'error');
+    } finally {
+      if (requestId === activityRequestRef.current) setIsLoadingActivity(false);
     }
   };
 
@@ -2438,30 +2555,25 @@ const UserCreateTask = () => {
 
     Object.entries(tasks).forEach(([dateKey, dateTasks]) => {
       const filteredDateTasks = dateTasks.filter(task => {
-        let taskDate;
+        let rawTaskDate;
         
         if (dateFilterType === 'dueDate') {
-          taskDate = task.dueDateTime ? new Date(task.dueDateTime) : (task.dueDate ? new Date(task.dueDate) : null);
+          rawTaskDate = getDueDateForTask(task);
         } else {
-          taskDate = task.createdAt ? new Date(task.createdAt) : null;
+          rawTaskDate = task.createdAt || task.createdDate || null;
         }
 
+        const taskDate = getLocalDateStart(rawTaskDate);
         if (!taskDate) return false;
 
         if (selectedDate && !dateRange.start && !dateRange.end) {
-          const selected = new Date(selectedDate);
-          return (
-            taskDate.getDate() === selected.getDate() &&
-            taskDate.getMonth() === selected.getMonth() &&
-            taskDate.getFullYear() === selected.getFullYear()
-          );
+          const selected = parseLocalDateInput(selectedDate);
+          return selected ? taskDate.getTime() === selected.getTime() : false;
         }
 
         if (dateRange.start || dateRange.end) {
-          const start = dateRange.start ? new Date(dateRange.start) : null;
-          const end = dateRange.end ? new Date(dateRange.end) : null;
-          if (start) start.setHours(0, 0, 0, 0);
-          if (end) end.setHours(23, 59, 59, 999);
+          const start = parseLocalDateInput(dateRange.start);
+          const end = parseLocalDateInput(dateRange.end);
 
           return (!start || taskDate >= start) && (!end || taskDate <= end);
         }
@@ -2475,7 +2587,7 @@ const UserCreateTask = () => {
     });
 
     return filteredTasks;
-  }, [selectedDate, dateRange, dateFilterType]);
+  }, [selectedDate, dateRange, dateFilterType, getDueDateForTask]);
 
   
   const clearDateFilter = () => {
@@ -2841,7 +2953,7 @@ const UserCreateTask = () => {
 
     if (!taskId || !checkpointId) return;
 
-    setPageLoading(true);
+    setUpdatingCheckpointId(checkpointId);
     try {
       const endpoint = taskSource === 'client'
         ? `/tasks/client-tasks/${taskId}/checkpoints/${checkpointId}`
@@ -2853,6 +2965,17 @@ const UserCreateTask = () => {
 
       const nextCompleted = !checkpoint.completed;
       await axios.patch(endpoint, { completed: nextCompleted });
+      setSelectedTaskDetails(prev => {
+        if (!prev || String(prev._id || prev.id) !== String(taskId)) return prev;
+        return {
+          ...prev,
+          checkpoints: (prev.checkpoints || []).map(item => (
+            String(item._id || item.id) === String(checkpointId)
+              ? { ...item, completed: nextCompleted }
+              : item
+          ))
+        };
+      });
       await refreshCurrentTaskView(taskSource);
       await fetchOverdueTasks();
       showSnackbar(nextCompleted ? 'Checkpoint completed' : 'Checkpoint reopened', 'success');
@@ -2860,7 +2983,101 @@ const UserCreateTask = () => {
       console.error('Error updating checkpoint:', err);
       showSnackbar(err.response?.data?.message || err.response?.data?.error || 'Failed to update checkpoint', 'error');
     } finally {
-      setPageLoading(false);
+      setUpdatingCheckpointId(null);
+    }
+  };
+
+  const handleAddCheckpoint = async (task) => {
+    const title = newCheckpointTitle.trim();
+    const taskId = task?._id || task?.id;
+    const taskSource = getTaskSource(task);
+    const currentStatus = normalizeStatus(getStatusForTask(task));
+    const existingCheckpoints = Array.isArray(task?.checkpoints) ? task.checkpoints : [];
+
+    if (!title || !taskId || isAddingCheckpoint) return;
+    if (currentStatus !== 'in-progress') {
+      showSnackbar('Checkpoints can only be added to in-progress tasks', 'warning');
+      return;
+    }
+    if (existingCheckpoints.some(item => String(item.title || '').trim().toLowerCase() === title.toLowerCase())) {
+      showSnackbar('This checkpoint already exists', 'warning');
+      return;
+    }
+
+    setIsAddingCheckpoint(true);
+    try {
+      let response;
+      const checkpoints = [
+        ...existingCheckpoints.map(item => ({ title: item.title, completed: Boolean(item.completed) })),
+        { title, completed: false }
+      ];
+
+      if (taskSource === 'client') {
+        response = await axios.put(`/tasks/client-tasks/${taskId}`, { checkpoints });
+      } else if (taskSource === 'project') {
+        response = await axios.patch(`/tasks/project/${task.projectId}/tasks/${taskId}`, { checkpoints });
+      } else if (taskSource === 'self') {
+        response = await axios.put(`/tasks/self/${taskId}`, { checkpoints });
+      } else {
+        response = await axios.post(`/tasks/assigned/${taskId}/checkpoints`, { title });
+      }
+
+      const savedCheckpoint = response?.data?.checkpoint;
+      const optimisticCheckpoint = savedCheckpoint || { _id: `new-${Date.now()}`, title, completed: false };
+      setSelectedTaskDetails(prev => prev ? {
+        ...prev,
+        checkpoints: [...(prev.checkpoints || []), optimisticCheckpoint]
+      } : prev);
+      setNewCheckpointTitle('');
+      await refreshCurrentTaskView(taskSource);
+      showSnackbar('Checkpoint added successfully', 'success');
+    } catch (err) {
+      console.error('Error adding checkpoint:', err);
+      showSnackbar(err.response?.data?.message || err.response?.data?.error || 'Failed to add checkpoint', 'error');
+    } finally {
+      setIsAddingCheckpoint(false);
+    }
+  };
+
+  const handleDeleteCheckpoint = async (task, checkpoint) => {
+    const taskId = task?._id || task?.id;
+    const checkpointId = checkpoint?._id || checkpoint?.id;
+    const taskSource = getTaskSource(task);
+    const existingCheckpoints = Array.isArray(task?.checkpoints) ? task.checkpoints : [];
+    const deleteKey = checkpointId || checkpoint?.title;
+
+    if (!taskId || !deleteKey || deletingCheckpointId) return;
+    if (!window.confirm(`Delete checkpoint "${checkpoint.title}"?`)) return;
+
+    setDeletingCheckpointId(deleteKey);
+    try {
+      const checkpoints = existingCheckpoints
+        .filter(item => String(item._id || item.id || item.title) !== String(deleteKey))
+        .map(item => ({ title: item.title, completed: Boolean(item.completed) }));
+
+      if (taskSource === 'client') {
+        await axios.put(`/tasks/client-tasks/${taskId}`, { checkpoints });
+      } else if (taskSource === 'project') {
+        await axios.patch(`/tasks/project/${task.projectId}/tasks/${taskId}`, { checkpoints });
+      } else if (taskSource === 'self') {
+        await axios.put(`/tasks/self/${taskId}`, { checkpoints });
+      } else {
+        await axios.delete(`/tasks/assigned/${taskId}/checkpoints/${checkpointId}`);
+      }
+
+      setSelectedTaskDetails(prev => prev ? {
+        ...prev,
+        checkpoints: (prev.checkpoints || []).filter(
+          item => String(item._id || item.id || item.title) !== String(deleteKey)
+        )
+      } : prev);
+      await refreshCurrentTaskView(taskSource);
+      showSnackbar('Checkpoint deleted successfully', 'success');
+    } catch (err) {
+      console.error('Error deleting checkpoint:', err);
+      showSnackbar(err.response?.data?.message || err.response?.data?.error || 'Failed to delete checkpoint', 'error');
+    } finally {
+      setDeletingCheckpointId(null);
     }
   };
 
@@ -3142,6 +3359,8 @@ const UserCreateTask = () => {
 
   
   const handleLogout = () => {
+    taskManagementMemoryCache = null;
+    sessionStorage.removeItem(TASK_MANAGEMENT_SESSION_CACHE_KEY);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     navigate('/login');
@@ -3150,7 +3369,6 @@ const UserCreateTask = () => {
   
   useEffect(() => {
     const loadData = async () => {
-      setPageLoading(true);
       void 0;
       
       try {
@@ -3182,7 +3400,7 @@ const UserCreateTask = () => {
         console.error('❌ Error loading data:', error);
         setAuthError(true);
       } finally {
-        setPageLoading(false);
+        void 0;
       }
     };
     
@@ -3190,10 +3408,10 @@ const UserCreateTask = () => {
   }, []);
 
   useEffect(() => {
-    if (userId && !authError && !pageLoading) {
+    if (userId && !authError) {
       fetchAllTasks();
     }
-  }, [userId, authError, pageLoading, fetchAllTasks]);
+  }, [userId, authError, fetchAllTasks]);
 
   useEffect(() => {
     if (taskViewMode === 'client' && clients.length === 0 && !loadingClients && !clientsLoadAttemptedRef.current) {
@@ -3246,6 +3464,100 @@ const UserCreateTask = () => {
   }
 
   const activeStats = filteredTaskStats;
+  const statusChartItems = [
+    { label: 'Completed', value: activeStats.completed?.count || 0, color: '#22a95c' },
+    { label: 'In Progress', value: activeStats.inProgress?.count || 0, color: '#3478e5' },
+    { label: 'Pending', value: activeStats.pending?.count || 0, color: '#f3a51f' },
+    { label: 'On Hold', value: activeStats.onHold?.count || 0, color: '#7553cf' },
+    { label: 'Overdue', value: activeStats.overdue?.count || 0, color: '#e34850' }
+  ];
+  const trendToday = getLocalDateStart();
+  const trendThisWeekStart = new Date(trendToday);
+  trendThisWeekStart.setDate(trendThisWeekStart.getDate() - ((trendThisWeekStart.getDay() + 6) % 7));
+  const trendRangeStart = new Date(trendThisWeekStart);
+  if (trendPeriod === 'last-week') {
+    trendRangeStart.setDate(trendRangeStart.getDate() - 7);
+  } else if (trendPeriod === 'last-7-days') {
+    trendRangeStart.setTime(trendToday.getTime());
+    trendRangeStart.setDate(trendRangeStart.getDate() - 6);
+  }
+  const trendDays = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(trendRangeStart);
+    date.setDate(date.getDate() + index);
+    const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    return {
+      key,
+      timestamp: date.getTime(),
+      label: date.toLocaleDateString('en-IN', { weekday: 'short' }),
+      dateLabel: date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+      total: 0,
+      completed: 0,
+      inProgress: 0,
+      pending: 0,
+      overdue: 0
+    };
+  });
+  const trendGraphBuckets = Object.fromEntries(trendDays.map(day => [day.key, day]));
+  Object.values(getStatsTasksGrouped()).flat().forEach(task => {
+    const rawDate = getSourceAwareDateForTask(task);
+    const taskDate = rawDate ? new Date(rawDate) : null;
+    if (!taskDate || Number.isNaN(taskDate.getTime())) return;
+    const key = `${taskDate.getFullYear()}-${taskDate.getMonth()}-${taskDate.getDate()}`;
+    const bucket = trendGraphBuckets[key];
+    if (!bucket) return;
+
+    bucket.total += 1;
+    const status = getStatusForTask(task);
+    if (status === 'completed') bucket.completed += 1;
+    if (status === 'in-progress') bucket.inProgress += 1;
+    if (['pending', 'onhold', 'on-hold'].includes(status)) bucket.pending += 1;
+    if (status === 'overdue') bucket.overdue += 1;
+  });
+  const trendGraphData = trendDays.map(day => ({
+    ...day,
+    completedPercent: day.total ? Math.round((day.completed / day.total) * 100) : 0,
+    inProgressPercent: day.total ? Math.round((day.inProgress / day.total) * 100) : 0,
+    pendingPercent: day.total ? Math.round((day.pending / day.total) * 100) : 0,
+    overduePercent: day.total ? Math.round((day.overdue / day.total) * 100) : 0
+  }));
+  const trendTotalTasks = trendGraphData.reduce((total, day) => total + day.total, 0);
+  const trendSeries = [
+    { key: 'completedPercent', label: 'Completed', color: '#2db36c' },
+    { key: 'inProgressPercent', label: 'In Progress', color: '#3478e5' },
+    { key: 'pendingPercent', label: 'Pending', color: '#f3a51f' },
+    { key: 'overduePercent', label: 'Overdue', color: '#ef4d5a' }
+  ];
+  const trendGraphMax = 100;
+  const trendGraphWidth = 600;
+  const trendGraphHeight = 170;
+  const trendGraphPadding = { top: 14, right: 14, bottom: 34, left: 34 };
+  const trendGraphPlotWidth = trendGraphWidth - trendGraphPadding.left - trendGraphPadding.right;
+  const trendGraphPlotHeight = trendGraphHeight - trendGraphPadding.top - trendGraphPadding.bottom;
+  const overviewItems = [
+    { label: 'Completed', value: activeStats.completed?.count || 0, color: '#22a95c' },
+    { label: 'In Progress', value: activeStats.inProgress?.count || 0, color: '#3478e5' },
+    { label: 'Pending', value: activeStats.pending?.count || 0, color: '#f3a51f' },
+    { label: 'Overdue', value: activeStats.overdue?.count || 0, color: '#e34850' },
+    { label: 'On Hold', value: activeStats.onHold?.count || 0, color: '#7553cf' }
+  ];
+  const overviewAccounted = overviewItems.reduce((total, item) => total + item.value, 0);
+  const overviewOther = Math.max(0, (activeStats.total || 0) - overviewAccounted);
+  if (overviewOther > 0) {
+    overviewItems.push({ label: 'Other', value: overviewOther, color: '#94a3b8' });
+  }
+  let overviewEnd = 0;
+  const overviewGradient = overviewItems.map(item => {
+    const start = overviewEnd;
+    overviewEnd += activeStats.total ? (item.value / activeStats.total) * 100 : 0;
+    return `${item.color} ${start}% ${overviewEnd}%`;
+  }).join(', ');
+  const summaryCards = [
+    { label: 'Total Tasks', value: activeStats.total || 0, icon: FiList, tone: 'total' },
+    { label: 'Pending', value: activeStats.pending?.count || 0, icon: FiClock, tone: 'pending' },
+    { label: 'In Progress', value: activeStats.inProgress?.count || 0, icon: FiTrendingUp, tone: 'progress' },
+    { label: 'Completed', value: activeStats.completed?.count || 0, icon: FiCheckCircle, tone: 'completed' },
+    { label: 'Overdue', value: activeStats.overdue?.count || 0, icon: FiXCircle, tone: 'overdue' }
+  ];
 
   
   return (
@@ -3281,28 +3593,6 @@ const UserCreateTask = () => {
               Manage your personal tasks and tasks assigned to you
             </div>
 
-            <div className="user-create-task-stats-indicators">
-              <div className="user-create-task-stat-indicator">
-                <div className="user-create-task-stat-dot" style={{ backgroundColor: '#4caf50' }}></div>
-                <div className="user-create-task-stat-label" style={{ fontSize: isMobile ? '12px' : '14px' }}>
-                  {activeStats.completed.count} Completed
-                </div>
-              </div>
-
-              <div className="user-create-task-stat-indicator">
-                <div className="user-create-task-stat-dot" style={{ backgroundColor: '#2196f3' }}></div>
-                <div className="user-create-task-stat-label" style={{ fontSize: isMobile ? '12px' : '14px' }}>
-                  {activeStats.inProgress.count} In Progress
-                </div>
-              </div>
-
-              <div className="user-create-task-stat-indicator">
-                <div className="user-create-task-stat-dot" style={{ backgroundColor: '#f44336' }}></div>
-                <div className="user-create-task-stat-label" style={{ fontSize: isMobile ? '12px' : '14px' }}>
-                  {activeStats.overdue.count} Overdue
-                </div>
-              </div>
-            </div>
           </div>
 
           
@@ -3334,6 +3624,15 @@ const UserCreateTask = () => {
               </button>
             </div>
           )}
+        </div>
+        <div className="task-reference-summary">
+          {summaryCards.map(card => (
+            <article className={`task-reference-summary-card ${card.tone}`} key={card.label}>
+              <span>{React.createElement(card.icon)}</span>
+              <div><small>{card.label}</small><strong>{card.value}</strong></div>
+              <p>{card.label === 'Total Tasks' ? 'Current filtered view' : `${activeStats.total ? Math.round((card.value / activeStats.total) * 100) : 0}% of filtered tasks`}</p>
+            </article>
+          ))}
         </div>
       </div>
 
@@ -3396,9 +3695,9 @@ const UserCreateTask = () => {
       </div>
 
       
-      <div className="user-create-task-paper">
+      <div className="user-create-task-paper task-statistics-panel">
         <div className="user-create-task-paper-content">
-          <div style={{ marginBottom: '16px', fontWeight: 600, fontSize: isMobile ? '16px' : '18px' }}>
+          <div className="task-statistics-panel-title">
             {taskViewMode === 'all' ? 'All Task Statistics' : taskViewMode === 'self' ? 'Personal Task Statistics' : taskViewMode === 'client' ? 'Client Task Statistics' : taskViewMode === 'project' ? 'Project Task Statistics' : 'Assigned Task Statistics'}
           </div>
           
@@ -3461,9 +3760,10 @@ const UserCreateTask = () => {
                 <input
                   type="date"
                   className="user-create-task-input"
-                  value={dateRange.start ? new Date(dateRange.start).toISOString().split('T')[0] : ''}
+                  value={dateRange.start || ''}
                   onChange={(event) => {
                     setSelectedDate(null);
+                    setTimeFilter('all');
                     setDateRange(prev => ({ ...prev, start: event.target.value }));
                   }}
                   max={dateRange.end || undefined}
@@ -3474,9 +3774,10 @@ const UserCreateTask = () => {
                 <input
                   type="date"
                   className="user-create-task-input"
-                  value={dateRange.end ? new Date(dateRange.end).toISOString().split('T')[0] : ''}
+                  value={dateRange.end || ''}
                   onChange={(event) => {
                     setSelectedDate(null);
+                    setTimeFilter('all');
                     setDateRange(prev => ({ ...prev, end: event.target.value }));
                   }}
                   min={dateRange.start || undefined}
@@ -3633,6 +3934,163 @@ const UserCreateTask = () => {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="task-reference-charts">
+        <section className="task-reference-chart-card">
+          <h2>Task Overview</h2>
+          <div className="task-reference-overview">
+            <div className="task-reference-donut">
+              <div
+                className="task-reference-donut-ring"
+                style={{ background: activeStats.total ? `conic-gradient(${overviewGradient})` : '#edf0f5' }}
+              />
+              <span><strong>{activeStats.total || 0}</strong><small>Total Tasks</small></span>
+            </div>
+            <div className="task-reference-legend">
+              {overviewItems.map(item => (
+                <div key={item.label}>
+                  <i style={{ background: item.color }} />
+                  <span>{item.label}</span>
+                  <strong>{item.value} ({activeStats.total ? Math.round((item.value / activeStats.total) * 100) : 0}%)</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+        <section className="task-reference-chart-card">
+          <div className="task-reference-chart-heading">
+            <h2>Task Trends</h2>
+            <select
+              className="task-reference-trend-period"
+              value={trendPeriod}
+              onChange={(event) => {
+                setTrendPeriod(event.target.value);
+                setTrendHoverIndex(null);
+              }}
+              aria-label="Select task trend period"
+            >
+              <option value="this-week">This Week</option>
+              <option value="last-week">Last Week</option>
+              <option value="last-7-days">Last 7 Days</option>
+            </select>
+          </div>
+          {trendTotalTasks > 0 ? (
+            <div className="task-reference-trends-chart">
+              <div className="task-reference-line-legend">
+                {trendSeries.map(series => (
+                  <span key={series.key}><i style={{ background: series.color }} />{series.label}</span>
+                ))}
+              </div>
+              <div className="task-reference-line-chart" role="img" aria-label="Task performance for the last seven days">
+                {trendHoverIndex !== null && (
+                  <div
+                    className="task-trend-tooltip"
+                    style={{ left: `${Math.min(90, Math.max(10, ((trendGraphPadding.left + (trendHoverIndex * trendGraphPlotWidth) / 6) / trendGraphWidth) * 100))}%` }}
+                  >
+                    <strong>{trendGraphData[trendHoverIndex].label}, {trendGraphData[trendHoverIndex].dateLabel}</strong>
+                    {trendSeries.map(series => (
+                      <span key={series.key}>
+                        <i style={{ background: series.color }} />
+                        {series.label}
+                        <b>{trendGraphData[trendHoverIndex][series.key]}%</b>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <svg
+                  viewBox={`0 0 ${trendGraphWidth} ${trendGraphHeight}`}
+                  preserveAspectRatio="none"
+                  onMouseLeave={() => setTrendHoverIndex(null)}
+                >
+                  {[0, 1, 2, 3, 4, 5].map(gridIndex => {
+                    const y = trendGraphPadding.top + (gridIndex * trendGraphPlotHeight) / 5;
+                    const value = 100 - gridIndex * 20;
+                    return (
+                      <g key={gridIndex}>
+                        <line x1={trendGraphPadding.left} y1={y} x2={trendGraphWidth - trendGraphPadding.right} y2={y} className="task-trend-grid-line" />
+                        <text x={trendGraphPadding.left - 9} y={y + 3} textAnchor="end" className="task-trend-y-label">{value}</text>
+                      </g>
+                    );
+                  })}
+                  {trendHoverIndex !== null && (
+                    <line
+                      x1={trendGraphPadding.left + (trendHoverIndex * trendGraphPlotWidth) / 6}
+                      y1={trendGraphPadding.top}
+                      x2={trendGraphPadding.left + (trendHoverIndex * trendGraphPlotWidth) / 6}
+                      y2={trendGraphPadding.top + trendGraphPlotHeight}
+                      className="task-trend-focus-line"
+                    />
+                  )}
+                  {trendSeries.map(series => {
+                    const points = trendGraphData.map((point, pointIndex) => {
+                      const x = trendGraphPadding.left + (pointIndex * trendGraphPlotWidth) / 6;
+                      const y = trendGraphPadding.top + trendGraphPlotHeight - (point[series.key] / trendGraphMax) * trendGraphPlotHeight;
+                      return { x, y, value: point[series.key] };
+                    });
+                    return (
+                      <g key={series.key}>
+                        <polyline
+                          points={points.map(point => `${point.x},${point.y}`).join(' ')}
+                          fill="none"
+                          stroke={series.color}
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          vectorEffect="non-scaling-stroke"
+                        />
+                        {points.map((point, pointIndex) => (
+                          <circle
+                            key={pointIndex}
+                            className="task-trend-point"
+                            cx={point.x}
+                            cy={point.y}
+                            r={trendHoverIndex === pointIndex ? '3.6' : '2.5'}
+                            fill="#fff"
+                            stroke={series.color}
+                            strokeWidth="2"
+                            vectorEffect="non-scaling-stroke"
+                          >
+                            <title>{`${trendGraphData[pointIndex].dateLabel} • ${series.label}: ${point.value}%`}</title>
+                          </circle>
+                        ))}
+                      </g>
+                    );
+                  })}
+                  {trendGraphData.map((point, index) => {
+                    const x = trendGraphPadding.left + (index * trendGraphPlotWidth) / 6;
+                    return (
+                      <text key={point.timestamp} x={x} y={trendGraphHeight - 13} textAnchor="middle" className="task-trend-axis-label">
+                        <tspan x={x}>{point.label}</tspan>
+                      </text>
+                    );
+                  })}
+                  {trendGraphData.map((point, index) => {
+                    const x = trendGraphPadding.left + (index * trendGraphPlotWidth) / 6;
+                    const hitWidth = trendGraphPlotWidth / 6;
+                    return (
+                      <rect
+                        key={`hit-${point.timestamp}`}
+                        x={x - hitWidth / 2}
+                        y={trendGraphPadding.top}
+                        width={hitWidth}
+                        height={trendGraphPlotHeight}
+                        fill="transparent"
+                        onMouseEnter={() => setTrendHoverIndex(index)}
+                      />
+                    );
+                  })}
+                </svg>
+              </div>
+            </div>
+          ) : (
+            <div className="task-reference-trends-empty">
+              <FiTrendingUp />
+              <strong>No task activity in the last 7 days</strong>
+              <span>Performance will appear here when tasks are available.</span>
+            </div>
+          )}
+        </section>
       </div>
 
       
@@ -4250,20 +4708,8 @@ const UserCreateTask = () => {
                                 </div>
 
                                 {Array.isArray(task.checkpoints) && task.checkpoints.length > 0 && (
-                                  <div className="task-checkpoint-list">
-                                    <div className="task-checkpoint-progress">
-                                      {task.checkpoints.filter(item => item.completed).length}/{task.checkpoints.length} checkpoints
-                                    </div>
-                                    {task.checkpoints.map(checkpoint => (
-                                      <label className={`task-checkpoint-item ${checkpoint.completed ? 'completed' : ''}`} key={checkpoint._id || checkpoint.id || checkpoint.title}>
-                                        <input
-                                          type="checkbox"
-                                          checked={Boolean(checkpoint.completed)}
-                                          onChange={() => handleCheckpointToggle(task, checkpoint)}
-                                        />
-                                        <span>{checkpoint.title}</span>
-                                      </label>
-                                    ))}
+                                  <div className="task-checkpoint-progress">
+                                    {task.checkpoints.filter(item => item.completed).length}/{task.checkpoints.length} checkpoints
                                   </div>
                                 )}
 
@@ -4404,13 +4850,25 @@ const UserCreateTask = () => {
                             <tr 
                               key={task._id} 
                               className={`user-create-task-table-row ${shouldHighlightOverdue ? 'overdue-task' : ''}`}
+                              role="button"
+                              tabIndex={0}
+                              onClick={(event) => {
+                                if (event.target.closest('button, a, input, select, label')) return;
+                                setSelectedTaskDetails(task);
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  setSelectedTaskDetails(task);
+                                }
+                              }}
                               style={shouldHighlightOverdue ? { 
                                 borderLeft: '4px solid #f44336',
                                 backgroundColor: '#fff5f5'
                               } : {}}
                             >
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                                <div style={{ fontWeight: 600, fontSize: isMobile ? '13px' : '14px' }}>
+                                <div className="task-table-title" style={{ fontWeight: 600, fontSize: isMobile ? '13px' : '14px' }}>
                                   {task.title || task.name || 'Untitled'}
                                 </div>
                                 {isMobile && (
@@ -4421,20 +4879,8 @@ const UserCreateTask = () => {
                                   </div>
                                 )}
                                 {isMobile && Array.isArray(task.checkpoints) && task.checkpoints.length > 0 && (
-                                  <div className="task-checkpoint-list compact">
-                                    <div className="task-checkpoint-progress">
-                                      {task.checkpoints.filter(item => item.completed).length}/{task.checkpoints.length} checkpoints
-                                    </div>
-                                    {task.checkpoints.map(checkpoint => (
-                                      <label className={`task-checkpoint-item ${checkpoint.completed ? 'completed' : ''}`} key={checkpoint._id || checkpoint.id || checkpoint.title}>
-                                        <input
-                                          type="checkbox"
-                                          checked={Boolean(checkpoint.completed)}
-                                          onChange={() => handleCheckpointToggle(task, checkpoint)}
-                                        />
-                                        <span>{checkpoint.title}</span>
-                                      </label>
-                                    ))}
+                                  <div className="task-checkpoint-progress">
+                                    {task.checkpoints.filter(item => item.completed).length}/{task.checkpoints.length} checkpoints
                                   </div>
                                 )}
                               </td>
@@ -4493,20 +4939,8 @@ const UserCreateTask = () => {
                               </td>
                               <td style={{ padding: isMobile ? '8px' : '12px', minWidth: '220px' }}>
                                 {Array.isArray(task.checkpoints) && task.checkpoints.length > 0 ? (
-                                  <div className="task-checkpoint-list compact in-table">
-                                    <div className="task-checkpoint-progress">
-                                      {task.checkpoints.filter(item => item.completed).length}/{task.checkpoints.length} checkpoints
-                                    </div>
-                                    {task.checkpoints.map(checkpoint => (
-                                      <label className={`task-checkpoint-item ${checkpoint.completed ? 'completed' : ''}`} key={checkpoint._id || checkpoint.id || checkpoint.title}>
-                                        <input
-                                          type="checkbox"
-                                          checked={Boolean(checkpoint.completed)}
-                                          onChange={() => handleCheckpointToggle(task, checkpoint)}
-                                        />
-                                        <span>{checkpoint.title}</span>
-                                      </label>
-                                    ))}
+                                  <div className="task-checkpoint-progress">
+                                    {task.checkpoints.filter(item => item.completed).length}/{task.checkpoints.length} checkpoints
                                   </div>
                                 ) : (
                                   <span className="task-checkpoint-empty">No checkpoints</span>
@@ -5146,6 +5580,148 @@ const UserCreateTask = () => {
       </div>
 
       
+      {selectedTaskDetails && (() => {
+        const detailStatus = getStatusForTask(selectedTaskDetails);
+        const detailDueDate = getDueDateForTask(selectedTaskDetails);
+        const detailSource = getTaskSource(selectedTaskDetails);
+        const detailCheckpoints = Array.isArray(selectedTaskDetails.checkpoints) ? selectedTaskDetails.checkpoints : [];
+        const completedCheckpoints = detailCheckpoints.filter(item => item.completed).length;
+        const detailFiles = Array.isArray(selectedTaskDetails.files) ? selectedTaskDetails.files : [];
+        const detailIsOverdue = isOverdue(detailDueDate, detailStatus, selectedTaskDetails);
+
+        return (
+          <div
+            className="user-create-task-dialog-overlay task-details-overlay"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setSelectedTaskDetails(null);
+            }}
+          >
+            <div className="user-create-task-dialog task-details-modal" onMouseDown={(event) => event.stopPropagation()}>
+              <div className="user-create-task-dialog-title task-details-modal-header">
+                <div className="task-details-heading">
+                  <span className="task-details-heading-icon"><FiFileText /></span>
+                  <div>
+                    <div className="task-details-eyebrow">Task</div>
+                    <div>Task Details</div>
+                  </div>
+                </div>
+                <button type="button" className="personal-task-close" onClick={() => setSelectedTaskDetails(null)} aria-label="Close task details">
+                  <FiX />
+                </button>
+              </div>
+
+              <div className="task-details-modal-content">
+                <div className="task-details-badges">
+                  <StatusChip status={detailIsOverdue ? 'overdue' : detailStatus} label={detailIsOverdue ? 'overdue' : detailStatus} />
+                  <PriorityChip priority={selectedTaskDetails.priority || 'medium'} />
+                </div>
+
+                <div className="task-details-description task-details-title-card">
+                  <span>Title</span>
+                  <p>{selectedTaskDetails.title || selectedTaskDetails.name || 'Untitled Task'}</p>
+                </div>
+
+                <div className="task-details-description">
+                  <span>Description</span>
+                  <p>{selectedTaskDetails.description || 'No description provided.'}</p>
+                </div>
+
+                <div className="task-details-grid">
+                  <div><FiCalendar /><span>Due Date</span><strong>{formatDueDateTime(detailDueDate)}</strong></div>
+                  <div><FiUser /><span>Task Type</span><strong>{detailSource === 'self' ? 'Personal' : detailSource === 'client' ? 'Client Task' : detailSource === 'project' ? 'Project Task' : 'Assigned Task'}</strong></div>
+                  <div><FiCheckSquare /><span>Checkpoints</span><strong>{completedCheckpoints}/{detailCheckpoints.length}</strong></div>
+                  <div><FiPaperclip /><span>Files</span><strong>{detailFiles.length}</strong></div>
+                </div>
+
+                {detailSource === 'client' && (
+                  <div className="task-details-info-row"><span>Client</span><strong>{getClientNameFromTask(selectedTaskDetails) || 'Not specified'}</strong></div>
+                )}
+                {detailSource === 'project' && (
+                  <div className="task-details-info-row"><span>Project</span><strong>{selectedTaskDetails.projectName || 'Not specified'}</strong></div>
+                )}
+
+                {normalizeStatus(detailStatus) === 'in-progress' && (
+                  <form
+                    className="task-details-add-checkpoint"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      handleAddCheckpoint(selectedTaskDetails);
+                    }}
+                  >
+                    <div className="task-details-add-checkpoint-heading">
+                      <div>
+                        <div className="task-details-section-title">Add Checkpoint</div>
+                        <small>Break this task into a clear, trackable step.</small>
+                      </div>
+                    </div>
+                    <div className="task-details-add-checkpoint-row">
+                      <input
+                        type="text"
+                        className="user-create-task-input"
+                        value={newCheckpointTitle}
+                        onChange={(event) => setNewCheckpointTitle(event.target.value)}
+                        placeholder="Enter checkpoint title"
+                        maxLength={160}
+                        autoComplete="off"
+                      />
+                      <button
+                        type="submit"
+                        className="user-create-task-button user-create-task-button-contained"
+                        disabled={!newCheckpointTitle.trim() || isAddingCheckpoint}
+                      >
+                        <FiPlus />
+                        {isAddingCheckpoint ? 'Adding...' : 'Add'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {detailCheckpoints.length > 0 && (
+                  <div className="task-details-checkpoints">
+                    <div className="task-details-section-title">Checkpoints</div>
+                    {detailCheckpoints.map(checkpoint => (
+                      <div className={checkpoint.completed ? 'completed' : ''} key={checkpoint._id || checkpoint.id || checkpoint.title}>
+                        <label className="task-details-checkpoint-label">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(checkpoint.completed)}
+                            disabled={normalizeStatus(detailStatus) !== 'in-progress' || updatingCheckpointId === (checkpoint._id || checkpoint.id)}
+                            onChange={() => handleCheckpointToggle(selectedTaskDetails, checkpoint)}
+                          />
+                          <span>{checkpoint.title}</span>
+                        </label>
+                        {normalizeStatus(detailStatus) === 'in-progress' && (
+                          <button
+                            type="button"
+                            className="task-details-checkpoint-delete"
+                            onClick={() => handleDeleteCheckpoint(selectedTaskDetails, checkpoint)}
+                            disabled={deletingCheckpointId === (checkpoint._id || checkpoint.id || checkpoint.title)}
+                            aria-label={`Delete checkpoint ${checkpoint.title}`}
+                            title="Delete checkpoint"
+                          >
+                            <FiTrash2 />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="task-details-modal-actions">
+                <button
+                  type="button"
+                  className="user-create-task-button user-create-task-button-contained"
+                  onClick={() => setSelectedTaskDetails(null)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="user-create-task-dialog-overlay" style={{ display: calendarFilterOpen ? 'flex' : 'none' }}>
         <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
           maxWidth: isMobile ? '95%' : isTablet ? '450px' : '500px',
@@ -5157,8 +5733,14 @@ const UserCreateTask = () => {
               <div>Filter by Date</div>
             </div>
           </div>
-
+          
           <div className="user-create-task-dialog-content">
+            {isLoadingRemarks && (
+              <div className="task-dialog-loading" role="status">
+                <span className="task-dialog-loading-spinner" />
+                <span>Loading remarks...</span>
+              </div>
+            )}
             <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
               <div className="user-create-task-form-control">
                 <label>Filter By</label>
@@ -5177,10 +5759,11 @@ const UserCreateTask = () => {
                 <input
                   type="date"
                   className="user-create-task-input"
-                  value={selectedDate ? new Date(selectedDate).toISOString().split('T')[0] : ''}
+                  value={selectedDate || ''}
                   onChange={(e) => {
                     setSelectedDate(e.target.value);
                     setDateRange({ start: null, end: null });
+                    setTimeFilter('all');
                   }}
                 />
               </div>
@@ -5193,8 +5776,12 @@ const UserCreateTask = () => {
                       type="date"
                       className="user-create-task-input"
                       placeholder="Start Date"
-                      value={dateRange.start ? new Date(dateRange.start).toISOString().split('T')[0] : ''}
-                      onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                      value={dateRange.start || ''}
+                      onChange={(e) => {
+                        setSelectedDate(null);
+                        setTimeFilter('all');
+                        setDateRange(prev => ({ ...prev, start: e.target.value }));
+                      }}
                     />
                   </div>
                   <div style={{ flex: 1 }}>
@@ -5202,8 +5789,12 @@ const UserCreateTask = () => {
                       type="date"
                       className="user-create-task-input"
                       placeholder="End Date"
-                      value={dateRange.end ? new Date(dateRange.end).toISOString().split('T')[0] : ''}
-                      onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                      value={dateRange.end || ''}
+                      onChange={(e) => {
+                        setSelectedDate(null);
+                        setTimeFilter('all');
+                        setDateRange(prev => ({ ...prev, end: e.target.value }));
+                      }}
                     />
                   </div>
                 </div>
@@ -5218,6 +5809,7 @@ const UserCreateTask = () => {
                       const today = new Date();
                       setSelectedDate(today.toISOString().split('T')[0]);
                       setDateRange({ start: null, end: null });
+                      setTimeFilter('all');
                     }}
                     style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
                   >
@@ -5230,6 +5822,7 @@ const UserCreateTask = () => {
                       tomorrow.setDate(tomorrow.getDate() + 1);
                       setSelectedDate(tomorrow.toISOString().split('T')[0]);
                       setDateRange({ start: null, end: null });
+                      setTimeFilter('all');
                     }}
                     style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
                   >
@@ -5246,6 +5839,7 @@ const UserCreateTask = () => {
                         start: start.toISOString().split('T')[0], 
                         end: end.toISOString().split('T')[0] 
                       });
+                      setTimeFilter('all');
                     }}
                     style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
                   >
@@ -5635,7 +6229,12 @@ const UserCreateTask = () => {
             <button type="button" className="personal-task-close" onClick={() => setActivityDialog({ open: false, taskId: null })}><FiX /></button>
           </div>
           <div className="user-create-task-dialog-content">
-            {activityLogs.length > 0 ? (
+            {isLoadingActivity ? (
+              <div className="task-dialog-loading task-dialog-loading-centered" role="status">
+                <span className="task-dialog-loading-spinner" />
+                <span>Loading activity...</span>
+              </div>
+            ) : activityLogs.length > 0 ? (
               <div className="activity-logs-timeline">
                 {activityLogs.map((log, index) => (
                   <div key={log._id || index} className="user-create-task-paper activity-log-card">

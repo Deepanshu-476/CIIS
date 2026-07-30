@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import Login from "./page/Login";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -52,7 +52,7 @@ import MyAssets from "./hrCds/pages/MyAssets";
 import MyLeaves from "./hrCds/pages/MyLeaves";
 import Profile from "./hrCds/pages/Profile";
 import UserDashboard from "./hrCds/pages/UserDashboard";
-import TaskManagement from "./hrCds/pages/TaskManagement";
+const TaskManagement = lazy(() => import("./hrCds/pages/TaskManagement"));
 import EmployeeMeetingPage from "./hrCds/pages/EmployeeMeetingPage";
 import EmployeeProject from "./hrCds/pages/EmployeeProject";
 import ClientMeeting from "./hrCds/pages/ClientMeeting";
@@ -197,7 +197,14 @@ function App() {
           <Route path="user-dashboard" element={<UserDashboard />} />
           <Route path="ClientDashboard" element={<Navigate to="/client/dashboard" replace />} />
           <Route path="project" element={<EmployeeProject />} />
-          <Route path="task-management" element={<TaskManagement />} />
+          <Route
+            path="task-management"
+            element={(
+              <Suspense fallback={<CIISLoader />}>
+                <TaskManagement />
+              </Suspense>
+            )}
+          />
           <Route path="employee-meeting" element={<EmployeeMeetingPage />} />
           <Route path="client-meeting" element={<ClientMeeting />} />
           <Route path="create-user" element={<CreateUser />} />

@@ -3,8 +3,33 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import axios from "../../utils/axiosConfig";
 import "../Css/EmployeeProject.css";
-import CIISLoader from '../../Loader/CIISLoader'; 
 import PageBranchDropdown, { usePageBranchScope } from "../components/PageBranchDropdown";
+
+const PROJECT_CACHE_TTL = 5 * 60 * 1000;
+
+const getProjectCacheKey = (companyCode, branchId) => (
+  `employee-projects:${String(companyCode || "").toLowerCase()}:${branchId || "all"}`
+);
+
+const readProjectCache = (key) => {
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(key) || "null");
+    if (!cached || !Array.isArray(cached.projects) || Date.now() - cached.savedAt > PROJECT_CACHE_TTL) {
+      return null;
+    }
+    return cached.projects;
+  } catch {
+    return null;
+  }
+};
+
+const writeProjectCache = (key, projects) => {
+  try {
+    sessionStorage.setItem(key, JSON.stringify({ projects, savedAt: Date.now() }));
+  } catch {
+    // Storage can be unavailable in private/restricted browser modes.
+  }
+};
 
 const parseStoredJson = (key) => {
   try {
@@ -182,7 +207,6 @@ const EmployeeProject = () => {
   const [projectUsers, setProjectUsers] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [projectSearchTerm, setProjectSearchTerm] = useState("");
-  const [pageLoading, setPageLoading] = useState(true); 
   const [loading, setLoading] = useState({ projects: false, tasks: false });
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState("");
@@ -518,18 +542,12 @@ const EmployeeProject = () => {
   
   useEffect(() => {
     const loadData = async () => {
-      setPageLoading(true);
       try {
         await loadProjects();
     
       } catch (error) {
         console.error("Error loading data:", error);
         showSnackbar("Error loading data", "error");
-      } finally {
-        
-        setTimeout(() => {
-          setPageLoading(false);
-        }, 500);
       }
     };
     
@@ -565,6 +583,12 @@ const EmployeeProject = () => {
         return;
       }
 
+      const cacheKey = getProjectCacheKey(companyCode, branchQueryParams.branchId);
+      const cachedProjects = readProjectCache(cacheKey);
+      if (cachedProjects) {
+        setProjects(cachedProjects);
+      }
+
       const res = await axios.get("/projects", {
         params: {
           companyCode,
@@ -580,6 +604,7 @@ const EmployeeProject = () => {
       }).map(normalizeProjectTaskOrder);
 
       setProjects(companyProjects);
+      writeProjectCache(cacheKey, companyProjects);
     } catch (error) {
       console.error("Error loading projects:", error);
       showSnackbar("Error loading projects", "error");
@@ -1110,8 +1135,7 @@ const EmployeeProject = () => {
       ? filteredTasks.filter(task => getTaskAssignedUserIds(task).length === 0)
       : filteredTasks.filter(task => getTaskAssignedUserIds(task).includes(taskAssigneeFilter));
   const displayedTasks = sortTasksByCreatedAt(assigneeFilteredTasks);
-  const documentCount = (projectDetails?.pdfFile?.path ? 1 : 0)
-    + tasks.filter(task => task?.pdfFile?.path).length;
+  const documentCount = projectDetails?.pdfFile?.path ? 1 : 0;
 
   const taskAssigneeOptions = [
     { value: "all", label: "All assignees" },
@@ -1446,10 +1470,6 @@ const EmployeeProject = () => {
   };
 
   
-  if (pageLoading) {
-    return <CIISLoader />;
-  }
-
   if (imagePreview) {
     return (
       <div className="EmployeeProject-image-preview-screen">
@@ -1723,7 +1743,12 @@ const EmployeeProject = () => {
       )}
 
       
-      {projects.length === 0 ? (
+      {loading.projects && projects.length === 0 ? (
+        <div className="EmployeeProject-loading" aria-label="Loading projects">
+          <CircularProgress />
+          <span>Loading projects...</span>
+        </div>
+      ) : projects.length === 0 ? (
         <div className="EmployeeProject-no-projects">
           <div className="EmployeeProject-no-projects-content">
             <div className="EmployeeProject-no-projects-icon">

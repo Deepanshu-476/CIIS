@@ -2336,13 +2336,8 @@ const EmployeeDirectory = () => {
         }
       };
       
-<<<<<<< HEAD
-      const updateUrls = isSelfEdit
-        ? [`/users/profile-update/${userId}`, `/users/${userId}`, '/users/me']
-=======
       const updateUrls = isSelfEdit && !canEditOtherEmployees
         ? ['/users/me', `/users/profile-update/${userId}`]
->>>>>>> e1596cc22a5efc86315a1c5d54ac374261e314f9
         : [`/users/admin-update/${userId}`, '/users/admin-update-by-email', `/users/${userId}`];
       
       void 0;

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { FiAlertTriangle, FiLoader, FiTrash2, FiX } from 'react-icons/fi';
+import { FiAlertTriangle, FiExternalLink, FiFile, FiImage, FiLoader, FiMessageSquare, FiTrash2, FiX } from 'react-icons/fi';
 import axios from '../utils/axiosConfig';
 import './CompanyAssetManagement.css';
 
@@ -31,6 +31,7 @@ const CompanyAssetManagement = () => {
   const [quantity, setQuantity] = useState('1');
   const [editingCommentReq, setEditingCommentReq] = useState(null);
   const [commentText, setCommentText] = useState('');
+  const [previewCommentImage, setPreviewCommentImage] = useState(null);
   const [animateIn, setAnimateIn] = useState(false);
   const deleteModalRef = useRef(null);
   const deleteCancelButtonRef = useRef(null);
@@ -124,6 +125,25 @@ const CompanyAssetManagement = () => {
   const looksLikeObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || ''));
 
   const normalizeStatus = (status) => String(status || '').trim().toLowerCase();
+
+  const getCommentAttachmentUrl = (imagePath) => {
+    if (!imagePath) return '';
+    if (/^(https?:|data:|blob:)/i.test(imagePath)) return imagePath;
+    const apiBase = String(axios.defaults.baseURL || '').replace(/\/+$/, '');
+    return `${apiBase}/${String(imagePath).replace(/^\/+/, '')}`;
+  };
+
+  const formatCommentDate = (comment) => {
+    const value = comment?.addedAt || comment?.createdAt || comment?.updatedAt;
+    if (!value) return '';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '' : date.toLocaleString();
+  };
+
+  const isImageComment = (comment) => (
+    String(comment?.mimeType || '').startsWith('image/') ||
+    /\.(jpe?g|png|webp|gif)$/i.test(String(comment?.image || ''))
+  );
 
   const getRequestAssetId = (request) => getRecordId(
     request?.assetId ||
@@ -1272,52 +1292,89 @@ const CompanyAssetManagement = () => {
       )}
 
       
-      {editingCommentReq && (
-        <div className="ca-modal-overlay-enhanced" onClick={() => setEditingCommentReq(null)}>
-          <div className="ca-modal-enhanced" onClick={(e) => e.stopPropagation()}>
+      {editingCommentReq && createPortal((
+        <div className="ca-modal-overlay-enhanced ca-comment-overlay" onClick={() => setEditingCommentReq(null)}>
+          <section className="ca-modal-enhanced ca-comment-modal" role="dialog" aria-modal="true" aria-labelledby="ca-comment-modal-title" onClick={(e) => e.stopPropagation()}>
             <div className="ca-modal-header-enhanced">
-              <h3>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-                Admin Comment
-              </h3>
-              <button className="ca-close-btn-enhanced" onClick={() => setEditingCommentReq(null)}>✕</button>
+              <div className="ca-comment-title">
+                <span className="ca-comment-title-icon"><FiMessageSquare /></span>
+                <div>
+                  <h3 id="ca-comment-modal-title">Admin Comment</h3>
+                  <p>Review attachments and add a response</p>
+                </div>
+              </div>
+              <button type="button" className="ca-close-btn-enhanced" aria-label="Close comments" onClick={() => setEditingCommentReq(null)}>
+                <FiX />
+              </button>
             </div>
             <div className="ca-modal-body-enhanced">
               <div className="request-info">
                 <div className="info-row">
-                  <span className="info-label">Asset:</span>
+                  <span className="info-label">Asset</span>
                   <span className="info-value">{editingCommentReq.assetName}</span>
                 </div>
                 <div className="info-row">
-                  <span className="info-label">Employee:</span>
+                  <span className="info-label">Employee</span>
                   <span className="info-value">{editingCommentReq.user?.name}</span>
                 </div>
               </div>
               
               <div className="comment-section">
-                <label>Add Comment</label>
+                <div className="ca-comment-section-heading">
+                  <label htmlFor="ca-admin-comment">Add Comment</label>
+                  <span>{commentText.length}/1000</span>
+                </div>
                 <textarea
+                  id="ca-admin-comment"
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
                   placeholder="Write your comment here..."
                   className="comment-textarea"
                   rows="4"
+                  maxLength="1000"
                 />
               </div>
 
               {editingCommentReq.adminComments?.length > 0 && (
                 <div className="previous-comments">
-                  <label>Previous Comments</label>
+                  <div className="ca-comments-heading">
+                    <label>Previous Comments</label>
+                    <span>{editingCommentReq.adminComments.length}</span>
+                  </div>
                   <div className="comments-list">
                     {editingCommentReq.adminComments.map((c, i) => (
-                      <div key={i} className="comment-item">
-                        <div className="comment-text">{c.text}</div>
-                        <div className="comment-date">
-                          {new Date(c.createdAt).toLocaleString()}
-                        </div>
-                      </div>
+                      <article key={c._id || i} className="comment-item">
+                        {formatCommentDate(c) && (
+                          <time className="comment-date" dateTime={c.addedAt || c.createdAt}>
+                            {formatCommentDate(c)}
+                          </time>
+                        )}
+                        {c.text && <div className="comment-text">{c.text}</div>}
+                        {c.image && (
+                          isImageComment(c) ? (
+                            <a
+                              className="comment-image-link"
+                              href={getCommentAttachmentUrl(c.image)}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                setPreviewCommentImage({
+                                  src: getCommentAttachmentUrl(c.image),
+                                  name: c.originalName || 'Comment attachment'
+                                });
+                              }}
+                            >
+                              <img src={getCommentAttachmentUrl(c.image)} alt={c.originalName || 'Comment attachment'} loading="lazy" />
+                              <span><FiImage /> {c.originalName || 'View image'}</span>
+                            </a>
+                          ) : (
+                            <a className="comment-file-link" href={getCommentAttachmentUrl(c.image)} target="_blank" rel="noreferrer">
+                              <FiFile />
+                              <span>{c.originalName || 'Open attachment'}</span>
+                              <FiExternalLink />
+                            </a>
+                          )
+                        )}
+                      </article>
                     ))}
                   </div>
                 </div>
@@ -1327,13 +1384,35 @@ const CompanyAssetManagement = () => {
               <button className="ca-btn-enhanced ca-btn-secondary-enhanced" onClick={() => setEditingCommentReq(null)}>
                 Cancel
               </button>
-              <button className="ca-btn-enhanced ca-btn-primary-enhanced" onClick={handleCommentUpdate}>
+              <button className="ca-btn-enhanced ca-btn-primary-enhanced" disabled={!commentText.trim()} onClick={handleCommentUpdate}>
                 Add Comment
               </button>
             </div>
-          </div>
+          </section>
         </div>
-      )}
+      ), document.body)}
+
+      {previewCommentImage && createPortal((
+        <div className="ca-image-preview-overlay" onClick={() => setPreviewCommentImage(null)}>
+          <section
+            className="ca-image-preview-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={previewCommentImage.name}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header>
+              <span>{previewCommentImage.name}</span>
+              <button type="button" aria-label="Close image preview" onClick={() => setPreviewCommentImage(null)}>
+                <FiX />
+              </button>
+            </header>
+            <div className="ca-image-preview-body">
+              <img src={previewCommentImage.src} alt={previewCommentImage.name} />
+            </div>
+          </section>
+        </div>
+      ), document.body)}
     </div>
   );
 };

@@ -414,6 +414,7 @@
 }
 
 .SidebarManagement-card {
+  position: relative;
   border-radius: 16px;
   background-color: white;
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
@@ -525,6 +526,21 @@
   cursor: not-allowed;
 }
 
+.SidebarManagement-card-dropdown-open {
+  z-index: 20;
+}
+
+.SidebarManagement-dropdown-trigger:not(:disabled) {
+  padding-right: 38px;
+  cursor: pointer;
+  caret-color: transparent;
+  user-select: none;
+}
+
+.SidebarManagement-dropdown-trigger:not(:disabled)::selection {
+  background: transparent;
+}
+
 .SidebarManagement-dropdown-arrow {
   position: absolute;
   right: 12px;
@@ -547,6 +563,15 @@
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.15);
   z-index: 1000;
+}
+
+.SidebarManagement-dropdown-menu-inline {
+  position: relative;
+  top: auto;
+  right: auto;
+  left: auto;
+  margin-top: 4px;
+  max-height: 240px;
 }
 
 .SidebarManagement-dropdown-item {

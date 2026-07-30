@@ -1078,18 +1078,10 @@ const SidebarManagement = () => {
   };
 
   
-  const filteredDepartments = departments.filter(dept => {
-    const searchLower = departmentSearch.toLowerCase();
-    return dept.name.toLowerCase().includes(searchLower) ||
-           (dept.description && dept.description.toLowerCase().includes(searchLower));
-  });
-
-  
-  const filteredRoles = getAllAvailableRoles().filter(role => {
-    const searchLower = roleSearch.toLowerCase();
-    return role.name.toLowerCase().includes(searchLower) ||
-           (role.description && role.description.toLowerCase().includes(searchLower));
-  });
+  // These controls are read-only dropdown triggers. The selected display label
+  // must not filter the menu when it is opened again.
+  const filteredDepartments = departments;
+  const filteredRoles = getAllAvailableRoles();
 
   
   const getCategoryDisplayName = (category) => {
@@ -1313,7 +1305,7 @@ const SidebarManagement = () => {
                 </div>
 
                 
-                <div className={`SidebarManagement-card ${selectedDepartment ? 'SidebarManagement-card-selected' : ''}`}>
+                <div className={`SidebarManagement-card ${selectedDepartment ? 'SidebarManagement-card-selected' : ''} ${showDepartmentDropdown ? 'SidebarManagement-card-dropdown-open' : ''}`}>
                   <div className="SidebarManagement-card-content">
                     <div className="SidebarManagement-card-header">
                       <div className="SidebarManagement-card-icon-bg SidebarManagement-card-icon-bg-primary">
@@ -1327,16 +1319,23 @@ const SidebarManagement = () => {
                         <span className="SidebarManagement-input-icon">🏛️</span>
                         <input
                           type="text"
-                          className="SidebarManagement-input"
+                          className="SidebarManagement-input SidebarManagement-dropdown-trigger"
                           placeholder={loading.departments ? "Loading departments..." : "Select Department"}
                           value={departmentSearch}
-                          onChange={(e) => {
-                            setDepartmentSearch(e.target.value);
-                            setShowDepartmentDropdown(true);
+                          readOnly
+                          onClick={() => setShowDepartmentDropdown(prev => !prev)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
+                              event.preventDefault();
+                              setShowDepartmentDropdown(true);
+                            }
+                            if (event.key === 'Escape') {
+                              setShowDepartmentDropdown(false);
+                            }
                           }}
-                          onClick={() => setShowDepartmentDropdown(!showDepartmentDropdown)}
-                          onFocus={() => setShowDepartmentDropdown(true)}
                           disabled={!company || loading.departments}
+                          aria-haspopup="listbox"
+                          aria-expanded={showDepartmentDropdown}
                         />
                         <span className="SidebarManagement-dropdown-arrow">▼</span>
                       </div>
@@ -1392,7 +1391,7 @@ const SidebarManagement = () => {
                 </div>
 
                 
-                <div className={`SidebarManagement-card ${selectedRole ? 'SidebarManagement-card-selected' : ''}`}>
+                <div className={`SidebarManagement-card ${selectedRole ? 'SidebarManagement-card-selected' : ''} ${showRoleDropdown ? 'SidebarManagement-card-dropdown-open' : ''}`}>
                   <div className="SidebarManagement-card-content">
                     <div className="SidebarManagement-card-header">
                       <div className="SidebarManagement-card-icon-bg SidebarManagement-card-icon-bg-secondary">
@@ -1406,16 +1405,23 @@ const SidebarManagement = () => {
                         <span className="SidebarManagement-input-icon">🔒</span>
                         <input
                           type="text"
-                          className="SidebarManagement-input"
+                          className="SidebarManagement-input SidebarManagement-dropdown-trigger"
                           placeholder={!selectedDepartment ? "Select a department first" : loading.roles ? "Loading roles..." : "Select Role"}
                           value={roleSearch}
-                          onChange={(e) => {
-                            setRoleSearch(e.target.value);
-                            if (selectedDepartment) setShowRoleDropdown(true);
+                          readOnly
+                          onClick={() => selectedDepartment && setShowRoleDropdown(prev => !prev)}
+                          onKeyDown={(event) => {
+                            if (selectedDepartment && (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown')) {
+                              event.preventDefault();
+                              setShowRoleDropdown(true);
+                            }
+                            if (event.key === 'Escape') {
+                              setShowRoleDropdown(false);
+                            }
                           }}
-                          onClick={() => selectedDepartment && setShowRoleDropdown(!showRoleDropdown)}
-                          onFocus={() => selectedDepartment && setShowRoleDropdown(true)}
                           disabled={!selectedDepartment || loading.roles}
+                          aria-haspopup="listbox"
+                          aria-expanded={showRoleDropdown}
                         />
                         {selectedDepartment && !loading.roles && getAllAvailableRoles().length > 0 && (
                           <span className="SidebarManagement-dropdown-arrow">▼</span>
@@ -1423,7 +1429,7 @@ const SidebarManagement = () => {
                       </div>
                       
                       {showRoleDropdown && selectedDepartment && (
-                        <div className="SidebarManagement-dropdown-menu">
+                        <div className="SidebarManagement-dropdown-menu SidebarManagement-dropdown-menu-inline">
                           {loading.roles ? (
                             <div className="SidebarManagement-dropdown-item SidebarManagement-dropdown-loading">
                               <div className="SidebarManagement-spinner-small"></div>

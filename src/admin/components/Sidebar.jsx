@@ -333,7 +333,7 @@ const Sidebar = ({ isMobile = false }) => {
     {
       id: 'employee-project',
       icon: <GroupsIcon />, 
-      name: 'Employee Project', 
+      name: 'My Projects', 
       path: '/cds/project', 
       category: 'tasks',
       accessRules: [
@@ -452,7 +452,7 @@ const Sidebar = ({ isMobile = false }) => {
     {
       id: 'admin-projects',
       icon: <ApartmentIcon />, 
-      name: 'Admin Projects', 
+      name: 'Manage Projects', 
       path: '/cds/admin/adminp', 
       category: 'admin',
       accessRules: [

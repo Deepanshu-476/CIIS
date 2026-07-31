@@ -303,8 +303,8 @@ const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserD
   const [formData, setFormData] = useState({
     user: '',
     date: selectedDate,
-    inTime: '09:00',
-    outTime: '18:00',
+    inTime: '',
+    outTime: '',
     status: 'present',
     lateBy: '00:00:00',
     earlyLeave: '00:00:00',
@@ -339,10 +339,6 @@ const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserD
         date: selectedDate,
         inTime: inDateTime.toISOString(),
         outTime: outDateTime.toISOString(),
-        status: formData.status.toUpperCase(),
-        lateBy: formData.lateBy,
-        earlyLeave: formData.earlyLeave,
-        overTime: formData.overTime,
         notes: formData.notes
       };
 
@@ -355,25 +351,8 @@ const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserD
     }
   };
 
-  const calculateStatus = () => {
-    if (!formData.inTime) return "absent";
-    
-    const [hours, minutes] = formData.inTime.split(':').map(Number);
-    const totalMinutes = (hours * 60) + minutes;
-    
-    if (totalMinutes >= 600) return "halfday";
-    if (totalMinutes >= 550) return "late";
-    return "present";
-  };
-
   const handleTimeChange = (field, value) => {
-    const newFormData = { ...formData, [field]: value };
-    
-    if (field === 'inTime') {
-      newFormData.status = calculateStatus();
-    }
-    
-    setFormData(newFormData);
+    setFormData(current => ({ ...current, [field]: value }));
   };
 
   return (
@@ -459,12 +438,11 @@ const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserD
               </div>
 
               <div className="EmppAttendence-form-group">
-                <label>Status *</label>
+                <label>Status (assigned shift based)</label>
                 <select
                   className="EmppAttendence-form-input"
                   value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  required
+                  disabled
                 >
                   <option value="present">Present</option>
                   <option value="late">Late</option>
@@ -479,7 +457,7 @@ const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserD
                   type="text"
                   className="EmppAttendence-form-input"
                   value={formData.lateBy}
-                  onChange={(e) => setFormData({ ...formData, lateBy: e.target.value })}
+                  readOnly
                   placeholder="00:00:00"
                 />
               </div>
@@ -490,7 +468,7 @@ const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserD
                   type="text"
                   className="EmppAttendence-form-input"
                   value={formData.earlyLeave}
-                  onChange={(e) => setFormData({ ...formData, earlyLeave: e.target.value })}
+                  readOnly
                   placeholder="00:00:00"
                 />
               </div>
@@ -501,7 +479,7 @@ const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserD
                   type="text"
                   className="EmppAttendence-form-input"
                   value={formData.overTime}
-                  onChange={(e) => setFormData({ ...formData, overTime: e.target.value })}
+                  readOnly
                   placeholder="00:00:00"
                 />
               </div>
@@ -520,10 +498,8 @@ const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserD
 
             <div className="EmppAttendence-calculated-info">
               <div className="EmppAttendence-info-item">
-                <span>Calculated Status:</span>
-                <span className={`EmppAttendence-status-chip ${calculateStatus()}`}>
-                  {calculateStatus().toUpperCase()}
-                </span>
+                <span>Status:</span>
+                <span>Calculated automatically from the employee&apos;s assigned shift</span>
               </div>
               <div className="EmppAttendence-info-item">
                 <span>Hours Worked:</span>
@@ -615,10 +591,6 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
       const payload = {
         inTime: editedRecord.inTime ? inDateTime.toISOString() : null,
         outTime: editedRecord.outTime ? outDateTime.toISOString() : null,
-        status: editedRecord.status.toUpperCase(),
-        lateBy: editedRecord.lateBy,
-        earlyLeave: editedRecord.earlyLeave,
-        overTime: editedRecord.overTime,
         notes: editedRecord.notes,
         date: editedRecord.date
       };
@@ -644,25 +616,8 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
     }
   };
 
-  const calculateStatus = () => {
-    if (!editedRecord.inTime) return "absent";
-    
-    const [hours, minutes] = editedRecord.inTime.split(':').map(Number);
-    const totalMinutes = (hours * 60) + minutes;
-    
-    if (totalMinutes >= 600) return "halfday";
-    if (totalMinutes >= 550) return "late";
-    return "present";
-  };
-
   const handleTimeChange = (field, value) => {
-    const newRecord = { ...editedRecord, [field]: value };
-    
-    if (field === 'inTime') {
-      newRecord.status = calculateStatus();
-    }
-    
-    setEditedRecord(newRecord);
+    setEditedRecord(current => ({ ...current, [field]: value }));
   };
 
   const getEmployeeName = () => {
@@ -734,11 +689,11 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
             </div>
 
             <div className="EmppAttendence-form-group">
-              <label>Status</label>
+              <label>Status (recalculated on save)</label>
               <select
                 className="EmppAttendence-form-input"
                 value={editedRecord.status}
-                onChange={(e) => setEditedRecord(prev => ({ ...prev, status: e.target.value }))}
+                disabled
               >
                 <option value="present">Present</option>
                 <option value="late">Late</option>
@@ -753,7 +708,7 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
                 type="text"
                 className="EmppAttendence-form-input"
                 value={editedRecord.lateBy}
-                onChange={(e) => setEditedRecord(prev => ({ ...prev, lateBy: e.target.value }))}
+                readOnly
                 placeholder="00:00:00"
               />
             </div>
@@ -764,7 +719,7 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
                 type="text"
                 className="EmppAttendence-form-input"
                 value={editedRecord.earlyLeave}
-                onChange={(e) => setEditedRecord(prev => ({ ...prev, earlyLeave: e.target.value }))}
+                readOnly
                 placeholder="00:00:00"
               />
             </div>
@@ -775,7 +730,7 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
                 type="text"
                 className="EmppAttendence-form-input"
                 value={editedRecord.overTime}
-                onChange={(e) => setEditedRecord(prev => ({ ...prev, overTime: e.target.value }))}
+                readOnly
                 placeholder="00:00:00"
               />
             </div>
@@ -794,10 +749,8 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
 
           <div className="EmppAttendence-calculated-info">
             <div className="EmppAttendence-info-item">
-              <span>Calculated Status:</span>
-              <span className={`EmppAttendence-status-chip ${calculateStatus()}`}>
-                {calculateStatus().toUpperCase()}
-              </span>
+              <span>Status:</span>
+              <span>Recalculated automatically from the saved shift snapshot</span>
             </div>
             {editedRecord.inTime && editedRecord.outTime && (
               <div className="EmppAttendence-info-item">
@@ -1052,9 +1005,9 @@ const formatStatusLabel = (status) => getStatusFilterLabel(normalizeAttendanceSt
 const getStatusExplanation = (status) => {
   const normalizedStatus = normalizeAttendanceStatus(status);
 
-  if (normalizedStatus === 'present') return 'Arrived before 9:10 AM';
-  if (normalizedStatus === 'late') return 'Arrived between 9:10-9:30 AM';
-  if (normalizedStatus === 'halfday') return 'Arrived after 9:30 AM';
+  if (normalizedStatus === 'present') return 'Within assigned shift grace time';
+  if (normalizedStatus === 'late') return 'After grace, before assigned half-day limit';
+  if (normalizedStatus === 'halfday') return 'At or after assigned half-day limit';
   if (normalizedStatus === 'absent') return 'No attendance recorded';
   return '';
 };
@@ -1403,23 +1356,6 @@ const EmployeeAttendance = () => {
     }
   };
 
-  const calculateStatusFromTime = (inTime) => {
-    if (!inTime) return "absent";
-    
-    const loginTime = new Date(inTime);
-    const loginHour = loginTime.getHours();
-    const loginMinute = loginTime.getMinutes();
-    const totalMinutes = (loginHour * 60) + loginMinute;
-    
-    if (totalMinutes >= 600) return "halfday";
-    if (totalMinutes >= 550 && totalMinutes < 570) return "late";
-    if (totalMinutes >= 570) return "halfday";
-    return "present";
-  };
-
-  
-  
-  
   const fetchAttendanceData = async (date) => {
     setLoading(true);
     try {
@@ -1448,20 +1384,8 @@ const EmployeeAttendance = () => {
         const attendanceRecord = attendanceMap[userId];
         
         if (attendanceRecord) {
-          const calculatedStatus = calculateStatusFromTime(attendanceRecord.inTime);
           const hoursWorked = calculateHoursWorked(attendanceRecord.inTime, attendanceRecord.outTime);
-          
-          let finalStatus = attendanceRecord.status
-            ? normalizeAttendanceStatus(attendanceRecord.status)
-            : calculatedStatus;
-
-          if (
-            finalStatus === 'present' &&
-            hoursWorked.hours > 0 &&
-            hoursWorked.hours < 9
-          ) {
-            finalStatus = hoursWorked.hours >= 5 ? 'halfday' : 'absent';
-          }
+          const finalStatus = normalizeAttendanceStatus(attendanceRecord.status || 'absent');
           
           return {
             ...attendanceRecord,
@@ -1476,7 +1400,7 @@ const EmployeeAttendance = () => {
               jobRole: user.jobRole
             },
             status: finalStatus,
-            calculatedStatus: calculatedStatus,
+            calculatedStatus: finalStatus,
             hoursWorked: hoursWorked.formatted,
             totalHours: hoursWorked.hours,
             displayDate: formatted
@@ -1575,20 +1499,8 @@ const EmployeeAttendance = () => {
           const attendanceRecord = attendanceMap[userId];
           
           if (attendanceRecord) {
-            const calculatedStatus = calculateStatusFromTime(attendanceRecord.inTime);
             const hoursWorked = calculateHoursWorked(attendanceRecord.inTime, attendanceRecord.outTime);
-            
-            let finalStatus = attendanceRecord.status
-              ? normalizeAttendanceStatus(attendanceRecord.status)
-              : calculatedStatus;
-
-            if (
-              finalStatus === 'present' &&
-              hoursWorked.hours > 0 &&
-              hoursWorked.hours < 9
-            ) {
-              finalStatus = hoursWorked.hours >= 5 ? 'halfday' : 'absent';
-            }
+            const finalStatus = normalizeAttendanceStatus(attendanceRecord.status || 'absent');
             
             return {
               ...attendanceRecord,
@@ -1603,7 +1515,7 @@ const EmployeeAttendance = () => {
                 jobRole: user.jobRole
               },
               status: finalStatus,
-              calculatedStatus: calculatedStatus,
+              calculatedStatus: finalStatus,
               hoursWorked: hoursWorked.formatted,
               totalHours: hoursWorked.hours,
               displayDate: date
@@ -1847,16 +1759,7 @@ const EmployeeAttendance = () => {
 
   const getLoginTimeCategory = (inTime) => {
     if (!inTime) return "No Login";
-    
-    const loginTime = new Date(inTime);
-    const hour = loginTime.getHours();
-    const minute = loginTime.getMinutes();
-    const totalMinutes = (hour * 60) + minute;
-    
-    if (totalMinutes >= 600) return "After 10:00 AM";
-    if (totalMinutes >= 570) return "9:30 AM - 10:00 AM";
-    if (totalMinutes >= 550) return "9:10 AM - 9:30 AM (LATE)";
-    return "Before 9:10 AM";
+    return "Assigned shift rules applied";
   };
 
   const formatExportDate = (dateStr) => {
@@ -2385,10 +2288,10 @@ const EmployeeAttendance = () => {
             
           </p>
           <div className="EmppAttendence-timing-rules">
-            <span className="EmppAttendence-rule-item"><FiCheckCircle /> Before 9:10 AM → PRESENT</span>
-            <span className="EmppAttendence-rule-item"><FiAlertTriangle /> 9:10 AM - 9:30 AM → LATE</span>
-            <span className="EmppAttendence-rule-item"><FiAlertCircle /> 9:30 AM - 10:00 AM → HALF DAY</span>
-            <span className="EmppAttendence-rule-item"><FiUserX /> After 10:00 AM → HALF DAY / No Login → ABSENT</span>
+            <span className="EmppAttendence-rule-item"><FiCheckCircle /> Present: within assigned shift grace time</span>
+            <span className="EmppAttendence-rule-item"><FiAlertTriangle /> Late: after grace and before half-day limit</span>
+            <span className="EmppAttendence-rule-item"><FiAlertCircle /> Half Day: from assigned half-day limit</span>
+            <span className="EmppAttendence-rule-item"><FiUserX /> No clock-in: Absent</span>
           </div>
           
           {dateRangeMode && (
@@ -2627,7 +2530,7 @@ const EmployeeAttendance = () => {
             filterValue: "present",
             count: stats.present, 
             icon: <FiCheckCircle />,
-            description: dateRangeMode ? `Avg: ${dateRangeStats.averagePresent}%` : "Before 9:10 AM",
+            description: dateRangeMode ? `Avg: ${dateRangeStats.averagePresent}%` : "Based on assigned shift",
             statClass: "EmppAttendence-stat-card-success",
             iconClass: "EmppAttendence-stat-icon-success"
           },
@@ -2636,7 +2539,7 @@ const EmployeeAttendance = () => {
             filterValue: "late",
             count: stats.late, 
             icon: <FiClock />,
-            description: dateRangeMode ? `Avg: ${dateRangeStats.averageLate}%` : "9:10 AM - 9:30 AM",
+            description: dateRangeMode ? `Avg: ${dateRangeStats.averageLate}%` : "Based on assigned shift",
             statClass: "EmppAttendence-stat-card-warning",
             iconClass: "EmppAttendence-stat-icon-warning"
           },
@@ -2645,7 +2548,7 @@ const EmployeeAttendance = () => {
             filterValue: "halfday",
             count: stats.halfDay, 
             icon: <FiAlertCircle />,
-            description: dateRangeMode ? `Avg: ${dateRangeStats.averageHalfDay}%` : "After 9:30 AM",
+            description: dateRangeMode ? `Avg: ${dateRangeStats.averageHalfDay}%` : "Based on assigned shift",
             statClass: "EmppAttendence-stat-card-info",
             iconClass: "EmppAttendence-stat-icon-info"
           },
@@ -2663,7 +2566,7 @@ const EmployeeAttendance = () => {
             filterValue: "ontime",
             count: stats.onTime, 
             icon: <FiUserCheck />,
-            description: "Arrived before 9:10 AM",
+            description: "Within assigned grace time",
             statClass: "EmppAttendence-stat-card-secondary",
             iconClass: "EmppAttendence-stat-icon-secondary"
           },

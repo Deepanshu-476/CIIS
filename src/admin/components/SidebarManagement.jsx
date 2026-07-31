@@ -132,6 +132,37 @@ const isRouteAllowedForCompany = (route, company) => {
   return [...allowedSet].some(page => routeKeys.has(page) || routeKeys.has(page.replace(/^\/+/, '')));
 };
 
+const getNormalizedUserRoles = (user = {}) => {
+  const normalizeRole = value => String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+
+  const values = [
+    user.jobRole,
+    user.companyRole,
+    user.role,
+    user.userRole,
+    user.jobRoleName,
+    user.roleName,
+    user.designation,
+  ];
+
+  return [...new Set(values.flatMap(value => {
+    if (!value) return [];
+    if (typeof value === 'object') {
+      return [
+        value.roleName,
+        value.name,
+        value.role,
+        value.title,
+        value.code,
+      ].map(normalizeRole).filter(Boolean);
+    }
+    return [normalizeRole(value)];
+  }).filter(Boolean))];
+};
+
 
 const SidebarManagement = () => {
   
@@ -290,10 +321,15 @@ const SidebarManagement = () => {
           ...getUserIds(page.deleteUsers)
         ];
         const hasConfig = configuredIds.length > 0;
-        const fallbackRole = String(currentUser?.jobRole || currentUser?.companyRole || currentUser?.role || '').toLowerCase();
-        const fallbackAllowed = ['owner', 'admin', 'hr', 'manager', 'super_admin', 'superadmin'].includes(fallbackRole);
+        const currentUserRoles = getNormalizedUserRoles(currentUser);
+        const isSuperAdmin = currentUserRoles.some(role => ['super_admin', 'superadmin'].includes(role));
+        const fallbackAllowed = currentUserRoles.some(role => (
+          ['owner', 'admin', 'hr', 'manager', 'super_admin', 'superadmin'].includes(role)
+        ));
 
-        const canEdit = editUserIds.includes(currentUserId) || (!hasConfig && fallbackAllowed);
+        // Super Admin owns sidebar configuration and must never be locked out by
+        // a page-level user list that they are responsible for administering.
+        const canEdit = isSuperAdmin || editUserIds.includes(currentUserId) || (!hasConfig && fallbackAllowed);
         const canView = canEdit || viewUserIds.includes(currentUserId) || (!hasConfig && fallbackAllowed);
 
         setCanEditSidebar(canEdit);
@@ -1720,9 +1756,11 @@ const SidebarManagement = () => {
                   
                   <div className="SidebarManagement-save-footer">
                     <button
+                      type="button"
                       className="SidebarManagement-save-button"
                       onClick={handleSave}
-                      disabled={loading.saving || selectedItems.length === 0 || !canEditSidebar}
+                      disabled={loading.saving}
+                      aria-disabled={selectedItems.length === 0 || !canEditSidebar}
                     >
                       {loading.saving ? (
                         <>

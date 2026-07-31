@@ -3000,7 +3000,7 @@ const EmployeeDirectory = () => {
 
       {/* User Detail Modal */}
       {selectedUser && createPortal((
-        <div className="EmployeeDirectory-modal-overlay" onClick={handleCloseUser}>
+        <div className="EmployeeDirectory-modal-overlay EmployeeDirectory-user-detail-overlay" onClick={handleCloseUser}>
           <div className="EmployeeDirectory-modal EmployeeDirectory-user-detail-modal" onClick={e => e.stopPropagation()}>
             <div className="EmployeeDirectory-modal-header">
               <div className="EmployeeDirectory-modal-header-content">
@@ -3389,7 +3389,7 @@ const EmployeeDirectory = () => {
       ), document.body)}
 
       {/* Edit Modal */}
-      {editingUser && (
+      {editingUser && createPortal((
         <div className="EmployeeDirectory-modal-overlay EmployeeDirectory-edit-overlay" onClick={handleCancelEdit}>
           <div className="EmployeeDirectory-modal EmployeeDirectory-edit-modal" onClick={e => e.stopPropagation()}>
             <div className="EmployeeDirectory-modal-header">
@@ -3450,7 +3450,7 @@ const EmployeeDirectory = () => {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirmOpen && (

@@ -20,16 +20,18 @@ const LayoutContainer = styled(Box)({
   display: 'flex',
   minHeight: '100vh',
   width: '100%',
+  backgroundColor: '#f8faff',
 });
 
 const MainContent = styled('main', {
   shouldForwardProp: (prop) => prop !== 'isMobile' && prop !== 'isSidebarHovered',
 })(({ theme, isMobile, isSidebarHovered }) => ({
   flexGrow: 1,
-  padding: theme.spacing(3),
-  minHeight: '100vh',
+  padding: 0,
+  minHeight: 'calc(100dvh - 64px)',
   width: '100%',
   overflow: 'auto',
+  backgroundColor: '#f8faff',
   transition: theme.transitions.create(['margin', 'width'], {
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.leavingScreen,
@@ -169,11 +171,7 @@ const UserLayout = () => {
         sx={{ 
           maxWidth: '100%', 
           overflow: 'hidden',
-          padding: { 
-            xs: 1, 
-            sm: 2, 
-            md: isDashboard ? 0 : 3
-          },
+          padding: 0,
           mt: isMobile ? 7 : 8,
           transition: theme.transitions.create(['margin', 'width'], {
             easing: theme.transitions.easing.easeOut,
@@ -182,11 +180,24 @@ const UserLayout = () => {
         }}
       >
         <CallProvider>
-          <Box sx={{ 
-            maxWidth: '100%', 
-            overflow: 'hidden',
-            padding: { xs: 1, sm: 2, md: isDashboard ? 0 : 3 }
-          }}>
+          <Box
+            className="UserLayout-page-shell"
+            sx={{
+              width: '100%',
+              maxWidth: '100%',
+              minHeight: { xs: 'calc(100dvh - 56px)', md: 'calc(100dvh - 64px)' },
+              overflow: 'hidden',
+              boxSizing: 'border-box',
+              backgroundColor: '#f8faff',
+              padding: { xs: '10px 12px', sm: '14px 18px 18px' },
+              '& > *': {
+                minHeight: '100%',
+                padding: '0 !important',
+                background: 'transparent !important',
+                boxSizing: 'border-box',
+              },
+            }}
+          >
             <Outlet />
           </Box>
         </CallProvider>

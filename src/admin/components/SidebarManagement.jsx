@@ -19,7 +19,7 @@ const APP_ROUTES = [
   { path: 'create-user', name: 'Create User', icon: 'PersonAdd', category: 'administration' },
   { path: 'SidebarManagement', name: 'Sidebar Management', icon: 'Settings', category: 'administration' },
   { path: 'admin-meeting', name: 'Create Employee Meeting', icon: 'MeetingRoom', category: 'meetings' },
-  { path: 'adminproject', name: 'Admin Projects', icon: 'ProjectIcon', category: 'projects' },
+  { path: 'adminproject', name: 'Manage Projects', icon: 'ProjectIcon', category: 'projects' },
   { path: 'company-all-task', name: 'Company All Tasks', icon: 'ListAlt', category: 'tasks' },
   
   { path: 'emp-client', name: 'Client Management', icon: 'ClientIcon', category: 'clients' },
@@ -37,7 +37,7 @@ const APP_ROUTES = [
   { path: 'my-leaves', name: 'My Leaves', icon: 'EventNote', category: 'main' },
   { path: 'profile', name: 'My Details', icon: 'Person', category: 'main' },
   { path: 'user-dashboard', name: 'Dashboard', icon: 'Dashboard', category: 'main' },
-  { path: 'project', name: 'Projects', icon: 'Groups', category: 'projects' },
+  { path: 'project', name: 'My Projects', icon: 'Groups', category: 'projects' },
   { path: 'task-management', name: 'Create Task', icon: 'Task', category: 'tasks' },
   { path: 'employee-meeting', name: 'Employee Meeting', icon: 'VideoCall', category: 'meetings' },
   { path: 'client-meeting', name: 'Client Meeting', icon: 'VideoCall', category: 'meetings' },

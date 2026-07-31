@@ -85,6 +85,19 @@
   .ap-header-content { flex-direction: column; align-items: flex-start; gap: 12px; }
 }
 
+.ap-header-create-btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .ap-header-create-btn { width: 100%; }
+}
+
+.ap-list-create-btn {
+  min-width: 180px;
+  white-space: nowrap;
+}
+
 .ap-header-title {
   font-size: 2rem;
   font-weight: 800;
@@ -401,6 +414,7 @@
 
 @media (max-width: 640px) {
   .ap-form-actions { flex-direction: column; }
+  .ap-list-create-btn { width: 100%; }
 }
 
 /* ----- Dropdown ----- */

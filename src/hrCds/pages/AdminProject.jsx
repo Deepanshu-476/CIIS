@@ -541,6 +541,15 @@ export const AdminProject = () => {
     document.getElementById('ap-project-form')?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const openCreateProjectForm = () => {
+    resetForm();
+    window.requestAnimationFrame(() => {
+      const form = document.getElementById('ap-project-form');
+      form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      form?.querySelector('input')?.focus({ preventScroll: true });
+    });
+  };
+
   const viewProjectDetails = (project) => {
     setSelectedProject(project);
     setTabValue(0);
@@ -988,10 +997,17 @@ export const AdminProject = () => {
         <div className="ap-header">
           <div className="ap-header-content">
             <div>
-              <h1 className="ap-header-title">Project Management</h1>
-              <p className="ap-header-subtitle">Admin dashboard for managing all projects</p>
+              <h1 className="ap-header-title">Manage Projects</h1>
+              <p className="ap-header-subtitle">Create, edit, delete, and assign company projects</p>
             </div>
-            
+            <button
+              type="button"
+              className="ap-btn ap-btn-primary ap-header-create-btn"
+              onClick={openCreateProjectForm}
+              disabled={loading}
+            >
+              <Icons.Add /> Create New Project
+            </button>
           </div>
 
           
@@ -1280,11 +1296,19 @@ export const AdminProject = () => {
         <div className="ap-list-section">
           <div className="ap-list-header">
             <div>
-              <h3 className="ap-list-title">All Projects ({filteredProjects.length})</h3>
+              <h3 className="ap-list-title">Managed Projects ({filteredProjects.length})</h3>
               <p className="ap-list-subtitle">Manage and monitor all your projects</p>
             </div>
             
             <div className="ap-list-controls">
+              <button
+                type="button"
+                className="ap-btn ap-btn-primary ap-list-create-btn"
+                onClick={openCreateProjectForm}
+                disabled={loading}
+              >
+                <Icons.Add /> Create New Project
+              </button>
               <div className="ap-search-wrapper">
                 <input
                   type="text"

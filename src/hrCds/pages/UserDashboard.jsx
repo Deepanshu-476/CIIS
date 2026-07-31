@@ -63,6 +63,23 @@ const getWeatherLabel = code => {
   return 'Current weather';
 };
 
+const runWhenIdle = (callback, timeout = 2500) => {
+  if (typeof window === 'undefined') return null;
+  if ('requestIdleCallback' in window) {
+    return window.requestIdleCallback(callback, { timeout });
+  }
+  return window.setTimeout(callback, Math.min(timeout, 1000));
+};
+
+const cancelIdleRun = handle => {
+  if (!handle || typeof window === 'undefined') return;
+  if ('cancelIdleCallback' in window) {
+    window.cancelIdleCallback(handle);
+  } else {
+    window.clearTimeout(handle);
+  }
+};
+
 const getCalendarGrid = (year, month) => {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -373,6 +390,7 @@ const UserDashboard = () => {
   }, []);
 
   useEffect(() => {
+    if (!initialLoadDone) return undefined;
     if (!navigator.geolocation) {
       setWeather({ loading: false, temperature: null, label: 'Weather unavailable' });
       return;
@@ -412,7 +430,7 @@ const UserDashboard = () => {
       window.clearTimeout(stopLoadingTimer);
       controller.abort();
     };
-  }, []);
+  }, [initialLoadDone]);
 
   const currentDate = useMemo(() => new Date(), []);
   const currentMonth = currentDate.getMonth();
@@ -812,30 +830,15 @@ const UserDashboard = () => {
 
     setFocusStats(current => ({ ...current, loading: true }));
     try {
-      const config = { headers: { Authorization: `Bearer ${token}` }, timeout: 30000 };
-      const [todayResponse, allResponse, tasksResponse] = await Promise.all([
+      const config = { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 };
+      const [todayResponse, allResponse] = await Promise.all([
         axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'today', scope: 'assigned' } }),
-        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'all', scope: 'assigned' } }),
-        axios.get(`/task/user/${userId}/all-tasks`, { ...config, params: { page: 1, limit: 500, period: 'all', scope: 'assigned' } })
+        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'all', scope: 'assigned' } })
       ]);
       const today = todayResponse.data?.statusCounts || {};
       const all = allResponse.data?.statusCounts || {};
-      const taskRecords = pickTaskRecords(tasksResponse.data);
-      const fallbackCounts = taskRecords.reduce((counts, task) => {
-        const status = String(task.userStatus || task.overallStatus || task.status || 'pending')
-          .trim()
-          .toLowerCase()
-          .replace(/[_\s]+/g, '-');
-        counts.total += 1;
-        if (status === 'completed' || status === 'complete' || status === 'done') counts.completed += 1;
-        else if (status === 'in-progress' || status === 'inprogress') counts.inProgress += 1;
-        else if (status === 'overdue') counts.overdue += 1;
-        else counts.pending += 1;
-        return counts;
-      }, { total: 0, completed: 0, inProgress: 0, pending: 0, overdue: 0 });
       const apiTotal = Number(all.total) || 0;
-      const useTaskFallback = apiTotal === 0 && fallbackCounts.total > 0;
-      const resolvedCounts = useTaskFallback ? fallbackCounts : {
+      const resolvedCounts = {
         total: apiTotal,
         completed: Number(all.completed?.count) || 0,
         inProgress: Number(all.inProgress?.count) || 0,
@@ -867,18 +870,14 @@ const UserDashboard = () => {
     }
   }, [isUserInCurrentCompany, token, user]);
 
-  useEffect(() => {
-    fetchFocusStats();
-  }, [fetchFocusStats]);
-
   const fetchUpcomingMeetings = useCallback(async () => {
     const userId = getCurrentUserId(user);
     if (!userId || !isUserInCurrentCompany) return;
     try {
       const response = await axios.get(`/meetings/user/${userId}`, {
-        params: { page: 1, limit: 100 },
+        params: { page: 1, limit: 5 },
         headers: { Authorization: `Bearer ${token}` },
-        timeout: 30000
+        timeout: 15000
       });
       const records = Array.isArray(response.data)
         ? response.data
@@ -898,10 +897,6 @@ const UserDashboard = () => {
     }
   }, [user, token, isUserInCurrentCompany]);
 
-  useEffect(() => {
-    fetchUpcomingMeetings();
-  }, [fetchUpcomingMeetings]);
-
   const fetchDashboardProjects = useCallback(async () => {
     if (!isUserInCurrentCompany) return;
     const companyCode = String(companyDetails?.companyCode || user?.companyCode || localStorage.getItem('companyCode') || '').trim();
@@ -913,9 +908,9 @@ const UserDashboard = () => {
     setProjectsLoading(true);
     try {
       const response = await axios.get('/projects', {
-        params: { companyCode, page: 1, limit: 100 },
+        params: { companyCode, page: 1, limit: 6 },
         headers: { Authorization: `Bearer ${token}` },
-        timeout: 30000
+        timeout: 15000
       });
       const data = response.data;
       const projects = Array.isArray(data) ? data
@@ -929,10 +924,6 @@ const UserDashboard = () => {
       setProjectsLoading(false);
     }
   }, [companyDetails, isUserInCurrentCompany, token, user]);
-
-  useEffect(() => {
-    fetchDashboardProjects();
-  }, [fetchDashboardProjects]);
 
   
   const updateRecentActivity = useCallback((attendance, holidayList, tasks = recentTaskEvents) => {
@@ -1116,15 +1107,12 @@ const UserDashboard = () => {
         // dashboard summary so a clock-in made on another device is shown at once.
         fetchCurrentStatus();
         const summaryLoaded = await fetchDashboardSummary();
-        if (summaryLoaded) {
-          await fetchRecentTaskActivity();
-        } else {
+        if (!summaryLoaded) {
           await fetchDashboardConfig();
           await fetchJobRoles();
           await fetchHolidays(); 
           await fetchAttendanceData(true); 
           await fetchLeaveData();
-          await fetchRecentTaskActivity();
         }
       } catch (error) {
         console.error('Error loading dashboard data:', error);
@@ -1139,7 +1127,31 @@ const UserDashboard = () => {
     loadData();
     
     return () => cancelPendingRequests();
-  }, [fetchDashboardSummary, fetchDashboardConfig, fetchJobRoles, fetchHolidays, fetchAttendanceData, fetchLeaveData, fetchCurrentStatus, fetchRecentTaskActivity, cancelPendingRequests, isUserInCurrentCompany]);
+  }, [fetchDashboardSummary, fetchDashboardConfig, fetchJobRoles, fetchHolidays, fetchAttendanceData, fetchLeaveData, fetchCurrentStatus, cancelPendingRequests, isUserInCurrentCompany]);
+
+  useEffect(() => {
+    if (!initialLoadDone || !isUserInCurrentCompany) return undefined;
+
+    const timers = [];
+    const idleHandle = runWhenIdle(() => {
+      fetchFocusStats();
+      timers.push(window.setTimeout(fetchUpcomingMeetings, 600));
+      timers.push(window.setTimeout(fetchDashboardProjects, 1200));
+      timers.push(window.setTimeout(fetchRecentTaskActivity, 1800));
+    });
+
+    return () => {
+      cancelIdleRun(idleHandle);
+      timers.forEach(timer => window.clearTimeout(timer));
+    };
+  }, [
+    initialLoadDone,
+    isUserInCurrentCompany,
+    fetchFocusStats,
+    fetchUpcomingMeetings,
+    fetchDashboardProjects,
+    fetchRecentTaskActivity
+  ]);
 
   
   useEffect(() => {

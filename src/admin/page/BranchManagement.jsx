@@ -30,7 +30,14 @@ import {
   Grid,
   IconButton,
   InputBase,
+  Checkbox,
+  FormControl,
+  InputLabel,
+  ListItemText,
+  MenuItem,
+  OutlinedInput,
   Paper,
+  Select,
   TextField,
   Tooltip,
   Typography,
@@ -42,6 +49,35 @@ const getRecordId = (value) => {
   if (typeof value === "object") return value._id || value.id || "";
   return value;
 };
+
+const getBranchLabel = (branch) => {
+  if (!branch) return "";
+  const name = branch.name || branch.branchName || "Branch";
+  return branch.branchCode ? `${name} (${branch.branchCode})` : name;
+};
+
+const getUserAssignedBranchIds = (user = {}) => {
+  const rawValues = [
+    user.branch,
+    user.branchId,
+    user.branchDetails,
+    ...(Array.isArray(user.assignedBranches) ? user.assignedBranches : []),
+    ...(Array.isArray(user.branchIds) ? user.branchIds : []),
+  ];
+
+  const seen = new Set();
+  return rawValues.reduce((ids, value) => {
+    const id = getRecordId(value);
+    if (!id || seen.has(id)) return ids;
+    seen.add(id);
+    ids.push(id);
+    return ids;
+  }, []);
+};
+
+const getUserPrimaryBranchId = (user = {}) => getRecordId(
+  user.branch || user.branchId || user.branchDetails || getUserAssignedBranchIds(user)[0]
+);
 
 const readStoredJson = (key) => {
   try {
@@ -82,6 +118,11 @@ const BranchManagement = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("name-asc");
   const [companyId, setCompanyId] = useState("");
+  const [companyUsers, setCompanyUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedUserBranches, setSelectedUserBranches] = useState([]);
+  const [assignmentSaving, setAssignmentSaving] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedBranchId, setSelectedBranchId] = useState(null);
@@ -123,7 +164,10 @@ const BranchManagement = () => {
         }
 
         setCompanyId(resolvedCompanyId);
-        await fetchBranches(resolvedCompanyId);
+        await Promise.all([
+          fetchBranches(resolvedCompanyId),
+          fetchCompanyUsers(resolvedCompanyId),
+        ]);
       } catch (err) {
         if (cancelled) return;
         console.error("Error resolving active company:", err);
@@ -166,6 +210,29 @@ const BranchManagement = () => {
     }
   };
 
+  const fetchCompanyUsers = async (cId) => {
+    try {
+      setUsersLoading(true);
+      const response = await axiosInstance.get("/users/company-users", {
+        params: {
+          companyId: cId,
+          limit: 200,
+        },
+      });
+
+      const userData = response.data?.users || response.data?.data || response.data?.message?.users || [];
+      const users = Array.isArray(userData) ? userData : [];
+      setCompanyUsers(users);
+
+    } catch (error) {
+      console.error("Error fetching company users:", error);
+      toastAlert("error", "Failed to load company users");
+      setCompanyUsers([]);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
   const activeBranches = useMemo(
     () => branches.filter((branch) => branch.isActive !== false).length,
     [branches]
@@ -178,6 +245,30 @@ const BranchManagement = () => {
     () => branches.reduce((sum, branch) => sum + getBranchUsers(branch), 0),
     [branches]
   );
+
+  const branchMap = useMemo(
+    () => new Map(branches.map((branch) => [getRecordId(branch), branch])),
+    [branches]
+  );
+
+  const selectedUser = useMemo(
+    () => companyUsers.find((user) => getRecordId(user) === selectedUserId) || null,
+    [companyUsers, selectedUserId]
+  );
+
+  const multiBranchUsers = useMemo(
+    () => companyUsers.filter((user) => getUserAssignedBranchIds(user).length > 1),
+    [companyUsers]
+  );
+
+  useEffect(() => {
+    if (!selectedUser) {
+      setSelectedUserBranches([]);
+      return;
+    }
+
+    setSelectedUserBranches(getUserAssignedBranchIds(selectedUser));
+  }, [selectedUser]);
 
   const filteredBranches = useMemo(() => {
     return branches
@@ -361,6 +452,59 @@ const BranchManagement = () => {
     });
   };
 
+  const handleUserChange = (event) => {
+    setSelectedUserId(event.target.value);
+  };
+
+  const handleEditMultiBranchUser = (user) => {
+    const userId = getRecordId(user);
+    const assignedBranchIds = getUserAssignedBranchIds(user);
+    setSelectedUserId(userId);
+    setSelectedUserBranches(assignedBranchIds);
+    toastAlert("info", `Editing branch access for ${user.name || "selected user"}`);
+  };
+
+  const handleBranchAssignmentsChange = (event) => {
+    const { value } = event.target;
+    setSelectedUserBranches(typeof value === "string" ? value.split(",") : value);
+  };
+
+  const handleSaveBranchAssignments = async () => {
+    if (!selectedUser) {
+      toastAlert("warning", "Please select a user first");
+      return;
+    }
+
+    if (!selectedUserBranches.length) {
+      toastAlert("warning", "Please select at least one branch");
+      return;
+    }
+
+    try {
+      setAssignmentSaving(true);
+      const primaryBranchId = selectedUserBranches[0];
+      const primaryBranch = branchMap.get(primaryBranchId);
+
+      const response = await axiosInstance.put(`/users/admin-update/${selectedUserId}`, {
+        branch: primaryBranchId,
+        branchCode: primaryBranch?.branchCode || "",
+        assignedBranches: selectedUserBranches,
+      });
+
+      if (response.data?.success) {
+        toastAlert("success", "Branch assignment updated successfully");
+        await fetchCompanyUsers(companyId);
+      } else {
+        throw new Error(response.data?.message || "Failed to update branch assignment");
+      }
+    } catch (error) {
+      console.error("Error saving branch assignments:", error);
+      toastAlert("error", error.response?.data?.message || "Failed to update branch assignment");
+    } finally {
+      setAssignmentSaving(false);
+    }
+  };
+
   const handleExportBranches = () => {
     const headers = ["Branch", "Branch Code", "Phone", "Address", "Employees", "Status"];
     const rows = filteredBranches.map((branch) => [
@@ -447,6 +591,198 @@ const BranchManagement = () => {
               Add Branch
             </Button>
           </Box>
+        </Box>
+
+        <Box sx={styles.assignmentWrap}>
+          <Paper elevation={0} sx={styles.assignmentCard}>
+            <Box sx={styles.assignmentHeader}>
+              <Box>
+                <Typography sx={styles.assignmentTitle}>Branch Assignment</Typography>
+                <Typography sx={styles.assignmentSubtitle}>
+                  Select a company user and assign one or more branches.
+                </Typography>
+              </Box>
+              <Chip
+                label={usersLoading ? "Loading users" : `${companyUsers.length} users`}
+                size="small"
+                sx={styles.assignmentChip}
+              />
+            </Box>
+
+            <Grid container spacing={2.5} sx={{ mt: 0.5 }}>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth size="small">
+                  <InputLabel id="branch-user-select-label">Company User</InputLabel>
+                  <Select
+                    labelId="branch-user-select-label"
+                    value={selectedUserId}
+                    label="Company User"
+                    onChange={handleUserChange}
+                    disabled={usersLoading || companyUsers.length === 0}
+                    displayEmpty
+                    renderValue={(selected) => {
+                      if (!selected) {
+                        return <span style={{ color: "#94a3b8" }}>Select</span>;
+                      }
+                      const user = companyUsers.find((item) => getRecordId(item) === selected);
+                      return user ? `${user.name || "Unnamed User"}` : "Select";
+                    }}
+                    input={<OutlinedInput label="Company User" />}
+                  >
+                    <MenuItem value="">
+                      <em>Select</em>
+                    </MenuItem>
+                    {companyUsers.map((user) => {
+                      const userId = getRecordId(user);
+                      return (
+                        <MenuItem key={userId} value={userId}>
+                          <Box sx={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                            <Typography sx={styles.userOptionName}>{user.name || "Unnamed User"}</Typography>
+                            <Typography sx={styles.userOptionMeta}>
+                              {user.email || "No email"}{user.employeeId ? ` - ${user.employeeId}` : ""}
+                            </Typography>
+                          </Box>
+                        </MenuItem>
+                      );
+                    })}
+                  </Select>
+                </FormControl>
+                {selectedUser && (
+                  <Typography sx={styles.selectedUserMeta}>
+                    Current access: {getUserAssignedBranchIds(selectedUser).length} branch{getUserAssignedBranchIds(selectedUser).length === 1 ? "" : "es"}
+                  </Typography>
+                )}
+              </Grid>
+
+              <Grid item xs={12} md={8}>
+                <FormControl fullWidth size="small">
+                  <InputLabel id="branch-multi-select-label">Assign Branches</InputLabel>
+                  <Select
+                    labelId="branch-multi-select-label"
+                    multiple
+                    value={selectedUserBranches}
+                    onChange={handleBranchAssignmentsChange}
+                    disabled={!selectedUser || branches.length === 0}
+                    input={<OutlinedInput label="Assign Branches" />}
+                    renderValue={(selected) => {
+                      const labels = selected
+                        .map((branchId) => getBranchLabel(branchMap.get(branchId)))
+                        .filter(Boolean);
+                      return labels.length ? labels.join(", ") : "Select branches";
+                    }}
+                  >
+                    {branches.map((branch) => {
+                      const branchId = getRecordId(branch);
+                      return (
+                        <MenuItem key={branchId} value={branchId}>
+                          <Checkbox checked={selectedUserBranches.includes(branchId)} />
+                          <ListItemText primary={getBranchLabel(branch)} secondary={branch.isDefault ? "Default branch" : ""} />
+                        </MenuItem>
+                      );
+                    })}
+                  </Select>
+                </FormControl>
+
+                {selectedUserBranches.length > 0 && (
+                  <Box sx={styles.branchChipRow}>
+                    {selectedUserBranches.map((branchId) => {
+                      const branch = branchMap.get(branchId);
+                      return (
+                        <Chip
+                          key={branchId}
+                          label={getBranchLabel(branch) || branchId}
+                          size="small"
+                          sx={styles.branchChip}
+                        />
+                      );
+                    })}
+                  </Box>
+                )}
+              </Grid>
+
+              <Grid item xs={12} md={12}>
+                <Box sx={styles.assignmentActions}>
+                  <Typography sx={styles.assignmentHint}>
+                    Users with a single branch will not see the branch dropdown on page screens. Multi-branch users and company owners will.
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    onClick={handleSaveBranchAssignments}
+                    disabled={!selectedUser || assignmentSaving}
+                    sx={styles.primaryButton}
+                  >
+                    {assignmentSaving ? <CircularProgress size={20} color="inherit" /> : "Save Branch Access"}
+                  </Button>
+                </Box>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Box>
+
+        <Box sx={styles.assignmentWrap}>
+          <Paper elevation={0} sx={styles.assignmentCard}>
+            <Box sx={styles.assignmentHeader}>
+              <Box>
+                <Typography sx={styles.assignmentTitle}>Multi-Branch Users</Typography>
+                <Typography sx={styles.assignmentSubtitle}>
+                  Users with more than one branch assigned are listed here for quick editing.
+                </Typography>
+              </Box>
+              <Chip
+                label={`${multiBranchUsers.length} users`}
+                size="small"
+                sx={styles.assignmentChip}
+              />
+            </Box>
+
+            {multiBranchUsers.length === 0 ? (
+              <Box sx={styles.emptyMultiBranchState}>
+                <Typography sx={styles.emptyMultiBranchTitle}>No multi-branch users found</Typography>
+                <Typography sx={styles.emptyMultiBranchSubtitle}>
+                  Assign more than one branch to a user and they will appear here.
+                </Typography>
+              </Box>
+            ) : (
+              <Box sx={styles.multiBranchList}>
+                {multiBranchUsers.map((user) => {
+                  const assignedBranchIds = getUserAssignedBranchIds(user);
+                  return (
+                    <Box key={getRecordId(user)} sx={styles.multiBranchRow}>
+                      <Box sx={styles.multiBranchUserInfo}>
+                        <Typography sx={styles.multiBranchName}>{user.name || "Unnamed User"}</Typography>
+                        <Typography sx={styles.multiBranchMeta}>
+                          {user.email || "No email"}{user.employeeId ? ` - ${user.employeeId}` : ""}
+                        </Typography>
+                      </Box>
+
+                      <Box sx={styles.multiBranchChips}>
+                        {assignedBranchIds.map((branchId) => {
+                          const branch = branchMap.get(branchId);
+                          return (
+                            <Chip
+                              key={branchId}
+                              label={getBranchLabel(branch) || branchId}
+                              size="small"
+                              sx={styles.branchChip}
+                            />
+                          );
+                        })}
+                      </Box>
+
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => handleEditMultiBranchUser(user)}
+                        sx={styles.editAccessButton}
+                      >
+                        Edit
+                      </Button>
+                    </Box>
+                  );
+                })}
+              </Box>
+            )}
+          </Paper>
         </Box>
 
         {loading ? (
@@ -692,6 +1028,143 @@ const styles = {
     border: "1px solid #e2e8f0",
     boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
     overflow: "hidden",
+  },
+  assignmentWrap: {
+    px: 2.5,
+    py: 2.5,
+    borderBottom: "1px solid #e2e8f0",
+    bgcolor: "#f8fbff",
+  },
+  assignmentCard: {
+    p: 2.5,
+    borderRadius: "16px",
+    border: "1px solid #dbe5f5",
+    bgcolor: "#fff",
+    boxShadow: "0 8px 24px rgba(37, 99, 235, 0.06)",
+  },
+  assignmentHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 2,
+    mb: 2,
+    flexWrap: "wrap",
+  },
+  assignmentTitle: {
+    fontSize: 18,
+    fontWeight: 800,
+    color: "#1e293b",
+  },
+  assignmentSubtitle: {
+    fontSize: 13,
+    color: "#64748b",
+    mt: 0.5,
+  },
+  assignmentChip: {
+    height: 24,
+    borderRadius: "999px",
+    bgcolor: "#eff6ff",
+    color: "#2563eb",
+    fontWeight: 800,
+  },
+  userOptionName: {
+    fontSize: 13,
+    fontWeight: 800,
+    color: "#1e293b",
+    lineHeight: 1.2,
+  },
+  userOptionMeta: {
+    fontSize: 12,
+    color: "#64748b",
+  },
+  selectedUserMeta: {
+    mt: 0.75,
+    fontSize: 12,
+    color: "#475569",
+  },
+  branchChipRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 1,
+    mt: 1.25,
+  },
+  branchChip: {
+    height: 24,
+    bgcolor: "#eef2ff",
+    color: "#4338ca",
+    fontWeight: 700,
+  },
+  multiBranchList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 1.25,
+  },
+  multiBranchRow: {
+    display: "grid",
+    gridTemplateColumns: { xs: "1fr", lg: "minmax(220px, 280px) 1fr auto" },
+    gap: 1.5,
+    alignItems: { xs: "stretch", lg: "center" },
+    p: 1.5,
+    borderRadius: "14px",
+    border: "1px solid #e2e8f0",
+    bgcolor: "#f8fafc",
+  },
+  multiBranchUserInfo: {
+    minWidth: 0,
+  },
+  multiBranchName: {
+    fontSize: 14,
+    fontWeight: 800,
+    color: "#1e293b",
+    lineHeight: 1.25,
+  },
+  multiBranchMeta: {
+    fontSize: 12,
+    color: "#64748b",
+    mt: 0.35,
+  },
+  multiBranchChips: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 1,
+    alignItems: "center",
+  },
+  editAccessButton: {
+    borderRadius: "10px",
+    textTransform: "none",
+    fontWeight: 800,
+    px: 2,
+    minWidth: 92,
+    alignSelf: { xs: "flex-start", lg: "center" },
+  },
+  emptyMultiBranchState: {
+    p: 2,
+    borderRadius: "14px",
+    border: "1px dashed #cbd5e1",
+    bgcolor: "#f8fafc",
+  },
+  emptyMultiBranchTitle: {
+    fontSize: 14,
+    fontWeight: 800,
+    color: "#334155",
+  },
+  emptyMultiBranchSubtitle: {
+    fontSize: 12,
+    color: "#64748b",
+    mt: 0.5,
+  },
+  assignmentActions: {
+    display: "flex",
+    alignItems: { xs: "stretch", sm: "center" },
+    justifyContent: "space-between",
+    gap: 2,
+    mt: 0.5,
+    flexDirection: { xs: "column", sm: "row" },
+  },
+  assignmentHint: {
+    fontSize: 12,
+    color: "#64748b",
+    maxWidth: 680,
   },
   header: {
     p: 2.5,

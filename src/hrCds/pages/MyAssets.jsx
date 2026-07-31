@@ -73,7 +73,12 @@ const MyAssets = () => {
   };
 
   
+  
   const [allowedAssets, setAllowedAssets] = useState([]);
+  const assetsFetchInFlightRef = useRef(false);
+  const requestsFetchInFlightRef = useRef(false);
+  const lastAssetsFetchAtRef = useRef(0);
+  const lastRequestsFetchAtRef = useRef(0);
 
   
   const socketContext = useSocket();
@@ -108,7 +113,14 @@ const MyAssets = () => {
   };
 
   
-  const fetchCompanyAssets = async () => {
+  const fetchCompanyAssets = async (force = false) => {
+    const now = Date.now();
+    if (!force && (assetsFetchInFlightRef.current || now - lastAssetsFetchAtRef.current < 30000)) {
+      return;
+    }
+    assetsFetchInFlightRef.current = true;
+    lastAssetsFetchAtRef.current = now;
+
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get("/company-assets", {
@@ -153,6 +165,8 @@ const MyAssets = () => {
     } catch (err) {
       console.error("❌ Failed to fetch company assets:", err);
       showToast("Failed to load company assets", "error", 4000);
+    } finally {
+      assetsFetchInFlightRef.current = false;
     }
   };
 
@@ -182,7 +196,14 @@ const MyAssets = () => {
   };
 
   
-  const fetchRequests = async (showRefresh = false) => {
+  const fetchRequests = async (showRefresh = false, force = false) => {
+    const now = Date.now();
+    if (!force && (requestsFetchInFlightRef.current || now - lastRequestsFetchAtRef.current < 30000)) {
+      return;
+    }
+    requestsFetchInFlightRef.current = true;
+    lastRequestsFetchAtRef.current = now;
+
     if (showRefresh) setRefreshing(true);
     
     try {
@@ -211,6 +232,7 @@ const MyAssets = () => {
       showToast("Failed to fetch requests", "error", 4000);
     } finally {
       setRefreshing(false);
+      requestsFetchInFlightRef.current = false;
     }
   };
 
@@ -241,8 +263,8 @@ const MyAssets = () => {
       }
       
       
-      fetchRequests();
-      fetchCompanyAssets();
+      fetchRequests(false, true);
+      fetchCompanyAssets(true);
     };
 
     
@@ -285,7 +307,7 @@ const MyAssets = () => {
         void 0;
         fetchRequests();
         fetchCompanyAssets();
-      }, 30000);
+      }, 180000);
       
       cleanupFunctions.push(() => clearInterval(intervalId));
     }
@@ -309,8 +331,8 @@ const MyAssets = () => {
       try {
         
         await Promise.all([
-          fetchCompanyAssets(),
-          fetchRequests()
+          fetchCompanyAssets(true),
+          fetchRequests(false, true)
         ]);
       } catch (error) {
         console.error('❌ Error loading asset data:', error);
@@ -360,8 +382,8 @@ const MyAssets = () => {
       showToast("🎉 Request submitted successfully!", "success", 4000);
       
       setNewAsset("");
-      await fetchRequests(); 
-      await fetchCompanyAssets(); 
+      await fetchRequests(true, true); 
+      await fetchCompanyAssets(true); 
       
     } catch (error) {
         console.error("❌ FULL ERROR:", error.response?.data);
@@ -432,8 +454,8 @@ const MyAssets = () => {
             <button
               className="MyAssets-icon-button"
               onClick={() => {
-                fetchCompanyAssets();
-                fetchRequests(true);
+                fetchCompanyAssets(true);
+                fetchRequests(true, true);
               }}
               disabled={refreshing}
               title="Refresh data"

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import axios from "../../utils/axiosConfig";
 import "../Css/Alerts.css";
 import CIISLoader from '../../Loader/CIISLoader'; 
@@ -136,6 +136,8 @@ const Alerts = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [userGroups, setUserGroups] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  const initialLoadRef = useRef(false);
+  const formDataLoadedRef = useRef(false);
 
   const token = localStorage.getItem("token");
   const canManage = ["admin", "hr", "manager"].includes(role?.toLowerCase());
@@ -173,19 +175,11 @@ const Alerts = () => {
     setLoading(true);
     setRefreshing(true);
     try {
-      const [alertsRes, usersRes, groupsRes] = await Promise.all([
-        axios.get("/alerts", headers),
-        axios.get("/task/assignable-users", headers).catch(() => ({ data: [] })),
-        axios.get("/groups", headers).catch(() => ({ data: [] })),
-      ]);
+      const alertsRes = await axios.get("/alerts", headers);
       
       const fetchedAlerts = alertsRes.data?.alerts || alertsRes.data?.data || alertsRes.data || [];
-      const fetchedUsers = usersRes.data?.users || usersRes.data?.data || usersRes.data || [];
-      const fetchedGroups = groupsRes.data?.groups || groupsRes.data?.data || groupsRes.data || [];
 
       setAlerts(fetchedAlerts);
-      setUsers(fetchedUsers);
-      setGroups(fetchedGroups);
       calculateStats(fetchedAlerts);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -197,6 +191,26 @@ const Alerts = () => {
       setLoading(false);
       setRefreshing(false);
       setPageLoading(false);
+    }
+  };
+
+  const loadFormData = async () => {
+    if (!canManage || formDataLoadedRef.current) return;
+    formDataLoadedRef.current = true;
+
+    try {
+      const [usersRes, groupsRes] = await Promise.all([
+        axios.get("/task/assignable-users", headers).catch(() => ({ data: [] })),
+        axios.get("/groups", headers).catch(() => ({ data: [] })),
+      ]);
+
+      const fetchedUsers = usersRes.data?.users || usersRes.data?.data || usersRes.data || [];
+      const fetchedGroups = groupsRes.data?.groups || groupsRes.data?.data || groupsRes.data || [];
+
+      setUsers(fetchedUsers);
+      setGroups(fetchedGroups);
+    } catch (error) {
+      console.error("Error loading alert form data:", error);
     }
   };
 
@@ -236,6 +250,9 @@ const Alerts = () => {
 
   
   useEffect(() => {
+    if (initialLoadRef.current) return;
+    initialLoadRef.current = true;
+
     const loadData = async () => {
       setPageLoading(true);
       const storedUser = localStorage.getItem("user");
@@ -260,6 +277,12 @@ const Alerts = () => {
     
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (open && canManage) {
+      void loadFormData();
+    }
+  }, [open, canManage]);
 
   
   useEffect(() => {

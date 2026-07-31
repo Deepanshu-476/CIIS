@@ -3564,8 +3564,29 @@
   .dashboard-projects-card .project-progress-list {
     flex: 1;
     align-content: start;
-    gap: 13px;
+    gap: 7px;
     min-height: 0;
+    padding-right: 3px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #d9d4f5 transparent;
+  }
+  .dashboard-projects-card .project-progress-list > div {
+    gap: 3px;
+  }
+  .dashboard-projects-card .project-progress-list small {
+    line-height: 1.15;
+  }
+  .dashboard-projects-card .project-progress-list::-webkit-scrollbar {
+    width: 4px;
+  }
+  .dashboard-projects-card .project-progress-list::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: #d9d4f5;
+  }
+  .dashboard-projects-card .project-progress-list::-webkit-scrollbar-track {
+    background: transparent;
   }
 }
 

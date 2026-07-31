@@ -510,7 +510,7 @@ const allPagesItems = [
   },
   {
     id: 'projects',
-    name: 'Projects',
+    name: 'My Projects',
     icon: 'Groups',
     path: '/ciisUser/project',
     category: 'projects',
@@ -622,7 +622,7 @@ const allPagesItems = [
   },
   {
     id: 'admin-projects',
-    name: 'Admin Projects',
+    name: 'Manage Projects',
     icon: 'Groups',
     path: '/ciisUser/adminproject',
     category: 'projects',
@@ -715,6 +715,7 @@ const getPathFromName = (name) => {
     'Profile': '/ciisUser/profile',
     'Alerts': '/ciisUser/alert',
     'Projects': '/ciisUser/project',
+    'My Projects': '/ciisUser/project',
     'Employee Details': '/ciisUser/emp-details',
     'Sidebar Management': '/ciisUser/SidebarManagement',
     'Employee Leaves': '/ciisUser/emp-leaves',
@@ -729,6 +730,7 @@ const getPathFromName = (name) => {
     'Client Meeting': '/ciisUser/client-meeting',
     'Create Employee Meeting': '/ciisUser/admin-meeting',
     'Admin Projects': '/ciisUser/adminproject',
+    'Manage Projects': '/ciisUser/adminproject',
     'Company All Tasks': '/ciisUser/company-all-task',
     'Department All Tasks': '/ciisUser/department-all-task',
     'Client Management': '/ciisUser/emp-client',
@@ -755,7 +757,10 @@ const getPathFromName = (name) => {
 };
 
 const getMenuDisplayName = (name) => {
-  return name === 'My Details' ? 'My Profile' : name;
+  if (name === 'My Details') return 'My Profile';
+  if (name === 'Projects') return 'My Projects';
+  if (name === 'Admin Projects' || name === 'Admin Project') return 'Manage Projects';
+  return name;
 };
 
 const getMenuRouteKey = item => String(item?.path || '').split('/').filter(Boolean).pop();
@@ -855,6 +860,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   const sidebarRef = useRef(null);
   const hoverTimer = useRef(null);
   const leaveTimer = useRef(null);
+  const isAlertsPage = location.pathname === '/ciisUser/alert' || location.pathname.endsWith('/alert');
 
   
   const isSidebarOpen = isMobile || isHovered;
@@ -1145,7 +1151,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   }, [badgeSeenStorageKey, menuBadgeCounts]);
 
   useEffect(() => {
-    if (!userData) return undefined;
+    if (!userData || isAlertsPage) return undefined;
 
     fetchMenuBadgeCounts();
     const intervalId = window.setInterval(fetchMenuBadgeCounts, BADGE_REFRESH_INTERVAL);
@@ -1158,7 +1164,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       window.removeEventListener('focus', refreshBadges);
       window.removeEventListener('ciis-sidebar-badges-refresh', refreshBadges);
     };
-  }, [userData, fetchMenuBadgeCounts]);
+  }, [userData, fetchMenuBadgeCounts, isAlertsPage]);
 
   
   const fetchSidebarConfig = useCallback(async () => {

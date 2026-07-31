@@ -211,7 +211,6 @@ const EmployeeProject = () => {
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState("");
   const [taskImagePreviewUrl, setTaskImagePreviewUrl] = useState("");
-  const [deletingTaskAttachment, setDeletingTaskAttachment] = useState(false);
   const [isTaskFileDragging, setIsTaskFileDragging] = useState(false);
   const [openTaskDialog, setOpenTaskDialog] = useState(false);
   const [openStatusDialog, setOpenStatusDialog] = useState(false);
@@ -806,34 +805,6 @@ const EmployeeProject = () => {
     }
   };
 
-  const handleDeleteExistingTaskAttachment = async () => {
-    if (!editingTask?._id || !editingTask.pdfFile?.path || deletingTaskAttachment) return;
-
-    const confirmed = window.confirm("Delete this image permanently?");
-    if (!confirmed) return;
-
-    setDeletingTaskAttachment(true);
-    try {
-      await axios.delete(`/projects/${selectedProject}/tasks/${editingTask._id}/attachment`);
-      setEditingTask(current => current ? { ...current, pdfFile: null } : current);
-      setTasks(current => current.map(task =>
-        task._id === editingTask._id ? { ...task, pdfFile: null } : task
-      ));
-      setProjectDetails(current => current ? {
-        ...current,
-        tasks: (current.tasks || []).map(task =>
-          task._id === editingTask._id ? { ...task, pdfFile: null } : task
-        )
-      } : current);
-      showSnackbar("Task image deleted successfully", "success");
-    } catch (error) {
-      console.error("Error deleting task attachment:", error);
-      showSnackbar(error.response?.data?.message || "Unable to delete task image", "error");
-    } finally {
-      setDeletingTaskAttachment(false);
-    }
-  };
-
   
   const handleAddRemark = async (taskId, text) => {
     if (remarkSubmittingTaskId === taskId) return;
@@ -1351,24 +1322,11 @@ const EmployeeProject = () => {
                       color={getPriorityColor(t.priority)}
                     />
                   </div>
-                </div>
-                <div className="EmployeeProject-task-actions">
-                  {["pending", "overdue"].includes(normalizeTaskStatus(t.status)) && (
-                    <Tooltip title="Edit Task">
-                      <button
-                        className="EmployeeProject-icon-button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenEditTaskDialog(t);
-                        }}
-                      >
-                        <Icons.Edit />
-                      </button>
-                    </Tooltip>
-                  )}
-                  <Tooltip title="Update Status">
-                    <button
-                      className="EmployeeProject-icon-button"
+	                </div>
+	                <div className="EmployeeProject-task-actions">
+	                  <Tooltip title="Update Status">
+	                    <button
+	                      className="EmployeeProject-icon-button"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleOpenStatusDialog(t);
@@ -1607,8 +1565,8 @@ const EmployeeProject = () => {
       <div className="EmployeeProject-header">
         <div className="EmployeeProject-header-content">
           <div className="EmployeeProject-header-text">
-            <h1 className="EmployeeProject-title">Project Dashboard</h1>
-            <p className="EmployeeProject-subtitle">Manage your projects and tasks efficiently</p>
+            <h1 className="EmployeeProject-title">My Projects</h1>
+            <p className="EmployeeProject-subtitle">View assigned projects and update your tasks</p>
           </div>
         </div>
 
@@ -1815,11 +1773,11 @@ const EmployeeProject = () => {
                       label={`${p.users?.length || 0}`}
                       variant="outlined"
                     />
-                    <Chip
-                      icon={<Icons.Task />}
-                      label={`${p.tasks?.length || 0}`}
-                      variant="outlined"
-                    />
+	                    <Chip
+	                      icon={<Icons.Task />}
+	                      label={`${p.taskCount ?? p.tasks?.length ?? 0}`}
+	                      variant="outlined"
+	                    />
                   </div>
                   
                   {p.description && (
@@ -2333,22 +2291,10 @@ const EmployeeProject = () => {
               </div>
             </div>
 
-            <div className="EmployeeProject-modal-footer EmployeeProject-task-detail-footer">
-              {["pending", "overdue"].includes(normalizeTaskStatus(detailTask.status)) && (
-                <button
-                  className="EmployeeProject-button EmployeeProject-button-outline"
-                  onClick={() => {
-                    setDetailTaskId(null);
-                    handleOpenEditTaskDialog(detailTask);
-                  }}
-                >
-                  <Icons.Edit />
-                  Edit
-                </button>
-              )}
-              <textarea
-                rows={2}
-                className="EmployeeProject-remark-input"
+	            <div className="EmployeeProject-modal-footer EmployeeProject-task-detail-footer">
+	              <textarea
+	                rows={2}
+	                className="EmployeeProject-remark-input"
                 placeholder="Add a remark..."
                 value={detailTask._newRemark || ""}
                 onChange={(e) =>
@@ -2865,9 +2811,9 @@ const EmployeeProject = () => {
                                   setFile(null);
                                   setFileName("");
                                 }}
-                                aria-label={`Delete ${fileName}`}
+                                aria-label={`Remove ${fileName}`}
                               >
-                                Delete
+                                Remove
                               </button>
                             </div>
                           </div>
@@ -2909,14 +2855,6 @@ const EmployeeProject = () => {
                     <div className="EmployeeProject-file-info">
                       {isImagePath(editingTask.pdfFile) ? <Icons.Image /> : <Icons.PictureAsPdf />}
                       <span>Current file: {editingTask.pdfFile.filename}</span>
-                      <button
-                        type="button"
-                        className="EmployeeProject-file-remove"
-                        onClick={handleDeleteExistingTaskAttachment}
-                        disabled={deletingTaskAttachment}
-                      >
-                        {deletingTaskAttachment ? "Deleting..." : "Delete"}
-                      </button>
                     </div>
                   </div>
                 ) : null}

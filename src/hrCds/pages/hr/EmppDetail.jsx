@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import axios from "../../../utils/axiosConfig";
 import './employee-directory.css';
 import CIISLoader from '../../../Loader/CIISLoader';
 import PageBranchDropdown, { usePageBranchScope } from '../../components/PageBranchDropdown';
+import { getCurrentUserId, getStoredUser, getUserIds, loadPagePermission } from '../../../utils/pageAccess';
 
 
 import {
@@ -1768,8 +1770,11 @@ const EmployeeDirectory = () => {
   const currentUserRole = user.getCurrentUserJobRole();
   const currentUserCompanyRole = user.getCurrentUserCompanyRole();
   const isSuperAdmin = user.isSuperAdmin;
-  const canEditOtherEmployees = user.canEditOtherEmployees;
-  const canSeeAllCompanyUsers = user.canSeeAllCompanyUsers;
+  const [pageAccessReady, setPageAccessReady] = useState(false);
+  const [pageCanViewEmployees, setPageCanViewEmployees] = useState(true);
+  const [pageCanEditEmployees, setPageCanEditEmployees] = useState(true);
+  const canEditOtherEmployees = pageAccessReady ? pageCanEditEmployees : user.canEditOtherEmployees;
+  const canSeeAllCompanyUsers = pageAccessReady ? pageCanViewEmployees : user.canSeeAllCompanyUsers;
   
   // Snackbar helper
   const showSnackbar = useCallback((message, severity = 'success') => {
@@ -1780,9 +1785,49 @@ const EmployeeDirectory = () => {
       id: Date.now()
     });
     
-    setTimeout(() => {
-      setSnackbar(prev => ({ ...prev, open: false }));
-    }, 3000);
+      setTimeout(() => {
+        setSnackbar(prev => ({ ...prev, open: false }));
+      }, 3000);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadEmployeePagePermissions = async () => {
+      try {
+        const page = await loadPagePermission('/ciisUser/emp-details');
+        if (!active) return;
+
+        const currentUserIdValue = getCurrentUserId();
+        const currentUser = getStoredUser();
+        const viewUserIds = getUserIds(page.viewUsers);
+        const editUserIds = getUserIds(page.editUsers);
+        const configuredIds = [
+          ...getUserIds(page.approvers),
+          ...viewUserIds,
+          ...editUserIds,
+          ...getUserIds(page.deleteUsers)
+        ];
+        const hasConfig = configuredIds.length > 0;
+        const fallbackRole = String(currentUser?.jobRole || currentUser?.companyRole || currentUser?.role || '').toLowerCase();
+        const fallbackAllowed = ['owner', 'admin', 'hr', 'manager', 'super_admin', 'superadmin'].includes(fallbackRole);
+
+        const canEdit = editUserIds.includes(currentUserIdValue) || (!hasConfig && fallbackAllowed);
+        const canView = canEdit || viewUserIds.includes(currentUserIdValue) || (!hasConfig && fallbackAllowed);
+
+        setPageCanEditEmployees(canEdit);
+        setPageCanViewEmployees(canView);
+      } catch (error) {
+        console.error('Failed to load employee page permissions:', error);
+      } finally {
+        if (active) setPageAccessReady(true);
+      }
+    };
+
+    loadEmployeePagePermissions();
+    return () => {
+      active = false;
+    };
   }, []);
   
   // Fetch Job Roles from API
@@ -2094,8 +2139,11 @@ const EmployeeDirectory = () => {
   
   // Initial data fetch
   useEffect(() => {
+    if (!pageAccessReady) {
+      return;
+    }
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, pageAccessReady]);
 
   useEffect(() => {
     setSelectedDepartment('all');
@@ -2321,6 +2369,10 @@ const EmployeeDirectory = () => {
 
       delete updateData.zipCode;
       delete updateData.documents;
+      // Older cross-company records can contain a structured legacy value here,
+      // but this field is not part of the employee edit form. Do not resend it
+      // through the current User schema, which expects a string.
+      delete updateData.additionalDetails;
       
       if (!updateData.name?.trim()) {
         showSnackbar('Name is required', 'error');
@@ -2947,7 +2999,7 @@ const EmployeeDirectory = () => {
       )}
 
       {/* User Detail Modal */}
-      {selectedUser && (
+      {selectedUser && createPortal((
         <div className="EmployeeDirectory-modal-overlay" onClick={handleCloseUser}>
           <div className="EmployeeDirectory-modal EmployeeDirectory-user-detail-modal" onClick={e => e.stopPropagation()}>
             <div className="EmployeeDirectory-modal-header">
@@ -3334,7 +3386,7 @@ const EmployeeDirectory = () => {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
 
       {/* Edit Modal */}
       {editingUser && (

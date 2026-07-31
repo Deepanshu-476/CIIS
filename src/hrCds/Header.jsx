@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   AppBar,
   Toolbar,
@@ -23,7 +23,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ErrorIcon from "@mui/icons-material/Error";
 import InfoIcon from "@mui/icons-material/Info";
 import WarningIcon from "@mui/icons-material/Warning";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../src/context/useAuth";
 import { useSocket } from "../../src/context/SocketContext";
 import { useNotification } from "../../src/context/NotificationContext";
@@ -45,6 +45,8 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
   
   const theme = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAlertsPage = location.pathname === "/ciisUser/alert" || location.pathname.endsWith("/alert");
 
   const [notifications, setNotifications] = useState([]);
   const [anchorEl, setAnchorEl] = useState(null);
@@ -58,6 +60,10 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
 
   
   const [localUnreadCount, setLocalUnreadCount] = useState(0);
+  const unreadFetchInFlightRef = useRef(false);
+  const lastUnreadFetchAtRef = useRef(0);
+  const notificationsFetchInFlightRef = useRef(false);
+  const lastNotificationsFetchAtRef = useRef(0);
 
   const getDismissedNotificationKey = () =>
     `dismissedNotifications:${user?._id || user?.id || "anonymous"}`;
@@ -129,9 +135,17 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
   };
 
   
-  const fetchUnreadCount = async () => {
+  const fetchUnreadCount = async (force = false) => {
     const token = localStorage.getItem("token");
     if (!token) return;
+
+    const now = Date.now();
+    if (!force && (unreadFetchInFlightRef.current || now - lastUnreadFetchAtRef.current < 30000)) {
+      return;
+    }
+
+    unreadFetchInFlightRef.current = true;
+    lastUnreadFetchAtRef.current = now;
 
     try {
       const headers = { Authorization: `Bearer ${token}` };
@@ -149,6 +163,8 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
       if (storedUnread) {
         setLocalUnreadCount(parseInt(storedUnread, 10));
       }
+    } finally {
+      unreadFetchInFlightRef.current = false;
     }
   };
 
@@ -219,21 +235,50 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
 
   
   useEffect(() => {
+    if (isAlertsPage) {
+      const stored = localStorage.getItem('unreadCount');
+      if (stored) {
+        setLocalUnreadCount(parseInt(stored, 10));
+      }
+      return undefined;
+    }
+
     if (!hasFetched) {
-      fetchUnreadCount();
+      fetchUnreadCount(true);
     }
     
     const interval = setInterval(() => {
       fetchUnreadCount();
     }, 120000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchUnreadCount();
+      }
+    };
+
+    window.addEventListener("focus", handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isAlertsPage]);
 
   
-  const fetchNotifications = async (silent = false) => {
+  const fetchNotifications = async (silent = false, force = false) => {
     const token = localStorage.getItem("token");
     if (!token) return;
+
+    const now = Date.now();
+    if (!force && (notificationsFetchInFlightRef.current || now - lastNotificationsFetchAtRef.current < 60000)) {
+      return;
+    }
+
+    notificationsFetchInFlightRef.current = true;
+    lastNotificationsFetchAtRef.current = now;
 
     if (!silent) setLoading(true);
     
@@ -454,6 +499,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
         showToast("Failed to fetch notifications", 'error', 3000);
       }
     } finally {
+      notificationsFetchInFlightRef.current = false;
       if (!silent) setLoading(false);
     }
   };

@@ -855,6 +855,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   const sidebarRef = useRef(null);
   const hoverTimer = useRef(null);
   const leaveTimer = useRef(null);
+  const isAlertsPage = location.pathname === '/ciisUser/alert' || location.pathname.endsWith('/alert');
 
   
   const isSidebarOpen = isMobile || isHovered;
@@ -1145,7 +1146,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   }, [badgeSeenStorageKey, menuBadgeCounts]);
 
   useEffect(() => {
-    if (!userData) return undefined;
+    if (!userData || isAlertsPage) return undefined;
 
     fetchMenuBadgeCounts();
     const intervalId = window.setInterval(fetchMenuBadgeCounts, BADGE_REFRESH_INTERVAL);
@@ -1158,7 +1159,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       window.removeEventListener('focus', refreshBadges);
       window.removeEventListener('ciis-sidebar-badges-refresh', refreshBadges);
     };
-  }, [userData, fetchMenuBadgeCounts]);
+  }, [userData, fetchMenuBadgeCounts, isAlertsPage]);
 
   
   const fetchSidebarConfig = useCallback(async () => {

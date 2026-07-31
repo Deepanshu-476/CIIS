@@ -71,6 +71,12 @@ const MyTaskManagement = () => {
   const [isMobile, setIsMobile] = useState(false);
   const fileInputRef = useRef(null);
   const voiceNoteInputRef = useRef(null);
+  const initialDataLoadedRef = useRef(false);
+  const previousStatusFilterRef = useRef(statusFilter);
+  const myTasksFetchInFlightRef = useRef(false);
+  const assignedTasksFetchInFlightRef = useRef(false);
+  const assignableDataFetchInFlightRef = useRef(false);
+  const notificationsFetchInFlightRef = useRef(false);
   const addCheckpoint = () => {
     setNewTask(prev => ({ ...prev, checkpoints: [...(prev.checkpoints || []), createEmptyCheckpoint()] }));
   };
@@ -137,6 +143,8 @@ const MyTaskManagement = () => {
 
   const fetchNotifications = async () => {
     if (authError || !userId) return;
+    if (notificationsFetchInFlightRef.current) return;
+    notificationsFetchInFlightRef.current = true;
     
     try {
       const res = await axios.get('/task/notifications/all');
@@ -144,6 +152,8 @@ const MyTaskManagement = () => {
       setUnreadNotificationCount(res.data.unreadCount || 0);
     } catch (error) {
       console.error('Error fetching notifications:', error);
+    } finally {
+      notificationsFetchInFlightRef.current = false;
     }
   };
 
@@ -452,6 +462,8 @@ const MyTaskManagement = () => {
       void 0;
       return;
     }
+    if (assignableDataFetchInFlightRef.current) return;
+    assignableDataFetchInFlightRef.current = true;
 
     try {
       const [usersRes, groupsRes] = await Promise.all([
@@ -473,6 +485,8 @@ const MyTaskManagement = () => {
       }
       setUsers([]);
       setGroups([]);
+    } finally {
+      assignableDataFetchInFlightRef.current = false;
     }
   };
 
@@ -481,7 +495,9 @@ const MyTaskManagement = () => {
       setLoading(false);
       return;
     }
+    if (myTasksFetchInFlightRef.current) return;
 
+    myTasksFetchInFlightRef.current = true;
     setLoading(true);
     try {
       const url = statusFilter ? `/tasks/self?status=${statusFilter}` : '/tasks/self';
@@ -502,12 +518,15 @@ const MyTaskManagement = () => {
       }
     } finally {
       setLoading(false);
+      myTasksFetchInFlightRef.current = false;
     }
   };
 
   const fetchAssignedTasks = async () => {
     if (authError || !userId) return;
+    if (assignedTasksFetchInFlightRef.current) return;
 
+    assignedTasksFetchInFlightRef.current = true;
     try {
       const res = await axios.get('/tasks/assigned/to-me');
       setAssignedTasksGrouped(res.data.groupedTasks || {});
@@ -524,6 +543,8 @@ const MyTaskManagement = () => {
       } else {
         setSnackbar({ open: true, message: 'Failed to load assigned tasks', severity: 'error' });
       }
+    } finally {
+      assignedTasksFetchInFlightRef.current = false;
     }
   };
 
@@ -879,13 +900,22 @@ const MyTaskManagement = () => {
   }, []);
 
   useEffect(() => {
-    if (!authError && userId) {
+    if (!authError && userId && !initialDataLoadedRef.current) {
+      initialDataLoadedRef.current = true;
       fetchMyTasks();
       fetchAssignedTasks();
       fetchAssignableData();
       fetchNotifications();
     }
-  }, [statusFilter, tab, authError, userId]);
+  }, [authError, userId]);
+
+  useEffect(() => {
+    if (!authError && userId && initialDataLoadedRef.current && tab === 0) {
+      if (previousStatusFilterRef.current === statusFilter) return;
+      previousStatusFilterRef.current = statusFilter;
+      fetchMyTasks();
+    }
+  }, [statusFilter, authError, userId, tab]);
 
   if (authError && !localStorage.getItem('token')) {
     return (

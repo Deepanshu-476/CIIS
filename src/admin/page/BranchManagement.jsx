@@ -216,7 +216,6 @@ const BranchManagement = () => {
       const response = await axiosInstance.get("/users/company-users", {
         params: {
           companyId: cId,
-          includeInactive: true,
           limit: 200,
         },
       });

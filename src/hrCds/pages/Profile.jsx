@@ -154,7 +154,7 @@ const Profile = () => {
       const requests = [
         axios.get("/job-roles", { params: { company: companyId || undefined, companyCode: companyCode || undefined } }),
         axios.get("/departments"),
-        axios.get("/users/company-users", { params: { companyId: companyId || undefined, includeInactive: true } }),
+        axios.get("/users/company-users", { params: { companyId: companyId || undefined } }),
       ];
       const [rolesResult, departmentsResult, usersResult] = await Promise.allSettled(requests);
       if (!active) return;

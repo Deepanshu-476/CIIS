@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-import React, { useEffect, useState, useRef } from "react";
-=======
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
->>>>>>> ab866e1a6c4e0c94103c459248b507fd806cbdda
 import axios from "../../utils/axiosConfig";
 import {
   FiPackage,

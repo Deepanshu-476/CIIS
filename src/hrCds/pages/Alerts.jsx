@@ -1,305 +1,414 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import axios from "../../utils/axiosConfig";
+import CIISLoader from "../../Loader/CIISLoader";
 import "../Css/Alerts.css";
-import CIISLoader from '../../Loader/CIISLoader'; 
+import {
+  FiAlertCircle,
+  FiAlertTriangle,
+  FiBell,
+  FiCalendar,
+  FiCheckCircle,
+  FiChevronDown,
+  FiEdit2,
+  FiEye,
+  FiFilter,
+  FiInfo,
+  FiPlus,
+  FiRefreshCw,
+  FiRotateCcw,
+  FiSearch,
+  FiTrash2,
+  FiUser,
+  FiUsers,
+  FiX,
+} from "react-icons/fi";
 
+const getHeaders = () => ({
+  headers: {
+    Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+  },
+});
 
-const FiAlertCircle = () => <span className="Alerts-icon">⚠️</span>;
-const FiAlertTriangle = () => <span className="Alerts-icon">⚠️</span>;
-const FiInfo = () => <span className="Alerts-icon">ℹ️</span>;
-const FiPlus = () => <span className="Alerts-icon">➕</span>;
-const FiEdit = () => <span className="Alerts-icon">✏️</span>;
-const FiTrash2 = () => <span className="Alerts-icon">🗑️</span>;
-const FiBell = () => <span className="Alerts-icon">🔔</span>;
-const FiClock = () => <span className="Alerts-icon">⏰</span>;
-const FiTrendingUp = () => <span className="Alerts-icon">📈</span>;
-const FiUsers = () => <span className="Alerts-icon">👥</span>;
-const FiUser = () => <span className="Alerts-icon">👤</span>;
-const FiSearch = () => <span className="Alerts-icon">🔍</span>;
-const FiEye = () => <span className="Alerts-icon">👁️</span>;
-const FiEyeOff = () => <span className="Alerts-icon">🚫</span>;
-const FiFilter = () => <span className="Alerts-icon">🔧</span>;
-const FiGlobe = () => <span className="Alerts-icon">🌍</span>;
-const FiUserCheck = () => <span className="Alerts-icon">✅👤</span>;
-const FiChevronDown = () => <span className="Alerts-icon">⌄</span>;
-const FiChevronUp = () => <span className="Alerts-icon">⌃</span>;
-const FiRefreshCw = () => <span className="Alerts-icon">🔄</span>;
+const asArray = (value) => (Array.isArray(value) ? value : []);
 
+const getApiList = (data, keys = []) => {
+  if (Array.isArray(data)) return data;
+  for (const key of keys) {
+    if (Array.isArray(data?.[key])) return data[key];
+    if (Array.isArray(data?.data?.[key])) return data.data[key];
+  }
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
+};
 
-const Badge = ({ children, badgeContent, color = "error", size = "small" }) => (
-  <div className="Alerts-badge">
-    {children}
-    {badgeContent > 0 && (
-      <span className={`Alerts-badge-content Alerts-badge-${color}`}>
-        {badgeContent > 99 ? "99+" : badgeContent}
-      </span>
-    )}
-  </div>
-);
+const formatDateTime = (value) => {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 
-const Chip = ({ label, color, icon, size = "medium", variant = "default", onClick, onDelete }) => (
-  <span 
-    className={`Alerts-chip Alerts-chip-${size} Alerts-chip-${variant}`}
-    style={{ 
-      backgroundColor: variant === "outlined" ? "transparent" : color ? `${color}20` : undefined,
-      color: color || undefined,
-      borderColor: color ? `${color}30` : undefined
-    }}
-    onClick={onClick}
-  >
-    {icon && <span className="Alerts-chip-icon">{icon}</span>}
-    {label}
-    {onDelete && (
-      <button className="Alerts-chip-delete" onClick={onDelete}>
-        ×
-      </button>
-    )}
-  </span>
-);
+const formatShortTime = (value) => {
+  if (!value) return "--:--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--:--";
+  return date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
 
-const Avatar = ({ children, color, size = "medium" }) => (
-  <div 
-    className={`Alerts-avatar Alerts-avatar-${size}`}
-    style={{ 
-      backgroundColor: color ? `${color}20` : undefined,
-      color: color || undefined
-    }}
-  >
-    {children}
-  </div>
-);
+const normalizeType = (type) => String(type || "info").trim().toLowerCase();
 
-const Tooltip = ({ title, children }) => (
-  <div className="Alerts-tooltip">
-    {children}
-    <span className="Alerts-tooltip-text">{title}</span>
-  </div>
-);
+const normalizeStatus = (status, readBy = []) => {
+  const normalized = String(status || "").trim().toLowerCase();
+  if (normalized === "read" || normalized === "seen") return "read";
+  if (normalized === "unread" || normalized === "new") return "unread";
+  return readBy.length ? "read" : "unread";
+};
 
-const CircularProgress = ({ size = 40 }) => (
-  <div className="Alerts-circular-progress" style={{ width: size, height: size }}>
-    <div className="Alerts-circular-progress-inner" />
-  </div>
-);
+const getTypeIcon = (type) => {
+  switch (normalizeType(type)) {
+    case "warning":
+      return <FiAlertTriangle />;
+    case "error":
+      return <FiAlertCircle />;
+    default:
+      return <FiInfo />;
+  }
+};
 
-const LinearProgress = ({ value }) => (
-  <div className="Alerts-linear-progress">
-    <div 
-      className="Alerts-linear-progress-bar" 
-      style={{ width: `${value}%` }}
-    />
-  </div>
-);
+const getTypeColor = (type) => {
+  switch (normalizeType(type)) {
+    case "warning":
+      return "#F59E0B";
+    case "error":
+      return "#EF4444";
+    default:
+      return "#2563EB";
+  }
+};
 
-const Checkbox = ({ checked, onChange }) => (
-  <label className="Alerts-checkbox">
-    <input 
-      type="checkbox" 
-      checked={checked} 
-      onChange={onChange} 
-      className="Alerts-checkbox-input"
-    />
-    <span className="Alerts-checkbox-checkmark" />
-  </label>
-);
+const getTypeLabel = (type) => {
+  switch (normalizeType(type)) {
+    case "warning":
+      return "Warning";
+    case "error":
+      return "Error";
+    default:
+      return "Info";
+  }
+};
 
- 
+const buildSparkPath = (values) => {
+  const width = 140;
+  const height = 42;
+  const max = Math.max(1, ...values);
+  const step = values.length > 1 ? width / (values.length - 1) : width;
+  return values
+    .map((value, index) => {
+      const x = index * step;
+      const y = height - (value / max) * (height - 6) - 3;
+      return `${index === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(" ");
+};
+
+const createTrendValues = (count, accent = 1) => {
+  const base = Math.max(1, count);
+  return [0, base * 0.5 + accent, base * 0.75 + accent * 0.5, base * 0.6 + accent, base + accent * 1.2];
+};
+
 const Alerts = () => {
   const [alerts, setAlerts] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userGroupIds, setUserGroupIds] = useState([]);
+  const [role, setRole] = useState("");
   const [pageLoading, setPageLoading] = useState(true);
-  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
+  const [notification, setNotification] = useState(null);
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [userSearch, setUserSearch] = useState("");
+  const [groupSearch, setGroupSearch] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterType, setFilterType] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterDate, setFilterDate] = useState("all");
+  const [createdByFilter, setCreatedByFilter] = useState("all");
+  const [viewMode, setViewMode] = useState("all");
   const [form, setForm] = useState({
     type: "info",
     message: "",
     assignedUsers: [],
     assignedGroups: [],
   });
-  const [open, setOpen] = useState(false);
-  const [editId, setEditId] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [groups, setGroups] = useState([]);
-  const [notification, setNotification] = useState(null);
-  const [stats, setStats] = useState({
-    total: 0,
-    info: 0,
-    warning: 0,
-    error: 0,
-    unread: 0,
-  });
-  const [filterType, setFilterType] = useState("all");
-  const [role, setRole] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [userSearch, setUserSearch] = useState("");
-  const [groupSearch, setGroupSearch] = useState("");
-  const [viewMode, setViewMode] = useState("all");
-  const [expandedAlert, setExpandedAlert] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [userGroups, setUserGroups] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [formError, setFormError] = useState("");
   const initialLoadRef = useRef(false);
-  const formDataLoadedRef = useRef(false);
+  const autoRefreshRef = useRef(null);
 
   const token = localStorage.getItem("token");
-  const canManage = ["admin", "hr", "manager"].includes(role?.toLowerCase());
-  const headers = { headers: { Authorization: `Bearer ${token}` } };
+  const canManage = ["admin", "hr", "manager"].includes(String(role || "").toLowerCase());
 
-   
+  const getUserId = () => {
+    const storedUser = currentUser || JSON.parse(localStorage.getItem("user") || "null");
+    return String(storedUser?._id || storedUser?.id || storedUser?.user?._id || storedUser?.user?.id || localStorage.getItem("userId") || "");
+  };
+
   const getUserGroups = async (userId) => {
+    if (!userId) return [];
     try {
-      const response = await axios.get(`/users/${userId}/groups`, headers);
-      if (response.data) {
-        const groups = response.data.groups || response.data.data || response.data || [];
-        setUserGroups(groups);
-        localStorage.setItem("userGroups", JSON.stringify(groups));
-        return groups;
+      const response = await axios.get(`/users/${userId}/groups`, getHeaders());
+      const list = getApiList(response.data, ["groups"]);
+      const ids = list.map((group) => String(group?._id || group?.id || group)).filter(Boolean);
+      setUserGroupIds(ids);
+      localStorage.setItem("userGroups", JSON.stringify(ids));
+      return ids;
+    } catch {
+      try {
+        const stored = JSON.parse(localStorage.getItem("userGroups") || "[]");
+        const ids = asArray(stored).map((group) => String(group?._id || group?.id || group)).filter(Boolean);
+        setUserGroupIds(ids);
+        return ids;
+      } catch {
+        setUserGroupIds([]);
       }
-    } catch (error) {
-      console.error("Error fetching user groups:", error);
-      
-      const storedGroups = localStorage.getItem("userGroups");
-      if (storedGroups) {
-        try {
-          const parsed = JSON.parse(storedGroups);
-          setUserGroups(parsed);
-          return parsed;
-        } catch (e) {
-          console.error("Error parsing stored groups:", e);
-        }
-      }
+      return [];
     }
-    return [];
   };
 
-   
-  const fetchData = async () => {
-    setLoading(true);
-    setRefreshing(true);
+  const fetchUsers = async () => {
     try {
-      const alertsRes = await axios.get("/alerts", headers);
-      
-      const fetchedAlerts = alertsRes.data?.alerts || alertsRes.data?.data || alertsRes.data || [];
+      const response = await axios.get("/users/company-users", getHeaders());
+      const list = getApiList(response.data, ["users"]);
+      setUsers(list);
+      return list;
+    } catch {
+      setUsers([]);
+      return [];
+    }
+  };
 
-      setAlerts(fetchedAlerts);
-      calculateStats(fetchedAlerts);
+  const fetchGroups = async () => {
+    try {
+      const response = await axios.get("/groups", getHeaders());
+      const list = getApiList(response.data, ["groups"]);
+      setGroups(list);
+      return list;
+    } catch {
+      setGroups([]);
+      return [];
+    }
+  };
+
+  const fetchAlerts = async ({ silent = false } = {}) => {
+    if (!silent) setRefreshing(true);
+    try {
+      const response = await axios.get("/alerts", getHeaders());
+      const list = getApiList(response.data, ["alerts"]);
+      setAlerts(list);
+      setLastUpdatedAt(Date.now());
+      return list;
     } catch (error) {
-      console.error("Error fetching data:", error);
       setNotification({
-        message: error.response?.data?.message || "Failed to load alerts",
         type: "error",
+        message: error.response?.data?.message || "Failed to load alerts",
       });
+      return [];
     } finally {
-      setLoading(false);
-      setRefreshing(false);
-      setPageLoading(false);
+      if (!silent) setRefreshing(false);
     }
   };
 
-  const loadFormData = async () => {
-    if (!canManage || formDataLoadedRef.current) return;
-    formDataLoadedRef.current = true;
-
+  const loadData = async () => {
+    setPageLoading(true);
     try {
-      const [usersRes, groupsRes] = await Promise.all([
-        axios.get("/task/assignable-users", headers).catch(() => ({ data: [] })),
-        axios.get("/groups", headers).catch(() => ({ data: [] })),
-      ]);
-
-      const fetchedUsers = usersRes.data?.users || usersRes.data?.data || usersRes.data || [];
-      const fetchedGroups = groupsRes.data?.groups || groupsRes.data?.data || groupsRes.data || [];
-
-      setUsers(fetchedUsers);
-      setGroups(fetchedGroups);
-    } catch (error) {
-      console.error("Error loading alert form data:", error);
-    }
-  };
-
-  const calculateStats = (data) => {
-    const currentUserId = localStorage.getItem("userId");
-    
-    
-    const visibleAlerts = data.filter(alert => {
-      const hasAssignments = alert.assignedUsers?.length > 0 || alert.assignedGroups?.length > 0;
-      if (!hasAssignments) return true;
-      
-      const isDirectlyAssigned = alert.assignedUsers?.some(
-        user => (user._id || user) === currentUserId
-      );
-      
-      const isInAssignedGroup = alert.assignedGroups?.some(group => {
-        const groupId = group._id || group;
-        return userGroups.includes(groupId);
-      });
-      
-      return isDirectlyAssigned || isInAssignedGroup;
-    });
-
-    const info = visibleAlerts.filter((a) => a.type === "info").length;
-    const warning = visibleAlerts.filter((a) => a.type === "warning").length;
-    const error = visibleAlerts.filter((a) => a.type === "error").length;
-    const unread = visibleAlerts.filter((a) => !a.readBy?.includes(currentUserId)).length;
-    
-    setStats({
-      total: visibleAlerts.length,
-      info,
-      warning,
-      error,
-      unread,
-    });
-  };
-
-  
-  useEffect(() => {
-    if (initialLoadRef.current) return;
-    initialLoadRef.current = true;
-
-    const loadData = async () => {
-      setPageLoading(true);
       const storedUser = localStorage.getItem("user");
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
           setCurrentUser(parsed);
-          const userRole = parsed.role || parsed.user?.role || "";
-          setRole(userRole.toLowerCase());
-          const userId = parsed._id || parsed.user?._id || "";
-          if (userId) {
-            localStorage.setItem("userId", userId);
-            
-            await getUserGroups(userId);
-          }
-        } catch (error) {
-          console.error("Error parsing user:", error);
+          const userRole = parsed?.role || parsed?.user?.role || parsed?.userRole || "";
+          setRole(String(userRole).toLowerCase());
+          const userId = parsed?._id || parsed?.id || parsed?.user?._id || parsed?.user?.id || "";
+          if (userId) localStorage.setItem("userId", userId);
+          await getUserGroups(String(userId || ""));
+        } catch {
+          setCurrentUser(null);
         }
       }
-      await fetchData();
-    };
-    
-    loadData();
+
+      await Promise.all([fetchUsers(), fetchGroups(), fetchAlerts({ silent: true })]);
+    } finally {
+      setPageLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (initialLoadRef.current) return;
+    initialLoadRef.current = true;
+    void loadData();
   }, []);
 
   useEffect(() => {
-    if (open && canManage) {
-      void loadFormData();
+    if (!autoRefresh) {
+      if (autoRefreshRef.current) clearInterval(autoRefreshRef.current);
+      return undefined;
     }
-  }, [open, canManage]);
 
-  
-  useEffect(() => {
-    if (alerts.length > 0) {
-      calculateStats(alerts);
+    autoRefreshRef.current = setInterval(() => {
+      void fetchAlerts({ silent: true });
+    }, 45000);
+
+    return () => {
+      if (autoRefreshRef.current) clearInterval(autoRefreshRef.current);
+    };
+  }, [autoRefresh]);
+
+  useEffect(() => () => {
+    if (autoRefreshRef.current) clearInterval(autoRefreshRef.current);
+  }, []);
+
+  const currentUserId = getUserId();
+  const isAlertVisibleToUser = (alert) => {
+    const assignedUsers = asArray(alert?.assignedUsers);
+    const assignedGroups = asArray(alert?.assignedGroups);
+    if (!assignedUsers.length && !assignedGroups.length) return true;
+
+    const userMatch = assignedUsers.some((user) => String(user?._id || user?.id || user) === currentUserId);
+    const groupMatch = assignedGroups.some((group) => {
+      const groupId = String(group?._id || group?.id || group);
+      return userGroupIds.includes(groupId);
+    });
+
+    return userMatch || groupMatch;
+  };
+
+  const visibleAlerts = useMemo(() => alerts.filter(isAlertVisibleToUser), [alerts, currentUserId, userGroupIds]);
+
+  const creators = useMemo(() => {
+    const map = new Map();
+    visibleAlerts.forEach((alert) => {
+      const creator = alert?.createdBy || alert?.assignedBy || alert?.author || alert?.creator;
+      const id = String(creator?._id || creator?.id || creator || "");
+      if (id && !map.has(id)) {
+        const matchedUser = users.find((user) => String(user?._id || user?.id) === id);
+        map.set(id, matchedUser?.name || creator?.name || creator?.email || "System");
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [visibleAlerts, users]);
+
+  const filteredAlerts = useMemo(() => {
+    let list = [...visibleAlerts];
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      list = list.filter((alert) =>
+        String(alert?.message || "").toLowerCase().includes(query) ||
+        String(alert?.type || "").toLowerCase().includes(query)
+      );
     }
-  }, [userGroups, alerts]);
 
-   
-  const handleOpen = (alert = null) => {
+    if (filterType !== "all") {
+      list = list.filter((alert) => normalizeType(alert?.type) === filterType);
+    }
+
+    if (filterStatus !== "all") {
+      list = list.filter((alert) => normalizeStatus(alert?.status, asArray(alert?.readBy)) === filterStatus);
+    }
+
+    if (createdByFilter !== "all") {
+      list = list.filter((alert) => {
+        const creator = alert?.createdBy || alert?.assignedBy || alert?.author || alert?.creator;
+        const creatorId = String(creator?._id || creator?.id || creator || "");
+        return creatorId === createdByFilter;
+      });
+    }
+
+    if (filterDate !== "all") {
+      const now = new Date();
+      list = list.filter((alert) => {
+        const date = new Date(alert?.createdAt);
+        if (Number.isNaN(date.getTime())) return false;
+        const diff = now.getTime() - date.getTime();
+        if (filterDate === "today") return date.toDateString() === now.toDateString();
+        if (filterDate === "week") return diff <= 7 * 24 * 60 * 60 * 1000;
+        if (filterDate === "month") return diff <= 30 * 24 * 60 * 60 * 1000;
+        return true;
+      });
+    }
+
+    if (viewMode === "unread") {
+      list = list.filter((alert) => normalizeStatus(alert?.status, asArray(alert?.readBy)) === "unread");
+    }
+
+    return list.sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0));
+  }, [visibleAlerts, searchQuery, filterType, filterStatus, filterDate, createdByFilter, viewMode]);
+
+  const stats = useMemo(() => {
+    const total = visibleAlerts.length;
+    const info = visibleAlerts.filter((alert) => normalizeType(alert?.type) === "info").length;
+    const warning = visibleAlerts.filter((alert) => normalizeType(alert?.type) === "warning").length;
+    const error = visibleAlerts.filter((alert) => normalizeType(alert?.type) === "error").length;
+    const unread = visibleAlerts.filter((alert) => normalizeStatus(alert?.status, asArray(alert?.readBy)) === "unread").length;
+    return { total, info, warning, error, unread };
+  }, [visibleAlerts]);
+
+  const formUsers = useMemo(() => {
+    const query = userSearch.trim().toLowerCase();
+    if (!query) return users;
+    return users.filter((user) => {
+      const name = String(user?.name || user?.username || user?.fullName || "").toLowerCase();
+      const email = String(user?.email || "").toLowerCase();
+      const userRole = String(user?.role || user?.userRole || "").toLowerCase();
+      return name.includes(query) || email.includes(query) || userRole.includes(query);
+    });
+  }, [users, userSearch]);
+
+  const formGroups = useMemo(() => {
+    const query = groupSearch.trim().toLowerCase();
+    if (!query) return groups;
+    return groups.filter((group) => {
+      const name = String(group?.name || "").toLowerCase();
+      const description = String(group?.description || "").toLowerCase();
+      return name.includes(query) || description.includes(query);
+    });
+  }, [groups, groupSearch]);
+
+  const creatorFilterOptions = useMemo(() => {
+    const fromAlerts = creators;
+    return fromAlerts;
+  }, [creators]);
+
+  const resetFilters = () => {
+    setSearchQuery("");
+    setFilterType("all");
+    setFilterStatus("all");
+    setFilterDate("all");
+    setCreatedByFilter("all");
+    setViewMode("all");
+  };
+
+  const openForm = (alert = null) => {
     if (alert) {
       setEditId(alert._id);
       setForm({
-        type: alert.type,
-        message: alert.message,
-        assignedUsers: alert.assignedUsers?.map(u => u._id || u) || [],
-        assignedGroups: alert.assignedGroups?.map(g => g._id || g) || [],
+        type: normalizeType(alert.type),
+        message: alert.message || "",
+        assignedUsers: asArray(alert.assignedUsers).map((item) => String(item?._id || item?.id || item)).filter(Boolean),
+        assignedGroups: asArray(alert.assignedGroups).map((item) => String(item?._id || item?.id || item)).filter(Boolean),
       });
     } else {
       setEditId(null);
@@ -312,722 +421,604 @@ const Alerts = () => {
     }
     setUserSearch("");
     setGroupSearch("");
-    setOpen(true);
+    setFormError("");
+    setIsFormOpen(true);
   };
 
-  const handleClose = () => setOpen(false);
-
-  const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const closeForm = () => {
+    setIsFormOpen(false);
+    setEditId(null);
+    setFormError("");
   };
 
-  const handleUserSelect = (userId) => {
-    setForm(prev => {
-      const isSelected = prev.assignedUsers.includes(userId);
-      if (isSelected) {
-        return { ...prev, assignedUsers: prev.assignedUsers.filter(id => id !== userId) };
-      } else {
-        return { ...prev, assignedUsers: [...prev.assignedUsers, userId] };
-      }
-    });
+  const toggleUser = (userId) => {
+    setForm((prev) => ({
+      ...prev,
+      assignedUsers: prev.assignedUsers.includes(userId)
+        ? prev.assignedUsers.filter((id) => id !== userId)
+        : [...prev.assignedUsers, userId],
+    }));
   };
 
-  const handleGroupSelect = (groupId) => {
-    setForm(prev => {
-      const isSelected = prev.assignedGroups.includes(groupId);
-      if (isSelected) {
-        return { ...prev, assignedGroups: prev.assignedGroups.filter(id => id !== groupId) };
-      } else {
-        return { ...prev, assignedGroups: [...prev.assignedGroups, groupId] };
-      }
-    });
+  const toggleGroup = (groupId) => {
+    setForm((prev) => ({
+      ...prev,
+      assignedGroups: prev.assignedGroups.includes(groupId)
+        ? prev.assignedGroups.filter((id) => id !== groupId)
+        : [...prev.assignedGroups, groupId],
+    }));
   };
 
-  const handleSubmit = async () => {
-    if (!canManage)
-      return setNotification({ message: "Unauthorized", type: "error" });
-    if (!form.message.trim())
-      return setNotification({ message: "Message required", type: "error" });
+  const saveAlert = async () => {
+    if (!canManage) {
+      setFormError("You do not have permission to manage alerts.");
+      return;
+    }
+
+    if (!form.message.trim()) {
+      setFormError("Please enter an alert message.");
+      return;
+    }
 
     try {
       const payload = {
-        ...form,
+        type: form.type,
         message: form.message.trim(),
+        assignedUsers: form.assignedUsers,
+        assignedGroups: form.assignedGroups,
       };
 
       if (editId) {
-        const res = await axios.put(`/alerts/${editId}`, payload, headers);
-        setAlerts((prev) =>
-          prev.map((a) => (a._id === editId ? res.data.alert : a))
-        );
-        setNotification({ message: "Alert updated successfully", type: "success" });
+        const response = await axios.put(`/alerts/${editId}`, payload, getHeaders());
+        const nextAlert = response.data?.alert || response.data?.data || response.data;
+        setAlerts((prev) => prev.map((alert) => (String(alert._id) === String(editId) ? nextAlert : alert)));
+        setNotification({ type: "success", message: "Alert updated successfully." });
       } else {
-        const res = await axios.post("/alerts", payload, headers);
-        setAlerts((prev) => [res.data.alert, ...prev]);
-        setNotification({ message: "Alert created successfully", type: "success" });
+        const response = await axios.post("/alerts", payload, getHeaders());
+        const nextAlert = response.data?.alert || response.data?.data || response.data;
+        setAlerts((prev) => [nextAlert, ...prev]);
+        setNotification({ type: "success", message: "Alert created successfully." });
       }
-      calculateStats(alerts);
-      setOpen(false);
-      setTimeout(() => fetchData(), 500);
+
+      closeForm();
+      void fetchAlerts({ silent: true });
     } catch (error) {
-      console.error("Error saving alert:", error);
-      setNotification({ 
-        message: error.response?.data?.message || "Error saving alert", 
-        type: "error" 
+      setFormError(error.response?.data?.message || "Failed to save alert.");
+    }
+  };
+
+  const deleteAlert = async (id) => {
+    if (!canManage) return;
+    if (!window.confirm("Delete this alert?")) return;
+
+    try {
+      await axios.delete(`/alerts/${id}`, getHeaders());
+      setAlerts((prev) => prev.filter((alert) => String(alert._id) !== String(id)));
+      setNotification({ type: "success", message: "Alert deleted successfully." });
+    } catch (error) {
+      setNotification({
+        type: "error",
+        message: error.response?.data?.message || "Failed to delete alert.",
       });
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!canManage)
-      return setNotification({ message: "Unauthorized", type: "error" });
-    
-    if (!window.confirm("Are you sure you want to delete this alert?")) return;
-    
+  const markAsRead = async (id) => {
     try {
-      await axios.delete(`/alerts/${id}`, headers);
-      const updated = alerts.filter((a) => a._id !== id);
-      setAlerts(updated);
-      calculateStats(updated);
-      setNotification({ message: "Alert deleted successfully", type: "success" });
-    } catch (error) {
-      setNotification({ 
-        message: error.response?.data?.message || "Delete failed", 
-        type: "error" 
-      });
-    }
-  };
-
-  const handleMarkAsRead = async (alertId) => {
-    try {
-      const userId = localStorage.getItem("userId");
-      if (!userId) return;
-      
-      await axios.patch(`/alerts/${alertId}/read`, {}, headers);
-      
-      setAlerts(prev => prev.map(alert => {
-        if (alert._id === alertId) {
+      await axios.patch(`/alerts/${id}/read`, {}, getHeaders());
+      const userId = currentUserId;
+      setAlerts((prev) =>
+        prev.map((alert) => {
+          if (String(alert._id) !== String(id)) return alert;
+          const readBy = asArray(alert.readBy);
+          if (readBy.some((entry) => String(entry?._id || entry?.id || entry) === userId)) {
+            return alert;
+          }
           return {
             ...alert,
-            readBy: [...(alert.readBy || []), { _id: userId }]
+            readBy: [...readBy, { _id: userId }],
           };
-        }
-        return alert;
-      }));
-      
-      setStats(prev => ({ ...prev, unread: Math.max(0, prev.unread - 1) }));
-      
-      setNotification({ 
-        message: "Marked as read", 
-        type: "success" 
-      });
-    } catch (error) {
-      console.error("Error marking as read:", error);
+        })
+      );
+      setNotification({ type: "success", message: "Marked as read." });
+    } catch {
+      setNotification({ type: "error", message: "Unable to mark alert as read." });
     }
   };
 
-   
-  const filteredAlerts = useMemo(() => {
-    let filtered = alerts;
-    const currentUserId = localStorage.getItem("userId");
-    
-    
-    filtered = filtered.filter(alert => {
-      
-      const hasAssignments = alert.assignedUsers?.length > 0 || alert.assignedGroups?.length > 0;
-      
-      
-      if (!hasAssignments) return true;
-      
-      
-      const isDirectlyAssigned = alert.assignedUsers?.some(
-        user => (user._id || user) === currentUserId
-      );
-      
-      
-      const isInAssignedGroup = alert.assignedGroups?.some(group => {
-        const groupId = group._id || group;
-        return userGroups.includes(groupId);
-      });
-      
-      return isDirectlyAssigned || isInAssignedGroup;
+  const getCreator = (alert) => {
+    const creator = alert?.createdBy || alert?.assignedBy || alert?.author || alert?.creator;
+    const creatorId = String(creator?._id || creator?.id || creator || "");
+    const user = users.find((item) => String(item?._id || item?.id) === creatorId);
+    return user?.name || creator?.name || creator?.email || "System";
+  };
+
+  const getCreatorAvatar = (alert) => {
+    const creator = alert?.createdBy || alert?.assignedBy || alert?.author || alert?.creator;
+    const name = getCreator(alert);
+    const initials = String(creator?.name || name || "S")
+      .split(" ")
+      .map((part) => part.charAt(0))
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+    return initials || "S";
+  };
+
+  const getAssignedNames = (list, type) => {
+    const source = asArray(list);
+    const mapped = source.map((item) => {
+      const id = String(item?._id || item?.id || item);
+      if (type === "user") {
+        const match = users.find((user) => String(user?._id || user?.id) === id);
+        return match?.name || match?.email || "Unknown User";
+      }
+      const match = groups.find((group) => String(group?._id || group?.id) === id);
+      return match?.name || "Unknown Group";
     });
-    
-    
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(alert => 
-        alert.message?.toLowerCase().includes(query) ||
-        alert.type?.toLowerCase().includes(query)
-      );
-    }
-    
-    
-    if (filterType !== "all") {
-      filtered = filtered.filter((a) => a.type === filterType);
-    }
-    
-    
-    if (viewMode === "unread") {
-      filtered = filtered.filter(alert => 
-        !alert.readBy?.some(user => (user._id || user) === currentUserId)
-      );
-    }
-    
-    return filtered;
-  }, [alerts, searchQuery, filterType, viewMode, userGroups]);
-
-  const filteredUsers = useMemo(() => {
-    if (!userSearch) return users;
-    const query = userSearch.toLowerCase();
-    return users.filter(user => 
-      user.name?.toLowerCase().includes(query) ||
-      user.email?.toLowerCase().includes(query) ||
-      user.role?.toLowerCase().includes(query)
-    );
-  }, [users, userSearch]);
-
-  const filteredGroups = useMemo(() => {
-    if (!groupSearch) return groups;
-    const query = groupSearch.toLowerCase();
-    return groups.filter(group => 
-      group.name?.toLowerCase().includes(query) ||
-      group.description?.toLowerCase().includes(query)
-    );
-  }, [groups, groupSearch]);
-
-  const formatDate = (d) =>
-    new Date(d).toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-  const getUserNameById = (userId) => {
-    if (!userId) return "System";
-    if (typeof userId === 'object' && userId._id) {
-      return userId.name || userId.email || "Unknown User";
-    }
-    const user = users.find(u => u._id === userId);
-    return user ? user.name || user.email : "Unknown User";
+    return mapped.filter(Boolean);
   };
 
-  const getGroupNameById = (groupId) => {
-    if (typeof groupId === 'object' && groupId._id) {
-      return groupId.name || "Unknown Group";
-    }
-    const group = groups.find(g => g._id === groupId);
-    return group ? group.name : "Unknown Group";
-  };
+  const unreadCount = stats.unread;
+  const headerSpark = buildSparkPath(createTrendValues(stats.total || 1, 1));
+  const infoSpark = buildSparkPath(createTrendValues(stats.info || 1, 2));
+  const warningSpark = buildSparkPath(createTrendValues(stats.warning || 1, 3));
+  const errorSpark = buildSparkPath(createTrendValues(stats.error || 1, 4));
 
-  const getCreatorName = (alert) => {
-    
-    const creator = alert.createdBy || alert.assignedBy || alert.author || alert.creator;
-    
-    if (!creator) return "System";
-    
-    if (typeof creator === 'object') {
-      return creator.name || creator.email || "Unknown User";
-    }
-    
-    
-    const user = users.find(u => u._id === creator);
-    return user ? user.name || user.email : "Unknown User";
-  };
-
-  const isAlertUnread = (alert) => {
-    const userId = localStorage.getItem("userId");
-    if (!userId) return false;
-    return !alert.readBy?.some(user => (user._id || user) === userId);
-  };
-
-  const toggleAlertExpansion = (alertId) => {
-    setExpandedAlert(expandedAlert === alertId ? null : alertId);
-  };
-
-  const getTypeColor = (type) => {
-    switch(type) {
-      case "info": return "#29B6F6";
-      case "warning": return "#FFA726";
-      case "error": return "#EF5350";
-      default: return "#667eea";
-    }
-  };
-
-  const getSeverityColor = (severity) => {
-    switch(severity) {
-      case "error": return "#EF5350";
-      case "warning": return "#FFA726";
-      case "success": return "#66BB6A";
-      default: return "#667eea";
-    }
-  };
-
-  
   if (pageLoading) {
     return <CIISLoader />;
   }
 
+  const heroTime = lastUpdatedAt ? formatShortTime(lastUpdatedAt) : "--:--";
+
   return (
-    <div className="Alerts-container">
-      
-      <div className="Alerts-gradient-header">
-        <div className="Alerts-header-content">
-          <div className="Alerts-header-text">
-            <h1 className="Alerts-title">System Alerts</h1>
-            <p className="Alerts-subtitle">Real-time notifications & announcements</p>
+    <div className="AlertsPage">
+      <section className="AlertsHero">
+        <div className="AlertsHero-badgeWrap">
+          <div className="AlertsHero-badge">
+            <FiBell />
           </div>
-          <div className="Alerts-header-actions">
-            <Tooltip title="Refresh">
-              <button 
-                className={`Alerts-icon-button Alerts-refresh-button ${refreshing ? 'Alerts-refreshing' : ''}`}
-                onClick={fetchData} 
-                disabled={refreshing}
-              >
-                <FiRefreshCw />
-              </button>
-            </Tooltip>
-            {canManage && (
-              <button
-                className="Alerts-button Alerts-button-primary Alerts-new-alert-button"
-                onClick={() => handleOpen()}
-              >
-                <FiPlus />
-                New Alert
-              </button>
-            )}
+          <span className="AlertsHero-count">{unreadCount > 99 ? "99+" : unreadCount}</span>
+        </div>
+
+        <div className="AlertsHero-copy">
+          <h1>System Alerts</h1>
+          <p>Real-time notifications & announcements</p>
+
+          <div className="AlertsHero-meta">
+            <div className="AlertsHero-pill">
+              <FiCalendar />
+              <span>Last Updated: {heroTime}</span>
+            </div>
+            <button
+              type="button"
+              className={`AlertsHero-pill AlertsHero-pill-green ${autoRefresh ? "is-active" : ""}`}
+              onClick={() => setAutoRefresh((prev) => !prev)}
+            >
+              <span className="AlertsHero-dot" />
+              <span>Auto Refresh: {autoRefresh ? "On" : "Off"}</span>
+            </button>
           </div>
         </div>
-      </div>
 
-      
-      <div className="Alerts-stats-filters">
-        
-        <div className="Alerts-search-container">
-          <div className="Alerts-search-field">
+        <div className="AlertsHero-actions">
+          <button
+            type="button"
+            className="AlertsButton AlertsButton-primary"
+            onClick={() => openForm()}
+          >
+            <FiPlus />
+            <span>Create Alert</span>
+          </button>
+        </div>
+      </section>
+
+      <section className="AlertsToolbar">
+        <div className="AlertsToolbar-topRow">
+          <div className="AlertsSearch">
             <FiSearch />
             <input
               type="text"
-              placeholder="Search alerts by message or type..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="Alerts-search-input"
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search alerts by message or type..."
             />
-            {searchQuery && (
-              <button className="Alerts-search-clear" onClick={() => setSearchQuery('')}>
-                ✕
-              </button>
-            )}
           </div>
-        </div>
 
-        
-        <div className="Alerts-view-mode-container">
-          <div className="Alerts-view-mode-card">
-            <span className="Alerts-view-mode-label">View:</span>
-            <div className="Alerts-toggle-button-group">
-              <button 
-                className={`Alerts-toggle-button ${viewMode === 'all' ? 'Alerts-toggle-button-active' : ''}`}
-                onClick={() => setViewMode('all')}
-              >
-                <FiEye />
-                <span>All</span>
-              </button>
-              <button 
-                className={`Alerts-toggle-button ${viewMode === 'unread' ? 'Alerts-toggle-button-active' : ''}`}
-                onClick={() => setViewMode('unread')}
-              >
-                <Badge badgeContent={stats.unread}>
-                  <FiBell />
-                </Badge>
-                <span>Unread</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        
-        <div className="Alerts-stats-grid">
-          {[
-            { 
-              key: "total", 
-              label: "My Alerts", 
-              color: "#667eea", 
-              icon: <FiBell />,
-              value: stats.total,
-              active: filterType === "all" && viewMode === "all"
-            },
-            { 
-              key: "info", 
-              label: "Information", 
-              color: "#29B6F6", 
-              icon: <FiInfo />,
-              value: stats.info,
-              active: filterType === "info"
-            },
-            { 
-              key: "warning", 
-              label: "Warnings", 
-              color: "#FFA726", 
-              icon: <FiAlertTriangle />,
-              value: stats.warning,
-              active: filterType === "warning"
-            },
-            { 
-              key: "error", 
-              label: "Errors", 
-              color: "#EF5350", 
-              icon: <FiAlertCircle />,
-              value: stats.error,
-              active: filterType === "error"
-            },
-          ]
-          .map((s) => (
-            <div 
-              key={s.key} 
-              className={`Alerts-stat-card ${s.active ? 'Alerts-stat-card-active' : ''}`}
-              style={{ borderTopColor: s.color }}
-              onClick={() => {
-                setFilterType(s.key === "total" ? "all" : s.key);
-                setViewMode("all");
-              }}
+          <div className="AlertsToolbar-actions">
+            <button type="button" className="AlertsButton AlertsButton-outline">
+              <FiFilter />
+              <span>Filter</span>
+            </button>
+            <button type="button" className="AlertsButton AlertsButton-outline" onClick={resetFilters}>
+              <FiRotateCcw />
+              <span>Reset</span>
+            </button>
+            <button
+              type="button"
+              className={`AlertsButton AlertsButton-outline AlertsButton-refresh ${refreshing ? "is-spinning" : ""}`}
+              onClick={() => fetchAlerts()}
+              disabled={refreshing}
             >
-              <div className="Alerts-stat-content">
-                <div className="Alerts-stat-text">
-                  <span className="Alerts-stat-label">{s.label}</span>
-                  <h3 className="Alerts-stat-value">{s.value}</h3>
-                </div>
-                <Avatar color={s.color}>
-                  {s.icon}
-                </Avatar>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      
-      <div className="Alerts-list-container">
-        <div className="Alerts-list-header">
-          <div>
-            <h2 className="Alerts-list-title">My Alerts ({filteredAlerts.length})</h2>
-            <p className="Alerts-list-subtitle">
-              {viewMode === 'unread' ? 'Showing unread alerts' : 'Showing all my alerts'}
-            </p>
+              <FiRefreshCw />
+              <span>Refresh</span>
+            </button>
           </div>
-          <Chip
-            icon={<FiFilter />}
-            label={`Filter: ${filterType === 'all' ? 'All Types' : filterType}`}
-            onClick={() => setFilterType('all')}
-            variant="outlined"
-          />
         </div>
 
-        <div className="Alerts-list">
-          {filteredAlerts.length === 0 ? (
-            <div className="Alerts-empty-state">
+        <div className="AlertsToolbar-bottomRow">
+          <label className="AlertsSelectField">
+            <span><FiTagIcon /></span>
+            <select value={filterType} onChange={(event) => setFilterType(event.target.value)}>
+              <option value="all">All Types</option>
+              <option value="info">Info</option>
+              <option value="warning">Warning</option>
+              <option value="error">Error</option>
+            </select>
+            <FiChevronDown className="AlertsSelectCaret" />
+          </label>
+
+          <label className="AlertsSelectField">
+            <span><FiStatusIcon /></span>
+            <select value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
+              <option value="all">All Status</option>
+              <option value="unread">Unread</option>
+              <option value="read">Read</option>
+            </select>
+            <FiChevronDown className="AlertsSelectCaret" />
+          </label>
+
+          <label className="AlertsSelectField">
+            <span><FiCalendar /></span>
+            <select value={filterDate} onChange={(event) => setFilterDate(event.target.value)}>
+              <option value="all">All Dates</option>
+              <option value="today">Today</option>
+              <option value="week">Last 7 Days</option>
+              <option value="month">Last 30 Days</option>
+            </select>
+            <FiChevronDown className="AlertsSelectCaret" />
+          </label>
+
+          <label className="AlertsSelectField">
+            <span><FiUser /></span>
+            <select value={createdByFilter} onChange={(event) => setCreatedByFilter(event.target.value)}>
+              <option value="all">Created By</option>
+              {creatorFilterOptions.map((creator) => (
+                <option key={creator.id} value={creator.id}>
+                  {creator.name}
+                </option>
+              ))}
+            </select>
+            <FiChevronDown className="AlertsSelectCaret" />
+          </label>
+        </div>
+      </section>
+
+      <section className="AlertsStats">
+        <article className="AlertsStatCard AlertsStatCard-blue">
+          <div className="AlertsStatCopy">
+            <div className="AlertsStatIcon AlertsStatIcon-blue">
               <FiBell />
-              <h3>No Alerts Found</h3>
-              <p>
-                {searchQuery ? 'Try a different search term' : 
-                 viewMode === 'unread' ? 'You have no unread alerts' : 
-                 'No alerts are assigned to you'}
-              </p>
+            </div>
+            <div>
+              <span>My Alerts</span>
+              <strong>{stats.total}</strong>
+              <p>from yesterday</p>
+            </div>
+          </div>
+          <svg className="AlertsStatSpark" viewBox="0 0 140 42" aria-hidden="true">
+            <path d={headerSpark} />
+          </svg>
+        </article>
+
+        <article className="AlertsStatCard AlertsStatCard-cyan">
+          <div className="AlertsStatCopy">
+            <div className="AlertsStatIcon AlertsStatIcon-cyan">
+              <FiInfo />
+            </div>
+            <div>
+              <span>Information</span>
+              <strong>{stats.info}</strong>
+              <p>from yesterday</p>
+            </div>
+          </div>
+          <svg className="AlertsStatSpark" viewBox="0 0 140 42" aria-hidden="true">
+            <path d={infoSpark} />
+          </svg>
+        </article>
+
+        <article className="AlertsStatCard AlertsStatCard-orange">
+          <div className="AlertsStatCopy">
+            <div className="AlertsStatIcon AlertsStatIcon-orange">
+              <FiAlertTriangle />
+            </div>
+            <div>
+              <span>Warnings</span>
+              <strong>{stats.warning}</strong>
+              <p>No change</p>
+            </div>
+          </div>
+          <svg className="AlertsStatSpark" viewBox="0 0 140 42" aria-hidden="true">
+            <path d={warningSpark} />
+          </svg>
+        </article>
+
+        <article className="AlertsStatCard AlertsStatCard-red">
+          <div className="AlertsStatCopy">
+            <div className="AlertsStatIcon AlertsStatIcon-red">
+              <FiAlertCircle />
+            </div>
+            <div>
+              <span>Errors</span>
+              <strong>{stats.error}</strong>
+              <p>No change</p>
+            </div>
+          </div>
+          <svg className="AlertsStatSpark" viewBox="0 0 140 42" aria-hidden="true">
+            <path d={errorSpark} />
+          </svg>
+        </article>
+      </section>
+
+      <section className="AlertsSection">
+        <div className="AlertsSectionHeader">
+          <div>
+            <h2>My Alerts ({filteredAlerts.length})</h2>
+            <p>{viewMode === "unread" ? "Showing unread alerts" : "Showing all my alerts"}</p>
+          </div>
+
+          <div className="AlertsSectionActions">
+            <button type="button" className="AlertsButton AlertsButton-outline" onClick={() => setViewMode((prev) => (prev === "unread" ? "all" : "unread"))}>
+              <FiFilter />
+              <span>Filter</span>
+            </button>
+            <label className="AlertsMiniSelect">
+              <select value={filterType} onChange={(event) => setFilterType(event.target.value)}>
+                <option value="all">All Types</option>
+                <option value="info">Info</option>
+                <option value="warning">Warning</option>
+                <option value="error">Error</option>
+              </select>
+              <FiChevronDown />
+            </label>
+          </div>
+        </div>
+
+        <div className="AlertsList">
+          {filteredAlerts.length === 0 ? (
+            <div className="AlertsEmpty">
+              <div className="AlertsEmpty-illustration">
+                <FiBell />
+              </div>
+              <div className="AlertsEmpty-copy">
+                <h3>You're all caught up!</h3>
+                <p>No alerts to show right now.</p>
+              </div>
+              <button type="button" className="AlertsButton AlertsButton-primary" onClick={() => fetchAlerts()}>
+                <FiRefreshCw />
+                <span>Refresh Alerts</span>
+              </button>
             </div>
           ) : (
             filteredAlerts.map((alert) => {
-              const assignedUsers = alert.assignedUsers || [];
-              const assignedGroups = alert.assignedGroups || [];
-              const unread = isAlertUnread(alert);
-              const expanded = expandedAlert === alert._id;
-              const typeColor = getTypeColor(alert.type);
-              const creatorName = getCreatorName(alert);
-              
+              const unread = normalizeStatus(alert?.status, asArray(alert?.readBy)) === "unread";
+              const creator = getCreator(alert);
+              const typeColor = getTypeColor(alert?.type);
+              const assignedUsers = getAssignedNames(alert?.assignedUsers, "user");
+              const assignedGroups = getAssignedNames(alert?.assignedGroups, "group");
+              const showActions = canManage || unread;
+
               return (
-                <div 
-                  key={alert._id} 
-                  className={`Alerts-alert-card ${unread ? 'Alerts-alert-unread' : ''}`}
-                  style={{ borderLeftColor: typeColor }}
+                <article
+                  key={String(alert?._id || alert?.id)}
+                  className={`AlertsCard ${unread ? "is-unread" : ""}`}
+                  style={{ "--accent": typeColor }}
+                  onClick={() => setSelectedAlert(alert)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setSelectedAlert(alert);
+                    }
+                  }}
                 >
-                  <div className="Alerts-alert-content">
-                    <div className="Alerts-alert-header">
-                      <div className="Alerts-alert-meta">
-                        <Chip
-                          label={alert.type}
-                          size="small"
-                          style={{ 
-                            backgroundColor: typeColor,
-                            color: 'white'
-                          }}
-                        />
-                        {unread && (
-                          <Chip
-                            size="small"
-                            label="NEW"
-                            color="#EF5350"
-                          />
-                        )}
-                        <span className="Alerts-alert-date">
-                          <FiClock />
-                          {formatDate(alert.createdAt)}
+                  <div className="AlertsCard-timeline" aria-hidden="true">
+                    <span className="AlertsCard-dot" />
+                    <span className="AlertsCard-line" />
+                  </div>
+
+                  <div className="AlertsCard-body">
+                    <div className="AlertsCard-top">
+                      <div className="AlertsCard-meta">
+                        <span className="AlertsBadge AlertsBadge-type" style={{ backgroundColor: `${typeColor}12`, color: typeColor }}>
+                          {getTypeIcon(alert?.type)}
+                          <span>{getTypeLabel(alert?.type)}</span>
                         </span>
+                        <span className="AlertsCard-date">
+                          <FiCalendar />
+                          {formatDateTime(alert?.createdAt)}
+                        </span>
+                        {unread && <span className="AlertsBadge AlertsBadge-new">NEW</span>}
                       </div>
-                      
-                      <div className="Alerts-alert-actions">
-                        {unread && (
-                          <Tooltip title="Mark as read">
-                            <button
-                              className="Alerts-icon-button Alerts-read-button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleMarkAsRead(alert._id);
-                              }}
-                            >
-                              <FiEye />
-                            </button>
-                          </Tooltip>
-                        )}
+
+                      <button type="button" className="AlertsCard-eye" onClick={(event) => { event.stopPropagation(); setSelectedAlert(alert); }}>
+                        <FiEye />
+                      </button>
+                    </div>
+
+                    <h3 className="AlertsCard-title">{alert?.message || "Untitled alert"}</h3>
+
+                    <div className="AlertsCard-description">
+                      <p>{alert?.message || ""}</p>
+                    </div>
+
+                    <div className="AlertsCard-footer">
+                      <div className="AlertsCard-createdBy">
+                        <span className="AlertsCard-createdLabel">Created by:</span>
+                        <span className="AlertsAvatar">{getCreatorAvatar(alert)}</span>
+                        <strong>{creator}</strong>
+                      </div>
+
+                      <div className="AlertsCard-assigned">
+                        <span className="AlertsCard-assignedLabel">Assigned To</span>
+                        <div className="AlertsCard-tags">
+                          {assignedUsers.slice(0, 2).map((name) => (
+                            <span key={name} className="AlertsTag AlertsTag-green">
+                              <FiUsers />
+                              {name}
+                            </span>
+                          ))}
+                          {assignedGroups.slice(0, 2).map((name) => (
+                            <span key={name} className="AlertsTag AlertsTag-blue">
+                              <FiUsers />
+                              {name}
+                            </span>
+                          ))}
+                          {!assignedUsers.length && !assignedGroups.length && (
+                            <span className="AlertsTag AlertsTag-blue">
+                              <FiUsers />
+                              Everyone
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {showActions && (
+                      <div className="AlertsCard-actions">
+                        <button type="button" className="AlertsActionButton" onClick={(event) => { event.stopPropagation(); markAsRead(alert?._id); }}>
+                          <FiEye />
+                          <span>Mark as Read</span>
+                        </button>
                         {canManage && (
                           <>
-                           
-                            
+                            <button type="button" className="AlertsActionButton" onClick={(event) => { event.stopPropagation(); openForm(alert); }}>
+                              <FiEdit2 />
+                              <span>Edit</span>
+                            </button>
+                            <button type="button" className="AlertsActionButton AlertsActionButton-danger" onClick={(event) => { event.stopPropagation(); deleteAlert(alert?._id); }}>
+                              <FiTrash2 />
+                              <span>Delete</span>
+                            </button>
                           </>
                         )}
-                        
                       </div>
-                    </div>
-
-                    
-                    <div className="Alerts-creator-info">
-                        <FiUserCheck />
-                      <span className="Alerts-creator-name">
-                        <strong>Created by:</strong> {creatorName}
-                      </span>
-                    </div>
-
-                    <p className={`Alerts-alert-message ${unread ? 'Alerts-alert-message-unread' : ''}`}>
-                      {alert.message}
-                    </p>
-
-                    
+                    )}
                   </div>
-                </div>
+                </article>
               );
             })
           )}
         </div>
-      </div>
+      </section>
 
-      
-      {open && (
-        <div className="Alerts-modal">
-          <div className="Alerts-modal-backdrop" onClick={handleClose} />
-          <div className="Alerts-modal-content Alerts-modal-md">
-            <div className="Alerts-modal-header Alerts-modal-header-primary">
-              <div className="Alerts-modal-title">
-                <h2>{editId ? "✏️ Edit Alert" : "🆕 Create New Alert"}</h2>
-                <p>{editId ? "Update your alert details" : "Create a new system alert"}</p>
+      {!filteredAlerts.length && (
+        <section className="AlertsCaughtUp">
+          <div className="AlertsCaughtUp-blob" aria-hidden="true" />
+          <div className="AlertsCaughtUp-copy">
+            <h3>You're all caught up!</h3>
+            <p>No alerts to show right now.</p>
+          </div>
+          <button type="button" className="AlertsButton AlertsButton-primary" onClick={() => fetchAlerts()}>
+            <FiRefreshCw />
+            <span>Refresh Alerts</span>
+          </button>
+        </section>
+      )}
+
+      {isFormOpen && (
+        <div className="AlertsModal" role="dialog" aria-modal="true">
+          <div className="AlertsModal-backdrop" onClick={closeForm} />
+          <div className="AlertsModal-card">
+            <div className="AlertsModal-header">
+              <div>
+                <h3>{editId ? "Edit Alert" : "Create Alert"}</h3>
+                <p>{editId ? "Update alert details" : "Compose a new alert"}</p>
               </div>
+              <button type="button" className="AlertsModal-close" onClick={closeForm}>
+                <FiX />
+              </button>
             </div>
-            
-            <div className="Alerts-modal-body">
-              <div className="Alerts-form">
-                
-                <div className="Alerts-form-group">
-                  <label>Alert Type *</label>
-                  <select
-                    name="type"
-                    value={form.type}
-                    onChange={handleChange}
-                    className="Alerts-select"
-                  >
-                    <option value="info">
-                      Information - General updates and announcements
-                    </option>
-                    <option value="warning">
-                      Warning - Important notices requiring attention
-                    </option>
-                    <option value="error">
-                      Error / Critical - Urgent issues requiring immediate action
-                    </option>
+
+            <div className="AlertsModal-body">
+              {formError && <div className="AlertsFormError">{formError}</div>}
+
+              <div className="AlertsModal-grid">
+                <label className="AlertsField">
+                  <span>Alert Type</span>
+                  <select value={form.type} onChange={(event) => setForm((prev) => ({ ...prev, type: event.target.value }))}>
+                    <option value="info">Information</option>
+                    <option value="warning">Warning</option>
+                    <option value="error">Error / Critical</option>
                   </select>
-                </div>
-                
-                
-                <div className="Alerts-form-group">
-                  <label>Alert Message *</label>
+                </label>
+
+                <label className="AlertsField AlertsField-full">
+                  <span>Alert Message</span>
                   <textarea
-                    name="message"
-                    rows="4"
+                    rows={4}
                     value={form.message}
-                    onChange={handleChange}
-                    className="Alerts-textarea"
+                    onChange={(event) => setForm((prev) => ({ ...prev, message: event.target.value }))}
                     placeholder="Enter your alert message here..."
-                    required
                   />
-                </div>
+                </label>
 
-                
-                <div className="Alerts-assign-section">
-                  <h3 className="Alerts-assign-title">📋 Assign Users</h3>
-                  <p className="Alerts-assign-subtitle">
-                    Select specific users or leave empty for all users
-                  </p>
-                  
-                  
-                  <div className="Alerts-search-field">
-                    <FiSearch />
-                    <input
-                      type="text"
-                      placeholder="Search users by name, email, or role..."
-                      value={userSearch}
-                      onChange={(e) => setUserSearch(e.target.value)}
-                      className="Alerts-search-input"
-                    />
+                <div className="AlertsAssignBlock">
+                  <div className="AlertsAssignHeader">
+                    <h4>Assign Users</h4>
+                    <span>{form.assignedUsers.length}</span>
                   </div>
-                  
-                  
-                  {form.assignedUsers.length > 0 && (
-                    <div className="Alerts-selected-chips">
-                      {form.assignedUsers.map(userId => {
-                        const user = users.find(u => u._id === userId);
-                        return user ? (
-                          <Chip
-                            key={userId}
-                            label={user.name || user.email}
-                            onDelete={() => handleUserSelect(userId)}
-                            size="small"
-                            style={{ backgroundColor: '#667eea20' }}
-                          />
-                        ) : null;
-                      })}
-                    </div>
-                  )}
-                  
-                  
-                  <div className="Alerts-users-list">
-                    {filteredUsers.length === 0 ? (
-                      <div className="Alerts-empty-list">
-                        No users found
-                      </div>
-                    ) : (
-                      filteredUsers.map((user) => (
-                        <div
-                          key={user._id}
-                          className={`Alerts-user-item ${form.assignedUsers.includes(user._id) ? 'Alerts-user-item-selected' : ''}`}
-                          onClick={() => handleUserSelect(user._id)}
-                        >
-                          <Checkbox
-                            checked={form.assignedUsers.includes(user._id)}
-                            onChange={() => handleUserSelect(user._id)}
-                          />
-                          <Avatar size="small" color="#667eea">
-                            {user.name?.charAt(0) || user.email?.charAt(0)}
-                          </Avatar>
-                          <div className="Alerts-user-info">
-                            <p className="Alerts-user-name">{user.name || user.email}</p>
-                            <p className="Alerts-user-details">
-                              {user.email} • {user.role || 'User'}
-                            </p>
-                          </div>
-                        </div>
-                      ))
-                    )}
+                  <div className="AlertsSearch Small">
+                    <FiSearch />
+                    <input value={userSearch} onChange={(event) => setUserSearch(event.target.value)} placeholder="Search users..." />
+                  </div>
+                  <div className="AlertsPickList">
+                    {formUsers.map((user) => {
+                      const userId = String(user?._id || user?.id || "");
+                      if (!userId) return null;
+                      const selected = form.assignedUsers.includes(userId);
+                      return (
+                        <button key={userId} type="button" className={`AlertsPickItem ${selected ? "is-selected" : ""}`} onClick={() => toggleUser(userId)}>
+                          <span className="AlertsCheckbox">{selected ? <FiCheckCircle /> : <FiUsers />}</span>
+                          <span className="AlertsPickName">{user.name || user.email || "Unknown User"}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                
-                <div className="Alerts-assign-section">
-                  <h3 className="Alerts-assign-title">👥 Assign Groups</h3>
-                  <p className="Alerts-assign-subtitle">
-                    Select specific groups or leave empty for all groups
-                  </p>
-                  
-                  
-                  <div className="Alerts-search-field">
-                    <FiSearch />
-                    <input
-                      type="text"
-                      placeholder="Search groups by name..."
-                      value={groupSearch}
-                      onChange={(e) => setGroupSearch(e.target.value)}
-                      className="Alerts-search-input"
-                    />
+                <div className="AlertsAssignBlock">
+                  <div className="AlertsAssignHeader">
+                    <h4>Assign Groups</h4>
+                    <span>{form.assignedGroups.length}</span>
                   </div>
-                  
-                  
-                  {form.assignedGroups.length > 0 && (
-                    <div className="Alerts-selected-chips">
-                      {form.assignedGroups.map(groupId => {
-                        const group = groups.find(g => g._id === groupId);
-                        return group ? (
-                          <Chip
-                            key={groupId}
-                            label={group.name}
-                            onDelete={() => handleGroupSelect(groupId)}
-                            size="small"
-                            style={{ backgroundColor: '#764ba220' }}
-                          />
-                        ) : null;
-                      })}
-                    </div>
-                  )}
-                  
-                  
-                  <div className="Alerts-groups-list">
-                    {filteredGroups.length === 0 ? (
-                      <div className="Alerts-empty-list">
-                        No groups found
-                      </div>
-                    ) : (
-                      filteredGroups.map((group) => (
-                        <div
-                          key={group._id}
-                          className={`Alerts-group-item ${form.assignedGroups.includes(group._id) ? 'Alerts-group-item-selected' : ''}`}
-                          onClick={() => handleGroupSelect(group._id)}
-                        >
-                          <Checkbox
-                            checked={form.assignedGroups.includes(group._id)}
-                            onChange={() => handleGroupSelect(group._id)}
-                          />
-                          <Avatar size="small" color="#764ba2">
-                            <FiUsers />
-                          </Avatar>
-                          <div className="Alerts-group-info">
-                            <p className="Alerts-group-name">{group.name}</p>
-                            {group.description && (
-                              <p className="Alerts-group-description">{group.description}</p>
-                            )}
-                          </div>
-                          {group.members && (
-                            <Chip
-                              size="small"
-                              label={`${group.members.length} members`}
-                              variant="outlined"
-                            />
-                          )}
-                        </div>
-                      ))
-                    )}
+                  <div className="AlertsSearch Small">
+                    <FiSearch />
+                    <input value={groupSearch} onChange={(event) => setGroupSearch(event.target.value)} placeholder="Search groups..." />
+                  </div>
+                  <div className="AlertsPickList">
+                    {formGroups.map((group) => {
+                      const groupId = String(group?._id || group?.id || "");
+                      if (!groupId) return null;
+                      const selected = form.assignedGroups.includes(groupId);
+                      return (
+                        <button key={groupId} type="button" className={`AlertsPickItem ${selected ? "is-selected" : ""}`} onClick={() => toggleGroup(groupId)}>
+                          <span className="AlertsCheckbox">{selected ? <FiCheckCircle /> : <FiUsers />}</span>
+                          <span className="AlertsPickName">{group.name || "Unknown Group"}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
             </div>
-            
-            <div className="Alerts-modal-footer">
-              <button 
-                className="Alerts-button Alerts-button-outline"
-                onClick={handleClose}
-              >
+
+            <div className="AlertsModal-footer">
+              <button type="button" className="AlertsButton AlertsButton-outline Dark" onClick={closeForm}>
                 Cancel
               </button>
-              <button 
-                className="Alerts-button Alerts-button-primary"
-                onClick={handleSubmit}
-                disabled={!form.message.trim()}
-              >
+              <button type="button" className="AlertsButton AlertsButton-primary" onClick={saveAlert}>
                 {editId ? "Update Alert" : "Create Alert"}
               </button>
             </div>
@@ -1035,42 +1026,60 @@ const Alerts = () => {
         </div>
       )}
 
-      
-      {notification && (
-        <div className="Alerts-notification">
-          <div 
-            className={`Alerts-notification-card Alerts-notification-${notification.type}`}
-            style={{ 
-              background: `linear-gradient(135deg, ${getSeverityColor(notification.type)} 0%, ${getSeverityColor(notification.type)}80 100%)`
-            }}
-          >
-            <div className="Alerts-notification-content">
-              {notification.type === "error" ? (
-                <FiAlertCircle />
-              ) : notification.type === "warning" ? (
-                <FiAlertTriangle />
-              ) : (
-                <FiTrendingUp />
-              )}
+      {selectedAlert && (
+        <div className="AlertsModal" role="dialog" aria-modal="true">
+          <div className="AlertsModal-backdrop" onClick={() => setSelectedAlert(null)} />
+          <div className="AlertsModal-card AlertsModal-card-small">
+            <div className="AlertsModal-header">
               <div>
-                <p className="Alerts-notification-title">
-                  {notification.type === "error" ? "Error" : 
-                   notification.type === "warning" ? "Warning" : "Success"}
-                </p>
-                <p className="Alerts-notification-message">{notification.message}</p>
+                <h3>Alert Details</h3>
+                <p>{formatDateTime(selectedAlert.createdAt)}</p>
               </div>
-              <button 
-                className="Alerts-notification-close"
-                onClick={() => setNotification(null)}
-              >
-                ✕
+              <button type="button" className="AlertsModal-close" onClick={() => setSelectedAlert(null)}>
+                <FiX />
+              </button>
+            </div>
+
+            <div className="AlertsModal-body">
+              <div className="AlertsDetailRow">
+                <span>Type</span>
+                <strong style={{ color: getTypeColor(selectedAlert.type) }}>{getTypeLabel(selectedAlert.type)}</strong>
+              </div>
+              <div className="AlertsDetailRow">
+                <span>Message</span>
+                <p>{selectedAlert.message}</p>
+              </div>
+              <div className="AlertsDetailRow">
+                <span>Created by</span>
+                <strong>{getCreator(selectedAlert)}</strong>
+              </div>
+            </div>
+
+            <div className="AlertsModal-footer">
+              <button type="button" className="AlertsButton AlertsButton-outline Dark" onClick={() => setSelectedAlert(null)}>
+                Close
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {notification && (
+        <div className={`AlertsToast AlertsToast-${notification.type}`}>
+          <div>
+            <strong>{notification.type === "error" ? "Error" : notification.type === "warning" ? "Warning" : "Success"}</strong>
+            <p>{notification.message}</p>
+          </div>
+          <button type="button" onClick={() => setNotification(null)}>
+            <FiX />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
+
+const FiTagIcon = () => <FiFilter />;
+const FiStatusIcon = () => <FiCheckCircle />;
 
 export default Alerts;

@@ -582,17 +582,6 @@ const EmployeeProject = () => {
         return;
       }
 
-<<<<<<< HEAD
-	      const res = await axios.get("/projects", {
-	        params: {
-	          companyCode,
-	          companyIdentifier: companyIdentifier || undefined,
-	          summary: true,
-	          limit: 50,
-	          ...branchQueryParams
-	        }
-	      });
-=======
       const cacheKey = getProjectCacheKey(companyCode, branchQueryParams.branchId);
       const cachedProjects = readProjectCache(cacheKey);
       if (cachedProjects) {
@@ -606,7 +595,6 @@ const EmployeeProject = () => {
           ...branchQueryParams
         }
       });
->>>>>>> ab866e1a6c4e0c94103c459248b507fd806cbdda
       const loadedProjects = getProjectsFromResponse(res.data);
       const normalizedCompanyCode = companyCode.toLowerCase();
       const companyProjects = loadedProjects.filter(project => {
@@ -1336,6 +1324,19 @@ const EmployeeProject = () => {
                   </div>
 	                </div>
 	                <div className="EmployeeProject-task-actions">
+	                  {["pending", "overdue"].includes(normalizeTaskStatus(t.status)) && (
+	                    <Tooltip title="Edit Pending Task">
+	                      <button
+	                        className="EmployeeProject-icon-button"
+	                        onClick={(e) => {
+	                          e.stopPropagation();
+	                          handleOpenEditTaskDialog(t);
+	                        }}
+	                      >
+	                        <Icons.Edit />
+	                      </button>
+	                    </Tooltip>
+	                  )}
 	                  <Tooltip title="Update Status">
 	                    <button
 	                      className="EmployeeProject-icon-button"
@@ -2209,6 +2210,18 @@ const EmployeeProject = () => {
                   <span>Created: {new Date(detailTask.createdAt).toLocaleString()}</span>
                 </div>
               </div>
+
+              {["pending", "overdue"].includes(normalizeTaskStatus(detailTask.status)) && (
+                <div className="EmployeeProject-task-detail-actions">
+                  <button
+                    className="EmployeeProject-button EmployeeProject-button-outline"
+                    onClick={() => handleOpenEditTaskDialog(detailTask)}
+                  >
+                    <Icons.Edit />
+                    Edit Pending Task
+                  </button>
+                </div>
+              )}
 
               {detailTask.pdfFile?.path && (
                 <div className="EmployeeProject-task-detail-section">

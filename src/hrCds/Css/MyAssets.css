@@ -1225,8 +1225,173 @@
   overflow-y: auto;
 }
 
+.MyAssets-comments-modal {
+  max-width: 620px;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+}
+
+.MyAssets-comments-list {
+  display: grid;
+  gap: 12px;
+}
+
+.MyAssets-comment-card {
+  padding: 14px;
+  border: 1px solid var(--gray-200);
+  border-left: 3px solid var(--primary-blue);
+  border-radius: 8px;
+  background: var(--gray-50);
+}
+
+.MyAssets-comment-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.MyAssets-comment-meta strong {
+  color: var(--gray-900);
+  font-size: 12px;
+}
+
+.MyAssets-comment-meta time {
+  color: var(--gray-500);
+  font-size: 10px;
+}
+
+.MyAssets-comment-text {
+  margin: 0 0 10px !important;
+  padding: 0 !important;
+  color: var(--gray-800) !important;
+  font-size: 13px !important;
+  line-height: 1.5;
+  text-align: left !important;
+  white-space: pre-wrap;
+}
+
+.MyAssets-comment-image {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border: 1px solid var(--gray-200);
+  border-radius: 7px;
+  color: var(--primary-blue);
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.MyAssets-comment-image img {
+  width: 112px;
+  height: 82px;
+  display: block;
+  border-radius: 5px;
+  object-fit: cover;
+  background: var(--gray-100);
+}
+
+.MyAssets-comment-image span,
+.MyAssets-comment-file {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  overflow: hidden;
+  color: var(--primary-blue);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.MyAssets-comment-file {
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid var(--gray-200);
+  border-radius: 7px;
+  background: #fff;
+  text-decoration: none;
+}
+
+.MyAssets-image-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.78);
+}
+
+.MyAssets-image-preview {
+  width: min(920px, 100%);
+  max-height: calc(100dvh - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.35);
+}
+
+.MyAssets-image-preview header {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 14px 10px 18px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.MyAssets-image-preview header strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--gray-900);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.MyAssets-image-preview header button {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  color: var(--gray-600);
+  background: var(--gray-100);
+  cursor: pointer;
+}
+
+.MyAssets-image-preview > div {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  overflow: auto;
+  background: var(--gray-100);
+}
+
+.MyAssets-image-preview img {
+  max-width: 100%;
+  max-height: calc(100dvh - 132px);
+  display: block;
+  object-fit: contain;
+}
+
 /* Comment items styling */
-.MyAssets-modal-body > div > div {
+.MyAssets-modal-body > div:not(.MyAssets-comments-list) > div {
   margin-bottom: 12px;
   padding: 12px 16px;
   background: var(--gray-50);
@@ -1235,7 +1400,7 @@
   transition: var(--transition-fast);
 }
 
-.MyAssets-modal-body > div > div:hover {
+.MyAssets-modal-body > div:not(.MyAssets-comments-list) > div:hover {
   background: var(--gray-100);
   transform: translateX(4px);
 }
@@ -1296,8 +1461,27 @@
     padding: 16px;
   }
   
-  .MyAssets-modal-body > div > div {
+  .MyAssets-modal-body > div:not(.MyAssets-comments-list) > div {
     padding: 10px 12px;
     font-size: 13px;
+  }
+
+  .MyAssets-comment-meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .MyAssets-comment-image {
+    grid-template-columns: 84px minmax(0, 1fr);
+  }
+
+  .MyAssets-comment-image img {
+    width: 84px;
+    height: 66px;
+  }
+
+  .MyAssets-image-preview-overlay {
+    padding: 12px;
   }
 }

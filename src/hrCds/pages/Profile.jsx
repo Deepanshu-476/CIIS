@@ -8,6 +8,7 @@ import {
   FiActivity,
   FiAlertTriangle,
   FiCalendar,
+  FiCheckCircle,
   FiCreditCard,
   FiDownload,
   FiEdit,
@@ -414,44 +415,26 @@ const Profile = () => {
   const handleSave = async (event) => {
     event.preventDefault();
 
-    const requiredFieldsBySection = {
-      personal: [["name", "Full Name"], ["phone", "Mobile Number"]],
-      identity: [["aadhaar", "Aadhaar Number"], ["panCard", "PAN Number"]],
-      bank: [["bankHolderName", "Account Holder Name"], ["accountNumber", "Account Number"], ["ifsc", "IFSC Code"], ["bankName", "Bank Name"]],
-      family: [["fatherName", "Father's Name"], ["motherName", "Mother's Name"]],
-      employment: [],
-    };
-    const requiredFields = editSection === "all"
-      ? Object.values(requiredFieldsBySection).flat()
-      : requiredFieldsBySection[editSection] || [];
-    const missingFields = requiredFields
-      .filter(([field]) => !String(formData[field] || "").trim())
-      .map(([, label]) => label);
-
-    if (missingFields.length) {
-      setMessage({ type: "error", text: `Please fill all required fields: ${missingFields.join(", ")}.` });
-      return;
-    }
-
-    if ((editSection === "all" || editSection === "identity") && !/^\d{12}$/.test(formData.aadhaar.trim())) {
+    if ((editSection === "all" || editSection === "identity") && formData.aadhaar.trim() && !/^\d{12}$/.test(formData.aadhaar.trim())) {
       setMessage({ type: "error", text: "Aadhaar Number must contain exactly 12 digits." });
       return;
     }
 
     const normalizedPan = formData.panCard.trim().toUpperCase();
-    if ((editSection === "all" || editSection === "identity") && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(normalizedPan)) {
+    if ((editSection === "all" || editSection === "identity") && normalizedPan && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(normalizedPan)) {
       setMessage({ type: "error", text: "Please enter a valid PAN Number (for example: ABCDE1234F)." });
       return;
     }
 
     const normalizedAccountNumber = String(formData.accountNumber || "").trim();
-    if ((editSection === "all" || editSection === "bank") && !/^\d{9,18}$/.test(normalizedAccountNumber)) {
+    if ((editSection === "all" || editSection === "bank") && normalizedAccountNumber && !/^\d{9,18}$/.test(normalizedAccountNumber)) {
       setMessage({ type: "error", text: "Account Number must contain 9 to 18 digits." });
       return;
     }
 
     if (
       (editSection === "all" || editSection === "bank") &&
+      normalizedAccountNumber &&
       normalizedAccountNumber !== String(formData.confirmAccountNumber || "").trim()
     ) {
       setMessage({ type: "error", text: "Account Number and Confirm Account Number do not match." });
@@ -459,7 +442,7 @@ const Profile = () => {
     }
 
     const normalizedIfsc = String(formData.ifsc || "").replace(/\s+/g, "").toUpperCase();
-    if ((editSection === "all" || editSection === "bank") && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(normalizedIfsc)) {
+    if ((editSection === "all" || editSection === "bank") && normalizedIfsc && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(normalizedIfsc)) {
       setMessage({ type: "error", text: "Please enter a valid IFSC Code (for example: SBIN0001234)." });
       return;
     }
@@ -594,19 +577,33 @@ const Profile = () => {
     return <CIISLoader />;
   }
 
-  const requiredProfileFields = [
+  const profileCompletionFields = [
     profile?.name,
+    profile?.email,
     profile?.phone || profile?.mobile,
+    profile?.dob,
+    profile?.gender,
+    profile?.address,
+    profile?.city,
+    profile?.state,
+    profile?.pinCode || profile?.zipCode,
+    profile?.country,
     profile?.aadhaar || profile?.aadhar || profile?.aadharCard,
     profile?.panCard || profile?.pan,
     profile?.bankHolderName,
     profile?.accountNumber,
     profile?.ifsc,
     profile?.bankName,
+    profile?.maritalStatus,
     profile?.fatherName,
     profile?.motherName,
+    profile?.emergencyName,
+    profile?.emergencyPhone,
+    profile?.emergencyAddress,
+    ...(String(profile?.maritalStatus || "").toLowerCase() === "married" ? [profile?.spouseName] : []),
   ];
-  const completion = Math.round((requiredProfileFields.filter(Boolean).length / requiredProfileFields.length) * 100);
+  const completedProfileFields = profileCompletionFields.filter(value => String(value || "").trim()).length;
+  const completion = Math.round((completedProfileFields / profileCompletionFields.length) * 100);
   const role = resolveReferenceName(getProfileValue(profile, "designation", "jobTitle", "jobRole", "role"));
   const department = resolveReferenceName(getProfileValue(profile, "department", "departmentName"));
   const employeeId = getProfileValue(profile, "employeeId", "empId", "employeeCode");
@@ -623,9 +620,6 @@ const Profile = () => {
           <p>Manage employee information, verification and documents.</p>
         </div>
         <div className="UserDetails-header-actions">
-          <button className="UserDetails-primary-btn" onClick={() => openEdit("all")}>
-            <FiEdit /> Edit Profile
-          </button>
           <button className="UserDetails-secondary-btn UserDetails-password-btn" onClick={openPasswordModal}>
             <FiLock /> Change Password
           </button>
@@ -667,8 +661,12 @@ const Profile = () => {
           <strong>Profile Completion</strong>
           <b>{completion}%</b>
           <div className="UserDetails-progress"><span style={{ width: `${completion}%` }} /></div>
-          <p>{completion === 100 ? "Your mandatory details are complete." : "Complete required details for HR verification."}</p>
-          {completion < 100 && <button type="button" onClick={() => openEdit("all")}>Complete Profile</button>}
+          <p>{completion === 100 ? "Your profile details are complete." : "Add the remaining details to complete your profile."}</p>
+          {completion < 100 ? (
+            <button type="button" disabled>Complete Profile</button>
+          ) : (
+            <span className="UserDetails-completed-status"><FiCheckCircle /> Completed</span>
+          )}
         </div>
       </section>
 
@@ -774,8 +772,13 @@ const Profile = () => {
           <div className="UserDetails-section-heading"><h3><FiHeart /> Family & Emergency</h3><button type="button" onClick={() => openEdit("family")}><FiEdit /> Edit</button></div>
           <div className="UserDetails-info-grid three">
             <InfoItem label="Marital Status" value={profile?.maritalStatus} />
-            <InfoItem label="Spouse Name" value={profile?.spouseName} required />
-            <InfoItem label="Emergency Contact" value={profile?.emergencyPhone} required />
+            <InfoItem label="Father's Name" value={profile?.fatherName} required />
+            <InfoItem label="Mother's Name" value={profile?.motherName} required />
+            {String(profile?.maritalStatus || "").toLowerCase() === "married" && (
+              <InfoItem label="Spouse Name" value={profile?.spouseName} />
+            )}
+            <InfoItem label="Emergency Contact Name" value={profile?.emergencyName} required />
+            <InfoItem label="Emergency Contact Number" value={profile?.emergencyPhone} required />
             <InfoItem label="Emergency Address" value={profile?.emergencyAddress} required />
           </div>
         </section>
@@ -845,11 +848,16 @@ const Profile = () => {
 
       {editOpen && (
         <div className="UserDetails-modal-overlay" onClick={closeEdit}>
-          <form className="UserDetails-modal" onSubmit={handleSave} onClick={(event) => event.stopPropagation()}>
+          <form className={`UserDetails-modal UserDetails-edit-modal ${editSection === "personal" ? "UserDetails-edit-personal-modal" : ""}`} onSubmit={handleSave} onClick={(event) => event.stopPropagation()}>
             <div className="UserDetails-modal-header">
-              <div>
-                <h2>{editSection === "all" ? "Edit Profile" : `Edit ${{ personal: "Personal Information", employment: "Employment Information", identity: "Identity & Compliance", bank: "Bank & Payroll", family: "Family & Emergency" }[editSection]}`}</h2>
-                <p>{editSection === "all" ? "Update your profile details." : "Only this section's data will be updated."}</p>
+              <div className="UserDetails-modal-title-group">
+                <span className="UserDetails-modal-title-icon">
+                  {editSection === "personal" ? <FiUser /> : <FiEdit />}
+                </span>
+                <div>
+                  <h2>{editSection === "all" ? "Edit Profile" : `Edit ${{ personal: "Personal Information", employment: "Employment Information", identity: "Identity & Compliance", bank: "Bank & Payroll", family: "Family & Emergency" }[editSection]}`}</h2>
+                  <p>{editSection === "all" ? "Update your profile details." : "Update the information below and save your changes."}</p>
+                </div>
               </div>
               <button type="button" className="UserDetails-icon-btn" onClick={closeEdit} disabled={saving}>
                 <FiX />
@@ -868,21 +876,19 @@ const Profile = () => {
                 <h3><FiUser /> Personal Information</h3>
                 <div className="UserDetails-form-grid">
                   <label>
-                    Full Name *
+                    Full Name
                     <input
                       type="text"
                       value={formData.name}
                       onChange={(event) => handleChange("name", event.target.value)}
-                      required
                     />
                   </label>
                   <label>
-                    Mobile Number *
+                    Mobile Number
                     <input
                       type="tel"
                       value={formData.phone}
                       onChange={(event) => handleChange("phone", event.target.value)}
-                      required
                     />
                   </label>
                 </div>
@@ -892,7 +898,7 @@ const Profile = () => {
                 <h3>{editSection === "personal" ? <><FiUser /> Additional Personal Information</> : <><FiFileText /> Identity Details</>}</h3>
                 <div className="UserDetails-form-grid">
                   {(editSection === "all" || editSection === "identity") && <label>
-                    Aadhaar Number *
+                    Aadhaar Number
                     <input
                       type="text"
                       inputMode="numeric"
@@ -901,7 +907,6 @@ const Profile = () => {
                       placeholder="12-digit Aadhaar number"
                       value={formData.aadhaar}
                       onChange={(event) => handleChange("aadhaar", event.target.value.replace(/\D/g, ""))}
-                      required
                     />
                   </label>}
                   {(editSection === "all" || editSection === "personal") && <>
@@ -937,7 +942,7 @@ const Profile = () => {
                   </label>
                   </>}
                   {(editSection === "all" || editSection === "identity") && <label>
-                    PAN Number *
+                    PAN Number
                     <input
                       type="text"
                       maxLength={10}
@@ -945,7 +950,6 @@ const Profile = () => {
                       placeholder="ABCDE1234F"
                       value={formData.panCard}
                       onChange={(event) => handleChange("panCard", event.target.value.toUpperCase())}
-                      required
                     />
                   </label>}
                 </div>
@@ -955,16 +959,15 @@ const Profile = () => {
                 <h3><FiCreditCard /> Bank Details</h3>
                 <div className="UserDetails-form-grid">
                   <label>
-                    Account Holder Name *
+                    Account Holder Name
                     <input
                       type="text"
                       value={formData.bankHolderName}
                       onChange={(event) => handleChange("bankHolderName", event.target.value)}
-                      required
                     />
                   </label>
                   <label>
-                    Account Number *
+                    Account Number
                     <input
                       type="text"
                       inputMode="numeric"
@@ -974,11 +977,10 @@ const Profile = () => {
                       placeholder="9 to 18-digit account number"
                       value={formData.accountNumber}
                       onChange={(event) => handleChange("accountNumber", event.target.value.replace(/\D/g, ""))}
-                      required
                     />
                   </label>
                   <label>
-                    Confirm Account Number *
+                    Confirm Account Number
                     <input
                       type="text"
                       inputMode="numeric"
@@ -988,11 +990,10 @@ const Profile = () => {
                       placeholder="Re-enter account number"
                       value={formData.confirmAccountNumber}
                       onChange={(event) => handleChange("confirmAccountNumber", event.target.value.replace(/\D/g, ""))}
-                      required
                     />
                   </label>
                   <label>
-                    IFSC Code *
+                    IFSC Code
                     <input
                       type="text"
                       maxLength={11}
@@ -1000,16 +1001,14 @@ const Profile = () => {
                       placeholder="SBIN0001234"
                       value={formData.ifsc}
                       onChange={(event) => handleChange("ifsc", event.target.value.toUpperCase())}
-                      required
                     />
                   </label>
                   <label>
-                    Bank Name *
+                    Bank Name
                     <input
                       type="text"
                       value={formData.bankName}
                       onChange={(event) => handleChange("bankName", event.target.value)}
-                      required
                     />
                   </label>
                 </div>
@@ -1025,31 +1024,31 @@ const Profile = () => {
                     </select>
                   </label>
                   <label>
-                    Father's Name *
+                    Father's Name
                     <input
                       type="text"
                       value={formData.fatherName}
                       onChange={(event) => handleChange("fatherName", event.target.value)}
-                      required
                     />
                   </label>
                   <label>
-                    Mother's Name *
+                    Mother's Name
                     <input
                       type="text"
                       value={formData.motherName}
                       onChange={(event) => handleChange("motherName", event.target.value)}
-                      required
                     />
                   </label>
-                  <label>
-                    Spouse Name (Optional)
-                    <input
-                      type="text"
-                      value={formData.spouseName}
-                      onChange={(event) => handleChange("spouseName", event.target.value)}
-                    />
-                  </label>
+                  {String(formData.maritalStatus || "").toLowerCase() === "married" && (
+                    <label>
+                      Spouse Name
+                      <input
+                        type="text"
+                        value={formData.spouseName}
+                        onChange={(event) => handleChange("spouseName", event.target.value)}
+                      />
+                    </label>
+                  )}
                   <label>
                     Emergency Contact Name
                     <input type="text" value={formData.emergencyName} onChange={(event) => handleChange("emergencyName", event.target.value)} />
@@ -1057,10 +1056,6 @@ const Profile = () => {
                   <label>
                     Emergency Contact Number
                     <input type="tel" value={formData.emergencyPhone} onChange={(event) => handleChange("emergencyPhone", event.target.value)} />
-                  </label>
-                  <label>
-                    Relationship
-                    <input type="text" value={formData.emergencyRelation} onChange={(event) => handleChange("emergencyRelation", event.target.value)} />
                   </label>
                   <label className="UserDetails-form-full">
                     Emergency Address

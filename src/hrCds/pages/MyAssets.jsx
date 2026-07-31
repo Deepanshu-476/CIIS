@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 import React, { useEffect, useState, useRef } from "react";
+=======
+import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+>>>>>>> ab866e1a6c4e0c94103c459248b507fd806cbdda
 import axios from "../../utils/axiosConfig";
 import {
   FiPackage,
@@ -19,6 +24,10 @@ import {
   FiRefreshCw,
   FiUser,
   FiCalendar,
+  FiFileText,
+  FiImage,
+  FiMessageCircle,
+  FiX,
 } from "react-icons/fi";
 import "../Css/MyAssets.css";
 import CIISLoader from '../../Loader/CIISLoader';
@@ -45,7 +54,27 @@ const MyAssets = () => {
     approvalRate: 0,
   });
  const [viewCommentReq, setViewCommentReq] = useState(null);
+ const [commentImagePreview, setCommentImagePreview] = useState(null);
  const [isMobile, setIsMobile] = useState(false);
+
+  const getCommentAttachmentUrl = (imagePath) => {
+    if (!imagePath) return "";
+    if (/^(https?:|data:|blob:)/i.test(imagePath)) return imagePath;
+    const apiBase = String(axios.defaults.baseURL || "").replace(/\/+$/, "");
+    return `${apiBase}/${String(imagePath).replace(/^\/+/, "")}`;
+  };
+
+  const isCommentImage = (comment) => (
+    String(comment?.mimeType || "").startsWith("image/") ||
+    /\.(jpe?g|png|webp|gif)$/i.test(String(comment?.image || ""))
+  );
+
+  const formatCommentDate = (comment) => {
+    const value = comment?.addedAt || comment?.createdAt;
+    if (!value) return "";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "" : date.toLocaleString();
+  };
 
   
   const [allowedAssets, setAllowedAssets] = useState([]);
@@ -830,26 +859,47 @@ const MyAssets = () => {
 
 
       {viewCommentReq && (
-          <div className="MyAssets-modal-overlay">
-            <div className="MyAssets-modal">
+          <div className="MyAssets-modal-overlay" onClick={() => setViewCommentReq(null)}>
+            <div className="MyAssets-modal MyAssets-comments-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
 
               <div className="MyAssets-modal-header">
-                <h3>💬 Admin Comments</h3>
-                <button onClick={() => setViewCommentReq(null)}>✕</button>
+                <h3><FiMessageCircle /> Admin Comments</h3>
+                <button type="button" aria-label="Close comments" onClick={() => setViewCommentReq(null)}><FiX /></button>
               </div>
 
               <div className="MyAssets-modal-body">
                 {viewCommentReq.adminComments?.length > 0 ? (
-                  viewCommentReq.adminComments.map((c, i) => (
-                    <div key={i} style={{
-                      marginBottom: "8px",
-                      padding: "10px",
-                      background: "#f5f7ff",
-                      borderRadius: "6px"
-                    }}>
-                      • {c.text}
-                    </div>
-                  ))
+                  <div className="MyAssets-comments-list">
+                    {viewCommentReq.adminComments.map((c, i) => (
+                      <article className="MyAssets-comment-card" key={c._id || i}>
+                        <div className="MyAssets-comment-meta">
+                          <strong>{c.addedBy?.name || "Admin"}</strong>
+                          {formatCommentDate(c) && <time dateTime={c.addedAt || c.createdAt}>{formatCommentDate(c)}</time>}
+                        </div>
+                        {c.text && <p className="MyAssets-comment-text">{c.text}</p>}
+                        {c.image && (
+                          isCommentImage(c) ? (
+                            <button
+                              type="button"
+                              className="MyAssets-comment-image"
+                              onClick={() => setCommentImagePreview({
+                                src: getCommentAttachmentUrl(c.image),
+                                name: c.originalName || "Comment attachment"
+                              })}
+                            >
+                              <img src={getCommentAttachmentUrl(c.image)} alt={c.originalName || "Comment attachment"} loading="lazy" />
+                              <span><FiImage /> {c.originalName || "View image"}</span>
+                            </button>
+                          ) : (
+                            <a className="MyAssets-comment-file" href={getCommentAttachmentUrl(c.image)} target="_blank" rel="noreferrer">
+                              <FiFileText />
+                              <span>{c.originalName || "Open attachment"}</span>
+                            </a>
+                          )
+                        )}
+                      </article>
+                    ))}
+                  </div>
                 ) : (
                   <p>No comments available</p>
                 )}
@@ -858,6 +908,18 @@ const MyAssets = () => {
             </div>
           </div>
         )}
+
+      {commentImagePreview && createPortal((
+        <div className="MyAssets-image-preview-overlay" onClick={() => setCommentImagePreview(null)}>
+          <div className="MyAssets-image-preview" role="dialog" aria-modal="true" aria-label={commentImagePreview.name} onClick={(event) => event.stopPropagation()}>
+            <header>
+              <strong>{commentImagePreview.name}</strong>
+              <button type="button" aria-label="Close image preview" onClick={() => setCommentImagePreview(null)}><FiX /></button>
+            </header>
+            <div><img src={commentImagePreview.src} alt={commentImagePreview.name} /></div>
+          </div>
+        </div>
+      ), document.body)}
 
       
       {notification && (

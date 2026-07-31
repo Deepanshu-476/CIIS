@@ -219,8 +219,6 @@ function App() {
           <Route path="support-desk" element={<DepartmentSupportDesk />} />
           <Route path="support-operations" element={<SupportOperations />} />
         </Route>
-
-        
         <Route
           path="/client/*"
           element={

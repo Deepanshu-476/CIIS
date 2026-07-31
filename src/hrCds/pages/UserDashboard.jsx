@@ -8,7 +8,6 @@ import './UserDashboard.css';
 import './UserDashboardMobileV2.css';
 import './UserDashboardResponsive.css';
 import useIsMobile from '../../hooks/useIsMobile';
-import CIISLoader from '../../Loader/CIISLoader';
 import {
   CirclePlus, Umbrella, BriefcaseBusiness, UserPlus, Folder, CalendarDays,
   NotebookPen, Clock3, Play, ClipboardCheck, Video, Coffee, CheckCircle2,
@@ -278,8 +277,6 @@ const UserDashboard = () => {
     [initialDashboardSnapshot.activeClock]
   );
   
-  const [pageLoading, setPageLoading] = useState(true);
-  
   const [timer, setTimer] = useState(() => initialActiveClock
     ? Math.max(0, Math.floor((Date.now() - new Date(initialActiveClock.inTime).getTime()) / 1000))
     : 0);
@@ -288,8 +285,6 @@ const UserDashboard = () => {
   const dashboardRootRef = useRef(null);
 
   useEffect(() => {
-    if (pageLoading) return undefined;
-
     const frameId = requestAnimationFrame(() => {
       window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
       document.documentElement.scrollTop = 0;
@@ -303,7 +298,7 @@ const UserDashboard = () => {
     });
 
     return () => cancelAnimationFrame(frameId);
-  }, [pageLoading]);
+  }, []);
 
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
@@ -339,11 +334,11 @@ const UserDashboard = () => {
   const [quickAssetsLoading, setQuickAssetsLoading] = useState(false);
   const [quickTeamMembers, setQuickTeamMembers] = useState([]);
   const [quickTeamLoading, setQuickTeamLoading] = useState(false);
-  const [weather, setWeather] = useState({ loading: true, temperature: null, label: '' });
+  const [weather, setWeather] = useState({ loading: false, temperature: null, label: 'Weather' });
   const [focusStats, setFocusStats] = useState(() => initialDashboardSnapshot.focusStats
-    ? { ...initialDashboardSnapshot.focusStats, loading: true }
-    : { loading: true, dueToday: 0, inProgress: 0, completedToday: 0, dailyProgress: 0 });
-  const [dashboardTaskStats, setDashboardTaskStats] = useState({ loading: true, total: 0, completed: 0, inProgress: 0, pending: 0, overdue: 0 });
+    ? { ...initialDashboardSnapshot.focusStats, loading: false }
+    : { loading: false, dueToday: 0, inProgress: 0, completedToday: 0, dailyProgress: 0 });
+  const [dashboardTaskStats, setDashboardTaskStats] = useState({ loading: false, total: 0, completed: 0, inProgress: 0, pending: 0, overdue: 0 });
   const [hoveredProductivityDay, setHoveredProductivityDay] = useState(null);
   const [jobRoles, setJobRoles] = useState([]);
   const [jobRolesLoading, setJobRolesLoading] = useState(false);
@@ -828,7 +823,6 @@ const UserDashboard = () => {
       return;
     }
 
-    setFocusStats(current => ({ ...current, loading: true }));
     try {
       const config = { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 };
       const [todayResponse, allResponse] = await Promise.all([
@@ -1092,12 +1086,10 @@ const UserDashboard = () => {
   useEffect(() => {
     if (initialLoadRef.current) return;
     if (!isUserInCurrentCompany) {
-      setPageLoading(false);
       return;
     }
     
     initialLoadRef.current = true;
-    setPageLoading(true);
     
     const loadData = async () => {
       cancelPendingRequests();
@@ -1108,19 +1100,18 @@ const UserDashboard = () => {
         fetchCurrentStatus();
         const summaryLoaded = await fetchDashboardSummary();
         if (!summaryLoaded) {
-          await fetchDashboardConfig();
-          await fetchJobRoles();
-          await fetchHolidays(); 
-          await fetchAttendanceData(true); 
-          await fetchLeaveData();
+          await Promise.allSettled([
+            fetchDashboardConfig(),
+            fetchJobRoles(),
+            fetchHolidays(),
+            fetchAttendanceData(true),
+            fetchLeaveData(),
+          ]);
         }
       } catch (error) {
         console.error('Error loading dashboard data:', error);
       } finally {
-        setTimeout(() => {
-          setPageLoading(false);
-          setInitialLoadDone(true);
-        }, 500);
+        setInitialLoadDone(true);
       }
     };
     
@@ -1988,11 +1979,6 @@ const UserDashboard = () => {
   };
 
   
-  if (pageLoading) {
-    return <CIISLoader />;
-  }
-
-  
   if (!user || !token) {
     navigate('/login');
     return null;
@@ -2548,10 +2534,7 @@ const UserDashboard = () => {
       </div>
 
       
-      {loading.attendance ? (
-        <StatsLoader />
-      ) : (
-        <div className="dashboard-stats-grid">
+      <div className="dashboard-stats-grid">
           <div className="dashboard-stat-card stat-card-present">
             <div className="stat-card-header">
               <div className="stat-icon-container icon-present"><span className="stat-image-icon stat-image-present" aria-hidden="true" /></div>
@@ -2621,15 +2604,11 @@ const UserDashboard = () => {
             </div>
             <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,7 14,9 28,24 42,19 56,22 70,11 84,25 100,18 120,20" /></svg>
           </div>
-        </div>
-      )}
+      </div>
 
       <div className="dashboard-content-grid">
         
-        {loading.attendance || holidaysLoading ? (
-          <CalendarLoader />
-        ) : (
-          <div className="dashboard-calendar-card">
+        <div className="dashboard-calendar-card">
             <div className="calendar-header">
               <div className="calendar-title-section">
                 <div className="calendar-icon-container"><FiCalendar className="calendar-icon" /></div>
@@ -2724,8 +2703,7 @@ const UserDashboard = () => {
               <div className="legend-item"><div className="legend-color color-holiday"></div><span>Holiday 🎉</span></div>
               <div className="legend-item"><div className="legend-color color-before-join"></div><span>Before Joining</span></div>
             </div>
-          </div>
-        )}
+        </div>
 
         
         <div className="dashboard-activity-card">
@@ -2744,10 +2722,7 @@ const UserDashboard = () => {
             {loading.attendance && recentActivity.length > 0 && <RefreshOverlay />}
             
             
-            {loading.attendance && !recentActivity.length && <ActivityLoader />}
-            
-            
-            {!loading.attendance && recentActivity.slice(0, 5).map((item, index) => {
+            {recentActivity.slice(0, 5).map((item, index) => {
               if (['clock-in', 'clock-out', 'lunch'].includes(item.type)) {
                 const date = new Date(item.date);
                 return (
@@ -2834,7 +2809,7 @@ const UserDashboard = () => {
             })}
             
             
-            {!loading.attendance && !recentActivity.length && (
+            {!recentActivity.length && (
               <div className="activity-empty-state">
                 <div className="empty-icon-container"><FiClock className="empty-icon" /></div>
                 <p className="empty-title">No activity found</p>

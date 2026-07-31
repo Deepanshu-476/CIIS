@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import React, { useEffect, useRef, useState } from "react";
+=======
+import React, { useEffect, useState } from "react";
+>>>>>>> d61e87907f2d31f07747c12ac52eb749975ec07d
 import { createPortal } from "react-dom";
 import axios from "../../utils/axiosConfig";
 import {
@@ -72,6 +76,7 @@ const MyAssets = () => {
     return Number.isNaN(date.getTime()) ? "" : date.toLocaleString();
   };
 
+  
   
   const [allowedAssets, setAllowedAssets] = useState([]);
   const assetsFetchInFlightRef = useRef(false);

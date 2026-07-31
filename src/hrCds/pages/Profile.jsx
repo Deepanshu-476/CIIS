@@ -5,7 +5,6 @@ import CIISLoader from "../../Loader/CIISLoader";
 import "./Profile.css";
 import {
   FiBriefcase,
-  FiActivity,
   FiAlertTriangle,
   FiCalendar,
   FiCheckCircle,
@@ -140,7 +139,6 @@ const Profile = () => {
   const [documentDragActive, setDocumentDragActive] = useState(false);
   const [documentUploadError, setDocumentUploadError] = useState("");
   const [documentPreview, setDocumentPreview] = useState(null);
-  const [activeTab, setActiveTab] = useState("overview");
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const [referenceNames, setReferenceNames] = useState({});
   const documentsSectionRef = useRef(null);
@@ -371,7 +369,6 @@ const Profile = () => {
   };
 
   const selectTab = (tab) => {
-    setActiveTab(tab);
     if (tab === "documents") {
       requestAnimationFrame(() => documentsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
       return;
@@ -669,19 +666,6 @@ const Profile = () => {
           )}
         </div>
       </section>
-
-      <nav className="UserDetails-tabs" aria-label="Employee profile sections">
-        {[
-          ["overview", <FiUser />, "Overview"],
-          ["documents", <FiFileText />, "Documents"],
-          ["attendance", <FiCalendar />, "Attendance"],
-          ["leave", <FiUsers />, "Leave"],
-          ["payroll", <FiCreditCard />, "Payroll"],
-          ["activity", <FiActivity />, "Activity"],
-        ].map(([id, icon, label]) => (
-          <button key={id} type="button" className={activeTab === id ? "active" : ""} onClick={() => selectTab(id)}>{icon}{label}</button>
-        ))}
-      </nav>
 
       <div className="UserDetails-grid">
         <section className="UserDetails-section-card UserDetails-section-half">

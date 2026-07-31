@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import axios from "../../../utils/axiosConfig";
 import './employee-directory.css';
 import CIISLoader from '../../../Loader/CIISLoader';
@@ -2368,6 +2369,10 @@ const EmployeeDirectory = () => {
 
       delete updateData.zipCode;
       delete updateData.documents;
+      // Older cross-company records can contain a structured legacy value here,
+      // but this field is not part of the employee edit form. Do not resend it
+      // through the current User schema, which expects a string.
+      delete updateData.additionalDetails;
       
       if (!updateData.name?.trim()) {
         showSnackbar('Name is required', 'error');
@@ -2994,8 +2999,8 @@ const EmployeeDirectory = () => {
       )}
 
       {/* User Detail Modal */}
-      {selectedUser && (
-        <div className="EmployeeDirectory-modal-overlay" onClick={handleCloseUser}>
+      {selectedUser && createPortal((
+        <div className="EmployeeDirectory-modal-overlay EmployeeDirectory-user-detail-overlay" onClick={handleCloseUser}>
           <div className="EmployeeDirectory-modal EmployeeDirectory-user-detail-modal" onClick={e => e.stopPropagation()}>
             <div className="EmployeeDirectory-modal-header">
               <div className="EmployeeDirectory-modal-header-content">
@@ -3381,10 +3386,10 @@ const EmployeeDirectory = () => {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
 
       {/* Edit Modal */}
-      {editingUser && (
+      {editingUser && createPortal((
         <div className="EmployeeDirectory-modal-overlay EmployeeDirectory-edit-overlay" onClick={handleCancelEdit}>
           <div className="EmployeeDirectory-modal EmployeeDirectory-edit-modal" onClick={e => e.stopPropagation()}>
             <div className="EmployeeDirectory-modal-header">
@@ -3445,7 +3450,7 @@ const EmployeeDirectory = () => {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirmOpen && (

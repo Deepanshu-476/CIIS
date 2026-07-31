@@ -51,7 +51,7 @@ import Attendance from "./hrCds/pages/Attendance";
 import MyAssets from "./hrCds/pages/MyAssets";
 import MyLeaves from "./hrCds/pages/MyLeaves";
 import Profile from "./hrCds/pages/Profile";
-import UserDashboard from "./hrCds/pages/UserDashboard";
+const UserDashboard = lazy(() => import("./hrCds/pages/UserDashboard"));
 const TaskManagement = lazy(() => import("./hrCds/pages/TaskManagement"));
 import EmployeeMeetingPage from "./hrCds/pages/EmployeeMeetingPage";
 import EmployeeProject from "./hrCds/pages/EmployeeProject";
@@ -194,7 +194,14 @@ function App() {
           <Route path="my-assets" element={<MyAssets />} />
           <Route path="my-leaves" element={<MyLeaves />} />
           <Route path="profile" element={<Profile />} />
-          <Route path="user-dashboard" element={<UserDashboard />} />
+          <Route
+            path="user-dashboard"
+            element={(
+              <Suspense fallback={<CIISLoader />}>
+                <UserDashboard />
+              </Suspense>
+            )}
+          />
           <Route path="ClientDashboard" element={<Navigate to="/client/dashboard" replace />} />
           <Route path="project" element={<EmployeeProject />} />
           <Route

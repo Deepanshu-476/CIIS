@@ -1056,7 +1056,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10000;
   padding: 20px;
   animation: dir-fadeIn 0.3s ease-out;
   overscroll-behavior: contain;
@@ -1065,6 +1065,12 @@
 .EmployeeDirectory-edit-overlay {
   align-items: flex-start;
   padding: 104px 20px 32px;
+  z-index: 10020;
+}
+
+.EmployeeDirectory-user-detail-overlay {
+  top: 0;
+  padding: 92px 24px 24px;
 }
 
 @keyframes dir-fadeIn {
@@ -1078,7 +1084,8 @@
   box-shadow: var(--dir-shadow-xl);
   width: 100%;
   max-width: 800px;
-  max-height: 90vh;
+  max-height: calc(100dvh - 40px);
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1102,7 +1109,28 @@
 }
 
 .EmployeeDirectory-user-detail-modal {
-  max-width: 800px;
+  max-width: 720px;
+  max-height: calc(100dvh - 116px);
+}
+
+.EmployeeDirectory-user-detail-modal .EmployeeDirectory-modal-header {
+  padding: 18px 22px;
+}
+
+.EmployeeDirectory-user-detail-modal .EmployeeDirectory-tabs {
+  padding-inline: 20px;
+}
+
+.EmployeeDirectory-user-detail-modal .EmployeeDirectory-tab {
+  padding: 10px 12px;
+}
+
+.EmployeeDirectory-user-detail-modal .EmployeeDirectory-modal-content {
+  padding: 20px 22px;
+}
+
+.EmployeeDirectory-user-detail-modal .EmployeeDirectory-modal-footer {
+  padding: 16px 22px;
 }
 
 .EmployeeDirectory-modal-header {
@@ -1112,6 +1140,7 @@
   justify-content: space-between;
   align-items: flex-start;
   background: linear-gradient(135deg, #f8f9fa, #f1f3f5);
+  flex: 0 0 auto;
 }
 
 .EmployeeDirectory-modal-header-content {
@@ -1160,6 +1189,8 @@
   padding: 28px;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
+  scrollbar-gutter: stable;
 }
 
 .EmployeeDirectory-edit-modal .EmployeeDirectory-modal-header {
@@ -1450,6 +1481,7 @@
   justify-content: flex-end;
   gap: 12px;
   background: var(--dir-gray-50);
+  flex: 0 0 auto;
 }
 
 /* ===== TABS ===== */
@@ -2644,6 +2676,18 @@
     max-width: 100vw;
     height: 100dvh;
     overflow: hidden;
+  }
+
+  .EmployeeDirectory-user-detail-overlay {
+    top: 0;
+    height: 100dvh;
+    padding: 76px 12px 12px;
+    align-items: center;
+  }
+
+  .EmployeeDirectory-user-detail-modal {
+    max-height: calc(100dvh - 88px);
+    border-radius: var(--dir-radius-2xl);
   }
 
   .EmployeeDirectory-edit-overlay {

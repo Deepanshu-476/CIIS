@@ -846,11 +846,23 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   const navigate = useNavigate();
   const theme = useTheme();
   const [isHovered, setIsHovered] = useState(false);
-  const [userData, setUserData] = useState(null);
-  const [companyData, setCompanyData] = useState(null);
+  const [userData, setUserData] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || 'null');
+    } catch {
+      return null;
+    }
+  });
+  const [companyData, setCompanyData] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('companyDetails') || 'null');
+    } catch {
+      return null;
+    }
+  });
   const [resolvedJobRoleName, setResolvedJobRoleName] = useState("");
   const [sidebarConfig, setSidebarConfig] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [clientCompanies, setClientCompanies] = useState([]);
   const [selectedClientCompanyId, setSelectedClientCompanyId] = useState("");
@@ -1171,7 +1183,6 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     if (!userData || !companyData) return;
 
     try {
-      setLoading(true);
       setError(null);
       
       const token = localStorage.getItem("token");

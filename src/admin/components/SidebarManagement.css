@@ -987,11 +987,13 @@
 
 /* Save Footer */
 .SidebarManagement-save-footer {
-  padding: 24px;
+  padding: 24px 104px 24px 24px;
   border-top: 1px solid #e0e0e0;
   background-color: #fafafa;
   display: flex;
   justify-content: flex-end;
+  position: relative;
+  z-index: 1;
 }
 
 .SidebarManagement-save-button {
@@ -1008,6 +1010,20 @@
   align-items: center;
   gap: 8px;
   transition: all 0.3s ease;
+  touch-action: manipulation;
+}
+
+@media (max-width: 600px) {
+  .SidebarManagement-save-footer {
+    padding: 16px 88px 16px 16px;
+  }
+
+  .SidebarManagement-save-button {
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 20px;
+    justify-content: center;
+  }
 }
 
 .SidebarManagement-save-button:hover:not(:disabled) {
@@ -1665,7 +1681,7 @@
   }
   
   .SidebarManagement-save-footer {
-    padding: 16px;
+    padding: 16px 88px 16px 16px;
   }
   
   .SidebarManagement-save-button {

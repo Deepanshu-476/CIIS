@@ -49,6 +49,7 @@ import {
   getCompanyScopedClientParams,
   isClientForLoggedInUser
 } from './utils/clientPortalData';
+import { getProfileCompletion } from './utils/profileCompletion';
 
 const drawerWidthOpen = 224;
 const drawerWidthClosed = 70;
@@ -1555,22 +1556,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   }, []);
 
   const profileCompletion = useMemo(() => {
-    if (!userData) return 0;
-
-    const requiredValues = [
-      userData.name,
-      userData.phone || userData.mobile,
-      userData.aadhaar || userData.aadhar || userData.aadharCard,
-      userData.panCard || userData.pan,
-      userData.bankHolderName,
-      userData.accountNumber,
-      userData.ifsc,
-      userData.bankName,
-      userData.fatherName,
-      userData.motherName,
-    ];
-    const completedFields = requiredValues.filter(value => String(value || '').trim()).length;
-    return Math.round((completedFields / requiredValues.length) * 100);
+    return getProfileCompletion(userData);
   }, [userData]);
 
   const renderMenuItem = (item, showFull) => {

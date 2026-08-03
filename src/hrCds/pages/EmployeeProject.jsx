@@ -2155,7 +2155,7 @@ const EmployeeProject = () => {
 
       
       {detailTask && !openPdfDialog && (
-        <div className="EmployeeProject-modal">
+        <div className="EmployeeProject-modal EmployeeProject-task-detail-overlay">
           <div className="EmployeeProject-modal-backdrop" onClick={() => setDetailTaskId(null)} />
           <div className="EmployeeProject-modal-content EmployeeProject-modal-lg EmployeeProject-task-detail-modal">
             <div className="EmployeeProject-modal-header EmployeeProject-modal-header-primary">

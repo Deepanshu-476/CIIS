@@ -334,12 +334,22 @@ const UserDashboard = () => {
   const [quickAssetsLoading, setQuickAssetsLoading] = useState(false);
   const [quickTeamMembers, setQuickTeamMembers] = useState([]);
   const [quickTeamLoading, setQuickTeamLoading] = useState(false);
-  const [weather, setWeather] = useState({ loading: false, temperature: null, label: 'Weather' });
+  const [weather, setWeather] = useState({ loading: false, temperature: null, feelsLike: null, label: 'Weather' });
   const [focusStats, setFocusStats] = useState(() => initialDashboardSnapshot.focusStats
     ? { ...initialDashboardSnapshot.focusStats, loading: false }
     : { loading: false, dueToday: 0, inProgress: 0, completedToday: 0, dailyProgress: 0 });
   const [dashboardTaskStats, setDashboardTaskStats] = useState({ loading: false, total: 0, completed: 0, inProgress: 0, pending: 0, overdue: 0 });
   const [hoveredProductivityDay, setHoveredProductivityDay] = useState(null);
+  const [productivityPeriod, setProductivityPeriod] = useState('weekly');
+  const [productivityDates, setProductivityDates] = useState(() => {
+    const to = new Date();
+    const from = new Date(to);
+    from.setDate(from.getDate() - 6);
+    const localDate = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+    return { from: localDate(from), to: localDate(to) };
+  });
+  const [productivityData, setProductivityData] = useState({ loading: true, refreshing: false, error: '', score: 0, label: 'Poor', tone: 'danger', series: [] });
+  const productivityRequestRef = useRef(0);
   const [jobRoles, setJobRoles] = useState([]);
   const [jobRolesLoading, setJobRolesLoading] = useState(false);
   const [dashboardUser, setDashboardUser] = useState(null);
@@ -374,6 +384,26 @@ const UserDashboard = () => {
   }, [dashboardUser?.employeeType, user?.employeeType]);
 
   const token = useMemo(() => localStorage.getItem('token'), []);
+
+  const fetchProductivity = useCallback(async (period = productivityPeriod, dates = productivityDates) => {
+    if (!token) return;
+    if (period === 'custom' && (!dates.from || !dates.to || dates.from > dates.to)) {
+      setProductivityData(current => ({ ...current, error: 'Please select a valid date range.' }));
+      return;
+    }
+    const requestId = ++productivityRequestRef.current;
+    setProductivityData(current => ({ ...current, loading: !current.series.length, refreshing: Boolean(current.series.length), error: '' }));
+    try {
+      const response = await axios.get('/dashboard/productivity', { headers: { Authorization: `Bearer ${token}` }, params: period === 'custom' ? { period, from: dates.from, to: dates.to } : { period } });
+      if (requestId === productivityRequestRef.current) setProductivityData({ ...response.data.data, loading: false, refreshing: false, error: '' });
+    } catch (error) {
+      if (requestId === productivityRequestRef.current) setProductivityData(current => ({ ...current, loading: false, refreshing: false, error: error.response?.data?.message || 'Unable to load productivity.' }));
+    }
+  }, [productivityDates, productivityPeriod, token]);
+
+  useEffect(() => {
+    if (productivityPeriod !== 'custom') fetchProductivity(productivityPeriod, productivityDates);
+  }, [fetchProductivity, productivityDates, productivityPeriod]);
   
   const companyDetails = useMemo(() => {
     try {
@@ -397,20 +427,26 @@ const UserDashboard = () => {
       active = false;
       controller.abort();
       setWeather({ loading: false, temperature: null, label: 'Enable location for weather' });
-    }, 10000);
+    }, 7000);
 
     navigator.geolocation.getCurrentPosition(async position => {
       if (!active) return;
       try {
         const { latitude, longitude } = position.coords;
-        const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&temperature_unit=celsius&timezone=auto`, {
+        const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,weather_code&temperature_unit=celsius&timezone=auto`, {
           signal: controller.signal
         });
         if (!response.ok) throw new Error('Weather request failed');
         const data = await response.json();
-        const temperature = Number(data.current?.temperature_2m);
-        if (!Number.isFinite(temperature)) throw new Error('Weather response is incomplete');
-        if (active) setWeather({ loading: false, temperature: Math.round(temperature), label: getWeatherLabel(data.current?.weather_code) });
+        const actualTemperature = Number(data.current?.temperature_2m);
+        const apparentTemperature = Number(data.current?.apparent_temperature);
+        if (!Number.isFinite(actualTemperature)) throw new Error('Weather response is incomplete');
+        if (active) setWeather({
+          loading: false,
+          temperature: Math.round(actualTemperature),
+          feelsLike: Number.isFinite(apparentTemperature) ? Math.round(apparentTemperature) : null,
+          label: getWeatherLabel(data.current?.weather_code)
+        });
       } catch {
         if (active) setWeather({ loading: false, temperature: null, label: 'Weather unavailable' });
       } finally {
@@ -419,7 +455,7 @@ const UserDashboard = () => {
     }, () => {
       window.clearTimeout(stopLoadingTimer);
       if (active) setWeather({ loading: false, temperature: null, label: 'Enable location for weather' });
-    }, { enableHighAccuracy: false, timeout: 8000, maximumAge: 10 * 60 * 1000 });
+    }, { enableHighAccuracy: false, timeout: 5000, maximumAge: 2 * 60 * 1000 });
     return () => {
       active = false;
       window.clearTimeout(stopLoadingTimer);
@@ -1661,20 +1697,9 @@ const UserDashboard = () => {
     overdue: dashboardTaskStats.overdue
   }), [dashboardTaskStats]);
 
-  const productivityScore = useMemo(() => {
-    const attendanceTotal = monthlyStats.presentDays + monthlyStats.lateDays + monthlyStats.halfDays + monthlyStats.absentDays;
-    const attendanceScore = attendanceTotal ? Math.round(((monthlyStats.presentDays + monthlyStats.halfDays * 0.5) / attendanceTotal) * 100) : 0;
-    const taskScore = taskSummary.total ? Math.round((taskSummary.completed / taskSummary.total) * 100) : attendanceScore;
-    return Math.max(0, Math.min(100, Math.round((attendanceScore + taskScore) / (taskSummary.total ? 2 : 1))));
-  }, [monthlyStats, taskSummary]);
-
-  const productivityLabel = useMemo(() => {
-    if (productivityScore >= 90) return 'Excellent';
-    if (productivityScore >= 75) return 'Great going!';
-    if (productivityScore >= 60) return 'Good';
-    if (productivityScore >= 40) return 'Needs attention';
-    return 'Keep improving';
-  }, [productivityScore]);
+  const productivityScore = productivityData.score || 0;
+  const productivityLabel = productivityData.label || 'Poor';
+  const productivityTone = productivityData.tone || 'danger';
 
   const todayAttendance = useMemo(() => {
     const todayKey = new Date().toDateString();
@@ -1686,52 +1711,21 @@ const UserDashboard = () => {
 
   const hasTodayAttendance = Boolean(todayAttendance);
 
-  const productivityTrend = useMemo(() => {
-    const days = Array.from({ length: 7 }, (_, index) => {
-      const date = new Date();
-      date.setHours(0, 0, 0, 0);
-      date.setDate(date.getDate() - (6 - index));
-      return { date, total: 0, completed: 0, attendanceScore: null, attendanceStatus: '', hasData: false };
-    });
+  const productivityTrend = useMemo(() => (productivityData.series || []).map((item, index, series) => ({
+    ...item,
+    date: new Date(item.date),
+    total: item.counts?.tasks || 0,
+    completed: item.counts?.completed || 0,
+    attendanceScore: item.breakdown?.attendance,
+    x: series.length === 1 ? 170 : 12 + index * (316 / (series.length - 1)),
+    y: 105 - ((item.score || 0) * 0.75)
+  })), [productivityData.series]);
 
-    attendanceData.forEach(record => {
-      const recordDate = new Date(record.date || record.inTime || record.createdAt);
-      if (Number.isNaN(recordDate.getTime())) return;
-      const day = days.find(item => item.date.toDateString() === recordDate.toDateString());
-      if (!day) return;
-      const status = normalizeAttendanceStatus(record.status);
-      day.attendanceStatus = status;
-      day.attendanceScore = status === 'PRESENT' ? 100
-        : status === 'LATE' ? 75
-          : status === 'HALF DAY' ? 50
-            : status === 'ABSENT' ? 0 : null;
-      day.hasData = day.attendanceScore !== null;
-    });
-
-    taskActivity.forEach(task => {
-      const taskDate = new Date(task.updatedAt || task.completedAt || task.date || task.createdAt);
-      if (Number.isNaN(taskDate.getTime())) return;
-      const day = days.find(item => item.date.toDateString() === taskDate.toDateString());
-      if (!day) return;
-      day.total += 1;
-      day.hasData = true;
-      const status = String(task.status || '').toLowerCase();
-      if (status.includes('complete') || status === 'done') day.completed += 1;
-    });
-
-    return days.map((day, index) => {
-      const taskScore = day.total ? Math.round((day.completed / day.total) * 100) : null;
-      const score = taskScore !== null && day.attendanceScore !== null
-        ? Math.round((taskScore + day.attendanceScore) / 2)
-        : taskScore ?? day.attendanceScore ?? 0;
-      return {
-        ...day,
-        score,
-        x: 12 + index * (316 / 6),
-        y: 105 - (score * 0.75)
-      };
-    });
-  }, [taskActivity, attendanceData]);
+  const productivityAxisLabels = useMemo(() => {
+    if (productivityData.granularity === 'monthly') return productivityTrend;
+    const step = Math.max(1, Math.ceil(productivityTrend.length / 7));
+    return productivityTrend.filter((item, index) => index === 0 || index === productivityTrend.length - 1 || index % step === 0);
+  }, [productivityData.granularity, productivityTrend]);
 
   const topProjects = useMemo(() => dashboardProjects.map(project => {
     const tasks = Array.isArray(project.tasks) ? project.tasks : [];
@@ -2467,7 +2461,7 @@ const UserDashboard = () => {
             <div className="dashboard-date-info">
               <MdToday size={14} />
               {currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-              <span className="dashboard-weather" title={weather.temperature === null ? weather.label : 'Live local weather'}><FiSun /> {weather.loading ? 'Loading weather…' : weather.temperature === null ? weather.label : `${weather.temperature}°C\u00A0 ${weather.label}`}</span>
+              <span className="dashboard-weather" title={weather.temperature === null ? weather.label : `Actual ${weather.temperature}°C${weather.feelsLike === null ? '' : ` · Feels like ${weather.feelsLike}°C`}`}><FiSun /> {weather.loading ? 'Loading weather…' : weather.temperature === null ? weather.label : `${weather.temperature}°C\u00A0 ${weather.label}`}</span>
             </div>
           </div>
 
@@ -2850,15 +2844,25 @@ const UserDashboard = () => {
             </div>
           </div>}
         </article>
-        <article className="dashboard-insight-card dashboard-productivity-card">
-          <div className="dashboard-section-heading"><strong>Productivity Score</strong><em className="productivity-score-value">{dashboardTaskStats.loading ? '—' : <><b>{productivityScore}%</b><small>{productivityLabel}</small></>}</em></div>
-          {dashboardTaskStats.loading ? <div className="dashboard-empty-schedule">Loading productivity...</div> : productivityTrend.some(day => day.hasData) ? (
-            <div className="productivity-chart">
+        <article className={`dashboard-insight-card dashboard-productivity-card ${productivityPeriod === 'custom' ? 'has-custom-range' : ''}`}>
+          <div className="dashboard-section-heading productivity-heading">
+            <strong>Productivity Score</strong>
+            <div className="productivity-heading-actions">
+              <select value={productivityPeriod} onChange={event => { setHoveredProductivityDay(null); setProductivityPeriod(event.target.value); }} aria-label="Productivity period"><option value="today">Today</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="sixMonths">6 Months</option><option value="yearly">Yearly</option><option value="custom">Custom dates</option></select>
+              <em className={`productivity-score-value productivity-score-${productivityTone}`}>{productivityData.loading ? '—' : <><b>{productivityScore}%</b><small>{productivityLabel}</small></>}</em>
+            </div>
+          </div>
+          {productivityPeriod === 'custom' && <div className="productivity-date-filter"><label><span>From</span><input type="date" value={productivityDates.from} max={productivityDates.to || undefined} onChange={event => setProductivityDates(current => ({ ...current, from: event.target.value }))}/></label><label><span>To</span><input type="date" value={productivityDates.to} min={productivityDates.from || undefined} max={new Date().toISOString().slice(0, 10)} onChange={event => setProductivityDates(current => ({ ...current, to: event.target.value }))}/></label><button type="button" disabled={productivityData.refreshing || !productivityDates.from || !productivityDates.to || productivityDates.from > productivityDates.to} onClick={() => fetchProductivity('custom', productivityDates)}>{productivityData.refreshing ? 'Loading…' : 'Apply'}</button></div>}
+          {productivityData.error && <div className="productivity-filter-error">{productivityData.error}</div>}
+          {productivityData.loading ? <div className="dashboard-empty-schedule">Loading productivity...</div> : productivityTrend.some(day => day.hasData) ? (
+            <div className={`productivity-chart ${productivityData.refreshing ? 'is-refreshing' : ''}`}>
               <div className="productivity-axis"><span>100</span><span>50</span><span>0</span></div>
               <svg viewBox="0 0 340 120" preserveAspectRatio="none">
-                <polyline points={productivityTrend.map(day => `${day.x},${day.y}`).join(' ')} />
-                <g>{productivityTrend.map(day => <circle
-                  key={day.date.toISOString()}
+                <polyline points={productivityTrend.length === 1
+                  ? `12,${productivityTrend[0].y} 328,${productivityTrend[0].y}`
+                  : productivityTrend.map(day => `${day.x},${day.y}`).join(' ')} />
+                <g>{productivityTrend.map((day, index) => <circle
+                  key={`${day.date.toISOString()}-${day.label || 'point'}-${index}`}
                   cx={day.x}
                   cy={day.y}
                   r="5"
@@ -2877,15 +2881,19 @@ const UserDashboard = () => {
                     top: `${Math.max(0, hoveredProductivityDay.y - 8)}px`
                   }}
                 >
-                  <strong>{hoveredProductivityDay.date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' })}</strong>
+                  <strong>{hoveredProductivityDay.label}</strong>
                   <span>Productivity <b>{hoveredProductivityDay.score}%</b></span>
-                  <span>Attendance <b>{hoveredProductivityDay.attendanceStatus ? `${hoveredProductivityDay.attendanceStatus} (${hoveredProductivityDay.attendanceScore}%)` : 'No record'}</b></span>
+                  <span>Attendance <b>{hoveredProductivityDay.attendanceScore === null || hoveredProductivityDay.attendanceScore === undefined ? 'No record' : `${hoveredProductivityDay.attendanceScore}%`}</b></span>
                   <span>Tasks <b>{hoveredProductivityDay.completed}/{hoveredProductivityDay.total} completed</b></span>
                 </div>
               )}
-              <div>{productivityTrend.map(day => <span key={day.date.toISOString()}>{day.date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}</span>)}</div>
+              <div className={`productivity-x-axis ${productivityData.granularity === 'monthly' ? 'is-monthly' : ''}`}>{productivityAxisLabels.map((day, index) => {
+                const [primary, secondary] = String(day.label || '').split(' ');
+                return <span key={`${day.date.toISOString()}-${index}`} style={{ left: `${(day.x / 340) * 100}%` }}><b>{primary}</b>{secondary && <small>{secondary}</small>}</span>;
+              })}</div>
             </div>
-          ) : <div className="dashboard-empty-schedule">No productivity data for the last 7 days</div>}
+          ) : <div className="dashboard-empty-schedule">No productivity data for this period</div>}
+          {productivityData.refreshing && <div className="productivity-refreshing" aria-label="Refreshing productivity" />}
         </article>
         <article className="dashboard-insight-card dashboard-projects-card">
           <div className="dashboard-section-heading"><strong>Top Projects</strong><button onClick={() => navigate('/ciisUser/project')}>View All</button></div>

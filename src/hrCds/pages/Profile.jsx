@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom";
 import axios from "../../utils/axiosConfig";
 import CIISLoader from "../../Loader/CIISLoader";
+import { getProfileCompletion } from "../utils/profileCompletion";
 import "./Profile.css";
 import {
   FiBriefcase,
@@ -574,33 +575,7 @@ const Profile = () => {
     return <CIISLoader />;
   }
 
-  const profileCompletionFields = [
-    profile?.name,
-    profile?.email,
-    profile?.phone || profile?.mobile,
-    profile?.dob,
-    profile?.gender,
-    profile?.address,
-    profile?.city,
-    profile?.state,
-    profile?.pinCode || profile?.zipCode,
-    profile?.country,
-    profile?.aadhaar || profile?.aadhar || profile?.aadharCard,
-    profile?.panCard || profile?.pan,
-    profile?.bankHolderName,
-    profile?.accountNumber,
-    profile?.ifsc,
-    profile?.bankName,
-    profile?.maritalStatus,
-    profile?.fatherName,
-    profile?.motherName,
-    profile?.emergencyName,
-    profile?.emergencyPhone,
-    profile?.emergencyAddress,
-    ...(String(profile?.maritalStatus || "").toLowerCase() === "married" ? [profile?.spouseName] : []),
-  ];
-  const completedProfileFields = profileCompletionFields.filter(value => String(value || "").trim()).length;
-  const completion = Math.round((completedProfileFields / profileCompletionFields.length) * 100);
+  const completion = getProfileCompletion(profile);
   const role = resolveReferenceName(getProfileValue(profile, "designation", "jobTitle", "jobRole", "role"));
   const department = resolveReferenceName(getProfileValue(profile, "department", "departmentName"));
   const employeeId = getProfileValue(profile, "employeeId", "empId", "employeeCode");

@@ -3476,6 +3476,40 @@
 .dashboard-section-heading .productivity-score-value { display: grid; justify-items: end; line-height: 1.05; }
 .productivity-score-value b { color: #13a56d; font-size: 20px; }
 .productivity-score-value small { margin-top: 3px; color: #13a56d; font-size: 8px; font-weight: 700; }
+.productivity-score-value.productivity-score-good b,
+.productivity-score-value.productivity-score-good small { color: #3182ce; }
+.productivity-score-value.productivity-score-warning b,
+.productivity-score-value.productivity-score-warning small { color: #dd6b20; }
+.productivity-score-value.productivity-score-danger b,
+.productivity-score-value.productivity-score-danger small { color: #e53e3e; }
+.dashboard-productivity-card { position: relative; transition: box-shadow .25s ease, border-color .25s ease; }
+.productivity-heading-actions { display: flex; align-items: center; gap: 9px; }
+.productivity-heading-actions select { height: 27px; max-width: 105px; padding: 0 22px 0 9px; border: 1px solid #ddd8f5; border-radius: 8px; outline: 0; background: #f8f7ff; color: #51469a; font-size: 9px; font-weight: 700; cursor: pointer; transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease, transform .2s ease; }
+.productivity-heading-actions select:hover { border-color: #bdb2ef; background: #fff; }
+.productivity-heading-actions select:focus { border-color: #8068e9; box-shadow: 0 0 0 3px rgba(104,72,232,.1); }
+.productivity-date-filter { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; align-items: end; gap: 6px; margin: -3px 0 7px; transform-origin: top center; animation: productivity-filter-in .24s cubic-bezier(.22,1,.36,1) both; }
+.productivity-date-filter label { min-width: 0; display: grid; gap: 2px; }
+.productivity-date-filter label span { padding: 0; background: none; color: #7b8396; font-size: 7px; font-weight: 700; }
+.productivity-date-filter input { box-sizing: border-box; width: 100%; min-width: 0; height: 27px; padding: 0 5px; border: 1px solid #e0dcef; border-radius: 7px; outline: 0; color: #434b5f; font-size: 8px; transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease; }
+.productivity-date-filter input:hover { border-color: #c8bff0; }
+.productivity-date-filter input:focus { border-color: #8068e9; background: #fff; box-shadow: 0 0 0 3px rgba(104,72,232,.08); }
+.productivity-date-filter button { height: 27px; padding: 0 9px; border: 0; border-radius: 7px; background: #6848e8; color: #fff; font-size: 8px; font-weight: 700; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease, background-color .18s ease; }
+.productivity-date-filter button:not(:disabled):hover { background: #5937dc; box-shadow: 0 5px 12px rgba(104,72,232,.22); transform: translateY(-1px); }
+.productivity-date-filter button:not(:disabled):active { box-shadow: none; transform: translateY(0) scale(.97); }
+.productivity-date-filter button:disabled { cursor: not-allowed; opacity: .55; }
+.productivity-filter-error { margin: -4px 0 5px; color: #d9475c; font-size: 8px; }
+.productivity-refreshing { position: absolute; top: 0; left: 0; width: 100%; height: 2px; overflow: hidden; background: rgba(104,72,232,.12); }
+.productivity-refreshing::after { content: ''; display: block; width: 35%; height: 100%; background: #6848e8; animation: productivity-loading 1s ease-in-out infinite; }
+@keyframes productivity-loading { from { transform: translateX(-110%); } to { transform: translateX(330%); } }
+@keyframes productivity-filter-in { from { opacity: 0; transform: translateY(-7px) scaleY(.9); } to { opacity: 1; transform: translateY(0) scaleY(1); } }
+.productivity-chart { transition: opacity .22s ease, transform .22s ease; }
+.productivity-chart.is-refreshing { opacity: .55; transform: translateY(2px); pointer-events: none; }
+.productivity-chart polyline { transition: opacity .3s ease; }
+.productivity-chart circle { transition: r .15s ease, fill .15s ease, opacity .25s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .productivity-date-filter, .productivity-refreshing::after { animation: none; }
+  .productivity-chart, .productivity-date-filter button, .productivity-heading-actions select { transition: none; }
+}
 .task-overview-body { display: flex; align-items: center; justify-content: space-around; gap: 18px; }
 .task-donut { width: 108px; aspect-ratio:1; border-radius:50%; background:conic-gradient(#19b978 var(--done), #4b8ff0 0 65%, #f6aa2c 0 86%, #ef496d 0); padding: 12px; }
 .task-donut span { width:100%; height:100%; border-radius:50%; background:white; display:grid; place-content:center; text-align:center; font-size:9px; color:#70788b; }
@@ -3487,6 +3521,7 @@
 .productivity-chart .productivity-axis { position: absolute; top: 0; bottom: 20px; right: calc(100% + 5px); display: flex; flex-direction: column; justify-content: space-between; color: #8891a5; font-size: 8px; }
 .productivity-chart svg { display: block; width: 100%; height: 105px; overflow: visible; }
 .productivity-chart polyline { fill: none; stroke: #6848e8; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.dashboard-productivity-card .productivity-chart polyline { filter: drop-shadow(0 3px 4px rgba(104,72,232,.16)); }
 .productivity-chart circle { fill: #fff; stroke: #6848e8; stroke-width: 2.5; }
 .productivity-chart circle { cursor: pointer; transition: r .15s ease, fill .15s ease; }
 .productivity-chart circle:hover, .productivity-chart circle:focus { r: 7px; fill: #6848e8; outline: none; }
@@ -3510,7 +3545,13 @@
 .productivity-tooltip strong { display: block; margin-bottom: 5px; color: #cfc6ff; font-size: 10px; }
 .productivity-tooltip span { display: flex; justify-content: space-between; gap: 12px; margin-top: 3px; }
 .productivity-tooltip b { color: #fff; text-align: right; }
-.productivity-chart > div { display: flex; justify-content: space-between; color: #8891a5; font-size: 8px; }
+.productivity-chart > .productivity-x-axis { position: absolute; right: 6px; bottom: 0; left: 6px; z-index: 2; display: block; height: 20px; color: #8891a5; font-size: 8px; pointer-events: none; }
+.productivity-x-axis > span { position: absolute; display: grid; justify-items: center; line-height: 1.05; white-space: nowrap; transform: translateX(-50%); }
+.productivity-x-axis > span:first-child { transform: translateX(0); }
+.productivity-x-axis > span:last-child { transform: translateX(-100%); }
+.productivity-x-axis b { color: #7d8598; font-size: 8px; font-weight: 650; }
+.productivity-x-axis small { margin-top: 2px; color: #a0a6b4; font-size: 7px; font-weight: 600; }
+.productivity-x-axis.is-monthly > span { min-width: 22px; }
 .project-progress-list { display: grid; gap: 16px; }
 .project-progress-list > div { display: grid; gap: 7px; }
 .project-progress-list span { display: grid; grid-template-columns: 17px 1fr auto; align-items: center; gap: 6px; font-size: 10px; font-weight: 650; }
@@ -3533,6 +3574,11 @@
     height: 205px;
     min-height: 205px;
     align-items: stretch;
+    transition: height .28s cubic-bezier(.22,1,.36,1), min-height .28s cubic-bezier(.22,1,.36,1);
+  }
+  .dashboard-container .dashboard-insights-row:has(.dashboard-productivity-card.has-custom-range) {
+    height: 245px;
+    min-height: 245px;
   }
   .dashboard-container .dashboard-insight-card {
     height: 205px;
@@ -3541,6 +3587,11 @@
     flex-direction: column;
     padding: 15px;
     overflow: hidden;
+    transition: height .28s cubic-bezier(.22,1,.36,1), min-height .28s cubic-bezier(.22,1,.36,1), box-shadow .25s ease;
+  }
+  .dashboard-container .dashboard-insights-row:has(.dashboard-productivity-card.has-custom-range) .dashboard-insight-card {
+    height: 245px;
+    min-height: 245px;
   }
   .dashboard-insight-card .dashboard-section-heading {
     min-height: 34px;
@@ -3556,9 +3607,11 @@
     flex: 1;
     min-height: 0;
     height: auto;
+    box-sizing: border-box;
+    padding-bottom: 21px;
   }
   .dashboard-productivity-card .productivity-chart svg {
-    height: calc(100% - 20px);
+    height: calc(100% - 21px);
     min-height: 92px;
   }
   .dashboard-projects-card .project-progress-list {
@@ -3610,6 +3663,9 @@
   .dashboard-calendar-card { padding-right: 16px; }
   .attendance-day-summary { position: static; width: 100%; margin-top: 14px; }
   .dashboard-stats-grid { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:5px; }
+  .productivity-heading { gap: 10px; }
+  .productivity-heading-actions { gap: 6px; }
+  .productivity-date-filter { grid-template-columns: 1fr 1fr auto; }
   .dashboard-stat-card { min-width:175px; scroll-snap-align:start; }
 }
 

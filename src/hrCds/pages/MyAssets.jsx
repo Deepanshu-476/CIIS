@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import React, { useEffect, useRef, useState } from "react";
-=======
 import React, { useEffect, useState } from "react";
->>>>>>> d61e87907f2d31f07747c12ac52eb749975ec07d
 import { createPortal } from "react-dom";
 import axios from "../../utils/axiosConfig";
 import {
@@ -199,7 +195,7 @@ const MyAssets = () => {
     return 'primary';
   };
 
-  
+      
   const fetchRequests = async (showRefresh = false, force = false) => {
     const now = Date.now();
     if (!force && (requestsFetchInFlightRef.current || now - lastRequestsFetchAtRef.current < 30000)) {

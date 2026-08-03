@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Box,
@@ -48,18 +48,64 @@ const defaultForm = {
   }
 };
 
+const InstantToggle = ({ checked, onToggle, label }) => (
+  <Box
+    component="button"
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    aria-label={label}
+    onClick={(event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      onToggle(!checked);
+    }}
+    sx={{
+      position: 'relative',
+      flex: '0 0 auto',
+      width: 46,
+      height: 26,
+      p: 0,
+      border: 0,
+      borderRadius: 999,
+      bgcolor: checked ? '#86bd91' : '#111827',
+      boxShadow: checked ? 'inset 0 0 0 1px rgba(21,128,61,.08)' : 'inset 0 0 0 1px rgba(0,0,0,.16)',
+      cursor: 'pointer',
+      appearance: 'none',
+      transition: 'background-color 180ms ease, box-shadow 180ms ease',
+      '&::after': {
+        content: '""',
+        position: 'absolute',
+        top: 2,
+        left: 2,
+        width: 22,
+        height: 22,
+        borderRadius: '50%',
+        bgcolor: checked ? '#25853a' : '#fff',
+        boxShadow: '0 2px 7px rgba(15,23,42,.28)',
+        transform: checked ? 'translateX(20px)' : 'translateX(0)',
+        transition: 'transform 220ms cubic-bezier(.22,1,.36,1), background-color 180ms ease'
+      },
+      '&:focus-visible': { outline: '3px solid rgba(37,99,235,.3)', outlineOffset: 2 },
+      '&:active::after': { width: 24 }
+    }}
+  />
+);
+
 function EmailSettings() {
   const [form, setForm] = useState(defaultForm);
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [globalSwitchSaving, setGlobalSwitchSaving] = useState(false);
+  const [savingModules, setSavingModules] = useState({});
+  const moduleSaveTimersRef = useRef({});
   const [testing, setTesting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [testEmail, setTestEmail] = useState('');
   const emailModules = meta?.emailModules || [];
   const senderProfiles = meta?.senderProfiles || [];
   const selectedSenderProfile = senderProfiles.find(profile => profile.profileId === form.activeSenderProfileId);
-
   const statusColor = form.enabled ? '#0f766e' : '#b91c1c';
   const statusLabel = form.enabled ? 'Email service ON' : 'Email service OFF';
   const lastTestLabel = useMemo(() => {
@@ -68,6 +114,8 @@ function EmailSettings() {
   }, [meta]);
 
   const syncSettings = (settings) => {
+    const resolvedEmailHost = String(settings.emailHost || '').trim().toLowerCase();
+    const isHostingEmail = Boolean(resolvedEmailHost && resolvedEmailHost !== 'smtp.gmail.com');
     setForm({
       enabled: settings.enabled !== false,
       activeSenderProfileId: settings.activeSenderProfileId || 'default',
@@ -76,9 +124,9 @@ function EmailSettings() {
       senderName: settings.senderName || 'CIIS NETWORK',
       emailUser: settings.emailUser || '',
       emailPass: '',
-      emailHostType: settings.emailHost ? 'hosting' : 'simple',
+      emailHostType: isHostingEmail ? 'hosting' : 'simple',
       emailService: settings.emailService || 'Gmail',
-      emailHost: settings.emailHost || (settings.emailHost ? 'smtp.hostinger.com' : 'smtp.gmail.com'),
+      emailHost: isHostingEmail ? 'smtp.hostinger.com' : 'smtp.gmail.com',
       emailPort: settings.emailPort || 465,
       emailSecure: settings.emailSecure !== false,
       replyTo: settings.replyTo || '',
@@ -115,43 +163,39 @@ function EmailSettings() {
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const updateModuleSetting = async (moduleKey, enabled) => {
-    const previousForm = form;
-    const nextForm = {
-      ...form,
-      moduleSettings: {
-        ...form.moduleSettings,
-        [moduleKey]: enabled
+  const updateModuleSetting = (moduleKey, enabled) => {
+    setForm(current => ({
+      ...current,
+      moduleSettings: { ...current.moduleSettings, [moduleKey]: enabled }
+    }));
+
+    window.clearTimeout(moduleSaveTimersRef.current[moduleKey]);
+    moduleSaveTimersRef.current[moduleKey] = window.setTimeout(async () => {
+      setSavingModules(prev => ({ ...prev, [moduleKey]: true }));
+      try {
+        const response = await axios.patch(
+          `/email-settings/module-settings/${encodeURIComponent(moduleKey)}`,
+          { enabled },
+          { _skipErrorNotify: true, timeout: 10000 }
+        );
+        if (!response.data?.success) throw new Error('Module update was not saved');
+        setMeta(prev => prev ? {
+          ...prev,
+          moduleSettings: { ...prev.moduleSettings, [moduleKey]: enabled },
+          emailModules: (prev.emailModules || []).map(item => item.key === moduleKey ? { ...item, enabled } : item)
+        } : prev);
+      } catch (error) {
+        console.error('Email module setting update failed:', error);
+        toast.error(error.response?.data?.message || 'Setting could not be saved. Please retry.');
+      } finally {
+        setSavingModules(prev => ({ ...prev, [moduleKey]: false }));
       }
-    };
-
-    setForm(nextForm);
-    setSaving(true);
-
-    try {
-      const response = await axios.put('/email-settings', {
-        activeSenderProfileId: nextForm.activeSenderProfileId,
-        moduleSettings: nextForm.moduleSettings,
-        saveSenderProfile: false
-      });
-
-      if (response.data?.success) {
-        syncSettings(response.data.settings);
-        toast.success(enabled ? 'Email module enabled' : 'Email module disabled');
-        return true;
-      }
-
-      setForm(previousForm);
-      return false;
-    } catch (error) {
-      console.error('Email module setting update failed:', error);
-      setForm(previousForm);
-      toast.error(error.response?.data?.message || 'Failed to update email module');
-      return false;
-    } finally {
-      setSaving(false);
-    }
+    }, 250);
   };
+
+  useEffect(() => () => {
+    Object.values(moduleSaveTimersRef.current).forEach(timer => window.clearTimeout(timer));
+  }, []);
 
   const updateLoginSetting = (field, enabled) => {
     setForm(prev => ({
@@ -221,6 +265,8 @@ function EmailSettings() {
   const selectSenderProfile = async (profileId) => {
     const profile = senderProfiles.find(item => item.profileId === profileId);
     if (!profile) return;
+    const resolvedProfileHost = String(profile.emailHost || '').trim().toLowerCase();
+    const isHostingEmail = Boolean(resolvedProfileHost && resolvedProfileHost !== 'smtp.gmail.com');
 
     const previousForm = form;
     setForm(prev => ({
@@ -231,9 +277,9 @@ function EmailSettings() {
       senderName: profile.senderName || 'CIIS NETWORK',
       emailUser: profile.emailUser || '',
       emailPass: '',
-      emailHostType: profile.emailHost ? 'hosting' : 'simple',
+      emailHostType: isHostingEmail ? 'hosting' : 'simple',
       emailService: profile.emailService || 'Gmail',
-      emailHost: profile.emailHost || (profile.emailHost ? 'smtp.hostinger.com' : 'smtp.gmail.com'),
+      emailHost: isHostingEmail ? 'smtp.hostinger.com' : 'smtp.gmail.com',
       emailPort: profile.emailPort || 465,
       emailSecure: profile.emailSecure !== false,
       replyTo: profile.replyTo || ''
@@ -283,7 +329,7 @@ function EmailSettings() {
   const handleGlobalSwitchChange = async (enabled) => {
     const previousEnabled = form.enabled;
     setForm(prev => ({ ...prev, enabled }));
-    setSaving(true);
+    setGlobalSwitchSaving(true);
 
     try {
       let response;
@@ -309,7 +355,7 @@ function EmailSettings() {
       toast.error(error.response?.data?.message || 'Failed to update global email switch. Please restart/deploy backend and try again.');
       setForm(prev => ({ ...prev, enabled: previousEnabled }));
     } finally {
-      setSaving(false);
+      setGlobalSwitchSaving(false);
     }
   };
 
@@ -407,21 +453,16 @@ function EmailSettings() {
                     color={form.enabled ? 'error' : 'success'}
                     size="small"
                     onClick={() => handleGlobalSwitchChange(!form.enabled)}
-                    disabled={saving}
-                    sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 900 }}
+                    disabled={false}
+                    sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 900, transition: 'background-color 220ms ease, color 220ms ease, border-color 220ms ease, transform 180ms ease', '&:active': { transform: 'scale(.97)' } }}
                   >
                     {form.enabled ? 'Turn OFF' : 'Turn ON'}
                   </Button>
-                  <Switch
-                    checked={form.enabled}
-                    onChange={(event) => handleGlobalSwitchChange(event.target.checked)}
-                    disabled={saving}
-                    color="success"
-                  />
+                  <InstantToggle checked={form.enabled} onToggle={handleGlobalSwitchChange} label="Global email service" />
                 </Stack>
               </Stack>
 
-              {saving && (
+              {globalSwitchSaving && (
                 <Typography color="text.secondary" sx={{ mt: 1.5, fontSize: 13, fontWeight: 700 }}>
                   Saving global email switch...
                 </Typography>
@@ -456,7 +497,10 @@ function EmailSettings() {
                           p: 2,
                           border: '1px solid #e5e7eb',
                           borderRadius: 1.5,
-                          bgcolor: enabled ? '#f8fafc' : '#fff7ed'
+                          bgcolor: enabled ? '#f8fafc' : '#fff7ed',
+                          borderColor: enabled ? '#e5e7eb' : '#fed7aa',
+                          transition: 'background-color 260ms ease, border-color 260ms ease, box-shadow 220ms ease',
+                          '&:hover': { boxShadow: '0 8px 22px -18px rgba(15, 23, 42, .45)' }
                         }}
                       >
                         <Stack direction="row" spacing={1.5} alignItems="flex-start" justifyContent="space-between">
@@ -470,13 +514,8 @@ function EmailSettings() {
                             </Typography>
                           </Box>
                           <Stack alignItems="center" spacing={0.5}>
-                            <Switch
-                              checked={enabled}
-                              disabled={saving}
-                              onChange={(event) => updateModuleSetting(moduleItem.key, event.target.checked)}
-                              color="success"
-                            />
-                            <Typography sx={{ fontSize: 11, fontWeight: 900, color: enabled ? '#0f766e' : '#b45309' }}>
+                            <InstantToggle checked={enabled} onToggle={(nextValue) => updateModuleSetting(moduleItem.key, nextValue)} label={`${moduleItem.label} email`} />
+                            <Typography sx={{ minWidth: 26, textAlign: 'center', fontSize: 11, fontWeight: 900, color: enabled ? '#0f766e' : '#b45309', transition: 'color 220ms ease' }}>
                               {enabled ? 'ON' : 'OFF'}
                             </Typography>
                           </Stack>

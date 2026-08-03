@@ -1103,62 +1103,62 @@ const closeDetailModal = () => {
 
 
 {isDetailModalOpen && selectedLeave && (
-  <div className="modal-overlay">
-    <div className="modal-container">
+  <div className="MyLeaves-detail-overlay" onClick={closeDetailModal}>
+    <div className="MyLeaves-detail-modal" onClick={(event) => event.stopPropagation()}>
 
       
-      <div className="modal-header">
+      <div className="MyLeaves-detail-header">
         <h2>Leave Details</h2>
-        <button className="close-btn" onClick={closeDetailModal}>✖</button>
+        <button type="button" className="MyLeaves-detail-close" onClick={closeDetailModal} aria-label="Close leave details"><FiX /></button>
       </div>
 
       
-      <div className="modal-body">
+      <div className="MyLeaves-detail-body">
 
-        <div className="detail-grid">
+        <div className="MyLeaves-detail-grid">
 
-          <div className="detail-card">
-            <span className="label">Type</span>
-            <span className="value type">{selectedLeave.type}</span>
+          <div className="MyLeaves-detail-card">
+            <span className="MyLeaves-detail-label">Type</span>
+            <span className="MyLeaves-detail-value">{selectedLeave.type}</span>
           </div>
 
-          <div className="detail-card">
-            <span className="label">Status</span>
-            <span className={`value status status-${selectedLeave.status?.toLowerCase()}`}>
+          <div className="MyLeaves-detail-card">
+            <span className="MyLeaves-detail-label">Status</span>
+            <span className={`MyLeaves-detail-value status status-${selectedLeave.status?.toLowerCase()}`}>
               {selectedLeave.status}
             </span>
           </div>
 
-          <div className="detail-card">
-            <span className="label">Period</span>
-            <span className="value">
+          <div className="MyLeaves-detail-card">
+            <span className="MyLeaves-detail-label">Period</span>
+            <span className="MyLeaves-detail-value">
               {formatDate(selectedLeave.startDate)} - {formatDate(selectedLeave.endDate)}
             </span>
           </div>
 
-          <div className="detail-card">
-            <span className="label">Days</span>
-            <span className="value">
+          <div className="MyLeaves-detail-card">
+            <span className="MyLeaves-detail-label">Days</span>
+            <span className="MyLeaves-detail-value">
               {selectedLeave.days || calculateDays(selectedLeave.startDate, selectedLeave.endDate)}
             </span>
           </div>
 
-          <div className="detail-card">
-            <span className="label">Applied On</span>
-            <span className="value">
+          <div className="MyLeaves-detail-card">
+            <span className="MyLeaves-detail-label">Applied On</span>
+            <span className="MyLeaves-detail-value">
               {formatDate(selectedLeave.createdAt || selectedLeave.appliedOn)}
             </span>
           </div>
 
         </div>
 
-        <div className="reason-section">
+        <div className="MyLeaves-detail-section">
           <h4>Approval Flow</h4>
           <ApprovalWorkflow leave={selectedLeave} />
         </div>
 
         
-        <div className="reason-section">
+        <div className="MyLeaves-detail-section MyLeaves-detail-reason">
           <h4>Reason</h4>
           <p>{selectedLeave.reason}</p>
         </div>
@@ -1283,28 +1283,6 @@ const closeDetailModal = () => {
                   )}
                 </div>
 
-                <div className="MyLeaves-form-actions">
-                  <button
-                    type="button"
-                    className="MyLeaves-form-cancel"
-                    onClick={() => setIsApplyModalOpen(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="MyLeaves-form-submit"
-                    onClick={applyLeave}
-                    disabled={loading}
-                  >
-                    {loading ? 'Applying...' : (
-                      <>
-                        <FiPlus size={16} />
-                        Submit Request
-                      </>
-                    )}
-                  </button>
-                </div>
               </div>
               <aside className="MyLeaves-guidelines-panel">
                 <div className="MyLeaves-guidelines-title"><span>♢</span><h3>Leave Guidelines</h3></div>
@@ -1316,6 +1294,28 @@ const closeDetailModal = () => {
                 </ul>
                 <div className="MyLeaves-guidelines-note">♥ <span>Take time to rest.<br /><strong>A fresh you, does better!</strong></span></div>
               </aside>
+              <div className="MyLeaves-form-actions">
+                <button
+                  type="button"
+                  className="MyLeaves-form-cancel"
+                  onClick={() => setIsApplyModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="MyLeaves-form-submit"
+                  onClick={applyLeave}
+                  disabled={loading}
+                >
+                  {loading ? 'Applying...' : (
+                    <>
+                      <FiPlus size={16} />
+                      Submit Request
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
             </div>
           </div>

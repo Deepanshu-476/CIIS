@@ -1065,6 +1065,49 @@
   padding-right: 1rem;
 }
 
+/* Keep tall task details (especially image attachments) below the app header. */
+.EmployeeProject-task-detail-overlay {
+  top: 74px;
+  bottom: 0;
+  padding: 20px 24px 24px;
+  box-sizing: border-box;
+}
+
+.EmployeeProject-task-detail-modal {
+  width: min(800px, 100%);
+  max-width: 100%;
+  max-height: calc(100dvh - 118px);
+  margin: 0;
+}
+
+.EmployeeProject-task-detail-modal .EmployeeProject-modal-header,
+.EmployeeProject-task-detail-modal .EmployeeProject-modal-footer {
+  flex: 0 0 auto;
+}
+
+.EmployeeProject-task-detail-modal .EmployeeProject-modal-body {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.EmployeeProject-task-detail-modal .EmployeeProject-detail-image-preview,
+.EmployeeProject-task-detail-modal .EmployeeProject-remark-image {
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .EmployeeProject-task-detail-overlay {
+    top: 56px;
+    padding: 12px;
+  }
+
+  .EmployeeProject-task-detail-modal {
+    max-height: calc(100dvh - 80px);
+  }
+}
+
 .EmployeeProject-task-detail-header {
   display: flex;
   flex-wrap: wrap;

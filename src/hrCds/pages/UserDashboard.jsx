@@ -1172,13 +1172,9 @@ const UserDashboard = () => {
       }
     };
 
-    const statusSyncInterval = setInterval(syncAttendanceStatus, 60000);
-    window.addEventListener('focus', syncAttendanceStatus);
     document.addEventListener('visibilitychange', syncAttendanceStatus);
 
     return () => {
-      clearInterval(statusSyncInterval);
-      window.removeEventListener('focus', syncAttendanceStatus);
       document.removeEventListener('visibilitychange', syncAttendanceStatus);
     };
   }, [initialLoadDone, isUserInCurrentCompany, fetchCurrentStatus]);

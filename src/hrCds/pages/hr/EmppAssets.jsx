@@ -4,18 +4,22 @@ import CIISLoader from '../../../Loader/CIISLoader';
 import {
   FiEdit, FiTrash2, FiPackage, FiCheckCircle,
   FiXCircle, FiClock, FiMessageCircle,
+  FiAlertCircle,
   FiUsers, FiLock, FiEyeOff,
   FiShield, FiHome, FiUpload, FiImage, FiX,
-  FiEye, FiSend, FiSave, FiPaperclip, FiTrash2 as FiDelete, FiFileText
+  FiEye, FiSend, FiSave, FiPaperclip, FiTrash2 as FiDelete, FiFileText,
+  FiSearch, FiFilter, FiDownload, FiRefreshCw, FiMoreVertical, FiCalendar
 } from 'react-icons/fi';
 import './EmpAssets.css';
 import { API_URL_IMG } from '../../../config';
-import PageBranchDropdown, { usePageBranchScope } from '../../components/PageBranchDropdown';
+import { usePageBranchScope } from '../../components/PageBranchDropdown';
 
 const EmpAssets = () => {
   const [requests, setRequests] = useState([]);
   const [statusFilter, setStatusFilter] = useState('');
-  const [selectedStat, setSelectedStat] = useState('All');
+  const [departmentFilter, setDepartmentFilter] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStat, setSelectedStat] = useState('all');
   const [notification, setNotification] = useState(null);
   const [editingCommentReq, setEditingCommentReq] = useState(null);
   const [commentText, setCommentText] = useState('');
@@ -28,7 +32,16 @@ const EmpAssets = () => {
   const documentInputRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    returnRequested: 0,
+    pendingVerification: 0,
+    deposited: 0
+  });
   const [departments, setDepartments] = useState([]);
   const [departmentMap, setDepartmentMap] = useState({});
 
@@ -439,6 +452,7 @@ const EmpAssets = () => {
       
       setRequests(requestsData);
       calculateStats(requestsData);
+      setLastUpdated(new Date());
       
       
       extractDepartmentsFromRequests(requestsData);
@@ -451,10 +465,14 @@ const EmpAssets = () => {
   };
 
   const calculateStats = (data) => {
-    const pending = data.filter(r => String(r.status || '').toLowerCase() === 'pending').length;
-    const approved = data.filter(r => String(r.status || '').toLowerCase() === 'approved').length;
-    const rejected = data.filter(r => String(r.status || '').toLowerCase() === 'rejected').length;
-    setStats({ total: data.length, pending, approved, rejected });
+    const normalize = (value) => String(value || '').toLowerCase();
+    const pending = data.filter(r => normalize(r.status) === 'pending').length;
+    const approved = data.filter(r => normalize(r.status) === 'approved').length;
+    const rejected = data.filter(r => normalize(r.status) === 'rejected').length;
+    const returnRequested = data.filter(r => normalize(r.status) === 'return_requested').length;
+    const pendingVerification = data.filter(r => normalize(r.status) === 'pending_verification').length;
+    const deposited = data.filter(r => normalize(r.status) === 'deposited').length;
+    setStats({ total: data.length, pending, approved, rejected, returnRequested, pendingVerification, deposited });
   };
 
   
@@ -493,12 +511,46 @@ const EmpAssets = () => {
   
   
   const handleStatFilter = (type) => {
-    if (type === 'All' || selectedStat === type) {
-      setSelectedStat('All');
+    if (type === 'all' || selectedStat === type) {
+      setSelectedStat('all');
       setStatusFilter('');
     } else {
       setSelectedStat(type);
-      setStatusFilter(type.toLowerCase());
+      setStatusFilter(type);
+    }
+  };
+
+  const normalizeStatus = (status) => String(status || '').toLowerCase();
+
+  const getStatusLabel = (status) => {
+    switch (normalizeStatus(status)) {
+      case 'approved':
+        return 'Assigned';
+      case 'pending':
+        return 'Pending';
+      case 'rejected':
+        return 'Rejected';
+      case 'return_requested':
+        return 'Return Requested';
+      case 'pending_verification':
+        return 'Pending Verification';
+      case 'deposited':
+        return 'Deposited';
+      default:
+        return status || 'Unknown';
+    }
+  };
+
+  const getRequestActionLabel = (status) => {
+    switch (normalizeStatus(status)) {
+      case 'return_requested':
+        return 'Pending Return Request';
+      case 'pending_verification':
+        return 'Pending Verification';
+      case 'deposited':
+        return 'Deposited';
+      default:
+        return getStatusLabel(status);
     }
   };
 
@@ -554,6 +606,70 @@ const EmpAssets = () => {
     request?.companyAsset ||
     ''
   );
+
+  const getEmployeeCode = (request) => (
+    request?.user?.employeeId ||
+    request?.user?.employeeCode ||
+    request?.user?.empCode ||
+    request?.user?.empId ||
+    request?.employeeId ||
+    request?.employeeCode ||
+    request?.empCode ||
+    request?.empId ||
+    ''
+  );
+
+  const formatDateParts = (value) => {
+    if (!value) return { date: 'N/A', time: '' };
+    const dateObj = new Date(value);
+    if (Number.isNaN(dateObj.getTime())) return { date: 'N/A', time: '' };
+    return {
+      date: dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      time: dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    };
+  };
+
+  const exportVisibleRequests = () => {
+    const rows = filteredRequests.map((req) => {
+      const requestDate = formatDateParts(req.createdAt || req.requestedAt);
+      return {
+        Employee: req.user?.name || 'Unknown User',
+        EmployeeCode: getEmployeeCode(req) || '',
+        Department: getDepartmentName(req.department),
+        Asset: req.assetName || req.asset?.name || req.asset?.assetName || 'Unknown Asset',
+        Status: getStatusLabel(req.status),
+        RequestDate: requestDate.date,
+        RequestTime: requestDate.time,
+        CommentCount: req.adminComments?.length || 0
+      };
+    });
+
+    const header = Object.keys(rows[0] || {
+      Employee: '',
+      EmployeeCode: '',
+      Department: '',
+      Asset: '',
+      Status: '',
+      RequestDate: '',
+      RequestTime: '',
+      CommentCount: ''
+    });
+
+    const csv = [
+      header.join(','),
+      ...rows.map(row => header.map(key => `"${String(row[key] ?? '').replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `asset-requests-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   const buildStatusPayload = (request, newStatus) => {
     const actorField = newStatus === 'approved' ? 'approvedBy' : 'rejectedBy';
@@ -618,7 +734,7 @@ const EmpAssets = () => {
       const payload = buildStatusPayload(request, newStatus);
       await patchStatusWithFallbacks(reqId, payload);
       setNotification({ message: 'Status updated successfully', severity: 'success' });
-      fetchRequests();
+      await fetchRequests();
     } catch (err) {
       const message =
         err.response?.data?.message ||
@@ -628,6 +744,91 @@ const EmpAssets = () => {
       console.error('Status update error:', err);
     } finally { 
       setActionLoading(false); 
+    }
+  };
+
+  const handleRaiseReturnRequest = async (request) => {
+    if (!canApproveRequest()) {
+      setNotification({
+        message: '⛔ Access Denied: Only Owner, Admin, HR, or Manager can raise return requests',
+        severity: 'error'
+      });
+      return;
+    }
+
+    const reqId = getRequestId(request);
+    if (!reqId) {
+      setNotification({ message: 'Request ID missing. Please refresh and try again.', severity: 'error' });
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      await axios.post(`/asset-requests/${reqId}/return-request`, {}, { _skipErrorNotify: true });
+      setNotification({ message: 'Return request raised successfully', severity: 'success' });
+      await fetchRequests();
+    } catch (err) {
+      setNotification({
+        message: err.response?.data?.message || err.response?.data?.error || 'Failed to raise return request',
+        severity: 'error'
+      });
+      console.error('Return request error:', err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDepositSubmission = async (request) => {
+    const reqId = getRequestId(request);
+    if (!reqId) {
+      setNotification({ message: 'Request ID missing. Please refresh and try again.', severity: 'error' });
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      await axios.post(`/asset-requests/${reqId}/deposit`, {}, { _skipErrorNotify: true });
+      setNotification({ message: 'Deposit marked successfully', severity: 'success' });
+      await fetchRequests();
+    } catch (err) {
+      setNotification({
+        message: err.response?.data?.message || err.response?.data?.error || 'Failed to submit deposit',
+        severity: 'error'
+      });
+      console.error('Deposit submission error:', err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleConfirmDeposit = async (request) => {
+    if (!canApproveRequest()) {
+      setNotification({
+        message: '⛔ Access Denied: Only Owner, Admin, HR, or Manager can confirm deposits',
+        severity: 'error'
+      });
+      return;
+    }
+
+    const reqId = getRequestId(request);
+    if (!reqId) {
+      setNotification({ message: 'Request ID missing. Please refresh and try again.', severity: 'error' });
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      await axios.post(`/asset-requests/${reqId}/confirm-deposit`, {}, { _skipErrorNotify: true });
+      setNotification({ message: 'Deposit confirmed successfully', severity: 'success' });
+      await fetchRequests();
+    } catch (err) {
+      setNotification({
+        message: err.response?.data?.message || err.response?.data?.error || 'Failed to confirm deposit',
+        severity: 'error'
+      });
+      console.error('Confirm deposit error:', err);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -777,14 +978,29 @@ const EmpAssets = () => {
 
   const filteredRequests = requests.filter(req => {
     const statusMatch = !statusFilter || String(req.status || '').toLowerCase() === statusFilter;
-    return statusMatch;
+    const departmentMatch = !departmentFilter || String(req.department?._id || req.department || req.departmentId || '').toLowerCase() === departmentFilter.toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
+    const searchMatch = !q || [
+      req.user?.name,
+      req.user?.email,
+      getEmployeeCode(req),
+      req.assetName,
+      req.asset?.name,
+      req.asset?.assetName,
+      getDepartmentName(req.department),
+      req._id
+    ].some(value => String(value || '').toLowerCase().includes(q));
+    return statusMatch && departmentMatch && searchMatch;
   });
 
   const getStatusClass = (status) => {
-    switch(status) {
+    switch(normalizeStatus(status)) {
       case 'approved': return 'EmpAssets-chip-status-approved';
       case 'pending': return 'EmpAssets-chip-status-pending';
       case 'rejected': return 'EmpAssets-chip-status-rejected';
+      case 'return_requested': return 'EmpAssets-chip-status-return-requested';
+      case 'pending_verification': return 'EmpAssets-chip-status-pending-verification';
+      case 'deposited': return 'EmpAssets-chip-status-deposited';
       default: return '';
     }
   };
@@ -801,31 +1017,40 @@ const EmpAssets = () => {
   };
 
   const getRowClass = (status) => {
-    switch(status) {
+    switch(normalizeStatus(status)) {
       case 'approved': return 'EmpAssets-table-row-approved';
       case 'pending': return 'EmpAssets-table-row-pending';
       case 'rejected': return 'EmpAssets-table-row-rejected';
+      case 'return_requested': return 'EmpAssets-table-row-return-requested';
+      case 'pending_verification': return 'EmpAssets-table-row-pending-verification';
+      case 'deposited': return 'EmpAssets-table-row-deposited';
       default: return '';
     }
   };
 
   const getAvatarClass = (type) => {
-    switch(type) {
-      case 'All': return 'EmpAssets-avatar-primary';
-      case 'Pending': return 'EmpAssets-avatar-warning';
-      case 'Approved': return 'EmpAssets-avatar-success';
-      case 'Rejected': return 'EmpAssets-avatar-error';
+    switch(normalizeStatus(type)) {
+      case 'all': return 'EmpAssets-avatar-primary';
+      case 'pending': return 'EmpAssets-avatar-warning';
+      case 'approved': return 'EmpAssets-avatar-success';
+      case 'return_requested': return 'EmpAssets-avatar-warning';
+      case 'pending_verification': return 'EmpAssets-avatar-primary';
+      case 'deposited': return 'EmpAssets-avatar-success';
+      case 'rejected': return 'EmpAssets-avatar-error';
       default: return '';
     }
   };
 
   const getActiveClass = (type, selected) => {
     if (selected !== type) return '';
-    switch(type) {
-      case 'All': return 'EmpAssets-active EmpAssets-active-primary';
-      case 'Pending': return 'EmpAssets-active EmpAssets-active-warning';
-      case 'Approved': return 'EmpAssets-active EmpAssets-active-success';
-      case 'Rejected': return 'EmpAssets-active EmpAssets-active-error';
+    switch(normalizeStatus(type)) {
+      case 'all': return 'EmpAssets-active EmpAssets-active-primary';
+      case 'pending': return 'EmpAssets-active EmpAssets-active-warning';
+      case 'approved': return 'EmpAssets-active EmpAssets-active-success';
+      case 'return_requested': return 'EmpAssets-active EmpAssets-active-warning';
+      case 'pending_verification': return 'EmpAssets-active EmpAssets-active-primary';
+      case 'deposited': return 'EmpAssets-active EmpAssets-active-success';
+      case 'rejected': return 'EmpAssets-active EmpAssets-active-error';
       default: return '';
     }
   };
@@ -876,24 +1101,153 @@ const EmpAssets = () => {
     <div className="EmpAssets-container">
       
       <div className="EmpAssets-header">
-        <h1>Asset Requests Management</h1>
-        <p>
-          Review and manage employee asset requests 
-          <RoleBadge />
-          {!canApproveRequest() && (
-            <span className="EmpAssets-view-only-badge">
-              <FiEyeOff size={14} />
-              View Only
+        <div className="EmpAssets-header-copy">
+          <h1>Asset Requests Management</h1>
+          <p>
+            Review and manage employee asset requests across all branches
+            <RoleBadge />
+            {!canApproveRequest() && (
+              <span className="EmpAssets-view-only-badge">
+                <FiEyeOff size={14} />
+                View Only
+              </span>
+            )}
+          </p>
+        </div>
+        <div className="EmpAssets-header-meta">
+          <div className="EmpAssets-last-updated">
+            <FiClock size={15} />
+            <span>
+              Last updated: {lastUpdated
+                ? new Date(lastUpdated).toLocaleString('en-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })
+                : 'Just now'}
             </span>
-          )}
-        </p>
+          </div>
+          <button type="button" className="EmpAssets-refresh-btn" onClick={fetchRequests} disabled={loading || actionLoading}>
+            <FiRefreshCw size={16} />
+            Refresh
+          </button>
+        </div>
       </div>
 
-      <PageBranchDropdown
-        branchOptions={branchOptions}
-        selectedBranchId={selectedBranchId}
-        onChange={setSelectedBranchId}
-      />
+      <section className="EmpAssets-filter-shell">
+        <div className="EmpAssets-filter-grid">
+          <div className="EmpAssets-filter-field">
+            <label htmlFor="branch-filter">Branch</label>
+            <div className="EmpAssets-select-wrap">
+              <FiFilter size={16} />
+              <select
+                id="branch-filter"
+                className="EmpAssets-select"
+                value={selectedBranchId}
+                onChange={(e) => setSelectedBranchId(e.target.value)}
+              >
+                {branchOptions.map(option => (
+                  <option key={option.id || 'all-branches'} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="EmpAssets-filter-field">
+            <label htmlFor="department-filter">Department</label>
+            <div className="EmpAssets-select-wrap">
+              <FiUsers size={16} />
+              <select
+                id="department-filter"
+                className="EmpAssets-select"
+                value={departmentFilter}
+                onChange={(e) => setDepartmentFilter(e.target.value)}
+              >
+                <option value="">All Departments</option>
+                {departments.map((dept) => {
+                  const deptId = typeof dept === 'object' ? (dept._id || dept.id || dept.name) : dept;
+                  const deptLabel = typeof dept === 'object' ? (dept.name || dept.departmentName || dept.title || deptId) : dept;
+                  return (
+                    <option key={deptId} value={String(deptId || deptLabel)}>
+                      {deptLabel}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          </div>
+
+          <div className="EmpAssets-filter-field">
+            <label htmlFor="status-filter">Status</label>
+            <div className="EmpAssets-select-wrap">
+              <FiFilter size={16} />
+              <select
+                id="status-filter"
+                className="EmpAssets-select"
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setSelectedStat(e.target.value || 'all');
+                }}
+              >
+                <option value="">All Status</option>
+                <option value="approved">Assigned</option>
+                <option value="return_requested">Return Requested</option>
+                <option value="pending_verification">Pending Verification</option>
+                <option value="deposited">Deposited</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="EmpAssets-filter-field EmpAssets-search-field">
+            <label htmlFor="asset-search">Search</label>
+            <div className="EmpAssets-search-wrap">
+              <FiSearch size={16} />
+              <input
+                id="asset-search"
+                type="search"
+                className="EmpAssets-search"
+                placeholder="Search by employee name, asset, ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="EmpAssets-filter-actions">
+          <button type="button" className="EmpAssets-export-btn" onClick={exportVisibleRequests} disabled={!filteredRequests.length}>
+            <FiDownload size={16} />
+            Export
+          </button>
+          <button
+            type="button"
+            className="EmpAssets-reset-btn"
+            onClick={() => {
+              setSelectedStat('all');
+              setStatusFilter('');
+              setDepartmentFilter('');
+              setSearchQuery('');
+            }}
+          >
+            <FiRefreshCw size={16} />
+            Reset Filters
+          </button>
+        </div>
+
+        <div className="EmpAssets-filter-footer">
+          <span>{filteredRequests.length} results found</span>
+          <span className="EmpAssets-filter-scope">
+            <FiCalendar size={14} />
+            {selectedBranchId ? 'Branch filtered' : 'All branches'}
+          </span>
+        </div>
+      </section>
 
       
       {!canApproveRequest() && (
@@ -923,14 +1277,17 @@ const EmpAssets = () => {
 
       <div className="EmpAssets-stats-grid">
         {[
-          { label: 'Total Requests', count: stats.total, color: 'primary', type: 'All', icon: <FiPackage />, alwaysShow: true },
-          { label: 'Pending', count: stats.pending, color: 'warning', type: 'Pending', icon: <FiClock /> },
-          { label: 'Approved', count: stats.approved, color: 'success', type: 'Approved', icon: <FiCheckCircle /> },
-          { label: 'Rejected', count: stats.rejected, color: 'error', type: 'Rejected', icon: <FiXCircle /> },
+          { label: 'Total Requests', count: stats.total, color: 'primary', type: 'all', icon: <FiPackage />, alwaysShow: true, hint: 'All time requests' },
+          { label: 'Assigned', count: stats.approved, color: 'success', type: 'approved', icon: <FiCheckCircle />, hint: 'Currently assigned' },
+          { label: 'Return Requested', count: stats.returnRequested, color: 'warning', type: 'return_requested', icon: <FiAlertCircle />, hint: 'Awaiting employee action' },
+          { label: 'Pending Verification', count: stats.pendingVerification, color: 'primary', type: 'pending_verification', icon: <FiClock />, hint: 'Waiting for deposit' },
+          { label: 'Deposited', count: stats.deposited, color: 'success', type: 'deposited', icon: <FiCheckCircle />, hint: 'Successfully deposited' },
+          { label: 'Rejected', count: stats.rejected, color: 'error', type: 'rejected', icon: <FiXCircle />, hint: 'Requests rejected' },
         ]
           .filter(item => item.alwaysShow || item.count > 0)
           .map((item) => (
-            <div 
+            <button
+              type="button"
               key={item.type}
               className={`EmpAssets-stat-card ${getActiveClass(item.type, selectedStat)}`}
               onClick={() => handleStatFilter(item.type)}
@@ -942,9 +1299,10 @@ const EmpAssets = () => {
                 <div className="EmpAssets-stat-info">
                   <h3>{item.label}</h3>
                   <h2>{item.count}</h2>
+                  <p>{item.hint}</p>
                 </div>
               </div>
-            </div>
+            </button>
           ))}
       </div>
 
@@ -952,113 +1310,163 @@ const EmpAssets = () => {
         <table className="EmpAssets-table">
           <thead>
             <tr>
-              <th>Employee</th>
-              <th>Department</th>
-              <th>Asset</th>
-              <th>Status</th>
-              <th>Comment</th>
-              <th style={{ textAlign: 'center' }}>Actions</th>
+              <th>EMPLOYEE</th>
+              <th>DEPARTMENT</th>
+              <th>ASSET</th>
+              <th>STATUS</th>
+              <th>REQUEST DATE</th>
+              <th>COMMENT</th>
+              <th>ACTIONS</th>
             </tr>
           </thead>
           <tbody>
             {filteredRequests.length > 0 ? (
-              filteredRequests.map((req) => (
-                <tr key={req._id} className={getRowClass(req.status)}>
-                  <td>
-                    <div className="EmpAssets-employee-cell">
-                      <div className="EmpAssets-employee-avatar">
-                        {getInitials(req.user?.name)}
-                      </div>
-                      <div className="EmpAssets-employee-info">
-                        <h4>{req.user?.name || 'Unknown User'}</h4>
-                        <p>{req.user?.email || 'No email'}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span className="EmpAssets-department-badge">
-                      {getDepartmentName(req.department)}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`EmpAssets-chip ${getAssetClass(req.assetName)}`}>
-                      {req.assetName || 'Unknown Asset'}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`EmpAssets-chip ${getStatusClass(req.status)}`}>
-                      {req.status?.toUpperCase() || 'UNKNOWN'}
-                    </span>
-                  </td>
-                  <td>
-                    <div 
-                      className={`EmpAssets-comment-badge ${req.adminComments?.length > 0 ? 'EmpAssets-has-comment' : 'EmpAssets-no-comment'}`}
-                        title={req.adminComments?.length > 0 ? "View comments" : "Click to add comment"}
-                      onClick={() => handleCommentEditOpen(req)}
-                    >
-                      <FiMessageCircle size={12} />
-                     <span>
-                        {req.adminComments?.length > 0 ? 'View' : 'Add Comment'}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="EmpAssets-actions-cell">
-                    <div className="EmpAssets-actions-container">
-                      {req.status === 'pending' && canApproveRequest() && (
-                        <>
-                          <button 
-                            className="EmpAssets-status-btn EmpAssets-approve"
-                            onClick={() => handleStatusChange(req, 'approved')}
-                            disabled={actionLoading}
-                          >
-                            Approve
-                          </button>
-                          <button 
-                            className="EmpAssets-status-btn EmpAssets-reject"
-                            onClick={() => handleStatusChange(req, 'rejected')}
-                            disabled={actionLoading}
-                          >
-                            Reject
-                          </button>
-                        </>
-                      )}
-                      {req.status === 'pending' && !canApproveRequest() && (
-                        <span className="EmpAssets-no-permission" title="Only Owners, Admins, HR, and Managers can approve">
-                          <FiLock size={14} />
-                        </span>
-                      )}
+              filteredRequests.map((req) => {
+                const requestDate = new Date(req.createdAt || req.requestedAt || Date.now());
+                const hasValidDate = !Number.isNaN(requestDate.getTime());
+                const commentCount = req.adminComments?.length || 0;
+                const assetName = req.assetName || req.asset?.name || req.asset?.assetName || 'Unknown Asset';
 
-                      {canEditComment() && (
-                        <button 
-                          className="EmpAssets-icon-button EmpAssets-edit"
-                          title="Edit Comment"
-                          onClick={() => handleCommentEditOpen(req)}
-                          disabled={actionLoading}
-                        >
-                          <FiEdit />
-                        </button>
-                      )}
-                      
-                      {canDeleteRequest() && (
-                        <button 
-                          className="EmpAssets-icon-button EmpAssets-delete"
-                          title="Delete Request"
-                          onClick={() => handleDelete(req._id)}
-                          disabled={actionLoading}
-                        >
-                          <FiTrash2 />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))
+                return (
+                  <tr key={req._id} className={getRowClass(req.status)}>
+                    <td>
+                      <div className="EmpAssets-employee-cell">
+                        <div className="EmpAssets-employee-avatar">
+                          {getInitials(req.user?.name)}
+                        </div>
+                        <div className="EmpAssets-employee-info">
+                          <h4>{req.user?.name || 'Unknown User'}</h4>
+                          <p>{getEmployeeCode(req) || req.user?.email || 'No employee code'}</p>
+                          <small>{req.user?.email || 'No email'}</small>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="EmpAssets-department-badge">
+                        {getDepartmentName(req.department)}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="EmpAssets-asset-cell">
+                        <strong>{assetName}</strong>
+                        <span>{req.asset?.model || req.asset?.description || req.assetName || 'IT Asset'}</span>
+                        <small>{req.assetType || req.assetCategory || 'IT Asset'}</small>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`EmpAssets-chip ${getStatusClass(req.status)}`}>
+                        {getStatusLabel(req.status)}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="EmpAssets-date-cell">
+                        <strong>{hasValidDate ? requestDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}</strong>
+                        <span>{hasValidDate ? requestDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '—'}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className={`EmpAssets-comment-badge ${commentCount > 0 ? 'EmpAssets-has-comment' : 'EmpAssets-no-comment'}`}
+                        title={commentCount > 0 ? 'View comments' : 'Click to add comment'}
+                        onClick={() => handleCommentEditOpen(req)}
+                      >
+                        <FiMessageCircle size={12} />
+                        <span>{commentCount > 0 ? String(commentCount) : 'Add Comment'}</span>
+                      </button>
+                    </td>
+                    <td className="EmpAssets-actions-cell">
+                      <div className="EmpAssets-actions-container">
+                        {normalizeStatus(req.status) === 'pending' && canApproveRequest() && (
+                          <>
+                            <button
+                              type="button"
+                              className="EmpAssets-status-btn EmpAssets-approve"
+                              onClick={() => handleStatusChange(req, 'approved')}
+                              disabled={actionLoading}
+                            >
+                              Approve
+                            </button>
+                            <button
+                              type="button"
+                              className="EmpAssets-status-btn EmpAssets-reject"
+                              onClick={() => handleStatusChange(req, 'rejected')}
+                              disabled={actionLoading}
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                        {normalizeStatus(req.status) === 'approved' && canApproveRequest() && (
+                          <button
+                            type="button"
+                            className="EmpAssets-status-btn EmpAssets-approve"
+                            onClick={() => handleRaiseReturnRequest(req)}
+                            disabled={actionLoading}
+                          >
+                            Raise Return Request
+                          </button>
+                        )}
+                        {normalizeStatus(req.status) === 'return_requested' && (
+                          <span className="EmpAssets-no-permission" title="Waiting for employee to deposit the asset">
+                            <FiClock size={14} />
+                          </span>
+                        )}
+                        {normalizeStatus(req.status) === 'pending_verification' && canApproveRequest() && (
+                          <button
+                            type="button"
+                            className="EmpAssets-status-btn EmpAssets-approve"
+                            onClick={() => handleConfirmDeposit(req)}
+                            disabled={actionLoading}
+                          >
+                            Confirm Deposit
+                          </button>
+                        )}
+                        {normalizeStatus(req.status) === 'deposited' && (
+                          <span className="EmpAssets-no-permission" title="Deposit confirmed and asset returned">
+                            <FiCheckCircle size={14} />
+                          </span>
+                        )}
+                        {normalizeStatus(req.status) === 'pending' && !canApproveRequest() && (
+                          <span className="EmpAssets-no-permission" title="Only Owners, Admins, HR, and Managers can approve">
+                            <FiLock size={14} />
+                          </span>
+                        )}
+
+                        {canEditComment() && (
+                          <button
+                            type="button"
+                            className="EmpAssets-icon-button EmpAssets-edit"
+                            title="Edit Comment"
+                            onClick={() => handleCommentEditOpen(req)}
+                            disabled={actionLoading}
+                          >
+                            <FiEdit />
+                          </button>
+                        )}
+
+                        {canDeleteRequest() && (
+                          <button
+                            type="button"
+                            className="EmpAssets-icon-button EmpAssets-delete"
+                            title="Delete Request"
+                            onClick={() => handleDelete(req._id)}
+                            disabled={actionLoading}
+                          >
+                            <FiTrash2 />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
               <tr>
-                <td colSpan="6" className="EmpAssets-empty-state">
+                <td colSpan="7" className="EmpAssets-empty-state">
                   <FiPackage size={40} />
                   <h3>No Asset Requests Found</h3>
-                  <p>No asset requests found for the selected tab.</p>
+                  <p>No asset requests found for the selected filters.</p>
                 </td>
               </tr>
             )}
@@ -1086,7 +1494,7 @@ const EmpAssets = () => {
                 <div><small>Request ID</small><strong>#{String(editingCommentReq._id || '').slice(-7).toUpperCase()}</strong></div>
                 <div><small>Request Type</small><strong>{editingCommentReq.assetName || editingCommentReq.asset?.name || 'Asset Request'}</strong></div>
                 <div className="EmpAssets-request-status">
-                  <em>{editingCommentReq.status || 'Pending Review'}</em>
+                  <em>{getStatusLabel(editingCommentReq.status) || 'Pending Review'}</em>
                   <small>Requested on</small>
                   <strong>{new Date(editingCommentReq.createdAt || Date.now()).toLocaleString()}</strong>
                 </div>

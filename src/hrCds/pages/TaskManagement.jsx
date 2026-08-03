@@ -538,6 +538,9 @@ const UserCreateTask = () => {
   const [clients, setClients] = useState([]);
   const [loadingClients, setLoadingClients] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState('');
+  const [assignableUsers, setAssignableUsers] = useState([]);
+  const [loadingAssignableUsers, setLoadingAssignableUsers] = useState(false);
+  const [selectedAssigneeId, setSelectedAssigneeId] = useState('');
   const [clientTaskForm, setClientTaskForm] = useState({
     name: '',
     description: '',
@@ -1443,6 +1446,10 @@ const UserCreateTask = () => {
     return Array.isArray(selectedClient?.services) ? selectedClient.services.filter(Boolean) : [];
   }, [selectedClient]);
 
+  const selectedAssignee = useMemo(() => {
+    return assignableUsers.find(user => String(user._id || user.id) === String(selectedAssigneeId)) || null;
+  }, [assignableUsers, selectedAssigneeId]);
+
   const countGroupedTasks = useCallback((tasksGrouped) => {
     return Object.values(tasksGrouped || {}).reduce((count, dateTasks) => count + (dateTasks?.length || 0), 0);
   }, []);
@@ -1769,6 +1776,36 @@ const UserCreateTask = () => {
     }
   }, [authError, userId, selectedClientId]);
 
+  const fetchAssignableUsers = useCallback(async () => {
+    if (authError || !userId) return;
+
+    setLoadingAssignableUsers(true);
+    try {
+      const response = await axios.get('/tasks/assignable-users');
+      const users = Array.isArray(response.data?.users)
+        ? response.data.users
+        : Array.isArray(response.data?.data)
+          ? response.data.data
+          : Array.isArray(response.data)
+            ? response.data
+            : [];
+
+      setAssignableUsers(users.filter(Boolean));
+    } catch (err) {
+      console.error('Error loading assignable users:', err);
+      setAssignableUsers([]);
+      showSnackbar(err.response?.data?.message || 'Failed to load assignable users', 'error');
+    } finally {
+      setLoadingAssignableUsers(false);
+    }
+  }, [authError, userId]);
+
+  const handleOpenClientTaskDialog = useCallback(async () => {
+    setSelectedAssigneeId('');
+    setOpenClientTaskDialog(true);
+    await Promise.all([fetchClients(), fetchAssignableUsers()]);
+  }, [fetchClients, fetchAssignableUsers]);
+
   const handleClientSelection = useCallback((clientId) => {
     const nextClient = clients.find(client => String(client._id || client.id) === String(clientId));
     const firstService = Array.isArray(nextClient?.services) ? nextClient.services.find(Boolean) || '' : '';
@@ -1783,6 +1820,11 @@ const UserCreateTask = () => {
   const handleCreateClientTask = useCallback(async () => {
     if (!selectedClient) {
       showSnackbar('Please select a client', 'error');
+      return;
+    }
+
+    if (!selectedAssignee) {
+      showSnackbar('Please select an assignee', 'error');
       return;
     }
 
@@ -1809,8 +1851,8 @@ const UserCreateTask = () => {
         description: clientTaskForm.description.trim(),
         dueDate: dueDateIso,
         dueDateTime: dueDateIso,
-        assignee: userName,
-        assigneeId: userId,
+        assignee: selectedAssignee.name || selectedAssignee.email || String(selectedAssignee._id || selectedAssignee.id),
+        assigneeId: String(selectedAssignee._id || selectedAssignee.id),
         priority: clientTaskForm.priority,
         checkpoints: getCleanCheckpoints(clientTaskForm.checkpoints)
       };
@@ -1851,6 +1893,7 @@ const UserCreateTask = () => {
         priority: 'Medium',
         checkpoints: []
       }));
+      setSelectedAssigneeId('');
       setTaskViewsLoaded(prev => ({ ...prev, client: true }));
       setOpenClientTaskDialog(false);
       showSnackbar(`Client task created for ${selectedClient.company || selectedClient.client || 'client'}`, 'success');
@@ -1860,7 +1903,7 @@ const UserCreateTask = () => {
     } finally {
       setIsCreatingClientTask(false);
     }
-  }, [calculateClientStatsFromTasks, clientTaskForm, groupTasksByDate, selectedClient, userId, userName]);
+  }, [calculateClientStatsFromTasks, clientTaskForm, groupTasksByDate, selectedAssignee, selectedClient]);
 
   const fetchProjectTasks = useCallback(async () => {
     if (authError || !userId) return;
@@ -2056,6 +2099,11 @@ const UserCreateTask = () => {
     setStatusFilter('');
     if (mode === 'all') {
       setAllTasksPagination(prev => ({ ...prev, page: 1 }));
+    } else if (mode === 'client') {
+      if (!clientsLoadAttemptedRef.current || clients.length === 0) {
+        fetchClients();
+      }
+      fetchClientTasks();
     }
   };
 
@@ -3613,10 +3661,7 @@ const UserCreateTask = () => {
             <div className={`user-create-task-header-actions ${isMobile ? 'user-create-task-flex-row user-create-task-justify-between' : ''}`}>
               <button
                 className="user-create-task-button user-create-task-button-contained"
-                onClick={() => {
-                  fetchClients();
-                  setOpenClientTaskDialog(true);
-                }}
+                onClick={handleOpenClientTaskDialog}
                 style={{ padding: isMobile ? '10px 14px' : '12px 20px' }}
               >
                 <FiPlus size={isMobile ? 16 : 18} />
@@ -4223,17 +4268,27 @@ const UserCreateTask = () => {
               <div>
                 <div className="personal-task-heading-text">Create Client Task</div>
                 <div className="personal-task-heading-subtitle">
-                  This task will be automatically assigned to you ({userName})
+                  Assign this task to the employee who should receive it
                 </div>
               </div>
             </div>
-            <button type="button" className="personal-task-close" onClick={() => setOpenClientTaskDialog(false)} aria-label="Close dialog"><FiX /></button>
+            <button
+              type="button"
+              className="personal-task-close"
+              onClick={() => {
+                setSelectedAssigneeId('');
+                setOpenClientTaskDialog(false);
+              }}
+              aria-label="Close dialog"
+            >
+              <FiX />
+            </button>
           </div>
 
           <div className="user-create-task-dialog-content client-task-dialog-content">
             <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
               <div className="user-create-task-alert info personal-task-info">
-                <FiInfo /> <span>This client task will be automatically assigned to you ({userName})</span>
+                <FiInfo /> <span>Please choose the employee who should see this client task in their assigned list.</span>
               </div>
 
               <div className="user-create-task-form-control">
@@ -4289,11 +4344,27 @@ const UserCreateTask = () => {
 
               <div className="user-create-task-form-control">
                 <label>Assign To</label>
-                <div className="client-task-auto-assignee">
-                  <FiUser />
-                  <strong>{userName || 'You'}</strong>
-                  <small>Automatically assigned</small>
-                </div>
+                <select
+                  className="user-create-task-select"
+                  value={selectedAssigneeId}
+                  onChange={(event) => setSelectedAssigneeId(event.target.value)}
+                  disabled={loadingAssignableUsers}
+                >
+                  <option value="">{loadingAssignableUsers ? 'Loading users...' : 'Select employee'}</option>
+                  {assignableUsers.map(user => {
+                    const assigneeId = user._id || user.id;
+                    const displayName = user.name || user.email || 'Employee';
+                    const displayMeta = [user.role, user.jobRole].filter(Boolean).join(' - ');
+                    return (
+                      <option value={assigneeId} key={assigneeId}>
+                        {displayName}{displayMeta ? ` (${displayMeta})` : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+                {!loadingAssignableUsers && assignableUsers.length === 0 && (
+                  <small className="client-task-field-help">No assignable employees found in this company.</small>
+                )}
               </div>
 
               <div className="user-create-task-form-control">
@@ -4379,7 +4450,10 @@ const UserCreateTask = () => {
             <button
               type="button"
               className="user-create-task-button user-create-task-button-outlined"
-              onClick={() => setOpenClientTaskDialog(false)}
+              onClick={() => {
+                setSelectedAssigneeId('');
+                setOpenClientTaskDialog(false);
+              }}
               style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
             >
               Cancel
@@ -4391,6 +4465,7 @@ const UserCreateTask = () => {
               disabled={
                 isCreatingClientTask ||
                 !selectedClient ||
+                !selectedAssigneeId ||
                 !clientTaskForm.service ||
                 !clientTaskForm.name.trim() ||
                 !clientTaskForm.description.trim() ||

@@ -246,24 +246,8 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
     if (!hasFetched) {
       fetchUnreadCount(true);
     }
-    
-    const interval = setInterval(() => {
-      fetchUnreadCount();
-    }, 120000);
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        fetchUnreadCount();
-      }
-    };
-
-    window.addEventListener("focus", handleVisibilityChange);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    
     return () => {
-      clearInterval(interval);
-      window.removeEventListener("focus", handleVisibilityChange);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [isAlertsPage]);
 

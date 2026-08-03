@@ -873,6 +873,22 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   const hoverTimer = useRef(null);
   const leaveTimer = useRef(null);
   const isAlertsPage = location.pathname === '/ciisUser/alert' || location.pathname.endsWith('/alert');
+  const userId = String(userData?._id || userData?.id || '').trim();
+  const sidebarCompanyId = String(
+    getRecordId(userData?.company || userData?.companyId || companyData?._id || companyData?.id) || ''
+  ).trim();
+  const sidebarDepartmentId = String(getRecordId(userData?.department || userData?.departmentId) || '').trim();
+  const sidebarBranchId = String(getRecordId(userData?.branch || userData?.branchId || userData?.branchDetails) || '').trim();
+  const sidebarRoleKey = String(
+    getRecordId(userData?.jobRole || userData?.role || userData?.roleId) ||
+    resolvedJobRoleName ||
+    userData?.jobRoleName ||
+    userData?.roleName ||
+    getRecordDisplayName(userData?.jobRole) ||
+    getRecordDisplayName(userData?.role) ||
+    getRecordDisplayName(userData?.roleId) ||
+    ''
+  ).trim();
 
   
   const isSidebarOpen = isMobile || isHovered;
@@ -1029,7 +1045,6 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   }, []);
 
   const fetchMenuBadgeCounts = useCallback(async () => {
-    const userId = userData?._id || userData?.id;
     if (!userId) return;
 
     const requests = await Promise.allSettled([
@@ -1121,12 +1136,11 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     }
 
     setMenuBadgeCounts(current => ({ ...current, ...nextCounts }));
-  }, [userData]);
+  }, [userId]);
 
   const badgeSeenStorageKey = useMemo(() => {
-    const userId = userData?._id || userData?.id;
     return userId ? `ciis-sidebar-badges-seen:${userId}` : '';
-  }, [userData]);
+  }, [userId]);
 
   useEffect(() => {
     if (!badgeSeenStorageKey) {
@@ -1166,56 +1180,35 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     if (!userData || isAlertsPage) return undefined;
 
     fetchMenuBadgeCounts();
-    const intervalId = window.setInterval(fetchMenuBadgeCounts, BADGE_REFRESH_INTERVAL);
     const refreshBadges = () => fetchMenuBadgeCounts();
-    window.addEventListener('focus', refreshBadges);
     window.addEventListener('ciis-sidebar-badges-refresh', refreshBadges);
 
     return () => {
-      window.clearInterval(intervalId);
-      window.removeEventListener('focus', refreshBadges);
       window.removeEventListener('ciis-sidebar-badges-refresh', refreshBadges);
     };
-  }, [userData, fetchMenuBadgeCounts, isAlertsPage]);
+  }, [userId, fetchMenuBadgeCounts, isAlertsPage]);
 
   
   const fetchSidebarConfig = useCallback(async () => {
-    if (!userData || !companyData) return;
+    if (!userId || !sidebarCompanyId) return;
 
     try {
       setError(null);
       
       const token = localStorage.getItem("token");
-      
-      const companyId = getRecordId(userData.company || userData.companyId || companyData?._id || companyData?.id);
-      const departmentId = getRecordId(userData.department || userData.departmentId);
-      const branchId = getRecordId(userData.branch || userData.branchId || userData.branchDetails);
-      const role = (
-        getRecordId(userData.jobRole || userData.role || userData.roleId) ||
-        resolvedJobRoleName ||
-        userData.jobRoleName ||
-        userData.roleName ||
-        getRecordDisplayName(userData.jobRole) ||
-        getRecordDisplayName(userData.role) ||
-        getRecordDisplayName(userData.roleId)
-      );
-
-      void 0;
 
       const response = await axiosInstance.get(`/sidebar/config`, {
         params: {
-          companyId,
-          ...(branchId ? { branchId } : {}),
-          departmentId,
-          role
+          companyId: sidebarCompanyId,
+          ...(sidebarBranchId ? { branchId: sidebarBranchId } : {}),
+          departmentId: sidebarDepartmentId,
+          role: sidebarRoleKey
         },
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-
-      void 0;
 
       if (response.data && response.data.success) {
         if (response.data.data) {
@@ -1240,43 +1233,43 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     } finally {
       setLoading(false);
     }
-  }, [userData, companyData, resolvedJobRoleName]);
+  }, [userId, sidebarCompanyId, sidebarDepartmentId, sidebarBranchId, sidebarRoleKey]);
 
   useEffect(() => {
-    if (userData && companyData) {
+    if (userId && sidebarCompanyId) {
       fetchSidebarConfig();
     }
-  }, [userData, companyData, fetchSidebarConfig]);
+  }, [userId, sidebarCompanyId, fetchSidebarConfig]);
 
   useEffect(() => {
     const resolveJobRoleName = async () => {
-      if (!userData) {
+      if (!userId) {
         setResolvedJobRoleName("");
         return;
       }
 
       const directRoleName =
-        userData.jobRoleName ||
-        userData.roleName ||
-        userData.designation ||
-        getRecordDisplayName(userData.jobRole) ||
-        getRecordDisplayName(userData.role) ||
-        getRecordDisplayName(userData.roleId);
+        userData?.jobRoleName ||
+        userData?.roleName ||
+        userData?.designation ||
+        getRecordDisplayName(userData?.jobRole) ||
+        getRecordDisplayName(userData?.role) ||
+        getRecordDisplayName(userData?.roleId);
 
       if (directRoleName) {
         setResolvedJobRoleName(directRoleName);
         return;
       }
 
-      const roleId = getRecordId(userData.jobRole || userData.role || userData.roleId);
+      const roleId = getRecordId(userData?.jobRole || userData?.role || userData?.roleId);
       if (!isMongoId(roleId)) {
         setResolvedJobRoleName("");
         return;
       }
 
       try {
-        const companyId = getRecordId(userData.company || userData.companyId || companyData?._id || companyData?.id);
-        const companyCode = userData.companyCode || companyData?.companyCode || companyData?.code;
+        const companyId = sidebarCompanyId;
+        const companyCode = userData?.companyCode || companyData?.companyCode || companyData?.code;
         const response = await axiosInstance.get('/job-roles', {
           params: {
             ...(companyId ? { company: companyId } : {}),
@@ -1294,7 +1287,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     };
 
     resolveJobRoleName();
-  }, [userData, companyData]);
+  }, [userId, sidebarCompanyId, userData?.jobRoleName, userData?.roleName, userData?.designation, userData?.jobRole, userData?.role, userData?.roleId, companyData?.companyCode, companyData?.code]);
 
   useEffect(() => {
     return () => {

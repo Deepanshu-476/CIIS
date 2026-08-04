@@ -114,6 +114,10 @@ const getDisplayName = value => {
 
 const getCurrentUserId = user => getValueId(user?._id || user?.id || user?.userId || user?.user?._id || user?.user?.id);
 
+const normalizeRoleValue = value => String(
+  typeof value === 'object' ? value?.name || value?.role || value?.code || '' : value || ''
+).trim().toLowerCase().replace(/[\s-]+/g, '_');
+
 const getDashboardCacheKey = () => {
   try {
     const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
@@ -384,6 +388,18 @@ const UserDashboard = () => {
   }, [dashboardUser?.employeeType, user?.employeeType]);
 
   const token = useMemo(() => localStorage.getItem('token'), []);
+
+  const canAssignQuickTasks = useMemo(() => {
+    const roleValues = [
+      user?.companyRole,
+      user?.role,
+      user?.jobRole,
+      dashboardUser?.companyRole,
+      dashboardUser?.role,
+      dashboardUser?.jobRole,
+    ].map(normalizeRoleValue);
+    return roleValues.some(role => ['owner', 'super_admin', 'superadmin', 'super_administrator'].includes(role));
+  }, [dashboardUser, user]);
 
   const fetchProductivity = useCallback(async (period = productivityPeriod, dates = productivityDates) => {
     if (!token) return;
@@ -1823,7 +1839,9 @@ const UserDashboard = () => {
   }, [activeQuickAction, token]);
 
   useEffect(() => {
-    if (activeQuickAction?.label !== 'Add Client') return;
+    const needsTeamMembers = activeQuickAction?.label === 'Add Client'
+      || (activeQuickAction?.label === 'New Task' && quickTaskType === 'assigned' && canAssignQuickTasks);
+    if (!needsTeamMembers) return;
     let active = true;
     const loadTeam = async () => {
       setQuickTeamLoading(true);
@@ -1847,7 +1865,7 @@ const UserDashboard = () => {
     };
     loadTeam();
     return () => { active = false; };
-  }, [activeQuickAction, token]);
+  }, [activeQuickAction, canAssignQuickTasks, quickTaskType, token]);
 
   const submitQuickAction = async event => {
     event.preventDefault();
@@ -1919,7 +1937,7 @@ const UserDashboard = () => {
             body.append('priority', quickForm.priority || 'medium');
             body.append('priorityDays', '1');
             await axios.post('/tasks/self/create', body, { headers: { 'Content-Type': 'multipart/form-data' } });
-          } else {
+          } else if (quickTaskType === 'client') {
             const client = quickClients.find(item => String(item._id || item.id) === String(quickForm.clientId));
             if (!client) throw new Error('Please select a client');
             if (!quickForm.service) throw new Error('Please select a service');
@@ -1935,6 +1953,19 @@ const UserDashboard = () => {
                 return value === 'high' ? 'High' : value === 'low' ? 'Low' : 'Medium';
               })()
             });
+          } else {
+            if (!canAssignQuickTasks) throw new Error('You do not have permission to assign tasks');
+            const assignee = quickTeamMembers.find(member => String(member._id || member.id) === String(quickForm.assigneeId));
+            if (!assignee) throw new Error('Please select a user');
+            const body = new FormData();
+            body.append('title', quickForm.title.trim());
+            body.append('description', quickForm.description.trim());
+            body.append('dueDateTime', dueDate.toISOString());
+            body.append('priority', quickForm.priority || 'medium');
+            body.append('priorityDays', '1');
+            body.append('assignedUsers', JSON.stringify([assignee._id || assignee.id]));
+            body.append('assignedGroups', JSON.stringify([]));
+            await axios.post('/tasks/assigned/create', body, { headers: { 'Content-Type': 'multipart/form-data' } });
           }
           break;
         }
@@ -2140,16 +2171,18 @@ const UserDashboard = () => {
                 </div>
               ) : activeQuickAction.label === 'New Task' ? (
                 <>
-                  <div className="quick-task-type-switch" role="tablist" aria-label="Task type">
-                    <button type="button" className={quickTaskType === 'personal' ? 'active' : ''} onClick={() => { setQuickTaskType('personal'); setQuickForm({ priority: 'medium' }); }}><FiUser /> Personal Task</button>
-                    <button type="button" className={quickTaskType === 'client' ? 'active' : ''} onClick={() => { setQuickTaskType('client'); setQuickForm({ priority: 'medium' }); }}><FiBriefcase /> Client Task</button>
+                  <div className={`quick-task-type-switch ${canAssignQuickTasks ? 'has-assign-option' : ''}`} role="tablist" aria-label="Task type">
+                    <button type="button" role="tab" aria-selected={quickTaskType === 'personal'} className={quickTaskType === 'personal' ? 'active' : ''} onClick={() => { setQuickTaskType('personal'); setQuickForm({ priority: 'medium' }); }}><FiUser /><span>Personal Task</span></button>
+                    <button type="button" role="tab" aria-selected={quickTaskType === 'client'} className={quickTaskType === 'client' ? 'active' : ''} onClick={() => { setQuickTaskType('client'); setQuickForm({ priority: 'medium' }); }}><FiBriefcase /><span>Client Task</span></button>
+                    {canAssignQuickTasks && <button type="button" role="tab" aria-selected={quickTaskType === 'assigned'} className={quickTaskType === 'assigned' ? 'active' : ''} onClick={() => { setQuickTaskType('assigned'); setQuickForm({ priority: 'medium' }); }}><FiUserPlus /><span>Assign Task</span></button>}
                   </div>
-                  <div className="quick-task-type-note">{quickTaskType === 'personal' ? 'Create a private task assigned to you.' : 'Create and assign a task for one of your clients.'}</div>
+                  <div className="quick-task-type-note">{quickTaskType === 'personal' ? 'Create a private task assigned to you.' : quickTaskType === 'client' ? 'Create and assign a task for one of your clients.' : 'Create a task and assign it to any company user.'}</div>
                   <div className="quick-modal-fields">
                     {quickTaskType === 'client' && <>
                       <label><span>Client</span><select value={quickForm.clientId || ''} disabled={quickClientsLoading} onChange={e => setQuickForm(current => ({ ...current, clientId: e.target.value, service: '' }))}><option value="">{quickClientsLoading ? 'Loading clients…' : 'Select client'}</option>{quickClients.map(client => <option key={client._id || client.id} value={client._id || client.id}>{client.company || client.client || client.name || client.email}</option>)}</select></label>
                       <label><span>Service</span><select value={quickForm.service || ''} disabled={!quickForm.clientId} onChange={e => setQuickForm(current => ({ ...current, service: e.target.value }))}><option value="">Select service</option>{(quickClients.find(client => String(client._id || client.id) === String(quickForm.clientId))?.services || []).map(service => { const value = typeof service === 'string' ? service : service?.service || service?.name || ''; return value ? <option key={value} value={value}>{value}</option> : null; })}</select></label>
                     </>}
+                    {quickTaskType === 'assigned' && <label className="wide quick-assignee-field"><span><FiUserPlus /> Assign to company user</span><select value={quickForm.assigneeId || ''} disabled={quickTeamLoading} onChange={e => setQuickForm(current => ({ ...current, assigneeId: e.target.value }))}><option value="">{quickTeamLoading ? 'Loading users…' : 'Select a user'}</option>{quickTeamMembers.map(member => { const memberId = member._id || member.id; return memberId ? <option key={memberId} value={memberId}>{member.name || member.fullName || member.email || 'User'}</option> : null; })}</select><small>The selected user will receive this task.</small></label>}
                     <label><span>Task title</span><input type="text" value={quickForm.title || ''} onChange={e => setQuickForm(current => ({ ...current, title: e.target.value }))} /></label>
                     <label><span>Due date</span><input type="datetime-local" value={quickForm.dueDateTime || ''} onChange={e => {
                       const input = e.currentTarget;
@@ -2261,7 +2294,7 @@ const UserDashboard = () => {
                   </label>)}
                 </div>
               )}
-              {['Meetings', 'My Notes'].includes(activeQuickAction.label) ? <footer><button type="button" onClick={() => setActiveQuickAction(null)}>Close</button></footer> : <footer><button type="button" onClick={() => setActiveQuickAction(null)} disabled={quickSubmitting}>Cancel</button><button type="submit" disabled={quickSubmitting}>{quickSubmitting ? 'Saving…' : activeQuickAction.label === 'New Task' ? `Create ${quickTaskType === 'personal' ? 'Personal' : 'Client'} Task` : activeQuickAction.label === 'Add Client' ? 'Create Client' : `Save ${activeQuickAction.label}`}</button></footer>}
+              {['Meetings', 'My Notes'].includes(activeQuickAction.label) ? <footer><button type="button" onClick={() => setActiveQuickAction(null)}>Close</button></footer> : <footer><button type="button" onClick={() => setActiveQuickAction(null)} disabled={quickSubmitting}>Cancel</button><button type="submit" disabled={quickSubmitting}>{quickSubmitting ? 'Saving…' : activeQuickAction.label === 'New Task' ? `Create ${quickTaskType === 'personal' ? 'Personal' : quickTaskType === 'client' ? 'Client' : 'Assigned'} Task` : activeQuickAction.label === 'Add Client' ? 'Create Client' : `Save ${activeQuickAction.label}`}</button></footer>}
             </form>
           </section>
         </div>

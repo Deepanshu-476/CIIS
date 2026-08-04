@@ -3719,10 +3719,15 @@
 .quick-modal header span { color:#7158d9; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }.quick-modal header h2{margin:3px 0 0;font-size:18px;color:#172033}.quick-modal header>button{width:34px;height:34px;display:grid;place-items:center;border:0;border-radius:9px;color:#626b7d;background:#eef0f5;cursor:pointer}
 .quick-modal form { padding: 18px 20px 20px; }.quick-modal-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.quick-modal-fields label{display:grid;gap:6px;min-width:0}.quick-modal-fields label.wide{grid-column:1/-1}.quick-modal-fields label>span{color:#4e586b;font-size:10px;font-weight:650}.quick-modal-fields input,.quick-modal-fields select,.quick-modal-fields textarea{width:100%;min-width:0;border:1px solid #dfe3ec;border-radius:10px;padding:10px 11px;color:#20283a;background:#fbfcfe;font:inherit;font-size:12px;outline:none}.quick-modal-fields textarea{resize:vertical}.quick-modal-fields input:focus,.quick-modal-fields select:focus,.quick-modal-fields textarea:focus{border-color:#8b75e8;box-shadow:0 0 0 3px rgba(105,74,226,.09);background:#fff}
 .quick-task-type-switch { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 4px; border: 1px solid #e4e6ee; border-radius: 12px; background: #f5f6fa; }
+.quick-task-type-switch.has-assign-option { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .quick-task-type-switch button { min-height: 42px; display: flex; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 9px; color: #737b8d; background: transparent; font-size: 11px; font-weight: 700; cursor: pointer; }
+.quick-task-type-switch button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .quick-task-type-switch button svg { width: 16px; height: 16px; }
 .quick-task-type-switch button.active { color: #6548d9; background: #fff; box-shadow: 0 3px 12px rgba(38, 44, 65, .1); }
 .quick-task-type-note { margin: 9px 2px 15px; color: #8991a2; font-size: 9px; }
+.quick-modal-fields label.quick-assignee-field > span { display: flex; align-items: center; gap: 6px; }
+.quick-modal-fields label.quick-assignee-field > span svg { width: 15px; height: 15px; }
+.quick-modal-fields label.quick-assignee-field small { color: #8b849d; font-size: 9px; }
 .quick-leave-form { display: grid; gap: 15px; }
 .quick-leave-types { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .quick-leave-types button { min-width: 0; display: grid; justify-items: center; gap: 3px; padding: 10px 5px; border: 1px solid #e3e7ee; border-radius: 11px; color: #697284; background: #fbfcfd; cursor: pointer; }
@@ -3778,7 +3783,7 @@
 .quick-notes-coming-soon > div:last-child svg { width: 12px; height: 12px; color: #25ad79; }
 .quick-modal footer{display:flex;justify-content:flex-end;gap:9px;margin-top:18px;padding-top:15px;border-top:1px solid #edf0f5}.quick-modal footer button{min-height:36px;padding:0 15px;border:1px solid #dfe3eb;border-radius:9px;color:#596276;background:#fff;font-size:11px;font-weight:700;cursor:pointer}.quick-modal footer button[type=submit]{border-color:#6549da;color:#fff;background:linear-gradient(135deg,#7357e8,#6040d1)}.quick-modal button:disabled{opacity:.6;cursor:not-allowed}
 .activity-modal-empty{padding:42px 20px;text-align:center;color:#8a93a5;font-size:12px}
-@media(max-width:600px){.quick-modal-fields{grid-template-columns:1fr}.quick-modal-fields label.wide{grid-column:auto}.quick-modal{max-height:calc(100vh - 24px);overflow-y:auto}.quick-leave-types{grid-template-columns:repeat(2,1fr)}.quick-leave-date-card{grid-template-columns:1fr}.quick-leave-date-line{padding:0}.quick-leave-date-line i{display:none}}
+@media(max-width:600px){.quick-modal-fields{grid-template-columns:1fr}.quick-modal-fields label.wide{grid-column:auto}.quick-modal{max-height:calc(100vh - 24px);overflow-y:auto}.quick-task-type-switch.has-assign-option{gap:4px}.quick-task-type-switch.has-assign-option button{min-height:54px;flex-direction:column;gap:3px;padding:6px 2px;font-size:9px}.quick-task-type-switch.has-assign-option button svg{width:15px;height:15px}.quick-leave-types{grid-template-columns:repeat(2,1fr)}.quick-leave-date-card{grid-template-columns:1fr}.quick-leave-date-line{padding:0}.quick-leave-date-line i{display:none}}
 
 .dashboard-container,
 .dashboard-container * {

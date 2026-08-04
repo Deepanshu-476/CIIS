@@ -16,7 +16,8 @@ import {
   CLIENT_PORTAL_SELECTED_CLIENT_KEY,
   CLIENT_PORTAL_SELECTION_EVENT,
   getClientPortalCompanyContext,
-  getCompanyScopedClientParams
+  getCompanyScopedClientParams,
+  CLIENT_PORTAL_REQUEST_TIMEOUT_MS
 } from '../../utils/clientPortalData';
 import './ClientDashboardPage.css';
 
@@ -339,22 +340,22 @@ const Dashboard = () => {
 
   const api = axios.create({
     baseURL: `${API_URL}/clientsservice`,
-    timeout: 10000,
+    timeout: CLIENT_PORTAL_REQUEST_TIMEOUT_MS,
   });
 
   const tasksApi = axios.create({
     baseURL: `${API_URL}/tasks/client-tasks`,
-    timeout: 10000,
+    timeout: CLIENT_PORTAL_REQUEST_TIMEOUT_MS,
   });
 
   const usersApi = axios.create({
     baseURL: `${API_URL}/users`,
-    timeout: 10000,
+    timeout: CLIENT_PORTAL_REQUEST_TIMEOUT_MS,
   });
 
   const supportApi = axios.create({
     baseURL: API_URL,
-    timeout: 10000,
+    timeout: CLIENT_PORTAL_REQUEST_TIMEOUT_MS,
   });
 
   const addAuthInterceptor = (axiosInstance) => {

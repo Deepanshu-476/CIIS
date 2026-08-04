@@ -3,6 +3,7 @@ import axios from 'axios';
 import API_URL from '../../config';
 
 export const rupee = '\u20b9';
+export const CLIENT_PORTAL_REQUEST_TIMEOUT_MS = 30000;
 
 export const getAuthToken = () => localStorage.getItem('token') || localStorage.getItem('authToken');
 export const CLIENT_PORTAL_SELECTED_CLIENT_KEY = 'clientPortalSelectedClientId';
@@ -561,9 +562,9 @@ export const useClientPortalData = () => {
   const [selectionVersion, setSelectionVersion] = useState(0);
   const isMounted = useRef(true);
 
-  const clientsApi = useMemo(() => axios.create({ baseURL: `${API_URL}/clientsservice`, timeout: 10000 }), []);
-  const tasksApi = useMemo(() => axios.create({ baseURL: `${API_URL}/tasks/client-tasks`, timeout: 10000 }), []);
-  const usersApi = useMemo(() => axios.create({ baseURL: `${API_URL}/users`, timeout: 10000 }), []);
+  const clientsApi = useMemo(() => axios.create({ baseURL: `${API_URL}/clientsservice`, timeout: CLIENT_PORTAL_REQUEST_TIMEOUT_MS }), []);
+  const tasksApi = useMemo(() => axios.create({ baseURL: `${API_URL}/tasks/client-tasks`, timeout: CLIENT_PORTAL_REQUEST_TIMEOUT_MS }), []);
+  const usersApi = useMemo(() => axios.create({ baseURL: `${API_URL}/users`, timeout: CLIENT_PORTAL_REQUEST_TIMEOUT_MS }), []);
 
   useEffect(() => {
     [clientsApi, tasksApi, usersApi].forEach(instance => {

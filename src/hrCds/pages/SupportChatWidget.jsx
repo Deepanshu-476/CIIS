@@ -73,6 +73,7 @@ const SupportChatWidget = () => {
   const [view, setView] = useState("chat");
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const hasFetchedForOpenRef = useRef(false);
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = getEntityId(currentUser);
   const currentUserName = String(currentUser.name || currentUser.fullName || "").trim().toLowerCase();
@@ -82,34 +83,37 @@ const SupportChatWidget = () => {
   const selectedTicketClosed = Boolean(selectedTicket && closedStatuses.has(selectedTicket.status));
   const openTicketCount = tickets.filter(ticket => activeStatuses.has(ticket.status)).length;
 
-  const fetchTickets = async () => {
-    try {
-      const response = await axiosInstance.get("/support/tickets/my", { _skipErrorNotify: true });
-      if (response.data?.success) {
-        setTickets((response.data.tickets || []).map(mapTicket));
-      }
-    } catch (error) {
-      console.warn("Support widget ticket sync failed:", error.message);
-    }
-  };
-
-  const fetchDepartments = async () => {
-    try {
-      const response = await axiosInstance.get("/support/departments", { _skipErrorNotify: true });
-      if (response.data?.success) {
-        setDepartments(response.data.departments || []);
-      }
-    } catch (error) {
-      console.warn("Support departments fetch failed:", error.message);
-    }
-  };
-
   useEffect(() => {
-    fetchTickets();
-    fetchDepartments();
-    const interval = window.setInterval(fetchTickets, 30000);
-    return () => window.clearInterval(interval);
-  }, []);
+    if (!widgetOpen) {
+      hasFetchedForOpenRef.current = false;
+      return undefined;
+    }
+
+    if (hasFetchedForOpenRef.current) return undefined;
+    hasFetchedForOpenRef.current = true;
+
+    const fetchWidgetData = async () => {
+      try {
+        const [ticketsResponse, departmentsResponse] = await Promise.all([
+          axiosInstance.get("/support/tickets/my", { _skipErrorNotify: true }),
+          axiosInstance.get("/support/departments", { _skipErrorNotify: true }),
+        ]);
+
+        if (ticketsResponse.data?.success) {
+          setTickets((ticketsResponse.data.tickets || []).map(mapTicket));
+        }
+
+        if (departmentsResponse.data?.success) {
+          setDepartments(departmentsResponse.data.departments || []);
+        }
+      } catch (error) {
+        console.warn("Support widget data sync failed:", error.message);
+      }
+    };
+
+    fetchWidgetData();
+    return undefined;
+  }, [widgetOpen]);
 
   useEffect(() => {
     if (!widgetOpen) return undefined;

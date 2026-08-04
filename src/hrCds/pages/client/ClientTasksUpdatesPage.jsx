@@ -9,7 +9,8 @@ import {
   collectProjectMembers,
   getClientPortalCompanyContext,
   getCompanyScopedClientParams,
-  isClientForLoggedInUser
+  isClientForLoggedInUser,
+  CLIENT_PORTAL_REQUEST_TIMEOUT_MS
 } from '../../utils/clientPortalData';
 import './ClientTasksUpdatesPage.css';
 
@@ -178,17 +179,17 @@ const ServicesTasks = () => {
 
   const api = useMemo(() => axios.create({
     baseURL: `${API_URL}/clientsservice`,
-    timeout: 10000
+    timeout: CLIENT_PORTAL_REQUEST_TIMEOUT_MS
   }), []);
 
   const tasksApi = useMemo(() => axios.create({
     baseURL: `${API_URL}/tasks/client-tasks`,
-    timeout: 10000
+    timeout: CLIENT_PORTAL_REQUEST_TIMEOUT_MS
   }), []);
 
   const usersApi = useMemo(() => axios.create({
     baseURL: `${API_URL}/users`,
-    timeout: 10000
+    timeout: CLIENT_PORTAL_REQUEST_TIMEOUT_MS
   }), []);
 
   useEffect(() => {

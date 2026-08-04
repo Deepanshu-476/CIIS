@@ -1446,9 +1446,22 @@ const UserCreateTask = () => {
     return Array.isArray(selectedClient?.services) ? selectedClient.services.filter(Boolean) : [];
   }, [selectedClient]);
 
+  const currentLoggedInAssignee = useMemo(() => {
+    if (!userId) return null;
+    return {
+      _id: userId,
+      id: userId,
+      name: userName || 'Logged-in employee',
+      email: ''
+    };
+  }, [userId, userName]);
+
   const selectedAssignee = useMemo(() => {
-    return assignableUsers.find(user => String(user._id || user.id) === String(selectedAssigneeId)) || null;
-  }, [assignableUsers, selectedAssigneeId]);
+    const matchedUser = assignableUsers.find(user => String(user._id || user.id) === String(selectedAssigneeId)) || null;
+    if (matchedUser) return matchedUser;
+    if (String(selectedAssigneeId) === String(userId)) return currentLoggedInAssignee;
+    return null;
+  }, [assignableUsers, selectedAssigneeId, userId, currentLoggedInAssignee]);
 
   const countGroupedTasks = useCallback((tasksGrouped) => {
     return Object.values(tasksGrouped || {}).reduce((count, dateTasks) => count + (dateTasks?.length || 0), 0);
@@ -1776,35 +1789,12 @@ const UserCreateTask = () => {
     }
   }, [authError, userId, selectedClientId]);
 
-  const fetchAssignableUsers = useCallback(async () => {
-    if (authError || !userId) return;
-
-    setLoadingAssignableUsers(true);
-    try {
-      const response = await axios.get('/tasks/assignable-users');
-      const users = Array.isArray(response.data?.users)
-        ? response.data.users
-        : Array.isArray(response.data?.data)
-          ? response.data.data
-          : Array.isArray(response.data)
-            ? response.data
-            : [];
-
-      setAssignableUsers(users.filter(Boolean));
-    } catch (err) {
-      console.error('Error loading assignable users:', err);
-      setAssignableUsers([]);
-      showSnackbar(err.response?.data?.message || 'Failed to load assignable users', 'error');
-    } finally {
-      setLoadingAssignableUsers(false);
-    }
-  }, [authError, userId]);
-
   const handleOpenClientTaskDialog = useCallback(async () => {
-    setSelectedAssigneeId('');
+    setSelectedAssigneeId(userId || '');
+    setAssignableUsers(userId ? [currentLoggedInAssignee].filter(Boolean) : []);
     setOpenClientTaskDialog(true);
-    await Promise.all([fetchClients(), fetchAssignableUsers()]);
-  }, [fetchClients, fetchAssignableUsers]);
+    await fetchClients();
+  }, [currentLoggedInAssignee, fetchClients, userId]);
 
   const handleClientSelection = useCallback((clientId) => {
     const nextClient = clients.find(client => String(client._id || client.id) === String(clientId));
@@ -1823,8 +1813,9 @@ const UserCreateTask = () => {
       return;
     }
 
-    if (!selectedAssignee) {
-      showSnackbar('Please select an assignee', 'error');
+    const assigneeToUse = selectedAssignee || currentLoggedInAssignee;
+    if (!assigneeToUse) {
+      showSnackbar('Please log in again to create client tasks', 'error');
       return;
     }
 
@@ -1851,8 +1842,8 @@ const UserCreateTask = () => {
         description: clientTaskForm.description.trim(),
         dueDate: dueDateIso,
         dueDateTime: dueDateIso,
-        assignee: selectedAssignee.name || selectedAssignee.email || String(selectedAssignee._id || selectedAssignee.id),
-        assigneeId: String(selectedAssignee._id || selectedAssignee.id),
+        assignee: assigneeToUse.name || assigneeToUse.email || String(assigneeToUse._id || assigneeToUse.id),
+        assigneeId: String(assigneeToUse._id || assigneeToUse.id),
         priority: clientTaskForm.priority,
         checkpoints: getCleanCheckpoints(clientTaskForm.checkpoints)
       };
@@ -1893,7 +1884,7 @@ const UserCreateTask = () => {
         priority: 'Medium',
         checkpoints: []
       }));
-      setSelectedAssigneeId('');
+      setSelectedAssigneeId(userId || '');
       setTaskViewsLoaded(prev => ({ ...prev, client: true }));
       setOpenClientTaskDialog(false);
       showSnackbar(`Client task created for ${selectedClient.company || selectedClient.client || 'client'}`, 'success');
@@ -1903,7 +1894,7 @@ const UserCreateTask = () => {
     } finally {
       setIsCreatingClientTask(false);
     }
-  }, [calculateClientStatsFromTasks, clientTaskForm, groupTasksByDate, selectedAssignee, selectedClient]);
+  }, [calculateClientStatsFromTasks, clientTaskForm, currentLoggedInAssignee, groupTasksByDate, selectedAssignee, selectedClient]);
 
   const fetchProjectTasks = useCallback(async () => {
     if (authError || !userId) return;
@@ -4347,24 +4338,14 @@ const UserCreateTask = () => {
                 <select
                   className="user-create-task-select"
                   value={selectedAssigneeId}
-                  onChange={(event) => setSelectedAssigneeId(event.target.value)}
-                  disabled={loadingAssignableUsers}
+                  disabled
                 >
-                  <option value="">{loadingAssignableUsers ? 'Loading users...' : 'Select employee'}</option>
-                  {assignableUsers.map(user => {
-                    const assigneeId = user._id || user.id;
-                    const displayName = user.name || user.email || 'Employee';
-                    const displayMeta = [user.role, user.jobRole].filter(Boolean).join(' - ');
-                    return (
-                      <option value={assigneeId} key={assigneeId}>
-                        {displayName}{displayMeta ? ` (${displayMeta})` : ''}
-                      </option>
-                    );
-                  })}
+                  <option value={userId || ''}>
+                    {userName
+                      ? `${userName} (Logged-in employee)`
+                      : 'Logged-in employee'}
+                  </option>
                 </select>
-                {!loadingAssignableUsers && assignableUsers.length === 0 && (
-                  <small className="client-task-field-help">No assignable employees found in this company.</small>
-                )}
               </div>
 
               <div className="user-create-task-form-control">
@@ -4465,7 +4446,6 @@ const UserCreateTask = () => {
               disabled={
                 isCreatingClientTask ||
                 !selectedClient ||
-                !selectedAssigneeId ||
                 !clientTaskForm.service ||
                 !clientTaskForm.name.trim() ||
                 !clientTaskForm.description.trim() ||

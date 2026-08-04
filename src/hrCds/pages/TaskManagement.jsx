@@ -521,6 +521,8 @@ const UserCreateTask = () => {
   const [loadingClientTasks, setLoadingClientTasks] = useState(false);
   const [loadingProjectTasks, setLoadingProjectTasks] = useState(false);
   const [loadingAllTasks, setLoadingAllTasks] = useState(false);
+  const [openProjectTaskDialog, setOpenProjectTaskDialog] = useState(false);
+  const [isCreatingProjectTask, setIsCreatingProjectTask] = useState(false);
   const [taskViewsLoaded, setTaskViewsLoaded] = useState(cachedTaskData?.taskViewsLoaded || {
     all: false,
     self: false,
@@ -550,6 +552,17 @@ const UserCreateTask = () => {
     checkpoints: []
   });
   const [isCreatingClientTask, setIsCreatingClientTask] = useState(false);
+  const [projects, setProjects] = useState([]);
+  const [loadingProjects, setLoadingProjects] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [projectTaskForm, setProjectTaskForm] = useState({
+    title: '',
+    description: '',
+    dueDateTime: '',
+    priority: 'medium',
+    assignedTo: '',
+    checkpoints: []
+  });
   const [projectTasksGrouped, setProjectTasksGrouped] = useState(cachedTaskData?.projectTasksGrouped || {});
   const [allTasksGrouped, setAllTasksGrouped] = useState(cachedTaskData?.allTasksGrouped || {});
   const [allTasksStatsGrouped, setAllTasksStatsGrouped] = useState(cachedTaskData?.allTasksStatsGrouped || {});
@@ -699,6 +712,18 @@ const UserCreateTask = () => {
   };
   const removeClientCheckpoint = (index) => {
     setClientTaskForm(prev => ({ ...prev, checkpoints: (prev.checkpoints || []).filter((_, itemIndex) => itemIndex !== index) }));
+  };
+  const updateProjectCheckpoint = (index, title) => {
+    setProjectTaskForm(prev => ({
+      ...prev,
+      checkpoints: (prev.checkpoints || []).map((item, itemIndex) => itemIndex === index ? { ...item, title } : item)
+    }));
+  };
+  const addProjectCheckpoint = () => {
+    setProjectTaskForm(prev => ({ ...prev, checkpoints: [...(prev.checkpoints || []), createEmptyCheckpoint()] }));
+  };
+  const removeProjectCheckpoint = (index) => {
+    setProjectTaskForm(prev => ({ ...prev, checkpoints: (prev.checkpoints || []).filter((_, itemIndex) => itemIndex !== index) }));
   };
 
   
@@ -1446,6 +1471,14 @@ const UserCreateTask = () => {
     return Array.isArray(selectedClient?.services) ? selectedClient.services.filter(Boolean) : [];
   }, [selectedClient]);
 
+  const selectedProject = useMemo(() => {
+    return projects.find(project => String(project._id || project.id) === String(selectedProjectId)) || null;
+  }, [projects, selectedProjectId]);
+
+  const selectedProjectUsers = useMemo(() => {
+    return Array.isArray(selectedProject?.users) ? selectedProject.users.filter(Boolean) : [];
+  }, [selectedProject]);
+
   const currentLoggedInAssignee = useMemo(() => {
     if (!userId) return null;
     return {
@@ -1796,6 +1829,52 @@ const UserCreateTask = () => {
     await fetchClients();
   }, [currentLoggedInAssignee, fetchClients, userId]);
 
+  const fetchProjectsForTaskCreation = useCallback(async () => {
+    if (authError || !userId) return [];
+
+    setLoadingProjects(true);
+    try {
+      const response = await axios.get('/projects', {
+        params: { page: 1, limit: 500, summary: 1 }
+      });
+      const projectRows = extractProjectsFromResponse(response.data);
+      setProjects(projectRows);
+
+      if (!selectedProjectId && projectRows.length > 0) {
+        setSelectedProjectId(String(projectRows[0]._id || projectRows[0].id || ''));
+      }
+
+      return projectRows;
+    } catch (err) {
+      console.error('Error loading projects:', err);
+      showSnackbar(err.response?.data?.message || 'Failed to load projects', 'error');
+      setProjects([]);
+      return [];
+    } finally {
+      setLoadingProjects(false);
+    }
+  }, [authError, extractProjectsFromResponse, selectedProjectId, showSnackbar, userId]);
+
+  const handleOpenProjectTaskDialog = useCallback(async () => {
+    const projectRows = await fetchProjectsForTaskCreation();
+    if (!projectRows.length) {
+      showSnackbar('No projects available to create a task', 'warning');
+      return;
+    }
+
+    const firstProject = projectRows[0];
+    const firstProjectUsers = Array.isArray(firstProject?.users) ? firstProject.users.filter(Boolean) : [];
+    const defaultAssignee = firstProjectUsers.find(Boolean);
+    const defaultAssigneeId = getValueId(defaultAssignee) || '';
+
+    setSelectedProjectId(String(firstProject._id || firstProject.id || ''));
+    setProjectTaskForm(prev => ({
+      ...prev,
+      assignedTo: defaultAssigneeId
+    }));
+    setOpenProjectTaskDialog(true);
+  }, [fetchProjectsForTaskCreation, showSnackbar]);
+
   const handleClientSelection = useCallback((clientId) => {
     const nextClient = clients.find(client => String(client._id || client.id) === String(clientId));
     const firstService = Array.isArray(nextClient?.services) ? nextClient.services.find(Boolean) || '' : '';
@@ -1895,6 +1974,26 @@ const UserCreateTask = () => {
       setIsCreatingClientTask(false);
     }
   }, [calculateClientStatsFromTasks, clientTaskForm, currentLoggedInAssignee, groupTasksByDate, selectedAssignee, selectedClient]);
+
+  useEffect(() => {
+    if (!selectedProjectId) return;
+
+    const projectUserIds = selectedProjectUsers.map(user => String(getValueId(user) || '')).filter(Boolean);
+    setProjectTaskForm(prev => {
+      if (!projectUserIds.length) {
+        return prev.assignedTo ? { ...prev, assignedTo: '' } : prev;
+      }
+
+      if (prev.assignedTo && projectUserIds.includes(String(prev.assignedTo))) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        assignedTo: projectUserIds[0]
+      };
+    });
+  }, [selectedProjectId, selectedProjectUsers]);
 
   const fetchProjectTasks = useCallback(async () => {
     if (authError || !userId) return;
@@ -2021,6 +2120,79 @@ const UserCreateTask = () => {
       setTaskViewsLoaded({ all: true, self: true, assigned: true, client: true, project: true });
     }
   }, [authError, userId, buildTaskQueryParams, extractTasksFromResponse, groupTasksByDate, enrichAssignedTasks, calculateUnifiedStatsFromTasks, calculateStatsFromTasks, calculateAssignedStatsFromTasks, calculateClientStatsFromTasks, calculateProjectStatsFromTasks]);
+
+  const handleCreateProjectTask = useCallback(async () => {
+    if (!selectedProject) {
+      showSnackbar('Please select a project', 'error');
+      return;
+    }
+
+    if (!projectTaskForm.title.trim() || !projectTaskForm.description.trim() || !projectTaskForm.dueDateTime) {
+      showSnackbar('Please fill task title, description, and due date', 'error');
+      return;
+    }
+
+    const dueDateIso = formatDateTimeInputToIso(projectTaskForm.dueDateTime);
+    if (!dueDateIso) {
+      showSnackbar('Invalid due date', 'error');
+      return;
+    }
+
+    const assignedToId = String(projectTaskForm.assignedTo || '').trim();
+    if (assignedToId && selectedProjectUsers.length > 0) {
+      const isValidAssignee = selectedProjectUsers.some(user => String(getValueId(user)) === assignedToId);
+      if (!isValidAssignee) {
+        showSnackbar('Selected assignee is not part of this project', 'error');
+        return;
+      }
+    }
+
+    setIsCreatingProjectTask(true);
+    try {
+      const payload = {
+        title: projectTaskForm.title.trim(),
+        description: projectTaskForm.description.trim(),
+        dueDate: dueDateIso,
+        priority: projectTaskForm.priority,
+        status: 'pending',
+        checkpoints: getCleanCheckpoints(projectTaskForm.checkpoints)
+      };
+
+      if (assignedToId) {
+        payload.assignedTo = assignedToId;
+        payload.assignedUsers = [assignedToId];
+      }
+
+      const response = await axios.post(`/projects/${selectedProject._id || selectedProject.id}/tasks`, payload);
+
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || 'Project task creation failed');
+      }
+
+      setProjectTaskForm({
+        title: '',
+        description: '',
+        dueDateTime: '',
+        priority: 'medium',
+        assignedTo: '',
+        checkpoints: []
+      });
+      setOpenProjectTaskDialog(false);
+      setTaskViewsLoaded(prev => ({ ...prev, project: true }));
+
+      await Promise.allSettled([
+        fetchProjectTasks(),
+        fetchAllTasks()
+      ]);
+
+      showSnackbar(`Project task created in ${selectedProject.projectName || 'project'}`, 'success');
+    } catch (err) {
+      console.error('Error creating project task:', err);
+      showSnackbar(err.response?.data?.message || err.message || 'Project task creation failed', 'error');
+    } finally {
+      setIsCreatingProjectTask(false);
+    }
+  }, [fetchAllTasks, fetchProjectTasks, getCleanCheckpoints, projectTaskForm, selectedProject, selectedProjectUsers, showSnackbar]);
 
   
   const fetchMyTasks = useCallback(async () => {
@@ -3629,7 +3801,7 @@ const UserCreateTask = () => {
             </div>
 
             <div className="user-create-task-subtitle" style={{ fontSize: isMobile ? '14px' : '16px' }}>
-              Manage your personal tasks and tasks assigned to you
+              Manage your personal, client, assigned, and project tasks
             </div>
 
           </div>
@@ -3657,6 +3829,20 @@ const UserCreateTask = () => {
               >
                 <FiPlus size={isMobile ? 16 : 18} />
                 {isMobile ? 'Client Task' : 'Create Client Task'}
+              </button>
+            </div>
+          )}
+
+          {taskViewMode === 'project' && (
+            <div className={`user-create-task-header-actions ${isMobile ? 'user-create-task-flex-row user-create-task-justify-between' : ''}`}>
+              <button
+                className="user-create-task-button user-create-task-button-contained"
+                onClick={handleOpenProjectTaskDialog}
+                style={{ padding: isMobile ? '10px 14px' : '12px 20px' }}
+                disabled={loadingProjects}
+              >
+                <FiPlus size={isMobile ? 16 : 18} />
+                {loadingProjects ? '' : (isMobile ? 'Project Task' : 'Create Project Task')}
               </button>
             </div>
           )}
@@ -4455,6 +4641,226 @@ const UserCreateTask = () => {
               {isCreatingClientTask ? 'Creating...' : <><FiCheck size={16} /> Create Task</>}
             </button>
           </div>
+          </div>
+        </div>
+      )}
+
+      {openProjectTaskDialog && (
+        <div className="user-create-task-dialog-overlay personal-task-overlay">
+          <div className={`user-create-task-dialog personal-task-dialog client-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{
+            maxWidth: isMobile ? '95%' : isTablet ? '560px' : '640px',
+            width: isMobile ? '95%' : 'auto'
+          }}>
+            <div className="user-create-task-dialog-title">
+              <div className="personal-task-heading">
+                <span className="personal-task-heading-icon"><FiTarget /></span>
+                <div>
+                  <div className="personal-task-heading-text">Create Project Task</div>
+                  <div className="personal-task-heading-subtitle">
+                    Create a task inside a project and assign it to a project member
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="personal-task-close"
+                onClick={() => {
+                  setOpenProjectTaskDialog(false);
+                  setProjectTaskForm({
+                    title: '',
+                    description: '',
+                    dueDateTime: '',
+                    priority: 'medium',
+                    assignedTo: '',
+                    checkpoints: []
+                  });
+                }}
+                aria-label="Close dialog"
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="user-create-task-dialog-content client-task-dialog-content">
+              <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
+                <div className="user-create-task-alert info personal-task-info">
+                  <FiInfo /> <span>Select a project first, then create and assign the task from here.</span>
+                </div>
+
+                <div className="user-create-task-form-control">
+                  <label>Project *</label>
+                  <select
+                    className="user-create-task-select"
+                    value={selectedProjectId}
+                    onChange={(event) => {
+                      const nextProjectId = event.target.value;
+                      setSelectedProjectId(nextProjectId);
+                      const nextProject = projects.find(project => String(project._id || project.id) === String(nextProjectId));
+                      const firstProjectUser = Array.isArray(nextProject?.users) ? nextProject.users.find(Boolean) : null;
+                      setProjectTaskForm(prev => ({
+                        ...prev,
+                        assignedTo: getValueId(firstProjectUser) || ''
+                      }));
+                    }}
+                    disabled={loadingProjects || projects.length === 0}
+                  >
+                    <option value="">{loadingProjects ? 'Loading projects...' : 'Select Project'}</option>
+                    {projects.map(project => {
+                      const projectId = project._id || project.id;
+                      return (
+                        <option key={projectId} value={projectId}>
+                          {project.projectName || project.name || 'Untitled Project'}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                <div className="user-create-task-form-control">
+                  <label>Task Title *</label>
+                  <input
+                    className="user-create-task-input"
+                    value={projectTaskForm.title}
+                    placeholder="Enter project task title"
+                    onChange={(event) => setProjectTaskForm(prev => ({ ...prev, title: event.target.value }))}
+                  />
+                </div>
+
+                <div className="user-create-task-form-control">
+                  <label>Description *</label>
+                  <textarea
+                    className="user-create-task-input"
+                    rows={isMobile ? 3 : 4}
+                    value={projectTaskForm.description}
+                    placeholder="Enter project task description"
+                    onChange={(event) => setProjectTaskForm(prev => ({ ...prev, description: event.target.value }))}
+                  />
+                </div>
+
+                <div className={`user-create-task-flex ${isMobile ? 'user-create-task-flex-column' : 'user-create-task-gap-2'}`}>
+                  <div className="user-create-task-form-control" style={{ flex: 1 }}>
+                    <label>Due Date & Time *</label>
+                    <input
+                      type="datetime-local"
+                      className="user-create-task-input"
+                      value={projectTaskForm.dueDateTime || ''}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        let formattedValue = value;
+                        if (value && value.includes('T') && value.split(':').length === 2) {
+                          formattedValue = `${value}:00`;
+                        }
+                        setProjectTaskForm(prev => ({ ...prev, dueDateTime: formattedValue }));
+                      }}
+                      min={new Date().toISOString().slice(0, 16)}
+                    />
+                  </div>
+
+                  <div className="user-create-task-form-control" style={{ flex: 1 }}>
+                    <label>Priority</label>
+                    <select
+                      className="user-create-task-select"
+                      value={projectTaskForm.priority}
+                      onChange={(event) => setProjectTaskForm(prev => ({ ...prev, priority: event.target.value }))}
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="user-create-task-form-control">
+                  <label>Assign To</label>
+                  <select
+                    className="user-create-task-select"
+                    value={projectTaskForm.assignedTo}
+                    onChange={(event) => setProjectTaskForm(prev => ({ ...prev, assignedTo: event.target.value }))}
+                    disabled={!selectedProjectUsers.length}
+                  >
+                    <option value="">
+                      {selectedProjectUsers.length ? 'Select project member' : 'No project members available'}
+                    </option>
+                    {selectedProjectUsers.map(user => {
+                      const userIdValue = getValueId(user);
+                      return (
+                        <option key={userIdValue} value={userIdValue}>
+                          {getUserDisplayName(user)}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                <div className="user-create-task-form-control">
+                  <div className="task-checkpoint-header">
+                    <label>Checkpoints (Optional)</label>
+                    <button type="button" className="task-checkpoint-add" onClick={addProjectCheckpoint}>
+                      <FiPlus size={14} /> Add
+                    </button>
+                  </div>
+                  {(projectTaskForm.checkpoints || []).length > 0 && (
+                    <div className="task-checkpoint-input-list">
+                      {projectTaskForm.checkpoints.map((checkpoint, index) => (
+                        <div className="task-checkpoint-input-row" key={`project-checkpoint-${index}`}>
+                          <FiCheckSquare size={16} />
+                          <input
+                            className="user-create-task-input"
+                            value={checkpoint.title}
+                            placeholder={`Checkpoint ${index + 1}`}
+                            onChange={(event) => updateProjectCheckpoint(index, event.target.value)}
+                          />
+                          <button
+                            type="button"
+                            className="task-checkpoint-remove"
+                            onClick={() => removeProjectCheckpoint(index)}
+                            aria-label="Remove checkpoint"
+                          >
+                            <FiX size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="user-create-task-dialog-actions client-task-create-actions">
+              <button
+                type="button"
+                className="user-create-task-button user-create-task-button-outlined"
+                onClick={() => {
+                  setOpenProjectTaskDialog(false);
+                  setProjectTaskForm({
+                    title: '',
+                    description: '',
+                    dueDateTime: '',
+                    priority: 'medium',
+                    assignedTo: '',
+                    checkpoints: []
+                  });
+                }}
+                style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="user-create-task-button user-create-task-button-contained"
+                onClick={handleCreateProjectTask}
+                disabled={
+                  isCreatingProjectTask ||
+                  loadingProjects ||
+                  !selectedProjectId ||
+                  !projectTaskForm.title.trim() ||
+                  !projectTaskForm.description.trim() ||
+                  !projectTaskForm.dueDateTime
+                }
+              >
+                {isCreatingProjectTask ? 'Creating...' : <><FiCheck size={16} /> Create Task</>}
+              </button>
+            </div>
           </div>
         </div>
       )}

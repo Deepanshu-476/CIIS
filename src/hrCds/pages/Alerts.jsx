@@ -626,10 +626,6 @@ const Alerts = () => {
           </div>
 
           <div className="AlertsToolbar-actions">
-            <button type="button" className="AlertsButton AlertsButton-outline">
-              <FiFilter />
-              <span>Filter</span>
-            </button>
             <button type="button" className="AlertsButton AlertsButton-outline" onClick={resetFilters}>
               <FiRotateCcw />
               <span>Reset</span>
@@ -770,7 +766,7 @@ const Alerts = () => {
           <div className="AlertsSectionActions">
             <button type="button" className="AlertsButton AlertsButton-outline" onClick={() => setViewMode((prev) => (prev === "unread" ? "all" : "unread"))}>
               <FiFilter />
-              <span>Filter</span>
+              <span>{viewMode === "unread" ? "Show all" : "Unread only"}</span>
             </button>
             <label className="AlertsMiniSelect">
               <select value={filterType} onChange={(event) => setFilterType(event.target.value)}>
@@ -847,7 +843,7 @@ const Alerts = () => {
                       </button>
                     </div>
 
-                    <h3 className="AlertsCard-title">{alert?.message || "Untitled alert"}</h3>
+                    <h3 className="AlertsCard-title">{getTypeLabel(alert?.type)} Alert</h3>
 
                     <div className="AlertsCard-description">
                       <p>{alert?.message || ""}</p>

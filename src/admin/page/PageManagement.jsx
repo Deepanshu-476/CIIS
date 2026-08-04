@@ -16,6 +16,7 @@ const getPermissionTabs = (page) => {
 
   if (pattern === "approveReject") {
     return [
+      { key: "view", label: "View", count: (page?.viewUsers || []).length },
       { key: "approve", label: "Approve / Reject", count: (page?.approvers || []).length },
       { key: "delete", label: "Delete", count: (page?.deleteUsers || []).length }
     ];
@@ -37,7 +38,7 @@ const getPermissionTabs = (page) => {
 const getPermissionSummary = (page) => {
   const pattern = getPagePermissionPattern(page);
   if (pattern === "approveReject") {
-    return `${(page?.approvers || []).length} approve/reject user(s) / ${(page?.deleteUsers || []).length} delete user(s)`;
+    return `${(page?.viewUsers || []).length} view user(s) / ${(page?.approvers || []).length} approve/reject user(s) / ${(page?.deleteUsers || []).length} delete user(s)`;
   }
   if (pattern === "viewEdit") {
     return `${(page?.viewUsers || []).length} view user(s) / ${(page?.editUsers || []).length} edit user(s) / ${(page?.deleteUsers || []).length} delete user(s)`;
@@ -99,7 +100,7 @@ const PageManagement = () => {
   const activeSelectedUsersResolved = useMemo(() => {
     if (permissionMode === "delete") return selectedDeleteUsers;
     if (permissionMode === "view") {
-      return [...new Set([...selectedViewUsers, ...selectedEditUsers])];
+      return selectedViewUsers;
     }
     if (permissionMode === "edit") return selectedEditUsers;
     return selectedApprovers;
@@ -180,8 +181,8 @@ const PageManagement = () => {
   };
 
   const toggleSelectedUser = (userId) => {
-    if (permissionMode === "delete") {
-      setSelectedDeleteUsers((prev) =>
+    if (permissionMode === "view") {
+      setSelectedViewUsers((prev) =>
         prev.includes(userId)
           ? prev.filter((id) => id !== userId)
           : [...prev, userId]
@@ -189,13 +190,12 @@ const PageManagement = () => {
       return;
     }
 
-    if (permissionMode === "view") {
-      setSelectedViewUsers((prev) =>
+    if (permissionMode === "delete") {
+      setSelectedDeleteUsers((prev) =>
         prev.includes(userId)
           ? prev.filter((id) => id !== userId)
           : [...prev, userId]
       );
-      setSelectedEditUsers((prev) => prev.filter((id) => id !== userId));
       return;
     }
 
@@ -328,7 +328,7 @@ const PageManagement = () => {
 
           <div className="PageManagement-note">
             {selectedPermissionPattern === "approveReject"
-              ? "Configure who can approve/reject and who can delete records for the selected page. For `/ciisUser/emp-leaves`, all selected approvers must approve before a leave becomes Approved."
+              ? "Configure who can view, approve/reject, and delete records for the selected page. For `/ciisUser/emp-leaves`, view access allows page access, approvers must approve before a leave becomes Approved."
               : selectedPermissionPattern === "viewEdit"
                 ? "Configure who can only view the selected page and who can edit it. Edit access always includes View access."
                 : "Configure delete access for this page."}

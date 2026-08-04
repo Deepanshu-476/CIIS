@@ -181,6 +181,7 @@ const EmployeeLeaves = () => {
   const [currentUserName, setCurrentUserName] = useState("");
   const [allUsers, setAllUsers] = useState([]);
   const [usersMap, setUsersMap] = useState({});
+  const [viewPermissionUserIds, setViewPermissionUserIds] = useState([]);
   const [approverPermissionUserIds, setApproverPermissionUserIds] = useState([]);
   const [deletePermissionUserIds, setDeletePermissionUserIds] = useState([]);
   
@@ -472,9 +473,10 @@ const EmployeeLeaves = () => {
   }, [isOwner, isAdmin, isHR, isManager]);
 
   const hasConfiguredPageAccess = useMemo(() => (
+    viewPermissionUserIds.includes(String(currentUserId)) ||
     approverPermissionUserIds.includes(String(currentUserId)) ||
     deletePermissionUserIds.includes(String(currentUserId))
-  ), [approverPermissionUserIds, deletePermissionUserIds, currentUserId]);
+  ), [viewPermissionUserIds, approverPermissionUserIds, deletePermissionUserIds, currentUserId]);
 
   const canDeleteLeave = useCallback(() => {
     if (deletePermissionUserIds.length > 0) {
@@ -690,13 +692,18 @@ const EmployeeLeaves = () => {
       const approverIds = (res.data?.page?.approvers || [])
         .map(user => String(user?._id || user?.id || user))
         .filter(Boolean);
+      const viewIds = (res.data?.page?.viewUsers || [])
+        .map(user => String(user?._id || user?.id || user))
+        .filter(Boolean);
       const deleteIds = (res.data?.page?.deleteUsers || [])
         .map(user => String(user?._id || user?.id || user))
         .filter(Boolean);
+      setViewPermissionUserIds(viewIds);
       setApproverPermissionUserIds(approverIds);
       setDeletePermissionUserIds(deleteIds);
     } catch (error) {
       console.error("Failed to load leave page permissions:", error);
+      setViewPermissionUserIds([]);
       setApproverPermissionUserIds([]);
       setDeletePermissionUserIds([]);
     }

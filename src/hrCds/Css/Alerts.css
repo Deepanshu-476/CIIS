@@ -19,15 +19,17 @@
 
 .AlertsPage {
   min-height: 100vh;
-  padding: 18px;
+  width: 100%;
+  max-width: 100%;
+  padding: clamp(14px, 2vw, 24px);
+  box-sizing: border-box;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at top left, rgba(37, 99, 235, 0.06), transparent 26%),
     radial-gradient(circle at top right, rgba(14, 165, 233, 0.08), transparent 24%),
     linear-gradient(180deg, #f8fbff 0%, #eef3ff 100%);
   color: var(--alerts-text);
-  /* transform: scale(0.7); */
   transform-origin: top center;
-  width: 142.8571428571%;
 }
 
 .AlertsHero,
@@ -44,7 +46,7 @@
   grid-template-columns: auto 1fr auto;
   gap: 18px;
   align-items: center;
-  padding: 22px 26px;
+  padding: 20px 24px;
   border-radius: var(--alerts-radius-xl);
   background:
     radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.14), transparent 32%),
@@ -69,22 +71,22 @@
 
 .AlertsHero-badgeWrap {
   position: relative;
-  width: 88px;
-  height: 88px;
+  width: 72px;
+  height: 72px;
   display: grid;
   place-items: center;
 }
 
 .AlertsHero-badge {
-  width: 88px;
-  height: 88px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  font-size: 34px;
+  font-size: 28px;
 }
 
 .AlertsHero-count {
@@ -112,7 +114,7 @@
 
 .AlertsHero-copy h1 {
   margin: 0;
-  font-size: clamp(30px, 3vw, 40px);
+  font-size: clamp(26px, 2.4vw, 34px);
   line-height: 1.05;
   letter-spacing: -0.03em;
 }
@@ -343,8 +345,8 @@
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  min-height: 118px;
-  padding: 20px 18px;
+  min-height: 104px;
+  padding: 16px;
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid rgba(226, 232, 240, 0.9);
   border-radius: var(--alerts-radius-lg);
@@ -394,7 +396,7 @@
 .AlertsStatCopy strong {
   display: block;
   margin-top: 2px;
-  font-size: 38px;
+  font-size: 32px;
   line-height: 1;
   color: #111827;
 }

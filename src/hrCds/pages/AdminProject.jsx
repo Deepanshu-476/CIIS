@@ -51,6 +51,18 @@ const Icons = {
 const getUserId = (user) => user?._id || user?.id;
 const getProjectId = (p) => p?._id || p?.id;
 const isImageFile = (value = "") => /\.(avif|gif|jpe?g|png|webp)(?:[?#].*)?$/i.test(String(value));
+const LIVE_API_URL = "https://backendcds.ciisnetwork.in/api";
+
+const getProjectFileUrl = (filePath, apiBase = axios.defaults.baseURL) => {
+  const rawPath = String(filePath || "").replace(/\\/g, "/").trim();
+  if (!rawPath) return "";
+  if (/^https?:\/\//i.test(rawPath)) return rawPath;
+  const uploadsIndex = rawPath.indexOf("uploads/");
+  const relativePath = uploadsIndex >= 0
+    ? rawPath.slice(uploadsIndex)
+    : `uploads/projects/${rawPath.split("/").pop()}`;
+  return `${String(apiBase || "").replace(/\/$/, "")}/${relativePath}`;
+};
 
 const parseStoredJson = (key) => {
   try {
@@ -183,6 +195,7 @@ export const AdminProject = () => {
   const [openPdfDialog, setOpenPdfDialog] = useState(false);
   const [selectedPdfUrl, setSelectedPdfUrl] = useState("");
   const [selectedPdfName, setSelectedPdfName] = useState("");
+  const [selectedPdfPath, setSelectedPdfPath] = useState("");
   const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
@@ -565,17 +578,11 @@ export const AdminProject = () => {
     }
     
     
-    let pdfUrl;
-    if (pdfPath.startsWith('http')) {
-      pdfUrl = pdfPath;
-    } else {
-      const pathParts = pdfPath.split('/');
-      const pdfFilename = pathParts[pathParts.length - 1];
-      pdfUrl = `${axios.defaults.baseURL}/uploads/projects/${pdfFilename}`;
-    }
+    const pdfUrl = getProjectFileUrl(pdfPath);
     
     setSelectedPdfUrl(pdfUrl);
     setSelectedPdfName(filename || pdfPath.split('/').pop() || "Document preview");
+    setSelectedPdfPath(pdfPath);
     setOpenPdfDialog(true);
   };
 
@@ -752,7 +759,17 @@ export const AdminProject = () => {
             <div className="ap-dialog-content ap-dialog-content-no-padding">
               {isImageFile(selectedPdfName || selectedPdfUrl) ? (
                 <div className="ap-image-viewer-frame">
-                  <img src={selectedPdfUrl} alt={selectedPdfName || "Task attachment"} className="ap-image-viewer" />
+                  <img
+                    src={selectedPdfUrl}
+                    alt={selectedPdfName || "Task attachment"}
+                    className="ap-image-viewer"
+                    onError={(event) => {
+                      const fallbackUrl = getProjectFileUrl(selectedPdfPath, LIVE_API_URL);
+                      if (fallbackUrl && event.currentTarget.src !== fallbackUrl) {
+                        event.currentTarget.src = fallbackUrl;
+                      }
+                    }}
+                  />
                 </div>
               ) : (
                 <iframe

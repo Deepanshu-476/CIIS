@@ -422,7 +422,12 @@ const UserDashboard = () => {
     const requestId = ++productivityRequestRef.current;
     setProductivityData(current => ({ ...current, loading: !current.series.length, refreshing: Boolean(current.series.length), error: '' }));
     try {
-      const response = await axios.get('/dashboard/productivity', { headers: { Authorization: `Bearer ${token}` }, params: period === 'custom' ? { period, from: dates.from, to: dates.to } : { period } });
+      const response = await axios.get('/dashboard/productivity', {
+        headers: { Authorization: `Bearer ${token}` },
+        params: period === 'custom' ? { period, from: dates.from, to: dates.to } : { period },
+        timeout: 12000,
+        cache: false,
+      });
       if (requestId === productivityRequestRef.current) setProductivityData({ ...response.data.data, loading: false, refreshing: false, error: '' });
     } catch (error) {
       if (requestId === productivityRequestRef.current) setProductivityData(current => ({ ...current, loading: false, refreshing: false, error: error.response?.data?.message || 'Unable to load productivity.' }));

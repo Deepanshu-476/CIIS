@@ -747,8 +747,9 @@ const Attendance = () => {
 
   const handleTimeRangeChange = (range) => {
     setTimeRange(range);
-    setIsDateRangeActive(false); 
-    
+    setIsDateRangeActive(false);
+    setStatusFilter("ALL");
+    setSelectedDate(null);
   };
 
   const statusOptions = ["ALL", "PRESENT", "LATE", "HALF DAY", "ABSENT", "HOLIDAY"];
@@ -1064,9 +1065,7 @@ const Attendance = () => {
             icon: FiBarChart2,
             color: "info",
           },
-        ]
-          .filter(stat => stat.value > 0 || stat.key === "total")
-          .map((stat) => (
+        ].map((stat) => (
             <div
               key={stat.key}
               className={`Attendance-stat-card ${

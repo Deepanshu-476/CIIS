@@ -585,7 +585,7 @@ const CompanyAllTaskTasks = () => {
       checkpoints: [...previous.checkpoints, { title: "", completed: false }],
     }));
   };
-
+ 
   const removeEditCheckpoint = (index) => {
     setEditForm((previous) => ({
       ...previous,

@@ -551,10 +551,10 @@ const Alerts = () => {
       const id = String(item?._id || item?.id || item);
       if (type === "user") {
         const match = users.find((user) => String(user?._id || user?.id) === id);
-        return match?.name || match?.email || "Unknown User";
+        return { id, name: match?.name || match?.email || "Unknown User" };
       }
       const match = groups.find((group) => String(group?._id || group?.id) === id);
-      return match?.name || "Unknown Group";
+      return { id, name: match?.name || "Unknown Group" };
     });
     return mapped.filter(Boolean);
   };
@@ -863,16 +863,16 @@ const Alerts = () => {
                       <div className="AlertsCard-assigned">
                         <span className="AlertsCard-assignedLabel">Assigned To</span>
                         <div className="AlertsCard-tags">
-                          {assignedUsers.slice(0, 2).map((name) => (
-                            <span key={name} className="AlertsTag AlertsTag-green">
+                          {assignedUsers.slice(0, 2).map((user) => (
+                            <span key={`user-${user.id}`} className="AlertsTag AlertsTag-green">
                               <FiUsers />
-                              {name}
+                              {user.name}
                             </span>
                           ))}
-                          {assignedGroups.slice(0, 2).map((name) => (
-                            <span key={name} className="AlertsTag AlertsTag-blue">
+                          {assignedGroups.slice(0, 2).map((group) => (
+                            <span key={`group-${group.id}`} className="AlertsTag AlertsTag-blue">
                               <FiUsers />
-                              {name}
+                              {group.name}
                             </span>
                           ))}
                           {!assignedUsers.length && !assignedGroups.length && (

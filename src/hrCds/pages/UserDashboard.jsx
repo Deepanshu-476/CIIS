@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 import {
-  FiClock, FiCalendar, FiChevronLeft, FiChevronRight,
+  FiClock, FiCalendar, FiChevronLeft, FiChevronRight, FiChevronDown,
   FiPlay, FiSquare, FiRefreshCw, FiBriefcase, FiUser,
   FiCheckCircle, FiAlertCircle, FiTrendingUp, FiActivity,
   FiX, FiAlertTriangle, FiCamera, FiPlus, FiUmbrella, FiBox,
@@ -338,6 +338,11 @@ const UserDashboard = () => {
   const [quickAssetsLoading, setQuickAssetsLoading] = useState(false);
   const [quickTeamMembers, setQuickTeamMembers] = useState([]);
   const [quickTeamLoading, setQuickTeamLoading] = useState(false);
+  const [quickBranches, setQuickBranches] = useState([]);
+  const [quickBranchesLoading, setQuickBranchesLoading] = useState(false);
+  const [quickDepartments, setQuickDepartments] = useState([]);
+  const [quickDepartmentsLoading, setQuickDepartmentsLoading] = useState(false);
+  const [quickAssigneeOpen, setQuickAssigneeOpen] = useState(false);
   const [weather, setWeather] = useState({ loading: false, temperature: null, feelsLike: null, label: 'Weather' });
   const [focusStats, setFocusStats] = useState(() => initialDashboardSnapshot.focusStats
     ? { ...initialDashboardSnapshot.focusStats, loading: false }
@@ -390,15 +395,22 @@ const UserDashboard = () => {
   const token = useMemo(() => localStorage.getItem('token'), []);
 
   const canAssignQuickTasks = useMemo(() => {
+    const roleSources = [user, dashboardUser].filter(Boolean);
+    if (roleSources.some(source => source.isSuperAdmin === true || source.superAdmin === true)) return true;
+
     const roleValues = [
       user?.companyRole,
       user?.role,
       user?.jobRole,
+      user?.userRole,
+      user?.userType,
       dashboardUser?.companyRole,
       dashboardUser?.role,
       dashboardUser?.jobRole,
+      dashboardUser?.userRole,
+      dashboardUser?.userType,
     ].map(normalizeRoleValue);
-    return roleValues.some(role => ['owner', 'super_admin', 'superadmin', 'super_administrator'].includes(role));
+    return roleValues.some(role => ['owner', 'company_owner', 'super_admin', 'superadmin', 'super_administrator'].includes(role));
   }, [dashboardUser, user]);
 
   const fetchProductivity = useCallback(async (period = productivityPeriod, dates = productivityDates) => {
@@ -1839,20 +1851,78 @@ const UserDashboard = () => {
   }, [activeQuickAction, token]);
 
   useEffect(() => {
+    if (activeQuickAction?.label !== 'New Task' || quickTaskType !== 'assigned' || !canAssignQuickTasks) return;
+    let active = true;
+    const loadBranches = async () => {
+      const companyId = getValueId(user?.company || user?.companyId || companyDetails?._id || companyDetails?.id);
+      if (!companyId) {
+        setQuickBranches([]);
+        return toast.error('Company information is missing');
+      }
+      setQuickBranchesLoading(true);
+      try {
+        const response = await axios.get(`/branches/company/${companyId}`);
+        const rows = response.data?.branches || response.data?.data || [];
+        if (active) setQuickBranches(Array.isArray(rows) ? rows.filter(Boolean) : []);
+      } catch (error) {
+        console.error('Failed to load branches for quick task:', error);
+        if (active) setQuickBranches([]);
+        toast.error('Unable to load branches');
+      } finally {
+        if (active) setQuickBranchesLoading(false);
+      }
+    };
+    loadBranches();
+    return () => { active = false; };
+  }, [activeQuickAction, canAssignQuickTasks, companyDetails, quickTaskType, user]);
+
+  useEffect(() => {
+    if (activeQuickAction?.label !== 'New Task' || quickTaskType !== 'assigned' || !quickForm.branchId) {
+      setQuickDepartments([]);
+      return;
+    }
+    let active = true;
+    const loadDepartments = async () => {
+      setQuickDepartmentsLoading(true);
+      try {
+        const companyId = getValueId(user?.company || user?.companyId || companyDetails?._id || companyDetails?.id);
+        const response = await axios.get('/departments', { params: { company: companyId || undefined, branch: quickForm.branchId } });
+        const rows = response.data?.departments || response.data?.data || [];
+        if (active) setQuickDepartments(Array.isArray(rows) ? rows.filter(Boolean) : []);
+      } catch (error) {
+        console.error('Failed to load departments for quick task:', error);
+        if (active) setQuickDepartments([]);
+        toast.error('Unable to load departments');
+      } finally {
+        if (active) setQuickDepartmentsLoading(false);
+      }
+    };
+    loadDepartments();
+    return () => { active = false; };
+  }, [activeQuickAction, companyDetails, quickForm.branchId, quickTaskType, user]);
+
+  useEffect(() => {
     const needsTeamMembers = activeQuickAction?.label === 'Add Client'
-      || (activeQuickAction?.label === 'New Task' && quickTaskType === 'assigned' && canAssignQuickTasks);
+      || (activeQuickAction?.label === 'New Task' && quickTaskType === 'assigned' && canAssignQuickTasks && quickForm.branchId && quickForm.departmentId);
     if (!needsTeamMembers) return;
     let active = true;
     const loadTeam = async () => {
       setQuickTeamLoading(true);
       try {
-        const response = await axios.get('/users/company-users', { headers: { Authorization: `Bearer ${token}` } });
+        const response = await axios.get('/users/company-users', {
+          headers: { Authorization: `Bearer ${token}` },
+          params: quickTaskType === 'assigned' ? { branchId: quickForm.branchId } : undefined
+        });
         const data = response.data;
         const rows = Array.isArray(data) ? data
           : Array.isArray(data?.users) ? data.users
             : Array.isArray(data?.data) ? data.data
               : Array.isArray(data?.message?.users) ? data.message.users : [];
-        if (active) setQuickTeamMembers(rows.filter(member => member && member.isActive !== false));
+        const activeMembers = rows.filter(member => member && member.isActive !== false);
+        const filteredMembers = quickTaskType === 'assigned'
+          ? activeMembers.filter(member => getValueId(member.department || member.departmentId) === String(quickForm.departmentId))
+          : activeMembers;
+        if (active) setQuickTeamMembers(filteredMembers);
       } catch (error) {
         console.error('Failed to load team members for client:', error);
         if (active) {
@@ -1865,7 +1935,7 @@ const UserDashboard = () => {
     };
     loadTeam();
     return () => { active = false; };
-  }, [activeQuickAction, canAssignQuickTasks, quickTaskType, token]);
+  }, [activeQuickAction, canAssignQuickTasks, quickForm.branchId, quickForm.departmentId, quickTaskType, token]);
 
   const submitQuickAction = async event => {
     event.preventDefault();
@@ -1955,6 +2025,8 @@ const UserDashboard = () => {
             });
           } else {
             if (!canAssignQuickTasks) throw new Error('You do not have permission to assign tasks');
+            if (!quickForm.branchId) throw new Error('Please select a branch');
+            if (!quickForm.departmentId) throw new Error('Please select a department');
             const assignee = quickTeamMembers.find(member => String(member._id || member.id) === String(quickForm.assigneeId));
             if (!assignee) throw new Error('Please select a user');
             const body = new FormData();
@@ -1965,6 +2037,7 @@ const UserDashboard = () => {
             body.append('priorityDays', '1');
             body.append('assignedUsers', JSON.stringify([assignee._id || assignee.id]));
             body.append('assignedGroups', JSON.stringify([]));
+            body.append('branchId', quickForm.branchId);
             await axios.post('/tasks/assigned/create', body, { headers: { 'Content-Type': 'multipart/form-data' } });
           }
           break;
@@ -2174,7 +2247,7 @@ const UserDashboard = () => {
                   <div className={`quick-task-type-switch ${canAssignQuickTasks ? 'has-assign-option' : ''}`} role="tablist" aria-label="Task type">
                     <button type="button" role="tab" aria-selected={quickTaskType === 'personal'} className={quickTaskType === 'personal' ? 'active' : ''} onClick={() => { setQuickTaskType('personal'); setQuickForm({ priority: 'medium' }); }}><FiUser /><span>Personal Task</span></button>
                     <button type="button" role="tab" aria-selected={quickTaskType === 'client'} className={quickTaskType === 'client' ? 'active' : ''} onClick={() => { setQuickTaskType('client'); setQuickForm({ priority: 'medium' }); }}><FiBriefcase /><span>Client Task</span></button>
-                    {canAssignQuickTasks && <button type="button" role="tab" aria-selected={quickTaskType === 'assigned'} className={quickTaskType === 'assigned' ? 'active' : ''} onClick={() => { setQuickTaskType('assigned'); setQuickForm({ priority: 'medium' }); }}><FiUserPlus /><span>Assign Task</span></button>}
+                    {canAssignQuickTasks && <button type="button" role="tab" aria-selected={quickTaskType === 'assigned'} className={quickTaskType === 'assigned' ? 'active' : ''} onClick={() => { setQuickTaskType('assigned'); setQuickAssigneeOpen(false); setQuickForm({ priority: 'medium' }); }}><FiUserPlus /><span>Assign Task</span></button>}
                   </div>
                   <div className="quick-task-type-note">{quickTaskType === 'personal' ? 'Create a private task assigned to you.' : quickTaskType === 'client' ? 'Create and assign a task for one of your clients.' : 'Create a task and assign it to any company user.'}</div>
                   <div className="quick-modal-fields">
@@ -2182,7 +2255,21 @@ const UserDashboard = () => {
                       <label><span>Client</span><select value={quickForm.clientId || ''} disabled={quickClientsLoading} onChange={e => setQuickForm(current => ({ ...current, clientId: e.target.value, service: '' }))}><option value="">{quickClientsLoading ? 'Loading clients…' : 'Select client'}</option>{quickClients.map(client => <option key={client._id || client.id} value={client._id || client.id}>{client.company || client.client || client.name || client.email}</option>)}</select></label>
                       <label><span>Service</span><select value={quickForm.service || ''} disabled={!quickForm.clientId} onChange={e => setQuickForm(current => ({ ...current, service: e.target.value }))}><option value="">Select service</option>{(quickClients.find(client => String(client._id || client.id) === String(quickForm.clientId))?.services || []).map(service => { const value = typeof service === 'string' ? service : service?.service || service?.name || ''; return value ? <option key={value} value={value}>{value}</option> : null; })}</select></label>
                     </>}
-                    {quickTaskType === 'assigned' && <label className="wide quick-assignee-field"><span><FiUserPlus /> Assign to company user</span><select value={quickForm.assigneeId || ''} disabled={quickTeamLoading} onChange={e => setQuickForm(current => ({ ...current, assigneeId: e.target.value }))}><option value="">{quickTeamLoading ? 'Loading users…' : 'Select a user'}</option>{quickTeamMembers.map(member => { const memberId = member._id || member.id; return memberId ? <option key={memberId} value={memberId}>{member.name || member.fullName || member.email || 'User'}</option> : null; })}</select><small>The selected user will receive this task.</small></label>}
+                    {quickTaskType === 'assigned' && <>
+                      <label><span>Branch</span><select value={quickForm.branchId || ''} disabled={quickBranchesLoading} onChange={e => { setQuickAssigneeOpen(false); setQuickTeamMembers([]); setQuickForm(current => ({ ...current, branchId: e.target.value, departmentId: '', assigneeId: '' })); }}><option value="">{quickBranchesLoading ? 'Loading branches…' : 'Select branch'}</option>{quickBranches.map(branch => { const branchId = branch._id || branch.id; return branchId ? <option key={branchId} value={branchId}>{branch.name || branch.branchName || branch.branchCode || 'Branch'}</option> : null; })}</select></label>
+                      <label><span>Department</span><select value={quickForm.departmentId || ''} disabled={!quickForm.branchId || quickDepartmentsLoading} onChange={e => { setQuickAssigneeOpen(false); setQuickTeamMembers([]); setQuickForm(current => ({ ...current, departmentId: e.target.value, assigneeId: '' })); }}><option value="">{!quickForm.branchId ? 'Select branch first' : quickDepartmentsLoading ? 'Loading departments…' : 'Select department'}</option>{quickDepartments.map(department => { const departmentId = department._id || department.id; return departmentId ? <option key={departmentId} value={departmentId}>{department.name || department.departmentName || department.title || 'Department'}</option> : null; })}</select></label>
+                      <div className="wide quick-assignee-field">
+                        <span><FiUserPlus /> Assign to company user</span>
+                        <div className={`quick-user-picker ${quickAssigneeOpen ? 'open' : ''}`}>
+                          <button type="button" className="quick-user-picker-trigger" disabled={!quickForm.departmentId || quickTeamLoading || !quickTeamMembers.length} aria-haspopup="listbox" aria-expanded={quickAssigneeOpen} onClick={() => setQuickAssigneeOpen(open => !open)}>
+                            {(() => { const selected = quickTeamMembers.find(member => String(member._id || member.id) === String(quickForm.assigneeId)); return selected ? <><i>{String(selected.name || selected.fullName || selected.email || 'U').charAt(0).toUpperCase()}</i><span><strong>{selected.name || selected.fullName || 'User'}</strong>{selected.email && <small>{selected.email}</small>}</span></> : <span className="placeholder">{!quickForm.departmentId ? 'Select department first' : quickTeamLoading ? 'Loading users…' : quickTeamMembers.length ? 'Select a user' : 'No users found'}</span>; })()}
+                            <FiChevronDown />
+                          </button>
+                          {quickAssigneeOpen && <div className="quick-user-picker-menu" role="listbox">{quickTeamMembers.map(member => { const memberId = member._id || member.id; const name = member.name || member.fullName || 'User'; return memberId ? <button type="button" role="option" aria-selected={String(quickForm.assigneeId) === String(memberId)} key={memberId} onClick={() => { setQuickForm(current => ({ ...current, assigneeId: memberId })); setQuickAssigneeOpen(false); }}><i>{String(name).charAt(0).toUpperCase()}</i><span><strong>{name}</strong>{member.email && <small>{member.email}</small>}</span>{String(quickForm.assigneeId) === String(memberId) && <FiCheckCircle />}</button> : null; })}</div>}
+                        </div>
+                        <small>The selected user will receive this task.</small>
+                      </div>
+                    </>}
                     <label><span>Task title</span><input type="text" value={quickForm.title || ''} onChange={e => setQuickForm(current => ({ ...current, title: e.target.value }))} /></label>
                     <label><span>Due date</span><input type="datetime-local" value={quickForm.dueDateTime || ''} onChange={e => {
                       const input = e.currentTarget;

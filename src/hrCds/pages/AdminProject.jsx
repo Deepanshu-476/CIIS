@@ -50,6 +50,7 @@ const Icons = {
 
 const getUserId = (user) => user?._id || user?.id;
 const getProjectId = (p) => p?._id || p?.id;
+const isImageFile = (value = "") => /\.(avif|gif|jpe?g|png|webp)(?:[?#].*)?$/i.test(String(value));
 
 const parseStoredJson = (key) => {
   try {
@@ -181,6 +182,7 @@ export const AdminProject = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   const [openPdfDialog, setOpenPdfDialog] = useState(false);
   const [selectedPdfUrl, setSelectedPdfUrl] = useState("");
+  const [selectedPdfName, setSelectedPdfName] = useState("");
   const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
@@ -573,6 +575,7 @@ export const AdminProject = () => {
     }
     
     setSelectedPdfUrl(pdfUrl);
+    setSelectedPdfName(filename || pdfPath.split('/').pop() || "Document preview");
     setOpenPdfDialog(true);
   };
 
@@ -735,22 +738,29 @@ export const AdminProject = () => {
 
       
       {openPdfDialog && (
-        <div className="ap-dialog-backdrop">
-          <div className="ap-dialog ap-dialog-lg">
+        <div className="ap-dialog-backdrop ap-file-preview-backdrop">
+          <div className="ap-dialog ap-dialog-lg ap-file-preview-dialog">
             <div className="ap-dialog-header">
               <div className="ap-dialog-title">
-                <Icons.Pdf /> PDF Document
+                {isImageFile(selectedPdfName || selectedPdfUrl) ? <Icons.File /> : <Icons.Pdf />}
+                {selectedPdfName || "Document Preview"}
               </div>
               <button className="ap-dialog-close" onClick={() => setOpenPdfDialog(false)}>
                 <Icons.Close />
               </button>
             </div>
             <div className="ap-dialog-content ap-dialog-content-no-padding">
-              <iframe
-                src={selectedPdfUrl}
-                title="PDF Viewer"
-                className="ap-pdf-viewer"
-              />
+              {isImageFile(selectedPdfName || selectedPdfUrl) ? (
+                <div className="ap-image-viewer-frame">
+                  <img src={selectedPdfUrl} alt={selectedPdfName || "Task attachment"} className="ap-image-viewer" />
+                </div>
+              ) : (
+                <iframe
+                  src={selectedPdfUrl}
+                  title="PDF Viewer"
+                  className="ap-pdf-viewer"
+                />
+              )}
             </div>
             <div className="ap-dialog-footer">
               <button

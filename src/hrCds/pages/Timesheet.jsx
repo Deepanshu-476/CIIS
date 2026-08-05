@@ -60,7 +60,7 @@ const Timesheet = () => {
     const weekDays = getWeekDays(currentMonday);
     const dateRange = `${formatDate(weekDays[0].date)} - ${formatDate(weekDays[6].date)}`;
     const weekKey = currentMonday.toISOString();
-    const timesheetData = weekData[weekKey] || [];
+    const timesheetData = weekData[weekKey] || [];  
 
     
     const calcTotal = (hours) => {

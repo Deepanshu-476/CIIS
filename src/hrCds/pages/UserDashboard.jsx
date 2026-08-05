@@ -336,6 +336,7 @@ const UserDashboard = () => {
   const [quickClientsLoading, setQuickClientsLoading] = useState(false);
   const [quickAssets, setQuickAssets] = useState([]);
   const [quickAssetsLoading, setQuickAssetsLoading] = useState(false);
+  const [quickAssetOpen, setQuickAssetOpen] = useState(false);
   const [quickTeamMembers, setQuickTeamMembers] = useState([]);
   const [quickTeamLoading, setQuickTeamLoading] = useState(false);
   const [quickBranches, setQuickBranches] = useState([]);
@@ -422,7 +423,12 @@ const UserDashboard = () => {
     const requestId = ++productivityRequestRef.current;
     setProductivityData(current => ({ ...current, loading: !current.series.length, refreshing: Boolean(current.series.length), error: '' }));
     try {
-      const response = await axios.get('/dashboard/productivity', { headers: { Authorization: `Bearer ${token}` }, params: period === 'custom' ? { period, from: dates.from, to: dates.to } : { period } });
+      const response = await axios.get('/dashboard/productivity', {
+        headers: { Authorization: `Bearer ${token}` },
+        params: period === 'custom' ? { period, from: dates.from, to: dates.to } : { period },
+        timeout: 12000,
+        cache: false,
+      });
       if (requestId === productivityRequestRef.current) setProductivityData({ ...response.data.data, loading: false, refreshing: false, error: '' });
     } catch (error) {
       if (requestId === productivityRequestRef.current) setProductivityData(current => ({ ...current, loading: false, refreshing: false, error: error.response?.data?.message || 'Unable to load productivity.' }));
@@ -2333,28 +2339,35 @@ const UserDashboard = () => {
                 <div className="quick-asset-form">
                   <div className="quick-asset-heading"><div><strong>Company assets</strong><span>Select the asset you need for your work.</span></div></div>
                   {quickAssetsLoading ? <div className="quick-asset-loading"><span /> Loading available assets…</div> : quickAssets.length ? (
-                    <label className="quick-asset-select">
+                    <div className="quick-asset-select">
                       <span>Choose asset</span>
-                      <div>
-                        <FiBox />
-                        <select
-                          value={quickForm.assetId || ''}
-                          onChange={event => setQuickForm(current => ({ ...current, assetId: event.target.value }))}
-                        >
-                          <option value="">Select an available asset</option>
+                      <div className={`quick-asset-dropdown${quickAssetOpen ? ' open' : ''}`} onBlur={event => {
+                        if (!event.currentTarget.contains(event.relatedTarget)) setQuickAssetOpen(false);
+                      }}>
+                        <button type="button" className="quick-asset-dropdown-trigger" aria-haspopup="listbox" aria-expanded={quickAssetOpen} onClick={() => setQuickAssetOpen(open => !open)}>
+                          <FiBox className="quick-asset-dropdown-box" />
+                          <span>{quickAssets.find(asset => String(asset._id || asset.id) === String(quickForm.assetId || ''))?.name || quickAssets.find(asset => String(asset._id || asset.id) === String(quickForm.assetId || ''))?.assetName || 'Select an available asset'}</span>
+                          <FiChevronDown className="quick-asset-dropdown-chevron" />
+                        </button>
+                        {quickAssetOpen && <div className="quick-asset-dropdown-menu" role="listbox" aria-label="Available assets">
                           {quickAssets.map(asset => {
                             const assetId = asset._id || asset.id;
                             const assetName = asset.name || asset.assetName || 'Asset';
                             const assetDetails = [asset.category || asset.type, asset.model].filter(Boolean).join(' · ');
                             return (
-                              <option key={assetId} value={assetId}>
-                                {assetName}{assetDetails ? ` - ${assetDetails}` : ''}
-                              </option>
+                              <button type="button" role="option" aria-selected={String(quickForm.assetId || '') === String(assetId)} className={String(quickForm.assetId || '') === String(assetId) ? 'selected' : ''} key={assetId} onClick={() => {
+                                setQuickForm(current => ({ ...current, assetId }));
+                                setQuickAssetOpen(false);
+                              }}>
+                                <i><FiBox /></i>
+                                <span><strong>{assetName}</strong>{assetDetails && <small>{assetDetails}</small>}</span>
+                                {String(quickForm.assetId || '') === String(assetId) && <FiCheckCircle />}
+                              </button>
                             );
                           })}
-                        </select>
+                        </div>}
                       </div>
-                    </label>
+                    </div>
                   ) : <div className="quick-asset-empty"><FiBox /><strong>No assets available</strong><span>Please check again later or contact your administrator.</span></div>}
                   <label className="quick-asset-reason"><span>Why do you need this asset?</span><textarea value={quickForm.reason || ''} onChange={e => setQuickForm(current => ({ ...current, reason: e.target.value }))} rows="3" placeholder="Describe how this asset will help with your work…" /></label>
                   <div className="quick-asset-note"><FiCheckCircle /> The asset team will review your request and update its status.</div>
@@ -2995,7 +3008,11 @@ const UserDashboard = () => {
               </svg>
               {hoveredProductivityDay && (
                 <div
-                  className="productivity-tooltip"
+                  className={`productivity-tooltip ${hoveredProductivityDay.x >= 270
+                    ? 'productivity-tooltip--right'
+                    : hoveredProductivityDay.x <= 70
+                      ? 'productivity-tooltip--left'
+                      : ''}`}
                   style={{
                     left: `${(hoveredProductivityDay.x / 340) * 100}%`,
                     top: `${Math.max(0, hoveredProductivityDay.y - 8)}px`

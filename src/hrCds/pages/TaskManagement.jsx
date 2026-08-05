@@ -472,7 +472,6 @@ const getStoredTaskUser = () => {
 };
 
 let taskManagementMemoryCache = null;
-const TASK_MANAGEMENT_CACHE_TTL = 2 * 60 * 1000;
 const TASK_MANAGEMENT_SESSION_CACHE_KEY = 'ciis-task-management-cache-v1';
 
 const getTaskManagementSessionCache = () => {
@@ -495,11 +494,7 @@ const UserCreateTask = () => {
   const storedTaskUser = useMemo(() => getStoredTaskUser(), []);
   const cachedTaskData = useMemo(() => {
     const availableCache = taskManagementMemoryCache || getTaskManagementSessionCache();
-    if (
-      !availableCache ||
-      availableCache.userId !== storedTaskUser?.id ||
-      Date.now() - availableCache.cachedAt > TASK_MANAGEMENT_CACHE_TTL
-    ) {
+    if (!availableCache || availableCache.userId !== storedTaskUser?.id) {
       return null;
     }
     taskManagementMemoryCache = availableCache;
@@ -644,6 +639,8 @@ const UserCreateTask = () => {
   const activityCacheRef = useRef(new Map());
   const remarksRequestRef = useRef(0);
   const activityRequestRef = useRef(0);
+  const statusLoaderTimerRef = useRef(null);
+  const allTasksRefreshTimerRef = useRef(null);
   
   const [zoomImage, setZoomImage] = useState(null);
   const [selectedTaskDetails, setSelectedTaskDetails] = useState(null);
@@ -1500,6 +1497,203 @@ const UserCreateTask = () => {
     return Object.values(tasksGrouped || {}).reduce((count, dateTasks) => count + (dateTasks?.length || 0), 0);
   }, []);
 
+  const patchGroupedTasksById = useCallback((groupedTasks, taskId, updater) => {
+    const targetId = String(taskId || '');
+    if (!targetId || typeof updater !== 'function') return groupedTasks;
+
+    let changed = false;
+    const nextGrouped = {};
+
+    Object.entries(groupedTasks || {}).forEach(([dateKey, dateTasks]) => {
+      const nextTasks = (dateTasks || []).map(task => {
+        const currentId = String(task?._id || task?.id || '');
+        if (currentId !== targetId) return task;
+        changed = true;
+        return updater(task);
+      });
+
+      nextGrouped[dateKey] = nextTasks;
+    });
+
+    return changed ? nextGrouped : groupedTasks;
+  }, []);
+
+  const patchTaskStatusLocally = useCallback((taskId, taskSource, nextStatus, remarks = '') => {
+    const normalizedStatus = normalizeStatus(nextStatus);
+    const timestamp = new Date().toISOString();
+    const sourceKey = String(taskSource || '').toLowerCase();
+    const currentTask = findTaskInGroups(taskId);
+
+    const updateTask = (task) => {
+      const updatedTask = {
+        ...task,
+        status: normalizedStatus,
+        userStatus: normalizedStatus,
+        completed: normalizedStatus === 'completed',
+        updatedAt: timestamp,
+        lastActivityAt: timestamp
+      };
+
+      if (remarks) {
+        updatedTask.remarks = task?.remarks || [];
+      }
+
+      if (sourceKey === 'self') {
+        const existingStatusByUser = Array.isArray(task?.statusByUser) ? task.statusByUser : [];
+        const currentUserId = String(userId || '');
+        let foundCurrentUser = false;
+        updatedTask.statusByUser = existingStatusByUser.map(entry => {
+          const entryUserId = String(entry?.user?._id || entry?.user || '');
+          if (entryUserId === currentUserId) {
+            foundCurrentUser = true;
+            return {
+              ...entry,
+              status: normalizedStatus,
+              updatedAt: timestamp
+            };
+          }
+          return entry;
+        });
+
+        if (!foundCurrentUser && currentUserId) {
+          updatedTask.statusByUser = [
+            ...updatedTask.statusByUser,
+            { user: currentUserId, status: normalizedStatus, updatedAt: timestamp }
+          ];
+        }
+
+        updatedTask.overallStatus = normalizedStatus;
+      }
+
+      if (sourceKey === 'client') {
+        updatedTask.completed = normalizedStatus === 'completed';
+      }
+
+      if (sourceKey === 'project') {
+        updatedTask.status = normalizedStatus;
+      }
+
+      return updatedTask;
+    };
+
+    const nextAllTasksGrouped = patchGroupedTasksById(allTasksGrouped, taskId, updateTask);
+    const nextAllTasksStatsGrouped = patchGroupedTasksById(allTasksStatsGrouped, taskId, updateTask);
+    const nextMyTasksGrouped = sourceKey === 'self' ? patchGroupedTasksById(myTasksGrouped, taskId, updateTask) : myTasksGrouped;
+    const nextAssignedTasksGrouped = sourceKey === 'assigned' ? patchGroupedTasksById(assignedToMeTasksGrouped, taskId, updateTask) : assignedToMeTasksGrouped;
+    const nextClientTasksGrouped = sourceKey === 'client' ? patchGroupedTasksById(clientTasksGrouped, taskId, updateTask) : clientTasksGrouped;
+    const nextProjectTasksGrouped = sourceKey === 'project' ? patchGroupedTasksById(projectTasksGrouped, taskId, updateTask) : projectTasksGrouped;
+
+    setAllTasksGrouped(nextAllTasksGrouped);
+    setAllTasksStatsGrouped(nextAllTasksStatsGrouped);
+    if (sourceKey === 'self') {
+      setMyTasksGrouped(nextMyTasksGrouped);
+    } else if (sourceKey === 'assigned') {
+      setAssignedToMeTasksGrouped(nextAssignedTasksGrouped);
+    } else if (sourceKey === 'client') {
+      setClientTasksGrouped(nextClientTasksGrouped);
+    } else if (sourceKey === 'project') {
+      setProjectTasksGrouped(nextProjectTasksGrouped);
+    }
+
+    setAllTaskStats(calculateUnifiedStatsFromTasks(nextAllTasksGrouped));
+    calculateStatsFromTasks(nextMyTasksGrouped);
+    calculateAssignedStatsFromTasks(nextAssignedTasksGrouped);
+    calculateClientStatsFromTasks(nextClientTasksGrouped);
+    calculateProjectStatsFromTasks(nextProjectTasksGrouped);
+
+    if (selectedTaskDetails && String(selectedTaskDetails._id || selectedTaskDetails.id || '') === String(taskId || '')) {
+      setSelectedTaskDetails(prev => prev ? updateTask(prev) : prev);
+    }
+
+    return {
+      currentTask,
+      nextAllTasksGrouped,
+      nextAllTasksStatsGrouped,
+      nextMyTasksGrouped,
+      nextAssignedTasksGrouped,
+      nextClientTasksGrouped,
+      nextProjectTasksGrouped
+    };
+  }, [
+    allTasksGrouped,
+    allTasksStatsGrouped,
+    assignedToMeTasksGrouped,
+    calculateAssignedStatsFromTasks,
+    calculateClientStatsFromTasks,
+    calculateProjectStatsFromTasks,
+    calculateStatsFromTasks,
+    calculateUnifiedStatsFromTasks,
+    clientTasksGrouped,
+    findTaskInGroups,
+    myTasksGrouped,
+    projectTasksGrouped,
+    selectedTaskDetails,
+    setAllTaskStats,
+    setAllTasksGrouped,
+    setAllTasksStatsGrouped,
+    setAssignedToMeTasksGrouped,
+    setClientTasksGrouped,
+    setMyTasksGrouped,
+    setProjectTasksGrouped,
+    setSelectedTaskDetails,
+    userId,
+    patchGroupedTasksById
+  ]);
+
+  const takeTaskStateSnapshot = useCallback(() => ({
+    allTasksGrouped,
+    allTasksStatsGrouped,
+    myTasksGrouped,
+    assignedToMeTasksGrouped,
+    clientTasksGrouped,
+    projectTasksGrouped,
+    allTaskStats,
+    assignedTaskStats,
+    clientTaskStats,
+    projectTaskStats,
+    selectedTaskDetails
+  }), [
+    allTaskStats,
+    allTasksGrouped,
+    allTasksStatsGrouped,
+    assignedTaskStats,
+    assignedToMeTasksGrouped,
+    clientTaskStats,
+    clientTasksGrouped,
+    myTasksGrouped,
+    projectTaskStats,
+    projectTasksGrouped,
+    selectedTaskDetails
+  ]);
+
+  const restoreTaskStateSnapshot = useCallback((snapshot) => {
+    if (!snapshot) return;
+    setAllTasksGrouped(snapshot.allTasksGrouped);
+    setAllTasksStatsGrouped(snapshot.allTasksStatsGrouped);
+    setMyTasksGrouped(snapshot.myTasksGrouped);
+    setAssignedToMeTasksGrouped(snapshot.assignedToMeTasksGrouped);
+    setClientTasksGrouped(snapshot.clientTasksGrouped);
+    setProjectTasksGrouped(snapshot.projectTasksGrouped);
+    setAllTaskStats(snapshot.allTaskStats);
+    setAssignedTaskStats(snapshot.assignedTaskStats);
+    setClientTaskStats(snapshot.clientTaskStats);
+    setProjectTaskStats(snapshot.projectTaskStats);
+    setSelectedTaskDetails(snapshot.selectedTaskDetails);
+  }, []);
+
+  const startShortStatusLoader = useCallback((duration = 1000) => {
+    setPageLoading(true);
+
+    if (statusLoaderTimerRef.current) {
+      clearTimeout(statusLoaderTimerRef.current);
+    }
+
+    statusLoaderTimerRef.current = setTimeout(() => {
+      statusLoaderTimerRef.current = null;
+      setPageLoading(false);
+    }, duration);
+  }, []);
+
   const getActiveTasksGrouped = useCallback(() => {
     if (taskViewMode === 'all') {
       return allTasksGrouped;
@@ -2121,6 +2315,17 @@ const UserCreateTask = () => {
     }
   }, [authError, userId, buildTaskQueryParams, extractTasksFromResponse, groupTasksByDate, enrichAssignedTasks, calculateUnifiedStatsFromTasks, calculateStatsFromTasks, calculateAssignedStatsFromTasks, calculateClientStatsFromTasks, calculateProjectStatsFromTasks]);
 
+  const scheduleAllTasksRefresh = useCallback((delay = 350) => {
+    if (allTasksRefreshTimerRef.current) {
+      clearTimeout(allTasksRefreshTimerRef.current);
+    }
+
+    allTasksRefreshTimerRef.current = setTimeout(() => {
+      allTasksRefreshTimerRef.current = null;
+      void fetchAllTasks();
+    }, delay);
+  }, [fetchAllTasks]);
+
   const handleCreateProjectTask = useCallback(async () => {
     if (!selectedProject) {
       showSnackbar('Please select a project', 'error');
@@ -2421,6 +2626,27 @@ const UserCreateTask = () => {
     });
   };
 
+  const updateRemarksDialogLocally = useCallback((taskId, source, savedRemark, projectId = '') => {
+    const normalizedRemark = normalizeRemark(savedRemark);
+    const cacheKey = `${source || taskViewMode}:${projectId || ''}:${taskId}`;
+
+    remarksCacheRef.current.set(cacheKey, [
+      normalizedRemark,
+      ...(remarksCacheRef.current.get(cacheKey) || []).filter(item => String(item?._id || item?.id || '') !== String(normalizedRemark?._id || normalizedRemark?.id || ''))
+    ]);
+
+    setRemarksDialog(prev => {
+      if (!prev.open || String(prev.taskId || '') !== String(taskId || '')) return prev;
+      return {
+        ...prev,
+        remarks: [
+          normalizedRemark,
+          ...(prev.remarks || []).filter(item => String(item?._id || item?.id || '') !== String(normalizedRemark?._id || normalizedRemark?.id || ''))
+        ]
+      };
+    });
+  }, [remarksCacheRef, setRemarksDialog, taskViewMode]);
+
   
   const handleDragOver = (event) => {
     event.preventDefault();
@@ -2470,17 +2696,19 @@ const UserCreateTask = () => {
         if (remarkImages.length > 0) {
           formData.append('text', newRemark.trim());
           formData.append('image', remarkImages[0].file);
-          await axios.post(endpoint, formData, {
+          const response = await axios.post(endpoint, formData, {
             headers: {
               'Content-Type': 'multipart/form-data',
             }
           });
+          updateRemarksDialogLocally(taskId, source, response?.data?.remark || response?.data?.data || response?.data || {}, projectId);
         } else {
-          await axios.post(endpoint, { text: newRemark.trim() }, {
+          const response = await axios.post(endpoint, { text: newRemark.trim() }, {
             headers: {
               'Content-Type': 'application/json',
             }
           });
+          updateRemarksDialogLocally(taskId, source, response?.data?.remark || response?.data?.data || response?.data || {}, projectId);
         }
 
         setNewRemark('');
@@ -2508,6 +2736,7 @@ const UserCreateTask = () => {
           
           void 0;
           
+          updateRemarksDialogLocally(taskId, source, response?.data?.data || response?.data?.remark || response?.data || {});
           setNewRemark('');
           remarkImages.forEach(image => {
             if (image.preview) URL.revokeObjectURL(image.preview);
@@ -2529,6 +2758,7 @@ const UserCreateTask = () => {
           
           void 0;
           
+          updateRemarksDialogLocally(taskId, source, response?.data?.data || response?.data?.remark || response?.data || {});
           setNewRemark('');
           remarkImages.forEach(image => {
             if (image.preview) URL.revokeObjectURL(image.preview);
@@ -2563,6 +2793,7 @@ const UserCreateTask = () => {
 
         void 0;
         
+        updateRemarksDialogLocally(taskId, source, response?.data?.remark || response?.data?.data || response?.data || {});
         setNewRemark('');
         remarkImages.forEach(image => {
           if (image.preview) URL.revokeObjectURL(image.preview);
@@ -2608,33 +2839,36 @@ const UserCreateTask = () => {
       }
 
       if (statusToApply) {
-        void 0;
-        
         const statusSource = pendingStatusChange.source || taskViewMode;
+        const shouldSuppressLoader = normalizeStatus(statusToApply) === 'completed' && hasRemarkContent;
 
         if (statusSource === 'self') {
           await handleStatusChange(
             statusTaskId,
             statusToApply,
-            "Status changed"
+            "Status changed",
+            { showLoader: !shouldSuppressLoader }
           );
         } else if (statusSource === 'client') {
           await handleClientTaskStatusChange(
             statusTaskId,
             statusToApply,
-            ""
+            "",
+            { showLoader: !shouldSuppressLoader }
           );
         } else if (statusSource === 'project') {
           await handleProjectTaskStatusChange(
             statusTaskId,
             statusToApply,
-            "Status changed"
+            "Status changed",
+            { showLoader: !shouldSuppressLoader }
           );
         } else {
           await handleAssignedTaskStatusChange(
             statusTaskId,
             statusToApply,
-            "Status changed"
+            "Status changed",
+            { showLoader: !shouldSuppressLoader }
           );
         }
         setPendingStatusChange({ taskId: null, status: "", source: null });
@@ -2646,37 +2880,12 @@ const UserCreateTask = () => {
       });
       setRemarkImages([]);
       
-      if (taskViewMode === 'all') {
-        await fetchAllTasks();
-      } else if (taskViewMode === 'self') {
-        fetchMyTasks();
-      } else if (taskViewMode === 'client') {
-        await fetchClientTasks();
-      } else if (taskViewMode === 'project') {
-        await fetchProjectTasks();
-      } else {
-        await fetchAssignedToMeTasks();
-      }
-
-      
-      
-      
-      
-      if (remarkAdded && !statusToApply) {
-        await fetchTaskRemarks(taskId, activeRemarkSource);
-      }
-      
       if (statusToApply) {
         showSnackbar('Status updated and remark added successfully', 'success');
       } else if (hasRemarkContent) {
         showSnackbar('Remark added successfully', 'success');
       }
-      
-      
-      
-      if (statusToApply) {
-        setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
-      }
+      setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
       
     } catch (error) {
       console.error("Error saving remark:", error);
@@ -3006,7 +3215,7 @@ const UserCreateTask = () => {
   }, [filteredTasks, getStatusForTask, getDueDateForTask, isOverdue]);
 
   
-  const handleStatusChange = async (taskId, newStatus, remarks = '') => {
+  const handleStatusChange = async (taskId, newStatus, remarks = '', options = {}) => {
     if (authError || !userId) {
       showSnackbar('Please log in to update task status', 'error');
       return;
@@ -3022,34 +3231,36 @@ const UserCreateTask = () => {
       return;
     }
 
-    setPageLoading(true);
-    try {
-      await axios.patch(`/tasks/self/${taskId}/status`, { 
-        status: newStatus, 
-        remarks: remarks || `Status changed to ${newStatus}`
-      });
+    const snapshot = takeTaskStateSnapshot();
+    const normalizedStatus = normalizeStatus(newStatus);
+    const taskSource = getTaskSource(task || { __taskSource: 'self' });
+    patchTaskStatusLocally(taskId, taskSource, normalizedStatus, remarks);
+    if (options.showLoader !== false) {
+      startShortStatusLoader(1000);
+    }
 
-      await fetchAllTasks();
-      await fetchMyTasks();
-      await fetchOverdueTasks();
-      
+    void axios.patch(`/tasks/self/${taskId}/status`, { 
+      status: normalizedStatus, 
+      remarks: remarks || `Status changed to ${normalizedStatus}`
+    }).then(() => {
+      scheduleAllTasksRefresh();
+      void fetchMyTasks();
+      void fetchOverdueTasks();
       showSnackbar('Status updated successfully', 'success');
-
-    } catch (err) {
+    }).catch((err) => {
       console.error("Error in handleStatusChange:", err.response || err);
+      restoreTaskStateSnapshot(snapshot);
       if (err.response?.status === 401) {
         setAuthError(true);
         showSnackbar('Session expired. Please log in again.', 'error');
       } else {
         showSnackbar(err?.response?.data?.error || 'Failed to update status', 'error');
       }
-    } finally {
-      setPageLoading(false);
-    }
+    });
   };
 
   
-  const handleAssignedTaskStatusChange = async (taskId, newStatus, remarks = '') => {
+  const handleAssignedTaskStatusChange = async (taskId, newStatus, remarks = '', options = {}) => {
     if (authError || !userId) {
       showSnackbar('Please log in to update task status', 'error');
       return;
@@ -3065,28 +3276,26 @@ const UserCreateTask = () => {
       return;
     }
 
-    setPageLoading(true);
-    try {
-      const normalizedStatus = normalizeStatus(newStatus);
-      void 0;
-      
-      
-      const response = await axios.patch(`/tasks/assigned/${taskId}/status`, {
-        status: normalizedStatus,
-        remarks: remarks || `Status changed to ${normalizedStatus}`
-      });
-      
-      void 0;
-      
-      await fetchAllTasks();
-      await fetchAssignedToMeTasks();
-      await fetchOverdueTasks();
-      
-      showSnackbar(`Task status changed to ${normalizedStatus} successfully`, 'success');
+    const snapshot = takeTaskStateSnapshot();
+    const normalizedStatus = normalizeStatus(newStatus);
+    const taskSource = getTaskSource(task || { __taskSource: 'assigned' });
+    patchTaskStatusLocally(taskId, taskSource, normalizedStatus, remarks);
+    if (options.showLoader !== false) {
+      startShortStatusLoader(1000);
+    }
 
-    } catch (err) {
+    void axios.patch(`/tasks/assigned/${taskId}/status`, {
+      status: normalizedStatus,
+      remarks: remarks || `Status changed to ${normalizedStatus}`
+    }).then(() => {
+      scheduleAllTasksRefresh();
+      void fetchAssignedToMeTasks();
+      void fetchOverdueTasks();
+      showSnackbar(`Task status changed to ${normalizedStatus} successfully`, 'success');
+    }).catch((err) => {
       console.error("❌ Error updating assigned task:", err);
       console.error("Error details:", err.response?.data);
+      restoreTaskStateSnapshot(snapshot);
       
       let errorMessage = 'Failed to update task status';
       if (err.response?.data?.message) {
@@ -3096,12 +3305,10 @@ const UserCreateTask = () => {
       }
       
       showSnackbar(errorMessage, 'error');
-    } finally {
-      setPageLoading(false);
-    }
+    });
   };
 
-  const handleClientTaskStatusChange = async (taskId, newStatus, remarks = '') => {
+  const handleClientTaskStatusChange = async (taskId, newStatus, remarks = '', options = {}) => {
     if (authError || !userId) {
       showSnackbar('Please log in to update task status', 'error');
       return;
@@ -3117,29 +3324,36 @@ const UserCreateTask = () => {
       return;
     }
 
-    setPageLoading(true);
-    try {
-      const normalizedStatus = normalizeStatus(newStatus);
-      if (remarks && remarks.trim()) {
-        await axios.post(`/tasks/client-tasks/${taskId}/client-remarks`, { text: remarks });
-      }
-
-      let statusPayload = { status: normalizedStatus };
-      if (normalizedStatus === 'completed') {
-        statusPayload.completed = true;
-      }
-
-      await axios.patch(`/tasks/client-tasks/assigned/${taskId}/status`, statusPayload);
-      await fetchAllTasks();
-      await fetchClientTasks();
-      await fetchOverdueTasks();
-      showSnackbar(`Task status changed to ${normalizedStatus} successfully`, 'success');
-    } catch (err) {
-      console.error("❌ Error updating client task:", err);
-      showSnackbar(err.response?.data?.message || err.response?.data?.error || 'Failed to update client task status', 'error');
-    } finally {
-      setPageLoading(false);
+    const snapshot = takeTaskStateSnapshot();
+    const normalizedStatus = normalizeStatus(newStatus);
+    const taskSource = getTaskSource(task || { __taskSource: 'client' });
+    patchTaskStatusLocally(taskId, taskSource, normalizedStatus, remarks);
+    if (options.showLoader !== false) {
+      startShortStatusLoader(1000);
     }
+
+    void (async () => {
+      try {
+        if (remarks && remarks.trim()) {
+          await axios.post(`/tasks/client-tasks/${taskId}/client-remarks`, { text: remarks });
+        }
+
+        let statusPayload = { status: normalizedStatus };
+        if (normalizedStatus === 'completed') {
+          statusPayload.completed = true;
+        }
+
+        await axios.patch(`/tasks/client-tasks/assigned/${taskId}/status`, statusPayload);
+        scheduleAllTasksRefresh();
+        void fetchClientTasks();
+        void fetchOverdueTasks();
+        showSnackbar(`Task status changed to ${normalizedStatus} successfully`, 'success');
+      } catch (err) {
+        console.error("❌ Error updating client task:", err);
+        restoreTaskStateSnapshot(snapshot);
+        showSnackbar(err.response?.data?.message || err.response?.data?.error || 'Failed to update task status', 'error');
+      }
+    })();
   };
 
   const refreshCurrentTaskView = async (source = taskViewMode) => {
@@ -3299,7 +3513,7 @@ const UserCreateTask = () => {
     return normalized;
   };
 
-  const handleProjectTaskStatusChange = async (taskOrId, newStatus, remarks = '') => {
+  const handleProjectTaskStatusChange = async (taskOrId, newStatus, remarks = '', options = {}) => {
     if (authError || !userId) {
       showSnackbar('Please log in to update task status', 'error');
       return;
@@ -3321,24 +3535,27 @@ const UserCreateTask = () => {
       return;
     }
 
-    setPageLoading(true);
-    try {
-      const statusForApi = toProjectApiStatus(newStatus);
-      await axios.patch(`/tasks/project/${projectId}/tasks/${taskId}/status`, {
-        status: statusForApi,
-        remark: remarks || `Status changed to ${statusForApi}`
-      });
-
-      await fetchAllTasks();
-      await fetchProjectTasks();
-      await fetchOverdueTasks();
-      showSnackbar(`Project task status changed to ${normalizeStatus(newStatus)} successfully`, 'success');
-    } catch (err) {
-      console.error("❌ Error updating project task:", err);
-      showSnackbar(err.response?.data?.message || err.response?.data?.error || 'Failed to update project task status', 'error');
-    } finally {
-      setPageLoading(false);
+    const snapshot = takeTaskStateSnapshot();
+    const normalizedStatus = normalizeStatus(newStatus);
+    const taskSource = getTaskSource(task || { __taskSource: 'project' });
+    patchTaskStatusLocally(taskId, taskSource, normalizedStatus, remarks);
+    if (options.showLoader !== false) {
+      startShortStatusLoader(1000);
     }
+
+    void axios.patch(`/tasks/project/${projectId}/tasks/${taskId}/status`, {
+      status: toProjectApiStatus(normalizedStatus),
+      remark: remarks || `Status changed to ${toProjectApiStatus(normalizedStatus)}`
+    }).then(() => {
+      scheduleAllTasksRefresh();
+      void fetchProjectTasks();
+      void fetchOverdueTasks();
+      showSnackbar(`Project task status changed to ${normalizedStatus} successfully`, 'success');
+    }).catch((err) => {
+      console.error("❌ Error updating project task:", err);
+      restoreTaskStateSnapshot(snapshot);
+      showSnackbar(err.response?.data?.message || err.response?.data?.error || 'Failed to update project task status', 'error');
+    });
   };
 
   
@@ -3348,59 +3565,63 @@ const UserCreateTask = () => {
       return;
     }
 
-    setPageLoading(true);
-    try {
-      if (taskSource === 'client') {
-        await axios.patch(`/tasks/client-tasks/assigned/${taskId}/status`, { 
-          status: 'overdue',
-          remarks: remarks || 'Manually marked as overdue'
-        });
-      } else if (taskSource === 'project') {
-        await handleProjectTaskStatusChange(taskId, 'onhold', remarks || 'Marked for review after overdue');
-        setPageLoading(false);
-        return;
-      } else if (taskSource === 'self') {
-        await axios.patch(`/tasks/self/${taskId}/status`, { 
-          status: 'overdue',
-          remarks: remarks || 'Manually marked as overdue'
-        });
-      } else if (taskSource === 'assigned') {
-        await axios.patch(`/tasks/assigned/${taskId}/status`, { 
-          status: 'overdue',
-          remarks: remarks || 'Manually marked as overdue'
-        });
-      } else {
-        await axios.patch(`/task/${taskId}/overdue`, { 
-          remarks: remarks || 'Manually marked as overdue'
-        });
-      }
-
-      if (taskViewMode === 'all') {
-        await fetchAllTasks();
-      } else if (taskViewMode === 'self') {
-        await fetchMyTasks();
-      } else if (taskViewMode === 'client') {
-        await fetchClientTasks();
-      } else if (taskViewMode === 'project') {
-        await fetchProjectTasks();
-      } else {
-        await fetchAssignedToMeTasks();
-      }
-      await fetchOverdueTasks();
-      
-      showSnackbar('Task marked as overdue', 'warning');
-
-    } catch (err) {
-      console.error("Error marking task as overdue:", err.response || err);
-      if (err.response?.status === 401) {
-        setAuthError(true);
-        showSnackbar('Session expired. Please log in again.', 'error');
-      } else {
-        showSnackbar(err?.response?.data?.error || 'Failed to mark task as overdue', 'error');
-      }
-    } finally {
-      setPageLoading(false);
+    if (taskSource === 'project') {
+      await handleProjectTaskStatusChange(taskId, 'onhold', remarks || 'Marked for review after overdue');
+      return;
     }
+
+    const snapshot = takeTaskStateSnapshot();
+    patchTaskStatusLocally(taskId, taskSource, 'overdue', remarks || 'Manually marked as overdue');
+    startShortStatusLoader(1000);
+
+    void (async () => {
+      try {
+        if (taskSource === 'client') {
+          await axios.patch(`/tasks/client-tasks/assigned/${taskId}/status`, { 
+            status: 'overdue',
+            remarks: remarks || 'Manually marked as overdue'
+          });
+        } else if (taskSource === 'self') {
+          await axios.patch(`/tasks/self/${taskId}/status`, { 
+            status: 'overdue',
+            remarks: remarks || 'Manually marked as overdue'
+          });
+        } else if (taskSource === 'assigned') {
+          await axios.patch(`/tasks/assigned/${taskId}/status`, { 
+            status: 'overdue',
+            remarks: remarks || 'Manually marked as overdue'
+          });
+        } else {
+          await axios.patch(`/task/${taskId}/overdue`, { 
+            remarks: remarks || 'Manually marked as overdue'
+          });
+        }
+
+        if (taskViewMode === 'all') {
+          scheduleAllTasksRefresh();
+        } else if (taskViewMode === 'self') {
+          void fetchMyTasks();
+        } else if (taskViewMode === 'client') {
+          void fetchClientTasks();
+        } else if (taskViewMode === 'project') {
+          void fetchProjectTasks();
+        } else {
+          void fetchAssignedToMeTasks();
+        }
+        void fetchOverdueTasks();
+        
+        showSnackbar('Task marked as overdue', 'warning');
+      } catch (err) {
+        console.error("Error marking task as overdue:", err.response || err);
+        restoreTaskStateSnapshot(snapshot);
+        if (err.response?.status === 401) {
+          setAuthError(true);
+          showSnackbar('Session expired. Please log in again.', 'error');
+        } else {
+          showSnackbar(err?.response?.data?.error || 'Failed to mark task as overdue', 'error');
+        }
+      }
+    })();
   };
 
   
@@ -3635,6 +3856,12 @@ const UserCreateTask = () => {
     return () => {
       if (snackbarTimerRef.current) {
         clearTimeout(snackbarTimerRef.current);
+      }
+      if (allTasksRefreshTimerRef.current) {
+        clearTimeout(allTasksRefreshTimerRef.current);
+      }
+      if (statusLoaderTimerRef.current) {
+        clearTimeout(statusLoaderTimerRef.current);
       }
       
       remarkImages.forEach(image => {

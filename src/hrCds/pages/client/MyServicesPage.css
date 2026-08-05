@@ -814,3 +814,91 @@
     border-radius: 16px;
   }
 }
+
+/* Page-level readability and responsive layout corrections. */
+.MyServices-shell {
+  margin: 0;
+  padding: clamp(18px, 2vw, 28px);
+}
+
+.MyServices-heading {
+  align-items: stretch;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+
+.MyServices-heading h1 { font-size: clamp(26px, 2vw, 32px); line-height: 1.15; }
+.MyServices-heading p { font-size: 14px; line-height: 1.5; }
+.MyServices-stats { min-height: 72px; }
+.MyServices-stat { gap: 11px; padding: 10px 14px; }
+.MyServices-stat > span { width: 36px; height: 36px; font-size: 18px; }
+.MyServices-stat small { font-size: 11px; }
+.MyServices-stat strong { font-size: 20px; }
+
+.MyServices-services-panel { padding: 16px 14px 10px; }
+.MyServices-filterbar { gap: 12px; margin-bottom: 18px; }
+.MyServices-service-search,
+.MyServices-filter { height: 44px; }
+.MyServices-service-search { padding-inline: 13px; }
+.MyServices-service-search input { font-size: 13px; }
+.MyServices-filter { grid-template-rows: 16px 18px; padding: 4px 11px; }
+.MyServices-filter > span { font-size: 10px; }
+.MyServices-filter select { font-size: 11px; }
+
+.MyServices-grid { gap: 16px; }
+.MyServices-card { padding: 16px 14px 0; }
+.MyServices-card-top { grid-template-columns: 52px minmax(0, 1fr) auto; gap: 12px; }
+.MyServices-service-icon { width: 50px; height: 50px; }
+.MyServices-card h2 { font-size: 15px; line-height: 1.3; }
+.MyServices-card p { min-height: 38px; font-size: 11px; line-height: 1.5; }
+.MyServices-badge { padding: 6px 9px; font-size: 10px; }
+.MyServices-dates { margin-top: 14px; font-size: 10px; }
+.MyServices-dates svg { width: 14px; height: 14px; }
+.MyServices-progress-row > strong { font-size: 13px; }
+.MyServices-avatars img,
+.MyServices-avatars span { width: 24px; height: 24px; font-size: 8px; }
+.MyServices-progress { height: 6px; }
+.MyServices-card footer { margin: 12px -14px 0; }
+.MyServices-card footer button { min-height: 40px; font-size: 10px; gap: 6px; }
+.MyServices-card footer svg { width: 13px; height: 13px; }
+.MyServices-view-all { min-height: 36px; margin-top: 12px; font-size: 10px; }
+
+.MyServices-bottom { margin-top: 16px; }
+.MyServices-timeline { min-height: 190px; padding: 16px 18px; }
+.MyServices-timeline h3 { font-size: 14px; }
+.MyServices-timeline header > span { font-size: 9px; }
+.MyServices-step strong { font-size: 10px; }
+.MyServices-step time,
+.MyServices-step small { font-size: 9px; }
+
+@media (max-width: 1200px) {
+  .MyServices-shell { padding: 20px; }
+  .MyServices-heading { grid-template-columns: 1fr; }
+  .MyServices-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .MyServices-shell { margin: 0; padding: 16px; }
+  .MyServices-heading { gap: 14px; }
+  .MyServices-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .MyServices-filterbar { grid-template-columns: 1fr; }
+  .MyServices-service-search,
+  .MyServices-filter { grid-column: 1; }
+  .MyServices-grid { grid-template-columns: 1fr; }
+  .MyServices-card h2 { font-size: 14px; }
+  .MyServices-timeline { overflow-x: auto; }
+  .MyServices-timeline-track { min-width: 560px; }
+}
+
+@media (max-width: 480px) {
+  .MyServices-shell { padding: 12px; }
+  .MyServices-heading h1 { font-size: 25px; }
+  .MyServices-heading p { font-size: 13px; }
+  .MyServices-stat { padding: 9px; }
+  .MyServices-stat > span { width: 32px; height: 32px; }
+  .MyServices-stat small { font-size: 9px; white-space: normal; }
+  .MyServices-stat strong { font-size: 18px; }
+  .MyServices-services-panel { padding: 10px; }
+  .MyServices-card-top { grid-template-columns: 46px minmax(0, 1fr) auto; gap: 9px; }
+  .MyServices-service-icon { width: 44px; height: 44px; }
+}

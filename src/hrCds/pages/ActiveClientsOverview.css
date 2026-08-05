@@ -734,11 +734,14 @@
   place-items: center;
   padding: clamp(10px, 3vw, 24px);
   background: rgba(15, 23, 42, 0.48);
+  overscroll-behavior: contain;
 }
 
 .ActiveClientsOverview-modal {
   width: min(720px, 100%);
   max-height: min(86dvh, 760px);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   border-radius: 8px;
   background: #fff;
@@ -746,7 +749,17 @@
 }
 
 .ActiveClientsOverview-wideModal {
-  width: min(980px, 100%);
+  width: min(1100px, 100%);
+}
+
+.ActiveClientsOverview-taskModalBackdrop {
+  top: 0;
+  padding-top: 96px;
+  padding-bottom: 28px;
+}
+
+.ActiveClientsOverview-taskModalBackdrop .ActiveClientsOverview-wideModal {
+  max-height: min(calc(100dvh - 148px), 760px);
 }
 
 .ActiveClientsOverview-modal > header {
@@ -866,6 +879,7 @@
 }
 
 .ActiveClientsOverview-modalFilters {
+  flex: 0 0 auto;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -893,15 +907,31 @@
 
 .ActiveClientsOverview-modalTable,
 .ActiveClientsOverview-modalDocs {
+  min-height: 0;
+  flex: 1 1 auto;
   max-height: calc(86vh - 160px);
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ActiveClientsOverview-modalTable table {
   width: 100%;
+  min-width: 780px;
   border-collapse: collapse;
   table-layout: fixed;
 }
+
+.ActiveClientsOverview-modalTable th:first-child,
+.ActiveClientsOverview-modalTable td:first-child { width: 24%; }
+.ActiveClientsOverview-modalTable th:nth-child(2),
+.ActiveClientsOverview-modalTable td:nth-child(2) { width: 16%; }
+.ActiveClientsOverview-modalTable th:nth-child(3),
+.ActiveClientsOverview-modalTable td:nth-child(3) { width: 16%; }
+.ActiveClientsOverview-modalTable th:nth-child(4),
+.ActiveClientsOverview-modalTable td:nth-child(4) { width: 20%; }
+.ActiveClientsOverview-modalTable th:nth-child(5),
+.ActiveClientsOverview-modalTable td:nth-child(5) { width: 24%; }
 
 .ActiveClientsOverview-modalTable th,
 .ActiveClientsOverview-modalTable td {
@@ -1248,7 +1278,17 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 760px) {
+  .ActiveClientsOverview-taskModalBackdrop {
+    top: 0;
+    padding-top: 80px;
+    padding-bottom: 24px;
+  }
+
+  .ActiveClientsOverview-taskModalBackdrop .ActiveClientsOverview-wideModal {
+    max-height: calc(100dvh - 128px);
+  }
+
   .ActiveClientsOverview-taskTable table,
   .ActiveClientsOverview-taskTable thead,
   .ActiveClientsOverview-taskTable tbody,
@@ -1268,10 +1308,28 @@
     display: none;
   }
 
+  .ActiveClientsOverview-modalTable table {
+    min-width: 0;
+    table-layout: auto;
+  }
+
+  .ActiveClientsOverview-modalTable tbody {
+    display: grid;
+    gap: 10px;
+    padding: 10px;
+  }
+
   .ActiveClientsOverview-taskTable tr,
   .ActiveClientsOverview-modalTable tr {
     padding: 10px 12px;
     border-top: 1px solid #edf2f8;
+  }
+
+  .ActiveClientsOverview-modalTable tr {
+    border: 1px solid #e7edf7;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(31, 45, 74, 0.05);
   }
 
   .ActiveClientsOverview-taskTable tbody tr:first-child,
@@ -1290,6 +1348,18 @@
     padding: 6px 0;
     border: 0;
     white-space: normal;
+  }
+
+  .ActiveClientsOverview-modalTable th,
+  .ActiveClientsOverview-modalTable td,
+  .ActiveClientsOverview-modalTable td:first-child,
+  .ActiveClientsOverview-modalTable td:nth-child(2),
+  .ActiveClientsOverview-modalTable td:nth-child(3),
+  .ActiveClientsOverview-modalTable td:nth-child(4),
+  .ActiveClientsOverview-modalTable td:nth-child(5) {
+    width: 100%;
+    overflow: visible;
+    text-overflow: clip;
   }
 
   .ActiveClientsOverview-taskTable td::before,
@@ -1414,12 +1484,22 @@
 
   .ActiveClientsOverview-modalBackdrop {
     align-items: end;
-    padding: 8px;
+    padding: 8px 8px max(8px, env(safe-area-inset-bottom));
+  }
+
+  .ActiveClientsOverview-taskModalBackdrop {
+    align-items: center;
+    padding: 72px 8px max(18px, env(safe-area-inset-bottom));
+  }
+
+  .ActiveClientsOverview-taskModalBackdrop .ActiveClientsOverview-wideModal {
+    max-height: calc(100dvh - 116px);
   }
 
   .ActiveClientsOverview-modal {
     width: 100%;
     max-height: 92dvh;
+    border-radius: 14px 14px 8px 8px;
   }
 
   .ActiveClientsOverview-modal > header {
@@ -1429,6 +1509,38 @@
 
   .ActiveClientsOverview-modal > header h2 {
     font-size: 18px;
+  }
+
+  .ActiveClientsOverview-modal > header p {
+    overflow-wrap: anywhere;
+  }
+
+  .ActiveClientsOverview-modalFilters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .ActiveClientsOverview-modalFilters button {
+    width: 100%;
+    min-width: 0;
+    padding: 0 8px;
+    white-space: nowrap;
+  }
+
+  .ActiveClientsOverview-modalTable tbody {
+    padding: 8px;
+  }
+
+  .ActiveClientsOverview-modalTable td {
+    grid-template-columns: 78px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .ActiveClientsOverview-taskNameCell,
+  .ActiveClientsOverview-taskNameCell span {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .ActiveClientsOverview-profileModal > header > div {

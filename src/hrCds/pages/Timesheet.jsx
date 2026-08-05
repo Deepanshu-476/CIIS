@@ -230,7 +230,7 @@ const Timesheet = () => {
                                 </TableCell>
                             ))}
                             <TableCell>{calcTotal(newEntry.hours)}</TableCell>
-                            <TableCell>
+                            <TableCell> 
                                 <Button variant="contained" size="small" onClick={handleAdd}>Add</Button>
                             </TableCell>
                         </TableRow>

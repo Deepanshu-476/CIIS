@@ -473,7 +473,7 @@ const getStoredTaskUser = () => {
 
 let taskManagementMemoryCache = null;
 const TASK_MANAGEMENT_CACHE_TTL = 2 * 60 * 1000;
-const TASK_MANAGEMENT_SESSION_CACHE_KEY = 'ciis-task-management-cache-v1';
+const TASK_MANAGEMENT_SESSION_CACHE_KEY = 'ciis-task-management-cache-v2';
 
 const getTaskManagementSessionCache = () => {
   try {
@@ -1073,8 +1073,13 @@ const UserCreateTask = () => {
         }
         
         
+        const dueDate = task.dueDate || task.dueDateTime;
+        const isTaskOverdue = dueDate && isOverdue(dueDate, status, task);
+
         if (status === 'completed') {
           completed++;
+        } else if (status === 'overdue' || isTaskOverdue) {
+          overdue++;
         } else if (status === 'in-progress') {
           inProgress++;
         } else if (status === 'pending') {
@@ -1083,17 +1088,6 @@ const UserCreateTask = () => {
           onHold++;
         } else if (status === 'cancelled') {
           cancelled++;
-        } else if (status === 'overdue') {
-          overdue++;
-        }
-        
-        
-        const dueDate = task.dueDate || task.dueDateTime;
-        if (dueDate && status !== 'completed') {
-          const isTaskOverdue = isOverdue(dueDate, status, task);
-          if (isTaskOverdue && status !== 'overdue') {
-            overdue++;
-          }
         }
       });
     });
@@ -1321,6 +1315,9 @@ const UserCreateTask = () => {
     }
     if (statusFilter === 'overdue') {
       return status === 'overdue' || isOverdue(getDueDateForTask(task), status, task);
+    }
+    if (statusFilter === 'pending') {
+      return status === 'pending' && !isOverdue(getDueDateForTask(task), status, task);
     }
 
     return status === statusFilter;

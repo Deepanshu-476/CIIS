@@ -1203,6 +1203,26 @@
   max-height: calc(100vh - 296px);
 }
 
+.EmployeeDirectory-edit-error {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 13px 15px;
+  border: 1px solid #fca5a5;
+  border-radius: 10px;
+  color: #991b1b;
+  background: #fff1f2;
+}
+
+.EmployeeDirectory-edit-error > svg { margin-top: 2px; color: #dc2626; }
+.EmployeeDirectory-edit-error strong,
+.EmployeeDirectory-edit-error span { display: block; }
+.EmployeeDirectory-edit-error strong { margin-bottom: 3px; font-size: 13px; }
+.EmployeeDirectory-edit-error span { color: #b91c1c; font-size: 12px; }
+.EmployeeDirectory-edit-error ul { margin: 8px 0 0; padding-left: 18px; }
+.EmployeeDirectory-edit-error li { margin-top: 4px; font-size: 12px; line-height: 1.4; }
+
 .EmployeeDirectory-edit-modal .EmployeeDirectory-modal-footer {
   position: sticky;
   bottom: 0;

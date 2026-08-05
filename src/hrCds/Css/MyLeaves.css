@@ -3203,6 +3203,59 @@
   .MyLeaves-apply-title-icon { width: 40px !important; height: 40px !important; }
 }
 
+/* Canonical leave popup frame: keep it inside every viewport and use one scroll area. */
+.MyLeaves-apply-modal-overlay {
+  align-items: flex-start !important;
+  padding: 92px 24px 24px !important;
+  overflow: hidden;
+}
+
+.MyLeaves-apply-modal {
+  width: min(900px, calc(100vw - 64px)) !important;
+  height: min(680px, calc(100dvh - 116px));
+  max-height: calc(100dvh - 116px) !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column;
+  overflow: hidden !important;
+}
+
+.MyLeaves-apply-modal .MyLeaves-apply-tab {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.MyLeaves-apply-modal-heading {
+  position: sticky !important;
+  top: 0;
+  z-index: 30 !important;
+  background: #fff !important;
+}
+
+.MyLeaves-apply-modal .MyLeaves-form-actions {
+  position: sticky !important;
+  bottom: 0;
+  z-index: 30 !important;
+  margin-bottom: 0 !important;
+  background: #fff !important;
+  box-shadow: 0 -8px 18px rgba(28, 39, 68, .08);
+}
+
+@media (max-width: 768px) {
+  .MyLeaves-apply-modal-overlay { padding: 76px 12px 12px !important; }
+  .MyLeaves-apply-modal {
+    width: calc(100vw - 24px) !important;
+    height: min(680px, calc(100dvh - 88px));
+    max-height: calc(100dvh - 88px) !important;
+    border-radius: 15px;
+  }
+}
+
 /* Namespaced Leave Details modal to avoid global modal style collisions. */
 .MyLeaves-detail-overlay {
   position: fixed;

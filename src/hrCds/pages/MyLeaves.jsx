@@ -1325,8 +1325,8 @@ const closeDetailModal = () => {
 
       
       {historyDialog.open && (
-        <div className="MyLeaves-modal-overlay">
-          <div className="MyLeaves-modal">
+        <div className="MyLeaves-modal-overlay MyLeaves-history-overlay">
+          <div className="MyLeaves-modal MyLeaves-history-modal">
             <div className="MyLeaves-modal-header">
               <div className="MyLeaves-history-modal-title">
                 <span className="MyLeaves-history-modal-eyebrow">Leave history</span>

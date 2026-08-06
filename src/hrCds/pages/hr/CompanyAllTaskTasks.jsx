@@ -291,6 +291,7 @@ const CompanyAllTaskTasks = () => {
   const { userId } = useParams();
   const [searchParams] = useSearchParams();
   const currentUser = useMemo(getStoredUser, []);
+  const effectiveUserId = userId || getCurrentUserId() || currentUser?._id || currentUser?.id || "";
   const initialDate = useMemo(() => {
     const queryDate = searchParams.get("date");
     return queryDate || getDateInputValue();
@@ -328,10 +329,10 @@ const CompanyAllTaskTasks = () => {
   const [savingTaskId, setSavingTaskId] = useState(null);
 
   useEffect(() => {
-    if (userId) return;
+    if (effectiveUserId) return;
     setLoading(false);
     setError("Please select an employee from Company All Task.");
-  }, [userId]);
+  }, [effectiveUserId]);
 
   useEffect(() => {
     let active = true;
@@ -374,7 +375,7 @@ const CompanyAllTaskTasks = () => {
   }, []);
 
   const fetchEmployee = useCallback(async () => {
-    if (!userId) return;
+    if (!effectiveUserId) return;
 
     const companyId = currentUser?.company?._id || currentUser?.company;
     const departmentId = currentUser?.department?._id || currentUser?.department;
@@ -387,7 +388,7 @@ const CompanyAllTaskTasks = () => {
     for (const url of urls) {
       try {
         const response = await axios.get(url);
-        const found = extractUsers(response).find((user) => (user._id || user.id) === userId);
+        const found = extractUsers(response).find((user) => (user._id || user.id) === effectiveUserId);
         if (found) {
           setEmployee({ ...found, _id: found._id || found.id });
           return;
@@ -396,16 +397,19 @@ const CompanyAllTaskTasks = () => {
         
       }
     }
-  }, [currentUser, userId]);
+    if (currentUser && String(currentUser._id || currentUser.id || "") === String(effectiveUserId)) {
+      setEmployee({ ...currentUser, _id: currentUser._id || currentUser.id });
+    }
+  }, [currentUser, effectiveUserId]);
 
   const fetchTasks = useCallback(async () => {
-    if (!userId) return;
+    if (!effectiveUserId) return;
 
     setLoading(true);
     setError("");
 
     try {
-      const response = await axios.get(`/task/user/${userId}/all-tasks`, {
+      const response = await axios.get(`/task/user/${effectiveUserId}/all-tasks`, {
         params: {
           page,
           limit,
@@ -447,7 +451,7 @@ const CompanyAllTaskTasks = () => {
     } finally {
       setLoading(false);
     }
-  }, [limit, page, priority, search, selectedDate, status, userId]);
+  }, [effectiveUserId, limit, page, priority, search, selectedDate, status]);
 
   const fetchTaskDetails = useCallback(async (task) => {
     if (!task?._id) {
@@ -541,7 +545,7 @@ const CompanyAllTaskTasks = () => {
     { label: "Overdue", value: stats.overdue?.count || 0, status: "overdue", icon: FiAlertTriangle, color: "#dc2626" },
   ];
 
-  const employeeName = employee?.name || tasks[0]?.assignedUsers?.[0]?.name || "Employee";
+  const employeeName = employee?.name || currentUser?.name || tasks[0]?.assignedUsers?.[0]?.name || "Employee";
 
   const handleReset = () => {
     setSearch("");

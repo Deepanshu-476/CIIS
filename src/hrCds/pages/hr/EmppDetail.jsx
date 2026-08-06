@@ -1602,6 +1602,8 @@ const EmployeeDocuments = ({
   return (
     <div className="EmployeeDirectory-modal-section">
       <h3 className="EmployeeDirectory-section-title"><FiFileText /> Employee Documents</h3>
+      {loading && <div className="EmployeeDirectory-documents-empty">Loading documents...</div>}
+      {!loading && error && <div className="EmployeeDirectory-documents-error">{error}</div>}
       {canUpload && (
         <div className="EmployeeDirectory-document-upload-panel">
           <div className="EmployeeDirectory-form-group EmployeeDirectory-document-name-field">
@@ -1647,8 +1649,6 @@ const EmployeeDocuments = ({
           </button>
         </div>
       )}
-      {loading && <div className="EmployeeDirectory-documents-empty">Loading documents...</div>}
-      {!loading && error && <div className="EmployeeDirectory-documents-error">{error}</div>}
       {!loading && !error && documents.length === 0 && (
         <div className="EmployeeDirectory-documents-empty">No documents uploaded yet.</div>
       )}

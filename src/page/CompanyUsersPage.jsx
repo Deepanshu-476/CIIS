@@ -44,6 +44,12 @@ const getAvatarLabel = value => {
   return `${first}${second}`.toUpperCase();
 };
 
+const getProfileImageSrc = value => {
+  if (!value) return "";
+  if (/^(https?:|data:|blob:)/i.test(value)) return value;
+  return `${API_URL}/${String(value).replace(/\\/g, "/").replace(/^\/+/, "")}`;
+};
+
 const getPaginationItems = (currentPage, totalPages) => {
   if (totalPages <= 5) {
     return Array.from({ length: totalPages }, (_, index) => index + 1);
@@ -343,13 +349,14 @@ const CompanyUsersPage = () => {
                     const userId = getId(user);
                     const status = getStatus(user);
                     const initials = getAvatarLabel(user?.name || user?.email || "User");
+                    const profileImageSrc = getProfileImageSrc(user?.profileImage);
 
                     return (
                       <tr key={userId}>
                         <td>
                           <div className="AllCompany-user-cell">
                             <div className={`AllCompany-user-avatar AllCompany-avatar-${status.tone}`}>
-                              <span>{initials}</span>
+                              {profileImageSrc ? <img src={profileImageSrc} alt={user?.name || "User"} /> : <span>{initials}</span>}
                             </div>
                             <div className="AllCompany-user-meta">
                               <strong>{user?.name || "User"}</strong>

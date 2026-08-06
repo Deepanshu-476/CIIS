@@ -1261,6 +1261,7 @@
 }
 
 .EmployeeDirectory-documents-error {
+  margin: 12px 0 16px;
   padding: 14px;
   border-radius: 8px;
   color: #b91c1c;
@@ -2297,19 +2298,19 @@
 /* ===== SNACKBAR/ALERT ===== */
 .EmployeeDirectory-snackbar {
   position: fixed;
-  bottom: 24px;
+  top: 88px;
   right: 24px;
   z-index: 1200;
-  animation: dir-slideInRight 0.3s ease-out;
+  animation: dir-slideInTop 0.3s ease-out;
 }
 
-@keyframes dir-slideInRight {
+@keyframes dir-slideInTop {
   from {
-    transform: translateX(100%);
+    transform: translateY(-16px);
     opacity: 0;
   }
   to {
-    transform: translateX(0);
+    transform: translateY(0);
     opacity: 1;
   }
 }
@@ -2842,7 +2843,7 @@
   .EmployeeDirectory-snackbar {
     left: 16px;
     right: 16px;
-    bottom: 16px;
+    top: 72px;
   }
 
   .EmployeeDirectory-alert {

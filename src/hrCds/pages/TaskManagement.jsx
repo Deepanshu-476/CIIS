@@ -3792,6 +3792,7 @@ const UserCreateTask = () => {
     sessionStorage.removeItem(TASK_MANAGEMENT_SESSION_CACHE_KEY);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
+    window.dispatchEvent(new Event('ciis-auth-changed'));
     navigate('/login');
   };
 

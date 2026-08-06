@@ -315,6 +315,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       localStorage.removeItem('superAdmin');
       localStorage.removeItem('company');
       localStorage.removeItem('user');
+      window.dispatchEvent(new Event('ciis-auth-changed'));
       navigate('/');
       
       if (isMobile) {

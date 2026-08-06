@@ -3203,6 +3203,111 @@
   .MyLeaves-apply-title-icon { width: 40px !important; height: 40px !important; }
 }
 
+/* Canonical leave popup frame: keep it inside every viewport and use one scroll area. */
+.MyLeaves-apply-modal-overlay {
+  align-items: flex-start !important;
+  padding: 92px 24px 24px !important;
+  overflow: hidden;
+}
+
+.MyLeaves-apply-modal {
+  width: min(900px, calc(100vw - 64px)) !important;
+  height: min(680px, calc(100dvh - 116px));
+  max-height: calc(100dvh - 116px) !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column;
+  overflow: hidden !important;
+}
+
+.MyLeaves-apply-modal .MyLeaves-apply-tab {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.MyLeaves-apply-modal-heading {
+  position: sticky !important;
+  top: 0;
+  z-index: 30 !important;
+  background: #fff !important;
+}
+
+.MyLeaves-apply-modal .MyLeaves-form-actions {
+  position: sticky !important;
+  bottom: 0;
+  z-index: 30 !important;
+  margin-bottom: 0 !important;
+  background: #fff !important;
+  box-shadow: 0 -8px 18px rgba(28, 39, 68, .08);
+}
+
+@media (max-width: 768px) {
+  .MyLeaves-apply-modal-overlay { padding: 76px 12px 12px !important; }
+  .MyLeaves-apply-modal {
+    width: calc(100vw - 24px) !important;
+    height: min(680px, calc(100dvh - 88px));
+    max-height: calc(100dvh - 88px) !important;
+    border-radius: 15px;
+  }
+}
+
+/* Leave history popup: compact frame with safe header clearance and one scroll area. */
+.MyLeaves-history-overlay {
+  align-items: flex-start;
+  padding: 96px 24px 24px;
+  overflow: hidden;
+}
+
+.MyLeaves-history-modal {
+  width: min(720px, calc(100vw - 48px));
+  height: min(650px, calc(100dvh - 120px));
+  max-width: none;
+  max-height: calc(100dvh - 120px);
+  margin: 0 auto;
+}
+
+.MyLeaves-history-modal .MyLeaves-modal-header,
+.MyLeaves-history-modal .MyLeaves-modal-footer {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+.MyLeaves-history-modal .MyLeaves-modal-header { padding: 16px 20px; }
+.MyLeaves-history-modal .MyLeaves-modal-content {
+  min-height: 0;
+  padding: 16px 20px;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.MyLeaves-history-modal .MyLeaves-modal-footer { padding: 14px 20px; }
+.MyLeaves-history-modal .MyLeaves-history-item { padding: 12px 13px 12px 15px; }
+
+@media (max-width: 768px) {
+  .MyLeaves-history-overlay { padding: 78px 12px 12px; }
+  .MyLeaves-history-modal {
+    width: calc(100vw - 24px);
+    height: calc(100dvh - 90px);
+    max-height: calc(100dvh - 90px);
+    border-radius: 14px;
+  }
+  .MyLeaves-history-modal .MyLeaves-modal-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 14px 16px;
+  }
+  .MyLeaves-history-modal .MyLeaves-history-count { justify-self: start; }
+  .MyLeaves-history-modal .MyLeaves-modal-close { grid-column: 2; grid-row: 1; }
+  .MyLeaves-history-modal .MyLeaves-modal-content { padding: 14px; }
+  .MyLeaves-history-modal .MyLeaves-history-item { gap: 10px; }
+}
+
 /* Namespaced Leave Details modal to avoid global modal style collisions. */
 .MyLeaves-detail-overlay {
   position: fixed;

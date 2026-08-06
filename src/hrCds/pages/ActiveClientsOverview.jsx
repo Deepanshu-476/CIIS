@@ -289,6 +289,8 @@ const ActiveClientsOverview = () => {
   const [taskFilter, setTaskFilter] = useState('all');
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showTasksModal, setShowTasksModal] = useState(false);
+  const [modalTasks, setModalTasks] = useState([]);
+  const [modalTasksLoading, setModalTasksLoading] = useState(false);
   const [showDocumentsModal, setShowDocumentsModal] = useState(false);
   const [deleteCandidate, setDeleteCandidate] = useState(null);
   const [deletingDocument, setDeletingDocument] = useState(false);
@@ -363,6 +365,72 @@ const ActiveClientsOverview = () => {
   const filteredSelectedTasks = useMemo(() => (
     selectedTasks.filter(task => taskMatchesFilter(task, taskFilter))
   ), [selectedTasks, taskFilter]);
+  const filteredModalTasks = useMemo(() => (
+    modalTasks.filter(task => taskMatchesFilter(task, taskFilter))
+  ), [modalTasks, taskFilter]);
+
+  useEffect(() => {
+    if (!selectedClient?.client?._id || (!showTasksModal && taskFilter === 'all')) return undefined;
+
+    const expectedTaskCount = Number(({
+      completed: selectedClient.stats?.completedTasks,
+      'in-progress': selectedClient.stats?.inProgressTasks,
+      overdue: selectedClient.stats?.overdueTasks,
+      all: selectedClient.stats?.totalTasks,
+    })[taskFilter] || 0);
+    const alreadyLoadedForFilter = selectedTasks.filter(task => taskMatchesFilter(task, taskFilter));
+    if (taskFilter !== 'all' && expectedTaskCount === 0) {
+      setModalTasks(alreadyLoadedForFilter);
+      return undefined;
+    }
+    if (expectedTaskCount > 0 && alreadyLoadedForFilter.length >= expectedTaskCount) {
+      setModalTasks(taskFilter === 'all' ? selectedTasks : alreadyLoadedForFilter);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const loadAllModalTasks = async () => {
+      setModalTasksLoading(true);
+      try {
+        const clientId = selectedClient.client._id;
+        const filterParams = taskFilter === 'completed'
+          ? { completed: true }
+          : (taskFilter === 'all' ? {} : { completed: false });
+        const firstResponse = await clientTasksApi.get(`/client/${clientId}`, {
+          params: { page: 1, limit: 100, ...filterParams },
+        });
+        const firstTasks = getTasksFromResponse(firstResponse);
+        const total = Number(firstResponse.data?.total || firstResponse.data?.pagination?.total || firstTasks.length);
+        const totalPages = Math.max(1, Math.ceil(total / 100));
+        const remainingResponses = totalPages > 1
+          ? await Promise.all(Array.from({ length: totalPages - 1 }, (_, index) => (
+            clientTasksApi.get(`/client/${clientId}`, { params: { page: index + 2, limit: 100, ...filterParams } })
+          )))
+          : [];
+        const allTasks = [
+          ...firstTasks,
+          ...remainingResponses.flatMap(getTasksFromResponse),
+        ].map(task => ({ ...task, serviceName: task.serviceName || task.service }));
+        if (!cancelled) {
+          setModalTasks(allTasks);
+          setClientTaskMap(current => {
+            const existingTasks = current[clientId] || [];
+            const mergedTasks = new Map(existingTasks.map(task => [String(task._id), task]));
+            allTasks.forEach(task => mergedTasks.set(String(task._id), task));
+            return { ...current, [clientId]: [...mergedTasks.values()] };
+          });
+        }
+      } catch (err) {
+        console.error(`Failed to load all tasks for ${selectedName}`, err);
+        if (!cancelled) setModalTasks(selectedTasks);
+      } finally {
+        if (!cancelled) setModalTasksLoading(false);
+      }
+    };
+
+    loadAllModalTasks();
+    return () => { cancelled = true; };
+  }, [showTasksModal, taskFilter, selectedClient?.client?._id]);
 
   const applyTaskFilter = filter => {
     setTaskFilter(filter);
@@ -371,6 +439,7 @@ const ActiveClientsOverview = () => {
 
   const openTaskModal = (filter = taskFilter) => {
     applyTaskFilter(filter);
+    setModalTasks(selectedTasks);
     setShowTasksModal(true);
   };
 
@@ -841,7 +910,11 @@ const ActiveClientsOverview = () => {
                             })}
                             {!filteredSelectedTasks.length && (
                               <tr>
-                                <td colSpan="4">No {getTaskFilterLabel(taskFilter).toLowerCase()} found for this client.</td>
+                                <td colSpan="4">
+                                  {modalTasksLoading
+                                    ? `Loading ${getTaskFilterLabel(taskFilter).toLowerCase()}...`
+                                    : `No ${getTaskFilterLabel(taskFilter).toLowerCase()} found for this client.`}
+                                </td>
                               </tr>
                             )}
                           </tbody>
@@ -967,12 +1040,12 @@ const ActiveClientsOverview = () => {
       )}
 
       {showTasksModal && selectedClient && (
-        <div className="ActiveClientsOverview-modalBackdrop" role="presentation" onClick={() => setShowTasksModal(false)}>
+        <div className="ActiveClientsOverview-modalBackdrop ActiveClientsOverview-taskModalBackdrop" role="presentation" onClick={() => setShowTasksModal(false)}>
           <section className="ActiveClientsOverview-modal ActiveClientsOverview-wideModal" role="dialog" aria-modal="true" aria-label="All client tasks" onClick={event => event.stopPropagation()}>
             <header>
               <div>
                 <h2>{getTaskFilterLabel(taskFilter)}</h2>
-                <p>{selectedName} - {filteredSelectedTasks.length} tasks</p>
+                <p>{selectedName} - {modalTasksLoading ? 'Loading tasks...' : `${filteredModalTasks.length} tasks`}</p>
               </div>
               <button type="button" aria-label="Close tasks" onClick={() => setShowTasksModal(false)}><FiX /></button>
             </header>
@@ -1000,7 +1073,7 @@ const ActiveClientsOverview = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredSelectedTasks.map(task => {
+                  {filteredModalTasks.map(task => {
                     const status = getTaskStatus(task);
                     const assigned = getAssignedName(task);
                     const isExtra = isExtraClientTask(selectedClient.client, task);
@@ -1019,7 +1092,7 @@ const ActiveClientsOverview = () => {
                       </tr>
                     );
                   })}
-                  {!filteredSelectedTasks.length && (
+                  {!modalTasksLoading && !filteredModalTasks.length && (
                     <tr><td colSpan="5">No {getTaskFilterLabel(taskFilter).toLowerCase()} found.</td></tr>
                   )}
                 </tbody>

@@ -191,10 +191,16 @@ const getAttendanceStatusMeta = status => {
   return statusMap[normalized] || { label: normalized || 'Pending', className: 'pending' };
 };
 
-const normalizeAttendanceRecord = record => ({
-  ...record,
-  status: normalizeAttendanceStatus(record?.status || 'ABSENT'),
-});
+const normalizeAttendanceRecord = record => {
+  const rawStatus = String(record?.status || '').trim();
+
+  return {
+    ...record,
+    // An incomplete/placeholder response must not be presented as an absence.
+    // Only the API is allowed to mark an attendance record as ABSENT.
+    status: rawStatus ? normalizeAttendanceStatus(rawStatus) : '',
+  };
+};
 
 const pickTaskRecords = data => {
   if (Array.isArray(data?.tasks)) return data.tasks;
@@ -316,9 +322,9 @@ const UserDashboard = () => {
   const [holidaysLoading, setHolidaysLoading] = useState(false);
   
   const [loading, setLoading] = useState({
-    attendance: false,
-    leaves: false,
-    status: false,
+    attendance: true,
+    leaves: true,
+    status: true,
     jobRoles: false
   });
   const [recentActivity, setRecentActivity] = useState(() => Array.isArray(initialDashboardSnapshot.recentActivity) ? initialDashboardSnapshot.recentActivity : []);
@@ -676,7 +682,10 @@ const UserDashboard = () => {
 
   
   const fetchAttendanceData = useCallback(async (force = false) => {
-    if (!isUserInCurrentCompany) return;
+    if (!isUserInCurrentCompany) {
+      setLoading(prev => ({ ...prev, attendance: false }));
+      return;
+    }
     if (!force && fetchInProgress.current.attendance) return;
     
     if (attendanceTimeoutRef.current) {
@@ -728,7 +737,10 @@ const UserDashboard = () => {
 
   
   const fetchLeaveData = useCallback(async () => {
-    if (!isUserInCurrentCompany) return;
+    if (!isUserInCurrentCompany) {
+      setLoading(prev => ({ ...prev, leaves: false }));
+      return;
+    }
     if (fetchInProgress.current.leaves) return;
     
     if (leavesTimeoutRef.current) {
@@ -772,6 +784,7 @@ const UserDashboard = () => {
   const fetchCurrentStatus = useCallback(async () => {
     if (!isUserInCurrentCompany) {
       setIsRunning(false);
+      setLoading(prev => ({ ...prev, status: false }));
       return;
     }
     
@@ -1352,9 +1365,6 @@ const UserDashboard = () => {
   }, [holidays]);
 
   const { monthlyStats, previousMonthlyStats, previousMonthLabel } = useMemo(() => {
-    const todayStart = new Date(currentDate);
-    todayStart.setHours(0, 0, 0, 0);
-
     const calculateMonth = (year, month) => {
       const records = filteredAttendanceData.filter(record => {
         const date = new Date(record.date);
@@ -1364,33 +1374,17 @@ const UserDashboard = () => {
         const date = new Date(record.date);
         return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
       };
-      const attendanceKeys = new Set(records.map(toDateKey));
       const explicitAbsentKeys = new Set(
         records.filter(record => record.status === 'ABSENT').map(toDateKey)
       );
-      const inferredAbsentKeys = new Set();
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-      for (let day = 1; day <= daysInMonth; day += 1) {
-        const date = new Date(year, month, day);
-        const key = `${year}-${month}-${day}`;
-        if (
-          date >= todayStart ||
-          date.getDay() === 0 ||
-          date.getDay() === 6 ||
-          isBeforeJoinDate(date) ||
-          holidayDates.includes(key) ||
-          leaveDates.includes(key) ||
-          attendanceKeys.has(key)
-        ) continue;
-        inferredAbsentKeys.add(key);
-      }
 
       return {
         presentDays: records.filter(record => record.status === 'PRESENT').length,
         lateDays: records.filter(record => record.status === 'LATE').length,
         halfDays: records.filter(record => record.status === 'HALF DAY').length,
-        absentDays: new Set([...explicitAbsentKeys, ...inferredAbsentKeys]).size,
+        // Do not infer absence from a missing record. The backend must explicitly
+        // mark a day ABSENT before the dashboard displays it in red.
+        absentDays: explicitAbsentKeys.size,
         leavesTaken: leaveDates.filter(dateStr => {
           const [leaveYear, leaveMonth] = dateStr.split('-').map(Number);
           return leaveYear === year && leaveMonth === month;
@@ -1404,7 +1398,7 @@ const UserDashboard = () => {
       previousMonthlyStats: calculateMonth(previousDate.getFullYear(), previousDate.getMonth()),
       previousMonthLabel: previousDate.toLocaleDateString('en-US', { month: 'short' })
     };
-  }, [filteredAttendanceData, leaveDates, holidayDates, currentMonth, currentYear, currentDate, isBeforeJoinDate]);
+  }, [filteredAttendanceData, leaveDates, currentMonth, currentYear]);
 
   const getMonthlyChange = useCallback((currentValue, previousValue) => {
     if (!previousValue) return currentValue ? 100 : 0;
@@ -1432,15 +1426,9 @@ const UserDashboard = () => {
     if (markedDates.includes(key)) return "present";
     if (isWeekend) return "weekend";
 
-    // A past working day without any attendance, leave, or holiday record is
-    // an absence. Keep today pending until the day has finished, and never
-    // mark future dates absent.
-    const todayStart = new Date(currentDate);
-    todayStart.setHours(0, 0, 0, 0);
-    if (dateObj < todayStart) return "absent";
-    
+    // Missing attendance data is unknown/pending, not an automatic absence.
     return null;
-  }, [calendarYear, calendarMonth, currentDate, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDates, absentDates, holidayDates]);
+  }, [calendarYear, calendarMonth, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDates, absentDates, holidayDates]);
 
   const isToday = useCallback((day) => {
     return day === currentDate.getDate() && 
@@ -1735,12 +1723,13 @@ const UserDashboard = () => {
   const productivityTone = productivityData.tone || 'danger';
 
   const todayAttendance = useMemo(() => {
-    const todayKey = new Date().toDateString();
+    if (loading.attendance) return null;
+    const todayKey = getIndiaDateKey();
     return attendanceData.find(record => {
-      const date = new Date(record.date || record.inTime || record.createdAt);
-      return !Number.isNaN(date.getTime()) && date.toDateString() === todayKey;
+      const value = record.date || record.inTime || record.createdAt;
+      return value && getIndiaDateKey(value) === todayKey;
     }) || null;
-  }, [attendanceData]);
+  }, [attendanceData, loading.attendance]);
 
   const hasTodayAttendance = Boolean(todayAttendance);
 
@@ -2455,7 +2444,7 @@ const UserDashboard = () => {
             <div>
               <article><i className="violet"><FiCheckCircle /></i><span><strong>{focusStats.dueToday}</strong><small>Due today</small></span></article>
               <article><i className="blue"><FiActivity /></i><span><strong>{focusStats.inProgress}</strong><small>In progress</small></span></article>
-              <article><i className="green"><FiClock /></i><span><strong>{hasTodayAttendance ? 'Done' : 'Pending'}</strong><small>Attendance</small></span></article>
+              <article><i className="green"><FiClock /></i><span><strong>{loading.attendance ? 'Loading…' : hasTodayAttendance ? 'Done' : 'Pending'}</strong><small>Attendance</small></span></article>
             </div>
           </section>
 
@@ -2796,7 +2785,9 @@ const UserDashboard = () => {
               <div className="attendance-summary-head">
                 <strong>{currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</strong>
                 {(() => {
-                  const statusMeta = getAttendanceStatusMeta(todayAttendance?.status);
+                  const statusMeta = loading.attendance
+                    ? { label: 'Loading…', className: 'pending' }
+                    : getAttendanceStatusMeta(todayAttendance?.status);
                   return (
                     <span className={`attendance-summary-status attendance-summary-status--${statusMeta.className}`}>
                       {statusMeta.label}

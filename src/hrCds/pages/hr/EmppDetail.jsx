@@ -53,6 +53,34 @@ const sameId = (left, right) => {
   return Boolean(leftId && rightId && leftId === rightId);
 };
 
+const getEmployeeUpdateErrors = (errorOrData, fallback = 'Failed to update employee') => {
+  const data = errorOrData?.response?.data || errorOrData || {};
+  const messages = [];
+  const add = value => {
+    const message = String(value || '').trim();
+    if (message && !messages.includes(message)) messages.push(message);
+  };
+  const addEntry = (entry, field = '') => {
+    if (typeof entry === 'string') return add(field ? `${field}: ${entry}` : entry);
+    if (!entry || typeof entry !== 'object') return;
+    const entryField = entry.field || entry.path || entry.param || field;
+    const message = entry.message || entry.msg || entry.error || entry.reason;
+    if (message) add(entryField ? `${entryField}: ${message}` : message);
+  };
+
+  add(data.message || data.error);
+  [data.errors, data.validationErrors].forEach(collection => {
+    if (Array.isArray(collection)) collection.forEach(entry => addEntry(entry));
+    else if (collection && typeof collection === 'object') {
+      Object.entries(collection).forEach(([field, entry]) => addEntry(entry, field));
+    }
+  });
+
+  if (!messages.length && errorOrData?.message && !errorOrData?.response) add(errorOrData.message);
+  if (!messages.length) add(fallback);
+  return messages;
+};
+
 const getIdList = (value) => {
   const input = Array.isArray(value) ? value : value ? [value] : [];
   return [...new Set(input.map(getValueId).filter(Boolean))];
@@ -1746,6 +1774,7 @@ const EmployeeDirectory = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [editFormErrors, setEditFormErrors] = useState([]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -2219,7 +2248,8 @@ const EmployeeDirectory = () => {
   // Handle edit
   const handleEdit = useCallback((userData) => {
     if (!userData) return;
-    
+
+    setEditFormErrors([]);
     setEditingUser(userData);
     
     const isEditingSelf = sameId(currentUserId, userData._id || userData.id);
@@ -2284,8 +2314,14 @@ const EmployeeDirectory = () => {
   
   const handleCancelEdit = useCallback(() => {
     setEditingUser(null);
+    setEditFormErrors([]);
     resetEditForm({});
   }, [resetEditForm]);
+
+  const handleEditInputChange = useCallback((field, value) => {
+    if (editFormErrors.length) setEditFormErrors([]);
+    handleInputChange(field, value);
+  }, [editFormErrors.length, handleInputChange]);
   
   // Handle save
   const handleSaveEdit = useCallback(async () => {
@@ -2293,12 +2329,14 @@ const EmployeeDirectory = () => {
       return;
     }
     
+    setEditFormErrors([]);
     setSaving(true);
     
     try {
       const userId = editingUser._id || editingUser.id;
       
       if (!userId) {
+        setEditFormErrors(['User ID is missing. Please reopen the employee form.']);
         showSnackbar('User ID is missing', 'error');
         return;
       }
@@ -2328,6 +2366,7 @@ const EmployeeDirectory = () => {
       const availableShifts = getRoleShiftOptions(selectedRoleForShift || {});
 
       if (selectedRoleForShift && availableShifts.length > 0 && !updateData.shiftId) {
+        setEditFormErrors(['Shift: Please select a shift for this job role.']);
         showSnackbar('Please select a shift for this job role', 'error');
         setSaving(false);
         return;
@@ -2350,6 +2389,7 @@ const EmployeeDirectory = () => {
       const canEdit = isSelfEdit || canEditOtherEmployees;
       
       if (!canEdit) {
+        setEditFormErrors(["You don't have permission to edit this employee."]);
         showSnackbar('You don\'t have permission to edit this user', 'error');
         setSaving(false);
         return;
@@ -2375,6 +2415,7 @@ const EmployeeDirectory = () => {
       delete updateData.additionalDetails;
       
       if (!updateData.name?.trim()) {
+        setEditFormErrors(['Name: Employee name is required.']);
         showSnackbar('Name is required', 'error');
         setSaving(false);
         return;
@@ -2451,14 +2492,16 @@ const EmployeeDirectory = () => {
         await fetchData();
         
       } else {
-        showSnackbar(res.data.message || 'Update failed', 'error');
+        const messages = getEmployeeUpdateErrors(res.data, 'Update failed');
+        setEditFormErrors(messages);
+        showSnackbar(messages[0], 'error');
       }
         
     } catch (err) {
       console.error("❌ Update failed:", err);
-      const errorMessage = err.response?.data?.message
-        || err.response?.data?.error
-        || 'Failed to update employee';
+      const messages = getEmployeeUpdateErrors(err);
+      setEditFormErrors(messages);
+      const errorMessage = messages[0];
       
       if (err.response?.status === 403) {
         showSnackbar('You do not have permission to edit this user', 'error');
@@ -3407,10 +3450,24 @@ const EmployeeDirectory = () => {
             </div>
             
             <div className="EmployeeDirectory-modal-content">
+              {editFormErrors.length > 0 && (
+                <div className="EmployeeDirectory-edit-error" role="alert" aria-live="assertive">
+                  <FiAlertTriangle size={19} />
+                  <div>
+                    <strong>Employee details could not be updated</strong>
+                    <span>Please correct the following and try again:</span>
+                    <ul>
+                      {editFormErrors.map((message, index) => (
+                        <li key={`${message}-${index}`}>{message}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
               <EditEmployeeForm 
                 editingUser={editingUser}
                 formData={editFormData}
-                onInputChange={handleInputChange}
+                onInputChange={handleEditInputChange}
                 departments={departments}
                 jobRoles={jobRoles}
                 branches={branches}

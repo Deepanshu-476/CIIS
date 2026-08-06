@@ -1,0 +1,32 @@
+.awc-section{width:100%;display:grid;gap:16px;margin-top:16px;color:var(--home-text,#08183f)}
+.awc-section *{box-sizing:border-box}
+.awc-role-section{padding:24px 16px 8px;background:#fff}
+.awc-role-section>header{text-align:center}
+.awc-role-section h2,.awc-workflow-section>h2,.awc-cta h2{margin:0;color:#08183f;font-weight:850;letter-spacing:-.45px}
+.awc-role-section h2{font-size:25px}
+.awc-role-section header p{margin:7px 0 18px;color:#667187;font-size:14px}
+.awc-role-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.awc-role-card{min-height:118px;display:grid;grid-template-columns:64px minmax(0,1fr);align-items:center;gap:16px;padding:18px;border:1px solid #e3e8f0;border-radius:10px;background:#fff;box-shadow:0 5px 14px rgba(28,52,92,.045)}
+.awc-role-icon{width:58px;height:58px;display:grid;place-items:center;border-radius:10px}
+.awc-role-icon svg{width:30px;height:30px;stroke-width:2}
+.awc-role-icon.amber{color:#e79413;background:#fff2dc}.awc-role-icon.green{color:#14a66b;background:#e5f7ee}.awc-role-icon.orange{color:#ed8b1d;background:#fff0dd}.awc-role-icon.blue{color:#2672da;background:#e8f1ff}
+.awc-role-card h3,.awc-step-card h3{margin:0 0 6px;color:#173d83;font-size:14px;line-height:1.25}
+.awc-role-card p,.awc-step-card p{margin:0;color:#536078;font-size:12px;line-height:1.5}
+.awc-workflow-section{padding:16px 22px 20px;border-radius:14px;background:#f4f8ff}
+.awc-workflow-section>h2{text-align:center;font-size:23px}
+.awc-workflow-list{display:grid;grid-template-columns:minmax(0,1fr) 28px minmax(0,1fr) 28px minmax(0,1fr) 28px minmax(0,1fr);align-items:center;gap:10px;margin-top:14px}
+.awc-step-card{min-height:92px;display:grid;grid-template-columns:50px minmax(0,1fr);align-items:center;gap:14px;padding:15px 17px;border:1px solid #e2e8f1;border-radius:9px;background:#fff;box-shadow:0 5px 13px rgba(32,58,100,.045)}
+.awc-step-card>b{width:44px;height:44px;display:grid;place-items:center;border-radius:50%;color:#fff;background:#1768e8;font-size:20px;box-shadow:0 5px 12px rgba(23,104,232,.2)}
+.awc-step-card h3{color:#101f42}
+.awc-step-arrow{display:grid;place-items:center;color:#246ce0}
+.awc-step-arrow svg{width:21px;height:21px;stroke-width:2.5}.awc-step-arrow .narrow{display:none}
+.awc-cta{min-height:146px;display:flex;align-items:center;justify-content:space-between;gap:35px;padding:28px 62px;border-radius:15px;color:#fff;background:#1262e8}
+.awc-cta h2{color:#fff;font-size:27px}
+.awc-cta p{max-width:680px;margin:8px 0 0;color:#dbe8ff;font-size:14px;line-height:1.55}
+.awc-cta-actions{display:flex;align-items:center;gap:22px;flex:0 0 auto}
+.awc-cta button{min-width:184px;height:54px;display:inline-flex;align-items:center;justify-content:center;gap:12px;padding:0 24px;border-radius:9px;font:inherit;font-size:14px;font-weight:750;cursor:pointer;transition:background-color .18s,border-color .18s,color .18s}
+.awc-cta button.primary{border:1px solid #fff;color:#145bd0;background:#fff}.awc-cta button.secondary{border:1px solid rgba(255,255,255,.7);color:#fff;background:transparent}
+.awc-cta button svg{width:18px;height:18px}.awc-cta button:focus-visible{outline:3px solid #ffd66b;outline-offset:3px}.awc-cta button.primary:hover{background:#eef4ff}.awc-cta button.secondary:hover{background:rgba(255,255,255,.1)}
+@media(max-width:1024px){.awc-role-card{grid-template-columns:52px 1fr;gap:12px;padding:14px}.awc-role-icon{width:50px;height:50px}.awc-workflow-list{gap:6px}.awc-step-card{grid-template-columns:40px 1fr;padding:12px 10px}.awc-step-card>b{width:38px;height:38px}.awc-cta{padding-inline:36px}.awc-cta-actions{gap:12px}.awc-cta button{min-width:160px}}
+@media(max-width:850px){.awc-role-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.awc-workflow-list{grid-template-columns:1fr;gap:10px}.awc-step-arrow .wide{display:none}.awc-step-arrow .narrow{display:block}.awc-step-card{width:100%;min-height:84px}.awc-cta{align-items:flex-start;flex-direction:column;padding:28px 32px}.awc-cta-actions{width:100%}}
+@media(max-width:560px){.awc-section{gap:12px}.awc-role-section{padding-inline:0}.awc-role-section h2,.awc-workflow-section>h2{font-size:21px}.awc-role-section header p{font-size:13px}.awc-role-grid{grid-template-columns:1fr;gap:10px}.awc-role-card{min-height:102px}.awc-workflow-section{padding:20px 12px}.awc-step-card{grid-template-columns:44px 1fr}.awc-cta{padding:25px 18px}.awc-cta h2{font-size:23px;line-height:1.25}.awc-cta-actions{flex-direction:column}.awc-cta button{width:100%}}

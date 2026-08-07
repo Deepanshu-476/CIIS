@@ -3156,36 +3156,27 @@ const CompanyDetails = () => {
 
       {upgradeModalOpen && (
         <div className="AllCompany-modal-overlay" onClick={() => !subscriptionSaving && setUpgradeModalOpen(false)}>
-          <div className="AllCompany-subscription-modal" onClick={e => e.stopPropagation()}>
+          <div className="AllCompany-modal-content AllCompany-subscription-modal" onClick={e => e.stopPropagation()}>
             <div className="AllCompany-modal-header">
-              <div className="AllCompany-modal-header-left">
-                <div className="AllCompany-modal-avatar-small" style={{background: `linear-gradient(135deg, #448af8 0%, #448af880 100%)`}}>
-                  <span className="material-icons">event_available</span>
-                </div>
-                <div className="AllCompany-modal-title">
-                  <h3 className="AllCompany-modal-company-name">Upgrade / Renew Plan</h3>
-                  <div className="AllCompany-modal-subtitle">
-                    <span>{company?.companyName}</span>
-                  </div>
-                </div>
+              <div>
+                <p className="AllCompany-modal-eyebrow">Subscription</p>
+                <h3 className="AllCompany-modal-title">Upgrade / Renew Plan</h3>
+                <p className="AllCompany-modal-subtitle">
+                  {company?.companyName} • {company?.companyCode || "N/A"}
+                </p>
               </div>
-              <button className="AllCompany-icon-btn AllCompany-close-btn" onClick={() => setUpgradeModalOpen(false)} disabled={subscriptionSaving}>
+              <button type="button" className="AllCompany-icon-button" onClick={() => setUpgradeModalOpen(false)} disabled={subscriptionSaving} aria-label="Close modal">
                 <span className="material-icons">close</span>
               </button>
             </div>
 
             <div className="AllCompany-modal-body">
               <div className="AllCompany-subscription-current">
-                <span className="material-icons">schedule</span>
-                <div>
+                <div className="AllCompany-subscription-current-item">
                   <span>Current expiry</span>
                   <strong>{formatDate(company?.subscriptionExpiry)}</strong>
                 </div>
-              </div>
-
-              <div className="AllCompany-subscription-current">
-                <span className="material-icons">workspace_premium</span>
-                <div>
+                <div className="AllCompany-subscription-current-item">
                   <span>Current plan</span>
                   <strong>{planName} · {subscriptionStatus.text}</strong>
                 </div>
@@ -3197,7 +3188,7 @@ const CompanyDetails = () => {
               <input
                 id="subscriptionStartDate"
                 type="date"
-                className="AllCompany-detail-input"
+                className="AllCompany-input"
                 value={subscriptionStartDate}
                 onChange={(e) => handleStartDateChange(e.target.value)}
               />
@@ -3205,16 +3196,16 @@ const CompanyDetails = () => {
               <label className="AllCompany-subscription-label">
                 New Expiry Date (Auto-calculated)
               </label>
-              <div className="AllCompany-detail-input" style={{ background: '#f5f5f5', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', fontWeight: 'bold' }}>
+              <div className="AllCompany-subscription-preview">
                 {subscriptionExpiryDate ? formatDate(subscriptionExpiryDate) : 'Select plan and start date'}
               </div>
 
-              <div className="AllCompany-subscription-form-grid">
+              <div className="AllCompany-subscription-grid">
                 <div className="AllCompany-subscription-field">
-                  <label className="AllCompany-subscription-label" htmlFor="subscriptionPlan">Plan</label>
+                  <span>Plan</span>
                   <select
                     id="subscriptionPlan"
-                    className="AllCompany-detail-input"
+                    className="AllCompany-input"
                     value={subscriptionPlanId}
                     onChange={(e) => handleSubscriptionPlanChange(e.target.value)}
                   >
@@ -3227,22 +3218,22 @@ const CompanyDetails = () => {
                   </select>
                 </div>
                 <div className="AllCompany-subscription-field">
-                  <label className="AllCompany-subscription-label" htmlFor="subscriptionAmount">Amount</label>
+                  <span>Amount</span>
                   <input
                     id="subscriptionAmount"
                     type="number"
                     min="0"
-                    className="AllCompany-detail-input"
+                    className="AllCompany-input"
                     value={subscriptionAmount}
                     onChange={(e) => setSubscriptionAmount(e.target.value)}
                     placeholder="0"
                   />
                 </div>
                 <div className="AllCompany-subscription-field">
-                  <label className="AllCompany-subscription-label" htmlFor="subscriptionPaymentStatus">Payment Status</label>
+                  <span>Payment Status</span>
                   <select
                     id="subscriptionPaymentStatus"
-                    className="AllCompany-detail-input"
+                    className="AllCompany-input"
                     value={subscriptionPaymentStatus}
                     onChange={(e) => setSubscriptionPaymentStatus(e.target.value)}
                   >
@@ -3253,10 +3244,10 @@ const CompanyDetails = () => {
                   </select>
                 </div>
                 <div className="AllCompany-subscription-field">
-                  <label className="AllCompany-subscription-label" htmlFor="subscriptionPaymentMode">Payment Mode</label>
+                  <span>Payment Mode</span>
                   <select
                     id="subscriptionPaymentMode"
-                    className="AllCompany-detail-input"
+                    className="AllCompany-input"
                     value={subscriptionPaymentMode}
                     onChange={(e) => setSubscriptionPaymentMode(e.target.value)}
                   >
@@ -3269,21 +3260,21 @@ const CompanyDetails = () => {
                   </select>
                 </div>
                 <div className="AllCompany-subscription-field">
-                  <label className="AllCompany-subscription-label" htmlFor="subscriptionPaymentDate">Payment Date</label>
+                  <span>Payment Date</span>
                   <input
                     id="subscriptionPaymentDate"
                     type="date"
-                    className="AllCompany-detail-input"
+                    className="AllCompany-input"
                     value={subscriptionPaymentDate}
                     onChange={(e) => setSubscriptionPaymentDate(e.target.value)}
                   />
                 </div>
                 <div className="AllCompany-subscription-field">
-                  <label className="AllCompany-subscription-label" htmlFor="subscriptionTransactionId">Transaction ID</label>
+                  <span>Transaction ID</span>
                   <input
                     id="subscriptionTransactionId"
                     type="text"
-                    className="AllCompany-detail-input"
+                    className="AllCompany-input"
                     value={subscriptionTransactionId}
                     onChange={(e) => setSubscriptionTransactionId(e.target.value)}
                     placeholder="Optional"
@@ -3296,7 +3287,7 @@ const CompanyDetails = () => {
               </label>
               <textarea
                 id="subscriptionNotes"
-                className="AllCompany-detail-textarea AllCompany-subscription-notes"
+                className="AllCompany-input AllCompany-subscription-notes"
                 rows="3"
                 value={subscriptionNotes}
                 onChange={(e) => setSubscriptionNotes(e.target.value)}
@@ -3305,15 +3296,16 @@ const CompanyDetails = () => {
             </div>
 
             <div className="AllCompany-modal-footer">
-              <button className="AllCompany-btn-outline" onClick={() => setUpgradeModalOpen(false)} disabled={subscriptionSaving}>
+              <button type="button" className="AllCompany-btn AllCompany-btn-ghost" onClick={() => setUpgradeModalOpen(false)} disabled={subscriptionSaving}>
                 Cancel
               </button>
               <button
-                className="AllCompany-btn-primary"
+                type="button"
+                className="AllCompany-btn AllCompany-btn-primary"
                 onClick={handleSaveSubscription}
                 disabled={subscriptionSaving}
               >
-                {subscriptionSaving ? "Saving..." : "Upgrade Plan"}
+                {subscriptionSaving ? "Saving..." : "Save Subscription"}
               </button>
             </div>
           </div>

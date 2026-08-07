@@ -65,25 +65,29 @@ const DemoRequests = () => {
   const fetchDemoRequests = useCallback(async () => {
     setLoading(true);
     try {
-      let response;
+      let rawData = [];
 
-      // Primary live production endpoint: /clientsservice/service-enquiries
+      // 1. Primary demo request endpoint (from landing page Book Demo modal)
       try {
-        response = await axios.get('/clientsservice/service-enquiries', {
-          _skipErrorNotify: true
-        });
-      } catch (err) {
-        try {
-          response = await axios.get('/demo-requests', {
-            _skipErrorNotify: true
-          });
-        } catch (fallbackErr) {
-          response = { data: { success: true, data: [] } };
+        const demoRes = await axios.get('/demo-requests', { _skipErrorNotify: true });
+        if (demoRes?.data?.success && Array.isArray(demoRes.data.data)) {
+          rawData.push(...demoRes.data.data);
         }
+      } catch (err) {
+        console.warn('Demo requests endpoint notice:', err.message);
       }
 
-      if (response?.data?.success) {
-        let rawData = response.data.data || [];
+      // 2. Secondary/fallback service enquiries endpoint
+      try {
+        const serviceRes = await axios.get('/clientsservice/service-enquiries', { _skipErrorNotify: true });
+        if (serviceRes?.data?.success && Array.isArray(serviceRes.data.data)) {
+          const existingIds = new Set(rawData.map((i) => String(i._id || i.id)));
+          const extraItems = serviceRes.data.data.filter((i) => !existingIds.has(String(i._id || i.id)));
+          rawData.push(...extraItems);
+        }
+      } catch (err) {
+        console.warn('Service enquiries endpoint notice:', err.message);
+      }
 
         let normalized = rawData.map((item) => {
           let reqs = item.requirements || '';

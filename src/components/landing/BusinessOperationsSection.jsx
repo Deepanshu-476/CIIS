@@ -1,15 +1,16 @@
 import React from 'react';
 import {
   FiBarChart2, FiBell, FiBox, FiBriefcase, FiCalendar, FiCheckCircle, FiClock, FiCpu,
-  FiBattery, FiGrid, FiMenu, FiUserCheck, FiUsers, FiWifi, FiX
+  FiBattery, FiGrid, FiMenu, FiUserCheck, FiUsers, FiWifi, FiX, FiUser, FiClipboard
 } from 'react-icons/fi';
+import { LuFingerprint, LuClipboardCheck } from 'react-icons/lu';
 import './BusinessOperationsSection.css';
 
 const capabilities = [
-  { title:'Employee & HR', text:'Complete employee lifecycle management in one place.', icon:FiUsers, tone:'purple' },
-  { title:'Attendance & Shifts', text:'Biometric, mobile & web attendance with smart rules.', icon:FiUserCheck, tone:'teal' },
-  { title:'Tasks & Projects', text:'Assign, track and complete tasks on time.', icon:FiCheckCircle, tone:'orange' },
-  { title:'Clients & CRM', text:'Manage clients, deals, communications and follow-ups.', icon:FiBriefcase, tone:'blue' },
+  { title:'Employee & HR', text:'Complete employee lifecycle management in one place.', icon:FiUser, tone:'purple' },
+  { title:'Attendance & Shifts', text:'Biometric, mobile & web attendance with smart rules.', icon:LuFingerprint, tone:'teal' },
+  { title:'Tasks & Projects', text:'Assign, track and complete tasks on time.', icon:LuClipboardCheck, tone:'orange' },
+  { title:'Clients & CRM', text:'Manage clients, deals, communications and follow-ups.', icon:FiUsers, tone:'blue' },
   { title:'Assets & Operations', text:'Track company assets, requests and maintenance.', icon:FiBox, tone:'pink' },
   { title:'Reports & Performance', text:'Powerful reports and insights to grow your business.', icon:FiBarChart2, tone:'cyan' }
 ];

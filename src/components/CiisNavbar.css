@@ -94,10 +94,14 @@
 
 /* Login Button */
 .login-btn {
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background-color: var(--primary-color);
   color: white;
-  border: none;
-  padding: 10px 24px;
+  border: 1px solid var(--primary-color);
+  padding: 0 22px;
   border-radius: var(--border-radius);
   font-weight: 600;
   font-size: 0.95rem;
@@ -113,8 +117,9 @@
 }
 
 .nav-actions{display:flex;align-items:center;gap:12px}
-.user-login-btn{height:40px;padding:0 21px;border:1px solid #b8cdf2;border-radius:8px;color:#1858c7;background:#fff;font-weight:650;font-size:.95rem;cursor:pointer;transition:var(--transition)}
-.user-login-btn:hover{border-color:var(--primary-color);background:#f4f8ff}.user-login-btn:focus-visible,.nav-login-modal button:focus-visible{outline:3px solid rgba(37,99,235,.25);outline-offset:2px}
+.nav-register-link{display:flex;text-decoration:none}
+.user-login-btn{height:42px;display:inline-flex;align-items:center;justify-content:center;padding:0 22px;border:1px solid #b8cdf2;border-radius:8px;color:#1858c7;background:#fff;font-weight:650;font-size:.95rem;line-height:1;cursor:pointer;transition:var(--transition)}
+.user-login-btn:hover{border-color:var(--primary-color);background:#f4f8ff;transform:translateY(-1px);box-shadow:0 4px 12px rgba(37,99,235,.1)}.user-login-btn:focus-visible,.nav-login-modal button:focus-visible{outline:3px solid rgba(37,99,235,.25);outline-offset:2px}
 .nav-login-backdrop{position:fixed;inset:0;z-index:10020;display:grid;place-items:center;padding:18px;background:rgba(5,18,44,.5);backdrop-filter:blur(4px)}
 .nav-login-modal{position:relative;width:min(430px,100%);padding:30px;border:1px solid #dce5f2;border-radius:18px;background:#fff;box-shadow:0 24px 70px rgba(8,30,67,.25)}
 .nav-login-close{position:absolute;top:15px;right:15px;width:34px;height:34px;display:grid;place-items:center;border:0;border-radius:8px;color:#536079;background:#f3f6fa;cursor:pointer}.nav-login-close svg{width:18px;height:18px}
@@ -226,11 +231,11 @@
     border-top: 1px solid #f0f0f0;
   }
 
-  .nav-actions{display:grid;grid-template-columns:1fr;gap:10px}.user-login-btn{width:100%}
+  .nav-actions{display:grid;grid-template-columns:1fr;gap:10px}.nav-register-link,.user-login-btn{width:100%}
 
   .login-btn {
     width: 100%;
-    padding: 12px;
+    padding: 0 12px;
   }
 }
 

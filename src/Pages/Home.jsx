@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './Home.css';
 import Header from '../components/CiisNavbar';
 import Footer from '../components/CiisFooter';
 import AttendanceAiSection from '../components/landing/AttendanceAiSection';
 import BusinessOperationsSection from '../components/landing/BusinessOperationsSection';
 import AccessWorkflowCtaSection from '../components/landing/AccessWorkflowCtaSection';
+import BookDemoModal from '../components/landing/BookDemoModal';
 import {
   FiActivity,
   FiAperture,
@@ -52,12 +53,12 @@ const IconBox = ({ icon, color = 'blue', className = '' }) => (
 );
 
 const TrustedLogoIcon = ({ brand }) => {
-  if (brand === 'techsoft') return <svg viewBox="0 0 32 32"><g fill="none" stroke="#20a8e8" strokeWidth="2.2" strokeLinecap="round"><circle cx="16" cy="16" r="5"/><path d="M16 2v6M16 24v6M2 16h6M24 16h6M6.1 6.1l4.2 4.2M21.7 21.7l4.2 4.2M25.9 6.1l-4.2 4.2M10.3 21.7l-4.2 4.2"/><path d="M10 3.8l2.2 5.5M19.8 22.7l2.2 5.5M3.8 22l5.5-2.2M22.7 12.2l5.5-2.2"/></g></svg>;
-  if (brand === 'brightmart') return <svg viewBox="0 0 32 32"><path fill="#f59a44" d="M4 8l7-4 7 4-7 4z"/><path fill="#ef6a67" d="M11 12l7-4 7 4-7 4z"/><path fill="#f7c64a" d="M4 8l7 4v8l-7-4z"/><path fill="#db657d" d="M18 16l7-4v8l-7 4z"/><path fill="#77b45a" d="M11 12l7 4v8l-7-4z"/></svg>;
-  if (brand === 'educore') return <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" fill="none" stroke="#38a86e" strokeWidth="2"/><path d="M8 17c4-1 6 0 8 3 2-3 4-4 8-3v7c-4-1-6 0-8 3-2-3-4-4-8-3z" fill="#38a86e"/><path d="M16 7c4 2 5 5 0 9-5-4-4-7 0-9z" fill="#e3b83f"/></svg>;
-  if (brand === 'healthplus') return <svg viewBox="0 0 32 32"><g fill="#347fe5"><ellipse cx="16" cy="7" rx="3.5" ry="6"/><ellipse cx="16" cy="25" rx="3.5" ry="6"/><ellipse cx="7" cy="16" rx="6" ry="3.5"/><ellipse cx="25" cy="16" rx="6" ry="3.5"/></g><circle cx="16" cy="16" r="4" fill="#22a9dc"/></svg>;
-  if (brand === 'buildright') return <svg viewBox="0 0 34 32"><path fill="#6689a8" d="M3 25h28v3H3zM6 13h7v12H6zM15 8h6v17h-6zM23 15h6v10h-6z"/><path fill="#2f77b8" d="M4 11h18v2H4zM13 5h2v20h-2zM15 5h12v2H15zM25 7h2v5h-2z"/><path fill="#f1a23b" d="M9 16h2v3H9zM17 12h2v3h-2zM25 18h2v3h-2z"/></svg>;
-  return <svg viewBox="0 0 34 32"><path d="M6 24L17 5l11 19z" fill="none" stroke="#3688cf" strokeWidth="2"/><circle cx="17" cy="5" r="4" fill="#f0a33b"/><circle cx="6" cy="24" r="4" fill="#32a66d"/><circle cx="28" cy="24" r="4" fill="#6b70c9"/><path d="M12 22h10M17 11v7" stroke="#3688cf" strokeWidth="2"/></svg>;
+  if (brand === 'techsoft') return <svg viewBox="0 0 32 32"><g fill="none" stroke="#1d9bf0" strokeWidth="2.2" strokeLinecap="round"><circle cx="16" cy="16" r="4.5" fill="#1d9bf0"/><path d="M16 3v4M16 25v4M3 16h4M25 16h4M6.8 6.8l2.8 2.8M22.4 22.4l2.8 2.8M25.2 6.8l-2.8 2.8M9.6 22.4l-2.8 2.8"/><circle cx="16" cy="3" r="1.5" fill="#1d9bf0"/><circle cx="16" cy="29" r="1.5" fill="#1d9bf0"/><circle cx="3" cy="16" r="1.5" fill="#1d9bf0"/><circle cx="29" cy="16" r="1.5" fill="#1d9bf0"/></g></svg>;
+  if (brand === 'brightmart') return <svg viewBox="0 0 32 32"><path fill="#f97316" d="M16 3l9 5.2v10.4L16 23.8 7 18.6V8.2z"/><path fill="#ef4444" d="M16 3v20.8l9-5.2V8.2z" opacity="0.85"/><path fill="#f59e0b" d="M16 3L7 8.2l9 5.2 9-5.2z" opacity="0.9"/></svg>;
+  if (brand === 'educore') return <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="none" stroke="#10b981" strokeWidth="2.5"/><path d="M10 18c3-1.5 4.5 0 6 2.5 1.5-2.5 3-4 6-2.5v-6c-3-1.5-4.5 0-6 2.5-1.5-2.5-3-4-6-2.5z" fill="#10b981"/><path d="M16 6c3 1.5 4 4 0 7-4-3-3-5.5 0-7z" fill="#f59e0b"/></svg>;
+  if (brand === 'healthplus') return <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="5" fill="#2563eb"/><circle cx="16" cy="6" r="3.5" fill="#3b82f6"/><circle cx="16" cy="26" r="3.5" fill="#3b82f6"/><circle cx="6" cy="16" r="3.5" fill="#3b82f6"/><circle cx="26" cy="16" r="3.5" fill="#3b82f6"/><circle cx="9" cy="9" r="2.5" fill="#60a5fa"/><circle cx="23" cy="9" r="2.5" fill="#60a5fa"/><circle cx="9" cy="23" r="2.5" fill="#60a5fa"/><circle cx="23" cy="23" r="2.5" fill="#60a5fa"/></svg>;
+  if (brand === 'buildright') return <svg viewBox="0 0 32 32"><path fill="#3b82f6" d="M4 26h24v3H4zM7 14h6v12H7zM15 8h6v18h-6zM23 18h5v8h-5z"/><path fill="#60a5fa" d="M5 12h10v2H5zM13 4h2v22h-2zM15 4h11v2H15z"/><path fill="#f59e0b" d="M9 17h2v3H9zM17 12h2v3h-2zM25 21h2v3h-2z"/></svg>;
+  return <svg viewBox="0 0 32 32"><path d="M7 25L16 6l9 19z" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinejoin="round"/><circle cx="16" cy="6" r="4" fill="#f59e0b"/><circle cx="7" cy="25" r="4" fill="#10b981"/><circle cx="25" cy="25" r="4" fill="#8b5cf6"/><path d="M11.5 22.5h9M16 11v8" stroke="#2563eb" strokeWidth="2" strokeLinecap="round"/></svg>;
 };
 
 const MiniDashboard = ({ compact = false }) => (
@@ -166,9 +167,15 @@ const MiniDashboard = ({ compact = false }) => (
 );
 
 const Home = () => {
+  const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
+
+  const handleOpenDemoModal = () => {
+    setIsDemoModalOpen(true);
+  };
+
   return (
     <>
-      <Header />
+      <Header onBookDemo={handleOpenDemoModal} />
       <main className="home-page">
         <section className="home-hero">
           <div className="home-shell home-hero-grid">
@@ -181,12 +188,12 @@ const Home = () => {
               </h1>
               <p>CIIS Network helps owners and managers handle attendance, leaves, tasks, teams, assets, clients, audits and performance across multiple businesses, branches and departments.</p>
               <div className="home-reference-actions">
-                <button className="home-primary-btn">Book Free Demo <FiArrowRight /></button>
-                <button className="home-secondary-btn"><FiPlayCircle /> Watch 2-Minute Tour</button>
+                <button type="button" className="home-primary-btn" onClick={handleOpenDemoModal}>Book Free Demo <FiArrowRight /></button>
+                <button type="button" className="home-secondary-btn"><FiPlayCircle /> Watch 2-Minute Tour</button>
               </div>
               <div className="home-reference-proof">
                 <span><FiZap /> No complex setup</span>
-                <span><FiUsers /> Role-based access</span>
+                <span><FiUserCheck /> Role-based access</span>
                 <span><FiMonitor /> Web, mobile &amp; desktop</span>
               </div>
             </div>
@@ -249,13 +256,14 @@ const Home = () => {
 
             <AttendanceAiSection />
 
-            <AccessWorkflowCtaSection />
+            <AccessWorkflowCtaSection onBookDemo={handleOpenDemoModal} />
 
           </div>
         </section>
 
       </main>
       <Footer />
+      <BookDemoModal open={isDemoModalOpen} onClose={() => setIsDemoModalOpen(false)} />
     </>
   );
 };

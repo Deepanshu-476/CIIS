@@ -6,7 +6,7 @@ import { useAuth } from '../context/useAuth';
 import { toast } from 'react-toastify';
 import './CiisNavbar.css';
 
-const CiisNavbar = () => {
+const CiisNavbar = ({ onBookDemo }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -146,10 +146,9 @@ const CiisNavbar = () => {
 
           <div className="nav-actions">
             <button type="button" className="user-login-btn" onClick={() => setShowLogin(true)}>Login</button>
-            <Link to="/RegisterCompany">
-              <button className="login-btn">Register your company</button>
+            <Link to="/RegisterCompany" className="nav-register-link">
+              <button type="button" className="login-btn">Register your company</button>
             </Link>
-          
           </div>
 
         </div>

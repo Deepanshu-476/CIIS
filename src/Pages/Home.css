@@ -381,7 +381,9 @@ body {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #ffc18a, #122a68);
+  border: 2px solid #fff;
+  background: linear-gradient(145deg, #4f6fdc, #1e2f75);
+  box-shadow: 0 0 0 1px #dce3f2, 0 3px 8px rgba(30, 47, 117, 0.18);
 }
 
 .home-dashboard h3 {
@@ -2274,7 +2276,7 @@ body {
 .home-hero-visual .home-user-mini > svg { width: 12px; height: 12px; }
 .home-dashboard-profile-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 4px 12px; }
 .home-dashboard-profile { display: flex; align-items: center; gap: 10px; }
-.home-profile-avatar { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: linear-gradient(145deg,#ffd0ac 0 42%,#202c72 43%); font-size: 8px; font-weight: 800; }
+.home-profile-avatar { width: 36px; height: 36px; display: grid; place-items: center; flex: 0 0 36px; border: 2px solid #fff; border-radius: 50%; color: #fff; background: linear-gradient(145deg, #4f6fdc, #1e2f75); box-shadow: 0 0 0 1px #dce3f2, 0 4px 10px rgba(30, 47, 117, 0.2); font-size: 9px; font-weight: 800; letter-spacing: .02em; }
 .home-dashboard-profile > div { display: grid; line-height: 1.15; }
 .home-dashboard-profile small { color: #9aa5b8; font-size: 7px; }
 .home-dashboard-profile strong { margin: 2px 0; color: #17233f; font-size: 11px; }

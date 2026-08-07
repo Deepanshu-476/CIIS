@@ -1,21 +1,100 @@
 .aa-section { width:100%; display:grid; gap:16px; margin-top:14px; color:var(--home-text,#08183f); }
 .aa-section * { box-sizing:border-box; }
 .aa-attendance-card,.aa-assistant-card { border:1px solid rgba(126,151,193,.2); border-radius:22px; box-shadow:0 10px 28px rgba(25,54,105,.08); }
-.aa-attendance-card { padding:30px 48px 22px; background:linear-gradient(120deg,#f9fcff 0%,#f4f8ff 100%); }
-.aa-attendance-card>h2 { margin:0 0 24px; color:#071a46; font-size:26px; line-height:1.2; font-weight:850; letter-spacing:-.6px; }
-.aa-workflow { display:grid; grid-template-columns:repeat(7,minmax(20px,auto) 22px) minmax(105px,1fr); align-items:center; gap:8px; }
-.aa-workflow-item { min-width:0; text-align:center; }
-.aa-workflow-icon { width:84px; height:84px; display:grid; place-items:center; margin:0 auto 13px; border:1px solid #e2e9f5; border-radius:18px; background:#fff; box-shadow:0 10px 20px rgba(42,73,125,.1); }
-.aa-workflow-icon svg { width:42px; height:42px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
-.aa-workflow-item h3 { max-width:145px; margin:0 auto; color:#0b1a3e; font-size:14px; line-height:1.3; font-weight:750; }
-.aa-workflow-item p { max-width:140px; margin:8px auto 0; color:#53617b; font-size:12px; line-height:1.45; }
-.aa-workflow-item.aa-teal { color:#14bfa6; }.aa-workflow-item.aa-violet { color:#7653e7; }.aa-workflow-item.aa-blue,.aa-workflow-item.aa-gateway { color:#2763db; }
-.aa-workflow-item.is-featured .aa-workflow-icon { width:122px; height:122px; margin-bottom:14px; }
-.aa-workflow-item.aa-gateway .aa-workflow-icon { border-color:#9bbcff; background:linear-gradient(145deg,#f9fcff,#eaf2ff); }
-.aa-workflow-item.aa-device { color:#17284a; }
-.aa-connector { width:24px; height:24px; color:#2765dc; stroke-width:2.5; }
-.aa-supporting-line { display:flex; align-items:center; justify-content:center; gap:22px; margin-top:24px; }
-.aa-supporting-line i { width:220px; height:1px; background:#a9c4fa; }.aa-supporting-line p { margin:0; color:#17499e; font-size:14px; }.aa-supporting-line b { padding:0 7px; }
+.aa-attendance-card { padding: 26px 36px 20px; background: linear-gradient(120deg, #fafcff 0%, #f4f8ff 100%); }
+.aa-attendance-card > h2 { margin: 0 0 20px; color: #071a46; font-size: 24px; line-height: 1.2; font-weight: 850; letter-spacing: -.5px; }
+
+.aa-workflow-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.aa-workflow-methods {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  flex: 0 0 auto;
+}
+
+.aa-workflow-item { text-align: center; }
+
+.aa-workflow-icon {
+  width: 62px;
+  height: 62px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 10px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #e2e8f5;
+  box-shadow: 0 6px 16px rgba(42,73,125,.06);
+}
+.aa-workflow-icon.green { color: #10b981; background: #eefbf4; border-color: #d1f4e2; }
+.aa-workflow-icon.purple { color: #8b5cf6; background: #f5f0ff; border-color: #e4d8ff; }
+.aa-workflow-icon.blue { color: #2563eb; background: #eff6ff; border-color: #dbeafe; }
+
+.aa-workflow-icon svg { width: 28px; height: 28px; stroke-width: 2.2; }
+.aa-workflow-item h3 { margin: 0; color: #0b1a3e; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.aa-workflow-item p { margin: 4px 0 0; color: #53617b; font-size: 9.5px; line-height: 1.35; max-width: 110px; margin-inline: auto; }
+
+.aa-main-connector { width: 20px; height: 20px; color: #2563eb; flex: 0 0 auto; stroke-width: 2.5; }
+
+.aa-workflow-pipeline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1 1 auto;
+}
+
+.aa-pipeline-flow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.aa-pipeline-arrow { width: 16px; height: 16px; color: #2563eb; stroke-width: 2.5; flex: 0 0 auto; }
+
+.aa-pipeline-icon {
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #dbe5f7;
+  box-shadow: 0 6px 14px rgba(37,99,235,.07);
+}
+
+.aa-pipeline-icon.device-icon { width: 56px; height: 56px; color: #1e293b; background: #f8fafc; }
+.aa-pipeline-icon.device-icon svg { width: 26px; height: 26px; }
+
+.aa-pipeline-icon.laptop-icon { width: 56px; height: 56px; color: #1e293b; background: #f8fafc; }
+.aa-pipeline-icon.laptop-icon svg { width: 26px; height: 26px; }
+
+.aa-gateway-pill {
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #eef4ff, #e0ebff);
+  border: 1px solid #cbdcfd;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(37,99,235,.08);
+}
+.aa-gateway-pill strong { color: #0f172a; font-size: 12px; font-weight: 850; line-height: 1.2; display: block; }
+.aa-gateway-pill strong span { color: #2563eb; }
+
+.aa-reports-box { text-align: center; }
+.aa-reports-box .aa-pipeline-icon { width: 56px; height: 56px; margin: 0 auto 6px; color: #7c3aed; background: #f5f3ff; border-color: #ddd6fe; }
+.aa-reports-box .aa-pipeline-icon svg { width: 26px; height: 26px; }
+.aa-reports-box h3 { margin: 0; color: #0b1a3e; font-size: 11px; font-weight: 800; white-space: nowrap; }
+
+.aa-supporting-text {
+  margin: 14px 0 0;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 650;
+  text-align: center;
+}
+.aa-supporting-text b { padding: 0 6px; color: #2563eb; }
 .aa-assistant-card { min-height:410px; display:grid; grid-template-columns:minmax(430px,.95fr) minmax(420px,1fr) 230px; align-items:center; gap:55px; padding:22px 48px; background:linear-gradient(120deg,#f4f3ff 0%,#fbf7ff 52%,#f1efff 100%); }
 .aa-chat-card { min-width:0; overflow:hidden; border:1px solid #dce4f2; border-radius:18px; background:#fff; box-shadow:0 14px 30px rgba(43,53,106,.12); }
 .aa-chat-card header { height:60px; display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:20px; padding:0 22px; border-bottom:1px solid #e5eaf2; font-size:18px; font-weight:800; }.aa-chat-card header span { display:flex;align-items:center;gap:10px }.aa-chat-card header span svg { width:34px;height:34px;padding:8px;border-radius:50%;color:#fff;background:#704de7 }.aa-chat-card header i { color:#65718b;font-style:normal;font-weight:500 }

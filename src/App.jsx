@@ -90,6 +90,7 @@ import BranchManagement from "./admin/page/BranchManagement.jsx";
 import ChatPage from "./Pages/Chat/ChatPage";
 import Settings from "./admin/page/Settings.jsx";
 import EmailSettings from "./admin/page/EmailSettings.jsx";
+import DemoRequests from "./admin/page/DemoRequests.jsx";
 import SpeechToTextControl from "./components/SpeechToTextControl.jsx";
 
 function App() {
@@ -154,6 +155,7 @@ function App() {
           <Route path="support-operations" element={<SupportOperations />} />
           <Route path="settings" element={<Settings />} />
           <Route path="email-settings" element={<EmailSettings />} />
+          <Route path="demo-requests" element={<DemoRequests />} />
         </Route>
 
         

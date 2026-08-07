@@ -241,6 +241,12 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       route: '/Ciis-network/support-operations',
       showForAll: true
     },
+    {
+      icon: <DemoIcon />,
+      name: 'Demo Requests',
+      route: '/Ciis-network/demo-requests',
+      showForAll: true
+    },
      { 
       icon: <CompanyIcon />, 
       name: 'Holiday', 

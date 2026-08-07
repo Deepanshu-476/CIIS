@@ -27,6 +27,7 @@ import {
   Web as WebIcon,
   Settings as SettingsIcon,
   Email as EmailIcon,
+  VideoCall as DemoIcon,
 } from '@mui/icons-material';
 
 

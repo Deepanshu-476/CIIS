@@ -163,7 +163,6 @@ const DemoRequests = () => {
 
         setAllRequests(normalized);
         updateStats(normalized);
-      }
     } catch (err) {
       console.error('Error fetching demo requests:', err);
     } finally {

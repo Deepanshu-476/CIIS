@@ -684,18 +684,18 @@
 .AllCompany-modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: 1200;
   background: rgba(9, 14, 34, 0.44);
   backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 84px 24px 32px;
 }
 
 .AllCompany-modal-content {
   width: min(760px, 100%);
-  max-height: min(85vh, 720px);
+  max-height: min(78vh, 640px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -703,6 +703,8 @@
   background: rgba(255, 255, 255, 0.98);
   border: 1px solid rgba(122, 136, 180, 0.18);
   box-shadow: 0 30px 90px rgba(15, 23, 42, 0.24);
+  margin-top: auto;
+  margin-bottom: auto;
 }
 
 .AllCompany-modal-header {

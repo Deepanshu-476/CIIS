@@ -693,7 +693,7 @@ const UserDashboard = () => {
       clearTimeout(attendanceTimeoutRef.current);
     }
 
-    attendanceTimeoutRef.current = setTimeout(async () => {
+    const loadAttendance = async () => {
       if (fetchInProgress.current.attendance) return;
       
       fetchInProgress.current.attendance = true;
@@ -732,7 +732,14 @@ const UserDashboard = () => {
         fetchInProgress.current.attendance = false;
         attendanceTimeoutRef.current = null;
       }
-    }, 300);
+    };
+
+    if (force) {
+      await loadAttendance();
+      return;
+    }
+
+    attendanceTimeoutRef.current = setTimeout(loadAttendance, 300);
 
   }, [token, isUserInCurrentCompany, userJoinDate, isBeforeJoinDate, holidays]);
 
@@ -1182,7 +1189,12 @@ const UserDashboard = () => {
         // dashboard summary so a clock-in made on another device is shown at once.
         fetchCurrentStatus();
         const summaryLoaded = await fetchDashboardSummary();
-        if (!summaryLoaded) {
+        if (summaryLoaded) {
+          // The summary contains only persisted attendance records, while the
+          // attendance list also fills missing weekdays as ABSENT. Refresh the
+          // calendar from the list so both dashboard and full attendance agree.
+          fetchAttendanceData(true);
+        } else {
           await Promise.allSettled([
             fetchDashboardConfig(),
             fetchJobRoles(),

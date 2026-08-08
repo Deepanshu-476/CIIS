@@ -133,21 +133,21 @@ const BookDemoModal = ({ open, onClose }) => {
       setSubmitted(true);
       toast.success('Demo booking request submitted successfully!');
     } catch (err) {
-      console.warn('Fallback: posting to service-enquiries', err);
       try {
         await axios.post('/clientsservice/service-enquiries', {
           serviceName: 'Free Personalised Demo',
-          clientName: formData.name,
-          companyName: formData.companyName,
-          requirement: `Demo Request: ${formData.employeeCount} Employees. Requirements: ${formData.requirements || 'N/A'}. Message: ${formData.message || 'N/A'}. Phone: ${formData.phone}, Email: ${formData.email}`,
+          clientName: payload.name,
+          companyName: payload.companyName,
+          requirement: `Demo Request: ${payload.employeeCount} Employees. Requirements: ${payload.requirements || 'N/A'}. Message: ${payload.message || 'N/A'}. Phone: ${payload.phone}, Email: ${payload.email}`,
           budget: 'Free Demo Request',
           contactMethod: 'Phone'
         }, { _skipErrorNotify: true });
+        setSubmitted(true);
+        toast.success('Demo booking request submitted successfully!');
       } catch (fallbackErr) {
-        console.warn('Demo request fallback complete', fallbackErr);
+        console.error('Demo request submission failed:', fallbackErr);
+        toast.error(fallbackErr?.response?.data?.message || err?.response?.data?.message || 'Unable to submit your demo request. Please try again.');
       }
-      setSubmitted(true);
-      toast.success('Demo booking request submitted successfully!');
     } finally {
       setLoading(false);
     }

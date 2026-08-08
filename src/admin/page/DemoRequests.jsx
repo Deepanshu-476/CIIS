@@ -66,105 +66,64 @@ const DemoRequests = () => {
     setLoading(true);
     try {
       let rawData = [];
-
-      // 1. Primary demo request endpoint (from landing page Book Demo modal)
       try {
-        const demoRes = await axios.get('/demo-requests', { _skipErrorNotify: true });
-        if (demoRes?.data?.success && Array.isArray(demoRes.data.data)) {
-          rawData.push(...demoRes.data.data);
-        }
-      } catch (err) {
-        console.warn('Demo requests endpoint notice:', err.message);
-      }
-
-      // 2. Secondary/fallback service enquiries endpoint
-      try {
-        const serviceRes = await axios.get('/clientsservice/service-enquiries', { _skipErrorNotify: true });
-        if (serviceRes?.data?.success && Array.isArray(serviceRes.data.data)) {
-          const existingIds = new Set(rawData.map((i) => String(i._id || i.id)));
-          const extraItems = serviceRes.data.data.filter((i) => !existingIds.has(String(i._id || i.id)));
-          rawData.push(...extraItems);
-        }
-      } catch (err) {
-        console.warn('Service enquiries endpoint notice:', err.message);
-      }
-
-        let normalized = rawData.map((item) => {
-          let reqs = item.requirements || '';
-          let msg = item.message || '';
-
-          if (!item.phone || item.serviceName || (item.requirement && item.requirement.includes('Demo Request:'))) {
-            let empCount = item.employeeCount || '11-50';
-            let phone = item.phone || '';
-            let email = item.email || '';
-
-            const rawReq = item.requirement || '';
-
-            const phoneMatch = rawReq.match(/Phone:\s*([^\s,]+)/i);
-            if (phoneMatch && !phone) phone = phoneMatch[1];
-
-            const emailMatch = rawReq.match(/Email:\s*([^\s,]+)/i);
-            if (emailMatch && !email) email = emailMatch[1];
-
-            const empMatch = rawReq.match(/Demo Request:\s*([^.]+)/i);
-            if (empMatch) empCount = empMatch[1].replace('Employees', '').trim();
-
-            const reqsMatch = rawReq.match(/Requirements:\s*(.*?)(?=\.\s*Message:|\.\s*Phone:|$)/i);
-            if (reqsMatch) reqs = reqsMatch[1].trim();
-
-            const msgMatch = rawReq.match(/Message:\s*(.*?)(?=\.\s*Phone:|\.\s*Email:|$)/i);
-            if (msgMatch) msg = msgMatch[1].trim();
-
-            if (!msgMatch && !reqsMatch && !item.message) {
-              msg = rawReq;
-            }
-
-            const savedStatus = localStorage.getItem(`ciis_demo_status_${item._id}`);
-            const savedNotes = localStorage.getItem(`ciis_demo_notes_${item._id}`);
-
-            return {
-              _id: item._id,
-              name: item.clientName || item.name || 'Demo Lead',
-              email: email || item.email || 'N/A',
-              phone: phone || item.phone || 'N/A',
-              companyName: item.companyName || 'N/A',
-              employeeCount: item.employeeCount || empCount,
-              requirements: reqs,
-              message: msg,
-              status: savedStatus || (item.status === 'Pending' ? 'New' : (item.status || 'New')),
-              createdAt: item.createdAt,
-              notes: savedNotes !== null ? savedNotes : (item.notes || ''),
-              serviceName: item.serviceName || ''
-            };
-          }
-
-          const savedStatus = localStorage.getItem(`ciis_demo_status_${item._id}`);
-          const savedNotes = localStorage.getItem(`ciis_demo_notes_${item._id}`);
-
-          return {
-            ...item,
-            status: savedStatus || item.status || 'New',
-            notes: savedNotes !== null ? savedNotes : (item.notes || ''),
-            requirements: reqs,
-            message: msg
-          };
+        const response = await axios.get('/demo-requests', {
+          _skipErrorNotify: true,
+          noCache: true
         });
+        rawData = response?.data?.success && Array.isArray(response.data.data)
+          ? response.data.data
+          : [];
+      } catch (primaryError) {
+        const fallbackResponse = await axios.get('/clientsservice/service-enquiries', {
+          _skipErrorNotify: true,
+          noCache: true
+        });
+        const enquiries = fallbackResponse?.data?.success && Array.isArray(fallbackResponse.data.data)
+          ? fallbackResponse.data.data
+          : [];
+        rawData = enquiries
+          .filter((item) => /demo/i.test(String(item.serviceName || '')) || /Demo Request:/i.test(String(item.requirement || '')))
+          .map((item) => {
+            const requirement = String(item.requirement || '');
+            const match = (pattern) => requirement.match(pattern)?.[1]?.trim() || '';
+            return {
+              ...item,
+              name: item.clientName || 'Demo Lead',
+              email: match(/Email:\s*([^\s,]+)/i),
+              phone: match(/Phone:\s*([^\s,]+)/i),
+              employeeCount: match(/Demo Request:\s*([^.]+)/i).replace(/Employees/i, '').trim(),
+              requirements: match(/Requirements:\s*(.*?)(?=\.\s*Message:|\.\s*Phone:|$)/i),
+              message: match(/Message:\s*(.*?)(?=\.\s*Phone:|\.\s*Email:|$)/i),
+              status: item.demoStatus || (item.status === 'Contacted' ? 'Contacted' : 'New'),
+              isLegacy: true
+            };
+          });
+        console.warn('Using legacy demo request endpoint until the dedicated backend route is deployed.', primaryError);
+      }
+      const normalized = rawData.filter((item) => item?._id).map((item) => ({
+        ...item,
+        _id: String(item._id),
+        name: String(item.name || 'Demo Lead'),
+        email: String(item.email || 'N/A'),
+        phone: String(item.phone || 'N/A'),
+        companyName: String(item.companyName || 'N/A'),
+        employeeCount: String(item.employeeCount || 'N/A'),
+        requirements: Array.isArray(item.requirements)
+          ? item.requirements.join(', ')
+          : String(item.requirements || ''),
+        message: String(item.message || ''),
+        status: String(item.status || 'New'),
+        notes: String(item.notes || '')
+      }));
 
-        // Filter out locally deleted IDs (Blacklist)
-        const deletedIds = JSON.parse(localStorage.getItem('ciis_deleted_demo_ids') || '[]');
-        if (deletedIds.length > 0) {
-          normalized = normalized.filter((item) => !deletedIds.includes(item._id));
-        }
-
-        // Filter for demo service items
-        normalized = normalized.filter((i) =>
-          !i.serviceName || i.serviceName.toLowerCase().includes('demo') || (i.message && i.message.toLowerCase().includes('demo')) || (i.requirements && i.requirements.length > 0)
-        );
-
-        setAllRequests(normalized);
-        updateStats(normalized);
+      setAllRequests(normalized);
+      updateStats(normalized);
     } catch (err) {
       console.error('Error fetching demo requests:', err);
+      setAllRequests([]);
+      updateStats([]);
+      toast.error(err?.response?.data?.message || 'Failed to load demo requests');
     } finally {
       setLoading(false);
     }
@@ -196,40 +155,19 @@ const DemoRequests = () => {
     setDemoRequests(filtered);
   }, [allRequests, statusFilter, search]);
 
-  const handleStatusChange = async (id, newStatus) => {
-    const updated = allRequests.map((item) => (item._id === id ? { ...item, status: newStatus } : item));
-    setAllRequests(updated);
-    updateStats(updated);
-
-    localStorage.setItem(`ciis_demo_status_${id}`, newStatus);
-    toast.success(`Status updated to ${newStatus}`);
-
-    try {
-      await axios.patch(`/clientsservice/service-enquiries/${id}/status`, { status: newStatus }, { _skipErrorNotify: true });
-    } catch (err) {
-      try {
-        await axios.put(`/demo-requests/${id}`, { status: newStatus }, { _skipErrorNotify: true });
-      } catch (err2) {
-        // Silently handled locally
-      }
-    }
-  };
-
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this demo request?')) return;
 
-    // Immediately add to local deleted blacklist
-    const deletedIds = JSON.parse(localStorage.getItem('ciis_deleted_demo_ids') || '[]');
-    if (!deletedIds.includes(id)) {
-      deletedIds.push(id);
-      localStorage.setItem('ciis_deleted_demo_ids', JSON.stringify(deletedIds));
+    try {
+      await axios.delete(`/demo-requests/${id}`, { _skipErrorNotify: true });
+      const updated = allRequests.filter((item) => item._id !== id);
+      setAllRequests(updated);
+      updateStats(updated);
+      if (selectedRequest?._id === id) setSelectedRequest(null);
+      toast.success('Demo request deleted successfully');
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to delete demo request');
     }
-
-    const updated = allRequests.filter((item) => item._id !== id);
-    setAllRequests(updated);
-    updateStats(updated);
-
-    toast.success('Demo request deleted successfully');
   };
 
   const handleOpenDetails = (req) => {
@@ -244,27 +182,20 @@ const DemoRequests = () => {
     setSavingModal(true);
 
     const id = selectedRequest._id;
-    const updated = allRequests.map((item) =>
-      item._id === id ? { ...item, status: modalStatus, notes: modalNotes } : item
-    );
-
-    setAllRequests(updated);
-    updateStats(updated);
-
-    localStorage.setItem(`ciis_demo_status_${id}`, modalStatus);
-    localStorage.setItem(`ciis_demo_notes_${id}`, modalNotes);
-
-    toast.success('Details and notes updated successfully');
-    setSelectedRequest(null);
-
     try {
-      await axios.patch(`/clientsservice/service-enquiries/${id}/status`, { status: modalStatus }, { _skipErrorNotify: true });
+      await axios.patch(`/demo-requests/${id}`, {
+        status: modalStatus,
+        notes: modalNotes.trim()
+      }, { _skipErrorNotify: true });
+      const updated = allRequests.map((item) =>
+        item._id === id ? { ...item, status: modalStatus, notes: modalNotes.trim() } : item
+      );
+      setAllRequests(updated);
+      updateStats(updated);
+      toast.success('Details and notes updated successfully');
+      setSelectedRequest(null);
     } catch (err) {
-      try {
-        await axios.put(`/demo-requests/${id}`, { status: modalStatus, notes: modalNotes }, { _skipErrorNotify: true });
-      } catch (err2) {
-        // Silently handled locally
-      }
+      toast.error(err?.response?.data?.message || 'Failed to update demo request');
     } finally {
       setSavingModal(false);
     }

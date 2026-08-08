@@ -128,9 +128,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
-  const [companyRole, setCompanyRole] = useState('Owner');
   const [userEmail, setUserEmail] = useState('');
-  const [userData, setUserData] = useState(null);
   
   useEffect(() => {
     try {
@@ -138,29 +136,20 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       
       if (userDataString) {
         const parsedData = JSON.parse(userDataString);
-        setUserData(parsedData);
-        
-        if (parsedData && parsedData.companyRole) {
-          setCompanyRole(parsedData.companyRole);
-        } else {
-          setCompanyRole('Owner');
-        }
 
         if (parsedData && parsedData.email) {
           setUserEmail(parsedData.email);
         } else if (parsedData && parsedData.user && parsedData.user.email) {
           setUserEmail(parsedData.user.email);
         }
-      } else {
-        setCompanyRole('Owner');
       }
     } catch (error) {
       console.error('Error parsing superAdmin data from localStorage:', error);
-      setCompanyRole('Owner');
     }
   }, []);
 
   const isOwnerSuperAdmin = String(userEmail || '').trim().toLowerCase() === 'ashutoshrai130@gmail.com';
+  const isGlobalSuperAdmin = isOwnerSuperAdmin;
 
   const ciisUserMenuItems = [
     { heading: 'MPA Management' },
@@ -246,7 +235,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       icon: <DemoIcon />,
       name: 'Demo Requests',
       route: '/Ciis-network/demo-requests',
-      showForAll: true
+      showForSuperAdmin: true
     },
      { 
       icon: <CompanyIcon />, 
@@ -281,6 +270,8 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
         
         if (item.showForAll) {
           shouldShow = true;
+        } else if (item.showForSuperAdmin) {
+          shouldShow = isGlobalSuperAdmin;
         } else if (item.showForOwnerSuperAdmin) {
           shouldShow = !!isOwnerSuperAdmin;
         } else if (item.showForEmail && item.showForEmail.includes(userEmail)) {

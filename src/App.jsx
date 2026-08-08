@@ -10,6 +10,7 @@ import Layout from "./admin/components/Layout";
 import Layout2 from "./hrCds/UserLayout";
 import SuperLayout from "./admin/components/SuperAdminLayout";
 import ProtectedRoute from "./admin/components/ProtectedRoute";
+import ProtectedSuperAdminRoute from "./utils/ProtectedSuperAdminRoute.jsx";
 import ThemeContextProvider from "./Theme/ThemeContext";
 
 
@@ -155,7 +156,14 @@ function App() {
           <Route path="support-operations" element={<SupportOperations />} />
           <Route path="settings" element={<Settings />} />
           <Route path="email-settings" element={<EmailSettings />} />
-          <Route path="demo-requests" element={<DemoRequests />} />
+          <Route
+            path="demo-requests"
+            element={
+              <ProtectedSuperAdminRoute>
+                <DemoRequests />
+              </ProtectedSuperAdminRoute>
+            }
+          />
         </Route>
 
         

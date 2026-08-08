@@ -246,7 +246,7 @@ const CiisNavbar = ({ onBookDemo }) => {
               <div className="nav-login-brand-logo">
                 <img src="/logoo.png" alt="" />
               </div>
-              <h3>CIIS NETWORK</h3>
+              <h3>CAREER INFOWIS IT SOLUTION PRIVATE LIMITED</h3>
               <p>Secure Enterprise Portal</p>
               <span><FiShield /> Secure company workspace</span>
             </aside>

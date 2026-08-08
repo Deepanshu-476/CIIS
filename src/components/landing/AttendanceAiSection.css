@@ -165,3 +165,115 @@
 .aa-workflow-item.aa-gateway .aa-gateway-card{width:160px;border-color:#cfe0ff;background:#eaf2ff;box-shadow:none}
 .aa-gateway-card strong{max-width:125px;color:#2763db;font-size:16px;line-height:1.35;font-weight:800}
 @media(max-width:1200px) and (min-width:901px){.aa-workflow-item.aa-gateway .aa-gateway-card{width:118px;height:84px}.aa-gateway-card strong{font-size:12px}}
+
+/* Current attendance workflow mobile layout */
+@media (max-width: 700px) {
+  .aa-attendance-card {
+    min-width: 0;
+    padding: 22px 12px 18px;
+    overflow: hidden;
+  }
+
+  .aa-attendance-card > h2 {
+    padding-inline: 6px;
+    font-size: clamp(20px, 6vw, 24px);
+    line-height: 1.25;
+    text-align: center;
+    text-wrap: balance;
+  }
+
+  .aa-workflow-container {
+    min-width: 0;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .aa-workflow-methods {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .aa-workflow-item {
+    min-width: 0;
+    padding: 14px 7px;
+    border: 1px solid #e2e9f3;
+    border-radius: 11px;
+    background: #fff;
+  }
+
+  .aa-workflow-icon {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 9px;
+  }
+
+  .aa-workflow-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .aa-workflow-item h3 {
+    font-size: 11px;
+    white-space: normal;
+  }
+
+  .aa-workflow-item p {
+    max-width: 140px;
+    font-size: 9px;
+  }
+
+  .aa-main-connector {
+    transform: rotate(90deg);
+  }
+
+  .aa-workflow-pipeline {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .aa-pipeline-flow {
+    width: 100%;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .aa-pipeline-arrow {
+    width: 11px;
+    height: 11px;
+  }
+
+  .aa-pipeline-icon.device-icon,
+  .aa-pipeline-icon.laptop-icon,
+  .aa-reports-box .aa-pipeline-icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .aa-pipeline-icon.device-icon svg,
+  .aa-pipeline-icon.laptop-icon svg,
+  .aa-reports-box .aa-pipeline-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .aa-gateway-pill {
+    padding: 8px 7px;
+    border-radius: 9px;
+  }
+
+  .aa-gateway-pill strong {
+    font-size: 9px;
+  }
+
+  .aa-reports-box h3 {
+    max-width: 58px;
+    font-size: 8px;
+    white-space: normal;
+  }
+
+  .aa-supporting-text {
+    font-size: 10px;
+    line-height: 1.5;
+  }
+}

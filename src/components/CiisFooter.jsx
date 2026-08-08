@@ -73,7 +73,7 @@ const CiisFooter = () => {
               </li>
               <li className="ciis-contact-item">
                 <FaPhone className="ciis-contact-icon" />
-                <span>+91  099922 29755</span>
+                <span>+91 99922 29755</span>
               </li>  
               <li className="ciis-contact-item">
                 <FaMapMarkerAlt className="ciis-contact-icon" />

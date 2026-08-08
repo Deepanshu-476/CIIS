@@ -61,7 +61,7 @@ const PhonePreview = () => (
 
 const BusinessOperationsSection = () => {
   return <section className="ops-section" aria-labelledby="ops-heading">
-    <h2 id="ops-heading">Everything Your Business Needs,<br/>Without Switching Between <em>10 Tools</em></h2>
+    <h2 id="ops-heading">Everything Your Business Needs,<br className="ops-heading-break"/>Without Switching Between <em>10 Tools</em></h2>
     <div className="ops-capabilities">{capabilities.map(({title,text:description,icon,tone})=><article key={title}><span className={tone}>{React.createElement(icon,{'aria-hidden':true})}</span><h3>{title}</h3><p>{description}</p></article>)}</div>
     <div className="ops-showcase">
       <h2>All Your Operations in One Platform</h2>

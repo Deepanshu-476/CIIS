@@ -34,6 +34,7 @@ import {
   FiTrendingDown,
   FiTrendingUp,
   FiUmbrella,
+  FiUser,
   FiUsers,
   FiUserCheck,
   FiZap
@@ -88,7 +89,7 @@ const MiniDashboard = ({ compact = false }) => (
 
       <div className="home-dashboard-profile-row">
         <div className="home-dashboard-profile">
-          <span className="home-profile-avatar">AR</span>
+          <span className="home-profile-avatar" aria-label="Employee profile"><FiUser aria-hidden="true" /></span>
           <div><small>Welcome back, 10:45</small><strong>Ashutosh Rai</strong><em>Super Admin</em></div>
         </div>
         <button type="button">All Businesses <span>⌄</span></button>
@@ -189,7 +190,7 @@ const Home = () => {
               <p>CIIS Network helps owners and managers handle attendance, leaves, tasks, teams, assets, clients, audits and performance across multiple businesses, branches and departments.</p>
               <div className="home-reference-actions">
                 <button type="button" className="home-primary-btn" onClick={handleOpenDemoModal}>Book Free Demo <FiArrowRight /></button>
-                <button type="button" className="home-secondary-btn"><FiPlayCircle /> Watch 2-Minute Tour</button>
+                <span className="home-secondary-btn home-tour-preview"><FiPlayCircle /> Watch 2-Minute Tour</span>
               </div>
               <div className="home-reference-proof">
                 <span><FiZap /> No complex setup</span>

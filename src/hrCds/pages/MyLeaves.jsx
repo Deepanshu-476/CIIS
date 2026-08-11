@@ -899,7 +899,14 @@ const closeDetailModal = () => {
       });
       setLeaves(current => {
         const updated = current.map(item => String(item._id || item.id) === String(leaveId)
-          ? { ...item, status: 'Cancelled', remarks: response.data?.data?.remarks, history: response.data?.data?.history || item.history }
+          ? {
+              ...item,
+              status: 'Cancelled',
+              cancellationReason: response.data?.data?.cancellationReason || cancelDialog.remarks.trim() || 'Cancelled by employee',
+              cancelledAt: response.data?.data?.cancelledAt,
+              cancelledBy: response.data?.data?.cancelledBy,
+              history: response.data?.data?.history || item.history
+            }
           : item);
         calculateStats(updated);
         return updated;

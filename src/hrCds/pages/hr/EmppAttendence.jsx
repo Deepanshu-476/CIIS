@@ -39,6 +39,88 @@ import {
   FiCalendar as FiRangeCalendar
 } from "react-icons/fi";
 
+const getIndiaDateKey = (value) => new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
+}).format(new Date(value));
+
+const MonthlyAttendanceModal = ({ state, onClose }) => {
+  if (!state.open) return null;
+  const { employee, records = [], leaves = [], loading, error, month, year } = state;
+  const monthLabel = new Date(year, month, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+  const approvedLeaves = leaves.filter(leave => String(leave.status).toLowerCase() === 'approved');
+  const leaveByDate = new Map();
+  approvedLeaves.forEach(leave => {
+    const cursor = new Date(leave.startDate);
+    const end = new Date(leave.endDate);
+    while (cursor <= end) {
+      leaveByDate.set(getIndiaDateKey(cursor), leave);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  });
+  const normalizedRecords = records.map(record => ({
+    ...record,
+    normalizedStatus: String(record.status || 'NO RECORD').trim().toUpperCase().replace(/_/g, ' '),
+    leave: leaveByDate.get(getIndiaDateKey(record.date))
+  }));
+  const count = (...statuses) => normalizedRecords.filter(item => statuses.includes(item.normalizedStatus)).length;
+  const present = count('PRESENT');
+  const absent = count('ABSENT', 'NO RECORD');
+  const late = count('LATE');
+  const halfDay = count('HALF DAY', 'HALFDAY');
+  const leaveDays = normalizedRecords.filter(item => item.leave).length;
+  const firstDay = new Date(year, month, 1).getDay();
+
+  return (
+    <div className="EmppAttendence-monthly-overlay" onMouseDown={onClose}>
+      <section className="EmppAttendence-monthly-modal" onMouseDown={event => event.stopPropagation()} role="dialog" aria-modal="true">
+        <header className="EmppAttendence-monthly-header">
+          <div className="EmppAttendence-monthly-title-icon"><FiCalendar /></div>
+          <div><h2>Monthly Attendance</h2><p>{monthLabel} attendance overview</p></div>
+          <button onClick={onClose} aria-label="Close"><FiX /></button>
+        </header>
+
+        <div className="EmppAttendence-monthly-body">
+          <div className="EmppAttendence-monthly-employee">
+            <span>{String(employee?.name || 'E').charAt(0).toUpperCase()}</span>
+            <div><strong>{employee?.name || 'Employee'}</strong><small>{employee?.email || ''}</small></div>
+            <div className="EmppAttendence-monthly-meta"><small>Department</small><strong>{employee?.department || 'Unassigned'}</strong></div>
+          </div>
+
+          {loading ? (
+            <div className="EmppAttendence-monthly-state"><span className="EmppAttendence-monthly-spinner" />Loading monthly attendance...</div>
+          ) : error ? (
+            <div className="EmppAttendence-monthly-state error"><FiAlertCircle />{error}</div>
+          ) : (
+            <>
+              <div className="EmppAttendence-monthly-stats">
+                <article className="present"><span>Present</span><strong>{present}</strong></article>
+                <article className="absent"><span>Absent</span><strong>{absent}</strong></article>
+                <article className="late"><span>Late</span><strong>{late}</strong></article>
+                <article className="halfday"><span>Half Day</span><strong>{halfDay}</strong></article>
+                <article className="leave"><span>Approved Leave</span><strong>{leaveDays}</strong></article>
+              </div>
+              <div className="EmppAttendence-monthly-calendar-card">
+                <div className="EmppAttendence-monthly-calendar-heading"><strong>{monthLabel}</strong><span>Current month</span></div>
+                <div className="EmppAttendence-monthly-weekdays">{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(day => <span key={day}>{day}</span>)}</div>
+                <div className="EmppAttendence-monthly-calendar">
+                  {Array.from({ length: firstDay }, (_, index) => <div className="empty" key={`empty-${index}`} />)}
+                  {normalizedRecords.map(record => {
+                    const day = new Date(record.date).toLocaleDateString('en-IN', { day: 'numeric', timeZone: 'Asia/Kolkata' });
+                    const statusClass = record.leave ? 'leave' : record.normalizedStatus.toLowerCase().replace(/\s+/g, '-');
+                    const label = record.leave ? record.leave.type : record.normalizedStatus;
+                    return <div className={`EmppAttendence-monthly-day ${statusClass}`} key={record._id || record.date}><b>{day}</b><span>{label}</span></div>;
+                  })}
+                </div>
+                <div className="EmppAttendence-monthly-legend"><span className="present">Present</span><span className="absent">Absent / No record</span><span className="late">Late</span><span className="half-day">Half Day</span><span className="leave">Approved Leave</span></div>
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+};
+
 const calculateDistance = (lat1, lon1, lat2 = 30.707949, lon2 = 76.6860975) => {
   if (lat1 === undefined || lat1 === null || lon1 === undefined || lon1 === null) return null;
   const R = 6371e3; // Earth radius in meters
@@ -1085,6 +1167,10 @@ const EmployeeAttendance = () => {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [selectedRecords, setSelectedRecords] = useState([]);
   const [bulkEditMode, setBulkEditMode] = useState(false);
+  const [monthlyAttendance, setMonthlyAttendance] = useState({
+    open: false, employee: null, records: [], leaves: [], loading: false, error: '',
+    month: new Date().getMonth(), year: new Date().getFullYear()
+  });
 
   
   const [currentUser, setCurrentUser] = useState(null);
@@ -1444,6 +1530,39 @@ const EmployeeAttendance = () => {
       calculateStats([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openMonthlyAttendance = async (record) => {
+    const employee = record?.user;
+    const employeeId = employee?._id || employee?.id;
+    const now = new Date();
+    const month = now.getMonth();
+    const year = now.getFullYear();
+    if (!employeeId) {
+      showSnackbar('Employee details are unavailable', 'error');
+      return;
+    }
+
+    setMonthlyAttendance({ open: true, employee, records: [], leaves: [], loading: true, error: '', month, year });
+    try {
+      const [attendanceResponse, leaveResponse] = await Promise.all([
+        axios.get(`/attendance/user/${employeeId}`, { params: { month, year } }),
+        axios.get('/leaves/all', { params: { userId: employeeId, month, year, limit: 100, ...branchQueryParams } })
+      ]);
+      setMonthlyAttendance(current => current.open && String(current.employee?._id || current.employee?.id) === String(employeeId)
+        ? {
+            ...current,
+            loading: false,
+            records: Array.isArray(attendanceResponse.data?.data) ? attendanceResponse.data.data : [],
+            leaves: Array.isArray(leaveResponse.data?.data?.leaves) ? leaveResponse.data.data.leaves : []
+          }
+        : current);
+    } catch (error) {
+      console.error('Failed to load monthly attendance:', error);
+      setMonthlyAttendance(current => current.open
+        ? { ...current, loading: false, error: error.response?.data?.message || error.response?.data?.error || 'Unable to load monthly attendance' }
+        : current);
     }
   };
 
@@ -2842,6 +2961,14 @@ const EmployeeAttendance = () => {
                             <td className="EmppAttendence-col-actions">
                               <div className="EmppAttendence-action-buttons">
                                 <button
+                                  className="EmppAttendence-view-month-btn"
+                                  onClick={() => openMonthlyAttendance(rec)}
+                                  title="View Current Month Attendance"
+                                >
+                                  <FiCalendar size={15} />
+                                  <span>Monthly Attendance</span>
+                                </button>
+                                <button
                                   className="EmppAttendence-btn-icon EmppAttendence-edit-btn"
                                   onClick={() => handleEditRecord(rec)}
                                   title="Edit Attendance"
@@ -2991,6 +3118,14 @@ const EmployeeAttendance = () => {
                             <td className="EmppAttendence-col-actions">
                               <div className="EmppAttendence-action-buttons">
                                 <button
+                                  className="EmppAttendence-view-month-btn"
+                                  onClick={() => openMonthlyAttendance(rec)}
+                                  title="View Current Month Attendance"
+                                >
+                                  <FiCalendar size={15} />
+                                  <span>Monthly Attendance</span>
+                                </button>
+                                <button
                                   className="EmppAttendence-btn-icon EmppAttendence-edit-btn"
                                   onClick={() => handleEditRecord(rec)}
                                   title="Edit Attendance"
@@ -3102,6 +3237,11 @@ const EmployeeAttendance = () => {
           onSave={handleQuickEditSave}
         />
       )}
+
+      <MonthlyAttendanceModal
+        state={monthlyAttendance}
+        onClose={() => setMonthlyAttendance(current => ({ ...current, open: false }))}
+      />
 
       
       {snackbar.open && (

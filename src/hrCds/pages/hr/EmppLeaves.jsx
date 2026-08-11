@@ -55,6 +55,134 @@ const getEntityId = (value) => {
   return String(value);
 };
 
+const toIndiaDateKey = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString('sv-SE', { timeZone: 'Asia/Kolkata' });
+};
+
+const ApprovedLeaveAttendanceModal = ({ dialog, onClose }) => {
+  if (!dialog.open || !dialog.leave) return null;
+
+  const leave = dialog.leave;
+  const focusDate = new Date(leave.startDate);
+  const year = focusDate.getFullYear();
+  const month = focusDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const attendanceByDate = new Map(
+    dialog.records.map(record => [toIndiaDateKey(record.date), record])
+  );
+  const leaveStartKey = toIndiaDateKey(leave.startDate);
+  const leaveEndKey = toIndiaDateKey(leave.endDate);
+  const statusCounts = dialog.records.reduce((counts, record) => {
+    const status = String(record?.status || '').toLowerCase();
+    if (status === 'present') counts.present += 1;
+    else if (status === 'absent') counts.absent += 1;
+    else if (status === 'late' || status === 'half day' || status === 'half-day') counts.partial += 1;
+    return counts;
+  }, { present: 0, absent: 0, partial: 0 });
+  const calendarCells = [
+    ...Array.from({ length: firstDay.getDay() }, (_, index) => ({ empty: true, key: `empty-${index}` })),
+    ...Array.from({ length: daysInMonth }, (_, index) => {
+      const date = new Date(year, month, index + 1);
+      const key = toIndiaDateKey(date);
+      return {
+        key,
+        day: index + 1,
+        record: attendanceByDate.get(key),
+        isLeave: key >= leaveStartKey && key <= leaveEndKey
+      };
+    })
+  ];
+
+  return (
+    <div className="EmppLeaves-dialog-overlay EmppLeaves-attendance-overlay" onClick={onClose}>
+      <div className="EmppLeaves-dialog-content EmppLeaves-attendance-dialog" onClick={(event) => event.stopPropagation()}>
+        <div className="EmppLeaves-dialog-header EmppLeaves-attendance-header">
+          <div className="EmppLeaves-attendance-heading">
+            <div className="EmppLeaves-attendance-heading-icon"><FiCalendar size={21} /></div>
+            <div>
+              <h3>Attendance Overview</h3>
+              <p>{leave.status} leave and monthly attendance details</p>
+            </div>
+          </div>
+          <button className="EmppLeaves-dialog-close" onClick={onClose}><FiX size={20} /></button>
+        </div>
+        <div className="EmppLeaves-dialog-body">
+          <div className="EmppLeaves-attendance-profile-row">
+            <div className="EmppLeaves-attendance-avatar">{String(leave.user?.name || 'E').trim().charAt(0).toUpperCase()}</div>
+            <div className="EmppLeaves-attendance-employee">
+              <span>Employee</span>
+              <strong>{leave.user?.name || 'Employee'}</strong>
+              <small>{leave.user?.email || leave.user?.department?.name || 'Employee attendance record'}</small>
+            </div>
+            <div className="EmppLeaves-attendance-month">
+              <span>Attendance month</span>
+              <strong>{focusDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</strong>
+            </div>
+          </div>
+
+          <div className="EmppLeaves-attendance-leave-summary">
+            <div><span>{leave.status} leave</span><strong>{leave.type} Leave</strong></div>
+            <div><span>Leave period</span><strong>{new Date(leave.startDate).toLocaleDateString('en-IN')} {' - '} {new Date(leave.endDate).toLocaleDateString('en-IN')}</strong></div>
+            <span className={`EmppLeaves-attendance-pay-badge ${String(leave.payType || 'Paid').toLowerCase()}`}>{leave.payType || 'Paid'}</span>
+          </div>
+
+          {dialog.loading ? (
+            <div className="EmppLeaves-attendance-state">
+              <span className="EmppLeaves-attendance-spinner" aria-hidden="true" />
+              <strong>Loading attendance</strong>
+              <small>Please wait a moment...</small>
+            </div>
+          ) : dialog.error ? (
+            <div className="EmppLeaves-attendance-state error"><FiAlertCircle /><span>{dialog.error}</span></div>
+          ) : (
+            <>
+              <div className="EmppLeaves-attendance-stats">
+                <div className="present"><span>Present</span><strong>{statusCounts.present}</strong></div>
+                <div className="absent"><span>Absent</span><strong>{statusCounts.absent}</strong></div>
+                <div className="partial"><span>Late / Half day</span><strong>{statusCounts.partial}</strong></div>
+              </div>
+              <div className="EmppLeaves-attendance-calendar-card">
+                <div className="EmppLeaves-attendance-calendar-title">
+                  <div><FiCalendar /><strong>{focusDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</strong></div>
+                  <span>Monthly view</span>
+                </div>
+                <div className="EmppLeaves-attendance-weekdays">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <span key={day}>{day}</span>)}
+                </div>
+                <div className="EmppLeaves-attendance-calendar">
+                  {calendarCells.map(cell => {
+                    if (cell.empty) return <div key={cell.key} className="EmppLeaves-attendance-day empty" />;
+                    const status = String(cell.record?.status || '').toUpperCase();
+                    return (
+                      <div
+                        key={cell.key}
+                        title={`${new Date(year, month, cell.day).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} - ${status || 'No record'}`}
+                        className={`EmppLeaves-attendance-day ${status ? `status-${status.toLowerCase().replace(/\s+/g, '-')}` : 'status-none'} ${cell.isLeave ? 'approved-leave' : ''}`}
+                      >
+                        <b>{cell.day}</b>
+                        {status && <small>{status}</small>}
+                        {cell.isLeave && <span>{leave.type}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="EmppLeaves-attendance-legend">
+                  <span className="present">Present</span><span className="absent">Absent</span>
+                  <span className="late">Late/Half Day</span><span className="weekend">Weekend</span>
+                  <span className="no-record">No Record</span><span className="leave">{leave.status} Leave</span>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 
 
@@ -64,6 +192,7 @@ const StatusFilter = ({ selected, onChange }) => {
     { value: 'Pending', label: 'Pending' },
     { value: 'Approved', label: 'Approved' },
     { value: 'Rejected', label: 'Rejected' },
+    { value: 'Cancelled', label: 'Cancelled' },
   ];
 
   return (
@@ -81,25 +210,17 @@ const StatusFilter = ({ selected, onChange }) => {
   );
 };
 
-const LeaveTypeFilter = ({ selected, onChange }) => {
-  const options = [
-    { value: 'all', label: 'All Types' },
-    { value: 'Casual', label: 'Casual' },
-    { value: 'Sick', label: 'Sick' },
-    { value: 'Paid', label: 'Paid' },
-    { value: 'Unpaid', label: 'Unpaid' },
-  ];
-
+const LeaveTypeFilter = ({ selected, onChange, leaveTypes = [], loading = false }) => {
   return (
     <select
       className="EmppLeaves-filter-select"
       value={selected}
       onChange={(e) => onChange(e.target.value)}
     >
-      {options.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
+      <option value="all">All Types</option>
+      {loading && <option value="" disabled>Loading leave types...</option>}
+      {leaveTypes.map((type) => (
+        <option key={type} value={type}>{type}</option>
       ))}
     </select>
   );
@@ -146,6 +267,7 @@ const EmployeeLeaves = () => {
     pending: 0,
     approved: 0,
     rejected: 0,
+    cancelled: 0,
   });
   const [selectedStat, setSelectedStat] = useState("All");
   const [openActionMenuId, setOpenActionMenuId] = useState(null);
@@ -160,7 +282,11 @@ const EmployeeLeaves = () => {
     userName: "",
     userPhone: "",
     userId: null,
-    currentStatus: ""
+    currentStatus: "",
+    leaveType: "",
+    payType: "",
+    approvalOptions: [],
+    optionsLoading: false
   });
   const [historyDialog, setHistoryDialog] = useState({
     open: false,
@@ -170,6 +296,13 @@ const EmployeeLeaves = () => {
   const [detailsModal, setDetailsModal] = useState({
     open: false,
     leave: null
+  });
+  const [attendanceDialog, setAttendanceDialog] = useState({
+    open: false,
+    leave: null,
+    loading: false,
+    error: "",
+    records: []
   });
   
   
@@ -189,6 +322,8 @@ const EmployeeLeaves = () => {
   const [departments, setDepartments] = useState([]);
   const [departmentMap, setDepartmentMap] = useState({});
   const [loadingDepartments, setLoadingDepartments] = useState(false);
+  const [configuredLeaveTypes, setConfiguredLeaveTypes] = useState([]);
+  const [loadingLeaveTypes, setLoadingLeaveTypes] = useState(false);
   
   
   const [companyName, setCompanyName] = useState("");
@@ -250,12 +385,14 @@ const EmployeeLeaves = () => {
     const pending = leavesData.filter(l => l?.status === 'Pending').length;
     const approved = leavesData.filter(l => l?.status === 'Approved').length;
     const rejected = leavesData.filter(l => l?.status === 'Rejected').length;
+    const cancelled = leavesData.filter(l => l?.status === 'Cancelled').length;
     
     setStats({
       total: leavesData.length,
       pending,
       approved,
       rejected,
+      cancelled,
     });
   }, []);
 
@@ -353,6 +490,7 @@ const EmployeeLeaves = () => {
     if (statusLower === 'pending') return 'EmppLeaves-status-pending';
     if (statusLower === 'approved') return 'EmppLeaves-status-approved';
     if (statusLower === 'rejected') return 'EmppLeaves-status-rejected';
+    if (statusLower === 'cancelled') return 'EmppLeaves-status-cancelled';
     return "";
   };
 
@@ -431,6 +569,14 @@ const EmployeeLeaves = () => {
 
   const ApprovalWorkflow = ({ leave }) => {
     if (!hasApprovalWorkflow(leave)) {
+      if (leave?.status === 'Cancelled') {
+        return (
+          <div className="EmppLeaves-cancelled-by-employee">
+            <FiXCircle size={14} />
+            <span>Cancelled by employee</span>
+          </div>
+        );
+      }
       const approvedByName = getUserName(leave?.approvedBy);
       return (
         <div className="EmppLeaves-approved-by">
@@ -459,6 +605,12 @@ const EmployeeLeaves = () => {
         {['Approved', 'Rejected'].includes(leave.status) && (
           <div className="EmppLeaves-approval-note">
             This leave is finalized after the first approval or rejection.
+          </div>
+        )}
+        {leave.status === 'Cancelled' && (
+          <div className="EmppLeaves-approval-note EmppLeaves-cancellation-note">
+            <FiXCircle size={14} />
+            Cancelled by employee
           </div>
         )}
       </div>
@@ -620,6 +772,29 @@ const EmployeeLeaves = () => {
       showSnackbar("Error loading departments", "error");
     } finally {
       setLoadingDepartments(false);
+    }
+  }, [currentUserCompanyId, showSnackbar]);
+
+  const fetchConfiguredLeaveTypes = useCallback(async () => {
+    if (!currentUserCompanyId) return;
+
+    setLoadingLeaveTypes(true);
+    try {
+      const response = await axios.get('/leave-types');
+      const records = Array.isArray(response?.data?.leaveTypes)
+        ? response.data.leaveTypes
+        : (Array.isArray(response?.data?.data) ? response.data.data : []);
+      const names = records
+        .filter((item) => item?.status !== 'Inactive')
+        .map((item) => String(item?.name || '').trim())
+        .filter(Boolean);
+      setConfiguredLeaveTypes([...new Set(names)]);
+    } catch (error) {
+      console.error('Failed to fetch configured leave types:', error);
+      setConfiguredLeaveTypes([]);
+      showSnackbar('Error loading leave types', 'error');
+    } finally {
+      setLoadingLeaveTypes(false);
     }
   }, [currentUserCompanyId, showSnackbar]);
 
@@ -804,10 +979,11 @@ const EmployeeLeaves = () => {
     if (currentUserCompanyId) {
       fetchCompanyDetails();
       fetchDepartments();
+      fetchConfiguredLeaveTypes();
       fetchCompanyUsers();
       fetchLeavePagePermissions();
     }
-  }, [currentUserCompanyId, fetchCompanyDetails, fetchDepartments, fetchCompanyUsers, fetchLeavePagePermissions]);
+  }, [currentUserCompanyId, fetchCompanyDetails, fetchDepartments, fetchConfiguredLeaveTypes, fetchCompanyUsers, fetchLeavePagePermissions]);
 
   useEffect(() => {
     if (currentUserCompanyId && currentUserDepartment !== undefined) {
@@ -866,12 +1042,19 @@ const EmployeeLeaves = () => {
     });
 
     const unsubscribeStatusChange = onLeaveStatusChanged((data) => {
-      const { leaveId, newStatus } = data.data;
+      const payload = data.data || data;
+      const { leaveId, newStatus, remarks, leave: serverLeave } = payload;
       
       setLeaves(prev => {
         const updated = prev.map(leave => {
           if (leave._id === leaveId) {
-            return { ...leave, status: newStatus };
+            return {
+              ...leave,
+              ...(serverLeave || {}),
+              status: newStatus,
+              remarks: remarks ?? serverLeave?.remarks ?? leave.remarks,
+              history: serverLeave?.history || leave.history
+            };
           }
           return leave;
         });
@@ -881,7 +1064,7 @@ const EmployeeLeaves = () => {
         const leave = prev.find(l => l._id === leaveId);
         if (leave && showToast) {
           const message = `Leave request from ${leave.user?.name} changed to ${newStatus}`;
-          showToast(message, newStatus === 'Approved' ? 'success' : 'warning', 4000);
+          showToast(message, newStatus === 'Approved' ? 'success' : newStatus === 'Cancelled' ? 'info' : 'warning', 4000);
         }
         
         return updated;
@@ -950,6 +1133,12 @@ const EmployeeLeaves = () => {
     return filtered;
   }, [leaves, selectedStat, searchTerm, getDepartmentName]);
 
+  const leaveTypeOptions = useMemo(() => {
+    const historicalTypes = leaves.map((leave) => String(leave?.type || '').trim()).filter(Boolean);
+    return [...new Set([...configuredLeaveTypes, ...historicalTypes])]
+      .sort((a, b) => a.localeCompare(b));
+  }, [configuredLeaveTypes, leaves]);
+
   const pendingLeaves = useMemo(() => 
     filteredLeaves.filter(leave => leave?.status === 'Pending'),
     [filteredLeaves]
@@ -978,7 +1167,41 @@ const EmployeeLeaves = () => {
   
   
   
-  const openStatusDialog = (leaveId, newStatus, userEmail, userName, userPhone, userId, currentStatus, leave = null) => {
+  const openAttendanceDialog = async (leave) => {
+    const employeeId = getEntityId(leave?.user);
+    const leaveDate = new Date(leave?.startDate);
+    if (!employeeId || Number.isNaN(leaveDate.getTime())) {
+      showSnackbar("Employee or leave date is unavailable", "error");
+      return;
+    }
+
+    setAttendanceDialog({ open: true, leave, loading: true, error: "", records: [] });
+    try {
+      const response = await axios.get(`/attendance/user/${employeeId}`, {
+        params: { month: leaveDate.getMonth(), year: leaveDate.getFullYear() },
+        timeout: 10000,
+        cache: false,
+        noCache: true
+      });
+      const records = Array.isArray(response?.data?.data) ? response.data.data : [];
+      setAttendanceDialog(current => current.open && current.leave?._id === leave?._id
+        ? { ...current, loading: false, records }
+        : current);
+    } catch (error) {
+      const message = error?.code === 'ECONNABORTED'
+        ? "Attendance is taking too long. Please try again."
+        : (error?.response?.data?.message || error?.response?.data?.error || "Unable to load attendance");
+      setAttendanceDialog(current => current.open
+        ? { ...current, loading: false, error: message }
+        : current);
+    }
+  };
+
+  const closeAttendanceDialog = () => {
+    setAttendanceDialog({ open: false, leave: null, loading: false, error: "", records: [] });
+  };
+
+  const openStatusDialog = async (leaveId, newStatus, userEmail, userName, userPhone, userId, currentStatus, leave = null) => {
     if (!canApproveLeave(leave)) {
       showSnackbar("Access Denied: You don't have permission to update leave status", "error");
       return;
@@ -993,8 +1216,34 @@ const EmployeeLeaves = () => {
       userName,
       userPhone,
       userId,
-      currentStatus
+      currentStatus,
+      leaveType: leave?.type || "",
+      payType: ['Paid', 'Unpaid'].includes(leave?.payType) ? leave.payType : "",
+      approvalOptions: [],
+      optionsLoading: newStatus === 'Approved'
     });
+
+    if (newStatus === 'Approved') {
+      try {
+        const response = await axios.get(`/leaves/approval-options/${leaveId}`);
+        const data = response?.data?.data || {};
+        const options = Array.isArray(data.options) ? data.options : [];
+        const selectedType = options.some(option => option.leaveType === (leave?.type || data.currentLeaveType))
+          ? (leave?.type || data.currentLeaveType)
+          : (options[0]?.leaveType || "");
+        const selectedPolicy = options.find(option => option.leaveType === selectedType);
+        setStatusDialog(prev => prev.open && prev.leaveId === leaveId ? {
+          ...prev,
+          leaveType: selectedType,
+          payType: selectedPolicy?.payType === 'Admin Choice' ? "" : (selectedPolicy?.payType || ""),
+          approvalOptions: options,
+          optionsLoading: false
+        } : prev);
+      } catch (error) {
+        setStatusDialog(prev => ({ ...prev, optionsLoading: false }));
+        showSnackbar(error?.response?.data?.error || "Unable to load approval options", "error");
+      }
+    }
   };
 
   const closeStatusDialog = () => {
@@ -1007,22 +1256,39 @@ const EmployeeLeaves = () => {
       userName: "",
       userPhone: "",
       userId: null,
-      currentStatus: ""
+      currentStatus: "",
+      leaveType: "",
+      payType: "",
+      approvalOptions: [],
+      optionsLoading: false
     });
   };
 
   const confirmStatusChange = async () => {
-    const { leaveId, newStatus, remarks, userName, userPhone } = statusDialog;
+    const { leaveId, newStatus, remarks, userName, userPhone, leaveType, payType, approvalOptions } = statusDialog;
     
     if (!leaveId || !newStatus) {
       showSnackbar("Invalid leave data", "error");
       return;
     }
 
+    if (newStatus === 'Approved') {
+      const selectedPolicy = approvalOptions.find(option => option.leaveType === leaveType);
+      if (!selectedPolicy) {
+        showSnackbar("Select a valid leave type", "error");
+        return;
+      }
+      if (selectedPolicy.payType === 'Admin Choice' && !['Paid', 'Unpaid'].includes(payType)) {
+        showSnackbar("Select Paid or Unpaid before approving", "error");
+        return;
+      }
+    }
+
     try {
       const res = await axios.patch(`/leaves/status/${leaveId}`, {
         status: newStatus,
-        remarks
+        remarks,
+        ...(newStatus === 'Approved' ? { leaveType, payType: payType || undefined } : {})
       });
       
       if (res.data.success || res.data.message) {
@@ -1040,14 +1306,17 @@ const EmployeeLeaves = () => {
       }
     } catch (err) {
       console.error("Failed to update status", err);
+      const serverMessage = err?.response?.data?.error || err?.response?.data?.message;
       if (err.response?.status === 403) {
-        showSnackbar(err.response.data.error || "You don't have permission", "error");
+        showSnackbar(serverMessage || "You don't have permission", "error");
       } else if (err.response?.status === 400) {
-        showSnackbar(err.response.data.error || "Invalid status value", "error");
+        showSnackbar(serverMessage || "Invalid status value", "error");
       } else if (err.response?.status === 404) {
         showSnackbar("Leave not found", "error");
+      } else if (err.response?.status === 409) {
+        showSnackbar(serverMessage || "This leave request is already finalized", "error");
       } else {
-        showSnackbar("Failed to update leave status", "error");
+        showSnackbar(serverMessage || "Failed to update leave status", "error");
       }
     }
   };
@@ -1403,16 +1672,28 @@ const EmployeeLeaves = () => {
                   </div>
                 </div>
 
-                {leave.remarks && (
+                {leave.status === 'Cancelled' && (leave.cancellationReason || leave.history?.findLast?.(entry => entry.action === 'cancelled')?.remarks) && (
+                  <div className="EmppLeaves-details-card EmppLeaves-remarks-card">
+                    <div className="EmppLeaves-card-header">
+                      <FiAlertCircle size={18} color="#1976d2" />
+                      <h4>Cancellation Reason</h4>
+                    </div>
+                    <div className="EmppLeaves-card-content">
+                      <div className="EmppLeaves-remarks-box">
+                        {leave.cancellationReason || leave.history?.findLast?.(entry => entry.action === 'cancelled')?.remarks}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {leave.status !== 'Cancelled' && leave.remarks && (
                   <div className="EmppLeaves-details-card EmppLeaves-remarks-card">
                     <div className="EmppLeaves-card-header">
                       <FiAlertCircle size={18} color="#1976d2" />
                       <h4>Admin Remarks</h4>
                     </div>
                     <div className="EmppLeaves-card-content">
-                      <div className="EmppLeaves-remarks-box">
-                        {leave.remarks}
-                      </div>
+                      <div className="EmppLeaves-remarks-box">{leave.remarks}</div>
                     </div>
                   </div>
                 )}
@@ -1631,12 +1912,24 @@ const EmployeeLeaves = () => {
                       <ApprovalWorkflow leave={leave} />
                     </td>
                     <td>
-                      <details
-                        className="EmppLeaves-actions-dropdown"
-                        open={openActionMenuId === leave._id}
-                        onClick={(event) => event.stopPropagation()}
-                        onToggle={(event) => handleActionMenuToggle(leave._id, event)}
-                      >
+                      <div className="EmppLeaves-row-actions" onClick={(event) => event.stopPropagation()}>
+                        {['Pending', 'Approved'].includes(leave.status) && (
+                          <button
+                            type="button"
+                            className="EmppLeaves-attendance-action-button"
+                            onClick={() => openAttendanceDialog(leave)}
+                            title="View employee attendance"
+                          >
+                            <FiCalendar size={15} />
+                            <span>View Attendance</span>
+                          </button>
+                        )}
+
+                        <details
+                          className="EmppLeaves-actions-dropdown"
+                          open={openActionMenuId === leave._id}
+                          onToggle={(event) => handleActionMenuToggle(leave._id, event)}
+                        >
                         <summary className="EmppLeaves-actions-trigger">
                           <FiMoreVertical size={16} />
                           <span>Actions</span>
@@ -1698,7 +1991,8 @@ const EmployeeLeaves = () => {
                           )}
 
                         </div>
-                      </details>
+                        </details>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -1805,6 +2099,9 @@ const EmployeeLeaves = () => {
             <span className="EmppLeaves-stat-item EmppLeaves-rejected">
               <FiXCircle /> {stats.rejected}
             </span>
+            <span className="EmppLeaves-stat-item EmppLeaves-cancelled">
+              <FiXCircle /> {stats.cancelled}
+            </span>
           </div>
         </div>
       </div>
@@ -1852,6 +2149,8 @@ const EmployeeLeaves = () => {
             <LeaveTypeFilter
               selected={leaveTypeFilter}
               onChange={setLeaveTypeFilter}
+              leaveTypes={leaveTypeOptions}
+              loading={loadingLeaveTypes}
             />
           </div>
           
@@ -1929,6 +2228,13 @@ const EmployeeLeaves = () => {
             icon: <FiXCircle />,
             color: "error"
           },
+          {
+            label: "Cancelled",
+            count: stats.cancelled,
+            type: "Cancelled",
+            icon: <FiXCircle />,
+            color: "neutral"
+          },
         ].map((stat) => (
             <div 
               key={stat.type}
@@ -1984,6 +2290,8 @@ const EmployeeLeaves = () => {
         />
       )}
 
+      <ApprovedLeaveAttendanceModal dialog={attendanceDialog} onClose={closeAttendanceDialog} />
+
       {statusDialog.open && (
         <div className="EmppLeaves-dialog-overlay" onClick={closeStatusDialog}>
           <div className="EmppLeaves-dialog-content EmppLeaves-status-dialog" onClick={(e) => e.stopPropagation()}>
@@ -2023,6 +2331,57 @@ const EmployeeLeaves = () => {
                   New: {statusDialog.newStatus}
                 </div>
               </div>
+
+              {statusDialog.newStatus === 'Approved' && (
+                <div className="EmppLeaves-approval-decision-fields">
+                  <div className="EmppLeaves-approval-field">
+                    <label htmlFor="approval-leave-type">Final Leave Type</label>
+                    <select
+                      id="approval-leave-type"
+                      value={statusDialog.leaveType}
+                      disabled={statusDialog.optionsLoading}
+                      onChange={(event) => {
+                        const selectedType = event.target.value;
+                        const selectedPolicy = statusDialog.approvalOptions.find(option => option.leaveType === selectedType);
+                        setStatusDialog(prev => ({
+                          ...prev,
+                          leaveType: selectedType,
+                          payType: selectedPolicy?.payType === 'Admin Choice' ? '' : (selectedPolicy?.payType || '')
+                        }));
+                      }}
+                    >
+                      {statusDialog.approvalOptions.length === 0 && (
+                        <option value="">{statusDialog.optionsLoading ? 'Loading policies...' : 'No applicable policy'}</option>
+                      )}
+                      {statusDialog.approvalOptions.map(option => (
+                        <option key={option.leaveType} value={option.leaveType}>
+                          {option.leaveType} — {option.policyName}
+                        </option>
+                      ))}
+                    </select>
+                    <small>Changing the type will revalidate the employee&apos;s policy and balance.</small>
+                  </div>
+
+                  <div className="EmppLeaves-approval-field">
+                    <label htmlFor="approval-pay-type">Final Pay Treatment</label>
+                    <select
+                      id="approval-pay-type"
+                      value={statusDialog.payType}
+                      disabled={statusDialog.optionsLoading || statusDialog.approvalOptions.find(option => option.leaveType === statusDialog.leaveType)?.payType !== 'Admin Choice'}
+                      onChange={(event) => setStatusDialog(prev => ({ ...prev, payType: event.target.value }))}
+                    >
+                      {statusDialog.approvalOptions.find(option => option.leaveType === statusDialog.leaveType)?.payType === 'Admin Choice' && <option value="">Select Paid or Unpaid</option>}
+                      <option value="Paid">Paid — Salary not deducted</option>
+                      <option value="Unpaid">Unpaid — Salary may be deducted</option>
+                    </select>
+                    <small>
+                      {statusDialog.approvalOptions.find(option => option.leaveType === statusDialog.leaveType)?.payType === 'Admin Choice'
+                        ? 'This policy requires an approval-time decision.'
+                        : 'Pay treatment is fixed by the selected policy.'}
+                    </small>
+                  </div>
+                </div>
+              )}
               
               <div className="EmppLeaves-remarks-section">
                 <label>Remarks <span className="EmppLeaves-optional">(Optional)</span></label>
@@ -2054,6 +2413,7 @@ const EmployeeLeaves = () => {
               <button 
                 className={`EmppLeaves-btn EmppLeaves-btn-${statusDialog.newStatus === 'Approved' ? 'success' : 'error'}`}
                 onClick={confirmStatusChange}
+                disabled={statusDialog.optionsLoading}
               >
                 <FiSave size={16} />
                 Confirm {statusDialog.newStatus}

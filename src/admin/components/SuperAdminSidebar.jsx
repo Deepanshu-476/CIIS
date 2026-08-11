@@ -232,6 +232,12 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       showForAll: true
     },
     {
+      icon: <CompanyIcon />,
+      name: 'Leave Policy',
+      route: '/Ciis-network/leave-policy',
+      showForAll: true
+    },
+    {
       icon: <DemoIcon />,
       name: 'Demo Requests',
       route: '/Ciis-network/demo-requests',

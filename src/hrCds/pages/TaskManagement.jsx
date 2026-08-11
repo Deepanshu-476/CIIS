@@ -15,7 +15,6 @@ import {
 
 import "../Css/TaskManagement.css";
 import API_URL from '../../config';
-import CIISLoader from '../../Loader/CIISLoader';
 import { getCompanyScopedClientParams } from '../utils/clientPortalData';
 
 
@@ -510,7 +509,6 @@ const UserCreateTask = () => {
   const [userId, setUserId] = useState(storedTaskUser?.id || '');
   const [userName, setUserName] = useState(storedTaskUser?.name || '');
   const [authError, setAuthError] = useState(!storedTaskUser);
-  const [pageLoading, setPageLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingAssigned, setLoadingAssigned] = useState(false);
   const [loadingClientTasks, setLoadingClientTasks] = useState(false);
@@ -639,8 +637,10 @@ const UserCreateTask = () => {
   const activityCacheRef = useRef(new Map());
   const remarksRequestRef = useRef(0);
   const activityRequestRef = useRef(0);
-  const statusLoaderTimerRef = useRef(null);
   const allTasksRefreshTimerRef = useRef(null);
+  // Prevent an older list request from replacing a task status that the user
+  // has just changed optimistically.
+  const lastTaskStatusMutationAtRef = useRef(0);
   
   const [zoomImage, setZoomImage] = useState(null);
   const [selectedTaskDetails, setSelectedTaskDetails] = useState(null);
@@ -1516,6 +1516,7 @@ const UserCreateTask = () => {
   }, []);
 
   const patchTaskStatusLocally = useCallback((taskId, taskSource, nextStatus, remarks = '') => {
+    lastTaskStatusMutationAtRef.current = Date.now();
     const normalizedStatus = normalizeStatus(nextStatus);
     const timestamp = new Date().toISOString();
     const sourceKey = String(taskSource || '').toLowerCase();
@@ -1676,19 +1677,6 @@ const UserCreateTask = () => {
     setClientTaskStats(snapshot.clientTaskStats);
     setProjectTaskStats(snapshot.projectTaskStats);
     setSelectedTaskDetails(snapshot.selectedTaskDetails);
-  }, []);
-
-  const startShortStatusLoader = useCallback((duration = 1000) => {
-    setPageLoading(true);
-
-    if (statusLoaderTimerRef.current) {
-      clearTimeout(statusLoaderTimerRef.current);
-    }
-
-    statusLoaderTimerRef.current = setTimeout(() => {
-      statusLoaderTimerRef.current = null;
-      setPageLoading(false);
-    }, duration);
   }, []);
 
   const getActiveTasksGrouped = useCallback(() => {
@@ -2242,6 +2230,7 @@ const UserCreateTask = () => {
   const fetchAllTasks = useCallback(async ({ refreshStats = false } = {}) => {
     if (authError || !userId) return;
 
+    const requestStartedAt = Date.now();
     const shouldShowLoader = !allTasksLoadedRef.current;
     if (shouldShowLoader) setLoadingAllTasks(true);
     try {
@@ -2260,6 +2249,10 @@ const UserCreateTask = () => {
       const assignedGrouped = groupTasksByDate(enrichAssignedTasks(tasksArray.filter(task => task.__taskSource === 'assigned')));
       const clientGrouped = groupTasksByDate(enrichAssignedTasks(tasksArray.filter(task => task.__taskSource === 'client')));
       const projectGrouped = groupTasksByDate(tasksArray.filter(task => task.__taskSource === 'project'));
+
+      // This response was requested before a local status change. Applying it
+      // would briefly put a completed task back into its previous status.
+      if (lastTaskStatusMutationAtRef.current > requestStartedAt) return;
 
       setAllTasksGrouped(groupedTasks);
       setAllTasksStatsGrouped(groupedTasks);
@@ -2297,12 +2290,18 @@ const UserCreateTask = () => {
       persistTaskManagementCache(taskManagementMemoryCache);
     } catch (err) {
       console.error('❌ Error in fetchAllTasks:', err);
-      setAllTasksGrouped({});
-      setAllTasksStatsGrouped({});
-      allTasksStatsLoadedRef.current = false;
-      setAllTaskStats(emptyExternalStats());
-      setAllTasksPagination(prev => ({ ...prev, total: 0, pages: 1, hasNext: false, hasPrev: false }));
-      if (err.response?.status !== 404) {
+      // Preserve already-rendered tasks if only a background refresh fails.
+      if (shouldShowLoader) {
+        setAllTasksGrouped({});
+        setAllTasksStatsGrouped({});
+        allTasksStatsLoadedRef.current = false;
+        setAllTaskStats(emptyExternalStats());
+        setAllTasksPagination(prev => ({ ...prev, total: 0, pages: 1, hasNext: false, hasPrev: false }));
+      }
+      // A background reconciliation failure must not interrupt the user when
+      // task data is already rendered. Show this only when the initial load
+      // itself fails and there is no usable task list on screen.
+      if (shouldShowLoader && err.response?.status !== 404) {
         showSnackbar('Failed to load all tasks', 'error');
       }
     } finally {
@@ -3232,17 +3231,10 @@ const UserCreateTask = () => {
     const normalizedStatus = normalizeStatus(newStatus);
     const taskSource = getTaskSource(task || { __taskSource: 'self' });
     patchTaskStatusLocally(taskId, taskSource, normalizedStatus, remarks);
-    if (options.showLoader !== false) {
-      startShortStatusLoader(1000);
-    }
-
     void axios.patch(`/tasks/self/${taskId}/status`, { 
       status: normalizedStatus, 
       remarks: remarks || `Status changed to ${normalizedStatus}`
     }).then(() => {
-      scheduleAllTasksRefresh();
-      void fetchMyTasks();
-      void fetchOverdueTasks();
       showSnackbar('Status updated successfully', 'success');
     }).catch((err) => {
       console.error("Error in handleStatusChange:", err.response || err);
@@ -3277,17 +3269,10 @@ const UserCreateTask = () => {
     const normalizedStatus = normalizeStatus(newStatus);
     const taskSource = getTaskSource(task || { __taskSource: 'assigned' });
     patchTaskStatusLocally(taskId, taskSource, normalizedStatus, remarks);
-    if (options.showLoader !== false) {
-      startShortStatusLoader(1000);
-    }
-
     void axios.patch(`/tasks/assigned/${taskId}/status`, {
       status: normalizedStatus,
       remarks: remarks || `Status changed to ${normalizedStatus}`
     }).then(() => {
-      scheduleAllTasksRefresh();
-      void fetchAssignedToMeTasks();
-      void fetchOverdueTasks();
       showSnackbar(`Task status changed to ${normalizedStatus} successfully`, 'success');
     }).catch((err) => {
       console.error("❌ Error updating assigned task:", err);
@@ -3325,10 +3310,6 @@ const UserCreateTask = () => {
     const normalizedStatus = normalizeStatus(newStatus);
     const taskSource = getTaskSource(task || { __taskSource: 'client' });
     patchTaskStatusLocally(taskId, taskSource, normalizedStatus, remarks);
-    if (options.showLoader !== false) {
-      startShortStatusLoader(1000);
-    }
-
     void (async () => {
       try {
         if (remarks && remarks.trim()) {
@@ -3341,9 +3322,6 @@ const UserCreateTask = () => {
         }
 
         await axios.patch(`/tasks/client-tasks/assigned/${taskId}/status`, statusPayload);
-        scheduleAllTasksRefresh();
-        void fetchClientTasks();
-        void fetchOverdueTasks();
         showSnackbar(`Task status changed to ${normalizedStatus} successfully`, 'success');
       } catch (err) {
         console.error("❌ Error updating client task:", err);
@@ -3536,17 +3514,10 @@ const UserCreateTask = () => {
     const normalizedStatus = normalizeStatus(newStatus);
     const taskSource = getTaskSource(task || { __taskSource: 'project' });
     patchTaskStatusLocally(taskId, taskSource, normalizedStatus, remarks);
-    if (options.showLoader !== false) {
-      startShortStatusLoader(1000);
-    }
-
     void axios.patch(`/tasks/project/${projectId}/tasks/${taskId}/status`, {
       status: toProjectApiStatus(normalizedStatus),
       remark: remarks || `Status changed to ${toProjectApiStatus(normalizedStatus)}`
     }).then(() => {
-      scheduleAllTasksRefresh();
-      void fetchProjectTasks();
-      void fetchOverdueTasks();
       showSnackbar(`Project task status changed to ${normalizedStatus} successfully`, 'success');
     }).catch((err) => {
       console.error("❌ Error updating project task:", err);
@@ -3569,8 +3540,6 @@ const UserCreateTask = () => {
 
     const snapshot = takeTaskStateSnapshot();
     patchTaskStatusLocally(taskId, taskSource, 'overdue', remarks || 'Manually marked as overdue');
-    startShortStatusLoader(1000);
-
     void (async () => {
       try {
         if (taskSource === 'client') {
@@ -3594,17 +3563,7 @@ const UserCreateTask = () => {
           });
         }
 
-        if (taskViewMode === 'all') {
-          scheduleAllTasksRefresh();
-        } else if (taskViewMode === 'self') {
-          void fetchMyTasks();
-        } else if (taskViewMode === 'client') {
-          void fetchClientTasks();
-        } else if (taskViewMode === 'project') {
-          void fetchProjectTasks();
-        } else {
-          void fetchAssignedToMeTasks();
-        }
+        scheduleAllTasksRefresh(1200);
         void fetchOverdueTasks();
         
         showSnackbar('Task marked as overdue', 'warning');
@@ -3857,9 +3816,6 @@ const UserCreateTask = () => {
       if (allTasksRefreshTimerRef.current) {
         clearTimeout(allTasksRefreshTimerRef.current);
       }
-      if (statusLoaderTimerRef.current) {
-        clearTimeout(statusLoaderTimerRef.current);
-      }
       
       remarkImages.forEach(image => {
         if (image.preview) {
@@ -3892,10 +3848,6 @@ const UserCreateTask = () => {
         </div>
       </div>
     );
-  }
-
-  if (pageLoading) {
-    return <CIISLoader />;
   }
 
   const activeStats = filteredTaskStats;
@@ -3997,7 +3949,6 @@ const UserCreateTask = () => {
   
   return (
     <div className="user-create-task-container">
-      
       {snackbar.open && (
         <div className="user-create-task-snackbar-top">
           <div className={`user-create-task-snackbar-content user-create-task-snackbar-${snackbar.severity}`}>

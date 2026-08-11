@@ -542,6 +542,14 @@ const allPagesItems = [
     order: 10
   },
   {
+    id: 'leave-policy',
+    name: 'Leave Policy',
+    icon: 'Event',
+    path: '/ciisUser/leave-policy',
+    category: 'administration',
+    order: 10.1
+  },
+  {
     id: 'employee-assets',
     name: 'Employee Assets',
     icon: 'Computer',
@@ -720,6 +728,8 @@ const getPathFromName = (name) => {
     'Employee Details': '/ciisUser/emp-details',
     'Sidebar Management': '/ciisUser/SidebarManagement',
     'Employee Leaves': '/ciisUser/emp-leaves',
+    'Leave Policy Master': '/ciisUser/leave-policy-master',
+    'Leave Policy': '/ciisUser/leave-policy',
     'Employee Assets': '/ciisUser/emp-assets',
     'Employee Attendance': '/ciisUser/emp-attendance',
     'Department Management': '/ciisUser/department',

@@ -92,6 +92,7 @@ import ChatPage from "./Pages/Chat/ChatPage";
 import Settings from "./admin/page/Settings.jsx";
 import EmailSettings from "./admin/page/EmailSettings.jsx";
 import DemoRequests from "./admin/page/DemoRequests.jsx";
+import LeavePolicy from "./admin/page/LeavePolicy.jsx";
 import SpeechToTextControl from "./components/SpeechToTextControl.jsx";
 
 function App() {
@@ -156,6 +157,8 @@ function App() {
           <Route path="support-operations" element={<SupportOperations />} />
           <Route path="settings" element={<Settings />} />
           <Route path="email-settings" element={<EmailSettings />} />
+          <Route path="leave-policy-master" element={<LeavePolicy />} />
+          <Route path="leave-policy" element={<LeavePolicy />} />
           <Route
             path="demo-requests"
             element={
@@ -235,6 +238,8 @@ function App() {
           <Route path="contact-support" element={<Navigate to="/ciisUser/dashboard" replace />} />
           <Route path="support-desk" element={<DepartmentSupportDesk />} />
           <Route path="support-operations" element={<SupportOperations />} />
+          <Route path="leave-policy-master" element={<LeavePolicy />} />
+          <Route path="leave-policy" element={<LeavePolicy />} />
         </Route>
         <Route
           path="/client/*"

@@ -35,6 +35,8 @@ const MyLeaves = () => {
   const [pageLoading, setPageLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [cancellingLeaveId, setCancellingLeaveId] = useState(null);
+  const [cancelDialog, setCancelDialog] = useState({ open: false, leave: null, remarks: '' });
   const [searchTerm, setSearchTerm] = useState("");
   const [recentlyUpdatedId, setRecentlyUpdatedId] = useState(null);
   const [expandedReasonId, setExpandedReasonId] = useState(null);
@@ -85,10 +87,15 @@ const closeDetailModal = () => {
   
   const [jobRoles, setJobRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
-  const [userJobRoleName, setUserJobRoleName] = useState("Employee");
-  const [userDepartmentName, setUserDepartmentName] = useState("General");
+  const [userJobRoleName, setUserJobRoleName] = useState("");
+  const [userDepartmentName, setUserDepartmentName] = useState("");
   const [jobRolesLoading, setJobRolesLoading] = useState(false);
   const [departmentsLoading, setDepartmentsLoading] = useState(false);
+  const [leaveTypes, setLeaveTypes] = useState([]);
+  const [leaveTypesLoading, setLeaveTypesLoading] = useState(false);
+  const [applicablePolicies, setApplicablePolicies] = useState([]);
+  const [hasConfiguredPolicies, setHasConfiguredPolicies] = useState(false);
+  const [leavePolicyLoadError, setLeavePolicyLoadError] = useState("");
   
   const [stats, setStats] = useState({
     total: 0,
@@ -97,7 +104,7 @@ const closeDetailModal = () => {
     rejected: 0,
   });
   const [form, setForm] = useState({
-    type: "Casual",
+    type: "",
     startDate: "",
     endDate: "",
     reason: "",
@@ -124,6 +131,87 @@ const closeDetailModal = () => {
     console.error('Error parsing localStorage data:', error);
   }
 
+  useEffect(() => {
+    let active = true;
+
+    const fetchLeaveTypes = async () => {
+      setLeaveTypesLoading(true);
+      setLeavePolicyLoadError("");
+      try {
+        const policyResponse = await axios.get("/leave-policies/applicable", {
+          _skipErrorNotify: true,
+          cache: false,
+          noCache: true
+        });
+        const policies = Array.isArray(policyResponse?.data?.policies)
+          ? policyResponse.data.policies
+          : [];
+        const companyHasPolicies = Boolean(policyResponse?.data?.hasConfiguredPolicies);
+        const policyUser = policyResponse?.data?.user || {};
+        if (!active) return;
+        setApplicablePolicies(policies);
+        setHasConfiguredPolicies(companyHasPolicies);
+        const apiDepartmentName = policyUser.department?.name || policyUser.department?.departmentName;
+        const apiJobRoleName = policyUser.jobRole?.name || policyUser.jobRole?.roleName;
+        if (apiDepartmentName) setUserDepartmentName(apiDepartmentName);
+        if (apiJobRoleName) setUserJobRoleName(apiJobRoleName);
+
+        const policyTypes = [...new Set(policies.map((policy) => String(policy?.leaveType || "").trim()).filter(Boolean))];
+        if (policyTypes.length > 0) {
+          setLeaveTypes(policyTypes);
+          setForm((current) => ({
+            ...current,
+            type: policyTypes.includes(current.type) ? current.type : policyTypes[0]
+          }));
+          return;
+        }
+        if (companyHasPolicies) {
+          setLeaveTypes([]);
+          setForm((current) => ({ ...current, type: "" }));
+          return;
+        }
+
+        const response = await axios.get("/leave-types", {
+          _skipErrorNotify: true,
+          cache: false,
+          noCache: true
+        });
+        const records = response?.data?.leaveTypes || response?.data?.data || [];
+        const apiTypes = Array.isArray(records)
+          ? records
+              .filter((item) => item?.status !== "Inactive")
+              .sort((a, b) => (Number(a?.sortOrder) || 0) - (Number(b?.sortOrder) || 0))
+              .map((item) => String(item?.name || "").trim())
+              .filter(Boolean)
+          : [];
+
+        const activeTypes = [...new Set(apiTypes)];
+        if (!active || activeTypes.length === 0) return;
+        setLeaveTypes(activeTypes);
+        setForm((current) => ({
+          ...current,
+          type: activeTypes.includes(current.type) ? current.type : activeTypes[0]
+        }));
+
+      } catch (error) {
+        if (active) {
+          setLeaveTypes([]);
+          setApplicablePolicies([]);
+          setForm((current) => ({ ...current, type: "" }));
+          setLeavePolicyLoadError(error?.response?.data?.message || "Unable to load leave policies. Please refresh and try again.");
+        }
+        console.warn("Could not fetch configured leave policies", error);
+      } finally {
+        if (active) setLeaveTypesLoading(false);
+      }
+    };
+
+    fetchLeaveTypes();
+    return () => {
+      active = false;
+    };
+  }, [isApplyModalOpen]);
+
   
   
   
@@ -138,13 +226,26 @@ const closeDetailModal = () => {
       unsubscribeStatusChange = onLeaveStatusChanged?.((data) => {
         void 0;
         
-        const { leaveId, newStatus, oldStatus, remarks } = data.data || data;
+        const { leaveId, newStatus, oldStatus, remarks, leave: serverLeave } = data.data || data;
         
         
         setLeaves(prev => {
           const updatedLeaves = prev.map(leave => {
             if (leave._id === leaveId) {
-              return { ...leave, status: newStatus, remarks };
+              return {
+                ...leave,
+                status: newStatus,
+                remarks,
+                ...(serverLeave ? {
+                  type: serverLeave.type || leave.type,
+                  payType: serverLeave.payType || leave.payType,
+                  leavePolicy: serverLeave.leavePolicy || leave.leavePolicy,
+                  policySnapshot: serverLeave.policySnapshot || leave.policySnapshot,
+                  approvedBy: serverLeave.approvedBy || leave.approvedBy,
+                  approvalSteps: serverLeave.approvalSteps || leave.approvalSteps,
+                  history: serverLeave.history || leave.history
+                } : {})
+              };
             }
             return leave;
           });
@@ -161,7 +262,9 @@ const closeDetailModal = () => {
             setTimeout(() => setRecentlyUpdatedId(null), 3000);
             
             
-            const message = `Your ${affectedLeave.type} leave has been ${newStatus.toLowerCase()}`;
+            const finalType = serverLeave?.type || affectedLeave.type;
+            const finalPayType = serverLeave?.payType;
+            const message = `Your ${finalType} leave has been ${newStatus.toLowerCase()}${finalPayType && newStatus === 'Approved' ? ` as ${finalPayType}` : ''}`;
             
             try {
               if (newStatus === 'Approved') {
@@ -177,7 +280,7 @@ const closeDetailModal = () => {
             
             
             setNotification({
-              message: `Leave ${newStatus.toLowerCase()}: ${affectedLeave.type} leave from ${formatDate(affectedLeave.startDate)} to ${formatDate(affectedLeave.endDate)}`,
+              message: `Leave ${newStatus.toLowerCase()}: ${finalType} leave${finalPayType && newStatus === 'Approved' ? ` (${finalPayType})` : ''} from ${formatDate(affectedLeave.startDate)} to ${formatDate(affectedLeave.endDate)}`,
               severity: newStatus === 'Approved' ? 'success' : newStatus === 'Rejected' ? 'error' : 'info',
               autoHide: true
             });
@@ -255,7 +358,9 @@ const closeDetailModal = () => {
       if (!user) return "Employee";
       if (user?.roleName) return user.roleName;
       if (user?.jobRoleName) return user.jobRoleName;
-      if (user?.role) return user.role;
+      if (user?.jobRole?.name || user?.jobRole?.roleName) return user.jobRole.name || user.jobRole.roleName;
+      if (typeof user?.jobRole === "string" && !/^[a-f\d]{24}$/i.test(user.jobRole)) return user.jobRole;
+      if (typeof user?.role === "string") return user.role;
       return "Employee";
     }
     
@@ -266,7 +371,7 @@ const closeDetailModal = () => {
       return "Employee";
     }
     
-    const roleId = user.jobRole || user.role || user.roleId;
+    const roleId = user.jobRole?._id || user.jobRole?.id || user.jobRole || user.role?._id || user.role || user.roleId;
     
     const role = roles.find(
       r => {
@@ -274,13 +379,16 @@ const closeDetailModal = () => {
                      String(r.id) === String(roleId) ||
                      String(r.roleId) === String(roleId) ||
                      String(r.roleNumber) === String(roleId) ||
-                     r.roleName?.toLowerCase() === String(roleId).toLowerCase();
+                     r.roleName?.toLowerCase() === String(roleId).toLowerCase() ||
+                     r.name?.toLowerCase() === String(roleId).toLowerCase();
         return match;
       }
     );
 
-    if (role) return role.roleName || "Employee";
+    if (role) return role.roleName || role.name || "Employee";
+    if (user?.jobRole?.name || user?.jobRole?.roleName) return user.jobRole.name || user.jobRole.roleName;
     if (user?.roleName) return user.roleName;
+    if (typeof user?.jobRole === "string" && !/^[a-f\d]{24}$/i.test(user.jobRole)) return user.jobRole;
     return "Employee";
   };
 
@@ -289,7 +397,9 @@ const closeDetailModal = () => {
     if (!depts || depts.length === 0) {
       if (!user) return "General";
       if (user?.departmentName) return user.departmentName;
-      if (user?.dept) return user.dept;
+      if (user?.department?.name || user?.department?.departmentName) return user.department.name || user.department.departmentName;
+      if (typeof user?.department === "string" && !/^[a-f\d]{24}$/i.test(user.department)) return user.department;
+      if (typeof user?.dept === "string") return user.dept;
       return "General";
     }
     
@@ -299,7 +409,7 @@ const closeDetailModal = () => {
       return "General";
     }
     
-    const deptId = user.department || user.dept || user.departmentId;
+    const deptId = user.department?._id || user.department?.id || user.department || user.dept?._id || user.dept || user.departmentId;
     
     const dept = depts.find(
       d => {
@@ -307,13 +417,16 @@ const closeDetailModal = () => {
                      String(d.id) === String(deptId) ||
                      String(d.departmentId) === String(deptId) ||
                      String(d.departmentCode) === String(deptId) ||
-                     d.departmentName?.toLowerCase() === String(deptId).toLowerCase();
+                     d.departmentName?.toLowerCase() === String(deptId).toLowerCase() ||
+                     d.name?.toLowerCase() === String(deptId).toLowerCase();
         return match;
       }
     );
 
-    if (dept) return dept.departmentName || "General";
+    if (dept) return dept.departmentName || dept.name || "General";
+    if (user?.department?.name || user?.department?.departmentName) return user.department.name || user.department.departmentName;
     if (user?.departmentName) return user.departmentName;
+    if (typeof user?.department === "string" && !/^[a-f\d]{24}$/i.test(user.department)) return user.department;
     return "General";
   };
 
@@ -322,7 +435,7 @@ const closeDetailModal = () => {
     const companyId = getCompanyId();
     
     if (!companyId) {
-      setUserJobRoleName("Employee");
+      setUserJobRoleName(resolveUserJobRole([]));
       return [];
     }
     
@@ -376,7 +489,7 @@ const closeDetailModal = () => {
     const companyId = getCompanyId();
     
     if (!companyId) {
-      setUserDepartmentName("General");
+      setUserDepartmentName(resolveUserDepartment([]));
       return [];
     }
     
@@ -570,9 +683,29 @@ const closeDetailModal = () => {
 
   const hasApprovalWorkflow = (leave) => Array.isArray(leave?.approvalSteps) && leave.approvalSteps.length > 0;
 
+  const getPayTreatment = (leave) => {
+    const payType = leave?.payType || leave?.policySnapshot?.payType || "";
+    if (payType === "Admin Choice") return leave?.status === "Pending" ? "Awaiting Decision" : "Not Decided";
+    return payType || "Not Available";
+  };
+
   const ApprovalWorkflow = ({ leave }) => {
     if (!hasApprovalWorkflow(leave)) {
-      return <span className="MyLeaves-approval-empty">Default approval</span>;
+      const history = Array.isArray(leave?.history) ? leave.history : [];
+      const decisionEntry = [...history].reverse().find((entry) =>
+        ["Approved", "Rejected"].includes(entry?.to || entry?.action)
+      );
+      const actor = leave?.approvedBy?.name || decisionEntry?.by?.name || "";
+
+      if (["Approved", "Rejected"].includes(leave?.status) && actor) {
+        return (
+          <span className={`MyLeaves-approval-empty MyLeaves-approval-${leave.status.toLowerCase()}`}>
+            {actor}
+          </span>
+        );
+      }
+
+      return <span className="MyLeaves-approval-empty">Company Owner</span>;
     }
 
     return (
@@ -613,6 +746,37 @@ const closeDetailModal = () => {
       return 0;
     }
   };
+
+  const selectedPolicy = applicablePolicies.find((policy) => policy.leaveType === form.type) || null;
+  const requestedDays = calculateDays(form.startDate, form.endDate);
+  const selectedStart = form.startDate ? new Date(`${form.startDate}T00:00:00`) : null;
+  const selectedEnd = form.endDate ? new Date(`${form.endDate}T00:00:00`) : null;
+  const hasDateRange = Boolean(selectedStart && selectedEnd && selectedStart <= selectedEnd);
+  const hasOverlap = hasDateRange && leaves.some((leave) => {
+    if (!["Pending", "Approved"].includes(leave.status)) return false;
+    const leaveStart = new Date(leave.startDate);
+    const leaveEnd = new Date(leave.endDate);
+    return leaveStart <= selectedEnd && leaveEnd >= selectedStart;
+  });
+  const isCurrentMonthRequest = selectedStart &&
+    selectedStart.getFullYear() === new Date().getFullYear() &&
+    selectedStart.getMonth() === new Date().getMonth();
+  const policyValidationMessage = (() => {
+    if (leaveTypesLoading) return "Loading your leave policy...";
+    if (leavePolicyLoadError) return leavePolicyLoadError;
+    if (hasConfiguredPolicies && !selectedPolicy) return "No leave policy is assigned to your department and job role.";
+    if (!hasDateRange) return "Select valid start and end dates to check eligibility.";
+    if (hasOverlap) return "You already have a pending or approved leave for these dates.";
+    if (selectedPolicy && requestedDays > Number(selectedPolicy.balance?.remaining || 0)) {
+      return `Only ${selectedPolicy.balance?.remaining || 0} annual leave day(s) remaining.`;
+    }
+    if (selectedPolicy && isCurrentMonthRequest && requestedDays > Number(selectedPolicy.balance?.remainingThisMonth || 0)) {
+      return `Only ${selectedPolicy.balance?.remainingThisMonth || 0} leave day(s) remaining this month.`;
+    }
+    return "";
+  })();
+  const canSubmitLeave = !loading && !leaveTypesLoading && Boolean(form.type) && hasDateRange &&
+    form.reason.trim().length >= 20 && !policyValidationMessage;
 
   const applyLeave = async () => {
     const trimmedReason = form.reason.trim();
@@ -670,7 +834,7 @@ const closeDetailModal = () => {
       });
       
       await fetchLeaves();
-      setForm({ type: "Casual", startDate: "", endDate: "", reason: "" });
+      setForm({ type: leaveTypes[0] || "", startDate: "", endDate: "", reason: "" });
       setReasonError("");
       setTab(0);
       setIsApplyModalOpen(false);
@@ -712,6 +876,48 @@ const closeDetailModal = () => {
       title: `${leave.type} Leave — ${leave.user?.name || "Employee"}`,
       items,
     });
+  };
+
+  const canCancelLeave = (leave) => {
+    if (!['Pending', 'Approved'].includes(leave?.status)) return false;
+    const startDateKey = new Date(leave.startDate).toISOString().slice(0, 10);
+    const today = new Date();
+    const indiaTodayKey = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(today);
+    return indiaTodayKey <= startDateKey;
+  };
+
+  const cancelLeave = async (leave) => {
+    const leaveId = leave?._id || leave?.id;
+    if (!leaveId || cancellingLeaveId) return;
+
+    setCancellingLeaveId(leaveId);
+    try {
+      const response = await axios.patch(`/leaves/${leaveId}/cancel`, {
+        remarks: cancelDialog.remarks.trim() || 'Cancelled by employee'
+      });
+      setLeaves(current => {
+        const updated = current.map(item => String(item._id || item.id) === String(leaveId)
+          ? { ...item, status: 'Cancelled', remarks: response.data?.data?.remarks, history: response.data?.data?.history || item.history }
+          : item);
+        calculateStats(updated);
+        return updated;
+      });
+      setNotification({
+        message: response.data?.message || 'Leave cancelled and balance credited back.',
+        severity: 'success',
+        autoHide: true
+      });
+      showToast(response.data?.message || 'Leave cancelled successfully', 'success');
+      setCancelDialog({ open: false, leave: null, remarks: '' });
+    } catch (error) {
+      const message = error.response?.data?.error || error.response?.data?.message || 'Unable to cancel leave';
+      setNotification({ message, severity: 'error' });
+      showToast(message, 'error');
+    } finally {
+      setCancellingLeaveId(null);
+    }
   };
 
   const closeHistoryModal = () => {
@@ -942,6 +1148,7 @@ const closeDetailModal = () => {
                             <th>Approvers</th>
                             <th>Applied On</th>
                             <th>History</th>
+                            <th>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -954,9 +1161,14 @@ const closeDetailModal = () => {
                                 className={isNewlyUpdated ? 'highlight-row' : ''}
                               >
                                 <td>
-                                  <span className={`MyLeaves-leave-type MyLeaves-type-${leave.type?.toLowerCase()}`}>
-                                    {leave.type}
-                                  </span>
+                                  <div className="MyLeaves-type-with-pay">
+                                    <span className={`MyLeaves-leave-type MyLeaves-type-${leave.type?.toLowerCase()}`}>
+                                      {leave.type}
+                                    </span>
+                                    <span className={`MyLeaves-pay-treatment MyLeaves-pay-${getPayTreatment(leave).toLowerCase().replace(/\s+/g, '-')}`}>
+                                      {getPayTreatment(leave)}
+                                    </span>
+                                  </div>
                                 </td>
                                 <td>
                                   <div className="MyLeaves-date-range">
@@ -990,6 +1202,7 @@ const closeDetailModal = () => {
                                     {leave.status === "Approved" && <FiCheckCircle size={12} />}
                                     {leave.status === "Pending" && <FiClock size={12} />}
                                     {leave.status === "Rejected" && <FiXCircle size={12} />}
+                                    {leave.status === "Cancelled" && <FiXCircle size={12} />}
                                     {leave.status}
                                   </span>
                                 </td>
@@ -1008,6 +1221,19 @@ const closeDetailModal = () => {
                                     <FiList size={14} />
                                     View History
                                   </button>
+                                </td>
+                                <td>
+                                  {canCancelLeave(leave) ? (
+                                    <button
+                                      type="button"
+                                      className="MyLeaves-cancel-leave-button"
+                                      onClick={() => setCancelDialog({ open: true, leave, remarks: '' })}
+                                      disabled={cancellingLeaveId === (leave._id || leave.id)}
+                                    >
+                                      <FiXCircle size={14} />
+                                      {cancellingLeaveId === (leave._id || leave.id) ? 'Cancelling...' : 'Cancel Leave'}
+                                    </button>
+                                  ) : <span className="MyLeaves-action-unavailable">—</span>}
                                 </td>
                               </tr>
                             );
@@ -1032,6 +1258,9 @@ const closeDetailModal = () => {
                               <div className="MyLeaves-mobile-card-title">
                                 <span className={`MyLeaves-leave-type MyLeaves-type-${leave.type?.toLowerCase()}`}>
                                   {leave.type}
+                                </span>
+                                <span className={`MyLeaves-pay-treatment MyLeaves-pay-${getPayTreatment(leave).toLowerCase().replace(/\s+/g, '-')}`}>
+                                  {getPayTreatment(leave)}
                                 </span>
                                 <span className={`MyLeaves-status-badge MyLeaves-status-${leave.status?.toLowerCase()}`}>
                                   {leave.status}
@@ -1089,6 +1318,17 @@ const closeDetailModal = () => {
                                 <FiList size={14} />
                                 History
                               </button>
+                              {canCancelLeave(leave) && (
+                                <button
+                                  type="button"
+                                  className="MyLeaves-cancel-leave-button"
+                                  onClick={() => setCancelDialog({ open: true, leave, remarks: '' })}
+                                  disabled={cancellingLeaveId === (leave._id || leave.id)}
+                                >
+                                  <FiXCircle size={14} />
+                                  {cancellingLeaveId === (leave._id || leave.id) ? 'Cancelling...' : 'Cancel Leave'}
+                                </button>
+                              )}
                             </div>
                           </div>
                         );
@@ -1101,6 +1341,51 @@ const closeDetailModal = () => {
           </div>
         )}
 
+
+{cancelDialog.open && cancelDialog.leave && (
+  <div className="MyLeaves-cancel-dialog-overlay" onMouseDown={() => !cancellingLeaveId && setCancelDialog({ open: false, leave: null, remarks: '' })}>
+    <div className="MyLeaves-cancel-dialog" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="cancel-leave-title">
+      <div className="MyLeaves-cancel-dialog-icon"><FiAlertTriangle /></div>
+      <button
+        type="button"
+        className="MyLeaves-cancel-dialog-close"
+        onClick={() => setCancelDialog({ open: false, leave: null, remarks: '' })}
+        disabled={Boolean(cancellingLeaveId)}
+        aria-label="Close cancellation dialog"
+      ><FiX /></button>
+      <span className="MyLeaves-cancel-dialog-eyebrow">Leave cancellation</span>
+      <h2 id="cancel-leave-title">Cancel this leave request?</h2>
+      <p>The request will be marked as cancelled and its reserved balance will be credited back.</p>
+
+      <div className="MyLeaves-cancel-dialog-summary">
+        <div><small>Leave type</small><strong>{cancelDialog.leave.type}</strong></div>
+        <div><small>Leave period</small><strong>{formatDate(cancelDialog.leave.startDate)} – {formatDate(cancelDialog.leave.endDate)}</strong></div>
+        <div><small>Days credited</small><strong>{cancelDialog.leave.days || calculateDays(cancelDialog.leave.startDate, cancelDialog.leave.endDate)} day(s)</strong></div>
+      </div>
+
+      <label className="MyLeaves-cancel-dialog-reason">
+        <span>Cancellation reason <small>(optional)</small></span>
+        <textarea
+          rows="3"
+          maxLength="500"
+          value={cancelDialog.remarks}
+          onChange={(event) => setCancelDialog(current => ({ ...current, remarks: event.target.value }))}
+          placeholder="Why are you cancelling this leave?"
+          disabled={Boolean(cancellingLeaveId)}
+        />
+        <small>{cancelDialog.remarks.length}/500</small>
+      </label>
+
+      <div className="MyLeaves-cancel-dialog-note"><FiInfo /> Cancellation is allowed only until the leave start date.</div>
+      <div className="MyLeaves-cancel-dialog-actions">
+        <button type="button" className="secondary" onClick={() => setCancelDialog({ open: false, leave: null, remarks: '' })} disabled={Boolean(cancellingLeaveId)}>Keep Leave</button>
+        <button type="button" className="danger" onClick={() => cancelLeave(cancelDialog.leave)} disabled={Boolean(cancellingLeaveId)}>
+          <FiXCircle /> {cancellingLeaveId ? 'Cancelling...' : 'Yes, Cancel Leave'}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
 {isDetailModalOpen && selectedLeave && (
   <div className="MyLeaves-detail-overlay" onClick={closeDetailModal}>
@@ -1126,6 +1411,13 @@ const closeDetailModal = () => {
             <span className="MyLeaves-detail-label">Status</span>
             <span className={`MyLeaves-detail-value status status-${selectedLeave.status?.toLowerCase()}`}>
               {selectedLeave.status}
+            </span>
+          </div>
+
+          <div className="MyLeaves-detail-card">
+            <span className="MyLeaves-detail-label">Pay Treatment</span>
+            <span className={`MyLeaves-detail-value MyLeaves-pay-detail MyLeaves-pay-${getPayTreatment(selectedLeave).toLowerCase().replace(/\s+/g, '-')}`}>
+              {getPayTreatment(selectedLeave)}
             </span>
           </div>
 
@@ -1193,23 +1485,34 @@ const closeDetailModal = () => {
 
               <div className="MyLeaves-form">
                 <div className="MyLeaves-form-group">
-                  <label htmlFor="type">
-                    <FiBriefcase className="MyLeaves-form-icon" />
-                    Leave Type
-                  </label>
-                  <select
+                  <label htmlFor="type">Applicable Leave Type</label>
+                  <div className="MyLeaves-leave-type-control">
+                    <FiBriefcase />
+                    <select
                     id="type"
                     name="type"
                     value={form.type}
                     onChange={handleChange}
                     className="MyLeaves-form-select"
+                    disabled={leaveTypesLoading}
                   >
-                    <option value="Casual">Casual</option>
-                    <option value="Sick">Sick</option>
-                    <option value="Paid">Paid</option>
-                    <option value="Unpaid">Unpaid</option>
-                    <option value="Other">Other</option>
-                  </select>
+                    {leaveTypes.length === 0 && (
+                      <option value="">
+                        {leaveTypesLoading ? "Loading leave policies..." : "No applicable leave type"}
+                      </option>
+                    )}
+                    {leaveTypes.map((leaveType) => (
+                      <option key={leaveType} value={leaveType}>{leaveType}</option>
+                    ))}
+                    </select>
+                  </div>
+                  {selectedPolicy && (
+                    <div className="MyLeaves-eligibility-line">
+                      <FiCheckCircle /> {userDepartmentName && userJobRoleName
+                        ? `Eligible for ${userDepartmentName} • ${userJobRoleName}`
+                        : "Loading eligibility details..."}
+                    </div>
+                  )}
                 </div>
 
                 <div className="MyLeaves-form-row MyLeaves-date-range-group">
@@ -1247,14 +1550,45 @@ const closeDetailModal = () => {
                 </div>
 
                 <div className="MyLeaves-form-group MyLeaves-total-days-group">
-                  <label htmlFor="days">
-                    <FiClock className="MyLeaves-form-icon" />
-                    Total Days
-                  </label>
+                  <label htmlFor="days">Total Requested</label>
                   <div className="MyLeaves-days-display">
-                    {calculateDays(form.startDate, form.endDate)} day(s)
+                    <strong>{calculateDays(form.startDate, form.endDate)} Days</strong>
                   </div>
                 </div>
+
+                {selectedPolicy && (
+                  <section className="MyLeaves-policy-summary" aria-label="Selected leave policy summary">
+                    <div className="MyLeaves-policy-summary-head">
+                      <div>
+                        <strong>{selectedPolicy.policyName}</strong>
+                      </div>
+                      <span className={`MyLeaves-pay-badge ${selectedPolicy.payType === "Unpaid" ? "unpaid" : selectedPolicy.payType === "Admin Choice" ? "decision" : "paid"}`}>
+                        {selectedPolicy.payType === "Admin Choice" ? "Admin will decide" : (selectedPolicy.payType || "Paid")}
+                      </span>
+                    </div>
+                    <div className="MyLeaves-policy-metrics">
+                      <div><span>Annual Entitlement</span><strong>{selectedPolicy.balance?.allocated ?? selectedPolicy.entitledDays} days</strong></div>
+                      <div><span>Used Days</span><strong>{selectedPolicy.balance?.used ?? 0}</strong></div>
+                      <div className="remaining"><span>Remaining Days</span><strong>{selectedPolicy.balance?.remaining ?? selectedPolicy.entitledDays} days</strong></div>
+                      <div><span>Monthly Limit</span><strong>{selectedPolicy.balance?.monthlyLimit ?? selectedPolicy.monthlyAllowed} days</strong></div>
+                      <div><span>Used This Month</span><strong>{selectedPolicy.balance?.usedThisMonth ?? 0}</strong></div>
+                      <div className="remaining"><span>Remaining This Month</span><strong>{selectedPolicy.balance?.remainingThisMonth ?? selectedPolicy.monthlyAllowed} days</strong></div>
+                    </div>
+                    <div className="MyLeaves-policy-rules">
+                      <span>Carry forward: <b>{selectedPolicy.carryForward}</b></span>
+                      <span>Max CF: <b>{selectedPolicy.maxCarryForwardDays || 0}</b></span>
+                      <span>Encashment: <b>{selectedPolicy.encashmentAllowed}</b></span>
+                      <span>Probation: <b>{selectedPolicy.probationApplicable}</b></span>
+                      {(selectedPolicy.balance?.pending ?? 0) > 0 && <span>Pending: <b>{selectedPolicy.balance.pending} days</b></span>}
+                    </div>
+                  </section>
+                )}
+
+                {policyValidationMessage && (
+                  <div className={`MyLeaves-policy-validation ${hasDateRange ? "error" : "info"}`} role="status">
+                    <FiAlertCircle /> <span>{policyValidationMessage}</span>
+                  </div>
+                )}
 
                 <div className="MyLeaves-form-group MyLeaves-reason-group">
                   <label htmlFor="reason">
@@ -1285,14 +1619,35 @@ const closeDetailModal = () => {
 
               </div>
               <aside className="MyLeaves-guidelines-panel">
-                <div className="MyLeaves-guidelines-title"><span>♢</span><h3>Leave Guidelines</h3></div>
-                <ul>
-                  <li>Submit your request in advance whenever possible.</li>
-                  <li>Ensure your work is handed over properly.</li>
-                  <li>Your manager will review and approve the request.</li>
-                  <li>You will be notified once the request is processed.</li>
-                </ul>
-                <div className="MyLeaves-guidelines-note">♥ <span>Take time to rest.<br /><strong>A fresh you, does better!</strong></span></div>
+                <div className="MyLeaves-guidelines-heading">
+                  <h3>Policy Guidelines</h3>
+                  <p>{selectedPolicy ? `Based on ${selectedPolicy.policyName} policy` : "Select a leave policy"}</p>
+                </div>
+                <div className="MyLeaves-guideline-cards">
+                  <div><span><FiCalendar /></span><p><b>Leave Type</b><small>{selectedPolicy?.payType === "Admin Choice" ? "Pay type decided on approval" : `${selectedPolicy?.payType || "—"} leave`}</small></p></div>
+                  <div><span><FiClock /></span><p><b>Monthly Limit</b><small>{selectedPolicy ? `Maximum ${selectedPolicy.monthlyAllowed} days` : "—"}</small></p></div>
+                  <div><span>↻</span><p><b>Carry Forward</b><small>{selectedPolicy?.carryForward === "Yes" ? `Up to ${selectedPolicy.maxCarryForwardDays} days` : "Not allowed"}</small></p></div>
+                  <div><span><FiUser /></span><p><b>Probation</b><small>{selectedPolicy?.probationApplicable === "Yes" ? "Eligible" : "Not eligible"}</small></p></div>
+                </div>
+                <div className="MyLeaves-guidelines-note">
+                  <FiCheckCircle />
+                  <span>
+                    {selectedPolicy
+                      ? `${selectedPolicy.balance?.remaining ?? selectedPolicy.entitledDays} days currently available under this policy.`
+                      : "Select a leave type to view current availability."}
+                  </span>
+                </div>
+                <div className="MyLeaves-submit-checklist">
+                  <div className="MyLeaves-submit-checklist-head">
+                    <span><FiInfo /></span>
+                    <div><b>Before You Submit</b><small>Quick request checklist</small></div>
+                  </div>
+                  <ul>
+                    <li>Confirm the selected leave dates.</li>
+                    <li>Provide a clear reason of at least 20 characters.</li>
+                    <li>Balance and policy limits are validated automatically.</li>
+                  </ul>
+                </div>
               </aside>
               <div className="MyLeaves-form-actions">
                 <button
@@ -1306,7 +1661,7 @@ const closeDetailModal = () => {
                   type="button"
                   className="MyLeaves-form-submit"
                   onClick={applyLeave}
-                  disabled={loading}
+                  disabled={!canSubmitLeave}
                 >
                   {loading ? 'Applying...' : (
                     <>
@@ -1382,6 +1737,19 @@ const closeDetailModal = () => {
                         {item.remarks && (
                           <p className="MyLeaves-history-remarks">
                             <strong>Remarks:</strong> {item.remarks}
+                          </p>
+                        )}
+                        {item.newPayType && item.newPayType !== "Admin Choice" && (
+                          <p className="MyLeaves-history-decision">
+                            <strong>Pay treatment:</strong> {item.newPayType}
+                            {item.previousPayType && item.previousPayType !== item.newPayType
+                              ? ` (changed from ${item.previousPayType})`
+                              : ""}
+                          </p>
+                        )}
+                        {item.newLeaveType && item.previousLeaveType && item.newLeaveType !== item.previousLeaveType && (
+                          <p className="MyLeaves-history-decision">
+                            <strong>Leave type:</strong> {item.previousLeaveType} → {item.newLeaveType}
                           </p>
                         )}
                       </div>

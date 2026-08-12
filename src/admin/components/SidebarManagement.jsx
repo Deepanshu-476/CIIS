@@ -10,6 +10,7 @@ import { getCurrentUserId, getStoredUser, getUserIds, loadPagePermission } from 
 const APP_ROUTES = [
   { path: 'emp-details', name: 'Employee Details', icon: 'Person', category: 'administration' },
   { path: 'emp-leaves', name: 'Employee Leaves', icon: 'EventNote', category: 'administration' },
+  { path: 'leave-policy', name: 'Leave Policy', icon: 'Assignment', category: 'administration' },
   { path: 'emp-assets', name: 'Employee Assets', icon: 'Computer', category: 'administration' },
   { path: 'emp-attendance', name: 'Employee Attendance', icon: 'CalendarToday', category: 'administration' },
   { path: 'department', name: 'Department Management', icon: 'Apartment', category: 'administration' },
@@ -17,6 +18,7 @@ const APP_ROUTES = [
   { path: 'admin-task-create', name: 'Admin Create Task', icon: 'Task', category: 'administration' },
   { path: 'manage-groups', name: 'Manage Groups', icon: 'GroupIcon', category: 'administration' },
   { path: 'create-user', name: 'Create User', icon: 'PersonAdd', category: 'administration' },
+  { path: 'register-request', name: 'Register Request', icon: 'Assignment', category: 'administration' },
   { path: 'SidebarManagement', name: 'Sidebar Management', icon: 'Settings', category: 'administration' },
   { path: 'admin-meeting', name: 'Create Employee Meeting', icon: 'MeetingRoom', category: 'meetings' },
   { path: 'adminproject', name: 'Manage Projects', icon: 'ProjectIcon', category: 'projects' },

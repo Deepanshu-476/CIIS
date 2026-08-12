@@ -16,11 +16,27 @@ import {
   ChevronRight
 } from 'lucide-react';
 import axios from '../../utils/axiosConfig';
+import { getCurrentUserId, getStoredUser, getUserIds, loadPagePermission } from '../../utils/pageAccess';
 import { toast } from 'react-toastify';
 import './LeavePolicy.css';
 
 // Dynamic Company Custom Leave Types
 const DEFAULT_LEAVE_TYPES = [];
+
+const normalizeRoleValue = value => String(value || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+
+const getUserName = value => {
+  if (!value) return '';
+  if (typeof value === 'object') return value.name || value.email || '';
+  return String(value);
+};
+
+const getFormattedDate = value => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+};
 
 const LeavePolicy = () => {
   const [policies, setPolicies] = useState([]);
@@ -62,6 +78,7 @@ const LeavePolicy = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageAccess, setPageAccess] = useState({ canEdit: false, canDelete: false });
 
   // Extract Logged-in Company Info from LocalStorage dynamically
   const companyInfo = useMemo(() => {
@@ -78,6 +95,40 @@ const LeavePolicy = () => {
     } catch {
       return { name: 'CIIS Network', code: '', id: '' };
     }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadAccess = async () => {
+      try {
+        const storedUser = getStoredUser() || {};
+        const roles = [storedUser.companyRole, storedUser.role, storedUser.jobRole].map(normalizeRoleValue);
+        const fallbackManager = roles.some(role => ['owner', 'admin', 'hr', 'super_admin', 'superadmin', 'company_owner', 'companyowner'].includes(role));
+        const currentUserId = getCurrentUserId();
+        const page = await loadPagePermission('/ciisUser/leave-policy');
+        const editIds = getUserIds(page.editUsers);
+        const deleteIds = getUserIds(page.deleteUsers);
+        const hasConfiguredUsers = editIds.length > 0 || deleteIds.length > 0 || getUserIds(page.viewUsers).length > 0;
+
+        if (!cancelled) {
+          setPageAccess({
+            canEdit: editIds.includes(currentUserId) || (!hasConfiguredUsers && fallbackManager),
+            canDelete: deleteIds.includes(currentUserId) || (!hasConfiguredUsers && fallbackManager)
+          });
+        }
+      } catch (error) {
+        const storedUser = getStoredUser() || {};
+        const roles = [storedUser.companyRole, storedUser.role, storedUser.jobRole].map(normalizeRoleValue);
+        const fallbackManager = roles.some(role => ['owner', 'admin', 'hr', 'super_admin', 'superadmin', 'company_owner', 'companyowner'].includes(role));
+        if (!cancelled) setPageAccess({ canEdit: fallbackManager, canDelete: fallbackManager });
+      }
+    };
+
+    loadAccess();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Helper to extract clean Department Name and Branch Name
@@ -165,7 +216,11 @@ const LeavePolicy = () => {
           encashmentAllowed: p.encashmentAllowed,
           probationApplicable: p.probationApplicable,
           sortOrder: p.sortOrder,
-          status: p.status
+          status: p.status,
+          createdByName: getUserName(p.createdBy),
+          updatedByName: getUserName(p.updatedBy),
+          createdAt: p.createdAt,
+          updatedAt: p.updatedAt
         }));
       } catch (error) {
         throw new Error(error?.response?.data?.message || error?.response?.data?.error || 'Failed to load leave policies');
@@ -187,6 +242,11 @@ const LeavePolicy = () => {
   // Handle Adding New Custom Leave Type (TOP CARD)
   const handleLeaveTypeSubmit = async (e) => {
     e.preventDefault();
+
+    if (!pageAccess.canEdit) {
+      toast.error('You do not have permission to create leave types.');
+      return;
+    }
 
     if (!leaveTypeForm.typeName.trim()) {
       toast.error('Please enter a Leave Type name');
@@ -238,6 +298,11 @@ const LeavePolicy = () => {
 
   // Handle Deleting Custom Leave Type
   const handleDeleteLeaveType = async (id) => {
+    if (!pageAccess.canDelete) {
+      toast.error('You do not have permission to delete leave types.');
+      return;
+    }
+
     const target = leaveTypesList.find((lt) => (lt._id || lt.id) === id);
     if (!target) return;
 
@@ -361,6 +426,11 @@ const LeavePolicy = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!pageAccess.canEdit) {
+      toast.error('You do not have permission to create or update leave policies.');
+      return;
+    }
+
     if (!formData.policyName.trim()) {
       toast.error('Please enter a policy name');
       return;
@@ -461,6 +531,11 @@ const LeavePolicy = () => {
 
   // Edit existing policy
   const handleEdit = (policy) => {
+    if (!pageAccess.canEdit) {
+      toast.error('You do not have permission to edit leave policies.');
+      return;
+    }
+
     setEditingId(policy.id);
     setFormData({
       policyName: policy.policyName,
@@ -482,6 +557,11 @@ const LeavePolicy = () => {
 
   // Delete policy
   const handleDelete = async (id) => {
+    if (!pageAccess.canDelete) {
+      toast.error('You do not have permission to delete leave policies.');
+      return;
+    }
+
     if (window.confirm('Are you sure you want to delete this leave policy?')) {
       try {
         await axios.delete(`/leave-policies/${id}`, { _skipErrorNotify: true });
@@ -554,6 +634,7 @@ const LeavePolicy = () => {
       </div>
 
       {/* 1. TOP CARD: Add Leave Type (Screenshot 4 Original Fields) */}
+      {pageAccess.canEdit && (
       <div className="lpm-card form-card">
         <div className="lpm-card-header">
           <h2>Add Leave Type</h2>
@@ -641,6 +722,7 @@ const LeavePolicy = () => {
               {leaveTypesList.map((lt) => (
                 <span key={lt._id || lt.id || lt.name} className={`lpm-type-badge ${lt.status}`}>
                   <strong>{lt.name}</strong>
+                  {pageAccess.canDelete && (
                   <button
                     type="button"
                     onClick={() => handleDeleteLeaveType(lt._id || lt.id)}
@@ -649,14 +731,17 @@ const LeavePolicy = () => {
                   >
                     <X className="w-3 h-3" />
                   </button>
+                  )}
                 </span>
               ))}
             </div>
           </div>
         )}
       </div>
+      )}
 
       {/* 2. SECOND CARD: Add Leave Policy (Includes Paid / Unpaid Field) */}
+      {pageAccess.canEdit && (
       <div className="lpm-card form-card">
         <div className="lpm-card-header">
           <h2>{editingId ? 'Edit Leave Policy' : 'Add Leave Policy'}</h2>
@@ -987,6 +1072,18 @@ const LeavePolicy = () => {
           </div>
         </form>
       </div>
+      )}
+
+      {!pageAccess.canEdit && (
+        <div className="lpm-card form-card">
+          <div className="lpm-card-header">
+            <h2>Leave Policy Access</h2>
+          </div>
+          <p className="text-slate-500 text-sm">
+            You can view leave policies. Create or update access is controlled from Page Management.
+          </p>
+        </div>
+      )}
 
       {/* 3. THIRD CARD: Leave Policy List Table */}
       <div className="lpm-card table-card">
@@ -1032,7 +1129,7 @@ const LeavePolicy = () => {
             <thead>
               <tr>
                 <th>Sl. No.</th>
-                <th>Action</th>
+                {(pageAccess.canEdit || pageAccess.canDelete) && <th>Action</th>}
                 <th>Policy Name</th>
                 <th>Department</th>
                 <th>Job Roles</th>
@@ -1044,13 +1141,14 @@ const LeavePolicy = () => {
                 <th>Max CF</th>
                 <th>Encashment</th>
                 <th>Probation</th>
+                <th>Created By</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {paginatedPolicies.length === 0 ? (
                 <tr>
-                  <td colSpan={14} className="lpm-empty-cell">
+                  <td colSpan={(pageAccess.canEdit || pageAccess.canDelete) ? 15 : 14} className="lpm-empty-cell">
                     No leave policies found. Fill out the form above to add a policy.
                   </td>
                 </tr>
@@ -1058,8 +1156,10 @@ const LeavePolicy = () => {
                 paginatedPolicies.map((item, index) => (
                   <tr key={item.id}>
                     <td>{(currentPage - 1) * entriesPerPage + index + 1}</td>
+                    {(pageAccess.canEdit || pageAccess.canDelete) && (
                     <td>
                       <div className="lpm-action-buttons">
+                        {pageAccess.canEdit && (
                         <button
                           type="button"
                           className="lpm-icon-btn edit"
@@ -1068,6 +1168,8 @@ const LeavePolicy = () => {
                         >
                           <Edit className="w-4 h-4" />
                         </button>
+                        )}
+                        {pageAccess.canDelete && (
                         <button
                           type="button"
                           className="lpm-icon-btn delete"
@@ -1076,8 +1178,10 @@ const LeavePolicy = () => {
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
+                        )}
                       </div>
                     </td>
+                    )}
                     <td>{item.policyName}</td>
                     <td>{item.department}</td>
                     <td>
@@ -1116,6 +1220,15 @@ const LeavePolicy = () => {
                       <span className={`lpm-bool-badge ${item.probationApplicable === 'Yes' ? 'yes' : 'no'}`}>
                         {item.probationApplicable}
                       </span>
+                    </td>
+                    <td>
+                      <div className="lpm-creator-cell">
+                        <strong>{item.createdByName || 'Unknown'}</strong>
+                        <span>{getFormattedDate(item.createdAt)}</span>
+                        {item.updatedByName && item.updatedByName !== item.createdByName && (
+                          <small>Updated by {item.updatedByName}</small>
+                        )}
+                      </div>
                     </td>
                     <td>
                       <span className={`lpm-status-pill ${item.status}`}>

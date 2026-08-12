@@ -28,6 +28,7 @@ import {
   Settings as SettingsIcon,
   Email as EmailIcon,
   VideoCall as DemoIcon,
+  SystemUpdateAlt as AppUpdateIcon,
 } from '@mui/icons-material';
 
 
@@ -129,10 +130,12 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   const [userEmail, setUserEmail] = useState('');
+  const [companyData, setCompanyData] = useState(null);
   
   useEffect(() => {
     try {
       const userDataString = localStorage.getItem('superAdmin');
+      const companyDataString = localStorage.getItem('company') || localStorage.getItem('companyDetails');
       
       if (userDataString) {
         const parsedData = JSON.parse(userDataString);
@@ -143,6 +146,10 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
           setUserEmail(parsedData.user.email);
         }
       }
+
+      if (companyDataString) {
+        setCompanyData(JSON.parse(companyDataString));
+      }
     } catch (error) {
       console.error('Error parsing superAdmin data from localStorage:', error);
     }
@@ -150,6 +157,32 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
 
   const isOwnerSuperAdmin = String(userEmail || '').trim().toLowerCase() === 'ashutoshrai130@gmail.com';
   const isGlobalSuperAdmin = isOwnerSuperAdmin;
+  const allowedSuperAdminPages = Array.isArray(companyData?.allowedSuperAdminPages)
+    ? companyData.allowedSuperAdminPages
+    : [];
+
+  const normalizeAccessKey = value => String(value || '').trim().replace(/^\/+/, '').toLowerCase();
+
+  const getRouteKey = route => String(route || '').split('/').filter(Boolean).pop() || '';
+
+  const getMenuAccessKeys = item => {
+    const cleanRoute = normalizeAccessKey(item.route);
+    const routeKey = getRouteKey(item.route);
+    const nameKey = String(item.name || '').trim().toLowerCase().replace(/[\s/]+/g, '-');
+    return new Set([
+      cleanRoute,
+      routeKey,
+      `/Ciis-network/${routeKey}`,
+      `Ciis-network/${routeKey}`,
+      nameKey,
+    ].map(normalizeAccessKey).filter(Boolean));
+  };
+
+  const isAllowedByPlan = item => {
+    if (isGlobalSuperAdmin || item.heading || allowedSuperAdminPages.length === 0) return true;
+    const allowedSet = new Set(allowedSuperAdminPages.map(normalizeAccessKey).filter(Boolean));
+    return [...getMenuAccessKeys(item)].some(key => allowedSet.has(key));
+  };
 
   const ciisUserMenuItems = [
     { heading: 'MPA Management' },
@@ -226,6 +259,12 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       showForOwnerSuperAdmin: true
     },
     {
+      icon: <AppUpdateIcon />,
+      name: 'App Version',
+      route: '/Ciis-network/app-version-control',
+      showForOwnerSuperAdmin: true
+    },
+    {
       icon: <SupportAgentIcon />,
       name: 'Support Operations',
       route: '/Ciis-network/support-operations',
@@ -274,7 +313,9 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
         
         let shouldShow = false;
         
-        if (item.showForAll) {
+        if (!isAllowedByPlan(item)) {
+          shouldShow = false;
+        } else if (item.showForAll) {
           shouldShow = true;
         } else if (item.showForSuperAdmin) {
           shouldShow = isGlobalSuperAdmin;

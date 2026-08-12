@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense, useEffect, useState } from "react";
 import Login from "./page/Login";
+import SelfRegister from "./page/SelfRegister.jsx";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import CIISLoader from "../src/Loader/CIISLoader.jsx";
@@ -31,6 +32,7 @@ import TaskDeatils from "./hrCds/pages/hr/TaskDetails";
 import EmpAllTask from "./hrCds/pages/hr/EmpAllTask";
 import CompanyAllTaskTasks from "./hrCds/pages/hr/CompanyAllTaskTasks";
 import EmpDepartmentAllTask from "./hrCds/pages/hr/EmpDepartmentAllTask.jsx";
+import RegisterRequest from "./hrCds/pages/hr/RegisterRequest.jsx";
 import AdminProject from "./hrCds/pages/AdminProject";
 import Client from "./hrCds/pages/hr/Client";
 import ClientPlansPage from "./hrCds/pages/hr/ClientPlansPage.jsx";
@@ -93,6 +95,7 @@ import Settings from "./admin/page/Settings.jsx";
 import EmailSettings from "./admin/page/EmailSettings.jsx";
 import DemoRequests from "./admin/page/DemoRequests.jsx";
 import LeavePolicy from "./admin/page/LeavePolicy.jsx";
+import AppVersionControl from "./admin/page/AppVersionControl.jsx";
 import SpeechToTextControl from "./components/SpeechToTextControl.jsx";
 
 function App() {
@@ -123,6 +126,9 @@ function App() {
         <Route path="/cookies" element={<LegalPage type="cookies" />} />
         <Route path="/SuperAdminLogin" element={<SuperAdminLogin />} />
         <Route path="company/:companyCode/login" element={<Login />} />
+        <Route path="/self-register" element={<SelfRegister />} />
+        <Route path="/:companyCode/register" element={<SelfRegister />} />
+        <Route path="/company/:companyCode/register" element={<SelfRegister />} />
         <Route path="/RegisterCompany" element={<RegisterCompany />} />
 
         
@@ -157,6 +163,14 @@ function App() {
           <Route path="support-operations" element={<SupportOperations />} />
           <Route path="settings" element={<Settings />} />
           <Route path="email-settings" element={<EmailSettings />} />
+          <Route
+            path="app-version-control"
+            element={
+              <ProtectedSuperAdminRoute>
+                <AppVersionControl />
+              </ProtectedSuperAdminRoute>
+            }
+          />
           <Route path="leave-policy-master" element={<LeavePolicy />} />
           <Route path="leave-policy" element={<LeavePolicy />} />
           <Route
@@ -228,6 +242,7 @@ function App() {
           <Route path="employee-meeting" element={<EmployeeMeetingPage />} />
           <Route path="client-meeting" element={<ClientMeeting />} />
           <Route path="create-user" element={<CreateUser />} />
+          <Route path="register-request" element={<RegisterRequest />} />
           <Route path="department" element={<Department />} />
           <Route path="department/branch/:branchId" element={<Department />} />
           <Route path="JobRoleManagement" element={<JobRoleManagement />} />

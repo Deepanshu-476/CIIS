@@ -63,7 +63,7 @@ class SocketService {
 
       this.socket.on('connect_error', (error) => {
         this.isConnecting = false;
-        if (isDev) {
+        if (isDev) {  
           console.warn('Socket connection failed:', error.message);
         }
       });

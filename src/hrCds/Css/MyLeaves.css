@@ -3305,6 +3305,58 @@
   .MyLeaves-policy-summary-head { align-items: flex-start; }
 }
 
+/* Keep the Apply Leave scrollbar out of the close-button/header area. */
+.MyLeaves-apply-modal .MyLeaves-apply-tab {
+  scrollbar-gutter: auto !important;
+  scrollbar-width: thin;
+  scrollbar-color: #9aa7bd transparent;
+}
+
+.MyLeaves-apply-modal .MyLeaves-apply-tab::-webkit-scrollbar { width: 7px; }
+.MyLeaves-apply-modal .MyLeaves-apply-tab::-webkit-scrollbar-track { background: transparent; }
+.MyLeaves-apply-modal .MyLeaves-apply-tab::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #9aa7bd;
+}
+
+.MyLeaves-apply-modal-close {
+  top: 16px !important;
+  right: 12px !important;
+  z-index: 60 !important;
+  background: #fff !important;
+}
+
+/* Final frame guard: prevent either side of the popup from being clipped. */
+.MyLeaves-apply-modal-overlay {
+  box-sizing: border-box !important;
+  padding-left: max(16px, env(safe-area-inset-left)) !important;
+  padding-right: max(16px, env(safe-area-inset-right)) !important;
+}
+
+.MyLeaves-apply-modal {
+  width: min(1080px, calc(100% - 2px)) !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.MyLeaves-apply-modal .MyLeaves-apply-tab,
+.MyLeaves-apply-modal .MyLeaves-apply-form-container,
+.MyLeaves-apply-modal .MyLeaves-form,
+.MyLeaves-apply-modal .MyLeaves-guidelines-panel {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.MyLeaves-apply-modal .MyLeaves-apply-tab { overflow-x: clip !important; }
+.MyLeaves-apply-modal-heading { padding-right: 64px !important; }
+
+@media (max-width: 768px) {
+  .MyLeaves-apply-modal-overlay { padding-inline: 10px !important; }
+  .MyLeaves-apply-modal { width: 100% !important; }
+  .MyLeaves-apply-modal-close { right: 8px !important; }
+}
+
 /* Leave history popup: compact frame with safe header clearance and one scroll area. */
 .MyLeaves-history-overlay {
   align-items: flex-start;
@@ -3718,4 +3770,32 @@
   .MyLeaves-cancel-dialog-summary { grid-template-columns: 1fr; }
   .MyLeaves-cancel-dialog-actions { flex-direction: column-reverse; }
   .MyLeaves-cancel-dialog-actions button { width: 100%; }
+}
+
+/* Final Apply Leave frame override — must remain last in this stylesheet. */
+.MyLeaves-apply-modal .MyLeaves-guidelines-panel {
+  margin-top: 12px !important;
+  align-self: start;
+}
+
+.MyLeaves-apply-modal-close {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+/* Mask the policy panel beneath the full sticky header, including its right gutter. */
+.MyLeaves-apply-modal-heading {
+  isolation: isolate;
+}
+
+.MyLeaves-apply-modal-heading::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  right: -32px;
+  bottom: 0;
+  width: 56px;
+  background: #fff;
 }

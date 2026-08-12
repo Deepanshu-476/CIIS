@@ -1413,7 +1413,9 @@ const CompanyDetails = () => {
     const { name, value } = e.target;
     setCompanyEditFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: name === "companyCode"
+        ? value.toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 10)
+        : value
     }));
   };
 
@@ -1427,22 +1429,22 @@ const CompanyDetails = () => {
       const updateData = {};
       
       if (companyEditFormData.companyName !== company.companyName) {
-        updateData.name = companyEditFormData.companyName;
+        updateData.companyName = companyEditFormData.companyName;
       }
       if (companyEditFormData.companyCode !== company.companyCode) {
         updateData.companyCode = companyEditFormData.companyCode;
       }
       if (companyEditFormData.companyEmail !== company.companyEmail) {
-        updateData.email = companyEditFormData.companyEmail;
+        updateData.companyEmail = companyEditFormData.companyEmail;
       }
       if (companyEditFormData.companyPhone !== company.companyPhone) {
-        updateData.phone = companyEditFormData.companyPhone;
+        updateData.companyPhone = companyEditFormData.companyPhone;
       }
       if (companyEditFormData.companyAddress !== company.companyAddress) {
-        updateData.address = companyEditFormData.companyAddress;
+        updateData.companyAddress = companyEditFormData.companyAddress;
       }
       if (companyEditFormData.companyDomain !== company.companyDomain) {
-        updateData.domain = companyEditFormData.companyDomain;
+        updateData.companyDomain = companyEditFormData.companyDomain;
       }
       if (companyEditFormData.ownerName !== company.ownerName) {
         updateData.ownerName = companyEditFormData.ownerName;
@@ -1460,15 +1462,21 @@ const CompanyDetails = () => {
       void 0;
       
       let success = false;
+      let savedCompany = null;
+      let syncSummary = null;
       
       
       try {
         const response = await axios.put(
-          `${API_URL}/companies/${company._id}`,
+          `${API_URL}/company/${company._id}`,
           updateData,
           { headers }
         );
-        if (response.data && response.data.success) success = true;
+        if (response.data && response.data.success) {
+          success = true;
+          savedCompany = response.data.company;
+          syncSummary = response.data.syncSummary;
+        }
       } catch (error) {
         void 0;
       }
@@ -1476,34 +1484,49 @@ const CompanyDetails = () => {
       if (!success) {
         try {
           const response = await axios.put(
-            `${API_URL}/admin/companies/${company._id}`,
+            `${API_URL}/company/${company._id}`,
             updateData,
             { headers }
           );
-          if (response.data && response.data.success) success = true;
+          if (response.data && response.data.success) {
+            success = true;
+            savedCompany = response.data.company;
+            syncSummary = response.data.syncSummary;
+          }
         } catch (error) {
           void 0;
         }
+      }
+
+      if (!success) {
+        throw new Error("Company update failed");
       }
       
       
       const updatedCompany = {
         ...company,
-        companyName: companyEditFormData.companyName,
-        companyCode: companyEditFormData.companyCode,
-        companyEmail: companyEditFormData.companyEmail || "Not provided",
-        companyPhone: companyEditFormData.companyPhone || "Not provided",
-        companyAddress: companyEditFormData.companyAddress || "Not provided",
-        companyDomain: companyEditFormData.companyDomain,
-        ownerName: companyEditFormData.ownerName,
-        logo: companyEditFormData.logo || DEFAULT_COMPANY_LOGO
+        ...(savedCompany || {}),
+        companyName: savedCompany?.companyName || companyEditFormData.companyName,
+        companyCode: savedCompany?.companyCode || companyEditFormData.companyCode,
+        companyEmail: savedCompany?.companyEmail || companyEditFormData.companyEmail || "Not provided",
+        companyPhone: savedCompany?.companyPhone || companyEditFormData.companyPhone || "Not provided",
+        companyAddress: savedCompany?.companyAddress || companyEditFormData.companyAddress || "Not provided",
+        companyDomain: savedCompany?.companyDomain || companyEditFormData.companyDomain,
+        ownerName: savedCompany?.ownerName || companyEditFormData.ownerName,
+        logo: savedCompany?.logo || companyEditFormData.logo || DEFAULT_COMPANY_LOGO
       };
       
       setCompany(updatedCompany);
       localStorage.setItem("company", JSON.stringify(updatedCompany));
+      localStorage.setItem("companyDetails", JSON.stringify(updatedCompany));
+      localStorage.setItem("companyCode", updatedCompany.companyCode || "");
       
       setCompanyEditSuccess(true);
       
+      const syncText = syncSummary
+        ? ` Active users synced: ${syncSummary.usersUpdated || 0}.`
+        : "";
+
       toast.success(
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <svg style={{ color: '#4caf50', width: '24px', height: '24px' }} viewBox="0 0 24 24" fill="currentColor">
@@ -1511,7 +1534,7 @@ const CompanyDetails = () => {
           </svg>
           <div>
             <div style={{ fontWeight: 600 }}>Company Updated Successfully!</div>
-            <div style={{ fontSize: '0.75rem', color: '#666' }}>{companyEditFormData.companyName} has been updated</div>
+            <div style={{ fontSize: '0.75rem', color: '#666' }}>{companyEditFormData.companyName} has been updated.{syncText}</div>
           </div>
         </div>,
         { icon: false, autoClose: 4000 }
@@ -3013,6 +3036,29 @@ const CompanyDetails = () => {
                           placeholder="Enter company name"
                         />
                       </div>
+                    </div>
+
+                    <div className="CompanyDetails-form-group">
+                      <label className="CompanyDetails-form-label">Company Code *</label>
+                      <div className="CompanyDetails-input-wrapper">
+                        <span className="CompanyDetails-input-icon">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M4 4h16v4H4V4zm0 6h10v4H4v-4zm0 6h16v4H4v-4zm12-6h4v4h-4v-4z"/>
+                          </svg>
+                        </span>
+                        <input
+                          type="text"
+                          name="companyCode"
+                          value={companyEditFormData.companyCode}
+                          onChange={handleCompanyInputChange}
+                          className="CompanyDetails-form-input"
+                          placeholder="COMPANY"
+                          maxLength={10}
+                        />
+                      </div>
+                      <span className="CompanyDetails-input-hint">
+                        Login URL will become /company/{companyEditFormData.companyCode || "CODE"}/login
+                      </span>
                     </div>
 
                     <div className="CompanyDetails-form-group">

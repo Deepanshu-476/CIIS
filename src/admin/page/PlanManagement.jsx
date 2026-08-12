@@ -20,11 +20,13 @@ const APP_ROUTES = [
   { id: "change-password", path: "change-password", name: "Change Password", category: "main" },
   { id: "emp-details", path: "emp-details", name: "Employee Details", category: "administration" },
   { id: "emp-leaves", path: "emp-leaves", name: "Employee Leaves", category: "administration" },
+  { id: "leave-policy", path: "leave-policy", name: "Leave Policy", category: "administration" },
   { id: "emp-assets", path: "emp-assets", name: "Employee Assets", category: "administration" },
   { id: "emp-attendance", path: "emp-attendance", name: "Employee Attendance", category: "administration" },
   { id: "department", path: "department", name: "Department Management", category: "administration" },
   { id: "JobRoleManagement", path: "JobRoleManagement", name: "Job Role Management", category: "administration" },
   { id: "create-user", path: "create-user", name: "Create User", category: "administration" },
+  { id: "register-request", path: "register-request", name: "Register Request", category: "administration" },
   { id: "SidebarManagement", path: "SidebarManagement", name: "Sidebar Management", category: "administration" },
   { id: "manage-groups", path: "manage-groups", name: "Manage Groups", category: "administration" },
   { id: "task-management", path: "task-management", name: "Create Task", category: "tasks" },
@@ -51,6 +53,27 @@ const APP_ROUTES = [
   { id: "support-operations", path: "support-operations", name: "Support Operations", category: "administration" },
 ];
 
+const SUPER_ADMIN_ROUTES = [
+  { id: "company-details", path: "company-details", name: "Company Details", category: "management" },
+  { id: "all-company", path: "all-company", name: "All Company", category: "owner" },
+  { id: "CompanyAccessManagement", path: "CompanyAccessManagement", name: "Company Access", category: "owner" },
+  { id: "department", path: "department", name: "Department", category: "management" },
+  { id: "branch", path: "branch", name: "Manage Branches", category: "management" },
+  { id: "JobRoleManagement", path: "JobRoleManagement", name: "Job Roles", category: "management" },
+  { id: "create-user", path: "create-user", name: "Create User", category: "management" },
+  { id: "company-assets", path: "company-assets", name: "Assets Management", category: "management" },
+  { id: "SidebarManagement", path: "SidebarManagement", name: "Sidebar Management", category: "management" },
+  { id: "page-management", path: "page-management", name: "Page Management", category: "management" },
+  { id: "plans", path: "plans", name: "Plans", category: "owner" },
+  { id: "email-settings", path: "email-settings", name: "Email Settings", category: "owner" },
+  { id: "app-version-control", path: "app-version-control", name: "App Version", category: "owner" },
+  { id: "support-operations", path: "support-operations", name: "Support Operations", category: "management" },
+  { id: "leave-policy", path: "leave-policy", name: "Leave Policy", category: "management" },
+  { id: "demo-requests", path: "demo-requests", name: "Demo Requests", category: "owner" },
+  { id: "holiday", path: "holiday", name: "Holiday", category: "management" },
+  { id: "settings", path: "settings", name: "Settings", category: "management" },
+];
+
 const categoryNames = {
   main: "Main",
   administration: "Administration",
@@ -59,6 +82,8 @@ const categoryNames = {
   meetings: "Meetings",
   clients: "Clients",
   communication: "Communication",
+  management: "Super Admin Management",
+  owner: "Owner Only",
 };
 
 const emptyForm = {
@@ -68,6 +93,7 @@ const emptyForm = {
   description: "",
   featuresText: "",
   allowedPages: [],
+  allowedSuperAdminPages: [],
   isActive: true,
 };
 
@@ -93,10 +119,25 @@ export default function PlanManagement() {
   const selectedPercent = APP_ROUTES.length
     ? Math.round((form.allowedPages.length / APP_ROUTES.length) * 100)
     : 0;
+  const selectedSuperAdminPercent = SUPER_ADMIN_ROUTES.length
+    ? Math.round((form.allowedSuperAdminPages.length / SUPER_ADMIN_ROUTES.length) * 100)
+    : 0;
 
   const groupedRoutes = useMemo(() => {
     const cleanSearch = search.trim().toLowerCase();
     return APP_ROUTES.filter(route => {
+      if (!cleanSearch) return true;
+      return `${route.name} ${route.path} ${route.category}`.toLowerCase().includes(cleanSearch);
+    }).reduce((groups, route) => {
+      if (!groups[route.category]) groups[route.category] = [];
+      groups[route.category].push(route);
+      return groups;
+    }, {});
+  }, [search]);
+
+  const groupedSuperAdminRoutes = useMemo(() => {
+    const cleanSearch = search.trim().toLowerCase();
+    return SUPER_ADMIN_ROUTES.filter(route => {
       if (!cleanSearch) return true;
       return `${route.name} ${route.path} ${route.category}`.toLowerCase().includes(cleanSearch);
     }).reduce((groups, route) => {
@@ -144,6 +185,26 @@ export default function PlanManagement() {
     }));
   };
 
+  const toggleSuperAdminPage = pageId => {
+    setForm(prev => ({
+      ...prev,
+      allowedSuperAdminPages: prev.allowedSuperAdminPages.includes(pageId)
+        ? prev.allowedSuperAdminPages.filter(id => id !== pageId)
+        : [...new Set([...prev.allowedSuperAdminPages, pageId])],
+    }));
+  };
+
+  const toggleSuperAdminCategory = routes => {
+    const ids = routes.map(route => route.id);
+    const allSelected = ids.every(id => form.allowedSuperAdminPages.includes(id));
+    setForm(prev => ({
+      ...prev,
+      allowedSuperAdminPages: allSelected
+        ? prev.allowedSuperAdminPages.filter(id => !ids.includes(id))
+        : [...new Set([...prev.allowedSuperAdminPages, ...ids])],
+    }));
+  };
+
   const editPlan = plan => {
     setEditingId(plan._id);
     setForm({
@@ -153,6 +214,7 @@ export default function PlanManagement() {
       description: plan.description || "",
       featuresText: Array.isArray(plan.features) ? plan.features.join("\n") : "",
       allowedPages: Array.isArray(plan.allowedPages) ? plan.allowedPages : [],
+      allowedSuperAdminPages: Array.isArray(plan.allowedSuperAdminPages) ? plan.allowedSuperAdminPages : [],
       isActive: plan.isActive !== false,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -173,6 +235,10 @@ export default function PlanManagement() {
       setNotice({ severity: "warning", message: "Select at least one page for this plan." });
       return;
     }
+    if (!form.allowedSuperAdminPages.length) {
+      setNotice({ severity: "warning", message: "Select at least one super admin page for this plan." });
+      return;
+    }
 
     setSaving(true);
     try {
@@ -183,6 +249,7 @@ export default function PlanManagement() {
         description: form.description.trim(),
         features: form.featuresText.split("\n").map(item => item.trim()).filter(Boolean),
         allowedPages: form.allowedPages,
+        allowedSuperAdminPages: form.allowedSuperAdminPages,
         isActive: form.isActive,
         createdBy: getStoredAdminId(),
         updatedBy: getStoredAdminId(),
@@ -308,7 +375,7 @@ export default function PlanManagement() {
             <AppsIcon className="JobRoleManagement-info-icon" />
             <div style={{ width: "100%" }}>
               <div className="JobRoleManagement-info-title">
-                {form.allowedPages.length} pages selected. Company will see only these pages after choosing this plan.
+                {form.allowedPages.length} employee pages selected. Company users will see only these pages after choosing this plan.
               </div>
               <LinearProgress variant="determinate" value={selectedPercent} sx={{ height: 7, mt: 1, borderRadius: 99, bgcolor: "#d7e9fb" }} />
             </div>
@@ -364,6 +431,68 @@ export default function PlanManagement() {
             })}
           </Stack>
 
+          <div className="JobRoleManagement-info-banner" style={{ marginTop: 24 }}>
+            <AppsIcon className="JobRoleManagement-info-icon" />
+            <div style={{ width: "100%" }}>
+              <div className="JobRoleManagement-info-title">
+                {form.allowedSuperAdminPages.length} super admin pages selected. Company super admin sidebar will follow this list.
+              </div>
+              <LinearProgress variant="determinate" value={selectedSuperAdminPercent} sx={{ height: 7, mt: 1, borderRadius: 99, bgcolor: "#d7e9fb" }} />
+            </div>
+          </div>
+
+          <div className="JobRoleManagement-header" style={{ paddingInline: 0 }}>
+            <div>
+              <h3 className="JobRoleManagement-header-title" style={{ fontSize: 18 }}>Super Admin Pages</h3>
+              <p className="JobRoleManagement-description-text" style={{ margin: 0 }}>
+                Demo Requests remains visible only for ashutoshrai130@gmail.com.
+              </p>
+            </div>
+            <div className="JobRoleManagement-header-actions">
+              <button type="button" className="JobRoleManagement-btn-outline" onClick={() => updateForm("allowedSuperAdminPages", SUPER_ADMIN_ROUTES.map(route => route.id))}>Select All</button>
+              <button type="button" className="JobRoleManagement-btn-secondary" onClick={() => updateForm("allowedSuperAdminPages", [])}>Clear</button>
+            </div>
+          </div>
+
+          <Stack spacing={2}>
+            {Object.entries(groupedSuperAdminRoutes).map(([category, routes]) => {
+              const selectedCount = routes.filter(route => form.allowedSuperAdminPages.includes(route.id)).length;
+              return (
+                <div className="JobRoleManagement-mobile-card" key={`super-${category}`}>
+                  <div className="JobRoleManagement-mobile-card-content">
+                    <div className="JobRoleManagement-mobile-card-header">
+                      <div className="JobRoleManagement-mobile-card-title-section">
+                        <div className="JobRoleManagement-mobile-card-title">{categoryNames[category] || category}</div>
+                        <div className="JobRoleManagement-mobile-card-badges">
+                          <span className="JobRoleManagement-mobile-card-badge JobRoleManagement-badge-primary">{selectedCount}/{routes.length} selected</span>
+                        </div>
+                      </div>
+                      <button type="button" className="JobRoleManagement-btn-outline" onClick={() => toggleSuperAdminCategory(routes)}>
+                        {selectedCount === routes.length ? "Deselect" : "Select"}
+                      </button>
+                    </div>
+                    <Grid container spacing={1.2}>
+                      {routes.map(route => {
+                        const selected = form.allowedSuperAdminPages.includes(route.id);
+                        return (
+                          <Grid item xs={12} sm={6} lg={4} key={route.id}>
+                            <button type="button" className="JobRoleManagement-menu-item" onClick={() => toggleSuperAdminPage(route.id)}>
+                              <span className="JobRoleManagement-menu-icon">{selected ? <CheckCircleIcon fontSize="small" /> : <AppsIcon fontSize="small" />}</span>
+                              <span className="JobRoleManagement-menu-text">
+                                <span className="JobRoleManagement-menu-title">{route.name}</span>
+                                <span className="JobRoleManagement-menu-subtitle">/Ciis-network/{route.path}</span>
+                              </span>
+                            </button>
+                          </Grid>
+                        );
+                      })}
+                    </Grid>
+                  </div>
+                </div>
+              );
+            })}
+          </Stack>
+
           <div className="JobRoleManagement-modal-footer" style={{ marginTop: 24, borderRadius: 24 }}>
             <label className="JobRoleManagement-switch">
               <input type="checkbox" checked={form.isActive} onChange={event => updateForm("isActive", event.target.checked)} />
@@ -398,7 +527,9 @@ export default function PlanManagement() {
                   </div>
                   <div className="JobRoleManagement-mobile-card-description">
                     <PaymentsIcon className="JobRoleManagement-description-icon" />
-                    <span className="JobRoleManagement-description-text">{plan.allowedPages?.length || 0} pages, {plan.features?.length || 0} features</span>
+                    <span className="JobRoleManagement-description-text">
+                      {plan.allowedPages?.length || 0} employee pages, {plan.allowedSuperAdminPages?.length || 0} super admin pages, {plan.features?.length || 0} features
+                    </span>
                   </div>
                   <button className="JobRoleManagement-btn-outline" onClick={() => editPlan(plan)}>Edit</button>
                 </div>

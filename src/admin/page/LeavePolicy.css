@@ -704,6 +704,23 @@
   padding: 0 4px;
 }
 
+.lpm-creator-cell {
+  display: grid;
+  gap: 2px;
+  min-width: 130px;
+}
+
+.lpm-creator-cell strong {
+  color: #0f172a;
+  font-size: 0.82rem;
+}
+
+.lpm-creator-cell span,
+.lpm-creator-cell small {
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
 /* Responsive Enhancements for Mobile, Tablet & Mac */
 @media (max-width: 768px) {
   .lpm-card-header {

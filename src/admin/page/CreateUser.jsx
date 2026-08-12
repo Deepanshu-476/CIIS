@@ -861,11 +861,11 @@ const CreateUser = () => {
                 )}
                 {branches.length > 0 && (
                   <small className="CreateUser-helper-text">
-                    Primary branch department and shift rules ke liye use hogi.
+                    Select the primary branch for the user. Additional branches can be assigned later.
                   </small>
                 )}
               </div>
-
+{/* 
               <div className="CreateUser-form-group">
                 <label htmlFor="assignedBranches" className="CreateUser-label">
                   Additional Branch Access
@@ -946,7 +946,7 @@ const CreateUser = () => {
                 <small className="CreateUser-helper-text">
                   Dropdown se branches select karo. Primary branch auto include hogi.
                 </small>
-              </div>
+              </div> */}
 
               <div className="CreateUser-form-group">
                 <label htmlFor="department" className="CreateUser-label">

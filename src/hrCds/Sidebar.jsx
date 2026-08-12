@@ -404,6 +404,14 @@ const fixedDefaultItems = [
     path: '/ciisUser/support-desk',
     category: 'communication',
     order: 10
+  },
+  {
+    id: 'create-user',
+    name: 'Create User',
+    icon: 'Person',
+    path: '/ciisUser/create-user',
+    category: 'admin',
+    order: 11
   }
 ];
 
@@ -1478,12 +1486,12 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       let items = [];
       if (sidebarConfig && sidebarConfig.menuItems && Array.isArray(sidebarConfig.menuItems)) {
         items = sidebarConfig.menuItems
-          .map(item => ({
+          .map((item, index) => ({
             id: item.id || item._id || Math.random().toString(36).substr(2, 9),
             name: getMenuDisplayName(item.name || 'Unnamed Item'),
             icon: item.icon || 'Dashboard',
             category: item.category || 'main',
-            order: Number.isFinite(Number(item.order)) ? Number(item.order) : 99,
+            order: Number.isFinite(Number(item.order)) && Number(item.order) !== 99 ? Number(item.order) : (index + 1),
             path: getPathFromName(item.name) || item.path,
             disabled: item.disabled || false,
             visible: item.visible !== false
@@ -1512,13 +1520,13 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       void 0;
       
       items = sidebarConfig.menuItems
-        .map(item => {
+        .map((item, index) => {
           const processedItem = {
             id: item.id || item._id || Math.random().toString(36).substr(2, 9),
             name: getMenuDisplayName(item.name || 'Unnamed Item'),
             icon: item.icon || 'Dashboard',
             category: item.category || 'main',
-            order: Number.isFinite(Number(item.order)) ? Number(item.order) : 99,
+            order: Number.isFinite(Number(item.order)) && Number(item.order) !== 99 ? Number(item.order) : (index + 1),
             path: item.path || getPathFromName(item.name),
             disabled: item.disabled || false,
             visible: item.visible !== false
@@ -1747,9 +1755,23 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   const groupedItems = useMemo(() => {
     const groups = {};
     const categoryOrder = ['main', 'work', 'communication', 'admin', 'settings', 'administration', 'tasks', 'projects', 'meetings', 'clients'];
+    const customRanges = sidebarConfig && Array.isArray(sidebarConfig.ranges) ? sidebarConfig.ranges : [];
+    const hasCustomRanges = customRanges.length > 0;
     
     menuItems.forEach(item => {
-      const category = getWebsiteCategory(item);
+      let category = '';
+      if (hasCustomRanges && Number.isFinite(Number(item.order))) {
+        const orderVal = Number(item.order);
+        const matchedRange = customRanges.find(r => orderVal >= r.min && orderVal <= r.max);
+        if (matchedRange) {
+          category = matchedRange.heading;
+        }
+      }
+      
+      if (!category) {
+        category = getWebsiteCategory(item);
+      }
+
       if (!groups[category]) {
         groups[category] = [];
       }
@@ -1772,6 +1794,17 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       });
     });
     
+    if (hasCustomRanges) {
+      const rangeHeadingMap = new Map(customRanges.map(r => [r.heading, r.min]));
+      return Object.fromEntries(
+        Object.entries(groups).sort(([categoryA], [categoryB]) => {
+          const minA = rangeHeadingMap.has(categoryA) ? rangeHeadingMap.get(categoryA) : 9999;
+          const minB = rangeHeadingMap.has(categoryB) ? rangeHeadingMap.get(categoryB) : 9999;
+          return minA - minB;
+        })
+      );
+    }
+
     return Object.fromEntries(
       Object.entries(groups).sort(([categoryA], [categoryB]) => {
         const indexA = categoryOrder.indexOf(categoryA);
@@ -1781,7 +1814,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         return orderA - orderB;
       })
     );
-  }, [menuItems]);
+  }, [menuItems, sidebarConfig]);
 
   
   const Container = isMobile ? MobileSidebarContainer : SidebarContainer;

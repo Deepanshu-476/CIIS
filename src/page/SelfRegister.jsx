@@ -363,7 +363,8 @@ function SelfRegister() {
         shiftName: selectedShift?.shiftName || '',
         shiftType: selectedShift?.shiftType || '',
         company: company._id,
-        companyCode: company.companyCode
+        companyCode: company.companyCode,
+        registrationSource: 'self_register'
       };
 
       Object.entries(finalPayload).forEach(([key, value]) => {
@@ -382,8 +383,7 @@ function SelfRegister() {
       });
 
       await axios.post('/auth/register', submitData, {
-        _skipErrorNotify: true,
-        headers: { 'Content-Type': 'multipart/form-data' }
+        _skipErrorNotify: true
       });
 
       toast.success('User created successfully. You can login now.');

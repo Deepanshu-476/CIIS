@@ -693,7 +693,7 @@ const UserDashboard = () => {
       clearTimeout(attendanceTimeoutRef.current);
     }
 
-    attendanceTimeoutRef.current = setTimeout(async () => {
+    const loadAttendance = async () => {
       if (fetchInProgress.current.attendance) return;
       
       fetchInProgress.current.attendance = true;
@@ -722,7 +722,10 @@ const UserDashboard = () => {
         setAttendanceData(normalizedData);
         
         
-        updateRecentActivity(normalizedData, holidays);
+        updateRecentActivity(
+          normalizedData.filter(record => record.inTime || record.outTime || record.isClockedIn),
+          holidays
+        );
         
       } catch (error) {
         if (error.name === 'AbortError' || error.code === 'ERR_CANCELED') return;
@@ -732,7 +735,14 @@ const UserDashboard = () => {
         fetchInProgress.current.attendance = false;
         attendanceTimeoutRef.current = null;
       }
-    }, 300);
+    };
+
+    if (force) {
+      await loadAttendance();
+      return;
+    }
+
+    attendanceTimeoutRef.current = setTimeout(loadAttendance, 300);
 
   }, [token, isUserInCurrentCompany, userJoinDate, isBeforeJoinDate, holidays]);
 
@@ -1152,7 +1162,11 @@ const UserDashboard = () => {
         .slice(0, 8)
         .map(mapTaskToActivity);
       setTaskActivity(tasks);
-      updateRecentActivity(attendanceRecords, holidaysData, tasks);
+      updateRecentActivity(
+        attendanceRecords.filter(record => record.inTime || record.outTime || record.isClockedIn),
+        holidaysData,
+        tasks
+      );
 
       return true;
     } catch (error) {
@@ -1182,7 +1196,12 @@ const UserDashboard = () => {
         // dashboard summary so a clock-in made on another device is shown at once.
         fetchCurrentStatus();
         const summaryLoaded = await fetchDashboardSummary();
-        if (!summaryLoaded) {
+        if (summaryLoaded) {
+          // The summary contains only persisted attendance records, while the
+          // attendance list also fills missing weekdays as ABSENT. Refresh the
+          // calendar from the list so both dashboard and full attendance agree.
+          fetchAttendanceData(true);
+        } else {
           await Promise.allSettled([
             fetchDashboardConfig(),
             fetchJobRoles(),
@@ -1230,7 +1249,11 @@ const UserDashboard = () => {
   
   useEffect(() => {
     if (attendanceData.length > 0 || holidays.length > 0 || recentTaskEvents.length > 0) {
-      updateRecentActivity(attendanceData, holidays, recentTaskEvents);
+      updateRecentActivity(
+        attendanceData.filter(record => record.inTime || record.outTime || record.isClockedIn),
+        holidays,
+        recentTaskEvents
+      );
     }
   }, [attendanceData, holidays, recentTaskEvents, updateRecentActivity]);
 
@@ -2896,7 +2919,6 @@ const UserDashboard = () => {
               
               
               const date = new Date(item.date);
-              const isCurrentMonth = date.getMonth() === currentMonth && date.getFullYear() === currentYear;
               return (
                 <div key={index} className="activity-item">
                   <div className="activity-item-content">
@@ -2910,7 +2932,6 @@ const UserDashboard = () => {
                     <div className="activity-details">
                       <div className="activity-date">
                         {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                        {isCurrentMonth && <span className="current-month-badge">Current Month</span>}
                       </div>
                       <div className="activity-time">
                         <MdAccessTime size={12} /> {item.totalTime || '--:--:--'}

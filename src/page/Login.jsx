@@ -962,6 +962,16 @@ const Login = () => {
                     </span>
                   </div>
 
+                  <div className="self-register-entry">
+                    <span>New user?</span>
+                    <button
+                      type="button"
+                      onClick={() => navigate(companyIdentifier ? `/company/${companyIdentifier}/register` : '/self-register')}
+                    >
+                      Create your account
+                    </button>
+                  </div>
+
                   
                   <button
                     type="submit"

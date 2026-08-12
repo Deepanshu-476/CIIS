@@ -2332,3 +2332,65 @@ textarea.EmppAttendence-form-input {
     print-color-adjust: exact;
   }
 }
+.EmppAttendence-view-month-btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:34px; padding:7px 10px; border:1px solid #c7d2fe; border-radius:8px; color:#4338ca; background:#eef2ff; font-size:11px; font-weight:750; white-space:nowrap; cursor:pointer; transition:.18s ease; }
+.EmppAttendence-view-month-btn:hover { border-color:#818cf8; background:#e0e7ff; transform:translateY(-1px); }
+.EmppAttendence-monthly-overlay { position:fixed; inset:0; z-index:10020; display:grid; place-items:center; padding:22px; background:rgba(15,23,42,.58); backdrop-filter:blur(4px); }
+.EmppAttendence-monthly-modal { width:min(940px,96vw); max-height:92vh; overflow:hidden; border-radius:18px; background:#f8fafc; box-shadow:0 26px 70px rgba(15,23,42,.28); }
+.EmppAttendence-monthly-header { display:flex; align-items:center; gap:13px; padding:18px 22px; border-bottom:1px solid #e5e7eb; background:#fff; }
+.EmppAttendence-monthly-header h2 { margin:0; color:#172036; font-size:21px; }
+.EmppAttendence-monthly-header p { margin:3px 0 0; color:#718096; font-size:13px; }
+.EmppAttendence-monthly-header>button { margin-left:auto; border:0; background:transparent; color:#94a3b8; font-size:23px; cursor:pointer; }
+.EmppAttendence-monthly-title-icon { width:44px; height:44px; display:grid; place-items:center; border-radius:12px; color:#fff; font-size:21px; background:linear-gradient(135deg,#6366f1,#7c3aed); box-shadow:0 8px 18px rgba(99,102,241,.25); }
+.EmppAttendence-monthly-body { padding:16px; overflow:auto; max-height:calc(92vh - 81px); }
+.EmppAttendence-monthly-employee { display:flex; align-items:center; gap:12px; padding:13px 15px; border:1px solid #e2e8f0; border-radius:13px; background:#fff; }
+.EmppAttendence-monthly-employee>span { width:42px; height:42px; display:grid; place-items:center; border-radius:50%; background:#5b6ee1; color:#fff; font-weight:800; }
+.EmppAttendence-monthly-employee div { display:flex; flex-direction:column; gap:2px; }
+.EmppAttendence-monthly-employee small { color:#718096; }
+.EmppAttendence-monthly-meta { margin-left:auto; padding-left:22px; border-left:1px solid #e2e8f0; text-align:right; }
+.EmppAttendence-monthly-state { min-height:330px; display:flex; align-items:center; justify-content:center; gap:10px; color:#64748b; font-weight:600; }
+.EmppAttendence-monthly-state.error { color:#dc2626; }
+.EmppAttendence-monthly-spinner { width:20px; height:20px; border:3px solid #dbe4ff; border-top-color:#4f46e5; border-radius:50%; animation:EmppAttendence-month-spin .7s linear infinite; }
+@keyframes EmppAttendence-month-spin { to { transform:rotate(360deg); } }
+.EmppAttendence-monthly-stats { display:grid; grid-template-columns:repeat(5,1fr); gap:9px; margin:12px 0; }
+.EmppAttendence-monthly-stats article { padding:11px 12px; display:flex; align-items:center; justify-content:space-between; border:1px solid #e2e8f0; border-left:4px solid #94a3b8; border-radius:10px; background:#fff; }
+.EmppAttendence-monthly-stats span { color:#64748b; font-size:12px; font-weight:700; }.EmppAttendence-monthly-stats strong { color:#172036; font-size:20px; }
+.EmppAttendence-monthly-stats .present { border-left-color:#10b981; }.EmppAttendence-monthly-stats .absent { border-left-color:#ef4444; }.EmppAttendence-monthly-stats .late { border-left-color:#f59e0b; }.EmppAttendence-monthly-stats .halfday { border-left-color:#0ea5e9; }.EmppAttendence-monthly-stats .leave { border-left-color:#8b5cf6; }
+.EmppAttendence-monthly-calendar-card { padding:13px; border:1px solid #e2e8f0; border-radius:13px; background:#fff; }
+.EmppAttendence-monthly-calendar-heading { display:flex; justify-content:space-between; padding:2px 3px 11px; border-bottom:1px solid #eef2f7; color:#27324a; }.EmppAttendence-monthly-calendar-heading span { color:#94a3b8; font-size:11px; font-weight:800; text-transform:uppercase; }
+.EmppAttendence-monthly-weekdays,.EmppAttendence-monthly-calendar { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+.EmppAttendence-monthly-weekdays span { padding:10px 0 5px; text-align:center; color:#718096; font-size:11px; font-weight:800; }
+.EmppAttendence-monthly-day,.EmppAttendence-monthly-calendar .empty { min-height:66px; padding:7px; border:1px solid #e7ebf2; border-radius:8px; background:#f8fafc; }
+.EmppAttendence-monthly-day { display:flex; flex-direction:column; justify-content:space-between; color:#334155; }.EmppAttendence-monthly-day b { font-size:12px; }.EmppAttendence-monthly-day span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:9px; font-weight:800; text-transform:uppercase; }
+.EmppAttendence-monthly-day.present { background:#ecfdf5; border-color:#a7f3d0; color:#047857; }.EmppAttendence-monthly-day.absent,.EmppAttendence-monthly-day.no-record { background:#fff1f2; border-color:#fecdd3; color:#be123c; }.EmppAttendence-monthly-day.late { background:#fffbeb; border-color:#fde68a; color:#b45309; }.EmppAttendence-monthly-day.half-day,.EmppAttendence-monthly-day.halfday { background:#f0f9ff; border-color:#bae6fd; color:#0369a1; }.EmppAttendence-monthly-day.leave { background:#f5f3ff; border-color:#c4b5fd; color:#6d28d9; }.EmppAttendence-monthly-day.weekend,.EmppAttendence-monthly-day.upcoming { color:#94a3b8; }
+.EmppAttendence-monthly-legend { display:flex; flex-wrap:wrap; gap:12px; padding-top:11px; color:#64748b; font-size:10px; font-weight:700; }.EmppAttendence-monthly-legend span::before { content:''; display:inline-block; width:8px; height:8px; margin-right:5px; border-radius:3px; background:#94a3b8; }.EmppAttendence-monthly-legend .present::before{background:#10b981}.EmppAttendence-monthly-legend .absent::before{background:#ef4444}.EmppAttendence-monthly-legend .late::before{background:#f59e0b}.EmppAttendence-monthly-legend .half-day::before{background:#0ea5e9}.EmppAttendence-monthly-legend .leave::before{background:#8b5cf6}
+@media(max-width:760px){.EmppAttendence-monthly-stats{grid-template-columns:repeat(2,1fr)}.EmppAttendence-monthly-day,.EmppAttendence-monthly-calendar .empty{min-height:52px;padding:4px}.EmppAttendence-monthly-meta{display:none!important}.EmppAttendence-monthly-overlay{padding:8px}}
+
+/* Compact monthly overview */
+.EmppAttendence-monthly-overlay{padding:16px;background:rgba(15,23,42,.52);backdrop-filter:blur(3px)}
+.EmppAttendence-monthly-modal{width:min(780px,94vw);max-height:88vh;border:1px solid rgba(255,255,255,.7);border-radius:15px;box-shadow:0 24px 60px rgba(15,23,42,.25)}
+.EmppAttendence-monthly-header{gap:10px;padding:13px 16px}.EmppAttendence-monthly-header h2{font-size:18px}.EmppAttendence-monthly-header p{margin-top:2px;font-size:11px}
+.EmppAttendence-monthly-title-icon{width:37px;height:37px;border-radius:10px;font-size:17px}
+.EmppAttendence-monthly-body{padding:11px;max-height:calc(88vh - 64px)}
+.EmppAttendence-monthly-employee{gap:9px;padding:8px 10px;border-radius:9px}.EmppAttendence-monthly-employee>span{width:34px;height:34px;font-size:13px}.EmppAttendence-monthly-employee strong{font-size:12px}.EmppAttendence-monthly-employee small{font-size:10px}.EmppAttendence-monthly-meta{padding-left:16px}
+.EmppAttendence-monthly-stats{gap:6px;margin:8px 0}.EmppAttendence-monthly-stats article{padding:7px 8px;border-left-width:3px;border-radius:7px}.EmppAttendence-monthly-stats span{font-size:9px}.EmppAttendence-monthly-stats strong{font-size:16px}
+.EmppAttendence-monthly-calendar-card{padding:9px;border-radius:9px}.EmppAttendence-monthly-calendar-heading{padding:1px 2px 7px;font-size:12px}.EmppAttendence-monthly-calendar-heading span{font-size:8px}
+.EmppAttendence-monthly-weekdays,.EmppAttendence-monthly-calendar{gap:4px}.EmppAttendence-monthly-weekdays span{padding:6px 0 3px;font-size:9px}
+.EmppAttendence-monthly-day,.EmppAttendence-monthly-calendar .empty{min-height:47px;padding:4px;border-radius:6px}.EmppAttendence-monthly-day b{font-size:9px}.EmppAttendence-monthly-day span{font-size:7px}
+.EmppAttendence-monthly-legend{gap:9px;padding-top:7px;font-size:8px}.EmppAttendence-monthly-legend span::before{width:6px;height:6px;margin-right:4px;border-radius:2px}
+@media(max-width:760px){.EmppAttendence-monthly-modal{width:96vw;max-height:92vh}.EmppAttendence-monthly-body{max-height:calc(92vh - 64px)}.EmppAttendence-monthly-day,.EmppAttendence-monthly-calendar .empty{min-height:43px}}
+
+/* Keep the employee attendance table usable without horizontal scrolling. */
+@media (min-width:1025px){
+  .EmppAttendence-attendance-table-container{padding:16px;overflow-x:hidden}
+  .EmppAttendence-attendance-table{min-width:0;width:100%;table-layout:fixed}
+  .EmppAttendence-attendance-table thead th{padding:11px 7px;font-size:10px;letter-spacing:.25px}
+  .EmppAttendence-attendance-table td{padding:11px 7px;font-size:11px;overflow:hidden}
+  .EmppAttendence-col-employee{width:15%}.EmppAttendence-col-department{width:9%}.EmppAttendence-col-type{width:7%}.EmppAttendence-col-shift{width:12%}.EmppAttendence-col-date{width:8%}.EmppAttendence-col-checkin,.EmppAttendence-col-checkout{width:8%}.EmppAttendence-col-hours{width:7%}.EmppAttendence-col-login{width:8%}.EmppAttendence-col-status{width:9%}.EmppAttendence-col-late{width:7%}.EmppAttendence-col-actions{width:15%}
+  .EmppAttendence-employee-avatar{width:32px;height:32px;min-width:32px;font-size:11px}.EmppAttendence-employee-info{gap:7px;min-width:0}.EmppAttendence-employee-details{min-width:0}.EmppAttendence-employee-name,.EmppAttendence-employee-email{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.EmppAttendence-employee-name{font-size:11px}.EmppAttendence-employee-email{font-size:9px}
+  .EmppAttendence-department-chip,.EmppAttendence-type-chip,.EmppAttendence-time-chip,.EmppAttendence-status-chip,.EmppAttendence-late-chip{max-width:100%;padding:5px 6px;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .EmppAttendence-status-explanation{display:none}.EmppAttendence-action-buttons{gap:5px;flex-wrap:nowrap}.EmppAttendence-view-month-btn{min-height:31px;padding:6px 8px;font-size:9px}.EmppAttendence-btn-icon{width:31px;height:31px;min-width:31px}
+}
+@media (min-width:1025px) and (max-width:1500px){
+  .EmppAttendence-attendance-table th.EmppAttendence-col-type,.EmppAttendence-attendance-table td.EmppAttendence-col-type,.EmppAttendence-attendance-table th.EmppAttendence-col-login,.EmppAttendence-attendance-table td.EmppAttendence-col-login{display:none}
+  .EmppAttendence-col-employee{width:17%}.EmppAttendence-col-department{width:10%}.EmppAttendence-col-shift{width:13%}.EmppAttendence-col-date{width:9%}.EmppAttendence-col-checkin,.EmppAttendence-col-checkout{width:9%}.EmppAttendence-col-hours{width:8%}.EmppAttendence-col-status{width:10%}.EmppAttendence-col-late{width:8%}.EmppAttendence-col-actions{width:18%}
+}

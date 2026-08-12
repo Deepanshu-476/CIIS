@@ -94,10 +94,14 @@
 
 /* Login Button */
 .login-btn {
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background-color: var(--primary-color);
   color: white;
-  border: none;
-  padding: 10px 24px;
+  border: 1px solid var(--primary-color);
+  padding: 0 22px;
   border-radius: var(--border-radius);
   font-weight: 600;
   font-size: 0.95rem;
@@ -113,8 +117,9 @@
 }
 
 .nav-actions{display:flex;align-items:center;gap:12px}
-.user-login-btn{height:40px;padding:0 21px;border:1px solid #b8cdf2;border-radius:8px;color:#1858c7;background:#fff;font-weight:650;font-size:.95rem;cursor:pointer;transition:var(--transition)}
-.user-login-btn:hover{border-color:var(--primary-color);background:#f4f8ff}.user-login-btn:focus-visible,.nav-login-modal button:focus-visible{outline:3px solid rgba(37,99,235,.25);outline-offset:2px}
+.nav-register-link{display:flex;text-decoration:none}
+.user-login-btn{height:42px;display:inline-flex;align-items:center;justify-content:center;padding:0 22px;border:1px solid var(--primary-color);border-radius:var(--border-radius);color:#fff;background:var(--primary-color);font-weight:600;font-size:.95rem;line-height:1;letter-spacing:.5px;cursor:pointer;transition:var(--transition)}
+.user-login-btn:hover{border-color:var(--primary-hover);background:var(--primary-hover);transform:translateY(-1px);box-shadow:0 4px 12px rgba(37,99,235,.2)}.user-login-btn:focus-visible,.nav-login-modal button:focus-visible{outline:3px solid rgba(37,99,235,.25);outline-offset:2px}
 .nav-login-backdrop{position:fixed;inset:0;z-index:10020;display:grid;place-items:center;padding:18px;background:rgba(5,18,44,.5);backdrop-filter:blur(4px)}
 .nav-login-modal{position:relative;width:min(430px,100%);padding:30px;border:1px solid #dce5f2;border-radius:18px;background:#fff;box-shadow:0 24px 70px rgba(8,30,67,.25)}
 .nav-login-close{position:absolute;top:15px;right:15px;width:34px;height:34px;display:grid;place-items:center;border:0;border-radius:8px;color:#536079;background:#f3f6fa;cursor:pointer}.nav-login-close svg{width:18px;height:18px}
@@ -226,11 +231,11 @@
     border-top: 1px solid #f0f0f0;
   }
 
-  .nav-actions{display:grid;grid-template-columns:1fr;gap:10px}.user-login-btn{width:100%}
+  .nav-actions{display:grid;grid-template-columns:1fr;gap:10px}.nav-register-link,.user-login-btn{width:100%}
 
   .login-btn {
     width: 100%;
-    padding: 12px;
+    padding: 0 12px;
   }
 }
 
@@ -270,6 +275,7 @@
 .nav-login-modal form{gap:17px;padding:6px 30px 0}
 .nav-login-control{gap:9px}.nav-login-control label{font-size:15px}
 .nav-login-label-row{display:flex;align-items:center;justify-content:space-between}.nav-login-label-row label{margin:0}.nav-login-label-row button{padding:0;border:0;color:#1260e8;background:transparent;font:inherit;font-size:14px;font-weight:650;cursor:pointer}
+.nav-login-forgot-row{display:flex;justify-content:flex-end;margin:-7px 0 15px}.nav-login-forgot-row button{padding:0;border:0;color:#2563eb;background:transparent;font:inherit;font-size:12px;font-weight:600;cursor:pointer}.nav-login-forgot-row button:hover{text-decoration:underline}
 .nav-login-field{height:54px;padding-inline:15px;border-radius:10px}.nav-login-field>svg{width:19px;height:19px}.nav-login-field input{font-size:14px}.nav-login-field button{width:34px;height:34px}.nav-login-field button svg{width:18px;height:18px}
 .nav-login-submit{height:54px;margin-top:5px;border-radius:10px;font-size:16px;box-shadow:0 7px 15px rgba(37,99,235,.22)}
 .nav-login-note{min-height:62px;display:flex;align-items:center;justify-content:center;gap:10px;margin:22px 30px 0;padding:0;border-top:1px solid #dfe5ee;color:#65738b;font-size:13px}.nav-login-note svg{width:20px;height:20px}
@@ -407,7 +413,7 @@ html {
 .nav-login-field.error { border-color: #e35c6a; background: #fffafb; }
 .nav-login-field > svg { width: 18px; height: 18px; color: #687b99; }
 .nav-login-field input { width: 100%; min-width: 0; height: 100%; padding: 0; font-size: 14px; text-transform: none; }
-.nav-login-field input::placeholder { color: #9aa6b8; }
+.nav-login-field input::placeholder { color: #9aa6b8; text-transform: none; }
 #nav-company-code { text-transform: uppercase; }
 
 .nav-login-field button {
@@ -531,6 +537,131 @@ html {
 }
 
 .nav-login-back:hover { background: #f0f5ff; }
+
+/* Login and recovery backdrop mirrors the full-page company login. */
+.nav-login-backdrop {
+  background: linear-gradient(135deg, rgba(15,23,42,.96) 0%, rgba(30,27,75,.96) 52%, rgba(49,16,66,.96) 100%);
+  backdrop-filter: blur(3px);
+}
+
+/* Only the actual OTP input uses centered, spaced digits. */
+.nav-login-otp .nav-login-field:not(.nav-login-otp-field) input {
+  text-align: left;
+  letter-spacing: normal;
+  font-size: 14px;
+  font-weight: 400;
+}
+.nav-login-otp #nav-reset-company {
+  text-transform: uppercase;
+}
+.nav-login-otp #nav-reset-email {
+  text-transform: lowercase;
+}
+
+
+/* Split-layout navbar login, matching the full company login page. */
+.nav-login-modal {
+  width: min(980px, calc(100vw - 40px));
+  max-height: calc(100dvh - 40px);
+  display: grid;
+  grid-template-columns: minmax(300px, 42%) minmax(420px, 58%);
+  overflow: hidden;
+  border-color: rgba(255, 255, 255, 0.28);
+  border-radius: 22px;
+}
+
+.nav-login-modal::before { display: none; }
+
+.nav-login-brand {
+  position: relative;
+  min-height: 620px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 44px 38px;
+  color: #fff;
+  text-align: center;
+  background: linear-gradient(145deg, #4f46e5 0%, #693bf0 55%, #7c3aed 100%);
+}
+
+.nav-login-brand::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  opacity: .28;
+  background-image: radial-gradient(circle at 22% 22%, rgba(255,255,255,.35) 1px, transparent 1px);
+  background-size: 34px 34px;
+}
+
+.nav-login-brand > * { position: relative; z-index: 1; }
+.nav-login-brand-logo {
+  width: min(310px, 100%);
+  min-height: 125px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 34px;
+  padding: 24px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 18px 45px rgba(28, 16, 86, .2);
+}
+.nav-login-brand-logo img { width: 100%; max-height: 78px; object-fit: contain; }
+.nav-login-brand h3 { max-width: 430px; margin: 0; font-size: clamp(24px, 2.2vw, 32px); line-height: 1.3; letter-spacing: .2px; text-align: center; text-wrap: balance; }
+.nav-login-brand p { margin: 14px 0 34px; font-size: 16px; opacity: .9; }
+.nav-login-brand span { display: inline-flex; align-items: center; gap: 9px; font-size: 13px; opacity: .82; }
+
+.nav-login-content {
+  min-width: 0;
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  padding: 38px 58px 30px;
+  background: #fff;
+}
+
+.nav-login-content > header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.nav-login-content > header > span { display: none; }
+.nav-login-content h2 { font-size: 34px; }
+.nav-login-content header p { margin-top: 8px; font-size: 15px; }
+.nav-login-content form { gap: 17px; padding: 0; }
+.nav-login-content .nav-login-field { height: 54px; }
+.nav-login-content .nav-login-submit { height: 54px; margin-top: 8px; }
+.nav-login-content .nav-login-note { margin: 26px 0 0; padding-top: 20px; }
+.nav-login-modal > .nav-login-close { top: 22px; right: 22px; }
+
+@media (max-width: 800px) {
+  .nav-login-modal { width: min(520px, calc(100vw - 24px)); grid-template-columns: 1fr; overflow-y: auto; }
+  .nav-login-brand { min-height: auto; padding: 22px 64px 18px; }
+  .nav-login-brand-logo { width: 210px; min-height: 76px; margin-bottom: 14px; padding: 13px 20px; border-radius: 13px; }
+  .nav-login-brand-logo img { max-height: 48px; }
+  .nav-login-brand h3 { font-size: 21px; }
+  .nav-login-brand p { margin: 7px 0 0; font-size: 12px; }
+  .nav-login-brand span { display: none; }
+  .nav-login-content { max-height: none; padding: 28px 28px 24px; }
+  .nav-login-content > header { margin-bottom: 22px; }
+  .nav-login-content h2 { font-size: 27px; }
+  .nav-login-modal > .nav-login-close { top: 14px; right: 14px; color: #fff; border-color: rgba(255,255,255,.45); background: rgba(255,255,255,.14); }
+}
+
+@media (max-width: 520px) {
+  .nav-login-backdrop { align-items: center; padding: 8px; }
+  .nav-login-modal { width: 100%; max-height: calc(100dvh - 16px); border-radius: 17px; }
+  .nav-login-brand { padding: 18px 54px 15px; }
+  .nav-login-brand-logo { width: 180px; min-height: 64px; margin-bottom: 10px; }
+  .nav-login-brand h3 { font-size: 18px; }
+  .nav-login-content { padding: 23px 20px 20px; }
+  .nav-login-content h2 { font-size: 24px; }
+  .nav-login-content .nav-login-note { margin-top: 20px; }
+}
 
 @media (max-width: 520px) {
   .nav-login-otp { gap: 14px; }

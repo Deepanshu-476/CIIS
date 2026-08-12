@@ -103,15 +103,50 @@ const AttendanceAiSection = () => (
   <section className="aa-section" aria-label="Attendance workflow and AI business assistant">
     <article className="aa-attendance-card">
       <h2>Attendance That Works Your Way</h2>
-      <div className="aa-workflow" role="list">
-        {workflow.map((item, index) => (
-          <React.Fragment key={`${item.title}-${index}`}>
-            <div role="listitem"><WorkflowCard item={item} /></div>
-            {index < workflow.length - 1 && <FiArrowRight className="aa-connector" aria-hidden="true" />}
-          </React.Fragment>
-        ))}
+      <div className="aa-workflow-container">
+        <div className="aa-workflow-methods">
+          <div className="aa-workflow-item aa-teal">
+            <span className="aa-workflow-icon green"><LuFingerprint /></span>
+            <h3>Fingerprint Devices</h3>
+            <p>Connect any biometric machine</p>
+          </div>
+          <div className="aa-workflow-item aa-violet">
+            <span className="aa-workflow-icon purple"><LuScanFace /></span>
+            <h3>Face Recognition</h3>
+            <p>Modern face recognition support</p>
+          </div>
+          <div className="aa-workflow-item aa-blue">
+            <span className="aa-workflow-icon blue"><LuSmartphone /></span>
+            <h3>Mobile Attendance</h3>
+            <p>Use any Android device as kiosk</p>
+          </div>
+          <div className="aa-workflow-item aa-blue">
+            <span className="aa-workflow-icon blue"><LuMonitorSmartphone /></span>
+            <h3>Web &amp; Mobile</h3>
+            <p>Clock in from anywhere</p>
+          </div>
+        </div>
+
+        <FiArrowRight className="aa-main-connector" aria-hidden="true" />
+
+        <div className="aa-workflow-pipeline">
+          <div className="aa-pipeline-flow">
+            <span className="aa-pipeline-icon device-icon" aria-hidden="true"><LuTabletSmartphone /></span>
+            <FiArrowRight className="aa-pipeline-arrow" aria-hidden="true" />
+            <div className="aa-gateway-pill">
+              <strong><span>CIIS Attendance</span><br />Gateway</strong>
+            </div>
+            <FiArrowRight className="aa-pipeline-arrow" aria-hidden="true" />
+            <span className="aa-pipeline-icon laptop-icon" aria-hidden="true"><LuPanelsTopLeft /></span>
+            <FiArrowRight className="aa-pipeline-arrow" aria-hidden="true" />
+            <div className="aa-reports-box">
+              <span className="aa-pipeline-icon reports-icon" aria-hidden="true"><LuChartNoAxesCombined /></span>
+              <h3>Reports &amp; Analytics</h3>
+            </div>
+          </div>
+          <p className="aa-supporting-text">All punches in real-time <b>•</b> Smart rules <b>•</b> Accurate reports</p>
+        </div>
       </div>
-      <div className="aa-supporting-line"><i></i><p>All punches in real-time <b>•</b> Smart rules <b>•</b> Accurate reports</p><i></i></div>
     </article>
 
     <article className="aa-assistant-card">

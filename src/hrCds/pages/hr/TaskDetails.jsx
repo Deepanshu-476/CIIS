@@ -1938,7 +1938,9 @@ const UserCreateTask = () => {
     );
   }
 
-  if (loading && pagination.page === 1) {
+  const hasRenderedTasks = allTasks.length > 0 || countAllTasks(myTasksGrouped) > 0;
+
+  if (loading && pagination.page === 1 && !hasRenderedTasks) {
     return (
       <Box sx={{
         display: 'flex',
@@ -1959,7 +1961,7 @@ const UserCreateTask = () => {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Fade in={!loading} timeout={500}>
+      <Fade in={!loading || hasRenderedTasks} timeout={500}>
         <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, maxWidth: 1400, margin: '0 auto' }}>
           
           <Paper

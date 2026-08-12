@@ -3096,6 +3096,17 @@
   font-size: 12px;
   font-weight: 600;
 }
+.MyLeaves-approval-empty.MyLeaves-approval-approved { color: #07865f; }
+.MyLeaves-approval-empty.MyLeaves-approval-rejected { color: #c5223d; }
+.MyLeaves-type-with-pay { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.MyLeaves-pay-treatment { display: inline-flex; align-items: center; width: max-content; padding: 3px 7px; border-radius: 999px; color: #5f6b7c; background: #eef1f5; font-size: 9px; font-weight: 800; line-height: 1.2; white-space: nowrap; }
+.MyLeaves-pay-treatment.MyLeaves-pay-paid { color: #087a55; background: #dcf8eb; }
+.MyLeaves-pay-treatment.MyLeaves-pay-unpaid { color: #b42318; background: #fee9e7; }
+.MyLeaves-pay-treatment.MyLeaves-pay-awaiting-decision { color: #9a5b00; background: #fff1cc; }
+.MyLeaves-pay-detail.MyLeaves-pay-paid { color: #087a55; }
+.MyLeaves-pay-detail.MyLeaves-pay-unpaid { color: #b42318; }
+.MyLeaves-pay-detail.MyLeaves-pay-awaiting-decision { color: #9a5b00; }
+.MyLeaves-history-decision { margin: 6px 0 0; color: #475467; font-size: 11px; line-height: 1.4; }
 
 .MyLeaves-mobile-card-row-stack {
   align-items: flex-start;
@@ -3256,6 +3267,44 @@
   }
 }
 
+.MyLeaves-policy-summary {
+  overflow: hidden;
+  border: 1px solid #d9e2ff;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #f8faff, #fff);
+}
+.MyLeaves-policy-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 15px;
+  border-bottom: 1px solid #e7ecfb;
+}
+.MyLeaves-policy-summary-head > div { display: grid; gap: 2px; }
+.MyLeaves-policy-eyebrow { color: #68758d; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.MyLeaves-policy-summary-head strong { color: #1d2a45; font-size: 14px; }
+.MyLeaves-pay-badge { flex: 0 0 auto; padding: 5px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; }
+.MyLeaves-pay-badge.paid { color: #087a55; background: #dcf8eb; }
+.MyLeaves-pay-badge.unpaid { color: #b42318; background: #fee9e7; }
+.MyLeaves-pay-badge.decision { color: #7a4b00; background: #fff1cc; }
+.MyLeaves-policy-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #e5eafb; }
+.MyLeaves-policy-metrics > div { display: grid; gap: 3px; padding: 11px 8px; text-align: center; background: #fff; }
+.MyLeaves-policy-metrics span { color: #77829a; font-size: 10px; }
+.MyLeaves-policy-metrics strong { color: #243451; font-size: 17px; }
+.MyLeaves-policy-metrics .remaining strong { color: #4f36d6; }
+.MyLeaves-policy-rules { display: flex; flex-wrap: wrap; gap: 7px; padding: 11px 13px; }
+.MyLeaves-policy-rules span { padding: 5px 8px; border-radius: 7px; color: #5b6780; background: #eef2fb; font-size: 10px; }
+.MyLeaves-policy-rules b { color: #253451; }
+.MyLeaves-policy-validation { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border-radius: 10px; font-size: 12px; line-height: 1.4; }
+.MyLeaves-policy-validation svg { flex: 0 0 auto; margin-top: 1px; }
+.MyLeaves-policy-validation.info { color: #37537a; background: #edf5ff; }
+.MyLeaves-policy-validation.error { color: #a51d1d; background: #fff0f0; border: 1px solid #ffd3d3; }
+@media (max-width: 560px) {
+  .MyLeaves-policy-metrics { grid-template-columns: repeat(2, 1fr); }
+  .MyLeaves-policy-summary-head { align-items: flex-start; }
+}
+
 /* Leave history popup: compact frame with safe header clearance and one scroll area. */
 .MyLeaves-history-overlay {
   align-items: flex-start;
@@ -3362,4 +3411,311 @@
   .MyLeaves-detail-body { padding: 16px; }
   .MyLeaves-detail-grid { grid-template-columns: 1fr; gap: 9px; }
   .MyLeaves-detail-section { margin-top: 12px; padding: 13px; }
+}
+
+/* Compact Apply Leave layout: keep policy information visible with minimal scrolling. */
+@media (min-width: 900px) {
+  .MyLeaves-apply-modal-overlay {
+    align-items: flex-start !important;
+    padding: 96px 24px 20px !important;
+  }
+  .MyLeaves-apply-modal {
+    width: min(calc(100vw - 48px), 1160px) !important;
+    max-height: calc(100dvh - 116px) !important;
+    margin: 0 auto !important;
+  }
+  .MyLeaves-apply-modal .MyLeaves-apply-tab { padding: 0 28px !important; }
+  .MyLeaves-apply-modal-heading {
+    margin: 0 -28px 12px !important;
+    padding: 18px 54px 14px 76px !important;
+    border-bottom: 1px solid #e8ecf3;
+  }
+  .MyLeaves-apply-title-icon { left: 28px !important; top: 15px !important; width: 36px !important; height: 36px !important; }
+  .MyLeaves-apply-modal .MyLeaves-form-title { font-size: 21px !important; }
+  .MyLeaves-apply-modal .MyLeaves-form-subtitle { font-size: 11px !important; }
+  .MyLeaves-apply-modal .MyLeaves-apply-form-container {
+    grid-template-columns: minmax(0, 1.7fr) minmax(275px, .8fr) !important;
+    column-gap: 22px !important;
+  }
+  .MyLeaves-apply-modal .MyLeaves-form { gap: 9px !important; }
+  .MyLeaves-apply-modal .MyLeaves-form-group { gap: 4px !important; }
+  .MyLeaves-apply-modal .MyLeaves-form-group label { font-size: 12px !important; }
+  .MyLeaves-apply-modal .MyLeaves-form-select,
+  .MyLeaves-apply-modal .MyLeaves-form-input { height: 39px !important; }
+  .MyLeaves-date-range-group { gap: 12px !important; }
+  .MyLeaves-total-days-group { margin: 0 !important; }
+  .MyLeaves-total-days-group label { padding: 7px 10px !important; }
+  .MyLeaves-total-days-group .MyLeaves-days-display { min-height: 40px !important; padding: 8px !important; font-size: 18px !important; }
+  .MyLeaves-policy-summary-head { padding: 9px 12px !important; }
+  .MyLeaves-policy-metrics > div { padding: 7px 5px !important; }
+  .MyLeaves-policy-metrics span { font-size: 9px !important; }
+  .MyLeaves-policy-metrics strong { font-size: 14px !important; }
+  .MyLeaves-policy-rules { gap: 5px !important; padding: 7px 10px !important; }
+  .MyLeaves-policy-rules span { padding: 4px 6px !important; font-size: 9px !important; }
+  .MyLeaves-policy-validation { padding: 7px 10px !important; font-size: 11px !important; }
+  .MyLeaves-apply-modal .MyLeaves-form-textarea { min-height: 62px !important; max-height: 78px; }
+  .MyLeaves-reason-count { margin-top: 2px !important; font-size: 10px !important; }
+  .MyLeaves-guidelines-panel { margin: 0 0 10px !important; padding: 14px !important; }
+  .MyLeaves-guidelines-title > span { width: 34px !important; height: 34px !important; font-size: 18px !important; }
+  .MyLeaves-guidelines-title h3 { font-size: 15px !important; }
+  .MyLeaves-guidelines-panel ul { gap: 9px !important; margin-top: 12px !important; }
+  .MyLeaves-guidelines-panel li { padding-left: 25px !important; font-size: 10px !important; }
+  .MyLeaves-guidelines-panel li::before { width: 18px !important; height: 18px !important; }
+  .MyLeaves-guidelines-note { margin-top: 12px !important; padding: 8px !important; }
+  .MyLeaves-apply-modal .MyLeaves-form-actions {
+    position: sticky !important;
+    bottom: 0;
+    grid-column: 1 / -1;
+    z-index: 25;
+    margin: 4px -28px 0 !important;
+    padding: 10px 28px 12px !important;
+    background: #fff !important;
+  }
+  .MyLeaves-apply-modal .MyLeaves-form-submit,
+  .MyLeaves-apply-modal .MyLeaves-form-cancel { min-height: 38px !important; padding: 8px 18px !important; }
+}
+
+@media (min-width: 900px) and (max-height: 720px) {
+  .MyLeaves-apply-modal-overlay { padding-top: 84px !important; }
+  .MyLeaves-apply-modal { max-height: calc(100dvh - 100px) !important; }
+}
+
+/* Reference-matched Apply Leave modal. */
+@media (min-width: 900px) {
+  .MyLeaves-apply-modal-overlay { padding: 92px 24px 18px !important; }
+  .MyLeaves-apply-modal {
+    width: min(1080px, calc(100vw - 48px)) !important;
+    height: auto !important;
+    max-height: calc(100dvh - 110px) !important;
+    border-radius: 15px !important;
+    box-shadow: 0 24px 65px rgba(21, 31, 55, .28) !important;
+  }
+  .MyLeaves-apply-modal .MyLeaves-apply-tab { padding: 0 24px !important; }
+  .MyLeaves-apply-modal-heading {
+    min-height: 78px;
+    margin: 0 -24px 16px !important;
+    padding: 17px 56px 14px 74px !important;
+  }
+  .MyLeaves-apply-title-icon { left: 24px !important; top: 16px !important; width: 42px !important; height: 42px !important; }
+  .MyLeaves-apply-modal .MyLeaves-form-title { font-size: 23px !important; }
+  .MyLeaves-apply-modal .MyLeaves-form-subtitle { font-size: 12px !important; }
+  .MyLeaves-apply-modal .MyLeaves-apply-form-container {
+    grid-template-columns: minmax(0, 1.65fr) minmax(290px, .85fr) !important;
+    column-gap: 30px !important;
+  }
+  .MyLeaves-apply-modal .MyLeaves-form { gap: 10px !important; }
+  .MyLeaves-guidelines-panel { margin: 0 0 14px !important; }
+}
+
+.MyLeaves-leave-type-control { position: relative; }
+.MyLeaves-leave-type-control > svg {
+  position: absolute; left: 14px; top: 50%; z-index: 1; transform: translateY(-50%);
+  width: 17px; height: 17px; color: #51617b; pointer-events: none;
+}
+.MyLeaves-leave-type-control .MyLeaves-form-select { width: 100%; padding-left: 44px !important; }
+.MyLeaves-eligibility-line { display: flex; align-items: center; gap: 5px; color: #16a05d; font-size: 11px; }
+.MyLeaves-eligibility-line svg { width: 13px; height: 13px; }
+
+.MyLeaves-total-days-group {
+  grid-template-columns: auto 1fr; align-items: center; overflow: hidden;
+  border: 1px solid #e5dcff; border-radius: 7px; background: linear-gradient(90deg, #f8f5ff, #f1ecff);
+}
+.MyLeaves-apply-modal .MyLeaves-total-days-group > label { padding: 9px 12px !important; color: #5535c9 !important; }
+.MyLeaves-apply-modal .MyLeaves-total-days-group .MyLeaves-days-display {
+  min-height: 36px !important; padding: 7px 13px !important; text-align: right; border: 0 !important; background: transparent !important;
+}
+.MyLeaves-total-days-group .MyLeaves-days-display strong { color: #5430d5; font-size: 17px; }
+
+.MyLeaves-policy-summary { border-radius: 8px; border-color: #dfe5ef; background: #fff; }
+.MyLeaves-policy-summary-head { padding: 9px 12px !important; }
+.MyLeaves-policy-metrics { grid-template-columns: repeat(3, 1fr) !important; background: #dfe4ee; }
+.MyLeaves-policy-metrics > div { min-height: 54px; padding: 7px 5px !important; }
+.MyLeaves-policy-metrics span { font-size: 10px !important; }
+.MyLeaves-policy-metrics strong { font-size: 14px !important; }
+.MyLeaves-policy-rules { justify-content: center; padding: 7px 9px !important; }
+.MyLeaves-policy-rules span { border: 1px solid #e1e6ef; background: #f7f8fb; }
+
+.MyLeaves-guidelines-panel {
+  padding: 18px !important; border-radius: 8px !important; border: 1px solid #ddd8ff !important;
+  background: linear-gradient(145deg, #faf9ff, #f4f1ff) !important;
+}
+.MyLeaves-guidelines-heading h3 { margin: 0; color: #14213b; font-size: 17px; }
+.MyLeaves-guidelines-heading p { margin: 4px 0 0; color: #65718a; font-size: 11px; }
+.MyLeaves-guideline-cards { display: grid; gap: 10px; margin-top: 18px; }
+.MyLeaves-guideline-cards > div { display: flex; align-items: center; gap: 11px; }
+.MyLeaves-guideline-cards > div > span {
+  flex: 0 0 38px; width: 38px; height: 38px; display: grid; place-items: center;
+  border: 1px solid #e1dcff; border-radius: 8px; background: #fff; color: #6038df; font-size: 21px;
+}
+.MyLeaves-guideline-cards svg { width: 18px; height: 18px; }
+.MyLeaves-guideline-cards p { display: grid; gap: 2px; margin: 0; min-width: 0; }
+.MyLeaves-guideline-cards b { color: #1f2940; font-size: 12px; }
+.MyLeaves-guideline-cards small { color: #65718a; font-size: 10px; }
+.MyLeaves-guidelines-note { gap: 8px !important; margin-top: 18px !important; padding: 11px !important; border: 1px solid #cfe9dc; background: #eefaf3 !important; color: #178653 !important; font-size: 10px !important; }
+.MyLeaves-guidelines-note svg { flex: 0 0 auto; }
+.MyLeaves-guidelines-note span { font-size: 10px !important; }
+.MyLeaves-submit-checklist { margin-top: 12px; padding: 12px; border: 1px solid #e1ddf4; border-radius: 9px; background: rgba(255,255,255,.72); }
+.MyLeaves-submit-checklist-head { display: flex; align-items: center; gap: 9px; }
+.MyLeaves-submit-checklist-head > span { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 7px; background: #eeeaff; color: #5d39dc; }
+.MyLeaves-submit-checklist-head > span svg { width: 15px; height: 15px; }
+.MyLeaves-submit-checklist-head > div { display: grid; gap: 1px; }
+.MyLeaves-submit-checklist-head b { color: #25304a; font-size: 11px; }
+.MyLeaves-submit-checklist-head small { color: #7b8496; font-size: 9px; }
+.MyLeaves-submit-checklist ul { display: grid; gap: 7px; margin: 10px 0 0; padding: 0; list-style: none; }
+.MyLeaves-submit-checklist li { position: relative; padding-left: 18px; color: #65718a; font-size: 9px; line-height: 1.35; }
+.MyLeaves-submit-checklist li::before { content: '✓'; position: absolute; left: 0; top: 0; color: #1a9a60; font-weight: 800; }
+.MyLeaves-reason-count { color: #16965a !important; text-align: right; }
+
+@media (max-width: 899px) {
+  .MyLeaves-policy-metrics { grid-template-columns: repeat(2, 1fr) !important; }
+  .MyLeaves-guidelines-panel { margin-top: 4px !important; }
+}
+.MyLeaves-cancel-leave-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 11px;
+  border: 1px solid #fecaca;
+  border-radius: 9px;
+  background: #fff7f7;
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: 0.18s ease;
+}
+
+.MyLeaves-cancel-leave-button:hover:not(:disabled) {
+  border-color: #f87171;
+  background: #fee2e2;
+  transform: translateY(-1px);
+}
+
+.MyLeaves-cancel-leave-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.MyLeaves-action-unavailable {
+  color: #a0aec0;
+}
+
+.MyLeaves-status-cancelled {
+  border-color: #cbd5e1 !important;
+  background: #f1f5f9 !important;
+  color: #64748b !important;
+}
+
+.MyLeaves-cancel-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(4px);
+}
+
+.MyLeaves-cancel-dialog {
+  position: relative;
+  width: min(410px, 94vw);
+  padding: 19px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 26px 70px rgba(15, 23, 42, 0.28);
+}
+
+.MyLeaves-cancel-dialog-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  background: #fff1f2;
+  color: #dc2626;
+  font-size: 18px;
+}
+
+.MyLeaves-cancel-dialog-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.MyLeaves-cancel-dialog-eyebrow {
+  color: #dc2626;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.MyLeaves-cancel-dialog h2 {
+  margin: 5px 0 7px;
+  color: #172036;
+  font-size: 18px;
+}
+
+.MyLeaves-cancel-dialog > p {
+  margin: 0 0 12px;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.MyLeaves-cancel-dialog-summary {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr 1fr;
+  gap: 1px;
+  overflow: hidden;
+  margin-bottom: 11px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #e2e8f0;
+}
+
+.MyLeaves-cancel-dialog-summary div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  background: #f8fafc;
+}
+
+.MyLeaves-cancel-dialog-summary small { color: #94a3b8; font-size: 8px; font-weight: 700; }
+.MyLeaves-cancel-dialog-summary strong { color: #27324a; font-size: 10px; }
+
+.MyLeaves-cancel-dialog-reason { display: flex; flex-direction: column; gap: 6px; }
+.MyLeaves-cancel-dialog-reason > span { color: #344054; font-size: 11px; font-weight: 700; }
+.MyLeaves-cancel-dialog-reason > span small { color: #94a3b8; font-weight: 500; }
+.MyLeaves-cancel-dialog-reason textarea { resize: vertical; min-height: 56px; padding: 8px 9px; border: 1px solid #cbd5e1; border-radius: 8px; outline: none; color: #334155; font: inherit; font-size: 11px; }
+.MyLeaves-cancel-dialog-reason textarea:focus { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
+.MyLeaves-cancel-dialog-reason > small { align-self: flex-end; color: #94a3b8; font-size: 9px; }
+
+.MyLeaves-cancel-dialog-note { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding: 7px 8px; border-radius: 7px; background: #fffbeb; color: #92400e; font-size: 9px; }
+.MyLeaves-cancel-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 13px; }
+.MyLeaves-cancel-dialog-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 35px; padding: 7px 11px; border-radius: 8px; font-size: 10px; font-weight: 750; cursor: pointer; }
+.MyLeaves-cancel-dialog-actions .secondary { border: 1px solid #cbd5e1; background: #fff; color: #475569; }
+.MyLeaves-cancel-dialog-actions .danger { border: 1px solid #dc2626; background: #dc2626; color: #fff; }
+.MyLeaves-cancel-dialog-actions button:disabled { cursor: wait; opacity: 0.65; }
+
+@media (max-width: 560px) {
+  .MyLeaves-cancel-dialog { padding: 20px 16px; }
+  .MyLeaves-cancel-dialog-summary { grid-template-columns: 1fr; }
+  .MyLeaves-cancel-dialog-actions { flex-direction: column-reverse; }
+  .MyLeaves-cancel-dialog-actions button { width: 100%; }
 }

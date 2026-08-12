@@ -44,11 +44,13 @@ const APP_ROUTES = [
   { id: "change-password", path: "change-password", name: "Change Password", category: "main" },
   { id: "emp-details", path: "emp-details", name: "Employee Details", category: "administration" },
   { id: "emp-leaves", path: "emp-leaves", name: "Employee Leaves", category: "administration" },
+  { id: "leave-policy", path: "leave-policy", name: "Leave Policy", category: "administration" },
   { id: "emp-assets", path: "emp-assets", name: "Employee Assets", category: "administration" },
   { id: "emp-attendance", path: "emp-attendance", name: "Employee Attendance", category: "administration" },
   { id: "department", path: "department", name: "Department Management", category: "administration" },
   { id: "JobRoleManagement", path: "JobRoleManagement", name: "Job Role Management", category: "administration" },
   { id: "create-user", path: "create-user", name: "Create User", category: "administration" },
+  { id: "register-request", path: "register-request", name: "Register Request", category: "administration" },
   { id: "SidebarManagement", path: "SidebarManagement", name: "Sidebar Management", category: "administration" },
   { id: "manage-groups", path: "manage-groups", name: "Manage Groups", category: "administration" },
   { id: "task-management", path: "task-management", name: "Create Task", category: "tasks" },
@@ -75,6 +77,27 @@ const APP_ROUTES = [
   { id: "support-operations", path: "support-operations", name: "Support Operations", category: "administration" },
 ];
 
+const SUPER_ADMIN_ROUTES = [
+  { id: "company-details", path: "company-details", name: "Company Details", category: "management" },
+  { id: "all-company", path: "all-company", name: "All Company", category: "owner" },
+  { id: "CompanyAccessManagement", path: "CompanyAccessManagement", name: "Company Access", category: "owner" },
+  { id: "department", path: "department", name: "Department", category: "management" },
+  { id: "branch", path: "branch", name: "Manage Branches", category: "management" },
+  { id: "JobRoleManagement", path: "JobRoleManagement", name: "Job Roles", category: "management" },
+  { id: "create-user", path: "create-user", name: "Create User", category: "management" },
+  { id: "company-assets", path: "company-assets", name: "Assets Management", category: "management" },
+  { id: "SidebarManagement", path: "SidebarManagement", name: "Sidebar Management", category: "management" },
+  { id: "page-management", path: "page-management", name: "Page Management", category: "management" },
+  { id: "plans", path: "plans", name: "Plans", category: "owner" },
+  { id: "email-settings", path: "email-settings", name: "Email Settings", category: "owner" },
+  { id: "app-version-control", path: "app-version-control", name: "App Version", category: "owner" },
+  { id: "support-operations", path: "support-operations", name: "Support Operations", category: "management" },
+  { id: "leave-policy", path: "leave-policy", name: "Leave Policy", category: "management" },
+  { id: "demo-requests", path: "demo-requests", name: "Demo Requests", category: "owner" },
+  { id: "holiday", path: "holiday", name: "Holiday", category: "management" },
+  { id: "settings", path: "settings", name: "Settings", category: "management" },
+];
+
 const categoryNames = {
   main: "Main",
   administration: "Administration",
@@ -83,6 +106,8 @@ const categoryNames = {
   meetings: "Meetings",
   clients: "Clients",
   communication: "Communication",
+  management: "Super Admin Management",
+  owner: "Owner Only",
 };
 
 const categoryColors = {
@@ -93,6 +118,8 @@ const categoryColors = {
   meetings: "#0891b2",
   clients: "#db2777",
   communication: "#475569",
+  management: "#2563eb",
+  owner: "#7c3aed",
 };
 
 const getRouteAccessKeys = route => {
@@ -158,6 +185,7 @@ export default function CompanyAccessManagement() {
   const [companies, setCompanies] = useState([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [selectedPages, setSelectedPages] = useState([]);
+  const [selectedSuperAdminPages, setSelectedSuperAdminPages] = useState([]);
   const [activeDays, setActiveDays] = useState(30);
   const [isActive, setIsActive] = useState(true);
   const [search, setSearch] = useState("");
@@ -178,10 +206,25 @@ export default function CompanyAccessManagement() {
   const selectedPercent = APP_ROUTES.length
     ? Math.round((selectedPages.length / APP_ROUTES.length) * 100)
     : 0;
+  const selectedSuperAdminPercent = SUPER_ADMIN_ROUTES.length
+    ? Math.round((selectedSuperAdminPages.length / SUPER_ADMIN_ROUTES.length) * 100)
+    : 0;
 
   const groupedRoutes = useMemo(() => {
     const cleanSearch = search.trim().toLowerCase();
     return APP_ROUTES.filter(route => {
+      if (!cleanSearch) return true;
+      return `${route.name} ${route.path} ${route.category}`.toLowerCase().includes(cleanSearch);
+    }).reduce((groups, route) => {
+      if (!groups[route.category]) groups[route.category] = [];
+      groups[route.category].push(route);
+      return groups;
+    }, {});
+  }, [search]);
+
+  const groupedSuperAdminRoutes = useMemo(() => {
+    const cleanSearch = search.trim().toLowerCase();
+    return SUPER_ADMIN_ROUTES.filter(route => {
       if (!cleanSearch) return true;
       return `${route.name} ${route.path} ${route.category}`.toLowerCase().includes(cleanSearch);
     }).reduce((groups, route) => {
@@ -222,6 +265,7 @@ export default function CompanyAccessManagement() {
   const selectCompany = company => {
     setSelectedCompanyId(company._id);
     setSelectedPages(normalizeAllowedPages(company.allowedPages));
+    setSelectedSuperAdminPages(Array.isArray(company.allowedSuperAdminPages) ? company.allowedSuperAdminPages : []);
     setIsActive(Boolean(company.isActive));
     setActiveDays(30);
     setNotice(null);
@@ -234,6 +278,7 @@ export default function CompanyAccessManagement() {
   const goBackToCompanies = () => {
     setSelectedCompanyId("");
     setSelectedPages([]);
+    setSelectedSuperAdminPages([]);
     setSearch("");
     setNotice(null);
     navigate("/Ciis-network/CompanyAccessManagement");
@@ -256,10 +301,31 @@ export default function CompanyAccessManagement() {
     });
   };
 
+  const toggleSuperAdminPage = pageId => {
+    setSelectedSuperAdminPages(prev =>
+      prev.includes(pageId)
+        ? prev.filter(id => id !== pageId)
+        : [...prev, pageId]
+    );
+  };
+
+  const toggleSuperAdminCategory = routes => {
+    const ids = routes.map(route => route.id);
+    const allSelected = ids.every(id => selectedSuperAdminPages.includes(id));
+    setSelectedSuperAdminPages(prev => {
+      if (allSelected) return prev.filter(id => !ids.includes(id));
+      return [...new Set([...prev, ...ids])];
+    });
+  };
+
   const saveAccess = async () => {
     if (!selectedCompany) return;
     if (selectedPages.length === 0) {
       setNotice({ severity: "warning", message: "Select at least one page before activating access." });
+      return;
+    }
+    if (selectedSuperAdminPages.length === 0) {
+      setNotice({ severity: "warning", message: "Select at least one super admin page before activating access." });
       return;
     }
 
@@ -267,6 +333,7 @@ export default function CompanyAccessManagement() {
     try {
       const response = await axiosInstance.patch(`/company/${selectedCompany._id}/access`, {
         allowedPages: selectedPages,
+        allowedSuperAdminPages: selectedSuperAdminPages,
         activeDays,
         isActive,
         updatedBy: getStoredAdminId(),
@@ -343,16 +410,31 @@ export default function CompanyAccessManagement() {
               </div>
             </div>
           </Grid>
-          <Grid item xs={12} sm={8}>
+          <Grid item xs={12} sm={4}>
             <div className="JobRoleManagement-info-banner" style={{ marginBottom: 0 }}>
               <LockOpenIcon className="JobRoleManagement-info-icon" />
               <div style={{ width: "100%" }}>
                 <div className="JobRoleManagement-info-title">
-                  {selectedPages.length} pages selected / {selectedPercent}% enabled
+                  {selectedPages.length} user pages / {selectedPercent}% enabled
                 </div>
                 <LinearProgress
                   variant="determinate"
                   value={selectedPercent}
+                  sx={{ height: 7, mt: 1, borderRadius: 99, bgcolor: "#d7e9fb" }}
+                />
+              </div>
+            </div>
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <div className="JobRoleManagement-info-banner" style={{ marginBottom: 0 }}>
+              <LockOpenIcon className="JobRoleManagement-info-icon" />
+              <div style={{ width: "100%" }}>
+                <div className="JobRoleManagement-info-title">
+                  {selectedSuperAdminPages.length} super admin pages / {selectedSuperAdminPercent}% enabled
+                </div>
+                <LinearProgress
+                  variant="determinate"
+                  value={selectedSuperAdminPercent}
                   sx={{ height: 7, mt: 1, borderRadius: 99, bgcolor: "#d7e9fb" }}
                 />
               </div>
@@ -442,6 +524,85 @@ export default function CompanyAccessManagement() {
           })}
         </Stack>
 
+        <div className="JobRoleManagement-header CompanyAccessManagement-access-header" style={{ marginTop: 24 }}>
+          <div className="JobRoleManagement-user-info">
+            <span className="JobRoleManagement-user-chip JobRoleManagement-chip-primary">
+              Super Admin Page Access
+            </span>
+            <span className="JobRoleManagement-user-chip">
+              Demo Requests stays available only for ashutoshrai130@gmail.com
+            </span>
+          </div>
+          <div className="JobRoleManagement-header-actions">
+            <button
+              className="JobRoleManagement-btn-outline"
+              onClick={() => setSelectedSuperAdminPages(SUPER_ADMIN_ROUTES.map(route => route.id))}
+            >
+              Select All
+            </button>
+            <button className="JobRoleManagement-btn-secondary" onClick={() => setSelectedSuperAdminPages([])}>
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <Stack spacing={2.5}>
+          {Object.entries(groupedSuperAdminRoutes).map(([category, routes]) => {
+            const selectedCount = routes.filter(route => selectedSuperAdminPages.includes(route.id)).length;
+            const categoryColor = categoryColors[category] || "#1976d2";
+            return (
+              <div className="JobRoleManagement-mobile-card" key={`super-${category}`}>
+                <div className="JobRoleManagement-mobile-card-content">
+                  <div className="JobRoleManagement-mobile-card-header">
+                    <div className="JobRoleManagement-mobile-card-avatar" style={{ color: categoryColor }}>
+                      <AppsIcon className="JobRoleManagement-mobile-card-avatar-icon" />
+                    </div>
+                    <div className="JobRoleManagement-mobile-card-title-section">
+                      <div className="JobRoleManagement-mobile-card-title">
+                        {categoryNames[category] || category}
+                      </div>
+                      <div className="JobRoleManagement-mobile-card-badges">
+                        <span className="JobRoleManagement-mobile-card-badge JobRoleManagement-badge-primary">
+                          {selectedCount}/{routes.length} selected
+                        </span>
+                      </div>
+                    </div>
+                    <button className="JobRoleManagement-btn-outline" onClick={() => toggleSuperAdminCategory(routes)}>
+                      {selectedCount === routes.length ? "Deselect" : "Select"}
+                    </button>
+                  </div>
+
+                  <Grid container spacing={1.2}>
+                    {routes.map(route => {
+                      const selected = selectedSuperAdminPages.includes(route.id);
+                      return (
+                        <Grid item xs={12} sm={6} lg={4} key={route.id}>
+                          <button
+                            className="JobRoleManagement-menu-item"
+                            onClick={() => toggleSuperAdminPage(route.id)}
+                            style={{
+                              border: `1px solid ${selected ? categoryColor : "#e0e0e0"}`,
+                              background: selected ? alpha(categoryColor, 0.08) : "#fff",
+                            }}
+                          >
+                            <span className="JobRoleManagement-menu-icon">
+                              {selected ? <CheckCircleIcon fontSize="small" /> : <AppsIcon fontSize="small" />}
+                            </span>
+                            <span className="JobRoleManagement-menu-text">
+                              <span className="JobRoleManagement-menu-title">{route.name}</span>
+                              <span className="JobRoleManagement-menu-subtitle">/Ciis-network/{route.path}</span>
+                            </span>
+                          </button>
+                        </Grid>
+                      );
+                    })}
+                  </Grid>
+                </div>
+              </div>
+            );
+          })}
+        </Stack>
+
         <div className="JobRoleManagement-modal-footer" style={{ marginTop: 24, borderRadius: 24 }}>
           <button className="JobRoleManagement-btn-primary" onClick={saveAccess} disabled={saving}>
             {saving ? (
@@ -488,7 +649,7 @@ export default function CompanyAccessManagement() {
           { label: "Companies", value: companies.length, chip: "Total", icon: <BusinessIcon />, color: "JobRoleManagement-stat-blue" },
           { label: "Active", value: activeCompanyCount, chip: `${companies.length ? Math.round((activeCompanyCount / companies.length) * 100) : 0}%`, icon: <BoltIcon />, color: "JobRoleManagement-stat-green" },
           { label: "Selected Pages", value: selectedPages.length, chip: `${selectedPercent}%`, icon: <FactCheckIcon />, color: "JobRoleManagement-stat-blue" },
-          { label: "Available Pages", value: APP_ROUTES.length, chip: "Routes", icon: <AppsIcon />, color: "JobRoleManagement-stat-red" },
+          { label: "Super Admin Pages", value: selectedSuperAdminPages.length, chip: `${selectedSuperAdminPercent}%`, icon: <AppsIcon />, color: "JobRoleManagement-stat-red" },
         ].map(card => (
           <div className={`JobRoleManagement-stat-card ${card.color}`} key={card.label}>
             <div className="JobRoleManagement-stat-content">
@@ -581,6 +742,7 @@ export default function CompanyAccessManagement() {
               {companies.length > 0 ? (
                 companies.map(company => {
                   const companyPercent = Math.min(100, Math.round(((company.allowedPages?.length || 0) / APP_ROUTES.length) * 100));
+                  const superAdminCount = company.allowedSuperAdminPages?.length || 0;
                   return (
                     <div className="CompanyAccessManagement-company-row" key={company._id}>
                       <div
@@ -613,6 +775,9 @@ export default function CompanyAccessManagement() {
                                 </span>
                                 <span className="JobRoleManagement-mobile-card-badge">
                                   {company.allowedPages?.length || 0}/{APP_ROUTES.length} pages
+                                </span>
+                                <span className="JobRoleManagement-mobile-card-badge">
+                                  {superAdminCount}/{SUPER_ADMIN_ROUTES.length} super admin
                                 </span>
                               </div>
                             </div>

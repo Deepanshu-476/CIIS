@@ -1,0 +1,324 @@
+.RegisterRequest-page {
+  min-height: 100vh;
+  background: #f5f7fb;
+  color: #172033;
+  padding: 22px;
+}
+
+.RegisterRequest-header,
+.RegisterRequest-summary,
+.RegisterRequest-section,
+.RegisterRequest-documents {
+  background: #ffffff;
+  border: 1px solid #e3e8f2;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(20, 32, 55, 0.06);
+}
+
+.RegisterRequest-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 20px;
+  margin-bottom: 18px;
+}
+
+.RegisterRequest-header p,
+.RegisterRequest-summary p,
+.RegisterRequest-section-head p {
+  margin: 0;
+  color: #65738a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.RegisterRequest-header h1,
+.RegisterRequest-summary h2,
+.RegisterRequest-section h3 {
+  margin: 4px 0 0;
+}
+
+.RegisterRequest-header button,
+.RegisterRequest-actions button {
+  border: 0;
+  border-radius: 6px;
+  background: #2451c5;
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+.RegisterRequest-header button:hover,
+.RegisterRequest-actions button:hover:not(:disabled) {
+  background: #163f9e;
+}
+
+.RegisterRequest-layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 18px;
+}
+
+.RegisterRequest-list {
+  align-self: start;
+  background: #ffffff;
+  border: 1px solid #e3e8f2;
+  border-radius: 8px;
+  padding: 14px;
+  position: sticky;
+  top: 16px;
+}
+
+.RegisterRequest-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d8dfec;
+  border-radius: 6px;
+  padding: 0 10px;
+  margin-bottom: 12px;
+}
+
+.RegisterRequest-search input {
+  border: 0;
+  outline: 0;
+  min-height: 38px;
+  width: 100%;
+}
+
+.RegisterRequest-list button {
+  width: 100%;
+  border: 1px solid #e3e8f2;
+  border-radius: 7px;
+  background: #ffffff;
+  text-align: left;
+  padding: 12px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.RegisterRequest-list button.active {
+  border-color: #2451c5;
+  background: #eef4ff;
+}
+
+.RegisterRequest-list strong,
+.RegisterRequest-list span,
+.RegisterRequest-list small {
+  display: block;
+}
+
+.RegisterRequest-list span,
+.RegisterRequest-list small {
+  color: #65738a;
+  margin-top: 4px;
+}
+
+.RegisterRequest-detail {
+  min-width: 0;
+}
+
+.RegisterRequest-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+
+.RegisterRequest-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.RegisterRequest-actions span {
+  color: #2451c5;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.RegisterRequest-actions button:disabled {
+  background: #a8b2c6;
+  cursor: not-allowed;
+}
+
+.RegisterRequest-actions .RegisterRequest-activate {
+  background: #17855f;
+}
+
+.RegisterRequest-actions .RegisterRequest-activate:hover:not(:disabled) {
+  background: #0f694a;
+}
+
+.RegisterRequest-documents {
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.RegisterRequest-documents h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.RegisterRequest-documents div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.RegisterRequest-documents a,
+.RegisterRequest-documents span {
+  border: 1px solid #d8dfec;
+  border-radius: 6px;
+  color: #2451c5;
+  font-weight: 800;
+  padding: 8px 10px;
+  text-decoration: none;
+}
+
+.RegisterRequest-section {
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.RegisterRequest-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #e3e8f2;
+  padding: 14px 16px;
+}
+
+.RegisterRequest-section-head p {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #17855f;
+  margin-top: 4px;
+}
+
+.RegisterRequest-verify {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 900;
+  color: #172033;
+}
+
+.RegisterRequest-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 16px;
+}
+
+.RegisterRequest-field {
+  display: grid;
+  gap: 6px;
+}
+
+.RegisterRequest-field-wide {
+  grid-column: 1 / -1;
+}
+
+.RegisterRequest-field span {
+  color: #44526a;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.RegisterRequest-field input,
+.RegisterRequest-field select,
+.RegisterRequest-field textarea {
+  border: 1px solid #d8dfec;
+  border-radius: 6px;
+  color: #172033;
+  font: inherit;
+  min-height: 40px;
+  outline: 0;
+  padding: 9px 10px;
+  width: 100%;
+}
+
+.RegisterRequest-field textarea {
+  resize: vertical;
+}
+
+.RegisterRequest-field input:focus,
+.RegisterRequest-field select:focus,
+.RegisterRequest-field textarea:focus {
+  border-color: #2451c5;
+  box-shadow: 0 0 0 3px rgba(36, 81, 197, 0.12);
+}
+
+.RegisterRequest-field input:disabled,
+.RegisterRequest-field select:disabled,
+.RegisterRequest-field textarea:disabled {
+  background: #f2f5fa;
+}
+
+.RegisterRequest-check-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.RegisterRequest-check-grid label {
+  align-items: center;
+  border: 1px solid #d8dfec;
+  border-radius: 6px;
+  display: inline-flex;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 10px;
+  text-transform: capitalize;
+}
+
+.RegisterRequest-empty,
+.RegisterRequest-placeholder {
+  color: #65738a;
+  padding: 18px;
+  text-align: center;
+}
+
+.RegisterRequest-placeholder {
+  background: #ffffff;
+  border: 1px dashed #c5cfdf;
+  border-radius: 8px;
+}
+
+@media (max-width: 900px) {
+  .RegisterRequest-page {
+    padding: 12px;
+  }
+
+  .RegisterRequest-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .RegisterRequest-list {
+    position: static;
+  }
+
+  .RegisterRequest-summary,
+  .RegisterRequest-header,
+  .RegisterRequest-section-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .RegisterRequest-fields {
+    grid-template-columns: 1fr;
+  }
+}

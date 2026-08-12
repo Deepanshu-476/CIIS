@@ -542,6 +542,14 @@ const allPagesItems = [
     order: 10
   },
   {
+    id: 'leave-policy',
+    name: 'Leave Policy',
+    icon: 'Event',
+    path: '/ciisUser/leave-policy',
+    category: 'administration',
+    order: 10.1
+  },
+  {
     id: 'employee-assets',
     name: 'Employee Assets',
     icon: 'Computer',
@@ -694,6 +702,14 @@ const allPagesItems = [
     order: 29
   },
   {
+    id: 'register-request',
+    name: 'Register Request',
+    icon: 'Assignment',
+    path: '/ciisUser/register-request',
+    category: 'administration',
+    order: 29.1
+  },
+  {
     id: 'change-password',
     name: 'Change Password',
     icon: 'Settings',
@@ -720,6 +736,8 @@ const getPathFromName = (name) => {
     'Employee Details': '/ciisUser/emp-details',
     'Sidebar Management': '/ciisUser/SidebarManagement',
     'Employee Leaves': '/ciisUser/emp-leaves',
+    'Leave Policy Master': '/ciisUser/leave-policy-master',
+    'Leave Policy': '/ciisUser/leave-policy',
     'Employee Assets': '/ciisUser/emp-assets',
     'Employee Attendance': '/ciisUser/emp-attendance',
     'Department Management': '/ciisUser/department',
@@ -739,6 +757,7 @@ const getPathFromName = (name) => {
     'Chat': '/ciisUser/chat',
     'Support Desk': '/ciisUser/support-desk',
     'Support Operations': '/ciisUser/support-operations',
+    'Register Request': '/ciisUser/register-request',
     'Client Dashboard': '/client/dashboard',
     'Payment': '/client/payments',
   'Payments': '/client/payments',
@@ -967,7 +986,23 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
 
   
   const isSuperAdminWithManagement = useMemo(() => {
-    return userData?.department === "Management" && userData?.jobRole === "super_admin";
+    const normalize = value => String(value || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+    const departmentName = normalize(
+      getRecordDisplayName(userData?.department) ||
+      userData?.departmentName ||
+      userData?.department
+    );
+    const jobRoleName = normalize(
+      getRecordDisplayName(userData?.jobRole) ||
+      userData?.jobRoleName ||
+      userData?.roleName ||
+      userData?.jobRole
+    );
+    const companyRoleName = normalize(userData?.companyRole);
+
+    return departmentName === "management" &&
+      jobRoleName === "super_admin" &&
+      companyRoleName === "owner";
   }, [userData]);
 
   
@@ -1695,6 +1730,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     
     // Admin
     if (id === 'create-user' || name === 'create user') return 'admin';
+    if (id === 'register-request' || name === 'register request') return 'admin';
     if (id === 'employee-details' || id === 'emp-details' || name === 'employee details') return 'admin';
     if (id === 'admin-projects' || id === 'adminproject' || name === 'admin projects') return 'admin';
     if (id === 'manage-groups' || name === 'manage groups') return 'admin';

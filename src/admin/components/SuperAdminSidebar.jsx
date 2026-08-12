@@ -27,6 +27,8 @@ import {
   Web as WebIcon,
   Settings as SettingsIcon,
   Email as EmailIcon,
+  VideoCall as DemoIcon,
+  SystemUpdateAlt as AppUpdateIcon,
 } from '@mui/icons-material';
 
 
@@ -127,39 +129,60 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
-  const [companyRole, setCompanyRole] = useState('Owner');
   const [userEmail, setUserEmail] = useState('');
-  const [userData, setUserData] = useState(null);
+  const [companyData, setCompanyData] = useState(null);
   
   useEffect(() => {
     try {
       const userDataString = localStorage.getItem('superAdmin');
+      const companyDataString = localStorage.getItem('company') || localStorage.getItem('companyDetails');
       
       if (userDataString) {
         const parsedData = JSON.parse(userDataString);
-        setUserData(parsedData);
-        
-        if (parsedData && parsedData.companyRole) {
-          setCompanyRole(parsedData.companyRole);
-        } else {
-          setCompanyRole('Owner');
-        }
 
         if (parsedData && parsedData.email) {
           setUserEmail(parsedData.email);
         } else if (parsedData && parsedData.user && parsedData.user.email) {
           setUserEmail(parsedData.user.email);
         }
-      } else {
-        setCompanyRole('Owner');
+      }
+
+      if (companyDataString) {
+        setCompanyData(JSON.parse(companyDataString));
       }
     } catch (error) {
       console.error('Error parsing superAdmin data from localStorage:', error);
-      setCompanyRole('Owner');
     }
   }, []);
 
   const isOwnerSuperAdmin = String(userEmail || '').trim().toLowerCase() === 'ashutoshrai130@gmail.com';
+  const isGlobalSuperAdmin = isOwnerSuperAdmin;
+  const allowedSuperAdminPages = Array.isArray(companyData?.allowedSuperAdminPages)
+    ? companyData.allowedSuperAdminPages
+    : [];
+
+  const normalizeAccessKey = value => String(value || '').trim().replace(/^\/+/, '').toLowerCase();
+
+  const getRouteKey = route => String(route || '').split('/').filter(Boolean).pop() || '';
+
+  const getMenuAccessKeys = item => {
+    const cleanRoute = normalizeAccessKey(item.route);
+    const routeKey = getRouteKey(item.route);
+    const nameKey = String(item.name || '').trim().toLowerCase().replace(/[\s/]+/g, '-');
+    return new Set([
+      cleanRoute,
+      routeKey,
+      `/Ciis-network/${routeKey}`,
+      `Ciis-network/${routeKey}`,
+      nameKey,
+    ].map(normalizeAccessKey).filter(Boolean));
+  };
+
+  const isAllowedByPlan = item => {
+    if (isGlobalSuperAdmin || item.heading || allowedSuperAdminPages.length === 0) return true;
+    const allowedSet = new Set(allowedSuperAdminPages.map(normalizeAccessKey).filter(Boolean));
+    return [...getMenuAccessKeys(item)].some(key => allowedSet.has(key));
+  };
 
   const ciisUserMenuItems = [
     { heading: 'MPA Management' },
@@ -236,10 +259,28 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       showForOwnerSuperAdmin: true
     },
     {
+      icon: <AppUpdateIcon />,
+      name: 'App Version',
+      route: '/Ciis-network/app-version-control',
+      showForOwnerSuperAdmin: true
+    },
+    {
       icon: <SupportAgentIcon />,
       name: 'Support Operations',
       route: '/Ciis-network/support-operations',
       showForAll: true
+    },
+    {
+      icon: <CompanyIcon />,
+      name: 'Leave Policy',
+      route: '/Ciis-network/leave-policy',
+      showForAll: true
+    },
+    {
+      icon: <DemoIcon />,
+      name: 'Demo Requests',
+      route: '/Ciis-network/demo-requests',
+      showForSuperAdmin: true
     },
      { 
       icon: <CompanyIcon />, 
@@ -272,8 +313,12 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
         
         let shouldShow = false;
         
-        if (item.showForAll) {
+        if (!isAllowedByPlan(item)) {
+          shouldShow = false;
+        } else if (item.showForAll) {
           shouldShow = true;
+        } else if (item.showForSuperAdmin) {
+          shouldShow = isGlobalSuperAdmin;
         } else if (item.showForOwnerSuperAdmin) {
           shouldShow = !!isOwnerSuperAdmin;
         } else if (item.showForEmail && item.showForEmail.includes(userEmail)) {

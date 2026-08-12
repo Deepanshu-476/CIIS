@@ -160,8 +160,10 @@ const getIndiaDateKey = value => {
   }).format(date);
 };
 
+const isAttendanceFlagTrue = value => value === true || value === 1 || String(value).trim().toLowerCase() === 'true';
+
 const getActiveClockState = record => {
-  if (!record?.inTime || record?.outTime || record?.isClockedIn === false) return null;
+  if (!record?.inTime || record?.outTime || !isAttendanceFlagTrue(record?.isClockedIn)) return null;
   const inTime = new Date(record.inTime);
   if (Number.isNaN(inTime.getTime()) || getIndiaDateKey(inTime) !== getIndiaDateKey()) return null;
   return {
@@ -817,7 +819,7 @@ const UserDashboard = () => {
           timeout: 10000
         });
         
-        if (response.data?.isClockedIn) {
+        if (isAttendanceFlagTrue(response.data?.isClockedIn)) {
           const inTime = new Date(response.data.inTime);
           if (!Number.isNaN(inTime.getTime())) {
             setTimer(Math.max(0, Math.floor((Date.now() - inTime.getTime()) / 1000)));
@@ -825,6 +827,10 @@ const UserDashboard = () => {
             writeDashboardCache({
               activeClock: { inTime: inTime.toISOString(), isClockedIn: true },
             });
+          } else {
+            setIsRunning(false);
+            setTimer(0);
+            writeDashboardCache({ activeClock: null });
           }
         } else {
           setIsRunning(false);

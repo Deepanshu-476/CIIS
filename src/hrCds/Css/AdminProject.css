@@ -230,6 +230,52 @@
   animation: ap-fade-in 0.5s ease 0.2s both;
 }
 
+.ap-project-form-backdrop {
+  z-index: 10020;
+}
+
+.ap-project-form-modal {
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  animation: ap-scale-in 0.25s ease;
+}
+
+.ap-project-form-modal .ap-form-header {
+  flex: 0 0 auto;
+}
+
+.ap-project-form-modal .ap-form-header-content {
+  flex-direction: row;
+  align-items: center;
+}
+
+.ap-project-form-modal .ap-form-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 640px) {
+  .ap-project-form-backdrop {
+    padding: 10px;
+  }
+
+  .ap-project-form-modal {
+    width: 100%;
+    max-height: calc(100dvh - 20px);
+  }
+
+  .ap-project-form-modal .ap-form-header-content {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+}
+
 .ap-form-header {
   background: linear-gradient(135deg, var(--ap-primary) 0%, var(--ap-secondary) 100%);
   padding: 18px 24px;

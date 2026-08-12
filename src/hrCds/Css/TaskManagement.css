@@ -1935,6 +1935,49 @@
     .personal-task-dialog .user-create-task-dialog-content { padding: 14px 18px; overflow-y: auto; }
     .personal-task-dialog .user-create-task-dialog-actions { padding: 12px 18px; flex-direction: row; }
     .personal-task-dialog .user-create-task-dialog-actions .user-create-task-button { width: 50%; min-width: 0; }
+
+    .personal-task-overlay:has(.create-client-task-dialog) {
+        align-items: flex-start;
+        padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom));
+        overflow: hidden;
+    }
+
+    .create-client-task-dialog {
+        height: calc(100dvh - 20px);
+        max-height: calc(100dvh - 20px) !important;
+        margin: 0;
+    }
+
+    .create-client-task-dialog .user-create-task-dialog-title,
+    .create-client-task-dialog .user-create-task-dialog-actions {
+        flex: 0 0 auto;
+    }
+
+    .create-client-task-dialog .user-create-task-dialog-content {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: none;
+        overscroll-behavior: contain;
+    }
+
+    .create-client-task-dialog .user-create-task-flex:not(.task-checkpoint-input-row) {
+        min-width: 0;
+    }
+
+    .create-client-task-dialog .client-task-create-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .create-client-task-dialog .client-task-create-actions .client-task-create-warning {
+        grid-column: 1 / -1;
+        margin: 0;
+    }
+
+    .create-client-task-dialog .client-task-create-actions .user-create-task-button {
+        width: 100%;
+    }
 }
 
 /* Flex utilities */

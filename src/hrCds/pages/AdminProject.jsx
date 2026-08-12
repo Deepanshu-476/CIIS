@@ -205,6 +205,7 @@ export const AdminProject = () => {
   
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [memberSearchTerm, setMemberSearchTerm] = useState("");
+  const [isProjectFormOpen, setIsProjectFormOpen] = useState(false);
 
   
   const [requestTimeout, setRequestTimeout] = useState(null);
@@ -474,6 +475,7 @@ export const AdminProject = () => {
         showSnackbar(projectId ? "Project updated successfully!" : "Project created successfully!", "success");
         upsertProject(getProjectFromResponse(response.data));
         resetForm();
+        setIsProjectFormOpen(false);
         await fetchProjects(); 
       } else {
         showSnackbar(response.data?.message || "Operation failed", "error");
@@ -551,18 +553,18 @@ export const AdminProject = () => {
     }
     setFile(null);
     setFileName("");
-    
-    
-    document.getElementById('ap-project-form')?.scrollIntoView({ behavior: 'smooth' });
+    setIsProjectFormOpen(true);
   };
 
   const openCreateProjectForm = () => {
     resetForm();
-    window.requestAnimationFrame(() => {
-      const form = document.getElementById('ap-project-form');
-      form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      form?.querySelector('input')?.focus({ preventScroll: true });
-    });
+    setIsProjectFormOpen(true);
+  };
+
+  const closeProjectForm = () => {
+    if (loading) return;
+    resetForm();
+    setIsProjectFormOpen(false);
   };
 
   const viewProjectDetails = (project) => {
@@ -1057,18 +1059,18 @@ export const AdminProject = () => {
         {errors.branch && <div className="ap-error-text" style={{ marginTop: -8, marginBottom: 12 }}>{errors.branch}</div>}
 
         
-        <div id="ap-project-form" className="ap-form-card">
+        {isProjectFormOpen && (
+        <div className="ap-dialog-backdrop ap-project-form-backdrop" onMouseDown={closeProjectForm}>
+        <div id="ap-project-form" className="ap-form-card ap-project-form-modal" onMouseDown={(event) => event.stopPropagation()}>
           <div className="ap-form-header">
             <div className="ap-form-header-content">
               <div>
                 <h2 className="ap-form-title">{projectId ? "Edit Project" : "Create New Project"}</h2>
                 <p className="ap-form-subtitle">{projectId ? "Update project details below" : "Fill in the details to create a new project"}</p>
               </div>
-              {projectId && (
-                <button className="ap-btn ap-btn-outline ap-btn-light" onClick={resetForm} disabled={loading}>
-                  Cancel Edit
-                </button>
-              )}
+              <button className="ap-dialog-close" onClick={closeProjectForm} disabled={loading} aria-label="Close project form">
+                <Icons.Close />
+              </button>
             </div>
           </div>
 
@@ -1318,6 +1320,8 @@ export const AdminProject = () => {
             </div>
           </div>
         </div>
+        </div>
+        )}
 
         
         <div className="ap-list-section">
@@ -1328,14 +1332,6 @@ export const AdminProject = () => {
             </div>
             
             <div className="ap-list-controls">
-              <button
-                type="button"
-                className="ap-btn ap-btn-primary ap-list-create-btn"
-                onClick={openCreateProjectForm}
-                disabled={loading}
-              >
-                <Icons.Add /> Create New Project
-              </button>
               <div className="ap-search-wrapper">
                 <input
                   type="text"

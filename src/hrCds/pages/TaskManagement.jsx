@@ -620,7 +620,7 @@ const UserCreateTask = () => {
 
   const [timeFilter, setTimeFilter] = useState("all");
   const [trendHoverIndex, setTrendHoverIndex] = useState(null);
-  const [trendPeriod, setTrendPeriod] = useState('this-week');
+  const [trendPeriod, setTrendPeriod] = useState('weekly');
   const [notifications, setNotifications] = useState([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [remarksDialog, setRemarksDialog] = useState({ open: false, taskId: null, remarks: [], source: null });
@@ -808,19 +808,33 @@ const UserCreateTask = () => {
   
   const getUserStatusForTask = useCallback((task, userId) => {
     if (!task || !userId) return 'pending';
+    const currentUserId = String(userId);
+    if (task.completed === true || normalizeStatus(task.overallStatus) === 'completed') return 'completed';
+
+    const canonicalStatus = normalizeStatus(task.userStatus || task.overallStatus || task.status || '');
+    if (canonicalStatus && canonicalStatus !== 'pending') return canonicalStatus;
+
+    const latestStatusLog = (Array.isArray(task.activityLogs) ? task.activityLogs : [])
+      .filter(log => log?.type === 'status_change' || log?.type === 'status_changed')
+      .sort((a, b) => new Date(b?.performedAt || b?.createdAt || 0) - new Date(a?.performedAt || a?.createdAt || 0))[0];
+    const activityValue = typeof latestStatusLog?.newValue === 'object'
+      ? latestStatusLog.newValue?.status
+      : latestStatusLog?.newValue;
+    const activityStatus = normalizeStatus(activityValue || latestStatusLog?.status || '');
+    if (activityStatus && activityStatus !== 'pending') return activityStatus;
     
     const userStatus = task.statusByUser?.find(s => {
-      if (typeof s.user === 'string') return s.user === userId;
-      if (s.user && typeof s.user === 'object') return s.user._id === userId;
+      if (typeof s.user === 'string') return String(s.user) === currentUserId;
+      if (s.user && typeof s.user === 'object') return String(s.user._id || s.user.id || '') === currentUserId;
       return false;
     });
     
     if (userStatus) return normalizeStatus(userStatus.status);
     
-    const statusInfo = task.statusInfo?.find(s => s.userId === userId);
+    const statusInfo = task.statusInfo?.find(s => String(s.userId?._id || s.userId?.id || s.userId || '') === currentUserId);
     if (statusInfo) return normalizeStatus(statusInfo.status);
-    
-    return 'pending';
+
+    return canonicalStatus || 'pending';
   }, []);
 
   
@@ -1597,6 +1611,19 @@ const UserCreateTask = () => {
     calculateAssignedStatsFromTasks(nextAssignedTasksGrouped);
     calculateClientStatsFromTasks(nextClientTasksGrouped);
     calculateProjectStatsFromTasks(nextProjectTasksGrouped);
+
+    taskManagementMemoryCache = {
+      ...(taskManagementMemoryCache || {}),
+      userId,
+      cachedAt: Date.now(),
+      allTasksGrouped: nextAllTasksGrouped,
+      allTasksStatsGrouped: nextAllTasksStatsGrouped,
+      myTasksGrouped: nextMyTasksGrouped,
+      assignedToMeTasksGrouped: nextAssignedTasksGrouped,
+      clientTasksGrouped: nextClientTasksGrouped,
+      projectTasksGrouped: nextProjectTasksGrouped
+    };
+    persistTaskManagementCache(taskManagementMemoryCache);
 
     if (selectedTaskDetails && String(selectedTaskDetails._id || selectedTaskDetails.id || '') === String(taskId || '')) {
       setSelectedTaskDetails(prev => prev ? updateTask(prev) : prev);
@@ -2825,8 +2852,10 @@ const UserCreateTask = () => {
       const statusTaskId = pendingStatusChange.taskId || taskId;
       const hasRemarkContent = Boolean(newRemark.trim() || remarkImages.length > 0);
       const remarkAdded = hasRemarkContent ? await addRemark(taskId, activeRemarkSource) : false;
-      
-      if (!remarkAdded && !hasRemarkContent) {
+
+      if (hasRemarkContent && !remarkAdded) return;
+
+      if (!hasRemarkContent) {
         if (!statusToApply) {
           setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
           return;
@@ -2836,36 +2865,38 @@ const UserCreateTask = () => {
       if (statusToApply) {
         const statusSource = pendingStatusChange.source || taskViewMode;
         const shouldSuppressLoader = normalizeStatus(statusToApply) === 'completed' && hasRemarkContent;
+        let statusUpdated = false;
 
         if (statusSource === 'self') {
-          await handleStatusChange(
+          statusUpdated = await handleStatusChange(
             statusTaskId,
             statusToApply,
             "Status changed",
-            { showLoader: !shouldSuppressLoader }
+            { showLoader: !shouldSuppressLoader, showSuccess: false }
           );
         } else if (statusSource === 'client') {
-          await handleClientTaskStatusChange(
+          statusUpdated = await handleClientTaskStatusChange(
             statusTaskId,
             statusToApply,
             "",
-            { showLoader: !shouldSuppressLoader }
+            { showLoader: !shouldSuppressLoader, showSuccess: false }
           );
         } else if (statusSource === 'project') {
-          await handleProjectTaskStatusChange(
+          statusUpdated = await handleProjectTaskStatusChange(
             statusTaskId,
             statusToApply,
             "Status changed",
-            { showLoader: !shouldSuppressLoader }
+            { showLoader: !shouldSuppressLoader, showSuccess: false }
           );
         } else {
-          await handleAssignedTaskStatusChange(
+          statusUpdated = await handleAssignedTaskStatusChange(
             statusTaskId,
             statusToApply,
             "Status changed",
-            { showLoader: !shouldSuppressLoader }
+            { showLoader: !shouldSuppressLoader, showSuccess: false }
           );
         }
+        if (!statusUpdated) return;
         setPendingStatusChange({ taskId: null, status: "", source: null });
       }
 
@@ -2876,7 +2907,7 @@ const UserCreateTask = () => {
       setRemarkImages([]);
       
       if (statusToApply) {
-        showSnackbar('Status updated and remark added successfully', 'success');
+        showSnackbar(hasRemarkContent ? 'Status updated and remark added successfully' : 'Status updated successfully', 'success');
       } else if (hasRemarkContent) {
         showSnackbar('Remark added successfully', 'success');
       }
@@ -3230,12 +3261,15 @@ const UserCreateTask = () => {
     const normalizedStatus = normalizeStatus(newStatus);
     const taskSource = getTaskSource(task || { __taskSource: 'self' });
     patchTaskStatusLocally(taskId, taskSource, normalizedStatus, remarks);
-    void axios.patch(`/tasks/self/${taskId}/status`, { 
-      status: normalizedStatus, 
-      remarks: remarks || `Status changed to ${normalizedStatus}`
-    }).then(() => {
-      showSnackbar('Status updated successfully', 'success');
-    }).catch((err) => {
+    try {
+      await axios.patch(`/tasks/self/${taskId}/status`, {
+        status: normalizedStatus,
+        remarks: remarks || `Status changed to ${normalizedStatus}`
+      });
+      window.setTimeout(() => void refreshCurrentTaskView(taskSource), 1200);
+      if (options.showSuccess !== false) showSnackbar('Status updated successfully', 'success');
+      return true;
+    } catch (err) {
       console.error("Error in handleStatusChange:", err.response || err);
       restoreTaskStateSnapshot(snapshot);
       if (err.response?.status === 401) {
@@ -3244,7 +3278,8 @@ const UserCreateTask = () => {
       } else {
         showSnackbar(err?.response?.data?.error || 'Failed to update status', 'error');
       }
-    });
+      return false;
+    }
   };
 
   
@@ -3268,12 +3303,15 @@ const UserCreateTask = () => {
     const normalizedStatus = normalizeStatus(newStatus);
     const taskSource = getTaskSource(task || { __taskSource: 'assigned' });
     patchTaskStatusLocally(taskId, taskSource, normalizedStatus, remarks);
-    void axios.patch(`/tasks/assigned/${taskId}/status`, {
-      status: normalizedStatus,
-      remarks: remarks || `Status changed to ${normalizedStatus}`
-    }).then(() => {
-      showSnackbar(`Task status changed to ${normalizedStatus} successfully`, 'success');
-    }).catch((err) => {
+    try {
+      await axios.patch(`/tasks/assigned/${taskId}/status`, {
+        status: normalizedStatus,
+        remarks: remarks || `Status changed to ${normalizedStatus}`
+      });
+      window.setTimeout(() => void refreshCurrentTaskView(taskSource), 1200);
+      if (options.showSuccess !== false) showSnackbar(`Task status changed to ${normalizedStatus} successfully`, 'success');
+      return true;
+    } catch (err) {
       console.error("❌ Error updating assigned task:", err);
       console.error("Error details:", err.response?.data);
       restoreTaskStateSnapshot(snapshot);
@@ -3286,7 +3324,8 @@ const UserCreateTask = () => {
       }
       
       showSnackbar(errorMessage, 'error');
-    });
+      return false;
+    }
   };
 
   const handleClientTaskStatusChange = async (taskId, newStatus, remarks = '', options = {}) => {
@@ -3309,25 +3348,23 @@ const UserCreateTask = () => {
     const normalizedStatus = normalizeStatus(newStatus);
     const taskSource = getTaskSource(task || { __taskSource: 'client' });
     patchTaskStatusLocally(taskId, taskSource, normalizedStatus, remarks);
-    void (async () => {
-      try {
+    try {
         if (remarks && remarks.trim()) {
           await axios.post(`/tasks/client-tasks/${taskId}/client-remarks`, { text: remarks });
         }
 
-        let statusPayload = { status: normalizedStatus };
-        if (normalizedStatus === 'completed') {
-          statusPayload.completed = true;
-        }
+        const statusPayload = { status: normalizedStatus, completed: normalizedStatus === 'completed' };
 
         await axios.patch(`/tasks/client-tasks/assigned/${taskId}/status`, statusPayload);
-        showSnackbar(`Task status changed to ${normalizedStatus} successfully`, 'success');
+        window.setTimeout(() => void refreshCurrentTaskView(taskSource), 1200);
+        if (options.showSuccess !== false) showSnackbar(`Task status changed to ${normalizedStatus} successfully`, 'success');
+        return true;
       } catch (err) {
         console.error("❌ Error updating client task:", err);
         restoreTaskStateSnapshot(snapshot);
         showSnackbar(err.response?.data?.message || err.response?.data?.error || 'Failed to update task status', 'error');
+        return false;
       }
-    })();
   };
 
   const refreshCurrentTaskView = async (source = taskViewMode) => {
@@ -3513,16 +3550,20 @@ const UserCreateTask = () => {
     const normalizedStatus = normalizeStatus(newStatus);
     const taskSource = getTaskSource(task || { __taskSource: 'project' });
     patchTaskStatusLocally(taskId, taskSource, normalizedStatus, remarks);
-    void axios.patch(`/tasks/project/${projectId}/tasks/${taskId}/status`, {
-      status: toProjectApiStatus(normalizedStatus),
-      remark: remarks || `Status changed to ${toProjectApiStatus(normalizedStatus)}`
-    }).then(() => {
-      showSnackbar(`Project task status changed to ${normalizedStatus} successfully`, 'success');
-    }).catch((err) => {
+    try {
+      await axios.patch(`/tasks/project/${projectId}/tasks/${taskId}/status`, {
+        status: toProjectApiStatus(normalizedStatus),
+        remark: remarks || `Status changed to ${toProjectApiStatus(normalizedStatus)}`
+      });
+      window.setTimeout(() => void refreshCurrentTaskView(taskSource), 1200);
+      if (options.showSuccess !== false) showSnackbar(`Project task status changed to ${normalizedStatus} successfully`, 'success');
+      return true;
+    } catch (err) {
       console.error("❌ Error updating project task:", err);
       restoreTaskStateSnapshot(snapshot);
       showSnackbar(err.response?.data?.message || err.response?.data?.error || 'Failed to update project task status', 'error');
-    });
+      return false;
+    }
   };
 
   
@@ -3718,7 +3759,51 @@ const UserCreateTask = () => {
         }
       });
 
-      void 0;
+      const responseTaskCandidate = response.data?.task
+        || response.data?.newTask
+        || response.data?.createdTask
+        || response.data?.data?.task
+        || response.data?.data?.newTask
+        || response.data?.data;
+      const responseTask = responseTaskCandidate
+        && typeof responseTaskCandidate === 'object'
+        && !Array.isArray(responseTaskCandidate)
+        && (responseTaskCandidate._id || responseTaskCandidate.id)
+        ? responseTaskCandidate
+        : { _id: `local-${Date.now()}` };
+      {
+        const createdTask = tagTasksWithSource([{
+          ...responseTask,
+          title: responseTask.title || newTask.title,
+          description: responseTask.description || newTask.description,
+          dueDateTime: responseTask.dueDateTime || dueDate.toISOString(),
+          priority: responseTask.priority || newTask.priority,
+          status: normalizeStatus(responseTask.status || responseTask.overallStatus || 'pending'),
+          overallStatus: normalizeStatus(responseTask.overallStatus || responseTask.status || 'pending'),
+          createdAt: responseTask.createdAt || new Date().toISOString()
+        }], 'self')[0];
+        const createdId = String(createdTask._id || createdTask.id || '');
+        const insertCreatedTask = grouped => {
+          const existing = Object.values(grouped || {}).flat();
+          const withoutDuplicate = createdId
+            ? existing.filter(task => String(task._id || task.id || '') !== createdId)
+            : existing;
+          return groupTasksByDate([createdTask, ...withoutDuplicate]);
+        };
+
+        setMyTasksGrouped(prev => {
+          const next = insertCreatedTask(prev);
+          calculateStatsFromTasks(next);
+          return next;
+        });
+        setAllTasksGrouped(prev => {
+          const next = insertCreatedTask(prev);
+          setAllTaskStats(calculateUnifiedStatsFromTasks(next));
+          return next;
+        });
+        setAllTasksStatsGrouped(prev => insertCreatedTask(prev));
+        setTaskViewsLoaded(prev => ({ ...prev, self: true, all: true }));
+      }
 
       setOpenDialog(false);
       showSnackbar('Task created successfully', 'success');
@@ -3734,7 +3819,7 @@ const UserCreateTask = () => {
         checkpoints: [],
       });
 
-      fetchMyTasks();
+      window.setTimeout(() => void refreshCurrentTaskView('self'), 1800);
 
     } catch (err) {
       console.error('❌ Error creating task:', err);
@@ -3859,38 +3944,61 @@ const UserCreateTask = () => {
     { label: 'Overdue', value: activeStats.overdue?.count || 0, color: '#e34850' }
   ];
   const trendToday = getLocalDateStart();
-  const trendThisWeekStart = new Date(trendToday);
-  trendThisWeekStart.setDate(trendThisWeekStart.getDate() - ((trendThisWeekStart.getDay() + 6) % 7));
-  const trendRangeStart = new Date(trendThisWeekStart);
-  if (trendPeriod === 'last-week') {
-    trendRangeStart.setDate(trendRangeStart.getDate() - 7);
-  } else if (trendPeriod === 'last-7-days') {
-    trendRangeStart.setTime(trendToday.getTime());
-    trendRangeStart.setDate(trendRangeStart.getDate() - 6);
-  }
-  const trendDays = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(trendRangeStart);
-    date.setDate(date.getDate() + index);
-    const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-    return {
-      key,
-      timestamp: date.getTime(),
-      label: date.toLocaleDateString('en-IN', { weekday: 'short' }),
-      dateLabel: date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
-      total: 0,
-      completed: 0,
-      inProgress: 0,
-      pending: 0,
-      overdue: 0
-    };
+  const createTrendBucket = (key, timestamp, label, dateLabel) => ({
+    key, timestamp, label, dateLabel, total: 0, completed: 0, inProgress: 0, pending: 0, overdue: 0
   });
-  const trendGraphBuckets = Object.fromEntries(trendDays.map(day => [day.key, day]));
+  let getTrendBucketKey;
+  let trendBuckets;
+
+  if (trendPeriod === 'monthly') {
+    const rangeStart = new Date(trendToday);
+    rangeStart.setDate(rangeStart.getDate() - 29);
+    trendBuckets = Array.from({ length: 6 }, (_, index) => {
+      const bucketStart = new Date(rangeStart);
+      bucketStart.setDate(bucketStart.getDate() + index * 5);
+      const bucketEnd = new Date(bucketStart);
+      bucketEnd.setDate(bucketEnd.getDate() + 4);
+      const shortDate = date => date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      return createTrendBucket(
+        `period-${index}`,
+        bucketStart.getTime(),
+        shortDate(bucketStart),
+        `${shortDate(bucketStart)} - ${shortDate(bucketEnd)}`
+      );
+    });
+    getTrendBucketKey = date => {
+      const normalizedDate = getLocalDateStart(date);
+      if (!normalizedDate) return null;
+      const dayOffset = Math.floor((normalizedDate.getTime() - rangeStart.getTime()) / 86400000);
+      return dayOffset >= 0 && dayOffset < 30 ? `period-${Math.floor(dayOffset / 5)}` : null;
+    };
+  } else if (trendPeriod === 'six-months' || trendPeriod === 'one-year') {
+    const monthCount = trendPeriod === 'six-months' ? 6 : 12;
+    const rangeStart = new Date(trendToday.getFullYear(), trendToday.getMonth() - monthCount + 1, 1);
+    trendBuckets = Array.from({ length: monthCount }, (_, index) => {
+      const date = new Date(rangeStart.getFullYear(), rangeStart.getMonth() + index, 1);
+      const key = `${date.getFullYear()}-${date.getMonth()}`;
+      return createTrendBucket(key, date.getTime(), date.toLocaleDateString('en-IN', { month: 'short' }), date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }));
+    });
+    getTrendBucketKey = date => `${date.getFullYear()}-${date.getMonth()}`;
+  } else {
+    const weekStart = new Date(trendToday);
+    weekStart.setDate(weekStart.getDate() - 6);
+    trendBuckets = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(weekStart);
+      date.setDate(date.getDate() + index);
+      const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      return createTrendBucket(key, date.getTime(), date.toLocaleDateString('en-IN', { weekday: 'short' }), date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }));
+    });
+    getTrendBucketKey = date => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+  }
+
+  const trendGraphBuckets = Object.fromEntries(trendBuckets.map(bucket => [bucket.key, bucket]));
   Object.values(getStatsTasksGrouped()).flat().forEach(task => {
     const rawDate = getSourceAwareDateForTask(task);
     const taskDate = rawDate ? new Date(rawDate) : null;
     if (!taskDate || Number.isNaN(taskDate.getTime())) return;
-    const key = `${taskDate.getFullYear()}-${taskDate.getMonth()}-${taskDate.getDate()}`;
-    const bucket = trendGraphBuckets[key];
+    const bucket = trendGraphBuckets[getTrendBucketKey(taskDate)];
     if (!bucket) return;
 
     bucket.total += 1;
@@ -3900,12 +4008,12 @@ const UserCreateTask = () => {
     if (['pending', 'onhold', 'on-hold'].includes(status)) bucket.pending += 1;
     if (status === 'overdue') bucket.overdue += 1;
   });
-  const trendGraphData = trendDays.map(day => ({
-    ...day,
-    completedPercent: day.total ? Math.round((day.completed / day.total) * 100) : 0,
-    inProgressPercent: day.total ? Math.round((day.inProgress / day.total) * 100) : 0,
-    pendingPercent: day.total ? Math.round((day.pending / day.total) * 100) : 0,
-    overduePercent: day.total ? Math.round((day.overdue / day.total) * 100) : 0
+  const trendGraphData = trendBuckets.map(bucket => ({
+    ...bucket,
+    completedPercent: bucket.total ? Math.round((bucket.completed / bucket.total) * 100) : 0,
+    inProgressPercent: bucket.total ? Math.round((bucket.inProgress / bucket.total) * 100) : 0,
+    pendingPercent: bucket.total ? Math.round((bucket.pending / bucket.total) * 100) : 0,
+    overduePercent: bucket.total ? Math.round((bucket.overdue / bucket.total) * 100) : 0
   }));
   const trendTotalTasks = trendGraphData.reduce((total, day) => total + day.total, 0);
   const trendSeries = [
@@ -3920,6 +4028,7 @@ const UserCreateTask = () => {
   const trendGraphPadding = { top: 14, right: 14, bottom: 34, left: 34 };
   const trendGraphPlotWidth = trendGraphWidth - trendGraphPadding.left - trendGraphPadding.right;
   const trendGraphPlotHeight = trendGraphHeight - trendGraphPadding.top - trendGraphPadding.bottom;
+  const trendGraphIntervals = Math.max(1, trendGraphData.length - 1);
   const overviewItems = [
     { label: 'Completed', value: activeStats.completed?.count || 0, color: '#22a95c' },
     { label: 'In Progress', value: activeStats.inProgress?.count || 0, color: '#3478e5' },
@@ -4367,9 +4476,10 @@ const UserCreateTask = () => {
               }}
               aria-label="Select task trend period"
             >
-              <option value="this-week">This Week</option>
-              <option value="last-week">Last Week</option>
-              <option value="last-7-days">Last 7 Days</option>
+              <option value="weekly">1 Week</option>
+              <option value="monthly">1 Month</option>
+              <option value="six-months">6 Months</option>
+              <option value="one-year">1 Year</option>
             </select>
           </div>
           {trendTotalTasks > 0 ? (
@@ -4379,11 +4489,11 @@ const UserCreateTask = () => {
                   <span key={series.key}><i style={{ background: series.color }} />{series.label}</span>
                 ))}
               </div>
-              <div className="task-reference-line-chart" role="img" aria-label="Task performance for the last seven days">
+              <div className="task-reference-line-chart" role="img" aria-label={`Task performance for ${trendPeriod}`}>
                 {trendHoverIndex !== null && (
                   <div
                     className="task-trend-tooltip"
-                    style={{ left: `${Math.min(90, Math.max(10, ((trendGraphPadding.left + (trendHoverIndex * trendGraphPlotWidth) / 6) / trendGraphWidth) * 100))}%` }}
+                    style={{ left: `${Math.min(90, Math.max(10, ((trendGraphPadding.left + (trendHoverIndex * trendGraphPlotWidth) / trendGraphIntervals) / trendGraphWidth) * 100))}%` }}
                   >
                     <strong>{trendGraphData[trendHoverIndex].label}, {trendGraphData[trendHoverIndex].dateLabel}</strong>
                     {trendSeries.map(series => (
@@ -4412,16 +4522,16 @@ const UserCreateTask = () => {
                   })}
                   {trendHoverIndex !== null && (
                     <line
-                      x1={trendGraphPadding.left + (trendHoverIndex * trendGraphPlotWidth) / 6}
+                      x1={trendGraphPadding.left + (trendHoverIndex * trendGraphPlotWidth) / trendGraphIntervals}
                       y1={trendGraphPadding.top}
-                      x2={trendGraphPadding.left + (trendHoverIndex * trendGraphPlotWidth) / 6}
+                      x2={trendGraphPadding.left + (trendHoverIndex * trendGraphPlotWidth) / trendGraphIntervals}
                       y2={trendGraphPadding.top + trendGraphPlotHeight}
                       className="task-trend-focus-line"
                     />
                   )}
                   {trendSeries.map(series => {
                     const points = trendGraphData.map((point, pointIndex) => {
-                      const x = trendGraphPadding.left + (pointIndex * trendGraphPlotWidth) / 6;
+                      const x = trendGraphPadding.left + (pointIndex * trendGraphPlotWidth) / trendGraphIntervals;
                       const y = trendGraphPadding.top + trendGraphPlotHeight - (point[series.key] / trendGraphMax) * trendGraphPlotHeight;
                       return { x, y, value: point[series.key] };
                     });
@@ -4455,7 +4565,7 @@ const UserCreateTask = () => {
                     );
                   })}
                   {trendGraphData.map((point, index) => {
-                    const x = trendGraphPadding.left + (index * trendGraphPlotWidth) / 6;
+                    const x = trendGraphPadding.left + (index * trendGraphPlotWidth) / trendGraphIntervals;
                     return (
                       <text key={point.timestamp} x={x} y={trendGraphHeight - 13} textAnchor="middle" className="task-trend-axis-label">
                         <tspan x={x}>{point.label}</tspan>
@@ -4463,8 +4573,8 @@ const UserCreateTask = () => {
                     );
                   })}
                   {trendGraphData.map((point, index) => {
-                    const x = trendGraphPadding.left + (index * trendGraphPlotWidth) / 6;
-                    const hitWidth = trendGraphPlotWidth / 6;
+                    const x = trendGraphPadding.left + (index * trendGraphPlotWidth) / trendGraphIntervals;
+                    const hitWidth = trendGraphPlotWidth / trendGraphIntervals;
                     return (
                       <rect
                         key={`hit-${point.timestamp}`}
@@ -4483,7 +4593,7 @@ const UserCreateTask = () => {
           ) : (
             <div className="task-reference-trends-empty">
               <FiTrendingUp />
-              <strong>No task activity in the last 7 days</strong>
+              <strong>No task activity for this period</strong>
               <span>Performance will appear here when tasks are available.</span>
             </div>
           )}
@@ -4610,7 +4720,7 @@ const UserCreateTask = () => {
 
       {openClientTaskDialog && (
         <div className="user-create-task-dialog-overlay personal-task-overlay">
-          <div className={`user-create-task-dialog personal-task-dialog client-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
+          <div className={`user-create-task-dialog personal-task-dialog client-task-dialog create-client-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
             maxWidth: isMobile ? '95%' : isTablet ? '550px' : '600px',
             width: isMobile ? '95%' : 'auto'
           }}>
@@ -5384,7 +5494,7 @@ const UserCreateTask = () => {
                                       value={displayedSelectValue}
                                       onChange={(e) => {
                                         const selectedStatus = e.target.value;
-                                        const currentTaskId = task._id;
+                                        const currentTaskId = task._id || task.id;
                                         
                                         if (selectedStatus === 'in-progress') {
                                           
@@ -5684,7 +5794,7 @@ const UserCreateTask = () => {
                                   value={displayedSelectValue}
                                   onChange={(e) => {
                                     const selectedStatus = e.target.value;
-                                    const currentTaskId = task._id;
+                                    const currentTaskId = task._id || task.id;
                                     
                                     if (selectedStatus === 'completed' || selectedStatus === 'pending') {
                                       

@@ -1560,12 +1560,48 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     }
 
     const hasRoleConfig = sidebarConfig && Array.isArray(sidebarConfig.menuItems);
-    const accessFilteredItems = hasRoleConfig
+    let accessFilteredItems = hasRoleConfig
       ? items
       : filterItemsByCompanyAccess(
           addCompanyAccessFallbackItems(items, companyData),
           companyData
         );
+
+    // Companies without a saved sidebar configuration use the fixed fallback
+    // menu. Keep the register approval page available to the same privileged
+    // roles that are allowed by the backend controller.
+    if (!hasRoleConfig) {
+      const normalizeRole = value => String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[\s-]+/g, '_');
+      const registerRequestRoles = new Set([
+        'owner', 'admin', 'hr', 'super_admin', 'superadmin',
+        'company_owner', 'companyowner'
+      ]);
+      const canManageRegisterRequests = [
+        userData?.companyRole,
+        userData?.jobRole,
+        userData?.role
+      ].some(value => registerRequestRoles.has(normalizeRole(getRecordDisplayName(value) || value)));
+      const hasRegisterRequest = accessFilteredItems.some(item => (
+        item.id === 'register-request' || item.path === '/ciisUser/register-request'
+      ));
+
+      if (canManageRegisterRequests && !hasRegisterRequest) {
+        accessFilteredItems = [
+          ...accessFilteredItems,
+          {
+            id: 'register-request',
+            name: 'Register Request',
+            icon: 'Assignment',
+            path: '/ciisUser/register-request',
+            category: 'admin',
+            order: 29.1
+          }
+        ];
+      }
+    }
 
     // Sidebar Management stores the click/selection sequence as `order`.
     // Keep that exact sequence across categories in the employee menu.

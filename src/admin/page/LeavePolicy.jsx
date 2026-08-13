@@ -109,12 +109,11 @@ const LeavePolicy = () => {
         const page = await loadPagePermission('/ciisUser/leave-policy');
         const editIds = getUserIds(page.editUsers);
         const deleteIds = getUserIds(page.deleteUsers);
-        const hasConfiguredUsers = editIds.length > 0 || deleteIds.length > 0 || getUserIds(page.viewUsers).length > 0;
 
         if (!cancelled) {
           setPageAccess({
-            canEdit: editIds.includes(currentUserId) || (!hasConfiguredUsers && fallbackManager),
-            canDelete: deleteIds.includes(currentUserId) || (!hasConfiguredUsers && fallbackManager)
+            canEdit: fallbackManager || editIds.includes(currentUserId),
+            canDelete: fallbackManager || deleteIds.includes(currentUserId)
           });
         }
       } catch (error) {

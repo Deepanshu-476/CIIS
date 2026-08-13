@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BriefcaseBusiness, Building2, CheckCircle2, Eye, EyeOff, FileText, Landmark, LockKeyhole, MapPin, PackageCheck, PhoneCall, ShieldCheck, UserRound, Users } from 'lucide-react';
 import axios from '../utils/axiosConfig';
 import './Login.css';
 import '../admin/page/CreateUser.css';
+import './SelfRegister.css';
 
 const initialForm = {
   name: '',
@@ -92,7 +93,7 @@ const getRoleShiftOptions = role => {
 const normalizeCompanyCode = value => String(value || '')
   .toUpperCase()
   .replace(/[^A-Z0-9_-]/g, '')
-  .slice(0, 10);
+  .slice(0, 30);
 
 function SelfRegister() {
   const navigate = useNavigate();
@@ -109,6 +110,7 @@ function SelfRegister() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loadingCompany, setLoadingCompany] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [validationMessage, setValidationMessage] = useState('');
 
   const selectedJobRole = jobRoles.find(role => getId(role) === form.jobRole);
   const shiftOptions = selectedJobRole ? getRoleShiftOptions(selectedJobRole) : [];
@@ -177,6 +179,7 @@ function SelfRegister() {
 
   const updateField = event => {
     const { name, value } = event.target;
+    setValidationMessage('');
     setForm(prev => {
       const next = { ...prev, [name]: value };
       if (name === 'branch') {
@@ -207,6 +210,7 @@ function SelfRegister() {
 
   const updateDocumentFile = event => {
     const { name, files } = event.target;
+    setValidationMessage('');
     setDocumentFiles(prev => ({
       ...prev,
       [name]: files?.[0] || null
@@ -270,37 +274,22 @@ function SelfRegister() {
       return false;
     }
 
-    const missing = [
-      ['name', 'Full name'],
-      ['email', 'Email'],
-      ['password', 'Password'],
-      ['confirmPassword', 'Confirm password'],
-      ['branch', 'Branch'],
-      ['department', 'Department'],
-      ['jobRole', 'Job role'],
-      ['shiftId', 'Shift'],
-      ['companyRole', 'Company role']
-    ].find(([field]) => !String(form[field] || '').trim());
-
-    if (missing) {
-      toast.error(`${missing[1]} is required`);
-      return false;
+    for (const stepIndex of [0, 1, 3]) {
+      if (!validateStep(stepIndex)) {
+        setActiveStep(stepIndex);
+        return false;
+      }
     }
-
-    if (form.password.length < 8) {
-      toast.error('Password must be at least 8 characters');
-      return false;
-    }
-
-    if (form.password !== form.confirmPassword) {
-      toast.error('Passwords do not match');
-      return false;
-    }
-
     return true;
   };
 
   const validateStep = stepIndex => {
+    const showRequiredError = message => {
+      setValidationMessage(message);
+      toast.error(message);
+      return false;
+    };
+
     if (stepIndex === 0) {
       const missing = [
         ['name', 'Full name'],
@@ -310,16 +299,13 @@ function SelfRegister() {
       ].find(([field]) => !String(form[field] || '').trim());
 
       if (missing) {
-        toast.error(`${missing[1]} is required`);
-        return false;
+        return showRequiredError(`${missing[1]} is required. Please fill this field to continue.`);
       }
       if (form.password.length < 8) {
-        toast.error('Password must be at least 8 characters');
-        return false;
+        return showRequiredError('Password must be at least 8 characters to continue.');
       }
       if (form.password !== form.confirmPassword) {
-        toast.error('Passwords do not match');
-        return false;
+        return showRequiredError('Password and Confirm Password do not match.');
       }
     }
 
@@ -333,11 +319,31 @@ function SelfRegister() {
       ].find(([field]) => !String(form[field] || '').trim());
 
       if (missing) {
-        toast.error(`${missing[1]} is required`);
-        return false;
+        return showRequiredError(`${missing[1]} is required. Please select it to continue.`);
       }
     }
 
+    if (stepIndex === 3 && form.experienceType === 'fresher' && !documentFiles.bankStatement) {
+      return showRequiredError('Bank Statement PDF is required for Fresher. Please upload it to continue.');
+    }
+
+    if (stepIndex === 3 && form.experienceType === 'experienced') {
+      const missingDocument = [
+        ['experienceLetter', 'Experience Letter'],
+        ['salarySlip', 'Salary Slip'],
+        ['additionalDocument', 'Additional Document']
+      ].find(([field]) => !documentFiles[field]);
+
+      if (missingDocument) {
+        return showRequiredError(`${missingDocument[1]} is required for Experienced user. Please upload it to continue.`);
+      }
+
+      if (!form.additionalDocumentDetails.trim()) {
+        return showRequiredError('Additional Document Details is required for Experienced user.');
+      }
+    }
+
+    setValidationMessage('');
     return true;
   };
 
@@ -354,12 +360,11 @@ function SelfRegister() {
     try {
       const { confirmPassword, ...payload } = form;
       void confirmPassword;
-      const submitData = new FormData();
       const finalPayload = {
         ...payload,
         salary: payload.salary ? Number(payload.salary) : '',
-        properties: JSON.stringify(payload.properties || []),
-        assignedBranches: JSON.stringify([payload.branch]),
+        properties: payload.properties || [],
+        assignedBranches: [payload.branch],
         shiftName: selectedShift?.shiftName || '',
         shiftType: selectedShift?.shiftType || '',
         company: company._id,
@@ -367,30 +372,44 @@ function SelfRegister() {
         registrationSource: 'self_register'
       };
 
-      Object.entries(finalPayload).forEach(([key, value]) => {
-        if (value === undefined || value === null) return;
-        submitData.append(key, value);
-      });
-
       const activeDocumentFieldNames = new Set([
         ...documentFileFields.map(field => field.name),
         ...(experienceFileFields[payload.experienceType] || []).map(field => field.name)
       ]);
 
-      Object.entries(documentFiles).forEach(([key, file]) => {
-        if (!activeDocumentFieldNames.has(key)) return;
-        if (file) submitData.append(key, file);
-      });
+      const filesToUpload = Object.entries(documentFiles).filter(([key, file]) => (
+        activeDocumentFieldNames.has(key) && file
+      ));
 
-      await axios.post('/auth/register', submitData, {
-        _skipErrorNotify: true
-      });
+      if (filesToUpload.length === 0) {
+        const jsonPayload = Object.fromEntries(Object.entries(finalPayload).filter(([, value]) => (
+          value !== undefined && value !== null && !(typeof value === 'string' && value.trim() === '')
+        )));
+        await axios.post('/auth/register', jsonPayload, { _skipErrorNotify: true });
+      } else {
+        const submitData = new FormData();
 
-      toast.success('User created successfully. You can login now.');
+        Object.entries(finalPayload).forEach(([key, value]) => {
+          if (value === undefined || value === null) return;
+          if (typeof value === 'string' && value.trim() === '') return;
+          submitData.append(key, Array.isArray(value) ? JSON.stringify(value) : value);
+        });
+
+        filesToUpload.forEach(([key, file]) => submitData.append(key, file));
+
+        await axios.post('/auth/register', submitData, { _skipErrorNotify: true });
+      }
+
+      toast.success('Registration submitted successfully. Your account is pending approval.');
       navigate(`/company/${encodeURIComponent(company.companyCode)}/login`);
     } catch (error) {
-      console.error('Self registration failed:', error);
-      toast.error(error.response?.data?.message || 'User creation failed');
+      const responseData = error.response?.data;
+      console.error('Self registration failed:', {
+        status: error.response?.status,
+        message: responseData?.message || error.message,
+        errorCode: responseData?.errorCode || responseData?.code
+      });
+      toast.error(responseData?.message || 'User creation failed. Please check the required fields.');
     } finally {
       setSubmitting(false);
     }
@@ -494,7 +513,7 @@ function SelfRegister() {
             <div className="self-register-upload-grid">
               {(experienceFileFields[form.experienceType] || []).map(field => (
                 <div className="CreateUser-form-group" key={field.name}>
-                  <label className="CreateUser-label">{field.label}</label>
+                  <label className="CreateUser-label">{field.label} *</label>
                   <input type="file" name={field.name} accept={field.accept} onChange={updateDocumentFile} className="CreateUser-input" />
                   <small className="CreateUser-helper-text">{documentFiles[field.name]?.name || field.hint}</small>
                 </div>
@@ -503,7 +522,7 @@ function SelfRegister() {
           )}
           {form.experienceType === 'experienced' && (
             <div className="CreateUser-form-group CreateUser-full-width">
-              <label className="CreateUser-label">Additional Document Details</label>
+              <label className="CreateUser-label">Additional Document Details *</label>
               <textarea name="additionalDocumentDetails" value={form.additionalDocumentDetails} onChange={updateField} className="CreateUser-input" rows={3} placeholder="Mention what this additional document is" />
             </div>
           )}
@@ -624,10 +643,50 @@ function SelfRegister() {
   ];
 
   const isLastStep = activeStep === steps.length - 1;
+  const stepIcons = [UserRound, Building2, Users, BriefcaseBusiness, MapPin, FileText, Landmark, Users, PhoneCall, PackageCheck];
+  const stepDescriptions = [
+    'Complete your account credentials to continue.',
+    'Choose your branch, department, role and shift.',
+    'Tell us a little more about yourself.',
+    'Add your joining and experience details.',
+    'Provide your current address information.',
+    'Upload identity and verification documents.',
+    'Add salary and bank account information.',
+    'Share your immediate family details.',
+    'Add a trusted emergency contact.',
+    'Review assets and any additional details.'
+  ];
+  const ActiveStepIcon = stepIcons[activeStep];
+  const completedPercent = Math.round(((activeStep + 1) / steps.length) * 100);
 
   return (
     <div className="login-page-container self-register-page">
       <div className="self-register-shell">
+        <aside className="self-register-sidebar">
+          <div className="self-register-brand">
+            <strong>CIIS NETWORK</strong>
+            <span>Employee onboarding</span>
+          </div>
+          <div className="self-register-phase">PHASE 1 — Profile Setup</div>
+          <nav className="self-register-side-steps" aria-label="Registration progress">
+            {steps.map((step, index) => {
+              const StepIcon = stepIcons[index];
+              return (
+                <button key={step.title} type="button" className={`self-register-side-step ${index === activeStep ? 'active' : ''} ${index < activeStep ? 'done' : ''}`} onClick={() => index <= activeStep && setActiveStep(index)}>
+                  <span>{index < activeStep ? <CheckCircle2 size={15} /> : index + 1}</span>
+                  <StepIcon size={16} />
+                  <b>{step.title}</b>
+                </button>
+              );
+            })}
+          </nav>
+          <div className="self-register-progress">
+            <div><strong>Step {activeStep + 1} of {steps.length}</strong><span>{completedPercent}% complete</span></div>
+            <div className="self-register-progress-track"><span style={{ width: `${completedPercent}%` }} /></div>
+          </div>
+          <div className="self-register-security"><ShieldCheck size={26} /><span>Your information is<br />securely protected.</span></div>
+        </aside>
+        <main className="self-register-main">
         <div className="self-register-header">
           <div>
             <p className="self-register-kicker">CIIS Network</p>
@@ -645,22 +704,24 @@ function SelfRegister() {
 
         <div className="self-register-company-card">
           <div className="self-register-code-row">
-            <div className="input-group self-register-code-input">
-              <label className="input-label">Company Code</label>
-              <div className="input-container">
+            <div className="self-register-code-input">
+              <label>Company Code</label>
+              <div className="self-register-code-control">
                 <input
                   type="text"
                   value={companyCode}
                   onChange={event => setCompanyCode(normalizeCompanyCode(event.target.value))}
-                  className="login-input"
+                  className="self-register-company-code-input"
                   placeholder="Enter company code"
-                  maxLength={10}
+                  maxLength={30}
+                  autoComplete="off"
+                  spellCheck="false"
                 />
               </div>
             </div>
             <button
               type="button"
-              className="login-button self-register-verify-button"
+              className="self-register-verify-button"
               onClick={() => loadCompany(companyCode)}
               disabled={loadingCompany}
             >
@@ -670,11 +731,13 @@ function SelfRegister() {
 
           {company && (
             <div className="self-register-company-result">
+              {!company.logo && <span className="self-register-company-logo-fallback"><Building2 size={25} /></span>}
               {company.logo && <img src={company.logo} alt={company.companyName} />}
               <div>
                 <strong>{company.companyName}</strong>
                 <span>{company.companyCode} • {branches.length} branches • {departments.length} departments</span>
               </div>
+              <span className="self-register-verified"><ShieldCheck size={16} /> Verified</span>
             </div>
           )}
         </div>
@@ -696,9 +759,19 @@ function SelfRegister() {
             </div>
 
             <div className="self-register-step-heading">
-              <span>Step {activeStep + 1} of {steps.length}</span>
-              <h3 className="CreateUser-section-title">{steps[activeStep].title}</h3>
+              <span className="self-register-heading-icon"><ActiveStepIcon size={25} /></span>
+              <div>
+                <h3 className="CreateUser-section-title">{steps[activeStep].title}</h3>
+                <p>{stepDescriptions[activeStep]}</p>
+              </div>
             </div>
+
+            {validationMessage && (
+              <div className="self-register-validation-message" role="alert">
+                <span>!</span>
+                <strong>{validationMessage}</strong>
+              </div>
+            )}
 
             {steps[activeStep].content}
 
@@ -710,12 +783,12 @@ function SelfRegister() {
                   onClick={() => setActiveStep(step => Math.max(step - 1, 0))}
                   disabled={submitting}
                 >
-                  Back
+                  <ArrowLeft size={18} /> Back
                 </button>
               )}
               {isLastStep ? (
                 <button type="submit" className="CreateUser-submit-button self-register-step-submit" disabled={submitting}>
-                  {submitting ? 'Creating Account...' : 'Create Account'}
+                  {submitting ? 'Creating Account...' : 'Create Account'} <CheckCircle2 size={19} />
                 </button>
               ) : (
                 <button
@@ -724,12 +797,19 @@ function SelfRegister() {
                   onClick={goToNextStep}
                   disabled={submitting}
                 >
-                  Next
+                  Next <ArrowRight size={20} />
                 </button>
               )}
             </div>
           </form>
         )}
+        {!company && (
+          <div className="self-register-awaiting">
+            <LockKeyhole size={28} />
+            <div><strong>Verify your company to begin</strong><span>Your onboarding form will appear here.</span></div>
+          </div>
+        )}
+        </main>
       </div>
     </div>
   );

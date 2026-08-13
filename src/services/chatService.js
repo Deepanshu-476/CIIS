@@ -118,7 +118,7 @@ export const createConversation = async (
 ) => {
 
     return axios.post(
-        `${API}/conversation`,
+        `${API}/conversation`,  
         { receiverId },
         {
             headers: {

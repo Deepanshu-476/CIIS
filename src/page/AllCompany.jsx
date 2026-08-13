@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -128,6 +129,7 @@ const AllCompany = () => {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
   const [rowMenuOpenId, setRowMenuOpenId] = useState(null);
+  const [rowMenuPosition, setRowMenuPosition] = useState(null);
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
   const [subscriptionCompany, setSubscriptionCompany] = useState(null);
   const [subscriptionPlanId, setSubscriptionPlanId] = useState("");
@@ -172,6 +174,25 @@ const AllCompany = () => {
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
+
+  useEffect(() => {
+    if (!rowMenuOpenId) return undefined;
+
+    const closeMenu = event => {
+      if (event?.target?.closest?.("[data-company-row-menu]")) return;
+      setRowMenuOpenId(null);
+      setRowMenuPosition(null);
+    };
+
+    window.addEventListener("mousedown", closeMenu);
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+    return () => {
+      window.removeEventListener("mousedown", closeMenu);
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+    };
+  }, [rowMenuOpenId]);
 
   const fetchCompanies = async () => {
     try {
@@ -702,7 +723,7 @@ const AllCompany = () => {
               </thead>
               <tbody>
                 {paginatedCompanies.length > 0 ? (
-                  paginatedCompanies.map(company => {
+                  paginatedCompanies.map((company, companyIndex) => {
                     const companyId = getId(company);
                     const status = getCompanyStatus(company);
                     const tone = getCompanyTone(company);
@@ -761,14 +782,36 @@ const AllCompany = () => {
                             <button
                               type="button"
                               className="AllCompany-icon-button"
-                              onClick={() => setRowMenuOpenId(prev => (prev === companyId ? null : companyId))}
+                              data-company-row-menu
+                              onClick={event => {
+                                const isClosing = rowMenuOpenId === companyId;
+                                if (isClosing) {
+                                  setRowMenuOpenId(null);
+                                  setRowMenuPosition(null);
+                                  return;
+                                }
+
+                                const rect = event.currentTarget.getBoundingClientRect();
+                                const menuWidth = 190;
+                                const menuHeight = 174;
+                                const gap = 8;
+                                const isBottomRow = companyIndex >= paginatedCompanies.length - 2;
+                                const openUp = isBottomRow || window.innerHeight - rect.bottom < menuHeight + gap;
+                                setRowMenuPosition({
+                                  left: Math.max(12, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 12)),
+                                  top: openUp ? Math.max(12, rect.bottom - menuHeight) : rect.bottom + gap,
+                                });
+                                setRowMenuOpenId(companyId);
+                              }}
                               aria-label="Open actions"
+                              aria-haspopup="menu"
+                              aria-expanded={rowMenuOpenId === companyId}
                             >
                               <span className="material-icons">more_vert</span>
                             </button>
 
-                            {rowMenuOpenId === companyId && (
-                              <div className="AllCompany-row-menu">
+                            {rowMenuOpenId === companyId && rowMenuPosition && createPortal(
+                              <div className="AllCompany-row-menu" style={rowMenuPosition} role="menu" data-company-row-menu>
                                 <button type="button" onClick={() => handleRowAction("users", company)}>
                                   <span className="material-icons">groups</span>
                                   View Users
@@ -785,7 +828,8 @@ const AllCompany = () => {
                                   <span className="material-icons">delete</span>
                                   Delete
                                 </button>
-                              </div>
+                              </div>,
+                              document.body
                             )}
                           </div>
                         </td>

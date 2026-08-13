@@ -127,6 +127,7 @@ function App() {
         <Route path="/SuperAdminLogin" element={<SuperAdminLogin />} />
         <Route path="company/:companyCode/login" element={<Login />} />
         <Route path="/self-register" element={<SelfRegister />} />
+        <Route path="/:companyCode/register" element={<SelfRegister />} />
         <Route path="/company/:companyCode/register" element={<SelfRegister />} />
         <Route path="/RegisterCompany" element={<RegisterCompany />} />
 

@@ -580,6 +580,10 @@
   color: var(--warning);
 }
 
+.Attendance-stat-icon.Attendance-halfday {
+  color: #9d174d;
+}
+
 .Attendance-stat-icon.Attendance-info {
   color: var(--info);
 }
@@ -798,13 +802,15 @@
 }
 
 .Attendance-status-present {
-  background: var(--success-bg);
-  color: var(--success);
+  background: #bbf7d0;
+  color: #14532d;
+  border: 1px solid #4ade80;
 }
 
 .Attendance-status-late {
-  background: var(--warning-bg);
-  color: var(--warning);
+  background: #fde68a;
+  color: #78350f;
+  border: 1px solid #fbbf24;
 }
 
 .Attendance-status-absent {
@@ -813,9 +819,12 @@
 }
 
 .Attendance-status-half-day {
-  background: var(--warning-bg);
-  color: var(--warning);
+  background: #fce7f3;
+  color: #9d174d;
+  border: 1px solid #f5b7d2;
 }
+
+.Attendance-status-half-day .halfday-icon { color: #be185d; }
 
 .Attendance-status-holiday {
   background: #f3e5f5;
@@ -984,8 +993,12 @@
 }
 
 .Attendance-mobile-card.Attendance-status-half-day {
-  border-left-color: var(--warning);
+  border-left-color: #ec4899;
+  background: linear-gradient(135deg, #fff, #fff7fb);
 }
+
+.Attendance-stat-card[data-key="halfDay"] { border-color: #f8cadd; background: linear-gradient(145deg, #fff, #fff1f7); }
+.Attendance-stat-card[data-key="halfDay"] .Attendance-stat-icon { color: #be185d; background: #fce7f3; }
 
 .Attendance-mobile-card.Attendance-status-holiday {
   border-left-color: #7b1fa2;

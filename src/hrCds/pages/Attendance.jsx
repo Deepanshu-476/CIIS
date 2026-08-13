@@ -512,7 +512,7 @@ const Attendance = () => {
       case "ABSENT":
         return "#f44336";
       case "HALF DAY":
-        return "#ff5722";
+        return "#db2777";
       default:
         return "#757575";
     }
@@ -1048,7 +1048,7 @@ const Attendance = () => {
             label: "Half Days",
             value: stats.halfDay,
             icon: FiAlertCircle,
-            color: "warning",
+            color: "halfday",
           },
           {
             key: "absent",

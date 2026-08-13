@@ -1147,6 +1147,10 @@ const UserDashboard = () => {
         setTimer(Math.max(0, Math.floor((Date.now() - inTime.getTime()) / 1000)));
         setIsRunning(true);
         writeDashboardCache({ activeClock: activeAttendance });
+      } else {
+        setIsRunning(false);
+        setTimer(0);
+        writeDashboardCache({ activeClock: null });
       }
 
       let leaves = summary.leaves || [];
@@ -1352,7 +1356,8 @@ const UserDashboard = () => {
   const leaveDates = useMemo(() => {
     const dates = [];
     filteredLeaveData.forEach(leave => {
-      if (String(leave.status || '').trim().toUpperCase() === 'APPROVED') {
+      const leaveStatus = String(leave.status || '').trim().toUpperCase();
+      if (['PENDING', 'APPROVED'].includes(leaveStatus)) {
         const start = new Date(leave.startDate);
         const end = new Date(leave.endDate);
         const current = new Date(start);
@@ -1367,6 +1372,9 @@ const UserDashboard = () => {
     });
     return [...new Set(dates)];
   }, [filteredLeaveData, isBeforeJoinDate]);
+
+  const leaveDateSet = useMemo(() => new Set(leaveDates), [leaveDates]);
+  const absentDateSet = useMemo(() => new Set(absentDates), [absentDates]);
 
   
   const holidayDates = useMemo(() => {
@@ -1398,7 +1406,7 @@ const UserDashboard = () => {
         return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
       };
       const explicitAbsentKeys = new Set(
-        records.filter(record => record.status === 'ABSENT').map(toDateKey)
+        records.filter(record => record.status === 'ABSENT' && !leaveDateSet.has(toDateKey(record))).map(toDateKey)
       );
 
       return {
@@ -1421,7 +1429,7 @@ const UserDashboard = () => {
       previousMonthlyStats: calculateMonth(previousDate.getFullYear(), previousDate.getMonth()),
       previousMonthLabel: previousDate.toLocaleDateString('en-US', { month: 'short' })
     };
-  }, [filteredAttendanceData, leaveDates, currentMonth, currentYear]);
+  }, [filteredAttendanceData, leaveDates, leaveDateSet, currentMonth, currentYear]);
 
   const getMonthlyChange = useCallback((currentValue, previousValue) => {
     if (!previousValue) return currentValue ? 100 : 0;
@@ -1442,16 +1450,16 @@ const UserDashboard = () => {
     
     if (isBeforeJoinDate(dateObj)) return "before-join";
     // An explicit absence must win if duplicate attendance records exist for a day.
-    if (absentDates.includes(key)) return "absent";
+    if (leaveDateSet.has(key)) return "leave";
+    if (absentDateSet.has(key)) return "absent";
     if (lateDates.includes(key)) return "late";
     if (halfDayDates.includes(key)) return "halfday";
-    if (leaveDates.includes(key)) return "leave";
     if (markedDates.includes(key)) return "present";
     if (isWeekend) return "weekend";
 
     // Missing attendance data is unknown/pending, not an automatic absence.
     return null;
-  }, [calendarYear, calendarMonth, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDates, absentDates, holidayDates]);
+  }, [calendarYear, calendarMonth, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, absentDateSet, holidayDates]);
 
   const isToday = useCallback((day) => {
     return day === currentDate.getDate() && 

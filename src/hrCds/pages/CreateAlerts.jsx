@@ -157,7 +157,7 @@ const CreateAlert = () => {
   const createUsersMap = (usersArray) => {
     const map = new Map();
     usersArray.forEach(user => {
-      const userId = user._id || user.id;
+      const userId = String(user._id || user.id || "").trim();
       if (userId) {
         map.set(userId, user);
       }
@@ -536,11 +536,20 @@ const CreateAlert = () => {
 
   
   const getUserById = (userId) => {
-    if (!userId) return { name: "Unknown User", email: "", username: "Unknown" };
+    const normalizedId = String(typeof userId === "object"
+      ? (userId?._id || userId?.id || userId?.userId || "")
+      : userId || "").trim();
+
+    if (!normalizedId) return { name: "Unknown User", email: "", username: "Unknown" };
+
+    if (typeof userId === "object") {
+      const directName = userId.name || userId.username || userId.fullName || userId.email;
+      if (directName) return userId;
+    }
     
     
     if (usersMap && usersMap.size > 0) {
-      const user = usersMap.get(userId);
+      const user = usersMap.get(normalizedId);
       if (user) {
         return user;
       }
@@ -548,7 +557,7 @@ const CreateAlert = () => {
     
     
     if (Array.isArray(users) && users.length > 0) {
-      const user = users.find(u => u._id === userId || u.id === userId);
+      const user = users.find(u => String(u._id || u.id || "").trim() === normalizedId);
       if (user) {
         return user;
       }
@@ -559,14 +568,15 @@ const CreateAlert = () => {
       name: "Unknown User", 
       email: "", 
       username: "Unknown",
-      _id: userId 
+      _id: normalizedId 
     };
   };
 
   
   const getUserDisplayName = (user) => {
     if (!user) return "Unknown User";
-    return user.name || user.username || user.fullName || user.email || "Unknown User";
+    if (typeof user === "string") return user;
+    return user.name || user.username || user.fullName || user.email || String(user._id || user.id || "") || "Unknown User";
   };
 
   

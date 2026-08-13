@@ -518,6 +518,14 @@ const allPagesItems = [
     order: 5
   },
   {
+    id: 'create-alert',
+    name: 'Create Alert',
+    icon: 'NotificationsActive',
+    path: '/ciisUser/create-alert',
+    category: 'communication',
+    order: 6
+  },
+  {
     id: 'projects',
     name: 'My Projects',
     icon: 'Groups',
@@ -739,6 +747,7 @@ const getPathFromName = (name) => {
     'My Profile': '/ciisUser/profile',
     'Profile': '/ciisUser/profile',
     'Alerts': '/ciisUser/alert',
+    'Create Alert': '/ciisUser/create-alert',
     'Projects': '/ciisUser/project',
     'My Projects': '/ciisUser/project',
     'Employee Details': '/ciisUser/emp-details',

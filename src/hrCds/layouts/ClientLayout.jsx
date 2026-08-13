@@ -70,6 +70,7 @@ const ClientLayout = () => {
     localStorage.removeItem('company');
     localStorage.removeItem('client');
     localStorage.removeItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY);
+    window.dispatchEvent(new Event('ciis-auth-changed'));
     navigate('/');
   };
 

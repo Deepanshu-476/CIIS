@@ -12,7 +12,6 @@ import {
   FiSlash, FiImage, FiCamera, FiTrash2, FiZoomIn, FiCheckSquare,
   FiGlobe, FiSun, FiRotateCcw, FiAlertTriangle, FiFlag, FiArrowDownCircle
 } from 'react-icons/fi';
-
 import "../Css/TaskManagement.css";
 import API_URL from '../../config';
 import { getCompanyScopedClientParams } from '../utils/clientPortalData';
@@ -3751,6 +3750,7 @@ const UserCreateTask = () => {
     sessionStorage.removeItem(TASK_MANAGEMENT_SESSION_CACHE_KEY);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
+    window.dispatchEvent(new Event('ciis-auth-changed'));
     navigate('/login');
   };
 

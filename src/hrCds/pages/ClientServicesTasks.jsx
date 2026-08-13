@@ -236,6 +236,7 @@ const ServicesTasks = () => {
     localStorage.removeItem('companyCode');
     localStorage.removeItem('companyIdentifier');
     localStorage.removeItem('company');
+    window.dispatchEvent(new Event('ciis-auth-changed'));
     window.location.href = '/login';
   };
 

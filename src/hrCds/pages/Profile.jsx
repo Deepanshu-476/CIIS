@@ -111,6 +111,67 @@ const getList = (payload, keys) => {
   return [];
 };
 
+const resolveProfileImageSrc = (value) => {
+  if (!value) return "";
+  if (/^(https?:|data:|blob:)/i.test(value)) return value;
+  return `/` + String(value).replace(/\\/g, "/").replace(/^\/+/, "");
+};
+
+const loadImageElement = (src) => new Promise((resolve, reject) => {
+  const img = new Image();
+  img.onload = () => resolve(img);
+  img.onerror = reject;
+  img.src = src;
+});
+
+const canvasToDataUrl = (canvas, type = "image/jpeg", quality = 0.82) => canvas.toDataURL(type, quality);
+
+const cropImageToDataUrl = async (src, cropState, outputSize = 256, quality = 0.82) => {
+  const img = await loadImageElement(src);
+  const stageSize = cropState?.stageSize || 320;
+  const zoom = Math.max(1, Number(cropState?.zoom || 1));
+  const x = Number(cropState?.x || 0);
+  const y = Number(cropState?.y || 0);
+  const coverScale = Math.max(stageSize / img.width, stageSize / img.height);
+  const scale = coverScale * zoom;
+  const renderedWidth = img.width * scale;
+  const renderedHeight = img.height * scale;
+  const left = (stageSize - renderedWidth) / 2 + x;
+  const top = (stageSize - renderedHeight) / 2 + y;
+  const scaleOut = outputSize / stageSize;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = outputSize;
+  canvas.height = outputSize;
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) {
+    throw new Error("Canvas is not supported");
+  }
+
+  ctx.clearRect(0, 0, outputSize, outputSize);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, outputSize, outputSize);
+  ctx.drawImage(img, left * scaleOut, top * scaleOut, renderedWidth * scaleOut, renderedHeight * scaleOut);
+
+  return canvasToDataUrl(canvas, "image/jpeg", quality);
+};
+
+const buildCompressedProfileImage = async (src, cropState) => {
+  const attempts = [
+    { size: 256, quality: 0.82 },
+    { size: 224, quality: 0.78 },
+    { size: 192, quality: 0.74 },
+  ];
+
+  for (const attempt of attempts) {
+    const dataUrl = await cropImageToDataUrl(src, cropState, attempt.size, attempt.quality);
+    if (dataUrl.length <= 90000) return dataUrl;
+  }
+
+  return cropImageToDataUrl(src, cropState, 160, 0.7);
+};
+
 const Profile = () => {
   const navigate = useNavigate();
   const storedUser = useMemo(() => getStoredUser(), []);
@@ -133,8 +194,20 @@ const Profile = () => {
   const [documentName, setDocumentName] = useState("");
   const [documentUploadOpen, setDocumentUploadOpen] = useState(false);
   const documentInputRef = useRef(null);
+  const profileImageInputRef = useRef(null);
+  const profileCropStageRef = useRef(null);
   const [documentsLoading, setDocumentsLoading] = useState(true);
   const [uploadingDocument, setUploadingDocument] = useState(false);
+  const [uploadingProfileImage, setUploadingProfileImage] = useState(false);
+  const [profileCropOpen, setProfileCropOpen] = useState(false);
+  const [profileCropSource, setProfileCropSource] = useState("");
+  const [profileCropZoom, setProfileCropZoom] = useState(1);
+  const [profileCropPosition, setProfileCropPosition] = useState({ x: 0, y: 0 });
+  const [profileCropDrag, setProfileCropDrag] = useState(null);
+  const [profileCropImageSize, setProfileCropImageSize] = useState({ width: 0, height: 0 });
+  const [profileCropStageSize, setProfileCropStageSize] = useState(320);
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const [profileImagePreviewOpen, setProfileImagePreviewOpen] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [documentDragActive, setDocumentDragActive] = useState(false);
@@ -234,6 +307,180 @@ const Profile = () => {
   useEffect(() => {
     loadDocuments();
   }, [loadDocuments]);
+
+  useEffect(() => {
+    if (!avatarMenuOpen) return undefined;
+
+    const handleDocumentMouseDown = (event) => {
+      if (!event.target.closest?.(".UserDetails-avatar-wrapper")) {
+        setAvatarMenuOpen(false);
+      }
+    };
+
+    const handleDocumentKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setAvatarMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+    document.addEventListener("keydown", handleDocumentKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentMouseDown);
+      document.removeEventListener("keydown", handleDocumentKeyDown);
+    };
+  }, [avatarMenuOpen]);
+
+  useEffect(() => {
+    let active = true;
+    if (!profileCropOpen || !profileCropSource) {
+      setProfileCropImageSize({ width: 0, height: 0 });
+      return undefined;
+    }
+
+    const image = new Image();
+    image.onload = () => {
+      if (!active) return;
+      setProfileCropImageSize({ width: image.naturalWidth || image.width || 0, height: image.naturalHeight || image.height || 0 });
+    };
+    image.onerror = () => {
+      if (!active) return;
+      setProfileCropImageSize({ width: 0, height: 0 });
+    };
+    image.src = profileCropSource;
+
+    return () => {
+      active = false;
+    };
+  }, [profileCropOpen, profileCropSource]);
+
+  useEffect(() => {
+    if (!profileCropOpen) return undefined;
+    const stage = profileCropStageRef.current;
+    if (!stage) return undefined;
+
+    const updateStageSize = () => {
+      const nextSize = stage.getBoundingClientRect().width || 320;
+      setProfileCropStageSize(nextSize);
+    };
+
+    updateStageSize();
+
+    if (typeof ResizeObserver === "undefined") {
+      return undefined;
+    }
+
+    const observer = new ResizeObserver(updateStageSize);
+    observer.observe(stage);
+
+    return () => observer.disconnect();
+  }, [profileCropOpen]);
+
+  const handleProfileImageClick = () => {
+    setAvatarMenuOpen(false);
+    profileImageInputRef.current?.click();
+  };
+
+  const openProfileImagePreview = () => {
+    setProfileImagePreviewOpen(true);
+    setAvatarMenuOpen(false);
+  };
+
+  const closeProfileImagePreview = () => {
+    setProfileImagePreviewOpen(false);
+  };
+
+  const handleProfileImageSelected = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setMessage({ type: "error", text: "Please choose an image file." });
+      event.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setProfileCropSource(String(reader.result || ""));
+      setProfileCropZoom(1);
+      setProfileCropPosition({ x: 0, y: 0 });
+      setProfileCropDrag(null);
+      setProfileCropStageSize(320);
+      setProfileCropOpen(true);
+    };
+    reader.onerror = () => setMessage({ type: "error", text: "Unable to load selected image." });
+    reader.readAsDataURL(file);
+    event.target.value = "";
+  };
+
+  const handleCropPointerDown = (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    setProfileCropDrag({
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: profileCropPosition.x,
+      originY: profileCropPosition.y,
+    });
+  };
+
+  const handleCropPointerMove = (event) => {
+    if (!profileCropDrag || profileCropDrag.pointerId !== event.pointerId) return;
+    setProfileCropPosition({
+      x: profileCropDrag.originX + (event.clientX - profileCropDrag.startX),
+      y: profileCropDrag.originY + (event.clientY - profileCropDrag.startY),
+    });
+  };
+
+  const handleCropPointerUp = () => {
+    setProfileCropDrag(null);
+  };
+
+  const closeProfileCrop = () => {
+    if (uploadingProfileImage) return;
+    setProfileCropOpen(false);
+    setProfileCropSource("");
+    setProfileCropZoom(1);
+    setProfileCropPosition({ x: 0, y: 0 });
+    setProfileCropDrag(null);
+    setProfileCropStageSize(320);
+  };
+
+  const getProfileCropStageSize = () => profileCropStageRef.current?.getBoundingClientRect?.().width || profileCropStageSize || 320;
+
+  const saveCroppedProfileImage = async () => {
+    if (!profileCropSource) return;
+    setUploadingProfileImage(true);
+    try {
+      const stageSize = getProfileCropStageSize();
+      const cropped = await buildCompressedProfileImage(profileCropSource, {
+        x: profileCropPosition.x,
+        y: profileCropPosition.y,
+        zoom: profileCropZoom,
+        stageSize,
+      });
+
+      const response = await axios.put("/users/me", { profileImage: cropped }, {
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const updatedUser = response.data?.user || response.data?.message?.user || response.data?.data || response.data;
+      const mergedUser = { ...profile, ...updatedUser, profileImage: updatedUser?.profileImage || cropped };
+      setProfile(mergedUser);
+      setFormData(buildInitialForm(mergedUser));
+      localStorage.setItem("user", JSON.stringify({ ...storedUser, ...mergedUser }));
+      window.dispatchEvent(new CustomEvent("ciis-profile-updated", { detail: mergedUser }));
+      setMessage({ type: "success", text: "Profile picture updated successfully." });
+      closeProfileCrop();
+    } catch (error) {
+      console.error("Profile image update failed:", error);
+      setMessage({ type: "error", text: error.response?.data?.message || error.message || "Profile picture update failed." });
+    } finally {
+      setUploadingProfileImage(false);
+    }
+  };
 
   const handleDocumentButtonClick = () => {
     documentInputRef.current?.click();
@@ -582,6 +829,12 @@ const Profile = () => {
   const joiningDate = getProfileValue(profile, "joiningDate", "dateOfJoining");
   const manager = resolveReferenceName(getProfileValue(profile, "reportingManager", "managerName", "manager"));
   const location = getProfileValue(profile, "workLocation", "location", "officeLocation");
+  const profileImageSrc = resolveProfileImageSrc(profile?.profileImage || storedUser?.profileImage);
+  const profileCropCoverScale = profileCropImageSize.width && profileCropImageSize.height
+    ? Math.max(profileCropStageSize / profileCropImageSize.width, profileCropStageSize / profileCropImageSize.height)
+    : 1;
+  const profileCropRenderedWidth = profileCropImageSize.width ? profileCropImageSize.width * profileCropCoverScale : profileCropStageSize;
+  const profileCropRenderedHeight = profileCropImageSize.height ? profileCropImageSize.height * profileCropCoverScale : profileCropStageSize;
 
   return (
     <div className="UserDetails-page">
@@ -615,8 +868,46 @@ const Profile = () => {
       )}
 
       <section className="UserDetails-profile-card">
-        <div className="UserDetails-avatar">
-          {(profile?.name || "U").charAt(0).toUpperCase()}
+        <div className="UserDetails-avatar-wrapper">
+          <button
+            type="button"
+            className="UserDetails-avatar UserDetails-avatar-button"
+            onClick={() => setAvatarMenuOpen((open) => !open)}
+            aria-haspopup="menu"
+            aria-expanded={avatarMenuOpen}
+            aria-label="Profile photo options"
+          >
+            {profileImageSrc ? (
+              <img src={profileImageSrc} alt={profile?.name || "User"} className="UserDetails-avatar-image" />
+            ) : (
+              (profile?.name || "U").charAt(0).toUpperCase()
+            )}
+          </button>
+          <button
+            type="button"
+            className="UserDetails-avatar-upload-btn"
+            onClick={() => setAvatarMenuOpen((open) => !open)}
+            disabled={uploadingProfileImage}
+          >
+            {uploadingProfileImage ? "Updating..." : "Photo"}
+          </button>
+          {avatarMenuOpen && (
+            <div className="UserDetails-avatar-menu" role="menu" aria-label="Profile photo actions">
+              <button type="button" role="menuitem" onClick={openProfileImagePreview}>
+                View
+              </button>
+              <button type="button" role="menuitem" onClick={handleProfileImageClick} disabled={uploadingProfileImage}>
+                Edit
+              </button>
+            </div>
+          )}
+          <input
+            ref={profileImageInputRef}
+            type="file"
+            accept="image/*"
+            className="UserDetails-avatar-input"
+            onChange={handleProfileImageSelected}
+          />
         </div>
         <div className="UserDetails-profile-summary">
           <div className="UserDetails-name-row"><h2>{displayValue(profile?.name)}</h2><span className={`UserDetails-status ${String(profile?.status || "active").toLowerCase() === "active" ? "active" : "inactive"}`}>{profile?.status || "Active"}</span></div>
@@ -641,6 +932,124 @@ const Profile = () => {
           )}
         </div>
       </section>
+
+      {profileImagePreviewOpen && (
+        <div className="UserDetails-modal-overlay UserDetails-avatar-preview-overlay" onClick={closeProfileImagePreview}>
+          <div
+            className="UserDetails-modal UserDetails-avatar-preview-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="profile-image-preview-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="UserDetails-modal-header">
+              <div className="UserDetails-modal-title-group">
+                <span className="UserDetails-modal-title-icon">
+                  <FiUser />
+                </span>
+                <div>
+                  <h2 id="profile-image-preview-title">Profile Photo</h2>
+                  <p>Current profile picture preview.</p>
+                </div>
+              </div>
+              <button type="button" className="UserDetails-icon-btn" onClick={closeProfileImagePreview} aria-label="Close preview">
+                <FiX />
+              </button>
+            </div>
+            <div className="UserDetails-avatar-preview-body">
+              {profileImageSrc ? (
+                <img src={profileImageSrc} alt={profile?.name || "User"} />
+              ) : (
+                <div className="UserDetails-avatar-preview-placeholder">{(profile?.name || "U").charAt(0).toUpperCase()}</div>
+              )}
+            </div>
+            <div className="UserDetails-modal-footer">
+              <button type="button" className="UserDetails-secondary-btn" onClick={closeProfileImagePreview}>
+                Close
+              </button>
+              <button type="button" className="UserDetails-primary-btn" onClick={() => { closeProfileImagePreview(); handleProfileImageClick(); }}>
+                <FiEdit /> Edit Photo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {profileCropOpen && (
+        <div className="UserDetails-modal-overlay UserDetails-avatar-crop-overlay" onClick={closeProfileCrop}>
+          <div
+            className="UserDetails-modal UserDetails-avatar-crop-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="profile-crop-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="UserDetails-modal-header">
+              <div className="UserDetails-modal-title-group">
+                <span className="UserDetails-modal-title-icon">
+                  <FiUser />
+                </span>
+                <div>
+                  <h2 id="profile-crop-title">Crop Profile Picture</h2>
+                  <p>Image ko drag karo, zoom adjust karo, phir save dabao.</p>
+                </div>
+              </div>
+              <button type="button" className="UserDetails-icon-btn" onClick={closeProfileCrop} disabled={uploadingProfileImage} aria-label="Close crop dialog">
+                <FiX />
+              </button>
+            </div>
+
+            <div className="UserDetails-modal-content UserDetails-avatar-crop-content">
+              <div className="UserDetails-avatar-crop-stage" ref={profileCropStageRef}>
+                <div
+                  className="UserDetails-avatar-crop-window"
+                  onPointerDown={handleCropPointerDown}
+                  onPointerMove={handleCropPointerMove}
+                  onPointerUp={handleCropPointerUp}
+                  onPointerCancel={handleCropPointerUp}
+                >
+                  <img
+                    src={profileCropSource}
+                    alt="Selected profile"
+                    className="UserDetails-avatar-crop-image"
+                    style={{
+                      width: `${profileCropRenderedWidth}px`,
+                      height: `${profileCropRenderedHeight}px`,
+                      transform: `translate(-50%, -50%) translate(${profileCropPosition.x}px, ${profileCropPosition.y}px) scale(${profileCropZoom})`,
+                    }}
+                    draggable="false"
+                  />
+                </div>
+              </div>
+
+              <div className="UserDetails-avatar-crop-controls">
+                <label className="UserDetails-avatar-crop-zoom">
+                  <span>Zoom</span>
+                  <input
+                    type="range"
+                    min="1"
+                    max="3"
+                    step="0.01"
+                    value={profileCropZoom}
+                    onChange={(event) => setProfileCropZoom(Number(event.target.value))}
+                    disabled={uploadingProfileImage}
+                  />
+                </label>
+                <p className="UserDetails-avatar-crop-hint">Bas image ko crop box ke andar set karo. Save karte hi cropped photo apply ho jayegi.</p>
+              </div>
+            </div>
+
+            <div className="UserDetails-modal-footer">
+              <button type="button" className="UserDetails-secondary-btn" onClick={closeProfileCrop} disabled={uploadingProfileImage}>
+                Cancel
+              </button>
+              <button type="button" className="UserDetails-primary-btn" onClick={saveCroppedProfileImage} disabled={uploadingProfileImage}>
+                <FiSave /> {uploadingProfileImage ? "Saving..." : "Save Crop"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="UserDetails-grid">
         <section className="UserDetails-section-card UserDetails-section-half">

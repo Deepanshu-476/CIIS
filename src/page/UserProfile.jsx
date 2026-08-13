@@ -57,7 +57,6 @@ const UserProfile = () => {
     }
   };
 
-  
   const fetchDepartmentName = async (departmentId) => {
     if (!departmentId) return;
     
@@ -228,40 +227,30 @@ const UserProfile = () => {
   };
 
   
-  const handleUpdateProfile = async () => {
+  const persistProfileChanges = async (payload, { closeEditMode = true, successMessage = "Profile updated successfully!" } = {}) => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
 
-      
-      const updateData = {
-        name: editedData.name,
-        email: editedData.email,
-        phone: editedData.phone,
-        dateOfBirth: editedData.dateOfBirth,
-        gender: editedData.gender,
-        address: editedData.address,
-        bio: editedData.bio,
-        emergencyContact: editedData.emergencyContact,
-        emergencyPhone: editedData.emergencyPhone
-      };
-
       const response = await axios.put(
         `${API_URL}/users/${userData._id}`,
-        updateData,
+        payload,
         { headers }
       );
 
       if (response.data) {
         const updatedUser = response.data.user || response.data;
         setUserData(updatedUser);
-        
-        toast.success("Profile updated successfully!");
-        setEditMode(false);
-        
-        
+        setEditedData(prev => ({
+          ...(prev || {}),
+          ...updatedUser
+        }));
         localStorage.setItem("user", JSON.stringify(updatedUser));
+        toast.success(successMessage);
+        if (closeEditMode) {
+          setEditMode(false);
+        }
       }
     } catch (error) {
       console.error("Error updating profile:", error);
@@ -269,6 +258,20 @@ const UserProfile = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleUpdateProfile = async () => {
+    await persistProfileChanges({
+      name: editedData.name,
+      email: editedData.email,
+      phone: editedData.phone,
+      dateOfBirth: editedData.dateOfBirth,
+      gender: editedData.gender,
+      address: editedData.address,
+      bio: editedData.bio,
+      emergencyContact: editedData.emergencyContact,
+      emergencyPhone: editedData.emergencyPhone
+    });
   };
 
   
@@ -336,7 +339,6 @@ const UserProfile = () => {
     }
   };
 
-  
   if (pageLoading) {
     return <CIISLoader />;
   }
@@ -405,20 +407,12 @@ const UserProfile = () => {
           <div className="UserProfile-profile-header">
             <div className="UserProfile-avatar-section">
               <div className="UserProfile-avatar-wrapper">
-                {userData?.profileImage ? (
-                  <img 
-                    src={userData.profileImage} 
-                    alt={userData.name} 
-                    className="UserProfile-avatar"
-                  />
-                ) : (
-                  <div 
-                    className="UserProfile-avatar UserProfile-avatar-text"
-                    style={{ background: `linear-gradient(135deg, ${getRoleColor(userData?.role)} 0%, ${getRoleColor(userData?.role)}80 100%)` }}
-                  >
-                    {getUserInitials()}
-                  </div>
-                )}
+                <div 
+                  className="UserProfile-avatar UserProfile-avatar-text"
+                  style={{ background: `linear-gradient(135deg, ${getRoleColor(userData?.role)} 0%, ${getRoleColor(userData?.role)}80 100%)` }}
+                >
+                  {getUserInitials()}
+                </div>
                 <span className={`UserProfile-status-badge ${userData?.isActive ? 'active' : 'inactive'}`}>
                   <span className="material-icons">
                     {userData?.isActive ? 'check_circle' : 'cancel'}

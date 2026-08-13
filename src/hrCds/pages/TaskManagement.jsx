@@ -12,10 +12,8 @@ import {
   FiSlash, FiImage, FiCamera, FiTrash2, FiZoomIn, FiCheckSquare,
   FiGlobe, FiSun, FiRotateCcw, FiAlertTriangle, FiFlag, FiArrowDownCircle
 } from 'react-icons/fi';
-
 import "../Css/TaskManagement.css";
 import API_URL from '../../config';
-import CIISLoader from '../../Loader/CIISLoader';
 import { getCompanyScopedClientParams } from '../utils/clientPortalData';
 
 

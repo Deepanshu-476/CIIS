@@ -2858,13 +2858,13 @@
   }
   .dashboard-container .dashboard-calendar-card .calendar-day.empty { background: transparent; }
   .dashboard-container .dashboard-calendar-card .calendar-day.present {
-    background: linear-gradient(145deg, #d9fbea, #a9efcf);
-    color: #05734a !important;
-    border: 1px solid #55d7a2;
+    background: linear-gradient(145deg, #dcfce7, #bbf7d0);
+    color: #14532d !important;
+    border: 1px solid #4ade80;
     box-shadow: 0 2px 6px rgba(16, 185, 129, .16);
   }
-  .dashboard-container .dashboard-calendar-card .calendar-day.late { background: linear-gradient(145deg, #fff9eb, rgba(245,166,35,.20)); color: #9b6004 !important; border: 1px solid rgba(245,166,35,.24); }
-  .dashboard-container .dashboard-calendar-card .calendar-day.halfday { background: linear-gradient(145deg, #fffbed, rgba(245,181,51,.18)); color: #9d6507 !important; border: 1px solid rgba(245,181,51,.21); }
+  .dashboard-container .dashboard-calendar-card .calendar-day.late { background: linear-gradient(145deg, #fef3c7, #fde68a); color: #78350f !important; border: 1px solid #fbbf24; box-shadow: 0 2px 6px rgba(245,158,11,.11); }
+  .dashboard-container .dashboard-calendar-card .calendar-day.halfday { background: linear-gradient(145deg, #fbcfe8, #f9a8d4); color: #831843 !important; border: 1px solid #ec4899; box-shadow: 0 2px 6px rgba(219,39,119,.16); }
   .dashboard-container .dashboard-calendar-card .calendar-day.leave { background: linear-gradient(145deg, #f4f9ff, rgba(61,139,232,.17)); color: #246cb8 !important; border: 1px solid rgba(61,139,232,.19); }
   .dashboard-container .dashboard-calendar-card .calendar-day.absent {
     background: linear-gradient(135deg, #ef4444, #dc2626);
@@ -2965,8 +2965,9 @@
     box-shadow: none;
   }
   .dashboard-container .dashboard-calendar-card .color-present { background: #10b981; }
-  .dashboard-container .dashboard-calendar-card .color-late,
-  .dashboard-container .dashboard-calendar-card .color-halfday { background: rgba(245, 165, 36, .82); }
+  .dashboard-container .dashboard-calendar-card .color-late { background: rgba(245, 165, 36, .82); }
+  .dashboard-container .dashboard-calendar-card .color-halfday { background: #db2777; }
+  .dashboard-container .dashboard-calendar-card .halfday .day-status-icon::after { color: #9d174d; }
   .dashboard-container .dashboard-calendar-card .color-leave { background: rgba(61, 139, 232, .82); }
   .dashboard-container .dashboard-calendar-card .color-absent { background: rgba(236, 73, 94, .82); }
   .dashboard-container .dashboard-calendar-card .color-weekend { background: #64748b; }

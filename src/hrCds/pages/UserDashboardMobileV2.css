@@ -129,11 +129,12 @@
   .MobileDashV2-days span { height: 34px; display: grid; place-items: center; border-radius: 9px; background: #f6f8fb; color: #4c586c; font-size: 10px; font-weight: 700; }
   .MobileDashV2-days span.blank { background: transparent; }
   .MobileDashV2-days span.present {
-    background: #c9f5df;
-    color: #05734a;
-    border: 1px solid #65dbaa;
+    background: #bbf7d0;
+    color: #14532d;
+    border: 1px solid #4ade80;
   }
-  .MobileDashV2-days span.late, .MobileDashV2-days span.halfday { background: #fff3dd; color: #d8840d; }
+  .MobileDashV2-days span.late { background: #fde68a; color: #78350f; border: 1px solid #fbbf24; }
+  .MobileDashV2-days span.halfday { background: #f9a8d4; color: #831843; border: 1px solid #ec4899; box-shadow: 0 2px 5px rgba(219,39,119,.14); }
   .MobileDashV2-days span.leave { background: #e9f2ff; color: #2d73dc; }
   .MobileDashV2-days span.absent {
     background: linear-gradient(135deg, #ef4444, #dc2626);

@@ -2,7 +2,10 @@ import axios from "./axiosConfig";
 
 export const getStoredUser = () => {
   try {
-    const raw = localStorage.getItem("user") || localStorage.getItem("currentUser");
+    const raw = localStorage.getItem("user")
+      || localStorage.getItem("currentUser")
+      || localStorage.getItem("superAdmin")
+      || sessionStorage.getItem("superAdmin");
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return parsed?.user || parsed;

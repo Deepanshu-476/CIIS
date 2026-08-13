@@ -110,6 +110,7 @@ function SelfRegister() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loadingCompany, setLoadingCompany] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [validationMessage, setValidationMessage] = useState('');
 
   const selectedJobRole = jobRoles.find(role => getId(role) === form.jobRole);
   const shiftOptions = selectedJobRole ? getRoleShiftOptions(selectedJobRole) : [];
@@ -178,6 +179,7 @@ function SelfRegister() {
 
   const updateField = event => {
     const { name, value } = event.target;
+    setValidationMessage('');
     setForm(prev => {
       const next = { ...prev, [name]: value };
       if (name === 'branch') {
@@ -208,6 +210,7 @@ function SelfRegister() {
 
   const updateDocumentFile = event => {
     const { name, files } = event.target;
+    setValidationMessage('');
     setDocumentFiles(prev => ({
       ...prev,
       [name]: files?.[0] || null
@@ -281,6 +284,12 @@ function SelfRegister() {
   };
 
   const validateStep = stepIndex => {
+    const showRequiredError = message => {
+      setValidationMessage(message);
+      toast.error(message);
+      return false;
+    };
+
     if (stepIndex === 0) {
       const missing = [
         ['name', 'Full name'],
@@ -290,16 +299,13 @@ function SelfRegister() {
       ].find(([field]) => !String(form[field] || '').trim());
 
       if (missing) {
-        toast.error(`${missing[1]} is required`);
-        return false;
+        return showRequiredError(`${missing[1]} is required. Please fill this field to continue.`);
       }
       if (form.password.length < 8) {
-        toast.error('Password must be at least 8 characters');
-        return false;
+        return showRequiredError('Password must be at least 8 characters to continue.');
       }
       if (form.password !== form.confirmPassword) {
-        toast.error('Passwords do not match');
-        return false;
+        return showRequiredError('Password and Confirm Password do not match.');
       }
     }
 
@@ -313,14 +319,12 @@ function SelfRegister() {
       ].find(([field]) => !String(form[field] || '').trim());
 
       if (missing) {
-        toast.error(`${missing[1]} is required`);
-        return false;
+        return showRequiredError(`${missing[1]} is required. Please select it to continue.`);
       }
     }
 
     if (stepIndex === 3 && form.experienceType === 'fresher' && !documentFiles.bankStatement) {
-      toast.error('Bank Statement PDF is required for Fresher');
-      return false;
+      return showRequiredError('Bank Statement PDF is required for Fresher. Please upload it to continue.');
     }
 
     if (stepIndex === 3 && form.experienceType === 'experienced') {
@@ -331,16 +335,15 @@ function SelfRegister() {
       ].find(([field]) => !documentFiles[field]);
 
       if (missingDocument) {
-        toast.error(`${missingDocument[1]} is required for Experienced user`);
-        return false;
+        return showRequiredError(`${missingDocument[1]} is required for Experienced user. Please upload it to continue.`);
       }
 
       if (!form.additionalDocumentDetails.trim()) {
-        toast.error('Additional Document Details is required for Experienced user');
-        return false;
+        return showRequiredError('Additional Document Details is required for Experienced user.');
       }
     }
 
+    setValidationMessage('');
     return true;
   };
 
@@ -357,7 +360,6 @@ function SelfRegister() {
     try {
       const { confirmPassword, ...payload } = form;
       void confirmPassword;
-      const submitData = new FormData();
       const finalPayload = {
         ...payload,
         salary: payload.salary ? Number(payload.salary) : '',
@@ -763,6 +765,13 @@ function SelfRegister() {
                 <p>{stepDescriptions[activeStep]}</p>
               </div>
             </div>
+
+            {validationMessage && (
+              <div className="self-register-validation-message" role="alert">
+                <span>!</span>
+                <strong>{validationMessage}</strong>
+              </div>
+            )}
 
             {steps[activeStep].content}
 

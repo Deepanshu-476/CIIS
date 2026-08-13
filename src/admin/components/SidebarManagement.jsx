@@ -193,6 +193,10 @@ const SidebarManagement = () => {
   const [availablePages, setAvailablePages] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
   const [itemOrders, setItemOrders] = useState({});
+  const [ranges, setRanges] = useState([]);
+  const [newRangeHeading, setNewRangeHeading] = useState('');
+  const [newRangeMin, setNewRangeMin] = useState('');
+  const [newRangeMax, setNewRangeMax] = useState('');
   const [existingConfigs, setExistingConfigs] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [searchTerm, setSearchTerm] = useState('');
@@ -713,6 +717,7 @@ const SidebarManagement = () => {
     } else {
       setSelectedItems([]);
       setItemOrders({});
+      setRanges([]);
     }
   };
 
@@ -738,15 +743,18 @@ const SidebarManagement = () => {
       
       if (response.data && response.data.success && response.data.data) {
         const menuItems = response.data.data.menuItems || [];
+        const savedRanges = response.data.data.ranges || [];
         setSelectedItems(menuItems.map(item => item.id));
         const orders = {};
         menuItems.forEach((item, idx) => {
           orders[item.id] = item.order || (idx + 1);
         });
         setItemOrders(orders);
+        setRanges(savedRanges);
       } else {
         setSelectedItems([]);
         setItemOrders({});
+        setRanges([]);
       }
     } catch (error) {
       console.error('Error loading existing config:', error);
@@ -767,13 +775,17 @@ const SidebarManagement = () => {
       
       setSelectedDepartment(departmentId);
       setSelectedRole(roleId);
+      setDepartmentSearch(getDepartmentName(config.departmentId));
+      setRoleSearch(getRoleNameById(config.role));
       const menuItems = config.menuItems || [];
+      const savedRanges = config.ranges || [];
       setSelectedItems(menuItems.map(item => item.id));
       const orders = {};
       menuItems.forEach((item, idx) => {
         orders[item.id] = item.order || (idx + 1);
       });
       setItemOrders(orders);
+      setRanges(savedRanges);
       setActiveTab(0);
       setActiveStep(2);
       
@@ -896,7 +908,36 @@ const SidebarManagement = () => {
     return acc;
   }, {});
 
-  
+  const handleAddRange = () => {
+    const minVal = parseInt(newRangeMin, 10);
+    const maxVal = parseInt(newRangeMax, 10);
+    const headingVal = newRangeHeading.trim();
+
+    if (!headingVal) {
+      setSnackbar({ open: true, message: 'Please enter heading name', severity: 'warning' });
+      return;
+    }
+    if (isNaN(minVal) || isNaN(maxVal) || minVal < 1 || maxVal < minVal) {
+      setSnackbar({ open: true, message: 'Invalid range min/max values', severity: 'warning' });
+      return;
+    }
+
+    const hasOverlap = ranges.some(r => (minVal <= r.max && maxVal >= r.min));
+    if (hasOverlap) {
+      setSnackbar({ open: true, message: 'Range overlaps with an existing range', severity: 'warning' });
+      return;
+    }
+
+    setRanges(prev => [...prev, { min: minVal, max: maxVal, heading: headingVal }].sort((a, b) => a.min - b.min));
+    setNewRangeHeading('');
+    setNewRangeMin('');
+    setNewRangeMax('');
+  };
+
+  const handleRemoveRange = (index) => {
+    setRanges(prev => prev.filter((_, idx) => idx !== index));
+  };
+
   const handleSave = async () => {
     if (!canEditSidebar) {
       setSnackbar({
@@ -963,7 +1004,8 @@ const SidebarManagement = () => {
         branchId: selectedBranch || null,
         departmentId: selectedDepartment,
         role: selectedRole,
-        menuItems: menuItemsMapped
+        menuItems: menuItemsMapped,
+        ranges: ranges
       };
 
       void 0;
@@ -1754,6 +1796,162 @@ const SidebarManagement = () => {
                       </div>
                     );
                   })}
+                  {/* Range & Category Headings Configuration Section */}
+                  <div className="SidebarManagement-ranges-section" style={{
+                    marginTop: 28,
+                    padding: '24px 20px',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 12,
+                    background: '#f8fafc',
+                    boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.02)'
+                  }}>
+                    <h4 style={{ margin: '0 0 8px 0', fontSize: 15, color: '#0f172a', fontWeight: '700', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span>🗂️</span> Custom Sort Ranges & Heading Names
+                    </h4>
+                    <p style={{ margin: '0 0 16px 0', fontSize: 12, color: '#64748b', lineHeight: 1.4 }}>
+                      Define custom headers for specific sort ranges (e.g., items with Sort 1-5 under "Main Dashboard", 6-8 under "Service Operations").
+                    </p>
+
+                    {/* Inputs to Add Range */}
+                    <div style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 12,
+                      alignItems: 'flex-end',
+                      marginBottom: 16
+                    }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 2, minWidth: 160 }}>
+                        <label style={{ fontSize: 11, fontWeight: '700', color: '#475569' }}>Heading/Section Name</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. My Dashboard"
+                          value={newRangeHeading}
+                          onChange={e => setNewRangeHeading(e.target.value)}
+                          style={{
+                            height: 38,
+                            padding: '0 12px',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: 8,
+                            fontSize: 13,
+                            outline: 'none',
+                            background: '#ffffff'
+                          }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: 75 }}>
+                        <label style={{ fontSize: 11, fontWeight: '700', color: '#475569' }}>Min Sort</label>
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="1"
+                          value={newRangeMin}
+                          onChange={e => setNewRangeMin(e.target.value)}
+                          style={{
+                            height: 38,
+                            padding: '0 8px',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: 8,
+                            fontSize: 13,
+                            textAlign: 'center',
+                            outline: 'none',
+                            background: '#ffffff'
+                          }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: 75 }}>
+                        <label style={{ fontSize: 11, fontWeight: '700', color: '#475569' }}>Max Sort</label>
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="5"
+                          value={newRangeMax}
+                          onChange={e => setNewRangeMax(e.target.value)}
+                          style={{
+                            height: 38,
+                            padding: '0 8px',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: 8,
+                            fontSize: 13,
+                            textAlign: 'center',
+                            outline: 'none',
+                            background: '#ffffff'
+                          }}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddRange}
+                        style={{
+                          height: 38,
+                          padding: '0 16px',
+                          background: '#10b981',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: 8,
+                          fontSize: 13,
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)',
+                          transition: 'background 0.15s ease'
+                        }}
+                      >
+                        Add Range
+                      </button>
+                    </div>
+
+                    {/* Added Ranges List */}
+                    {ranges.length === 0 ? (
+                      <div style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic', padding: '10px 0' }}>
+                        No custom headings configured. Sidebar will use the default categories.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {ranges.map((r, idx) => (
+                          <div key={idx} style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '8px 12px',
+                            background: '#ffffff',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: 8
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{
+                                fontSize: 11,
+                                fontWeight: '700',
+                                color: '#10b981',
+                                background: '#e6f4ea',
+                                padding: '3px 8px',
+                                borderRadius: 6
+                              }}>
+                                Sort: {r.min} - {r.max}
+                              </span>
+                              <strong style={{ fontSize: 13, color: '#334155' }}>{r.heading}</strong>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveRange(idx)}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: '#ef4444',
+                                fontSize: 16,
+                                cursor: 'pointer',
+                                padding: '4px 8px'
+                              }}
+                              title="Delete Range"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   
                   
                   <div className="SidebarManagement-save-footer">
@@ -1909,21 +2107,28 @@ const SidebarManagement = () => {
                 </div>
                 <div className="SidebarManagement-modal-content">
                   <div className="SidebarManagement-preview-list">
-                    {modalState.data.menuItems.map((item, index) => (
-                      <div key={item.id} className="SidebarManagement-preview-item">
-                        <div className="SidebarManagement-preview-item-icon">
-                          {getIconHtml(item.icon)}
-                        </div>
-                        <div className="SidebarManagement-preview-item-details">
-                          <span className="SidebarManagement-preview-item-name">{item.name}</span>
-                          <div className="SidebarManagement-preview-item-meta">
-                            <span className="SidebarManagement-preview-item-path">{item.path}</span>
-                            <span className="SidebarManagement-preview-item-category">{getCategoryDisplayName(item.category)}</span>
-                            <span className="SidebarManagement-preview-item-order" style={{ marginLeft: 8, background: '#f1f5f9', padding: '2px 6px', borderRadius: 4, fontSize: 11, fontWeight: 'bold', color: '#64748b' }}>Sort: {item.order}</span>
+                    {modalState.data.menuItems.map((item, index) => {
+                      const orderVal = Number.isFinite(Number(item.order)) && Number(item.order) !== 99 ? Number(item.order) : (index + 1);
+                      const customRanges = modalState.data.ranges || [];
+                      const matchedRange = customRanges.find(r => orderVal >= r.min && orderVal <= r.max);
+                      const displayCategory = matchedRange ? matchedRange.heading : getCategoryDisplayName(item.category);
+
+                      return (
+                        <div key={item.id} className="SidebarManagement-preview-item">
+                          <div className="SidebarManagement-preview-item-icon">
+                            {getIconHtml(item.icon)}
+                          </div>
+                          <div className="SidebarManagement-preview-item-details">
+                            <span className="SidebarManagement-preview-item-name">{item.name}</span>
+                            <div className="SidebarManagement-preview-item-meta">
+                              <span className="SidebarManagement-preview-item-path">{item.path}</span>
+                              <span className="SidebarManagement-preview-item-category">{displayCategory}</span>
+                              <span className="SidebarManagement-preview-item-order" style={{ marginLeft: 8, background: '#f1f5f9', padding: '2px 6px', borderRadius: 4, fontSize: 11, fontWeight: 'bold', color: '#64748b' }}>Sort: {orderVal}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
                 <div className="SidebarManagement-modal-footer">

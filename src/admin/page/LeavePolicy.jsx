@@ -1199,7 +1199,7 @@ const LeavePolicy = () => {
                     </td>
                     <td>{item.leaveType}</td>
                     <td>
-                      <span className={`lpm-pay-badge ${item.payType?.toLowerCase() || 'paid'}`}>
+                      <span className={`lpm-pay-badge ${item.payType?.toLowerCase().replace(/\s+/g, '-') || 'paid'}`}>
                         {item.payType || 'Paid'}
                       </span>
                     </td>

@@ -150,6 +150,7 @@ function App() {
           <Route path="department/branch/:branchId" element={<Department />} />
           <Route path="JobRoleManagement" element={<JobRoleManagement />} />
           <Route path="create-user" element={<CreateUser />} />
+          <Route path="register-request" element={<RegisterRequest />} />
           <Route path="all-company" element={<AllCompany />} />
           <Route path="all-company/:companyId/users" element={<CompanyUsersPage />} />
           <Route path="company-assets" element={<CompanyAssetManagement/>}/>

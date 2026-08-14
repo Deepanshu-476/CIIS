@@ -1547,10 +1547,10 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
           companyData
         );
 
-    // Companies without a saved sidebar configuration use the fixed fallback
-    // menu. Keep the register approval page available to the same privileged
-    // roles that are allowed by the backend controller.
-    if (!hasRoleConfig) {
+    // Keep the register approval page available to the same privileged roles
+    // that are allowed by the backend controller, including companies with a
+    // saved/custom sidebar configuration.
+    {
       const normalizeRole = value => String(value || '')
         .trim()
         .toLowerCase()
@@ -1697,27 +1697,39 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     
     if (showFull) {
       return (
-        <StyledListItemButton
-          selected={selected}
-          onClick={() => !item.disabled && handleNavigate(item.path, badgeKey)}
-          disabled={item.disabled}
-          sx={{
-            opacity: item.disabled ? 0.5 : 1,
-            cursor: item.disabled ? 'not-allowed' : 'pointer'
-          }}
-        >
-          <StyledListItemIcon>
-            {icon}
-          </StyledListItemIcon>
-          <ListItemText
-            primary={item.name}
-            primaryTypographyProps={{ 
-              variant: 'body2', 
-              fontWeight: selected ? 600 : 500,
-              fontSize: '0.9rem'
+        <Tooltip title={item.name} placement="right" enterDelay={700}>
+          <StyledListItemButton
+            selected={selected}
+            onClick={() => !item.disabled && handleNavigate(item.path, badgeKey)}
+            disabled={item.disabled}
+            sx={{
+              minHeight: 48,
+              height: 'auto',
+              alignItems: 'center',
+              mx: 0.5,
+              px: 1,
+              opacity: item.disabled ? 0.5 : 1,
+              cursor: item.disabled ? 'not-allowed' : 'pointer'
             }}
-          />
-        </StyledListItemButton>
+          >
+            <StyledListItemIcon sx={{ mr: 1 }}>
+              {icon}
+            </StyledListItemIcon>
+            <ListItemText
+              primary={item.name}
+              sx={{ minWidth: 0, my: 0, overflow: 'visible' }}
+              primaryTypographyProps={{
+                variant: 'body2',
+                fontWeight: selected ? 600 : 500,
+                fontSize: '0.72rem',
+                lineHeight: 1.2,
+                whiteSpace: 'nowrap',
+                overflow: 'visible',
+                textOverflow: 'clip'
+              }}
+            />
+          </StyledListItemButton>
+        </Tooltip>
       );
     } else {
       return (

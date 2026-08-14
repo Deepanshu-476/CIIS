@@ -1,7 +1,7 @@
 /* Pixel-Perfect Screenshot Sizing & Proportions for Leave Policy */
 
 .lpm-container {
-  width: calc(100% + 48px);
+  width: auto;
   min-height: calc(100vh - 64px);
   margin: -24px;
   padding: 24px;
@@ -13,7 +13,7 @@
 
 @media (max-width: 900px) {
   .lpm-container {
-    width: calc(100% + 32px);
+    width: auto;
     margin: -16px;
     padding: 16px;
   }
@@ -21,7 +21,7 @@
 
 @media (max-width: 600px) {
   .lpm-container {
-    width: calc(100% + 16px);
+    width: auto;
     margin: -8px;
     padding: 12px;
   }
@@ -520,11 +520,13 @@
 
 /* Table Design */
 .lpm-table-wrapper {
-  overflow-x: auto;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .lpm-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   text-align: left;
   font-size: 0.825rem;
@@ -532,18 +534,22 @@
 
 .lpm-table th {
   background: #f8fafc;
-  padding: 12px 14px;
+  padding: 10px 6px;
   font-weight: 700;
   color: #334155;
   border-bottom: 1px solid #e2e8f0;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
 }
 
 .lpm-table td {
-  padding: 12px 14px;
+  padding: 10px 6px;
   border-bottom: 1px solid #f1f5f9;
   vertical-align: middle;
   color: #1e293b;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .lpm-table tr:hover {
@@ -554,7 +560,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  max-width: 260px;
+  max-width: 100%;
 }
 
 .lpm-role-tag {
@@ -565,7 +571,9 @@
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 4px;
-  white-space: nowrap;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .lpm-bool-badge {
@@ -605,7 +613,8 @@
 .lpm-action-buttons {
   display: flex;
   align-items: center;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .lpm-icon-btn {
@@ -707,7 +716,7 @@
 .lpm-creator-cell {
   display: grid;
   gap: 2px;
-  min-width: 130px;
+  min-width: 0;
 }
 
 .lpm-creator-cell strong {

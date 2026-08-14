@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import axios from "../../../utils/axiosConfig";
 import { getCurrentUserId, getStoredUser, getUserIds, loadPagePermission } from "../../../utils/pageAccess";
@@ -327,6 +327,7 @@ const CompanyAllTaskTasks = () => {
     checkpoints: [],
   });
   const [savingTaskId, setSavingTaskId] = useState(null);
+  const fetchRequestIdRef = useRef(0);
 
   useEffect(() => {
     if (effectiveUserId) return;
@@ -405,6 +406,9 @@ const CompanyAllTaskTasks = () => {
   const fetchTasks = useCallback(async () => {
     if (!effectiveUserId) return;
 
+    const requestId = fetchRequestIdRef.current + 1;
+    fetchRequestIdRef.current = requestId;
+
     setLoading(true);
     setError("");
 
@@ -428,8 +432,23 @@ const CompanyAllTaskTasks = () => {
       const displayPages = response.data?.pagination?.pages || 1;
       const displayStats = normalizeStats(response.data, nextTasks);
 
+      if (fetchRequestIdRef.current !== requestId) {
+        return;
+      }
+
       setTasks(nextTasks);
-      setWorkSummary(response.data?.workSummary || null);
+      setWorkSummary({
+        clockIn: null,
+        clockOut: null,
+        isClockedIn: false,
+        totalClockedSeconds: 0,
+        totalClockedLabel: "0m",
+        trackedTaskSeconds: 0,
+        trackedTaskLabel: "0m",
+        untrackedSeconds: 0,
+        untrackedLabel: "0m",
+        ...(response.data?.workSummary || {}),
+      });
       setTotal(displayTotal);
       setTotalPages(displayPages);
       // Status-card filtering should only change the task list. Keep the
@@ -441,8 +460,21 @@ const CompanyAllTaskTasks = () => {
 
       if (nextTasks.length === 0) setTaskDetailsById({});
     } catch (err) {
+      if (fetchRequestIdRef.current !== requestId) {
+        return;
+      }
       setTasks([]);
-      setWorkSummary(null);
+      setWorkSummary({
+        clockIn: null,
+        clockOut: null,
+        isClockedIn: false,
+        totalClockedSeconds: 0,
+        totalClockedLabel: "0m",
+        trackedTaskSeconds: 0,
+        trackedTaskLabel: "0m",
+        untrackedSeconds: 0,
+        untrackedLabel: "0m",
+      });
       setTaskDetailsById({});
       if (status === "all") {
         setStats(emptyStats);
@@ -519,6 +551,28 @@ const CompanyAllTaskTasks = () => {
   useEffect(() => {
     const timer = setTimeout(fetchTasks, 250);
     return () => clearTimeout(timer);
+  }, [fetchTasks]);
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      fetchTasks();
+    };
+
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        fetchTasks();
+      }
+    };
+
+    window.addEventListener("focus", handleRefresh);
+    window.addEventListener("ciis-attendance-updated", handleRefresh);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.removeEventListener("focus", handleRefresh);
+      window.removeEventListener("ciis-attendance-updated", handleRefresh);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [fetchTasks]);
 
   useEffect(() => {

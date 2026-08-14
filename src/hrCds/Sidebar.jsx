@@ -1492,29 +1492,9 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
 
     
     if (isClientUser) {
-      let items = [];
-      if (sidebarConfig && sidebarConfig.menuItems && Array.isArray(sidebarConfig.menuItems)) {
-        items = sidebarConfig.menuItems
-          .map((item, index) => ({
-            id: item.id || item._id || Math.random().toString(36).substr(2, 9),
-            name: getMenuDisplayName(item.name || 'Unnamed Item'),
-            icon: item.icon || 'Dashboard',
-            category: item.category || 'main',
-            order: Number.isFinite(Number(item.order)) && Number(item.order) !== 99 ? Number(item.order) : (index + 1),
-            path: getPathFromName(item.name) || item.path,
-            disabled: item.disabled || false,
-            visible: item.visible !== false
-          }))
-          .filter(item => (
-            item.visible &&
-            !item.disabled &&
-            !managementClientPageIds.has(item.id) &&
-            (item.category === 'clients' || item.path.startsWith('/client/'))
-          ));
-      } else {
-        items = [...clientMenuItems];
-      }
-      return removeHiddenSidebarItems(items);
+      // Client portal users should always see the full client navigation,
+      // even if a saved sidebar config exists for internal staff.
+      return removeHiddenSidebarItems([...clientMenuItems]);
     }
 
     

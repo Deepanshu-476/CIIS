@@ -1609,6 +1609,7 @@ const UserDashboard = () => {
       writeDashboardCache({
         activeClock: { inTime: clockedInAt.toISOString(), isClockedIn: true },
       });
+      window.dispatchEvent(new Event('ciis-attendance-updated'));
       toast.success('Clocked in successfully!');
       
       setTimeout(() => {
@@ -1637,6 +1638,7 @@ const UserDashboard = () => {
       setTimer(0);
       writeDashboardCache({ activeClock: null });
       setShowClockOutConfirm(false);
+      window.dispatchEvent(new Event('ciis-attendance-updated'));
       toast.success("Clocked out successfully!");
 
       setTimeout(() => {

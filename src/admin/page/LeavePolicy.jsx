@@ -202,6 +202,7 @@ const LeavePolicy = () => {
         loadedPolicies = rawPolicies.map((p) => ({
           id: p._id || p.id,
           policyName: p.policyName,
+          departmentId: getRecordId(p.department),
           department: getDeptDisplayName(p.department),
           jobRoles: Array.isArray(p.jobRoles) && p.jobRoles.length > 0 
             ? p.jobRoles.map(r => getRoleDisplayName(r))
@@ -538,7 +539,9 @@ const LeavePolicy = () => {
     setEditingId(policy.id);
     setFormData({
       policyName: policy.policyName,
-      department: policy.department,
+      department: policy.departmentId || getRecordId(
+        departments.find(dept => getDeptDisplayName(dept) === policy.department)
+      ),
       jobRoles: policy.jobRoles || [],
       leaveType: policy.leaveType,
       payType: policy.payType || 'Paid',
@@ -784,7 +787,7 @@ const LeavePolicy = () => {
                   </option>
                   {departmentOptions.map(({ record: dept, label: deptName }) => {
                     return (
-                      <option key={getRecordId(dept) || deptName} value={deptName}>
+                      <option key={getRecordId(dept) || deptName} value={getRecordId(dept) || deptName}>
                         {deptName}
                       </option>
                     );

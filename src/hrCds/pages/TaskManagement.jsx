@@ -59,10 +59,11 @@ const getImageUrl = (imagePath) => {
   const filename = cleanPath.split('/').pop();
   
   const possiblePaths = [
+    `${baseUrl}/uploads/${filename}`,
+    `${baseUrlWithoutApi}/uploads/${filename}`,
     `${baseUrlWithoutApi}/uploads/client-remarks/${filename}`,
     `${baseUrlWithoutApi}/uploads/remarks/client-remarks/${filename}`,
-    `${baseUrlWithoutApi}/client-remarks/${filename}`,
-    `${baseUrlWithoutApi}/uploads/${filename}`
+    `${baseUrlWithoutApi}/client-remarks/${filename}`
   ];
   
   return possiblePaths[0];

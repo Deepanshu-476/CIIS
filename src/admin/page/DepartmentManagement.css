@@ -1091,6 +1091,11 @@
   color: #1976d2;
 }
 
+.DepartmentManagement-chip-working-days {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .DepartmentManagement-status {
   display: inline-flex;
   align-items: center;
@@ -1276,6 +1281,11 @@ tr:hover .DepartmentManagement-action-buttons {
 .DepartmentManagement-tag-code {
   background: #e3f2fd;
   color: #1976d2;
+}
+
+.DepartmentManagement-tag-working-days {
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .DepartmentManagement-tag-active {

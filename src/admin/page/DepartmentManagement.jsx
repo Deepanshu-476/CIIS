@@ -23,7 +23,8 @@ const DepartmentManagement = () => {
     description: '',
     company: '',  
     companyCode: '',
-    branch: ''
+    branch: '',
+    workingDays: 5
   });
   const [loading, setLoading] = useState(false);
   const [loadingBranches, setLoadingBranches] = useState(false);
@@ -92,6 +93,17 @@ const DepartmentManagement = () => {
   );
 
   const getDepartmentBranchId = (dept) => getRecordId(dept?.branch || dept?.branchId);
+
+  const normalizeWorkingDays = (value) => {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed >= 1 && parsed <= 7 ? parsed : 5;
+  };
+
+  const getWorkingDaysLabel = (value) => {
+    const days = normalizeWorkingDays(value);
+    const weekendDays = 7 - days;
+    return `${days} working / ${weekendDays} weekend`;
+  };
 
   const getBranchLabel = (branchValue) => {
     const branchId = getRecordId(branchValue);
@@ -251,6 +263,8 @@ const DepartmentManagement = () => {
       return;
     }
 
+    const workingDays = normalizeWorkingDays(formData.workingDays);
+
     setLoading(true);
     try {
       const user = getUserFromStorage();
@@ -266,7 +280,8 @@ const DepartmentManagement = () => {
       const submitData = {
         name: formData.name.trim(),
         description: formData.description.trim(),
-        branch: formData.branch
+        branch: formData.branch,
+        workingDays
       };
       
       if (!isSuper || formData.company) {
@@ -312,7 +327,8 @@ const DepartmentManagement = () => {
         description: '',
         company: companyId || '',
         companyCode: companyCode || '',
-        branch: selectedBranchId || ''
+        branch: selectedBranchId || '',
+        workingDays: 5
       });
       setEditingDept(null);
       setRefreshKey(prev => prev + 1);
@@ -362,7 +378,8 @@ const DepartmentManagement = () => {
       description: dept.description || '',
       company: getRecordId(dept.company) || resolveCompanyId(user) || '',
       companyCode: dept.companyCode || resolveCompanyCode(user) || '',
-      branch: getDepartmentBranchId(dept) || ''
+      branch: getDepartmentBranchId(dept) || '',
+      workingDays: normalizeWorkingDays(dept.workingDays)
     });
     setOpenDialog(true);
     setShowMenu(false);
@@ -514,6 +531,9 @@ const DepartmentManagement = () => {
               <span className="DepartmentManagement-tag DepartmentManagement-tag-code">
                 {getBranchLabel(dept.branch || dept.branchId)}
               </span>
+              <span className="DepartmentManagement-tag DepartmentManagement-tag-working-days">
+                {getWorkingDaysLabel(dept.workingDays)}
+              </span>
               <span className={`DepartmentManagement-tag ${dept.isActive !== false ? 'DepartmentManagement-tag-active' : 'DepartmentManagement-tag-inactive'}`}>
                 {dept.isActive !== false ? 'Active' : 'Inactive'}
               </span>
@@ -592,6 +612,9 @@ const DepartmentManagement = () => {
               )}
               <span className="DepartmentManagement-tag DepartmentManagement-tag-code">
                 {getBranchLabel(dept.branch || dept.branchId)}
+              </span>
+              <span className="DepartmentManagement-tag DepartmentManagement-tag-working-days">
+                {getWorkingDaysLabel(dept.workingDays)}
               </span>
               <span className={`DepartmentManagement-tag ${dept.isActive !== false ? 'DepartmentManagement-tag-active' : 'DepartmentManagement-tag-inactive'}`}>
                 {dept.isActive !== false ? 'Active' : 'Inactive'}
@@ -876,7 +899,8 @@ const DepartmentManagement = () => {
                     description: '',
                     company: resolveCompanyId(user) || '',
                     companyCode: resolveCompanyCode(user) || '',
-                    branch: selectedBranchId || ''
+                    branch: selectedBranchId || '',
+                    workingDays: 5
                   });
                   setOpenDialog(true);
                 }}
@@ -1009,6 +1033,7 @@ const DepartmentManagement = () => {
                   <th>Department Name</th>
                   <th>Description</th>
                   <th>Branch</th>
+                  <th>Working Days</th>
                   {isSuperAdmin && showAllCompanies && <th>Company Code</th>}
                   <th>Created By</th>
                   <th>Created On</th>
@@ -1019,7 +1044,7 @@ const DepartmentManagement = () => {
               <tbody>
                 {filteredDepartments.length === 0 ? (
                   <tr>
-                    <td colSpan={isSuperAdmin && showAllCompanies ? 8 : 7} className="DepartmentManagement-empty-cell">
+                    <td colSpan={isSuperAdmin && showAllCompanies ? 9 : 8} className="DepartmentManagement-empty-cell">
                       <div className="DepartmentManagement-empty-state">
                         <div className="DepartmentManagement-empty-icon">
                           {getIconSvg('corporate', 50)}
@@ -1052,6 +1077,11 @@ const DepartmentManagement = () => {
                         <td>
                           <span className="DepartmentManagement-chip DepartmentManagement-chip-code">
                             {getBranchLabel(dept.branch || dept.branchId)}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="DepartmentManagement-chip DepartmentManagement-chip-working-days">
+                            {getWorkingDaysLabel(dept.workingDays)}
                           </span>
                         </td>
                         {isSuperAdmin && showAllCompanies && (
@@ -1166,7 +1196,8 @@ const DepartmentManagement = () => {
                 description: '',
                 company: resolveCompanyId(user) || '',
                 companyCode: resolveCompanyCode(user) || '',
-                branch: selectedBranchId || ''
+                branch: selectedBranchId || '',
+                workingDays: 5
               });
               setOpenDialog(true);
             }}
@@ -1328,6 +1359,28 @@ const DepartmentManagement = () => {
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
                     placeholder="Enter department name"
                   />
+                </div>
+              </div>
+
+              <div className="DepartmentManagement-form-group">
+                <label className="DepartmentManagement-form-label">Working Days *</label>
+                <div className="DepartmentManagement-input-wrapper">
+                  <span className="DepartmentManagement-input-icon">
+                    {getIconSvg('today', isMobile ? 18 : 20)}
+                  </span>
+                  <select
+                    className="DepartmentManagement-form-input"
+                    value={formData.workingDays}
+                    onChange={(e) => setFormData({...formData, workingDays: Number(e.target.value)})}
+                    required
+                    style={{ appearance: 'none', background: 'transparent', outline: 'none' }}
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7].map(dayCount => (
+                      <option key={dayCount} value={dayCount}>
+                        {getWorkingDaysLabel(dayCount)}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

@@ -102,6 +102,13 @@ const pruneExpiredGetCacheEntries = () => {
 const getRequestCacheTtlMs = (url) => {
   const normalizedUrl = normalizeGetUrl(url).toLowerCase();
   const noisyEndpointPatterns = [
+    '/departments',
+    '/job-roles',
+    '/branches/company',
+    '/menu-access',
+    '/menu-items',
+    '/page-permissions',
+    '/sidebar',
     '/notifications/unread-count',
     '/notifications',
     '/alerts',
@@ -212,7 +219,13 @@ const responseErrorHandler = (error) => {
 };
 
 axiosInstance.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (String(response.config?.method || "get").toLowerCase() !== "get") {
+      completedGetRequests.clear();
+      inFlightGetRequests.clear();
+    }
+    return response;
+  },
   responseErrorHandler,
 );
 

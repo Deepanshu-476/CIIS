@@ -89,7 +89,7 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
 
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const open = Boolean(anchorEl);
 
@@ -102,13 +102,9 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
   };
 
 const handleLogout = () => {
-  
-  
   if (window.confirm('Are you sure you want to logout?')) {
-    localStorage.removeItem('token');
+    logout?.();
     navigate('/');
-    
-    
     alert('Logged out successfully!'); 
   }
 };

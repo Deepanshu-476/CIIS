@@ -163,11 +163,12 @@ const MyServicesPage = () => {
     pdf.setFontSize(19);
     pdf.text(`${tasksService.title} Tasks`, 38, 35);
     pdf.setFontSize(9);
-    pdf.text(`Service progress: ${tasksService.progress}%  |  Exported: ${new Date().toLocaleDateString()}`, 38, 54);
+    pdf.text(`Service progress: ${tasksService.progress}%  |  Total exported tasks: ${modalTasks.length}  |  Exported: ${new Date().toLocaleDateString()}`, 38, 54);
     autoTable(pdf, {
       startY: 96,
-      head: [['Task', 'Description', 'Status', 'Due Date']],
-      body: modalTasks.map(task => [
+      head: [['S.No.', 'Task', 'Description', 'Status', 'Due Date']],
+      body: modalTasks.map((task, index) => [
+        index + 1,
         getTaskTitle(task),
         task.description || task.notes || 'No description added',
         getTaskStatus(task),
@@ -177,6 +178,7 @@ const MyServicesPage = () => {
       headStyles: { fillColor: [80, 70, 235], textColor: 255, fontSize: 9 },
       bodyStyles: { fontSize: 8, textColor: [35, 47, 71] },
       alternateRowStyles: { fillColor: [248, 249, 255] },
+      columnStyles: { 0: { cellWidth: 34, halign: 'center' } },
       margin: { left: 38, right: 38 }
     });
     pdf.save(`${tasksService.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-tasks.pdf`);

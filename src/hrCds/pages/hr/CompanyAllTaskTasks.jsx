@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import axios from "../../../utils/axiosConfig";
 import { getCurrentUserId, getStoredUser, getUserIds, loadPagePermission } from "../../../utils/pageAccess";
@@ -291,6 +291,7 @@ const CompanyAllTaskTasks = () => {
   const { userId } = useParams();
   const [searchParams] = useSearchParams();
   const currentUser = useMemo(getStoredUser, []);
+  const effectiveUserId = userId || getCurrentUserId() || currentUser?._id || currentUser?.id || "";
   const initialDate = useMemo(() => {
     const queryDate = searchParams.get("date");
     return queryDate || getDateInputValue();
@@ -326,12 +327,13 @@ const CompanyAllTaskTasks = () => {
     checkpoints: [],
   });
   const [savingTaskId, setSavingTaskId] = useState(null);
+  const fetchRequestIdRef = useRef(0);
 
   useEffect(() => {
-    if (userId) return;
+    if (effectiveUserId) return;
     setLoading(false);
     setError("Please select an employee from Company All Task.");
-  }, [userId]);
+  }, [effectiveUserId]);
 
   useEffect(() => {
     let active = true;
@@ -374,7 +376,7 @@ const CompanyAllTaskTasks = () => {
   }, []);
 
   const fetchEmployee = useCallback(async () => {
-    if (!userId) return;
+    if (!effectiveUserId) return;
 
     const companyId = currentUser?.company?._id || currentUser?.company;
     const departmentId = currentUser?.department?._id || currentUser?.department;
@@ -387,7 +389,7 @@ const CompanyAllTaskTasks = () => {
     for (const url of urls) {
       try {
         const response = await axios.get(url);
-        const found = extractUsers(response).find((user) => (user._id || user.id) === userId);
+        const found = extractUsers(response).find((user) => (user._id || user.id) === effectiveUserId);
         if (found) {
           setEmployee({ ...found, _id: found._id || found.id });
           return;
@@ -396,16 +398,22 @@ const CompanyAllTaskTasks = () => {
         
       }
     }
-  }, [currentUser, userId]);
+    if (currentUser && String(currentUser._id || currentUser.id || "") === String(effectiveUserId)) {
+      setEmployee({ ...currentUser, _id: currentUser._id || currentUser.id });
+    }
+  }, [currentUser, effectiveUserId]);
 
   const fetchTasks = useCallback(async () => {
-    if (!userId) return;
+    if (!effectiveUserId) return;
+
+    const requestId = fetchRequestIdRef.current + 1;
+    fetchRequestIdRef.current = requestId;
 
     setLoading(true);
     setError("");
 
     try {
-      const response = await axios.get(`/task/user/${userId}/all-tasks`, {
+      const response = await axios.get(`/task/user/${effectiveUserId}/all-tasks`, {
         params: {
           page,
           limit,
@@ -424,8 +432,23 @@ const CompanyAllTaskTasks = () => {
       const displayPages = response.data?.pagination?.pages || 1;
       const displayStats = normalizeStats(response.data, nextTasks);
 
+      if (fetchRequestIdRef.current !== requestId) {
+        return;
+      }
+
       setTasks(nextTasks);
-      setWorkSummary(response.data?.workSummary || null);
+      setWorkSummary({
+        clockIn: null,
+        clockOut: null,
+        isClockedIn: false,
+        totalClockedSeconds: 0,
+        totalClockedLabel: "0m",
+        trackedTaskSeconds: 0,
+        trackedTaskLabel: "0m",
+        untrackedSeconds: 0,
+        untrackedLabel: "0m",
+        ...(response.data?.workSummary || {}),
+      });
       setTotal(displayTotal);
       setTotalPages(displayPages);
       // Status-card filtering should only change the task list. Keep the
@@ -437,8 +460,21 @@ const CompanyAllTaskTasks = () => {
 
       if (nextTasks.length === 0) setTaskDetailsById({});
     } catch (err) {
+      if (fetchRequestIdRef.current !== requestId) {
+        return;
+      }
       setTasks([]);
-      setWorkSummary(null);
+      setWorkSummary({
+        clockIn: null,
+        clockOut: null,
+        isClockedIn: false,
+        totalClockedSeconds: 0,
+        totalClockedLabel: "0m",
+        trackedTaskSeconds: 0,
+        trackedTaskLabel: "0m",
+        untrackedSeconds: 0,
+        untrackedLabel: "0m",
+      });
       setTaskDetailsById({});
       if (status === "all") {
         setStats(emptyStats);
@@ -447,7 +483,7 @@ const CompanyAllTaskTasks = () => {
     } finally {
       setLoading(false);
     }
-  }, [limit, page, priority, search, selectedDate, status, userId]);
+  }, [effectiveUserId, limit, page, priority, search, selectedDate, status]);
 
   const fetchTaskDetails = useCallback(async (task) => {
     if (!task?._id) {
@@ -518,6 +554,28 @@ const CompanyAllTaskTasks = () => {
   }, [fetchTasks]);
 
   useEffect(() => {
+    const handleRefresh = () => {
+      fetchTasks();
+    };
+
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        fetchTasks();
+      }
+    };
+
+    window.addEventListener("focus", handleRefresh);
+    window.addEventListener("ciis-attendance-updated", handleRefresh);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.removeEventListener("focus", handleRefresh);
+      window.removeEventListener("ciis-attendance-updated", handleRefresh);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [fetchTasks]);
+
+  useEffect(() => {
     if (tasks.length === 0) return;
     const missingTasks = tasks.filter((task) => !taskDetailsById[task._id]);
     if (missingTasks.length === 0) return;
@@ -541,7 +599,7 @@ const CompanyAllTaskTasks = () => {
     { label: "Overdue", value: stats.overdue?.count || 0, status: "overdue", icon: FiAlertTriangle, color: "#dc2626" },
   ];
 
-  const employeeName = employee?.name || tasks[0]?.assignedUsers?.[0]?.name || "Employee";
+  const employeeName = employee?.name || currentUser?.name || tasks[0]?.assignedUsers?.[0]?.name || "Employee";
 
   const handleReset = () => {
     setSearch("");

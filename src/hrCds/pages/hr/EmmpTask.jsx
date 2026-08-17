@@ -525,6 +525,7 @@ const EmmpTask = () => {
   const handleLogout = () => {
     localStorage.removeItem('user');
     localStorage.removeItem('token');
+    window.dispatchEvent(new Event('ciis-auth-changed'));
     navigate('/login');
   };
 

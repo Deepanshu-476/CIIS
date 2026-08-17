@@ -518,6 +518,14 @@ const allPagesItems = [
     order: 5
   },
   {
+    id: 'create-alert',
+    name: 'Create Alert',
+    icon: 'NotificationsActive',
+    path: '/ciisUser/create-alert',
+    category: 'communication',
+    order: 6
+  },
+  {
     id: 'projects',
     name: 'My Projects',
     icon: 'Groups',
@@ -739,6 +747,7 @@ const getPathFromName = (name) => {
     'My Profile': '/ciisUser/profile',
     'Profile': '/ciisUser/profile',
     'Alerts': '/ciisUser/alert',
+    'Create Alert': '/ciisUser/create-alert',
     'Projects': '/ciisUser/project',
     'My Projects': '/ciisUser/project',
     'Employee Details': '/ciisUser/emp-details',
@@ -1483,29 +1492,9 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
 
     
     if (isClientUser) {
-      let items = [];
-      if (sidebarConfig && sidebarConfig.menuItems && Array.isArray(sidebarConfig.menuItems)) {
-        items = sidebarConfig.menuItems
-          .map((item, index) => ({
-            id: item.id || item._id || Math.random().toString(36).substr(2, 9),
-            name: getMenuDisplayName(item.name || 'Unnamed Item'),
-            icon: item.icon || 'Dashboard',
-            category: item.category || 'main',
-            order: Number.isFinite(Number(item.order)) && Number(item.order) !== 99 ? Number(item.order) : (index + 1),
-            path: getPathFromName(item.name) || item.path,
-            disabled: item.disabled || false,
-            visible: item.visible !== false
-          }))
-          .filter(item => (
-            item.visible &&
-            !item.disabled &&
-            !managementClientPageIds.has(item.id) &&
-            (item.category === 'clients' || item.path.startsWith('/client/'))
-          ));
-      } else {
-        items = [...clientMenuItems];
-      }
-      return removeHiddenSidebarItems(items);
+      // Client portal users should always see the full client navigation,
+      // even if a saved sidebar config exists for internal staff.
+      return removeHiddenSidebarItems([...clientMenuItems]);
     }
 
     
@@ -1592,6 +1581,31 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
           }
         ];
       }
+    }
+
+    // Sidebar configuration is an administrative capability. A saved role
+    // configuration must never expose it to ordinary employees.
+    const normalizeAdministrativeRole = value => String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, '_');
+    const sidebarManagementRoles = new Set([
+      'owner', 'admin', 'hr', 'manager', 'super_admin', 'superadmin',
+      'company_owner', 'companyowner'
+    ]);
+    const canManageSidebar = [
+      userData?.companyRole,
+      userData?.jobRole,
+      userData?.role
+    ].some(value => sidebarManagementRoles.has(
+      normalizeAdministrativeRole(getRecordDisplayName(value) || value)
+    ));
+
+    if (!canManageSidebar) {
+      accessFilteredItems = accessFilteredItems.filter(item => (
+        item.id !== 'SidebarManagement' &&
+        String(item.path || '').toLowerCase() !== '/ciisuser/sidebarmanagement'
+      ));
     }
 
     // Sidebar Management stores the click/selection sequence as `order`.

@@ -1157,9 +1157,9 @@ const LeavePolicy = () => {
               ) : (
                 paginatedPolicies.map((item, index) => (
                   <tr key={item.id}>
-                    <td>{(currentPage - 1) * entriesPerPage + index + 1}</td>
+                    <td data-label="Sl. No.">{(currentPage - 1) * entriesPerPage + index + 1}</td>
                     {(pageAccess.canEdit || pageAccess.canDelete) && (
-                    <td>
+                    <td data-label="Action">
                       <div className="lpm-action-buttons">
                         {pageAccess.canEdit && (
                         <button
@@ -1184,9 +1184,9 @@ const LeavePolicy = () => {
                       </div>
                     </td>
                     )}
-                    <td>{item.policyName}</td>
-                    <td>{item.department}</td>
-                    <td>
+                    <td data-label="Policy Name">{item.policyName}</td>
+                    <td data-label="Department">{item.department}</td>
+                    <td data-label="Job Roles">
                       <div className="lpm-roles-flex">
                         {item.jobRoles && item.jobRoles.length > 0 ? (
                           item.jobRoles.map((role) => (
@@ -1199,31 +1199,31 @@ const LeavePolicy = () => {
                         )}
                       </div>
                     </td>
-                    <td>{item.leaveType}</td>
-                    <td>
+                    <td data-label="Leave Type">{item.leaveType}</td>
+                    <td data-label="Paid / Unpaid">
                       <span className={`lpm-pay-badge ${item.payType?.toLowerCase().replace(/\s+/g, '-') || 'paid'}`}>
                         {item.payType || 'Paid'}
                       </span>
                     </td>
-                    <td className="text-center">{item.entitledDays}</td>
-                    <td className="text-center">{item.monthlyAllowed}</td>
-                    <td className="text-center">
+                    <td data-label="Entitled Days" className="text-center">{item.entitledDays}</td>
+                    <td data-label="Monthly" className="text-center">{item.monthlyAllowed}</td>
+                    <td data-label="Carry Forward" className="text-center">
                       <span className={`lpm-bool-badge ${item.carryForward === 'Yes' ? 'yes' : 'no'}`}>
                         {item.carryForward}
                       </span>
                     </td>
-                    <td className="text-center">{item.maxCarryForwardDays}</td>
-                    <td className="text-center">
+                    <td data-label="Max CF" className="text-center">{item.maxCarryForwardDays}</td>
+                    <td data-label="Encashment" className="text-center">
                       <span className={`lpm-bool-badge ${item.encashmentAllowed === 'Yes' ? 'yes' : 'no'}`}>
                         {item.encashmentAllowed}
                       </span>
                     </td>
-                    <td className="text-center">
+                    <td data-label="Probation" className="text-center">
                       <span className={`lpm-bool-badge ${item.probationApplicable === 'Yes' ? 'yes' : 'no'}`}>
                         {item.probationApplicable}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Created By">
                       <div className="lpm-creator-cell">
                         <strong>{item.createdByName || 'Unknown'}</strong>
                         <span>{getFormattedDate(item.createdAt)}</span>
@@ -1232,7 +1232,7 @@ const LeavePolicy = () => {
                         )}
                       </div>
                     </td>
-                    <td>
+                    <td data-label="Status">
                       <span className={`lpm-status-pill ${item.status}`}>
                         {item.status}
                       </span>

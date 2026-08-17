@@ -640,7 +640,17 @@ const getDepartmentName = (deptId, departmentsMap, departmentsList) => {
 
 
 const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit }) => {
-  const [editedRecord, setEditedRecord] = useState({});
+  const [editedRecord, setEditedRecord] = useState({
+    user: '',
+    date: '',
+    inTime: '',
+    outTime: '',
+    status: 'absent',
+    lateBy: '00:00:00',
+    earlyLeave: '00:00:00',
+    overTime: '00:00:00',
+    notes: ''
+  });
   const [loading, setLoading] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
@@ -1449,7 +1459,8 @@ const EmployeeAttendance = () => {
       void 0;
       
       const res = await axios.get('/attendance/all', {
-        params: { date: formatted, ...branchQueryParams }
+        params: { date: formatted, ...branchQueryParams },
+        cache: false
       });
       
       const attendanceMap = {};
@@ -1587,7 +1598,8 @@ const EmployeeAttendance = () => {
       const fetchPromises = dateRange.map(async (date) => {
         try {
           const res = await axios.get('/attendance/all', {
-            params: { date, ...branchQueryParams }
+            params: { date, ...branchQueryParams },
+            cache: false
           });
           return { date, data: res.data };
         } catch (error) {
@@ -1979,15 +1991,18 @@ const EmployeeAttendance = () => {
       showSnackbar("Attendance record deleted successfully!", "success");
       
       if (dateRangeMode) {
-        fetchAttendanceDataRange(selectedStartDate, selectedEndDate);
+        await fetchAttendanceDataRange(selectedStartDate, selectedEndDate);
       } else {
-        fetchAttendanceData(selectedDate);
+        await fetchAttendanceData(selectedDate);
       }
       
       setEditModalOpen(false);
     } catch (error) {
       console.error("Error deleting attendance:", error);
-      showSnackbar("Failed to delete attendance record", "error");
+      showSnackbar(
+        error.response?.data?.message || "Failed to delete attendance record",
+        "error"
+      );
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,30 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 
 export const AuthContext = createContext(null);
+const AUTH_SYNC_EVENT = 'ciis-auth-changed';
+
+const readStoredAuth = () => {
+  const storedToken = localStorage.getItem('token');
+  const storedUser = localStorage.getItem('user');
+
+  if (!storedToken || !storedUser) {
+    return { user: null, token: null, isAuthenticated: false };
+  }
+
+  try {
+    return {
+      user: JSON.parse(storedUser),
+      token: storedToken,
+      isAuthenticated: true,
+    };
+  } catch (error) {
+    console.error('⚠️ Failed to parse user from localStorage:', error);
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    return { user: null, token: null, isAuthenticated: false };
+  }
+};
 
 
 export const useAuth = () => {
@@ -14,24 +37,44 @@ export const useAuth = () => {
 
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(() => localStorage.getItem('token'));
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const initialAuth = readStoredAuth();
+  const [user, setUser] = useState(initialAuth.user);
+  const [token, setToken] = useState(initialAuth.token);
+  const [isAuthenticated, setIsAuthenticated] = useState(initialAuth.isAuthenticated);
+
+  const syncAuthState = useCallback(() => {
+    const nextAuth = readStoredAuth();
+
+    setUser(prev => (JSON.stringify(prev) === JSON.stringify(nextAuth.user) ? prev : nextAuth.user));
+    setToken(prev => (prev === nextAuth.token ? prev : nextAuth.token));
+    setIsAuthenticated(prev => (prev === nextAuth.isAuthenticated ? prev : nextAuth.isAuthenticated));
+  }, []);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    const storedToken = localStorage.getItem('token');
-    setToken(storedToken);
-    if (storedUser && storedToken) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        setIsAuthenticated(true);
-      } catch (error) {
-        console.error('⚠️ Failed to parse user from localStorage:', error);
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
-      }
+    syncAuthState();
+
+    const handleAuthChange = () => syncAuthState();
+    window.addEventListener('storage', handleAuthChange);
+    window.addEventListener(AUTH_SYNC_EVENT, handleAuthChange);
+
+    const interval = setInterval(syncAuthState, 1000);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', handleAuthChange);
+      window.removeEventListener(AUTH_SYNC_EVENT, handleAuthChange);
+    };
+  }, [syncAuthState]);
+
+  const logout = useCallback(() => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    setToken(null);
+    setIsAuthenticated(false);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(AUTH_SYNC_EVENT));
     }
   }, []);
 
@@ -46,7 +89,7 @@ export const AuthProvider = ({ children }) => {
   
 
   return (
-    <AuthContext.Provider value={{ user, setUser, token, setToken, isAuthenticated, setIsAuthenticated }}>
+    <AuthContext.Provider value={{ user, setUser, token, setToken, isAuthenticated, setIsAuthenticated, logout, syncAuthState }}>
       {children}
     </AuthContext.Provider>
   );

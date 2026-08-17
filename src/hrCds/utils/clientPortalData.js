@@ -606,11 +606,25 @@ export const useClientPortalData = () => {
 
   const fetchServiceTasks = useCallback(async (clientId, serviceName) => {
     try {
-      const response = await tasksApi.get(`/client/${clientId}/service/${encodeURIComponent(serviceName)}`);
-      if (response.data?.success) {
-        return (response.data.data || []).map(task => ({ ...task, serviceName }));
-      }
-      return [];
+      const taskUrl = `/client/${clientId}/service/${encodeURIComponent(serviceName)}`;
+      const limit = 100;
+      const firstResponse = await tasksApi.get(taskUrl, { params: { page: 1, limit } });
+      if (!firstResponse.data?.success) return [];
+
+      const firstPageTasks = firstResponse.data.data || [];
+      const total = Number(firstResponse.data.total || firstPageTasks.length);
+      const totalPages = Math.max(1, Math.ceil(total / limit));
+      const remainingPages = totalPages > 1
+        ? await Promise.all(Array.from({ length: totalPages - 1 }, (_, index) => (
+          tasksApi.get(taskUrl, { params: { page: index + 2, limit } })
+        )))
+        : [];
+      const serviceTasks = [
+        ...firstPageTasks,
+        ...remainingPages.flatMap(response => response.data?.data || [])
+      ];
+
+      return serviceTasks.map(task => ({ ...task, serviceName }));
     } catch (err) {
       console.error(`Error fetching tasks for ${serviceName}:`, err);
       return [];

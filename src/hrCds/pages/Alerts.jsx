@@ -159,7 +159,8 @@ const Alerts = () => {
   const autoRefreshRef = useRef(null);
 
   const token = localStorage.getItem("token");
-  const canManage = ["admin", "hr", "manager"].includes(String(role || "").toLowerCase());
+  const canManage = ["admin", "hr", "manager", "owner", "super_admin", "superadmin", "company_owner", "companyowner"]
+    .includes(String(role || "").toLowerCase().replace(/[\s-]+/g, "_"));
 
   const getUserId = () => {
     const storedUser = currentUser || JSON.parse(localStorage.getItem("user") || "null");
@@ -239,8 +240,8 @@ const Alerts = () => {
         try {
           const parsed = JSON.parse(storedUser);
           setCurrentUser(parsed);
-          const userRole = parsed?.role || parsed?.user?.role || parsed?.userRole || "";
-          setRole(String(userRole).toLowerCase());
+          const userRole = parsed?.companyRole || parsed?.role || parsed?.jobRole || parsed?.userRole || "";
+          setRole(String(userRole).toLowerCase().replace(/[\s-]+/g, "_"));
           const userId = parsed?._id || parsed?.id || parsed?.user?._id || parsed?.user?.id || "";
           if (userId) localStorage.setItem("userId", userId);
           await getUserGroups(String(userId || ""));
@@ -528,9 +529,9 @@ const Alerts = () => {
 
   const getCreator = (alert) => {
     const creator = alert?.createdBy || alert?.assignedBy || alert?.author || alert?.creator;
-    const creatorId = String(creator?._id || creator?.id || creator || "");
-    const user = users.find((item) => String(item?._id || item?.id) === creatorId);
-    return user?.name || creator?.name || creator?.email || "System";
+    const creatorId = String(creator?._id || creator?.id || creator || "").trim();
+    const user = users.find((item) => String(item?._id || item?.id || "").trim() === creatorId);
+    return creator?.name || user?.name || creator?.fullName || user?.fullName || creator?.email || user?.email || "System";
   };
 
   const getCreatorAvatar = (alert) => {
@@ -548,12 +549,18 @@ const Alerts = () => {
   const getAssignedNames = (list, type) => {
     const source = asArray(list);
     const mapped = source.map((item) => {
-      const id = String(item?._id || item?.id || item);
-      if (type === "user") {
-        const match = users.find((user) => String(user?._id || user?.id) === id);
-        return { id, name: match?.name || match?.email || "Unknown User" };
+      if (type === "user" && item && typeof item === "object") {
+        const name = item.name || item.fullName || item.username || item.email;
+        const id = String(item._id || item.id || item.userId || "").trim();
+        if (name) return { id: id || name, name };
       }
-      const match = groups.find((group) => String(group?._id || group?.id) === id);
+
+      const id = String(item?._id || item?.id || item).trim();
+      if (type === "user") {
+        const match = users.find((user) => String(user?._id || user?.id || "").trim() === id);
+        return { id, name: match?.name || match?.fullName || match?.username || match?.email || id || "Unknown User" };
+      }
+      const match = groups.find((group) => String(group?._id || group?.id || "").trim() === id);
       return { id, name: match?.name || "Unknown Group" };
     });
     return mapped.filter(Boolean);
@@ -601,16 +608,6 @@ const Alerts = () => {
           </div>
         </div>
 
-        <div className="AlertsHero-actions">
-          <button
-            type="button"
-            className="AlertsButton AlertsButton-primary"
-            onClick={() => openForm()}
-          >
-            <FiPlus />
-            <span>Create Alert</span>
-          </button>
-        </div>
       </section>
 
       <section className="AlertsToolbar">

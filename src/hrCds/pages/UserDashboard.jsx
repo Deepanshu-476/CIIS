@@ -32,6 +32,26 @@ const monthNames = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
+const normalizeWorkingDays = value => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 7 ? parsed : 5;
+};
+
+const getDepartmentWorkingDays = (...sources) => {
+  for (const source of sources) {
+    const department = source?.department || source?.departmentId;
+    const value = typeof department === 'object' ? department?.workingDays : source?.workingDays;
+    if (value !== undefined && value !== null && value !== '') return normalizeWorkingDays(value);
+  }
+  return 5;
+};
+
+const isConfiguredWeekend = (date, workingDays) => {
+  const dayOfWeek = date.getDay();
+  const mondayBasedDay = dayOfWeek === 0 ? 7 : dayOfWeek;
+  return mondayBasedDay > normalizeWorkingDays(workingDays);
+};
+
 const formatTime = seconds => {
   const h = String(Math.floor(seconds / 3600)).padStart(2, "0");
   const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, "0");
@@ -1359,6 +1379,12 @@ const UserDashboard = () => {
       .map(record => `${new Date(record.date).getFullYear()}-${new Date(record.date).getMonth()}-${new Date(record.date).getDate()}`);
   }, [filteredAttendanceData]);
 
+  const weekendDates = useMemo(() => {
+    return filteredAttendanceData
+      .filter(record => record.status === 'WEEKEND')
+      .map(record => `${new Date(record.date).getFullYear()}-${new Date(record.date).getMonth()}-${new Date(record.date).getDate()}`);
+  }, [filteredAttendanceData]);
+
   const leaveDates = useMemo(() => {
     const dates = [];
     filteredLeaveData.forEach(leave => {
@@ -1448,8 +1474,7 @@ const UserDashboard = () => {
     
     const dateObj = new Date(calendarYear, calendarMonth, day);
     const key = `${calendarYear}-${calendarMonth}-${day}`;
-    const dayOfWeek = dateObj.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const isWeekend = isConfiguredWeekend(dateObj, getDepartmentWorkingDays(dashboardUser, user));
     
     
     if (holidayDates.includes(key)) return "holiday";
@@ -1461,11 +1486,12 @@ const UserDashboard = () => {
     if (lateDates.includes(key)) return "late";
     if (halfDayDates.includes(key)) return "halfday";
     if (markedDates.includes(key)) return "present";
+    if (weekendDates.includes(key)) return "weekend";
     if (isWeekend) return "weekend";
 
     // Missing attendance data is unknown/pending, not an automatic absence.
     return null;
-  }, [calendarYear, calendarMonth, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, absentDateSet, holidayDates]);
+  }, [calendarYear, calendarMonth, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, absentDateSet, holidayDates, weekendDates, dashboardUser, user]);
 
   const isToday = useCallback((day) => {
     return day === currentDate.getDate() && 

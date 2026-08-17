@@ -1515,7 +1515,7 @@
 /* ===== SNACKBAR ===== */
 .EmpAssets-snackbar {
   position: fixed;
-  top: 24px;
+  top: 96px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1001;
@@ -1929,7 +1929,7 @@
 
   /* Snackbar */
   .EmpAssets-snackbar {
-    top: 16px;
+    top: 84px;
     width: 90%;
   }
 

@@ -319,16 +319,11 @@ const UserProfile = () => {
   };
 
   
-  const getUserInitials = () => {
+  const getUserInitial = () => {
     if (!userData?.name) return "U";
-    const nameParts = userData.name.split(' ');
-    if (nameParts.length > 1) {
-      return `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase();
-    }
-    return userData.name[0].toUpperCase();
+    return userData.name.trim().charAt(0).toUpperCase() || "U";
   };
 
-  
   const getRoleColor = (role) => {
     switch (role?.toLowerCase()) {
       case 'admin': return '#2563eb';
@@ -411,7 +406,7 @@ const UserProfile = () => {
                   className="UserProfile-avatar UserProfile-avatar-text"
                   style={{ background: `linear-gradient(135deg, ${getRoleColor(userData?.role)} 0%, ${getRoleColor(userData?.role)}80 100%)` }}
                 >
-                  {getUserInitials()}
+                  {getUserInitial()}
                 </div>
                 <span className={`UserProfile-status-badge ${userData?.isActive ? 'active' : 'inactive'}`}>
                   <span className="material-icons">

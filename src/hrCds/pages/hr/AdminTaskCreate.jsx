@@ -2368,11 +2368,19 @@ const AdminTaskManagement = () => {
 
   
   const renderCreateTaskDialog = () => (
-    <div className={`AdminTaskManagement-modal ${openCreateDialog ? 'AdminTaskManagement-modal-open' : ''}`}>
-      <div className="AdminTaskManagement-modal-content AdminTaskManagement-modal-large">
+    <div
+      className={`AdminTaskManagement-modal AdminTaskManagement-create-task-modal ${openCreateDialog ? 'AdminTaskManagement-modal-open' : ''}`}
+      role="presentation"
+    >
+      <div
+        className="AdminTaskManagement-modal-content AdminTaskManagement-modal-large"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="AdminTaskManagement-create-task-title"
+      >
         <div className="AdminTaskManagement-modal-header">
           <div className="AdminTaskManagement-modal-title-row">
-            <h3>Create New Task</h3>
+            <h3 id="AdminTaskManagement-create-task-title">Create New Task</h3>
             <button 
               className="AdminTaskManagement-icon-btn"
               onClick={() => {
@@ -2542,10 +2550,10 @@ const AdminTaskManagement = () => {
                     </button>
                   )}
                 </div>
-                <div className="AdminTaskManagement-multi-select-options">
+                <div className="AdminTaskManagement-multi-select-options AdminTaskManagement-create-user-options">
                   {createAssignableUsers.length > 0 ? (
                     visibleCreateAssignableUsers.map((user) => (
-                      <div key={user.id || user._id} className="AdminTaskManagement-multi-select-option">
+                      <div key={user.id || user._id} className="AdminTaskManagement-multi-select-option AdminTaskManagement-create-user-option">
                         <input
                           type="checkbox"
                           id={`AdminTaskManagement-user-${user.id || user._id}`}

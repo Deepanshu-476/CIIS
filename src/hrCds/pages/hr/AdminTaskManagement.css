@@ -1414,6 +1414,97 @@
   transform: translateY(0) scale(1);
 }
 
+/* Create Task has more fields than the other dialogs. Keep its chrome fixed,
+   scroll only the form, and use the available desktop width efficiently. */
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-modal-content {
+  width: min(960px, calc(100vw - 32px));
+  max-width: 960px;
+  max-height: min(900px, calc(100dvh - 32px));
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-modal-header,
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-modal-footer {
+  flex: 0 0 auto;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-modal-body {
+  min-height: 0;
+  max-height: none;
+  padding: 18px 20px;
+  overscroll-behavior: contain;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-form-container {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 20px;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-form-group {
+  min-width: 0;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-form-container > .AdminTaskManagement-form-group:nth-child(1),
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-form-container > .AdminTaskManagement-form-group:nth-child(3),
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-form-container > .AdminTaskManagement-form-row,
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-form-container > .AdminTaskManagement-form-group:nth-child(6),
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-form-container > .AdminTaskManagement-form-group:nth-child(7),
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-form-container > .AdminTaskManagement-form-group:nth-child(8) {
+  grid-column: 1 / -1;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-role-hint {
+  margin-bottom: 0;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-form-input,
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-form-select {
+  min-height: 46px;
+  padding: 10px 13px;
+  border-radius: 11px;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-form-textarea {
+  min-height: 82px;
+  padding: 11px 13px;
+  border-radius: 11px;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-multi-select-options {
+  max-height: 190px;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-modal-footer {
+  padding: 14px 20px;
+}
+
+@media (max-width: 768px) {
+  .AdminTaskManagement-create-task-modal {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .AdminTaskManagement-create-task-modal .AdminTaskManagement-modal-content {
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - 8px);
+    border-radius: 18px 18px 0 0;
+  }
+
+  .AdminTaskManagement-create-task-modal .AdminTaskManagement-form-container {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .AdminTaskManagement-create-task-modal .AdminTaskManagement-form-container > * {
+    grid-column: 1 !important;
+  }
+
+  .AdminTaskManagement-create-task-modal .AdminTaskManagement-modal-footer {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}
+
 .AdminTaskManagement-modal-header {
   padding: 20px;
   border-bottom: 1px solid var(--gray-200);
@@ -3045,5 +3136,130 @@
     color: black !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+}
+
+/* Final Create Task dialog positioning: center the panel on every viewport and
+   keep header/footer outside the only scrollable region (the modal body). */
+.AdminTaskManagement-modal.AdminTaskManagement-create-task-modal {
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  padding: clamp(10px, 2vw, 24px);
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  z-index: 10000;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-modal-content {
+  width: min(680px, calc(100vw - 32px));
+  height: min(560px, calc(100dvh - 64px));
+  max-width: 680px;
+  max-height: 560px;
+  margin: auto;
+  overflow: hidden;
+  border-radius: 18px;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-modal-header {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  padding: 12px 16px;
+  background: #fff;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-modal-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-modal-footer {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  padding: 10px 16px;
+  background: #fff;
+  box-shadow: 0 -6px 18px rgba(15, 23, 42, 0.06);
+}
+
+/* Compact department-user results inside Create Task. The generic cards are
+   intentionally roomy elsewhere, but they consume too much modal space here. */
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-create-user-options {
+  max-height: 168px;
+  padding-bottom: 0;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-create-user-option {
+  min-height: 48px;
+  gap: 8px;
+  padding: 6px 10px;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-create-user-option input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-create-user-option .AdminTaskManagement-user-info-chip {
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-create-user-option .AdminTaskManagement-user-info-chip:hover {
+  transform: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-create-user-option .AdminTaskManagement-user-info-avatar {
+  width: 30px;
+  height: 30px;
+  font-size: 12px;
+  box-shadow: none;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-create-user-option .AdminTaskManagement-user-info-name {
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-create-user-option .AdminTaskManagement-user-info-meta {
+  flex-direction: row;
+  gap: 8px;
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+.AdminTaskManagement-create-task-modal .AdminTaskManagement-create-user-option .AdminTaskManagement-user-info-meta span {
+  min-width: 0;
+  max-width: 50%;
+}
+
+@media (max-width: 768px) {
+  .AdminTaskManagement-modal.AdminTaskManagement-create-task-modal {
+    padding: 8px;
+    align-items: center;
+  }
+
+  .AdminTaskManagement-create-task-modal .AdminTaskManagement-modal-content {
+    width: calc(100vw - 16px);
+    height: min(600px, calc(100dvh - 32px));
+    max-height: calc(100dvh - 32px);
+    border-radius: 14px;
+  }
+
+  .AdminTaskManagement-create-task-modal .AdminTaskManagement-modal-header,
+  .AdminTaskManagement-create-task-modal .AdminTaskManagement-modal-footer {
+    padding: 12px 14px;
   }
 }

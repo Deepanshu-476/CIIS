@@ -14,7 +14,7 @@
   background: radial-gradient(circle at 110% 20%, rgba(24,77,255,.52), transparent 35%), linear-gradient(150deg,#032b83 0%,#071d63 42%,#031343 100%);
 }
 .self-register-brand { display: flex; flex-direction: column; margin-bottom: 11px; }
-.self-register-brand strong { color: #fff; font-size: 19px; letter-spacing: .02em; }
+.self-register-brand-logo { display: block; width: 205px; max-width: 100%; height: auto; margin: -18px 0 -14px; }
 .self-register-brand span { margin-top: 5px; color: #afbee9; font-size: 14px; }
 .self-register-phase { margin-bottom: 7px; color: #9eadd8; font-size: 12px; letter-spacing: .045em; }
 .self-register-side-steps { position: relative; display: flex; flex: 0 0 auto; flex-direction: column; overflow: visible; }
@@ -141,7 +141,7 @@
   .self-register-shell { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
   .self-register-sidebar { flex: 0 0 150px; height: 150px; min-height: 150px; padding: 11px 18px 9px; overflow: hidden; }
   .self-register-brand { flex: 0 0 auto; margin-bottom: 5px; }
-  .self-register-brand strong { font-size: 16px; line-height: 1.2; }
+  .self-register-brand-logo { width: 170px; height: auto; margin: -15px 0 -12px; }
   .self-register-brand span { margin-top: 2px; font-size: 11px; line-height: 1.2; }
   .self-register-phase, .self-register-security { display: none; }
   .self-register-side-steps { width: 100%; display: grid; grid-template-columns: repeat(10,minmax(0,1fr)); gap: 2px; overflow: visible; padding: 2px 0 5px; }

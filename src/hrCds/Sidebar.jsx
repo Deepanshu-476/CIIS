@@ -1583,6 +1583,31 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       }
     }
 
+    // Sidebar configuration is an administrative capability. A saved role
+    // configuration must never expose it to ordinary employees.
+    const normalizeAdministrativeRole = value => String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, '_');
+    const sidebarManagementRoles = new Set([
+      'owner', 'admin', 'hr', 'manager', 'super_admin', 'superadmin',
+      'company_owner', 'companyowner'
+    ]);
+    const canManageSidebar = [
+      userData?.companyRole,
+      userData?.jobRole,
+      userData?.role
+    ].some(value => sidebarManagementRoles.has(
+      normalizeAdministrativeRole(getRecordDisplayName(value) || value)
+    ));
+
+    if (!canManageSidebar) {
+      accessFilteredItems = accessFilteredItems.filter(item => (
+        item.id !== 'SidebarManagement' &&
+        String(item.path || '').toLowerCase() !== '/ciisuser/sidebarmanagement'
+      ));
+    }
+
     // Sidebar Management stores the click/selection sequence as `order`.
     // Keep that exact sequence across categories in the employee menu.
     const sortedItems = accessFilteredItems

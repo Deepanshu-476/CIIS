@@ -334,7 +334,7 @@ export default function RegisterRequest() {
 
       <section className="RegisterRequest-status-tabs">
         {[["all", "All Requests", Inbox], ["pending", "Pending", Clock3], ["active", "Activated", CheckCircle2]].map(([status, label, Icon]) => (
-          <button type="button" key={status} className={statusFilter === status ? `active ${status}` : status} onClick={() => setStatusFilter(status)}>
+          <button type="button" key={status} className={statusFilter === status ? `is-selected ${status}` : status} onClick={() => setStatusFilter(status)}>
             <span><Icon size={21} />{label}</span><strong>{status === 'all' ? statusCounts.pending + statusCounts.active : statusCounts[status]}</strong>
           </button>
         ))}

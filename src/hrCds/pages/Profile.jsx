@@ -117,6 +117,32 @@ const resolveProfileImageSrc = (value) => {
   return `/` + String(value).replace(/\\/g, "/").replace(/^\/+/, "");
 };
 
+const getUserInitial = (name) => {
+  if (!name || typeof name !== "string") return "U";
+  const trimmed = name.trim();
+  if (!trimmed) return "U";
+  return trimmed.charAt(0).toUpperCase();
+};
+
+const getAvatarGradient = (name = "") => {
+  const gradients = [
+    "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)", // Indigo - Violet
+    "linear-gradient(135deg, #2563eb 0%, #06b6d4 100%)", // Blue - Cyan
+    "linear-gradient(135deg, #059669 0%, #10b981 100%)", // Emerald - Green
+    "linear-gradient(135deg, #d97706 0%, #f59e0b 100%)", // Amber - Yellow
+    "linear-gradient(135deg, #e11d48 0%, #f43f5e 100%)", // Rose - Red
+    "linear-gradient(135deg, #7c2d12 0%, #ea580c 100%)", // Rust - Orange
+    "linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)", // Sky - Light Blue
+    "linear-gradient(135deg, #9333ea 0%, #c084fc 100%)", // Purple - Lavender
+    "linear-gradient(135deg, #0d9488 0%, #2dd4bf 100%)", // Teal - Mint
+  ];
+  let hash = 0;
+  for (let i = 0; i < (name || "").length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return gradients[Math.abs(hash) % gradients.length];
+};
+
 const loadImageElement = (src) => new Promise((resolve, reject) => {
   const img = new Image();
   img.onload = () => resolve(img);
@@ -208,6 +234,7 @@ const Profile = () => {
   const [profileCropStageSize, setProfileCropStageSize] = useState(320);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [profileImagePreviewOpen, setProfileImagePreviewOpen] = useState(false);
+  const [profileImageError, setProfileImageError] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [documentDragActive, setDocumentDragActive] = useState(false);
@@ -291,6 +318,10 @@ const Profile = () => {
     loadProfile();
   }, [loadProfile]);
 
+  useEffect(() => {
+    setProfileImageError(false);
+  }, [profile?.profileImage]);
+
   const loadDocuments = useCallback(async () => {
     if (!userId) return;
     setDocumentsLoading(true);
@@ -325,7 +356,6 @@ const Profile = () => {
 
     document.addEventListener("mousedown", handleDocumentMouseDown);
     document.addEventListener("keydown", handleDocumentKeyDown);
-
     return () => {
       document.removeEventListener("mousedown", handleDocumentMouseDown);
       document.removeEventListener("keydown", handleDocumentKeyDown);
@@ -389,6 +419,36 @@ const Profile = () => {
 
   const closeProfileImagePreview = () => {
     setProfileImagePreviewOpen(false);
+  };
+
+  const handleDeleteProfileImage = async () => {
+    if (!window.confirm("Are you sure you want to remove your profile picture?")) {
+      return;
+    }
+    setAvatarMenuOpen(false);
+    setProfileImagePreviewOpen(false);
+    setUploadingProfileImage(true);
+    try {
+      const response = await axios.put("/users/me", { profileImage: "" }, {
+        headers: { "Content-Type": "application/json" },
+      });
+      const updatedUser = response.data?.user || response.data?.message?.user || response.data?.data || response.data;
+      const mergedUser = { ...profile, ...updatedUser, profileImage: "" };
+      setProfile(mergedUser);
+      setFormData(buildInitialForm(mergedUser));
+      setProfileImageError(false);
+      localStorage.setItem("user", JSON.stringify({ ...storedUser, ...mergedUser, profileImage: "" }));
+      window.dispatchEvent(new CustomEvent("ciis-profile-updated", { detail: mergedUser }));
+      setMessage({ type: "success", text: "Profile picture removed successfully." });
+    } catch (error) {
+      console.error("Profile image removal failed:", error);
+      setMessage({
+        type: "error",
+        text: error.response?.data?.message || error.message || "Failed to remove profile picture.",
+      });
+    } finally {
+      setUploadingProfileImage(false);
+    }
   };
 
   const handleProfileImageSelected = (event) => {
@@ -876,11 +936,21 @@ const Profile = () => {
             aria-haspopup="menu"
             aria-expanded={avatarMenuOpen}
             aria-label="Profile photo options"
+            style={{
+              background: !profileImageSrc || profileImageError ? getAvatarGradient(profile?.name) : "transparent",
+            }}
           >
-            {profileImageSrc ? (
-              <img src={profileImageSrc} alt={profile?.name || "User"} className="UserDetails-avatar-image" />
+            {profileImageSrc && !profileImageError ? (
+              <img
+                src={profileImageSrc}
+                alt={profile?.name || "User"}
+                className="UserDetails-avatar-image"
+                onError={() => setProfileImageError(true)}
+              />
             ) : (
-              (profile?.name || "U").charAt(0).toUpperCase()
+              <span className="UserDetails-avatar-initial" aria-hidden="true">
+                {getUserInitial(profile?.name)}
+              </span>
             )}
           </button>
           <button
@@ -894,11 +964,22 @@ const Profile = () => {
           {avatarMenuOpen && (
             <div className="UserDetails-avatar-menu" role="menu" aria-label="Profile photo actions">
               <button type="button" role="menuitem" onClick={openProfileImagePreview}>
-                View
+                <FiEye /> View
               </button>
               <button type="button" role="menuitem" onClick={handleProfileImageClick} disabled={uploadingProfileImage}>
-                Edit
+                <FiEdit /> {profileImageSrc && !profileImageError ? "Edit" : "Upload"}
               </button>
+              {profileImageSrc && !profileImageError && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="danger"
+                  onClick={handleDeleteProfileImage}
+                  disabled={uploadingProfileImage}
+                >
+                  <FiTrash2 /> Remove
+                </button>
+              )}
             </div>
           )}
           <input
@@ -957,18 +1038,37 @@ const Profile = () => {
               </button>
             </div>
             <div className="UserDetails-avatar-preview-body">
-              {profileImageSrc ? (
-                <img src={profileImageSrc} alt={profile?.name || "User"} />
+              {profileImageSrc && !profileImageError ? (
+                <img
+                  src={profileImageSrc}
+                  alt={profile?.name || "User"}
+                  onError={() => setProfileImageError(true)}
+                />
               ) : (
-                <div className="UserDetails-avatar-preview-placeholder">{(profile?.name || "U").charAt(0).toUpperCase()}</div>
+                <div
+                  className="UserDetails-avatar-preview-placeholder"
+                  style={{ background: getAvatarGradient(profile?.name) }}
+                >
+                  {getUserInitial(profile?.name)}
+                </div>
               )}
             </div>
             <div className="UserDetails-modal-footer">
               <button type="button" className="UserDetails-secondary-btn" onClick={closeProfileImagePreview}>
                 Close
               </button>
+              {profileImageSrc && !profileImageError && (
+                <button
+                  type="button"
+                  className="UserDetails-secondary-btn UserDetails-danger-outline-btn"
+                  onClick={handleDeleteProfileImage}
+                  disabled={uploadingProfileImage}
+                >
+                  <FiTrash2 /> Remove Photo
+                </button>
+              )}
               <button type="button" className="UserDetails-primary-btn" onClick={() => { closeProfileImagePreview(); handleProfileImageClick(); }}>
-                <FiEdit /> Edit Photo
+                <FiEdit /> {profileImageSrc && !profileImageError ? "Change Photo" : "Upload Photo"}
               </button>
             </div>
           </div>

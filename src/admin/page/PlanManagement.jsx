@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Box, Chip, CircularProgress, Grid, LinearProgress, Stack } from "@mui/material";
 import {
+  Add as AddIcon,
+  ArrowBack as ArrowBackIcon,
   Apps as AppsIcon,
   CheckCircle as CheckCircleIcon,
   EventAvailable as EventAvailableIcon,
@@ -10,6 +12,7 @@ import {
 } from "@mui/icons-material";
 import axiosInstance from "../../utils/axiosConfig";
 import "./JobRoleManagement.css";
+import "./PlanManagement.css";
 
 const APP_ROUTES = [
   { id: "user-dashboard", path: "user-dashboard", name: "Dashboard", category: "main" },
@@ -115,6 +118,7 @@ export default function PlanManagement() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [showPlanForm, setShowPlanForm] = useState(false);
 
   const selectedPercent = APP_ROUTES.length
     ? Math.round((form.allowedPages.length / APP_ROUTES.length) * 100)
@@ -217,12 +221,23 @@ export default function PlanManagement() {
       allowedSuperAdminPages: Array.isArray(plan.allowedSuperAdminPages) ? plan.allowedSuperAdminPages : [],
       isActive: plan.isActive !== false,
     });
+    setShowPlanForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const resetForm = () => {
     setEditingId("");
     setForm(emptyForm);
+    setSearch("");
+    setShowPlanForm(false);
+  };
+
+  const openCreatePlan = () => {
+    setEditingId("");
+    setForm(emptyForm);
+    setSearch("");
+    setShowPlanForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const savePlan = async event => {
@@ -281,11 +296,24 @@ export default function PlanManagement() {
 
   return (
     <div className="JobRoleManagement-container">
-      {notice && (
+      {notice && !showPlanForm && (
         <Alert severity={notice.severity} sx={{ mb: 2 }} onClose={() => setNotice(null)}>
           {notice.message}
         </Alert>
       )}
+
+      {!showPlanForm && <>
+      <div className="PlanManagement-hero">
+        <div>
+          <span className="PlanManagement-eyebrow">Subscription Management</span>
+          <h1>Plans</h1>
+          <p>Create packages, configure page access and manage existing subscription plans.</p>
+        </div>
+        <button type="button" className="PlanManagement-create-btn" onClick={openCreatePlan}>
+          <AddIcon fontSize="small" />
+          Create Plan
+        </button>
+      </div>
 
       <div className="JobRoleManagement-stats-grid">
         {[
@@ -310,15 +338,17 @@ export default function PlanManagement() {
           </div>
         ))}
       </div>
+      </>}
 
-      <div className="JobRoleManagement-paper">
+      {showPlanForm && <div className="PlanManagement-overlay">
+      <div className="JobRoleManagement-paper PlanManagement-dialog">
         <div className="JobRoleManagement-header">
           <div className="JobRoleManagement-header-left">
             <div className="JobRoleManagement-header-icon-box">
               <PlanIcon className="JobRoleManagement-header-icon" />
             </div>
             <div>
-              <h2 className="JobRoleManagement-header-title">Plans</h2>
+              <h2 className="JobRoleManagement-header-title">{editingId ? "Edit Plan" : "Create Plan"}</h2>
               <div className="JobRoleManagement-user-info">
                 <span className="JobRoleManagement-user-chip JobRoleManagement-chip-primary">
                   Price, days, features and page access
@@ -326,12 +356,13 @@ export default function PlanManagement() {
               </div>
             </div>
           </div>
-          <button className="JobRoleManagement-btn-outline" onClick={resetForm}>
-            New Plan
+          <button type="button" className="JobRoleManagement-btn-outline PlanManagement-back-btn" onClick={resetForm}>
+            <ArrowBackIcon fontSize="small" /> Back to Plans
           </button>
         </div>
 
-        <form onSubmit={savePlan}>
+        <form className="PlanManagement-form" onSubmit={savePlan}>
+          <div className="PlanManagement-form-body">
           <Grid container spacing={2}>
             <Grid item xs={12} md={4}>
               <div className="JobRoleManagement-form-group">
@@ -493,27 +524,48 @@ export default function PlanManagement() {
             })}
           </Stack>
 
-          <div className="JobRoleManagement-modal-footer" style={{ marginTop: 24, borderRadius: 24 }}>
-            <label className="JobRoleManagement-switch">
-              <input type="checkbox" checked={form.isActive} onChange={event => updateForm("isActive", event.target.checked)} />
-              <span className="JobRoleManagement-slider"></span>
-            </label>
-            <span className="JobRoleManagement-toggle-label">{form.isActive ? "Active" : "Inactive"}</span>
-            <button className="JobRoleManagement-btn-primary" type="submit" disabled={saving}>
-              {saving ? "Saving..." : editingId ? "Update Plan" : "Create Plan"}
-            </button>
+          </div>
+
+          {notice && (
+            <Alert
+              severity={notice.severity}
+              className="PlanManagement-form-notice"
+              onClose={() => setNotice(null)}
+            >
+              {notice.message}
+            </Alert>
+          )}
+
+          <div className="JobRoleManagement-modal-footer">
+            <div className="PlanManagement-status-control">
+              <label className="JobRoleManagement-switch">
+                <input type="checkbox" checked={form.isActive} onChange={event => updateForm("isActive", event.target.checked)} />
+                <span className="JobRoleManagement-slider"></span>
+              </label>
+              <span className="JobRoleManagement-toggle-label">Plan is {form.isActive ? "Active" : "Inactive"}</span>
+            </div>
+            <div className="PlanManagement-footer-actions">
+              <button type="button" className="JobRoleManagement-btn-outline" onClick={resetForm}>Cancel</button>
+              <button className="JobRoleManagement-btn-primary" type="submit" disabled={saving}>
+                {saving ? "Saving..." : editingId ? "Update Plan" : "Create Plan"}
+              </button>
+            </div>
           </div>
         </form>
       </div>
+      </div>}
 
-      <div className="JobRoleManagement-paper" style={{ marginTop: 20 }}>
+      {!showPlanForm && <div className="JobRoleManagement-paper PlanManagement-list" style={{ marginTop: 20 }}>
         <div className="JobRoleManagement-header">
-          <h2 className="JobRoleManagement-header-title">Created Plans</h2>
+          <div>
+            <h2 className="JobRoleManagement-header-title">Created Plans</h2>
+            <p className="PlanManagement-list-subtitle">{plans.length} plan{plans.length === 1 ? "" : "s"} available</p>
+          </div>
         </div>
         <Grid container spacing={2}>
           {plans.map(plan => (
             <Grid item xs={12} md={6} lg={4} key={plan._id}>
-              <div className="JobRoleManagement-mobile-card">
+              <div className="JobRoleManagement-mobile-card PlanManagement-card">
                 <div className="JobRoleManagement-mobile-card-content">
                   <div className="JobRoleManagement-mobile-card-header">
                     <div className="JobRoleManagement-mobile-card-title-section">
@@ -536,8 +588,18 @@ export default function PlanManagement() {
               </div>
             </Grid>
           ))}
+          {plans.length === 0 && (
+            <Grid item xs={12}>
+              <div className="PlanManagement-empty">
+                <PlanIcon />
+                <h3>No plans created yet</h3>
+                <p>Create your first subscription plan to get started.</p>
+                <button type="button" className="PlanManagement-create-btn" onClick={openCreatePlan}><AddIcon fontSize="small" />Create Plan</button>
+              </div>
+            </Grid>
+          )}
         </Grid>
-      </div>
+      </div>}
     </div>
   );
 }

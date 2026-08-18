@@ -1,0 +1,71 @@
+.PlanManagement-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 22px;
+  padding: 26px 28px;
+  overflow: hidden;
+  border: 1px solid #dfe8f6;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #ffffff 0%, #f5f8ff 58%, #eef2ff 100%);
+  box-shadow: 0 12px 35px rgba(38, 63, 112, .08);
+}
+
+.PlanManagement-eyebrow { color: #5b5ce2; font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.PlanManagement-hero h1 { margin: 5px 0 6px; color: #172033; font-size: clamp(26px, 3vw, 36px); line-height: 1.1; }
+.PlanManagement-hero p, .PlanManagement-list-subtitle { margin: 0; color: #68758a; font-size: 13px; }
+.PlanManagement-create-btn { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 19px; border: 0; border-radius: 12px; color: #fff; background: linear-gradient(135deg, #4f46e5, #2563eb); box-shadow: 0 9px 20px rgba(55, 71, 214, .24); font-weight: 750; cursor: pointer; }
+.PlanManagement-create-btn:hover { transform: translateY(-1px); box-shadow: 0 12px 24px rgba(55, 71, 214, .3); }
+
+.PlanManagement-overlay { width: 100%; display: block; padding: 0 0 24px; background: transparent; }
+.PlanManagement-dialog { width: 100%; margin: 0; padding: 0; overflow: visible; border: 1px solid #e2e8f2; border-radius: 18px; box-shadow: 0 10px 30px rgba(37, 54, 88, .06); }
+.PlanManagement-dialog > .JobRoleManagement-header { margin: 0; padding: 21px 24px; border-bottom: 1px solid #e8edf5; border-radius: 18px 18px 0 0; background: linear-gradient(135deg, #fff, #f7f9ff); }
+.PlanManagement-form { display: block; overflow: visible; }
+.PlanManagement-form-body { padding: 24px; overflow: visible; }
+.PlanManagement-dialog .JobRoleManagement-modal-footer { position: sticky; bottom: 0; z-index: 5; margin: 0 !important; padding: 15px 24px; border-top: 1px solid #e4eaf3; border-radius: 0 0 18px 18px !important; background: rgba(255,255,255,.97); box-shadow: 0 -8px 24px rgba(22, 34, 61, .07); backdrop-filter: blur(12px); }
+.PlanManagement-form-notice {
+  width: fit-content;
+  max-width: min(480px, calc(100% - 48px));
+  margin: 0 24px 14px auto;
+  border: 1px solid currentColor;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, .12);
+  font-size: 13px;
+  animation: PlanManagement-notice-in .2s ease-out;
+}
+
+@keyframes PlanManagement-notice-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.PlanManagement-back-btn, .PlanManagement-footer-actions, .PlanManagement-status-control { display: inline-flex; align-items: center; gap: 9px; }
+.PlanManagement-footer-actions { margin-left: auto; }
+
+.PlanManagement-list { border: 1px solid #e5eaf2; border-radius: 20px; box-shadow: 0 10px 30px rgba(37, 54, 88, .06); }
+.PlanManagement-list-create { display: inline-flex; align-items: center; gap: 6px; }
+.PlanManagement-card { height: 100%; border: 1px solid #e5eaf2; background: linear-gradient(145deg, #fff, #fafbff); transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+.PlanManagement-card:hover { transform: translateY(-3px); border-color: #cfd7f8; box-shadow: 0 14px 30px rgba(49, 64, 116, .12); }
+.PlanManagement-card .JobRoleManagement-mobile-card-content { height: 100%; display: flex; flex-direction: column; }
+.PlanManagement-card .JobRoleManagement-mobile-card-description { flex: 1; }
+.PlanManagement-card .JobRoleManagement-btn-outline { align-self: flex-start; margin-top: 14px; }
+.PlanManagement-empty { min-height: 280px; display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 32px; border: 1px dashed #cad5e8; border-radius: 16px; color: #68758a; background: #f8faff; text-align: center; }
+.PlanManagement-empty > svg { width: 46px; height: 46px; padding: 10px; border-radius: 13px; color: #5b5ce2; background: #ecebff; }
+.PlanManagement-empty h3 { margin: 14px 0 5px; color: #263246; }
+.PlanManagement-empty p { margin: 0 0 18px; font-size: 13px; }
+
+@media (max-width: 700px) {
+  .PlanManagement-hero { align-items: flex-start; flex-direction: column; padding: 20px; border-radius: 16px; }
+  .PlanManagement-hero .PlanManagement-create-btn { width: 100%; }
+  .PlanManagement-overlay { padding: 0 0 16px; }
+  .PlanManagement-dialog { width: 100%; border-radius: 14px; }
+  .PlanManagement-dialog > .JobRoleManagement-header { margin: 0; padding: 15px 16px; }
+  .PlanManagement-form-body { padding: 16px; }
+  .PlanManagement-dialog .JobRoleManagement-modal-footer { align-items: stretch; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-radius: 0 0 14px 14px !important; }
+  .PlanManagement-form-notice { width: auto; max-width: calc(100% - 32px); margin: 0 16px 12px; }
+  .PlanManagement-footer-actions { width: 100%; margin-left: 0; }
+  .PlanManagement-footer-actions button { flex: 1; }
+  .PlanManagement-back-btn { font-size: 0; }
+  .PlanManagement-list-create { font-size: 0; }
+  .PlanManagement-list-create svg { margin: 0; }
+}

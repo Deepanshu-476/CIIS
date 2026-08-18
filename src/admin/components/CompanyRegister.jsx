@@ -195,7 +195,7 @@ const compressImage = (file, callback) => {
   };
 };
 
-const CompanyRegister = () => {
+const CompanyRegister = () => { 
   const [form, setForm] = useState({
     companyName: "",
     companyEmail: "",

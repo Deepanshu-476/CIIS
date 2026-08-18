@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "../../utils/axiosConfig";
+import { invalidateGetCache } from "../../utils/axiosConfig";
 import CIISLoader from "../../Loader/CIISLoader";
 import {
   Add,
@@ -175,8 +176,8 @@ const PageManagement = () => {
     try {
       const companyId = getStoredCompanyId();
       const [pagesRes, contextRes] = await Promise.all([
-        axios.get("/page-permissions/pages", { cache: false }),
-        axios.get("/page-permissions/data-visibility/context", { cache: false }).catch(async (error) => {
+        axios.get("/page-permissions/pages"),
+        axios.get("/page-permissions/data-visibility/context").catch(async (error) => {
           if (error?.response?.status !== 404) throw error;
 
           const [usersRes, branchesRes, departmentsRes] = await Promise.all([
@@ -399,6 +400,7 @@ const PageManagement = () => {
       };
 
       const res = await axios.put(`/page-permissions/${selectedPage.pageKey}`, payload);
+      invalidateGetCache("/page-permissions");
       const updatedPage = normalizePage(res.data?.page || selectedPage);
 
       setPages((prev) =>

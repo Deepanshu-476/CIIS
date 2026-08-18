@@ -50,7 +50,7 @@ const SidebarContainer = styled(Box)(({ theme }) => ({
   left: 0,
   zIndex: theme.zIndex.drawer,
   overflowY: 'auto',
-  transition: 'width 0.3s ease, transform 0.3s ease',
+  transition: 'width 0.12s ease-out, transform 0.12s ease-out',
   '&::-webkit-scrollbar': { 
     width: 6,
     display: 'none'
@@ -107,8 +107,8 @@ const StyledListItemButton = styled(ListItemButton)(({ theme, selected }) => ({
   borderRadius: 8,
   '&:hover': {
     backgroundColor: theme.palette.action.hover,
-    transform: 'translateX(2px)',
-    transition: 'all 0.2s ease',
+    transform: 'translateX(1px)',
+    transition: 'all 0.08s ease-out',
   },
   '& .MuiListItemIcon-root': {
     color: selected ? theme.palette.primary.main : theme.palette.text.secondary,
@@ -179,10 +179,13 @@ const Sidebar = ({ isMobile = false }) => {
       clearTimeout(leaveTimer.current);
       leaveTimer.current = null;
     }
-    
-    hoverTimer.current = setTimeout(() => {
-      setIsHovered(true);
-    }, 50);
+
+    if (hoverTimer.current) {
+      clearTimeout(hoverTimer.current);
+      hoverTimer.current = null;
+    }
+
+    setIsHovered(true);
   };
 
   const handleMouseLeave = () => {
@@ -192,10 +195,8 @@ const Sidebar = ({ isMobile = false }) => {
       clearTimeout(hoverTimer.current);
       hoverTimer.current = null;
     }
-    
-    leaveTimer.current = setTimeout(() => {
-      setIsHovered(false);
-    }, 100);
+
+    setIsHovered(false);
   };
 
   const handleNavigate = (path) => {

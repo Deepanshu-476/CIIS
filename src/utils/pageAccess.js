@@ -34,8 +34,7 @@ export const getUserIds = (items = []) => {
 
 export const loadPagePermission = async (path) => {
   const response = await axios.get("/page-permissions/by-path", {
-    params: { path },
-    cache: false
+    params: { path }
   });
 
   return response.data?.page || {

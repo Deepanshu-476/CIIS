@@ -1,286 +1,242 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { lazy, Suspense, useEffect, useState } from "react";
-import Login from "./page/Login";
-import SelfRegister from "./page/SelfRegister.jsx";
+import { lazy, Suspense } from "react";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import CIISLoader from "../src/Loader/CIISLoader.jsx";
  
 
-import Layout from "./admin/components/Layout";
-import Layout2 from "./hrCds/UserLayout";
-import SuperLayout from "./admin/components/SuperAdminLayout";
 import ProtectedRoute from "./admin/components/ProtectedRoute";
 import ProtectedSuperAdminRoute from "./utils/ProtectedSuperAdminRoute.jsx";
 import ThemeContextProvider from "./Theme/ThemeContext";
-
-
-import CreateUser from "./admin/page/CreateUser";
-import Department from "./admin/page/DepartmentManagement";
-import ChangePassword from "./admin/page/ChangePassword";
-
-
-import EmppTask from "./hrCds/pages/hr/EmmpTask";
-import AdminTaskCreate from "./hrCds/pages/hr/AdminTaskCreate";
-import ManageGroups from "./hrCds/pages/hr/ManageGroups";
-import AdminMeetingPage from "./hrCds/pages/hr/AdminMeetingPage";
-import EmppDetail from "./hrCds/pages/hr/EmppDetail";
-import EmppLeave from "./hrCds/pages/hr/EmppLeaves";
-import EmppAsset from "./hrCds/pages/hr/EmppAssets";
-import EmppAttendence from "./hrCds/pages/hr/EmppAttendence";
-import TaskDeatils from "./hrCds/pages/hr/TaskDetails";
-import EmpAllTask from "./hrCds/pages/hr/EmpAllTask";
-import CompanyAllTaskTasks from "./hrCds/pages/hr/CompanyAllTaskTasks";
-import EmpDepartmentAllTask from "./hrCds/pages/hr/EmpDepartmentAllTask.jsx";
-import RegisterRequest from "./hrCds/pages/hr/RegisterRequest.jsx";
-import AdminProject from "./hrCds/pages/AdminProject";
-import Client from "./hrCds/pages/hr/Client";
-import ClientPlansPage from "./hrCds/pages/hr/ClientPlansPage.jsx";
-import ClientDetailsPage from "./hrCds/pages/hr/ClientDetailsPage.jsx";
-import AddClientPage from "./hrCds/pages/hr/AddClientPage.jsx";
-
-
-import ClientDashboardPage from "./hrCds/pages/client/ClientDashboardPage.jsx";
-import ClientTasksUpdatesPage from "./hrCds/pages/client/ClientTasksUpdatesPage.jsx";
-import MyServicesPage from "./hrCds/pages/client/MyServicesPage.jsx";
-import ServiceMarketplacePage from "./hrCds/pages/client/ServiceMarketplacePage.jsx";
-import SupportTicketsPage from "./hrCds/pages/client/SupportTicketsPage.jsx";
-import DocumentsPage from "./hrCds/pages/client/DocumentsPage.jsx";
-import PaymentsInvoicesPage from "./hrCds/pages/client/PaymentsInvoicesPage.jsx";
-
-
-import Alerts from "./hrCds/pages/Alerts";
-import Attendance from "./hrCds/pages/Attendance";
-import MyAssets from "./hrCds/pages/MyAssets";
-import MyLeaves from "./hrCds/pages/MyLeaves";
-import Profile from "./hrCds/pages/Profile";
-const UserDashboard = lazy(() => import("./hrCds/pages/UserDashboard"));
-const TaskManagement = lazy(() => import("./hrCds/pages/TaskManagement"));
-import EmployeeMeetingPage from "./hrCds/pages/EmployeeMeetingPage";
-import EmployeeProject from "./hrCds/pages/EmployeeProject";
-import ClientMeeting from "./hrCds/pages/ClientMeeting";
-import DepartmentSupportDesk from "./hrCds/pages/DepartmentSupportDesk";
-import SupportOperations from "./admin/page/SupportOperations.jsx";
-import ActiveClientsOverview from "./hrCds/pages/ActiveClientsOverview.jsx";
-
-import CreateAlerts from "./hrCds/pages/CreateAlerts.jsx";
-import UserProfile from './page/UserProfile.jsx';
-
-
-import Home from "./Pages/Home";
-import AboutUs from "./Pages/AboutUs";
-import ContactUs from "./Pages/ContactUs";
-import PrivacyPolicy from "./Pages/PrivacyPolicy";
-import LegalPage from "./Pages/LegalPage";
-import RegisterCompany from "./admin/components/CompanyRegister.jsx";
-
-
-
-import SuperAdminLogin from "./page/SuperAdminLogin";
-
-import CompanyManagement from "./page/CompanyManagement.jsx";
-import PlanManagement from "./admin/page/PlanManagement.jsx";
-import PageManagement from "./admin/page/PageManagement.jsx";
-import JobRoleManagement from "./admin/page/JobRoleManagement.jsx";
-import SidebarManagement from "./admin/components/SidebarManagement.jsx";
-import CompanyDetails from "./admin/components/CompanyDetails.jsx";
-import CompanyAccessManagement from "./admin/page/CompanyAccessManagement.jsx";
-import AllCompany from "./page/AllCompany.jsx";
-import CompanyUsersPage from "./page/CompanyUsersPage.jsx";
-import CompanyAssetManagement from "./page/CompanyAssetManagement.jsx"
-import Holiday from "./page/Holidays.jsx";
-import BranchManagement from "./admin/page/BranchManagement.jsx"; 
-import ChatPage from "./Pages/Chat/ChatPage";
-import Settings from "./admin/page/Settings.jsx";
-import EmailSettings from "./admin/page/EmailSettings.jsx";
-import DemoRequests from "./admin/page/DemoRequests.jsx";
-import LeavePolicy from "./admin/page/LeavePolicy.jsx";
-import AppVersionControl from "./admin/page/AppVersionControl.jsx";
 import SpeechToTextControl from "./components/SpeechToTextControl.jsx";
 
+const Login = lazy(() => import("./page/Login"));
+const SelfRegister = lazy(() => import("./page/SelfRegister.jsx"));
+const Layout2 = lazy(() => import("./hrCds/UserLayout"));
+const SuperLayout = lazy(() => import("./admin/components/SuperAdminLayout"));
+const CreateUser = lazy(() => import("./admin/page/CreateUser"));
+const Department = lazy(() => import("./admin/page/DepartmentManagement"));
+const ChangePassword = lazy(() => import("./admin/page/ChangePassword"));
+const AdminTaskCreate = lazy(() => import("./hrCds/pages/hr/AdminTaskCreate"));
+const ManageGroups = lazy(() => import("./hrCds/pages/hr/ManageGroups"));
+const AdminMeetingPage = lazy(() => import("./hrCds/pages/hr/AdminMeetingPage"));
+const EmppDetail = lazy(() => import("./hrCds/pages/hr/EmppDetail"));
+const EmppLeave = lazy(() => import("./hrCds/pages/hr/EmppLeaves"));
+const EmppAsset = lazy(() => import("./hrCds/pages/hr/EmppAssets"));
+const EmppAttendence = lazy(() => import("./hrCds/pages/hr/EmppAttendence"));
+const TaskDeatils = lazy(() => import("./hrCds/pages/hr/TaskDetails"));
+const EmpAllTask = lazy(() => import("./hrCds/pages/hr/EmpAllTask"));
+const CompanyAllTaskTasks = lazy(() => import("./hrCds/pages/hr/CompanyAllTaskTasks"));
+const RegisterRequest = lazy(() => import("./hrCds/pages/hr/RegisterRequest.jsx"));
+const AdminProject = lazy(() => import("./hrCds/pages/AdminProject"));
+const Client = lazy(() => import("./hrCds/pages/hr/Client"));
+const ClientPlansPage = lazy(() => import("./hrCds/pages/hr/ClientPlansPage.jsx"));
+const ClientDetailsPage = lazy(() => import("./hrCds/pages/hr/ClientDetailsPage.jsx"));
+const AddClientPage = lazy(() => import("./hrCds/pages/hr/AddClientPage.jsx"));
+const ClientDashboardPage = lazy(() => import("./hrCds/pages/client/ClientDashboardPage.jsx"));
+const ClientTasksUpdatesPage = lazy(() => import("./hrCds/pages/client/ClientTasksUpdatesPage.jsx"));
+const MyServicesPage = lazy(() => import("./hrCds/pages/client/MyServicesPage.jsx"));
+const ServiceMarketplacePage = lazy(() => import("./hrCds/pages/client/ServiceMarketplacePage.jsx"));
+const SupportTicketsPage = lazy(() => import("./hrCds/pages/client/SupportTicketsPage.jsx"));
+const DocumentsPage = lazy(() => import("./hrCds/pages/client/DocumentsPage.jsx"));
+const PaymentsInvoicesPage = lazy(() => import("./hrCds/pages/client/PaymentsInvoicesPage.jsx"));
+const Alerts = lazy(() => import("./hrCds/pages/Alerts"));
+const Attendance = lazy(() => import("./hrCds/pages/Attendance"));
+const MyAssets = lazy(() => import("./hrCds/pages/MyAssets"));
+const MyLeaves = lazy(() => import("./hrCds/pages/MyLeaves"));
+const Profile = lazy(() => import("./hrCds/pages/Profile"));
+const UserDashboard = lazy(() => import("./hrCds/pages/UserDashboard"));
+const TaskManagement = lazy(() => import("./hrCds/pages/TaskManagement"));
+const EmployeeMeetingPage = lazy(() => import("./hrCds/pages/EmployeeMeetingPage"));
+const EmployeeProject = lazy(() => import("./hrCds/pages/EmployeeProject"));
+const ClientMeeting = lazy(() => import("./hrCds/pages/ClientMeeting"));
+const DepartmentSupportDesk = lazy(() => import("./hrCds/pages/DepartmentSupportDesk"));
+const SupportOperations = lazy(() => import("./admin/page/SupportOperations.jsx"));
+const ActiveClientsOverview = lazy(() => import("./hrCds/pages/ActiveClientsOverview.jsx"));
+const CreateAlerts = lazy(() => import("./hrCds/pages/CreateAlerts.jsx"));
+const UserProfile = lazy(() => import("./page/UserProfile.jsx"));
+const Home = lazy(() => import("./Pages/Home"));
+const AboutUs = lazy(() => import("./Pages/AboutUs"));
+const ContactUs = lazy(() => import("./Pages/ContactUs"));
+const PrivacyPolicy = lazy(() => import("./Pages/PrivacyPolicy"));
+const LegalPage = lazy(() => import("./Pages/LegalPage"));
+const RegisterCompany = lazy(() => import("./admin/components/CompanyRegister.jsx"));
+const SuperAdminLogin = lazy(() => import("./page/SuperAdminLogin"));
+const CompanyManagement = lazy(() => import("./page/CompanyManagement.jsx"));
+const PlanManagement = lazy(() => import("./admin/page/PlanManagement.jsx"));
+const PageManagement = lazy(() => import("./admin/page/PageManagement.jsx"));
+const JobRoleManagement = lazy(() => import("./admin/page/JobRoleManagement.jsx"));
+const SidebarManagement = lazy(() => import("./admin/components/SidebarManagement.jsx"));
+const CompanyDetails = lazy(() => import("./admin/components/CompanyDetails.jsx"));
+const CompanyAccessManagement = lazy(() => import("./admin/page/CompanyAccessManagement.jsx"));
+const AllCompany = lazy(() => import("./page/AllCompany.jsx"));
+const CompanyUsersPage = lazy(() => import("./page/CompanyUsersPage.jsx"));
+const CompanyAssetManagement = lazy(() => import("./page/CompanyAssetManagement.jsx"));
+const Holiday = lazy(() => import("./page/Holidays.jsx"));
+const BranchManagement = lazy(() => import("./admin/page/BranchManagement.jsx"));
+const ChatPage = lazy(() => import("./Pages/Chat/ChatPage"));
+const Settings = lazy(() => import("./admin/page/Settings.jsx"));
+const EmailSettings = lazy(() => import("./admin/page/EmailSettings.jsx"));
+const DemoRequests = lazy(() => import("./admin/page/DemoRequests.jsx"));
+const LeavePolicy = lazy(() => import("./admin/page/LeavePolicy.jsx"));
+const AppVersionControl = lazy(() => import("./admin/page/AppVersionControl.jsx"));
+
 function App() {
-
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (loading) {
-    return <CIISLoader />;
-  }
-
   return (
     <>
-      <Routes>
+      <Suspense fallback={<CIISLoader />}>
+        <Routes>
 
-        <Route path="/" element={<Home />} />
-        <Route path="/about" element={<AboutUs />} />
-        <Route path="/contact" element={<ContactUs />} />
-        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-        <Route path="/terms" element={<LegalPage type="terms" />} />
-        <Route path="/cookies" element={<LegalPage type="cookies" />} />
-        <Route path="/SuperAdminLogin" element={<SuperAdminLogin />} />
-        <Route path="company/:companyCode/login" element={<Login />} />
-        <Route path="/self-register" element={<SelfRegister />} />
-        <Route path="/:companyCode/register" element={<SelfRegister />} />
-        <Route path="/company/:companyCode/register" element={<SelfRegister />} />
-        <Route path="/RegisterCompany" element={<RegisterCompany />} />
-
-        
-        <Route
-          path="/Ciis-network/*"
-          element={
-            <ThemeContextProvider>
-              <ProtectedRoute>
-                <SuperLayout />
-              </ProtectedRoute>
-            </ThemeContextProvider>
-          }
-        >
-          <Route path="company-details" element={<CompanyDetails />} />
-          <Route path="RegisterCompany" element={<RegisterCompany />} />
-          <Route path="CompanyAccessManagement" element={<CompanyAccessManagement />} />
-          <Route path="CompanyAccessManagement/:companyId" element={<CompanyAccessManagement />} />
-          <Route path="department" element={<Department />} />
-          <Route path="department/branch/:branchId" element={<Department />} />
-          <Route path="JobRoleManagement" element={<JobRoleManagement />} />
-          <Route path="create-user" element={<CreateUser />} />
-          <Route path="register-request" element={<RegisterRequest />} />
-          <Route path="all-company" element={<AllCompany />} />
-          <Route path="all-company/:companyId/users" element={<CompanyUsersPage />} />
-          <Route path="company-assets" element={<CompanyAssetManagement/>}/>
-          <Route path="company-assets/branch/:branchId" element={<CompanyAssetManagement/>}/>
-          <Route path="CompanyManagement" element={<CompanyManagement />} />
-          <Route path="SidebarManagement" element={<SidebarManagement />} />
-          <Route path="page-management" element={<PageManagement />} />
-          <Route path="plans" element={<PlanManagement />} />
-          <Route path="holiday" element={<Holiday />} />
-          <Route path="branch" element={<BranchManagement />} />
-          <Route path="support-operations" element={<SupportOperations />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="email-settings" element={<EmailSettings />} />
-          <Route
-            path="app-version-control"
-            element={
-              <ProtectedSuperAdminRoute>
-                <AppVersionControl />
-              </ProtectedSuperAdminRoute>
-            }
-          />
-          <Route path="leave-policy-master" element={<LeavePolicy />} />
-          <Route path="leave-policy" element={<LeavePolicy />} />
-          <Route
-            path="demo-requests"
-            element={
-              <ProtectedSuperAdminRoute>
-                <DemoRequests />
-              </ProtectedSuperAdminRoute>
-            }
-          />
-        </Route>
+          <Route path="/" element={<Home />} />
+          <Route path="/about" element={<AboutUs />} />
+          <Route path="/contact" element={<ContactUs />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<LegalPage type="terms" />} />
+          <Route path="/cookies" element={<LegalPage type="cookies" />} />
+          <Route path="/SuperAdminLogin" element={<SuperAdminLogin />} />
+          <Route path="company/:companyCode/login" element={<Login />} />
+          <Route path="/self-register" element={<SelfRegister />} />
+          <Route path="/:companyCode/register" element={<SelfRegister />} />
+          <Route path="/company/:companyCode/register" element={<SelfRegister />} />
+          <Route path="/RegisterCompany" element={<RegisterCompany />} />
 
         
-        <Route
-          path="/ciisUser/*"
-          element={
-            <ThemeContextProvider>
-              <ProtectedRoute>
-                <Layout2 />
-              </ProtectedRoute>
-            </ThemeContextProvider>
-          }
-        >
-          
-          
-          
-          <Route path="change-password" element={<ChangePassword />} />
-          <Route path="emp-details" element={<EmppDetail />} />
-          <Route path="emp-leaves" element={<EmppLeave />} />
-          <Route path="emp-assets" element={<EmppAsset />} />
-          <Route path="emp-attendance" element={<EmppAttendence />} />
-          <Route path="emp-task-details" element={<TaskDeatils />} />
-          <Route path="admin-task-create" element={<AdminTaskCreate />} />
-          <Route path="manage-groups" element={<ManageGroups />} />
-          <Route path="admin-meeting" element={<AdminMeetingPage />} />
-          <Route path="adminproject" element={<AdminProject />} />
-          <Route path="company-all-task" element={<EmpAllTask />} />
-          <Route path="company-all-task/tasks" element={<CompanyAllTaskTasks />} />
-          <Route path="company-all-task/tasks/:userId" element={<CompanyAllTaskTasks />} />
-          <Route path="company-all-task/:userId/tasks" element={<CompanyAllTaskTasks />} />
-          <Route path="emp-client" element={<Client />} />
-          <Route path="emp-client/add-new" element={<AddClientPage />} />
-          <Route path="emp-client/:clientId" element={<ClientDetailsPage />} />
-          <Route path="client-plans" element={<ClientPlansPage />} />
-          <Route path="active-clients" element={<ActiveClientsOverview />} />
-          <Route path="alert" element={<Alerts />} />
-          <Route path="attendance" element={<Attendance />} />
-          <Route path="my-assets" element={<MyAssets />} />
-          <Route path="my-leaves" element={<MyLeaves />} />
-          <Route path="profile" element={<Profile />} />
           <Route
-            path="user-dashboard"
-            element={(
-              <Suspense fallback={<CIISLoader />}>
-                <UserDashboard />
-              </Suspense>
-            )}
-          />
-          <Route path="ClientDashboard" element={<Navigate to="/client/dashboard" replace />} />
-          <Route path="project" element={<EmployeeProject />} />
-          <Route
-            path="task-management"
-            element={(
-              <Suspense fallback={<CIISLoader />}>
-                <TaskManagement />
-              </Suspense>
-            )}
-          />
-          <Route path="employee-meeting" element={<EmployeeMeetingPage />} />
-          <Route path="client-meeting" element={<ClientMeeting />} />
-          <Route path="create-user" element={<CreateUser />} />
-          <Route path="register-request" element={<RegisterRequest />} />
-          <Route path="department" element={<Department />} />
-          <Route path="department/branch/:branchId" element={<Department />} />
-          <Route path="JobRoleManagement" element={<JobRoleManagement />} />
-          <Route path="SidebarManagement" element={<SidebarManagement />} />
-          <Route path="create-alert" element={<CreateAlerts />} />
-          <Route path="user-profile" element={<UserProfile/>} />
-          <Route path="chat" element={<ChatPage />} />
-          <Route path="contact-support" element={<Navigate to="/ciisUser/dashboard" replace />} />
-          <Route path="support-desk" element={<DepartmentSupportDesk />} />
-          <Route path="support-operations" element={<SupportOperations />} />
-          <Route path="leave-policy-master" element={<LeavePolicy />} />
-          <Route path="leave-policy" element={<LeavePolicy />} />
-        </Route>
-        <Route
-          path="/client/*"
-          element={
-            <ThemeContextProvider>
-              <ProtectedRoute>
-                <Layout2 />
-              </ProtectedRoute>
-            </ThemeContextProvider>
-          }
-        >
-          <Route index element={<ClientDashboardPage />} />
-          <Route path="dashboard" element={<ClientDashboardPage />} />
-          <Route path="tasks-updates" element={<ClientTasksUpdatesPage />} />
-          <Route path="my-services" element={<MyServicesPage />} />
-          <Route path="marketplace" element={<ServiceMarketplacePage />} />
-          <Route path="support-tickets" element={<SupportTicketsPage />} />
-          <Route path="documents" element={<DocumentsPage />} />
-          <Route path="payments" element={<PaymentsInvoicesPage />} />
-          <Route path="change-password" element={<ChangePassword />} />
-          <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
-        </Route>
+            path="/Ciis-network/*"
+            element={
+              <ThemeContextProvider>
+                <ProtectedRoute>
+                  <SuperLayout />
+                </ProtectedRoute>
+              </ThemeContextProvider>
+            }
+          >
+            <Route path="company-details" element={<CompanyDetails />} />
+            <Route path="RegisterCompany" element={<RegisterCompany />} />
+            <Route path="CompanyAccessManagement" element={<CompanyAccessManagement />} />
+            <Route path="CompanyAccessManagement/:companyId" element={<CompanyAccessManagement />} />
+            <Route path="department" element={<Department />} />
+            <Route path="department/branch/:branchId" element={<Department />} />
+            <Route path="JobRoleManagement" element={<JobRoleManagement />} />
+            <Route path="create-user" element={<CreateUser />} />
+            <Route path="register-request" element={<RegisterRequest />} />
+            <Route path="all-company" element={<AllCompany />} />
+            <Route path="all-company/:companyId/users" element={<CompanyUsersPage />} />
+            <Route path="company-assets" element={<CompanyAssetManagement/>}/>
+            <Route path="company-assets/branch/:branchId" element={<CompanyAssetManagement/>}/>
+            <Route path="CompanyManagement" element={<CompanyManagement />} />
+            <Route path="SidebarManagement" element={<SidebarManagement />} />
+            <Route path="page-management" element={<PageManagement />} />
+            <Route path="plans" element={<PlanManagement />} />
+            <Route path="holiday" element={<Holiday />} />
+            <Route path="branch" element={<BranchManagement />} />
+            <Route path="support-operations" element={<SupportOperations />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="email-settings" element={<EmailSettings />} />
+            <Route
+              path="app-version-control"
+              element={
+                <ProtectedSuperAdminRoute>
+                  <AppVersionControl />
+                </ProtectedSuperAdminRoute>
+              }
+            />
+            <Route path="leave-policy-master" element={<LeavePolicy />} />
+            <Route path="leave-policy" element={<LeavePolicy />} />
+            <Route
+              path="demo-requests"
+              element={
+                <ProtectedSuperAdminRoute>
+                  <DemoRequests />
+                </ProtectedSuperAdminRoute>
+              }
+            />
+          </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+        
+          <Route
+            path="/ciisUser/*"
+            element={
+              <ThemeContextProvider>
+                <ProtectedRoute>
+                  <Layout2 />
+                </ProtectedRoute>
+              </ThemeContextProvider>
+            }
+          >
+          
+          
+          
+            <Route path="change-password" element={<ChangePassword />} />
+            <Route path="emp-details" element={<EmppDetail />} />
+            <Route path="emp-leaves" element={<EmppLeave />} />
+            <Route path="emp-assets" element={<EmppAsset />} />
+            <Route path="emp-attendance" element={<EmppAttendence />} />
+            <Route path="emp-task-details" element={<TaskDeatils />} />
+            <Route path="admin-task-create" element={<AdminTaskCreate />} />
+            <Route path="manage-groups" element={<ManageGroups />} />
+            <Route path="admin-meeting" element={<AdminMeetingPage />} />
+            <Route path="adminproject" element={<AdminProject />} />
+            <Route path="company-all-task" element={<EmpAllTask />} />
+            <Route path="company-all-task/tasks" element={<CompanyAllTaskTasks />} />
+            <Route path="company-all-task/tasks/:userId" element={<CompanyAllTaskTasks />} />
+            <Route path="company-all-task/:userId/tasks" element={<CompanyAllTaskTasks />} />
+            <Route path="emp-client" element={<Client />} />
+            <Route path="emp-client/add-new" element={<AddClientPage />} />
+            <Route path="emp-client/:clientId" element={<ClientDetailsPage />} />
+            <Route path="client-plans" element={<ClientPlansPage />} />
+            <Route path="active-clients" element={<ActiveClientsOverview />} />
+            <Route path="alert" element={<Alerts />} />
+            <Route path="attendance" element={<Attendance />} />
+            <Route path="my-assets" element={<MyAssets />} />
+            <Route path="my-leaves" element={<MyLeaves />} />
+            <Route path="profile" element={<Profile />} />
+            <Route path="user-dashboard" element={<UserDashboard />} />
+            <Route path="ClientDashboard" element={<Navigate to="/client/dashboard" replace />} />
+            <Route path="project" element={<EmployeeProject />} />
+            <Route path="task-management" element={<TaskManagement />} />
+            <Route path="employee-meeting" element={<EmployeeMeetingPage />} />
+            <Route path="client-meeting" element={<ClientMeeting />} />
+            <Route path="create-user" element={<CreateUser />} />
+            <Route path="register-request" element={<RegisterRequest />} />
+            <Route path="department" element={<Department />} />
+            <Route path="department/branch/:branchId" element={<Department />} />
+            <Route path="JobRoleManagement" element={<JobRoleManagement />} />
+            <Route path="SidebarManagement" element={<SidebarManagement />} />
+            <Route path="create-alert" element={<CreateAlerts />} />
+            <Route path="user-profile" element={<UserProfile/>} />
+            <Route path="chat" element={<ChatPage />} />
+            <Route path="contact-support" element={<Navigate to="/ciisUser/dashboard" replace />} />
+            <Route path="support-desk" element={<DepartmentSupportDesk />} />
+            <Route path="support-operations" element={<SupportOperations />} />
+            <Route path="leave-policy-master" element={<LeavePolicy />} />
+            <Route path="leave-policy" element={<LeavePolicy />} />
+          </Route>
+          <Route
+            path="/client/*"
+            element={
+              <ThemeContextProvider>
+                <ProtectedRoute>
+                  <Layout2 />
+                </ProtectedRoute>
+              </ThemeContextProvider>
+            }
+          >
+            <Route index element={<ClientDashboardPage />} />
+            <Route path="dashboard" element={<ClientDashboardPage />} />
+            <Route path="tasks-updates" element={<ClientTasksUpdatesPage />} />
+            <Route path="my-services" element={<MyServicesPage />} />
+            <Route path="marketplace" element={<ServiceMarketplacePage />} />
+            <Route path="support-tickets" element={<SupportTicketsPage />} />
+            <Route path="documents" element={<DocumentsPage />} />
+            <Route path="payments" element={<PaymentsInvoicesPage />} />
+            <Route path="change-password" element={<ChangePassword />} />
+            <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
+          </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
 
       <SpeechToTextControl />
       <ToastContainer position="top-right" autoClose={3000} />

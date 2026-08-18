@@ -137,6 +137,25 @@ const axiosInstance = axios.create({
 const originalDefaultGet = axios.get.bind(axios);
 const originalInstanceGet = axiosInstance.get.bind(axiosInstance);
 
+export const invalidateGetCache = (match) => {
+  const matcher =
+    typeof match === "function"
+      ? match
+      : (key) => String(key || "").includes(String(match || ""));
+
+  for (const key of [...completedGetRequests.keys()]) {
+    if (matcher(key)) {
+      completedGetRequests.delete(key);
+    }
+  }
+
+  for (const key of [...inFlightGetRequests.keys()]) {
+    if (matcher(key)) {
+      inFlightGetRequests.delete(key);
+    }
+  }
+};
+
 const cachedGet = async (requester, url, config = {}) => {
   pruneExpiredGetCacheEntries();
   const useCache = config.cache !== false && config.noCache !== true && config._skipRequestCache !== true;

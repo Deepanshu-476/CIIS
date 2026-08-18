@@ -726,6 +726,70 @@
   }
 }
 
+/* Fit the policy table inside MacBook/compact desktop viewports without a
+   horizontal scrollbar or breaking words in the middle. */
+@media (min-width: 1181px) and (max-width: 1599px) {
+  .lpm-table-wrapper {
+    overflow-x: hidden;
+  }
+
+  .lpm-table {
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
+    font-size: clamp(0.56rem, 0.61vw, 0.68rem);
+  }
+
+  .lpm-table th {
+    padding: 9px 3px;
+    white-space: normal;
+    line-height: 1.15;
+  }
+
+  .lpm-table td {
+    padding: 9px 3px;
+    line-height: 1.25;
+  }
+
+  .lpm-table th,
+  .lpm-table td,
+  .lpm-creator-cell strong,
+  .lpm-creator-cell span,
+  .lpm-creator-cell small {
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  .lpm-roles-flex {
+    width: 100%;
+    max-width: 100%;
+    gap: 3px;
+  }
+
+  .lpm-role-tag {
+    max-width: 100%;
+    padding: 2px 3px;
+    white-space: nowrap;
+    font-size: .58rem;
+  }
+
+  .lpm-action-buttons {
+    min-width: 0;
+    gap: 2px;
+  }
+
+  .lpm-icon-btn {
+    width: 24px;
+    height: 24px;
+    flex-basis: 24px;
+  }
+
+  .lpm-bool-badge,
+  .lpm-status-pill {
+    padding: 3px 6px;
+  }
+}
+
 /* Tablet: retain the data table, but contain its scroll inside the card. */
 @media (max-width: 1180px) {
   .lpm-table-wrapper {

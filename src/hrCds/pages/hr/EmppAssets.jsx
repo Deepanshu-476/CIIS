@@ -295,7 +295,8 @@ const EmpAssets = () => {
   const fetchAssetPagePermissions = async () => {
     try {
       const res = await axios.get('/page-permissions/by-path', {
-        params: { path: '/ciisUser/emp-assets' }
+        params: { path: '/ciisUser/emp-assets' },
+        cache: false
       });
       const approverIds = (res.data?.page?.approvers || [])
         .map(user => String(user?._id || user?.id || user))

@@ -1,274 +1,145 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "../../utils/axiosConfig";
-import "./PageManagement.css";
 import CIISLoader from "../../Loader/CIISLoader";
+import {
+  Add,
+  AdminPanelSettingsOutlined,
+  ArrowBackIosNew,
+  ArrowForwardIos,
+  AssignmentIndOutlined,
+  CalendarMonthOutlined,
+  DeleteOutline,
+  EditOutlined,
+  FilterAltOutlined,
+  GroupsOutlined,
+  KeyboardArrowRight,
+  LanguageOutlined,
+  Close,
+  LockOutlined,
+  PersonOutline,
+  Search,
+  ShieldOutlined,
+  VisibilityOutlined,
+  WorkOutline,
+  DescriptionOutlined,
+  DashboardCustomizeOutlined,
+  InsightsOutlined,
+  ViewColumnOutlined,
+} from "@mui/icons-material";
+import "./PageManagement.css";
 
-const getUserId = (user) => String(user?._id || user?.id || "");
-const getPagePermissionPattern = (page) => page?.permissionPattern || null;
-const normalizeValue = (value) => String(value || "").trim();
-const normalizeKey = (value) => normalizeValue(value).replace(/^\/+/, "").toLowerCase();
-const normalizeLookupId = (value) => String(value || "").trim();
-const ALLOWED_PAGE_PATHS = new Set([
-  "/ciisUser/emp-details",
-  "/ciisUser/emp-leaves",
-  "/ciisUser/emp-assets",
-  "/ciisUser/emp-attendance",
-  "/ciisUser/manage-groups",
-  "/ciisUser/company-all-task",
-  "/ciisUser/department",
-  "/ciisUser/JobRoleManagement",
-  "/ciisUser/SidebarManagement"
-]);
+const FALLBACK_PAGES = [
+  { pageKey: "emp-details", name: "Employee Details", path: "/ciisUser/emp-details", permissionPattern: "viewEdit" },
+  { pageKey: "emp-leaves", name: "Employee Leaves", path: "/ciisUser/emp-leaves", permissionPattern: "approveReject" },
+  { pageKey: "emp-assets", name: "Employee Assets", path: "/ciisUser/emp-assets", permissionPattern: "approveReject" },
+  { pageKey: "emp-attendance", name: "Employee Attendance", path: "/ciisUser/emp-attendance", permissionPattern: "viewEdit" },
+  { pageKey: "manage-groups", name: "Manage Groups", path: "/ciisUser/manage-groups", permissionPattern: "viewEdit" },
+  { pageKey: "company-all-task", name: "Company All Task", path: "/ciisUser/company-all-task", permissionPattern: "viewEdit" },
+  { pageKey: "department", name: "Department", path: "/ciisUser/department", permissionPattern: "viewEdit" },
+  { pageKey: "JobRoleManagement", name: "Job Role Management", path: "/ciisUser/JobRoleManagement", permissionPattern: "viewEdit" },
+  { pageKey: "SidebarManagement", name: "Sidebar Management", path: "/ciisUser/SidebarManagement", permissionPattern: "viewEdit" },
+];
 
-const normalizePagePath = (path) => normalizeValue(path);
-const isAllowedPage = (page) => {
-  const path = normalizePagePath(page?.path);
-  const pageKey = normalizePagePath(page?.pageKey);
-  return ALLOWED_PAGE_PATHS.has(path) || ALLOWED_PAGE_PATHS.has(`/ciisUser/${pageKey}`) || ALLOWED_PAGE_PATHS.has(pageKey);
+const ICON_MAP = {
+  "emp-details": PersonOutline,
+  "emp-leaves": CalendarMonthOutlined,
+  "emp-assets": WorkOutline,
+  "emp-attendance": DashboardCustomizeOutlined,
+  "manage-groups": GroupsOutlined,
+  "company-all-task": ViewColumnOutlined,
+  department: InsightsOutlined,
+  JobRoleManagement: AssignmentIndOutlined,
+  SidebarManagement: LockOutlined,
+  "leave-policy": DescriptionOutlined,
 };
 
-const getStoredCompany = () => {
+const getRecordId = (value) => {
+  if (!value) return "";
+  if (typeof value === "object") {
+    return String(value._id || value.id || value.user || value.value || "").trim();
+  }
+  return String(value).trim();
+};
+
+const normalizeUserIds = (items = []) =>
+  [...new Set((Array.isArray(items) ? items : []).map(getRecordId).filter(Boolean))];
+
+const getUserLabel = (user) => user?.name || user?.email || "Unnamed User";
+const getUserEmail = (user) => user?.email || "";
+const getUserInitials = (user) => {
+  const label = getUserLabel(user);
+  const parts = label.split(" ").filter(Boolean);
+  if (!parts.length) return "U";
+  return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+};
+
+const getPagePermissionSummary = (page) => {
+  const viewCount = page?.viewUsers?.length || 0;
+  const editCount = page?.editUsers?.length || 0;
+  const deleteCount = page?.deleteUsers?.length || 0;
+  const approverCount = page?.approvers?.length || 0;
+
+  if (page?.permissionPattern === "approveReject") {
+    return `${viewCount} view user(s) / ${approverCount} approve-reject user(s) / ${deleteCount} delete user(s)`;
+  }
+
+  return `${viewCount} view user(s) / ${editCount} edit user(s) / ${deleteCount} delete user(s)`;
+};
+
+const getPermissionTabs = (page) => {
+  if (page?.permissionPattern === "approveReject") {
+    return [
+      { key: "view", label: "View Users", icon: VisibilityOutlined, count: page?.viewUsers?.length || 0 },
+      { key: "approve", label: "Approve / Reject", icon: ShieldOutlined, count: page?.approvers?.length || 0 },
+      { key: "delete", label: "Delete Users", icon: DeleteOutline, count: page?.deleteUsers?.length || 0 },
+    ];
+  }
+
+  return [
+    { key: "view", label: "View Users", icon: VisibilityOutlined, count: page?.viewUsers?.length || 0 },
+    { key: "edit", label: "Edit Users", icon: EditOutlined, count: page?.editUsers?.length || 0 },
+    { key: "delete", label: "Delete Users", icon: DeleteOutline, count: page?.deleteUsers?.length || 0 },
+  ];
+};
+
+const getActiveIdsForTab = (page, tab) => {
+  if (!page) return [];
+  if (page.permissionPattern === "approveReject") {
+    if (tab === "approve") return normalizeUserIds(page.approvers);
+    if (tab === "delete") return normalizeUserIds(page.deleteUsers);
+    return normalizeUserIds(page.viewUsers);
+  }
+
+  if (tab === "edit") return normalizeUserIds(page.editUsers);
+  if (tab === "delete") return normalizeUserIds(page.deleteUsers);
+  return normalizeUserIds(page.viewUsers);
+};
+
+const getPageTitleIcon = (pageKey) => ICON_MAP[pageKey] || DescriptionOutlined;
+
+const normalizePage = (page) => ({
+  pageKey: page?.pageKey || page?.id || page?.key || "",
+  name: page?.name || page?.title || page?.pageKey || "Page",
+  path: page?.path || "",
+  permissionPattern: page?.permissionPattern || "viewEdit",
+  approvers: normalizeUserIds(page?.approvers || []),
+  viewUsers: normalizeUserIds(page?.viewUsers || []),
+  editUsers: normalizeUserIds(page?.editUsers || []),
+  deleteUsers: normalizeUserIds(page?.deleteUsers || []),
+});
+
+const readStoredJson = (key) => {
   try {
-    const raw = localStorage.getItem("company") || localStorage.getItem("companyDetails");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed?.company || parsed || null;
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 };
 
-const getCompanyId = (company) => String(company?._id || company?.id || company?.companyId || "");
-
-const getUserRoleCandidates = (user) => {
-  const roleSources = [
-    user?.jobRole,
-    user?.companyRole,
-    user?.role,
-    user?.userRole,
-    user?.designation,
-    user?.jobRoleName,
-    user?.roleName,
-  ];
-
-  const normalized = new Set();
-  roleSources.forEach((value) => {
-    if (!value) return;
-    if (typeof value === "object") {
-      [value._id, value.id, value.name, value.roleName, value.role, value.title, value.code]
-        .filter(Boolean)
-        .forEach((candidate) => {
-          normalized.add(normalizeKey(candidate));
-          normalized.add(normalizeValue(candidate).toLowerCase());
-        });
-      return;
-    }
-
-    normalized.add(normalizeKey(value));
-    normalized.add(normalizeValue(value).toLowerCase());
-  });
-
-  return normalized;
-};
-
-const buildPageRoleMap = (configs = []) => {
-  const map = new Map();
-
-  configs.forEach((config) => {
-    const roleKey = normalizeKey(config?.role);
-    if (!roleKey) return;
-
-    (config?.menuItems || []).forEach((item) => {
-      const keys = new Set([
-        item?.path,
-        item?.id,
-        item?.route,
-      ]
-        .filter(Boolean)
-        .flatMap((value) => {
-          const normalized = normalizePagePath(value);
-          const clean = normalized.replace(/^\/+/, "");
-          return [
-            normalized,
-            clean,
-            normalizeKey(normalized),
-            normalizeKey(clean),
-          ];
-        })
-        .filter(Boolean));
-
-      keys.forEach((pageKey) => {
-        if (!map.has(pageKey)) {
-          map.set(pageKey, new Set());
-        }
-        map.get(pageKey).add(roleKey);
-      });
-    });
-  });
-
-  return map;
-};
-
-const getAllowedRolesForPage = (page, pageRoleMap) => {
-  const keys = [
-    page?.path,
-    page?.pageKey,
-    `/ciisUser/${page?.pageKey || ""}`,
-  ]
-    .filter(Boolean)
-    .flatMap((value) => {
-      const normalized = normalizePagePath(value);
-      const clean = normalized.replace(/^\/+/, "");
-      return [
-        normalized,
-        clean,
-        normalizeKey(normalized),
-        normalizeKey(clean),
-      ];
-    });
-
-  const allowedRoles = new Set();
-  keys.forEach((key) => {
-    const roleSet = pageRoleMap.get(key);
-    if (roleSet) {
-      roleSet.forEach((role) => allowedRoles.add(role));
-    }
-  });
-
-  return allowedRoles;
-};
-
-const userMatchesAllowedRoles = (user, allowedRoles) => {
-  if (!allowedRoles.size) return false;
-  const candidates = getUserRoleCandidates(user);
-  for (const role of allowedRoles) {
-    if (candidates.has(role)) return true;
-  }
-  return false;
-};
-
-const hasConfiguredPermission = (page) =>
-  (page?.approvers || []).length > 0 ||
-  (page?.viewUsers || []).length > 0 ||
-  (page?.editUsers || []).length > 0 ||
-  (page?.deleteUsers || []).length > 0;
-
-const getPermissionTabs = (page) => {
-  const pattern = getPagePermissionPattern(page);
-
-  if (pattern === "approveReject") {
-    return [
-      { key: "view", label: "View", count: (page?.viewUsers || []).length },
-      { key: "approve", label: "Approve / Reject", count: (page?.approvers || []).length },
-      { key: "delete", label: "Delete", count: (page?.deleteUsers || []).length }
-    ];
-  }
-
-  if (pattern === "viewEdit") {
-    return [
-      { key: "view", label: "View", count: (page?.viewUsers || []).length },
-      { key: "edit", label: "Edit", count: (page?.editUsers || []).length },
-      { key: "delete", label: "Delete", count: (page?.deleteUsers || []).length }
-    ];
-  }
-
-  return [
-    { key: "delete", label: "Delete", count: (page?.deleteUsers || []).length }
-  ];
-};
-
-const getPermissionSummary = (page) => {
-  const pattern = getPagePermissionPattern(page);
-  if (pattern === "approveReject") {
-    return `${(page?.viewUsers || []).length} view user(s) / ${(page?.approvers || []).length} approve/reject user(s) / ${(page?.deleteUsers || []).length} delete user(s)`;
-  }
-  if (pattern === "viewEdit") {
-    return `${(page?.viewUsers || []).length} view user(s) / ${(page?.editUsers || []).length} edit user(s) / ${(page?.deleteUsers || []).length} delete user(s)`;
-  }
-  return `${(page?.deleteUsers || []).length} delete user(s)`;
-};
-
-const normalizeId = (value) => String(value || "").trim().toLowerCase();
-
-const getRecordId = (value) => {
-  if (!value) return "";
-  if (typeof value === "object") {
-    return normalizeId(value._id || value.id || value.user || value.value);
-  }
-  return normalizeId(value);
-};
-
-const getBranchLabel = (branch) => branch?.name || branch?.branchCode || "Branch";
-const getDepartmentLabel = (department) => department?.name || department?.title || department?.departmentName || "Department";
-const getUserLabel = (user) => user?.name || user?.email || "User";
-const getRoleLabel = (role) => role?.label || role?.name || role?.key || "Role";
-const getRoleSubtitle = (role) => role?.departmentName || role?.department?.name || role?.department || "";
-const getUserScopeSummary = (user) => {
-  const branchLabel = user?.branch ? getBranchLabel(user.branch) : (user?.branchCode || "");
-  const departmentLabel = typeof user?.department === "object"
-    ? getDepartmentLabel(user.department)
-    : String(user?.department || "").trim();
-
-  return [
-    branchLabel ? `Branch: ${branchLabel}` : null,
-    departmentLabel ? `Department: ${departmentLabel}` : null
-  ].filter(Boolean).join(" | ");
-};
-
-const buildVisibilitySummary = (rule, branchesById, departmentsById) => {
-  if (!rule) return "No access defined";
-  if (rule.scope === "all") return "All company data";
-
-  const branchNames = (rule.branchIds || [])
-    .map((id) => branchesById.get(String(id)))
-    .filter(Boolean)
-    .map(getBranchLabel);
-  const departmentNames = (rule.departmentIds || [])
-    .map((id) => departmentsById.get(String(id)))
-    .filter(Boolean)
-    .map(getDepartmentLabel);
-
-  const pieces = [];
-  if (rule.scope === "branches" || rule.scope === "custom") {
-    pieces.push(branchNames.length ? `Branches: ${branchNames.join(", ")}` : "Branches: none");
-  }
-  if (rule.scope === "departments" || rule.scope === "custom") {
-    pieces.push(departmentNames.length ? `Departments: ${departmentNames.join(", ")}` : "Departments: none");
-  }
-  return pieces.join(" | ") || "No access defined";
-};
-
-const createBlankVisibilityRule = (subjectType, subjectKey, subjectLabel) => ({
-  subjectType,
-  subjectKey: normalizeId(subjectKey),
-  subjectLabel: String(subjectLabel || subjectKey || "").trim(),
-  scope: "custom",
-  branchIds: [],
-  departmentIds: []
-});
-
-const upsertVisibilityRule = (rules, nextRule) => {
-  const key = normalizeId(nextRule.subjectKey);
-  const type = String(nextRule.subjectType || "").trim();
-  const existingIndex = rules.findIndex((rule) => normalizeId(rule.subjectKey) === key && String(rule.subjectType || "").trim() === type);
-  const normalizedRule = {
-    subjectType: type,
-    subjectKey: key,
-    subjectLabel: String(nextRule.subjectLabel || nextRule.label || nextRule.subjectKey || "").trim(),
-    scope: ["all", "branches", "departments", "custom"].includes(String(nextRule.scope || "").trim())
-      ? String(nextRule.scope || "").trim()
-      : "custom",
-    branchIds: [...new Set((nextRule.branchIds || []).map(String).filter(Boolean))],
-    departmentIds: [...new Set((nextRule.departmentIds || []).map(String).filter(Boolean))]
-  };
-
-  if (existingIndex === -1) {
-    return [...rules, normalizedRule];
-  }
-
-  const nextRules = [...rules];
-  nextRules[existingIndex] = { ...nextRules[existingIndex], ...normalizedRule };
-  return nextRules;
+const getStoredCompanyId = () => {
+  const company = readStoredJson("company") || readStoredJson("companyDetails");
+  return String(company?._id || company?.id || company?.companyId || "").trim();
 };
 
 const PageManagement = () => {
@@ -277,173 +148,41 @@ const PageManagement = () => {
   const [branches, setBranches] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [roleOptions, setRoleOptions] = useState([]);
-  const [jobRoleMap, setJobRoleMap] = useState(new Map());
-  const [roleVisibilityRules, setRoleVisibilityRules] = useState([]);
-  const [userVisibilityRules, setUserVisibilityRules] = useState([]);
-  const [selectedPageKey, setSelectedPageKey] = useState("emp-leaves");
-  const [selectedViewUsers, setSelectedViewUsers] = useState([]);
-  const [selectedEditUsers, setSelectedEditUsers] = useState([]);
-  const [selectedApprovers, setSelectedApprovers] = useState([]);
-  const [selectedDeleteUsers, setSelectedDeleteUsers] = useState([]);
-  const [permissionMode, setPermissionMode] = useState("approve");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [userSearchTerm, setUserSearchTerm] = useState("");
+  const [roleRules, setRoleRules] = useState([]);
+  const [userRules, setUserRules] = useState([]);
+  const [selectedPageKey, setSelectedPageKey] = useState("emp-details");
+  const [activeTab, setActiveTab] = useState("view");
+  const [pageSearch, setPageSearch] = useState("");
+  const [pageIndex, setPageIndex] = useState(1);
+  const [draftPermissions, setDraftPermissions] = useState({
+    viewIds: [],
+    editIds: [],
+    deleteIds: [],
+    approverIds: [],
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
-  const [visibilityMessage, setVisibilityMessage] = useState(null);
-  const [sidebarConfigs, setSidebarConfigs] = useState([]);
-  const [accessReady, setAccessReady] = useState(false);
-  const [visibilityMode, setVisibilityMode] = useState("role");
-  const [selectedVisibilityKey, setSelectedVisibilityKey] = useState("");
-  const [visibilitySearchTerm, setVisibilitySearchTerm] = useState("");
-  const [visibilitySaving, setVisibilitySaving] = useState(false);
-
-  const selectedPage = useMemo(
-    () => pages.find((page) => page.pageKey === selectedPageKey) || pages[0],
-    [pages, selectedPageKey]
-  );
-
-  const permissionTabs = useMemo(
-    () => getPermissionTabs(selectedPage),
-    [selectedPage]
-  );
-
-  const selectedPermissionPattern = getPagePermissionPattern(selectedPage);
-  const pageRoleMap = useMemo(() => buildPageRoleMap(sidebarConfigs), [sidebarConfigs]);
-  const allowedRolesForSelectedPage = useMemo(
-    () => getAllowedRolesForPage(selectedPage, pageRoleMap),
-    [pageRoleMap, selectedPage]
-  );
-  const branchesById = useMemo(
-    () => new Map(branches.map((branch) => [String(branch._id || branch.id), branch])),
-    [branches]
-  );
-  const departmentsById = useMemo(
-    () => new Map(departments.map((department) => [String(department._id || department.id), department])),
-    [departments]
-  );
-  const visibilityItems = useMemo(() => {
-    if (visibilityMode === "user") return users;
-    return roleOptions;
-  }, [roleOptions, users, visibilityMode]);
-  const selectedVisibilityRule = useMemo(() => {
-    if (visibilityMode === "user") {
-      return userVisibilityRules.find((rule) => normalizeId(rule.subjectKey) === normalizeId(selectedVisibilityKey)) || null;
-    }
-    return roleVisibilityRules.find((rule) => normalizeId(rule.subjectKey) === normalizeId(selectedVisibilityKey)) || null;
-  }, [roleVisibilityRules, selectedVisibilityKey, userVisibilityRules, visibilityMode]);
-  const selectedVisibilityLabel = useMemo(() => {
-    if (visibilityMode === "user") {
-      const user = users.find((item) => normalizeId(getRecordId(item)) === normalizeId(selectedVisibilityKey));
-      return getUserLabel(user);
-    }
-    const role = roleOptions.find((item) => normalizeId(item.key || item.subjectKey) === normalizeId(selectedVisibilityKey));
-    return getRoleLabel(role);
-  }, [roleOptions, selectedVisibilityKey, users, visibilityMode]);
-  const filteredVisibilityItems = useMemo(() => {
-    const query = visibilitySearchTerm.trim().toLowerCase();
-    const items = visibilityItems || [];
-    if (!query) return items;
-
-    return items.filter((item) => {
-      const label = visibilityMode === "user"
-        ? [item?.name, item?.email, item?.jobRole, item?.companyRole].filter(Boolean).join(" ")
-        : [item?.label, item?.name, item?.key].filter(Boolean).join(" ");
-      return label.toLowerCase().includes(query);
-    });
-  }, [visibilityItems, visibilityMode, visibilitySearchTerm]);
-  const firstVisibilityRole = roleOptions[0] || null;
-  const firstVisibilityUser = users[0] || null;
-  const resolveJobRoleName = (value) => {
-    const key = normalizeLookupId(value);
-    if (!key) return "";
-    const exact = jobRoleMap.get(key);
-    if (exact) return exact.name;
-    for (const role of jobRoleMap.values()) {
-      if (normalizeKey(role.name) === normalizeKey(key)) return role.name;
-    }
-    return "";
-  };
-
-  const searchedPages = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-    if (!query) return pages;
-
-    return pages.filter((page) =>
-      [page.name, page.path, page.pageKey]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(query)
-    );
-  }, [pages, searchTerm]);
-
-  const configuredPages = useMemo(
-    () => searchedPages.filter(hasConfiguredPermission),
-    [searchedPages]
-  );
-
-  const unconfiguredPages = useMemo(
-    () => searchedPages.filter((page) => !hasConfiguredPermission(page)),
-    [searchedPages]
-  );
-
-  const activeSelectedUsersResolved = useMemo(() => {
-    if (permissionMode === "delete") return selectedDeleteUsers;
-    if (permissionMode === "view") {
-      return selectedViewUsers;
-    }
-    if (permissionMode === "edit") return selectedEditUsers;
-    return selectedApprovers;
-  }, [permissionMode, selectedApprovers, selectedDeleteUsers, selectedEditUsers, selectedViewUsers]);
-  const activeSelectedUserSet = useMemo(
-    () => new Set(activeSelectedUsersResolved.map(String)),
-    [activeSelectedUsersResolved]
-  );
-
-  const filteredUsers = useMemo(() => {
-    if (!accessReady) return [];
-
-    const query = userSearchTerm.trim().toLowerCase();
-    const roleFilteredUsers = users.filter((user) => userMatchesAllowedRoles(user, allowedRolesForSelectedPage));
-
-    if (!query) return roleFilteredUsers;
-
-    return roleFilteredUsers.filter((user) =>
-      [user.name, user.email, user.companyRole, user.jobRole, user.role]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(query)
-    );
-  }, [accessReady, allowedRolesForSelectedPage, userSearchTerm, users]);
-
-  const selectedUsers = useMemo(
-    () => filteredUsers.filter((user) => activeSelectedUserSet.has(getUserId(user))),
-    [activeSelectedUserSet, filteredUsers]
-  );
-
-  const availableUsers = useMemo(
-    () => filteredUsers.filter((user) => !activeSelectedUserSet.has(getUserId(user))),
-    [activeSelectedUserSet, filteredUsers]
-  );
+  const [addUsersOpen, setAddUsersOpen] = useState(false);
+  const [candidateSearch, setCandidateSearch] = useState("");
+  const [candidateSelection, setCandidateSelection] = useState(new Set());
+  const [scopeBranch, setScopeBranch] = useState("all");
+  const [scopeDepartment, setScopeDepartment] = useState("all");
 
   const loadData = async () => {
     setLoading(true);
-    setAccessReady(false);
-    setVisibilityMessage(null);
+    setMessage(null);
     try {
-      const companyFromStorage = getStoredCompany();
-      const companyId = getCompanyId(companyFromStorage);
-      const [pagesRes, visibilityRes, sidebarRes, jobRolesRes] = await Promise.all([
-        axios.get("/page-permissions/pages"),
-        axios.get("/page-permissions/data-visibility/context").catch(async (error) => {
+      const companyId = getStoredCompanyId();
+      const [pagesRes, contextRes] = await Promise.all([
+        axios.get("/page-permissions/pages", { cache: false }),
+        axios.get("/page-permissions/data-visibility/context", { cache: false }).catch(async (error) => {
           if (error?.response?.status !== 404) throw error;
+
           const [usersRes, branchesRes, departmentsRes] = await Promise.all([
-            companyId ? axios.get("/users/company-users", { params: { companyId, limit: 100 } }) : Promise.resolve({ data: {} }),
-            companyId ? axios.get("/branches/company/" + companyId).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
-            companyId ? axios.get("/departments", { params: { company: companyId } }).catch(() => ({ data: {} })) : Promise.resolve({ data: {} })
+            companyId ? axios.get("/users/company-users", { params: { companyId, limit: 250 } }) : Promise.resolve({ data: {} }),
+            companyId ? axios.get(`/branches/company/${companyId}`).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
+            companyId ? axios.get("/departments", { params: { company: companyId } }).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
           ]);
 
           return {
@@ -454,103 +193,31 @@ const PageManagement = () => {
                 departments: departmentsRes.data?.departments || departmentsRes.data?.data || [],
                 roleOptions: [],
                 roleRules: [],
-                userRules: []
-              }
-            }
+                userRules: [],
+              },
+            },
           };
         }),
-        companyId ? axios.get("/sidebar", { params: { companyId } }) : Promise.resolve({ data: { data: [] } }),
-        companyId ? axios.get("/job-roles", { params: { company: companyId } }).catch(() => ({ data: {} })) : Promise.resolve({ data: {} })
       ]);
 
-      const loadedPages = pagesRes.data?.pages || [];
-      const loadedVisibilityContext = visibilityRes.data?.context || {};
-      const loadedUsers = loadedVisibilityContext.users || [];
-      const loadedSidebarConfigs = sidebarRes.data?.data || [];
-      const loadedJobRoles = jobRolesRes.data?.jobRoles || jobRolesRes.data?.data?.jobRoles || jobRolesRes.data?.data || [];
-      const visiblePages = loadedPages.filter(isAllowedPage);
-      const jobRoleLookup = new Map(
-        loadedJobRoles
-          .map((jobRole) => {
-            const id = normalizeLookupId(jobRole?._id || jobRole?.id);
-            if (!id) return null;
-            return [id, {
-              id,
-              name: String(jobRole?.name || jobRole?.roleName || id).trim(),
-              departmentName: jobRole?.department?.name || jobRole?.departmentName || "",
-              department: jobRole?.department || null
-            }];
-          })
-          .filter(Boolean)
-      );
+      const loadedPages = (pagesRes.data?.pages || []).map(normalizePage);
+      const normalizedPages = loadedPages.length ? loadedPages : FALLBACK_PAGES.map(normalizePage);
+      const loadedContext = contextRes.data?.context || {};
 
-      setPages(visiblePages);
-      setUsers(loadedUsers);
-      setBranches(loadedVisibilityContext.branches || []);
-      setDepartments(loadedVisibilityContext.departments || []);
-      setJobRoleMap(jobRoleLookup);
-      setRoleOptions(
-        loadedVisibilityContext.roleOptions?.length
-          ? loadedVisibilityContext.roleOptions.map((role) => ({
-              ...role,
-              label: jobRoleLookup.get(normalizeLookupId(role.key))?.name || role.label || role.name || role.key
-            }))
-          : [...jobRoleLookup.values()].map((role) => ({
-              key: role.id,
-              label: role.name,
-              departmentName: role.departmentName,
-              department: role.department
-            }))
-      );
-      setRoleVisibilityRules((loadedVisibilityContext.roleRules || []).map((rule) => ({
-        ...rule,
-        subjectKey: normalizeId(rule.subjectKey),
-        branchIds: (rule.branchIds || []).map(String),
-        departmentIds: (rule.departmentIds || []).map(String)
-      })));
-      setUserVisibilityRules((loadedVisibilityContext.userRules || []).map((rule) => ({
-        ...rule,
-        subjectKey: normalizeId(rule.subjectKey),
-        branchIds: (rule.branchIds || []).map(String),
-        departmentIds: (rule.departmentIds || []).map(String)
-      })));
-      setSidebarConfigs(loadedSidebarConfigs);
+      setPages(normalizedPages);
+      setUsers(Array.isArray(loadedContext.users) ? loadedContext.users : []);
+      setBranches(Array.isArray(loadedContext.branches) ? loadedContext.branches : []);
+      setDepartments(Array.isArray(loadedContext.departments) ? loadedContext.departments : []);
+      setRoleOptions(Array.isArray(loadedContext.roleOptions) ? loadedContext.roleOptions : []);
+      setRoleRules(Array.isArray(loadedContext.roleRules) ? loadedContext.roleRules : []);
+      setUserRules(Array.isArray(loadedContext.userRules) ? loadedContext.userRules : []);
 
-      const initialPage = visiblePages.find((page) => page.pageKey === selectedPageKey) || visiblePages[0];
-      if (initialPage) {
-        setSelectedPageKey(initialPage.pageKey);
-        setSelectedViewUsers((initialPage.viewUsers || []).map(getUserId).filter(Boolean));
-        setSelectedEditUsers((initialPage.editUsers || []).map(getUserId).filter(Boolean));
-        setSelectedApprovers((initialPage.approvers || []).map(getUserId).filter(Boolean));
-        setSelectedDeleteUsers((initialPage.deleteUsers || []).map(getUserId).filter(Boolean));
-        const initialTabs = getPermissionTabs(initialPage);
-        setPermissionMode(initialTabs[0]?.key || "delete");
-      }
-      const firstRole = (loadedVisibilityContext.roleOptions?.length ? loadedVisibilityContext.roleOptions : [...jobRoleLookup.values()])[0];
-      const firstUser = (loadedUsers || [])[0];
-      setSelectedVisibilityKey(normalizeId(firstRole?.key || firstRole?.subjectKey || firstUser?._id || firstUser?.id || ""));
-      setVisibilityMode(firstRole ? "role" : "user");
-      if (firstRole) {
-        setRoleVisibilityRules((prev) => {
-          const key = normalizeId(firstRole.key || firstRole.subjectKey);
-          return prev.some((rule) => normalizeId(rule.subjectKey) === key)
-            ? prev
-            : [...prev, createBlankVisibilityRule("role", key, firstRole.label || firstRole.name || firstRole.key)];
-        });
-      } else if (firstUser) {
-        const userId = normalizeId(getRecordId(firstUser));
-        setUserVisibilityRules((prev) => {
-          return prev.some((rule) => normalizeId(rule.subjectKey) === userId)
-            ? prev
-            : [...prev, createBlankVisibilityRule("user", userId, getUserLabel(firstUser))];
-        });
-      }
-      setAccessReady(true);
+      const currentPage = normalizedPages.find((page) => page.pageKey === selectedPageKey) || normalizedPages[0];
+      setSelectedPageKey(currentPage?.pageKey || normalizedPages[0]?.pageKey || "emp-details");
     } catch (error) {
       console.error("Failed to load page management data:", error);
-      setMessage({ type: "error", text: "Unable to load page management data." });
-      setVisibilityMessage({ type: "error", text: "Unable to load data visibility settings." });
-      setAccessReady(true);
+      setPages(FALLBACK_PAGES.map(normalizePage));
+      setMessage({ type: "error", text: error.response?.data?.error || "Failed to load page permissions." });
     } finally {
       setLoading(false);
     }
@@ -560,195 +227,184 @@ const PageManagement = () => {
     loadData();
   }, []);
 
-  const selectPage = (page) => {
-    setSelectedPageKey(page.pageKey);
-    setSelectedViewUsers((page.viewUsers || []).map(getUserId).filter(Boolean));
-    setSelectedEditUsers((page.editUsers || []).map(getUserId).filter(Boolean));
-    setSelectedApprovers((page.approvers || []).map(getUserId).filter(Boolean));
-    setSelectedDeleteUsers((page.deleteUsers || []).map(getUserId).filter(Boolean));
-    const tabs = getPermissionTabs(page);
-    setPermissionMode(tabs[0]?.key || "delete");
-    setMessage(null);
-  };
+  const selectedPage = useMemo(
+    () => pages.find((page) => page.pageKey === selectedPageKey) || pages[0] || null,
+    [pages, selectedPageKey]
+  );
 
-  const selectVisibilityItem = (item) => {
-    if (visibilityMode === "user") {
-      const userId = normalizeId(getRecordId(item));
-      const userLabel = getUserLabel(item);
-      setSelectedVisibilityKey(userId);
-      setUserVisibilityRules((prev) => {
-        const existing = prev.find((rule) => normalizeId(rule.subjectKey) === userId);
-        return existing ? prev : [...prev, createBlankVisibilityRule("user", userId, userLabel)];
-      });
-      setVisibilityMessage(null);
-      return;
-    }
-
-    const roleKey = normalizeId(item?.key || item?.subjectKey || item?.name);
-    const roleLabel = getRoleLabel(item);
-    setSelectedVisibilityKey(roleKey);
-    setRoleVisibilityRules((prev) => {
-      const existing = prev.find((rule) => normalizeId(rule.subjectKey) === roleKey);
-      return existing ? prev : [...prev, createBlankVisibilityRule("role", roleKey, roleLabel)];
+  useEffect(() => {
+    if (!selectedPage) return;
+    setActiveTab("view");
+    setDraftPermissions({
+      viewIds: normalizeUserIds(selectedPage.viewUsers),
+      editIds: normalizeUserIds(selectedPage.editUsers),
+      deleteIds: normalizeUserIds(selectedPage.deleteUsers),
+      approverIds: normalizeUserIds(selectedPage.approvers),
     });
-    setVisibilityMessage(null);
-  };
+    setCandidateSearch("");
+    setPageIndex(1);
+    setScopeBranch("all");
+    setScopeDepartment("all");
+  }, [selectedPage?.pageKey]);
 
-  const updateSelectedVisibilityRule = (patch) => {
-    if (!selectedVisibilityKey) return;
-
-    if (visibilityMode === "user") {
-      setUserVisibilityRules((prev) =>
-        upsertVisibilityRule(prev, {
-          ...(prev.find((rule) => normalizeId(rule.subjectKey) === normalizeId(selectedVisibilityKey)) || createBlankVisibilityRule("user", selectedVisibilityKey, selectedVisibilityLabel)),
-          ...patch
-        })
-      );
-      return;
-    }
-
-    setRoleVisibilityRules((prev) =>
-      upsertVisibilityRule(prev, {
-        ...(prev.find((rule) => normalizeId(rule.subjectKey) === normalizeId(selectedVisibilityKey)) || createBlankVisibilityRule("role", selectedVisibilityKey, selectedVisibilityLabel)),
-        ...patch
-      })
-    );
-  };
-
-  const toggleVisibilityId = (type, id) => {
-    if (!selectedVisibilityKey) return;
-    const normalizedId = normalizeId(id);
-    const subjectType = visibilityMode === "user" ? "user" : "role";
-    const rule = selectedVisibilityRule || createBlankVisibilityRule(subjectType, selectedVisibilityKey, selectedVisibilityLabel);
-    const currentIds = type === "branch" ? [...(rule.branchIds || [])] : [...(rule.departmentIds || [])];
-    const nextIds = currentIds.includes(normalizedId)
-      ? currentIds.filter((item) => item !== normalizedId)
-      : [...currentIds, normalizedId];
-    const nextBranchIds = type === "branch" ? nextIds : [...(rule.branchIds || [])];
-    const nextDepartmentIds = type === "department" ? nextIds : [...(rule.departmentIds || [])];
-    const nextScope = (() => {
-      if (rule.scope === "all") {
-        return type === "branch" ? "branches" : "departments";
+  useEffect(() => {
+    if (selectedPage?.permissionPattern === "approveReject") {
+      if (!["view", "approve", "delete"].includes(activeTab)) {
+        setActiveTab("view");
       }
-      if (nextBranchIds.length && nextDepartmentIds.length) return "custom";
-      if (nextBranchIds.length) return "branches";
-      if (nextDepartmentIds.length) return "departments";
-      return "custom";
-    })();
+    } else if (!["view", "edit", "delete"].includes(activeTab)) {
+      setActiveTab("view");
+    }
+  }, [activeTab, selectedPage?.permissionPattern]);
 
-    updateSelectedVisibilityRule(
-      type === "branch"
-        ? { branchIds: nextIds, scope: nextScope }
-        : { departmentIds: nextIds, scope: nextScope }
+  useEffect(() => {
+    setPageIndex(1);
+  }, [pageSearch]);
+
+  const filteredPages = useMemo(() => {
+    const query = pageSearch.trim().toLowerCase();
+    if (!query) return pages;
+    return pages.filter((page) => `${page.name} ${page.path} ${page.pageKey}`.toLowerCase().includes(query));
+  }, [pageSearch, pages]);
+
+  const pageSize = 8;
+  const totalPageCount = Math.max(1, Math.ceil(filteredPages.length / pageSize));
+  const safePageIndex = Math.min(pageIndex, totalPageCount);
+  const visiblePages = filteredPages.slice((safePageIndex - 1) * pageSize, safePageIndex * pageSize);
+
+  const pageTabs = useMemo(() => getPermissionTabs(selectedPage), [selectedPage]);
+  const activeIds = useMemo(() => getActiveIdsForTab(
+    {
+      ...selectedPage,
+      viewUsers: draftPermissions.viewIds,
+      editUsers: draftPermissions.editIds,
+      deleteUsers: draftPermissions.deleteIds,
+      approvers: draftPermissions.approverIds,
+    },
+    activeTab
+  ), [activeTab, draftPermissions, selectedPage]);
+
+  const activeUserMap = useMemo(() => new Map(users.map((user) => [getRecordId(user), user])), [users]);
+  const activeUsers = useMemo(
+    () => activeIds.map((id) => activeUserMap.get(id) || { _id: id, name: id, email: "" }),
+    [activeIds, activeUserMap]
+  );
+  const activeUserIdSet = useMemo(() => new Set(activeIds), [activeIds]);
+  const availableUsers = useMemo(
+    () => users.filter((user) => !activeUserIdSet.has(getRecordId(user))),
+    [activeUserIdSet, users]
+  );
+
+  const filteredAvailableUsers = useMemo(() => {
+    const query = candidateSearch.trim().toLowerCase();
+    if (!query) return availableUsers;
+    return availableUsers.filter((user) =>
+      [user?.name, user?.email, user?.jobRole, user?.companyRole]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query)
     );
-  };
+  }, [availableUsers, candidateSearch]);
 
-  const updateVisibilityScope = (scope) => {
-    const nextBranchIds = scope === "departments" || scope === "all" ? [] : (selectedVisibilityRule?.branchIds || []);
-    const nextDepartmentIds = scope === "branches" || scope === "all" ? [] : (selectedVisibilityRule?.departmentIds || []);
-    updateSelectedVisibilityRule({
-      scope,
-      branchIds: nextBranchIds,
-      departmentIds: nextDepartmentIds
+  const stats = useMemo(() => {
+    const totalPages = pages.length;
+    const configuredPages = pages.filter((page) =>
+      (page.viewUsers?.length || 0) > 0 ||
+      (page.editUsers?.length || 0) > 0 ||
+      (page.deleteUsers?.length || 0) > 0 ||
+      (page.approvers?.length || 0) > 0
+    ).length;
+    const permissionsSet = pages.reduce(
+      (sum, page) =>
+        sum +
+        (page.viewUsers?.length || 0) +
+        (page.editUsers?.length || 0) +
+        (page.deleteUsers?.length || 0) +
+        (page.approvers?.length || 0),
+      0
+    );
+
+    return [
+      { label: "Total Pages", value: totalPages, caption: "All pages", tone: "blue", icon: DescriptionOutlined },
+      { label: "Configured Pages", value: configuredPages, caption: "Configured", tone: "green", icon: ShieldOutlined },
+      { label: "Total Users", value: users.length, caption: "In organization", tone: "orange", icon: GroupsOutlined },
+      { label: "Permissions Set", value: permissionsSet, caption: "Active permissions", tone: "violet", icon: AdminPanelSettingsOutlined },
+    ];
+  }, [pages, users.length]);
+
+  const syncSelectionToActiveTab = (nextIds) => {
+    const normalized = normalizeUserIds(nextIds);
+    setDraftPermissions((prev) => {
+      if (!selectedPage) return prev;
+      if (selectedPage.permissionPattern === "approveReject") {
+        if (activeTab === "approve") return { ...prev, approverIds: normalized };
+        if (activeTab === "delete") return { ...prev, deleteIds: normalized };
+        return { ...prev, viewIds: normalized };
+      }
+
+      if (activeTab === "edit") return { ...prev, editIds: normalized };
+      if (activeTab === "delete") return { ...prev, deleteIds: normalized };
+      return { ...prev, viewIds: normalized };
     });
   };
 
-  const saveVisibilityRules = async () => {
-    setVisibilitySaving(true);
-    setVisibilityMessage(null);
-    try {
-      const res = await axios.put("/page-permissions/data-visibility", {
-        roleRules: roleVisibilityRules,
-        userRules: userVisibilityRules
-      });
+  const removeUserFromActiveTab = (userId) => {
+    const normalizedId = getRecordId(userId);
+    setDraftPermissions((prev) => {
+      if (selectedPage?.permissionPattern === "approveReject") {
+        if (activeTab === "approve") return { ...prev, approverIds: prev.approverIds.filter((id) => id !== normalizedId) };
+        if (activeTab === "delete") return { ...prev, deleteIds: prev.deleteIds.filter((id) => id !== normalizedId) };
+        return { ...prev, viewIds: prev.viewIds.filter((id) => id !== normalizedId) };
+      }
 
-      const nextRoleRules = (res.data?.roleRules || res.data?.context?.roleRules || roleVisibilityRules).map((rule) => ({
-        ...rule,
-        subjectKey: normalizeId(rule.subjectKey),
-        branchIds: (rule.branchIds || []).map(String),
-        departmentIds: (rule.departmentIds || []).map(String)
-      }));
-      const nextUserRules = (res.data?.userRules || res.data?.context?.userRules || userVisibilityRules).map((rule) => ({
-        ...rule,
-        subjectKey: normalizeId(rule.subjectKey),
-        branchIds: (rule.branchIds || []).map(String),
-        departmentIds: (rule.departmentIds || []).map(String)
-      }));
-
-      setRoleVisibilityRules(nextRoleRules);
-      setUserVisibilityRules(nextUserRules);
-      setVisibilityMessage({ type: "success", text: "Data visibility rules saved successfully." });
-    } catch (error) {
-      console.error("Failed to save data visibility rules:", error);
-      setVisibilityMessage({ type: "error", text: error.response?.data?.error || "Unable to save data visibility rules." });
-    } finally {
-      setVisibilitySaving(false);
-    }
+      if (activeTab === "edit") return { ...prev, editIds: prev.editIds.filter((id) => id !== normalizedId) };
+      if (activeTab === "delete") return { ...prev, deleteIds: prev.deleteIds.filter((id) => id !== normalizedId) };
+      return { ...prev, viewIds: prev.viewIds.filter((id) => id !== normalizedId) };
+    });
   };
 
-  const toggleSelectedUser = (userId) => {
-    if (permissionMode === "view") {
-      setSelectedViewUsers((prev) =>
-        prev.includes(userId)
-          ? prev.filter((id) => id !== userId)
-          : [...prev, userId]
-      );
-      return;
-    }
+  const openAddUsersDialog = () => {
+    setCandidateSelection(new Set(activeIds));
+    setCandidateSearch("");
+    setAddUsersOpen(true);
+  };
 
-    if (permissionMode === "delete") {
-      setSelectedDeleteUsers((prev) =>
-        prev.includes(userId)
-          ? prev.filter((id) => id !== userId)
-          : [...prev, userId]
-      );
-      return;
-    }
+  const toggleCandidateSelection = (userId) => {
+    const normalizedId = getRecordId(userId);
+    setCandidateSelection((prev) => {
+      const next = new Set(prev);
+      if (next.has(normalizedId)) next.delete(normalizedId);
+      else next.add(normalizedId);
+      return next;
+    });
+  };
 
-    if (permissionMode === "edit") {
-      setSelectedEditUsers((prev) =>
-        prev.includes(userId)
-          ? prev.filter((id) => id !== userId)
-          : [...prev, userId]
-      );
-      setSelectedViewUsers((prev) => (prev.includes(userId) ? prev : [...prev, userId]));
-      return;
-    }
-
-    setSelectedApprovers((prev) =>
-      prev.includes(userId)
-        ? prev.filter((id) => id !== userId)
-        : [...prev, userId]
-    );
+  const confirmCandidateSelection = () => {
+    syncSelectionToActiveTab([...candidateSelection]);
+    setAddUsersOpen(false);
   };
 
   const savePermissions = async () => {
     if (!selectedPage) return;
-
     setSaving(true);
     setMessage(null);
-    try {
-      const res = await axios.put(`/page-permissions/${selectedPage.pageKey}`, {
-        approverIds: selectedApprovers,
-        viewUserIds: selectedViewUsers,
-        editUserIds: selectedEditUsers,
-        deleteUserIds: selectedDeleteUsers
-      });
 
-      const updatedPage = res.data?.page;
+    try {
+      const payload = {
+        viewUserIds: draftPermissions.viewIds,
+        editUserIds: draftPermissions.editIds,
+        deleteUserIds: draftPermissions.deleteIds,
+        approverIds: draftPermissions.approverIds,
+      };
+
+      const res = await axios.put(`/page-permissions/${selectedPage.pageKey}`, payload);
+      const updatedPage = normalizePage(res.data?.page || selectedPage);
+
       setPages((prev) =>
-        prev.map((page) =>
-          page.pageKey === selectedPage.pageKey
-            ? {
-                ...page,
-                approvers: updatedPage?.approvers || [],
-                viewUsers: updatedPage?.viewUsers || [],
-                editUsers: updatedPage?.editUsers || [],
-                deleteUsers: updatedPage?.deleteUsers || []
-              }
-            : page
-        )
+        prev.map((page) => (page.pageKey === updatedPage.pageKey ? { ...page, ...updatedPage } : page))
       );
+      setSelectedPageKey(updatedPage.pageKey);
       setMessage({ type: "success", text: "Page permissions saved successfully." });
     } catch (error) {
       console.error("Failed to save page permissions:", error);
@@ -758,395 +414,423 @@ const PageManagement = () => {
     }
   };
 
+  const selectedPermissionCount = activeIds.length;
+  const SelectedPageIcon = getPageTitleIcon(selectedPage?.pageKey);
+  const selectedPageStatus = selectedPage?.permissionPattern ? "Configured" : "Unconfigured";
+
   if (loading) return <CIISLoader />;
 
   return (
-    <div className="PageManagement-container">
-      <section className="PageManagement-header">
-        <div>
-          <h1>Page Management</h1>
-          <p>View page URLs and select authorized users for page actions such as leave approvals.</p>
+    <div className="pm-page">
+      <div className="pm-shell">
+        <div className="pm-topbar">
+          <div>
+            <h1 className="pm-title">Page Management</h1>
+            <p className="pm-subtitle">
+              Configure page-level permissions and control access for your organization.
+            </p>
+          </div>
+
+          <button type="button" className="pm-primary-btn">
+            <Add />
+            Add New Page
+          </button>
         </div>
-        <button className="PageManagement-refresh" onClick={loadData} type="button">
-          Refresh
-        </button>
-      </section>
 
-      {message && (
-        <div className={`PageManagement-alert PageManagement-alert-${message.type}`}>
-          {message.text}
+        {message && (
+          <div className={`pm-message pm-message-${message.type}`}>
+            {message.text}
+          </div>
+        )}
+
+        <div className="pm-stats-grid">
+          {stats.map((stat) => {
+            const Icon = stat.icon;
+            return (
+              <article key={stat.label} className={`pm-stat-card pm-${stat.tone}`}>
+                <div className="pm-stat-icon">
+                  <Icon />
+                </div>
+                <div className="pm-stat-copy">
+                  <div className="pm-stat-label">{stat.label}</div>
+                  <div className="pm-stat-value">{stat.value}</div>
+                  <div className="pm-stat-caption">{stat.caption}</div>
+                </div>
+              </article>
+            );
+          })}
         </div>
-      )}
 
-      <div className="PageManagement-layout">
-        <section className="PageManagement-pages">
-          <div className="PageManagement-section-title">
-            <h2>All Pages</h2>
-            <span>{searchedPages.length} pages</span>
-          </div>
-
-          <input
-            className="PageManagement-search"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Search page or URL"
-            type="search"
-          />
-
-          <div className="PageManagement-page-list">
-            {configuredPages.length > 0 && (
-              <PageGroup
-                title="Configured Pages"
-                pages={configuredPages}
-                selectedPage={selectedPage}
-                onSelectPage={selectPage}
-              />
-            )}
-            {unconfiguredPages.length > 0 && (
-              <PageGroup
-                title="No Permissions Configured"
-                pages={unconfiguredPages}
-                selectedPage={selectedPage}
-                onSelectPage={selectPage}
-              />
-            )}
-            {!searchedPages.length && (
-              <div className="PageManagement-empty">No pages found.</div>
-            )}
-          </div>
-        </section>
-
-        <section className="PageManagement-editor">
-          <div className="PageManagement-section-title">
-            <div>
-              <h2>{selectedPage?.name || "Select Page"}</h2>
-              <p>{selectedPage?.path}</p>
-            </div>
-            <button
-              className="PageManagement-save"
-              onClick={savePermissions}
-              disabled={saving || !selectedPage}
-              type="button"
-            >
-              {saving ? "Saving..." : "Save"}
-            </button>
-          </div>
-
-          <div className="PageManagement-note">
-            {selectedPermissionPattern === "approveReject"
-              ? "Configure who can view, approve/reject, and delete records for the selected page. For `/ciisUser/emp-leaves`, view access allows page access, approvers must approve before a leave becomes Approved."
-              : selectedPermissionPattern === "viewEdit"
-                ? "Configure who can only view the selected page and who can edit it. Edit access always includes View access."
-                : "Configure delete access for this page."}
-          </div>
-
-          <div className="PageManagement-mode-tabs">
-            {permissionTabs.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                className={permissionMode === tab.key ? "PageManagement-mode-active" : ""}
-                onClick={() => setPermissionMode(tab.key)}
-              >
-                {tab.label}
-                <span>{tab.count}</span>
-              </button>
-            ))}
-          </div>
-
-          <input
-            className="PageManagement-search PageManagement-user-search"
-            value={userSearchTerm}
-            onChange={(event) => setUserSearchTerm(event.target.value)}
-            placeholder="Search users"
-            type="search"
-          />
-
-          <div className="PageManagement-user-sections">
-            <UserGroup
-              title={`Selected Users (${selectedUsers.length})`}
-              users={selectedUsers}
-              activeSelectedUserSet={activeSelectedUserSet}
-              onToggleUser={toggleSelectedUser}
-              emptyText="No selected users."
-              resolveJobRoleName={resolveJobRoleName}
-            />
-            <UserGroup
-              title={`Available Users (${availableUsers.length})`}
-              users={availableUsers}
-              activeSelectedUserSet={activeSelectedUserSet}
-              onToggleUser={toggleSelectedUser}
-              emptyText="No available users found."
-              resolveJobRoleName={resolveJobRoleName}
-            />
-          </div>
-
-          <div className="PageManagement-visibility">
-            <div className="PageManagement-section-title">
-              <div>
-                <h2>Data Visibility</h2>
-                <p>Role defaults stay separate from page access, and per-user overrides can narrow or widen branch and department data.</p>
+        <div className="pm-grid">
+          <aside className="pm-sidebar">
+            <div className="pm-card pm-sidebar-card">
+              <div className="pm-card-head">
+                <h2>Pages</h2>
               </div>
-              <button
-                className="PageManagement-save"
-                onClick={saveVisibilityRules}
-                disabled={visibilitySaving || !selectedVisibilityKey}
-                type="button"
-              >
-                {visibilitySaving ? "Saving..." : "Save Visibility"}
-              </button>
-            </div>
 
-            {visibilityMessage && (
-              <div className={`PageManagement-alert PageManagement-alert-${visibilityMessage.type}`}>
-                {visibilityMessage.text}
+              <div className="pm-search-row">
+                <div className="pm-search">
+                  <Search className="pm-search-icon" />
+                  <input
+                    type="search"
+                    placeholder="Search pages..."
+                    value={pageSearch}
+                    onChange={(event) => setPageSearch(event.target.value)}
+                  />
+                </div>
+                <button type="button" className="pm-icon-btn" aria-label="Filter pages">
+                  <FilterAltOutlined />
+                </button>
               </div>
-            )}
 
-            <div className="PageManagement-mode-tabs">
-              <button
-                type="button"
-                className={visibilityMode === "role" ? "PageManagement-mode-active" : ""}
-                onClick={() => {
-                  setVisibilityMode("role");
-                  if (firstVisibilityRole) {
-                    const roleKey = normalizeId(firstVisibilityRole.key || firstVisibilityRole.subjectKey);
-                    setSelectedVisibilityKey(roleKey);
-                    setRoleVisibilityRules((prev) => {
-                      return prev.some((rule) => normalizeId(rule.subjectKey) === roleKey)
-                        ? prev
-                        : [...prev, createBlankVisibilityRule("role", roleKey, firstVisibilityRole.label || firstVisibilityRole.name || firstVisibilityRole.key)];
-                    });
-                  }
-                }}
-              >
-                Role Defaults
-                <span>{roleOptions.length}</span>
-              </button>
-              <button
-                type="button"
-                className={visibilityMode === "user" ? "PageManagement-mode-active" : ""}
-                onClick={() => {
-                  setVisibilityMode("user");
-                  if (firstVisibilityUser) {
-                    const userId = normalizeId(getRecordId(firstVisibilityUser));
-                    setSelectedVisibilityKey(userId);
-                    setUserVisibilityRules((prev) => {
-                      return prev.some((rule) => normalizeId(rule.subjectKey) === userId)
-                        ? prev
-                        : [...prev, createBlankVisibilityRule("user", userId, getUserLabel(firstVisibilityUser))];
-                    });
-                  }
-                }}
-              >
-                User Overrides
-                <span>{users.length}</span>
-              </button>
+              <div className="pm-page-list">
+                {visiblePages.map((page) => {
+                  const Icon = getPageTitleIcon(page.pageKey);
+                  const selected = selectedPageKey === page.pageKey;
+                  return (
+                    <button
+                      key={page.pageKey}
+                      type="button"
+                      className={`pm-page-item ${selected ? "is-active" : ""}`}
+                      onClick={() => setSelectedPageKey(page.pageKey)}
+                    >
+                      <span className="pm-page-icon">
+                        <Icon />
+                      </span>
+                      <span className="pm-page-meta">
+                        <strong>{page.name}</strong>
+                        <span>{page.path}</span>
+                        <small>{getPagePermissionSummary(page)}</small>
+                      </span>
+                      <KeyboardArrowRight className="pm-page-arrow" />
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="pm-pagination">
+                <button
+                  type="button"
+                  className="pm-page-nav"
+                  onClick={() => setPageIndex((v) => Math.max(1, v - 1))}
+                  disabled={safePageIndex <= 1}
+                >
+                  <ArrowBackIosNew />
+                </button>
+                <button type="button" className="pm-page-current">{safePageIndex}</button>
+                <button
+                  type="button"
+                  className="pm-page-nav"
+                  onClick={() => setPageIndex((v) => Math.min(totalPageCount, v + 1))}
+                  disabled={safePageIndex >= totalPageCount}
+                >
+                  <ArrowForwardIos />
+                </button>
+              </div>
             </div>
+          </aside>
 
-            <input
-              className="PageManagement-search PageManagement-user-search"
-              value={visibilitySearchTerm}
-              onChange={(event) => setVisibilitySearchTerm(event.target.value)}
-              placeholder={visibilityMode === "role" ? "Search roles" : "Search users"}
-              type="search"
-            />
-
-            <div className="PageManagement-visibility-grid">
-              <section className="PageManagement-user-group">
-                <h3>{visibilityMode === "role" ? "Role Defaults" : "User Overrides"}</h3>
-                {filteredVisibilityItems.length ? (
-                  <div className="PageManagement-users">
-                    {filteredVisibilityItems.map((item) => {
-                      const itemKey = visibilityMode === "user"
-                        ? normalizeId(getRecordId(item))
-                        : normalizeId(item?.key || item?.subjectKey || item?.name);
-                      const selected = normalizeId(selectedVisibilityKey) === normalizeId(itemKey);
-                      const label = visibilityMode === "user" ? getUserLabel(item) : getRoleLabel(item);
-                      const rule = visibilityMode === "user"
-                        ? userVisibilityRules.find((entry) => normalizeId(entry.subjectKey) === normalizeId(itemKey))
-                        : roleVisibilityRules.find((entry) => normalizeId(entry.subjectKey) === normalizeId(itemKey));
-                      return (
-                        <button
-                          key={itemKey || label}
-                          type="button"
-                          className={`PageManagement-user PageManagement-visibility-item ${selected ? "PageManagement-user-selected" : ""}`}
-                          onClick={() => selectVisibilityItem(item)}
-                        >
-                          <span className="PageManagement-avatar">
-                            {label.slice(0, 1).toUpperCase()}
-                          </span>
-                          <span className="PageManagement-user-main">
-                            <strong>{label}</strong>
-                            <small>
-                              {visibilityMode === "user"
-                                ? item?.email || resolveJobRoleName(item?.jobRole) || ""
-                                : item?.departmentName || item?.department?.name || ""}
-                            </small>
-                          </span>
-                          <span className="PageManagement-role">
-                            {rule ? "Configured" : "Default"}
-                          </span>
-                        </button>
-                      );
-                    })}
+          <main className="pm-main">
+            <section className="pm-card pm-main-card">
+              <div className="pm-page-header">
+                <div className="pm-page-heading">
+                  <div className="pm-page-avatar">
+                    <SelectedPageIcon />
                   </div>
-                ) : (
-                  <div className="PageManagement-empty">No {visibilityMode === "role" ? "roles" : "users"} found.</div>
-                )}
-              </section>
-
-              <section className="PageManagement-visibility-editor">
-                <div className="PageManagement-visibility-editor-header">
                   <div>
-                    <h3>{selectedVisibilityLabel || "Select an item"}</h3>
-                    <p>{selectedVisibilityRule ? "Branch and department visibility for this entry." : "Pick a role or user to configure visibility."}</p>
+                    <div className="pm-page-title-row">
+                      <h2>{selectedPage?.name || "Select Page"}</h2>
+                      <span className="pm-status-pill">{selectedPageStatus}</span>
+                    </div>
+                    <p>{selectedPage?.path || "No page selected"}</p>
                   </div>
-                  <span className="PageManagement-role">
-                    {selectedVisibilityRule?.scope || "custom"}
-                  </span>
                 </div>
 
-                {selectedVisibilityRule ? (
-                  <>
-                    <div className="PageManagement-visibility-scope">
-                      {[
-                        { key: "all", label: "All Company Data" },
-                        { key: "branches", label: "Branches Only" },
-                        { key: "departments", label: "Departments Only" },
-                        { key: "custom", label: "Branches + Departments" }
-                      ].map((option) => (
-                        <button
-                          key={option.key}
-                          type="button"
-                          className={selectedVisibilityRule.scope === option.key ? "PageManagement-mode-active" : ""}
-                          onClick={() => updateVisibilityScope(option.key)}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
+                <div className="pm-header-actions">
+                  <button type="button" className="pm-outline-btn">
+                    <InsightsOutlined />
+                    Page Summary
+                  </button>
+                  <button type="button" className="pm-primary-btn pm-save-btn" onClick={savePermissions} disabled={saving || !selectedPage}>
+                    {saving ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              </div>
 
-                    <div className="PageManagement-visibility-columns">
-                      <div className="PageManagement-visibility-column">
-                        <h4>Branches</h4>
-                        <div className="PageManagement-visibility-list">
-                          {branches.length ? branches.map((branch) => {
-                            const branchId = String(branch._id || branch.id);
-                            const checked = (selectedVisibilityRule.branchIds || []).map(String).includes(branchId);
-                            return (
-                              <label key={branchId} className={`PageManagement-visibility-choice ${checked ? "PageManagement-visibility-choice-selected" : ""}`}>
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  disabled={selectedVisibilityRule.scope === "all"}
-                                  onChange={() => toggleVisibilityId("branch", branchId)}
-                                />
-                                <span>
-                                  <strong>{getBranchLabel(branch)}</strong>
-                                  <small>{branch.branchCode}</small>
-                                </span>
-                              </label>
-                            );
-                          }) : <div className="PageManagement-empty">No branches available.</div>}
-                        </div>
-                      </div>
+              <div className="pm-tabs">
+                {pageTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const active = activeTab === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      className={`pm-tab ${active ? "is-active" : ""}`}
+                      onClick={() => setActiveTab(tab.key)}
+                    >
+                      <Icon />
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
 
-                      <div className="PageManagement-visibility-column">
-                        <h4>Departments</h4>
-                        <div className="PageManagement-visibility-list">
-                          {departments.length ? departments.map((department) => {
-                            const departmentId = String(department._id || department.id);
-                            const checked = (selectedVisibilityRule.departmentIds || []).map(String).includes(departmentId);
-                            return (
-                              <label key={departmentId} className={`PageManagement-visibility-choice ${checked ? "PageManagement-visibility-choice-selected" : ""}`}>
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  disabled={selectedVisibilityRule.scope === "all"}
-                                  onChange={() => toggleVisibilityId("department", departmentId)}
-                                />
-                                <span>
-                                  <strong>{getDepartmentLabel(department)}</strong>
-                                  <small>{department.branch?.name || department.branchCode || "Any branch"}</small>
-                                </span>
-                              </label>
-                            );
-                          }) : <div className="PageManagement-empty">No departments available.</div>}
-                        </div>
-                      </div>
-                    </div>
+              <div className="pm-users-head">
+                <div>
+                  <div className="pm-section-title">
+                    Users with {
+                      activeTab === "approve" ? "Approve / Reject" : activeTab === "edit" ? "Edit" : "View"
+                    } Access
+                    <span>{selectedPermissionCount}</span>
+                  </div>
+                  <p>
+                    These users can {
+                      activeTab === "approve" ? "approve or reject" : activeTab === "edit" ? "edit" : "view"
+                    } {selectedPage?.name || "this page"}.
+                  </p>
+                </div>
+                <button type="button" className="pm-outline-btn pm-add-users" onClick={openAddUsersDialog}>
+                  <Add />
+                  Add Users
+                </button>
+              </div>
 
-                    <div className="PageManagement-note">
-                      {buildVisibilitySummary(selectedVisibilityRule, branchesById, departmentsById)}
+              <div className="pm-table-wrap">
+                <table className="pm-table">
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Role</th>
+                      <th>Department</th>
+                      <th>Added On</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeUsers.length ? (
+                      activeUsers.map((user) => (
+                        <tr key={getRecordId(user)}>
+                          <td>
+                            <div className="pm-user-cell">
+                              <span className="pm-user-badge">{getUserInitials(user)}</span>
+                              <div>
+                                <strong>{getUserLabel(user)}</strong>
+                                <span>{getUserEmail(user)}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td>{user?.companyRole || user?.jobRole || "User"}</td>
+                          <td>{user?.department?.name || user?.department || "N/A"}</td>
+                          <td>{user?.createdAt ? new Date(user.createdAt).toLocaleDateString("en-GB") : "N/A"}</td>
+                          <td>
+                            <button
+                              type="button"
+                              className="pm-trash-btn"
+                              aria-label={`Delete ${getUserLabel(user)}`}
+                              onClick={() => removeUserFromActiveTab(user)}
+                            >
+                              <DeleteOutline />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="pm-empty-row">
+                          No users found for this permission.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="pm-view-all-wrap">
+                <button type="button" className="pm-view-all-btn">
+                  View All ({selectedPermissionCount})
+                </button>
+              </div>
+            </section>
+
+            <section className="pm-bottom-grid">
+              <div className="pm-card pm-mini-card">
+                <div className="pm-mini-head">
+                  <div className="pm-mini-title">
+                    <VisibilityOutlined />
+                    <div>
+                      <h3>Data Visibility</h3>
+                      <p>Manage role defaults and user-specific overrides.</p>
                     </div>
-                  </>
-                ) : (
-                  <div className="PageManagement-empty">Select a role or user to configure data visibility.</div>
-                )}
-              </section>
+                  </div>
+                </div>
+
+                <div className="pm-visibility-item">
+                  <div className="pm-visibility-left">
+                    <span className="pm-visibility-icon green">
+                      <ShieldOutlined />
+                    </span>
+                    <div>
+                      <strong>Role Defaults</strong>
+                      <p>Permissions inherited by roles</p>
+                    </div>
+                  </div>
+                  <span className="pm-chip">{roleRules.length || roleOptions.length || 0} Roles</span>
+                </div>
+
+                <div className="pm-visibility-item">
+                  <div className="pm-visibility-left">
+                    <span className="pm-visibility-icon blue">
+                      <PersonOutline />
+                    </span>
+                    <div>
+                      <strong>User Overrides</strong>
+                      <p>Custom permissions for specific users</p>
+                    </div>
+                  </div>
+                  <span className="pm-chip">{userRules.length || 0} Users</span>
+                </div>
+              </div>
+
+              <div className="pm-card pm-mini-card">
+                <div className="pm-mini-head">
+                  <div className="pm-mini-title">
+                    <LanguageOutlined />
+                    <div>
+                      <h3>Scope</h3>
+                      <p>Define the coverage for this page.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pm-scope-grid">
+                  <div className="pm-scope-field">
+                    <label>Branch</label>
+                    <div className="pm-select">
+                      <span><WorkOutline /></span>
+                      <select value={scopeBranch} onChange={(event) => setScopeBranch(event.target.value)}>
+                        <option value="all">All Branches</option>
+                        {branches.map((branch) => {
+                          const id = getRecordId(branch);
+                          return (
+                            <option key={id || branch?.name} value={id}>
+                              {branch?.name || branch?.branchCode || "Branch"}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="pm-scope-field">
+                    <label>Department</label>
+                    <div className="pm-select">
+                      <span><GroupsOutlined /></span>
+                      <select value={scopeDepartment} onChange={(event) => setScopeDepartment(event.target.value)}>
+                        <option value="all">All Departments</option>
+                        {departments.map((department) => {
+                          const id = getRecordId(department);
+                          return (
+                            <option key={id || department?.name} value={id}>
+                              {department?.name || department?.departmentName || "Department"}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pm-info-strip">
+                  <span className="pm-info-dot">i</span>
+                  This permission applies to all branches and departments.
+                </div>
+              </div>
+            </section>
+
+            <section className="pm-card pm-summary-card">
+              <div className="pm-summary-left">
+                <div className="pm-mini-title">
+                  <InsightsOutlined />
+                  <div>
+                    <h3>Permission Summary</h3>
+                    <p>
+                      {pageTabs.map((tab) => `${tab.count} ${tab.key} user(s)`).join(" - ")}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <button type="button" className="pm-outline-btn">
+                <InsightsOutlined />
+                View Full Summary
+              </button>
+            </section>
+          </main>
+        </div>
+      </div>
+
+      {addUsersOpen && (
+        <div className="pm-modal-backdrop" role="presentation" onClick={() => setAddUsersOpen(false)}>
+          <div className="pm-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+              <div className="pm-modal-header">
+                <div>
+                  <h3>Add Users</h3>
+                  <p>{selectedPage?.name || "Select a page"} - choose users for the current access tab.</p>
+                </div>
+                <button type="button" className="pm-icon-btn" onClick={() => setAddUsersOpen(false)} aria-label="Close">
+                <Close />
+                </button>
+              </div>
+
+            <div className="pm-search-row pm-modal-search">
+              <div className="pm-search">
+                <Search className="pm-search-icon" />
+                <input
+                  type="search"
+                  placeholder="Search users..."
+                  value={candidateSearch}
+                  onChange={(event) => setCandidateSearch(event.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="pm-modal-list">
+              {filteredAvailableUsers.length ? (
+                filteredAvailableUsers.map((user) => {
+                  const userId = getRecordId(user);
+                  const checked = candidateSelection.has(userId);
+                  return (
+                    <label key={userId} className={`pm-modal-user ${checked ? "is-selected" : ""}`}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleCandidateSelection(user)}
+                      />
+                      <span className="pm-user-badge">{getUserInitials(user)}</span>
+                      <span className="pm-modal-user-meta">
+                        <strong>{getUserLabel(user)}</strong>
+                        <small>{getUserEmail(user)}</small>
+                      </span>
+                    </label>
+                  );
+                })
+              ) : (
+                <div className="pm-empty-row">No available users found.</div>
+              )}
+            </div>
+
+            <div className="pm-modal-footer">
+              <button type="button" className="pm-outline-btn" onClick={() => setAddUsersOpen(false)}>
+                Cancel
+              </button>
+              <button type="button" className="pm-primary-btn" onClick={confirmCandidateSelection}>
+                Apply Selection
+              </button>
             </div>
           </div>
-        </section>
-      </div>
+        </div>
+      )}
     </div>
   );
 };
-
-const PageGroup = ({ title, pages, selectedPage, onSelectPage }) => (
-  <div className="PageManagement-page-group">
-    <h3>{title}</h3>
-    {pages.map((page) => (
-      <button
-        key={page.pageKey}
-        type="button"
-        className={`PageManagement-page-item ${selectedPage?.pageKey === page.pageKey ? "PageManagement-page-item-active" : ""}`}
-        onClick={() => onSelectPage(page)}
-      >
-        <span className="PageManagement-page-name">{page.name}</span>
-        <span className="PageManagement-page-url">{page.path}</span>
-        <span className="PageManagement-page-count">
-          {getPermissionSummary(page)}
-        </span>
-      </button>
-    ))}
-  </div>
-);
-
-const UserGroup = ({ title, users, activeSelectedUserSet, onToggleUser, emptyText, resolveJobRoleName = () => "" }) => (
-  <section className="PageManagement-user-group">
-    <h3>{title}</h3>
-    {users.length ? (
-      <div className="PageManagement-users">
-        {users.map((user) => {
-          const userId = getUserId(user);
-          const selected = activeSelectedUserSet.has(userId);
-          return (
-            <label className={`PageManagement-user ${selected ? "PageManagement-user-selected" : ""}`} key={userId}>
-              <input
-                type="checkbox"
-                checked={selected}
-                onChange={() => onToggleUser(userId)}
-              />
-              <span className="PageManagement-avatar">
-                {(user.name || user.email || "U").slice(0, 1).toUpperCase()}
-              </span>
-              <span className="PageManagement-user-main">
-                <strong>{user.name || "Unnamed User"}</strong>
-                <small>{user.email}</small>
-                <small>{getUserScopeSummary(user)}</small>
-              </span>
-              <span className="PageManagement-role">
-                {user.companyRole || resolveJobRoleName(user.jobRole) || user.jobRole || "User"}
-              </span>
-            </label>
-          );
-        })}
-      </div>
-    ) : (
-      <div className="PageManagement-empty">{emptyText}</div>
-    )}
-  </section>
-);
 
 export default PageManagement;

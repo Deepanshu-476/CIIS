@@ -641,7 +641,7 @@ const EmployeeLeaves = () => {
 
   const canApproveLeave = useCallback((leave = null) => {
     if (leave && hasApprovalWorkflow(leave)) {
-      return isCurrentUserPendingApprover(leave);
+      return isCurrentUserPendingApprover(leave) || approverPermissionUserIds.includes(String(currentUserId));
     }
 
     if (approverPermissionUserIds.length > 0) {
@@ -862,7 +862,8 @@ const EmployeeLeaves = () => {
   const fetchLeavePagePermissions = useCallback(async () => {
     try {
       const res = await axios.get("/page-permissions/by-path", {
-        params: { path: "/ciisUser/emp-leaves" }
+        params: { path: "/ciisUser/emp-leaves" },
+        cache: false
       });
       const approverIds = (res.data?.page?.approvers || [])
         .map(user => String(user?._id || user?.id || user))

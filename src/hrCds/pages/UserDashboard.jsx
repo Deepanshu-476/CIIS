@@ -37,19 +37,44 @@ const normalizeWorkingDays = value => {
   return Number.isInteger(parsed) && parsed >= 1 && parsed <= 7 ? parsed : 5;
 };
 
-const getDepartmentWorkingDays = (...sources) => {
+const getDepartmentSettings = (...sources) => {
   for (const source of sources) {
     const department = source?.department || source?.departmentId;
-    const value = typeof department === 'object' ? department?.workingDays : source?.workingDays;
-    if (value !== undefined && value !== null && value !== '') return normalizeWorkingDays(value);
+    if (department && typeof department === 'object') return department;
+    if (source?.workingDays !== undefined && source?.workingDays !== null && source?.workingDays !== '') {
+      return source;
+    }
   }
-  return 5;
+  return null;
 };
 
-const isConfiguredWeekend = (date, workingDays) => {
+const getEffectiveWorkingDays = (department, date) => {
+  if (!department) return 5;
+  const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const history = Array.isArray(department.workingDayHistory)
+    ? [...department.workingDayHistory]
+        .filter(entry => entry?.effectiveFrom)
+        .sort((a, b) => new Date(a.effectiveFrom) - new Date(b.effectiveFrom))
+    : [];
+  let workingDays = normalizeWorkingDays(department.workingDays);
+
+  history.forEach(entry => {
+    const effectiveDate = new Date(entry.effectiveFrom);
+    const effectiveDay = new Date(
+      effectiveDate.getFullYear(),
+      effectiveDate.getMonth(),
+      effectiveDate.getDate()
+    ).getTime();
+    if (effectiveDay <= targetDate) workingDays = normalizeWorkingDays(entry.workingDays);
+  });
+
+  return workingDays;
+};
+
+const isConfiguredWeekend = (date, department) => {
   const dayOfWeek = date.getDay();
   const mondayBasedDay = dayOfWeek === 0 ? 7 : dayOfWeek;
-  return mondayBasedDay > normalizeWorkingDays(workingDays);
+  return mondayBasedDay > getEffectiveWorkingDays(department, date);
 };
 
 const formatTime = seconds => {
@@ -1474,20 +1499,19 @@ const UserDashboard = () => {
     
     const dateObj = new Date(calendarYear, calendarMonth, day);
     const key = `${calendarYear}-${calendarMonth}-${day}`;
-    const isWeekend = isConfiguredWeekend(dateObj, getDepartmentWorkingDays(dashboardUser, user));
+    const isWeekend = isConfiguredWeekend(dateObj, getDepartmentSettings(dashboardUser, user));
     
     
     if (holidayDates.includes(key)) return "holiday";
     
     if (isBeforeJoinDate(dateObj)) return "before-join";
-    // An explicit absence must win if duplicate attendance records exist for a day.
     if (leaveDateSet.has(key)) return "leave";
-    if (absentDateSet.has(key)) return "absent";
     if (lateDates.includes(key)) return "late";
     if (halfDayDates.includes(key)) return "halfday";
     if (markedDates.includes(key)) return "present";
     if (weekendDates.includes(key)) return "weekend";
     if (isWeekend) return "weekend";
+    if (absentDateSet.has(key)) return "absent";
 
     // Missing attendance data is unknown/pending, not an automatic absence.
     return null;

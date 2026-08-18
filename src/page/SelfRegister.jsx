@@ -724,7 +724,7 @@ function SelfRegister() {
       <div className="self-register-shell">
         <aside className="self-register-sidebar">
           <div className="self-register-brand">
-            <strong>CIIS NETWORK</strong>
+            <img src="/logoo.png" alt="CIIS Network" className="self-register-brand-logo" />
             <span>Employee onboarding</span>
           </div>
           <div className="self-register-phase">PHASE 1 — Profile Setup</div>

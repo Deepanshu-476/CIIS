@@ -3390,6 +3390,23 @@ const UserCreateTask = () => {
 
     if (!taskId || !checkpointId) return;
 
+    const nextCompleted = !checkpoint.completed;
+    const updateSelectedCheckpoint = (completed) => {
+      setSelectedTaskDetails(prev => {
+        if (!prev || String(prev._id || prev.id) !== String(taskId)) return prev;
+        return {
+          ...prev,
+          checkpoints: (prev.checkpoints || []).map(item => (
+            String(item._id || item.id) === String(checkpointId)
+              ? { ...item, completed }
+              : item
+          ))
+        };
+      });
+    };
+
+    // Reflect the tap immediately; the request below only confirms persistence.
+    updateSelectedCheckpoint(nextCompleted);
     setUpdatingCheckpointId(checkpointId);
     try {
       const endpoint = taskSource === 'client'
@@ -3400,23 +3417,14 @@ const UserCreateTask = () => {
           ? `/tasks/self/${taskId}/checkpoints/${checkpointId}`
           : `/tasks/assigned/${taskId}/checkpoints/${checkpointId}`;
 
-      const nextCompleted = !checkpoint.completed;
       await axios.patch(endpoint, { completed: nextCompleted });
-      setSelectedTaskDetails(prev => {
-        if (!prev || String(prev._id || prev.id) !== String(taskId)) return prev;
-        return {
-          ...prev,
-          checkpoints: (prev.checkpoints || []).map(item => (
-            String(item._id || item.id) === String(checkpointId)
-              ? { ...item, completed: nextCompleted }
-              : item
-          ))
-        };
-      });
-      await refreshCurrentTaskView(taskSource);
-      await fetchOverdueTasks();
       showSnackbar(nextCompleted ? 'Checkpoint completed' : 'Checkpoint reopened', 'success');
+      void Promise.allSettled([
+        refreshCurrentTaskView(taskSource),
+        fetchOverdueTasks()
+      ]);
     } catch (err) {
+      updateSelectedCheckpoint(!nextCompleted);
       console.error('Error updating checkpoint:', err);
       showSnackbar(err.response?.data?.message || err.response?.data?.error || 'Failed to update checkpoint', 'error');
     } finally {
@@ -5359,6 +5367,19 @@ const UserCreateTask = () => {
                           <div 
                             key={task._id} 
                             className={`user-create-task-mobile-card ${shouldHighlightOverdue ? 'overdue-task' : ''}`}
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Open details for ${task.title || task.name || 'task'}`}
+                            onClick={(event) => {
+                              if (event.target.closest('button, a, input, select, textarea, label')) return;
+                              setSelectedTaskDetails(task);
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                setSelectedTaskDetails(task);
+                              }
+                            }}
                             style={shouldHighlightOverdue ? { 
                               borderLeft: '4px solid #f44336',
                               backgroundColor: '#fff5f5'
@@ -6335,6 +6356,7 @@ const UserCreateTask = () => {
         const completedCheckpoints = detailCheckpoints.filter(item => item.completed).length;
         const detailFiles = Array.isArray(selectedTaskDetails.files) ? selectedTaskDetails.files : [];
         const detailIsOverdue = isOverdue(detailDueDate, detailStatus, selectedTaskDetails);
+        const checkpointUpdatesLocked = ['overdue', 'rejected', 'cancelled', 'onhold'].includes(normalizeStatus(detailStatus));
 
         return (
           <div
@@ -6432,7 +6454,7 @@ const UserCreateTask = () => {
                           <input
                             type="checkbox"
                             checked={Boolean(checkpoint.completed)}
-                            disabled={normalizeStatus(detailStatus) !== 'in-progress' || updatingCheckpointId === (checkpoint._id || checkpoint.id)}
+                            disabled={checkpointUpdatesLocked || updatingCheckpointId === (checkpoint._id || checkpoint.id)}
                             onChange={() => handleCheckpointToggle(selectedTaskDetails, checkpoint)}
                           />
                           <span>{checkpoint.title}</span>

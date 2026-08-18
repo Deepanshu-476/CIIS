@@ -1,13 +1,21 @@
 /* Pixel-Perfect Screenshot Sizing & Proportions for Leave Policy */
 
 .lpm-container {
-  width: auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: calc(100vh - 64px);
-  margin: -24px;
+  margin: 0;
   padding: 24px;
   background-color: #f8fafc;
   color: #334155;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  box-sizing: border-box;
+}
+
+.lpm-container *,
+.lpm-container *::before,
+.lpm-container *::after {
   box-sizing: border-box;
 }
 
@@ -18,12 +26,15 @@
   padding: 0 !important;
   background-color: transparent !important;
   font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 @media (max-width: 900px) {
   .lpm-container {
-    width: auto;
-    margin: -16px;
+    width: 100%;
+    margin: 0;
     padding: 16px;
   }
 
@@ -35,8 +46,8 @@
 
 @media (max-width: 600px) {
   .lpm-container {
-    width: auto;
-    margin: -8px;
+    width: 100%;
+    margin: 0;
     padding: 12px;
   }
 
@@ -73,6 +84,9 @@
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   margin-bottom: 24px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .lpm-card-header {
@@ -145,6 +159,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .lpm-field label {
@@ -161,6 +176,8 @@
 }
 
 .lpm-input {
+  width: 100%;
+  min-width: 0;
   height: 44px;
   padding: 0 14px;
   border-radius: 6px;
@@ -497,6 +514,7 @@
   align-items: center;
   gap: 20px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .lpm-entries-control {
@@ -540,6 +558,8 @@
 /* Table Design */
 .lpm-table-wrapper {
   overflow-x: auto;
+  width: 100%;
+  max-width: 100%;
 }
 
 .lpm-table {
@@ -551,15 +571,16 @@
 
 .lpm-table th {
   background: #f8fafc;
-  padding: 12px 14px;
+  padding: 11px 8px;
   font-weight: 700;
   color: #334155;
   border-bottom: 1px solid #e2e8f0;
   white-space: nowrap;
+  font-size: 0.76rem;
 }
 
 .lpm-table td {
-  padding: 12px 14px;
+  padding: 10px 8px;
   border-bottom: 1px solid #f1f5f9;
   vertical-align: middle;
   color: #1e293b;
@@ -573,7 +594,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  max-width: 260px;
+  width: 128px;
+  max-width: 128px;
 }
 
 .lpm-role-tag {
@@ -582,7 +604,7 @@
   border: 1px solid #e2e8f0;
   font-size: 0.725rem;
   font-weight: 600;
-  padding: 2px 6px;
+  padding: 2px 5px;
   border-radius: 4px;
   white-space: nowrap;
 }
@@ -624,8 +646,9 @@
 .lpm-action-buttons {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
+  min-width: 64px;
 }
 
 .lpm-icon-btn {
@@ -641,6 +664,84 @@
   border: 1px solid #cbd5e1;
   background: #ffffff;
   color: #475569;
+  flex: 0 0 30px;
+}
+
+@media (min-width: 1181px) {
+  .lpm-table-wrapper {
+    overflow-x: hidden;
+  }
+
+  .lpm-table {
+    table-layout: auto;
+  }
+}
+
+/* Compact desktop / MacBook */
+@media (min-width: 1181px) {
+  .lpm-form,
+  .lpm-card-header,
+  .lpm-table-header {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .lpm-grid {
+    gap: 14px 18px;
+  }
+
+  .lpm-table {
+    table-layout: fixed;
+    font-size: clamp(0.67rem, 0.62vw, 0.76rem);
+  }
+
+  .lpm-table th,
+  .lpm-table td {
+    min-width: 0;
+    padding-left: 5px;
+    padding-right: 5px;
+    overflow-wrap: anywhere;
+  }
+
+  .lpm-table th {
+    white-space: normal;
+    line-height: 1.2;
+  }
+
+  .lpm-roles-flex {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .lpm-role-tag {
+    padding: 2px 4px;
+    white-space: normal;
+    line-height: 1.15;
+  }
+
+  .lpm-creator-cell strong,
+  .lpm-creator-cell span,
+  .lpm-creator-cell small {
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Tablet: retain the data table, but contain its scroll inside the card. */
+@media (max-width: 1180px) {
+  .lpm-table-wrapper {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .lpm-table {
+    min-width: 1050px;
+  }
+
+  .lpm-table-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 
 .lpm-icon-btn.edit {
@@ -743,6 +844,15 @@
 
 /* Responsive Enhancements for Mobile, Tablet & Mac */
 @media (max-width: 768px) {
+  .lpm-top-bar {
+    margin-bottom: 12px;
+  }
+
+  .lpm-title {
+    font-size: clamp(1.3rem, 5vw, 1.65rem);
+    line-height: 1.2;
+  }
+
   .lpm-card-header {
     padding: 14px 16px;
     flex-direction: column;
@@ -765,11 +875,144 @@
     justify-content: space-between;
   }
 
+  .lpm-entries-control,
+  .lpm-search-box {
+    min-width: 0;
+  }
+
   .lpm-search-box input {
     width: 140px;
   }
 
   .lpm-leave-types-chip-bar {
     padding: 12px 16px;
+  }
+}
+
+/* Mobile: turn each policy into a readable card and remove table scrolling. */
+@media (max-width: 640px) {
+  .lpm-container {
+    overflow-x: hidden;
+  }
+
+  .lpm-breadcrumb {
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
+
+  .lpm-card {
+    margin-bottom: 16px;
+    border-radius: 10px;
+  }
+
+  .lpm-form-actions,
+  .lpm-form-actions button {
+    width: 100%;
+  }
+
+  .lpm-table-controls {
+    display: grid;
+    gap: 12px;
+  }
+
+  .lpm-entries-control,
+  .lpm-search-box {
+    width: 100%;
+  }
+
+  .lpm-search-box {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .lpm-search-box input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .lpm-table-wrapper {
+    overflow: visible;
+    padding: 10px;
+    background: #f8fafc;
+  }
+
+  .lpm-table,
+  .lpm-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .lpm-table thead {
+    display: none;
+  }
+
+  .lpm-table tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .lpm-table tbody tr {
+    display: block;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 9px;
+  }
+
+  .lpm-table tbody td {
+    display: grid;
+    grid-template-columns: minmax(104px, 42%) minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    width: 100%;
+    padding: 9px 11px;
+    border-bottom: 1px solid #f1f5f9;
+    overflow-wrap: anywhere;
+  }
+
+  .lpm-table tbody td:last-child {
+    border-bottom: 0;
+  }
+
+  .lpm-table tbody td::before {
+    content: attr(data-label);
+    color: #64748b;
+    font-size: 0.69rem;
+    font-weight: 700;
+    line-height: 1.35;
+    text-transform: uppercase;
+    letter-spacing: 0.035em;
+  }
+
+  .lpm-table tbody td.lpm-empty-cell {
+    display: block;
+    padding: 24px 12px;
+  }
+
+  .lpm-table tbody td.lpm-empty-cell::before {
+    content: none;
+  }
+
+  .lpm-roles-flex {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .lpm-pagination-bar {
+    align-items: stretch;
+    padding: 14px 12px;
+  }
+
+  .lpm-pagination-info,
+  .lpm-pagination-controls {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .lpm-pagination-controls button {
+    flex: 1 1 0;
+    justify-content: center;
   }
 }

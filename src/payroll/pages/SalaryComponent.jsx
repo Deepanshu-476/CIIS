@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { FiEdit2, FiPlus, FiSearch, FiTrash2 } from "react-icons/fi";
 import axiosInstance from "../../utils/axiosConfig";
 import "../styles/SalaryComponent.css";
+import "../styles/SalaryComponentOverrides.css";
 
 const emptyForm = {
   name: "", code: "", type: "earning", sortOrder: "", status: "active",

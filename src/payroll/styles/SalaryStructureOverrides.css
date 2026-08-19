@@ -1,0 +1,22 @@
+.ss-not-applicable {
+  display: block;
+  color: #98a1b2;
+  text-align: center;
+}
+
+.ss-value-input {
+  position: relative;
+  min-width: 110px;
+}
+
+.ss-value-input input {
+  padding-right: 30px;
+}
+
+.ss-value-input b {
+  position: absolute;
+  top: 9px;
+  right: 11px;
+  color: #677187;
+  font-size: 12px;
+}

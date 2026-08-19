@@ -887,7 +887,9 @@ const filterItemsByCompanyAccess = (items, companyData) => {
 
   const normalizeKey = value => String(value || '').trim().replace(/^\/+/, '').toLowerCase();
   const allowedSet = new Set(allowedPages.map(item => normalizeKey(item)).filter(Boolean));
+  const hasPayrollMasterAccess = ['salary-component', 'salary-structure'].some(key => [...allowedSet].some(value => value === key || value.endsWith(`/${key}`)));
   return items.filter(item => (
+    (item.category === 'payroll' && hasPayrollMasterAccess) ||
     [...getMenuAccessKeys(item)].some(key => allowedSet.has(normalizeKey(key)))
   ));
 };
@@ -898,12 +900,14 @@ const addCompanyAccessFallbackItems = (items, companyData) => {
 
   const normalizeKey = value => String(value || '').trim().replace(/^\/+/, '').toLowerCase();
   const allowedSet = new Set(allowedPages.map(item => normalizeKey(item)).filter(Boolean));
+  const hasPayrollMasterAccess = ['salary-component', 'salary-structure'].some(key => [...allowedSet].some(value => value === key || value.endsWith(`/${key}`)));
   const existingKeys = new Set(items.flatMap(item => (
     [...getMenuAccessKeys(item)].map(key => normalizeKey(key))
   )).filter(Boolean));
 
   const fallbackItems = companyAccessFallbackItems.filter(item => (
     (
+      (item.category === 'payroll' && hasPayrollMasterAccess) ||
       [...getMenuAccessKeys(item)].some(key => allowedSet.has(normalizeKey(key)))
     ) &&
     ![...getMenuAccessKeys(item)].some(key => existingKeys.has(normalizeKey(key)))

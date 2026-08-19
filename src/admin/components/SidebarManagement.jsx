@@ -26,6 +26,8 @@ const APP_ROUTES = [
   
   { path: 'emp-client', name: 'Client Management', icon: 'ClientIcon', category: 'clients' },
   { path: 'active-clients', name: 'Active Clients', icon: 'Folder', category: 'clients' },
+  { path: 'salary-component', name: 'Salary Component', icon: 'Work', category: 'payroll' },
+  { path: 'salary-structure', name: 'Salary Structure', icon: 'Work', category: 'payroll' },
   { path: 'client-dashboard', name: 'Client Dashboard', icon: 'Dashboard', category: 'clients' },
   { path: 'client-my-services', name: 'My Services', icon: 'Folder', category: 'clients' },
   { path: 'client-tasks-updates', name: 'Tasks & Updates', icon: 'Task', category: 'clients' },

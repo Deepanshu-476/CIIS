@@ -39,6 +39,8 @@ const FALLBACK_PAGES = [
   { pageKey: "department", name: "Department", path: "/ciisUser/department", permissionPattern: "viewEdit" },
   { pageKey: "JobRoleManagement", name: "Job Role Management", path: "/ciisUser/JobRoleManagement", permissionPattern: "viewEdit" },
   { pageKey: "SidebarManagement", name: "Sidebar Management", path: "/ciisUser/SidebarManagement", permissionPattern: "viewEdit" },
+  { pageKey: "salary-component", name: "Salary Component", path: "/ciisUser/salary-component", permissionPattern: "viewEdit" },
+  { pageKey: "salary-structure", name: "Salary Structure", path: "/ciisUser/salary-structure", permissionPattern: "viewEdit" },
 ];
 
 const ICON_MAP = {
@@ -52,6 +54,8 @@ const ICON_MAP = {
   JobRoleManagement: AssignmentIndOutlined,
   SidebarManagement: LockOutlined,
   "leave-policy": DescriptionOutlined,
+  "salary-component": WorkOutline,
+  "salary-structure": WorkOutline,
 };
 
 const getRecordId = (value) => {

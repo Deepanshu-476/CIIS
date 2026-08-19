@@ -686,6 +686,22 @@ const allPagesItems = [
     order: 23
   },
   {
+    id: 'salary-component',
+    name: 'Salary Component',
+    icon: 'Work',
+    path: '/ciisUser/salary-component',
+    category: 'payroll',
+    order: 24
+  },
+  {
+    id: 'salary-structure',
+    name: 'Salary Structure',
+    icon: 'Work',
+    path: '/ciisUser/salary-structure',
+    category: 'payroll',
+    order: 24.1
+  },
+  {
     id: 'chat',
     name: 'Chat',
     icon: 'Chat',
@@ -771,6 +787,8 @@ const getPathFromName = (name) => {
     'Department All Tasks': '/ciisUser/department-all-task',
     'Client Management': '/ciisUser/emp-client',
     'Active Clients': '/ciisUser/active-clients',
+    'Salary Component': '/ciisUser/salary-component',
+    'Salary Structure': '/ciisUser/salary-structure',
     'Chat': '/ciisUser/chat',
     'Support Desk': '/ciisUser/support-desk',
     'Support Operations': '/ciisUser/support-operations',

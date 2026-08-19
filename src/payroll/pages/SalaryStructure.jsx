@@ -1,0 +1,46 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { FiEdit2, FiEye, FiPlus, FiSave, FiTrash2 } from "react-icons/fi";
+import axiosInstance from "../../utils/axiosConfig";
+import "../styles/SalaryStructure.css";
+
+const blank = { name:"", code:"", salaryType:"monthly", salaryInputType:"gross", effectiveFrom:new Date().toISOString().slice(0,10), description:"", status:"active", components:[] };
+const rowFor = (component, order) => ({ component, calculationType:"manual", calculationBase:"", value:"", formula:"", sortOrder:order });
+
+export default function SalaryStructure() {
+  const [form,setForm]=useState(blank), [masters,setMasters]=useState([]), [structures,setStructures]=useState([]);
+  const [selected,setSelected]=useState(""), [editingId,setEditingId]=useState(""), [message,setMessage]=useState(null), [loading,setLoading]=useState(true), [saving,setSaving]=useState(false);
+  const used = useMemo(()=>new Set(form.components.map(r=>String(r.component?._id||r.component))),[form.components]);
+  useEffect(()=>{let active=true; Promise.all([axiosInstance.get("/salary-components"),axiosInstance.get("/salary-structures")]).then(([a,b])=>{if(active){setMasters((a.data?.components||[]).filter(x=>x.status==="active"));setStructures(b.data?.structures||[]);}}).catch(e=>active&&setMessage({type:"error",text:e.response?.data?.message||"Unable to load salary structure data."})).finally(()=>active&&setLoading(false));return()=>{active=false};},[]);
+  const change=(key,value)=>setForm(f=>({...f,[key]:value}));
+  const add=()=>{const component=masters.find(x=>x._id===selected);if(!component||used.has(selected))return;change("components",[...form.components,rowFor(component,form.components.length+1)]);setSelected("");};
+  const rowChange=(index,key,value)=>change("components",form.components.map((r,i)=>i===index?{...r,[key]:value}:r));
+  const removeRow=index=>change("components",form.components.filter((_,i)=>i!==index).map((r,i)=>({...r,sortOrder:i+1})));
+  const reset=()=>{setForm(blank);setEditingId("");setMessage(null);};
+  const payload=()=>({...form,code:form.code.trim().toUpperCase(),components:form.components.map(r=>({...r,component:r.component?._id||r.component,value:Number(r.value||0),sortOrder:Number(r.sortOrder)}))});
+  const save=async e=>{e.preventDefault();setSaving(true);try{const res=editingId?await axiosInstance.put(`/salary-structures/${editingId}`,payload()):await axiosInstance.post("/salary-structures",payload());const item=res.data.structure;setStructures(list=>editingId?list.map(x=>x._id===editingId?item:x):[item,...list]);setMessage({type:"success",text:res.data.message});setForm(blank);setEditingId("");}catch(err){setMessage({type:"error",text:err.response?.data?.message||"Unable to save salary structure."});}finally{setSaving(false);}};
+  const edit=item=>{setEditingId(item._id);setForm({...blank,...item,effectiveFrom:String(item.effectiveFrom).slice(0,10),components:item.components.map(r=>({...r,value:String(r.value??"")}))});window.scrollTo({top:0,behavior:"smooth"});};
+  const remove=async id=>{if(!window.confirm("Are you sure you want to delete this salary structure?"))return;try{const res=await axiosInstance.delete(`/salary-structures/${id}`);setStructures(list=>list.filter(x=>x._id!==id));setMessage({type:"success",text:res.data.message});}catch(err){setMessage({type:"error",text:err.response?.data?.message||"Unable to delete salary structure."});}};
+  return <main className="salary-structure-page">
+    <header className="ss-heading"><div><h1>Salary Structure Master</h1><p>Define reusable salary structures using configured payroll components.</p></div><nav>Payroll <b>/</b> Salary Structures</nav></header>
+    <form className="ss-card" onSubmit={save}>
+      <div className="ss-card-title"><h2>{editingId?"Edit":"Add"} Salary Structure</h2></div>
+      <div className="ss-form-grid">
+        <label><span>Structure Name *</span><input value={form.name} onChange={e=>change("name",e.target.value)} /></label>
+        <label><span>Structure Code *</span><input value={form.code} onChange={e=>change("code",e.target.value.toUpperCase())} /></label>
+        <label><span>Salary Type *</span><select value={form.salaryType} onChange={e=>change("salaryType",e.target.value)}><option value="monthly">Monthly</option><option value="annual">Annual</option></select></label>
+        <label><span>Salary Input Type *</span><select value={form.salaryInputType} onChange={e=>change("salaryInputType",e.target.value)}><option value="gross">Gross</option><option value="ctc">CTC</option></select></label>
+        <label><span>Effective From *</span><input type="date" value={form.effectiveFrom} onChange={e=>change("effectiveFrom",e.target.value)} /></label>
+        <label className="ss-description"><span>Description</span><textarea value={form.description} onChange={e=>change("description",e.target.value)} /></label>
+        <label><span>Status *</span><select value={form.status} onChange={e=>change("status",e.target.value)}><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
+      </div>
+      <div className="ss-actions"><button type="button" onClick={reset}>Reset</button><button className="primary" disabled={saving}><FiSave />{saving?"Saving...":"Save Structure"}</button></div>
+    </form>
+    <section className="ss-card">
+      <div className="ss-card-title ss-between"><div><h2>Salary Components</h2><p>Add components and define their calculation rules.</p></div><div className="ss-add"><select value={selected} onChange={e=>setSelected(e.target.value)}><option value="">Select component</option>{masters.filter(x=>!used.has(x._id)).map(x=><option key={x._id} value={x._id}>{x.name} ({x.code})</option>)}</select><button type="button" onClick={add}><FiPlus/>Add Component</button></div></div>
+      <div className="ss-table"><table><thead><tr><th>#</th><th>Component</th><th>Type</th><th>Calculation Type</th><th>Calculation Base</th><th>Value</th><th>Formula</th><th>Order</th><th>Action</th></tr></thead><tbody>{form.components.map((r,i)=><tr key={r._id||r.component?._id||i}><td>{i+1}</td><td><strong>{r.component?.name}</strong><small>{r.component?.code}</small></td><td><span className={`ss-badge ${r.component?.type}`}>{r.component?.type}</span></td><td><select value={r.calculationType} onChange={e=>rowChange(i,"calculationType",e.target.value)}><option value="manual">Manual</option><option value="percentage">Percentage</option><option value="formula">Formula</option></select></td><td><input value={r.calculationBase} onChange={e=>rowChange(i,"calculationBase",e.target.value)} placeholder="Component or wage base" /></td><td><input type="number" min="0" value={r.value} onChange={e=>rowChange(i,"value",e.target.value)} disabled={r.calculationType==="formula"}/></td><td><input value={r.formula} onChange={e=>rowChange(i,"formula",e.target.value)} disabled={r.calculationType!=="formula"} placeholder="e.g. GROSS-BASIC"/></td><td><input type="number" min="1" value={r.sortOrder} onChange={e=>rowChange(i,"sortOrder",e.target.value)}/></td><td><button className="icon danger" type="button" onClick={()=>removeRow(i)}><FiTrash2/></button></td></tr>)}</tbody></table>{!form.components.length&&<div className="ss-empty">No components added to this structure.</div>}</div>
+      <div className="ss-actions"><p className="ss-note">Components are calculated according to their sort order.</p><button type="button" className="primary" disabled={saving} onClick={()=>save({preventDefault(){}})}><FiSave/>{saving?"Saving...":"Save Structure"}</button></div>
+    </section>
+    {message&&<div className={`ss-message ${message.type}`}>{message.text}</div>}
+    <section className="ss-card"><div className="ss-card-title"><h2>Saved Salary Structures</h2></div><div className="ss-table"><table><thead><tr><th>Code</th><th>Structure</th><th>Type</th><th>Input</th><th>Effective From</th><th>Components</th><th>Status</th><th>Action</th></tr></thead><tbody>{structures.map(x=><tr key={x._id}><td><strong>{x.code}</strong></td><td>{x.name}</td><td>{x.salaryType}</td><td>{x.salaryInputType}</td><td>{String(x.effectiveFrom).slice(0,10)}</td><td>{x.components.length}</td><td><span className={`ss-badge ${x.status}`}>{x.status}</span></td><td><div className="ss-row-actions"><button type="button" className="icon" title="Preview"><FiEye/></button><button type="button" className="icon" onClick={()=>edit(x)}><FiEdit2/></button><button type="button" className="icon danger" onClick={()=>remove(x._id)}><FiTrash2/></button></div></td></tr>)}</tbody></table>{!loading&&!structures.length&&<div className="ss-empty">No salary structures found.</div>}{loading&&<div className="ss-empty">Loading...</div>}</div></section>
+  </main>;
+}

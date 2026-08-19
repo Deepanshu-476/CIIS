@@ -75,6 +75,8 @@ const APP_ROUTES = [
   { id: "chat", path: "chat", name: "Chat", category: "communication" },
   { id: "support-desk", path: "support-desk", name: "Support Desk", category: "communication" },
   { id: "support-operations", path: "support-operations", name: "Support Operations", category: "administration" },
+  { id: "salary-component", path: "salary-component", name: "Salary Component", category: "payroll" },
+  { id: "salary-structure", path: "salary-structure", name: "Salary Structure", category: "payroll" },
 ];
 
 const SUPER_ADMIN_ROUTES = [
@@ -106,6 +108,7 @@ const categoryNames = {
   meetings: "Meetings",
   clients: "Clients",
   communication: "Communication",
+  payroll: "Payroll",
   management: "Super Admin Management",
   owner: "Owner Only",
 };
@@ -118,6 +121,7 @@ const categoryColors = {
   meetings: "#0891b2",
   clients: "#db2777",
   communication: "#475569",
+  payroll: "#4f46e5",
   management: "#2563eb",
   owner: "#7c3aed",
 };

@@ -80,6 +80,8 @@ const EmailSettings = lazy(() => import("./admin/page/EmailSettings.jsx"));
 const DemoRequests = lazy(() => import("./admin/page/DemoRequests.jsx"));
 const LeavePolicy = lazy(() => import("./admin/page/LeavePolicy.jsx"));
 const AppVersionControl = lazy(() => import("./admin/page/AppVersionControl.jsx"));
+const SalaryComponent = lazy(() => import("./payroll/pages/SalaryComponent.jsx"));
+const SalaryStructure = lazy(() => import("./payroll/pages/SalaryStructure.jsx"));
 
 function App() {
   return (
@@ -211,6 +213,8 @@ function App() {
             <Route path="support-operations" element={<SupportOperations />} />
             <Route path="leave-policy-master" element={<LeavePolicy />} />
             <Route path="leave-policy" element={<LeavePolicy />} />
+            <Route path="salary-component" element={<SalaryComponent />} />
+            <Route path="salary-structure" element={<SalaryStructure />} />
           </Route>
           <Route
             path="/client/*"

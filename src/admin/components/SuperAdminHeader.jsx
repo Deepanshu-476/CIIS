@@ -38,6 +38,7 @@ import SearchBar from './SearchBar';
 import { ColorModeContext } from '../../Theme/ThemeContext';
 import { useAuth } from '../../context/useAuth';
 import logo from '/logoo.png'
+import { preloadRouteChunk } from '../../utils/routePreloader';
 
 const StyledAppBar = styled(AppBar)(({ theme }) => ({
     transition: theme.transitions.create(['margin', 'width']),
@@ -198,6 +199,8 @@ const SuperAdminHeader = ({ toggleSidebar, isSidebarOpen }) => {
                             },
                         }}
                         onClick={() => navigate('/Ciis-network/company-details')}
+                        onMouseEnter={() => preloadRouteChunk('/Ciis-network/company-details')}
+                        onFocus={() => preloadRouteChunk('/Ciis-network/company-details')}
                     >
                         <img
                             src={userData.logo}

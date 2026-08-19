@@ -1,5 +1,8 @@
 import axios from "./axiosConfig";
 
+const pagePermissionCache = globalThis.__CIIS_PAGE_PERMISSION_CACHE__ || (globalThis.__CIIS_PAGE_PERMISSION_CACHE__ = new Map());
+const PAGE_PERMISSION_TTL_MS = 5 * 60 * 1000;
+
 export const getStoredUser = () => {
   try {
     const raw = localStorage.getItem("user")
@@ -33,15 +36,36 @@ export const getUserIds = (items = []) => {
 };
 
 export const loadPagePermission = async (path) => {
+  const cacheKey = String(path || "").trim().toLowerCase();
+  const cached = pagePermissionCache.get(cacheKey);
+  if (cached && (Date.now() - cached.createdAt) < PAGE_PERMISSION_TTL_MS) {
+    return cached.value;
+  }
+
   const response = await axios.get("/page-permissions/by-path", {
     params: { path }
   });
 
-  return response.data?.page || {
+  const value = response.data?.page || {
     path,
     approvers: [],
     viewUsers: [],
     editUsers: [],
     deleteUsers: []
   };
+
+  pagePermissionCache.set(cacheKey, {
+    createdAt: Date.now(),
+    value
+  });
+
+  return value;
+};
+
+export const invalidatePagePermissionCache = (path) => {
+  if (!path) {
+    pagePermissionCache.clear();
+    return;
+  }
+  pagePermissionCache.delete(String(path).trim().toLowerCase());
 };

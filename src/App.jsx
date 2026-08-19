@@ -2,7 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import CIISLoader from "../src/Loader/CIISLoader.jsx";
+import RouteBoundaryLoader from "./components/RouteBoundaryLoader.jsx";
 import SpeechToTextControl from "./components/SpeechToTextControl.jsx";
 
 import ProtectedRoute from "./admin/components/ProtectedRoute";
@@ -83,7 +83,7 @@ const AppVersionControl = lazy(() => import("./admin/page/AppVersionControl.jsx"
 
 function App() {
   return (
-    <Suspense fallback={<CIISLoader />}>
+    <Suspense fallback={<RouteBoundaryLoader fullscreen label="Loading app..." />}>
       <Routes>
 
         <Route path="/" element={<Home />} />
@@ -191,7 +191,7 @@ function App() {
           <Route
             path="user-dashboard"
             element={(
-              <Suspense fallback={<CIISLoader />}>
+              <Suspense fallback={<RouteBoundaryLoader label="Loading dashboard..." />}>
                 <UserDashboard />
               </Suspense>
             )}
@@ -201,7 +201,7 @@ function App() {
           <Route
             path="task-management"
             element={(
-              <Suspense fallback={<CIISLoader />}>
+              <Suspense fallback={<RouteBoundaryLoader label="Loading tasks..." />}>
                 <TaskManagement />
               </Suspense>
             )}

@@ -41,6 +41,7 @@ import {
 } from '@mui/icons-material';
 import Swal from "sweetalert2";
 import axiosInstance from '../utils/axiosConfig';
+import { preloadRouteByPath, preloadRouteChunks } from '../utils/routePreloader';
 import {
   CLIENT_PORTAL_SELECTED_CLIENT_KEY,
   CLIENT_PORTAL_SELECTION_EVENT,
@@ -1349,7 +1350,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     };
   }, []);
 
-  const handleMouseEnter = () => {
+  const handleMouseEnter = useCallback(() => {
     if (isMobile) return;
     
     if (leaveTimer.current) {
@@ -1360,9 +1361,9 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     hoverTimer.current = setTimeout(() => {
       setIsHovered(true);
     }, 50);
-  };
+  }, [isMobile]);
 
-  const handleMouseLeave = () => {
+  const handleMouseLeave = useCallback(() => {
     if (isMobile) return;
     
     if (hoverTimer.current) {
@@ -1373,9 +1374,9 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     leaveTimer.current = setTimeout(() => {
       setIsHovered(false);
     }, 100);
-  };
+  }, [isMobile]);
 
-  const markSidebarBadgeSeen = (badgeKey) => {
+  const markSidebarBadgeSeen = useCallback((badgeKey) => {
     if (!badgeKey || !badgeSeenStorageKey) return;
     const currentCount = Math.max(0, Number(menuBadgeCounts[badgeKey]) || 0);
 
@@ -1384,47 +1385,9 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       localStorage.setItem(badgeSeenStorageKey, JSON.stringify(next));
       return next;
     });
-  };
+  }, [badgeSeenStorageKey, menuBadgeCounts]);
 
-  const handleNavigate = (path, badgeKey) => {
-    if (path === 'logout') {
-      handleLogout();
-      return;
-    }
-
-    markSidebarBadgeSeen(badgeKey);
-    navigate(path);
-    if (isMobile) {
-      closeSidebar?.();
-    } else {
-      setIsHovered(false);
-    }
-  };
-
-  const handleClientCompanySwitch = (clientCompany) => {
-    const nextId = clientCompany?._id || clientCompany?.id;
-    if (!nextId) return;
-
-    localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(nextId));
-    localStorage.setItem("client", JSON.stringify(clientCompany));
-    localStorage.removeItem("sidebarConfig");
-    setSelectedClientCompanyId(String(nextId));
-    window.dispatchEvent(new CustomEvent(CLIENT_PORTAL_SELECTION_EVENT, {
-      detail: { clientId: nextId }
-    }));
-
-    if (!location.pathname.startsWith("/client")) {
-      navigate("/client/dashboard");
-    }
-
-    if (isMobile) {
-      closeSidebar?.();
-    } else {
-      setIsHovered(false);
-    }
-  };
-
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     const result = await Swal.fire({
       title: "Are you sure?",
       text: "You'll be logged out of your account.",
@@ -1460,7 +1423,45 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
 
       setTimeout(() => navigate("/"), 1800);
     }
-  };
+  }, [navigate]);
+
+  const handleNavigate = useCallback((path, badgeKey) => {
+    if (path === 'logout') {
+      handleLogout();
+      return;
+    }
+
+    markSidebarBadgeSeen(badgeKey);
+    navigate(path);
+    if (isMobile) {
+      closeSidebar?.();
+    } else {
+      setIsHovered(false);
+    }
+  }, [closeSidebar, handleLogout, isMobile, navigate, markSidebarBadgeSeen]);
+
+  const handleClientCompanySwitch = useCallback((clientCompany) => {
+    const nextId = clientCompany?._id || clientCompany?.id;
+    if (!nextId) return;
+
+    localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(nextId));
+    localStorage.setItem("client", JSON.stringify(clientCompany));
+    localStorage.removeItem("sidebarConfig");
+    setSelectedClientCompanyId(String(nextId));
+    window.dispatchEvent(new CustomEvent(CLIENT_PORTAL_SELECTION_EVENT, {
+      detail: { clientId: nextId }
+    }));
+
+    if (!location.pathname.startsWith("/client")) {
+      navigate("/client/dashboard");
+    }
+
+    if (isMobile) {
+      closeSidebar?.();
+    } else {
+      setIsHovered(false);
+    }
+  }, [isMobile, location.pathname, navigate, closeSidebar]);
 
   const handleRetry = () => {
     setError(null);
@@ -1652,6 +1653,15 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     return getProfileCompletion(userData);
   }, [userData]);
 
+  useEffect(() => {
+    if (loading || !menuItems.length) return;
+    const prefetchTargets = menuItems
+      .map(item => item?.path)
+      .filter(Boolean)
+      .slice(0, 4);
+    preloadRouteChunks(prefetchTargets);
+  }, [loading, menuItems]);
+
   const renderMenuItem = (item, showFull) => {
     const selected = location.pathname === item.path;
     const itemKey = `${item.id || ''} ${item.name || ''} ${item.category || ''}`.toLowerCase();
@@ -1725,6 +1735,8 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         <Tooltip title={item.name} placement="right" enterDelay={700}>
           <StyledListItemButton
             selected={selected}
+            onMouseEnter={() => preloadRouteByPath(item.path)}
+            onFocus={() => preloadRouteByPath(item.path)}
             onClick={() => !item.disabled && handleNavigate(item.path, badgeKey)}
             disabled={item.disabled}
             sx={{
@@ -1761,6 +1773,8 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         <Tooltip title={item.name} placement="right">
           <StyledListItemButton
             selected={selected}
+            onMouseEnter={() => preloadRouteByPath(item.path)}
+            onFocus={() => preloadRouteByPath(item.path)}
             onClick={() => !item.disabled && handleNavigate(item.path, badgeKey)}
             disabled={item.disabled}
             sx={{ 

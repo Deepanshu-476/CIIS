@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { styled, useTheme } from '@mui/material/styles';
 import {
   CssBaseline,
@@ -10,6 +10,7 @@ import { Outlet } from 'react-router-dom';
 
 import Header from './SuperAdminHeader';
 import Sidebar from './SuperAdminSidebar';
+import RouteBoundaryLoader from '../../components/RouteBoundaryLoader';
   
 const drawerWidthOpen = 260;
 const drawerWidthClosed = 70;
@@ -175,7 +176,9 @@ const SuperAdminLayout = () => {
           overflow: 'hidden',
           padding: { xs: 1, sm: 2, md: 3 }
         }}>
-          <Outlet />
+          <Suspense fallback={<RouteBoundaryLoader label="Loading page..." />}>
+            <Outlet />
+          </Suspense>
         </Box>
       </MainContent>
     </LayoutContainer>

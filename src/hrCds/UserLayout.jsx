@@ -1,4 +1,4 @@
-  import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { styled, useTheme } from '@mui/material/styles';
 import {
   CssBaseline,
@@ -12,6 +12,7 @@ import Header from './Header';
 import Sidebar from './Sidebar';
 import SupportChatWidget from './pages/SupportChatWidget';
 import { CallProvider } from '../context/CallContext';
+import RouteBoundaryLoader from '../components/RouteBoundaryLoader';
 
 const drawerWidthOpen = 224;
 const drawerWidthClosed = 70;
@@ -198,7 +199,9 @@ const UserLayout = () => {
               },
             }}
           >
-            <Outlet />
+            <Suspense fallback={<RouteBoundaryLoader label="Loading page..." />}>
+              <Outlet />
+            </Suspense>
           </Box>
         </CallProvider>
       </MainContent>

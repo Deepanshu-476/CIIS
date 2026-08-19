@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   AppBar,
   Toolbar,
@@ -32,6 +32,7 @@ import axios from "axios";
 import API_URL from "../../src/config";
 import Swal from "sweetalert2";
 import { openNotificationRoute } from "../../src/utils/notificationNavigation";
+import { preloadRouteChunk } from "../../src/utils/routePreloader";
 
 const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
   const { user } = useAuth();
@@ -489,16 +490,16 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
   };
 
   
-  const handleNotificationClick = async (e) => {
+  const handleNotificationClick = useCallback(async (e) => {
     setAnchorEl(e.currentTarget);
     
     
     await fetchNotifications(true);
-  };
+  }, [fetchNotifications]);
 
-  const handleNotificationClose = () => {
+  const handleNotificationClose = useCallback(() => {
     setAnchorEl(null);
-  };
+  }, []);
 
   
   const handleMarkAsRead = async (notification, index) => {
@@ -583,9 +584,9 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
   };
 
   
-  const handleLogoClick = () => {
+  const handleLogoClick = useCallback(() => {
     navigate("/ciisUser/user-dashboard");
-  };
+  }, [navigate]);
 
   
   const handleLogout = async () => {
@@ -665,14 +666,16 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
               </IconButton>
             )}
 
-            <Typography
-              variant="h6"
-              noWrap
-              component="img"
-              src={logo}
-              alt="Logo"
-              onClick={!isClient ? handleLogoClick : undefined}
-              sx={{
+                    <Typography
+                        variant="h6"
+                        noWrap
+                        component="img"
+                        src={logo}
+                        alt="Logo"
+                        onClick={!isClient ? handleLogoClick : undefined}
+                        onMouseEnter={() => preloadRouteChunk("/ciisUser/user-dashboard")}
+                        onFocus={() => preloadRouteChunk("/ciisUser/user-dashboard")}
+                        sx={{
                 height: isMobile ? 35 : 50,
                 width: "auto",
                 objectFit: "contain",
@@ -735,6 +738,8 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
             <Tooltip title="Notifications">
               <IconButton 
                 onClick={handleNotificationClick}
+                onMouseEnter={() => preloadRouteChunk("/ciisUser/alert")}
+                onFocus={() => preloadRouteChunk("/ciisUser/alert")}
                 sx={{
                   position: 'relative',
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',

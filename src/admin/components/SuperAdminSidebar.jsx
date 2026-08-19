@@ -31,6 +31,7 @@ import {
   VideoCall as DemoIcon,
   SystemUpdateAlt as AppUpdateIcon,
 } from '@mui/icons-material';
+import { preloadRouteChunk } from '../../utils/routePreloader';
 
 
 const SidebarContainer = styled(Box)(({ theme }) => ({
@@ -372,6 +373,8 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                   <StyledListItemButton
                     selected={location.pathname.startsWith(item.route)}
                     onClick={() => handleClick(item.route)}
+                    onMouseEnter={() => preloadRouteChunk(item.route)}
+                    onFocus={() => preloadRouteChunk(item.route)}
                   >
                     <StyledListItemIcon>{item.icon}</StyledListItemIcon>
                     <ListItemText
@@ -387,6 +390,8 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                     <StyledListItemButton
                       selected={location.pathname.startsWith(item.route)}
                       onClick={() => handleClick(item.route)}
+                      onMouseEnter={() => preloadRouteChunk(item.route)}
+                      onFocus={() => preloadRouteChunk(item.route)}
                       sx={{ justifyContent: 'center' }}
                     >
                       <StyledListItemIcon sx={{ marginRight: 0 }}>
@@ -437,4 +442,4 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
   );
 };
 
-export default Sidebar;
+export default React.memo(Sidebar);

@@ -862,6 +862,22 @@ const companyAccessFallbackItems = [
     path: '/ciisUser/active-clients',
     category: 'clients',
     order: 22.5
+  },
+  {
+    id: 'salary-component',
+    name: 'Salary Component',
+    icon: 'Work',
+    path: '/ciisUser/salary-component',
+    category: 'payroll',
+    order: 24
+  },
+  {
+    id: 'salary-structure',
+    name: 'Salary Structure',
+    icon: 'Work',
+    path: '/ciisUser/salary-structure',
+    category: 'payroll',
+    order: 24.1
   }
 ];
 
@@ -1559,7 +1575,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
 
     const hasRoleConfig = sidebarConfig && Array.isArray(sidebarConfig.menuItems);
     let accessFilteredItems = hasRoleConfig
-      ? items
+      ? addCompanyAccessFallbackItems(items, companyData)
       : filterItemsByCompanyAccess(
           addCompanyAccessFallbackItems(items, companyData),
           companyData

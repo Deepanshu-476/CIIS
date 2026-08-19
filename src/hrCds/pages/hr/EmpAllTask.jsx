@@ -174,12 +174,71 @@ const isTaskOverdueByDate = (dueDate, status) => {
 
 const getTaskDueDate = task => task?.dueDateTime || task?.dueDate;
 
-const getSourceAwareTaskDate = task => {
+const getLogTimestamp = (log) => {
+  const candidates = [
+    log?.createdAt,
+    log?.created_at,
+    log?.timestamp,
+    log?.updatedAt
+  ];
+
+  for (const value of candidates) {
+    const date = value ? new Date(value) : null;
+    if (date && !Number.isNaN(date.getTime())) {
+      return date;
+    }
+  }
+
+  return null;
+};
+
+const getTaskCompletionDate = (task, logs = []) => {
+  const status = normalizeStatus(task?.userStatus || task?.status || task?.overallStatus);
+  if (status !== 'completed') return null;
+
+  const sortedLogs = Array.isArray(logs) ? [...logs].sort((a, b) => new Date(a?.createdAt || 0) - new Date(b?.createdAt || 0)) : [];
+
+  for (let index = sortedLogs.length - 1; index >= 0; index -= 1) {
+    const log = sortedLogs[index];
+    if (!log) continue;
+
+    const logAction = String(log.action || '').toLowerCase();
+    const logStatus = normalizeStatus(log.newValues?.status || log.newValues?.taskStatus || log.newStatus);
+    const logDescription = String(log.description || '').toLowerCase();
+
+    if (
+      logAction === 'status_updated' ||
+      logAction === 'status_changed' ||
+      logStatus === 'completed' ||
+      logDescription.includes('completed')
+    ) {
+      const timestamp = getLogTimestamp(log);
+      if (timestamp) return timestamp;
+    }
+  }
+
+  const fallbackDates = [task?.completedAt, task?.completedOn, task?.updatedAt];
+  for (const value of fallbackDates) {
+    const date = value ? new Date(value) : null;
+    if (date && !Number.isNaN(date.getTime())) {
+      return date;
+    }
+  }
+
+  return null;
+};
+
+const getTaskRelevantDate = (task, logs = []) => {
+  const completionDate = getTaskCompletionDate(task, logs);
+  if (completionDate) return completionDate;
+
   const source = String(task?.__taskSource || task?.taskSource || task?.source || '').toLowerCase();
   if (source === 'client') return task?.dueDate || task?.dueDateTime || task?.createdAt;
   if (source === 'project') return task?.createdAt;
   return getTaskDueDate(task) || task?.createdAt;
 };
+
+const getSourceAwareTaskDate = (task, logs = []) => getTaskRelevantDate(task, logs);
 
 
 const getStatusObject = (status) => {
@@ -595,7 +654,7 @@ const TaskDetails = () => {
     let todayTasksCount = 0;
 
     tasksList.forEach(task => {
-      const taskDate = new Date(getSourceAwareTaskDate(task));
+      const taskDate = new Date(getSourceAwareTaskDate(task, logsMap?.[task._id] || []));
       taskDate.setHours(0, 0, 0, 0);
 
       if (taskDate.getTime() === today.getTime()) {
@@ -1139,13 +1198,13 @@ const TaskDetails = () => {
   const filteredTasks = useMemo(() => {
     if (!Array.isArray(tasks)) return [];
     return [...tasks].sort((a, b) => {
-      const aDateValue = getSourceAwareTaskDate(a);
-      const bDateValue = getSourceAwareTaskDate(b);
+      const aDateValue = getSourceAwareTaskDate(a, allTaskLogs[a._id] || []);
+      const bDateValue = getSourceAwareTaskDate(b, allTaskLogs[b._id] || []);
       const aDate = aDateValue ? new Date(aDateValue) : new Date(0);
       const bDate = bDateValue ? new Date(bDateValue) : new Date(0);
       return bDate - aDate;
     });
-  }, [tasks]);
+  }, [allTaskLogs, tasks]);
 
   
   useEffect(() => {
@@ -3162,7 +3221,7 @@ const TaskDetails = () => {
                   // Get complete status object with color and bgColor
                   const statusObject = getStatusObject(status);
                   
-                  const isToday = isSameDay(getSourceAwareTaskDate(task), today);
+                  const isToday = isSameDay(getSourceAwareTaskDate(task, allTaskLogs[task._id] || []), today);
                   const isOverdue = isTaskOverdueByDate(dueDate, status);
 
                   const taskLogs = allTaskLogs[task._id] || [];
@@ -3681,7 +3740,7 @@ const TaskDetails = () => {
                     // Get complete status object with color and bgColor
                     const statusObject = getStatusObject(status);
                     
-                    const isToday = isSameDay(getSourceAwareTaskDate(task), today);
+                    const isToday = isSameDay(getSourceAwareTaskDate(task, allTaskLogs[task._id] || []), today);
                     const isOverdue = isTaskOverdueByDate(dueDate, status);
 
                     const taskLogs = allTaskLogs[task._id] || [];

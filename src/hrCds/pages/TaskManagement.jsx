@@ -464,10 +464,97 @@ const getStoredTaskUser = () => {
     const id = user.id || user._id;
     const role = user.role || user.jobRole;
     const name = user.name;
-    return id && role && name ? { id, role, name } : null;
+    return id && role && name ? {
+      id,
+      role,
+      name,
+      jobRole: user.jobRole || '',
+      companyCode: user.companyCode || '',
+      shiftId: user.shiftId || '',
+      shiftName: user.shiftName || '',
+      shiftType: user.shiftType || '',
+      shift: user.shift || null,
+    } : null;
   } catch {
     return null;
   }
+};
+
+const parseShiftTime = (value) => {
+  const match = String(value || '').trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return null;
+  }
+  return { hours, minutes };
+};
+
+const formatDateTimeLocalValue = (date) => {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const pad = (num) => String(num).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+const extractShiftWindow = (user = null) => {
+  const candidates = [
+    {
+      start: user?.shift?.shiftStart,
+      end: user?.shift?.shiftEnd,
+    },
+    {
+      start: user?.shiftStart,
+      end: user?.shiftEnd,
+    },
+    {
+      start: user?.shift?.start,
+      end: user?.shift?.end,
+    },
+    {
+      start: user?.shift?.shiftStartTime,
+      end: user?.shift?.shiftEndTime,
+    },
+  ];
+
+  for (const candidate of candidates) {
+    const start = parseShiftTime(candidate?.start);
+    const end = parseShiftTime(candidate?.end);
+    if (start || end) {
+      return {
+        start: start ? `${String(start.hours).padStart(2, '0')}:${String(start.minutes).padStart(2, '0')}` : '',
+        end: end ? `${String(end.hours).padStart(2, '0')}:${String(end.minutes).padStart(2, '0')}` : '',
+      };
+    }
+  }
+
+  return { start: '', end: '' };
+};
+
+const normalizeDateTimeToShiftTime = (value, shiftTimeValue) => {
+  if (!value) return value;
+  const parsed = value instanceof Date ? new Date(value) : new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+
+  const shiftTime = parseShiftTime(shiftTimeValue);
+  if (shiftTime) {
+    parsed.setHours(shiftTime.hours, shiftTime.minutes, 0, 0);
+  }
+
+  return formatDateTimeLocalValue(parsed);
+};
+
+const formatShiftTimeLabel = (shiftTimeValue, fallbackLabel = 'your shift') => {
+  const shiftTime = parseShiftTime(shiftTimeValue);
+  if (!shiftTime) return fallbackLabel;
+
+  const displayDate = new Date();
+  displayDate.setHours(shiftTime.hours, shiftTime.minutes, 0, 0);
+  return new Intl.DateTimeFormat('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  }).format(displayDate);
 };
 
 let taskManagementMemoryCache = null;
@@ -508,6 +595,7 @@ const UserCreateTask = () => {
   const [userRole, setUserRole] = useState(storedTaskUser?.role || '');
   const [userId, setUserId] = useState(storedTaskUser?.id || '');
   const [userName, setUserName] = useState(storedTaskUser?.name || '');
+  const [userShiftWindow, setUserShiftWindow] = useState(extractShiftWindow(storedTaskUser));
   const [authError, setAuthError] = useState(!storedTaskUser);
   const [loading, setLoading] = useState(false);
   const [loadingAssigned, setLoadingAssigned] = useState(false);
@@ -666,6 +754,8 @@ const UserCreateTask = () => {
     files: null,
     voiceNote: null,
     checkpoints: [],
+    repeatPattern: 'none',
+    repeatDays: [],
   });
 
   const [pendingStatusChange, setPendingStatusChange] = useState({ taskId: null, status: '', source: null });
@@ -686,6 +776,42 @@ const UserCreateTask = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
   const selectedTaskFiles = useMemo(() => Array.from(newTask.files || []), [newTask.files]);
+  const recurringRepeatDays = [
+    { value: 'monday', label: 'Mon' },
+    { value: 'tuesday', label: 'Tue' },
+    { value: 'wednesday', label: 'Wed' },
+    { value: 'thursday', label: 'Thu' },
+    { value: 'friday', label: 'Fri' },
+    { value: 'saturday', label: 'Sat' },
+    { value: 'sunday', label: 'Sun' }
+  ];
+  const repeatPatternLabels = {
+    none: 'No repeat',
+    daily: 'Repeat Task'
+  };
+  const repeatPatternDescriptions = {
+    none: 'Create one task only.',
+    daily: 'Auto-create a repeat task every day, or only on selected weekdays.'
+  };
+  const updateRepeatPattern = (value) => {
+    setNewTask(prev => ({
+      ...prev,
+      repeatPattern: value,
+      repeatDays: value === 'daily' ? prev.repeatDays : [],
+      dueDateTime: value !== 'none' ? normalizeDateTimeToShiftTime(prev.dueDateTime, userShiftWindow?.end) : prev.dueDateTime
+    }));
+  };
+  const toggleRepeatDay = (value) => {
+    setNewTask(prev => {
+      const currentDays = prev.repeatDays || [];
+      return {
+        ...prev,
+        repeatDays: currentDays.includes(value)
+          ? currentDays.filter(day => day !== value)
+          : [...currentDays, value]
+      };
+    });
+  };
   const updatePersonalCheckpoint = (index, title) => {
     setNewTask(prev => ({
       ...prev,
@@ -3723,18 +3849,22 @@ const UserCreateTask = () => {
     setIsCreatingTask(true);
 
     try {
+      const dueDateTimeValue = newTask.repeatPattern !== 'none'
+        ? normalizeDateTimeToShiftTime(newTask.dueDateTime, userShiftWindow?.end)
+        : newTask.dueDateTime;
+
       let dueDate;
       
-      if (newTask.dueDateTime instanceof Date) {
-        dueDate = newTask.dueDateTime;
-      } else if (typeof newTask.dueDateTime === 'string') {
-        if (newTask.dueDateTime.includes('T')) {
-          const dateStr = newTask.dueDateTime.includes(':') && newTask.dueDateTime.split(':').length === 2 
-            ? `${newTask.dueDateTime}:00` 
-            : newTask.dueDateTime;
+      if (dueDateTimeValue instanceof Date) {
+        dueDate = dueDateTimeValue;
+      } else if (typeof dueDateTimeValue === 'string') {
+        if (dueDateTimeValue.includes('T')) {
+          const dateStr = dueDateTimeValue.includes(':') && dueDateTimeValue.split(':').length === 2 
+            ? `${dueDateTimeValue}:00` 
+            : dueDateTimeValue;
           dueDate = new Date(dateStr);
         } else {
-          dueDate = new Date(newTask.dueDateTime);
+          dueDate = new Date(dueDateTimeValue);
         }
       }
 
@@ -3750,6 +3880,8 @@ const UserCreateTask = () => {
       formData.append('dueDateTime', dueDate.toISOString());
       formData.append('priorityDays', newTask.priorityDays || '1');
       formData.append('priority', newTask.priority);
+      formData.append('repeatPattern', newTask.repeatPattern || 'none');
+      formData.append('repeatDays', JSON.stringify(newTask.repeatDays || []));
       formData.append('checkpoints', JSON.stringify(getCleanCheckpoints(newTask.checkpoints)));
 
       if (newTask.files) {
@@ -3826,6 +3958,8 @@ const UserCreateTask = () => {
         files: null, 
         voiceNote: null,
         checkpoints: [],
+        repeatPattern: 'none',
+        repeatDays: [],
       });
 
       window.setTimeout(() => void refreshCurrentTaskView('self'), 1800);
@@ -3888,6 +4022,28 @@ const UserCreateTask = () => {
     
     loadData();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveShiftEndTime = async () => {
+      try {
+        const response = await axios.get('/dashboard/employee-summary');
+        const summaryShiftWindow = extractShiftWindow(response.data?.data?.currentUser);
+        if (!cancelled) {
+          setUserShiftWindow(summaryShiftWindow);
+        }
+      } catch (error) {
+        console.warn('Could not resolve shift window for personal task recurrence:', error);
+      }
+    };
+
+    resolveShiftEndTime();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [storedTaskUser]);
 
   useEffect(() => {
     if (userId && !authError) {
@@ -5953,10 +6109,18 @@ const UserCreateTask = () => {
                       if (value && value.includes('T') && value.split(':').length === 2) {
                         formattedValue = `${value}:00`;
                       }
+                      if (newTask.repeatPattern !== 'none' && userShiftWindow?.end) {
+                        formattedValue = normalizeDateTimeToShiftTime(formattedValue, userShiftWindow.end);
+                      }
                       setNewTask({ ...newTask, dueDateTime: formattedValue });
                     }}
                     min={new Date().toISOString().slice(0, 16)}
                   />
+                  {newTask.repeatPattern !== 'none' && (
+                    <div className="personal-task-recurring-helper personal-task-shift-note">
+                      Recurring tasks will use your shift window {formatShiftTimeLabel(userShiftWindow?.start)} - {formatShiftTimeLabel(userShiftWindow?.end, 'shift end')}.
+                    </div>
+                  )}
                 </div>
 
                 <div className="user-create-task-form-control" style={{ flex: 1 }}>
@@ -6011,6 +6175,71 @@ const UserCreateTask = () => {
                   value={newTask.priorityDays}
                   onChange={(e) => setNewTask({ ...newTask, priorityDays: e.target.value })}
                 />
+              </div>
+
+              <div className="user-create-task-form-control personal-task-recurring-section">
+                <div className="personal-task-recurring-header">
+                  <div>
+                    <label>Repeat Task</label>
+                    <div className="personal-task-recurring-note">
+                      Set how this personal task should auto-create itself later.
+                    </div>
+                  </div>
+                  <span className={`personal-task-recurring-badge repeat-${newTask.repeatPattern || 'none'}`}>
+                    {repeatPatternLabels[newTask.repeatPattern] || 'No repeat'}
+                  </span>
+                </div>
+
+                <div className="personal-task-recurring-grid">
+                  <div className="user-create-task-form-control personal-task-recurring-control">
+                    <select
+                      className="user-create-task-select"
+                      value={newTask.repeatPattern}
+                      onChange={(e) => updateRepeatPattern(e.target.value)}
+                    >
+                      <option value="none">No Repeat</option>
+                      <option value="daily">Repeat Task</option>
+                    </select>
+                    <div className="personal-task-recurring-helper">
+                      {repeatPatternDescriptions[newTask.repeatPattern] || repeatPatternDescriptions.none}
+                    </div>
+                  </div>
+
+                  <div className="personal-task-recurring-summary">
+                    <div className="personal-task-recurring-summary-label">Current Setup</div>
+                    <div className="personal-task-recurring-summary-value">
+                      {newTask.repeatPattern === 'daily'
+                        ? `${repeatPatternLabels[newTask.repeatPattern] || 'No repeat'}${newTask.repeatDays?.length ? ` on ${newTask.repeatDays.map(day => day.slice(0, 3).toUpperCase()).join(', ')}` : ''}`
+                        : (repeatPatternLabels[newTask.repeatPattern] || 'No repeat')}
+                    </div>
+                    <div className="personal-task-recurring-summary-text">
+                      Auto-created tasks keep the same due time as the source task.
+                    </div>
+                  </div>
+                </div>
+
+                {newTask.repeatPattern === 'daily' && (
+                  <div className="personal-task-week-days">
+                    <div className="personal-task-week-days-label">
+                      Select Days
+                    </div>
+                    <div className="personal-task-week-grid">
+                      {recurringRepeatDays.map(day => (
+                        <button
+                          key={day.value}
+                          type="button"
+                          className={`personal-task-week-chip ${newTask.repeatDays?.includes(day.value) ? 'selected' : ''}`}
+                          onClick={() => toggleRepeatDay(day.value)}
+                        >
+                          {day.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="personal-task-recurring-helper">
+                      Pick one or more weekdays. If you leave them blank, Repeat Task runs every day.
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="user-create-task-form-control">

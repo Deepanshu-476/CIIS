@@ -90,6 +90,50 @@ const MyTaskManagement = () => {
     setNewTask(prev => ({ ...prev, checkpoints: (prev.checkpoints || []).filter((_, itemIndex) => itemIndex !== index) }));
   };
 
+  const weeklyRepeatDays = [
+    { value: 'monday', label: 'Mon' },
+    { value: 'tuesday', label: 'Tue' },
+    { value: 'wednesday', label: 'Wed' },
+    { value: 'thursday', label: 'Thu' },
+    { value: 'friday', label: 'Fri' },
+    { value: 'saturday', label: 'Sat' },
+    { value: 'sunday', label: 'Sun' }
+  ];
+
+  const repeatPatternLabels = {
+    none: 'No repeat',
+    daily: 'Every day',
+    weekly: 'Weekly',
+    monthly: 'Monthly'
+  };
+
+  const repeatPatternDetails = {
+    none: 'Create one task only.',
+    daily: 'Auto-create a new task every day after completion window.',
+    weekly: 'Pick the weekdays this task should repeat on.',
+    monthly: 'Re-create on the same date next month; if missing, use the last valid date.'
+  };
+
+  const handleRepeatPatternChange = (value) => {
+    setNewTask(prev => ({
+      ...prev,
+      repeatPattern: value,
+      repeatDays: value === 'weekly' ? prev.repeatDays : []
+    }));
+  };
+
+  const toggleRepeatDay = (dayValue) => {
+    setNewTask(prev => {
+      const currentDays = prev.repeatDays || [];
+      return {
+        ...prev,
+        repeatDays: currentDays.includes(dayValue)
+          ? currentDays.filter(d => d !== dayValue)
+          : [...currentDays, dayValue]
+      };
+    });
+  };
+
   
   useEffect(() => {
     const checkMobile = () => {
@@ -1614,58 +1658,67 @@ const MyTaskManagement = () => {
             </div>
           </div>
 
-          <div className="MyTaskManagement-create-task-section">
-            <h3>🔄 Repeat Task</h3>
-            
-            <div className="MyTaskManagement-form-group">
-              <label>Repeat Pattern</label>
-              <select
-                className="MyTaskManagement-form-select"
-                value={newTask.repeatPattern}
-                onChange={(e) => setNewTask({ ...newTask, repeatPattern: e.target.value })}
-              >
-                <option value="none">No Repeat</option>
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-              </select>
+          <div className="MyTaskManagement-create-task-section MyTaskManagement-recurring-section">
+            <div className="MyTaskManagement-recurring-header">
+              <div>
+                <h3>Repeat Task</h3>
+                <p>Set a recurring pattern for personal tasks. The next task will be auto-created for you.</p>
+              </div>
+              <span className={`MyTaskManagement-recurring-badge MyTaskManagement-recurring-${newTask.repeatPattern}`}>
+                {repeatPatternLabels[newTask.repeatPattern] || 'No repeat'}
+              </span>
+            </div>
+
+            <div className="MyTaskManagement-recurring-layout">
+              <div className="MyTaskManagement-form-group">
+                <label>Repeat Pattern</label>
+                <div className="MyTaskManagement-repeat-select-wrap">
+                  <select
+                    className="MyTaskManagement-form-select MyTaskManagement-repeat-select"
+                    value={newTask.repeatPattern}
+                    onChange={(e) => handleRepeatPatternChange(e.target.value)}
+                  >
+                    <option value="none">No Repeat</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+                <div className="MyTaskManagement-repeat-help">
+                  {repeatPatternDetails[newTask.repeatPattern] || repeatPatternDetails.none}
+                </div>
+              </div>
+
+              <div className="MyTaskManagement-repeat-summary">
+                <div className="MyTaskManagement-repeat-summary-title">Current Setup</div>
+                <div className="MyTaskManagement-repeat-summary-text">
+                  {newTask.repeatPattern === 'weekly'
+                    ? `Weekly on ${newTask.repeatDays?.length ? newTask.repeatDays.map(day => day.slice(0, 3).toUpperCase()).join(', ') : 'select days'}`
+                    : repeatPatternLabels[newTask.repeatPattern] || 'No repeat'}
+                </div>
+                <div className="MyTaskManagement-repeat-summary-subtext">
+                  Recurring tasks keep the same due date time for future copies.
+                </div>
+              </div>
             </div>
 
             {newTask.repeatPattern === 'weekly' && (
               <div className="MyTaskManagement-week-days">
                 <label>Select Week Days</label>
                 <div className="MyTaskManagement-days-grid">
-                  {[
-                    { value: 'monday', label: 'Mon' },
-                    { value: 'tuesday', label: 'Tue' },
-                    { value: 'wednesday', label: 'Wed' },
-                    { value: 'thursday', label: 'Thu' },
-                    { value: 'friday', label: 'Fri' },
-                    { value: 'saturday', label: 'Sat' },
-                    { value: 'sunday', label: 'Sun' }
-                  ].map((day) => (
+                  {weeklyRepeatDays.map((day) => (
                     <button
                       key={day.value}
                       type="button"
                       className={`MyTaskManagement-day-chip ${newTask.repeatDays?.includes(day.value) ? 'MyTaskManagement-day-selected' : ''}`}
-                      onClick={() => {
-                        const currentDays = newTask.repeatDays || [];
-                        if (currentDays.includes(day.value)) {
-                          setNewTask({
-                            ...newTask,
-                            repeatDays: currentDays.filter(d => d !== day.value)
-                          });
-                        } else {
-                          setNewTask({
-                            ...newTask,
-                            repeatDays: [...currentDays, day.value]
-                          });
-                        }
-                      }}
+                      onClick={() => toggleRepeatDay(day.value)}
                     >
                       {day.label}
                     </button>
                   ))}
+                </div>
+                <div className="MyTaskManagement-repeat-help">
+                  Pick one or more weekdays. The system will skip duplicates for the same period.
                 </div>
               </div>
             )}

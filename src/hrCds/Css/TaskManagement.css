@@ -1800,6 +1800,157 @@
     stroke-width: 3;
 }
 
+.personal-task-recurring-section {
+    padding: 14px 16px;
+    border: 1px solid #dce6f5;
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(40, 110, 229, 0.04), rgba(255, 255, 255, 0.98));
+}
+
+.personal-task-recurring-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.personal-task-recurring-header label {
+    margin-bottom: 4px !important;
+}
+
+.personal-task-recurring-note {
+    font-size: 11px;
+    line-height: 1.45;
+    color: #71809a;
+}
+
+.personal-task-recurring-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 30px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid #dbe5f3;
+    background: #f7faff;
+    color: #3d5b93;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.personal-task-recurring-badge.repeat-none {
+    color: #637086;
+    background: #f6f8fb;
+}
+
+.personal-task-recurring-badge.repeat-daily {
+    color: #15803d;
+    background: #ecfdf5;
+    border-color: #b7ebc6;
+}
+
+.personal-task-recurring-grid {
+    display: grid;
+    gap: 12px;
+}
+
+.personal-task-recurring-summary {
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid #dce6f5;
+    background: #fff;
+}
+
+.personal-task-recurring-summary-label {
+    margin-bottom: 4px;
+    color: #5670a4;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.personal-task-recurring-summary-value {
+    color: #17233b;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.personal-task-recurring-summary-text {
+    margin-top: 4px;
+    color: #71809a;
+    font-size: 10px;
+    line-height: 1.45;
+}
+
+.personal-task-recurring-helper {
+    margin-top: 6px;
+    color: #71809a;
+    font-size: 10px;
+    line-height: 1.45;
+}
+
+.personal-task-shift-note {
+    color: #2563eb;
+    font-weight: 600;
+}
+
+.personal-task-week-days {
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px dashed #d7e2f2;
+}
+
+.personal-task-week-days-label {
+    margin-bottom: 8px;
+    color: #22304a;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.personal-task-week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.personal-task-week-chip {
+    min-height: 36px;
+    padding: 8px 6px;
+    border: 1px solid #d7e0ef;
+    border-radius: 8px;
+    background: #fff;
+    color: #54657d;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease, color .15s ease;
+}
+
+.personal-task-week-chip:hover {
+    transform: translateY(-1px);
+    border-color: #9fb8f0;
+    box-shadow: 0 4px 10px rgba(40, 110, 229, 0.08);
+    color: #3457d5;
+}
+
+.personal-task-week-chip.selected {
+    border-color: #6d8ff2;
+    background: linear-gradient(135deg, #6d8ff2, #4e75eb);
+    color: #fff;
+    box-shadow: 0 8px 18px rgba(77, 117, 235, 0.2);
+}
+
+@media (min-width: 768px) {
+    .personal-task-recurring-grid {
+        grid-template-columns: minmax(0, 1.25fr) minmax(220px, 0.95fr);
+        align-items: start;
+    }
+}
+
 /* Task remarks dialog */
 .remarks-dialog-overlay { top: 70px; left: 79px; padding: 24px 28px; }
 .task-remarks-dialog { width: min(480px, calc(100vw - 40px)) !important; max-width: 480px !important; max-height: calc(100vh - 122px); border-radius: 12px; overflow: hidden; }
@@ -1935,6 +2086,11 @@
     .personal-task-dialog .user-create-task-dialog-content { padding: 14px 18px; overflow-y: auto; }
     .personal-task-dialog .user-create-task-dialog-actions { padding: 12px 18px; flex-direction: row; }
     .personal-task-dialog .user-create-task-dialog-actions .user-create-task-button { width: 50%; min-width: 0; }
+
+    .personal-task-recurring-section { padding: 12px; }
+    .personal-task-recurring-header { flex-direction: column; }
+    .personal-task-recurring-badge { align-self: flex-start; }
+    .personal-task-week-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
     .personal-task-overlay:has(.create-client-task-dialog) {
         align-items: flex-start;

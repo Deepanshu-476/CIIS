@@ -1132,11 +1132,6 @@ const CompanyAllTaskTasks = () => {
       </section>
 
       <section className="company-task-work-summary">
-        {!hasAttendance && (
-          <div className="company-task-work-summary-empty">
-            No attendance record found for the selected date. Times are hidden until clock-in data is available.
-          </div>
-        )}
         <article>
           <span>Clock In</span>
           <strong>{hasAttendance ? formatTimeOrDateTime(workSummary?.clockIn, "--") : "--"}</strong>

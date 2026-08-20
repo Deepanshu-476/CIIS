@@ -182,10 +182,29 @@ const getDateTimeInputValue = (value) => {
   return offsetDate.toISOString().slice(0, 16);
 };
 
+const formatTimeOrDateTime = (value, fallback = "--") => {
+  if (!value) return fallback;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+    return fallback;
+  }
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 const formatDateTime = (value) => {
   if (!value) return "Not available";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Not available";
+  if (Number.isNaN(date.getTime())) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+    return "Not available";
+  }
   return date.toLocaleString("en-IN", {
     day: "2-digit",
     month: "short",
@@ -403,13 +422,15 @@ const CompanyAllTaskTasks = () => {
     }
   }, [currentUser, effectiveUserId]);
 
-  const fetchTasks = useCallback(async () => {
+  const fetchTasks = useCallback(async (silent = false) => {
     if (!effectiveUserId) return;
 
     const requestId = fetchRequestIdRef.current + 1;
     fetchRequestIdRef.current = requestId;
 
-    setLoading(true);
+    if (!silent) {
+      setLoading(true);
+    }
     setError("");
 
     try {
@@ -427,57 +448,60 @@ const CompanyAllTaskTasks = () => {
         },
       });
 
+      if (fetchRequestIdRef.current !== requestId) {
+        return;
+      }
+
       const nextTasks = response.data?.tasks || response.data?.data || [];
       const displayTotal = response.data?.pagination?.total || response.data?.total || nextTasks.length;
       const displayPages = response.data?.pagination?.pages || 1;
       const displayStats = normalizeStats(response.data, nextTasks);
 
-      if (fetchRequestIdRef.current !== requestId) {
-        return;
+      if (response.data?.user) {
+        setEmployee((prev) => prev || response.data.user);
       }
 
       setTasks(nextTasks);
-      setWorkSummary({
-        clockIn: null,
-        clockOut: null,
-        isClockedIn: false,
-        totalClockedSeconds: 0,
-        totalClockedLabel: "0m",
-        trackedTaskSeconds: 0,
-        trackedTaskLabel: "0m",
-        untrackedSeconds: 0,
-        untrackedLabel: "0m",
-        ...(response.data?.workSummary || {}),
-      });
+
+      if (response.data?.workSummary) {
+        setWorkSummary({
+          clockIn: null,
+          clockOut: null,
+          isClockedIn: false,
+          totalClockedSeconds: 0,
+          totalClockedLabel: "0m",
+          trackedTaskSeconds: 0,
+          trackedTaskLabel: "0m",
+          untrackedSeconds: 0,
+          untrackedLabel: "0m",
+          hasAttendance: false,
+          ...response.data.workSummary,
+        });
+      }
+
       setTotal(displayTotal);
       setTotalPages(displayPages);
-      // Status-card filtering should only change the task list. Keep the
-      // cross-status summary counts from the unfiltered response so Total and
-      // the other cards do not collapse to the selected status/zero.
+
       if (status === "all") {
         setStats(displayStats);
       }
 
-      if (nextTasks.length === 0) setTaskDetailsById({});
+      // Populate details directly from task response to eliminate extra batch API requests
+      const initialDetails = {};
+      nextTasks.forEach((task) => {
+        initialDetails[task._id] = {
+          remarks: Array.isArray(task.remarks) ? task.remarks : [],
+          activityLogs: Array.isArray(task.activityLogs) ? task.activityLogs : [],
+          loading: false,
+        };
+      });
+      setTaskDetailsById((previous) => ({
+        ...previous,
+        ...initialDetails,
+      }));
     } catch (err) {
       if (fetchRequestIdRef.current !== requestId) {
         return;
-      }
-      setTasks([]);
-      setWorkSummary({
-        clockIn: null,
-        clockOut: null,
-        isClockedIn: false,
-        totalClockedSeconds: 0,
-        totalClockedLabel: "0m",
-        trackedTaskSeconds: 0,
-        trackedTaskLabel: "0m",
-        untrackedSeconds: 0,
-        untrackedLabel: "0m",
-      });
-      setTaskDetailsById({});
-      if (status === "all") {
-        setStats(emptyStats);
       }
       setError(err?.response?.data?.message || err?.response?.data?.error || "Unable to load tasks.");
     } finally {
@@ -517,79 +541,35 @@ const CompanyAllTaskTasks = () => {
         remarks: extractRemarks(remarksPayload).length > 0
           ? extractRemarks(remarksPayload)
           : (Array.isArray(task.remarks) ? task.remarks : []),
-        activityLogs: activityPayload.logs || activityPayload.data || activityPayload.activityLogs || [],
+        activityLogs: activityPayload.logs || activityPayload.data || activityPayload.activityLogs || (Array.isArray(task.activityLogs) ? task.activityLogs : []),
       };
     } catch {
-      return { remarks: [], activityLogs: [] };
+      return { remarks: Array.isArray(task.remarks) ? task.remarks : [], activityLogs: Array.isArray(task.activityLogs) ? task.activityLogs : [] };
     }
   }, []);
-
-  const fetchVisibleTaskDetails = useCallback(async (tasksList) => {
-    if (!Array.isArray(tasksList) || tasksList.length === 0) return;
-
-    const batchSize = 4;
-    for (let index = 0; index < tasksList.length; index += batchSize) {
-      const batch = tasksList.slice(index, index + batchSize);
-      const entries = await Promise.all(
-        batch.map(async (task) => {
-          const details = await fetchTaskDetails(task);
-          return [task._id, { ...details, loading: false }];
-        })
-      );
-
-      setTaskDetailsById((previous) => ({
-        ...previous,
-        ...Object.fromEntries(entries),
-      }));
-    }
-  }, [fetchTaskDetails]);
 
   useEffect(() => {
     fetchEmployee();
   }, [fetchEmployee]);
 
   useEffect(() => {
-    const timer = setTimeout(fetchTasks, 250);
+    const timer = setTimeout(() => {
+      fetchTasks(false);
+    }, 200);
     return () => clearTimeout(timer);
   }, [fetchTasks]);
 
   useEffect(() => {
-    const handleRefresh = () => {
-      fetchTasks();
+    const handleAttendanceChange = () => {
+      fetchTasks(true);
     };
 
-    const handleVisibility = () => {
-      if (!document.hidden) {
-        fetchTasks();
-      }
-    };
-
-    window.addEventListener("focus", handleRefresh);
-    window.addEventListener("ciis-attendance-updated", handleRefresh);
-    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("ciis-attendance-updated", handleAttendanceChange);
 
     return () => {
-      window.removeEventListener("focus", handleRefresh);
-      window.removeEventListener("ciis-attendance-updated", handleRefresh);
-      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("ciis-attendance-updated", handleAttendanceChange);
     };
   }, [fetchTasks]);
-
-  useEffect(() => {
-    if (tasks.length === 0) return;
-    const missingTasks = tasks.filter((task) => !taskDetailsById[task._id]);
-    if (missingTasks.length === 0) return;
-
-    setTaskDetailsById((previous) => {
-      const next = { ...previous };
-      missingTasks.forEach((task) => {
-        next[task._id] = { remarks: [], activityLogs: [], loading: true };
-      });
-      return next;
-    });
-
-    fetchVisibleTaskDetails(missingTasks);
-  }, [fetchVisibleTaskDetails, taskDetailsById, tasks]);
 
   const filteredStats = [
     { label: "Total", value: stats.total || total || 0, status: "all", icon: FiList, color: "#2563eb" },
@@ -600,6 +580,7 @@ const CompanyAllTaskTasks = () => {
   ];
 
   const employeeName = employee?.name || currentUser?.name || tasks[0]?.assignedUsers?.[0]?.name || "Employee";
+  const hasAttendance = Boolean(workSummary?.hasAttendance);
 
   const handleReset = () => {
     setSearch("");
@@ -985,25 +966,34 @@ const CompanyAllTaskTasks = () => {
       </section>
 
       <section className="company-task-work-summary">
+        {!hasAttendance && (
+          <div className="company-task-work-summary-empty">
+            No attendance record found for the selected date. Times are hidden until clock-in data is available.
+          </div>
+        )}
         <article>
           <span>Clock In</span>
-          <strong>{workSummary?.clockIn ? formatDateTime(workSummary.clockIn) : "--"}</strong>
+          <strong>{hasAttendance ? formatTimeOrDateTime(workSummary?.clockIn, "--") : "--"}</strong>
         </article>
         <article>
           <span>Clock Out</span>
-          <strong>{workSummary?.clockOut ? formatDateTime(workSummary.clockOut) : (workSummary?.isClockedIn ? "Running" : "--")}</strong>
+          <strong>
+            {hasAttendance
+              ? (workSummary?.isClockedIn && !workSummary?.clockOut ? "Running" : formatTimeOrDateTime(workSummary?.clockOut, "--"))
+              : "--"}
+          </strong>
         </article>
         <article>
           <span>Total Clocked</span>
-          <strong>{workSummary?.totalClockedLabel || "0m"}</strong>
+          <strong>{hasAttendance ? (workSummary?.totalClockedLabel || "0m") : "--"}</strong>
         </article>
         <article>
           <span>Task Time</span>
-          <strong>{workSummary?.trackedTaskLabel || "0m"}</strong>
+          <strong>{hasAttendance ? (workSummary?.trackedTaskLabel || "0m") : "--"}</strong>
         </article>
         <article>
           <span>Untracked</span>
-          <strong>{workSummary?.untrackedLabel || "0m"}</strong>
+          <strong>{hasAttendance ? (workSummary?.untrackedLabel || "0m") : "--"}</strong>
         </article>
       </section>
 
@@ -1012,7 +1002,7 @@ const CompanyAllTaskTasks = () => {
           <div className="company-task-list-head">
             <div>
               <h2>{selectedDate === getDateInputValue() ? "Today Tasks" : "Tasks"}</h2>
-              <p>{loading ? "Loading..." : `${total} tasks found`}</p>
+              <p>{loading && tasks.length === 0 ? "Loading..." : `${total} tasks found`}</p>
             </div>
             <select value={limit} onChange={(event) => { setLimit(Number(event.target.value)); setPage(1); }}>
               <option value={10}>10 / page</option>
@@ -1021,7 +1011,7 @@ const CompanyAllTaskTasks = () => {
             </select>
           </div>
 
-          {loading ? (
+          {loading && tasks.length === 0 ? (
             <div className="company-task-loading">Loading tasks...</div>
           ) : tasks.length === 0 ? (
             <div className="company-task-empty">
@@ -1030,7 +1020,7 @@ const CompanyAllTaskTasks = () => {
               <p>Try changing filters or search text.</p>
             </div>
           ) : (
-            <div className="company-task-list">
+            <div className={`company-task-list ${loading ? "company-task-list-refreshing" : ""}`}>
               {tasks.map((task) => {
                 const displayStatus = getDisplayStatus(task);
                 const statusMeta = getStatusMeta(displayStatus);
@@ -1082,7 +1072,7 @@ const CompanyAllTaskTasks = () => {
                       </span>
                       <span>{taskType === "assigned" ? "Assigned" : "Personal"}</span>
                       <span><FiCalendar size={13} />{formatDate(getDueDate(task))}</span>
-                      <span><FiClock size={13} />Task Time: {task.workTime?.label || "0m"}</span>
+                      <span><FiClock size={13} />Task Time: {Number(task.workTime?.seconds) > 0 ? task.workTime.label : "--"}</span>
                       {isTaskEditable && (
                         <label className="company-task-status-select">
                           <span>Change Status</span>

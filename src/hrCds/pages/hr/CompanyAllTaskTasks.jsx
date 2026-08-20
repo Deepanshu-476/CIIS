@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import axios from "../../../utils/axiosConfig";
 import { getCurrentUserId, getStoredUser, getUserIds, loadPagePermission } from "../../../utils/pageAccess";
 import API_URL from "../../../config";
@@ -305,7 +305,86 @@ const normalizeStats = (payload, fallbackTasks) => {
   };
 };
 
+const COMPANY_TASK_CACHE_TTL = 10 * 60 * 1000;
+const COMPANY_TASK_CACHE_KEY_PREFIX = "ciis-company-all-task-cache-v1";
+
+const buildCompanyTaskCacheKey = ({
+  userId = "",
+  page = 1,
+  limit = 10,
+  selectedDate = "",
+  search = "",
+  status = "all",
+  priority = "all",
+}) => [
+  COMPANY_TASK_CACHE_KEY_PREFIX,
+  String(userId || ""),
+  String(page || 1),
+  String(limit || 10),
+  String(selectedDate || ""),
+  String(search || "").trim().toLowerCase(),
+  String(status || "all"),
+  String(priority || "all"),
+].join("|");
+
+const readCompanyTaskCache = (cacheKey) => {
+  if (!cacheKey || typeof window === "undefined") return null;
+
+  try {
+    const raw = sessionStorage.getItem(cacheKey);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    if (!parsed.savedAt || Date.now() - parsed.savedAt > COMPANY_TASK_CACHE_TTL) return null;
+
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const writeCompanyTaskCache = (cacheKey, snapshot) => {
+  if (!cacheKey || typeof window === "undefined") return;
+
+  try {
+    sessionStorage.setItem(cacheKey, JSON.stringify({
+      ...snapshot,
+      savedAt: Date.now(),
+    }));
+  } catch {
+    
+  }
+};
+
+const mapTaskCountsToStats = (counts = {}, fallbackTotal = 0) => {
+  const total = counts.total?.count || counts.total || fallbackTotal || 0;
+  const toStat = (value) => {
+    if (typeof value === "object") {
+      return {
+        count: value.count || 0,
+        percentage: value.percentage || 0,
+      };
+    }
+
+    return {
+      count: value || 0,
+      percentage: total > 0 ? Math.round(((value || 0) / total) * 100) : 0,
+    };
+  };
+
+  return {
+    total,
+    pending: toStat(counts.pending),
+    inProgress: toStat(counts.inProgress || counts["in-progress"]),
+    completed: toStat(counts.completed),
+    overdue: toStat(counts.overdue),
+    onhold: toStat(counts.onhold || counts.onHold),
+  };
+};
+
 const CompanyAllTaskTasks = () => {
+  const location = useLocation();
   const navigate = useNavigate();
   const { userId } = useParams();
   const [searchParams] = useSearchParams();
@@ -316,12 +395,31 @@ const CompanyAllTaskTasks = () => {
     return queryDate || getDateInputValue();
   }, [searchParams]);
 
-  const [employee, setEmployee] = useState(null);
-  const [tasks, setTasks] = useState([]);
-  const [stats, setStats] = useState(emptyStats);
-  const [workSummary, setWorkSummary] = useState(null);
-  const [taskDetailsById, setTaskDetailsById] = useState({});
-  const [loading, setLoading] = useState(true);
+  const locationStateEmployee = location.state?.employee || null;
+  const locationStateStats = location.state?.taskStats || null;
+  const locationStateSnapshot = location.state?.taskSnapshot || null;
+  const initialCacheKey = buildCompanyTaskCacheKey({
+    userId: effectiveUserId,
+    page: 1,
+    limit: 10,
+    selectedDate: initialDate,
+    search: "",
+    status: "all",
+    priority: "all",
+  });
+  const initialTaskSnapshot = locationStateSnapshot || readCompanyTaskCache(initialCacheKey);
+  const initialStats = locationStateStats ? mapTaskCountsToStats(locationStateStats, locationStateStats.total) : emptyStats;
+
+  const [employee, setEmployee] = useState(
+    locationStateEmployee
+      ? { ...locationStateEmployee, _id: locationStateEmployee._id || locationStateEmployee.id }
+      : null
+  );
+  const [tasks, setTasks] = useState(initialTaskSnapshot?.tasks || []);
+  const [stats, setStats] = useState(initialTaskSnapshot?.stats || initialStats);
+  const [workSummary, setWorkSummary] = useState(initialTaskSnapshot?.workSummary || null);
+  const [taskDetailsById, setTaskDetailsById] = useState(initialTaskSnapshot?.taskDetailsById || {});
+  const [loading, setLoading] = useState(!initialTaskSnapshot);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState(initialDate);
@@ -347,6 +445,21 @@ const CompanyAllTaskTasks = () => {
   });
   const [savingTaskId, setSavingTaskId] = useState(null);
   const fetchRequestIdRef = useRef(0);
+  const tasksRef = useRef(tasks);
+  const employeeRef = useRef(employee);
+  const taskDetailsByIdRef = useRef(taskDetailsById);
+
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
+
+  useEffect(() => {
+    employeeRef.current = employee;
+  }, [employee]);
+
+  useEffect(() => {
+    taskDetailsByIdRef.current = taskDetailsById;
+  }, [taskDetailsById]);
 
   useEffect(() => {
     if (effectiveUserId) return;
@@ -396,6 +509,9 @@ const CompanyAllTaskTasks = () => {
 
   const fetchEmployee = useCallback(async () => {
     if (!effectiveUserId) return;
+    if (locationStateEmployee && String(locationStateEmployee._id || locationStateEmployee.id || "") === String(effectiveUserId)) {
+      return;
+    }
 
     const companyId = currentUser?.company?._id || currentUser?.company;
     const departmentId = currentUser?.department?._id || currentUser?.department;
@@ -420,15 +536,52 @@ const CompanyAllTaskTasks = () => {
     if (currentUser && String(currentUser._id || currentUser.id || "") === String(effectiveUserId)) {
       setEmployee({ ...currentUser, _id: currentUser._id || currentUser.id });
     }
-  }, [currentUser, effectiveUserId]);
+  }, [currentUser, effectiveUserId, locationStateEmployee]);
 
   const fetchTasks = useCallback(async (silent = false) => {
     if (!effectiveUserId) return;
 
     const requestId = fetchRequestIdRef.current + 1;
     fetchRequestIdRef.current = requestId;
+    const cacheKey = buildCompanyTaskCacheKey({
+      userId: effectiveUserId,
+      page,
+      limit,
+      selectedDate,
+      search,
+      status,
+      priority,
+    });
+    const cachedTaskSnapshot = readCompanyTaskCache(cacheKey);
+    const shouldShowLoading = !silent && !cachedTaskSnapshot && tasksRef.current.length === 0;
 
-    if (!silent) {
+    if (cachedTaskSnapshot) {
+      if (cachedTaskSnapshot.employee) {
+        setEmployee((prev) => prev || {
+          ...cachedTaskSnapshot.employee,
+          _id: cachedTaskSnapshot.employee._id || cachedTaskSnapshot.employee.id,
+        });
+      }
+      if (Array.isArray(cachedTaskSnapshot.tasks)) {
+        setTasks(cachedTaskSnapshot.tasks);
+      }
+      if (cachedTaskSnapshot.stats) {
+        setStats(cachedTaskSnapshot.stats);
+      }
+      if (cachedTaskSnapshot.workSummary) {
+        setWorkSummary(cachedTaskSnapshot.workSummary);
+      }
+      if (cachedTaskSnapshot.taskDetailsById) {
+        setTaskDetailsById(cachedTaskSnapshot.taskDetailsById);
+      }
+      if (typeof cachedTaskSnapshot.total === "number") {
+        setTotal(cachedTaskSnapshot.total);
+      }
+      if (typeof cachedTaskSnapshot.totalPages === "number") {
+        setTotalPages(cachedTaskSnapshot.totalPages);
+      }
+      setLoading(false);
+    } else if (shouldShowLoading) {
       setLoading(true);
     }
     setError("");
@@ -499,6 +652,19 @@ const CompanyAllTaskTasks = () => {
         ...previous,
         ...initialDetails,
       }));
+
+      writeCompanyTaskCache(cacheKey, {
+        employee: response.data?.user || cachedTaskSnapshot?.employee || employeeRef.current || null,
+        tasks: nextTasks,
+        stats: displayStats,
+        workSummary: response.data?.workSummary || null,
+        taskDetailsById: {
+          ...(cachedTaskSnapshot?.taskDetailsById || taskDetailsByIdRef.current || {}),
+          ...initialDetails,
+        },
+        total: displayTotal,
+        totalPages: displayPages,
+      });
     } catch (err) {
       if (fetchRequestIdRef.current !== requestId) {
         return;

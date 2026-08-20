@@ -100,6 +100,50 @@ const emptyTaskStats = {
   cancelled: 0
 };
 
+const EMP_USERS_CACHE_TTL = 10 * 60 * 1000;
+const EMP_USERS_CACHE_KEY_PREFIX = "ciis-emp-all-task-users-cache-v1";
+
+const buildEmpUsersCacheKey = ({
+  branchId = "",
+  fromDate = "",
+  toDate = "",
+}) => [
+  EMP_USERS_CACHE_KEY_PREFIX,
+  String(branchId || ""),
+  String(fromDate || ""),
+  String(toDate || ""),
+].join("|");
+
+const readEmpUsersCache = (cacheKey) => {
+  if (!cacheKey || typeof window === "undefined") return null;
+
+  try {
+    const raw = sessionStorage.getItem(cacheKey);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    if (!parsed.savedAt || Date.now() - parsed.savedAt > EMP_USERS_CACHE_TTL) return null;
+
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const writeEmpUsersCache = (cacheKey, snapshot) => {
+  if (!cacheKey || typeof window === "undefined") return;
+
+  try {
+    sessionStorage.setItem(cacheKey, JSON.stringify({
+      ...snapshot,
+      savedAt: Date.now(),
+    }));
+  } catch {
+    
+  }
+};
+
 const TASK_STAT_KEYS = ['pending', 'inProgress', 'completed', 'rejected', 'overdue', 'onhold', 'reopen', 'cancelled'];
 
 const isObjectIdLike = value => /^[a-f\d]{24}$/i.test(String(value || '').trim());
@@ -401,13 +445,19 @@ const TaskDetails = () => {
 
   const openUserTasksPage = useCallback((userId) => {
     if (!userId) return;
+    const selectedUser = users.find((user) => String(user._id || user.id) === String(userId));
     const params = new URLSearchParams();
     const selectedDate = globalFromDate || globalToDate;
     if (selectedDate) params.set('date', selectedDate);
     if (selectedBranchId) params.set('branchId', selectedBranchId);
     const query = params.toString() ? `?${params.toString()}` : '';
-    navigate(`/ciisUser/company-all-task/tasks/${userId}${query}`);
-  }, [globalFromDate, globalToDate, navigate, selectedBranchId]);
+    navigate(`/ciisUser/company-all-task/tasks/${userId}${query}`, {
+      state: {
+        employee: selectedUser ? { ...selectedUser, _id: selectedUser._id || selectedUser.id } : null,
+        taskStats: selectedUser?.taskStats || null,
+      },
+    });
+  }, [globalFromDate, globalToDate, navigate, selectedBranchId, users]);
 
   
   useEffect(() => {
@@ -987,7 +1037,29 @@ const TaskDetails = () => {
     fetchUsersTimeoutRef.current = setTimeout(async () => {
       if (!isMounted.current) return;
 
-      setUsersLoading(true);
+      const cacheKey = buildEmpUsersCacheKey({
+        branchId: selectedBranchId,
+        fromDate: globalFromDate,
+        toDate: globalToDate,
+      });
+      const cachedUsersSnapshot = readEmpUsersCache(cacheKey);
+      const shouldShowLoading = !cachedUsersSnapshot;
+
+      if (cachedUsersSnapshot) {
+        if (Array.isArray(cachedUsersSnapshot.users)) {
+          setUsers(cachedUsersSnapshot.users);
+        }
+        if (cachedUsersSnapshot.overallStats) {
+          setOverallStats(cachedUsersSnapshot.overallStats);
+        }
+        if (cachedUsersSnapshot.systemStats) {
+          setSystemStats(cachedUsersSnapshot.systemStats);
+        }
+        setUsersLoading(false);
+      } else {
+        setUsersLoading(true);
+      }
+
       setError("");
 
       try {
@@ -1051,7 +1123,6 @@ const TaskDetails = () => {
         if (isMounted.current) {
           setUsers(filteredUsers);
           calculateOverallStats(filteredUsers);
-          setUsersLoading(false);
         }
 
         const requestId = usersFetchRequestRef.current + 1;
@@ -1091,6 +1162,42 @@ const TaskDetails = () => {
           if (isMounted.current && usersFetchRequestRef.current === requestId) {
             setUsers(usersWithStats);
             calculateOverallStats(usersWithStats);
+            const totalTasks = usersWithStats.reduce((sum, user) => sum + (user?.taskStats?.total || 0), 0);
+            const totalCompleted = usersWithStats.reduce((sum, user) => sum + (user?.taskStats?.completed || 0), 0);
+            const totalPending = usersWithStats.reduce((sum, user) => sum + (user?.taskStats?.pending || 0), 0);
+            const totalInProgress = usersWithStats.reduce((sum, user) => sum + (user?.taskStats?.inProgress || 0), 0);
+            const totalRejected = usersWithStats.reduce((sum, user) => sum + (user?.taskStats?.rejected || 0), 0);
+            const totalOverdue = usersWithStats.reduce((sum, user) => sum + (user?.taskStats?.overdue || 0), 0);
+            const totalOnHold = usersWithStats.reduce((sum, user) => sum + (user?.taskStats?.onhold || 0), 0);
+            const totalReopen = usersWithStats.reduce((sum, user) => sum + (user?.taskStats?.reopen || 0), 0);
+            const totalCancelled = usersWithStats.reduce((sum, user) => sum + (user?.taskStats?.cancelled || 0), 0);
+
+            writeEmpUsersCache(cacheKey, {
+              users: usersWithStats,
+              overallStats: {
+                total: totalTasks,
+                pending: totalPending,
+                "in-progress": totalInProgress,
+                completed: totalCompleted,
+                rejected: totalRejected,
+                overdue: totalOverdue,
+                onhold: totalOnHold,
+                reopen: totalReopen,
+                cancelled: totalCancelled,
+              },
+              systemStats: {
+                totalEmployees: usersWithStats.length,
+                totalTasks,
+                avgCompletion: usersWithStats.length > 0
+                  ? Math.round(
+                      totalCompleted /
+                      Math.max(totalTasks, 1) * 100
+                    )
+                  : 0,
+                pendingTasks: totalPending,
+                activeEmployees: usersWithStats.reduce((sum, user) => sum + ((user?.taskStats?.total || 0) > 0 ? 1 : 0), 0),
+              },
+            });
           }
         } catch (err) {
           void 0;
@@ -1099,24 +1206,26 @@ const TaskDetails = () => {
       } catch (err) {
         console.error("❌ Error fetching users with tasks:", err);
 
-        if (err.response?.status === 401) {
-          setError("You are not authorized to load this data.");
-        } else if (err.response?.status === 403) {
-          setError("You don't have permission to access this page.");
-        } else {
-          setError(
-            err?.response?.data?.error ||
-            err?.response?.data?.message ||
-            "Unable to load employee data. Please try again."
-          );
-        }
+        if (!cachedUsersSnapshot) {
+          if (err.response?.status === 401) {
+            setError("You are not authorized to load this data.");
+          } else if (err.response?.status === 403) {
+            setError("You don't have permission to access this page.");
+          } else {
+            setError(
+              err?.response?.data?.error ||
+              err?.response?.data?.message ||
+              "Unable to load employee data. Please try again."
+            );
+          }
 
-        if (isMounted.current) {
-          setUsers([]);
-          calculateOverallStats([]);
+          if (isMounted.current) {
+            setUsers([]);
+            calculateOverallStats([]);
+          }
         }
       } finally {
-        if (isMounted.current) {
+        if (isMounted.current && shouldShowLoading) {
           setUsersLoading(false);
         }
       }

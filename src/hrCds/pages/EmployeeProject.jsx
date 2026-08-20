@@ -586,12 +586,15 @@ const EmployeeProject = () => {
       const cachedProjects = readProjectCache(cacheKey);
       if (cachedProjects) {
         setProjects(cachedProjects);
+        return;
       }
 
       const res = await axios.get("/projects", {
         params: {
           companyCode,
           companyIdentifier: companyIdentifier || undefined,
+          summary: 1,
+          limit: 100,
           ...branchQueryParams
         }
       });
@@ -1783,7 +1786,7 @@ const EmployeeProject = () => {
                     />
                     <Chip
                       icon={<Icons.Group />}
-                      label={`${p.users?.length || 0}`}
+                      label={`${p.userCount ?? p.users?.length ?? 0}`}
                       variant="outlined"
                     />
 	                    <Chip

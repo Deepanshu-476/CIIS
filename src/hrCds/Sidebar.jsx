@@ -55,6 +55,26 @@ import { getProfileCompletion } from './utils/profileCompletion';
 const drawerWidthOpen = 224;
 const drawerWidthClosed = 70;
 const BADGE_REFRESH_INTERVAL = 120000;
+const BADGE_CACHE_TTL = 120000;
+const getBadgeCacheKey = userId => `ciis-sidebar-badges-cache:${userId || 'anonymous'}`;
+
+const readBadgeCache = userId => {
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(getBadgeCacheKey(userId)) || 'null');
+    if (!cached || !cached.counts || Date.now() - cached.savedAt >= BADGE_CACHE_TTL) return null;
+    return cached.counts;
+  } catch {
+    return null;
+  }
+};
+
+const writeBadgeCache = (userId, counts) => {
+  try {
+    sessionStorage.setItem(getBadgeCacheKey(userId), JSON.stringify({ counts, savedAt: Date.now() }));
+  } catch {
+    // Session storage may be unavailable in restricted browser modes.
+  }
+};
 
 const flattenGroupedRecords = grouped => (
   grouped && typeof grouped === 'object'
@@ -1189,7 +1209,11 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       )).length;
     }
 
-    setMenuBadgeCounts(current => ({ ...current, ...nextCounts }));
+    setMenuBadgeCounts(current => {
+      const mergedCounts = { ...current, ...nextCounts };
+      writeBadgeCache(userId, mergedCounts);
+      return mergedCounts;
+    });
   }, [userId]);
 
   const badgeSeenStorageKey = useMemo(() => {
@@ -1233,7 +1257,13 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   useEffect(() => {
     if (!userData || isAlertsPage) return undefined;
 
-    fetchMenuBadgeCounts();
+    const cachedCounts = readBadgeCache(userId);
+    if (cachedCounts) {
+      setMenuBadgeCounts(current => ({ ...current, ...cachedCounts }));
+    } else {
+      fetchMenuBadgeCounts();
+    }
+
     const refreshBadges = () => fetchMenuBadgeCounts();
     window.addEventListener('ciis-sidebar-badges-refresh', refreshBadges);
 

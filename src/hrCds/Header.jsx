@@ -34,6 +34,8 @@ import Swal from "sweetalert2";
 import { openNotificationRoute } from "../../src/utils/notificationNavigation";
 import { preloadRouteChunk } from "../../src/utils/routePreloader";
 
+const UNREAD_COUNT_CACHE_TTL = 30000;
+
 const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
   const { user } = useAuth();
 
@@ -68,6 +70,28 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
 
   const getDismissedNotificationKey = () =>
     `dismissedNotifications:${user?._id || user?.id || "anonymous"}`;
+
+  const getUnreadCountCacheKey = () =>
+    `unreadCountCache:${user?._id || user?.id || "anonymous"}`;
+
+  const readUnreadCountCache = () => {
+    try {
+      const cached = JSON.parse(localStorage.getItem(getUnreadCountCacheKey()) || "null");
+      if (!cached || Date.now() - cached.savedAt >= UNREAD_COUNT_CACHE_TTL) return null;
+      return Number(cached.count) || 0;
+    } catch {
+      return null;
+    }
+  };
+
+  const writeUnreadCountCache = (count) => {
+    try {
+      localStorage.setItem(getUnreadCountCacheKey(), JSON.stringify({ count, savedAt: Date.now() }));
+      localStorage.setItem("unreadCount", count);
+    } catch {
+      // Local storage can be unavailable in restricted browser modes.
+    }
+  };
 
   const readDismissedNotificationIds = () => {
     try {
@@ -141,6 +165,13 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
     if (!token) return;
 
     const now = Date.now();
+    const cachedCount = !force ? readUnreadCountCache() : null;
+    if (cachedCount !== null) {
+      setLocalUnreadCount(cachedCount);
+      setHasFetched(true);
+      return;
+    }
+
     if (!force && (unreadFetchInFlightRef.current || now - lastUnreadFetchAtRef.current < 30000)) {
       return;
     }
@@ -154,7 +185,8 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
       
       const count = response.data?.data?.unreadCount || 0;
       setLocalUnreadCount(count);
-      localStorage.setItem('unreadCount', count);
+      writeUnreadCountCache(count);
+      setHasFetched(true);
       void 0;
       
     } catch (err) {
@@ -245,7 +277,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
     }
 
     if (!hasFetched) {
-      fetchUnreadCount(true);
+      fetchUnreadCount(false);
     }
 
     return () => {

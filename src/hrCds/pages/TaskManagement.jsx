@@ -398,6 +398,74 @@ const readStoredObject = (key) => {
   }
 };
 
+const taskFeatureAliases = {
+  project: ['adminproject', 'manage-projects', 'manage projects', 'ciisuser/adminproject'],
+  client: ['emp-client', 'client', 'client-management', 'client management', 'active-clients', 'ciisuser/emp-client'],
+};
+
+const normalizeAccessKey = value => String(value || '')
+  .trim()
+  .replace(/^\/+/, '')
+  .replace(/^ciisuser\//i, '')
+  .toLowerCase();
+
+const getAccessKeysFromItem = item => {
+  if (!item) return [];
+  if (typeof item === 'string') return [normalizeAccessKey(item)];
+  return [
+    item.id,
+    item.key,
+    item.path,
+    item.name,
+    item.label,
+    item.webPage,
+    item.appScreen,
+  ].map(normalizeAccessKey).filter(Boolean);
+};
+
+const hasAnyAccessKey = (keys, aliases) => aliases.some(alias => keys.has(normalizeAccessKey(alias)));
+
+const getTaskFeatureAccessFromStorage = () => {
+  const user = readStoredObject('user');
+  const companyDetails = readStoredObject('companyDetails');
+  const company = readStoredObject('company');
+  const sidebarConfig = readStoredObject('sidebarConfig');
+  const planPages = [
+    ...(Array.isArray(companyDetails.allowedPages) ? companyDetails.allowedPages : []),
+    ...(Array.isArray(company.allowedPages) ? company.allowedPages : []),
+    ...(Array.isArray(user.allowedPages) ? user.allowedPages : []),
+    ...(Array.isArray(user.company?.allowedPages) ? user.company.allowedPages : []),
+    ...(Array.isArray(user.companyDetails?.allowedPages) ? user.companyDetails.allowedPages : []),
+  ];
+  const sidebarItems = Array.isArray(sidebarConfig.menuItems) ? sidebarConfig.menuItems : [];
+  const sourceItems = planPages.length ? planPages : sidebarItems;
+  if (!sourceItems.length) return { project: true, client: true };
+
+  const keys = new Set(sourceItems.flatMap(getAccessKeysFromItem));
+  return {
+    project: hasAnyAccessKey(keys, taskFeatureAliases.project),
+    client: hasAnyAccessKey(keys, taskFeatureAliases.client),
+  };
+};
+
+const getSourceForPlanAccess = task => (
+  task?.__taskSource || task?.taskSource || task?.source || (task?.projectId ? 'project' : task?.clientId || task?.isClientTask ? 'client' : '')
+);
+
+const filterGroupedTasksByFeatureAccess = (grouped, access) => {
+  const filtered = {};
+  Object.entries(grouped || {}).forEach(([key, tasks]) => {
+    const nextTasks = (tasks || []).filter(task => {
+      const source = String(getSourceForPlanAccess(task)).toLowerCase();
+      if (source === 'project') return access.project;
+      if (source === 'client') return access.client;
+      return true;
+    });
+    if (nextTasks.length) filtered[key] = nextTasks;
+  });
+  return filtered;
+};
+
 const firstNonEmptyString = (values) => (
   values.map(value => String(value || '').trim()).find(Boolean) || ''
 );
@@ -662,10 +730,22 @@ const UserCreateTask = () => {
   
   
   const [taskViewMode, setTaskViewMode] = useState('all');
+  const [taskFeatureAccess, setTaskFeatureAccess] = useState(() => getTaskFeatureAccessFromStorage());
 
   const [statusFilter, setStatusFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+  useEffect(() => {
+    setTaskFeatureAccess(getTaskFeatureAccessFromStorage());
+  }, []);
+
+  useEffect(() => {
+    if ((taskViewMode === 'project' && !taskFeatureAccess.project) || (taskViewMode === 'client' && !taskFeatureAccess.client)) {
+      setTaskViewMode('all');
+      setStatusFilter('');
+    }
+  }, [taskFeatureAccess, taskViewMode]);
   
   
   const [taskStats, setTaskStats] = useState({
@@ -1572,30 +1652,16 @@ const UserCreateTask = () => {
     };
   }, [getStatusForTask, getDueDateForTask, isOverdue]);
 
-  const mergeGroupedTasks = useCallback((...groups) => {
-    const mergedById = new Map();
-    const tasksWithoutId = [];
-
-    groups.forEach(group => {
-      Object.values(group || {}).forEach(dateTasks => {
-        (dateTasks || []).forEach(task => {
-          const taskId = task?._id || task?.id;
-          const taskSource = task?.__taskSource || task?.taskSource || task?.source || 'task';
-          if (taskId) {
-            mergedById.set(`${taskSource}:${taskId}`, task);
-          } else if (task) {
-            tasksWithoutId.push(task);
-          }
-        });
-      });
-    });
-
-    return groupTasksByDate([...mergedById.values(), ...tasksWithoutId]);
-  }, [groupTasksByDate]);
-
-  const combinedTasksGrouped = useMemo(() => {
-    return mergeGroupedTasks(myTasksGrouped, assignedToMeTasksGrouped, clientTasksGrouped, projectTasksGrouped);
-  }, [mergeGroupedTasks, myTasksGrouped, assignedToMeTasksGrouped, clientTasksGrouped, projectTasksGrouped]);
+  const visibleAllTasksGrouped = useMemo(
+    () => filterGroupedTasksByFeatureAccess(allTasksGrouped, taskFeatureAccess),
+    [allTasksGrouped, taskFeatureAccess],
+  );
+  const visibleAllTasksStatsGrouped = useMemo(
+    () => filterGroupedTasksByFeatureAccess(allTasksStatsGrouped, taskFeatureAccess),
+    [allTasksStatsGrouped, taskFeatureAccess],
+  );
+  const visibleClientTasksGrouped = taskFeatureAccess.client ? clientTasksGrouped : {};
+  const visibleProjectTasksGrouped = taskFeatureAccess.project ? projectTasksGrouped : {};
 
   const selectedClient = useMemo(() => {
     return clients.find(client => String(client._id || client.id) === String(selectedClientId)) || null;
@@ -1834,18 +1900,18 @@ const UserCreateTask = () => {
 
   const getActiveTasksGrouped = useCallback(() => {
     if (taskViewMode === 'all') {
-      return allTasksGrouped;
+      return visibleAllTasksGrouped;
     }
     if (taskViewMode === 'self') return myTasksGrouped;
-    if (taskViewMode === 'client') return clientTasksGrouped;
-    if (taskViewMode === 'project') return projectTasksGrouped;
+    if (taskViewMode === 'client') return visibleClientTasksGrouped;
+    if (taskViewMode === 'project') return visibleProjectTasksGrouped;
     return assignedToMeTasksGrouped;
-  }, [taskViewMode, allTasksGrouped, combinedTasksGrouped, myTasksGrouped, clientTasksGrouped, projectTasksGrouped, assignedToMeTasksGrouped, mergeGroupedTasks]);
+  }, [taskViewMode, visibleAllTasksGrouped, myTasksGrouped, visibleClientTasksGrouped, visibleProjectTasksGrouped, assignedToMeTasksGrouped]);
 
   const getStatsTasksGrouped = useCallback(() => {
-    if (taskViewMode === 'all') return allTasksStatsGrouped;
+    if (taskViewMode === 'all') return visibleAllTasksStatsGrouped;
     return getActiveTasksGrouped();
-  }, [taskViewMode, allTasksStatsGrouped, getActiveTasksGrouped]);
+  }, [taskViewMode, visibleAllTasksStatsGrouped, getActiveTasksGrouped]);
 
   
   const enrichAssignedTasks = useCallback((tasks) => {
@@ -4269,7 +4335,7 @@ const UserCreateTask = () => {
             </div>
           )}
 
-          {taskViewMode === 'client' && (
+          {taskViewMode === 'client' && taskFeatureAccess.client && (
             <div className={`user-create-task-header-actions ${isMobile ? 'user-create-task-flex-row user-create-task-justify-between' : ''}`}>
               <button
                 className="user-create-task-button user-create-task-button-contained"
@@ -4282,7 +4348,7 @@ const UserCreateTask = () => {
             </div>
           )}
 
-          {taskViewMode === 'project' && (
+          {taskViewMode === 'project' && taskFeatureAccess.project && (
             <div className={`user-create-task-header-actions ${isMobile ? 'user-create-task-flex-row user-create-task-justify-between' : ''}`}>
               <button
                 className="user-create-task-button user-create-task-button-contained"
@@ -4317,8 +4383,8 @@ const UserCreateTask = () => {
             >
               <FiGlobe size={16} />
               All Tasks
-              {taskViewMode === 'all' && allTasksPagination.total > 0 && (
-                <span className="view-toggle-count">{allTasksPagination.total}</span>
+              {taskViewMode === 'all' && countGroupedTasks(visibleAllTasksGrouped) > 0 && (
+                <span className="view-toggle-count">{countGroupedTasks(visibleAllTasksGrouped)}</span>
               )}
             </button>
             <button
@@ -4341,26 +4407,30 @@ const UserCreateTask = () => {
                 <span className="view-toggle-count">{countGroupedTasks(assignedToMeTasksGrouped)}</span>
               )}
             </button>
-            <button
-              className={`user-create-task-view-toggle-btn ${taskViewMode === 'client' ? 'active' : ''}`}
-              onClick={() => handleViewModeChange('client')}
-            >
-              <FiUsers size={16} />
-              Client Tasks
-              {taskViewMode === 'client' && Object.keys(clientTasksGrouped).length > 0 && (
-                <span className="view-toggle-count">{countGroupedTasks(clientTasksGrouped)}</span>
-              )}
-            </button>
-            <button
-              className={`user-create-task-view-toggle-btn ${taskViewMode === 'project' ? 'active' : ''}`}
-              onClick={() => handleViewModeChange('project')}
-            >
-              <FiTarget size={16} />
-              Project Tasks
-              {taskViewMode === 'project' && Object.keys(projectTasksGrouped).length > 0 && (
-                <span className="view-toggle-count">{countGroupedTasks(projectTasksGrouped)}</span>
-              )}
-            </button>
+            {taskFeatureAccess.client && (
+              <button
+                className={`user-create-task-view-toggle-btn ${taskViewMode === 'client' ? 'active' : ''}`}
+                onClick={() => handleViewModeChange('client')}
+              >
+                <FiUsers size={16} />
+                Client Tasks
+                {taskViewMode === 'client' && Object.keys(visibleClientTasksGrouped).length > 0 && (
+                  <span className="view-toggle-count">{countGroupedTasks(visibleClientTasksGrouped)}</span>
+                )}
+              </button>
+            )}
+            {taskFeatureAccess.project && (
+              <button
+                className={`user-create-task-view-toggle-btn ${taskViewMode === 'project' ? 'active' : ''}`}
+                onClick={() => handleViewModeChange('project')}
+              >
+                <FiTarget size={16} />
+                Project Tasks
+                {taskViewMode === 'project' && Object.keys(visibleProjectTasksGrouped).length > 0 && (
+                  <span className="view-toggle-count">{countGroupedTasks(visibleProjectTasksGrouped)}</span>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>

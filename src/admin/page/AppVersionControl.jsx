@@ -25,6 +25,7 @@ const defaultPlatform = {
   latestVersionCode: 1,
   minimumVersionCode: 1,
   forceUpdate: false,
+  updateEnabled: true,
   title: 'New Update Available',
   message: '',
   storeUrl: '',
@@ -79,9 +80,15 @@ const normalizeSettings = (settings = {}) => ({
 const VersionStatus = ({ platform, data }) => {
   const copy = platformCopy[platform];
   const isForced = data.forceUpdate === true;
+  const isEnabled = data.updateEnabled !== false;
 
   return (
     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+      <Chip
+        size="small"
+        color={isEnabled ? 'primary' : 'default'}
+        label={isEnabled ? 'Popup ON' : 'Popup OFF'}
+      />
       <Chip
         size="small"
         color={isForced ? 'error' : 'success'}
@@ -154,6 +161,16 @@ const PlatformCard = ({ platform, value, onChange }) => {
             onChange={(event) => updateField('storeId', event.target.value)}
             size="small"
             disabled={platform === 'android'}
+          />
+          <FormControlLabel
+            sx={{ m: 0, alignSelf: 'center' }}
+            control={
+              <Switch
+                checked={value.updateEnabled !== false}
+                onChange={(event) => updateField('updateEnabled', event.target.checked)}
+              />
+            }
+            label="Popup Enabled"
           />
           <FormControlLabel
             sx={{ m: 0, alignSelf: 'center' }}
@@ -272,7 +289,7 @@ function AppVersionControl() {
         {(loading || saving) && <LinearProgress />}
 
         <Alert severity="info">
-          Users ke phone par popup app ke next version check par update ho jayega. Current old mobile build me popup avoid karne ke liye Latest Build/Code ko current se same ya neeche rakho.
+          Popup Enabled OFF karne par us platform par update popup bilkul band rahega. Force Update sirf popup ko mandatory banata hai.
         </Alert>
 
         <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, p: 2 }}>

@@ -28,26 +28,25 @@ import "./PageManagement.css";
 const FALLBACK_PAGES = [
   { pageKey: "emp-details", name: "Employee Details", path: "/ciisUser/emp-details", permissionPattern: "viewEdit" },
   { pageKey: "emp-leaves", name: "Employee Leaves", path: "/ciisUser/emp-leaves", permissionPattern: "approveReject" },
+  { pageKey: "leave-policy", name: "Leave Policy", path: "/ciisUser/leave-policy", permissionPattern: "viewEdit" },
   { pageKey: "emp-assets", name: "Employee Assets", path: "/ciisUser/emp-assets", permissionPattern: "approveReject" },
   { pageKey: "emp-attendance", name: "Employee Attendance", path: "/ciisUser/emp-attendance", permissionPattern: "viewEdit" },
+  { pageKey: "department", name: "Department Management", path: "/ciisUser/department", permissionPattern: "viewEdit" },
+  { pageKey: "JobRoleManagement", name: "Job Role Management", path: "/ciisUser/JobRoleManagement", permissionPattern: "viewEdit" },
   { pageKey: "manage-groups", name: "Manage Groups", path: "/ciisUser/manage-groups", permissionPattern: "viewEdit" },
   { pageKey: "company-all-task", name: "Company All Task", path: "/ciisUser/company-all-task", permissionPattern: "viewEdit" },
-  { pageKey: "department", name: "Department", path: "/ciisUser/department", permissionPattern: "viewEdit" },
-  { pageKey: "JobRoleManagement", name: "Job Role Management", path: "/ciisUser/JobRoleManagement", permissionPattern: "viewEdit" },
-  { pageKey: "SidebarManagement", name: "Sidebar Management", path: "/ciisUser/SidebarManagement", permissionPattern: "viewEdit" },
 ];
 
 const ICON_MAP = {
   "emp-details": PersonOutline,
   "emp-leaves": CalendarMonthOutlined,
+  "leave-policy": DescriptionOutlined,
   "emp-assets": WorkOutline,
   "emp-attendance": DashboardCustomizeOutlined,
-  "manage-groups": GroupsOutlined,
-  "company-all-task": ViewColumnOutlined,
   department: InsightsOutlined,
   JobRoleManagement: AssignmentIndOutlined,
-  SidebarManagement: LockOutlined,
-  "leave-policy": DescriptionOutlined,
+  "manage-groups": GroupsOutlined,
+  "company-all-task": ViewColumnOutlined,
 };
 
 const getRecordId = (value) => {
@@ -267,11 +266,7 @@ const getRoleDisplayName = (value, jobRoleNameById) => {
 const getUserRoleTokens = (user, jobRoleNameById) => {
   const rawValues = [
     user?.jobRole,
-    user?.companyRole,
-    user?.role,
     user?.jobRoleName,
-    user?.roleName,
-    user?.designation,
   ];
 
   const tokens = new Set();

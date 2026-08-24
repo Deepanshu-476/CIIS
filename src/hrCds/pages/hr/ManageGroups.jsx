@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../../context/useAuth";
-import { getCurrentUserId, getStoredUser, getUserIds, loadPagePermission } from "../../../utils/pageAccess";
+import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission } from "../../../utils/pageAccess";
 import {
   Box,
   Button,
@@ -154,13 +154,13 @@ const ManageGroups = () => {
 
         const currentUserId = getCurrentUserId();
         const currentUser = getStoredUser();
-        const viewUserIds = getUserIds(page.viewUsers);
-        const editUserIds = getUserIds(page.editUsers);
+        const viewUserIds = getPageAccessUserIds(page, 'view');
+        const editUserIds = getPageAccessUserIds(page, 'edit');
         const configuredIds = [
-          ...getUserIds(page.approvers),
+          ...getPageAccessUserIds(page, 'approve'),
           ...viewUserIds,
           ...editUserIds,
-          ...getUserIds(page.deleteUsers)
+          ...getPageAccessUserIds(page, 'delete')
         ];
         const hasConfig = configuredIds.length > 0;
         const fallbackRole = String(currentUser?.jobRole || currentUser?.companyRole || currentUser?.role || "").toLowerCase();

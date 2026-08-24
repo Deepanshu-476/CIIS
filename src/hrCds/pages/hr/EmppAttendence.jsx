@@ -6,7 +6,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import CIISLoader from '../../../Loader/CIISLoader'; 
 import PageBranchDropdown, { usePageBranchScope } from '../../components/PageBranchDropdown';
-import { getCurrentUserId, getStoredUser, getUserIds, loadPagePermission } from '../../../utils/pageAccess';
+import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission } from '../../../utils/pageAccess';
 
 import {
   FiCalendar,
@@ -1238,13 +1238,13 @@ const EmployeeAttendance = () => {
 
         const currentUserIdValue = getCurrentUserId();
         const currentUser = getStoredUser();
-        const viewUserIds = getUserIds(page.viewUsers);
-        const editUserIds = getUserIds(page.editUsers);
+        const viewUserIds = getPageAccessUserIds(page, 'view');
+        const editUserIds = getPageAccessUserIds(page, 'edit');
         const configuredIds = [
-          ...getUserIds(page.approvers),
+          ...getPageAccessUserIds(page, 'approve'),
           ...viewUserIds,
           ...editUserIds,
-          ...getUserIds(page.deleteUsers)
+          ...getPageAccessUserIds(page, 'delete')
         ];
         const hasPermissionConfig = configuredIds.length > 0;
         const fallbackRole = String(currentUser?.jobRole || currentUser?.companyRole || currentUser?.role || '')

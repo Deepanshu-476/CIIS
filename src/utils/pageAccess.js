@@ -35,6 +35,37 @@ export const getUserIds = (items = []) => {
   return [...new Set(list.map(normalizeUserId).filter(Boolean))];
 };
 
+const ACCESS_FIELD_BY_TYPE = {
+  view: 'viewUsers',
+  edit: 'editUsers',
+  delete: 'deleteUsers',
+  approve: 'approvers'
+};
+
+export const getPageAccessUserIds = (page, accessType = 'view') => {
+  const type = String(accessType || 'view').trim().toLowerCase();
+  const field = ACCESS_FIELD_BY_TYPE[type] || ACCESS_FIELD_BY_TYPE.view;
+  const directIds = getUserIds(page?.[field]);
+  const scopedIds = (Array.isArray(page?.userAccessScopes) ? page.userAccessScopes : [])
+    .filter(scope => String(scope?.accessType || '').trim().toLowerCase() === type)
+    .map(scope => scope?.user);
+
+  return getUserIds([...directIds, ...scopedIds]);
+};
+
+export const hasConfiguredPageAccess = (page) => [
+  'view',
+  'edit',
+  'delete',
+  'approve'
+].some(accessType => getPageAccessUserIds(page, accessType).length > 0);
+
+export const hasPageAccess = (page, userId, accessType = 'view') => {
+  const normalizedUserId = normalizeUserId(userId);
+  if (!normalizedUserId) return false;
+  return getPageAccessUserIds(page, accessType).includes(normalizedUserId);
+};
+
 export const loadPagePermission = async (path) => {
   const cacheKey = String(path || "").trim().toLowerCase();
   const cached = pagePermissionCache.get(cacheKey);

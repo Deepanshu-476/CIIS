@@ -255,7 +255,7 @@ const CiisNavbar = ({ onBookDemo }) => {
             <form onSubmit={loginMode === 'forgot' ? submitForgotPassword : loginMode === 'verify-reset-otp' ? submitResetOtpVerification : loginMode === 'reset' ? submitPasswordReset : otpState.required ? verifyOtp : submitLogin} noValidate>
               {loginErrors.general && <div className="nav-login-alert" role="alert">{loginErrors.general}</div>}
               {loginMode === 'forgot' ? <div className="nav-login-otp">
-                <div className="nav-login-control"><label htmlFor="nav-reset-company">Company Code</label><div className={`nav-login-field ${loginErrors.companyCode ? 'error' : ''}`}><FiBriefcase /><input id="nav-reset-company" name="companyCode" value={loginForm.companyCode} onChange={updateLoginField} placeholder="e.g., CAREER" autoFocus /></div>{loginErrors.companyCode && <small>{loginErrors.companyCode}</small>}</div>
+                <div className="nav-login-control"><label htmlFor="nav-reset-company">Company Code</label><div className={`nav-login-field ${loginErrors.companyCode ? 'error' : ''}`}><FiBriefcase /><input id="nav-reset-company" name="companyCode" value={loginForm.companyCode} onChange={updateLoginField} autoFocus /></div>{loginErrors.companyCode && <small>{loginErrors.companyCode}</small>}</div>
                 <div className="nav-login-control"><label htmlFor="nav-reset-email">Email Address</label><div className={`nav-login-field ${loginErrors.resetEmail ? 'error' : ''}`}><FiMail /><input id="nav-reset-email" type="email" value={resetForm.email || loginForm.email} onChange={(event) => { setResetForm((current) => ({ ...current, email: event.target.value.toLowerCase().replace(/\s/g, '') })); setLoginErrors({}); }} placeholder="name@company.com" autoComplete="email" /></div>{loginErrors.resetEmail && <small>{loginErrors.resetEmail}</small>}</div>
                 <button type="submit" className="nav-login-submit" disabled={loginLoading}>{loginLoading ? 'Sending OTP...' : 'Send Reset OTP'}</button>
                 <button type="button" className="nav-login-back" onClick={() => { setLoginMode('login'); setLoginErrors({}); }}>← Back to Login</button>
@@ -271,7 +271,7 @@ const CiisNavbar = ({ onBookDemo }) => {
               </div> : !otpState.required ? <>
               <div className="nav-login-control">
                 <label htmlFor="nav-company-code">Company Code</label>
-                <div className={`nav-login-field ${loginErrors.companyCode ? 'error' : ''}`}><FiBriefcase aria-hidden="true" /><input id="nav-company-code" name="companyCode" value={loginForm.companyCode} onChange={updateLoginField} placeholder="e.g., CAREER" autoComplete="organization" autoCapitalize="characters" autoFocus /></div>
+                <div className={`nav-login-field ${loginErrors.companyCode ? 'error' : ''}`}><FiBriefcase aria-hidden="true" /><input id="nav-company-code" name="companyCode" value={loginForm.companyCode} onChange={updateLoginField} placeholder="e.g., COMPANY" autoComplete="organization" autoCapitalize="characters" autoFocus /></div>
                 {loginErrors.companyCode && <small>{loginErrors.companyCode}</small>}
               </div>
               <div className="nav-login-control">

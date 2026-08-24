@@ -156,6 +156,21 @@ const extractRemarks = (payload) => {
   return [];
 };
 
+const getRemarkAuthorName = (remark) => {
+  const author = remark?.user || remark?.createdBy || remark?.author || remark?.performedBy;
+
+  if (typeof author === "string" && author.trim()) return author;
+
+  return author?.name
+    || author?.fullName
+    || author?.username
+    || remark?.userName
+    || remark?.authorName
+    || remark?.createdByName
+    || remark?.name
+    || "User";
+};
+
 const formatDate = (value) => {
   if (!value) return "Not set";
   const date = new Date(value);
@@ -960,7 +975,7 @@ const CompanyAllTaskTasks = () => {
 
           return (
             <div className="company-task-remark" key={remark._id || index}>
-              <strong>{remark.user?.name || remark.createdBy?.name || remark.userName || "User"}</strong>
+              <strong>{getRemarkAuthorName(remark)}</strong>
               <span>{formatDateTime(remark.createdAt)}</span>
               {remarkText && <p>{remarkText}</p>}
               {remarkImages.length > 0 && (

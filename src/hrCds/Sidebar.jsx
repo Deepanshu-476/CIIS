@@ -57,6 +57,21 @@ const drawerWidthClosed = 70;
 const BADGE_REFRESH_INTERVAL = 120000;
 const BADGE_CACHE_TTL = 120000;
 const getBadgeCacheKey = userId => `ciis-sidebar-badges-cache:${userId || 'anonymous'}`;
+const PAGE_ACCESS_ROLES = new Set(['owner', 'company_owner', 'companyowner', 'admin', 'super_admin', 'superadmin']);
+
+const normalizePermissionRole = value => String(value || '')
+  .trim()
+  .toLowerCase()
+  .replace(/[\s-]+/g, '_');
+
+const getPermissionUserIds = page => [
+  page?.viewUsers,
+  page?.editUsers,
+  page?.deleteUsers,
+  page?.approvers,
+].flatMap(items => (Array.isArray(items) ? items : []))
+  .map(item => getRecordId(item?.user || item))
+  .filter(Boolean);
 
 const readBadgeCache = userId => {
   try {
@@ -920,6 +935,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   });
   const [resolvedJobRoleName, setResolvedJobRoleName] = useState("");
   const [sidebarConfig, setSidebarConfig] = useState(null);
+  const [pagePermissions, setPagePermissions] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [clientCompanies, setClientCompanies] = useState([]);
@@ -1326,6 +1342,26 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   }, [userId, sidebarCompanyId, fetchSidebarConfig]);
 
   useEffect(() => {
+    if (!userId || !sidebarCompanyId || isClientUser) {
+      setPagePermissions(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    axiosInstance.get('/page-permissions/pages', { _skipErrorNotify: true })
+      .then(response => {
+        if (!cancelled) setPagePermissions(Array.isArray(response.data?.pages) ? response.data.pages : []);
+      })
+      .catch(() => {
+        if (!cancelled) setPagePermissions(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, sidebarCompanyId, isClientUser]);
+
+  useEffect(() => {
     const resolveJobRoleName = async () => {
       if (!userId) {
         setResolvedJobRoleName("");
@@ -1517,6 +1553,25 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         && path !== "/ciisuser/profile";
     });
 
+    const roleValues = [userData?.companyRole, userData?.jobRole, userData?.role];
+    const isPageAccessAdmin = roleValues.some(value => PAGE_ACCESS_ROLES.has(
+      normalizePermissionRole(getRecordDisplayName(value) || value)
+    ));
+    const configuredPages = new Map(
+      (Array.isArray(pagePermissions) ? pagePermissions : [])
+        .filter(page => getPermissionUserIds(page).length > 0)
+        .map(page => [String(page.path || '').toLowerCase().replace(/\/+$/, ''), page])
+    );
+    const filterItemsByPageAccess = items => {
+      if (!pagePermissions || isPageAccessAdmin) return items;
+      return items.filter(item => {
+        const itemPath = String(item?.path || '').toLowerCase().replace(/\/+$/, '');
+        const page = configuredPages.get(itemPath);
+        if (!page) return true;
+        return getPermissionUserIds(page).includes(userId);
+      });
+    };
+
     void 0;
     void 0;
     void 0;
@@ -1531,7 +1586,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     
     if (isSuperAdminWithManagement) {
       void 0;
-      return removeHiddenSidebarItems(filterItemsByCompanyAccess(allPagesItems, companyData));
+      return filterItemsByPageAccess(removeHiddenSidebarItems(filterItemsByCompanyAccess(allPagesItems, companyData)));
     }
 
     let items = [];
@@ -1651,8 +1706,8 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
 
     void 0;
 
-    return removeHiddenSidebarItems(sortedItems);
-  }, [sidebarConfig, loading, isSuperAdminWithManagement, isClientUser, userData, companyData]);
+    return filterItemsByPageAccess(removeHiddenSidebarItems(sortedItems));
+  }, [sidebarConfig, loading, isSuperAdminWithManagement, isClientUser, userData, companyData, pagePermissions, userId]);
 
   const userSubtitle = useMemo(() => {
     if (!userData) return 'Employee';

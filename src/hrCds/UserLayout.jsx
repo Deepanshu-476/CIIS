@@ -14,6 +14,7 @@ import SupportChatWidget from './pages/SupportChatWidget';
 import { CallProvider } from '../context/CallContext';
 import RouteBoundaryLoader from '../components/RouteBoundaryLoader';
 import PageAccessGate from './components/PageAccessGate';
+import FeedbackQuestionnairePopup from '../components/FeedbackQuestionnairePopup';
 
 const drawerWidthOpen = 224;
 const drawerWidthClosed = 70;
@@ -208,6 +209,7 @@ const UserLayout = () => {
           </Box>
         </CallProvider>
       </MainContent>
+      <FeedbackQuestionnairePopup />
       <SupportChatWidget />
     </LayoutContainer>
   );

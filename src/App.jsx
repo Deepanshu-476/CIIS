@@ -80,6 +80,7 @@ const EmailSettings = lazy(() => import("./admin/page/EmailSettings.jsx"));
 const DemoRequests = lazy(() => import("./admin/page/DemoRequests.jsx"));
 const LeavePolicy = lazy(() => import("./admin/page/LeavePolicy.jsx"));
 const AppVersionControl = lazy(() => import("./admin/page/AppVersionControl.jsx"));
+const FeedbackQuestionnaireManagement = lazy(() => import("./admin/page/FeedbackQuestionnaireManagement.jsx"));
 
 function App() {
   return (
@@ -128,6 +129,7 @@ function App() {
           <Route path="holiday" element={<Holiday />} />
           <Route path="branch" element={<BranchManagement />} />
           <Route path="support-operations" element={<SupportOperations />} />
+          <Route path="feedback-questionnaire" element={<FeedbackQuestionnaireManagement />} />
           <Route path="settings" element={<Settings />} />
           <Route path="email-settings" element={<EmailSettings />} />
           <Route

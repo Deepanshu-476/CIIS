@@ -1781,7 +1781,12 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
           width: 24,
           height: 24,
           flexShrink: 0,
-          '& > svg': { fontSize: 22 }
+          '& > svg': {
+            width: isSuperAdminWithManagement ? 24 : 22,
+            height: isSuperAdminWithManagement ? 24 : 22,
+            fontSize: isSuperAdminWithManagement ? 24 : 22,
+            flexShrink: 0
+          }
         }}
       >
         {getIconComponent(item.icon)}

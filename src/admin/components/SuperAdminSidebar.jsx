@@ -30,6 +30,7 @@ import {
   Email as EmailIcon,
   VideoCall as DemoIcon,
   SystemUpdateAlt as AppUpdateIcon,
+  RateReview as FeedbackIcon,
 } from '@mui/icons-material';
 import { preloadRouteChunk } from '../../utils/routePreloader';
 
@@ -249,6 +250,12 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       icon: <SupportAgentIcon />,
       name: 'Support Operations',
       route: '/Ciis-network/support-operations',
+      showForAll: true
+    },
+    {
+      icon: <FeedbackIcon />,
+      name: 'Feedback / Questionnaire',
+      route: '/Ciis-network/feedback-questionnaire',
       showForAll: true
     },
     {

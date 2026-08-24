@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import axios from '../../utils/axiosConfig';
 import './JobRoleManagement.css';
 import CIISLoader from '../../Loader/CIISLoader'; 
+import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission } from '../../utils/pageAccess'; 
 
 
 const Transition = (props) => {
@@ -170,6 +171,8 @@ const JobRoleManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [userInfo, setUserInfo] = useState(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [canEditJobRole, setCanEditJobRole] = useState(true);
+  const [canDeleteJobRole, setCanDeleteJobRole] = useState(true);
   const [showAllCompanies, setShowAllCompanies] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedJobRoleMenu, setSelectedJobRoleMenu] = useState(null);
@@ -180,6 +183,43 @@ const JobRoleManagement = () => {
     inactive: 0,
     withDepartment: 0
   });
+
+  useEffect(() => {
+    let active = true;
+    const loadJobRolePermissions = async () => {
+      try {
+        const pagePerm = await loadPagePermission("/ciisUser/JobRoleManagement");
+        if (!active) return;
+
+        const currentUserId = getCurrentUserId();
+        const currentUser = getStoredUser();
+        const editUserIds = getPageAccessUserIds(pagePerm, 'edit');
+        const deleteUserIds = getPageAccessUserIds(pagePerm, 'delete');
+        const configuredIds = [
+          ...getPageAccessUserIds(pagePerm, 'approve'),
+          ...getPageAccessUserIds(pagePerm, 'view'),
+          ...editUserIds,
+          ...deleteUserIds
+        ];
+        const hasConfig = configuredIds.length > 0;
+        const role = String(currentUser?.jobRole || currentUser?.companyRole || currentUser?.role || "").toLowerCase();
+        const isPrivileged = ["owner", "company_owner", "companyowner", "admin", "super_admin", "superadmin"].includes(role);
+
+        const canEdit = isPrivileged || editUserIds.includes(currentUserId) || (!hasConfig && isPrivileged);
+        const canDelete = isPrivileged || deleteUserIds.includes(currentUserId) || (!hasConfig && isPrivileged);
+
+        setCanEditJobRole(canEdit);
+        setCanDeleteJobRole(canDelete);
+      } catch (err) {
+        console.error("Failed to load job role permissions:", err);
+      }
+    };
+
+    loadJobRolePermissions();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!openDialog) return undefined;
@@ -448,13 +488,13 @@ const JobRoleManagement = () => {
   };
 
   const handleSubmit = async () => {
-    if (!formData.name.trim()) {
-      toast.error('Job role name is required');
+    if (!canEditJobRole) {
+      toast.error('You do not have permission to modify job roles');
       return;
     }
 
-    if (!formData.branch) {
-      toast.error('Please select a branch');
+    if (!formData.name.trim()) {
+      toast.error('Job role name is required');
       return;
     }
 
@@ -463,8 +503,12 @@ const JobRoleManagement = () => {
       return;
     }
 
-    const cleanedShifts = (formData.shifts?.length ? formData.shifts : [formData.shiftSettings])
-      .filter(Boolean)
+    const rawShifts = Array.isArray(formData.shifts) && formData.shifts.length > 0
+      ? formData.shifts
+      : [formData.shiftSettings || createShiftSettings()];
+
+    const cleanedShifts = rawShifts
+      .filter(shift => shift && typeof shift === 'object')
       .map((shift, index) => ({
         ...getDefaultShiftSettings(),
         ...shift,
@@ -548,6 +592,10 @@ const JobRoleManagement = () => {
   };
 
   const handleDelete = async (id) => {
+    if (!canDeleteJobRole) {
+      toast.error('You do not have permission to delete job roles');
+      return;
+    }
     const jobRole = jobRoles.find(j => j._id === id);
     if (!window.confirm(`Are you sure you want to delete "${jobRole?.name}"?`)) return;
 
@@ -574,6 +622,10 @@ const JobRoleManagement = () => {
   };
 
   const handleEdit = (jobRole) => {
+    if (!canEditJobRole) {
+      toast.error('You do not have permission to edit job roles');
+      return;
+    }
     setEditingJobRole(jobRole);
     const user = getUserFromStorage();
     const departmentId = getRecordId(jobRole.department);
@@ -905,24 +957,26 @@ const JobRoleManagement = () => {
             </div>
             
             
-            <button
-              className="JobRoleManagement-btn-primary"
-              onClick={() => {
-                setEditingJobRole(null);
-                const user = getUserFromStorage();
-                
-                if (!user) {
-                  toast.error('Please login first');
-                  return;
-                }
-                
-                setFormData(getEmptyFormData(user));
-                setOpenDialog(true);
-              }}
-            >
-              <span className="JobRoleManagement-btn-icon">+</span>
-              {isMobile ? 'Add' : 'Add Job Role'}
-            </button>
+            {canEditJobRole && (
+              <button
+                className="JobRoleManagement-btn-primary"
+                onClick={() => {
+                  setEditingJobRole(null);
+                  const user = getUserFromStorage();
+                  
+                  if (!user) {
+                    toast.error('Please login first');
+                    return;
+                  }
+                  
+                  setFormData(getEmptyFormData(user));
+                  setOpenDialog(true);
+                }}
+              >
+                <span className="JobRoleManagement-btn-icon">+</span>
+                {isMobile ? 'Add' : 'Add Job Role'}
+              </button>
+            )}
           </div>
         </div>
 
@@ -1141,7 +1195,7 @@ const JobRoleManagement = () => {
         )}
 
         
-        {isMobile && (
+        {isMobile && canEditJobRole && (
           <button
             className="JobRoleManagement-fab"
             onClick={() => {
@@ -1156,36 +1210,42 @@ const JobRoleManagement = () => {
         )}
 
         
-        {anchorEl && (
+        {anchorEl && (canEditJobRole || canDeleteJobRole) && (
           <div className="JobRoleManagement-menu-overlay" onClick={handleMenuClose}>
             <div className="JobRoleManagement-menu" style={{top: anchorEl.getBoundingClientRect().bottom, left: anchorEl.getBoundingClientRect().left}}>
-              <button className="JobRoleManagement-menu-item" onClick={() => {
-                handleEdit(selectedJobRoleMenu);
-                handleMenuClose();
-              }}>
-                <span className="JobRoleManagement-menu-icon">✏️</span>
-                <div className="JobRoleManagement-menu-text">
-                  <div className="JobRoleManagement-menu-title">Edit Job Role</div>
-                  <div className="JobRoleManagement-menu-subtitle">Modify role details</div>
-                </div>
-              </button>
-              <hr className="JobRoleManagement-menu-divider" />
-              <button 
-                className={`JobRoleManagement-menu-item ${!selectedJobRoleMenu?.isActive ? 'JobRoleManagement-menu-item-disabled' : ''}`}
-                onClick={() => {
-                  handleDelete(selectedJobRoleMenu?._id);
+              {canEditJobRole && (
+                <button className="JobRoleManagement-menu-item" onClick={() => {
+                  handleEdit(selectedJobRoleMenu);
                   handleMenuClose();
-                }} 
-                disabled={!selectedJobRoleMenu?.isActive}
-              >
-                <span className="JobRoleManagement-menu-icon">🗑️</span>
-                <div className="JobRoleManagement-menu-text">
-                  <div className="JobRoleManagement-menu-title">Delete Job Role</div>
-                  <div className="JobRoleManagement-menu-subtitle">
-                    {!selectedJobRoleMenu?.isActive ? 'Already inactive' : 'Remove permanently'}
+                }}>
+                  <span className="JobRoleManagement-menu-icon">✏️</span>
+                  <div className="JobRoleManagement-menu-text">
+                    <div className="JobRoleManagement-menu-title">Edit Job Role</div>
+                    <div className="JobRoleManagement-menu-subtitle">Modify role details</div>
                   </div>
-                </div>
-              </button>
+                </button>
+              )}
+              {canEditJobRole && canDeleteJobRole && (
+                <hr className="JobRoleManagement-menu-divider" />
+              )}
+              {canDeleteJobRole && (
+                <button 
+                  className={`JobRoleManagement-menu-item ${!selectedJobRoleMenu?.isActive ? 'JobRoleManagement-menu-item-disabled' : ''}`}
+                  onClick={() => {
+                    handleDelete(selectedJobRoleMenu?._id);
+                    handleMenuClose();
+                  }} 
+                  disabled={!selectedJobRoleMenu?.isActive}
+                >
+                  <span className="JobRoleManagement-menu-icon">🗑️</span>
+                  <div className="JobRoleManagement-menu-text">
+                    <div className="JobRoleManagement-menu-title">Delete Job Role</div>
+                    <div className="JobRoleManagement-menu-subtitle">
+                      {!selectedJobRoleMenu?.isActive ? 'Already inactive' : 'Remove permanently'}
+                    </div>
+                  </div>
+                </button>
+              )}
             </div>
           </div>
         )}

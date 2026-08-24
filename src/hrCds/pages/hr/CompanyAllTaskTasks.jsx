@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import axios from "../../../utils/axiosConfig";
-import { getCurrentUserId, getStoredUser, getUserIds, loadPagePermission } from "../../../utils/pageAccess";
+import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission } from "../../../utils/pageAccess";
 import API_URL from "../../../config";
 import "./CompanyAllTaskTasks.css";
 import {
@@ -492,13 +492,13 @@ const CompanyAllTaskTasks = () => {
 
         const currentUserIdValue = getCurrentUserId();
         const currentUser = getStoredUser();
-        const viewUserIds = getUserIds(page.viewUsers);
-        const editUserIds = getUserIds(page.editUsers);
+        const viewUserIds = getPageAccessUserIds(page, 'view');
+        const editUserIds = getPageAccessUserIds(page, 'edit');
         const configuredIds = [
-          ...getUserIds(page.approvers),
+          ...getPageAccessUserIds(page, 'approve'),
           ...viewUserIds,
           ...editUserIds,
-          ...getUserIds(page.deleteUsers)
+          ...getPageAccessUserIds(page, 'delete')
         ];
         const hasConfig = configuredIds.length > 0;
         const fallbackRole = String(currentUser?.jobRole || currentUser?.companyRole || currentUser?.role || "").toLowerCase();

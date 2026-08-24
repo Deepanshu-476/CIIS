@@ -16,7 +16,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import axios from '../../utils/axiosConfig';
-import { getCurrentUserId, getStoredUser, getUserIds, loadPagePermission } from '../../utils/pageAccess';
+import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission } from '../../utils/pageAccess';
 import { toast } from 'react-toastify';
 import './LeavePolicy.css';
 
@@ -107,8 +107,8 @@ const LeavePolicy = () => {
         const fallbackManager = roles.some(role => ['owner', 'admin', 'hr', 'super_admin', 'superadmin', 'company_owner', 'companyowner'].includes(role));
         const currentUserId = getCurrentUserId();
         const page = await loadPagePermission('/ciisUser/leave-policy');
-        const editIds = getUserIds(page.editUsers);
-        const deleteIds = getUserIds(page.deleteUsers);
+        const editIds = getPageAccessUserIds(page, 'edit');
+        const deleteIds = getPageAccessUserIds(page, 'delete');
 
         if (!cancelled) {
           setPageAccess({

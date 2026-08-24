@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, Navigate } from "react-router-dom";
 import RouteBoundaryLoader from "../../components/RouteBoundaryLoader";
-import { getCurrentUserId, getStoredUser, getUserIds, loadPagePermission } from "../../utils/pageAccess";
+import { getCurrentUserId, getStoredUser, hasConfiguredPageAccess, hasPageAccess, loadPagePermission } from "../../utils/pageAccess";
 
 const PRIVILEGED_ROLES = new Set([
   "owner",
@@ -26,20 +26,6 @@ const getPagePath = pathname => {
   return parts.length >= 2 ? `/${parts[0]}/${parts[1]}` : pathname;
 };
 
-const hasConfiguredAccess = page => [
-  page?.viewUsers,
-  page?.editUsers,
-  page?.deleteUsers,
-  page?.approvers,
-].some(items => getUserIds(items).length > 0);
-
-const hasUserAccess = (page, userId) => [
-  page?.viewUsers,
-  page?.editUsers,
-  page?.deleteUsers,
-  page?.approvers,
-].some(items => getUserIds(items).includes(userId));
-
 const PageAccessGate = ({ children }) => {
   const location = useLocation();
   const [state, setState] = useState({ loading: true, allowed: true });
@@ -60,7 +46,7 @@ const PageAccessGate = ({ children }) => {
 
       try {
         const page = await loadPagePermission(pagePath);
-        const allowed = !hasConfiguredAccess(page) || hasUserAccess(page, userId);
+        const allowed = !hasConfiguredPageAccess(page) || hasPageAccess(page, userId, "view");
         if (!cancelled) setState({ loading: false, allowed });
       } catch {
         // Keep legacy pages usable if the permission service is temporarily unavailable.

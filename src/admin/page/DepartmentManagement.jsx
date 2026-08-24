@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import axios from '../../utils/axiosConfig';
 import './DepartmentManagement.css';
 import CIISLoader from '../../Loader/CIISLoader'; 
+import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission } from '../../utils/pageAccess';
 
 const DepartmentManagement = () => {
   const { branchId: routeBranchId } = useParams();
@@ -33,6 +34,8 @@ const DepartmentManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [userInfo, setUserInfo] = useState(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [canEditDepartment, setCanEditDepartment] = useState(true);
+  const [canDeleteDepartment, setCanDeleteDepartment] = useState(true);
   const [showAllCompanies, setShowAllCompanies] = useState(false);
   const [selectedDeptMenu, setSelectedDeptMenu] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -41,6 +44,43 @@ const DepartmentManagement = () => {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
+
+  useEffect(() => {
+    let active = true;
+    const loadDepartmentPermissions = async () => {
+      try {
+        const pagePerm = await loadPagePermission("/ciisUser/department");
+        if (!active) return;
+
+        const currentUserId = getCurrentUserId();
+        const currentUser = getStoredUser();
+        const editUserIds = getPageAccessUserIds(pagePerm, 'edit');
+        const deleteUserIds = getPageAccessUserIds(pagePerm, 'delete');
+        const configuredIds = [
+          ...getPageAccessUserIds(pagePerm, 'approve'),
+          ...getPageAccessUserIds(pagePerm, 'view'),
+          ...editUserIds,
+          ...deleteUserIds
+        ];
+        const hasConfig = configuredIds.length > 0;
+        const role = String(currentUser?.jobRole || currentUser?.companyRole || currentUser?.role || "").toLowerCase();
+        const isPrivileged = ["owner", "company_owner", "companyowner", "admin", "super_admin", "superadmin"].includes(role);
+
+        const canEdit = isPrivileged || editUserIds.includes(currentUserId) || (!hasConfig && isPrivileged);
+        const canDelete = isPrivileged || deleteUserIds.includes(currentUserId) || (!hasConfig && isPrivileged);
+
+        setCanEditDepartment(canEdit);
+        setCanDeleteDepartment(canDelete);
+      } catch (err) {
+        console.error("Failed to load department permissions:", err);
+      }
+    };
+
+    loadDepartmentPermissions();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!openDialog) return undefined;
@@ -253,6 +293,11 @@ const DepartmentManagement = () => {
     }
   };
   const handleSubmit = async () => {
+    if (!canEditDepartment) {
+      toast.error('You do not have permission to modify departments');
+      return;
+    }
+
     if (!formData.name.trim()) {
       toast.error('Department name is required');
       return;
@@ -273,68 +318,56 @@ const DepartmentManagement = () => {
         return;
       }
       
-      const isSuper = checkSuperAdminStatus(user);
       const companyId = resolveCompanyId(user);
       const companyCode = resolveCompanyCode(user);
       
       const submitData = {
         name: formData.name.trim(),
-        description: formData.description.trim(),
+        description: formData.description?.trim() || '',
+        company: companyId,
+        companyCode: companyCode,
         branch: formData.branch,
-        workingDays
+        workingDays: workingDays
       };
-      
-      if (!isSuper || formData.company) {
-        submitData.company = formData.company || companyId;
-        submitData.companyCode = formData.companyCode || companyCode;
-      }
-      
-      void 0;
-      
+
+      let response;
       if (editingDept) {
-        await axios.put(`/departments/${editingDept._id}`, submitData);
-        toast.success(
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <svg style={{ color: '#4caf50', width: '24px', height: '24px' }} viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-            <div>
-              <div style={{ fontWeight: 600 }}>Department Updated!</div>
-              <div style={{ fontSize: '0.75rem', color: '#666' }}>{formData.name} has been updated successfully</div>
-            </div>
-          </div>,
-          { icon: false, autoClose: 3000 }
-        );
+        const deptId = editingDept._id || editingDept.id;
+        response = await axios.put(`/departments/${deptId}`, submitData);
       } else {
-        await axios.post('/departments', submitData);
+        response = await axios.post('/departments', submitData);
+      }
+
+      if (response.data && response.data.success) {
+        const isEdit = !!editingDept;
+        
         toast.success(
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <svg style={{ color: '#4caf50', width: '24px', height: '24px' }} viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
             <div>
-              <div style={{ fontWeight: 600 }}>Department Created!</div>
-              <div style={{ fontSize: '0.75rem', color: '#666' }}>{formData.name} has been added to your organization</div>
+              <div style={{ fontWeight: 600 }}>{isEdit ? 'Department Updated!' : 'Department Created!'}</div>
+              <div style={{ fontSize: '0.75rem', color: '#666' }}>{formData.name} is ready</div>
             </div>
           </div>,
           { icon: false, autoClose: 3000 }
         );
+
+        setOpenDialog(false);
+        setEditingDept(null);
+        setFormData({ 
+          name: '', 
+          description: '', 
+          company: companyId || '', 
+          companyCode: companyCode || '', 
+          branch: selectedBranchId || '',
+          workingDays: 5
+        });
+        setRefreshKey(prev => prev + 1);
       }
-      
-      setOpenDialog(false);
-      setFormData({ 
-        name: '', 
-        description: '',
-        company: companyId || '',
-        companyCode: companyCode || '',
-        branch: selectedBranchId || '',
-        workingDays: 5
-      });
-      setEditingDept(null);
-      setRefreshKey(prev => prev + 1);
     } catch (err) {
-      console.error('Submit error:', err);
-      const msg = err.response?.data?.message || 'Operation failed';
+      const msg = err.response?.data?.message || (editingDept ? 'Update failed' : 'Creation failed');
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -342,16 +375,21 @@ const DepartmentManagement = () => {
   };
 
   const handleDelete = async (id) => {
-    const dept = departments.find(d => d._id === id);
-    if (!window.confirm(`Are you sure you want to delete "${dept?.name}"?`)) return;
-
+    if (!canDeleteDepartment) {
+      toast.error('You do not have permission to delete departments');
+      return;
+    }
+    if (!window.confirm('Are you sure you want to delete this department?')) return;
+    
+    setLoading(true);
     try {
-      setLoading(true);
+      const dept = departments.find(d => (d._id || d.id) === id);
       await axios.delete(`/departments/${id}`);
+      
       toast.success(
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <svg style={{ color: '#f44336', width: '24px', height: '24px' }} viewBox="0 0 24 24" fill="currentColor">
-            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
           <div>
             <div style={{ fontWeight: 600 }}>Department Deleted!</div>
@@ -370,6 +408,10 @@ const DepartmentManagement = () => {
   };
 
   const handleEdit = (dept) => {
+    if (!canEditDepartment) {
+      toast.error('You do not have permission to edit departments');
+      return;
+    }
     setEditingDept(dept);
     const user = getUserFromStorage();
     
@@ -884,7 +926,7 @@ const DepartmentManagement = () => {
             )}
             
             
-            {!isMobile && (
+            {!isMobile && canEditDepartment && (
               <button
                 className="DepartmentManagement-btn DepartmentManagement-btn-primary"
                 onClick={() => {
@@ -1185,15 +1227,14 @@ const DepartmentManagement = () => {
           </div>
         )}
 
-        
-        {isMobile && (
+           {isMobile && canEditDepartment && (
           <button
             className="DepartmentManagement-fab"
             onClick={() => {
               const user = getUserFromStorage();
               setFormData({ 
                 name: '', 
-                description: '',
+                description: '', 
                 company: resolveCompanyId(user) || '',
                 companyCode: resolveCompanyCode(user) || '',
                 branch: selectedBranchId || '',
@@ -1207,7 +1248,7 @@ const DepartmentManagement = () => {
         )}
 
         
-        {showMenu && (
+        {showMenu && (canEditDepartment || canDeleteDepartment) && (
           <div 
             className="DepartmentManagement-menu-overlay"
             onClick={handleMenuClose}
@@ -1220,40 +1261,46 @@ const DepartmentManagement = () => {
               }}
               onClick={e => e.stopPropagation()}
             >
-              <div className="DepartmentManagement-menu-item" onClick={() => {
-                handleEdit(selectedDeptMenu);
-                handleMenuClose();
-              }}>
-                <span className="DepartmentManagement-menu-icon DepartmentManagement-menu-icon-primary">
-                  {getIconSvg('edit', 18)}
-                </span>
-                <div className="DepartmentManagement-menu-content">
-                  <span className="DepartmentManagement-menu-title">Edit Department</span>
-                  {!isMobile && <span className="DepartmentManagement-menu-subtitle">Modify department details</span>}
+              {canEditDepartment && (
+                <div className="DepartmentManagement-menu-item" onClick={() => {
+                  handleEdit(selectedDeptMenu);
+                  handleMenuClose();
+                }}>
+                  <span className="DepartmentManagement-menu-icon DepartmentManagement-menu-icon-primary">
+                    {getIconSvg('edit', 18)}
+                  </span>
+                  <div className="DepartmentManagement-menu-content">
+                    <span className="DepartmentManagement-menu-title">Edit Department</span>
+                    {!isMobile && <span className="DepartmentManagement-menu-subtitle">Modify department details</span>}
+                  </div>
                 </div>
-              </div>
-              <div className="DepartmentManagement-menu-divider"></div>
-              <div 
-                className={`DepartmentManagement-menu-item ${!selectedDeptMenu?.isActive ? 'DepartmentManagement-menu-item-disabled' : ''}`}
-                onClick={() => {
-                  if (selectedDeptMenu?.isActive) {
-                    handleDelete(selectedDeptMenu?._id);
-                    handleMenuClose();
-                  }
-                }}
-              >
-                <span className="DepartmentManagement-menu-icon DepartmentManagement-menu-icon-danger">
-                  {getIconSvg('delete', 18)}
-                </span>
-                <div className="DepartmentManagement-menu-content">
-                  <span className="DepartmentManagement-menu-title">Delete Department</span>
-                  {!isMobile && (
-                    <span className="DepartmentManagement-menu-subtitle">
-                      {!selectedDeptMenu?.isActive ? 'Already inactive' : 'Remove permanently'}
-                    </span>
-                  )}
+              )}
+              {canEditDepartment && canDeleteDepartment && (
+                <div className="DepartmentManagement-menu-divider"></div>
+              )}
+              {canDeleteDepartment && (
+                <div 
+                  className={`DepartmentManagement-menu-item ${!selectedDeptMenu?.isActive ? 'DepartmentManagement-menu-item-disabled' : ''}`}
+                  onClick={() => {
+                    if (selectedDeptMenu?.isActive) {
+                      handleDelete(selectedDeptMenu?._id);
+                      handleMenuClose();
+                    }
+                  }}
+                >
+                  <span className="DepartmentManagement-menu-icon DepartmentManagement-menu-icon-danger">
+                    {getIconSvg('delete', 18)}
+                  </span>
+                  <div className="DepartmentManagement-menu-content">
+                    <span className="DepartmentManagement-menu-title">Delete Department</span>
+                    {!isMobile && (
+                      <span className="DepartmentManagement-menu-subtitle">
+                        {!selectedDeptMenu?.isActive ? 'Already inactive' : 'Remove permanently'}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}

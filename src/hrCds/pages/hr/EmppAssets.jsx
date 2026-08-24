@@ -13,6 +13,7 @@ import {
 import './EmpAssets.css';
 import { API_URL_IMG } from '../../../config';
 import { usePageBranchScope } from '../../components/PageBranchDropdown';
+import { getPageAccessUserIds } from '../../../utils/pageAccess';
 
 const EmpAssets = () => {
   const [requests, setRequests] = useState([]);
@@ -297,12 +298,9 @@ const EmpAssets = () => {
       const res = await axios.get('/page-permissions/by-path', {
         params: { path: '/ciisUser/emp-assets' }
       });
-      const approverIds = (res.data?.page?.approvers || [])
-        .map(user => String(user?._id || user?.id || user))
-        .filter(Boolean);
-      const deleteIds = (res.data?.page?.deleteUsers || [])
-        .map(user => String(user?._id || user?.id || user))
-        .filter(Boolean);
+      const page = res.data?.page || {};
+      const approverIds = getPageAccessUserIds(page, 'approve');
+      const deleteIds = getPageAccessUserIds(page, 'delete');
 
       setApproverPermissionUserIds(approverIds);
       setDeletePermissionUserIds(deleteIds);

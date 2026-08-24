@@ -3,6 +3,7 @@ import axios from "../../../utils/axiosConfig";
 import './employee-leaves.css';
 import CIISLoader from '../../../Loader/CIISLoader';
 import PageBranchDropdown, { usePageBranchScope } from '../../components/PageBranchDropdown';
+import { getPageAccessUserIds } from '../../../utils/pageAccess';
 
 
 import { useSocket } from '../../../context/SocketContext';
@@ -864,15 +865,10 @@ const EmployeeLeaves = () => {
       const res = await axios.get("/page-permissions/by-path", {
         params: { path: "/ciisUser/emp-leaves" }
       });
-      const approverIds = (res.data?.page?.approvers || [])
-        .map(user => String(user?._id || user?.id || user))
-        .filter(Boolean);
-      const viewIds = (res.data?.page?.viewUsers || [])
-        .map(user => String(user?._id || user?.id || user))
-        .filter(Boolean);
-      const deleteIds = (res.data?.page?.deleteUsers || [])
-        .map(user => String(user?._id || user?.id || user))
-        .filter(Boolean);
+      const page = res.data?.page || {};
+      const approverIds = getPageAccessUserIds(page, 'approve');
+      const viewIds = getPageAccessUserIds(page, 'view');
+      const deleteIds = getPageAccessUserIds(page, 'delete');
       setViewPermissionUserIds(viewIds);
       setApproverPermissionUserIds(approverIds);
       setDeletePermissionUserIds(deleteIds);

@@ -222,6 +222,7 @@ function App() {
           <Route path="contact-support" element={<Navigate to="/ciisUser/dashboard" replace />} />
           <Route path="support-desk" element={<DepartmentSupportDesk />} />
           <Route path="support-operations" element={<SupportOperations />} />
+          <Route path="feedback-questionnaire" element={<FeedbackQuestionnaireManagement />} />
           <Route path="leave-policy-master" element={<LeavePolicy />} />
           <Route path="leave-policy" element={<LeavePolicy />} />
         </Route>

@@ -48,6 +48,7 @@ const APP_ROUTES = [
   { path: 'chat', name: 'Chat', icon: 'Chat', category: 'communication' },
   { path: 'support-desk', name: 'Support Desk', icon: 'SupportAgent', category: 'communication' },
   { path: 'support-operations', name: 'Support Operations', icon: 'SupportAgent', category: 'administration' },
+  { path: 'feedback-questionnaire', name: 'Feedback / Questionnaire', icon: 'Assignment', category: 'administration' },
 ];
 
 

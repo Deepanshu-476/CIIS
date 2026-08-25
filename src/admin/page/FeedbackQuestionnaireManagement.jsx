@@ -63,6 +63,39 @@ const getBranchLabel = branch => {
   return branch.branchCode ? `${branch.name} (${branch.branchCode})` : branch.name;
 };
 
+const readStoredJson = key => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const getLoggedCompany = () => {
+  const storedCompany = readStoredJson('company') || readStoredJson('companyDetails');
+  const storedUser = readStoredJson('user') || readStoredJson('superAdmin');
+  const candidates = [
+    storedCompany,
+    storedUser?.companyDetails,
+    storedUser?.company,
+    storedUser?.companyId,
+  ];
+
+  for (const candidate of candidates) {
+    const id = getId(candidate);
+    if (!id) continue;
+    const source = typeof candidate === 'object' ? candidate : {};
+    return {
+      _id: id,
+      companyName: source.companyName || source.name || storedUser?.companyName || 'Company',
+      companyCode: source.companyCode || storedUser?.companyCode || localStorage.getItem('companyCode') || '',
+    };
+  }
+
+  return null;
+};
+
 const emptyQuestion = () => ({
   id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
   label: '',
@@ -105,6 +138,8 @@ const FeedbackQuestionnaireManagement = () => {
     nameVisibility: 'show_name',
     questions: [emptyQuestion()],
   });
+  const loggedCompany = useMemo(() => getLoggedCompany(), []);
+  const lockedCompanyId = getId(loggedCompany);
 
   const headers = {
     headers: {
@@ -169,7 +204,18 @@ const FeedbackQuestionnaireManagement = () => {
         axiosInstance.get('/feedback/questionnaires?limit=100'),
       ]);
 
-      setCompanies(Array.isArray(companyRes.data) ? companyRes.data : []);
+      const allCompanies = Array.isArray(companyRes.data) ? companyRes.data : [];
+      const matchedCompany = lockedCompanyId
+        ? allCompanies.find(company => getId(company) === lockedCompanyId) || loggedCompany
+        : null;
+      setCompanies(matchedCompany ? [matchedCompany] : allCompanies);
+      if (matchedCompany) {
+        setForm(prev => ({
+          ...prev,
+          company: matchedCompany,
+          branch: getId(prev.company) === getId(matchedCompany) ? prev.branch : null,
+        }));
+      }
       setUsers(Array.isArray(userRes.data) ? userRes.data : []);
       setQuestionnaires(Array.isArray(questionnaireRes.data?.data?.questionnaires) ? questionnaireRes.data.data.questionnaires : []);
     } catch (error) {
@@ -256,7 +302,7 @@ const FeedbackQuestionnaireManagement = () => {
       description: '',
       targetScope: 'company',
       recipientMode: 'all',
-      company: null,
+      company: loggedCompany || null,
       branch: null,
       targetedUsers: [],
       nameVisibility: 'show_name',
@@ -381,9 +427,9 @@ const FeedbackQuestionnaireManagement = () => {
                   ))}
                 </Box>
                 {(form.targetScope === 'company' || form.targetScope === 'branch') && <Autocomplete
-                  options={companies} value={form.company} onChange={(_, value) => { updateForm('company', value); if (!value) updateForm('branch', null); }}
+                  options={companies} value={form.company} disabled={!!lockedCompanyId} onChange={(_, value) => { updateForm('company', value); if (!value) updateForm('branch', null); }}
                   getOptionLabel={getCompanyLabel} isOptionEqualToValue={(option, value) => getId(option) === getId(value)}
-                  renderInput={params => <TextField {...params} label="Company" placeholder="Select company" />}
+                  renderInput={params => <TextField {...params} label="Company" placeholder="Select company" helperText={lockedCompanyId ? 'Logged-in company selected automatically' : ''} />}
                 />}
                 {form.targetScope === 'branch' && <Autocomplete
                   options={filteredBranches} value={form.branch} onChange={(_, value) => updateForm('branch', value)}

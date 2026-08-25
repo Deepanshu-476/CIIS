@@ -54,6 +54,7 @@ const APP_ROUTES = [
   { id: "chat", path: "chat", name: "Chat", category: "communication" },
   { id: "support-desk", path: "support-desk", name: "Support Desk", category: "communication" },
   { id: "support-operations", path: "support-operations", name: "Support Operations", category: "administration" },
+  { id: "feedback-questionnaire", path: "feedback-questionnaire", name: "Feedback / Questionnaire", category: "administration" },
 ];
 
 const SUPER_ADMIN_ROUTES = [
@@ -71,6 +72,7 @@ const SUPER_ADMIN_ROUTES = [
   { id: "email-settings", path: "email-settings", name: "Email Settings", category: "owner" },
   { id: "app-version-control", path: "app-version-control", name: "App Version", category: "owner" },
   { id: "support-operations", path: "support-operations", name: "Support Operations", category: "management" },
+  { id: "feedback-questionnaire", path: "feedback-questionnaire", name: "Feedback / Questionnaire", category: "management" },
   { id: "leave-policy", path: "leave-policy", name: "Leave Policy", category: "management" },
   { id: "demo-requests", path: "demo-requests", name: "Demo Requests", category: "owner" },
   { id: "holiday", path: "holiday", name: "Holiday", category: "management" },

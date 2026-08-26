@@ -26,29 +26,26 @@ import {
 import "./PageManagement.css";
 
 const FALLBACK_PAGES = [
-  { pageKey: "emp-details", name: "Employee Details", path: "/ciisUser/emp-details", permissionPattern: "viewEdit" },
-  { pageKey: "emp-leaves", name: "Employee Leaves", path: "/ciisUser/emp-leaves", permissionPattern: "approveReject" },
-  { pageKey: "leave-policy", name: "Leave Policy", path: "/ciisUser/leave-policy", permissionPattern: "viewEdit" },
-  { pageKey: "emp-assets", name: "Employee Assets", path: "/ciisUser/emp-assets", permissionPattern: "approveReject" },
-  { pageKey: "emp-attendance", name: "Employee Attendance", path: "/ciisUser/emp-attendance", permissionPattern: "viewEdit" },
+  { pageKey: "emp-details", name: "Emp - Details", path: "/ciisUser/emp-details", permissionPattern: "viewEdit" },
+  { pageKey: "emp-leaves", name: "Emp - Leaves", path: "/ciisUser/emp-leaves", permissionPattern: "approveReject" },
+  { pageKey: "leave-policy", name: "Leave - Policy", path: "/ciisUser/leave-policy", permissionPattern: "viewEdit" },
+  { pageKey: "emp-assets", name: "Emp - Assets", path: "/ciisUser/emp-assets", permissionPattern: "approveReject" },
+  { pageKey: "emp-attendance", name: "Emp - Attendance", path: "/ciisUser/emp-attendance", permissionPattern: "viewEdit" },
   { pageKey: "department", name: "Department Management", path: "/ciisUser/department", permissionPattern: "viewEdit" },
   { pageKey: "JobRoleManagement", name: "Job Role Management", path: "/ciisUser/JobRoleManagement", permissionPattern: "viewEdit" },
-  { pageKey: "manage-groups", name: "Manage Groups", path: "/ciisUser/manage-groups", permissionPattern: "viewEdit" },
+  { pageKey: "manage-groups", name: "Manage Group", path: "/ciisUser/manage-groups", permissionPattern: "viewEdit" },
   { pageKey: "company-all-task", name: "Company All Task", path: "/ciisUser/company-all-task", permissionPattern: "viewEdit" },
-<<<<<<< HEAD
-=======
-  { pageKey: "department", name: "Department", path: "/ciisUser/department", permissionPattern: "viewEdit" },
-  { pageKey: "JobRoleManagement", name: "Job Role Management", path: "/ciisUser/JobRoleManagement", permissionPattern: "viewEdit" },
-  { pageKey: "SidebarManagement", name: "Sidebar Management", path: "/ciisUser/SidebarManagement", permissionPattern: "viewEdit" },
+  { pageKey: "emp-client", name: "Client Management", path: "/ciisUser/emp-client", permissionPattern: "viewEdit" },
   { pageKey: "salary-component", name: "Salary Component", path: "/ciisUser/salary-component", permissionPattern: "viewEdit" },
   { pageKey: "salary-structure", name: "Salary Structure", path: "/ciisUser/salary-structure", permissionPattern: "viewEdit" },
-  { pageKey: "salary-assignment", name: "Employee Salary", path: "/ciisUser/salary-assignment", permissionPattern: "viewEdit" },
+  { pageKey: "salary-assignment", name: "Salary Assignment", path: "/ciisUser/salary-assignment", permissionPattern: "viewEdit" },
   { pageKey: "assign-salary", name: "Assign Salary", path: "/ciisUser/assign-salary", permissionPattern: "viewEdit" },
   { pageKey: "payroll-process", name: "Payroll Process", path: "/ciisUser/payroll-process", permissionPattern: "viewEdit" },
   { pageKey: "payslip", name: "Payslip", path: "/ciisUser/payslip", permissionPattern: "viewEdit" },
   { pageKey: "payroll-reports", name: "Payroll Reports", path: "/ciisUser/payroll-reports", permissionPattern: "viewEdit" },
->>>>>>> 317834b87ca0f0945752c7523d4c2f93d48fe63a
 ];
+
+const ALLOWED_PAGE_KEYS = FALLBACK_PAGES.map((p) => p.pageKey);
 
 const ICON_MAP = {
   "emp-details": PersonOutline,
@@ -58,18 +55,16 @@ const ICON_MAP = {
   "emp-attendance": DashboardCustomizeOutlined,
   department: InsightsOutlined,
   JobRoleManagement: AssignmentIndOutlined,
-<<<<<<< HEAD
   "manage-groups": GroupsOutlined,
   "company-all-task": ViewColumnOutlined,
-=======
-  SidebarManagement: LockOutlined,
-  "leave-policy": DescriptionOutlined,
+  "emp-client": WorkOutline,
   "salary-component": WorkOutline,
   "salary-structure": WorkOutline,
   "salary-assignment": WorkOutline,
   "assign-salary": WorkOutline,
   "payroll-process": WorkOutline,
->>>>>>> 317834b87ca0f0945752c7523d4c2f93d48fe63a
+  payslip: WorkOutline,
+  "payroll-reports": WorkOutline,
 };
 
 const getRecordId = (value) => {
@@ -438,8 +433,17 @@ const PageManagement = () => {
           : Promise.resolve({ data: { data: [] } }),
       ]);
 
-      const loadedPages = (pagesRes.data?.pages || []).map(normalizePage);
-      const normalizedPages = loadedPages.length ? loadedPages : FALLBACK_PAGES.map(normalizePage);
+      const rawLoadedPages = (pagesRes.data?.pages || []).map(normalizePage);
+      const fallbackMap = new Map(FALLBACK_PAGES.map((p) => [p.pageKey, p]));
+      const filteredLoadedPages = rawLoadedPages.filter((p) => ALLOWED_PAGE_KEYS.includes(p.pageKey));
+
+      const normalizedPages = ALLOWED_PAGE_KEYS.map((key) => {
+        const fallback = fallbackMap.get(key);
+        const loaded = filteredLoadedPages.find((p) => p.pageKey === key);
+        return loaded
+          ? { ...normalizePage(fallback), ...loaded, name: fallback.name, path: fallback.path, permissionPattern: fallback.permissionPattern }
+          : normalizePage(fallback);
+      });
       const loadedContext = contextRes.data?.context || {};
       const loadedJobRoles = Array.isArray(jobRolesRes.data?.jobRoles)
         ? jobRolesRes.data.jobRoles

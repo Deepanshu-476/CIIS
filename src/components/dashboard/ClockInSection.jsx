@@ -274,4 +274,3 @@ const ClockInSection = ({
 };
 
 export default ClockInSection;
-  

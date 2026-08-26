@@ -35,6 +35,19 @@ const FALLBACK_PAGES = [
   { pageKey: "JobRoleManagement", name: "Job Role Management", path: "/ciisUser/JobRoleManagement", permissionPattern: "viewEdit" },
   { pageKey: "manage-groups", name: "Manage Groups", path: "/ciisUser/manage-groups", permissionPattern: "viewEdit" },
   { pageKey: "company-all-task", name: "Company All Task", path: "/ciisUser/company-all-task", permissionPattern: "viewEdit" },
+<<<<<<< HEAD
+=======
+  { pageKey: "department", name: "Department", path: "/ciisUser/department", permissionPattern: "viewEdit" },
+  { pageKey: "JobRoleManagement", name: "Job Role Management", path: "/ciisUser/JobRoleManagement", permissionPattern: "viewEdit" },
+  { pageKey: "SidebarManagement", name: "Sidebar Management", path: "/ciisUser/SidebarManagement", permissionPattern: "viewEdit" },
+  { pageKey: "salary-component", name: "Salary Component", path: "/ciisUser/salary-component", permissionPattern: "viewEdit" },
+  { pageKey: "salary-structure", name: "Salary Structure", path: "/ciisUser/salary-structure", permissionPattern: "viewEdit" },
+  { pageKey: "salary-assignment", name: "Employee Salary", path: "/ciisUser/salary-assignment", permissionPattern: "viewEdit" },
+  { pageKey: "assign-salary", name: "Assign Salary", path: "/ciisUser/assign-salary", permissionPattern: "viewEdit" },
+  { pageKey: "payroll-process", name: "Payroll Process", path: "/ciisUser/payroll-process", permissionPattern: "viewEdit" },
+  { pageKey: "payslip", name: "Payslip", path: "/ciisUser/payslip", permissionPattern: "viewEdit" },
+  { pageKey: "payroll-reports", name: "Payroll Reports", path: "/ciisUser/payroll-reports", permissionPattern: "viewEdit" },
+>>>>>>> 317834b87ca0f0945752c7523d4c2f93d48fe63a
 ];
 
 const ICON_MAP = {
@@ -45,8 +58,18 @@ const ICON_MAP = {
   "emp-attendance": DashboardCustomizeOutlined,
   department: InsightsOutlined,
   JobRoleManagement: AssignmentIndOutlined,
+<<<<<<< HEAD
   "manage-groups": GroupsOutlined,
   "company-all-task": ViewColumnOutlined,
+=======
+  SidebarManagement: LockOutlined,
+  "leave-policy": DescriptionOutlined,
+  "salary-component": WorkOutline,
+  "salary-structure": WorkOutline,
+  "salary-assignment": WorkOutline,
+  "assign-salary": WorkOutline,
+  "payroll-process": WorkOutline,
+>>>>>>> 317834b87ca0f0945752c7523d4c2f93d48fe63a
 };
 
 const getRecordId = (value) => {

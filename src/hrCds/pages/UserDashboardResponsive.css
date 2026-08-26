@@ -8,6 +8,8 @@
   max-width: none !important;
   min-width: 0 !important;
   overflow-x: clip !important;
+  padding: 16px 20px 24px !important;
+  box-sizing: border-box;
 }
 
 .dashboard-container *,
@@ -710,8 +712,8 @@
 
   html .dashboard-container .dashboard-content-grid {
     height: 355px !important;
-    grid-template-columns: minmax(0, 1.55fr) minmax(285px, .75fr) !important;
-    gap: 14px !important;
+    grid-template-columns: minmax(0, 1.8fr) minmax(200px, .75fr) !important;
+    gap: 12px !important;
     margin-bottom: 14px !important;
   }
 
@@ -719,6 +721,39 @@
   html .dashboard-container .dashboard-activity-card {
     height: 355px !important;
     min-height: 355px !important;
+    overflow: hidden !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card {
+    position: relative !important;
+    padding: 14px calc(33% + 14px) 12px 14px !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card .attendance-day-summary {
+    position: absolute !important;
+    top: 12px !important;
+    right: 12px !important;
+    bottom: 12px !important;
+    width: 33% !important;
+    max-height: calc(100% - 24px) !important;
+    padding: 10px 11px !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card .calendar-week-header,
+  html .dashboard-container .dashboard-calendar-card .calendar-week {
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    column-gap: 3px !important;
+    width: 100% !important;
+  }
+
+  html .dashboard-container .dashboard-calendar-card .calendar-day {
+    width: 100% !important;
+    max-width: 33px !important;
+    height: 29px !important;
+    min-height: 26px !important;
+    margin: 0 auto !important;
   }
 
   html .dashboard-container .dashboard-insights-row {
@@ -809,34 +844,42 @@
   }
 
   .ClientDashboard-sidebar-open .dashboard-container .dashboard-content-grid {
-    grid-template-columns: minmax(0, 1.35fr) minmax(235px, .8fr) !important;
+    grid-template-columns: minmax(0, 1.85fr) minmax(180px, .7fr) !important;
     gap: 10px !important;
   }
 
   .ClientDashboard-sidebar-open .dashboard-container .dashboard-calendar-card {
-    padding-right: calc(34% + 14px) !important;
+    position: relative !important;
+    overflow: hidden !important;
+    padding: 12px calc(32% + 12px) 10px 12px !important;
   }
 
   .ClientDashboard-sidebar-open .dashboard-container .dashboard-calendar-card .attendance-day-summary {
-    width: 33% !important;
+    position: absolute !important;
+    top: 10px !important;
+    bottom: 10px !important;
+    max-height: calc(100% - 20px) !important;
+    width: 32% !important;
     right: 10px !important;
+    overflow-y: auto !important;
+    padding: 8px 10px !important;
+    box-sizing: border-box !important;
   }
 
   .ClientDashboard-sidebar-open .dashboard-container .calendar-week-header,
   .ClientDashboard-sidebar-open .dashboard-container .calendar-week {
     width: 100% !important;
-    grid-template-columns: repeat(7, minmax(22px, 1fr)) !important;
-    column-gap: 6px !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    column-gap: 3px !important;
     justify-content: stretch !important;
   }
 
-  .ClientDashboard-sidebar-open .dashboard-container :is(
-    .calendar-day-wrapper,
-    .calendar-day,
-    .calendar-empty-day
-  ) {
+  .ClientDashboard-sidebar-open .dashboard-container .dashboard-calendar-card .calendar-day {
     width: 100% !important;
-    min-width: 0 !important;
+    max-width: 29px !important;
+    height: 27px !important;
+    min-height: 25px !important;
+    margin: 0 auto !important;
   }
 
   .ClientDashboard-sidebar-open .dashboard-container .dashboard-insights-row {

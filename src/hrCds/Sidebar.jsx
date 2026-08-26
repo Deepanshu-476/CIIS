@@ -722,6 +722,62 @@ const allPagesItems = [
     order: 23
   },
   {
+    id: 'salary-component',
+    name: 'Salary Component',
+    icon: 'Work',
+    path: '/ciisUser/salary-component',
+    category: 'payroll',
+    order: 24
+  },
+  {
+    id: 'salary-structure',
+    name: 'Salary Structure',
+    icon: 'Work',
+    path: '/ciisUser/salary-structure',
+    category: 'payroll',
+    order: 24.1
+  },
+  {
+    id: 'salary-assignment',
+    name: 'Employee Salary',
+    icon: 'Work',
+    path: '/ciisUser/salary-assignment',
+    category: 'payroll',
+    order: 24.2
+  },
+  {
+    id: 'assign-salary',
+    name: 'Assign Salary',
+    icon: 'Work',
+    path: '/ciisUser/assign-salary',
+    category: 'payroll',
+    order: 24.25
+  },
+  {
+    id: 'payroll-process',
+    name: 'Payroll Process',
+    icon: 'Work',
+    path: '/ciisUser/payroll-process',
+    category: 'payroll',
+    order: 24.3
+  },
+  {
+    id: 'payslip',
+    name: 'Payslip',
+    icon: 'Work',
+    path: '/ciisUser/payslip',
+    category: 'payroll',
+    order: 24.4
+  },
+  {
+    id: 'payroll-reports',
+    name: 'Payroll Reports',
+    icon: 'Work',
+    path: '/ciisUser/payroll-reports',
+    category: 'payroll',
+    order: 24.5
+  },
+  {
     id: 'chat',
     name: 'Chat',
     icon: 'Chat',
@@ -807,20 +863,23 @@ const getPathFromName = (name) => {
     'Department All Tasks': '/ciisUser/department-all-task',
     'Client Management': '/ciisUser/emp-client',
     'Active Clients': '/ciisUser/active-clients',
-    'Chat': '/ciisUser/chat',
-    'Support Desk': '/ciisUser/support-desk',
-    'Support Operations': '/ciisUser/support-operations',
-    'Register Request': '/ciisUser/register-request',
-    'Client Dashboard': '/client/dashboard',
+    'Salary Component': '/ciisUser/salary-component',
+    'Salary Structure': '/ciisUser/salary-structure',
+    'Salary Assignment': '/ciisUser/salary-assignment',
+    'Employee Salary': '/ciisUser/salary-assignment',
+    'Assign Salary': '/ciisUser/assign-salary',
+    'Payroll Process': '/ciisUser/payroll-process',
+    'Payslip': '/ciisUser/payslip',
+    'Payroll Reports': '/ciisUser/payroll-reports',
     'Payment': '/client/payments',
-  'Payments': '/client/payments',
-  'My Services': '/client/my-services',
-  'Tasks & Updates': '/client/tasks-updates',
-  'Explore Services': '/client/marketplace',
-  'Service Marketplace': '/client/marketplace',
-  'Meetings': '/client/support-tickets',
-  'Support Tickets': '/client/support-tickets',
-  'Documents': '/client/documents',
+    'Payments': '/client/payments',
+    'My Services': '/client/my-services',
+    'Tasks & Updates': '/client/tasks-updates',
+    'Explore Services': '/client/marketplace',
+    'Service Marketplace': '/client/marketplace',
+    'Meetings': '/client/support-tickets',
+    'Support Tickets': '/client/support-tickets',
+    'Documents': '/client/documents',
     'Services & Tasks': '/client/services-tasks',
     'Create User': '/ciisUser/create-user',
     'Change Password': '/ciisUser/change-password'
@@ -833,6 +892,7 @@ const getMenuDisplayName = (name) => {
   if (name === 'My Details') return 'My Profile';
   if (name === 'Projects') return 'My Projects';
   if (name === 'Admin Projects' || name === 'Admin Project') return 'Manage Projects';
+  if (name === 'Salary Assignment') return 'Employee Salary';
   return name;
 };
 
@@ -880,6 +940,62 @@ const companyAccessFallbackItems = [
     path: '/ciisUser/active-clients',
     category: 'clients',
     order: 22.5
+  },
+  {
+    id: 'salary-component',
+    name: 'Salary Component',
+    icon: 'Work',
+    path: '/ciisUser/salary-component',
+    category: 'payroll',
+    order: 24.0
+  },
+  {
+    id: 'salary-structure',
+    name: 'Salary Structure',
+    icon: 'Work',
+    path: '/ciisUser/salary-structure',
+    category: 'payroll',
+    order: 24.1
+  },
+  {
+    id: 'salary-assignment',
+    name: 'Employee Salary',
+    icon: 'Work',
+    path: '/ciisUser/salary-assignment',
+    category: 'payroll',
+    order: 24.2
+  },
+  {
+    id: 'assign-salary',
+    name: 'Assign Salary',
+    icon: 'Work',
+    path: '/ciisUser/assign-salary',
+    category: 'payroll',
+    order: 24.25
+  },
+  {
+    id: 'payroll-process',
+    name: 'Payroll Process',
+    icon: 'Work',
+    path: '/ciisUser/payroll-process',
+    category: 'payroll',
+    order: 24.3
+  },
+  {
+    id: 'payslip',
+    name: 'Payslip',
+    icon: 'Work',
+    path: '/ciisUser/payslip',
+    category: 'payroll',
+    order: 24.4
+  },
+  {
+    id: 'payroll-reports',
+    name: 'Payroll Reports',
+    icon: 'Work',
+    path: '/ciisUser/payroll-reports',
+    category: 'payroll',
+    order: 24.5
   }
 ];
 
@@ -889,9 +1005,9 @@ const filterItemsByCompanyAccess = (items, companyData) => {
 
   const normalizeKey = value => String(value || '').trim().replace(/^\/+/, '').toLowerCase();
   const allowedSet = new Set(allowedPages.map(item => normalizeKey(item)).filter(Boolean));
-  return items.filter(item => (
+  return items.filter(item =>
     [...getMenuAccessKeys(item)].some(key => allowedSet.has(normalizeKey(key)))
-  ));
+  );
 };
 
 const addCompanyAccessFallbackItems = (items, companyData) => {
@@ -905,9 +1021,7 @@ const addCompanyAccessFallbackItems = (items, companyData) => {
   )).filter(Boolean));
 
   const fallbackItems = companyAccessFallbackItems.filter(item => (
-    (
-      [...getMenuAccessKeys(item)].some(key => allowedSet.has(normalizeKey(key)))
-    ) &&
+    [...getMenuAccessKeys(item)].some(key => allowedSet.has(normalizeKey(key))) &&
     ![...getMenuAccessKeys(item)].some(key => existingKeys.has(normalizeKey(key)))
   ));
 
@@ -1536,7 +1650,6 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     }
   };
 
-  
   const menuItems = useMemo(() => {
     if (loading) return [];
 
@@ -1627,7 +1740,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
 
     const hasRoleConfig = sidebarConfig && Array.isArray(sidebarConfig.menuItems);
     let accessFilteredItems = hasRoleConfig
-      ? items
+      ? filterItemsByCompanyAccess(items, companyData)
       : filterItemsByCompanyAccess(
           addCompanyAccessFallbackItems(items, companyData),
           companyData

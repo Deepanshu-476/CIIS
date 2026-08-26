@@ -1175,7 +1175,7 @@ const EmploymentDetailsForm = ({
         <div className="EmployeeDirectory-form-group">
           <label className="EmployeeDirectory-form-label">
             <FaMoneyBillWave size={12} style={{ marginRight: '4px' }} />
-            Salary
+            Monthly Gross Salary
           </label>
           <input
             type="number"
@@ -1183,7 +1183,7 @@ const EmploymentDetailsForm = ({
             value={formData.salary || ''}
             onChange={(e) => onInputChange('salary', e.target.value)}
             disabled={!canEditAllFields}
-            placeholder="Enter salary"
+            placeholder="Enter monthly gross salary"
           />
           {!canEditAllFields && (
             <span className="EmployeeDirectory-field-note">You don't have permission to edit</span>
@@ -2641,9 +2641,9 @@ const EmployeeDirectory = () => {
   
   const formatCurrency = useCallback((amount) => {
     if (!amount) return 'Not specified';
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'INR',
       minimumFractionDigits: 0
     }).format(amount);
   }, []);
@@ -3247,7 +3247,7 @@ const EmployeeDirectory = () => {
                     </div>
                     
                     <div className="EmployeeDirectory-detail-item">
-                      <div className="EmployeeDirectory-detail-label">Salary</div>
+                      <div className="EmployeeDirectory-detail-label">Monthly Gross Salary</div>
                       <div className="EmployeeDirectory-detail-value">{formatCurrency(selectedUser.salary)}</div>
                     </div>
                     

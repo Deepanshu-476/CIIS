@@ -1,0 +1,4 @@
+.salary-component-panel-title h2::after {
+  display: none;
+  content: none;
+}

@@ -413,14 +413,29 @@ const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserD
     setLoading(true);
     
     try {
-      const inDateTime = new Date(`${selectedDate}T${formData.inTime}`);
-      const outDateTime = new Date(`${selectedDate}T${formData.outTime}`);
+      const recordDate = formData.date || selectedDate;
+      let inIso = null;
+      let outIso = null;
+
+      if (formData.inTime) {
+        const inDateTime = new Date(`${recordDate}T${formData.inTime}`);
+        if (!isNaN(inDateTime.getTime())) {
+          inIso = inDateTime.toISOString();
+        }
+      }
+      if (formData.outTime) {
+        const outDateTime = new Date(`${recordDate}T${formData.outTime}`);
+        if (!isNaN(outDateTime.getTime())) {
+          outIso = outDateTime.toISOString();
+        }
+      }
       
       const payload = {
         user: formData.user,
-        date: selectedDate,
-        inTime: inDateTime.toISOString(),
-        outTime: outDateTime.toISOString(),
+        date: recordDate,
+        inTime: inIso,
+        outTime: outIso,
+        status: formData.status ? formData.status.toUpperCase() : 'PRESENT',
         notes: formData.notes
       };
 
@@ -492,39 +507,38 @@ const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserD
                 <input
                   type="date"
                   className="EmppAttendence-form-input"
-                  value={selectedDate}
-                  readOnly
+                  value={formData.date || selectedDate}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  required
                 />
               </div>
 
               <div className="EmppAttendence-form-group">
-                <label>Check In Time *</label>
+                <label>Check In Time</label>
                 <input
                   type="time"
                   className="EmppAttendence-form-input"
                   value={formData.inTime}
                   onChange={(e) => handleTimeChange('inTime', e.target.value)}
-                  required
                 />
               </div>
 
               <div className="EmppAttendence-form-group">
-                <label>Check Out Time *</label>
+                <label>Check Out Time</label>
                 <input
                   type="time"
                   className="EmppAttendence-form-input"
                   value={formData.outTime}
                   onChange={(e) => setFormData({ ...formData, outTime: e.target.value })}
-                  required
                 />
               </div>
 
               <div className="EmppAttendence-form-group">
-                <label>Status (assigned shift based)</label>
+                <label>Status</label>
                 <select
                   className="EmppAttendence-form-input"
                   value={formData.status}
-                  disabled
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                 >
                   <option value="present">Present</option>
                   <option value="late">Late</option>
@@ -677,14 +691,30 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
   const handleSave = async () => {
     setLoading(true);
     try {
-      const inDateTime = new Date(`${editedRecord.date}T${editedRecord.inTime}`);
-      const outDateTime = new Date(`${editedRecord.date}T${editedRecord.outTime}`);
+      const targetDate = editedRecord.date || (record.date ? new Date(record.date).toISOString().split('T')[0] : '');
+      let inIso = null;
+      let outIso = null;
+
+      if (editedRecord.inTime) {
+        const inDateTime = new Date(`${targetDate}T${editedRecord.inTime}`);
+        if (!isNaN(inDateTime.getTime())) {
+          inIso = inDateTime.toISOString();
+        }
+      }
+
+      if (editedRecord.outTime) {
+        const outDateTime = new Date(`${targetDate}T${editedRecord.outTime}`);
+        if (!isNaN(outDateTime.getTime())) {
+          outIso = outDateTime.toISOString();
+        }
+      }
       
       const payload = {
-        inTime: editedRecord.inTime ? inDateTime.toISOString() : null,
-        outTime: editedRecord.outTime ? outDateTime.toISOString() : null,
+        inTime: inIso,
+        outTime: outIso,
+        status: editedRecord.status ? editedRecord.status.toUpperCase() : undefined,
         notes: editedRecord.notes,
-        date: editedRecord.date
+        date: targetDate
       };
 
       await onSave(record._id, payload);
@@ -781,11 +811,12 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
             </div>
 
             <div className="EmppAttendence-form-group">
-              <label>Status (recalculated on save)</label>
+              <label>Status</label>
               <select
                 className="EmppAttendence-form-input"
                 value={editedRecord.status}
-                disabled
+                onChange={(e) => setEditedRecord(prev => ({ ...prev, status: e.target.value }))}
+                disabled={!canEditRecord}
               >
                 <option value="present">Present</option>
                 <option value="late">Late</option>

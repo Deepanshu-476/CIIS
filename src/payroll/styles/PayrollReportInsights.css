@@ -1,0 +1,88 @@
+.pr-main-column {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+}
+
+.pr-report-insights {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.pr-report-insights > article {
+  display: flex;
+  overflow: hidden;
+  min-width: 0;
+  height: 270px;
+  flex-direction: column;
+  border: 1px solid #dfe5ee;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 5px 18px rgba(29, 43, 69, .055);
+}
+
+.pr-report-insights article > header {
+  display: flex;
+  align-items: center;
+  min-height: 62px;
+  box-sizing: border-box;
+  gap: 11px;
+  padding: 13px 16px;
+  border-bottom: 1px solid #e7ebf1;
+  background: #fbfcff;
+}
+
+.pr-report-insights article > header > span {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 9px;
+  background: #eaf0ff;
+  color: #3152d3;
+  font-size: 16px;
+}
+
+.pr-report-insights article > header > div { display: grid; min-width: 0; gap: 3px; }
+.pr-report-insights h3 { overflow: hidden; margin: 0; color: #233149; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.pr-report-insights header p { overflow: hidden; margin: 0; color: #8490a2; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.pr-comparison-body { display: flex; align-items: center; justify-content: center; flex: 1; gap: 22px; min-width: 0; padding: 18px 14px; }
+.pr-report-donut { display: grid; place-items: center; width: 112px; height: 112px; flex: 0 0 112px; border-radius: 50%; }
+.pr-report-donut > div { display: grid; place-items: center; width: 69px; height: 69px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px #e9edf3; }
+.pr-report-donut strong { color: #223149; font-size: 17px; }
+.pr-report-donut small { margin-top: -6px; color: #818da0; font-size: 8px; }
+.pr-comparison-values { display: grid; min-width: 0; gap: 18px; }
+.pr-comparison-values > div { display: grid; min-width: 0; gap: 4px; }
+.pr-comparison-values span { display: flex; align-items: center; gap: 7px; color: #647187; font-size: 9px; }
+.pr-comparison-values span i { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 3px; background: #2fbd6b; }
+.pr-comparison-values .deduction span i { background: #ef3e50; }
+.pr-comparison-values strong { overflow: hidden; color: #26354c; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.pr-comparison-values small { color: #929cad; font-size: 7px; }
+.pr-ranking-card ol, .pr-structure-card ul { display: grid; align-content: start; flex: 1; margin: 0; padding: 5px 16px 8px; list-style: none; }
+.pr-ranking-card li, .pr-structure-card li { display: flex; align-items: center; box-sizing: border-box; gap: 10px; min-height: 39px; padding: 7px 0; border-bottom: 1px solid #edf0f4; }
+.pr-ranking-card li:last-child, .pr-structure-card li:last-child { border-bottom: 0; }
+.pr-ranking-card li > b { display: grid; place-items: center; width: 25px; height: 25px; flex: 0 0 25px; border-radius: 7px; background: #edf1ff; color: #3152d3; font-size: 9px; }
+.pr-ranking-card li > span, .pr-structure-card li > span { display: grid; min-width: 0; flex: 1; gap: 3px; }
+.pr-ranking-card li strong, .pr-structure-card li strong { overflow: hidden; color: #344157; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.pr-ranking-card li small, .pr-structure-card li small { overflow: hidden; color: #8994a5; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.pr-ranking-card li em { padding: 5px 7px; border-radius: 6px; background: #f1f4ff; color: #294bc9; font-size: 9px; font-style: normal; font-weight: 800; white-space: nowrap; }
+.pr-structure-card header > span { background: #f0eaff !important; color: #7046cf !important; }
+.pr-structure-card li > b { display: grid; min-width: 48px; place-items: end; color: #5b3cba; font-size: 13px; }
+.pr-structure-card li > b small { margin-top: 1px; color: #8994a5; font-size: 7px; font-weight: 600; }
+.pr-report-insights li.empty { justify-content: center; padding: 30px; color: #8793a5; font-size: 10px; }
+
+@media (max-width: 800px) {
+  .pr-report-insights { grid-template-columns: 1fr; }
+  .pr-report-insights > article { height: auto; min-height: 255px; }
+  .pr-comparison-body { justify-content: center; }
+}
+
+@media (max-width: 420px) {
+  .pr-comparison-body { gap: 14px; padding: 15px 10px; }
+  .pr-report-donut { width: 98px; height: 98px; flex-basis: 98px; }
+  .pr-ranking-card li em { padding: 0; background: transparent; }
+}

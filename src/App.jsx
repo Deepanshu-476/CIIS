@@ -80,7 +80,17 @@ const EmailSettings = lazy(() => import("./admin/page/EmailSettings.jsx"));
 const DemoRequests = lazy(() => import("./admin/page/DemoRequests.jsx"));
 const LeavePolicy = lazy(() => import("./admin/page/LeavePolicy.jsx"));
 const AppVersionControl = lazy(() => import("./admin/page/AppVersionControl.jsx"));
+<<<<<<< HEAD
 const FeedbackQuestionnaireManagement = lazy(() => import("./admin/page/FeedbackQuestionnaireManagement.jsx"));
+=======
+const SalaryComponent = lazy(() => import("./payroll/pages/SalaryComponent.jsx"));
+const SalaryStructure = lazy(() => import("./payroll/pages/SalaryStructure.jsx"));
+const EmployeeSalaryAssignment = lazy(() => import("./payroll/pages/EmployeeSalaryAssignment.jsx"));
+const AssignSalary = lazy(() => import("./payroll/pages/AssignSalary.jsx"));
+const PayrollProcess = lazy(() => import("./payroll/pages/PayrollProcess.jsx"));
+const Payslip = lazy(() => import("./payroll/pages/Payslip.jsx"));
+const PayrollReports = lazy(() => import("./payroll/pages/PayrollReports.jsx"));
+>>>>>>> 317834b87ca0f0945752c7523d4c2f93d48fe63a
 
 function App() {
   return (
@@ -248,8 +258,102 @@ function App() {
           <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
         </Route>
 
+<<<<<<< HEAD
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+=======
+        
+          <Route
+            path="/ciisUser/*"
+            element={
+              <ThemeContextProvider>
+                <ProtectedRoute>
+                  <Layout2 />
+                </ProtectedRoute>
+              </ThemeContextProvider>
+            }
+          >
+          
+          
+          
+            <Route path="change-password" element={<ChangePassword />} />
+            <Route path="emp-details" element={<EmppDetail />} />
+            <Route path="emp-leaves" element={<EmppLeave />} />
+            <Route path="emp-assets" element={<EmppAsset />} />
+            <Route path="emp-attendance" element={<EmppAttendence />} />
+            <Route path="emp-task-details" element={<TaskDeatils />} />
+            <Route path="admin-task-create" element={<AdminTaskCreate />} />
+            <Route path="manage-groups" element={<ManageGroups />} />
+            <Route path="admin-meeting" element={<AdminMeetingPage />} />
+            <Route path="adminproject" element={<AdminProject />} />
+            <Route path="company-all-task" element={<EmpAllTask />} />
+            <Route path="company-all-task/tasks" element={<CompanyAllTaskTasks />} />
+            <Route path="company-all-task/tasks/:userId" element={<CompanyAllTaskTasks />} />
+            <Route path="company-all-task/:userId/tasks" element={<CompanyAllTaskTasks />} />
+            <Route path="emp-client" element={<Client />} />
+            <Route path="emp-client/add-new" element={<AddClientPage />} />
+            <Route path="emp-client/:clientId" element={<ClientDetailsPage />} />
+            <Route path="client-plans" element={<ClientPlansPage />} />
+            <Route path="active-clients" element={<ActiveClientsOverview />} />
+            <Route path="alert" element={<Alerts />} />
+            <Route path="attendance" element={<Attendance />} />
+            <Route path="my-assets" element={<MyAssets />} />
+            <Route path="my-leaves" element={<MyLeaves />} />
+            <Route path="profile" element={<Profile />} />
+            <Route path="user-dashboard" element={<UserDashboard />} />
+            <Route path="ClientDashboard" element={<Navigate to="/client/dashboard" replace />} />
+            <Route path="project" element={<EmployeeProject />} />
+            <Route path="task-management" element={<TaskManagement />} />
+            <Route path="employee-meeting" element={<EmployeeMeetingPage />} />
+            <Route path="client-meeting" element={<ClientMeeting />} />
+            <Route path="create-user" element={<CreateUser />} />
+            <Route path="register-request" element={<RegisterRequest />} />
+            <Route path="department" element={<Department />} />
+            <Route path="department/branch/:branchId" element={<Department />} />
+            <Route path="JobRoleManagement" element={<JobRoleManagement />} />
+            <Route path="SidebarManagement" element={<SidebarManagement />} />
+            <Route path="create-alert" element={<CreateAlerts />} />
+            <Route path="user-profile" element={<UserProfile/>} />
+            <Route path="chat" element={<ChatPage />} />
+            <Route path="contact-support" element={<Navigate to="/ciisUser/dashboard" replace />} />
+            <Route path="support-desk" element={<DepartmentSupportDesk />} />
+            <Route path="support-operations" element={<SupportOperations />} />
+            <Route path="leave-policy-master" element={<LeavePolicy />} />
+            <Route path="leave-policy" element={<LeavePolicy />} />
+            <Route path="salary-component" element={<SalaryComponent />} />
+            <Route path="salary-structure" element={<SalaryStructure />} />
+            <Route path="salary-assignment" element={<EmployeeSalaryAssignment />} />
+            <Route path="assign-salary" element={<AssignSalary />} />
+            <Route path="payroll-process" element={<PayrollProcess />} />
+            <Route path="payslip" element={<Payslip />} />
+            <Route path="payroll-reports" element={<PayrollReports />} />
+          </Route>
+          <Route
+            path="/client/*"
+            element={
+              <ThemeContextProvider>
+                <ProtectedRoute>
+                  <Layout2 />
+                </ProtectedRoute>
+              </ThemeContextProvider>
+            }
+          >
+            <Route index element={<ClientDashboardPage />} />
+            <Route path="dashboard" element={<ClientDashboardPage />} />
+            <Route path="tasks-updates" element={<ClientTasksUpdatesPage />} />
+            <Route path="my-services" element={<MyServicesPage />} />
+            <Route path="marketplace" element={<ServiceMarketplacePage />} />
+            <Route path="support-tickets" element={<SupportTicketsPage />} />
+            <Route path="documents" element={<DocumentsPage />} />
+            <Route path="payments" element={<PaymentsInvoicesPage />} />
+            <Route path="change-password" element={<ChangePassword />} />
+            <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
+          </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+>>>>>>> 317834b87ca0f0945752c7523d4c2f93d48fe63a
 
       <SpeechToTextControl />
       <ToastContainer position="top-right" autoClose={3000} />

@@ -333,7 +333,7 @@ function SelfRegister() {
     if (form.accountNumber && !/^\d{9,18}$/.test(form.accountNumber)) formatErrors.accountNumber = 'Account number must contain 9 to 18 digits.';
     if (form.panCard && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(form.panCard)) formatErrors.panCard = 'Enter a valid PAN number, for example ABCDE1234F.';
     if (form.ifsc && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(form.ifsc)) formatErrors.ifsc = 'Enter a valid 11-character IFSC code.';
-    if (form.salary && (!Number.isFinite(Number(form.salary)) || Number(form.salary) < 0)) formatErrors.salary = 'Enter a valid salary amount.';
+    if (form.salary && (!Number.isFinite(Number(form.salary)) || Number(form.salary) < 0)) formatErrors.salary = 'Enter a valid monthly gross salary amount.';
     if (Object.keys(formatErrors).length) {
       const fieldStep = { phone: 2, emergencyPhone: 8, pinCode: 4, aadharCard: 5, panCard: 5, accountNumber: 6, ifsc: 6, salary: 6 };
       const firstField = Object.keys(formatErrors)[0];
@@ -633,7 +633,7 @@ function SelfRegister() {
       content: (
         <div className="CreateUser-form-grid">
           <div className="CreateUser-form-row">
-            {renderInput({ name: 'salary', label: 'Salary', type: 'number', placeholder: 'Enter salary' })}
+            {renderInput({ name: 'salary', label: 'Monthly Gross Salary', type: 'number', placeholder: 'Enter monthly gross salary' })}
             {renderInput({ name: 'accountNumber', label: 'Account Number', placeholder: 'Enter 9 to 18-digit account number', inputMode: 'numeric', maxLength: 18 })}
           </div>
           <div className="CreateUser-form-row">

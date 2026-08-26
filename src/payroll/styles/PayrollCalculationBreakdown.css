@@ -1,0 +1,89 @@
+.payroll-process-page .pp-detail-days {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.payroll-process-page .pp-attendance-impact h4 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.payroll-process-page .pp-attendance-impact h4 small {
+  color: #a16207;
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.payroll-process-page .pp-detail-grid p > span small {
+  display: block;
+  margin-top: 3px;
+  color: #8a94a5;
+  font-size: 8px;
+  font-weight: 500;
+}
+
+.payroll-process-page .pp-section-total,
+.payroll-process-page .pp-deduction-total {
+  background: #f7f9fc;
+  font-weight: 800;
+}
+
+.payroll-process-page .pp-attendance-adjustment-row {
+  display: none;
+}
+
+.payroll-process-page .pp-attendance-adjustment-row b,
+.payroll-process-page .pp-deduction-total b {
+  color: #d94852 !important;
+}
+
+.payroll-process-page .pp-net-equation {
+  display: none;
+  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  margin: 0 24px 22px;
+  padding: 14px 16px;
+  border: 1px solid #dce4f2;
+  border-radius: 12px;
+  background: #f8faff;
+}
+
+.payroll-process-page .pp-net-equation > span {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.payroll-process-page .pp-net-equation small {
+  color: #77849a;
+  font-size: 8px;
+}
+
+.payroll-process-page .pp-net-equation strong {
+  overflow: hidden;
+  color: #27364f;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.payroll-process-page .pp-net-equation > i {
+  color: #8b96a8;
+  font-size: 15px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.payroll-process-page .pp-net-equation .net strong {
+  color: #244bc4;
+  font-size: 13px;
+}
+
+@media (max-width: 700px) {
+  .payroll-process-page .pp-detail-days { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .payroll-process-page .pp-net-equation { grid-template-columns: 1fr auto 1fr; }
+  .payroll-process-page .pp-net-equation > i:nth-of-type(2) { display: none; }
+  .payroll-process-page .pp-net-equation .net { grid-column: 1 / -1; padding-top: 8px; border-top: 1px solid #e3e8f0; }
+}

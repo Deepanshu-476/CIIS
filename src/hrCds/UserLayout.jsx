@@ -170,7 +170,7 @@ const UserLayout = () => {
         isSidebarHovered={isSidebarHovered}
         sx={{ 
           maxWidth: '100%', 
-          overflow: 'hidden',
+          overflow: 'auto',
           padding: 0,
           mt: isMobile ? 7 : 8,
           transition: theme.transitions.create(['margin', 'width'], {
@@ -186,7 +186,7 @@ const UserLayout = () => {
               width: '100%',
               maxWidth: '100%',
               minHeight: { xs: 'calc(100dvh - 56px)', md: 'calc(100dvh - 64px)' },
-              overflow: 'hidden',
+              overflow: 'visible',
               boxSizing: 'border-box',
               backgroundColor: '#f8faff',
               padding: { xs: '10px 12px', sm: '14px 18px 18px' },

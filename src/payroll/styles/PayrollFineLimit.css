@@ -1,0 +1,10 @@
+.payroll-process-page .pp-fine-form .pp-fine-limit{color:#b45309;font-size:9px;font-weight:600}
+.payroll-process-page .pp-modal{scrollbar-width:none;-ms-overflow-style:none}
+.payroll-process-page .pp-modal::-webkit-scrollbar{display:none;width:0;height:0}
+.payroll-process-page .pp-modal>header{position:sticky;top:0;z-index:12}
+.payroll-process-page .pp-modal>footer{position:sticky;bottom:0;z-index:12;box-shadow:0 -8px 20px rgba(22,36,64,.08)}
+.payroll-process-page .pp-modal-backdrop:has(.pp-calculation-modal){overflow:hidden}
+.payroll-process-page .pp-calculation-modal{display:grid!important;grid-template-rows:max-content minmax(0,1fr) max-content;height:min(720px,calc(100dvh - 40px));max-height:none!important;overflow:hidden!important}
+.payroll-process-page .pp-calculation-modal>header,.payroll-process-page .pp-calculation-modal>footer{position:relative!important;top:auto!important;bottom:auto!important;z-index:2;flex:none}
+.payroll-process-page .pp-calculation-scroll{height:100%;min-height:0;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain;scrollbar-width:none;-ms-overflow-style:none}
+.payroll-process-page .pp-calculation-scroll::-webkit-scrollbar{display:none;width:0;height:0}

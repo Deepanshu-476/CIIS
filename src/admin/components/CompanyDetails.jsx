@@ -3773,7 +3773,7 @@ const CompanyDetails = () => {
                 </div>
 
                 <div className="CompanyDetails-form-group">
-                  <label className="CompanyDetails-form-label">Salary</label>
+                  <label className="CompanyDetails-form-label">Monthly Gross Salary</label>
                   <div className="CompanyDetails-input-wrapper">
                     <span className="CompanyDetails-input-icon">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -3786,7 +3786,7 @@ const CompanyDetails = () => {
                       value={editFormData.salary}
                       onChange={handleInputChange}
                       className="CompanyDetails-form-input"
-                      placeholder="Enter salary"
+                      placeholder="Enter monthly gross salary"
                     />
                   </div>
                 </div>

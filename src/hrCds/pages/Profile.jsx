@@ -1178,7 +1178,7 @@ const Profile = () => {
             <div className="UserDetails-info-grid">
               <InfoItem label="Employee Type" value={getProfileValue(profile, "employeeType", "employmentType")} />
               <InfoItem label="Work Location" value={location} />
-              <InfoItem label="Salary" value={profile?.salary} />
+              <InfoItem label="Monthly Gross Salary" value={profile?.salary} />
               <InfoItem label="Employment Status" value={profile?.status} />
               <InfoItem label="Notice Period" value={getProfileValue(profile, "noticePeriod", "notice_period")} />
             </div>

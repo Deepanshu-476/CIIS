@@ -77,6 +77,11 @@ const APP_ROUTES = [
   { id: "support-operations", path: "support-operations", name: "Support Operations", category: "administration" },
   { id: "salary-component", path: "salary-component", name: "Salary Component", category: "payroll" },
   { id: "salary-structure", path: "salary-structure", name: "Salary Structure", category: "payroll" },
+  { id: "salary-assignment", path: "salary-assignment", name: "Employee Salary", category: "payroll" },
+  { id: "assign-salary", path: "assign-salary", name: "Assign Salary", category: "payroll" },
+  { id: "payroll-process", path: "payroll-process", name: "Payroll Process", category: "payroll" },
+  { id: "payslip", path: "payslip", name: "Payslip", category: "payroll" },
+  { id: "payroll-reports", path: "payroll-reports", name: "Payroll Reports", category: "payroll" },
 ];
 
 const SUPER_ADMIN_ROUTES = [

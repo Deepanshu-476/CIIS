@@ -41,6 +41,11 @@ const FALLBACK_PAGES = [
   { pageKey: "SidebarManagement", name: "Sidebar Management", path: "/ciisUser/SidebarManagement", permissionPattern: "viewEdit" },
   { pageKey: "salary-component", name: "Salary Component", path: "/ciisUser/salary-component", permissionPattern: "viewEdit" },
   { pageKey: "salary-structure", name: "Salary Structure", path: "/ciisUser/salary-structure", permissionPattern: "viewEdit" },
+  { pageKey: "salary-assignment", name: "Employee Salary", path: "/ciisUser/salary-assignment", permissionPattern: "viewEdit" },
+  { pageKey: "assign-salary", name: "Assign Salary", path: "/ciisUser/assign-salary", permissionPattern: "viewEdit" },
+  { pageKey: "payroll-process", name: "Payroll Process", path: "/ciisUser/payroll-process", permissionPattern: "viewEdit" },
+  { pageKey: "payslip", name: "Payslip", path: "/ciisUser/payslip", permissionPattern: "viewEdit" },
+  { pageKey: "payroll-reports", name: "Payroll Reports", path: "/ciisUser/payroll-reports", permissionPattern: "viewEdit" },
 ];
 
 const ICON_MAP = {
@@ -56,6 +61,9 @@ const ICON_MAP = {
   "leave-policy": DescriptionOutlined,
   "salary-component": WorkOutline,
   "salary-structure": WorkOutline,
+  "salary-assignment": WorkOutline,
+  "assign-salary": WorkOutline,
+  "payroll-process": WorkOutline,
 };
 
 const getRecordId = (value) => {

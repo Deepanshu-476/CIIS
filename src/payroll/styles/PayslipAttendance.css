@@ -1,0 +1,4 @@
+.payslip-attendance{grid-template-columns:repeat(6,1fr)}
+.payslip-orange{color:#d97706!important}
+@media(max-width:800px){.payslip-attendance{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.payslip-attendance{grid-template-columns:1fr}}

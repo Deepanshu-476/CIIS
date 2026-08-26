@@ -1,0 +1,100 @@
+.ps2-attendance-card {
+  background: linear-gradient(180deg, #fff 0, #fbfcff 100%);
+}
+.ps2-attendance-card h3 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ps2-attendance-card h3::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #3156d3;
+  box-shadow: 0 0 0 5px #edf1ff;
+}
+.ps2-attendance-card-month {
+  margin: 13px 15px 6px;
+  padding: 9px 11px;
+  border: 1px solid #dfe6f2;
+  border-radius: 8px;
+  background: #f5f8ff;
+  color: #3156d3;
+  font-size: 10px;
+  font-weight: 800;
+  text-align: center;
+}
+.ps2-attendance-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  padding: 8px 15px 15px;
+}
+.ps2-attendance-list > div {
+  display: grid;
+  gap: 5px;
+  min-height: 58px;
+  padding: 10px 11px;
+  box-sizing: border-box;
+  border: 1px solid #e4e9f1;
+  border-radius: 9px;
+  background: #fff;
+}
+.ps2-attendance-list span {
+  color: #718096;
+  font-size: 9px;
+}
+.ps2-attendance-list strong {
+  color: #2747a8;
+  font-size: 16px;
+}
+.ps2-attendance-list .item-total-days {
+  border-color: #dbeafe;
+  background: #f8faff;
+}
+.ps2-attendance-list .item-total-days strong {
+  color: #2563eb;
+}
+.ps2-attendance-list .item-working-days {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+}
+.ps2-attendance-list .item-working-days strong {
+  color: #334155;
+}
+.ps2-attendance-list .item-present {
+  border-color: #d9eddf;
+  background: #f3fbf5;
+}
+.ps2-attendance-list .item-present strong {
+  color: #16834b;
+}
+.ps2-attendance-list .item-halfday {
+  border-color: #f4e7c7;
+  background: #fffaf0;
+}
+.ps2-attendance-list .item-halfday strong {
+  color: #b97806;
+}
+.ps2-attendance-list .item-paidleave {
+  border-color: #ccfbf1;
+  background: #f0fdfa;
+}
+.ps2-attendance-list .item-paidleave strong {
+  color: #0f766e;
+}
+.ps2-attendance-list .item-absent {
+  border-color: #f2dfe2;
+  background: #fff5f6;
+}
+.ps2-attendance-list .item-absent strong {
+  color: #d33f4b;
+}
+.ps2-attendance-list > div.cutoff {
+  grid-column: 1 / -1;
+  min-height: auto;
+}
+.ps2-attendance-list > div.cutoff strong {
+  font-size: 12px;
+}

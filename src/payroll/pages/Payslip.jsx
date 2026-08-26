@@ -70,10 +70,12 @@ export default function Payslip() {
       const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
       const canvas = await html2canvas(documentRef.current, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
       const pdf = new jsPDF("p", "mm", "a4");
-      const maxWidth = 190; const maxHeight = 277;
+      const maxWidth = 196; const maxHeight = 273;
       let width = maxWidth; let height = (canvas.height * width) / canvas.width;
       if (height > maxHeight) { height = maxHeight; width = (canvas.width * height) / canvas.height; }
-      pdf.addImage(canvas.toDataURL("image/png"), "PNG", (210 - width) / 2, 10, width, height, undefined, "FAST");
+      const xPos = (210 - width) / 2;
+      const yPos = 12;
+      pdf.addImage(canvas.toDataURL("image/png"), "PNG", xPos, yPos, width, height, undefined, "FAST");
       pdf.save(`${payslipNumber}.pdf`);
     } catch { setError("Payslip PDF could not be generated."); }
     finally { setAction(""); }

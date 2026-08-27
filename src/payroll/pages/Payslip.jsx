@@ -49,6 +49,29 @@ const resolveLogoUrl = (logo) => {
   return `${backendBase}${clean.startsWith("/") ? "" : "/"}${clean}`;
 };
 
+const urlToBase64 = (url) => {
+  return new Promise((resolve) => {
+    if (!url || typeof url !== "string") return resolve(null);
+    if (url.startsWith("data:")) return resolve(url);
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth || img.width || 100;
+        canvas.height = img.naturalHeight || img.height || 100;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      } catch {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+};
+
 export default function Payslip() {
   const documentRef = useRef(null);
   const [run, setRun] = useState(null);
@@ -59,13 +82,23 @@ export default function Payslip() {
   const [action, setAction] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [backendCompany, setBackendCompany] = useState(null);
   const [logoFailed, setLogoFailed] = useState(false);
-  const company = useMemo(storedCompany, []);
-  const logoSrc = useMemo(() => resolveLogoUrl(company.logo || company.companyLogo), [company]);
+  const company = useMemo(() => {
+    const raw = backendCompany || storedCompany();
+    return {
+      ...raw,
+      companyName: raw.companyName || raw.name || "Company",
+      companyCode: raw.companyCode || raw.code || ""
+    };
+  }, [backendCompany]);
+
+  const logoRaw = company.logoBase64 || company.logo || company.companyLogo || "";
+  const logoUrl = useMemo(() => resolveLogoUrl(logoRaw), [logoRaw]);
 
   useEffect(() => {
     setLogoFailed(false);
-  }, [logoSrc]);
+  }, [logoUrl]);
 
   useEffect(() => {
     let active = true;
@@ -77,6 +110,7 @@ export default function Payslip() {
         const nextRun = response.data?.run || null;
         const list = nextRun?.employees || [];
         setRun(nextRun); setEmployees(list);
+        if (response.data?.company) setBackendCompany(response.data.company);
         setSelectedId(current => list.some(item => employeeKey(item) === String(current)) ? current : employeeKey(list[0]));
       } catch (requestError) {
         if (active) { setRun(null); setEmployees([]); setSelectedId(""); setError(requestError.response?.data?.message || "Payslip data could not be loaded."); }
@@ -110,8 +144,23 @@ export default function Payslip() {
     if (!documentRef.current || !payroll) return;
     setAction("pdf"); setError("");
     try {
+      const logoImgTag = documentRef.current.querySelector(".ps2-company-name img");
+      let originalSrc = "";
+      if (logoImgTag && logoUrl && !logoFailed) {
+        originalSrc = logoImgTag.src;
+        const base64Data = await urlToBase64(logoUrl);
+        if (base64Data) {
+          logoImgTag.src = base64Data;
+        }
+      }
+
       const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
       const canvas = await html2canvas(documentRef.current, { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: "#ffffff" });
+
+      if (logoImgTag && originalSrc) {
+        logoImgTag.src = originalSrc;
+      }
+
       const pdf = new jsPDF("p", "mm", "a4");
       const maxWidth = 196; const maxHeight = 273;
       let width = maxWidth; let height = (canvas.height * width) / canvas.width;
@@ -149,8 +198,12 @@ export default function Payslip() {
           <header className="ps2-doc-title"><div><h2>{isTillDatePayslip ? "Payslip Till Date" : "Payslip"} — {monthName(payrollMonth)}</h2><span>{payslipStatus}</span></div><p>Payslip No: <strong>{payslipNumber}</strong></p></header>
           <section className="ps2-company">
             <div className="ps2-company-name">
-              {logoSrc && !logoFailed ? (
-                <img src={logoSrc} alt="Company logo" onError={() => setLogoFailed(true)} />
+              {logoUrl && !logoFailed ? (
+                <img
+                  src={logoUrl}
+                  alt="Company logo"
+                  onError={() => setLogoFailed(true)}
+                />
               ) : (
                 <div className="ps2-logo-badge">
                   {(company.companyName || company.name || "C").charAt(0).toUpperCase()}

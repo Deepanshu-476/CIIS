@@ -5,6 +5,8 @@
   background-color: #f8fafc;
   color: #1e293b;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 /* Card */
@@ -254,10 +256,21 @@
 
 .ss-table {
   width: 100%;
-  min-width: 900px;
+  min-width: 700px;
   border-collapse: collapse;
   font-size: 12.5px;
   background: #ffffff;
+}
+
+.ss-table.ss-modal-table {
+  min-width: 100% !important;
+  width: 100% !important;
+  table-layout: auto;
+}
+
+.ss-table.ss-modal-table th,
+.ss-table.ss-modal-table td {
+  white-space: normal;
 }
 
 .ss-table th {

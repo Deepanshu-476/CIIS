@@ -17,6 +17,38 @@ const storedCompany = () => {
   catch { return {}; }
 };
 
+function numberToWords(num) {
+  const value = Math.round(Number(num || 0) * 100) / 100;
+  if (!value || isNaN(value) || value <= 0) return "Zero Only";
+  const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+  function inWords(n) {
+    if (n < 20) return a[n];
+    if (n < 100) return b[Math.floor(n / 10)] + (n % 10 ? " " + a[n % 10] : "");
+    if (n < 1000) return a[Math.floor(n / 100)] + " Hundred" + (n % 100 ? " " + inWords(n % 100) : "");
+    if (n < 100000) return inWords(Math.floor(n / 1000)) + " Thousand" + (n % 1000 ? " " + inWords(n % 1000) : "");
+    if (n < 10000000) return inWords(Math.floor(n / 100000)) + " Lakh" + (n % 100000 ? " " + inWords(n % 100000) : "");
+    return inWords(Math.floor(n / 10000000)) + " Crore" + (n % 10000000 ? " " + inWords(n % 10000000) : "");
+  }
+  const integerPart = Math.floor(value);
+  const decimalPart = Math.round((value - integerPart) * 100);
+  let str = inWords(integerPart) + " Rupees";
+  if (decimalPart > 0) {
+    str += " and " + inWords(decimalPart) + " Paise";
+  }
+  return str + " Only";
+}
+
+const resolveLogoUrl = (logo) => {
+  if (!logo || typeof logo !== "string") return "";
+  const clean = logo.trim();
+  if (!clean) return "";
+  if (clean.startsWith("data:") || clean.startsWith("http://") || clean.startsWith("https://")) return clean;
+  const backendBase = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api\/?$/, "");
+  return `${backendBase}${clean.startsWith("/") ? "" : "/"}${clean}`;
+};
+
 export default function Payslip() {
   const documentRef = useRef(null);
   const [run, setRun] = useState(null);
@@ -27,7 +59,13 @@ export default function Payslip() {
   const [action, setAction] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [logoFailed, setLogoFailed] = useState(false);
   const company = useMemo(storedCompany, []);
+  const logoSrc = useMemo(() => resolveLogoUrl(company.logo || company.companyLogo), [company]);
+
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [logoSrc]);
 
   useEffect(() => {
     let active = true;
@@ -58,17 +96,22 @@ export default function Payslip() {
   const totalSalaryDeductions = Number(payroll?.totalDeductions || 0) + Number(payroll?.adjustmentDeductions || 0);
   const displayedAttendanceDeduction = Number(payroll?.attendanceDeduction || 0);
   const totalDeductions = totalSalaryDeductions;
-  const displayedEarnings = isTillDatePayslip ? Number(payroll?.monthlyGross || 0) : Number(payroll?.assignedGross || 0);
+  const displayedEarnings = isTillDatePayslip ? Number(payroll?.earnedTillDateGross ?? payroll?.monthlyGross ?? 0) : Number(payroll?.assignedGross || 0);
+  const displayedNet = isTillDatePayslip ? Number(payroll?.earnedTillDateNet ?? payroll?.monthlyNet ?? 0) : Number(payroll?.monthlyNet || 0);
   const payslipNumber = payroll ? `PLS-${payrollMonth.replace("-", "")}-${(payroll.user?.employeeId || selectedId).toString().slice(-6).toUpperCase()}` : "—";
   const payDate = payroll?.approvedAt || payroll?.lockedAt || run?.approvedAt || run?.lockedAt || new Date(`${payrollMonth}-01T00:00:00`);
   const payslipStatus = payroll?.payrollStatus || run?.status || "Approved";
+
+  const daysInMonthVal = attendance.daysInMonth || 31;
+  const totalPaidDaysVal = Math.max(0, daysInMonthVal - Number(attendance.lopDays || 0));
+  const weekOffVal = attendance.weekOffDays ?? Math.max(0, daysInMonthVal - (attendance.workingDays || 0));
 
   const downloadPdf = async () => {
     if (!documentRef.current || !payroll) return;
     setAction("pdf"); setError("");
     try {
       const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
-      const canvas = await html2canvas(documentRef.current, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+      const canvas = await html2canvas(documentRef.current, { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: "#ffffff" });
       const pdf = new jsPDF("p", "mm", "a4");
       const maxWidth = 196; const maxHeight = 273;
       let width = maxWidth; let height = (canvas.height * width) / canvas.width;
@@ -78,16 +121,6 @@ export default function Payslip() {
       pdf.addImage(canvas.toDataURL("image/png"), "PNG", xPos, yPos, width, height, undefined, "FAST");
       pdf.save(`${payslipNumber}.pdf`);
     } catch { setError("Payslip PDF could not be generated."); }
-    finally { setAction(""); }
-  };
-
-  const emailPayslip = async () => {
-    if (!payroll) return;
-    setAction("email"); setError(""); setMessage("");
-    try {
-      const response = await axiosInstance.post("/employee-salaries/payroll-payslips/email", { month: payrollMonth, employeeId: selectedId });
-      setMessage(response.data?.message || "Payslip emailed successfully.");
-    } catch (requestError) { setError(requestError.response?.data?.message || "Payslip could not be emailed."); }
     finally { setAction(""); }
   };
 
@@ -106,47 +139,87 @@ export default function Payslip() {
       </div>
     </section>
 
-    {loading && <section className="ps2-state">Preparing approved payslip...</section>}
+    {loading && <section className="ps2-state">Preparing payslip...</section>}
     {!loading && error && <section className="ps2-alert error ps2-no-print">{error}</section>}
     {!loading && message && <section className="ps2-alert success ps2-no-print">{message}</section>}
     {!loading && !error && !payroll && <section className="ps2-state">This month has no approved employee payslip.</section>}
 
     {!loading && payroll && <section className="ps2-layout">
       <article className="ps2-document" ref={documentRef}>
-        <header className="ps2-doc-title"><div><h2>{isTillDatePayslip ? "Payslip Till Date" : "Payslip"} — {monthName(payrollMonth)}</h2><span>{payslipStatus}</span></div><p>Payslip No: <strong>{payslipNumber}</strong></p></header>
-        <section className="ps2-company">
-          <div className="ps2-company-name">{company.logo && <img src={company.logo} alt="Company logo" />}<div><h3>{company.companyName || company.name || "Company"}</h3><p>{company.companyCode || ""}</p></div></div>
-          <dl><div><dt>Pay Date</dt><dd>{displayDate(payDate)}</dd></div><div><dt>Payment Mode</dt><dd>{payroll.paymentMode || "—"}</dd></div><div><dt>Bank Account</dt><dd>{payroll.bankAccount || "—"}</dd></div></dl>
-        </section>
-        <section className="ps2-employee">
-          <div className="ps2-employee-identity"><span>Employee</span><strong>{payroll.user?.name || "—"}</strong><small>{payroll.user?.employeeId || payroll.user?.empId || payroll.user?.email || ""}</small></div>
-          <div className="ps2-detail-list"><p><span>Department</span><strong>{payroll.department || payroll.user?.department?.name || payroll.user?.department || "—"}</strong></p><p><span>Job Role</span><strong>{payroll.designation || payroll.user?.jobRole?.name || payroll.user?.jobRole || "—"}</strong></p><p><span>Date of Joining</span><strong>{displayDate(payroll.dateOfJoining || payroll.user?.dateOfJoining)}</strong></p></div>
-          <div className="ps2-detail-list"><p><span>Salary Structure</span><strong>{payroll.salaryStructure?.name || "—"}</strong></p><p><span>Structure Code</span><strong>{payroll.salaryStructure?.code || "—"}</strong></p><p><span>Pay Frequency</span><strong>{payroll.payFrequency || "Monthly"}</strong></p></div>
-          <div className="ps2-detail-list"><p><span>Payment Mode</span><strong>{payroll.paymentMode || "—"}</strong></p><p><span>Bank Account</span><strong>{payroll.bankAccount || "—"}</strong></p><p><span>Payroll Status</span><strong>{payslipStatus}</strong></p></div>
-        </section>
-        <section className="ps2-breakdown">
-          <div className="earning"><h3>Earnings</h3><table><thead><tr><th>Component</th><th>Amount</th></tr></thead><tbody>{earnings.map(item => <tr key={`${item.component?._id || item.component}-${item.code}`}><td>{item.name}<small>{item.code || ""}</small></td><td>{money(earningAmount(item))}</td></tr>)}<tr className="total"><td>{isTillDatePayslip ? "Full Monthly Earnings" : "Total Earnings"}</td><td>{money(payroll.assignedGross)}</td></tr>{isTillDatePayslip && <tr className="ps2-earned-row"><td>Earned Salary Till Date<small>Calculated through {displayDate(attendance.calculationCutoff)}</small></td><td>{money(payroll.monthlyGross)}</td></tr>}</tbody></table></div>
-          <div className="deduction"><h3>Actual Deductions</h3><table><thead><tr><th>Component</th><th>Amount</th></tr></thead><tbody>{displayedAttendanceDeduction > 0 && <tr><td>Attendance Deduction<small>{`${attendance.lopDays || 0} absent day(s), ${attendance.halfDayDays || 0} half day(s)`}</small></td><td>{money(displayedAttendanceDeduction)}</td></tr>}{deductions.map(item => <tr key={`${item.component?._id || item.component}-${item.code}`}><td>{item.name}<small>{item.code || ""}</small></td><td>{money(deductionAmount(item))}</td></tr>)}{(payroll.adjustments || []).map(item => <tr key={item._id}><td>{item.reason}<small>{item.remarks || "One-time deduction"}</small></td><td>{money(item.amount)}</td></tr>)}<tr className="total"><td>Total Actual Deductions</td><td>{money(totalDeductions)}</td></tr></tbody></table></div>
-        </section>
-        <section className="ps2-final"><div><span>{isTillDatePayslip ? "Earned Salary Till Date" : "Total Earnings"}</span><strong>{money(displayedEarnings)}</strong></div><b>−</b><div><span>Actual Deductions</span><strong className="red">{money(totalDeductions)}</strong></div><b>=</b><div><span>{isTillDatePayslip ? "Net Salary Till Date" : "Net Salary"}</span><strong className="blue">{money(payroll.monthlyNet)}</strong></div></section>
-      </article>
+          <header className="ps2-doc-title"><div><h2>{isTillDatePayslip ? "Payslip Till Date" : "Payslip"} — {monthName(payrollMonth)}</h2><span>{payslipStatus}</span></div><p>Payslip No: <strong>{payslipNumber}</strong></p></header>
+          <section className="ps2-company">
+            <div className="ps2-company-name">
+              {logoSrc && !logoFailed ? (
+                <img src={logoSrc} alt="Company logo" onError={() => setLogoFailed(true)} />
+              ) : (
+                <div className="ps2-logo-badge">
+                  {(company.companyName || company.name || "C").charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div><h3>{company.companyName || company.name || "Company"}</h3><p>{company.companyCode || ""}</p></div>
+            </div>
+            <dl><div><dt>Pay Date</dt><dd>{displayDate(payDate)}</dd></div><div><dt>Payment Mode</dt><dd>{payroll.paymentMode || "Bank Transfer"}</dd></div><div><dt>Account No.</dt><dd>{payroll.user?.accountNumber || "—"}</dd></div></dl>
+          </section>
+          <section className="ps2-employee">
+            <div className="ps2-employee-identity"><span>Employee</span><strong>{payroll.user?.name || "—"}</strong><small>{payroll.user?.employeeId || payroll.user?.empId || payroll.user?.email || ""}</small></div>
+            <div className="ps2-detail-list">
+              <h5>Work Details</h5>
+              <p><span>Department</span><strong>{payroll.department || payroll.user?.department?.name || payroll.user?.department || "—"}</strong></p>
+              <p><span>Job Role</span><strong>{payroll.designation || payroll.user?.jobRole?.name || payroll.user?.jobRole || "—"}</strong></p>
+              <p><span>Date of Joining</span><strong>{displayDate(payroll.dateOfJoining || payroll.user?.dateOfJoining)}</strong></p>
+              <p><span>Mobile</span><strong>{payroll.user?.phone || "—"}</strong></p>
+            </div>
+            <div className="ps2-detail-list">
+              <h5>Identity & Structure</h5>
+              <p><span>PAN Number</span><strong>{payroll.user?.panCard || payroll.user?.panNo || payroll.user?.pan || "—"}</strong></p>
+              <p><span>Aadhaar Number</span><strong>{payroll.user?.aadhaar || payroll.user?.aadhar || payroll.user?.aadharCard || payroll.user?.aadharNo || payroll.user?.aadhaarNo || "—"}</strong></p>
+              <p><span>Salary Structure</span><strong>{payroll.salaryStructure?.name || "—"} ({payroll.salaryStructure?.code || ""})</strong></p>
+              <p><span>Pay Frequency</span><strong>{payroll.payFrequency || "Monthly"}</strong></p>
+            </div>
+            <div className="ps2-detail-list">
+              <h5>Banking Details</h5>
+              <p><span>Bank Name</span><strong>{payroll.user?.bankName || "—"}</strong></p>
+              <p><span>Account Holder</span><strong>{payroll.user?.bankHolderName || payroll.user?.name || "—"}</strong></p>
+              <p><span>Account Number</span><strong>{payroll.user?.accountNumber || "—"}</strong></p>
+              <p><span>IFSC Code</span><strong>{payroll.user?.ifsc || "—"}</strong></p>
+            </div>
+          </section>
+          <section className="ps2-breakdown">
+            <div className="earning"><h3>Earnings</h3><table><thead><tr><th>Component</th><th>Amount</th></tr></thead><tbody>{earnings.map(item => <tr key={`${item.component?._id || item.component}-${item.code}`}><td>{item.name}<small>{item.code || ""}</small></td><td>{money(earningAmount(item))}</td></tr>)}<tr className="total"><td>{isTillDatePayslip ? "Full Monthly Earnings" : "Total Earnings"}</td><td>{money(payroll.assignedGross)}</td></tr>{isTillDatePayslip && <tr className="ps2-earned-row"><td>Earned Salary Till Date<small>Calculated through {displayDate(attendance.calculationCutoff)}</small></td><td>{money(payroll.earnedTillDateGross ?? payroll.monthlyGross)}</td></tr>}</tbody></table></div>
+            <div className="deduction"><h3>Actual Deductions</h3><table><thead><tr><th>Component</th><th>Amount</th></tr></thead><tbody>{displayedAttendanceDeduction > 0 && <tr><td>Attendance Deduction<small>{`${attendance.lopDays || 0} absent day(s), ${attendance.halfDayDays || 0} half day(s)`}</small></td><td>{money(displayedAttendanceDeduction)}</td></tr>}{deductions.map(item => <tr key={`${item.component?._id || item.component}-${item.code}`}><td>{item.name}<small>{item.code || ""}</small></td><td>{money(deductionAmount(item))}</td></tr>)}{(payroll.adjustments || []).map(item => <tr key={item._id}><td>{item.reason}<small>{item.remarks || "One-time deduction"}</small></td><td>{money(item.amount)}</td></tr>)}<tr className="total"><td>Total Actual Deductions</td><td>{money(totalDeductions)}</td></tr></tbody></table></div>
+          </section>
+          <section className="ps2-final-block">
+            <div className="ps2-final">
+              <div><span>{isTillDatePayslip ? "Earned Salary Till Date" : "Total Earnings"}</span><strong>{money(displayedEarnings)}</strong></div>
+              <b>−</b>
+              <div><span>Actual Deductions</span><strong className="red">{money(totalDeductions)}</strong></div>
+              <b>=</b>
+              <div><span>{isTillDatePayslip ? "Net Salary Till Date" : "Net Salary"}</span><strong className="blue">{money(displayedNet)}</strong></div>
+            </div>
+            <div className="ps2-net-words">
+              <span>Amount in Words:</span> <strong>Rs. {numberToWords(displayedNet)}</strong>
+            </div>
+          </section>
+        </article>
 
-      <aside className="ps2-side ps2-no-print">
-        <section><h3>Quick Summary</h3><dl><div><dt>Full Monthly Earnings</dt><dd>{money(payroll.assignedGross)}</dd></div><div><dt>{isTillDatePayslip ? "Earned Salary Till Date" : "Payable Earnings"}</dt><dd className="green">{money(payroll.monthlyGross)}</dd></div><div><dt>Actual Deductions</dt><dd className="red">{money(totalSalaryDeductions)}</dd></div><div className="net"><dt>{isTillDatePayslip ? "Net Salary Till Date" : "Net Salary"}</dt><dd>{money(payroll.monthlyNet)}</dd></div></dl></section>
-        <section className="ps2-attendance-card">
-          <h3>Attendance Summary</h3>
-          <div className="ps2-attendance-card-month">{monthName(payrollMonth)}</div>
-          <div className="ps2-attendance-list">
-            <div className="item-total-days"><span>Total Working Days</span><strong>{attendance.workingDays || 0}</strong></div>
-            <div className="item-working-days"><span>{isTillDatePayslip ? "Working Days (Till Date)" : "Working Days"}</span><strong>{isTillDatePayslip ? (attendance.eligibleWorkingDays ?? attendance.workingDays ?? 0) : (attendance.workingDays || 0)}</strong></div>
-            <div className="item-present"><span>Present Days</span><strong>{attendance.presentDays || 0}</strong></div>
-            <div className="item-halfday"><span>Half Days</span><strong>{attendance.halfDayDays || 0}</strong></div>
-            <div className="item-paidleave"><span>Paid Leave</span><strong>{attendance.paidLeaveDays || 0}</strong></div>
-            <div className="item-absent"><span>Absent Days</span><strong>{attendance.lopDays || 0}</strong></div>
-            {isTillDatePayslip && <div className="cutoff"><span>Calculated Through</span><strong>{displayDate(attendance.calculationCutoff)}</strong></div>}
-          </div>
-        </section>
-      </aside>
-    </section>}
+        <aside className="ps2-side ps2-no-print">
+          <section><h3>Quick Summary</h3><dl><div><dt>Full Monthly Earnings</dt><dd>{money(payroll.assignedGross)}</dd></div><div><dt>{isTillDatePayslip ? "Earned Salary Till Date" : "Payable Earnings"}</dt><dd className="green">{money(payroll.earnedTillDateGross ?? payroll.monthlyGross)}</dd></div><div><dt>Actual Deductions</dt><dd className="red">{money(totalSalaryDeductions)}</dd></div><div className="net"><dt>{isTillDatePayslip ? "Net Salary Till Date" : "Net Salary"}</dt><dd>{money(displayedNet)}</dd></div></dl></section>
+          <section className="ps2-attendance-card">
+            <h3>Attendance Summary</h3>
+            <div className="ps2-attendance-card-month">{monthName(payrollMonth)}</div>
+            <div className="ps2-attendance-list">
+              <div className="item-total-days"><span>Month Total Days</span><strong>{daysInMonthVal}</strong></div>
+              <div className="item-working-days"><span>Working Days</span><strong>{attendance.workingDays || 0}</strong></div>
+              <div className="item-weekoff"><span>Weekly Off</span><strong>{weekOffVal}</strong></div>
+              <div className="item-present"><span>Present Days</span><strong>{attendance.presentDays || 0}</strong></div>
+              <div className="item-halfday"><span>Half Days</span><strong>{attendance.halfDayDays || 0}</strong></div>
+              <div className="item-paidleave"><span>Paid Leave</span><strong>{attendance.paidLeaveDays || 0}</strong></div>
+              <div className="item-absent"><span>LWP / Absents</span><strong>{attendance.lopDays || 0}</strong></div>
+              <div className="item-paid-days"><span>Total Paid Days</span><strong>{totalPaidDaysVal}</strong></div>
+              {isTillDatePayslip && <div className="cutoff"><span>Calculated Through</span><strong>{displayDate(attendance.calculationCutoff)}</strong></div>}
+            </div>
+          </section>
+        </aside>
+      </section>}
   </main>;
 }

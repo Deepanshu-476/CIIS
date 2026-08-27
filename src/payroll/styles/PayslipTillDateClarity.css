@@ -4,3 +4,68 @@
   color: #167342;
   font-weight: 800;
 }
+
+.ps2-final-block {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ps2-net-words {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  color: #334155;
+}
+
+.ps2-net-words span {
+  font-weight: 600;
+  color: #64748b;
+  margin-right: 6px;
+}
+
+.ps2-net-words strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.ps2-attendance-list .item-weekoff {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.ps2-attendance-list .item-paid-days {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.ps2-detail-list h5 {
+  margin: 0 0 8px 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #2563eb;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 4px;
+}
+
+.ps2-logo-badge {
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  flex-shrink: 0;
+}

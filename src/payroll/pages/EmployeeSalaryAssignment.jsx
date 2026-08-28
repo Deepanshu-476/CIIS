@@ -13,6 +13,10 @@ import axiosInstance from "../../utils/axiosConfig";
 import "../styles/EmployeeSalaryAssignment.css";
 
 const isHexId = (str) => /^[0-9a-fA-F]{24}$/.test(String(str || "").trim());
+const isActiveUser = (user) => (
+  user?.isActive !== false &&
+  String(user?.status || user?.employeeStatus || "active").toLowerCase() !== "inactive"
+);
 
 const emptyForm = {
   user: "",
@@ -79,6 +83,9 @@ const getCompVal = (map, baseStr, defaultVal = 0, pfBase = 0, esiBase = 0) => {
 // and cannot provide its own gross amount.
 const getStructureDefinedGross = (structure) => {
   if (!structure) return "";
+  if (structure.defaultGross && Number(structure.defaultGross) > 0) {
+    return String(structure.defaultGross);
+  }
 
   const values = new Map();
   let gross = 0;
@@ -153,7 +160,7 @@ export default function EmployeeSalaryAssignment() {
       const [salRes, structRes, compUsersRes] = await Promise.allSettled([
         axiosInstance.get("/employee-salaries", { noCache: true }),
         axiosInstance.get("/salary-structures", { noCache: true }),
-        axiosInstance.get("/users/company-users", { _skipErrorNotify: true })
+        axiosInstance.get("/users/company-users", { params: { active: "true" }, _skipErrorNotify: true })
       ]);
 
       let loadedUsers = [];
@@ -219,7 +226,7 @@ export default function EmployeeSalaryAssignment() {
       }
 
       // Normalize loaded users so no raw hex IDs remain
-      const normalizedUsers = loadedUsers.map(u => {
+      const normalizedUsers = loadedUsers.filter(isActiveUser).map(u => {
         let cleanDept = u.departmentName || u.department || "";
         if (typeof cleanDept === "object" && cleanDept !== null) cleanDept = cleanDept.name || "";
         cleanDept = String(cleanDept).trim();
@@ -457,17 +464,17 @@ export default function EmployeeSalaryAssignment() {
 
     if (form.salaryInputType === "gross") {
       const explicitBalanceIndex = rows.findIndex(row => row.type === "earning" && row.calculationType.toLowerCase() === "balance");
+      const specialIndex = rows.findIndex(row => row.type === "earning" && (String(row.code).toUpperCase() === "SPL" || String(row.code).toUpperCase() === "SPECIAL" || String(row.name).toUpperCase().includes("SPECIAL")));
       const fallbackIndex = rows.reduce((found, row, index) => row.type === "earning" ? index : found, -1);
-      const targetIndex = explicitBalanceIndex >= 0 ? explicitBalanceIndex : fallbackIndex;
-      const currentEarnings = rows.reduce((sum, row) => sum + (row.type === "earning" ? Number(row.amount || 0) : 0), 0);
-      const difference = Math.round((baseMonthly - currentEarnings) * 100) / 100;
+      const targetIndex = explicitBalanceIndex >= 0 ? explicitBalanceIndex : (specialIndex >= 0 ? specialIndex : fallbackIndex);
+      const otherEarnings = rows.reduce((sum, row, index) => sum + (row.type === "earning" && index !== targetIndex ? Number(row.amount || 0) : 0), 0);
+      const difference = Math.round((baseMonthly - otherEarnings) * 100) / 100;
 
-      if (targetIndex >= 0 && difference > 0) {
-        const currentAmount = explicitBalanceIndex >= 0 ? 0 : Number(rows[targetIndex].amount || 0);
+      if (targetIndex >= 0) {
         rows[targetIndex] = {
           ...rows[targetIndex],
-          amount: Math.round((currentAmount + difference) * 100) / 100,
-          calculationType: explicitBalanceIndex >= 0 ? "Balance" : rows[targetIndex].calculationType,
+          amount: Math.max(0, difference),
+          calculationType: "Balance",
           calculationBase: "Auto balance to Gross Salary",
           isAutoBalanced: true
         };
@@ -655,6 +662,27 @@ export default function EmployeeSalaryAssignment() {
       setMessage({ type: "success", text: response.data?.message || "Previous salary record deleted successfully." });
     } catch (error) {
       setMessage({ type: "error", text: error.response?.data?.message || "Unable to delete previous salary record." });
+    }
+  };
+
+  const handleUnassignCurrentAssignment = async () => {
+    if (!currentAssignment?._id) return;
+    if (!window.confirm(`Are you sure you want to unassign salary for ${selectedUserObj?.name || "this employee"}?`)) return;
+
+    try {
+      setSaving(true);
+      await axiosInstance.delete(`/employee-salaries/${currentAssignment._id}`);
+      setMessage({ type: "success", text: "Salary unassigned successfully." });
+      setSelectedUserObj(null);
+      setForm(emptyForm);
+      setComponentRows([]);
+      setOverrides({});
+      setLockedMap({});
+      setCurrentAssignment(null);
+    } catch (err) {
+      setMessage({ type: "error", text: err.response?.data?.message || "Unable to unassign salary." });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -896,7 +924,6 @@ export default function EmployeeSalaryAssignment() {
               disabled
             >
               <option value="gross">Gross</option>
-              <option value="ctc">CTC</option>
             </select>
           </div>
 
@@ -927,10 +954,6 @@ export default function EmployeeSalaryAssignment() {
               disabled
             >
               <option value="Monthly">Monthly</option>
-              <option value="Semi-Monthly">Semi-Monthly</option>
-              <option value="Weekly">Weekly</option>
-              <option value="Bi-Weekly">Bi-Weekly</option>
-              <option value="Annual">Annual</option>
             </select>
           </div>
 
@@ -1229,6 +1252,17 @@ export default function EmployeeSalaryAssignment() {
 
       {/* Bottom Actions */}
       <div className="esa-bottom-actions">
+        {currentAssignment?._id && (
+          <button
+            type="button"
+            className="esa-btn-cancel"
+            style={{ backgroundColor: '#fee2e2', color: '#dc2626', borderColor: '#fca5a5' }}
+            disabled={saving}
+            onClick={handleUnassignCurrentAssignment}
+          >
+            Unassign Salary
+          </button>
+        )}
         <button
           type="button"
           className="esa-btn-cancel"

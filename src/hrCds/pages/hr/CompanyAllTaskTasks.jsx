@@ -291,33 +291,8 @@ const countStats = (tasks) => {
   };
 };
 
-const normalizeStats = (payload, fallbackTasks) => {
-  const counts = payload?.statusCounts || payload?.stats || payload;
-  if (!counts || typeof counts !== "object") return countStats(fallbackTasks);
-
-  const total = counts.total?.count || counts.total || fallbackTasks.length || 0;
-  const normalizeItem = (key, fallbackKey = key) => {
-    const value = counts[key] || counts[fallbackKey] || 0;
-    if (typeof value === "object") {
-      return {
-        count: value.count || 0,
-        percentage: value.percentage || 0,
-      };
-    }
-    return {
-      count: value || 0,
-      percentage: total > 0 ? Math.round(((value || 0) / total) * 100) : 0,
-    };
-  };
-
-  return {
-    total,
-    pending: normalizeItem("pending"),
-    inProgress: normalizeItem("inProgress", "in-progress"),
-    completed: normalizeItem("completed"),
-    overdue: normalizeItem("overdue"),
-    onhold: normalizeItem("onhold"),
-  };
+const normalizeStats = (payload, fallbackTasks = []) => {
+  return countStats(Array.isArray(fallbackTasks) ? fallbackTasks : []);
 };
 
 const COMPANY_TASK_CACHE_TTL = 10 * 60 * 1000;
@@ -423,7 +398,7 @@ const CompanyAllTaskTasks = () => {
     priority: "all",
   });
   const initialTaskSnapshot = locationStateSnapshot || readCompanyTaskCache(initialCacheKey);
-  const initialStats = locationStateStats ? mapTaskCountsToStats(locationStateStats, locationStateStats.total) : emptyStats;
+  const initialStats = countStats(initialTaskSnapshot?.tasks || []);
 
   const [employee, setEmployee] = useState(
     locationStateEmployee
@@ -580,7 +555,7 @@ const CompanyAllTaskTasks = () => {
       if (Array.isArray(cachedTaskSnapshot.tasks)) {
         setTasks(cachedTaskSnapshot.tasks);
       }
-      if (cachedTaskSnapshot.stats) {
+      if (cachedTaskSnapshot.stats && status === "all") {
         setStats(cachedTaskSnapshot.stats);
       }
       if (cachedTaskSnapshot.workSummary) {
@@ -651,7 +626,7 @@ const CompanyAllTaskTasks = () => {
       setTotalPages(displayPages);
 
       if (status === "all") {
-        setStats(displayStats);
+        setStats(countStats(nextTasks));
       }
 
       // Populate details directly from task response to eliminate extra batch API requests
@@ -752,12 +727,18 @@ const CompanyAllTaskTasks = () => {
     };
   }, [fetchTasks]);
 
+  const getStatCount = (item) => {
+    if (typeof item === "number") return item;
+    if (item && typeof item === "object" && typeof item.count === "number") return item.count;
+    return 0;
+  };
+
   const filteredStats = [
-    { label: "Total", value: stats.total || total || 0, status: "all", icon: FiList, color: "#2563eb" },
-    { label: "Pending", value: stats.pending?.count || 0, status: "pending", icon: FiClock, color: "#f59e0b" },
-    { label: "In Progress", value: stats.inProgress?.count || 0, status: "in-progress", icon: FiActivity, color: "#0ea5e9" },
-    { label: "Completed", value: stats.completed?.count || 0, status: "completed", icon: FiCheckCircle, color: "#16a34a" },
-    { label: "Overdue", value: stats.overdue?.count || 0, status: "overdue", icon: FiAlertTriangle, color: "#dc2626" },
+    { label: "Total", value: getStatCount(stats.total), status: "all", icon: FiList, color: "#2563eb" },
+    { label: "Pending", value: getStatCount(stats.pending), status: "pending", icon: FiClock, color: "#f59e0b" },
+    { label: "In Progress", value: getStatCount(stats.inProgress), status: "in-progress", icon: FiActivity, color: "#0ea5e9" },
+    { label: "Completed", value: getStatCount(stats.completed), status: "completed", icon: FiCheckCircle, color: "#16a34a" },
+    { label: "Overdue", value: getStatCount(stats.overdue), status: "overdue", icon: FiAlertTriangle, color: "#dc2626" },
   ];
 
   const employeeName = employee?.name || currentUser?.name || tasks[0]?.assignedUsers?.[0]?.name || "Employee";
@@ -1391,11 +1372,15 @@ const CompanyAllTaskTasks = () => {
 
                 <label className="company-task-field">
                   <span>Due Date</span>
-                  <input
-                    type="datetime-local"
-                    value={editForm.dueDateTime}
-                    onChange={(event) => setEditForm((previous) => ({ ...previous, dueDateTime: event.target.value }))}
-                  />
+                  <div className="company-task-date-time-input">
+                    <FiCalendar size={15} />
+                    <FiClock size={15} />
+                    <input
+                      type="datetime-local"
+                      value={editForm.dueDateTime}
+                      onChange={(event) => setEditForm((previous) => ({ ...previous, dueDateTime: event.target.value }))}
+                    />
+                  </div>
                 </label>
 
                 <label className="company-task-field">

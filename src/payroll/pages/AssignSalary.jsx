@@ -44,6 +44,21 @@ export default function AssignSalary() {
   }, [activeFilter, users, assignedUsers, unassignedUsers, departmentFilter, jobRoleFilter]);
   const filterTitle = activeFilter === "assigned" ? "Salary Assigned" : activeFilter === "pending" ? "Salary Not Assigned" : "All Employees";
 
+  const handleUnassign = async (user, assignment) => {
+    if (!assignment?._id) return;
+    if (!window.confirm(`Are you sure you want to unassign salary for ${user.name || "this employee"}?`)) return;
+
+    try {
+      setLoading(true);
+      await axiosInstance.delete(`/employee-salaries/${assignment._id}`);
+      setAssignments((prev) => prev.filter((item) => item._id !== assignment._id));
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to unassign salary.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const userRow = (user, assigned) => {
     const assignment = assignmentByUser.get(String(user._id));
     return <tr key={user._id}>
@@ -52,7 +67,7 @@ export default function AssignSalary() {
       <td>{nameOf(user.jobRole)}</td>
       <td>{assigned ? <><strong>{assignment?.salaryStructure?.name || "Salary Structure"}</strong><small>{money(assignment?.monthlyGross)} / month</small></> : <span className="as-pending">Not assigned</span>}</td>
       <td>{assigned ? <><strong>{assignment?.createdBy?.name || "—"}</strong><small>{assignedDate(assignment?.createdAt)}</small></> : "—"}</td>
-      <td>{assigned ? <div className="as-action-stack"><span className="as-status assigned"><FiCheckCircle /> Assigned</span><button className="as-edit-btn" type="button" onClick={() => navigate(`/ciisUser/salary-assignment?user=${user._id}`)}><FiEdit /> Edit</button></div> : <button className="as-assign-btn" type="button" onClick={() => navigate(`/ciisUser/salary-assignment?user=${user._id}`)}><FiUserPlus /> Assign Salary</button>}</td>
+      <td>{assigned ? <div className="as-action-stack"><span className="as-status assigned"><FiCheckCircle /> Assigned</span><button className="as-edit-btn" type="button" onClick={() => navigate(`/ciisUser/salary-assignment?user=${user._id}`)}><FiEdit /> Edit</button><button className="as-unassign-btn" type="button" style={{ marginLeft: '6px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }} onClick={() => handleUnassign(user, assignment)}>Unassign</button></div> : <button className="as-assign-btn" type="button" onClick={() => navigate(`/ciisUser/salary-assignment?user=${user._id}`)}><FiUserPlus /> Assign Salary</button>}</td>
     </tr>;
   };
 

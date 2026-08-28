@@ -72,7 +72,7 @@ const ChristmasPopup = () => {
         easing: 'linear',
         delay: Math.random() * 5 * 1000
       });
-      
+       
       animation.onfinish = () => {
         snowflake.style.top = '-20px';
         snowflake.style.left = Math.random() * 100 + '%';

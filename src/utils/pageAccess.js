@@ -39,7 +39,10 @@ const ACCESS_FIELD_BY_TYPE = {
   view: 'viewUsers',
   edit: 'editUsers',
   delete: 'deleteUsers',
-  approve: 'approvers'
+  approve: 'approvers',
+  generate: 'generateUsers',
+  lock: 'lockUsers',
+  unlock: 'unlockUsers'
 };
 
 export const getPageAccessUserIds = (page, accessType = 'view') => {
@@ -57,7 +60,10 @@ export const hasConfiguredPageAccess = (page) => [
   'view',
   'edit',
   'delete',
-  'approve'
+  'approve',
+  'generate',
+  'lock',
+  'unlock'
 ].some(accessType => getPageAccessUserIds(page, accessType).length > 0);
 
 export const hasPageAccess = (page, userId, accessType = 'view') => {
@@ -82,7 +88,10 @@ export const loadPagePermission = async (path) => {
     approvers: [],
     viewUsers: [],
     editUsers: [],
-    deleteUsers: []
+    deleteUsers: [],
+    generateUsers: [],
+    lockUsers: [],
+    unlockUsers: []
   };
 
   pagePermissionCache.set(cacheKey, {

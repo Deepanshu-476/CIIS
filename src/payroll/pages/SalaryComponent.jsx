@@ -28,11 +28,42 @@ const emptyForm = {
   ptWage: false,
 };
 
+const KNOWN_CODES = {
+  "HOUSE RENT ALLOWANCE": "HRA",
+  "HRA": "HRA",
+  "BASIC SALARY": "BASIC",
+  "BASIC": "BASIC",
+  "SPECIAL ALLOWANCE": "SPL",
+  "SPECIAL": "SPL",
+  "PROVIDENT FUND": "PF",
+  "EMPLOYEE PROVIDENT FUND": "EPF",
+  "EMPLOYEE STATE INSURANCE": "ESI",
+  "DEARNESS ALLOWANCE": "DA",
+  "MEDICAL ALLOWANCE": "MED",
+  "CONVEYANCE ALLOWANCE": "CONV",
+  "PERFORMANCE BONUS": "BONUS",
+  "BONUS": "BONUS",
+  "PROFESSIONAL TAX": "PT",
+  "MANAGEMENT ALLOWANCE": "MANAGEMENT",
+  "OTHER ALLOWANCE": "OTHER",
+  "FLEXIBLE BENEFIT ALLOWANCE": "FBA",
+  "UNIFORM ALLOWANCE": "UNIFORM",
+  "TRAVEL ALLOWANCE": "TRAVEL",
+  "LEAVE TRAVEL ALLOWANCE": "LTA",
+  "OVERTIME": "OT",
+  "OVERTIME ALLOWANCE": "OT"
+};
+
 const previewCode = (name) => {
-  const words = String(name || "").toUpperCase().match(/[A-Z0-9]+/g) || [];
+  const clean = String(name || "").trim().toUpperCase();
+  if (!clean) return "";
+  if (KNOWN_CODES[clean]) return KNOWN_CODES[clean];
+
+  const words = clean.match(/[A-Z0-9]+/g) || [];
   if (!words.length) return "";
-  if (words.length === 1) return words[0].slice(0, 8);
-  return words.map(word => word[0]).join("").slice(0, 8);
+  if (words.length === 1) return words[0].slice(0, 10);
+
+  return words.map(w => w[0]).join("").slice(0, 10);
 };
 
 export default function SalaryComponent() {
@@ -66,7 +97,13 @@ export default function SalaryComponent() {
   }, []);
 
   const updateForm = (key, value) => {
-    setForm(current => ({ ...current, [key]: value }));
+    setForm(current => {
+      const next = { ...current, [key]: value };
+      if (key === "name" && !editingId) {
+        next.code = previewCode(value);
+      }
+      return next;
+    });
   };
 
   const resetForm = () => {
@@ -89,7 +126,7 @@ export default function SalaryComponent() {
     const record = {
       ...form,
       name,
-      code: editingId ? form.code : previewCode(name),
+      code: (form.code || previewCode(name)).trim().toUpperCase(),
       sortOrder: Number(form.sortOrder)
     };
 
@@ -219,10 +256,10 @@ export default function SalaryComponent() {
                 <input
                   type="text"
                   className="scm-input"
-                  placeholder="Auto-generated on save"
-                  value={editingId ? form.code : previewCode(form.name)}
-                  readOnly
-                  title="Code is generated automatically and cannot be changed"
+                  placeholder="e.g. SPL"
+                  value={form.code !== undefined ? form.code : previewCode(form.name)}
+                  onChange={(e) => updateForm("code", e.target.value.toUpperCase())}
+                  title="Auto-generated code. You can also edit manually."
                 />
               </div>
             </div>

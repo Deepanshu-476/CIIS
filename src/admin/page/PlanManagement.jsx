@@ -54,9 +54,7 @@ const APP_ROUTES = [
   { id: "chat", path: "chat", name: "Chat", category: "communication" },
   { id: "support-desk", path: "support-desk", name: "Support Desk", category: "communication" },
   { id: "support-operations", path: "support-operations", name: "Support Operations", category: "administration" },
-<<<<<<< HEAD
   { id: "feedback-questionnaire", path: "feedback-questionnaire", name: "Feedback / Questionnaire", category: "administration" },
-=======
   { id: "salary-component", path: "salary-component", name: "Salary Component", category: "payroll" },
   { id: "salary-structure", path: "salary-structure", name: "Salary Structure", category: "payroll" },
   { id: "salary-assignment", path: "salary-assignment", name: "Employee Salary", category: "payroll" },
@@ -64,7 +62,6 @@ const APP_ROUTES = [
   { id: "payroll-process", path: "payroll-process", name: "Payroll Process", category: "payroll" },
   { id: "payslip", path: "payslip", name: "Payslip", category: "payroll" },
   { id: "payroll-reports", path: "payroll-reports", name: "Payroll Reports", category: "payroll" },
->>>>>>> 317834b87ca0f0945752c7523d4c2f93d48fe63a
 ];
 
 const SUPER_ADMIN_ROUTES = [

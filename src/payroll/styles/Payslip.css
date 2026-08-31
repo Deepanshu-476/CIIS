@@ -1,1 +1,176 @@
 .payslip-page{padding:24px;background:#f5f7fb;min-height:100%;color:#172554}.payslip-card{background:#fff;border:1px solid #e1e7f0;border-radius:12px;box-shadow:0 3px 14px rgba(15,23,42,.05)}.payslip-filter-card{padding:19px 22px;display:flex;align-items:center;justify-content:space-between;gap:24px}.payslip-title{display:flex;gap:12px;align-items:flex-start}.payslip-title svg{font-size:23px;color:#3157cf;margin-top:3px}.payslip-title h1{font-size:20px;margin:0 0 4px}.payslip-title p{margin:0;color:#64748b;font-size:13px}.payslip-filters{display:flex;gap:14px}.payslip-filters label{display:grid;gap:6px;font-size:12px;font-weight:700;color:#334155}.payslip-filters input,.payslip-filters select{min-width:205px;height:40px;border:1px solid #d5deea;border-radius:8px;padding:0 11px;background:#fff;color:#1e293b}.payslip-layout{display:grid;grid-template-columns:minmax(0,1fr) 275px;gap:20px;margin-top:20px;align-items:start}.payslip-document{padding:22px}.payslip-document-head{display:flex;justify-content:space-between;gap:20px;padding-bottom:16px;border-bottom:1px solid #e4eaf2}.payslip-document-head h2{display:inline-block;margin:0 10px 0 0;font-size:18px}.payslip-status{display:inline-flex;background:#dcfce7;color:#15803d;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800}.payslip-status.pending{background:#fef3c7;color:#b45309}.payslip-pay-period{display:flex;gap:7px;align-items:center;color:#475569;font-size:13px}.payslip-company-head{display:flex;align-items:center;gap:12px;padding:18px 0;border-bottom:1px solid #e9edf4}.payslip-company-head img{width:48px;height:48px;border-radius:10px;object-fit:contain;border:1px solid #e2e8f0}.payslip-company-head h3{margin:0;color:#0f172a;font-size:17px}.payslip-company-head p{margin:4px 0 0;color:#64748b;font-size:12px}.payslip-employee-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding:18px 0}.payslip-employee-grid div{display:grid;gap:4px}.payslip-employee-grid span,.payslip-summary span,.payslip-attendance span{font-size:11px;color:#64748b}.payslip-employee-grid strong{font-size:13px;color:#1e293b}.payslip-employee-grid small{font-size:11px;color:#64748b}.payslip-attendance{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid #e1e8f3;border-radius:10px;overflow:hidden;margin-bottom:18px}.payslip-attendance div{display:grid;gap:5px;padding:12px 14px;background:#f8fafc;border-right:1px solid #e1e8f3}.payslip-attendance div:last-child{border-right:0}.payslip-attendance strong{font-size:16px;color:#1e3a8a}.payslip-breakdown{display:grid;grid-template-columns:1fr 1fr;gap:18px}.payslip-table-card{border:1px solid #e1e8f1;border-radius:10px;overflow:hidden}.payslip-table-card h3{font-size:14px;margin:0;padding:12px 14px}.payslip-table-card.earning h3{color:#15803d;background:#effcf3}.payslip-table-card.deduction h3{color:#dc2626;background:#fff1f2}.payslip-table-card table{width:100%;border-collapse:collapse;font-size:12px}.payslip-table-card th{background:#f8fafc;text-align:left;color:#475569;font-size:11px}.payslip-table-card th,.payslip-table-card td{padding:10px 13px;border-top:1px solid #e7edf4}.payslip-table-card th:last-child,.payslip-table-card td:last-child{text-align:right;white-space:nowrap}.payslip-table-card td small{display:block;margin-top:2px;color:#94a3b8;font-size:10px}.payslip-total{font-weight:800}.payslip-table-card.earning .payslip-total{background:#effcf3;color:#15803d}.payslip-table-card.deduction .payslip-total{background:#fff1f2;color:#dc2626}.payslip-summary{margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#f8faff;border:1px solid #dce5f7;border-radius:10px;padding:15px}.payslip-summary div{display:grid;gap:4px;text-align:center}.payslip-summary strong{font-size:15px;color:#0f172a}.payslip-summary b{font-size:18px;color:#94a3b8}.payslip-red{color:#dc2626!important}.payslip-blue{color:#1d4ed8!important}.payslip-green{color:#15803d!important}.payslip-purple{color:#7c3aed!important}.payslip-note{font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;margin:14px 0 0}.payslip-quick-summary{padding:0 18px}.payslip-quick-summary h3{margin:0 -18px;padding:17px 18px;border-bottom:1px solid #e4eaf2;font-size:15px}.payslip-quick-summary div{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 0;border-bottom:1px solid #edf1f6;font-size:12px}.payslip-quick-summary div.net{border-bottom:0}.payslip-quick-summary div.net span,.payslip-quick-summary div.net strong{font-size:15px;font-weight:800;color:#1d4ed8}.payslip-empty,.payslip-error{margin-top:20px;padding:28px;text-align:center;color:#64748b}.payslip-error{color:#b91c1c;background:#fff7f7}@media(max-width:1050px){.payslip-layout{grid-template-columns:1fr}.payslip-employee-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:800px){.payslip-filter-card,.payslip-document-head{align-items:flex-start;flex-direction:column}.payslip-breakdown{grid-template-columns:1fr}.payslip-attendance{grid-template-columns:repeat(2,1fr)}.payslip-attendance div{border-bottom:1px solid #e1e8f3}.payslip-summary{flex-wrap:wrap}.payslip-summary div{min-width:40%}}@media(max-width:560px){.payslip-page{padding:14px}.payslip-filters{width:100%;flex-direction:column}.payslip-filters label,.payslip-filters input,.payslip-filters select{width:100%}.payslip-employee-grid,.payslip-attendance{grid-template-columns:1fr}.payslip-summary div{min-width:100%}.payslip-summary b{display:none}}
+
+/* Exact Reference Layout PDF Styles */
+.ps-ref-sheet {
+  background: #ffffff;
+  padding: 30px 40px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-family: Arial, sans-serif;
+  color: #000000;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.ps-ref-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.ps-ref-logo {
+  max-height: 65px;
+  max-width: 220px;
+  object-fit: contain;
+}
+
+.ps-ref-logo-fallback {
+  font-weight: 800;
+  font-size: 22px;
+  color: #1e3a8a;
+}
+
+.ps-ref-contact-zone p {
+  margin: 0 0 2px 0;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #0f172a;
+}
+
+.ps-ref-divider {
+  border: 0;
+  border-top: 2px solid #475569;
+  margin: 8px 0 16px 0;
+}
+
+.ps-ref-title-block {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.ps-ref-title-block h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #000;
+}
+
+.ps-ref-title-block p {
+  margin: 4px 0 0 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #000;
+}
+
+.ps-ref-grid-table,
+.ps-ref-finance-table,
+.ps-ref-ctc-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #000000;
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+
+.ps-ref-grid-table td {
+  padding: 4px 6px;
+  vertical-align: middle;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.ps-ref-grid-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.ps-ref-label {
+  font-weight: 700;
+  width: 17%;
+  color: #000;
+}
+
+.ps-ref-colon {
+  width: 2%;
+  font-weight: 700;
+  text-align: center;
+}
+
+.ps-ref-value {
+  width: 31%;
+  font-weight: 400;
+  color: #000;
+}
+
+.ps-ref-finance-table th,
+.ps-ref-ctc-table th {
+  border: 1px solid #000;
+  background: #f3f4f6;
+  padding: 6px;
+  font-weight: 800;
+  text-align: left;
+  color: #000;
+  font-size: 12px;
+}
+
+.ps-ref-finance-table td,
+.ps-ref-ctc-table td {
+  border: 1px solid #000;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: #000;
+}
+
+.ps-ref-th-earning { width: 35%; }
+.ps-ref-th-amt { width: 15%; text-align: right; }
+.ps-ref-th-deduct { width: 35%; }
+
+.ps-ref-amt-cell {
+  text-align: right;
+  font-weight: 600;
+}
+
+.ps-ref-total-row td {
+  font-weight: 800;
+  background: #f9fafb;
+}
+
+.ps-ref-net-row td {
+  padding: 8px 10px;
+  background: #ffffff;
+}
+
+.ps-ref-net-block p {
+  margin: 2px 0;
+  font-size: 12px;
+  color: #000;
+}
+
+.ps-ref-sub-indent {
+  padding-left: 24px !important;
+}
+
+.ps-ref-ctc-total-row td {
+  font-weight: 800;
+}
+
+.ps2-date-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ps2-date-input svg {
+  position: absolute;
+  left: 11px;
+  color: #64748b;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.ps2-date-input input {
+  padding-left: 34px;
+}

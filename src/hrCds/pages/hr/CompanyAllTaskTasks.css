@@ -950,6 +950,31 @@
   outline: 0;
 }
 
+.company-task-date-time-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.company-task-date-time-input svg {
+  position: absolute;
+  color: #64748b;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.company-task-date-time-input svg:first-child {
+  left: 11px;
+}
+
+.company-task-date-time-input svg:nth-child(2) {
+  left: 33px;
+}
+
+.company-task-date-time-input input {
+  padding-left: 58px;
+}
+
 .company-task-field textarea {
   resize: vertical;
 }
@@ -1278,4 +1303,3 @@
   opacity: 0.75;
   transition: opacity 0.2s ease;
 }
-

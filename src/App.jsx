@@ -81,6 +81,13 @@ const DemoRequests = lazy(() => import("./admin/page/DemoRequests.jsx"));
 const LeavePolicy = lazy(() => import("./admin/page/LeavePolicy.jsx"));
 const AppVersionControl = lazy(() => import("./admin/page/AppVersionControl.jsx"));
 const FeedbackQuestionnaireManagement = lazy(() => import("./admin/page/FeedbackQuestionnaireManagement.jsx"));
+const SalaryComponent = lazy(() => import("./payroll/pages/SalaryComponent.jsx"));
+const SalaryStructure = lazy(() => import("./payroll/pages/SalaryStructure.jsx"));
+const EmployeeSalaryAssignment = lazy(() => import("./payroll/pages/EmployeeSalaryAssignment.jsx"));
+const AssignSalary = lazy(() => import("./payroll/pages/AssignSalary.jsx"));
+const PayrollProcess = lazy(() => import("./payroll/pages/PayrollProcess.jsx"));
+const Payslip = lazy(() => import("./payroll/pages/Payslip.jsx"));
+const PayrollReports = lazy(() => import("./payroll/pages/PayrollReports.jsx"));
 
 function App() {
   return (
@@ -225,6 +232,13 @@ function App() {
           <Route path="feedback-questionnaire" element={<FeedbackQuestionnaireManagement />} />
           <Route path="leave-policy-master" element={<LeavePolicy />} />
           <Route path="leave-policy" element={<LeavePolicy />} />
+          <Route path="salary-component" element={<SalaryComponent />} />
+          <Route path="salary-structure" element={<SalaryStructure />} />
+          <Route path="salary-assignment" element={<EmployeeSalaryAssignment />} />
+          <Route path="assign-salary" element={<AssignSalary />} />
+          <Route path="payroll-process" element={<PayrollProcess />} />
+          <Route path="payslip" element={<Payslip />} />
+          <Route path="payroll-reports" element={<PayrollReports />} />
         </Route>
         <Route
           path="/client/*"

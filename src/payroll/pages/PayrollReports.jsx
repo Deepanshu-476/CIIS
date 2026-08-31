@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FiBarChart2, FiChevronRight, FiCreditCard, FiEye, FiFileText, FiLayers, FiRefreshCw, FiTrendingDown, FiTrendingUp, FiUsers } from "react-icons/fi";
+import { FiBarChart2, FiCalendar, FiChevronRight, FiCreditCard, FiEye, FiFileText, FiLayers, FiRefreshCw, FiTrendingDown, FiTrendingUp, FiUsers } from "react-icons/fi";
 import axiosInstance from "../../utils/axiosConfig";
 import "../styles/PayrollReports.css";
 import "../styles/PayrollReportInsights.css";
@@ -117,7 +117,7 @@ export default function PayrollReports() {
     </header>
     <section className="pr-filters pr-no-print">
       <label>Report Type<select value={filters.reportType} onChange={event => setFilters({ ...filters, reportType: event.target.value })}>{REPORTS.map(item => <option key={item}>{item}</option>)}</select></label>
-      <label>Payroll Month<input type="month" value={filters.month} onChange={event => setFilters({ ...filters, month: event.target.value })} /></label>
+      <label>Payroll Month<span className="pr-date-input"><FiCalendar /><input type="month" value={filters.month} onChange={event => setFilters({ ...filters, month: event.target.value })} /></span></label>
       <label>Pay Frequency<select value={filters.payGroup} onChange={event => setFilters({ ...filters, payGroup: event.target.value })}><option>All</option>{payGroups.map(item => <option key={item}>{item}</option>)}</select></label>
       <label>Department<select value={filters.department} onChange={event => setFilters({ ...filters, department: event.target.value })}><option>All</option>{departments.map(item => <option key={item}>{item}</option>)}</select></label>
       <label>Employee<select value={filters.employee} onChange={event => setFilters({ ...filters, employee: event.target.value })}><option value="All">All Employees</option>{sourceEmployees.map(item => <option key={employeeKey(item)} value={employeeKey(item)}>{employeeName(item)} ({employeeCode(item)})</option>)}</select></label>

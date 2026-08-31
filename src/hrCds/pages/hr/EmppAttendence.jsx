@@ -65,6 +65,8 @@ const MonthlyAttendanceModal = ({ state, onClose }) => {
   const count = (...statuses) => normalizedRecords.filter(item => statuses.includes(item.normalizedStatus)).length;
   const present = count('PRESENT');
   const absent = count('ABSENT', 'NO RECORD');
+  const uninformedLeave = count('UNINFORMED LEAVE');
+  const holiday = count('HOLIDAY');
   const late = count('LATE');
   const halfDay = count('HALF DAY', 'HALFDAY');
   const leaveDays = normalizedRecords.filter(item => item.leave).length;
@@ -97,6 +99,8 @@ const MonthlyAttendanceModal = ({ state, onClose }) => {
                 <article className="absent"><span>Absent</span><strong>{absent}</strong></article>
                 <article className="late"><span>Late</span><strong>{late}</strong></article>
                 <article className="halfday"><span>Half Day</span><strong>{halfDay}</strong></article>
+                <article className="absent"><span>Uninformed Leave</span><strong>{uninformedLeave}</strong></article>
+                <article className="leave"><span>Holiday</span><strong>{holiday}</strong></article>
                 <article className="leave"><span>Approved Leave</span><strong>{leaveDays}</strong></article>
               </div>
               <div className="EmppAttendence-monthly-calendar-card">
@@ -363,6 +367,8 @@ const StatusFilter = ({ selected, onChange }) => {
     { value: 'late', label: 'Late' },
     { value: 'halfday', label: 'Half Day' },
     { value: 'absent', label: 'Absent' },
+    { value: 'uninformedleave', label: 'Uninformed Leave' },
+    { value: 'holiday', label: 'Holiday' },
   ];
 
   return (
@@ -544,6 +550,8 @@ const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserD
                   <option value="late">Late</option>
                   <option value="halfday">Half Day</option>
                   <option value="absent">Absent</option>
+                  <option value="uninformedleave">Uninformed Leave</option>
+                  <option value="holiday">Holiday</option>
                 </select>
               </div>
 
@@ -822,6 +830,8 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
                 <option value="late">Late</option>
                 <option value="halfday">Half Day</option>
                 <option value="absent">Absent</option>
+                <option value="uninformedleave">Uninformed Leave</option>
+                <option value="holiday">Holiday</option>
               </select>
             </div>
 
@@ -1009,6 +1019,18 @@ const QuickEditModal = ({ records, onClose, onSave }) => {
               >
                 <FiUserX /> Absent
               </button>
+              <button 
+                className={`EmppAttendence-status-option ${status === 'uninformedleave' ? 'EmppAttendence-selected' : ''}`}
+                onClick={() => setStatus('uninformedleave')}
+              >
+                <FiAlertTriangle /> Uninformed Leave
+              </button>
+              <button 
+                className={`EmppAttendence-status-option ${status === 'holiday' ? 'EmppAttendence-selected' : ''}`}
+                onClick={() => setStatus('holiday')}
+              >
+                <FiCalendar /> Holiday
+              </button>
             </div>
           </div>
 
@@ -1073,6 +1095,8 @@ const getStatusClass = (status) => {
   const normalizedStatus = normalizeAttendanceStatus(status);
   if (normalizedStatus === "present") return "EmppAttendence-status-present";
   if (normalizedStatus === "absent") return "EmppAttendence-status-absent";
+  if (normalizedStatus === "uninformedleave") return "EmppAttendence-status-absent";
+  if (normalizedStatus === "holiday") return "EmppAttendence-status-halfday";
   if (normalizedStatus === "halfday") return "EmppAttendence-status-halfday";
   if (normalizedStatus === "late") return "EmppAttendence-status-late";
   return "";
@@ -1092,6 +1116,8 @@ const getRowClass = (status) => {
   const normalizedStatus = normalizeAttendanceStatus(status);
   if (normalizedStatus === "present") return "EmppAttendence-row-present";
   if (normalizedStatus === "absent") return "EmppAttendence-row-absent";
+  if (normalizedStatus === "uninformedleave") return "EmppAttendence-row-absent";
+  if (normalizedStatus === "holiday") return "EmppAttendence-row-halfday";
   if (normalizedStatus === "halfday") return "EmppAttendence-row-halfday";
   if (normalizedStatus === "late") return "EmppAttendence-row-late";
   return "";
@@ -1107,6 +1133,8 @@ const normalizeAttendanceStatus = (status) => {
   if (normalized === "present") return "present";
   if (normalized === "late") return "late";
   if (normalized === "absent") return "absent";
+  if (normalized === "uninformedleave") return "uninformedleave";
+  if (normalized === "holiday") return "holiday";
   if (normalized === "weekend") return "absent";
   return normalized || "absent";
 };
@@ -1118,6 +1146,8 @@ const getStatusFilterLabel = (statusFilter) => {
     late: "LATE",
     halfday: "HALF DAY",
     absent: "ABSENT",
+    uninformedleave: "UNINFORMED LEAVE",
+    holiday: "HOLIDAY",
     ontime: "ON TIME",
   };
   return labels[statusFilter] || String(statusFilter || "").toUpperCase();
@@ -1132,6 +1162,8 @@ const getStatusExplanation = (status) => {
   if (normalizedStatus === 'late') return 'After grace, before assigned half-day limit';
   if (normalizedStatus === 'halfday') return 'At or after assigned half-day limit';
   if (normalizedStatus === 'absent') return 'No attendance recorded';
+  if (normalizedStatus === 'uninformedleave') return 'Uninformed leave - one day salary will be deducted';
+  if (normalizedStatus === 'holiday') return 'Holiday - paid day';
   return '';
 };
 
@@ -1181,6 +1213,8 @@ const EmployeeAttendance = () => {
     total: 0,
     present: 0,
     absent: 0,
+    uninformedLeave: 0,
+    holiday: 0,
     halfDay: 0,
     late: 0,
     onTime: 0,
@@ -1193,10 +1227,14 @@ const EmployeeAttendance = () => {
     averageLate: 0,
     averageHalfDay: 0,
     averageAbsent: 0,
+    averageUninformedLeave: 0,
+    averageHoliday: 0,
     totalPresent: 0,
     totalLate: 0,
     totalHalfDay: 0,
     totalAbsent: 0,
+    totalUninformedLeave: 0,
+    totalHoliday: 0,
     bestDay: null,
     worstDay: null
   });
@@ -1715,6 +1753,8 @@ const EmployeeAttendance = () => {
         
         const present = dateCombinedRecords.filter(r => normalizeAttendanceStatus(r.status) === "present").length;
         const absent = dateCombinedRecords.filter(r => normalizeAttendanceStatus(r.status) === "absent").length;
+        const uninformedLeave = dateCombinedRecords.filter(r => normalizeAttendanceStatus(r.status) === "uninformedleave").length;
+        const holiday = dateCombinedRecords.filter(r => normalizeAttendanceStatus(r.status) === "holiday").length;
         const halfDay = dateCombinedRecords.filter(r => normalizeAttendanceStatus(r.status) === "halfday").length;
         const late = dateCombinedRecords.filter(r => normalizeAttendanceStatus(r.status) === "late").length;
         
@@ -1722,6 +1762,8 @@ const EmployeeAttendance = () => {
           total: dateCombinedRecords.length,
           present,
           absent,
+          uninformedLeave,
+          holiday,
           halfDay,
           late,
           attendanceRate: ((present + late + halfDay) / dateCombinedRecords.length * 100).toFixed(1)
@@ -1735,6 +1777,8 @@ const EmployeeAttendance = () => {
       const totalLate = allRecords.filter(r => normalizeAttendanceStatus(r.status) === "late").length;
       const totalHalfDay = allRecords.filter(r => normalizeAttendanceStatus(r.status) === "halfday").length;
       const totalAbsent = allRecords.filter(r => normalizeAttendanceStatus(r.status) === "absent").length;
+      const totalUninformedLeave = allRecords.filter(r => normalizeAttendanceStatus(r.status) === "uninformedleave").length;
+      const totalHoliday = allRecords.filter(r => normalizeAttendanceStatus(r.status) === "holiday").length;
       
       const avgEmployeesPerDay = allUsers.length || 1;
       
@@ -1761,10 +1805,14 @@ const EmployeeAttendance = () => {
         averageLate: totalDays > 0 ? (totalLate / totalDays / avgEmployeesPerDay * 100).toFixed(1) : 0,
         averageHalfDay: totalDays > 0 ? (totalHalfDay / totalDays / avgEmployeesPerDay * 100).toFixed(1) : 0,
         averageAbsent: totalDays > 0 ? (totalAbsent / totalDays / avgEmployeesPerDay * 100).toFixed(1) : 0,
+        averageUninformedLeave: totalDays > 0 ? (totalUninformedLeave / totalDays / avgEmployeesPerDay * 100).toFixed(1) : 0,
+        averageHoliday: totalDays > 0 ? (totalHoliday / totalDays / avgEmployeesPerDay * 100).toFixed(1) : 0,
         totalPresent,
         totalLate,
         totalHalfDay,
         totalAbsent,
+        totalUninformedLeave,
+        totalHoliday,
         bestDay,
         worstDay
       });
@@ -1784,6 +1832,8 @@ const EmployeeAttendance = () => {
   const calculateStats = (attendanceData) => {
     const present = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "present").length;
     const absent = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "absent").length;
+    const uninformedLeave = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "uninformedleave").length;
+    const holiday = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "holiday").length;
     const halfDay = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "halfday").length;
     const late = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "late").length;
     const onTime = attendanceData.filter((r) => r.calculatedStatus === "present").length;
@@ -1792,6 +1842,8 @@ const EmployeeAttendance = () => {
       total: attendanceData.length,
       present,
       absent,
+      uninformedLeave,
+      holiday,
       halfDay,
       late,
       onTime,
@@ -2154,7 +2206,7 @@ const EmployeeAttendance = () => {
 
       pdf.setFontSize(10);
       pdf.text(
-        `Total: ${stats.total} | Present: ${stats.present} | Late: ${stats.late} | Half Day: ${stats.halfDay} | Absent: ${stats.absent}`,
+        `Total: ${stats.total} | Present: ${stats.present} | Late: ${stats.late} | Half Day: ${stats.halfDay} | Absent: ${stats.absent} | Uninformed Leave: ${stats.uninformedLeave} | Holiday: ${stats.holiday}`,
         margin,
         15
       );
@@ -2277,6 +2329,8 @@ const EmployeeAttendance = () => {
       { 'Date': 'Late', 'Name': stats.late },
       { 'Date': 'Half Day', 'Name': stats.halfDay },
       { 'Date': 'Absent', 'Name': stats.absent },
+      { 'Date': 'Uninformed Leave', 'Name': stats.uninformedLeave },
+      { 'Date': 'Holiday', 'Name': stats.holiday },
       { 'Date': 'On Time', 'Name': stats.onTime },
       { 'Date': dateRangeMode ? 'Period' : 'Report Date', 'Name': dateRangeMode 
         ? `${new Date(selectedStartDate).toLocaleDateString()} - ${new Date(selectedEndDate).toLocaleDateString()}`
@@ -2288,6 +2342,8 @@ const EmployeeAttendance = () => {
         { 'Date': 'Total Days', 'Name': dateRangeStats.totalDays },
         { 'Date': 'Avg Present %', 'Name': `${dateRangeStats.averagePresent}%` },
         { 'Date': 'Avg Late %', 'Name': `${dateRangeStats.averageLate}%` },
+        { 'Date': 'Avg Uninformed Leave %', 'Name': `${dateRangeStats.averageUninformedLeave}%` },
+        { 'Date': 'Avg Holiday %', 'Name': `${dateRangeStats.averageHoliday}%` },
         { 'Date': 'Best Day', 'Name': dateRangeStats.bestDay ? new Date(dateRangeStats.bestDay).toLocaleDateString() : 'N/A' },
         { 'Date': 'Worst Day', 'Name': dateRangeStats.worstDay ? new Date(dateRangeStats.worstDay).toLocaleDateString() : 'N/A' }
       );
@@ -2339,6 +2395,8 @@ const EmployeeAttendance = () => {
     csvData.push(['Late', stats.late]);
     csvData.push(['Half Day', stats.halfDay]);
     csvData.push(['Absent', stats.absent]);
+    csvData.push(['Uninformed Leave', stats.uninformedLeave]);
+    csvData.push(['Holiday', stats.holiday]);
     csvData.push(['On Time', stats.onTime]);
     csvData.push([dateRangeMode ? 'Period' : 'Report Date', dateRangeMode 
       ? `${new Date(selectedStartDate).toLocaleDateString()} - ${new Date(selectedEndDate).toLocaleDateString()}`
@@ -2348,6 +2406,8 @@ const EmployeeAttendance = () => {
       csvData.push(['Total Days', dateRangeStats.totalDays]);
       csvData.push(['Avg Present %', `${dateRangeStats.averagePresent}%`]);
       csvData.push(['Avg Late %', `${dateRangeStats.averageLate}%`]);
+      csvData.push(['Avg Uninformed Leave %', `${dateRangeStats.averageUninformedLeave}%`]);
+      csvData.push(['Avg Holiday %', `${dateRangeStats.averageHoliday}%`]);
       csvData.push(['Best Day', dateRangeStats.bestDay ? new Date(dateRangeStats.bestDay).toLocaleDateString() : 'N/A']);
       csvData.push(['Worst Day', dateRangeStats.worstDay ? new Date(dateRangeStats.worstDay).toLocaleDateString() : 'N/A']);
     }
@@ -2503,6 +2563,20 @@ const EmployeeAttendance = () => {
                   disabled={!canEditAttendance}
                 >
                   Mark as Absent
+                </button>
+                <button 
+                  className="EmppAttendence-btn EmppAttendence-btn-outlined EmppAttendence-btn-sm"
+                  onClick={() => handleBulkStatusChange('uninformedleave')}
+                  disabled={!canEditAttendance}
+                >
+                  Mark as Uninformed Leave
+                </button>
+                <button 
+                  className="EmppAttendence-btn EmppAttendence-btn-outlined EmppAttendence-btn-sm"
+                  onClick={() => handleBulkStatusChange('holiday')}
+                  disabled={!canEditAttendance}
+                >
+                  Mark as Holiday
                 </button>
                 <button 
                   className="EmppAttendence-btn EmppAttendence-btn-contained EmppAttendence-btn-sm"
@@ -2725,6 +2799,24 @@ const EmployeeAttendance = () => {
             description: dateRangeMode ? `Avg: ${dateRangeStats.averageAbsent}%` : "No login recorded",
             statClass: "EmppAttendence-stat-card-error",
             iconClass: "EmppAttendence-stat-icon-error"
+          },
+          { 
+            label: "Uninformed Leave", 
+            filterValue: "uninformedleave",
+            count: stats.uninformedLeave, 
+            icon: <FiAlertTriangle />,
+            description: dateRangeMode ? `Avg: ${dateRangeStats.averageUninformedLeave}%` : "Payroll deduction",
+            statClass: "EmppAttendence-stat-card-error",
+            iconClass: "EmppAttendence-stat-icon-error"
+          },
+          { 
+            label: "Holiday", 
+            filterValue: "holiday",
+            count: stats.holiday, 
+            icon: <FiCalendar />,
+            description: dateRangeMode ? `Avg: ${dateRangeStats.averageHoliday}%` : "Paid day",
+            statClass: "EmppAttendence-stat-card-info",
+            iconClass: "EmppAttendence-stat-icon-info"
           },
           { 
             label: "On Time", 

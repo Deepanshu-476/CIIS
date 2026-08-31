@@ -1168,14 +1168,20 @@ const UserCreateTask = () => {
   
   const groupTasksByDate = useCallback((tasks) => {
     const grouped = {};
+    // List sections must remain anchored to when the task was created. A status
+    // change (for example completing an overdue task) must not move it into
+    // today's date group.
+    const getTaskGroupDate = task => (
+      task?.createdAt || task?.createdDate || task?.created_on || getTaskSourceAwareDate(task)
+    );
     const getTaskSortTime = task => {
-      const dateToUse = getTaskSourceAwareDate(task);
+      const dateToUse = getTaskGroupDate(task);
       const date = new Date(dateToUse || 0);
       return Number.isNaN(date.getTime()) ? 0 : date.getTime();
     };
     
     tasks.forEach(task => {
-      const dateToUse = getTaskSourceAwareDate(task);
+      const dateToUse = getTaskGroupDate(task);
       
       if (dateToUse) {
         const dateKey = new Date(dateToUse).toLocaleDateString('en-IN', {

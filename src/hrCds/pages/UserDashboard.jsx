@@ -282,6 +282,18 @@ const getTrackedBreakTime = attendance => {
   return typeof value === 'number' ? `${value}m` : String(value);
 };
 
+const getAttendanceRecordDateKey = record => getIndiaDateKey(record?.date || record?.inTime || record?.createdAt);
+
+const formatTotalTimeValue = value => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return formatTime(value);
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+  return '';
+};
+
 
 const StatsLoader = () => (
   <div className="stats-loader-container">
@@ -428,6 +440,22 @@ const UserDashboard = () => {
 
   const [userJoinDate, setUserJoinDate] = useState(null);
   const [formattedJoinDate, setFormattedJoinDate] = useState('');
+
+  const upsertAttendanceRecord = useCallback((record) => {
+    if (!record) return;
+
+    const normalizedRecord = normalizeAttendanceRecord(record);
+    const recordDateKey = getAttendanceRecordDateKey(normalizedRecord);
+
+    setAttendanceData(prev => {
+      const filteredRecords = prev.filter(item => getAttendanceRecordDateKey(item) !== recordDateKey);
+      return [normalizedRecord, ...filteredRecords].sort((a, b) => {
+        const aTime = new Date(a.date || a.inTime || a.createdAt || 0).getTime();
+        const bTime = new Date(b.date || b.inTime || b.createdAt || 0).getTime();
+        return bTime - aTime;
+      });
+    });
+  }, []);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   
@@ -549,9 +577,16 @@ const UserDashboard = () => {
     };
   }, [initialLoadDone]);
 
-  const currentDate = useMemo(() => new Date(), []);
+  const [currentDate, setCurrentDate] = useState(() => new Date());
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
+
+  useEffect(() => {
+    const refreshCurrentDate = () => setCurrentDate(new Date());
+    const dateRefreshInterval = window.setInterval(refreshCurrentDate, 30000);
+
+    return () => window.clearInterval(dateRefreshInterval);
+  }, []);
 
   
   const fetchInProgress = useRef({
@@ -1659,6 +1694,14 @@ const UserDashboard = () => {
       writeDashboardCache({
         activeClock: { inTime: clockedInAt.toISOString(), isClockedIn: true },
       });
+      upsertAttendanceRecord({
+        date: clockedInAt.toISOString(),
+        inTime: clockedInAt.toISOString(),
+        outTime: null,
+        totalTime: '00:00:00',
+        isClockedIn: true,
+        status: 'PRESENT'
+      });
       window.dispatchEvent(new Event('ciis-attendance-updated'));
       toast.success('Clocked in successfully!');
       
@@ -1679,10 +1722,15 @@ const UserDashboard = () => {
     
     setIsProcessing(true);
     try {
-      await axios.post("/attendance/out", payload, {
+      const response = await axios.post("/attendance/out", payload, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 10000
       });
+
+      const attendanceRecord = response?.data?.data || response?.data?.attendance || response?.data || null;
+      if (attendanceRecord) {
+        upsertAttendanceRecord(attendanceRecord);
+      }
 
       setIsRunning(false);
       setTimer(0);
@@ -1818,9 +1866,12 @@ const UserDashboard = () => {
       const value = record.date || record.inTime || record.createdAt;
       return value && getIndiaDateKey(value) === todayKey;
     }) || null;
-  }, [attendanceData, loading.attendance]);
+  }, [attendanceData, loading.attendance, currentDate]);
 
   const hasTodayAttendance = Boolean(todayAttendance);
+  const totalWorkingDisplay = isRunning
+    ? formatTime(timer)
+    : formatTotalTimeValue(todayAttendance?.totalTime) || '00:00:00';
 
   const productivityTrend = useMemo(() => (productivityData.series || []).map((item, index, series) => ({
     ...item,
@@ -2887,7 +2938,7 @@ const UserDashboard = () => {
               <dl>
                 <div><dt>Check In</dt><dd>{formatClockTime(todayAttendance?.inTime)}</dd></div>
                 <div><dt>Check Out</dt><dd>{isRunning ? 'In progress' : formatClockTime(todayAttendance?.outTime)}</dd></div>
-                <div><dt>Total Working</dt><dd>{isRunning ? formatTime(timer) : todayAttendance?.totalTime || '00:00:00'}</dd></div>
+                <div><dt>Total Working</dt><dd>{totalWorkingDisplay}</dd></div>
                 <div><dt>Late</dt><dd>{todayAttendance ? (['LATE', 'HALF DAY'].includes(normalizeAttendanceStatus(todayAttendance.status)) ? `Yes${todayAttendance.lateBy && todayAttendance.lateBy !== '00:00:00' ? ` (${todayAttendance.lateBy})` : ''}` : 'No') : '--'}</dd></div>
                 <div><dt>Break Time</dt><dd>{getTrackedBreakTime(todayAttendance)}</dd></div>
                 <div><dt>Tasks Completed</dt><dd>{focusStats.loading ? '—' : focusStats.completedToday}</dd></div>

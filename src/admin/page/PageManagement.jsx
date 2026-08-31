@@ -44,16 +44,6 @@ const FALLBACK_PAGES = [
   { pageKey: "JobRoleManagement", name: "Job Role Management", path: "/ciisUser/JobRoleManagement", permissionPattern: "viewEdit" },
   { pageKey: "manage-groups", name: "Manage Group", path: "/ciisUser/manage-groups", permissionPattern: "viewEdit" },
   { pageKey: "company-all-task", name: "Company All Task", path: "/ciisUser/company-all-task", permissionPattern: "viewEdit" },
-<<<<<<< HEAD
-  { pageKey: "emp-client", name: "Client Management", path: "/ciisUser/emp-client", permissionPattern: "viewEdit" },
-  { pageKey: "salary-component", name: "Salary Component", path: "/ciisUser/salary-component", permissionPattern: "viewEdit" },
-  { pageKey: "salary-structure", name: "Salary Structure", path: "/ciisUser/salary-structure", permissionPattern: "viewEdit" },
-  { pageKey: "salary-assignment", name: "Salary Assignment", path: "/ciisUser/salary-assignment", permissionPattern: "viewEdit" },
-  { pageKey: "assign-salary", name: "Assign Salary", path: "/ciisUser/assign-salary", permissionPattern: "viewEdit" },
-  { pageKey: "payroll-process", name: "Payroll Process", path: "/ciisUser/payroll-process", permissionPattern: "viewEdit" },
-  { pageKey: "payslip", name: "Payslip", path: "/ciisUser/payslip", permissionPattern: "viewEdit" },
-  { pageKey: "payroll-reports", name: "Payroll Reports", path: "/ciisUser/payroll-reports", permissionPattern: "viewEdit" },
-=======
   { pageKey: "SidebarManagement", name: "Sidebar Management", path: "/ciisUser/SidebarManagement", permissionPattern: "viewEdit" },
   { pageKey: "salary-component", name: "Salary Component", path: "/ciisUser/salary-component", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["salary-component"] },
   { pageKey: "salary-structure", name: "Salary Structure", path: "/ciisUser/salary-structure", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["salary-structure"] },
@@ -62,7 +52,6 @@ const FALLBACK_PAGES = [
   { pageKey: "payroll-process", name: "Payroll Process", path: "/ciisUser/payroll-process", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["payroll-process"] },
   { pageKey: "payslip", name: "Payslip", path: "/ciisUser/payslip", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS.payslip },
   { pageKey: "payroll-reports", name: "Payroll Reports", path: "/ciisUser/payroll-reports", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["payroll-reports"] },
->>>>>>> 5b3d8e3cb9521522c464141817795917f522d3b7
 ];
 
 const ALLOWED_PAGE_KEYS = FALLBACK_PAGES.map((p) => p.pageKey);
@@ -77,11 +66,7 @@ const ICON_MAP = {
   JobRoleManagement: AssignmentIndOutlined,
   "manage-groups": GroupsOutlined,
   "company-all-task": ViewColumnOutlined,
-<<<<<<< HEAD
-  "emp-client": WorkOutline,
-=======
   SidebarManagement: LockOutlined,
->>>>>>> 5b3d8e3cb9521522c464141817795917f522d3b7
   "salary-component": WorkOutline,
   "salary-structure": WorkOutline,
   "salary-assignment": WorkOutline,
@@ -523,53 +508,8 @@ const PageManagement = () => {
     try {
       const pagesRes = await axios.get("/page-permissions/pages");
 
-<<<<<<< HEAD
-          const [usersRes, branchesRes, departmentsRes] = await Promise.all([
-            companyId ? axios.get("/users/company-users", { params: { companyId, limit: 250 } }) : Promise.resolve({ data: {} }),
-            companyId ? axios.get(`/branches/company/${companyId}`).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
-            companyId ? axios.get("/departments", { params: { company: companyId } }).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
-          ]);
-
-          return {
-            data: {
-              context: {
-                users: usersRes.data?.users || usersRes.data?.message?.users || [],
-                branches: branchesRes.data?.branches || branchesRes.data?.data || [],
-                departments: departmentsRes.data?.departments || departmentsRes.data?.data || [],
-              },
-            },
-          };
-        }),
-        axios.get("/job-roles", companyId ? { params: { company: companyId } } : undefined).catch(() => ({ data: {} })),
-        companyId
-          ? axios.get("/sidebar", { params: { companyId } }).catch(() => ({ data: { data: [] } }))
-          : Promise.resolve({ data: { data: [] } }),
-      ]);
-
-      const rawLoadedPages = (pagesRes.data?.pages || []).map(normalizePage);
-      const fallbackMap = new Map(FALLBACK_PAGES.map((p) => [p.pageKey, p]));
-      const filteredLoadedPages = rawLoadedPages.filter((p) => ALLOWED_PAGE_KEYS.includes(p.pageKey));
-
-      const normalizedPages = ALLOWED_PAGE_KEYS.map((key) => {
-        const fallback = fallbackMap.get(key);
-        const loaded = filteredLoadedPages.find((p) => p.pageKey === key);
-        return loaded
-          ? { ...normalizePage(fallback), ...loaded, name: fallback.name, path: fallback.path, permissionPattern: fallback.permissionPattern }
-          : normalizePage(fallback);
-      });
-      const loadedContext = contextRes.data?.context || {};
-      const loadedJobRoles = Array.isArray(jobRolesRes.data?.jobRoles)
-        ? jobRolesRes.data.jobRoles
-        : Array.isArray(jobRolesRes.data?.data)
-          ? jobRolesRes.data.data
-          : Array.isArray(jobRolesRes.data)
-            ? jobRolesRes.data
-            : [];
-      const loadedSidebarConfigs = Array.isArray(sidebarConfigsRes.data?.data) ? sidebarConfigsRes.data.data : [];
-=======
       const loadedPages = pagesRes.data?.pages || [];
       const normalizedPages = mergePagesWithFallback(loadedPages);
->>>>>>> 5b3d8e3cb9521522c464141817795917f522d3b7
 
       setPages(normalizedPages);
 

@@ -1,5 +1,6 @@
 const routeLoaders = {
   "/ciisUser/user-dashboard": () => import("../hrCds/pages/UserDashboard"),
+  "/ciisUser/dashboard-1": () => import("../hrCds/pages/DashboardOverview"),
   "/ciisUser/attendance": () => import("../hrCds/pages/Attendance"),
   "/ciisUser/my-leaves": () => import("../hrCds/pages/MyLeaves"),
   "/ciisUser/my-assets": () => import("../hrCds/pages/MyAssets"),

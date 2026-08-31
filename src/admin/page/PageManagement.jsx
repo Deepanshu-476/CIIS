@@ -35,6 +35,7 @@ const PAYROLL_PERMISSION_ACTIONS = {
 };
 
 const FALLBACK_PAGES = [
+  { pageKey: "dashboard-1", name: "Dashboard 1", path: "/ciisUser/dashboard-1", permissionPattern: "viewEdit" },
   { pageKey: "emp-details", name: "Emp - Details", path: "/ciisUser/emp-details", permissionPattern: "viewEdit" },
   { pageKey: "emp-leaves", name: "Emp - Leaves", path: "/ciisUser/emp-leaves", permissionPattern: "approveReject" },
   { pageKey: "leave-policy", name: "Leave - Policy", path: "/ciisUser/leave-policy", permissionPattern: "viewEdit" },
@@ -107,8 +108,7 @@ const normalizeUserIds = (items = []) =>
 const normalizeScopeIds = (items = []) =>
   [...new Set((Array.isArray(items) ? items : []).map((item) => String(item).trim()).filter(Boolean))];
 
-const getUserLabel = (user) => user?.name || user?.email || "Unnamed User";
-const getUserEmail = (user) => user?.email || "";
+const getUserLabel = (user) => user?.name || user?.fullName || user?.username || "Unnamed User";
 const getUserInitials = (user) => {
   const label = getUserLabel(user);
   const parts = label.split(" ").filter(Boolean);
@@ -1398,7 +1398,6 @@ const PageManagement = () => {
                       <span className="pm-user-badge">{getUserInitials(user)}</span>
                       <span className="pm-modal-user-meta">
                         <strong>{getUserLabel(user)}</strong>
-                        <small>{getUserEmail(user)}</small>
                         {activeUserIdSet.has(userId) && (
                           <span className="pm-modal-user-tag">Already assigned</span>
                         )}
@@ -1523,7 +1522,6 @@ const PageManagement = () => {
                       <span className="pm-user-badge">{getUserInitials(user)}</span>
                       <div>
                         <strong>{getUserLabel(user)}</strong>
-                        <span>{getUserEmail(user)}</span>
                       </div>
                     </div>
                     <div className="pm-summary-user-meta">

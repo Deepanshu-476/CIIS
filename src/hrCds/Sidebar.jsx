@@ -831,6 +831,7 @@ const allPagesItems = [
 const getPathFromName = (name) => {
   const pathMap = {
     'Dashboard': '/ciisUser/user-dashboard',
+    'Dashboard 1': '/ciisUser/dashboard-1',
     'My Attendance': '/ciisUser/attendance',
     'Attendance': '/ciisUser/attendance',
     'My Leaves': '/ciisUser/my-leaves',
@@ -1719,6 +1720,10 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
             disabled: item.disabled || false,
             visible: item.visible !== false
           };
+
+          if (processedItem.path === 'dashboard-1') {
+            processedItem.path = `/ciisUser/${processedItem.path}`;
+          }
 
           return processedItem;
         })

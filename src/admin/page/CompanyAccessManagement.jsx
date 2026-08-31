@@ -37,6 +37,7 @@ import "./JobRoleManagement.css";
 
 const APP_ROUTES = [
   { id: "user-dashboard", path: "user-dashboard", name: "Dashboard", category: "main" },
+  { id: "dashboard-1", path: "dashboard-1", name: "Dashboard 1", category: "main" },
   { id: "attendance", path: "attendance", name: "My Attendance", category: "main" },
   { id: "my-leaves", path: "my-leaves", name: "My Leaves", category: "main" },
   { id: "my-assets", path: "my-assets", name: "My Assets", category: "main" },

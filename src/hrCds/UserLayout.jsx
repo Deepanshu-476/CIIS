@@ -66,7 +66,7 @@ const MainContent = styled('main', {
 const UserLayout = () => {
   const location = useLocation();
   const normalizedPath = location.pathname.replace(/\/+$/, '');
-  const isDashboard = normalizedPath === '/ciisUser/user-dashboard';
+  const isDashboard = ['/ciisUser/user-dashboard', '/ciisUser/dashboard-1'].includes(normalizedPath);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const theme = useTheme();

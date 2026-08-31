@@ -46,6 +46,7 @@ const MyAssets = lazy(() => import("./hrCds/pages/MyAssets"));
 const MyLeaves = lazy(() => import("./hrCds/pages/MyLeaves"));
 const Profile = lazy(() => import("./hrCds/pages/Profile"));
 const UserDashboard = lazy(() => import("./hrCds/pages/UserDashboard"));
+const DashboardOverview = lazy(() => import("./hrCds/pages/DashboardOverview"));
 const TaskManagement = lazy(() => import("./hrCds/pages/TaskManagement"));
 const EmployeeMeetingPage = lazy(() => import("./hrCds/pages/EmployeeMeetingPage"));
 const EmployeeProject = lazy(() => import("./hrCds/pages/EmployeeProject"));
@@ -206,6 +207,7 @@ function App() {
               </Suspense>
             )}
           />
+          <Route path="dashboard-1" element={<DashboardOverview />} />
           <Route path="ClientDashboard" element={<Navigate to="/client/dashboard" replace />} />
           <Route path="project" element={<EmployeeProject />} />
           <Route

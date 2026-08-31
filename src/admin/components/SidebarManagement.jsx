@@ -46,6 +46,7 @@ const APP_ROUTES = [
   { path: 'my-leaves', name: 'My Leaves', icon: 'EventNote', category: 'main' },
   { path: 'profile', name: 'My Details', icon: 'Person', category: 'main' },
   { path: 'user-dashboard', name: 'Dashboard', icon: 'Dashboard', category: 'main' },
+  { path: 'dashboard-1', name: 'Dashboard 1', icon: 'Dashboard', category: 'main' },
   { path: 'project', name: 'My Projects', icon: 'Groups', category: 'projects' },
   { path: 'task-management', name: 'Create Task', icon: 'Task', category: 'tasks' },
   { path: 'employee-meeting', name: 'Employee Meeting', icon: 'VideoCall', category: 'meetings' },
@@ -1013,7 +1014,7 @@ const SidebarManagement = () => {
         departmentId: selectedDepartment,
         role: selectedRole,
         menuItems: menuItemsMapped,
-        ranges: ranges
+        ranges: ranges,
       };
 
       void 0;
@@ -1036,20 +1037,51 @@ const SidebarManagement = () => {
       });
 
       let response;
-      if (checkResponse.data && checkResponse.data.success && checkResponse.data.data) {
-        response = await axiosInstance.put(`/sidebar/${checkResponse.data.data._id}`, configData, {
+      let existingConfig = checkResponse.data?.data || null;
+      if (!existingConfig) {
+        // The role resolver intentionally accepts aliases, while the list endpoint
+        // returns the stored value. Use it as a final lookup before creating.
+        const listResponse = await axiosInstance.get('/sidebar', {
+          params: checkParams,
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const configs = Array.isArray(listResponse.data?.data) ? listResponse.data.data : [];
+        existingConfig = configs.find(config => {
+          const configDepartment = config.departmentId?._id || config.departmentId;
+          const configBranch = config.branchId?._id || config.branchId || null;
+          return String(configDepartment) === String(selectedDepartment)
+            && String(config.role) === String(selectedRole)
+            && String(configBranch || '') === String(selectedBranch || '');
+        }) || null;
+      }
+
+      if (existingConfig?._id) {
+        response = await axiosInstance.put(`/sidebar/${existingConfig._id}`, configData, {
           headers: { 
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
       } else {
-        response = await axios.post('/sidebar', configData, {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
+        try {
+          response = await axios.post('/sidebar', configData, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+        } catch (createError) {
+          // A stale pre-check or a concurrent save can still produce a duplicate.
+          // Convert that create attempt into an update so Save remains idempotent.
+          const existingId = createError.response?.data?.data?._id;
+          if (createError.response?.status !== 409 || !existingId) throw createError;
+          response = await axiosInstance.put(`/sidebar/${existingId}`, configData, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+        }
       }
 
       void 0;

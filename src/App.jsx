@@ -91,8 +91,9 @@ const PayrollReports = lazy(() => import("./payroll/pages/PayrollReports.jsx"));
 
 function App() {
   return (
-    <Suspense fallback={<RouteBoundaryLoader fullscreen label="Loading app..." />}>
-      <Routes>
+    <>
+      <Suspense fallback={<RouteBoundaryLoader fullscreen label="Loading app..." />}>
+        <Routes>
 
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<AboutUs />} />
@@ -268,7 +269,11 @@ function App() {
       <SpeechToTextControl />
       <ToastContainer position="top-right" autoClose={3000} />
     </Suspense>
-  );
+
+    <SpeechToTextControl />
+    <ToastContainer position="top-right" autoClose={3000} />
+  </>
+);
 }
 
 export default App;

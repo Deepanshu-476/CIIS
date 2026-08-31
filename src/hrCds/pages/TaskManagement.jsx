@@ -565,6 +565,21 @@ const formatDateTimeLocalValue = (date) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
+const formatDateInputValue = (value) => {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return '';
+  const pad = (num) => String(num).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+const getEndOfLocalDayIso = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  date.setHours(23, 59, 59, 999);
+  return date.toISOString();
+};
+
 const extractShiftWindow = (user = null) => {
   const candidates = [
     {
@@ -836,6 +851,7 @@ const UserCreateTask = () => {
     checkpoints: [],
     repeatPattern: 'none',
     repeatDays: [],
+    recurrenceEndDate: '',
   });
 
   const [pendingStatusChange, setPendingStatusChange] = useState({ taskId: null, status: '', source: null });
@@ -878,6 +894,7 @@ const UserCreateTask = () => {
       ...prev,
       repeatPattern: value,
       repeatDays: value === 'daily' ? prev.repeatDays : [],
+      recurrenceEndDate: value !== 'none' ? prev.recurrenceEndDate : '',
       dueDateTime: value !== 'none' ? normalizeDateTimeToShiftTime(prev.dueDateTime, userShiftWindow?.end) : prev.dueDateTime
     }));
   };
@@ -3940,6 +3957,22 @@ const UserCreateTask = () => {
         return;
       }
 
+      const recurrenceEndDate = newTask.repeatPattern !== 'none'
+        ? getEndOfLocalDayIso(newTask.recurrenceEndDate)
+        : '';
+      if (newTask.repeatPattern !== 'none') {
+        if (!recurrenceEndDate) {
+          showSnackbar('Please select repeat end date', 'error');
+          setIsCreatingTask(false);
+          return;
+        }
+        if (new Date(recurrenceEndDate) < dueDate) {
+          showSnackbar('Repeat end date cannot be before due date', 'error');
+          setIsCreatingTask(false);
+          return;
+        }
+      }
+
       const formData = new FormData();
       formData.append('title', newTask.title);
       formData.append('description', newTask.description);
@@ -3948,6 +3981,7 @@ const UserCreateTask = () => {
       formData.append('priority', newTask.priority);
       formData.append('repeatPattern', newTask.repeatPattern || 'none');
       formData.append('repeatDays', JSON.stringify(newTask.repeatDays || []));
+      formData.append('recurrenceEndDate', recurrenceEndDate);
       formData.append('checkpoints', JSON.stringify(getCleanCheckpoints(newTask.checkpoints)));
 
       if (newTask.files) {
@@ -4026,6 +4060,7 @@ const UserCreateTask = () => {
         checkpoints: [],
         repeatPattern: 'none',
         repeatDays: [],
+        recurrenceEndDate: '',
       });
 
       window.setTimeout(() => void refreshCurrentTaskView('self'), 1800);
@@ -4035,6 +4070,39 @@ const UserCreateTask = () => {
       showSnackbar(err?.response?.data?.error || 'Task creation failed', 'error');
     } finally {
       setIsCreatingTask(false);
+    }
+  };
+
+  const handleStopRecurringTask = async (task) => {
+    const taskId = task?._id || task?.id;
+    if (!taskId) {
+      showSnackbar('Task details are missing. Please refresh and try again.', 'error');
+      return;
+    }
+
+    try {
+      const response = await axios.patch(`/tasks/self/${taskId}/stop-recurring`);
+      const stoppedTask = response.data?.task || {};
+      const timestamp = stoppedTask.updatedAt || new Date().toISOString();
+      const updateTask = current => ({
+        ...current,
+        ...stoppedTask,
+        isRecurring: false,
+        repeatPattern: 'none',
+        recurringPattern: 'none',
+        repeatDays: [],
+        nextRecurringDate: null,
+        recurrenceStoppedAt: stoppedTask.recurrenceStoppedAt || timestamp,
+      });
+
+      setMyTasksGrouped(prev => patchGroupedTasksById(prev, taskId, updateTask));
+      setAllTasksGrouped(prev => patchGroupedTasksById(prev, taskId, updateTask));
+      setAllTasksStatsGrouped(prev => patchGroupedTasksById(prev, taskId, updateTask));
+      setSelectedTaskDetails(prev => prev && String(prev._id || prev.id) === String(taskId) ? updateTask(prev) : prev);
+      showSnackbar('Repeat task stopped successfully', 'success');
+      window.setTimeout(() => void refreshCurrentTaskView('self'), 1000);
+    } catch (error) {
+      showSnackbar(error?.response?.data?.error || 'Failed to stop repeat task', 'error');
     }
   };
 
@@ -5877,6 +5945,23 @@ const UserCreateTask = () => {
                                     {task.checkpoints.filter(item => item.completed).length}/{task.checkpoints.length} checkpoints
                                   </div>
                                 )}
+                                {taskSource === 'self' && (task.isRecurring || (task.repeatPattern && task.repeatPattern !== 'none')) && (
+                                  <div className="task-checkpoint-progress" style={{ color: '#15803d' }}>
+                                    Repeat until {formatDateInputValue(task.recurrenceEndDate) || 'not set'}
+                                    <button
+                                      type="button"
+                                      className="user-create-task-action-button"
+                                      title="Stop repeat"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        handleStopRecurringTask(task);
+                                      }}
+                                      style={{ marginLeft: '8px', color: '#b91c1c' }}
+                                    >
+                                      <FiSlash size={12} />
+                                    </button>
+                                  </div>
+                                )}
                               </td>
                               {!isMobile && (
                                 <td style={{ padding: '12px', maxWidth: '200px' }}>
@@ -6287,6 +6372,19 @@ const UserCreateTask = () => {
                     </div>
                   </div>
                 </div>
+
+                {newTask.repeatPattern !== 'none' && (
+                  <div className="user-create-task-form-control">
+                    <label>Repeat End Date *</label>
+                    <input
+                      type="date"
+                      className="user-create-task-input"
+                      value={formatDateInputValue(newTask.recurrenceEndDate)}
+                      min={(newTask.dueDateTime || new Date().toISOString()).slice(0, 10)}
+                      onChange={(e) => setNewTask({ ...newTask, recurrenceEndDate: e.target.value })}
+                    />
+                  </div>
+                )}
 
                 {newTask.repeatPattern === 'daily' && (
                   <div className="personal-task-week-days">
@@ -6700,6 +6798,20 @@ const UserCreateTask = () => {
                   <div><FiCheckSquare /><span>Checkpoints</span><strong>{completedCheckpoints}/{detailCheckpoints.length}</strong></div>
                   <div><FiPaperclip /><span>Files</span><strong>{detailFiles.length}</strong></div>
                 </div>
+
+                {detailSource === 'self' && (selectedTaskDetails.isRecurring || (selectedTaskDetails.repeatPattern && selectedTaskDetails.repeatPattern !== 'none')) && (
+                  <div className="task-details-info-row">
+                    <span>Repeat Ends</span>
+                    <strong>{formatDateInputValue(selectedTaskDetails.recurrenceEndDate) || 'Not set'}</strong>
+                    <button
+                      type="button"
+                      className="user-create-task-button user-create-task-button-outlined"
+                      onClick={() => handleStopRecurringTask(selectedTaskDetails)}
+                    >
+                      <FiSlash /> Stop Repeat
+                    </button>
+                  </div>
+                )}
 
                 {detailSource === 'client' && (
                   <div className="task-details-info-row"><span>Client</span><strong>{getClientNameFromTask(selectedTaskDetails) || 'Not specified'}</strong></div>

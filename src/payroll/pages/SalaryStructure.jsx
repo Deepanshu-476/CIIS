@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  FiAlertTriangle,
+  FiCheckCircle,
   FiChevronDown,
   FiEdit2,
   FiEye,
@@ -20,19 +22,158 @@ const emptyStructureForm = {
   code: "",
   salaryType: "monthly",
   salaryInputType: "gross",
+  defaultGross: "",
   description: "",
   status: "active",
   components: []
 };
 
-const rowFor = (component, order) => ({
-  component,
-  calculationType: "manual",
-  calculationBase: "",
-  value: "",
-  formula: "",
-  sortOrder: order
-});
+const rowFor = (component, order) => {
+  const code = String(component?.code || "").toUpperCase();
+  const name = String(component?.name || "").toUpperCase();
+  const isSpecial = code === "SPL" || code === "SPECIAL" || name.includes("SPECIAL");
+
+  return {
+    component,
+    calculationType: isSpecial ? "balance" : "manual",
+    calculationBase: isSpecial ? "Gross Salary" : "",
+    value: "",
+    formula: isSpecial ? "Gross - Other Earnings" : "",
+    sortOrder: order
+  };
+};
+
+const getComponentPreviewAmount = (row, components, defaultGross) => {
+  const grossBase = Number(defaultGross || 0);
+  if (grossBase <= 0) return "—";
+
+  const calcType = String(row.calculationType || "manual").toLowerCase();
+  const val = Number(row.value || 0);
+  const compName = String(row.component?.name || row.name || "").toUpperCase();
+  const compCode = String(row.component?.code || row.code || "").toUpperCase();
+
+  const basicRow = components.find(c => {
+    const name = String(c.component?.name || c.name || "").toUpperCase();
+    const code = String(c.component?.code || c.code || "").toUpperCase();
+    return name.includes("BASIC") || code === "BASIC" || code === "BS";
+  });
+
+  const basicVal = basicRow
+    ? (String(basicRow.calculationType || "").toLowerCase() === "percentage" ? (grossBase * Number(basicRow.value || 0)) / 100 : Number(basicRow.value || 0))
+    : (grossBase * 0.5);
+
+  if (calcType === "manual") {
+    return val > 0 ? `₹ ${val.toLocaleString("en-IN")}` : "—";
+  }
+
+  if (calcType === "percentage") {
+    const baseStr = String(row.calculationBase || "").toUpperCase();
+    if (baseStr.includes("BASIC") || baseStr.includes("BS")) {
+      const amt = Math.round((basicVal * val) / 100);
+      return `₹ ${amt.toLocaleString("en-IN")}`;
+    }
+    const amt = Math.round((grossBase * val) / 100);
+    return `₹ ${amt.toLocaleString("en-IN")}`;
+  }
+
+  if (calcType === "balance" || compCode === "SPL" || compCode === "SPECIAL" || compName.includes("SPECIAL")) {
+    let otherEarnings = 0;
+    components.forEach(c => {
+      const cType = String(c.component?.type || c.type || "earning").toLowerCase();
+      const cCalcType = String(c.calculationType || "manual").toLowerCase();
+      const cCode = String(c.component?.code || c.code || "").toUpperCase();
+      const cName = String(c.component?.name || c.name || "").toUpperCase();
+      if (cType === "earning" && cCalcType !== "balance" && cCode !== "SPL" && cCode !== "SPECIAL" && !cName.includes("SPECIAL")) {
+        if (cCalcType === "percentage") {
+          const baseStr = String(c.calculationBase || "").toUpperCase();
+          if (baseStr.includes("BASIC") || baseStr.includes("BS")) {
+            otherEarnings += Math.round((basicVal * Number(c.value || 0)) / 100);
+          } else {
+            otherEarnings += Math.round((grossBase * Number(c.value || 0)) / 100);
+          }
+        } else if (cCalcType === "manual") {
+          otherEarnings += Number(c.value || 0);
+        }
+      }
+    });
+    const balanceAmt = Math.max(0, Math.round(grossBase - otherEarnings));
+    return `₹ ${balanceAmt.toLocaleString("en-IN")}`;
+  }
+
+  return "—";
+};
+
+const calculateEarningsTotal = (components, defaultGross) => {
+  const grossBase = Number(defaultGross || 0);
+  let total = 0;
+
+  const basicRow = components.find(c => {
+    const name = String(c.component?.name || c.name || "").toUpperCase();
+    const code = String(c.component?.code || c.code || "").toUpperCase();
+    return name.includes("BASIC") || code === "BASIC" || code === "BS";
+  });
+
+  const basicVal = basicRow
+    ? (String(basicRow.calculationType || "").toLowerCase() === "percentage" ? (grossBase * Number(basicRow.value || 0)) / 100 : Number(basicRow.value || 0))
+    : (grossBase * 0.5);
+
+  components.forEach(c => {
+    const cType = String(c.component?.type || c.type || "earning").toLowerCase();
+    const cCalcType = String(c.calculationType || "manual").toLowerCase();
+    const cCode = String(c.component?.code || c.code || "").toUpperCase();
+    const cName = String(c.component?.name || c.name || "").toUpperCase();
+
+    if (cType === "earning" && cCalcType !== "balance" && cCode !== "SPL" && cCode !== "SPECIAL" && !cName.includes("SPECIAL")) {
+      if (cCalcType === "percentage") {
+        const baseStr = String(c.calculationBase || "").toUpperCase();
+        if (baseStr.includes("BASIC") || baseStr.includes("BS")) {
+          total += Math.round((basicVal * Number(c.value || 0)) / 100);
+        } else {
+          total += Math.round((grossBase * Number(c.value || 0)) / 100);
+        }
+      } else if (cCalcType === "manual") {
+        total += Number(c.value || 0);
+      }
+    }
+  });
+
+  return total;
+};
+
+const calculateDeductionsTotal = (components, defaultGross) => {
+  const grossBase = Number(defaultGross || 0);
+  let total = 0;
+
+  const basicRow = (components || []).find(c => {
+    const name = String(c.component?.name || c.name || "").toUpperCase();
+    const code = String(c.component?.code || c.code || "").toUpperCase();
+    return name.includes("BASIC") || code === "BASIC" || code === "BS";
+  });
+
+  const basicVal = basicRow
+    ? (String(basicRow.calculationType || "").toLowerCase() === "percentage" ? (grossBase * Number(basicRow.value || 0)) / 100 : Number(basicRow.value || 0))
+    : (grossBase * 0.5);
+
+  (components || []).forEach(c => {
+    const cType = String(c.component?.type || c.type || "earning").toLowerCase();
+    const cCalcType = String(c.calculationType || "manual").toLowerCase();
+
+    if (cType === "deduction") {
+      if (cCalcType === "percentage") {
+        const baseStr = String(c.calculationBase || "").toUpperCase();
+        if (baseStr.includes("BASIC") || baseStr.includes("BS")) {
+          total += Math.round((basicVal * Number(c.value || 0)) / 100);
+        } else {
+          total += Math.round((grossBase * Number(c.value || 0)) / 100);
+        }
+      } else if (cCalcType === "manual") {
+        total += Number(c.value || 0);
+      }
+    }
+  });
+
+  return total;
+};
 
 export default function SalaryStructure() {
   const [form, setForm] = useState(emptyStructureForm);
@@ -44,11 +185,25 @@ export default function SalaryStructure() {
   const [search, setSearch] = useState("");
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [headerSaved, setHeaderSaved] = useState(false);
   const [message, setMessage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const addDropdownRef = useRef(null);
+  const componentsSectionRef = useRef(null);
+
+  const handleSaveHeader = () => {
+    if (!form.name.trim()) {
+      setMessage({ type: "error", text: "Structure Name is required." });
+      return;
+    }
+    setHeaderSaved(true);
+    setMessage({ type: "success", text: `Structure header saved for "${form.name.trim()}". Configure components below.` });
+    if (componentsSectionRef.current) {
+      componentsSectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -117,7 +272,8 @@ export default function SalaryStructure() {
 
   const addComponentDirect = (component) => {
     if (!component || used.has(String(component._id))) return;
-    change("components", [...form.components, rowFor(component, form.components.length + 1)]);
+    const nextComponents = [...form.components, rowFor(component, form.components.length + 1)];
+    change("components", sortComponentsWithAutoBalanceAtBottom(nextComponents));
     setAddDropdownOpen(false);
   };
 
@@ -143,26 +299,53 @@ export default function SalaryStructure() {
   const reset = () => {
     setForm(emptyStructureForm);
     setEditingId("");
+    setHeaderSaved(false);
     setMessage(null);
+  };
+
+  const sortComponentsWithAutoBalanceAtBottom = (componentsList) => {
+    if (!componentsList || !componentsList.length) return [];
+    const normalRows = [];
+    const balanceRows = [];
+
+    componentsList.forEach(r => {
+      const comp = typeof r.component === "object" && r.component !== null ? r.component : {};
+      const code = String(comp.code || r.code || "").toUpperCase();
+      const name = String(comp.name || r.name || "").toUpperCase();
+      const calcType = String(r.calculationType || "manual").toLowerCase();
+      const isSpecial = calcType === "balance" || code === "SPL" || code === "SPECIAL" || name.includes("SPECIAL");
+
+      if (isSpecial) {
+        balanceRows.push(r);
+      } else {
+        normalRows.push(r);
+      }
+    });
+
+    return [...normalRows, ...balanceRows].map((r, i) => ({ ...r, sortOrder: i + 1 }));
   };
 
   const edit = item => {
     setEditingId(item._id);
+    setHeaderSaved(true);
+    const existingComponents = (item.components || []).map((r, i) => ({
+      component: r.component,
+      calculationType: r.calculationType || "manual",
+      calculationBase: r.calculationBase || "",
+      value: r.value !== undefined ? String(r.value) : "",
+      formula: r.formula || "",
+      sortOrder: r.sortOrder || i + 1
+    }));
+
     setForm({
       name: item.name || "",
       code: item.code || "",
       salaryType: item.salaryType || "monthly",
       salaryInputType: item.salaryInputType || "gross",
+      defaultGross: item.defaultGross || "",
       description: item.description || "",
       status: item.status || "active",
-      components: (item.components || []).map((r, i) => ({
-        component: r.component,
-        calculationType: r.calculationType || "manual",
-        calculationBase: r.calculationBase || "",
-        value: r.value !== undefined ? String(r.value) : "",
-        formula: r.formula || "",
-        sortOrder: r.sortOrder || i + 1
-      }))
+      components: sortComponentsWithAutoBalanceAtBottom(existingComponents)
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -208,6 +391,21 @@ export default function SalaryStructure() {
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
+
+    if (Number(form.defaultGross) > 0) {
+      const totalEarn = calculateEarningsTotal(form.components, form.defaultGross);
+      const grossBase = Number(form.defaultGross);
+      if (totalEarn > grossBase) {
+        const exceededBy = totalEarn - grossBase;
+        setMessage({
+          type: "error",
+          text: `Cannot save structure! Total earnings components (₹ ${totalEarn.toLocaleString("en-IN")}) exceed Gross Salary (₹ ${grossBase.toLocaleString("en-IN")}) by ₹ ${exceededBy.toLocaleString("en-IN")}. Please reduce component values before saving.`
+        });
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const isRealObjectId = editingId && editingId.length === 24 && !editingId.startsWith("struct-");
@@ -281,6 +479,7 @@ export default function SalaryStructure() {
                 value={form.name}
                 onChange={e => change("name", e.target.value)}
                 placeholder="e.g. Standard - Gross Based"
+                readOnly={headerSaved}
                 required
               />
             </div>
@@ -311,9 +510,9 @@ export default function SalaryStructure() {
               className="ss-select"
               value={form.salaryType}
               onChange={e => change("salaryType", e.target.value)}
+              disabled={headerSaved}
             >
               <option value="monthly">Monthly</option>
-              <option value="annual">Annual</option>
             </select>
           </div>
 
@@ -324,10 +523,24 @@ export default function SalaryStructure() {
               className="ss-select"
               value={form.salaryInputType}
               onChange={e => change("salaryInputType", e.target.value)}
+              disabled={headerSaved}
             >
               <option value="gross">Gross</option>
-              <option value="ctc">CTC</option>
             </select>
+          </div>
+
+          {/* Default Gross Salary */}
+          <div className="ss-form-group">
+            <label>Default Gross Salary (INR)</label>
+            <input
+              type="number"
+              min="0"
+              className="ss-input"
+              value={form.defaultGross || ""}
+              onChange={e => change("defaultGross", e.target.value)}
+              placeholder="e.g. 50000"
+              readOnly={headerSaved}
+            />
           </div>
 
           {/* Status */}
@@ -349,7 +562,7 @@ export default function SalaryStructure() {
           </div>
 
           {/* Description */}
-          <div className="ss-form-group ss-span-2">
+          <div className="ss-form-group">
             <label>Description</label>
             <input
               type="text"
@@ -357,16 +570,41 @@ export default function SalaryStructure() {
               value={form.description}
               onChange={e => change("description", e.target.value)}
               placeholder="Optional description / notes..."
+              readOnly={headerSaved}
             />
+          </div>
+
+          {/* Top Form Header Action Button (Save / Edit) */}
+          <div className="ss-form-group" style={{ display: "flex", alignItems: "flex-end" }}>
+            {headerSaved ? (
+              <button
+                type="button"
+                className="ss-btn-reset"
+                onClick={() => setHeaderSaved(false)}
+                style={{ width: "100%", height: 38, padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "center", background: "#f1f5f9", color: "#1e293b", border: "1px solid #cbd5e1", borderRadius: 6, fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+              >
+                <FiEdit2 style={{ marginRight: 6 }} /> Edit
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="ss-btn-save"
+                onClick={handleSaveHeader}
+                style={{ width: "100%", height: 38, padding: "0 16px", backgroundColor: "#2563eb", color: "#fff", border: "none", borderRadius: 6, fontWeight: 600, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <FiSave style={{ marginRight: 6 }} /> Save
+              </button>
+            )}
           </div>
         </div>
 
         {/* Components Table Section */}
-        <div style={{ marginTop: 24, paddingTop: 18, borderTop: "1px solid #e2e8f0" }}>
+        <div ref={componentsSectionRef} style={{ marginTop: 24, paddingTop: 18, borderTop: "1px solid #e2e8f0" }}>
           <div className="ss-between" style={{ marginBottom: 14 }}>
             <div>
               <h3 style={{ fontSize: 14.5, fontWeight: 700, color: "#1e40af", margin: "0 0 2px" }}>
-                Structure Components
+                Structure Components {headerSaved && form.name ? `— ${form.name}` : ""}
+                {headerSaved && Number(form.defaultGross) > 0 ? ` (Gross: ₹ ${Number(form.defaultGross).toLocaleString("en-IN")})` : ""}
               </h3>
               <p style={{ fontSize: 12.5, color: "#64748b", margin: 0 }}>
                 Add components and choose a fixed amount or percentage calculation.
@@ -419,6 +657,40 @@ export default function SalaryStructure() {
             </div>
           </div>
 
+          {/* Gross Hit Warning Alert Banner */}
+          {headerSaved && Number(form.defaultGross) > 0 && (() => {
+            const earningsTotal = calculateEarningsTotal(form.components, form.defaultGross);
+            const gross = Number(form.defaultGross);
+            if (earningsTotal >= gross) {
+              const isExceeded = earningsTotal > gross;
+              return (
+                <div style={{
+                  marginBottom: 14,
+                  padding: "10px 14px",
+                  borderRadius: 6,
+                  borderLeft: `4px solid ${isExceeded ? "#dc2626" : "#f59e0b"}`,
+                  background: isExceeded ? "#fef2f2" : "#fffbeb",
+                  color: isExceeded ? "#991b1b" : "#92400e",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8
+                }}>
+                  <FiAlertTriangle style={{ fontSize: 16, flexShrink: 0 }} />
+                  <span>
+                    {isExceeded ? (
+                      <><strong>Warning:</strong> Total earnings components (₹ {earningsTotal.toLocaleString("en-IN")}) exceed Gross Salary (₹ {gross.toLocaleString("en-IN")}) by <strong>₹ {(earningsTotal - gross).toLocaleString("en-IN")}</strong>!</>
+                    ) : (
+                      <><strong>Gross Limit Hit:</strong> Total earnings components (₹ {earningsTotal.toLocaleString("en-IN")}) have reached Gross Salary (₹ {gross.toLocaleString("en-IN")}). Special Allowance is ₹0.</>
+                    )}
+                  </span>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
           <div className="ss-table-wrap">
             <table className="ss-table">
               <thead>
@@ -427,15 +699,16 @@ export default function SalaryStructure() {
                   <th>Component</th>
                   <th style={{ width: 100 }}>Type</th>
                   <th style={{ width: 140 }}>Calculation Type</th>
-                  <th style={{ width: 180 }}>Calculation Base</th>
-                  <th style={{ width: 130 }}>Value / %</th>
+                  <th style={{ width: 170 }}>Calculation Base</th>
+                  <th style={{ width: 120 }}>Value / %</th>
+                  <th style={{ width: 150, color: "#047857" }}>Calculated Amount (₹)</th>
                   <th style={{ width: 60, textAlign: "center" }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {form.components.length === 0 ? (
                   <tr>
-                    <td colSpan="7" style={{ textAlign: "center", padding: 24, color: "#64748b" }}>
+                    <td colSpan="8" style={{ textAlign: "center", padding: 24, color: "#64748b" }}>
                       No components added yet. Click <strong>"+ Add Component"</strong> above to pick a component.
                     </td>
                   </tr>
@@ -460,9 +733,7 @@ export default function SalaryStructure() {
                         >
                           <option value="manual">Manual</option>
                           <option value="percentage">Percentage</option>
-                          {!["manual", "percentage"].includes(r.calculationType) && (
-                            <option value={r.calculationType} disabled>Legacy {r.calculationType}</option>
-                          )}
+                          <option value="balance">Auto Balance (Gross - Other Earnings)</option>
                         </select>
                       </td>
                       <td>
@@ -500,7 +771,9 @@ export default function SalaryStructure() {
                         )}
                       </td>
                       <td>
-                        {r.calculationType !== "formula" && r.calculationType !== "balance" ? (
+                        {r.calculationType === "balance" ? (
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "#2563eb" }}>Auto Balance</span>
+                        ) : r.calculationType !== "formula" ? (
                           <div className="ss-val-input-group">
                             <input
                               type="number"
@@ -516,6 +789,11 @@ export default function SalaryStructure() {
                         ) : (
                           <span style={{ color: "#94a3b8" }}>—</span>
                         )}
+                      </td>
+                      <td>
+                        <strong style={{ color: (r.component?.type || r.type) === "deduction" ? "#dc2626" : "#047857" }}>
+                          {getComponentPreviewAmount(r, form.components, headerSaved ? form.defaultGross : 0)}
+                        </strong>
                       </td>
                       <td style={{ display: "none" }}>
                         {r.calculationType === "formula" ? (
@@ -558,6 +836,31 @@ export default function SalaryStructure() {
               </tbody>
             </table>
           </div>
+
+          {/* Live Total Summary Card */}
+          {headerSaved && Number(form.defaultGross) > 0 && form.components.length > 0 && (
+            <div style={{
+              marginTop: 16,
+              padding: "12px 18px",
+              background: "#f8fafc",
+              borderRadius: 8,
+              border: "1px solid #e2e8f0",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 12
+            }}>
+              <div>
+                <span style={{ fontSize: 13, color: "#475569", fontWeight: 600 }}>Structure Summary:</span>
+              </div>
+              <div style={{ display: "flex", gap: 18, fontSize: 13, flexWrap: "wrap" }}>
+                <span style={{ color: "#047857", fontWeight: 600 }}>Total Earnings: ₹ {Number(form.defaultGross).toLocaleString("en-IN")}</span>
+                <span style={{ color: "#dc2626", fontWeight: 600 }}>Total Deductions: ₹ {calculateDeductionsTotal(form.components, form.defaultGross).toLocaleString("en-IN")}</span>
+                <span style={{ color: "#2563eb", fontWeight: 700 }}>Net Pay (In-Hand): ₹ {Math.max(0, Number(form.defaultGross) - calculateDeductionsTotal(form.components, form.defaultGross)).toLocaleString("en-IN")}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Actions Row */}
@@ -759,20 +1062,20 @@ export default function SalaryStructure() {
         <div className="ss-modal-backdrop" onMouseDown={() => setPreviewItem(null)}>
           <div
             className="ss-modal"
-            style={{ width: "min(750px, 96%)", maxHeight: "85vh", overflowY: "auto" }}
+            style={{ width: "min(800px, 96%)", maxHeight: "88vh", overflowY: "auto" }}
             onMouseDown={e => e.stopPropagation()}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
               <div>
-                <h3>
+                <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 6px" }}>
                   {previewItem.name}{" "}
                   <span style={{ color: "#2563eb" }}>({previewItem.code})</span>
                 </h3>
-                <p style={{ margin: "4px 0 8px" }}>
-                  Type: <strong style={{ textTransform: "capitalize" }}>{previewItem.salaryType}</strong> | Input: <strong style={{ textTransform: "uppercase" }}>{previewItem.salaryInputType}</strong> | Effective: <strong>{previewItem.effectiveFrom ? new Date(previewItem.effectiveFrom).toLocaleDateString("en-IN") : "—"}</strong> | Status: <span className={`ss-badge ${previewItem.status}`}>{previewItem.status}</span>
+                <p style={{ margin: "0 0 6px", fontSize: 13, color: "#334155" }}>
+                  Type: <strong style={{ textTransform: "capitalize" }}>{previewItem.salaryType}</strong> | Input: <strong style={{ textTransform: "uppercase" }}>{previewItem.salaryInputType}</strong> | Default Gross: <strong style={{ color: "#047857" }}>₹ {Number(previewItem.defaultGross || 0).toLocaleString("en-IN")}</strong> | Status: <span className={`ss-badge ${previewItem.status}`}>{previewItem.status}</span>
                 </p>
                 {previewItem.description && (
-                  <p style={{ margin: "0 0 12px", color: "#64748b", fontStyle: "italic" }}>
+                  <p style={{ margin: 0, color: "#64748b", fontStyle: "italic", fontSize: 12.5 }}>
                     {previewItem.description}
                   </p>
                 )}
@@ -787,14 +1090,15 @@ export default function SalaryStructure() {
             </div>
 
             <div className="ss-table-wrap">
-              <table className="ss-table">
+              <table className="ss-table ss-modal-table">
                 <thead>
                   <tr>
-                    <th style={{ width: 45 }}>#</th>
+                    <th style={{ width: 40 }}>#</th>
                     <th>Component</th>
-                    <th>Type</th>
-                    <th>Calculation Type</th>
+                    <th style={{ width: 95 }}>Type</th>
+                    <th style={{ width: 130 }}>Calculation Type</th>
                     <th>Calculation Details</th>
+                    <th style={{ width: 150, color: "#047857" }}>Calculated Amount (₹)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -802,18 +1106,21 @@ export default function SalaryStructure() {
                     <tr key={r._id || i}>
                       <td>{i + 1}</td>
                       <td>
-                        <strong>{r.component?.name || "Component"}</strong>{" "}
-                        <span style={{ color: "#64748b" }}>({r.component?.code || ""})</span>
+                        <strong>{r.component?.name || r.name || "Component"}</strong>{" "}
+                        <span style={{ color: "#64748b" }}>({r.component?.code || r.code || ""})</span>
                       </td>
                       <td>
-                        <span className={`ss-badge ${r.component?.type || "earning"}`}>
-                          {r.component?.type === "earning" ? "Earning" : "Deduction"}
+                        <span className={`ss-badge ${r.component?.type || r.type || "earning"}`}>
+                          {(r.component?.type || r.type) === "earning" ? "Earning" : "Deduction"}
                         </span>
                       </td>
-                      <td style={{ textTransform: "capitalize" }}>{r.calculationType}</td>
+                      <td style={{ textTransform: "capitalize" }}>{r.calculationType === "balance" ? "Auto Balance" : r.calculationType}</td>
                       <td>
                         {r.calculationType === "percentage" && (
                           <span>{r.value}% of {r.calculationBase || "Gross"}</span>
+                        )}
+                        {r.calculationType === "balance" && (
+                          <span style={{ color: "#2563eb", fontWeight: 600 }}>Gross − Other Earnings</span>
                         )}
                         {r.calculationType === "formula" && (
                           <code style={{ background: "#f1f5f9", padding: "2px 6px", borderRadius: 4 }}>
@@ -821,8 +1128,13 @@ export default function SalaryStructure() {
                           </code>
                         )}
                         {r.calculationType === "manual" && (
-                          <span>Fixed / ₹{r.value || 0}</span>
+                          <span>Fixed / ₹{Number(r.value || 0).toLocaleString("en-IN")}</span>
                         )}
+                      </td>
+                      <td>
+                        <strong style={{ color: (r.component?.type || r.type) === "deduction" ? "#dc2626" : "#047857" }}>
+                          {getComponentPreviewAmount(r, previewItem.components || [], previewItem.defaultGross)}
+                        </strong>
                       </td>
                     </tr>
                   ))}
@@ -834,6 +1146,20 @@ export default function SalaryStructure() {
                 </div>
               )}
             </div>
+
+            {/* Total Summary Footer in Modal */}
+            {Number(previewItem.defaultGross) > 0 && (
+              <div style={{ marginTop: 14, padding: "12px 16px", background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                <div>
+                  <span style={{ fontSize: 13, color: "#475569" }}>Default Gross: <strong>₹ {Number(previewItem.defaultGross).toLocaleString("en-IN")}</strong></span>
+                </div>
+                <div style={{ display: "flex", gap: 16, fontSize: 13 }}>
+                  <span style={{ color: "#047857", fontWeight: 600 }}>Total Earnings: ₹ {Number(previewItem.defaultGross).toLocaleString("en-IN")}</span>
+                  <span style={{ color: "#dc2626", fontWeight: 600 }}>Total Deductions: ₹ {calculateDeductionsTotal(previewItem.components || [], previewItem.defaultGross).toLocaleString("en-IN")}</span>
+                  <span style={{ color: "#2563eb", fontWeight: 700 }}>Net Pay (In-Hand): ₹ {Math.max(0, Number(previewItem.defaultGross) - calculateDeductionsTotal(previewItem.components || [], previewItem.defaultGross)).toLocaleString("en-IN")}</span>
+                </div>
+              </div>
+            )}
 
             <div className="ss-modal-footer">
               <button

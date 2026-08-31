@@ -56,6 +56,7 @@ const normalizeAttendanceStatus = (status) => {
     LATE: 'LATE',
     ABSENT: 'ABSENT',
     HALFDAY: 'HALF DAY',
+    UNINFORMEDLEAVE: 'UNINFORMED LEAVE',
     HOLIDAY: 'HOLIDAY',
   };
 
@@ -489,6 +490,7 @@ const Attendance = () => {
       case "LATE":
         return <FiAlertTriangle className="Attendance-status-icon late-icon" />;
       case "ABSENT":
+      case "UNINFORMED LEAVE":
         return <FiMinusCircle className="Attendance-status-icon absent-icon" />;
       case "HALF DAY":
         return <FiAlertCircle className="Attendance-status-icon halfday-icon" />;
@@ -510,6 +512,7 @@ const Attendance = () => {
       case "LATE":
         return "#ff9800";
       case "ABSENT":
+      case "UNINFORMED LEAVE":
         return "#f44336";
       case "HALF DAY":
         return "#db2777";
@@ -532,6 +535,8 @@ const Attendance = () => {
         return "LATE";
       case "ABSENT":
         return "ABSENT";
+      case "UNINFORMED LEAVE":
+        return "UNINFORMED LEAVE";
       case "HALF DAY":
         return "HALF DAY";
       default:
@@ -752,7 +757,7 @@ const Attendance = () => {
     setSelectedDate(null);
   };
 
-  const statusOptions = ["ALL", "PRESENT", "LATE", "HALF DAY", "ABSENT", "HOLIDAY"];
+  const statusOptions = ["ALL", "PRESENT", "LATE", "HALF DAY", "ABSENT", "UNINFORMED LEAVE", "HOLIDAY"];
 
   if (pageLoading) {
     return <CIISLoader />;

@@ -87,6 +87,24 @@
   font-size: 12px;
 }
 
+.pr-date-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.pr-date-input svg {
+  position: absolute;
+  left: 11px;
+  color: #64748b;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.pr-date-input input {
+  padding-left: 34px;
+}
+
 .pr-filter-actions {
   display: flex;
   align-items: end;

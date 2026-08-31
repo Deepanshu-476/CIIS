@@ -3,8 +3,6 @@ import axios from "../../utils/axiosConfig";
 import { invalidateGetCache } from "../../utils/axiosConfig";
 import CIISLoader from "../../Loader/CIISLoader";
 import {
-  ArrowBackIosNew,
-  ArrowForwardIos,
   AssignmentIndOutlined,
   CalendarMonthOutlined,
   DeleteOutline,
@@ -13,6 +11,7 @@ import {
   GroupsOutlined,
   Close,
   LockOutlined,
+  LockOpenOutlined,
   PersonOutline,
   Search,
   ShieldOutlined,
@@ -25,6 +24,16 @@ import {
 } from "@mui/icons-material";
 import "./PageManagement.css";
 
+const PAYROLL_PERMISSION_ACTIONS = {
+  "salary-component": { view: "View", edit: "Save / Edit", delete: "Delete" },
+  "salary-structure": { view: "View", edit: "Save / Edit", delete: "Delete" },
+  "salary-assignment": { view: "View", edit: "Save / Edit", delete: "Unassign / Delete" },
+  "assign-salary": { view: "View", edit: "Assign / Edit", delete: "Unassign" },
+  "payroll-process": { view: "View", edit: "Review / Settings / Fine", generate: "Generate", lock: "Lock", unlock: "Unlock", delete: "Delete Process" },
+  payslip: { view: "View", edit: "Email / Download", delete: "Delete" },
+  "payroll-reports": { view: "View Reports", edit: "Export / Download", delete: "Delete" },
+};
+
 const FALLBACK_PAGES = [
   { pageKey: "emp-details", name: "Emp - Details", path: "/ciisUser/emp-details", permissionPattern: "viewEdit" },
   { pageKey: "emp-leaves", name: "Emp - Leaves", path: "/ciisUser/emp-leaves", permissionPattern: "approveReject" },
@@ -35,6 +44,7 @@ const FALLBACK_PAGES = [
   { pageKey: "JobRoleManagement", name: "Job Role Management", path: "/ciisUser/JobRoleManagement", permissionPattern: "viewEdit" },
   { pageKey: "manage-groups", name: "Manage Group", path: "/ciisUser/manage-groups", permissionPattern: "viewEdit" },
   { pageKey: "company-all-task", name: "Company All Task", path: "/ciisUser/company-all-task", permissionPattern: "viewEdit" },
+<<<<<<< HEAD
   { pageKey: "emp-client", name: "Client Management", path: "/ciisUser/emp-client", permissionPattern: "viewEdit" },
   { pageKey: "salary-component", name: "Salary Component", path: "/ciisUser/salary-component", permissionPattern: "viewEdit" },
   { pageKey: "salary-structure", name: "Salary Structure", path: "/ciisUser/salary-structure", permissionPattern: "viewEdit" },
@@ -43,6 +53,16 @@ const FALLBACK_PAGES = [
   { pageKey: "payroll-process", name: "Payroll Process", path: "/ciisUser/payroll-process", permissionPattern: "viewEdit" },
   { pageKey: "payslip", name: "Payslip", path: "/ciisUser/payslip", permissionPattern: "viewEdit" },
   { pageKey: "payroll-reports", name: "Payroll Reports", path: "/ciisUser/payroll-reports", permissionPattern: "viewEdit" },
+=======
+  { pageKey: "SidebarManagement", name: "Sidebar Management", path: "/ciisUser/SidebarManagement", permissionPattern: "viewEdit" },
+  { pageKey: "salary-component", name: "Salary Component", path: "/ciisUser/salary-component", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["salary-component"] },
+  { pageKey: "salary-structure", name: "Salary Structure", path: "/ciisUser/salary-structure", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["salary-structure"] },
+  { pageKey: "salary-assignment", name: "Employee Salary", path: "/ciisUser/salary-assignment", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["salary-assignment"] },
+  { pageKey: "assign-salary", name: "Assign Salary", path: "/ciisUser/assign-salary", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["assign-salary"] },
+  { pageKey: "payroll-process", name: "Payroll Process", path: "/ciisUser/payroll-process", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["payroll-process"] },
+  { pageKey: "payslip", name: "Payslip", path: "/ciisUser/payslip", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS.payslip },
+  { pageKey: "payroll-reports", name: "Payroll Reports", path: "/ciisUser/payroll-reports", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["payroll-reports"] },
+>>>>>>> 5b3d8e3cb9521522c464141817795917f522d3b7
 ];
 
 const ALLOWED_PAGE_KEYS = FALLBACK_PAGES.map((p) => p.pageKey);
@@ -57,7 +77,11 @@ const ICON_MAP = {
   JobRoleManagement: AssignmentIndOutlined,
   "manage-groups": GroupsOutlined,
   "company-all-task": ViewColumnOutlined,
+<<<<<<< HEAD
   "emp-client": WorkOutline,
+=======
+  SidebarManagement: LockOutlined,
+>>>>>>> 5b3d8e3cb9521522c464141817795917f522d3b7
   "salary-component": WorkOutline,
   "salary-structure": WorkOutline,
   "salary-assignment": WorkOutline,
@@ -108,27 +132,54 @@ const getUserInitials = (user) => {
 };
 
 const getPagePermissionMetric = (page) => ({
-  view: normalizeUserIds(page?.viewUsers).length,
-  edit: normalizeUserIds(page?.editUsers).length,
-  delete: normalizeUserIds(page?.deleteUsers).length,
-  approve: normalizeUserIds(page?.approvers).length,
+  view: Number.isFinite(Number(page?.viewCount)) ? Number(page.viewCount) : normalizeUserIds(page?.viewUsers).length,
+  edit: Number.isFinite(Number(page?.editCount)) ? Number(page.editCount) : normalizeUserIds(page?.editUsers).length,
+  delete: Number.isFinite(Number(page?.deleteCount)) ? Number(page.deleteCount) : normalizeUserIds(page?.deleteUsers).length,
+  approve: Number.isFinite(Number(page?.approveCount)) ? Number(page.approveCount) : normalizeUserIds(page?.approvers).length,
+  generate: Number.isFinite(Number(page?.generateCount)) ? Number(page.generateCount) : normalizeUserIds(page?.generateUsers).length,
+  lock: Number.isFinite(Number(page?.lockCount)) ? Number(page.lockCount) : normalizeUserIds(page?.lockUsers).length,
+  unlock: Number.isFinite(Number(page?.unlockCount)) ? Number(page.unlockCount) : normalizeUserIds(page?.unlockUsers).length,
+});
+
+const getPageActionConfig = (page) => ({
+  view: "View",
+  edit: "Edit",
+  approve: "Approve / Reject",
+  delete: "Delete",
+  generate: "Generate",
+  lock: "Lock",
+  unlock: "Unlock",
+  ...(PAYROLL_PERMISSION_ACTIONS[page?.pageKey] || {}),
+  ...(page?.permissionActions || {}),
 });
 
 const getAccessTypeLabel = (accessType, page) => {
-  if (accessType === "approve") return "Approve / Reject";
-  if (accessType === "edit") return "Edit";
-  if (accessType === "delete") return "Delete";
-  return page?.permissionPattern === "approveReject" ? "View" : "View";
+  const actionConfig = getPageActionConfig(page);
+  if (accessType === "approve") return actionConfig.approve;
+  if (accessType === "edit") return actionConfig.edit;
+  if (accessType === "delete") return actionConfig.delete;
+  if (accessType === "generate") return actionConfig.generate;
+  if (accessType === "lock") return actionConfig.lock;
+  if (accessType === "unlock") return actionConfig.unlock;
+  return actionConfig.view;
 };
 
 const getPageAccessTypeOptions = (page) => {
-  const options = [{ value: "view", label: "View" }];
-  if (page?.permissionPattern === "approveReject") {
-    options.push({ value: "approve", label: "Approve / Reject" });
-  } else {
-    options.push({ value: "edit", label: "Edit" });
+  const options = [{ value: "view", label: getAccessTypeLabel("view", page) }];
+  if (page?.pageKey === "payroll-process") {
+    options.push({ value: "edit", label: getAccessTypeLabel("edit", page) });
+    options.push({ value: "generate", label: getAccessTypeLabel("generate", page) });
+    options.push({ value: "lock", label: getAccessTypeLabel("lock", page) });
+    options.push({ value: "unlock", label: getAccessTypeLabel("unlock", page) });
+    options.push({ value: "delete", label: getAccessTypeLabel("delete", page) });
+    return options;
   }
-  options.push({ value: "delete", label: "Delete" });
+  if (page?.permissionPattern === "approveReject") {
+    options.push({ value: "approve", label: getAccessTypeLabel("approve", page) });
+  } else {
+    options.push({ value: "edit", label: getAccessTypeLabel("edit", page) });
+  }
+  options.push({ value: "delete", label: getAccessTypeLabel("delete", page) });
   return options;
 };
 
@@ -137,6 +188,9 @@ const getPageUserIdsForAccessType = (page, accessType) => {
   if (accessType === "approve") return normalizeUserIds(page.approvers);
   if (accessType === "edit") return normalizeUserIds(page.editUsers);
   if (accessType === "delete") return normalizeUserIds(page.deleteUsers);
+  if (accessType === "generate") return normalizeUserIds(page.generateUsers);
+  if (accessType === "lock") return normalizeUserIds(page.lockUsers);
+  if (accessType === "unlock") return normalizeUserIds(page.unlockUsers);
   return normalizeUserIds(page.viewUsers);
 };
 
@@ -159,6 +213,7 @@ const getPageScopeSummaryForAccessType = (page, accessType, branches = [], depar
 
 const getPageAccessScopeCategory = (page) => {
   const scopes = Array.isArray(page?.userAccessScopes) ? page.userAccessScopes : [];
+  if (!scopes.length && page?.accessScopeCategory) return page.accessScopeCategory;
   if (!scopes.length) return "all";
 
   const hasDepartmentLimit = scopes.some((scope) => {
@@ -186,7 +241,7 @@ const getPageAccessScopeLabel = (page) => {
 
 const getPageStatusLabel = (page) => {
   const metrics = getPagePermissionMetric(page);
-  return metrics.view || metrics.edit || metrics.delete || metrics.approve ? "Active" : "Inactive";
+  return metrics.view || metrics.edit || metrics.delete || metrics.approve || metrics.generate || metrics.lock || metrics.unlock ? "Active" : "Inactive";
 };
 
 const getPermissionPatternLabel = (page) =>
@@ -197,6 +252,9 @@ const getPermissionPatternTone = (page) =>
 
 const getActiveIdsForTab = (page, tab) => {
   if (!page) return [];
+  if (tab === "generate") return normalizeUserIds(page.generateUsers);
+  if (tab === "lock") return normalizeUserIds(page.lockUsers);
+  if (tab === "unlock") return normalizeUserIds(page.unlockUsers);
   if (page.permissionPattern === "approveReject") {
     if (tab === "approve") return normalizeUserIds(page.approvers);
     if (tab === "delete") return normalizeUserIds(page.deleteUsers);
@@ -209,6 +267,14 @@ const getActiveIdsForTab = (page, tab) => {
 };
 
 const getPageTitleIcon = (pageKey) => ICON_MAP[pageKey] || DescriptionOutlined;
+const getAccessTypeIcon = (accessType) => {
+  if (accessType === "view") return VisibilityOutlined;
+  if (accessType === "delete") return DeleteOutline;
+  if (accessType === "approve") return ShieldOutlined;
+  if (accessType === "lock") return LockOutlined;
+  if (accessType === "unlock") return LockOpenOutlined;
+  return EditOutlined;
+};
 
 const getScopeLabel = (ids = [], options = [], fallback = "All") => {
   const normalizedIds = normalizeScopeIds(ids);
@@ -241,6 +307,9 @@ const buildScopeMapByTab = (scopes = []) => {
     edit: {},
     delete: {},
     approve: {},
+    generate: {},
+    lock: {},
+    unlock: {},
   };
 
   (Array.isArray(scopes) ? scopes : []).forEach((scope) => {
@@ -332,6 +401,26 @@ const normalizePage = (page) => ({
   name: page?.name || page?.title || page?.pageKey || "Page",
   path: page?.path || "",
   permissionPattern: page?.permissionPattern || "viewEdit",
+  permissionActions: page?.permissionActions || PAYROLL_PERMISSION_ACTIONS[page?.pageKey] || null,
+  viewCount: Number.isFinite(Number(page?.viewCount)) ? Number(page.viewCount) : normalizeUserIds(page?.viewUsers || []).length,
+  editCount: Number.isFinite(Number(page?.editCount)) ? Number(page.editCount) : normalizeUserIds(page?.editUsers || []).length,
+  deleteCount: Number.isFinite(Number(page?.deleteCount)) ? Number(page.deleteCount) : normalizeUserIds(page?.deleteUsers || []).length,
+  approveCount: Number.isFinite(Number(page?.approveCount)) ? Number(page.approveCount) : normalizeUserIds(page?.approvers || []).length,
+  generateCount: Number.isFinite(Number(page?.generateCount)) ? Number(page.generateCount) : normalizeUserIds(page?.generateUsers || []).length,
+  lockCount: Number.isFinite(Number(page?.lockCount)) ? Number(page.lockCount) : normalizeUserIds(page?.lockUsers || []).length,
+  unlockCount: Number.isFinite(Number(page?.unlockCount)) ? Number(page.unlockCount) : normalizeUserIds(page?.unlockUsers || []).length,
+  accessScopeCategory: page?.accessScopeCategory || "",
+  _detailsLoaded: Boolean(
+    page?._detailsLoaded ||
+    page?.detailsLoaded ||
+    Object.prototype.hasOwnProperty.call(page || {}, "viewUsers") ||
+    Object.prototype.hasOwnProperty.call(page || {}, "editUsers") ||
+    Object.prototype.hasOwnProperty.call(page || {}, "deleteUsers") ||
+    Object.prototype.hasOwnProperty.call(page || {}, "generateUsers") ||
+    Object.prototype.hasOwnProperty.call(page || {}, "lockUsers") ||
+    Object.prototype.hasOwnProperty.call(page || {}, "unlockUsers") ||
+    Object.prototype.hasOwnProperty.call(page || {}, "approvers")
+  ),
   jobRole: page?.jobRole || page?.jobRoleName || page?.role || "",
   jobRoles: Array.isArray(page?.jobRoles) ? page.jobRoles : [],
   accessRoles: Array.isArray(page?.accessRoles) ? page.accessRoles : [],
@@ -340,7 +429,24 @@ const normalizePage = (page) => ({
   viewUsers: normalizeUserIds(page?.viewUsers || []),
   editUsers: normalizeUserIds(page?.editUsers || []),
   deleteUsers: normalizeUserIds(page?.deleteUsers || []),
+  generateUsers: normalizeUserIds(page?.generateUsers || []),
+  lockUsers: normalizeUserIds(page?.lockUsers || []),
+  unlockUsers: normalizeUserIds(page?.unlockUsers || []),
 });
+
+const mergePagesWithFallback = (pages = []) => {
+  const merged = new Map();
+  FALLBACK_PAGES.map(normalizePage).forEach((page) => merged.set(page.pageKey, page));
+  pages.map(normalizePage).forEach((page) => {
+    const fallbackPage = merged.get(page.pageKey) || {};
+    merged.set(page.pageKey, {
+      ...fallbackPage,
+      ...page,
+      permissionActions: page.permissionActions || fallbackPage.permissionActions || PAYROLL_PERMISSION_ACTIONS[page.pageKey] || null,
+    });
+  });
+  return Array.from(merged.values());
+};
 
 const readStoredJson = (key) => {
   try {
@@ -366,7 +472,6 @@ const PageManagement = () => {
   const [selectedPageKey, setSelectedPageKey] = useState("emp-details");
   const [activeTab, setActiveTab] = useState("view");
   const [pageSearch, setPageSearch] = useState("");
-  const [pageIndex, setPageIndex] = useState(1);
   const [permissionTypeFilter, setPermissionTypeFilter] = useState("all");
   const [accessScopeFilter, setAccessScopeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -375,18 +480,27 @@ const PageManagement = () => {
     editIds: [],
     deleteIds: [],
     approverIds: [],
+    generateIds: [],
+    lockIds: [],
+    unlockIds: [],
   });
   const [draftScopes, setDraftScopes] = useState({
     view: { branchIds: ["all"], departmentIds: ["all"] },
     edit: { branchIds: ["all"], departmentIds: ["all"] },
     delete: { branchIds: ["all"], departmentIds: ["all"] },
     approve: { branchIds: ["all"], departmentIds: ["all"] },
+    generate: { branchIds: ["all"], departmentIds: ["all"] },
+    lock: { branchIds: ["all"], departmentIds: ["all"] },
+    unlock: { branchIds: ["all"], departmentIds: ["all"] },
   });
   const [draftUserScopes, setDraftUserScopes] = useState({
     view: {},
     edit: {},
     delete: {},
     approve: {},
+    generate: {},
+    lock: {},
+    unlock: {},
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -400,17 +514,16 @@ const PageManagement = () => {
   const [candidateSearch, setCandidateSearch] = useState("");
   const [candidateSelection, setCandidateSelection] = useState(new Set());
   const [candidateUserScopes, setCandidateUserScopes] = useState({});
+  const [detailLoadingKey, setDetailLoadingKey] = useState("");
+  const [editorContextLoaded, setEditorContextLoaded] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
     setMessage(null);
     try {
-      const companyId = getStoredCompanyId();
-      const [pagesRes, contextRes, jobRolesRes, sidebarConfigsRes] = await Promise.all([
-        axios.get("/page-permissions/pages"),
-        axios.get("/page-permissions/data-visibility/context").catch(async (error) => {
-          if (error?.response?.status !== 404) throw error;
+      const pagesRes = await axios.get("/page-permissions/pages");
 
+<<<<<<< HEAD
           const [usersRes, branchesRes, departmentsRes] = await Promise.all([
             companyId ? axios.get("/users/company-users", { params: { companyId, limit: 250 } }) : Promise.resolve({ data: {} }),
             companyId ? axios.get(`/branches/company/${companyId}`).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
@@ -453,19 +566,18 @@ const PageManagement = () => {
             ? jobRolesRes.data
             : [];
       const loadedSidebarConfigs = Array.isArray(sidebarConfigsRes.data?.data) ? sidebarConfigsRes.data.data : [];
+=======
+      const loadedPages = pagesRes.data?.pages || [];
+      const normalizedPages = mergePagesWithFallback(loadedPages);
+>>>>>>> 5b3d8e3cb9521522c464141817795917f522d3b7
 
       setPages(normalizedPages);
-      setUsers(Array.isArray(loadedContext.users) ? loadedContext.users : []);
-      setJobRoles(loadedJobRoles);
-      setSidebarConfigs(loadedSidebarConfigs);
-      setBranches(Array.isArray(loadedContext.branches) ? loadedContext.branches : []);
-      setDepartments(Array.isArray(loadedContext.departments) ? loadedContext.departments : []);
 
       const currentPage = normalizedPages.find((page) => page.pageKey === selectedPageKey) || normalizedPages[0];
       setSelectedPageKey(currentPage?.pageKey || normalizedPages[0]?.pageKey || "emp-details");
     } catch (error) {
       console.error("Failed to load page management data:", error);
-      setPages(FALLBACK_PAGES.map(normalizePage));
+      setPages(mergePagesWithFallback([]));
       setMessage({ type: "error", text: error.response?.data?.error || "Failed to load page permissions." });
     } finally {
       setLoading(false);
@@ -481,19 +593,20 @@ const PageManagement = () => {
     [pages, selectedPageKey]
   );
 
-  useEffect(() => {
-    if (!selectedPage) return;
-    setActiveTab("view");
+  const applyDraftFromPage = (page) => {
     setDraftPermissions({
-      viewIds: normalizeUserIds(selectedPage.viewUsers),
-      editIds: normalizeUserIds(selectedPage.editUsers),
-      deleteIds: normalizeUserIds(selectedPage.deleteUsers),
-      approverIds: normalizeUserIds(selectedPage.approvers),
+      viewIds: normalizeUserIds(page.viewUsers),
+      editIds: normalizeUserIds(page.editUsers),
+      deleteIds: normalizeUserIds(page.deleteUsers),
+      approverIds: normalizeUserIds(page.approvers),
+      generateIds: normalizeUserIds(page.generateUsers),
+      lockIds: normalizeUserIds(page.lockUsers),
+      unlockIds: normalizeUserIds(page.unlockUsers),
     });
-    const scopeByTab = { view: { branchIds: ["all"], departmentIds: ["all"] }, edit: { branchIds: ["all"], departmentIds: ["all"] }, delete: { branchIds: ["all"], departmentIds: ["all"] }, approve: { branchIds: ["all"], departmentIds: ["all"] } };
-    (Array.isArray(selectedPage.userAccessScopes) ? selectedPage.userAccessScopes : []).forEach((scope) => {
+    const scopeByTab = { view: { branchIds: ["all"], departmentIds: ["all"] }, edit: { branchIds: ["all"], departmentIds: ["all"] }, delete: { branchIds: ["all"], departmentIds: ["all"] }, approve: { branchIds: ["all"], departmentIds: ["all"] }, generate: { branchIds: ["all"], departmentIds: ["all"] }, lock: { branchIds: ["all"], departmentIds: ["all"] }, unlock: { branchIds: ["all"], departmentIds: ["all"] } };
+    (Array.isArray(page.userAccessScopes) ? page.userAccessScopes : []).forEach((scope) => {
       const accessType = String(scope?.accessType || "").trim().toLowerCase();
-      if (!["view", "edit", "delete", "approve"].includes(accessType)) return;
+      if (!["view", "edit", "delete", "approve", "generate", "lock", "unlock"].includes(accessType)) return;
       if (!scopeByTab[accessType] || scopeByTab[accessType].branchIds[0] !== "all") return;
       scopeByTab[accessType] = {
         branchIds: normalizeScopeIds(scope.branchIds || ["all"]),
@@ -501,12 +614,85 @@ const PageManagement = () => {
       };
     });
     setDraftScopes(scopeByTab);
-    setDraftUserScopes(buildScopeMapByTab(selectedPage.userAccessScopes));
+    setDraftUserScopes(buildScopeMapByTab(page.userAccessScopes));
     setCandidateSearch("");
-    setPageIndex(1);
+  };
+
+  const ensureEditorContext = async () => {
+    if (editorContextLoaded) return;
+    const companyId = getStoredCompanyId();
+    const [contextRes, jobRolesRes, sidebarConfigsRes] = await Promise.all([
+      axios.get("/page-permissions/data-visibility/context").catch(async (error) => {
+        if (error?.response?.status !== 404) throw error;
+
+        const [usersRes, branchesRes, departmentsRes] = await Promise.all([
+          companyId ? axios.get("/users/company-users", { params: { companyId, limit: 250 } }) : Promise.resolve({ data: {} }),
+          companyId ? axios.get(`/branches/company/${companyId}`).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
+          companyId ? axios.get("/departments", { params: { company: companyId } }).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
+        ]);
+
+        return {
+          data: {
+            context: {
+              users: usersRes.data?.users || usersRes.data?.message?.users || [],
+              branches: branchesRes.data?.branches || branchesRes.data?.data || [],
+              departments: departmentsRes.data?.departments || departmentsRes.data?.data || [],
+            },
+          },
+        };
+      }),
+      axios.get("/job-roles", companyId ? { params: { company: companyId } } : undefined).catch(() => ({ data: {} })),
+      companyId
+        ? axios.get("/sidebar", { params: { companyId } }).catch(() => ({ data: { data: [] } }))
+        : Promise.resolve({ data: { data: [] } }),
+    ]);
+    const loadedContext = contextRes.data?.context || {};
+    const loadedJobRoles = Array.isArray(jobRolesRes.data?.jobRoles)
+      ? jobRolesRes.data.jobRoles
+      : Array.isArray(jobRolesRes.data?.data)
+        ? jobRolesRes.data.data
+        : Array.isArray(jobRolesRes.data)
+          ? jobRolesRes.data
+          : [];
+    setUsers(Array.isArray(loadedContext.users) ? loadedContext.users : []);
+    setJobRoles(loadedJobRoles);
+    setSidebarConfigs(Array.isArray(sidebarConfigsRes.data?.data) ? sidebarConfigsRes.data.data : []);
+    setBranches(Array.isArray(loadedContext.branches) ? loadedContext.branches : []);
+    setDepartments(Array.isArray(loadedContext.departments) ? loadedContext.departments : []);
+    setEditorContextLoaded(true);
+  };
+
+  const ensurePageDetails = async (page) => {
+    if (!page) return null;
+    if (page._detailsLoaded) return page;
+    setDetailLoadingKey(page.pageKey);
+    try {
+      const res = await axios.get("/page-permissions/by-path", { params: { path: page.path } });
+      const detailedPage = normalizePage({ ...page, ...(res.data?.page || {}), _detailsLoaded: true });
+      setPages((prev) => prev.map((item) => (item.pageKey === detailedPage.pageKey ? { ...item, ...detailedPage } : item)));
+      return detailedPage;
+    } finally {
+      setDetailLoadingKey("");
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedPage) return;
+    setActiveTab("view");
+    if (selectedPage._detailsLoaded) {
+      applyDraftFromPage(selectedPage);
+    }
   }, [selectedPage?.pageKey]);
 
   useEffect(() => {
+    const availableTabs = getPageAccessTypeOptions(selectedPage).map((option) => option.value);
+    if (availableTabs.length && !availableTabs.includes(activeTab)) {
+      setActiveTab(availableTabs[0]);
+    }
+  }, [activeTab, selectedPage]);
+
+  useEffect(() => {
+    if (selectedPage?.pageKey === "payroll-process") return;
     if (selectedPage?.permissionPattern === "approveReject") {
       if (!["view", "approve", "delete"].includes(activeTab)) {
         setActiveTab("view");
@@ -515,10 +701,6 @@ const PageManagement = () => {
       setActiveTab("view");
     }
   }, [activeTab, selectedPage?.permissionPattern]);
-
-  useEffect(() => {
-    setPageIndex(1);
-  }, [pageSearch]);
 
   const filteredPages = useMemo(() => {
     const query = pageSearch.trim().toLowerCase();
@@ -532,10 +714,7 @@ const PageManagement = () => {
     });
   }, [accessScopeFilter, pageSearch, pages, permissionTypeFilter, statusFilter]);
 
-  const pageSize = 8;
-  const totalPageCount = Math.max(1, Math.ceil(filteredPages.length / pageSize));
-  const safePageIndex = Math.min(pageIndex, totalPageCount);
-  const visiblePages = filteredPages.slice((safePageIndex - 1) * pageSize, safePageIndex * pageSize);
+  const visiblePages = filteredPages;
 
   const jobRoleNameById = useMemo(() => {
     const map = new Map();
@@ -599,6 +778,7 @@ const PageManagement = () => {
   );
 
   const getActiveScopeKey = () => {
+    if (["generate", "lock", "unlock"].includes(activeTab)) return activeTab;
     if (selectedPage?.permissionPattern === "approveReject") {
       if (activeTab === "approve") return "approve";
       if (activeTab === "delete") return "delete";
@@ -624,6 +804,9 @@ const PageManagement = () => {
       editUsers: draftPermissions.editIds,
       deleteUsers: draftPermissions.deleteIds,
       approvers: draftPermissions.approverIds,
+      generateUsers: draftPermissions.generateIds,
+      lockUsers: draftPermissions.lockIds,
+      unlockUsers: draftPermissions.unlockIds,
     },
     activeTab
   ), [activeTab, draftPermissions, selectedPage]);
@@ -670,60 +853,79 @@ const PageManagement = () => {
     ];
   }, [pages, users.length]);
 
-  const syncSelectionToActiveTab = (nextIds) => {
+  const buildDraftPermissionsForTab = (basePermissions, page, tab, nextIds) => {
     const normalized = normalizeUserIds(nextIds);
-    setDraftPermissions((prev) => {
-      if (!selectedPage) return prev;
-      if (selectedPage.permissionPattern === "approveReject") {
-        if (activeTab === "approve") return { ...prev, approverIds: normalized };
-        if (activeTab === "delete") return { ...prev, deleteIds: normalized };
-        return { ...prev, viewIds: normalized };
-      }
+    const base = basePermissions || draftPermissions;
+    if (!page) return base;
+    if (tab === "generate") {
+      const mergedViewIds = normalizeUserIds([...base.viewIds, ...normalized]);
+      return { ...base, generateIds: normalized, viewIds: mergedViewIds };
+    }
+    if (tab === "lock") {
+      const mergedViewIds = normalizeUserIds([...base.viewIds, ...normalized]);
+      return { ...base, lockIds: normalized, viewIds: mergedViewIds };
+    }
+    if (tab === "unlock") {
+      const mergedViewIds = normalizeUserIds([...base.viewIds, ...normalized]);
+      return { ...base, unlockIds: normalized, viewIds: mergedViewIds };
+    }
+    if (page.permissionPattern === "approveReject") {
+      if (tab === "approve") return { ...base, approverIds: normalized };
+      if (tab === "delete") return { ...base, deleteIds: normalized };
+      return { ...base, viewIds: normalized };
+    }
 
-      if (activeTab === "edit") {
-        const mergedViewIds = normalizeUserIds([...prev.viewIds, ...normalized]);
-        return { ...prev, editIds: normalized, viewIds: mergedViewIds };
-      }
-      if (activeTab === "delete") {
-        const mergedViewIds = normalizeUserIds([...prev.viewIds, ...normalized]);
-        return { ...prev, deleteIds: normalized, viewIds: mergedViewIds };
-      }
-      return { ...prev, viewIds: normalized };
-    });
+    if (tab === "edit") {
+      const mergedViewIds = normalizeUserIds([...base.viewIds, ...normalized]);
+      return { ...base, editIds: normalized, viewIds: mergedViewIds };
+    }
+    if (tab === "delete") {
+      const mergedViewIds = normalizeUserIds([...base.viewIds, ...normalized]);
+      return { ...base, deleteIds: normalized, viewIds: mergedViewIds };
+    }
+    return { ...base, viewIds: normalized };
   };
 
-  const openAddUsersDialog = (page = selectedPage, tab = activeTab) => {
-    if (!page) return;
+  const syncSelectionToActiveTab = (nextIds) => {
+    setDraftPermissions((prev) => buildDraftPermissionsForTab(prev, selectedPage, activeTab, nextIds));
+  };
 
-    const resolvedTab = page?.permissionPattern === "approveReject"
-      ? (tab === "approve" || tab === "delete" ? tab : "view")
-      : (tab === "edit" || tab === "delete" ? tab : "view");
+  const openAddUsersDialog = async (page = selectedPage, tab = activeTab) => {
+    if (!page) return;
+    const detailedPage = await ensurePageDetails(page);
+    await ensureEditorContext();
+    if (!detailedPage) return;
+    applyDraftFromPage(detailedPage);
+
+    const availableTypes = getPageAccessTypeOptions(detailedPage).map((option) => option.value);
+    const resolvedTab = availableTypes.includes(tab) ? tab : availableTypes[0];
 
     const resolvedActiveIds = getActiveIdsForTab(
       {
-        ...page,
-        viewUsers: draftPermissions.viewIds,
-        editUsers: draftPermissions.editIds,
-        deleteUsers: draftPermissions.deleteIds,
-        approvers: draftPermissions.approverIds,
+        ...detailedPage,
+        viewUsers: detailedPage.viewUsers,
+        editUsers: detailedPage.editUsers,
+        deleteUsers: detailedPage.deleteUsers,
+        approvers: detailedPage.approvers,
+        generateUsers: detailedPage.generateUsers,
+        lockUsers: detailedPage.lockUsers,
+        unlockUsers: detailedPage.unlockUsers,
       },
       resolvedTab
     );
 
-    setSelectedPageKey(page.pageKey);
+    setSelectedPageKey(detailedPage.pageKey);
     setActiveTab(resolvedTab);
     setCandidateSelection(new Set(resolvedActiveIds));
     setCandidateSearch("");
 
-    const scopeKey = page.permissionPattern === "approveReject"
-      ? (resolvedTab === "approve" ? "approve" : resolvedTab === "delete" ? "delete" : "view")
-      : (resolvedTab === "edit" ? "edit" : resolvedTab === "delete" ? "delete" : "view");
-    const baseScope = draftScopes[scopeKey] || DEFAULT_SCOPE;
-    const existingScopes = draftUserScopes[scopeKey] || {};
+    const nextDraftScopes = buildScopeMapByTab(detailedPage.userAccessScopes);
+    const scopeKey = ["edit", "approve", "delete", "generate", "lock", "unlock"].includes(resolvedTab) ? resolvedTab : "view";
+    const existingScopes = nextDraftScopes[scopeKey] || {};
     const nextCandidateScopes = {};
 
     resolvedActiveIds.forEach((userId) => {
-      nextCandidateScopes[userId] = existingScopes[userId] || normalizeScopeValue(baseScope);
+      nextCandidateScopes[userId] = existingScopes[userId] || DEFAULT_SCOPE;
     });
 
     setCandidateUserScopes(nextCandidateScopes);
@@ -757,17 +959,20 @@ const PageManagement = () => {
 
   const confirmCandidateSelection = () => {
     const scopeKey = getActiveScopeKey();
-    setDraftUserScopes((prev) => ({
-      ...prev,
+    const nextUserScopes = {
+      ...draftUserScopes,
       [scopeKey]: Object.fromEntries(
         [...candidateSelection].map((userId) => [
           userId,
           normalizeScopeValue(candidateUserScopes[userId] || DEFAULT_SCOPE),
         ])
       ),
-    }));
-    syncSelectionToActiveTab([...candidateSelection]);
+    };
+    const nextPermissions = buildDraftPermissionsForTab(draftPermissions, selectedPage, activeTab, [...candidateSelection]);
+    setDraftUserScopes(nextUserScopes);
+    setDraftPermissions(nextPermissions);
     setAddUsersOpen(false);
+    void savePermissions({ page: selectedPage, permissions: nextPermissions, userScopes: nextUserScopes });
   };
 
   const toggleCandidateUserScopeSelection = (userId, field, value) => {
@@ -797,15 +1002,39 @@ const PageManagement = () => {
     });
   };
 
-  const savePermissions = async () => {
-    if (!selectedPage) return;
+  const draftPermissionsFromPage = (page) => ({
+    viewIds: normalizeUserIds(page?.viewUsers),
+    editIds: normalizeUserIds(page?.editUsers),
+    deleteIds: normalizeUserIds(page?.deleteUsers),
+    approverIds: normalizeUserIds(page?.approvers),
+    generateIds: normalizeUserIds(page?.generateUsers),
+    lockIds: normalizeUserIds(page?.lockUsers),
+    unlockIds: normalizeUserIds(page?.unlockUsers),
+  });
+
+  const savePermissions = async (options = {}) => {
+    const pageToSave = options.page || selectedPage;
+    if (!pageToSave || saving) return;
     setSaving(true);
     setMessage(null);
 
     try {
+      let workingPage = pageToSave;
+      let workingPermissions = options.permissions || draftPermissions;
+      let workingUserScopes = options.userScopes || draftUserScopes;
+
+      if (!workingPage._detailsLoaded) {
+        const detailedPage = await ensurePageDetails(workingPage);
+        if (!detailedPage) throw new Error("Page details could not be loaded.");
+        workingPage = detailedPage;
+        if (!options.permissions) workingPermissions = draftPermissionsFromPage(detailedPage);
+        if (!options.userScopes) workingUserScopes = buildScopeMapByTab(detailedPage.userAccessScopes);
+        applyDraftFromPage(detailedPage);
+      }
+
       const toScopeEntries = (accessType, ids) => {
         const scopeKey = accessType === "approve" ? "approve" : accessType;
-        const scopeMap = draftUserScopes[scopeKey] || {};
+        const scopeMap = workingUserScopes[scopeKey] || {};
         const fallbackScope = normalizeScopeValue(draftScopes[scopeKey] || DEFAULT_SCOPE);
 
         return normalizeUserIds(ids).map((id) => {
@@ -820,21 +1049,27 @@ const PageManagement = () => {
       };
 
       const payload = {
-        viewUserIds: draftPermissions.viewIds,
-        editUserIds: draftPermissions.editIds,
-        deleteUserIds: draftPermissions.deleteIds,
-        approverIds: draftPermissions.approverIds,
+        viewUserIds: workingPermissions.viewIds,
+        editUserIds: workingPermissions.editIds,
+        deleteUserIds: workingPermissions.deleteIds,
+        approverIds: workingPermissions.approverIds,
+        generateUserIds: workingPermissions.generateIds,
+        lockUserIds: workingPermissions.lockIds,
+        unlockUserIds: workingPermissions.unlockIds,
         userAccessScopes: [
-          ...toScopeEntries("view", draftPermissions.viewIds),
-          ...toScopeEntries("edit", draftPermissions.editIds),
-          ...toScopeEntries("delete", draftPermissions.deleteIds),
-          ...toScopeEntries("approve", draftPermissions.approverIds),
+          ...toScopeEntries("view", workingPermissions.viewIds),
+          ...toScopeEntries("edit", workingPermissions.editIds),
+          ...toScopeEntries("delete", workingPermissions.deleteIds),
+          ...toScopeEntries("approve", workingPermissions.approverIds),
+          ...toScopeEntries("generate", workingPermissions.generateIds),
+          ...toScopeEntries("lock", workingPermissions.lockIds),
+          ...toScopeEntries("unlock", workingPermissions.unlockIds),
         ],
       };
 
-      const res = await axios.put(`/page-permissions/${selectedPage.pageKey}`, payload);
+      const res = await axios.put(`/page-permissions/${workingPage.pageKey}`, payload);
       invalidateGetCache("/page-permissions");
-      const updatedPage = normalizePage(res.data?.page || selectedPage);
+      const updatedPage = normalizePage({ ...(res.data?.page || workingPage), _detailsLoaded: true });
 
       setPages((prev) =>
         prev.map((page) => (page.pageKey === updatedPage.pageKey ? { ...page, ...updatedPage } : page))
@@ -873,14 +1108,18 @@ const PageManagement = () => {
     [summaryAccessTypeIds, summaryModal.accessType, summaryUserScopeMap, usersById]
   );
 
-  const openPermissionSummaryDialog = (page, accessType) => {
+  const openPermissionSummaryDialog = async (page, accessType) => {
     if (!page) return;
-    const availableTypes = getPageAccessTypeOptions(page).map((option) => option.value);
+    const detailedPage = await ensurePageDetails(page);
+    await ensureEditorContext();
+    if (!detailedPage) return;
+    applyDraftFromPage(detailedPage);
+    const availableTypes = getPageAccessTypeOptions(detailedPage).map((option) => option.value);
     const resolvedAccessType = availableTypes.includes(accessType) ? accessType : availableTypes[0];
-    setSelectedPageKey(page.pageKey);
+    setSelectedPageKey(detailedPage.pageKey);
     setSummaryModal({
       open: true,
-      pageKey: page.pageKey,
+      pageKey: detailedPage.pageKey,
       accessType: resolvedAccessType,
     });
   };
@@ -907,6 +1146,9 @@ const PageManagement = () => {
         editUsers: draftPermissions.editIds,
         deleteUsers: draftPermissions.deleteIds,
         approvers: draftPermissions.approverIds,
+        generateUsers: draftPermissions.generateIds,
+        lockUsers: draftPermissions.lockIds,
+        unlockUsers: draftPermissions.unlockIds,
       },
       resolved
     );
@@ -915,9 +1157,7 @@ const PageManagement = () => {
     setCandidateSelection(new Set(resolvedActiveIds));
     setCandidateSearch("");
 
-    const scopeKey = page.permissionPattern === "approveReject"
-      ? (resolved === "approve" ? "approve" : resolved === "delete" ? "delete" : "view")
-      : (resolved === "edit" ? "edit" : resolved === "delete" ? "delete" : "view");
+    const scopeKey = ["edit", "approve", "delete", "generate", "lock", "unlock"].includes(resolved) ? resolved : "view";
     const existingScopes = draftUserScopes[scopeKey] || {};
     const nextCandidateScopes = {};
 
@@ -1036,8 +1276,8 @@ const PageManagement = () => {
               <p>Click a page to manage its users, scope and permissions.</p>
             </div>
             <div className="pm-card-head-actions">
-              <button type="button" className="pm-outline-btn" onClick={savePermissions} disabled={saving || !selectedPage}>
-                {saving ? "Saving..." : "Save Changes"}
+              <button type="button" className="pm-outline-btn" onClick={savePermissions} disabled={saving || detailLoadingKey || !selectedPage}>
+                {saving ? "Saving..." : detailLoadingKey ? "Loading Details..." : "Save Changes"}
               </button>
             </div>
           </div>
@@ -1061,14 +1301,9 @@ const PageManagement = () => {
                     const metrics = getPagePermissionMetric(page);
                     const isSelected = selectedPageKey === page.pageKey;
                     const accessScopeLabel = getPageAccessScopeLabel(page);
-                    const viewScopeSummary = getPageScopeSummaryForAccessType(page, "view", branches, departments);
-                    const editScopeSummary = getPageScopeSummaryForAccessType(
-                      page,
-                      page.permissionPattern === "approveReject" ? "approve" : "edit",
-                      branches,
-                      departments
-                    );
-                    const deleteScopeSummary = getPageScopeSummaryForAccessType(page, "delete", branches, departments);
+                    const accessOptions = getPageAccessTypeOptions(page);
+                    const primaryAccessType = accessOptions.find((option) => option.value !== "view")?.value || "view";
+                    const primaryAccessLabel = getAccessTypeLabel(primaryAccessType, page);
                     return (
                       <tr
                         key={page.pageKey}
@@ -1096,51 +1331,28 @@ const PageManagement = () => {
                         </td>
                         <td>
                           <div className="pm-permission-summary">
-                            <button
-                              type="button"
-                              className="pm-summary-icon-btn"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openPermissionSummaryDialog(page, "view");
-                              }}
-                            >
-                              <VisibilityOutlined />
-                              <span>
-                                <strong>{metrics.view}</strong>
-                                <small>View</small>
-                                {viewScopeSummary && <em>{viewScopeSummary}</em>}
-                              </span>
-                            </button>
-                            <button
-                              type="button"
-                              className="pm-summary-icon-btn"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openPermissionSummaryDialog(page, page.permissionPattern === "approveReject" ? "approve" : "edit");
-                              }}
-                            >
-                              {page.permissionPattern === "approveReject" ? <ShieldOutlined /> : <EditOutlined />}
-                              <span>
-                                <strong>{page.permissionPattern === "approveReject" ? metrics.approve : metrics.edit}</strong>
-                                <small>{page.permissionPattern === "approveReject" ? "Approve/Reject" : "Edit"}</small>
-                                {editScopeSummary && <em>{editScopeSummary}</em>}
-                              </span>
-                            </button>
-                            <button
-                              type="button"
-                              className="pm-summary-icon-btn"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openPermissionSummaryDialog(page, "delete");
-                              }}
-                            >
-                              <DeleteOutline />
-                              <span>
-                                <strong>{metrics.delete}</strong>
-                                <small>Delete</small>
-                                {deleteScopeSummary && <em>{deleteScopeSummary}</em>}
-                              </span>
-                            </button>
+                            {accessOptions.map((option) => {
+                              const AccessIcon = getAccessTypeIcon(option.value);
+                              const scopeSummary = getPageScopeSummaryForAccessType(page, option.value, branches, departments);
+                              return (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  className="pm-summary-icon-btn"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openPermissionSummaryDialog(page, option.value);
+                                  }}
+                                >
+                                  <AccessIcon />
+                                  <span>
+                                    <strong>{metrics[option.value] || 0}</strong>
+                                    <small>{option.label}</small>
+                                    {scopeSummary && <em>{scopeSummary}</em>}
+                                  </span>
+                                </button>
+                              );
+                            })}
                           </div>
                         </td>
                         <td>
@@ -1158,10 +1370,10 @@ const PageManagement = () => {
                             <button
                               type="button"
                               className="pm-row-action"
-                              aria-label={`Edit ${page.name}`}
+                              aria-label={`Manage ${primaryAccessLabel} for ${page.name}`}
                               onClick={(event) => {
                                 event.stopPropagation();
-                                openAddUsersDialog(page, page.permissionPattern === "approveReject" ? "approve" : "edit");
+                                openAddUsersDialog(page, primaryAccessType);
                               }}
                             >
                               <EditOutlined />
@@ -1182,25 +1394,6 @@ const PageManagement = () => {
             </table>
           </div>
 
-          <div className="pm-pagination pm-overview-pagination">
-            <button
-              type="button"
-              className="pm-page-nav"
-              onClick={() => setPageIndex((v) => Math.max(1, v - 1))}
-              disabled={safePageIndex <= 1}
-            >
-              <ArrowBackIosNew />
-            </button>
-            <button type="button" className="pm-page-current">{safePageIndex}</button>
-            <button
-              type="button"
-              className="pm-page-nav"
-              onClick={() => setPageIndex((v) => Math.min(totalPageCount, v + 1))}
-              disabled={safePageIndex >= totalPageCount}
-            >
-              <ArrowForwardIos />
-            </button>
-          </div>
         </section>
 
       </div>
@@ -1229,6 +1422,7 @@ const PageManagement = () => {
                     type="button"
                     className={`pm-access-type-chip ${activeTab === option.value ? "is-active" : ""}`}
                     onClick={() => switchAccessType(option.value)}
+                    disabled={Boolean(detailLoadingKey)}
                   >
                     {option.label}
                   </button>
@@ -1345,8 +1539,8 @@ const PageManagement = () => {
               <button type="button" className="pm-outline-btn" onClick={() => setAddUsersOpen(false)}>
                 Cancel
               </button>
-              <button type="button" className="pm-primary-btn" onClick={confirmCandidateSelection}>
-                Apply Selection
+              <button type="button" className="pm-primary-btn" onClick={confirmCandidateSelection} disabled={saving}>
+                {saving ? "Saving..." : "Save Selection"}
               </button>
             </div>
           </div>

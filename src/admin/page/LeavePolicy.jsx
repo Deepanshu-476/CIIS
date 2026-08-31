@@ -60,6 +60,7 @@ const LeavePolicy = () => {
   const [formData, setFormData] = useState({
     policyName: '',
     department: '',
+    departments: [],
     jobRoles: [],
     leaveType: '',
     payType: 'Paid', // Paid or Unpaid for this policy
@@ -74,6 +75,7 @@ const LeavePolicy = () => {
   });
 
   // Multi-select dropdown open state
+  const [departmentDropdownOpen, setDepartmentDropdownOpen] = useState(false);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [entriesPerPage, setEntriesPerPage] = useState(10);
@@ -202,8 +204,12 @@ const LeavePolicy = () => {
         loadedPolicies = rawPolicies.map((p) => ({
           id: p._id || p.id,
           policyName: p.policyName,
-          departmentId: getRecordId(p.department),
-          department: getDeptDisplayName(p.department),
+          departmentIds: Array.isArray(p.departments) && p.departments.length
+            ? p.departments.map(getRecordId).filter(Boolean)
+            : [getRecordId(p.department)].filter(Boolean),
+          department: Array.isArray(p.departments) && p.departments.length
+            ? p.departments.map(getDeptDisplayName).filter(Boolean).join(', ')
+            : getDeptDisplayName(p.department),
           jobRoles: Array.isArray(p.jobRoles) && p.jobRoles.length > 0 
             ? p.jobRoles.map(r => getRoleDisplayName(r))
             : (p.jobRoleNames || []),
@@ -322,38 +328,59 @@ const LeavePolicy = () => {
     }
   };
 
-  // Department change handler - resets selected roles for that dept
-  const handleDepartmentChange = (e) => {
-    const selectedDept = e.target.value;
+  // Department change handler - resets selected roles for selected departments
+  const toggleDepartment = (departmentId) => {
     setFormData((prev) => ({
       ...prev,
-      department: selectedDept,
-      jobRoles: [] // Reset selected job roles on department change
+      department: prev.departments.includes(departmentId)
+        ? prev.departments.filter((id) => id !== departmentId)[0] || ''
+        : prev.department || departmentId,
+      departments: prev.departments.includes(departmentId)
+        ? prev.departments.filter((id) => id !== departmentId)
+        : [...prev.departments, departmentId],
+      jobRoles: []
     }));
+    setRoleDropdownOpen(false);
+  };
+
+  const selectAllDepartments = () => {
+    setFormData((prev) => ({
+      ...prev,
+      department: departmentOptions[0] ? getRecordId(departmentOptions[0].record) : '',
+      departments: departmentOptions.map(({ record }) => getRecordId(record)).filter(Boolean),
+      jobRoles: []
+    }));
+    setRoleDropdownOpen(false);
+  };
+
+  const clearAllDepartments = () => {
+    setFormData((prev) => ({ ...prev, department: '', departments: [], jobRoles: [] }));
     setRoleDropdownOpen(false);
   };
 
   // Available REAL job roles filtered by selected department
   const availableJobRoles = useMemo(() => {
-    if (!formData.department) return [];
+    if (!formData.departments.length) return [];
 
-    const selectedDeptObj = departments.find(
-      (d) => getDeptDisplayName(d) === formData.department || getRecordId(d) === formData.department
+    const selectedDeptObjs = departments.filter((d) => formData.departments.includes(getRecordId(d)));
+    const selectedDeptIds = new Set(selectedDeptObjs.map(getRecordId).filter(Boolean));
+    const selectedDeptNames = new Set(
+      selectedDeptObjs
+        .flatMap((dept) => [getDeptDisplayName(dept), dept.name, dept.departmentName])
+        .map((name) => String(name || '').toLowerCase())
+        .filter(Boolean)
     );
 
-    const selectedDeptId = selectedDeptObj ? getRecordId(selectedDeptObj) : formData.department;
-    const selectedDeptName = selectedDeptObj ? (selectedDeptObj.name || selectedDeptObj.departmentName || formData.department) : formData.department;
-
-    // Filter job roles that belong to this department
+    // Filter job roles that belong to selected departments
     const matchingRoles = jobRoles.filter((role) => {
       if (role?.isActive === false || role?.status === 'Inactive') return false;
       const roleDeptId = getRecordId(role.department) || getRecordId(role.departmentId) || role.deptId;
       const roleDeptName = typeof role.department === 'object' ? (role.department?.name || role.department?.departmentName || '') : (role.departmentName || '');
 
       return (
-        roleDeptId === selectedDeptId ||
-        (roleDeptName && roleDeptName.toLowerCase() === selectedDeptName.toLowerCase()) ||
-        (typeof role.department === 'string' && role.department.toLowerCase() === selectedDeptName.toLowerCase())
+        selectedDeptIds.has(String(roleDeptId || '')) ||
+        (roleDeptName && selectedDeptNames.has(roleDeptName.toLowerCase())) ||
+        (typeof role.department === 'string' && selectedDeptNames.has(role.department.toLowerCase()))
       );
     });
 
@@ -363,7 +390,7 @@ const LeavePolicy = () => {
         .filter(Boolean)
         .map((name) => [name.toLowerCase(), name])
     ).values()].sort((a, b) => a.localeCompare(b));
-  }, [formData.department, departments, jobRoles]);
+  }, [formData.departments, departments, jobRoles]);
 
   const departmentOptions = useMemo(() => {
     const unique = new Map();
@@ -377,6 +404,16 @@ const LeavePolicy = () => {
       });
     return [...unique.values()].sort((a, b) => a.label.localeCompare(b.label));
   }, [departments]);
+
+  const selectedDepartmentLabels = useMemo(() => {
+    return formData.departments
+      .map((deptId) => departmentOptions.find(({ record }) => getRecordId(record) === deptId)?.label)
+      .filter(Boolean);
+  }, [departmentOptions, formData.departments]);
+
+  const jobRolePlaceholder = selectedDepartmentLabels.length > 0
+    ? `Select Job Roles for ${selectedDepartmentLabels.join(', ')}...`
+    : 'Select Job Roles...';
 
   const activeLeaveTypes = useMemo(() => {
     const unique = new Map();
@@ -435,12 +472,12 @@ const LeavePolicy = () => {
       toast.error('Please enter a policy name');
       return;
     }
-    if (!formData.department) {
-      toast.error('Please select a department');
+    if (!formData.departments.length) {
+      toast.error('Please select at least one department');
       return;
     }
     if (formData.jobRoles.length === 0) {
-      toast.error('Please select at least one job role for this department');
+      toast.error('Please select at least one job role for selected departments');
       return;
     }
     if (!formData.leaveType) {
@@ -464,35 +501,43 @@ const LeavePolicy = () => {
       return;
     }
 
-    // Resolve Department ObjectId
-    const deptObj = departments.find(d => getDeptDisplayName(d) === formData.department || getRecordId(d) === formData.department);
-    const deptId = deptObj ? getRecordId(deptObj) : formData.department;
+    // Resolve Department ObjectIds
+    const selectedDeptObjs = departments.filter(d => formData.departments.includes(getRecordId(d)));
+    const deptIds = selectedDeptObjs.map(getRecordId).filter(Boolean);
 
     // Resolve JobRole ObjectIds
-    const selectedDeptName = deptObj ? (deptObj.name || deptObj.departmentName || formData.department) : formData.department;
+    const selectedDeptNames = new Set(
+      selectedDeptObjs
+        .flatMap((dept) => [getDeptDisplayName(dept), dept.name, dept.departmentName])
+        .map((name) => String(name || '').toLowerCase())
+        .filter(Boolean)
+    );
+    const selectedDeptIds = new Set(deptIds);
     const selectedRolesObjs = jobRoles.filter((role) => {
       if (!formData.jobRoles.includes(getRoleDisplayName(role))) return false;
       const roleDeptId = getRecordId(role.department) || getRecordId(role.departmentId) || role.deptId;
       const roleDeptName = typeof role.department === 'object'
         ? (role.department?.name || role.department?.departmentName || '')
         : (role.departmentName || role.department || '');
-      return String(roleDeptId || '') === String(deptId || '') ||
-        (roleDeptName && roleDeptName.toLowerCase() === String(selectedDeptName).toLowerCase());
+      return selectedDeptIds.has(String(roleDeptId || '')) ||
+        (roleDeptName && selectedDeptNames.has(roleDeptName.toLowerCase()));
     });
     const roleIds = [...new Set(selectedRolesObjs.map(r => getRecordId(r)).filter(Boolean))];
 
-    if (!/^[a-f\d]{24}$/i.test(String(deptId || ''))) {
-      toast.error('Selected department is invalid. Refresh the page and select it again.');
+    if (!deptIds.length || deptIds.some((id) => !/^[a-f\d]{24}$/i.test(String(id || '')))) {
+      toast.error('One or more selected departments are invalid. Refresh the page and select them again.');
       return;
     }
-    if (roleIds.length !== formData.jobRoles.length || roleIds.some(id => !/^[a-f\d]{24}$/i.test(String(id)))) {
+    if (roleIds.length < formData.jobRoles.length || roleIds.some(id => !/^[a-f\d]{24}$/i.test(String(id)))) {
       toast.error('One or more selected job roles are invalid. Select the roles again.');
       return;
     }
 
     const payload = {
       policyName: formData.policyName.trim(),
-      department: deptId,
+      department: deptIds[0],
+      departments: deptIds,
+      departmentIds: deptIds,
       jobRoles: roleIds,
       jobRoleNames: formData.jobRoles,
       leaveType: formData.leaveType,
@@ -539,9 +584,10 @@ const LeavePolicy = () => {
     setEditingId(policy.id);
     setFormData({
       policyName: policy.policyName,
-      department: policy.departmentId || getRecordId(
+      department: (policy.departmentIds || [])[0] || policy.departmentId || getRecordId(
         departments.find(dept => getDeptDisplayName(dept) === policy.department)
       ),
+      departments: policy.departmentIds?.length ? policy.departmentIds : [policy.departmentId].filter(Boolean),
       jobRoles: policy.jobRoles || [],
       leaveType: policy.leaveType,
       payType: policy.payType || 'Paid',
@@ -584,6 +630,7 @@ const LeavePolicy = () => {
     setFormData({
       policyName: '',
       department: '',
+      departments: [],
       jobRoles: [],
       leaveType: '',
       payType: 'Paid',
@@ -597,6 +644,7 @@ const LeavePolicy = () => {
       status: 'Active'
     });
     setRoleDropdownOpen(false);
+    setDepartmentDropdownOpen(false);
   };
 
   // Filtered Policies for Table
@@ -606,7 +654,7 @@ const LeavePolicy = () => {
     return policies.filter(
       (p) =>
         p.policyName.toLowerCase().includes(q) ||
-        p.department.toLowerCase().includes(q) ||
+        String(p.department || '').toLowerCase().includes(q) ||
         p.leaveType.toLowerCase().includes(q) ||
         p.jobRoles.some((r) => r.toLowerCase().includes(q))
     );
@@ -772,28 +820,80 @@ const LeavePolicy = () => {
 
             {/* 2. Select Department */}
             <div className="lpm-field">
-              <label htmlFor="department">Department</label>
-              <div className="lpm-select-wrapper">
-                <select
-                  id="department"
-                  name="department"
-                  className="lpm-select"
-                  value={formData.department}
-                  onChange={handleDepartmentChange}
-                  required
+              <label>
+                Departments (Multi-Select)
+                {formData.departments.length > 0 && (
+                  <span className="lpm-dept-hint">({formData.departments.length} selected)</span>
+                )}
+              </label>
+              <div className="lpm-multi-select-container">
+                <div
+                  className={`lpm-multi-select-trigger ${departmentDropdownOpen ? 'open' : ''}`}
+                  onClick={() => setDepartmentDropdownOpen(!departmentDropdownOpen)}
                 >
-                  <option value="" disabled>
-                    {loadingData ? 'Loading company departments...' : 'Select Department'}
-                  </option>
-                  {departmentOptions.map(({ record: dept, label: deptName }) => {
-                    return (
-                      <option key={getRecordId(dept) || deptName} value={getRecordId(dept) || deptName}>
-                        {deptName}
-                      </option>
-                    );
-                  })}
-                </select>
-                <ChevronDown className="select-icon" />
+                  <div className="lpm-selected-chips">
+                    {formData.departments.length === 0 ? (
+                      <span className="lpm-placeholder">
+                        {loadingData ? 'Loading company departments...' : 'Select Departments'}
+                      </span>
+                    ) : (
+                      formData.departments.map((deptId) => {
+                        const dept = departmentOptions.find(({ record }) => getRecordId(record) === deptId);
+                        const label = dept?.label || deptId;
+                        return (
+                          <span key={deptId} className="lpm-chip">
+                            {label}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleDepartment(deptId);
+                              }}
+                              className="chip-remove"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        );
+                      })
+                    )}
+                  </div>
+                  <ChevronDown className={`select-icon ${departmentDropdownOpen ? 'rotate' : ''}`} />
+                </div>
+
+                {departmentDropdownOpen && (
+                  <div className="lpm-multi-dropdown-menu">
+                    <div className="lpm-dropdown-actions">
+                      <button type="button" onClick={selectAllDepartments} className="lpm-link-btn">
+                        Select All
+                      </button>
+                      <button type="button" onClick={clearAllDepartments} className="lpm-link-btn text-red-500">
+                        Clear All
+                      </button>
+                    </div>
+                    <div className="lpm-dropdown-list">
+                      {departmentOptions.length === 0 ? (
+                        <div className="p-3 text-xs text-slate-400 text-center">No active departments found.</div>
+                      ) : (
+                        departmentOptions.map(({ record: dept, label: deptName }) => {
+                          const deptId = getRecordId(dept) || deptName;
+                          const isSelected = formData.departments.includes(deptId);
+                          return (
+                            <label key={deptId} className={`lpm-option-row ${isSelected ? 'selected' : ''}`}>
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleDepartment(deptId)}
+                              />
+                              <Building2 className="option-icon" />
+                              <span>{deptName}</span>
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -801,14 +901,14 @@ const LeavePolicy = () => {
             <div className="lpm-field relative">
               <label>
                 Job Roles (Multi-Select)
-                {formData.department && availableJobRoles.length > 0 && (
+                {formData.departments.length > 0 && availableJobRoles.length > 0 && (
                   <span className="lpm-dept-hint">({availableJobRoles.length} roles)</span>
                 )}
               </label>
 
-              {!formData.department ? (
+              {!formData.departments.length ? (
                 <div className="lpm-input lpm-disabled-box">
-                  Select a department first
+                  Select departments first
                 </div>
               ) : (
                 <div className="lpm-multi-select-container">
@@ -818,7 +918,7 @@ const LeavePolicy = () => {
                   >
                     <div className="lpm-selected-chips">
                       {formData.jobRoles.length === 0 ? (
-                        <span className="lpm-placeholder">Select Job Roles for {formData.department}...</span>
+                        <span className="lpm-placeholder">{jobRolePlaceholder}</span>
                       ) : (
                         formData.jobRoles.map((role) => (
                           <span key={role} className="lpm-chip">
@@ -852,7 +952,7 @@ const LeavePolicy = () => {
                       </div>
                       <div className="lpm-dropdown-list">
                         {availableJobRoles.length === 0 ? (
-                          <div className="p-3 text-xs text-slate-400 text-center">No active job roles found for this department.</div>
+                          <div className="p-3 text-xs text-slate-400 text-center">No active job roles found for selected departments.</div>
                         ) : (
                           availableJobRoles.map((role) => {
                             const isSelected = formData.jobRoles.includes(role);

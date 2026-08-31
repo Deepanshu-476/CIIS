@@ -265,6 +265,9 @@ function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+
+      <SpeechToTextControl />
+      <ToastContainer position="top-right" autoClose={3000} />
     </Suspense>
 
     <SpeechToTextControl />

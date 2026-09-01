@@ -294,6 +294,15 @@ const formatTotalTimeValue = value => {
   return '';
 };
 
+const getTotalTimeSeconds = value => {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Math.floor(value));
+  if (typeof value !== 'string') return 0;
+
+  const parts = value.trim().split(':').map(Number);
+  if (parts.length !== 3 || parts.some(part => !Number.isFinite(part))) return 0;
+  return Math.max(0, parts[0] * 3600 + parts[1] * 60 + parts[2]);
+};
+
 
 const StatsLoader = () => (
   <div className="stats-loader-container">
@@ -1872,6 +1881,7 @@ const UserDashboard = () => {
   const totalWorkingDisplay = isRunning
     ? formatTime(timer)
     : formatTotalTimeValue(todayAttendance?.totalTime) || '00:00:00';
+  const displayTimer = isRunning ? timer : getTotalTimeSeconds(todayAttendance?.totalTime);
 
   const productivityTrend = useMemo(() => (productivityData.series || []).map((item, index, series) => ({
     ...item,
@@ -2264,7 +2274,7 @@ const UserDashboard = () => {
             </p>
             <div className="confirmation-timer">
               <FiClock size={16} />
-              <span>Current session: {formatTime(timer)}</span>
+              <span>Current session: {formatTime(displayTimer)}</span>
             </div>
             <div className="confirmation-buttons">
               <button className="confirmation-btn confirmation-btn-cancel" onClick={() => setShowClockOutConfirm(false)} disabled={isProcessing}>
@@ -2565,7 +2575,7 @@ const UserDashboard = () => {
           <section className="MobileDashV2-clock">
             <div>
               <span>Work session</span>
-              <strong>{formatTime(timer)}</strong>
+              <strong>{formatTime(displayTimer)}</strong>
               <small>{isRunning ? 'Timer is running' : 'Start when you’re ready'}</small>
             </div>
             <button
@@ -2758,7 +2768,7 @@ const UserDashboard = () => {
           
           <div className="dashboard-clock-section dashboard-clock-inline">
             <div className="dashboard-timer-display">
-              <div className="dashboard-timer-value">{formatTime(timer)}</div>
+              <div className="dashboard-timer-value">{formatTime(displayTimer)}</div>
               <div className={`dashboard-timer-status ${isRunning ? 'status-active-text' : 'status-inactive-text'}`}>
                 <div className={`dashboard-timer-dot ${isRunning ? 'dot-active' : 'dot-inactive'}`}></div>
                 {isRunning ? 'Active Timer • Live' : 'Timer Stopped'}
@@ -3180,7 +3190,7 @@ const UserDashboard = () => {
         <section className="dashboard-clock-section dashboard-clock-rail">
           <div className="dashboard-live-label"><i /> {isRunning ? 'Live' : 'Ready'}</div>
           <div className="dashboard-timer-display">
-            <div className="dashboard-timer-value">{formatTime(timer)} <small>{new Date().getHours() >= 12 ? 'PM' : 'AM'}</small></div>
+            <div className="dashboard-timer-value">{formatTime(displayTimer)} <small>{new Date().getHours() >= 12 ? 'PM' : 'AM'}</small></div>
             <div className="dashboard-clock-date">{currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</div>
           </div>
           <div className="dashboard-clock-buttons">

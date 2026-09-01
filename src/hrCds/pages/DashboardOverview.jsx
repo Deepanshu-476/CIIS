@@ -22,7 +22,9 @@ import {
   FiGrid,
   FiRefreshCw,
   FiX,
-  FiSearch
+  FiSearch,
+  FiShield,
+  FiFileText
 } from 'react-icons/fi';
 import {
   MdOutlineCampaign,
@@ -588,6 +590,29 @@ export default function DashboardOverview() {
 
   return (
     <div className="v2-dashboard-container">
+      {/* ── MOBILE EXCLUSIVE TOP HEADER ── */}
+      <div className="v2-mobile-top-header">
+        <div className="v2-mobile-greeting-col">
+          <h1 className="v2-mobile-greeting-title">
+            {greeting}, {userName}! <span className="v2-wave-emoji">👋</span>
+          </h1>
+          <p className="v2-mobile-greeting-subtitle">
+            Here&apos;s what&apos;s happening in your company today.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="v2-mobile-bell-btn"
+          onClick={openAlertsModal}
+          aria-label="View alerts"
+        >
+          <FiBell className="v2-mobile-bell-icon" />
+          {metrics.unseenAlerts > 0 && (
+            <span className="v2-mobile-bell-badge">{metrics.unseenAlerts}</span>
+          )}
+        </button>
+      </div>
+
       {/* ── ROW 1: GREETING BANNER & TODAY'S DATE / QUICK ACTIONS ── */}
       <div className="v2-top-grid">
         {/* Card 1: Greeting & Feature Bullets with 3D Illustration */}
@@ -745,6 +770,27 @@ export default function DashboardOverview() {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* ── MOBILE EXCLUSIVE QUICK ACTIONS ── */}
+      <div className="v2-mobile-quick-actions">
+        <h3 className="v2-mobile-section-heading">Quick Actions</h3>
+        <div className="v2-mobile-actions-grid">
+          <button
+            type="button"
+            className="v2-action-btn is-blue"
+            onClick={() => setShowCreateAlertModal(true)}
+          >
+            <FiPlus className="v2-action-btn-icon" /> Create Alert
+          </button>
+          <button
+            type="button"
+            className="v2-action-btn is-green"
+            onClick={() => setShowAssignTaskModal(true)}
+          >
+            <MdCheckCircleOutline className="v2-action-btn-icon" /> Assign Task
+          </button>
         </div>
       </div>
 
@@ -910,10 +956,13 @@ export default function DashboardOverview() {
             className="v2-view-all-btn"
             onClick={openPresentUsersModal}
           >
-            View All Present Users <FiArrowRight className="v2-view-all-arrow" />
+            <span className="v2-desktop-btn-text">View All Present Users</span>
+            <span className="v2-mobile-btn-text">View All</span>
+            <FiArrowRight className="v2-view-all-arrow" />
           </button>
         </div>
 
+        {/* Desktop Table */}
         <div className="v2-table-wrapper">
           <table className="v2-table">
             <thead>
@@ -996,6 +1045,63 @@ export default function DashboardOverview() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile View: Clean Card List */}
+        <div className="v2-mobile-users-list">
+          {presentUsersList.slice(0, 5).map((person) => (
+            <div key={person.id} className="v2-mobile-user-item">
+              <div className="v2-mobile-user-top">
+                <div className="v2-mobile-user-info">
+                  <img
+                    src={person.avatar}
+                    alt={person.name}
+                    className="v2-mobile-user-avatar"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      if (e.target.nextSibling) {
+                        e.target.nextSibling.style.display = 'flex';
+                      }
+                    }}
+                  />
+                  <div className="v2-avatar-fallback" style={{ display: 'none' }}>
+                    {person.initials}
+                  </div>
+                  <div>
+                    <div className="v2-mobile-user-name">{person.name}</div>
+                    <div className="v2-mobile-user-role">{person.role}</div>
+                  </div>
+                </div>
+                <div className="v2-mobile-user-time-status">
+                  {person.time && <span className="v2-mobile-time">{person.time}</span>}
+                  <span className={`v2-status-pill is-${person.statusType}`}>
+                    {person.status}
+                  </span>
+                </div>
+              </div>
+
+              <div className="v2-mobile-user-bottom">
+                {person.task ? (
+                  <>
+                    <div className="v2-mobile-task-title-row">
+                      <span
+                        className="v2-task-dot"
+                        style={{ backgroundColor: person.taskColor || '#2563eb' }}
+                      />
+                      <span className="v2-mobile-task-title">{person.task}</span>
+                    </div>
+                    {person.lastUpdate && (
+                      <div className="v2-mobile-task-desc">{person.lastUpdate}</div>
+                    )}
+                  </>
+                ) : (
+                  <div className="v2-mobile-task-desc is-muted">
+                    - <br />No updates yet
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -1276,6 +1382,184 @@ export default function DashboardOverview() {
             <svg viewBox="0 0 70 24" fill="none" className="v2-sparkline-svg">
               <path d="M0 16 Q 15 6, 30 14 T 55 4 T 70 12" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" fill="none" />
             </svg>
+          </div>
+        </div>
+      </div>
+
+      {/* ── MOBILE BOTTOM SECTIONS (TODAY'S SUMMARY, ATTENDANCE RATE, QUICK ACCESS, STAY PRODUCTIVE) ── */}
+      <div className="v2-mobile-bottom-sections">
+        {/* Section 1: Today's Summary */}
+        <div className="v2-mobile-summary-wrapper">
+          <h3 className="v2-mobile-section-heading">Today&apos;s Summary</h3>
+          <div className="v2-mobile-summary-grid">
+            {/* Stat 1: Total Users */}
+            <div className="v2-mobile-summary-card">
+              <div className="v2-pulse-icon is-purple-bg">
+                <MdOutlineGroups className="v2-pulse-icon-fg is-purple-fg" />
+              </div>
+              <div className="v2-mobile-summary-info">
+                <span className="v2-mobile-summary-val">{metrics.totalUsers}</span>
+                <span className="v2-mobile-summary-lbl">Total Users</span>
+              </div>
+            </div>
+
+            {/* Stat 2: On Duty */}
+            <div className="v2-mobile-summary-card">
+              <div className="v2-pulse-icon is-green-bg">
+                <MdCheckCircleOutline className="v2-pulse-icon-fg is-green-fg" />
+              </div>
+              <div className="v2-mobile-summary-info">
+                <span className="v2-mobile-summary-val">{metrics.onDuty}</span>
+                <span className="v2-mobile-summary-lbl">On Duty</span>
+              </div>
+            </div>
+
+            {/* Stat 3: Absent Today */}
+            <div className="v2-mobile-summary-card is-clickable" {...getCardInteractionProps(openAbsentModal, 'Open total absent details')}>
+              <div className="v2-pulse-icon is-red-bg">
+                <FiUser className="v2-pulse-icon-fg is-red-fg" />
+              </div>
+              <div className="v2-mobile-summary-info">
+                <span className="v2-mobile-summary-val">{metrics.absentToday}</span>
+                <span className="v2-mobile-summary-lbl">Absent Today</span>
+              </div>
+            </div>
+
+            {/* Stat 4: On Leave */}
+            <div className="v2-mobile-summary-card is-clickable" {...getCardInteractionProps(openLeavesModal, 'Open pending leave requests')}>
+              <div className="v2-pulse-icon is-orange-bg">
+                <MdOutlineEventNote className="v2-pulse-icon-fg is-orange-fg" />
+              </div>
+              <div className="v2-mobile-summary-info">
+                <span className="v2-mobile-summary-val">{metrics.onLeave}</span>
+                <span className="v2-mobile-summary-lbl">On Leave</span>
+              </div>
+            </div>
+
+            {/* Stat 5: Asset Requests */}
+            <div className="v2-mobile-summary-card is-clickable" {...getCardInteractionProps(openAssetsModal, 'Open pending asset requests')}>
+              <div className="v2-pulse-icon is-purple-bg">
+                <FiPackage className="v2-pulse-icon-fg is-purple-fg" />
+              </div>
+              <div className="v2-mobile-summary-info">
+                <span className="v2-mobile-summary-val">{metrics.assetRequests}</span>
+                <span className="v2-mobile-summary-lbl">Asset Requests</span>
+              </div>
+            </div>
+
+            {/* Stat 6: Unseen Alerts */}
+            <div className="v2-mobile-summary-card is-clickable" {...getCardInteractionProps(openAlertsModal, 'Open unseen alerts')}>
+              <div className="v2-pulse-icon is-blue-bg">
+                <FiBell className="v2-pulse-icon-fg is-blue-fg" />
+              </div>
+              <div className="v2-mobile-summary-info">
+                <span className="v2-mobile-summary-val">{metrics.unseenAlertCount}</span>
+                <span className="v2-mobile-summary-lbl">Unseen Alerts</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 2: Attendance Rate Card */}
+        <div className="v2-mobile-card v2-attendance-rate-mobile-card">
+          <h3 className="v2-mobile-card-title">Attendance Rate</h3>
+          <div className="v2-attendance-card-body">
+            <div className="v2-attendance-ring-wrap">
+              <div className="v2-rate-ring">
+                <svg viewBox="0 0 36 36" className="v2-ring-svg">
+                  <path
+                    className="v2-ring-bg"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                  <path
+                    className="v2-ring-fill"
+                    strokeDasharray={`${metrics.attendanceRate}, 100`}
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                </svg>
+              </div>
+              <span className="v2-ring-center-percent">{metrics.attendanceRate}%</span>
+            </div>
+
+            <div className="v2-attendance-meta-col">
+              <span className="v2-attendance-meta-lbl">Attendance Rate</span>
+              <span className="v2-attendance-meta-status">Good</span>
+            </div>
+
+            <div className="v2-attendance-sparkline-col">
+              <svg viewBox="0 0 100 32" fill="none" className="v2-mobile-sparkline-svg">
+                <path d="M0 24 Q 25 8, 50 20 T 75 8 T 100 16" stroke="#10b981" strokeWidth="3" strokeLinecap="round" fill="none" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 3: Quick Access List Card */}
+        <div className="v2-mobile-card v2-quick-access-mobile-card">
+          <h3 className="v2-mobile-card-title">Quick Access</h3>
+          <div className="v2-quick-access-list">
+            <div
+              className="v2-quick-access-item"
+              onClick={openLeavesModal}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="v2-quick-access-icon-box">
+                <FiCalendar className="v2-quick-access-icon" />
+              </div>
+              <span className="v2-quick-access-text">Leave Calendar</span>
+              <FiChevronRight className="v2-quick-access-arrow" />
+            </div>
+
+            <div
+              className="v2-quick-access-item"
+              onClick={openAssetsModal}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="v2-quick-access-icon-box">
+                <FiPackage className="v2-quick-access-icon" />
+              </div>
+              <span className="v2-quick-access-text">Asset Register</span>
+              <FiChevronRight className="v2-quick-access-arrow" />
+            </div>
+
+            <div
+              className="v2-quick-access-item"
+              onClick={openPresentUsersModal}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="v2-quick-access-icon-box">
+                <FiUsers className="v2-quick-access-icon" />
+              </div>
+              <span className="v2-quick-access-text">Team Directory</span>
+              <FiChevronRight className="v2-quick-access-arrow" />
+            </div>
+
+            <div
+              className="v2-quick-access-item"
+              onClick={() => navigate('/ciisUser/dashboard-1')}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="v2-quick-access-icon-box">
+                <FiFileText className="v2-quick-access-icon" />
+              </div>
+              <span className="v2-quick-access-text">Reports Overview</span>
+              <FiChevronRight className="v2-quick-access-arrow" />
+            </div>
+          </div>
+        </div>
+
+        {/* Section 4: Stay Productive Banner */}
+        <div className="v2-stay-productive-banner">
+          <div className="v2-productive-shield-box">
+            <FiShield className="v2-productive-shield-icon" />
+          </div>
+          <div className="v2-productive-text-col">
+            <div className="v2-productive-title">Stay productive. Stay updated.</div>
+            <div className="v2-productive-sub">Have a great day ahead! 🚀</div>
           </div>
         </div>
       </div>

@@ -1,7 +1,6 @@
 /* ─────────────────────────────────────────────────────────────
    DASHBOARD OVERVIEW V2 STYLES - PIXEL-PERFECT MATCH
    ───────────────────────────────────────────────────────────── */
-
 .v2-dashboard-container {
   width: 100%;
   max-width: 100%;
@@ -11,7 +10,6 @@
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   box-sizing: border-box;
 }
-
 /* ── ROW 1: TOP GRID (GREETING & DATE/ACTIONS) ── */
 .v2-top-grid {
   display: grid;
@@ -1423,6 +1421,31 @@
   border: 1px solid #bfdbfe;
 }
 
+/* Mobile Exclusive Components - Hidden on Desktop by default */
+.v2-mobile-top-header {
+  display: none;
+}
+
+.v2-mobile-quick-actions {
+  display: none;
+}
+
+.v2-mobile-users-list {
+  display: none;
+}
+
+.v2-mobile-btn-text {
+  display: none;
+}
+
+.v2-desktop-btn-text {
+  display: inline;
+}
+
+.v2-mobile-bottom-sections {
+  display: none;
+}
+
 /* ─────────────────────────────────────────────────────────────
    RESPONSIVE BREAKPOINTS
    ───────────────────────────────────────────────────────────── */
@@ -1449,31 +1472,568 @@
 
 @media (max-width: 768px) {
   .v2-dashboard-container {
-    padding: 14px 14px 32px;
+    padding: 12px 14px 40px;
+    background-color: #f8fafc;
   }
-  .v2-greeting-card {
-    flex-direction: column-reverse;
-    align-items: flex-start;
-    padding: 20px;
-    gap: 16px;
+
+  /* Desktop elements to hide on mobile */
+  .v2-top-grid .v2-date-actions-card {
+    display: none;
   }
+
   .v2-greeting-content {
-    max-width: 100%;
+    display: none;
   }
-  .v2-greeting-graphic {
-    max-width: 100%;
-    width: 200px;
-    margin: 0 auto;
-  }
-  .v2-date-actions-card {
-    padding: 20px;
-  }
-  .v2-stats-grid {
-    grid-template-columns: 1fr 1fr;
-  }
+
   .v2-pulse-summary-bar {
-    grid-template-columns: repeat(2, 1fr);
+    display: none;
   }
+
+  .v2-table-wrapper {
+    display: none;
+  }
+
+  .v2-desktop-btn-text {
+    display: none;
+  }
+
+  .v2-mobile-btn-text {
+    display: inline;
+  }
+
+  /* 1. Mobile Top Header */
+  .v2-mobile-top-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+    padding-top: 4px;
+  }
+
+  .v2-mobile-greeting-col {
+    flex: 1;
+  }
+
+  .v2-mobile-greeting-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 3px;
+    line-height: 1.25;
+    letter-spacing: -0.3px;
+  }
+
+  .v2-mobile-greeting-subtitle {
+    font-size: 12.5px;
+    color: #64748b;
+    margin: 0;
+    font-weight: 400;
+    line-height: 1.35;
+  }
+
+  .v2-mobile-bell-btn {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #334155;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .v2-mobile-bell-icon {
+    font-size: 18px;
+    color: #475569;
+  }
+
+  .v2-mobile-bell-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    border-radius: 10px;
+    background-color: #ef4444;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #ffffff;
+  }
+
+  /* 2. Hero 3D Illustration Card */
+  .v2-top-grid {
+    grid-template-columns: 1fr;
+    margin-bottom: 14px;
+    gap: 0;
+  }
+
+  .v2-greeting-card {
+    padding: 12px 14px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #f0f7ff 0%, #e0edff 100%);
+    border: 1px solid #dbeafe;
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.06);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .v2-greeting-graphic {
+    max-width: 280px;
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+  }
+
+  .v2-hero-svg {
+    width: 100%;
+    height: auto;
+    max-height: 160px;
+  }
+
+  /* 3. Quick Actions */
+  .v2-mobile-quick-actions {
+    display: block;
+    margin-bottom: 14px;
+  }
+
+  .v2-mobile-section-heading {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 10px 2px;
+    letter-spacing: -0.2px;
+  }
+
+  .v2-mobile-actions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .v2-mobile-actions-grid .v2-action-btn {
+    height: 44px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+  }
+
+  /* 4. 5 KPI Stat Cards (2 columns, card 5 full width) */
+  .v2-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .v2-stat-card {
+    padding: 14px 12px 10px;
+    border-radius: 16px;
+  }
+
+  /* Card 5 Unseen Alerts takes full width of 2 columns */
+  .v2-stat-card:nth-child(5) {
+    grid-column: 1 / -1;
+  }
+
+  .v2-stat-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .v2-stat-icon-wrapper {
+    width: 36px;
+    height: 36px;
+  }
+
+  .v2-stat-icon {
+    font-size: 16px;
+  }
+
+  .v2-stat-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #64748b;
+  }
+
+  .v2-stat-number {
+    font-size: 22px;
+    font-weight: 800;
+  }
+
+  .v2-stat-unit {
+    font-size: 11px;
+  }
+
+  .v2-trend-pill {
+    font-size: 10.5px;
+    padding: 2px 7px;
+  }
+
+  /* 5. Present Users Card & List */
+  .v2-table-card {
+    padding: 16px 14px;
+    border-radius: 16px;
+    margin-bottom: 14px;
+  }
+
+  .v2-table-header {
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .v2-table-title {
+    font-size: 13.5px;
+    font-weight: 700;
+  }
+
+  .v2-table-subtitle {
+    font-size: 11px;
+    display: block;
+  }
+
+  .v2-mobile-users-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .v2-mobile-user-item {
+    padding: 12px 0;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .v2-mobile-user-item:last-child {
+    border-bottom: none;
+    padding-bottom: 2px;
+  }
+
+  .v2-mobile-user-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .v2-mobile-user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .v2-mobile-user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .v2-mobile-user-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.2;
+  }
+
+  .v2-mobile-user-role {
+    font-size: 11.5px;
+    color: #64748b;
+    margin-top: 1px;
+  }
+
+  .v2-mobile-user-time-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .v2-mobile-time {
+    font-size: 10.5px;
+    color: #94a3b8;
+    font-weight: 500;
+  }
+
+  .v2-mobile-user-bottom {
+    padding-left: 46px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .v2-mobile-task-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .v2-mobile-task-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #1e293b;
+  }
+
+  .v2-mobile-task-desc {
+    font-size: 11px;
+    color: #64748b;
+    line-height: 1.35;
+  }
+
+  .v2-mobile-task-desc.is-muted {
+    color: #94a3b8;
+  }
+
+  /* 6. Mini Cards (Leaves, Assets, Alerts) */
+  .v2-bottom-three-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .v2-mini-card {
+    padding: 16px 14px;
+    border-radius: 16px;
+  }
+
+  .v2-mini-table th {
+    padding: 6px 6px;
+    font-size: 10.5px;
+  }
+
+  .v2-mini-table td {
+    padding: 8px 6px;
+    font-size: 11.5px;
+  }
+
+  /* 7. Mobile Bottom Sections */
+  .v2-mobile-bottom-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .v2-mobile-summary-wrapper {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .v2-mobile-summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .v2-mobile-summary-card {
+    background-color: #ffffff;
+    border: 1px solid #f1f5f9;
+    border-radius: 14px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+  }
+
+  .v2-mobile-summary-info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .v2-mobile-summary-val {
+    font-size: 18px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.15;
+  }
+
+  .v2-mobile-summary-lbl {
+    font-size: 11.5px;
+    color: #64748b;
+    font-weight: 500;
+    margin-top: 1px;
+  }
+
+  /* Attendance Rate Card */
+  .v2-mobile-card {
+    background-color: #ffffff;
+    border: 1px solid #f1f5f9;
+    border-radius: 16px;
+    padding: 16px 14px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+  }
+
+  .v2-mobile-card-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 12px 0;
+    letter-spacing: -0.2px;
+  }
+
+  .v2-attendance-card-body {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .v2-attendance-ring-wrap {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+  }
+
+  .v2-attendance-ring-wrap .v2-rate-ring {
+    width: 48px;
+    height: 48px;
+  }
+
+  .v2-ring-center-percent {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    color: #0f172a;
+  }
+
+  .v2-attendance-meta-col {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .v2-attendance-meta-lbl {
+    font-size: 11.5px;
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .v2-attendance-meta-status {
+    font-size: 16px;
+    font-weight: 800;
+    color: #10b981;
+  }
+
+  .v2-attendance-sparkline-col {
+    width: 90px;
+    height: 28px;
+  }
+
+  .v2-mobile-sparkline-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Quick Access Card */
+  .v2-quick-access-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .v2-quick-access-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background-color: #f8fafc;
+    border: 1px solid #f1f5f9;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .v2-quick-access-item:active {
+    background-color: #f1f5f9;
+  }
+
+  .v2-quick-access-icon-box {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background-color: #eff6ff;
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+
+  .v2-quick-access-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+    flex: 1;
+  }
+
+  .v2-quick-access-arrow {
+    font-size: 14px;
+    color: #94a3b8;
+  }
+
+  /* Stay Productive Banner */
+  .v2-stay-productive-banner {
+    background-color: #eff6ff;
+    border: 1px solid #dbeafe;
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .v2-productive-shield-box {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: #dbeafe;
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    flex-shrink: 0;
+  }
+
+  .v2-productive-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e293b;
+  }
+
+  .v2-productive-sub {
+    font-size: 11.5px;
+    color: #64748b;
+    margin-top: 1px;
+  }
+
+  /* Modal responsiveness */
   .v2-modal-container {
     max-height: 94vh;
     border-radius: 16px;
@@ -1493,13 +2053,7 @@
 }
 
 @media (max-width: 480px) {
-  .v2-stats-grid {
-    grid-template-columns: 1fr;
-  }
-  .v2-actions-btn-group {
-    grid-template-columns: 1fr;
-  }
-  .v2-pulse-summary-bar {
-    grid-template-columns: 1fr;
+  .v2-dashboard-container {
+    padding: 10px 12px 36px;
   }
 }

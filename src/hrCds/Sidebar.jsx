@@ -41,6 +41,7 @@ import {
 } from '@mui/icons-material';
 import Swal from "sweetalert2";
 import axiosInstance from '../utils/axiosConfig';
+import { hasPageAccess } from '../utils/pageAccess';
 import { preloadRouteByPath, preloadRouteChunks } from '../utils/routePreloader';
 import {
   CLIENT_PORTAL_SELECTED_CLIENT_KEY,
@@ -58,6 +59,15 @@ const BADGE_REFRESH_INTERVAL = 120000;
 const BADGE_CACHE_TTL = 120000;
 const getBadgeCacheKey = userId => `ciis-sidebar-badges-cache:${userId || 'anonymous'}`;
 const PAGE_ACCESS_ROLES = new Set(['owner', 'company_owner', 'companyowner', 'admin', 'super_admin', 'superadmin']);
+const STRICT_PAYROLL_PATHS = new Set([
+  '/ciisuser/salary-component',
+  '/ciisuser/salary-structure',
+  '/ciisuser/salary-assignment',
+  '/ciisuser/assign-salary',
+  '/ciisuser/payroll-process',
+  '/ciisuser/payslip',
+  '/ciisuser/payroll-reports',
+]);
 
 const normalizePermissionRole = value => String(value || '')
   .trim()
@@ -1676,10 +1686,23 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         .filter(page => getPermissionUserIds(page).length > 0)
         .map(page => [String(page.path || '').toLowerCase().replace(/\/+$/, ''), page])
     );
+    const allPermissionPages = new Map(
+      (Array.isArray(pagePermissions) ? pagePermissions : [])
+        .map(page => [String(page.path || '').toLowerCase().replace(/\/+$/, ''), page])
+    );
     const filterItemsByPageAccess = items => {
-      if (!pagePermissions || isPageAccessAdmin) return items;
+      if (!pagePermissions) {
+        return items.filter(item => !STRICT_PAYROLL_PATHS.has(
+          String(item?.path || '').toLowerCase().replace(/\/+$/, '')
+        ));
+      }
       return items.filter(item => {
         const itemPath = String(item?.path || '').toLowerCase().replace(/\/+$/, '');
+        if (STRICT_PAYROLL_PATHS.has(itemPath)) {
+          const payrollPage = allPermissionPages.get(itemPath);
+          return Boolean(payrollPage && hasPageAccess(payrollPage, userId, 'view'));
+        }
+        if (isPageAccessAdmin) return true;
         const page = configuredPages.get(itemPath);
         if (!page) return true;
         return getPermissionUserIds(page).includes(userId);

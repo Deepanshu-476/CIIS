@@ -718,6 +718,7 @@ const UserCreateTask = () => {
   const [isCreatingClientTask, setIsCreatingClientTask] = useState(false);
   const [projects, setProjects] = useState([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
+  const [loadingProjectMembers, setLoadingProjectMembers] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [projectTaskForm, setProjectTaskForm] = useState({
     title: '',
@@ -2169,6 +2170,7 @@ const UserCreateTask = () => {
     if (authError || !userId) return;
 
     setLoadingClientTasks(true);
+    const requestStartedAt = Date.now();
     try {
       const query = buildTaskQueryParams();
       const url = `/tasks/client-tasks/assigned-to-me${query ? `?${query}` : ''}`;
@@ -2180,6 +2182,10 @@ const UserCreateTask = () => {
       }
       const tasksArray = tagTasksWithSource(enrichAssignedTasks(rawTasksArray), 'client');
       const groupedTasks = groupTasksByDate(tasksArray);
+
+      // Do not let an older list request overwrite a status the user just changed.
+      if (lastTaskStatusMutationAtRef.current > requestStartedAt) return;
+
       setClientTasksGrouped(groupedTasks);
       calculateClientStatsFromTasks(groupedTasks);
     } catch (err) {
@@ -2276,6 +2282,36 @@ const UserCreateTask = () => {
     }
   }, [authError, extractProjectsFromResponse, selectedProjectId, showSnackbar, userId]);
 
+  const fetchProjectWithMembers = useCallback(async (projectId) => {
+    if (!projectId) return null;
+
+    setLoadingProjectMembers(true);
+    try {
+      const response = await axios.get(`/projects/${projectId}/users`);
+      if (!response.data?.success || !Array.isArray(response.data?.users)) {
+        throw new Error('Project members are unavailable');
+      }
+      const projectWithMembers = {
+        _id: projectId,
+        projectName: response.data.projectName,
+        users: response.data.users
+      };
+
+      setProjects(current => current.map(project =>
+        String(project._id || project.id) === String(projectId)
+          ? { ...project, ...projectWithMembers }
+          : project
+      ));
+      return projectWithMembers;
+    } catch (err) {
+      console.error('Error loading project members:', err);
+      showSnackbar(err.response?.data?.message || 'Failed to load project members', 'error');
+      return null;
+    } finally {
+      setLoadingProjectMembers(false);
+    }
+  }, [showSnackbar]);
+
   const handleOpenProjectTaskDialog = useCallback(async () => {
     const projectRows = await fetchProjectsForTaskCreation();
     if (!projectRows.length) {
@@ -2283,18 +2319,16 @@ const UserCreateTask = () => {
       return;
     }
 
-    const firstProject = projectRows[0];
-    const firstProjectUsers = Array.isArray(firstProject?.users) ? firstProject.users.filter(Boolean) : [];
-    const defaultAssignee = firstProjectUsers.find(Boolean);
-    const defaultAssigneeId = getValueId(defaultAssignee) || '';
-
-    setSelectedProjectId(String(firstProject._id || firstProject.id || ''));
+    const firstProjectSummary = projectRows[0];
+    const firstProjectId = String(firstProjectSummary._id || firstProjectSummary.id || '');
+    setSelectedProjectId(firstProjectId);
     setProjectTaskForm(prev => ({
       ...prev,
-      assignedTo: defaultAssigneeId
+      assignedTo: ''
     }));
     setOpenProjectTaskDialog(true);
-  }, [fetchProjectsForTaskCreation, showSnackbar]);
+    await fetchProjectWithMembers(firstProjectId);
+  }, [fetchProjectWithMembers, fetchProjectsForTaskCreation, showSnackbar]);
 
   const handleClientSelection = useCallback((clientId) => {
     const nextClient = clients.find(client => String(client._id || client.id) === String(clientId));
@@ -2401,18 +2435,10 @@ const UserCreateTask = () => {
 
     const projectUserIds = selectedProjectUsers.map(user => String(getValueId(user) || '')).filter(Boolean);
     setProjectTaskForm(prev => {
-      if (!projectUserIds.length) {
-        return prev.assignedTo ? { ...prev, assignedTo: '' } : prev;
-      }
-
-      if (prev.assignedTo && projectUserIds.includes(String(prev.assignedTo))) {
+      if (!prev.assignedTo || projectUserIds.includes(String(prev.assignedTo))) {
         return prev;
       }
-
-      return {
-        ...prev,
-        assignedTo: projectUserIds[0]
-      };
+      return { ...prev, assignedTo: '' };
     });
   }, [selectedProjectId, selectedProjectUsers]);
 
@@ -2645,6 +2671,7 @@ const UserCreateTask = () => {
     }
 
     setLoading(true);
+    const requestStartedAt = Date.now();
     try {
       const query = buildUserTaskQueryParams(getUserTaskApiPeriod());
       const url = `/tasks/self?${query}`;
@@ -2657,6 +2684,9 @@ const UserCreateTask = () => {
         selfTasks = extractTasksFromResponse(refreshedRes.data);
       }
       const tasks = groupTasksByDate(tagTasksWithSource(selfTasks, 'self'));
+
+      // Do not let an older list request overwrite a status the user just changed.
+      if (lastTaskStatusMutationAtRef.current > requestStartedAt) return;
       
       void 0;
       
@@ -3565,10 +3595,6 @@ const UserCreateTask = () => {
     const taskSource = getTaskSource(task || { __taskSource: 'client' });
     patchTaskStatusLocally(taskId, taskSource, normalizedStatus, remarks);
     try {
-        if (remarks && remarks.trim()) {
-          await axios.post(`/tasks/client-tasks/${taskId}/client-remarks`, { text: remarks });
-        }
-
         const statusPayload = { status: normalizedStatus, completed: normalizedStatus === 'completed' };
 
         await axios.patch(`/tasks/client-tasks/assigned/${taskId}/status`, statusPayload);
@@ -5286,15 +5312,13 @@ const UserCreateTask = () => {
                   <select
                     className="user-create-task-select"
                     value={selectedProjectId}
-                    onChange={(event) => {
+                    onChange={async (event) => {
                       const nextProjectId = event.target.value;
                       setSelectedProjectId(nextProjectId);
-                      const nextProject = projects.find(project => String(project._id || project.id) === String(nextProjectId));
-                      const firstProjectUser = Array.isArray(nextProject?.users) ? nextProject.users.find(Boolean) : null;
-                      setProjectTaskForm(prev => ({
-                        ...prev,
-                        assignedTo: getValueId(firstProjectUser) || ''
-                      }));
+                      setProjectTaskForm(prev => ({ ...prev, assignedTo: '' }));
+                      if (!nextProjectId) return;
+
+                      await fetchProjectWithMembers(nextProjectId);
                     }}
                     disabled={loadingProjects || projects.length === 0}
                   >
@@ -5370,10 +5394,14 @@ const UserCreateTask = () => {
                     className="user-create-task-select"
                     value={projectTaskForm.assignedTo}
                     onChange={(event) => setProjectTaskForm(prev => ({ ...prev, assignedTo: event.target.value }))}
-                    disabled={!selectedProjectUsers.length}
+                    disabled={loadingProjectMembers || !selectedProjectUsers.length}
                   >
                     <option value="">
-                      {selectedProjectUsers.length ? 'Select project member' : 'No project members available'}
+                      {loadingProjectMembers
+                        ? 'Loading project members...'
+                        : selectedProjectUsers.length
+                          ? 'Select project member'
+                          : 'No project members available'}
                     </option>
                     {selectedProjectUsers.map(user => {
                       const userIdValue = getValueId(user);
@@ -5823,7 +5851,7 @@ const UserCreateTask = () => {
                                           if (taskSource === 'self') {
                                             handleStatusChange(currentTaskId, 'in-progress', 'Started working');
                                           } else if (taskSource === 'client') {
-                                            handleClientTaskStatusChange(currentTaskId, 'in-progress', 'Started working');
+                                            handleClientTaskStatusChange(currentTaskId, 'in-progress');
                                           } else if (taskSource === 'project') {
                                             handleProjectTaskStatusChange(task, 'in-progress', 'Started working');
                                           } else {
@@ -6145,7 +6173,7 @@ const UserCreateTask = () => {
                                       if (taskSource === 'self') {
                                         handleStatusChange(currentTaskId, 'in-progress', 'Started working on task');
                                       } else if (taskSource === 'client') {
-                                        handleClientTaskStatusChange(currentTaskId, 'in-progress', 'Started working on task');
+                                        handleClientTaskStatusChange(currentTaskId, 'in-progress');
                                       } else if (taskSource === 'project') {
                                         handleProjectTaskStatusChange(task, 'in-progress', 'Started working on task');
                                       } else {

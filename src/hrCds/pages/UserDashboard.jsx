@@ -1484,6 +1484,7 @@ const UserDashboard = () => {
       return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
     });
   }, [holidays]);
+  const holidayDateSet = useMemo(() => new Set(holidayDates), [holidayDates]);
 
   
   const holidayTitles = useMemo(() => {
@@ -1507,7 +1508,12 @@ const UserDashboard = () => {
         return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
       };
       const explicitAbsentKeys = new Set(
-        records.filter(record => record.status === 'ABSENT' && !leaveDateSet.has(toDateKey(record))).map(toDateKey)
+        records
+          .filter(record => {
+            const key = toDateKey(record);
+            return record.status === 'ABSENT' && !leaveDateSet.has(key) && !holidayDateSet.has(key);
+          })
+          .map(toDateKey)
       );
 
       return {
@@ -1530,7 +1536,7 @@ const UserDashboard = () => {
       previousMonthlyStats: calculateMonth(previousDate.getFullYear(), previousDate.getMonth()),
       previousMonthLabel: previousDate.toLocaleDateString('en-US', { month: 'short' })
     };
-  }, [filteredAttendanceData, leaveDates, leaveDateSet, currentMonth, currentYear]);
+  }, [filteredAttendanceData, leaveDates, leaveDateSet, holidayDateSet, currentMonth, currentYear]);
 
   const getMonthlyChange = useCallback((currentValue, previousValue) => {
     if (!previousValue) return currentValue ? 100 : 0;

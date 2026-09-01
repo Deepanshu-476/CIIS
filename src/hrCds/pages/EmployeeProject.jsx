@@ -3,33 +3,6 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import axios from "../../utils/axiosConfig";
 import "../Css/EmployeeProject.css";
-import PageBranchDropdown, { usePageBranchScope } from "../components/PageBranchDropdown";
-
-const PROJECT_CACHE_TTL = 5 * 60 * 1000;
-
-const getProjectCacheKey = (companyCode, branchId) => (
-  `employee-projects:${String(companyCode || "").toLowerCase()}:${branchId || "all"}`
-);
-
-const readProjectCache = (key) => {
-  try {
-    const cached = JSON.parse(sessionStorage.getItem(key) || "null");
-    if (!cached || !Array.isArray(cached.projects) || Date.now() - cached.savedAt > PROJECT_CACHE_TTL) {
-      return null;
-    }
-    return cached.projects;
-  } catch {
-    return null;
-  }
-};
-
-const writeProjectCache = (key, projects) => {
-  try {
-    sessionStorage.setItem(key, JSON.stringify({ projects, savedAt: Date.now() }));
-  } catch {
-    // Storage can be unavailable in private/restricted browser modes.
-  }
-};
 
 const parseStoredJson = (key) => {
   try {
@@ -229,13 +202,6 @@ const EmployeeProject = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [tabValue, setTabValue] = useState(0);
   const [taskFilter, setTaskFilter] = useState("all");
-  const {
-    branchOptions,
-    selectedBranchId,
-    setSelectedBranchId,
-    branchQueryParams
-  } = usePageBranchScope();
-
   useEffect(() => {
     if (!openActivityDrawer) return undefined;
 
@@ -551,7 +517,7 @@ const EmployeeProject = () => {
     };
     
     loadData();
-  }, [branchQueryParams.branchId]);
+  }, []);
 
   useEffect(() => {
     const completed = tasks.filter(t => normalizeTaskStatus(t.status) === "completed").length;
@@ -576,37 +542,24 @@ const EmployeeProject = () => {
     try {
       const { companyCode, companyIdentifier } = getCompanyContext();
 
-      if (!companyCode) {
-        setProjects([]);
-        showSnackbar("Company code not found. Please login again from your company URL.", "error");
-        return;
-      }
-
-      const cacheKey = getProjectCacheKey(companyCode, branchQueryParams.branchId);
-      const cachedProjects = readProjectCache(cacheKey);
-      if (cachedProjects) {
-        setProjects(cachedProjects);
-        return;
-      }
-
+      // Always load fresh project assignments. This page must not apply a
+      // branch filter: a user can be assigned to projects from any branch.
       const res = await axios.get("/projects", {
         params: {
           companyCode,
           companyIdentifier: companyIdentifier || undefined,
           summary: 1,
-          limit: 100,
-          ...branchQueryParams
+          limit: 100
         }
       });
       const loadedProjects = getProjectsFromResponse(res.data);
       const normalizedCompanyCode = companyCode.toLowerCase();
       const companyProjects = loadedProjects.filter(project => {
         const projectCompanyCode = getProjectCompanyCode(project);
-        return !projectCompanyCode || projectCompanyCode.toLowerCase() === normalizedCompanyCode;
+        return !normalizedCompanyCode || !projectCompanyCode || projectCompanyCode.toLowerCase() === normalizedCompanyCode;
       }).map(normalizeProjectTaskOrder);
 
       setProjects(companyProjects);
-      writeProjectCache(cacheKey, companyProjects);
     } catch (error) {
       console.error("Error loading projects:", error);
       showSnackbar("Error loading projects", "error");
@@ -1586,11 +1539,6 @@ const EmployeeProject = () => {
           </div>
         </div>
 
-        <PageBranchDropdown
-          branchOptions={branchOptions}
-          selectedBranchId={selectedBranchId}
-          onChange={setSelectedBranchId}
-        />
 
         <div className="EmployeeProject-search-row">
           <div className="EmployeeProject-search-box">

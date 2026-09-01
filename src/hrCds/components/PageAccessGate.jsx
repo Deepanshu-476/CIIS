@@ -12,6 +12,16 @@ const PRIVILEGED_ROLES = new Set([
   "superadmin",
 ]);
 
+const STRICT_ACCESS_PATHS = new Set([
+  "/ciisUser/salary-component",
+  "/ciisUser/salary-structure",
+  "/ciisUser/salary-assignment",
+  "/ciisUser/assign-salary",
+  "/ciisUser/payroll-process",
+  "/ciisUser/payslip",
+  "/ciisUser/payroll-reports",
+].map(path => path.toLowerCase()));
+
 const normalizeRole = value => String(value || "")
   .trim()
   .toLowerCase()
@@ -37,24 +47,27 @@ const PageAccessGate = ({ children }) => {
     const userId = getCurrentUserId();
     const roleValues = [currentUser?.companyRole, currentUser?.jobRole, currentUser?.role];
     const isPrivileged = roleValues.some(role => PRIVILEGED_ROLES.has(normalizeRole(role?.name || role)));
+    const requiresExplicitAccess = STRICT_ACCESS_PATHS.has(String(pagePath || "").toLowerCase());
 
     const checkAccess = async () => {
-      if (!pagePath || isPrivileged) {
+      if (!pagePath || (isPrivileged && !requiresExplicitAccess)) {
         if (!cancelled) setState({ loading: false, allowed: true });
         return;
       }
 
       try {
         const page = await loadPagePermission(pagePath);
-        const allowed = !hasConfiguredPageAccess(page) || hasPageAccess(page, userId, "view");
+        const allowed = requiresExplicitAccess
+          ? hasConfiguredPageAccess(page) && hasPageAccess(page, userId, "view")
+          : !hasConfiguredPageAccess(page) || hasPageAccess(page, userId, "view");
         if (!cancelled) setState({ loading: false, allowed });
       } catch {
-        // Keep legacy pages usable if the permission service is temporarily unavailable.
-        if (!cancelled) setState({ loading: false, allowed: true });
+        // Strict pages stay closed if their permission cannot be verified.
+        if (!cancelled) setState({ loading: false, allowed: !requiresExplicitAccess });
       }
     };
 
-    setState({ loading: !isPrivileged, allowed: true });
+    setState({ loading: requiresExplicitAccess || !isPrivileged, allowed: !requiresExplicitAccess });
     checkAccess();
 
     return () => {

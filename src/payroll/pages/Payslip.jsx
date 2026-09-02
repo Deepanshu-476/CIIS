@@ -134,7 +134,6 @@ export default function Payslip() {
   const displayedNet = isTillDatePayslip ? Number(payroll?.earnedTillDateNet ?? payroll?.monthlyNet ?? 0) : Number(payroll?.monthlyNet || 0);
   const payslipNumber = payroll ? `PLS-${payrollMonth.replace("-", "")}-${(payroll.user?.employeeId || selectedId).toString().slice(-6).toUpperCase()}` : "—";
   const payDate = payroll?.approvedAt || payroll?.lockedAt || run?.approvedAt || run?.lockedAt || new Date(`${payrollMonth}-01T00:00:00`);
-  const payslipStatus = payroll?.payrollStatus || run?.status || "Approved";
 
   const daysInMonthVal = attendance.daysInMonth || 31;
   const totalPaidDaysVal = Math.max(0, daysInMonthVal - Number(attendance.lopDays || 0));
@@ -179,7 +178,6 @@ export default function Payslip() {
       <div className="ps2-filters">
         <label>Payroll Month<span className="ps2-date-input"><FiCalendar /><input type="month" value={payrollMonth} onChange={event => setPayrollMonth(event.target.value)} /></span></label>
         <label>Employee<select value={selectedId} onChange={event => setSelectedId(event.target.value)} disabled={loading || !employees.length}><option value="">Select employee</option>{employees.map(item => <option key={employeeKey(item)} value={employeeKey(item)}>{item.user?.name || "Employee"}{item.user?.employeeId ? ` (${item.user.employeeId})` : ""}</option>)}</select></label>
-        <label>Status<select value={payslipStatus} disabled><option>{payslipStatus}</option></select></label>
       </div>
       <div className="ps2-actions">
         <button className="primary" onClick={downloadPdf} disabled={!payroll || Boolean(action)}>
@@ -195,7 +193,7 @@ export default function Payslip() {
 
     {!loading && payroll && <section className="ps2-layout">
       <article className="ps2-document" ref={documentRef}>
-          <header className="ps2-doc-title"><div><h2>{isTillDatePayslip ? "Payslip Till Date" : "Payslip"} — {monthName(payrollMonth)}</h2><span>{payslipStatus}</span></div><p>Payslip No: <strong>{payslipNumber}</strong></p></header>
+          <header className="ps2-doc-title"><div><h2>{isTillDatePayslip ? "Payslip Till Date" : "Payslip"} — {monthName(payrollMonth)}</h2></div><p>Payslip No: <strong>{payslipNumber}</strong></p></header>
           <section className="ps2-company">
             <div className="ps2-company-name">
               {logoUrl && !logoFailed ? (

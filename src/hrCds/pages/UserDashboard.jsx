@@ -84,6 +84,24 @@ const formatTime = seconds => {
   return `${h}:${m}:${s}`;
 };
 
+const LiveTimer = React.memo(({ baseSeconds = 0, isRunning = false }) => {
+  const [seconds, setSeconds] = useState(baseSeconds);
+
+  useEffect(() => {
+    setSeconds(baseSeconds);
+  }, [baseSeconds]);
+
+  useEffect(() => {
+    if (!isRunning) return undefined;
+    const intervalId = window.setInterval(() => {
+      setSeconds(current => current + 1);
+    }, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [isRunning]);
+
+  return formatTime(seconds);
+});
+
 const getDailyProgressMessage = progress => {
   const percentage = Math.max(0, Math.min(100, Number(progress) || 0));
   if (percentage === 0) return 'Ready to get started';
@@ -337,7 +355,6 @@ const UserDashboard = () => {
     ? Math.max(0, Math.floor((Date.now() - new Date(initialActiveClock.inTime).getTime()) / 1000))
     : 0);
   const [isRunning, setIsRunning] = useState(Boolean(initialActiveClock));
-  const intervalRef = useRef(null);
   const dashboardRootRef = useRef(null);
 
   useEffect(() => {
@@ -1313,17 +1330,6 @@ const UserDashboard = () => {
 
   
   useEffect(() => {
-    if (isRunning) {
-      intervalRef.current = setInterval(() => {
-        setTimer(prev => prev + 1);
-      }, 1000);
-    } else {
-      clearInterval(intervalRef.current);
-    }
-    return () => clearInterval(intervalRef.current);
-  }, [isRunning]);
-
-  useEffect(() => {
     if (!initialLoadDone || !isUserInCurrentCompany) return undefined;
 
     const syncAttendanceStatus = () => {
@@ -1345,9 +1351,6 @@ const UserDashboard = () => {
       cancelPendingRequests();
       if (cameraStream) {
         cameraStream.getTracks().forEach(track => track.stop());
-      }
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
       }
     };
   }, [cancelPendingRequests, cameraStream]);
@@ -2219,7 +2222,7 @@ const UserDashboard = () => {
             </p>
             <div className="confirmation-timer">
               <FiClock size={16} />
-              <span>Current session: {formatTime(timer)}</span>
+              <span>Current session: <LiveTimer baseSeconds={timer} isRunning={isRunning} /></span>
             </div>
             <div className="confirmation-buttons">
               <button className="confirmation-btn confirmation-btn-cancel" onClick={() => setShowClockOutConfirm(false)} disabled={isProcessing}>
@@ -2520,7 +2523,7 @@ const UserDashboard = () => {
           <section className="MobileDashV2-clock">
             <div>
               <span>Work session</span>
-              <strong>{formatTime(timer)}</strong>
+              <strong><LiveTimer baseSeconds={timer} isRunning={isRunning} /></strong>
               <small>{isRunning ? 'Timer is running' : 'Start when you’re ready'}</small>
             </div>
             <button
@@ -2713,7 +2716,7 @@ const UserDashboard = () => {
           
           <div className="dashboard-clock-section dashboard-clock-inline">
             <div className="dashboard-timer-display">
-              <div className="dashboard-timer-value">{formatTime(timer)}</div>
+              <div className="dashboard-timer-value"><LiveTimer baseSeconds={timer} isRunning={isRunning} /></div>
               <div className={`dashboard-timer-status ${isRunning ? 'status-active-text' : 'status-inactive-text'}`}>
                 <div className={`dashboard-timer-dot ${isRunning ? 'dot-active' : 'dot-inactive'}`}></div>
                 {isRunning ? 'Active Timer • Live' : 'Timer Stopped'}
@@ -2893,7 +2896,7 @@ const UserDashboard = () => {
               <dl>
                 <div><dt>Check In</dt><dd>{formatClockTime(todayAttendance?.inTime)}</dd></div>
                 <div><dt>Check Out</dt><dd>{isRunning ? 'In progress' : formatClockTime(todayAttendance?.outTime)}</dd></div>
-                <div><dt>Total Working</dt><dd>{isRunning ? formatTime(timer) : todayAttendance?.totalTime || '00:00:00'}</dd></div>
+                <div><dt>Total Working</dt><dd>{isRunning ? <LiveTimer baseSeconds={timer} isRunning /> : todayAttendance?.totalTime || '00:00:00'}</dd></div>
                 <div><dt>Late</dt><dd>{todayAttendance ? (['LATE', 'HALF DAY'].includes(normalizeAttendanceStatus(todayAttendance.status)) ? `Yes${todayAttendance.lateBy && todayAttendance.lateBy !== '00:00:00' ? ` (${todayAttendance.lateBy})` : ''}` : 'No') : '--'}</dd></div>
                 <div><dt>Break Time</dt><dd>{getTrackedBreakTime(todayAttendance)}</dd></div>
                 <div><dt>Tasks Completed</dt><dd>{focusStats.loading ? '—' : focusStats.completedToday}</dd></div>
@@ -3135,7 +3138,7 @@ const UserDashboard = () => {
         <section className="dashboard-clock-section dashboard-clock-rail">
           <div className="dashboard-live-label"><i /> {isRunning ? 'Live' : 'Ready'}</div>
           <div className="dashboard-timer-display">
-            <div className="dashboard-timer-value">{formatTime(timer)} <small>{new Date().getHours() >= 12 ? 'PM' : 'AM'}</small></div>
+            <div className="dashboard-timer-value"><LiveTimer baseSeconds={timer} isRunning={isRunning} /> <small>{new Date().getHours() >= 12 ? 'PM' : 'AM'}</small></div>
             <div className="dashboard-clock-date">{currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</div>
           </div>
           <div className="dashboard-clock-buttons">

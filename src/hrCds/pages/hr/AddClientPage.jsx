@@ -91,7 +91,6 @@ const AddClientPage = () => {
     progress: '',
     email: '',
     phone: '',
-    companyLogo: '',
     industry: '',
     gst: '',
     pan: '',
@@ -376,7 +375,6 @@ const AddClientPage = () => {
         progress: newClient.progress,
         email: newClient.email,
         phone: newClient.phone,
-        companyLogo: newClient.companyLogo,
         industry: newClient.industry,
         gst: newClient.gst,
         pan: newClient.pan,
@@ -794,17 +792,6 @@ const AddClientPage = () => {
                 className="ClientManagement-form-input"
                 value={newClient.phone}
                 onChange={(e) => setNewClient(prev => ({...prev, phone: e.target.value}))}
-                disabled={saving}
-              />
-            </div>
-
-            <div className="ClientManagement-form-group">
-              <label className="ClientManagement-form-label">Company Logo URL</label>
-              <input
-                type="text"
-                className="ClientManagement-form-input"
-                value={newClient.companyLogo}
-                onChange={(e) => setNewClient(prev => ({...prev, companyLogo: e.target.value}))}
                 disabled={saving}
               />
             </div>

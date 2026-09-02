@@ -37,7 +37,7 @@ export const useAuth = () => {
 
 
 export const AuthProvider = ({ children }) => {
-  const initialAuth = readStoredAuth();
+  const [initialAuth] = useState(readStoredAuth);
   const [user, setUser] = useState(initialAuth.user);
   const [token, setToken] = useState(initialAuth.token);
   const [isAuthenticated, setIsAuthenticated] = useState(initialAuth.isAuthenticated);
@@ -57,10 +57,7 @@ export const AuthProvider = ({ children }) => {
     window.addEventListener('storage', handleAuthChange);
     window.addEventListener(AUTH_SYNC_EVENT, handleAuthChange);
 
-    const interval = setInterval(syncAuthState, 1000);
-
     return () => {
-      clearInterval(interval);
       window.removeEventListener('storage', handleAuthChange);
       window.removeEventListener(AUTH_SYNC_EVENT, handleAuthChange);
     };

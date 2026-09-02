@@ -90,7 +90,9 @@ export default function PayrollReports() {
     catch { setError("PDF report could not be exported."); } finally { setExporting(""); }
   };
   const reset = () => { const next = { reportType: REPORTS[0], month: currentMonth(), payGroup: "All", department: "All", employee: "All", status: "All" }; setFilters(next); setApplied(next); };
-  const isMoneyColumn = key => /salary|earnings|deduction|payroll|wage|\bpf\b|\besi\b|\bpt\b|tds/i.test(key) && key !== "Employees";
+  const isMoneyColumn = key => !/status/i.test(key)
+    && /salary|earnings|deduction|net payroll|wage|\bpf\b|\besi\b|\bpt\b|tds/i.test(key)
+    && key !== "Employees";
   const openReport = reportType => { const next = { ...filters, reportType }; setFilters(next); setApplied({ ...applied, reportType }); };
   const earningsComparisonTotal = totals.earnings + totals.deductions;
   const earningsPercent = earningsComparisonTotal ? totals.earnings / earningsComparisonTotal * 100 : 0;
@@ -129,7 +131,7 @@ export default function PayrollReports() {
     {!loading && !error && <>
       <section className="pr-cards">
         <article><i><FiUsers /></i><div><span>Total Employees</span><strong>{totals.employees}</strong><small>Employees</small></div></article>
-        <article className="green"><i><FiTrendingUp /></i><div><span>Total Earnings</span><strong>{money(totals.earnings)}</strong></div></article>
+        <article className="green"><i><FiTrendingUp /></i><div><span>Total Salaries</span><strong>{money(totals.earnings)}</strong></div></article>
         <article className="red"><i><FiTrendingDown /></i><div><span>Total Deductions</span><strong>{money(totals.deductions)}</strong></div></article>
         <article className="blue"><i><FiCreditCard /></i><div><span>Net Payroll</span><strong>{money(totals.net)}</strong></div></article>
         <article className="amber"><i><FiBarChart2 /></i><div><span>Average Net Salary</span><strong>{money(totals.employees ? totals.net / totals.employees : 0)}</strong></div></article>
@@ -137,7 +139,7 @@ export default function PayrollReports() {
       <section className="pr-content-grid">
       <div className="pr-main-column">
       <section className="pr-report" ref={reportRef}>
-        <div className="pr-report-head"><div><h2>{applied.reportType} — {monthLabel(applied.month)}</h2><p>{filtered.length} approved/locked employee record(s)</p></div><div className="pr-exports pr-no-print"><button onClick={exportPdf} disabled={!reportRows.length || exporting}><FiFileText />{exporting === "pdf" ? "Exporting..." : "Export PDF"}</button></div></div>
+        <div className="pr-report-head"><div><h2>{applied.reportType} — {monthLabel(applied.month)}</h2><p>{filtered.length} approved/locked employee record(s)</p></div><div className="pr-exports pr-no-print" data-html2canvas-ignore="true"><button onClick={exportPdf} disabled={!reportRows.length || exporting}><FiFileText />{exporting === "pdf" ? "Exporting..." : "Export PDF"}</button></div></div>
         <div className="pr-table-wrap"><table><thead><tr><th>#</th>{Object.keys(reportRows[0] || {}).map(key => <th key={key}>{key}</th>)}</tr></thead><tbody>{reportRows.map((row, index) => <tr key={`${row["Employee ID"] || row.Department}-${index}`}><td>{index + 1}</td>{Object.entries(row).map(([key, value]) => <td key={key}>{isMoneyColumn(key) ? money(value) : value}</td>)}</tr>)}{!reportRows.length && <tr><td colSpan="20" className="empty">No approved or locked payroll data matches these filters.</td></tr>}</tbody></table></div>
         <footer>Reports use saved Approved/Locked payroll snapshots. Amounts are in INR.</footer>
       </section>

@@ -71,3 +71,8 @@
 .ps2-filters .ps2-date-input{position:relative;display:flex;align-items:center}
 .ps2-filters .ps2-date-input svg{position:absolute;left:11px;color:#64748b;pointer-events:none;z-index:1}
 .ps2-filters .ps2-date-input input{padding-left:34px}
+
+/* Keep the remaining controls compact after removing the status/lock field. */
+.ps2-filters{grid-template-columns:minmax(170px,210px) minmax(230px,320px);justify-content:start}
+
+@media(max-width:820px){.ps2-filters{grid-template-columns:1fr}}

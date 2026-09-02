@@ -68,7 +68,6 @@ const STRICT_PAYROLL_PATHS = new Set([
   '/ciisuser/payslip',
   '/ciisuser/payroll-reports',
 ]);
-
 const normalizePermissionRole = value => String(value || '')
   .trim()
   .toLowerCase()
@@ -1472,9 +1471,33 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     }
 
     let cancelled = false;
-    axiosInstance.get('/page-permissions/pages', { _skipErrorNotify: true })
-      .then(response => {
-        if (!cancelled) setPagePermissions(Array.isArray(response.data?.pages) ? response.data.pages : []);
+    axiosInstance.get('/page-permissions/pages', { _skipErrorNotify: true, noCache: true })
+      .then(async response => {
+        const pages = Array.isArray(response.data?.pages) ? response.data.pages : [];
+        const payrollPages = pages.filter(page => STRICT_PAYROLL_PATHS.has(
+          String(page?.path || '').toLowerCase().replace(/\/+$/, '')
+        ));
+        const detailedPayrollPages = await Promise.all(payrollPages.map(async page => {
+          try {
+            const detailResponse = await axiosInstance.get('/page-permissions/by-path', {
+              params: { path: page.path },
+              _skipErrorNotify: true,
+              noCache: true
+            });
+            return detailResponse.data?.page || page;
+          } catch {
+            return page;
+          }
+        }));
+        const payrollDetailsByPath = new Map(detailedPayrollPages.map(page => [
+          String(page?.path || '').toLowerCase().replace(/\/+$/, ''),
+          page
+        ]));
+        const permissionPages = pages.map(page => (
+          payrollDetailsByPath.get(String(page?.path || '').toLowerCase().replace(/\/+$/, '')) || page
+        ));
+
+        if (!cancelled) setPagePermissions(permissionPages);
       })
       .catch(() => {
         if (!cancelled) setPagePermissions(null);

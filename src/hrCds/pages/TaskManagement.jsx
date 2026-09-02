@@ -183,6 +183,9 @@ const normalizeStatus = (status) => {
     'In Progress': 'in-progress',
     'In-Progress': 'in-progress',
     'inprogress': 'in-progress',
+    'in progress': 'in-progress',
+    'in_progress': 'in-progress',
+    'in-progress': 'in-progress',
     'Pending': 'pending',
     'Completed': 'completed',
     'Overdue': 'overdue',
@@ -1152,12 +1155,25 @@ const UserCreateTask = () => {
   
   const groupTasksByDate = useCallback((tasks) => {
     const grouped = {};
-    // List sections must remain anchored to when the task was created. A status
-    // change (for example completing an overdue task) must not move it into
-    // today's date group.
-    const getTaskGroupDate = task => (
-      task?.createdAt || task?.createdDate || task?.created_on || getTaskSourceAwareDate(task)
-    );
+    const getTaskGroupDate = task => {
+      const source = task?.__taskSource || task?.taskSource || task?.source;
+      const status = normalizeStatus(task?.userStatus || task?.status || 'pending');
+
+      // An assigned task being actively worked belongs to the day on which the
+      // assignee started it, not the day on which somebody originally created it.
+      if (source === 'assigned' && status === 'in-progress') {
+        const startedAt = task?.statusUpdatedAt || getLatestTaskActivityDate(
+          task,
+          log => (
+            (log?.type === 'status_change' || log?.type === 'status_changed') &&
+            normalizeStatus(log?.newValue) === 'in-progress'
+          )
+        );
+        return startedAt || task?.updatedAt || task?.createdAt || task?.createdDate;
+      }
+
+      return task?.createdAt || task?.createdDate || task?.created_on || getTaskSourceAwareDate(task);
+    };
     const getTaskSortTime = task => {
       const dateToUse = getTaskGroupDate(task);
       const date = new Date(dateToUse || 0);
@@ -1742,7 +1758,8 @@ const UserCreateTask = () => {
         userStatus: normalizedStatus,
         completed: normalizedStatus === 'completed',
         updatedAt: timestamp,
-        lastActivityAt: timestamp
+        lastActivityAt: timestamp,
+        statusUpdatedAt: timestamp
       };
 
       if (remarks) {

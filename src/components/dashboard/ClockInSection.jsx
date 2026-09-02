@@ -145,7 +145,7 @@ const ClockInSection = ({
     }
   };
 
-  const handleActionClick = (mode) => {
+  const handleActionClick = (mode) => { 
     setModalMode(mode);
     // If camera is required, open camera modal
     if (attendanceMode === 'image' || attendanceMode === 'both') {

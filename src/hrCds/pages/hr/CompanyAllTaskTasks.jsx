@@ -343,7 +343,7 @@ const writeCompanyTaskCache = (cacheKey, snapshot) => {
       savedAt: Date.now(),
     }));
   } catch {
-    
+    // Ignore storage quota and private-mode failures.
   }
 };
 
@@ -520,7 +520,7 @@ const CompanyAllTaskTasks = () => {
           return;
         }
       } catch {
-        
+        // Continue to the next fallback endpoint.
       }
     }
     if (currentUser && String(currentUser._id || currentUser.id || "") === String(effectiveUserId)) {

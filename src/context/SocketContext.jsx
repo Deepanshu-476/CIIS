@@ -85,8 +85,6 @@ export const SocketProvider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [connectionAttempts, setConnectionAttempts] = useState(0);
-  const [retryCount, setRetryCount] = useState(0);
   const recentDesktopNotificationKeys = useRef(new Set());
 
   const showDesktopNotification = useCallback((payload = {}, eventName = 'notification:new') => {
@@ -125,62 +123,6 @@ export const SocketProvider = ({ children }) => {
       }
     }
   }, []);
-
-  
-  useEffect(() => {
-    void 0;
-  }, [isAuthenticated, user, token, connectionAttempts, retryCount]);
-
-  
-  useEffect(() => {
-    
-    if (isAuthenticated && user && !token) {
-      void 0;
-      
-      
-      const storedToken = localStorage.getItem('token');
-      if (storedToken) {
-        void 0;
-        void 0;
-        
-        
-        setTimeout(() => {
-          void 0;
-          setRetryCount(prev => prev + 1);
-          socketService.connect(storedToken);
-        }, 1000);
-      } else {
-        void 0;
-        void 0;
-      }
-      
-      
-      const interval = setInterval(() => {
-        const checkToken = localStorage.getItem('token');
-        if (checkToken) {
-          void 0;
-          void 0;
-          setRetryCount(prev => prev + 1);
-          socketService.connect(checkToken);
-          clearInterval(interval);
-        } else {
-          void 0;
-        }
-      }, 1000);
-      
-      
-      const timeout = setTimeout(() => {
-        clearInterval(interval);
-        void 0;
-      }, 15000);
-      
-      return () => {
-        clearInterval(interval);
-        clearTimeout(timeout);
-      };
-    }
-  }, [isAuthenticated, user, token]);
-
   
   useEffect(() => {
     void 0;
@@ -207,8 +149,6 @@ export const SocketProvider = ({ children }) => {
     void 0;
     
     
-    setConnectionAttempts(prev => prev + 1);
-    
     try {
       
       void 0;
@@ -227,7 +167,6 @@ export const SocketProvider = ({ children }) => {
         void 0;
         void 0;
         setIsConnected(true);
-        setConnectionAttempts(0); 
       });
       
       socket.on('disconnect', (reason) => {

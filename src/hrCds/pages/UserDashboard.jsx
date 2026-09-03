@@ -1089,7 +1089,7 @@ const UserDashboard = () => {
     setProjectsLoading(true);
     try {
       const response = await axios.get('/projects', {
-        params: { companyCode, page: 1, limit: 6 },
+        params: { companyCode, page: 1, limit: 6, summary: 1 },
         headers: { Authorization: `Bearer ${token}` },
         timeout: 15000
       });

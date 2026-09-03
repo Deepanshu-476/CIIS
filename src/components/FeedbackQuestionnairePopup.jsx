@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from '../utils/axiosConfig';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import './FeedbackQuestionnairePopup.css';
+
+const FEEDBACK_POLL_INTERVAL = 5 * 60 * 1000;
 
 const STORAGE_KEY = 'ciis-feedback-dismissed';
 
@@ -35,14 +37,17 @@ const FeedbackQuestionnairePopup = () => {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [dismissed, setDismissed] = useState(loadDismissed());
+  const fetchInFlightRef = useRef(false);
 
   const fetchAssigned = async () => {
+    if (fetchInFlightRef.current) return;
     if (!isAuthenticated || !token) {
       setItems([]);
       setLoading(false);
       return;
     }
 
+    fetchInFlightRef.current = true;
     setLoading(true);
     try {
       const response = await axios.get('/feedback/assigned', {
@@ -71,14 +76,17 @@ const FeedbackQuestionnairePopup = () => {
       setItems([]);
     } finally {
       setLoading(false);
+      fetchInFlightRef.current = false;
     }
   };
 
   useEffect(() => {
     void fetchAssigned();
-    const timer = setInterval(() => {
-      void fetchAssigned();
-    }, 45000);
+    const pollWhenVisible = () => {
+      if (document.visibilityState === 'visible') void fetchAssigned();
+    };
+    const timer = setInterval(pollWhenVisible, FEEDBACK_POLL_INTERVAL);
+    document.addEventListener('visibilitychange', pollWhenVisible);
 
     const unsubscribe = onNewNotification((notification = {}) => {
       const type = String(notification?.type || notification?.data?.type || '').trim();
@@ -90,6 +98,7 @@ const FeedbackQuestionnairePopup = () => {
 
     return () => {
       clearInterval(timer);
+      document.removeEventListener('visibilitychange', pollWhenVisible);
       unsubscribe?.();
     };
   }, [isAuthenticated, token]);

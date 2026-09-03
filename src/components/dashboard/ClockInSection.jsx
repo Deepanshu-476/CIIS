@@ -37,7 +37,7 @@ const ClockInSection = ({
     return `${h}:${m}:${s}`;
   };
 
-  const getCoordinates = () => {
+  const getCoordinates = async () => {
     const getSinglePosition = () => new Promise((resolve) => {
       if (!navigator.geolocation) {
         resolve({ error: "Geolocation is not supported by your browser." });
@@ -58,28 +58,25 @@ const ClockInSection = ({
       );
     });
 
-    return new Promise(async (resolve) => {
-      const readings = [];
-      let lastError = null;
+    const readings = [];
+    let lastError = null;
 
-      for (let i = 0; i < LOCATION_SAMPLE_COUNT; i += 1) {
-        const reading = await getSinglePosition();
-        if (reading.error) {
-          lastError = reading.error;
-        } else {
-          readings.push(reading);
-          if (reading.accuracy <= 50) break;
-        }
+    for (let i = 0; i < LOCATION_SAMPLE_COUNT; i += 1) {
+      const reading = await getSinglePosition();
+      if (reading.error) {
+        lastError = reading.error;
+      } else {
+        readings.push(reading);
+        if (reading.accuracy <= 50) break;
       }
+    }
 
-      if (!readings.length) {
-        resolve({ error: lastError || "Unable to fetch location." });
-        return;
-      }
+    if (!readings.length) {
+      return { error: lastError || "Unable to fetch location." };
+    }
 
-      readings.sort((a, b) => (a.accuracy || Infinity) - (b.accuracy || Infinity));
-      resolve(readings[0]);
-    });
+    readings.sort((a, b) => (a.accuracy || Infinity) - (b.accuracy || Infinity));
+    return readings[0];
   };
 
   const startCamera = async () => {

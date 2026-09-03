@@ -678,7 +678,6 @@ export default function EmployeeSalaryAssignment() {
       setComponentRows([]);
       setOverrides({});
       setLockedMap({});
-      setCurrentAssignment(null);
     } catch (err) {
       setMessage({ type: "error", text: err.response?.data?.message || "Unable to unassign salary." });
     } finally {

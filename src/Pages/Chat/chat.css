@@ -773,6 +773,49 @@
     display: none;
 }
 
+.chat-capture-input {
+    display: none;
+}
+
+.camera-picker-wrap {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.camera-picker-panel {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 10px);
+    z-index: 20;
+    min-width: 220px;
+    display: grid;
+    gap: 6px;
+    padding: 8px;
+    border: 1px solid #dbe3ee;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.18);
+}
+
+.camera-picker-panel button {
+    width: 100%;
+    min-height: 36px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 6px;
+    background: #f8fafc;
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 800;
+    text-align: left;
+    cursor: pointer;
+}
+
+.camera-picker-panel button:hover {
+    background: #eef5ff;
+    color: #1845b8;
+}
+
 .recording-btn {
     width: 42px;
     height: 42px;
@@ -935,6 +978,54 @@
     background: #fff7ed;
     font-size: 12px;
     font-weight: 800;
+}
+
+.recording-ready-panel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid #c7d2fe;
+    border-radius: 8px;
+    background: #eef2ff;
+}
+
+.recording-ready-panel span {
+    flex: 1;
+    min-width: 0;
+    color: #1e3a8a;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.recording-delete-btn,
+.recording-send-btn {
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 0;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.recording-delete-btn {
+    color: #dc2626;
+    background: #fee2e2;
+}
+
+.recording-send-btn {
+    color: #ffffff;
+    background: #1845b8;
+}
+
+.recording-delete-btn:disabled,
+.recording-send-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .chat-input {

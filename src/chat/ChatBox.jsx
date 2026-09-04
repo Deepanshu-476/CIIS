@@ -4,7 +4,7 @@ import React, {
     useState
 } from "react";
 import "../Pages/Chat/chat.css";
-import { ArrowLeft, Bell, ChevronRight, Download, ExternalLink, FileText, Images, Info, Link2, Mic, MessageCircle, MoreVertical, Paperclip, Phone, Play, Search, SendHorizontal, Smile, Square, TimerReset, Trash2, Video, Wallpaper, X } from "lucide-react";
+import { ArrowLeft, Bell, Camera, ChevronRight, Download, ExternalLink, FileText, Images, Info, Link2, Mic, MessageCircle, MoreVertical, Paperclip, Phone, Play, Search, SendHorizontal, Smile, Square, TimerReset, Trash2, Video, Wallpaper, X } from "lucide-react";
 
 import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage, updateConversationMute, updateDisappearingMessages, updateMessageReaction } from "../services/chatService";
 
@@ -76,17 +76,24 @@ const ChatBox = ({
     const [recorderMode, setRecorderMode] = useState(null);
     const [recordingSeconds, setRecordingSeconds] = useState(0);
     const [recordingError, setRecordingError] = useState("");
+    const [pendingRecording, setPendingRecording] = useState(null);
+    const [showCaptureMenu, setShowCaptureMenu] = useState(false);
     const typingTimerRef = useRef(null);
     const mediaRecorderRef = useRef(null);
     const recordingChunksRef = useRef([]);
     const recordingStreamRef = useRef(null);
     const recordingTimerRef = useRef(null);
+    const recordingSecondsRef = useRef(0);
     const recordingPreviewRef = useRef(null);
     const emojiPickerRef = useRef(null);
     const headerMenuRef = useRef(null);
     const chatBoxRef = useRef(null);
     const chatInputRef = useRef(null);
     const fileInputRef = useRef(null);
+    const capturePhotoBackRef = useRef(null);
+    const capturePhotoFrontRef = useRef(null);
+    const captureVideoBackRef = useRef(null);
+    const captureVideoFrontRef = useRef(null);
     const activeConversationIdRef = useRef(null);
     const chatMessagesRef = useRef(null);
     const { startCall } = useCall();
@@ -282,6 +289,8 @@ const ChatBox = ({
         setConversation(null);
         setMessages([]);
         setReplyingTo(null);
+        setPendingRecording(null);
+        setShowCaptureMenu(false);
         setShowContactInfo(false);
         startConversation();  
     }, [selectedUserKey]);
@@ -736,8 +745,39 @@ useEffect(() => {
         onConversationChange?.();
     };
 
+    const sendSingleFile = async (file) => {
+        if (!conversation || !file) return;
+
+        const formData = new FormData();
+        formData.append("conversationId", conversation._id);
+        formData.append("file", file);
+
+        const res = await sendMessage(formData);
+        const newMessage = res.data.message;
+
+        emitSentMessage(newMessage);
+        appendSentMessages([newMessage]);
+        onConversationChange?.();
+    };
+
+    const handleCapturedFile = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        setShowCaptureMenu(false);
+        if (!file) return;
+
+        try {
+            setIsSendingAction(true);
+            await sendSingleFile(file);
+        } catch {
+            setRecordingError("Unable to send captured media. Please try again.");
+        } finally {
+            setIsSendingAction(false);
+        }
+    };
+
     const startRecording = async (mode) => {
-        if (!conversation || recorderMode) return;
+        if (!conversation || recorderMode || pendingRecording) return;
 
         if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
             setRecordingError("Recording is not supported in this browser.");
@@ -773,27 +813,36 @@ useEffect(() => {
                 const blob = new Blob(recordingChunksRef.current, {
                     type: recorder.mimeType || mimeType || `${mode}/webm`
                 });
+                const recordedDuration = recordingSecondsRef.current;
 
                 recordingChunksRef.current = [];
                 mediaRecorderRef.current = null;
                 window.clearInterval(recordingTimerRef.current);
                 setRecordingSeconds(0);
+                recordingSecondsRef.current = 0;
                 setRecorderMode(null);
                 stopRecordingTracks();
 
-                try {
-                    await sendRecordedFile(blob, mode, recorder.mimeType || mimeType);
-                } catch (error) {
-                    void 0;
-                    setRecordingError("Unable to send the recording. Please try again.");
+                if (blob.size) {
+                    setPendingRecording({
+                        blob,
+                        mode,
+                        mimeType: recorder.mimeType || mimeType,
+                        duration: recordedDuration,
+                    });
                 }
             };
 
             recorder.start();
             setRecorderMode(mode);
             setRecordingSeconds(0);
+            recordingSecondsRef.current = 0;
             recordingTimerRef.current = window.setInterval(() => {
-                setRecordingSeconds((prev) => prev + 1);
+                setRecordingSeconds((prev) => {
+                    const next = prev + 1;
+                    recordingSecondsRef.current = next;
+                    return next;
+                });
             }, 1000);
         } catch (error) {
             void 0;
@@ -806,6 +855,25 @@ useEffect(() => {
     const stopRecording = () => {
         if (mediaRecorderRef.current?.state === "recording") {
             mediaRecorderRef.current.stop();
+        }
+    };
+
+    const discardPendingRecording = () => {
+        setPendingRecording(null);
+        setRecordingError("");
+    };
+
+    const sendPendingRecording = async () => {
+        if (!pendingRecording || isSendingAction) return;
+
+        try {
+            setIsSendingAction(true);
+            await sendRecordedFile(pendingRecording.blob, pendingRecording.mode, pendingRecording.mimeType);
+            setPendingRecording(null);
+        } catch {
+            setRecordingError("Unable to send the recording. Please try again.");
+        } finally {
+            setIsSendingAction(false);
         }
     };
 
@@ -1794,6 +1862,11 @@ useEffect(() => {
                         <Paperclip size={19} />
                     </label>
 
+                    <input ref={capturePhotoBackRef} className="chat-capture-input" type="file" accept="image/*" capture="environment" onChange={handleCapturedFile} />
+                    <input ref={capturePhotoFrontRef} className="chat-capture-input" type="file" accept="image/*" capture="user" onChange={handleCapturedFile} />
+                    <input ref={captureVideoBackRef} className="chat-capture-input" type="file" accept="video/*" capture="environment" onChange={handleCapturedFile} />
+                    <input ref={captureVideoFrontRef} className="chat-capture-input" type="file" accept="video/*" capture="user" onChange={handleCapturedFile} />
+
                     <div className="chat-input-wrapper">
                         {replyingTo && (
                             <div className="chat-reply-preview">
@@ -1860,6 +1933,22 @@ useEffect(() => {
                                 </div>
                             </div>
                         )}
+                        {pendingRecording && (
+                            <div className="recording-ready-panel">
+                                <span>
+                                    {pendingRecording.mode === "video" ? "Video ready" : "Voice ready"}
+                                    {pendingRecording.duration ? ` ${formatRecordingTime(pendingRecording.duration)}` : ""}
+                                </span>
+                                <button type="button" className="recording-delete-btn" onClick={discardPendingRecording} disabled={isSendingAction}>
+                                    <Trash2 size={14} />
+                                    Delete
+                                </button>
+                                <button type="button" className="recording-send-btn" onClick={sendPendingRecording} disabled={isSendingAction}>
+                                    <SendHorizontal size={14} />
+                                    {isSendingAction ? "Sending..." : "Send"}
+                                </button>
+                            </div>
+                        )}
                         {recordingError && (
                             <div className="recording-error">{recordingError}</div>
                         )}
@@ -1892,6 +1981,26 @@ useEffect(() => {
                                 }
                             }}
                         />
+                    </div>
+
+                    <div className="camera-picker-wrap">
+                        <button
+                            className="recording-btn"
+                            onClick={() => setShowCaptureMenu(value => !value)}
+                            disabled={isSendingAction || Boolean(recorderMode) || Boolean(pendingRecording) || !effectiveChatSettings.videoVoice.cameraEnabled}
+                            title="Open camera"
+                            type="button"
+                        >
+                            <Camera size={18} />
+                        </button>
+                        {showCaptureMenu && (
+                            <div className="camera-picker-panel">
+                                <button type="button" onClick={() => { setShowCaptureMenu(false); capturePhotoBackRef.current?.click(); }}>Photo - Back Camera</button>
+                                <button type="button" onClick={() => { setShowCaptureMenu(false); capturePhotoFrontRef.current?.click(); }}>Photo - Front Camera</button>
+                                <button type="button" onClick={() => { setShowCaptureMenu(false); captureVideoBackRef.current?.click(); }}>Video - Back Camera</button>
+                                <button type="button" onClick={() => { setShowCaptureMenu(false); captureVideoFrontRef.current?.click(); }}>Video - Front Camera</button>
+                            </div>
+                        )}
                     </div>
 
                     <div className="emoji-picker-wrap" ref={emojiPickerRef}>
@@ -1930,8 +2039,8 @@ useEffect(() => {
                     <button
                         className={recorderMode === "audio" ? "recording-btn active" : "recording-btn"}
                         onClick={() => recorderMode === "audio" ? stopRecording() : startRecording("audio")}
-                        disabled={isSendingAction || !effectiveChatSettings.videoVoice.microphoneEnabled || Boolean(recorderMode && recorderMode !== "audio")}
-                        title={recorderMode === "audio" ? "Stop voice recording" : "Start voice recording"}
+                        disabled={isSendingAction || Boolean(pendingRecording) || !effectiveChatSettings.videoVoice.microphoneEnabled || Boolean(recorderMode && recorderMode !== "audio")}
+                        title={recorderMode === "audio" ? "End voice recording" : "Start voice recording"}
                         type="button"
                     >
                         {recorderMode === "audio" ? <Square size={17} /> : <Mic size={18} />}

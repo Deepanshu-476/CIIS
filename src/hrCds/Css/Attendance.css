@@ -1123,9 +1123,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  padding: 20px;
+  z-index: 10000;
+  padding: 16px;
+  box-sizing: border-box;
   animation: fadeIn 0.3s ease-out;
+  overscroll-behavior: contain;
 }
 
 @keyframes fadeIn {
@@ -1137,12 +1139,24 @@
   background: white;
   border-radius: var(--border-radius-lg);
   padding: 0;
-  max-width: 450px;
+  max-width: 370px;
   width: 100%;
-  max-height: 85vh;
+  max-height: calc(100vh - 48px);
   overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   animation: modalSlideUp 0.3s ease-out;
   box-shadow: var(--shadow-xl);
+  /* Hide scrollbar while keeping scroll functionality */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE / Edge */
+}
+
+.Attendance-modal-content::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 @keyframes modalSlideUp {
@@ -1157,49 +1171,73 @@
 }
 
 .Attendance-modal-header {
-  padding: 24px 24px 20px;
+  position: relative;
+  padding: 18px 20px 14px;
   background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue));
   color: white;
   text-align: center;
   border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
 }
 
+.Attendance-modal-close-icon-btn {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+.Attendance-modal-close-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+  transform: scale(1.06);
+}
+
 .Attendance-modal-header h2 {
-  margin: 0 0 8px 0;
-  font-size: 24px;
+  margin: 0 0 4px 0;
+  font-size: 19px;
   font-weight: 700;
 }
 
 .Attendance-modal-header h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 500;
   opacity: 0.9;
 }
 
 .Attendance-modal-holiday-badge {
   display: inline-block;
-  padding: 4px 12px;
+  padding: 3px 10px;
   background: rgba(255, 255, 255, 0.2);
   border-radius: 20px;
-  font-size: 14px;
-  margin-top: 8px;
+  font-size: 12px;
+  margin-top: 6px;
   color: white;
   font-weight: 500;
 }
 
 .Attendance-modal-body {
-  padding: 24px;
+  padding: 16px 18px 18px;
 }
 
 .Attendance-modal-section {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .Attendance-modal-section h4 {
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
   color: var(--gray-600);
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1208,10 +1246,10 @@
 .Attendance-modal-status-chip {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
+  gap: 6px;
+  padding: 5px 12px;
   border-radius: 999px;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1220,26 +1258,26 @@
 .Attendance-modal-divider {
   height: 1px;
   background: var(--gray-200);
-  margin: 20px 0;
+  margin: 12px 0;
 }
 
 .Attendance-modal-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 10px 14px;
+  margin-bottom: 10px;
 }
 
 .Attendance-modal-grid-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .Attendance-modal-grid-item h4 {
   margin: 0;
   color: var(--gray-600);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1248,7 +1286,7 @@
 .Attendance-modal-time {
   margin: 0;
   color: var(--gray-900);
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 600;
 }
 
@@ -1258,23 +1296,23 @@
 .Attendance-modal-overtime {
   margin: 0;
   color: var(--primary-blue);
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 600;
 }
 
 .Attendance-modal-close-button {
   display: block;
   width: 100%;
-  padding: 14px;
+  padding: 10px 14px;
   background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue));
   color: white;
   border: none;
   border-radius: var(--border-radius-md);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: var(--transition);
-  margin-top: 24px;
+  margin-top: 14px;
 }
 
 .Attendance-modal-close-button:hover {
@@ -1470,28 +1508,29 @@
   }
 
   .Attendance-modal-content {
-    max-width: 95%;
+    max-width: 360px;
+    width: 100%;
   }
 
   .Attendance-modal-header {
-    padding: 20px 16px;
+    padding: 14px 16px 12px;
   }
 
   .Attendance-modal-header h2 {
-    font-size: 20px;
+    font-size: 17px;
   }
 
   .Attendance-modal-header h3 {
-    font-size: 14px;
+    font-size: 12px;
   }
 
   .Attendance-modal-body {
-    padding: 16px;
+    padding: 14px 16px;
   }
 
   .Attendance-modal-grid {
     grid-template-columns: repeat(2,1fr);
-    gap: 12px;
+    gap: 10px;
   }
 
   .Attendance-modal-time,
@@ -1499,31 +1538,27 @@
   .Attendance-modal-late,
   .Attendance-modal-early-leave,
   .Attendance-modal-overtime {
-    font-size: 18px;
+    font-size: 14px;
   }
 }
 
 /* Scrollbar Styling */
-.Attendance-table-container::-webkit-scrollbar,
-.Attendance-modal-content::-webkit-scrollbar {
+.Attendance-table-container::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-.Attendance-table-container::-webkit-scrollbar-track,
-.Attendance-modal-content::-webkit-scrollbar-track {
+.Attendance-table-container::-webkit-scrollbar-track {
   background: var(--gray-100);
   border-radius: 4px;
 }
 
-.Attendance-table-container::-webkit-scrollbar-thumb,
-.Attendance-modal-content::-webkit-scrollbar-thumb {
+.Attendance-table-container::-webkit-scrollbar-thumb {
   background: var(--gray-400);
   border-radius: 4px;
 }
 
-.Attendance-table-container::-webkit-scrollbar-thumb:hover,
-.Attendance-modal-content::-webkit-scrollbar-thumb:hover {
+.Attendance-table-container::-webkit-scrollbar-thumb:hover {
   background: var(--gray-500);
 }
 

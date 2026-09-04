@@ -1,1145 +1,1367 @@
-:root {
-  --alerts-bg: #f4f7ff;
-  --alerts-surface: #ffffff;
-  --alerts-border: #e5e9f5;
-  --alerts-text: #0f172a;
-  --alerts-muted: #64748b;
-  --alerts-blue: #2563eb;
-  --alerts-blue-dark: #1d4ed8;
-  --alerts-cyan: #0ea5e9;
-  --alerts-orange: #f59e0b;
-  --alerts-red: #ef4444;
-  --alerts-green: #22c55e;
-  --alerts-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
-  --alerts-shadow-soft: 0 8px 20px rgba(15, 23, 42, 0.06);
-  --alerts-radius-xl: 24px;
-  --alerts-radius-lg: 18px;
-  --alerts-radius-md: 14px;
-}
+/* Alerts.css - Redesigned to match exact UI */
 
-.AlertsPage {
+.AlertsContainer {
   min-height: 100vh;
   width: 100%;
   max-width: 100%;
-  padding: clamp(14px, 2vw, 24px);
+  background-color: #f6f8fc;
+  padding: 18px 24px 32px;
   box-sizing: border-box;
-  overflow-x: hidden;
-  background:
-    radial-gradient(circle at top left, rgba(37, 99, 235, 0.06), transparent 26%),
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.08), transparent 24%),
-    linear-gradient(180deg, #f8fbff 0%, #eef3ff 100%);
-  color: var(--alerts-text);
-  transform-origin: top center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #1e293b;
 }
 
-.AlertsHero,
-.AlertsToolbar,
-.AlertsStats,
-.AlertsSection,
-.AlertsCaughtUp {
-  width: min(1500px, 100%);
-  margin: 0 auto 18px;
-}
-
-.AlertsHero {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 18px;
+/* Page Loader */
+.Alerts-page-loader {
+  display: flex;
   align-items: center;
-  padding: 20px 24px;
-  border-radius: var(--alerts-radius-xl);
-  background:
-    radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.14), transparent 32%),
-    radial-gradient(circle at 75% 15%, rgba(255, 255, 255, 0.08), transparent 30%),
-    linear-gradient(135deg, #2b5cff 0%, #1f4fd9 55%, #2450d8 100%);
-  color: #fff;
-  box-shadow: var(--alerts-shadow);
-  overflow: hidden;
-  position: relative;
+  justify-content: center;
+  min-height: 80vh;
 }
 
-.AlertsHero::after {
+/* Toast Notifications */
+.AlertsToast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 99999;
+  padding: 12px 18px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  animation: alertsFadeIn 0.25s ease-out;
+}
+
+@keyframes alertsFadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.AlertsToast-success {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.AlertsToast-error {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.AlertsToast-info {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.AlertsToastClose {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: currentColor;
+  display: flex;
+  font-size: 16px;
+  padding: 2px;
+}
+
+/* ============================================================
+   1 & 2. Hero Header with Purple Gradient & Embedded Stat Cards
+   (Matching 2nd Screenshot)
+   ============================================================ */
+.AlertsHeroHeader {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 16px;
+  padding: 18px 20px 20px;
+  border: 1px solid #e5e7ef;
+  border-radius: 12px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 4px 16px rgba(31, 38, 66, 0.08);
+}
+
+.AlertsHeroHeader::before {
   content: "";
   position: absolute;
-  inset: auto -80px -120px auto;
-  width: 320px;
-  height: 320px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.12), transparent 68%);
+  top: -20px;
+  right: 42px;
+  width: 118px;
+  height: 105px;
+  border: 5px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: transparent;
+  transform: rotate(3deg);
   pointer-events: none;
 }
 
-.AlertsHero-badgeWrap {
+.AlertsHeroTop {
   position: relative;
-  width: 72px;
-  height: 72px;
-  display: grid;
-  place-items: center;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.AlertsHero-badge {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  font-size: 28px;
+.AlertsHeroLeft {
+  display: flex;
+  align-items: center;
 }
 
-.AlertsHero-count {
-  position: absolute;
-  top: -4px;
-  right: -2px;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 7px;
-  border-radius: 999px;
-  display: inline-flex;
+.AlertsHeroTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.AlertsHeroIconBox {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  display: flex;
   align-items: center;
   justify-content: center;
-  background: #ff2d2d;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 800;
-  box-shadow: 0 10px 20px rgba(255, 45, 45, 0.35);
+  font-size: 22px;
+  color: #ffffff;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-.AlertsHero-copy {
-  position: relative;
-  z-index: 1;
-}
-
-.AlertsHero-copy h1 {
+.AlertsHeroTitle {
   margin: 0;
-  font-size: clamp(26px, 2.4vw, 34px);
-  line-height: 1.05;
-  letter-spacing: -0.03em;
+  color: #ffffff;
+  font-size: 25px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.2px;
 }
 
-.AlertsHero-copy p {
-  margin: 8px 0 0;
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.88);
+.AlertsHeroSubtitle {
+  margin: 3px 0 0;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 11.5px;
+  font-weight: 400;
 }
 
-.AlertsHero-meta {
+.AlertsHeroRight {
+  position: relative;
+  z-index: 2;
   display: flex;
+  align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  margin-top: 18px;
 }
 
-.AlertsHero-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 11px 14px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 14px;
-  font-weight: 600;
-  backdrop-filter: blur(10px);
-}
-
-.AlertsHero-pill-green {
-  cursor: pointer;
-}
-
-.AlertsHero-pill-green .AlertsHero-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #84f17e;
-  box-shadow: 0 0 0 4px rgba(132, 241, 126, 0.14);
-}
-
-.AlertsHero-actions {
+/* Search Box inside Hero */
+.AlertsHeroHeader .AlertsSearchBox {
   position: relative;
-  z-index: 1;
+  display: flex;
+  align-items: center;
 }
 
-.AlertsButton {
-  border: 1px solid transparent;
-  border-radius: 12px;
-  padding: 12px 18px;
-  min-height: 46px;
+.AlertsHeroHeader .AlertsSearchIcon {
+  position: absolute;
+  left: 11px;
+  color: #64748b;
+  font-size: 15px;
+  pointer-events: none;
+}
+
+.AlertsHeroHeader .AlertsSearchBox input {
+  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 9px;
+  padding: 8px 30px 8px 32px;
+  font-size: 13px;
+  color: #1e293b;
+  width: 210px;
+  outline: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+}
+
+.AlertsHeroHeader .AlertsSearchBox input:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.4);
+}
+
+.AlertsHeroHeader .AlertsSearchClear {
+  position: absolute;
+  right: 9px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  padding: 2px;
+}
+
+/* Filter Dropdown inside Hero */
+.AlertsHeroHeader .AlertsFilterSelectWrapper {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
+}
+
+.AlertsHeroHeader .AlertsFilterSelect {
+  appearance: none;
+  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 9px;
+  padding: 8px 32px 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1e293b;
+  cursor: pointer;
+  outline: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: border-color 0.2s;
+}
+
+.AlertsHeroHeader .AlertsFilterSelect:focus {
+  border-color: #667eea;
+}
+
+.AlertsHeroHeader .AlertsSelectChevron {
+  position: absolute;
+  right: 10px;
+  pointer-events: none;
+  color: #64748b;
   font-size: 14px;
+}
+
+/* Create Alert Button */
+.AlertsHeroCreateBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  color: #667eea;
+  border: none;
+  border-radius: 9px;
+  padding: 8px 16px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
-  user-select: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
 }
 
-.AlertsButton:hover {
+.AlertsHeroCreateBtn:hover {
+  background: #f8fafc;
+  color: #5a67d8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Refresh Button inside Hero */
+.AlertsHeroRefreshBtn {
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 15px;
+  transition: all 0.2s ease;
+}
+
+.AlertsHeroRefreshBtn:hover {
+  background: rgba(255, 255, 255, 0.35);
   transform: translateY(-1px);
 }
 
-.AlertsButton:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  transform: none;
+.AlertsHeroRefreshBtn.spinning svg {
+  animation: alertsSpin 0.8s linear infinite;
 }
 
-.AlertsButton-primary {
-  background: #fff;
-  color: var(--alerts-blue);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+@keyframes alertsSpin {
+  100% { transform: rotate(360deg); }
 }
 
-.AlertsButton-outline {
-  background: #fff;
-  color: #32405c;
-  border-color: #d9e0ee;
-  box-shadow: var(--alerts-shadow-soft);
-}
-
-.AlertsButton-outline.Dark {
-  background: #fff;
-  color: #334155;
-}
-
-.AlertsButton-refresh.is-spinning svg {
-  animation: alerts-spin 1s linear infinite;
-}
-
-@keyframes alerts-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.AlertsToolbar {
-  padding: 18px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  border-radius: var(--alerts-radius-xl);
-  box-shadow: var(--alerts-shadow-soft);
-  backdrop-filter: blur(12px);
-}
-
-.AlertsToolbar-topRow,
-.AlertsToolbar-bottomRow {
-  display: grid;
-  gap: 14px;
-}
-
-.AlertsToolbar-topRow {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-}
-
-.AlertsToolbar-bottomRow {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-top: 14px;
-}
-
-.AlertsToolbar-actions {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.AlertsSearch {
-  height: 48px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 16px;
-  border: 1px solid #dde4f4;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
-}
-
-.AlertsSearch svg {
-  color: #6b7280;
-  flex: 0 0 auto;
-}
-
-.AlertsSearch input {
-  width: 100%;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--alerts-text);
-  font-size: 15px;
-}
-
-.AlertsSearch.Small {
-  height: 44px;
-  margin-bottom: 12px;
-}
-
-.AlertsSelectField,
-.AlertsMiniSelect {
+/* Embedded Stat Cards (Matching 2nd Screenshot) */
+.AlertsHeroStatsGrid {
   position: relative;
-  display: flex;
-  align-items: center;
-  height: 48px;
-  border: 1px solid #dde4f4;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
-  overflow: hidden;
-}
-
-.AlertsSelectField span {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  color: #64748b;
-  flex: 0 0 auto;
-}
-
-.AlertsSelectField select,
-.AlertsMiniSelect select {
-  appearance: none;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  width: 100%;
-  height: 100%;
-  font: inherit;
-  color: #344054;
-  padding: 0 38px 0 4px;
-  cursor: pointer;
-}
-
-.AlertsMiniSelect {
-  min-width: 165px;
-  padding-left: 12px;
-}
-
-.AlertsMiniSelect svg,
-.AlertsSelectCaret {
-  position: absolute;
-  right: 12px;
-  color: #64748b;
-  pointer-events: none;
-}
-
-.AlertsSelectCaret {
-  width: 16px;
-  height: 16px;
-}
-
-.AlertsStats {
+  z-index: 1;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
+  gap: 10px;
+  margin-top: 16px;
 }
 
-.AlertsStatCard {
-  display: flex;
-  justify-content: space-between;
+.AlertsHeroStatCard {
+  min-width: 0;
+  min-height: 94px;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-rows: auto auto;
   align-items: center;
-  gap: 16px;
-  min-height: 104px;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  border-radius: var(--alerts-radius-lg);
-  box-shadow: var(--alerts-shadow-soft);
+  column-gap: 10px;
+  padding: 12px;
+  border: 1px solid #e5e7ef;
+  border-radius: 9px;
+  background: #ffffff;
+  box-shadow: 0 5px 14px rgba(31, 38, 66, 0.065);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.AlertsStatCopy {
-  display: flex;
-  align-items: center;
-  gap: 14px;
+.AlertsHeroStatCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(31, 38, 66, 0.1);
 }
 
-.AlertsStatIcon {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
+.AlertsHeroStatCard > .AlertsHeroCardIcon {
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
-  font-size: 20px;
-  color: #fff;
-  flex: 0 0 auto;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
-.AlertsStatIcon-blue {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+.AlertsHeroStatCard > .AlertsHeroCardIcon svg {
+  width: 19px;
+  height: 19px;
 }
 
-.AlertsStatIcon-cyan {
-  background: linear-gradient(135deg, #06b6d4 0%, #0ea5e9 100%);
+.AlertsHeroStatCard .AlertsHeroCardData {
+  min-width: 0;
+  display: grid;
 }
 
-.AlertsStatIcon-orange {
-  background: linear-gradient(135deg, #f59e0b 0%, #fb923c 100%);
+.AlertsHeroStatCard small {
+  overflow: hidden;
+  color: #4d586c;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.AlertsStatIcon-red {
-  background: linear-gradient(135deg, #ef4444 0%, #ff5252 100%);
-}
-
-.AlertsStatCopy span {
-  display: block;
-  color: #475569;
-  font-size: 14px;
+.AlertsHeroStatCard strong {
+  margin-top: 2px;
+  font-size: 23px;
+  line-height: 1;
   font-weight: 700;
 }
 
-.AlertsStatCopy strong {
-  display: block;
-  margin-top: 2px;
-  font-size: 32px;
-  line-height: 1;
-  color: #111827;
-}
-
-.AlertsStatCopy p {
+.AlertsHeroStatCard p {
+  grid-column: 1 / -1;
   margin: 8px 0 0;
-  color: #64748b;
-  font-size: 14px;
+  overflow: hidden;
+  color: #7b8496;
+  font-size: 8.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.AlertsStatSpark {
-  width: 140px;
-  height: 42px;
-  opacity: 0.95;
+/* Tone Variants */
+.AlertsHeroStatCard.card-total {
+  border-color: #cfe5fb;
+  background: linear-gradient(135deg, #f4f9ff, #eaf4ff);
+}
+.AlertsHeroStatCard.card-total > .AlertsHeroCardIcon {
+  color: #2173d3;
+  background: #dceeff;
+}
+.AlertsHeroStatCard.card-total strong {
+  color: #2173d3;
 }
 
-.AlertsStatSpark path {
-  fill: none;
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.AlertsHeroStatCard.card-read {
+  border-color: #c9ead8;
+  background: linear-gradient(135deg, #f4fcf7, #e7f8ee);
+}
+.AlertsHeroStatCard.card-read > .AlertsHeroCardIcon {
+  color: #18a159;
+  background: #d9f3e4;
+}
+.AlertsHeroStatCard.card-read strong {
+  color: #18a159;
+}
+.AlertsHeroStatCard.card-read p.text-green {
+  color: #18a159;
 }
 
-.AlertsStatCard-blue .AlertsStatSpark path {
-  stroke: #3b82f6;
+.AlertsHeroStatCard.card-unread {
+  border-color: #f3cdd1;
+  background: linear-gradient(135deg, #fff7f8, #ffeaed);
+}
+.AlertsHeroStatCard.card-unread > .AlertsHeroCardIcon {
+  color: #dc3c47;
+  background: #ffdfe3;
+}
+.AlertsHeroStatCard.card-unread strong {
+  color: #dc3c47;
+}
+.AlertsHeroStatCard.card-unread p.text-red {
+  color: #dc3c47;
 }
 
-.AlertsStatCard-cyan .AlertsStatSpark path {
-  stroke: #0ea5e9;
+.AlertsHeroStatCard.card-week {
+  border-color: #ddd3fa;
+  background: linear-gradient(135deg, #faf8ff, #f0ebff);
+}
+.AlertsHeroStatCard.card-week > .AlertsHeroCardIcon {
+  color: #7351cf;
+  background: #e7dfff;
+}
+.AlertsHeroStatCard.card-week strong {
+  color: #7351cf;
+}
+.AlertsHeroStatCard.card-week p.text-purple {
+  color: #7351cf;
 }
 
-.AlertsStatCard-orange .AlertsStatSpark path {
-  stroke: #f59e0b;
+/* ============================================================
+   3. Main Master-Detail Split Layout
+   ============================================================ */
+.AlertsMainLayout {
+  display: grid;
+  grid-template-columns: 1.55fr 1fr;
+  gap: 22px;
+  align-items: start;
 }
 
-.AlertsStatCard-red .AlertsStatSpark path {
-  stroke: #ef4444;
-}
-
-.AlertsSection {
-  padding-top: 4px;
-}
-
-.AlertsSectionHeader {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.AlertsSectionHeader h2 {
-  margin: 0;
-  font-size: 24px;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-}
-
-.AlertsSectionHeader p {
-  margin: 8px 0 0;
-  color: var(--alerts-muted);
-  font-size: 14px;
-}
-
-.AlertsSectionActions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.AlertsList {
+/* ---------------- Left: Alerts List Card ---------------- */
+.AlertsListCard {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #f1f5f9;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 18px;
 }
 
-.AlertsCard {
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  gap: 0;
-  position: relative;
-  padding-left: 0;
-  background: transparent;
-}
-
-.AlertsCard-timeline {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  padding-top: 18px;
-}
-
-.AlertsCard-dot {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #fff;
-  border: 4px solid var(--accent, #2563eb);
-  box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.08);
-  z-index: 1;
-}
-
-.AlertsCard-line {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: linear-gradient(180deg, rgba(148, 163, 184, 0.45), rgba(148, 163, 184, 0.16));
-}
-
-.AlertsCard-body {
-  position: relative;
-  background: #fff;
-  border: 1px solid rgba(226, 232, 240, 0.95);
-  border-radius: var(--alerts-radius-lg);
-  box-shadow: var(--alerts-shadow-soft);
-  padding: 18px 20px 16px;
-}
-
-.AlertsCard:hover .AlertsCard-body {
-  box-shadow: var(--alerts-shadow);
-}
-
-.AlertsCard.is-unread .AlertsCard-body {
-  border-color: rgba(37, 99, 235, 0.18);
-}
-
-.AlertsCard-top {
+.AlertsListTopBar {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: center;
+  padding: 0 20px;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.AlertsCard-meta {
+.AlertsTabs {
+  display: flex;
+  gap: 22px;
+}
+
+.AlertsTab {
+  background: transparent;
+  border: none;
+  border-bottom: 2.5px solid transparent;
+  padding: 16px 4px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.AlertsBadge {
-  display: inline-flex;
-  align-items: center;
   gap: 6px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+  transition: all 0.2s;
 }
 
-.AlertsBadge-type {
-  min-height: 30px;
-  padding: 0 12px;
+.AlertsTab:hover {
+  color: #1e293b;
 }
 
-.AlertsBadge-new {
-  min-height: 26px;
-  padding: 0 10px;
-  background: #eef2ff;
-  color: #1d4ed8;
-}
-
-.AlertsCard-date {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: #64748b;
-  font-size: 13px;
+.AlertsTab.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
   font-weight: 600;
 }
 
-.AlertsCard-eye {
-  width: 36px;
-  height: 36px;
-  border: 0;
-  border-radius: 12px;
-  background: transparent;
-  color: #475569;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
+.AlertsTabDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  display: inline-block;
 }
 
-.AlertsCard-eye:hover {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-
-.AlertsCard-title {
-  margin: 12px 0 6px;
-  font-size: 20px;
-  font-weight: 800;
-  line-height: 1.25;
-  letter-spacing: -0.02em;
-}
-
-.AlertsCard-description p {
-  margin: 0;
-  color: #475569;
-  line-height: 1.6;
-  font-size: 15px;
-}
-
-.AlertsCard-footer {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.9fr);
-  gap: 18px;
-  margin-top: 16px;
-  align-items: center;
-}
-
-.AlertsCard-createdBy {
+.AlertsSortWrap {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.AlertsCard-createdLabel,
-.AlertsCard-assignedLabel {
-  color: #64748b;
+  gap: 8px;
   font-size: 13px;
-  font-weight: 700;
+  color: #64748b;
 }
 
-.AlertsAvatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  display: inline-grid;
-  place-items: center;
-  color: #fff;
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+.AlertsSortSelectWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.AlertsSortSelect {
+  appearance: none;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 5px 28px 5px 10px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #1e293b;
+  cursor: pointer;
+  outline: none;
+}
+
+.AlertsSortSelect:focus {
+  border-color: #2563eb;
+}
+
+.AlertsSortChevron {
+  position: absolute;
+  right: 8px;
+  pointer-events: none;
+  color: #64748b;
   font-size: 12px;
-  font-weight: 800;
-  box-shadow: 0 10px 18px rgba(37, 99, 235, 0.18);
 }
 
-.AlertsCard-createdBy strong {
-  color: #1d4ed8;
+/* Alerts List Rows */
+.AlertsListRows {
+  display: flex;
+  flex-direction: column;
+  min-height: 480px;
+}
+
+.AlertsEmptyList {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.AlertsEmptyIcon {
+  font-size: 36px;
+  margin-bottom: 12px;
+  color: #cbd5e1;
+}
+
+.AlertsEmptyList h3 {
+  margin: 0 0 6px 0;
+  font-size: 15px;
+  color: #475569;
+}
+
+.AlertsEmptyList p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.AlertsListItem {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 18px 12px 12px;
+  border-bottom: 1px solid #f8fafc;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border-left: 3.5px solid transparent;
+}
+
+.AlertsListItem:hover {
+  background: #fbfdff;
+}
+
+.AlertsListItem.selected {
+  background: #f0f7ff;
+  border-left-color: #2563eb;
+}
+
+.AlertsListItemLeftCol {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.AlertsActiveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2563eb;
+  flex-shrink: 0;
+}
+
+.AlertsUnreadDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  flex-shrink: 0;
+}
+
+.AlertsSpacerDot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.AlertsItemSquircle {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.Alerts-cat-icon-svg {
+  font-size: 19px;
+}
+
+.AlertsItemCenter {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.AlertsItemTitle {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.AlertsItemSnippet {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 400;
+}
+
+.AlertsItemAuthorTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.AlertsItemAuthorTag strong {
+  color: #334155;
+  font-weight: 600;
+}
+
+.AlertsAuthorIcon {
+  font-size: 12px;
+  color: #667eea;
+  flex-shrink: 0;
+}
+
+.AlertsItemRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.AlertsItemTime {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.AlertsItemStatusRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.AlertsStatusBadge {
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.AlertsStatusBadge.status-unread {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.AlertsStatusBadge.status-read {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.AlertsItemChevron {
+  color: #94a3b8;
   font-size: 14px;
 }
 
-.AlertsCard-assigned {
-  border-left: 1px solid rgba(226, 232, 240, 1);
-  padding-left: 18px;
-}
-
-.AlertsCard-tags {
-  margin-top: 8px;
+/* Pagination Footer */
+.AlertsPaginationBar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-top: 1px solid #f1f5f9;
+  background: #ffffff;
 }
 
-.AlertsTag {
-  display: inline-flex;
+.AlertsPaginationText {
+  font-size: 12.5px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.AlertsPaginationControls {
+  display: flex;
   align-items: center;
   gap: 6px;
-  min-height: 28px;
-  padding: 0 11px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
 }
 
-.AlertsTag-green {
-  color: #15803d;
-  background: #eaffef;
-}
-
-.AlertsTag-blue {
-  color: #1d4ed8;
-  background: #e8efff;
-}
-
-.AlertsCard-actions {
-  margin-top: 16px;
+.AlertsPageNavBtn,
+.AlertsPageNumBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  font-size: 12.5px;
+  font-weight: 600;
   display: flex;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.AlertsActionButton {
-  min-height: 42px;
-  padding: 0 16px;
-  border-radius: 12px;
-  border: 1px solid #dbe3f1;
-  background: #fff;
-  color: #334155;
-  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 700;
+  justify-content: center;
   cursor: pointer;
+  transition: all 0.15s;
 }
 
-.AlertsActionButton:hover {
+.AlertsPageNavBtn:hover:not(:disabled),
+.AlertsPageNumBtn:hover:not(.active) {
   border-color: #cbd5e1;
   background: #f8fafc;
 }
 
-.AlertsActionButton-danger {
-  color: #ef4444;
-  border-color: #f3c7c7;
+.AlertsPageNavBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
-.AlertsActionButton-danger:hover {
-  background: #fff5f5;
-  border-color: #f0a8a8;
+.AlertsPageNumBtn.active {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
 }
 
-.AlertsEmpty,
-.AlertsCaughtUp {
-  position: relative;
-  overflow: hidden;
+/* ---------------- Right: Alert Details Panel ---------------- */
+.AlertsDetailCard {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #f1f5f9;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  min-height: 520px;
+}
+
+.AlertsDetailEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: auto;
+  padding: 40px 20px;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.AlertsDetailEmptyIcon {
+  font-size: 40px;
+  color: #cbd5e1;
+  margin-bottom: 12px;
+}
+
+.AlertsDetailEmpty h3 {
+  margin: 0 0 6px 0;
+  color: #334155;
+  font-size: 16px;
+}
+
+.AlertsDetailEmpty p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.AlertsDetailContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.AlertsDetailHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #f8fafc;
+  gap: 12px;
+}
+
+.AlertsDetailHeaderLeft {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 26px 28px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(226, 232, 240, 0.95);
-  border-radius: var(--alerts-radius-xl);
-  box-shadow: var(--alerts-shadow-soft);
+  gap: 14px;
 }
 
-.AlertsEmpty {
-  min-height: 170px;
-  justify-content: center;
-  text-align: center;
-  flex-direction: column;
-}
-
-.AlertsEmpty-illustration,
-.AlertsCaughtUp-blob {
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: radial-gradient(circle, rgba(37, 99, 235, 0.18), rgba(37, 99, 235, 0.04));
-  color: var(--alerts-blue);
-  font-size: 36px;
-}
-
-.AlertsEmpty-copy h3,
-.AlertsCaughtUp-copy h3 {
-  margin: 0;
-  font-size: 22px;
-  line-height: 1.2;
-}
-
-.AlertsEmpty-copy p,
-.AlertsCaughtUp-copy p {
-  margin: 10px 0 0;
-  color: var(--alerts-muted);
-}
-
-.AlertsCaughtUp {
-  margin-top: 8px;
-  background: linear-gradient(180deg, #f9fbff 0%, #ffffff 100%);
-}
-
-.AlertsCaughtUp-blob {
-  width: 84px;
-  height: 84px;
-  position: relative;
-}
-
-.AlertsModal {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  display: grid;
-  place-items: center;
-  padding: 18px;
-}
-
-.AlertsModal-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.54);
-  backdrop-filter: blur(8px);
-}
-
-.AlertsModal-card {
-  position: relative;
-  width: min(920px, 100%);
-  max-height: min(90vh, 1000px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border-radius: 24px;
-  background: #fff;
-  box-shadow: 0 30px 70px rgba(15, 23, 42, 0.24);
-}
-
-.AlertsModal-card-small {
-  width: min(640px, 100%);
-}
-
-.AlertsModal-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 20px 22px;
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  color: #fff;
-}
-
-.AlertsModal-header h3 {
-  margin: 0;
-  font-size: 24px;
-}
-
-.AlertsModal-header p {
-  margin: 6px 0 0;
-  color: rgba(255, 255, 255, 0.88);
-}
-
-.AlertsModal-close {
-  width: 40px;
-  height: 40px;
-  border: 0;
+.AlertsDetailIconSquircle {
+  width: 44px;
+  height: 44px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.AlertsDetailTitles {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.AlertsDetailTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.AlertsDetailTimestamp {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+.AlertsDetailMetaRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 3px;
+}
+
+.AlertsDetailMetaDot {
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.AlertsDetailAuthorBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.AlertsDetailAuthorBadge strong {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+/* Sender Banner at top of Alert Detail */
+.AlertsSenderBanner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #f8faff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin: 16px 0 4px;
+}
+
+.AlertsSenderAvatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.25);
+}
+
+.AlertsSenderDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.AlertsSenderRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.AlertsSenderName {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.AlertsSenderRole {
+  display: inline-block;
+  padding: 1px 7px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #4f46e5;
+  background: #eef2ff;
+  border: 1px solid #e0e7ff;
+  border-radius: 4px;
+  text-transform: capitalize;
+}
+
+.AlertsSenderMeta {
+  font-size: 11.5px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+.AlertsDetailHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.AlertsAdminDetailActions {
+  display: flex;
+  gap: 4px;
+}
+
+.AlertsDetailIconBtn {
+  background: transparent;
+  border: none;
+  padding: 5px;
+  color: #64748b;
+  font-size: 15px;
   cursor: pointer;
+  border-radius: 6px;
+  display: flex;
+  transition: all 0.15s;
 }
 
-.AlertsModal-body {
-  padding: 20px 22px 22px;
-  overflow: auto;
+.AlertsDetailIconBtn:hover {
+  background: #f1f5f9;
+  color: #1e293b;
 }
 
-.AlertsModal-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+.AlertsDetailIconBtn.delete:hover {
+  background: #fee2e2;
+  color: #ef4444;
 }
 
-.AlertsField {
+/* Detail Body */
+.AlertsDetailBody {
+  padding: 20px 0;
+  color: #334155;
+  font-size: 13.5px;
+  line-height: 1.7;
+  flex: 1;
+}
+
+.AlertsDetailParagraph {
+  margin: 0 0 14px 0;
+}
+
+.AlertsDetailParagraph:last-child {
+  margin-bottom: 0;
+}
+
+/* Attached Files Section */
+.AlertsAttachmentsSection {
+  margin-top: 10px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.AlertsAttachmentsTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 10px;
+}
+
+.AlertsAttachmentCards {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.AlertsField-full {
-  grid-column: 1 / -1;
+.AlertsAttachmentCard {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.AlertsField span {
-  font-size: 13px;
-  font-weight: 800;
-  color: #334155;
-}
-
-.AlertsField select,
-.AlertsField textarea {
-  width: 100%;
-  border: 1px solid #d9e2f0;
-  border-radius: 14px;
-  padding: 13px 14px;
-  font: inherit;
-  outline: 0;
-  background: #fff;
-}
-
-.AlertsField textarea {
-  resize: vertical;
-  min-height: 120px;
-}
-
-.AlertsAssignBlock {
-  grid-column: 1 / -1;
-  padding: 16px;
-  border: 1px solid #e5eaf5;
-  border-radius: 18px;
-  background: #f8fbff;
-}
-
-.AlertsAssignHeader {
+.AlertsAttachmentLeft {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 10px;
 }
 
-.AlertsAssignHeader h4 {
-  margin: 0;
+.AlertsPdfIcon {
+  color: #ef4444;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.AlertsAttachmentMeta {
+  display: flex;
+  flex-direction: column;
+}
+
+.AlertsAttachmentName {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.AlertsAttachmentSize {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.AlertsAttachmentDownloadBtn {
+  color: #2563eb;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.AlertsAttachmentDownloadBtn:hover {
+  background: #eff6ff;
+}
+
+/* Bottom Action Button */
+.AlertsDetailActionBottom {
+  margin-top: 22px;
+}
+
+.AlertsMainActionBtn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.AlertsMainActionBtn.is-unread {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+
+.AlertsMainActionBtn.is-unread:hover {
+  background: #1d4ed8;
+}
+
+.AlertsMainActionBtn.is-read {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.AlertsMainActionBtn.is-read:hover {
+  background: #dbeafe;
+}
+
+.AlertsActionCheckmark {
   font-size: 16px;
 }
 
-.AlertsAssignHeader span {
-  min-width: 32px;
-  height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  display: inline-flex;
+/* ============================================================
+   4. Admin Create / Edit Modal
+   ============================================================ */
+.AlertsModalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
   align-items: center;
   justify-content: center;
-  background: #e8efff;
-  color: #1d4ed8;
-  font-size: 12px;
-  font-weight: 800;
+  z-index: 10000;
+  padding: 16px;
+  box-sizing: border-box;
+  animation: alertsFadeIn 0.2s ease-out;
 }
 
-.AlertsPickList {
-  max-height: 240px;
-  overflow: auto;
-  display: grid;
-  gap: 10px;
-}
-
-.AlertsPickItem {
+.AlertsModalBox {
+  background: #ffffff;
+  border-radius: 16px;
   width: 100%;
-  border: 1px solid #dde4f4;
-  border-radius: 14px;
-  background: #fff;
-  padding: 12px 14px;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  padding: 24px;
+}
+
+.AlertsModalHeader {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  text-align: left;
-  cursor: pointer;
+  margin-bottom: 20px;
 }
 
-.AlertsPickItem.is-selected {
-  border-color: rgba(37, 99, 235, 0.35);
-  background: #eff5ff;
-}
-
-.AlertsCheckbox {
-  width: 30px;
-  height: 30px;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
-  background: #eef2ff;
-  color: #1d4ed8;
-  flex: 0 0 auto;
-}
-
-.AlertsPickName {
-  font-weight: 700;
-  color: #1f2937;
-}
-
-.AlertsModal-footer {
-  padding: 18px 22px 22px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  border-top: 1px solid #e5eaf5;
-  background: #fbfdff;
-}
-
-.AlertsDetailRow {
-  padding: 14px 0;
-  border-bottom: 1px solid #eef2f7;
-}
-
-.AlertsDetailRow:last-child {
-  border-bottom: 0;
-}
-
-.AlertsDetailRow span {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 13px;
-  font-weight: 800;
-  color: #64748b;
-}
-
-.AlertsDetailRow p {
+.AlertsModalHeader h2 {
   margin: 0;
-  line-height: 1.6;
-  color: #1f2937;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.AlertsModalClose {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.AlertsModalClose:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.AlertsModalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .AlertsFormError {
-  margin-bottom: 14px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: #fff1f2;
-  color: #be123c;
-  border: 1px solid #fecdd3;
-  font-weight: 700;
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
 }
 
-.AlertsToast {
-  position: fixed;
-  right: 18px;
-  bottom: 18px;
-  z-index: 2500;
-  min-width: 300px;
-  max-width: 420px;
-  padding: 14px 16px;
-  border-radius: 16px;
+.AlertsFormGroup {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-  color: #fff;
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.22);
+  flex-direction: column;
+  gap: 6px;
 }
 
-.AlertsToast strong {
-  display: block;
-  margin-bottom: 4px;
+.AlertsFormGroup label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #475569;
 }
 
-.AlertsToast p {
-  margin: 0;
-  opacity: 0.95;
+.AlertsFormGroup input,
+.AlertsFormGroup select,
+.AlertsFormGroup textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  color: #0f172a;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.2s;
 }
 
-.AlertsToast button {
-  border: 0;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
+.AlertsFormGroup input:focus,
+.AlertsFormGroup select:focus,
+.AlertsFormGroup textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.AlertsFormRow {
   display: grid;
-  place-items: center;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
-.AlertsToast-success {
-  background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+.AlertsModalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
 }
 
-.AlertsToast-error {
-  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+.AlertsModalCancelBtn {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-.AlertsToast-warning {
-  background: linear-gradient(135deg, #f59e0b 0%, #fb923c 100%);
+.AlertsModalCancelBtn:hover {
+  background: #e2e8f0;
 }
 
-@media (max-width: 1280px) {
-  .AlertsStats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+.AlertsModalSubmitBtn {
+  background: #2563eb;
+  border: none;
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 9px 20px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.AlertsModalSubmitBtn:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.AlertsModalSubmitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   5. Responsive Design
+   ============================================================ */
+@media (max-width: 1200px) {
+  .AlertsMainLayout {
+    grid-template-columns: 1.3fr 1fr;
+  }
+}
+
+@media (max-width: 992px) {
+  .AlertsHeroStatsGrid,
+  .AlertsStatsGrid {
+    grid-template-columns: repeat(2, 1fr);
   }
 
-  .AlertsCard-footer {
+  .AlertsMainLayout {
     grid-template-columns: 1fr;
   }
 
-  .AlertsCard-assigned {
-    border-left: 0;
-    padding-left: 0;
+  .AlertsDetailCard {
+    min-height: auto;
   }
 }
 
-@media (max-width: 960px) {
-  .AlertsHero {
+@media (max-width: 768px) {
+  .AlertsContainer {
+    padding: 14px;
+  }
+
+  .AlertsHeroTop,
+  .AlertsHeader {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .AlertsHeroRight,
+  .AlertsHeaderRight {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .AlertsHeroHeader .AlertsSearchBox,
+  .AlertsHeroHeader .AlertsSearchBox input,
+  .AlertsSearchBox,
+  .AlertsSearchBox input {
+    width: 100%;
+  }
+
+  .AlertsHeroStatsGrid,
+  .AlertsStatsGrid {
     grid-template-columns: 1fr;
-    justify-items: start;
   }
 
-  .AlertsToolbar-topRow {
-    grid-template-columns: 1fr;
-  }
-
-  .AlertsToolbar-actions {
-    justify-content: flex-start;
-  }
-
-  .AlertsToolbar-bottomRow {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .AlertsSectionHeader {
+  .AlertsListTopBar {
     flex-direction: column;
     align-items: flex-start;
-  }
-}
-
-@media (max-width: 700px) {
-  .AlertsPage {
-    padding: 12px;
+    gap: 12px;
+    padding: 12px 16px;
   }
 
-  .AlertsStats,
-  .AlertsToolbar-bottomRow {
-    grid-template-columns: 1fr;
+  .AlertsTabs {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 4px;
   }
 
-  .AlertsHero,
-  .AlertsToolbar,
-  .AlertsEmpty,
-  .AlertsCaughtUp {
-    border-radius: 20px;
-  }
-
-  .AlertsHero {
-    padding: 18px;
-  }
-
-  .AlertsHero-badgeWrap {
-    width: 72px;
-    height: 72px;
-  }
-
-  .AlertsHero-badge {
-    width: 72px;
-    height: 72px;
-    font-size: 28px;
-  }
-
-  .AlertsCard {
-    grid-template-columns: 28px minmax(0, 1fr);
-  }
-
-  .AlertsCard-body {
-    padding: 16px;
-  }
-
-  .AlertsCard-top {
+  .AlertsPaginationBar {
     flex-direction: column;
-  }
-
-  .AlertsCard-title {
-    font-size: 18px;
-  }
-
-  .AlertsModal-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .AlertsToast {
-    left: 12px;
-    right: 12px;
-    min-width: 0;
-    max-width: none;
+    gap: 12px;
+    align-items: center;
   }
 }

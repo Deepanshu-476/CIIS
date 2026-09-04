@@ -680,6 +680,36 @@ const Attendance = () => {
     setSelectedRecord(null);
   };
 
+  useEffect(() => {
+    if (!openModal) return undefined;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+    const mainElement = document.querySelector('main');
+    const previousMainOverflow = mainElement ? mainElement.style.overflow : '';
+
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+    if (mainElement) {
+      mainElement.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
+      if (mainElement) {
+        mainElement.style.overflow = previousMainOverflow;
+      }
+    };
+  }, [openModal]);
+
   const exportToCSV = () => {
     if (filteredData.length === 0) {
       toast.warning("No data to export");
@@ -1388,7 +1418,20 @@ const Attendance = () => {
 
       
       {openModal && selectedRecord && (
-        <div className="Attendance-modal-overlay" onClick={closeModal}>
+        <div 
+          className="Attendance-modal-overlay" 
+          onClick={closeModal}
+          onWheel={(e) => {
+            if (e.target === e.currentTarget) {
+              e.preventDefault();
+            }
+          }}
+          onTouchMove={(e) => {
+            if (e.target === e.currentTarget) {
+              e.preventDefault();
+            }
+          }}
+        >
           <div
             className="Attendance-modal-content"
             onClick={(e) => e.stopPropagation()}
@@ -1398,6 +1441,14 @@ const Attendance = () => {
                 selectedRecord
               )} 0%, #667eea 100%)`,
             }}>
+              <button 
+                type="button" 
+                className="Attendance-modal-close-icon-btn" 
+                onClick={closeModal}
+                aria-label="Close"
+              >
+                <FiX />
+              </button>
               <h2>Attendance Details</h2>
               <h3>{formatDate(selectedRecord.date)}</h3>
               {selectedRecord.holidayTitle && (
@@ -1429,7 +1480,7 @@ const Attendance = () => {
                         {selectedRecord.outTime ? formatTime(selectedRecord.outTime) : "--"}
                       </p>
                       {selectedRecord.outTime && (
-                        <p style={{ marginTop: '4px', fontSize: '0.82rem', color: selectedRecord.clockOutMode === 'AUTO' ? '#b45309' : '#2563eb' }}>
+                        <p style={{ marginTop: '2px', fontSize: '0.75rem', color: selectedRecord.clockOutMode === 'AUTO' ? '#b45309' : '#2563eb' }}>
                           {getClockOutModeLabel(selectedRecord)}
                         </p>
                       )}

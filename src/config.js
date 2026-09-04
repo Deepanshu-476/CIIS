@@ -1,11 +1,21 @@
-const API_ORIGIN = import.meta.env.VITE_API_ORIGIN || 'https://backendcds.ciisnetwork.in';
+// export const API_URL = 'https://backendcds.ciisnetwork.in/api'
+// export const API_URL_IMG = 'https://backendcds.ciisnetwork.in/'
+// export const SOCKET_URL = 'https://backendcds.ciisnetwork.in/'
 
-export const API_URL = import.meta.env.VITE_API_URL || `${API_ORIGIN}/api`;
-export const API_URL_IMG = import.meta.env.VITE_API_URL_IMG || `${API_ORIGIN}/`;
-export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || API_ORIGIN;
+// export const API_URL = 'https://backendappapp.ciisnetwork.in/api'
+// export const API_URL_IMG = 'https://backendappapp.ciisnetwork.in/'
+// export const SOCKET_URL = 'https://backendappapp.ciisnetwork.in'
+
+// // export const API_URL = 'https://backendapp.ciisnetwork.in/api'
+// // export const API_URL_IMG = 'https://backendapp.ciisnetwork.in/'
+// // export const SOCKET_URL = 'https://backendapp.ciisnetwork.in/'
+
+export const API_URL = 'http://127.0.0.1:3000/api'
+export const API_URL_IMG = 'http://127.0.0.1:3000/'
+export const SOCKET_URL = 'http://127.0.0.1:3000'
 
 export const TURN_URL = import.meta.env.VITE_TURN_URL || ''
 export const TURN_USERNAME = import.meta.env.VITE_TURN_USERNAME || ''
 export const TURN_CREDENTIAL = import.meta.env.VITE_TURN_CREDENTIAL || ''
 
-export default API_URL;
+export default API_URL; 

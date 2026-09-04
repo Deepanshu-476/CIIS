@@ -42,11 +42,12 @@ import {
 import Swal from "sweetalert2";
 import axiosInstance from '../utils/axiosConfig';
 import { hasPageAccess } from '../utils/pageAccess';
-import { preloadRouteByPath, preloadRouteChunks } from '../utils/routePreloader';
+import { preloadRouteByPath } from '../utils/routePreloader';
 import {
   CLIENT_PORTAL_SELECTED_CLIENT_KEY,
   CLIENT_PORTAL_SELECTION_EVENT,
   getClientDisplayName,
+  getClientServices,
   getClientPortalCompanyContext,
   getCompanyScopedClientParams,
   isClientForLoggedInUser
@@ -1878,15 +1879,6 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   const profileCompletion = useMemo(() => {
     return getProfileCompletion(userData);
   }, [userData]);
-
-  useEffect(() => {
-    if (loading || !menuItems.length) return;
-    const prefetchTargets = menuItems
-      .map(item => item?.path)
-      .filter(Boolean)
-      .slice(0, 4);
-    preloadRouteChunks(prefetchTargets);
-  }, [loading, menuItems]);
 
   const renderMenuItem = (item, showFull) => {
     const selected = location.pathname === item.path;

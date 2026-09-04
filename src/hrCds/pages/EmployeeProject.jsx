@@ -4,6 +4,8 @@ import { createPortal } from "react-dom";
 import axios from "../../utils/axiosConfig";
 import "../Css/EmployeeProject.css";
 
+const SHOW_TASK_DOCUMENTS = false;
+
 const parseStoredJson = (key) => {
   try {
     const value = localStorage.getItem(key);
@@ -1923,7 +1925,7 @@ const EmployeeProject = () => {
                 )}
 
                 
-                {false && (
+                {SHOW_TASK_DOCUMENTS && (
                 <>
                 <h3 className="EmployeeProject-task-documents-title">
                   Task Documents ({tasks.filter(t => t.pdfFile?.path).length})

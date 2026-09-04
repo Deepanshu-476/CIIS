@@ -432,7 +432,9 @@ useEffect(() => {
                     ...prev,
                     {
                         ...message,
-                        seen: false
+                        seen: false,
+                        delivered: Boolean(message.delivered),
+                        deliveredTo: Array.isArray(message.deliveredTo) ? message.deliveredTo : []
                     }
                 ];
             });
@@ -490,6 +492,23 @@ useEffect(() => {
         );
     };
 
+    const handleMessageDelivered = (data) => {
+        setMessages((prev) =>
+            prev.map((msg) =>
+                msg._id === data.messageId
+                    ? {
+                        ...msg,
+                        delivered: true,
+                        deliveredTo: Array.from(new Set([
+                            ...(Array.isArray(msg.deliveredTo) ? msg.deliveredTo : []),
+                            ...(Array.isArray(data?.deliveredTo) ? data.deliveredTo : [])
+                        ].map(item => (item?._id || item?.id || item || "").toString()).filter(Boolean)))
+                    }
+                    : msg
+            )
+        );
+    };
+
     const handleMuteUpdated = (data) => {
         if (String(data?.conversationId || "") !== String(currentConversationId || "")) return;
         setIsMuted(Boolean(data?.notificationPreference?.muted));
@@ -517,6 +536,7 @@ useEffect(() => {
     socket.on("chat:message-deleted-for-me", handleDeletedForMe);
     socket.on("chat:message-deleted-for-everyone", handleDeletedForEveryone);
     socket.on("chat:message-forwarded", handleForwarded);
+    socket.on("chat:message-delivered", handleMessageDelivered);
     socket.on("chat:message-seen", handleMessageSeen);
     socket.on("chat:mute-updated", handleMuteUpdated);
     socket.on("chat:disappearing-updated", handleDisappearingUpdated);
@@ -525,6 +545,7 @@ useEffect(() => {
     return () => {
 
     socket.off("chat:receive-message", handleReceiveMessage);
+    socket.off("chat:message-delivered", handleMessageDelivered);
     socket.off("chat:message-seen", handleMessageSeen);
     socket.off("chat:typing", handleTyping);
     socket.off("chat:stop-typing", handleStopTyping);
@@ -631,7 +652,12 @@ useEffect(() => {
 
             messagesToAppend.forEach((message) => {
                 if (!combined.some((msg) => msg._id === message._id)) {
-                    combined.push({ ...message, seen: false });
+                    combined.push({
+                        ...message,
+                        seen: Boolean(message.seen),
+                        delivered: Boolean(message.delivered),
+                        deliveredTo: Array.isArray(message.deliveredTo) ? message.deliveredTo : []
+                    });
                 }
             });
 

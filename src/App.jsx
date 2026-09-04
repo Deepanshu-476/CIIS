@@ -27,6 +27,7 @@ const EmppAttendence = lazy(() => import("./hrCds/pages/hr/EmppAttendence"));
 const TaskDeatils = lazy(() => import("./hrCds/pages/hr/TaskDetails"));
 const EmpAllTask = lazy(() => import("./hrCds/pages/hr/EmpAllTask"));
 const CompanyAllTaskTasks = lazy(() => import("./hrCds/pages/hr/CompanyAllTaskTasks"));
+const EmpDepartmentAllTask = lazy(() => import("./hrCds/pages/hr/EmpDepartmentAllTask.jsx"));
 const RegisterRequest = lazy(() => import("./hrCds/pages/hr/RegisterRequest.jsx"));
 const AdminProject = lazy(() => import("./hrCds/pages/AdminProject"));
 const Client = lazy(() => import("./hrCds/pages/hr/Client"));
@@ -76,6 +77,8 @@ const CompanyAssetManagement = lazy(() => import("./page/CompanyAssetManagement.
 const Holiday = lazy(() => import("./page/Holidays.jsx"));
 const BranchManagement = lazy(() => import("./admin/page/BranchManagement.jsx"));
 const ChatPage = lazy(() => import("./Pages/Chat/ChatPage"));
+const ClientServicesTasks = lazy(() => import("./hrCds/pages/ClientServicesTasks.jsx"));
+const ClientAccountSettingsPage = lazy(() => import("./hrCds/pages/client/AccountSettingsPage.jsx"));
 const Settings = lazy(() => import("./admin/page/Settings.jsx"));
 const EmailSettings = lazy(() => import("./admin/page/EmailSettings.jsx"));
 const DemoRequests = lazy(() => import("./admin/page/DemoRequests.jsx"));
@@ -186,6 +189,7 @@ function App() {
           <Route path="admin-meeting" element={<AdminMeetingPage />} />
           <Route path="adminproject" element={<AdminProject />} />
           <Route path="company-all-task" element={<EmpAllTask />} />
+          <Route path="department-all-task" element={<EmpDepartmentAllTask />} />
           <Route path="company-all-task/tasks" element={<CompanyAllTaskTasks />} />
           <Route path="company-all-task/tasks/:userId" element={<CompanyAllTaskTasks />} />
           <Route path="company-all-task/:userId/tasks" element={<CompanyAllTaskTasks />} />
@@ -229,7 +233,8 @@ function App() {
           <Route path="create-alert" element={<CreateAlerts />} />
           <Route path="user-profile" element={<UserProfile/>} />
           <Route path="chat" element={<ChatPage />} />
-          <Route path="contact-support" element={<Navigate to="/ciisUser/dashboard" replace />} />
+          <Route path="dashboard" element={<Navigate to="/ciisUser/user-dashboard" replace />} />
+          <Route path="contact-support" element={<Navigate to="/ciisUser/user-dashboard" replace />} />
           <Route path="support-desk" element={<DepartmentSupportDesk />} />
           <Route path="support-operations" element={<SupportOperations />} />
           <Route path="feedback-questionnaire" element={<FeedbackQuestionnaireManagement />} />
@@ -257,7 +262,10 @@ function App() {
           <Route path="dashboard" element={<ClientDashboardPage />} />
           <Route path="tasks-updates" element={<ClientTasksUpdatesPage />} />
           <Route path="my-services" element={<MyServicesPage />} />
+          <Route path="services-tasks" element={<ClientServicesTasks />} />
+          <Route path="account-settings" element={<ClientAccountSettingsPage />} />
           <Route path="marketplace" element={<ServiceMarketplacePage />} />
+          <Route path="payment" element={<Navigate to="/client/payments" replace />} />
           <Route path="support-tickets" element={<SupportTicketsPage />} />
           <Route path="documents" element={<DocumentsPage />} />
           <Route path="payments" element={<PaymentsInvoicesPage />} />
@@ -268,8 +276,6 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      <SpeechToTextControl />
-      <ToastContainer position="top-right" autoClose={3000} />
     </Suspense>
 
     <SpeechToTextControl />

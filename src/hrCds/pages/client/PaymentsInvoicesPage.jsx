@@ -29,7 +29,12 @@ const getInitials = value => String(value || "C").trim().slice(0, 1).toUpperCase
 
 const sanitizeDownloadName = value => String(value || "payment-history")
   .trim()
-  .replace(/[<>:"/\\|?*\x00-\x1f]/g, "-")
+  .split("")
+  .map(char => {
+    const code = char.charCodeAt(0);
+    return /[<>:"/\\|?*]/.test(char) || code < 32 ? "-" : char;
+  })
+  .join("")
   .replace(/-+/g, "-")
   .replace(/^-|-$/g, "") || "payment-history";
 

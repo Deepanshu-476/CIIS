@@ -80,7 +80,7 @@ const MyLearning = () => {
         if (course.status === 'Not Started') {
             setMyCourses(myCourses.map(c => c.id === course.id ? { ...c, status: 'In Progress', progress: 10 } : c));
         } else if (course.status === 'In Progress') {
-            const newProgress = Math.min(100, c.progress + 25);
+            const newProgress = Math.min(100, course.progress + 25);
             setMyCourses(myCourses.map(c => c.id === course.id ? { ...c, progress: newProgress, status: newProgress === 100 ? 'Completed' : 'In Progress', completedDate: newProgress === 100 ? new Date().toLocaleDateString('en-GB') : '' } : c));
         }
     };

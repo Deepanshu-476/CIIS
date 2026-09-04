@@ -325,30 +325,35 @@ const getLatestTaskActivityDate = (task, predicate) => (
     .sort((a, b) => new Date(b) - new Date(a))[0] || null
 );
 
+const getProjectTaskDueDate = task => task?.dueDateTime || task?.dueDate || null;
+
+const getProjectTaskCompletedAt = task => (
+  task?.completedAt ||
+  task?.statusUpdatedAt ||
+  getLatestTaskActivityDate(
+    task,
+    log => (
+      (log?.type === 'status_change' || log?.type === 'status_changed') &&
+      normalizeStatus(log?.newValue) === 'completed'
+    )
+  ) ||
+  null
+);
+
 const getTaskSourceAwareDate = (task) => {
   if (!task) return null;
 
   const source = task.__taskSource || task.taskSource || task.source;
   if (source === 'project') {
     const status = normalizeStatus(task.userStatus || task.status || 'pending');
-    const latestAssignmentAt = task.assignedAt || getLatestTaskActivityDate(
-      task,
-      log => log?.type === 'assignment'
-    );
-    const latestStatusAt = task.statusUpdatedAt || getLatestTaskActivityDate(
-      task,
-      log => log?.type === 'status_change' || log?.type === 'status_changed'
-    );
-    const completedAt = task.completedAt || getLatestTaskActivityDate(
-      task,
-      log => (
-        (log?.type === 'status_change' || log?.type === 'status_changed') &&
-        normalizeStatus(log?.newValue) === 'completed'
-      )
-    );
+    const dueDate = getProjectTaskDueDate(task);
+    const completedAt = getProjectTaskCompletedAt(task);
 
-    if (status === 'completed' && completedAt) return completedAt;
-    return latestAssignmentAt || latestStatusAt || task.updatedAt || task.createdAt || task.createdDate;
+    if (status === 'completed') {
+      return completedAt || dueDate || task.updatedAt || task.createdAt || task.createdDate;
+    }
+
+    return dueDate || completedAt || task.assignedAt || task.statusUpdatedAt || task.updatedAt || task.createdAt || task.createdDate;
   }
 
   return task.dueDateTime || task.dueDate || task.createdAt || task.createdDate || task.updatedAt;
@@ -1169,11 +1174,12 @@ const UserCreateTask = () => {
   
   const groupTasksByDate = useCallback((tasks) => {
     const grouped = {};
-    // List sections must remain anchored to when the task was created. A status
-    // change (for example completing an overdue task) must not move it into
-    // today's date group.
+    // Project tasks stay anchored to their due date so the list matches the
+    // delivery day. Completion timestamps are reserved for time-based stats.
     const getTaskGroupDate = task => (
-      task?.createdAt || task?.createdDate || task?.created_on || getTaskSourceAwareDate(task)
+      task?.__taskSource === 'project' || task?.taskSource === 'project' || task?.source === 'project'
+        ? getProjectTaskDueDate(task) || getTaskSourceAwareDate(task) || task?.createdAt || task?.createdDate || task?.created_on
+        : task?.createdAt || task?.createdDate || task?.created_on || getTaskSourceAwareDate(task)
     );
     const getTaskSortTime = task => {
       const dateToUse = getTaskGroupDate(task);
@@ -1758,12 +1764,20 @@ const UserCreateTask = () => {
         status: normalizedStatus,
         userStatus: normalizedStatus,
         completed: normalizedStatus === 'completed',
+        statusUpdatedAt: timestamp,
         updatedAt: timestamp,
         lastActivityAt: timestamp
       };
 
       if (remarks) {
         updatedTask.remarks = task?.remarks || [];
+      }
+
+      if (normalizedStatus === 'completed') {
+        const wasCompleted = normalizeStatus(task?.status || task?.userStatus || task?.overallStatus || '') === 'completed' || task?.completed === true;
+        updatedTask.completedAt = wasCompleted
+          ? task?.completedAt || task?.statusUpdatedAt || timestamp
+          : timestamp;
       }
 
       if (sourceKey === 'self') {
@@ -4192,6 +4206,8 @@ const UserCreateTask = () => {
   useEffect(() => {
     let cancelled = false;
 
+    if (!openDialog) return undefined;
+
     const resolveShiftEndTime = async () => {
       try {
         const response = await axios.get('/dashboard/employee-summary');
@@ -4209,7 +4225,7 @@ const UserCreateTask = () => {
     return () => {
       cancelled = true;
     };
-  }, [storedTaskUser]);
+  }, [openDialog, storedTaskUser]);
 
   useEffect(() => {
     if (userId && !authError) {

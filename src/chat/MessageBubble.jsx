@@ -114,6 +114,18 @@ const MessageBubble = ({
     const senderId = (message.sender?._id || message.sender || "").toString();
     const isOwn = senderId === currentUserId;
     const senderName = message.sender?.name || "Unknown";
+    const deliveredTo = Array.isArray(message.deliveredTo)
+        ? message.deliveredTo.map(item => (item?._id || item?.id || item || "").toString()).filter(Boolean)
+        : [];
+    const deliveryState = message.seen
+        ? "seen"
+        : message.delivered || deliveredTo.some(id => id !== currentUserId)
+            ? "delivered"
+            : "sent";
+    const renderDeliveryTick = () => {
+        if (!isOwn) return null;
+        return deliveryState === "sent" ? <Check size={14} /> : <CheckCheck size={14} />;
+    };
     const formattedTime = new Date(message.createdAt || Date.now()).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit"
@@ -469,9 +481,7 @@ const MessageBubble = ({
                     <span>{formatAudioTime(audioDuration || audioCurrentTime)}</span>
                     <span>
                         {new Date(message.createdAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        {isOwn && (
-                            message.seen ? <CheckCheck size={14} /> : <Check size={14} />
-                        )}
+                        {renderDeliveryTick()}
                     </span>
                 </div>
             </div>
@@ -584,9 +594,9 @@ const MessageBubble = ({
             {isDeletedForEveryone ? (
                 <div className="message-content-row">
                     <span className="deleted-text">This message was deleted</span>
-                    <span className="whatsapp-message-meta">
+                    <span className={deliveryState === "seen" ? "whatsapp-message-meta seen" : "whatsapp-message-meta"}>
                         <time>{formattedTime}</time>
-                        {isOwn && (message.seen ? <CheckCheck size={14} /> : <Check size={14} />)}
+                        {renderDeliveryTick()}
                     </span>
                 </div>
             ) : (
@@ -594,9 +604,9 @@ const MessageBubble = ({
                     {displayMessageText && <span className="message-text-content">{displayMessageText}</span>}
                     {renderMedia()}
                     {!isAudioOnly && (
-                        <span className={message.seen ? "whatsapp-message-meta seen" : "whatsapp-message-meta"}>
+                        <span className={deliveryState === "seen" ? "whatsapp-message-meta seen" : "whatsapp-message-meta"}>
                             <time>{formattedTime}</time>
-                            {isOwn && (message.seen ? <CheckCheck size={14} /> : <Check size={14} />)}
+                            {renderDeliveryTick()}
                         </span>
                     )}
                 </div>

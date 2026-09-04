@@ -58,7 +58,7 @@ const platformCopy = {
     identifierLabel: 'Bundle ID',
     storeIdLabel: 'App Store ID',
     storeUrlLabel: 'App Store URL',
-    help: 'iPhone app isi config ko read karegi. Popup hatana ho to Latest Build ko current app ke build se same ya neeche rakho.'
+    help: 'The iPhone app reads this configuration. To disable the popup, keep the Latest Build at or below the current app build.'
   },
   android: {
     title: 'Android',
@@ -68,7 +68,7 @@ const platformCopy = {
     identifierLabel: 'Package Name',
     storeIdLabel: 'Store ID',
     storeUrlLabel: 'Play Store URL',
-    help: 'Android app versionCode compare karti hai. Mandatory update ke liye Minimum Version Code badhao ya Force Update ON karo.'
+    help: 'The Android app compares versionCode values. For a mandatory update, increase the Minimum Version Code or turn Force Update on.'
   }
 };
 
@@ -273,7 +273,7 @@ function AppVersionControl() {
             </Box>
             <Box>
               <Typography variant="h5" fontWeight={900}>App Version Control</Typography>
-              <Typography variant="body2" color="text.secondary">Apple aur Android app update popup ka backend control.</Typography>
+              <Typography variant="body2" color="text.secondary">Backend control for Apple and Android app update popups.</Typography>
             </Box>
           </Stack>
           <Stack direction="row" spacing={1}>
@@ -289,7 +289,7 @@ function AppVersionControl() {
         {(loading || saving) && <LinearProgress />}
 
         <Alert severity="info">
-          Popup Enabled OFF karne par us platform par update popup bilkul band rahega. Force Update sirf popup ko mandatory banata hai.
+          When Popup Enabled is turned off, the update popup will be completely disabled for that platform. Force Update only makes the popup mandatory.
         </Alert>
 
         <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, p: 2 }}>

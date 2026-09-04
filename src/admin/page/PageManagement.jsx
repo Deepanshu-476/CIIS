@@ -35,14 +35,15 @@ const PAYROLL_PERMISSION_ACTIONS = {
 };
 
 const FALLBACK_PAGES = [
-  { pageKey: "emp-details", name: "Employee Details", path: "/ciisUser/emp-details", permissionPattern: "viewEdit" },
-  { pageKey: "emp-leaves", name: "Employee Leaves", path: "/ciisUser/emp-leaves", permissionPattern: "approveReject" },
-  { pageKey: "leave-policy", name: "Leave Policy", path: "/ciisUser/leave-policy", permissionPattern: "viewEdit" },
-  { pageKey: "emp-assets", name: "Employee Assets", path: "/ciisUser/emp-assets", permissionPattern: "approveReject" },
-  { pageKey: "emp-attendance", name: "Employee Attendance", path: "/ciisUser/emp-attendance", permissionPattern: "viewEdit" },
+  { pageKey: "dashboard-1", name: "Dashboard 1", path: "/ciisUser/dashboard-1", permissionPattern: "viewEdit" },
+  { pageKey: "emp-details", name: "Emp - Details", path: "/ciisUser/emp-details", permissionPattern: "viewEdit" },
+  { pageKey: "emp-leaves", name: "Emp - Leaves", path: "/ciisUser/emp-leaves", permissionPattern: "approveReject" },
+  { pageKey: "leave-policy", name: "Leave - Policy", path: "/ciisUser/leave-policy", permissionPattern: "viewEdit" },
+  { pageKey: "emp-assets", name: "Emp - Assets", path: "/ciisUser/emp-assets", permissionPattern: "approveReject" },
+  { pageKey: "emp-attendance", name: "Emp - Attendance", path: "/ciisUser/emp-attendance", permissionPattern: "viewEdit" },
   { pageKey: "department", name: "Department Management", path: "/ciisUser/department", permissionPattern: "viewEdit" },
   { pageKey: "JobRoleManagement", name: "Job Role Management", path: "/ciisUser/JobRoleManagement", permissionPattern: "viewEdit" },
-  { pageKey: "manage-groups", name: "Manage Groups", path: "/ciisUser/manage-groups", permissionPattern: "viewEdit" },
+  { pageKey: "manage-groups", name: "Manage Group", path: "/ciisUser/manage-groups", permissionPattern: "viewEdit" },
   { pageKey: "company-all-task", name: "Company All Task", path: "/ciisUser/company-all-task", permissionPattern: "viewEdit" },
   { pageKey: "SidebarManagement", name: "Sidebar Management", path: "/ciisUser/SidebarManagement", permissionPattern: "viewEdit" },
   { pageKey: "salary-component", name: "Salary Component", path: "/ciisUser/salary-component", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["salary-component"] },
@@ -53,6 +54,8 @@ const FALLBACK_PAGES = [
   { pageKey: "payslip", name: "Payslip", path: "/ciisUser/payslip", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS.payslip },
   { pageKey: "payroll-reports", name: "Payroll Reports", path: "/ciisUser/payroll-reports", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["payroll-reports"] },
 ];
+
+const ALLOWED_PAGE_KEYS = FALLBACK_PAGES.map((p) => p.pageKey);
 
 const ICON_MAP = {
   "emp-details": PersonOutline,
@@ -105,8 +108,7 @@ const normalizeUserIds = (items = []) =>
 const normalizeScopeIds = (items = []) =>
   [...new Set((Array.isArray(items) ? items : []).map((item) => String(item).trim()).filter(Boolean))];
 
-const getUserLabel = (user) => user?.name || user?.email || "Unnamed User";
-const getUserEmail = (user) => user?.email || "";
+const getUserLabel = (user) => user?.name || user?.fullName || user?.username || "Unnamed User";
 const getUserInitials = (user) => {
   const label = getUserLabel(user);
   const parts = label.split(" ").filter(Boolean);
@@ -1396,7 +1398,6 @@ const PageManagement = () => {
                       <span className="pm-user-badge">{getUserInitials(user)}</span>
                       <span className="pm-modal-user-meta">
                         <strong>{getUserLabel(user)}</strong>
-                        <small>{getUserEmail(user)}</small>
                         {activeUserIdSet.has(userId) && (
                           <span className="pm-modal-user-tag">Already assigned</span>
                         )}
@@ -1521,7 +1522,6 @@ const PageManagement = () => {
                       <span className="pm-user-badge">{getUserInitials(user)}</span>
                       <div>
                         <strong>{getUserLabel(user)}</strong>
-                        <span>{getUserEmail(user)}</span>
                       </div>
                     </div>
                     <div className="pm-summary-user-meta">

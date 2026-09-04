@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import axios from "../../../utils/axiosConfig";
 import './employee-attendance.css';
-import * as XLSX from 'xlsx';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 import CIISLoader from '../../../Loader/CIISLoader'; 
 import PageBranchDropdown, { usePageBranchScope } from '../../components/PageBranchDropdown';
 import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission } from '../../../utils/pageAccess';
+
+const loadXlsx = () => import('xlsx').then(module => module.default || module);
+const loadHtml2Canvas = () => import('html2canvas').then(module => module.default || module);
+const loadJsPdf = () => import('jspdf').then(module => module.default || module);
 
 import {
   FiCalendar,
@@ -2160,6 +2161,7 @@ const EmployeeAttendance = () => {
 
   
   const exportToPDF = async () => {
+    const [html2canvas, jsPDF] = await Promise.all([loadHtml2Canvas(), loadJsPdf()]);
     setExportMenuOpen(false);
     setLoading(true);
 
@@ -2265,6 +2267,7 @@ const EmployeeAttendance = () => {
   };
 
   const exportToImage = async () => {
+    const html2canvas = await loadHtml2Canvas();
     setExportMenuOpen(false);
     setLoading(true);
     
@@ -2300,7 +2303,8 @@ const EmployeeAttendance = () => {
     }
   };
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
+    const XLSX = await loadXlsx();
     setExportMenuOpen(false);
     
     const excelData = filteredRecords.map(record => ({

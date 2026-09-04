@@ -327,22 +327,22 @@ export const AdminProject = () => {
   const fetchProjects = async () => {
     try {
       const { companyCode, companyIdentifier } = getCompanyContext();
-      if (!companyCode) {
-        setProjects([]);
-        showSnackbar("Company code not found. Please login again from your company URL.", "error");
-        return;
-      }
 
-      
+      // The API resolves the company from the authenticated user. Do not block
+      // a valid session merely because a legacy login has no companyCode saved
+      // in localStorage.
       const res = await axios.get("/projects", {
-        params: { companyCode, companyIdentifier: companyIdentifier || undefined, ...branchQueryParams },
+        // Loading every embedded task for every project makes this list request
+        // slow enough to hit the browser timeout. Full data is loaded only when
+        // the user opens a project for viewing or editing.
+        params: { companyCode, companyIdentifier: companyIdentifier || undefined, summary: 1, limit: 100, ...branchQueryParams },
         timeout: 10000 
       });
 
       const normalizedCompanyCode = companyCode.toLowerCase();
       const companyProjects = dedupeByRecordId(getProjectsFromResponse(res.data)).filter(project => {
         const projectCompanyCode = getProjectCompanyCode(project);
-        return !projectCompanyCode || projectCompanyCode.toLowerCase() === normalizedCompanyCode;
+        return !normalizedCompanyCode || !projectCompanyCode || projectCompanyCode.toLowerCase() === normalizedCompanyCode;
       });
       setProjects(companyProjects);
     } catch (error) {
@@ -536,7 +536,23 @@ export const AdminProject = () => {
     }
   };
 
-  const editProject = (p) => {
+  const fetchProjectDetails = async (project) => {
+    const id = getProjectId(project);
+    if (!id) throw new Error("Project details are unavailable");
+    const response = await axios.get(`/projects/${id}`, { timeout: 10000 });
+    return response.data?.project || response.data?.data || response.data;
+  };
+
+  const editProject = async (project) => {
+    let p = project;
+    try {
+      p = await fetchProjectDetails(project);
+    } catch (error) {
+      console.error("Error loading project for editing:", error);
+      showSnackbar(error.response?.data?.message || "Unable to load project details", "error");
+      return;
+    }
+
     const projectId = getProjectId(p);
     setProjectId(projectId);
     setProjectName(p.projectName || "");
@@ -567,8 +583,15 @@ export const AdminProject = () => {
     setIsProjectFormOpen(false);
   };
 
-  const viewProjectDetails = (project) => {
-    setSelectedProject(project);
+  const viewProjectDetails = async (project) => {
+    try {
+      const fullProject = await fetchProjectDetails(project);
+      setSelectedProject(fullProject);
+    } catch (error) {
+      console.error("Error loading project details:", error);
+      showSnackbar(error.response?.data?.message || "Unable to load project details", "error");
+      return;
+    }
     setTabValue(0);
     setOpenDetailsDialog(true);
   };
@@ -865,7 +888,7 @@ export const AdminProject = () => {
                           <span>Created On</span>
                           <span className="ap-detail-value">{selectedProject.createdAt ? new Date(selectedProject.createdAt).toLocaleDateString() : "Not set"}</span>
                         </div>
-                      </div>
+                      </div>  
                     </div>
 
                     <div className="ap-card">

@@ -100,6 +100,19 @@ const emptyTaskStats = {
   cancelled: 0
 };
 
+const taskStatsRequests = new Map();
+
+const fetchTaskStats = (payload, config) => {
+  const requestKey = JSON.stringify(payload);
+  const existingRequest = taskStatsRequests.get(requestKey);
+  if (existingRequest) return existingRequest;
+
+  const request = axios.post('/tasks/all/users/stats', payload, config)
+    .finally(() => taskStatsRequests.delete(requestKey));
+  taskStatsRequests.set(requestKey, request);
+  return request;
+};
+
 const EMP_USERS_CACHE_TTL = 10 * 60 * 1000;
 const EMP_USERS_CACHE_KEY_PREFIX = "ciis-emp-all-task-users-cache-v1";
 
@@ -140,7 +153,7 @@ const writeEmpUsersCache = (cacheKey, snapshot) => {
       savedAt: Date.now(),
     }));
   } catch {
-    
+    // Ignore storage quota and private-mode failures.
   }
 };
 
@@ -1087,6 +1100,7 @@ const TaskDetails = () => {
             ...config,
             params: {
               noPagination: 'true',
+              view: 'task-overview',
               ...branchQueryParams
             }
           });
@@ -1135,23 +1149,20 @@ const TaskDetails = () => {
         if (userIds.length === 0) return;
 
         try {
-          const statsRes = await axios.post(
-            '/tasks/all/users/stats',
-            {
-              userIds,
-              filters: {
-                period: isDateFiltered ? 'all' : 'today',
-                fromDate: fromDateParam,
-                toDate: toDateParam,
-                status: 'all',
-                priority: 'all',
-                ...branchQueryParams,
-              },
+          const statsPayload = {
+            userIds,
+            filters: {
+              period: isDateFiltered ? 'all' : 'today',
+              fromDate: fromDateParam,
+              toDate: toDateParam,
+              status: 'all',
+              priority: 'all',
+              ...branchQueryParams,
             },
-            {
-              _skipErrorNotify: true,
-            }
-          );
+          };
+          const statsRes = await fetchTaskStats(statsPayload, {
+            _skipErrorNotify: true,
+          });
 
           const statsByUser = statsRes.data?.statsByUser || {};
           const usersWithStats = filteredUsers.map(user => ({
@@ -1900,6 +1911,7 @@ const TaskDetails = () => {
       return;
     }
 
+    const taskType = getTaskType(task);
     const source = task.__taskSource || task.taskSource || task.source || getTaskType(task);
     setLoadingActivity(true);
     

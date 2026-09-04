@@ -57,10 +57,7 @@ export const AuthProvider = ({ children }) => {
     window.addEventListener('storage', handleAuthChange);
     window.addEventListener(AUTH_SYNC_EVENT, handleAuthChange);
 
-    const interval = setInterval(syncAuthState, 1000);
-
     return () => {
-      clearInterval(interval);
       window.removeEventListener('storage', handleAuthChange);
       window.removeEventListener(AUTH_SYNC_EVENT, handleAuthChange);
     };

@@ -1,5 +1,7 @@
 const routeLoaders = {
   "/ciisUser/user-dashboard": () => import("../hrCds/pages/UserDashboard"),
+  "/ciisUser/dashboard": () => import("../hrCds/pages/UserDashboard"),
+  "/ciisUser/dashboard-1": () => import("../hrCds/pages/DashboardOverview"),
   "/ciisUser/attendance": () => import("../hrCds/pages/Attendance"),
   "/ciisUser/my-leaves": () => import("../hrCds/pages/MyLeaves"),
   "/ciisUser/my-assets": () => import("../hrCds/pages/MyAssets"),
@@ -9,8 +11,10 @@ const routeLoaders = {
   "/ciisUser/create-user": () => import("../admin/page/CreateUser"),
   "/ciisUser/register-request": () => import("../hrCds/pages/hr/RegisterRequest.jsx"),
   "/ciisUser/department": () => import("../admin/page/DepartmentManagement"),
+  "/ciisUser/department-all-task": () => import("../hrCds/pages/hr/EmpDepartmentAllTask.jsx"),
   "/ciisUser/jobrolemanagement": () => import("../admin/page/JobRoleManagement.jsx"),
   "/ciisUser/job-role-management": () => import("../admin/page/JobRoleManagement.jsx"),
+  "/ciisUser/SidebarManagement": () => import("../admin/components/SidebarManagement.jsx"),
   "/ciisUser/admin-task-create": () => import("../hrCds/pages/hr/AdminTaskCreate"),
   "/ciisUser/manage-groups": () => import("../hrCds/pages/hr/ManageGroups"),
   "/ciisUser/admin-meeting": () => import("../hrCds/pages/hr/AdminMeetingPage"),
@@ -35,10 +39,13 @@ const routeLoaders = {
   "/client/dashboard": () => import("../hrCds/pages/client/ClientDashboardPage.jsx"),
   "/client/my-services": () => import("../hrCds/pages/client/MyServicesPage.jsx"),
   "/client/tasks-updates": () => import("../hrCds/pages/client/ClientTasksUpdatesPage.jsx"),
+  "/client/services-tasks": () => import("../hrCds/pages/ClientServicesTasks.jsx"),
+  "/client/account-settings": () => import("../hrCds/pages/client/AccountSettingsPage.jsx"),
   "/client/marketplace": () => import("../hrCds/pages/client/ServiceMarketplacePage.jsx"),
   "/client/support-tickets": () => import("../hrCds/pages/client/SupportTicketsPage.jsx"),
   "/client/documents": () => import("../hrCds/pages/client/DocumentsPage.jsx"),
   "/client/payments": () => import("../hrCds/pages/client/PaymentsInvoicesPage.jsx"),
+  "/client/payment": () => import("../hrCds/pages/client/PaymentsInvoicesPage.jsx"),
   "/Ciis-network/company-details": () => import("../admin/components/CompanyDetails.jsx"),
   "/Ciis-network/department": () => import("../admin/page/DepartmentManagement"),
   "/Ciis-network/branch": () => import("../admin/page/BranchManagement.jsx"),
@@ -65,8 +72,12 @@ const routeLoaders = {
 
 const normalizePath = (path = "") => String(path || "").trim().replace(/\/+$/, "").toLowerCase();
 
+const normalizedRouteLoaders = Object.fromEntries(
+  Object.entries(routeLoaders).map(([path, loader]) => [normalizePath(path), loader])
+);
+
 export const preloadRouteChunk = (path) => {
-  const loader = routeLoaders[normalizePath(path)];
+  const loader = normalizedRouteLoaders[normalizePath(path)];
   return loader ? loader() : Promise.resolve();
 };
 
@@ -77,4 +88,4 @@ export const preloadRouteChunks = (paths = []) => {
   return Promise.all(uniquePaths.map(path => preloadRouteChunk(path)));
 };
 
-export const routeChunkPaths = Object.keys(routeLoaders);
+export const routeChunkPaths = Object.keys(normalizedRouteLoaders);

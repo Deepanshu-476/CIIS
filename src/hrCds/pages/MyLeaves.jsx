@@ -44,15 +44,8 @@ const MyLeaves = () => {
 const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   
   
-  let socketContext = {};
-  let notificationContext = {};
-  
-  try {
-    socketContext = useSocket() || {};
-    notificationContext = useNotification() || {};
-  } catch (error) {
-    console.warn('Socket/Notification context not available:', error);
-  }
+  const socketContext = useSocket() || {};
+  const notificationContext = useNotification() || {};
   
   const { 
     onLeaveStatusChanged = () => () => {},

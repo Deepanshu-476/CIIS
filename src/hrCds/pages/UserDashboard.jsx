@@ -282,6 +282,27 @@ const getTrackedBreakTime = attendance => {
   return typeof value === 'number' ? `${value}m` : String(value);
 };
 
+const getAttendanceRecordDateKey = record => getIndiaDateKey(record?.date || record?.inTime || record?.createdAt);
+
+const formatTotalTimeValue = value => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return formatTime(value);
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+  return '';
+};
+
+const getTotalTimeSeconds = value => {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Math.floor(value));
+  if (typeof value !== 'string') return 0;
+
+  const parts = value.trim().split(':').map(Number);
+  if (parts.length !== 3 || parts.some(part => !Number.isFinite(part))) return 0;
+  return Math.max(0, parts[0] * 3600 + parts[1] * 60 + parts[2]);
+};
+
 
 const StatsLoader = () => (
   <div className="stats-loader-container">
@@ -428,6 +449,22 @@ const UserDashboard = () => {
 
   const [userJoinDate, setUserJoinDate] = useState(null);
   const [formattedJoinDate, setFormattedJoinDate] = useState('');
+
+  const upsertAttendanceRecord = useCallback((record) => {
+    if (!record) return;
+
+    const normalizedRecord = normalizeAttendanceRecord(record);
+    const recordDateKey = getAttendanceRecordDateKey(normalizedRecord);
+
+    setAttendanceData(prev => {
+      const filteredRecords = prev.filter(item => getAttendanceRecordDateKey(item) !== recordDateKey);
+      return [normalizedRecord, ...filteredRecords].sort((a, b) => {
+        const aTime = new Date(a.date || a.inTime || a.createdAt || 0).getTime();
+        const bTime = new Date(b.date || b.inTime || b.createdAt || 0).getTime();
+        return bTime - aTime;
+      });
+    });
+  }, []);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   
@@ -549,9 +586,16 @@ const UserDashboard = () => {
     };
   }, [initialLoadDone]);
 
-  const currentDate = useMemo(() => new Date(), []);
+  const [currentDate, setCurrentDate] = useState(() => new Date());
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
+
+  useEffect(() => {
+    const refreshCurrentDate = () => setCurrentDate(new Date());
+    const dateRefreshInterval = window.setInterval(refreshCurrentDate, 30000);
+
+    return () => window.clearInterval(dateRefreshInterval);
+  }, []);
 
   
   const fetchInProgress = useRef({
@@ -1045,7 +1089,7 @@ const UserDashboard = () => {
     setProjectsLoading(true);
     try {
       const response = await axios.get('/projects', {
-        params: { companyCode, page: 1, limit: 6 },
+        params: { companyCode, page: 1, limit: 6, summary: 1 },
         headers: { Authorization: `Bearer ${token}` },
         timeout: 15000
       });
@@ -1440,6 +1484,7 @@ const UserDashboard = () => {
       return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
     });
   }, [holidays]);
+  const holidayDateSet = useMemo(() => new Set(holidayDates), [holidayDates]);
 
   
   const holidayTitles = useMemo(() => {
@@ -1463,7 +1508,12 @@ const UserDashboard = () => {
         return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
       };
       const explicitAbsentKeys = new Set(
-        records.filter(record => record.status === 'ABSENT' && !leaveDateSet.has(toDateKey(record))).map(toDateKey)
+        records
+          .filter(record => {
+            const key = toDateKey(record);
+            return record.status === 'ABSENT' && !leaveDateSet.has(key) && !holidayDateSet.has(key);
+          })
+          .map(toDateKey)
       );
 
       return {
@@ -1486,7 +1536,7 @@ const UserDashboard = () => {
       previousMonthlyStats: calculateMonth(previousDate.getFullYear(), previousDate.getMonth()),
       previousMonthLabel: previousDate.toLocaleDateString('en-US', { month: 'short' })
     };
-  }, [filteredAttendanceData, leaveDates, leaveDateSet, currentMonth, currentYear]);
+  }, [filteredAttendanceData, leaveDates, leaveDateSet, holidayDateSet, currentMonth, currentYear]);
 
   const getMonthlyChange = useCallback((currentValue, previousValue) => {
     if (!previousValue) return currentValue ? 100 : 0;
@@ -1659,6 +1709,14 @@ const UserDashboard = () => {
       writeDashboardCache({
         activeClock: { inTime: clockedInAt.toISOString(), isClockedIn: true },
       });
+      upsertAttendanceRecord({
+        date: clockedInAt.toISOString(),
+        inTime: clockedInAt.toISOString(),
+        outTime: null,
+        totalTime: '00:00:00',
+        isClockedIn: true,
+        status: 'PRESENT'
+      });
       window.dispatchEvent(new Event('ciis-attendance-updated'));
       toast.success('Clocked in successfully!');
       
@@ -1679,10 +1737,15 @@ const UserDashboard = () => {
     
     setIsProcessing(true);
     try {
-      await axios.post("/attendance/out", payload, {
+      const response = await axios.post("/attendance/out", payload, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 10000
       });
+
+      const attendanceRecord = response?.data?.data || response?.data?.attendance || response?.data || null;
+      if (attendanceRecord) {
+        upsertAttendanceRecord(attendanceRecord);
+      }
 
       setIsRunning(false);
       setTimer(0);
@@ -1818,9 +1881,13 @@ const UserDashboard = () => {
       const value = record.date || record.inTime || record.createdAt;
       return value && getIndiaDateKey(value) === todayKey;
     }) || null;
-  }, [attendanceData, loading.attendance]);
+  }, [attendanceData, loading.attendance, currentDate]);
 
   const hasTodayAttendance = Boolean(todayAttendance);
+  const totalWorkingDisplay = isRunning
+    ? formatTime(timer)
+    : formatTotalTimeValue(todayAttendance?.totalTime) || '00:00:00';
+  const displayTimer = isRunning ? timer : getTotalTimeSeconds(todayAttendance?.totalTime);
 
   const productivityTrend = useMemo(() => (productivityData.series || []).map((item, index, series) => ({
     ...item,
@@ -2213,7 +2280,7 @@ const UserDashboard = () => {
             </p>
             <div className="confirmation-timer">
               <FiClock size={16} />
-              <span>Current session: {formatTime(timer)}</span>
+              <span>Current session: {formatTime(displayTimer)}</span>
             </div>
             <div className="confirmation-buttons">
               <button className="confirmation-btn confirmation-btn-cancel" onClick={() => setShowClockOutConfirm(false)} disabled={isProcessing}>
@@ -2514,7 +2581,7 @@ const UserDashboard = () => {
           <section className="MobileDashV2-clock">
             <div>
               <span>Work session</span>
-              <strong>{formatTime(timer)}</strong>
+              <strong>{formatTime(displayTimer)}</strong>
               <small>{isRunning ? 'Timer is running' : 'Start when you’re ready'}</small>
             </div>
             <button
@@ -2707,7 +2774,7 @@ const UserDashboard = () => {
           
           <div className="dashboard-clock-section dashboard-clock-inline">
             <div className="dashboard-timer-display">
-              <div className="dashboard-timer-value">{formatTime(timer)}</div>
+              <div className="dashboard-timer-value">{formatTime(displayTimer)}</div>
               <div className={`dashboard-timer-status ${isRunning ? 'status-active-text' : 'status-inactive-text'}`}>
                 <div className={`dashboard-timer-dot ${isRunning ? 'dot-active' : 'dot-inactive'}`}></div>
                 {isRunning ? 'Active Timer • Live' : 'Timer Stopped'}
@@ -2887,7 +2954,7 @@ const UserDashboard = () => {
               <dl>
                 <div><dt>Check In</dt><dd>{formatClockTime(todayAttendance?.inTime)}</dd></div>
                 <div><dt>Check Out</dt><dd>{isRunning ? 'In progress' : formatClockTime(todayAttendance?.outTime)}</dd></div>
-                <div><dt>Total Working</dt><dd>{isRunning ? formatTime(timer) : todayAttendance?.totalTime || '00:00:00'}</dd></div>
+                <div><dt>Total Working</dt><dd>{totalWorkingDisplay}</dd></div>
                 <div><dt>Late</dt><dd>{todayAttendance ? (['LATE', 'HALF DAY'].includes(normalizeAttendanceStatus(todayAttendance.status)) ? `Yes${todayAttendance.lateBy && todayAttendance.lateBy !== '00:00:00' ? ` (${todayAttendance.lateBy})` : ''}` : 'No') : '--'}</dd></div>
                 <div><dt>Break Time</dt><dd>{getTrackedBreakTime(todayAttendance)}</dd></div>
                 <div><dt>Tasks Completed</dt><dd>{focusStats.loading ? '—' : focusStats.completedToday}</dd></div>
@@ -3129,7 +3196,7 @@ const UserDashboard = () => {
         <section className="dashboard-clock-section dashboard-clock-rail">
           <div className="dashboard-live-label"><i /> {isRunning ? 'Live' : 'Ready'}</div>
           <div className="dashboard-timer-display">
-            <div className="dashboard-timer-value">{formatTime(timer)} <small>{new Date().getHours() >= 12 ? 'PM' : 'AM'}</small></div>
+            <div className="dashboard-timer-value">{formatTime(displayTimer)} <small>{new Date().getHours() >= 12 ? 'PM' : 'AM'}</small></div>
             <div className="dashboard-clock-date">{currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</div>
           </div>
           <div className="dashboard-clock-buttons">

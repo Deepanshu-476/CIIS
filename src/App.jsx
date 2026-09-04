@@ -27,6 +27,7 @@ const EmppAttendence = lazy(() => import("./hrCds/pages/hr/EmppAttendence"));
 const TaskDeatils = lazy(() => import("./hrCds/pages/hr/TaskDetails"));
 const EmpAllTask = lazy(() => import("./hrCds/pages/hr/EmpAllTask"));
 const CompanyAllTaskTasks = lazy(() => import("./hrCds/pages/hr/CompanyAllTaskTasks"));
+const EmpDepartmentAllTask = lazy(() => import("./hrCds/pages/hr/EmpDepartmentAllTask.jsx"));
 const RegisterRequest = lazy(() => import("./hrCds/pages/hr/RegisterRequest.jsx"));
 const AdminProject = lazy(() => import("./hrCds/pages/AdminProject"));
 const Client = lazy(() => import("./hrCds/pages/hr/Client"));
@@ -46,6 +47,7 @@ const MyAssets = lazy(() => import("./hrCds/pages/MyAssets"));
 const MyLeaves = lazy(() => import("./hrCds/pages/MyLeaves"));
 const Profile = lazy(() => import("./hrCds/pages/Profile"));
 const UserDashboard = lazy(() => import("./hrCds/pages/UserDashboard"));
+const DashboardOverview = lazy(() => import("./hrCds/pages/DashboardOverview"));
 const TaskManagement = lazy(() => import("./hrCds/pages/TaskManagement"));
 const EmployeeMeetingPage = lazy(() => import("./hrCds/pages/EmployeeMeetingPage"));
 const EmployeeProject = lazy(() => import("./hrCds/pages/EmployeeProject"));
@@ -75,6 +77,8 @@ const CompanyAssetManagement = lazy(() => import("./page/CompanyAssetManagement.
 const Holiday = lazy(() => import("./page/Holidays.jsx"));
 const BranchManagement = lazy(() => import("./admin/page/BranchManagement.jsx"));
 const ChatPage = lazy(() => import("./Pages/Chat/ChatPage"));
+const ClientServicesTasks = lazy(() => import("./hrCds/pages/ClientServicesTasks.jsx"));
+const ClientAccountSettingsPage = lazy(() => import("./hrCds/pages/client/AccountSettingsPage.jsx"));
 const Settings = lazy(() => import("./admin/page/Settings.jsx"));
 const EmailSettings = lazy(() => import("./admin/page/EmailSettings.jsx"));
 const DemoRequests = lazy(() => import("./admin/page/DemoRequests.jsx"));
@@ -91,8 +95,9 @@ const PayrollReports = lazy(() => import("./payroll/pages/PayrollReports.jsx"));
 
 function App() {
   return (
-    <Suspense fallback={<RouteBoundaryLoader fullscreen label="Loading app..." />}>
-      <Routes>
+    <>
+      <Suspense fallback={<RouteBoundaryLoader fullscreen label="Loading app..." />}>
+        <Routes>
 
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<AboutUs />} />
@@ -184,6 +189,7 @@ function App() {
           <Route path="admin-meeting" element={<AdminMeetingPage />} />
           <Route path="adminproject" element={<AdminProject />} />
           <Route path="company-all-task" element={<EmpAllTask />} />
+          <Route path="department-all-task" element={<EmpDepartmentAllTask />} />
           <Route path="company-all-task/tasks" element={<CompanyAllTaskTasks />} />
           <Route path="company-all-task/tasks/:userId" element={<CompanyAllTaskTasks />} />
           <Route path="company-all-task/:userId/tasks" element={<CompanyAllTaskTasks />} />
@@ -205,6 +211,7 @@ function App() {
               </Suspense>
             )}
           />
+          <Route path="dashboard-1" element={<DashboardOverview />} />
           <Route path="ClientDashboard" element={<Navigate to="/client/dashboard" replace />} />
           <Route path="project" element={<EmployeeProject />} />
           <Route
@@ -226,7 +233,8 @@ function App() {
           <Route path="create-alert" element={<CreateAlerts />} />
           <Route path="user-profile" element={<UserProfile/>} />
           <Route path="chat" element={<ChatPage />} />
-          <Route path="contact-support" element={<Navigate to="/ciisUser/dashboard" replace />} />
+          <Route path="dashboard" element={<Navigate to="/ciisUser/user-dashboard" replace />} />
+          <Route path="contact-support" element={<Navigate to="/ciisUser/user-dashboard" replace />} />
           <Route path="support-desk" element={<DepartmentSupportDesk />} />
           <Route path="support-operations" element={<SupportOperations />} />
           <Route path="feedback-questionnaire" element={<FeedbackQuestionnaireManagement />} />
@@ -254,7 +262,10 @@ function App() {
           <Route path="dashboard" element={<ClientDashboardPage />} />
           <Route path="tasks-updates" element={<ClientTasksUpdatesPage />} />
           <Route path="my-services" element={<MyServicesPage />} />
+          <Route path="services-tasks" element={<ClientServicesTasks />} />
+          <Route path="account-settings" element={<ClientAccountSettingsPage />} />
           <Route path="marketplace" element={<ServiceMarketplacePage />} />
+          <Route path="payment" element={<Navigate to="/client/payments" replace />} />
           <Route path="support-tickets" element={<SupportTicketsPage />} />
           <Route path="documents" element={<DocumentsPage />} />
           <Route path="payments" element={<PaymentsInvoicesPage />} />
@@ -265,10 +276,12 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      <SpeechToTextControl />
-      <ToastContainer position="top-right" autoClose={3000} />
     </Suspense>
-  );
+
+    <SpeechToTextControl />
+    <ToastContainer position="top-right" autoClose={3000} />
+  </>
+);
 }
 
 export default App;

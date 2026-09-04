@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import * as XLSX from 'xlsx';
 import './Holidays.css';
 import API_URL, { API_URL_IMG } from "../config"; 
+
+let xlsxModulePromise;
+const loadXlsx = () => {
+    xlsxModulePromise ||= import('xlsx').then(module => module.default || module);
+    return xlsxModulePromise;
+};
 
 const Holidays = () => {
     
@@ -49,7 +54,7 @@ const Holidays = () => {
         return `${year}-${month}-${day}`;
     };
 
-    const parseExcelDate = (value) => {
+    const parseExcelDate = (value, XLSX) => {
         if (!value) return null;
 
         if (value instanceof Date) {
@@ -104,6 +109,8 @@ const Holidays = () => {
             setError('');
             setSuccess('');
 
+            const XLSX = await loadXlsx();
+
             const buffer = await file.arrayBuffer();
             const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -119,7 +126,7 @@ const Holidays = () => {
                     const title = String(getCellValue(row, ['title', 'holiday', 'holiday title', 'name', 'occasion'])).trim();
                     const rawDate = getCellValue(row, ['date', 'holiday date', 'day']);
                     const description = String(getCellValue(row, ['description', 'details', 'remark', 'remarks'])).trim();
-                    const date = parseExcelDate(rawDate);
+                    const date = parseExcelDate(rawDate, XLSX);
                     const formattedDate = formatInputDate(date);
 
                     if (!title || !formattedDate) return null;

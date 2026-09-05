@@ -171,7 +171,11 @@ async (formData) => {
 
                 Authorization:
                     `Bearer ${getToken()}`
-            }
+            },
+            timeout: 0,
+            maxBodyLength: Infinity,
+            maxContentLength: Infinity,
+            _skipErrorNotify: true
         }
     );
 };

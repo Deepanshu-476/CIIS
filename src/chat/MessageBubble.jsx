@@ -6,6 +6,7 @@ const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif|bmp|svg)$/i;
 const AUDIO_EXTENSIONS = /\.(mp3|wav|webm|ogg|m4a|aac)$/i;
 const VIDEO_EXTENSIONS = /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i;
 const DOCUMENT_EXTENSIONS = /\.(pdf|docx?|xlsx?|csv|pptx?|txt|rtf|odt|ods|odp|zip|rar|7z)$/i;
+const ATTACHMENT_CACHE_NAME = "ciis-chat-attachments-v1";
 
 const getBackendUrl = (path) => `${API_URL_IMG.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
 
@@ -52,7 +53,11 @@ const MessageBubble = ({
     const [audioCurrentTime, setAudioCurrentTime] = useState(0);
     const [audioDuration, setAudioDuration] = useState(0);
     const [mediaUrlIndex, setMediaUrlIndex] = useState(0);
+    const [localMediaUrl, setLocalMediaUrl] = useState("");
+    const [isAttachmentLoading, setIsAttachmentLoading] = useState(false);
     const audioRef = useRef(null);
+    const audioUserPausedRef = useRef(false);
+    const audioEndedRef = useRef(false);
     const bubbleRef = useRef(null);
     const menuButtonRef = useRef(null);
     const menuInstanceIdRef = useRef(`message-menu-${message._id || message.createdAt || Math.random()}`);
@@ -267,7 +272,17 @@ const MessageBubble = ({
         setIsAudioPlaying(false);
         setAudioCurrentTime(0);
         setAudioDuration(0);
+        audioUserPausedRef.current = false;
+        audioEndedRef.current = false;
+        setLocalMediaUrl((currentUrl) => {
+            if (currentUrl) URL.revokeObjectURL(currentUrl);
+            return "";
+        });
     }, [rawMediaUrl]);
+
+    useEffect(() => () => {
+        if (localMediaUrl) URL.revokeObjectURL(localMediaUrl);
+    }, [localMediaUrl]);
 
     const forwardCandidates = useMemo(() => (
         users.filter((user) => user._id !== currentUser?._id)
@@ -370,26 +385,70 @@ const MessageBubble = ({
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [previewMedia]);
 
-    const openMediaPreview = (kind) => {
-        setPreviewMedia({ kind, url: mediaUrl });
+    const getCachedAttachmentBlob = async () => {
+        if (!mediaUrl) return null;
+
+        const downloadUrls = mediaUrlCandidates.length ? mediaUrlCandidates : [mediaUrl];
+        let lastError = null;
+
+        for (const url of downloadUrls) {
+            try {
+                if ("caches" in window) {
+                    const cache = await caches.open(ATTACHMENT_CACHE_NAME);
+                    const cachedResponse = await cache.match(url);
+                    if (cachedResponse) {
+                        setMediaUrlIndex(Math.max(0, downloadUrls.indexOf(url)));
+                        return cachedResponse.blob();
+                    }
+                }
+
+                const response = await fetch(url, { credentials: "include" });
+                if (!response.ok) throw new Error(`Download failed: ${response.status}`);
+
+                if ("caches" in window) {
+                    const cache = await caches.open(ATTACHMENT_CACHE_NAME);
+                    await cache.put(url, response.clone());
+                }
+
+                setMediaUrlIndex(Math.max(0, downloadUrls.indexOf(url)));
+                return response.blob();
+            } catch (error) {
+                lastError = error;
+            }
+        }
+
+        throw lastError || new Error("No downloadable attachment found");
+    };
+
+    const getLocalAttachmentUrl = async () => {
+        if (localMediaUrl) return localMediaUrl;
+        setIsAttachmentLoading(true);
+        try {
+            const blob = await getCachedAttachmentBlob();
+            if (!blob) return "";
+            const blobUrl = URL.createObjectURL(blob);
+            setLocalMediaUrl(blobUrl);
+            return blobUrl;
+        } finally {
+            setIsAttachmentLoading(false);
+        }
+    };
+
+    const openMediaPreview = async (kind) => {
+        try {
+            const previewUrl = await getLocalAttachmentUrl();
+            if (previewUrl) setPreviewMedia({ kind, url: previewUrl });
+        } catch (error) {
+            console.error("Attachment open failed", error);
+            tryNextMediaUrl();
+        }
     };
 
     const downloadAttachment = async () => {
         if (!mediaUrl) return;
 
-        const downloadUrls = mediaUrlCandidates.length ? mediaUrlCandidates : [mediaUrl];
         try {
-            let blob = null;
-            for (const url of downloadUrls) {
-                try {
-                    const response = await fetch(url, { credentials: "include" });
-                    if (!response.ok) throw new Error(`Download failed: ${response.status}`);
-                    blob = await response.blob();
-                    break;
-                } catch (error) {
-                    if (url === downloadUrls[downloadUrls.length - 1]) throw error;
-                }
-            }
+            const blob = await getCachedAttachmentBlob();
             if (!blob) throw new Error("No downloadable attachment found");
 
             const blobUrl = URL.createObjectURL(blob);
@@ -412,16 +471,35 @@ const MessageBubble = ({
         return `${minutes}:${remainingSeconds}`;
     };
 
-    const toggleAudioPlayback = () => {
+    const toggleAudioPlayback = async () => {
         const audio = audioRef.current;
         if (!audio) return;
 
         if (audio.paused) {
+            audioUserPausedRef.current = false;
+            audioEndedRef.current = false;
+            if (!localMediaUrl) {
+                try {
+                    const audioUrl = await getLocalAttachmentUrl();
+                    if (!audioUrl) return;
+                    requestAnimationFrame(() => audioRef.current?.play?.().catch((error) => {
+                        console.warn("Voice note playback failed", error);
+                        setIsAudioPlaying(false);
+                    }));
+                    return;
+                } catch (error) {
+                    console.warn("Voice note download failed", error);
+                    setIsAudioPlaying(false);
+                    tryNextMediaUrl();
+                    return;
+                }
+            }
             audio.play().catch((error) => {
                 console.warn("Voice note playback failed", error);
                 setIsAudioPlaying(false);
             });
         } else {
+            audioUserPausedRef.current = true;
             audio.pause();
         }
     };
@@ -447,14 +525,25 @@ const MessageBubble = ({
         <div className="voice-note-player">
             <audio
                 ref={audioRef}
-                src={mediaUrl}
+                src={localMediaUrl || ""}
                 preload="metadata"
                 controls
                 onLoadedMetadata={(event) => setAudioDuration(event.currentTarget.duration || 0)}
                 onTimeUpdate={(event) => setAudioCurrentTime(event.currentTarget.currentTime || 0)}
-                onPlay={() => setIsAudioPlaying(true)}
-                onPause={() => setIsAudioPlaying(false)}
+                onPlay={() => {
+                    audioUserPausedRef.current = false;
+                    audioEndedRef.current = false;
+                    setIsAudioPlaying(true);
+                }}
+                onPause={(event) => {
+                    if (!audioUserPausedRef.current && !audioEndedRef.current) {
+                        event.currentTarget.play().catch(() => {});
+                        return;
+                    }
+                    setIsAudioPlaying(false);
+                }}
                 onEnded={() => {
+                    audioEndedRef.current = true;
                     setIsAudioPlaying(false);
                     setAudioCurrentTime(0);
                 }}
@@ -501,7 +590,15 @@ const MessageBubble = ({
                     onClick={() => openMediaPreview("image")}
                     aria-label="Open image attachment"
                 >
-                    <img src={mediaUrl} alt="attachment" className="chat-media chat-media-image" onError={tryNextMediaUrl} />
+                    {localMediaUrl ? (
+                        <img src={localMediaUrl} alt="attachment" className="chat-media chat-media-image" />
+                    ) : (
+                        <span className="chat-attachment-download-tile">
+                            <Download size={20} />
+                            <strong>{isAttachmentLoading ? "Downloading..." : "Download image"}</strong>
+                            <small>{attachmentName}</small>
+                        </span>
+                    )}
                 </button>
             );
         }
@@ -518,34 +615,46 @@ const MessageBubble = ({
                     onClick={() => openMediaPreview("video")}
                     aria-label="Open video attachment"
                 >
-                    <video src={mediaUrl} className="chat-media chat-media-video" muted playsInline onError={tryNextMediaUrl} />
-                    <span className="chat-video-open-label">Open video</span>
+                    {localMediaUrl ? (
+                        <>
+                            <video src={localMediaUrl} className="chat-media chat-media-video" muted playsInline />
+                            <span className="chat-video-open-label">Open video</span>
+                        </>
+                    ) : (
+                        <span className="chat-attachment-download-tile">
+                            <Download size={20} />
+                            <strong>{isAttachmentLoading ? "Downloading..." : "Download video"}</strong>
+                            <small>{attachmentName}</small>
+                        </span>
+                    )}
                 </button>
             );
         }
 
         return (
             <div className="chat-media-file-wrapper" style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}>
-                <a
+                <button
+                    type="button"
                     className="chat-media-file"
-                    href={mediaUrl}
-                    target="_blank"
-                    rel="noreferrer"
                     title={`Open ${attachmentName}`}
                     style={{ marginTop: 0, flex: 1 }}
+                    onClick={async () => {
+                        const fileUrl = await getLocalAttachmentUrl();
+                        if (fileUrl) window.open(fileUrl, "_blank", "noopener,noreferrer");
+                    }}
                 >
                     <FileText size={16} />
-                    <span>{attachmentName}</span>
+                    <span>{isAttachmentLoading ? "Downloading..." : attachmentName}</span>
                     <small>{isPdfMedia ? "PDF Document" : "Document"}</small>
-                </a>
-                <a
-                    href={mediaUrl}
-                    download={attachmentName}
+                </button>
+                <button
+                    type="button"
                     className="chat-media-download-btn"
                     title="Download File"
+                    onClick={downloadAttachment}
                 >
                     <Download size={16} />
-                </a>
+                </button>
             </div>
         );
     };

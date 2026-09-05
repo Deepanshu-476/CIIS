@@ -21,6 +21,39 @@ const CHAT_FILE_ACCEPT = [
     ".zip", ".rar", ".7z"
 ].join(",");
 
+const VOICE_RECORDING_MAX_SECONDS = 5 * 60;
+const AUTO_COMPRESS_IMAGE_BYTES = 10 * 1024 * 1024;
+const AUTO_COMPRESS_VIDEO_BYTES = 200 * 1024 * 1024;
+
+const getUploadFile = (item) => item?.file || item;
+
+const getMediaCompressionType = (file) => {
+    const type = String(file?.type || "").toLowerCase();
+    const name = String(file?.name || "").toLowerCase();
+    if (type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp|heic|heif)$/i.test(name)) return "image";
+    if (type.startsWith("video/") || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i.test(name)) return "video";
+    return "";
+};
+
+const shouldAutoCompress = (file) => {
+    const mediaType = getMediaCompressionType(file);
+    if (mediaType === "image") return Number(file?.size || 0) > AUTO_COMPRESS_IMAGE_BYTES;
+    if (mediaType === "video") return Number(file?.size || 0) > AUTO_COMPRESS_VIDEO_BYTES;
+    return false;
+};
+
+const chooseCompressionMode = (file) => {
+    const mediaType = getMediaCompressionType(file);
+    if (!mediaType || shouldAutoCompress(file)) return "normal";
+    return window.confirm(`${file.name}\n\nHD me send karni hai?\nOK = HD, Cancel = Normal`)
+        ? "hd"
+        : "normal";
+};
+
+const appendCompressionMode = (formData, mode = "normal") => {
+    formData.append("compressionMode", mode === "hd" ? "hd" : "normal");
+};
+
 const getMessageDate = (value) => {
     const date = new Date(value || Date.now());
     return Number.isNaN(date.getTime()) ? new Date() : date;
@@ -716,7 +749,7 @@ useEffect(() => {
         return `${minutes}:${remainingSeconds}`;
     };
 
-    const sendRecordedFile = async (blob, mode, mimeType) => {
+    const sendRecordedFile = async (blob, mode, mimeType, compressionMode = "normal") => {
         if (!conversation || !blob?.size) return;
 
         const extension = getRecordingExtension(mimeType, mode);
@@ -733,6 +766,7 @@ useEffect(() => {
             "file",
             file
         );
+        appendCompressionMode(formData, compressionMode);
 
         const res =
             await sendMessage(formData);
@@ -745,12 +779,14 @@ useEffect(() => {
         onConversationChange?.();
     };
 
-    const sendSingleFile = async (file) => {
+    const sendSingleFile = async (fileItem) => {
+        const file = getUploadFile(fileItem);
         if (!conversation || !file) return;
 
         const formData = new FormData();
         formData.append("conversationId", conversation._id);
         formData.append("file", file);
+        appendCompressionMode(formData, fileItem?.compressionMode || chooseCompressionMode(file));
 
         const res = await sendMessage(formData);
         const newMessage = res.data.message;
@@ -768,7 +804,7 @@ useEffect(() => {
 
         try {
             setIsSendingAction(true);
-            await sendSingleFile(file);
+            await sendSingleFile({ file, compressionMode: chooseCompressionMode(file) });
         } catch {
             setRecordingError("Unable to send captured media. Please try again.");
         } finally {
@@ -828,12 +864,13 @@ useEffect(() => {
                         blob,
                         mode,
                         mimeType: recorder.mimeType || mimeType,
-                        duration: recordedDuration,
+                        duration: Math.min(recordedDuration, mode === "audio" ? VOICE_RECORDING_MAX_SECONDS : recordedDuration),
+                        compressionMode: mode === "audio" ? "hd" : "normal",
                     });
                 }
             };
 
-            recorder.start();
+            recorder.start(1000);
             setRecorderMode(mode);
             setRecordingSeconds(0);
             recordingSecondsRef.current = 0;
@@ -841,6 +878,10 @@ useEffect(() => {
                 setRecordingSeconds((prev) => {
                     const next = prev + 1;
                     recordingSecondsRef.current = next;
+                    if (mode === "audio" && next >= VOICE_RECORDING_MAX_SECONDS) {
+                        window.setTimeout(() => stopRecording(), 0);
+                        return VOICE_RECORDING_MAX_SECONDS;
+                    }
                     return next;
                 });
             }, 1000);
@@ -868,7 +909,7 @@ useEffect(() => {
 
         try {
             setIsSendingAction(true);
-            await sendRecordedFile(pendingRecording.blob, pendingRecording.mode, pendingRecording.mimeType);
+            await sendRecordedFile(pendingRecording.blob, pendingRecording.mode, pendingRecording.mimeType, pendingRecording.compressionMode);
             setPendingRecording(null);
         } catch {
             setRecordingError("Unable to send the recording. Please try again.");
@@ -898,6 +939,7 @@ useEffect(() => {
             if (files.length > 0) {
                 for (let index = 0; index < files.length; index += 1) {
                     const fileItem = files[index];
+                    const uploadFile = getUploadFile(fileItem);
                     const formData = new FormData();
 
                     formData.append(
@@ -918,8 +960,9 @@ useEffect(() => {
 
                     formData.append(
                         "file",
-                        fileItem
+                        uploadFile
                     );
+                    appendCompressionMode(formData, fileItem?.compressionMode || chooseCompressionMode(uploadFile));
 
                     const res =
                         await sendMessage(formData);
@@ -946,6 +989,7 @@ useEffect(() => {
                 if (replyingTo?._id) {
                     formData.append("replyToMessageId", replyingTo._id);
                 }
+                appendCompressionMode(formData, "normal");
 
                 const res = await sendMessage(formData);
                 messagesToAppend.push(res.data.message);
@@ -1038,6 +1082,15 @@ useEffect(() => {
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
+    };
+
+    const handleFileSelection = (event) => {
+        const selectedFiles = Array.from(event.target.files || []);
+        setFiles(selectedFiles.map((file) => ({
+            file,
+            compressionMode: chooseCompressionMode(file),
+        })));
+        event.target.value = "";
     };
 
     const getMessageText = (message) => String(message?.text || message?.caption || "")
@@ -1213,12 +1266,14 @@ useEffect(() => {
                 key={item.id}
                 className="chat-contact-media-tile"
                 href={item.url || "#"}
-                target="_blank"
-                rel="noreferrer"
+                onClick={(event) => {
+                    event.preventDefault();
+                    scrollToRepliedMessage(item.message?._id);
+                }}
                 title={item.name}
             >
-                {canPreviewImage ? (
-                    <img src={item.url} alt={item.name} />
+                {canPreviewImage && item.message?.localPreviewUrl ? (
+                    <img src={item.message.localPreviewUrl} alt={item.name} />
                 ) : item.kind === "video" ? (
                     <><Video size={22} /><span className="chat-contact-play"><Play size={15} fill="currentColor" /></span></>
                 ) : item.kind === "audio" ? (
@@ -1852,12 +1907,7 @@ useEffect(() => {
                             ref={fileInputRef}
                             type="file"
                             multiple
-                            onChange={(e) => {
-                                setFiles(
-                                    Array.from(e.target.files || [])
-                                );
-                                e.target.value = "";
-                            }}
+                            onChange={handleFileSelection}
                         />
                         <Paperclip size={19} />
                     </label>
@@ -1886,13 +1936,18 @@ useEffect(() => {
                         {files.length > 0 && (
                             <div className="selected-files-wrap">
                                 <div className="selected-files-list">
-                                    {files.map((file, index) => (
+                                    {files.map((fileItem, index) => {
+                                        const file = getUploadFile(fileItem);
+                                        return (
                                         <div
                                             className="selected-file-info"
                                             key={`${file.name}-${file.lastModified}-${index}`}
                                             title={file.name}
                                         >
                                             <span>{file.name}</span>
+                                            {getMediaCompressionType(file) && (
+                                                <small>{fileItem.compressionMode === "hd" ? "HD" : "Normal"}</small>
+                                            )}
                                             <button
                                                 type="button"
                                                 onClick={() => setFiles(prev => prev.filter((_, fileIndex) => fileIndex !== index))}
@@ -1902,7 +1957,7 @@ useEffect(() => {
                                                 <X size={14} />
                                             </button>
                                         </div>
-                                    ))}
+                                    );})}
                                 </div>
                                 {files.length > 1 && (
                                     <button

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, BellOff, Check, Edit, Lock, MoreVertical, Search, SlidersHorizontal, Users, X } from "lucide-react";
 import { API_URL_IMG } from "../config";
+import { resolveAvatarUrl } from "./messageUtils";
 
 const ChatSidebar = ({
     groups,
@@ -25,12 +26,7 @@ const ChatSidebar = ({
     const [groupError, setGroupError] = useState("");
     const [activeFilter, setActiveFilter] = useState("all");
 
-    const getAvatarSrc = (avatar) => {
-        if (!avatar) return null;
-        return avatar.startsWith("http")
-            ? avatar
-            : `${API_URL_IMG.replace(/\/$/, "")}${avatar.startsWith("/") ? avatar : `/${avatar}`}`;
-    };
+    const getAvatarSrc = (avatar) => resolveAvatarUrl(avatar);
 
     const getLastMessageText = item => {
         const message = item?.lastMessage;
@@ -373,16 +369,28 @@ const ChatSidebar = ({
                             onClick={() => setSelectedUser(user)}
                         >
                             <div className="chat-user-avatar">
-                                {
-                                    getAvatarSrc(user.avatar || user.profileImage || user.image)
-                                        ? (
-                                            <img
-                                                src={getAvatarSrc(user.avatar || user.profileImage || user.image)}
-                                                alt={user.name}
-                                            />
-                                        )
-                                        : user.name?.charAt(0).toUpperCase()
-                                }
+                                {(() => {
+                                    const avatarSrc = getAvatarSrc(user);
+                                    return (
+                                        <>
+                                            {avatarSrc ? (
+                                                <img
+                                                    src={avatarSrc}
+                                                    alt={user.name || "User"}
+                                                    onError={(e) => {
+                                                        e.currentTarget.style.display = "none";
+                                                        if (e.currentTarget.nextSibling) {
+                                                            e.currentTarget.nextSibling.style.display = "inline";
+                                                        }
+                                                    }}
+                                                />
+                                            ) : null}
+                                            <span style={{ display: avatarSrc ? "none" : "inline" }}>
+                                                {user.name?.charAt(0).toUpperCase() || "U"}
+                                            </span>
+                                        </>
+                                    );
+                                })()}
                             </div>
 
                             <div className="chat-user-body">
@@ -516,9 +524,28 @@ const ChatSidebar = ({
                                     onClick={() => startNewChat(user)}
                                 >
                                     <span className="chat-user-avatar">
-                                        {getAvatarSrc(user.avatar || user.profileImage || user.image)
-                                            ? <img src={getAvatarSrc(user.avatar || user.profileImage || user.image)} alt={user.name} />
-                                            : user.name?.charAt(0).toUpperCase() || "U"}
+                                        {(() => {
+                                            const avatarSrc = getAvatarSrc(user);
+                                            return (
+                                                <>
+                                                    {avatarSrc ? (
+                                                        <img
+                                                            src={avatarSrc}
+                                                            alt={user.name || "User"}
+                                                            onError={(e) => {
+                                                                e.currentTarget.style.display = "none";
+                                                                if (e.currentTarget.nextSibling) {
+                                                                    e.currentTarget.nextSibling.style.display = "inline";
+                                                                }
+                                                            }}
+                                                        />
+                                                    ) : null}
+                                                    <span style={{ display: avatarSrc ? "none" : "inline" }}>
+                                                        {user.name?.charAt(0).toUpperCase() || "U"}
+                                                    </span>
+                                                </>
+                                            );
+                                        })()}
                                     </span>
                                     <span>
                                         <strong>{user.name || user.email || userId}</strong>
@@ -571,7 +598,21 @@ const ChatSidebar = ({
                                 <div className="chat-selected-members">
                                     {selectedGroupUsers.map(user => (
                                         <button type="button" key={getItemId(user)} onClick={() => toggleGroupMember(user)}>
-                                            <span>{user.name?.charAt(0).toUpperCase() || "U"}</span>
+                                            {(() => {
+                                                const avatarSrc = getAvatarSrc(user);
+                                                return avatarSrc ? (
+                                                    <span style={{ width: 18, height: 18, borderRadius: "50%", overflow: "hidden", display: "inline-flex", flexShrink: 0 }}>
+                                                        <img
+                                                            src={avatarSrc}
+                                                            alt=""
+                                                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                                            onError={(e) => { e.currentTarget.parentElement.style.display = "none"; }}
+                                                        />
+                                                    </span>
+                                                ) : (
+                                                    <span>{user.name?.charAt(0).toUpperCase() || "U"}</span>
+                                                );
+                                            })()}
                                             {user.name || user.email || getItemId(user)}
                                             <X size={12} />
                                         </button>
@@ -591,9 +632,28 @@ const ChatSidebar = ({
                                             onClick={() => toggleGroupMember(user)}
                                         >
                                             <span className="chat-user-avatar">
-                                                {getAvatarSrc(user.avatar || user.profileImage || user.image)
-                                                    ? <img src={getAvatarSrc(user.avatar || user.profileImage || user.image)} alt={user.name} />
-                                                    : user.name?.charAt(0).toUpperCase() || "U"}
+                                                {(() => {
+                                                    const avatarSrc = getAvatarSrc(user);
+                                                    return (
+                                                        <>
+                                                            {avatarSrc ? (
+                                                                <img
+                                                                    src={avatarSrc}
+                                                                    alt={user.name || "User"}
+                                                                    onError={(e) => {
+                                                                        e.currentTarget.style.display = "none";
+                                                                        if (e.currentTarget.nextSibling) {
+                                                                            e.currentTarget.nextSibling.style.display = "inline";
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            ) : null}
+                                                            <span style={{ display: avatarSrc ? "none" : "inline" }}>
+                                                                {user.name?.charAt(0).toUpperCase() || "U"}
+                                                            </span>
+                                                        </>
+                                                    );
+                                                })()}
                                             </span>
                                             <span>
                                                 <strong>{user.name || user.email || userId}</strong>

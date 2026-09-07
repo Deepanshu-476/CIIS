@@ -3,6 +3,7 @@ import "./chat.css";
 import ChatSidebar from "../../chat/ChatSidebar";
 import ChatBox from "../../chat/ChatBox";
 import StatusPanel from "./StatusPanel";
+import { resolveAvatarUrl } from "../../chat/messageUtils";
 import {
   changeMyPassword,
   createCompanyGroup,
@@ -395,12 +396,30 @@ const ChatCallsPanel = ({
             <span><Plus size={17} /></span>
             <strong>Add favourite</strong>
           </button>
-          {favouriteTargets.map(target => (
-            <button type="button" className="chat-call-favourite-contact" key={getItemId(target)} onClick={() => startContactCall("audio", target)}>
-              <span>{getDisplayName(target).charAt(0).toUpperCase()}</span>
-              <strong>{getDisplayName(target)}</strong>
-            </button>
-          ))}
+          {favouriteTargets.map(target => {
+            const avatarSrc = resolveAvatarUrl(target);
+            return (
+              <button type="button" className="chat-call-favourite-contact" key={getItemId(target)} onClick={() => startContactCall("audio", target)}>
+                <span style={{ overflow: "hidden" }}>
+                  {avatarSrc ? (
+                    <img
+                      src={avatarSrc}
+                      alt=""
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                        if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "inline";
+                      }}
+                    />
+                  ) : null}
+                  <span style={{ display: avatarSrc ? "none" : "inline" }}>
+                    {getDisplayName(target).charAt(0).toUpperCase()}
+                  </span>
+                </span>
+                <strong>{getDisplayName(target)}</strong>
+              </button>
+            );
+          })}
         </div>
 
         <div className="chat-call-section-row">
@@ -433,7 +452,26 @@ const ChatCallsPanel = ({
               onClick={() => setSelectedCallId(call.callId)}
             >
               <span className="chat-call-avatar">
-                {(call.title || call.peerUser?.name || "U").charAt(0).toUpperCase()}
+                {(() => {
+                  const avatarSrc = resolveAvatarUrl(call.peerUser);
+                  return (
+                    <>
+                      {avatarSrc ? (
+                        <img
+                          src={avatarSrc}
+                          alt=""
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                            if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "inline";
+                          }}
+                        />
+                      ) : null}
+                      <span style={{ display: avatarSrc ? "none" : "inline" }}>
+                        {(call.title || call.peerUser?.name || "U").charAt(0).toUpperCase()}
+                      </span>
+                    </>
+                  );
+                })()}
               </span>
               <span className="chat-call-body">
                 <strong>{call.title || "User"}</strong>
@@ -864,7 +902,28 @@ const ChatSettingsPanel = ({ currentUser, users, onSettingsChange }) => {
             const blocked = blockedIds.includes(userId);
             return (
               <button type="button" key={userId} onClick={() => toggleBlocked(user)}>
-                <span className="chat-settings-mini-avatar">{user.name?.charAt(0).toUpperCase() || "U"}</span>
+                <span className="chat-settings-mini-avatar">
+                  {(() => {
+                    const avatarSrc = resolveAvatarUrl(user);
+                    return (
+                      <>
+                        {avatarSrc ? (
+                          <img
+                            src={avatarSrc}
+                            alt=""
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                              if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "inline";
+                            }}
+                          />
+                        ) : null}
+                        <span style={{ display: avatarSrc ? "none" : "inline" }}>
+                          {user.name?.charAt(0).toUpperCase() || "U"}
+                        </span>
+                      </>
+                    );
+                  })()}
+                </span>
                 <span><strong>{user.name || user.email || userId}</strong><small>{blocked ? "Blocked" : "Allowed"}</small></span>
                 <i className={blocked ? "active" : ""} />
               </button>
@@ -886,7 +945,28 @@ const ChatSettingsPanel = ({ currentUser, users, onSettingsChange }) => {
         </div>
         <div className="chat-settings-scroll">
           <div className="chat-settings-profile">
-            <div className="chat-settings-avatar">{profileName?.charAt(0).toUpperCase() || "U"}</div>
+            <div className="chat-settings-avatar">
+              {(() => {
+                const avatarSrc = resolveAvatarUrl(currentUser);
+                return (
+                  <>
+                    {avatarSrc ? (
+                      <img
+                        src={avatarSrc}
+                        alt=""
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "inline";
+                        }}
+                      />
+                    ) : null}
+                    <span style={{ display: avatarSrc ? "none" : "inline" }}>
+                      {profileName?.charAt(0).toUpperCase() || "U"}
+                    </span>
+                  </>
+                );
+              })()}
+            </div>
             <strong>{profileName || "User"}</strong>
             <small>{about || "Available"}</small>
           </div>
@@ -1023,8 +1103,15 @@ const ChatPage = () => {
     const userId = (user._id || user.id || "").toString();
     const conversationId = conversation?._id?.toString();
     const unreadOverride = getUnreadOverride(conversationId, userId);
+    const otherMember = (conversation?.members || []).find(m => {
+      const mid = (m?._id || m?.id || m).toString();
+      return mid === userId;
+    });
+    const profileImage = user.profileImage || otherMember?.profileImage || user.avatar || otherMember?.avatar || user.image || otherMember?.image || "";
     return {
       ...user,
+      profileImage,
+      avatar: profileImage,
       conversation,
       unreadCount: unreadOverride ?? conversation?.unreadCount ?? 0,
       lastMessage: conversation?.lastMessage,
@@ -1097,6 +1184,8 @@ const ChatPage = () => {
 
         return {
           ...prev,
+          profileImage: freshUser.profileImage || freshUser.avatar || prev.profileImage,
+          avatar: freshUser.avatar || freshUser.profileImage || prev.avatar,
           isOnline: nextIsOnline,
           lastSeen: freshUser.lastSeen,
         };
@@ -1304,11 +1393,26 @@ const ChatPage = () => {
       <aside className="chat-app-rail">
         <div className="chat-rail-profile">
           <div className="chat-rail-avatar">
-            {currentUser?.avatar || currentUser?.profileImage || currentUser?.image ? (
-              <img src={currentUser.avatar || currentUser.profileImage || currentUser.image} alt={currentUser.name || "User"} />
-            ) : (
-              (currentUser?.name || "U").charAt(0).toUpperCase()
-            )}
+            {(() => {
+              const avatarSrc = resolveAvatarUrl(currentUser);
+              return (
+                <>
+                  {avatarSrc ? (
+                    <img
+                      src={avatarSrc}
+                      alt={currentUser.name || "User"}
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                        if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "inline";
+                      }}
+                    />
+                  ) : null}
+                  <span style={{ display: avatarSrc ? "none" : "inline" }}>
+                    {(currentUser?.name || "U").charAt(0).toUpperCase()}
+                  </span>
+                </>
+              );
+            })()}
           </div>
           <span />
         </div>

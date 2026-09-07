@@ -1,6 +1,7 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Mic, MicOff, Phone, PhoneOff, Video, VideoOff } from "lucide-react";
 import API_URL, { API_URL_IMG, TURN_URL, TURN_USERNAME, TURN_CREDENTIAL } from "../config";
+import { resolveAvatarUrl } from "./messageUtils";
 import "../Pages/Chat/chat.css";
 
 const getFallbackIceServers = () => {
@@ -50,12 +51,7 @@ const getUserId = (user) => {
     return rawId.toString();
 };
 
-const getAvatarSrc = (avatar) => {
-    if (!avatar) return null;
-    return avatar.startsWith("http")
-        ? avatar
-        : `${API_URL_IMG.replace(/\/$/, "")}${avatar.startsWith("/") ? avatar : `/${avatar}`}`;
-};
+const getAvatarSrc = (avatar) => resolveAvatarUrl(avatar);
  
 const getGroupName = (group) => (
     group?.name || group?.groupName || group?.group_name || group?.title || "Group call"
@@ -161,7 +157,19 @@ const RemoteVideoTile = ({ participant }) => {
                 <video ref={videoRef} autoPlay playsInline className="call-remote-video" />
             ) : (
                 <div className="call-avatar-large">
-                    {avatarSrc ? <img src={avatarSrc} alt={participant.user?.name} /> : participant.user?.name?.charAt(0).toUpperCase() || "U"}
+                    {avatarSrc ? (
+                        <img
+                            src={avatarSrc}
+                            alt={participant.user?.name || "Participant"}
+                            onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                                if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "inline";
+                            }}
+                        />
+                    ) : null}
+                    <span style={{ display: avatarSrc ? "none" : "inline" }}>
+                        {participant.user?.name?.charAt(0).toUpperCase() || "U"}
+                    </span>
                 </div>
             )}
             <div className="call-tile-name">{participant.user?.name || "Participant"}</div>
@@ -911,7 +919,19 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                                 <RemoteAudioTrack key={participant.userId} participant={participant} />
                             ))}
                             <div className="call-avatar-large">
-                                {avatarSrc ? <img src={avatarSrc} alt={call.peerUser?.name} /> : call.peerUser?.name?.charAt(0).toUpperCase() || "U"}
+                                {avatarSrc ? (
+                                    <img
+                                        src={avatarSrc}
+                                        alt={call.peerUser?.name || "User"}
+                                        onError={(e) => {
+                                            e.currentTarget.style.display = "none";
+                                            if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "inline";
+                                        }}
+                                    />
+                                ) : null}
+                                <span style={{ display: avatarSrc ? "none" : "inline" }}>
+                                    {call.peerUser?.name?.charAt(0).toUpperCase() || "U"}
+                                </span>
                             </div>
                         </>
                     )}

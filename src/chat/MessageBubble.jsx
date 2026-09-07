@@ -565,8 +565,8 @@ const MessageBubble = ({
             {!isAudioOnly && (
                 <div className="message-top-row">
                     <span className="message-sender">{senderName}</span>
-                    <button ref={menuButtonRef} className="message-menu-btn" onClick={toggleMessageMenu} title="Message options">
-                        <MoreVertical size={16} />
+                    <button ref={menuButtonRef} className={`message-menu-btn ${showMenu ? "active" : ""}`} onClick={toggleMessageMenu} title="Message options">
+                        <MoreVertical size={15} />
                     </button>
                 </div>
             )}

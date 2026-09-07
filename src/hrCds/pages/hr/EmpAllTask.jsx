@@ -442,8 +442,8 @@ const TaskDetails = () => {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [globalFromDate, setGlobalFromDate] = useState(getDateInputValue());
-  const [globalToDate, setGlobalToDate] = useState(getDateInputValue());
+  const [globalFromDate, setGlobalFromDate] = useState("");
+  const [globalToDate, setGlobalToDate] = useState("");
   const [clockedInTodayOnly, setClockedInTodayOnly] = useState(false);
   const [todayClockedInUserIds, setTodayClockedInUserIds] = useState(new Set());
   const [todayClockedInLoading, setTodayClockedInLoading] = useState(false);
@@ -460,8 +460,9 @@ const TaskDetails = () => {
     if (!userId) return;
     const selectedUser = users.find((user) => String(user._id || user.id) === String(userId));
     const params = new URLSearchParams();
-    const selectedDate = globalFromDate || globalToDate;
-    if (selectedDate) params.set('date', selectedDate);
+    const todayStr = getDateInputValue();
+    params.set('startDate', todayStr);
+    params.set('endDate', todayStr);
     if (selectedBranchId) params.set('branchId', selectedBranchId);
     const query = params.toString() ? `?${params.toString()}` : '';
     navigate(`/ciisUser/company-all-task/tasks/${userId}${query}`, {
@@ -470,7 +471,7 @@ const TaskDetails = () => {
         taskStats: selectedUser?.taskStats || null,
       },
     });
-  }, [globalFromDate, globalToDate, navigate, selectedBranchId, users]);
+  }, [navigate, selectedBranchId, users]);
 
   
   useEffect(() => {
@@ -1050,10 +1051,11 @@ const TaskDetails = () => {
     fetchUsersTimeoutRef.current = setTimeout(async () => {
       if (!isMounted.current) return;
 
+      const todayStr = getDateInputValue();
       const cacheKey = buildEmpUsersCacheKey({
         branchId: selectedBranchId,
-        fromDate: globalFromDate,
-        toDate: globalToDate,
+        fromDate: todayStr,
+        toDate: todayStr,
       });
       const cachedUsersSnapshot = readEmpUsersCache(cacheKey);
       const shouldShowLoading = !cachedUsersSnapshot;
@@ -1152,9 +1154,9 @@ const TaskDetails = () => {
           const statsPayload = {
             userIds,
             filters: {
-              period: isDateFiltered ? 'all' : 'today',
-              fromDate: fromDateParam,
-              toDate: toDateParam,
+              period: 'today',
+              fromDate: todayStr,
+              toDate: todayStr,
               status: 'all',
               priority: 'all',
               ...branchQueryParams,
@@ -2168,7 +2170,7 @@ const TaskDetails = () => {
           <div className="TaskDetails-overall-stats-icon">
             <FiBarChart />
           </div>
-          <h4>System-wide Task Statistics</h4>
+          <h4>Today's Task Statistics</h4>
           {!isOwner() && (
             <span className="TaskDetails-role-badge" style={{ marginLeft: '1rem', fontSize: '0.8rem', color: '#6b7280' }}>
               (Your Department Only)
@@ -2191,7 +2193,7 @@ const TaskDetails = () => {
                 {overallStats.total}
               </div>
               <div className="TaskDetails-overall-stat-label">
-                Total Tasks
+                Today's Tasks
               </div>
             </div>
           </div>
@@ -4158,33 +4160,7 @@ const TaskDetails = () => {
 
           {renderOverallStats()}
 
-          <div className="TaskDetails-modal-date-range" style={{ marginTop: '1rem' }}>
-            <div className="TaskDetails-modal-date-input">
-              <FiCalendar size={14} />
-              <input
-                type="date"
-                value={globalFromDate}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setGlobalFromDate(val);
-                  setGlobalToDate(val);
-                }}
-                placeholder="Select Date"
-              />
-            </div>
-            {(globalFromDate || globalToDate) && (
-              <button
-                className="TaskDetails-modal-date-clear"
-                onClick={() => {
-                  const todayValue = getDateInputValue();
-                  setGlobalFromDate(todayValue);
-                  setGlobalToDate(todayValue);
-                }}
-              >
-                Today
-              </button>
-            )}
-          </div>
+
         </div>
       </div>
 

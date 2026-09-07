@@ -1244,7 +1244,7 @@ const ChatPage = () => {
     fetchUsers();
     fetchGroups();
     fetchConversations();
-    fetchStatuses();
+    // fetchStatuses();
 
     const userRefreshTimer = window.setInterval(fetchUsers, 60000);
 
@@ -1336,7 +1336,7 @@ const ChatPage = () => {
     socket.on("user:online", handleChatUserOnline);
     socket.on("user:offline", handleChatUserOffline);
     socket.on("chat:unread-update", handleUnread);
-    socket.on("chat:status-update", handleStatusUpdate);
+    // socket.on("chat:status-update", handleStatusUpdate);
     socket.on("connect", refreshOnlineUsers);
     socket.on("disconnect", handleDisconnect);
     socket.io?.on("reconnect", refreshOnlineUsers);
@@ -1357,7 +1357,7 @@ const ChatPage = () => {
       socket.off("user:online", handleChatUserOnline);
       socket.off("user:offline", handleChatUserOffline);
       socket.off("chat:unread-update", handleUnread);
-      socket.off("chat:status-update", handleStatusUpdate);
+      // socket.off("chat:status-update", handleStatusUpdate);
       socket.off("connect", refreshOnlineUsers);
       socket.off("disconnect", handleDisconnect);
       socket.io?.off("reconnect", refreshOnlineUsers);
@@ -1418,13 +1418,13 @@ const ChatPage = () => {
         </div>
         <nav className="chat-rail-nav" aria-label="Chat navigation">
           <button type="button" className={activeView === "chats" ? "active" : ""} onClick={() => setActiveView("chats")} title="Chats"><MessageCircle size={20} /><span>Chats</span></button>
-          <button type="button" className={activeView === "status" ? "active" : ""} onClick={() => setActiveView("status")} title="Status"><TimerReset size={20} /><span>Status</span></button>
+          {/* <button type="button" className={activeView === "status" ? "active" : ""} onClick={() => setActiveView("status")} title="Status"><TimerReset size={20} /><span>Status</span></button> */}
           <button type="button" className={activeView === "calls" ? "active" : ""} onClick={() => setActiveView("calls")} title="Calls"><Phone size={20} /><span>Calls</span></button>
           <button type="button" className={activeView === "communities" ? "active" : ""} onClick={() => setActiveView("communities")} title="Groups"><Users size={20} /><span>Groups</span></button>
         </nav>
-        <div className="chat-rail-bottom">
+        {/* <div className="chat-rail-bottom">
           <button type="button" className={activeView === "settings" ? "active" : ""} onClick={() => setActiveView("settings")} title="Settings"><Settings size={20} /><span>Settings</span></button>
-        </div>
+        </div> */}
       </aside>
       {activeView === "chats" && (
         <ChatSidebar
@@ -1440,7 +1440,7 @@ const ChatPage = () => {
         />
       )}
 
-      {activeView === "status" && (
+      {/* {activeView === "status" && (
         <StatusPanel
           statuses={statuses}
           currentUser={currentUser}
@@ -1450,7 +1450,7 @@ const ChatPage = () => {
           loading={statusesLoading}
           error={statusesError}
         />
-      )}
+      )} */}
 
       {activeView === "calls" && (
         <ChatCallsPanel
@@ -1478,9 +1478,9 @@ const ChatPage = () => {
         />
       )}
 
-      {activeView === "settings" && (
+      {/* {activeView === "settings" && (
         <ChatSettingsPanel currentUser={currentUser} users={users} onSettingsChange={setEffectiveChatSettings} />
-      )}
+      )} */}
 
       {activeView === "chats" && (
         <div
@@ -1510,7 +1510,8 @@ const ChatPage = () => {
         </div>
       )}
 
-      {activeView === "status" ? (
+      {/* Status & Settings right-side views (commented out)
+      activeView === "status" ? (
         <section className="chat-empty status-page-empty">
           <div className="chat-empty-card">
             <TimerReset size={40} />
@@ -1519,13 +1520,6 @@ const ChatPage = () => {
             <small>Status updates disappear automatically after 24 hours.</small>
           </div>
         </section>
-      ) : activeView === "calls" ? (
-        <ChatCallsDetail
-          call={callHistory.find(call => call.callId === selectedCallId)}
-          users={enrichedUsers}
-          groups={enrichedGroups}
-          startCall={startCall}
-        />
       ) : activeView === "settings" ? (
         <section className="chat-empty chat-settings-detail">
           <div className="chat-empty-card">
@@ -1534,6 +1528,14 @@ const ChatPage = () => {
             <p>Update profile, privacy, blocked contacts and chat preferences from the settings panel.</p>
           </div>
         </section>
+      ) : */}
+      {activeView === "calls" ? (
+        <ChatCallsDetail
+          call={callHistory.find(call => call.callId === selectedCallId)}
+          users={enrichedUsers}
+          groups={enrichedGroups}
+          startCall={startCall}
+        />
       ) : (
         <ChatBox
           selectedUser={selectedUser}

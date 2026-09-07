@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Check, CheckCheck, Copy, Download, FileText, Forward, Mic, MoreVertical, Pause, Play, Reply, Trash2, X } from "lucide-react";
+import { Check, CheckCheck, Copy, Download, FileText, Forward, Maximize2, Mic, MoreVertical, Pause, Play, Reply, Trash2, X } from "lucide-react";
 import { API_URL_IMG } from "../config";
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif|bmp|svg)$/i;
-const AUDIO_EXTENSIONS = /\.(mp3|wav|webm|ogg|m4a|aac)$/i;
-const VIDEO_EXTENSIONS = /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i;
+const AUDIO_EXTENSIONS = /\.(mp3|wav|m4a|aac|oga|opus|flac)$/i;
+const VIDEO_EXTENSIONS = /\.(mp4|webm|ogg|mov|m4v|avi|mkv|flv|wmv)$/i;
 const DOCUMENT_EXTENSIONS = /\.(pdf|docx?|xlsx?|csv|pptx?|txt|rtf|odt|ods|odp|zip|rar|7z)$/i;
 const ATTACHMENT_CACHE_NAME = "ciis-chat-attachments-v1";
 
@@ -241,17 +241,47 @@ const MessageBubble = ({
     const normalizedMediaType = (mediaType || "").toLowerCase();
     const mediaPath = (mediaUrl || "").split("?")[0].toLowerCase();
     const rawMediaPath = String(rawMediaUrl || "").split("?")[0].toLowerCase();
-    const isImageMedia = normalizedMediaType.startsWith("image") || IMAGE_EXTENSIONS.test(mediaPath) || IMAGE_EXTENSIONS.test(rawMediaPath);
-    const isAudioMedia = normalizedMediaType.startsWith("audio")
+    const rawFileName = String(message.fileName || message.filename || message.name || "").toLowerCase();
+
+    const isImageMedia = normalizedMediaType.startsWith("image")
+        || IMAGE_EXTENSIONS.test(mediaPath)
+        || IMAGE_EXTENSIONS.test(rawMediaPath)
+        || IMAGE_EXTENSIONS.test(rawFileName);
+
+    const isExplicitAudio = normalizedMediaType.startsWith("audio")
         || mediaPath.includes("audio-recording")
         || rawMediaPath.includes("audio-recording")
+        || rawFileName.includes("audio-recording");
+
+    const isExplicitVideo = normalizedMediaType.startsWith("video")
+        || mediaPath.includes("video-recording")
+        || rawMediaPath.includes("video-recording")
+        || rawFileName.includes("video-recording");
+
+    const isVideoCandidate = isExplicitVideo
+        || VIDEO_EXTENSIONS.test(mediaPath)
+        || VIDEO_EXTENSIONS.test(rawMediaPath)
+        || VIDEO_EXTENSIONS.test(rawFileName);
+
+    const isAudioCandidate = isExplicitAudio
         || AUDIO_EXTENSIONS.test(mediaPath)
-        || AUDIO_EXTENSIONS.test(rawMediaPath);
-    const isVideoMedia = !isAudioMedia && (
-        normalizedMediaType.startsWith("video") || VIDEO_EXTENSIONS.test(mediaPath) || VIDEO_EXTENSIONS.test(rawMediaPath)
+        || AUDIO_EXTENSIONS.test(rawMediaPath)
+        || AUDIO_EXTENSIONS.test(rawFileName);
+
+    const isVideoMedia = !isImageMedia && (
+        isExplicitVideo
+        || (isVideoCandidate && !isExplicitAudio)
     );
-    const isPdfMedia = normalizedMediaType === "application/pdf" || /\.pdf$/i.test(mediaPath) || /\.pdf$/i.test(rawMediaPath);
+
+    const isAudioMedia = !isImageMedia && !isVideoMedia && isAudioCandidate;
+    const isPdfMedia = normalizedMediaType === "application/pdf"
+        || /\.pdf$/i.test(mediaPath)
+        || /\.pdf$/i.test(rawMediaPath)
+        || /\.pdf$/i.test(rawFileName);
+
     const getAttachmentName = () => {
+        const rawName = message.fileName || message.filename || message.name;
+        if (rawName && typeof rawName === "string") return rawName;
         const pathName = rawMediaUrl.split(/[\\/]/).pop() || "Attachment";
         try {
             return decodeURIComponent(pathName).replace(/^\d+-/, "") || "Attachment";
@@ -437,9 +467,16 @@ const MessageBubble = ({
     const openMediaPreview = async (kind) => {
         try {
             const previewUrl = await getLocalAttachmentUrl();
-            if (previewUrl) setPreviewMedia({ kind, url: previewUrl });
+            if (previewUrl) {
+                setPreviewMedia({ kind, url: previewUrl });
+                return;
+            }
         } catch (error) {
             console.error("Attachment open failed", error);
+        }
+        if (mediaUrl) {
+            setPreviewMedia({ kind, url: mediaUrl });
+        } else {
             tryNextMediaUrl();
         }
     };
@@ -583,6 +620,7 @@ const MessageBubble = ({
         }
 
         if (isImageMedia) {
+            const imageSrc = localMediaUrl || mediaUrl;
             return (
                 <button
                     type="button"
@@ -590,8 +628,16 @@ const MessageBubble = ({
                     onClick={() => openMediaPreview("image")}
                     aria-label="Open image attachment"
                 >
-                    {localMediaUrl ? (
-                        <img src={localMediaUrl} alt="attachment" className="chat-media chat-media-image" />
+                    {imageSrc ? (
+                        <img
+                            src={imageSrc}
+                            alt="attachment"
+                            className="chat-media chat-media-image"
+                            loading="lazy"
+                            onError={() => {
+                                tryNextMediaUrl();
+                            }}
+                        />
                     ) : (
                         <span className="chat-attachment-download-tile">
                             <Download size={20} />
@@ -608,26 +654,40 @@ const MessageBubble = ({
         }
 
         if (isVideoMedia) {
+            const videoSrc = localMediaUrl || mediaUrl;
             return (
-                <button
-                    type="button"
-                    className="chat-media-open"
-                    onClick={() => openMediaPreview("video")}
-                    aria-label="Open video attachment"
-                >
-                    {localMediaUrl ? (
-                        <>
-                            <video src={localMediaUrl} className="chat-media chat-media-video" muted playsInline />
-                            <span className="chat-video-open-label">Open video</span>
-                        </>
-                    ) : (
-                        <span className="chat-attachment-download-tile">
-                            <Download size={20} />
-                            <strong>{isAttachmentLoading ? "Downloading..." : "Download video"}</strong>
-                            <small>{attachmentName}</small>
-                        </span>
-                    )}
-                </button>
+                <div className="chat-media-video-wrap">
+                    <video
+                        src={videoSrc}
+                        className="chat-media chat-media-video"
+                        controls
+                        playsInline
+                        preload="metadata"
+                        onError={() => {
+                            tryNextMediaUrl();
+                        }}
+                    />
+                    <div className="chat-media-video-toolbar">
+                        <button
+                            type="button"
+                            className="chat-video-action-btn"
+                            onClick={() => openMediaPreview("video")}
+                            title="Expand video preview"
+                            aria-label="Expand video preview"
+                        >
+                            <Maximize2 size={14} />
+                        </button>
+                        <button
+                            type="button"
+                            className="chat-video-action-btn"
+                            onClick={downloadAttachment}
+                            title="Download video"
+                            aria-label="Download video"
+                        >
+                            <Download size={14} />
+                        </button>
+                    </div>
+                </div>
             );
         }
 

@@ -4,7 +4,7 @@ import React, {
     useState
 } from "react";
 import "../Pages/Chat/chat.css";
-import { ArrowLeft, Bell, Camera, ChevronRight, Download, ExternalLink, FileText, Images, Info, Link2, Mic, MessageCircle, MoreVertical, Paperclip, Phone, Play, Search, SendHorizontal, Smile, Square, TimerReset, Trash2, Video, Wallpaper, X } from "lucide-react";
+import { ArrowLeft, Bell, Camera, ChevronRight, Download, ExternalLink, FileText, Headphones, Images, Info, Link2, Mic, MessageCircle, MoreVertical, Paperclip, Pause, Phone, RotateCcw, Play, Search, SendHorizontal, Smile, Square, TimerReset, Trash2, Video, Wallpaper, X } from "lucide-react";
 
 import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage, updateConversationMute, updateDisappearingMessages, updateMessageReaction } from "../services/chatService";
 
@@ -81,6 +81,101 @@ const formatMessageDateSeparator = (value) => {
     });
 };
 
+const VoiceRecordingWaveform = ({ stream, isPaused }) => {
+    const [amplitudes, setAmplitudes] = useState(() => [
+        4, 6, 12, 18, 14, 8, 16, 22, 10, 5, 9, 17, 24, 15, 7, 5, 11, 19, 21, 12, 6, 13, 18, 15, 8, 5, 8, 12, 6, 4
+    ]);
+    const audioContextRef = useRef(null);
+    const analyserRef = useRef(null);
+    const timerRef = useRef(null);
+
+    useEffect(() => {
+        if (!stream) return;
+
+        let isMounted = true;
+        try {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (AudioContextClass) {
+                const ctx = new AudioContextClass();
+                audioContextRef.current = ctx;
+
+                if (ctx.state === "suspended") {
+                    ctx.resume().catch(() => {});
+                }
+
+                const analyser = ctx.createAnalyser();
+                analyser.fftSize = 64;
+                analyser.smoothingTimeConstant = 0.5;
+                analyserRef.current = analyser;
+
+                const source = ctx.createMediaStreamSource(stream);
+                source.connect(analyser);
+
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                const interval = window.setInterval(() => {
+                    if (!isMounted) return;
+                    if (isPaused) return;
+
+                    if (analyserRef.current) {
+                        analyserRef.current.getByteFrequencyData(dataArray);
+                        let sum = 0;
+                        for (let i = 0; i < dataArray.length; i++) {
+                            sum += dataArray[i];
+                        }
+                        const average = sum / (dataArray.length || 1);
+                        const volumeRatio = Math.min(1, average / 85);
+
+                        setAmplitudes(prev => {
+                            const next = [...prev.slice(1)];
+                            const minHeight = 4;
+                            const maxHeight = 26;
+                            const jitter = (Math.random() * 4) - 2;
+                            const calculated = Math.round(
+                                Math.max(
+                                    minHeight,
+                                    Math.min(
+                                        maxHeight,
+                                        volumeRatio > 0.03
+                                            ? (volumeRatio * (maxHeight - minHeight)) + minHeight + jitter
+                                            : (Math.random() * 4) + minHeight
+                                    )
+                                )
+                            );
+                            next.push(calculated);
+                            return next;
+                        });
+                    }
+                }, 75);
+
+                timerRef.current = interval;
+            }
+        } catch (err) {
+            console.warn("Waveform AudioContext init skipped:", err);
+        }
+
+        return () => {
+            isMounted = false;
+            if (timerRef.current) window.clearInterval(timerRef.current);
+            if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+                audioContextRef.current.close().catch(() => {});
+            }
+        };
+    }, [stream, isPaused]);
+
+    return (
+        <div className="voice-recorder-waveform" aria-hidden="true">
+            {amplitudes.map((height, index) => (
+                <span
+                    key={index}
+                    className={`voice-waveform-bar ${isPaused ? "paused" : ""}`}
+                    style={{ height: `${height}px` }}
+                />
+            ))}
+        </div>
+    );
+};
+
 const ChatBox = ({
     selectedUser,
     currentUser,
@@ -111,6 +206,10 @@ const ChatBox = ({
     const [recordingSeconds, setRecordingSeconds] = useState(0);
     const [recordingError, setRecordingError] = useState("");
     const [pendingRecording, setPendingRecording] = useState(null);
+    const [isRecordingPaused, setIsRecordingPaused] = useState(false);
+    const [videoPreviewUrl, setVideoPreviewUrl] = useState(null);
+    const discardRecordingRef = useRef(false);
+    const sendImmediatelyRef = useRef(false);
     const [showCaptureMenu, setShowCaptureMenu] = useState(false);
     const typingTimerRef = useRef(null);
     const mediaRecorderRef = useRef(null);
@@ -120,6 +219,10 @@ const ChatBox = ({
     const recordingSecondsRef = useRef(0);
     const recordingPreviewRef = useRef(null);
     const emojiPickerRef = useRef(null);
+    const attachmentMenuRef = useRef(null);
+    const documentInputRef = useRef(null);
+    const photosVideosInputRef = useRef(null);
+    const audioInputRef = useRef(null);
     const headerMenuRef = useRef(null);
     const chatBoxRef = useRef(null);
     const chatInputRef = useRef(null);
@@ -135,6 +238,7 @@ const ChatBox = ({
     const [activeChatDateLabel, setActiveChatDateLabel] = useState("");
     const [showActiveChatDate, setShowActiveChatDate] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
     const [showHeaderMenu, setShowHeaderMenu] = useState(false);
     const [showContactInfo, setShowContactInfo] = useState(false);
     const [contactPanelView, setContactPanelView] = useState("info");
@@ -401,6 +505,18 @@ const ChatBox = ({
         };
     }, [socket]);
 
+
+    useEffect(() => {
+        if (pendingRecording?.mode === "video" && pendingRecording.blob) {
+            const url = URL.createObjectURL(pendingRecording.blob);
+            setVideoPreviewUrl(url);
+            return () => {
+                URL.revokeObjectURL(url);
+            };
+        } else {
+            setVideoPreviewUrl(null);
+        }
+    }, [pendingRecording]);
     useEffect(() => {
         if (recorderMode === "video" && recordingPreviewRef.current && recordingStreamRef.current) {
             recordingPreviewRef.current.srcObject = recordingStreamRef.current;
@@ -419,12 +535,24 @@ const ChatBox = ({
             if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target)) {
                 setShowEmojiPicker(false);
             }
+            if (attachmentMenuRef.current && !attachmentMenuRef.current.contains(event.target)) {
+                setShowAttachmentMenu(false);
+            }
+        };
+
+        const handleKeyDown = (event) => {
+            if (event.key === "Escape") {
+                setShowEmojiPicker(false);
+                setShowAttachmentMenu(false);
+            }
         };
 
         document.addEventListener("mousedown", handleClickOutside);
+        document.addEventListener("keydown", handleKeyDown);
 
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
+            document.removeEventListener("keydown", handleKeyDown);
         };
     }, []);
 
@@ -755,7 +883,8 @@ useEffect(() => {
 
         const extension = getRecordingExtension(mimeType, mode);
         const fileName = `${mode}-recording-${Date.now()}.${extension}`;
-        const file = new File([blob], fileName, { type: mimeType || blob.type || `${mode}/webm` });
+        const resolvedType = mimeType || blob.type || (mode === "video" ? "video/webm" : "audio/webm");
+        const file = new File([blob], fileName, { type: resolvedType });
         const formData = new FormData();
 
         formData.append(
@@ -767,6 +896,8 @@ useEffect(() => {
             "file",
             file
         );
+        formData.append("fileType", resolvedType);
+        formData.append("fileName", fileName);
         appendCompressionMode(formData, compressionMode);
 
         const res =
@@ -787,6 +918,8 @@ useEffect(() => {
         const formData = new FormData();
         formData.append("conversationId", conversation._id);
         formData.append("file", file);
+        if (file.type) formData.append("fileType", file.type);
+        if (file.name) formData.append("fileName", file.name);
         appendCompressionMode(formData, fileItem?.compressionMode || chooseCompressionMode(file));
 
         const res = await sendMessage(formData);
@@ -847,6 +980,11 @@ useEffect(() => {
             };
 
             recorder.onstop = async () => {
+                const isDiscard = discardRecordingRef.current;
+                const isDirectSend = sendImmediatelyRef.current;
+                discardRecordingRef.current = false;
+                sendImmediatelyRef.current = false;
+
                 const blob = new Blob(recordingChunksRef.current, {
                     type: recorder.mimeType || mimeType || `${mode}/webm`
                 });
@@ -858,29 +996,47 @@ useEffect(() => {
                 setRecordingSeconds(0);
                 recordingSecondsRef.current = 0;
                 setRecorderMode(null);
+                setIsRecordingPaused(false);
                 stopRecordingTracks();
 
+                if (isDiscard) return;
+
                 if (blob.size) {
-                    setPendingRecording({
-                        blob,
-                        mode,
-                        mimeType: recorder.mimeType || mimeType,
-                        duration: Math.min(recordedDuration, mode === "audio" ? VOICE_RECORDING_MAX_SECONDS : recordedDuration),
-                        compressionMode: mode === "audio" ? "hd" : "normal",
-                    });
+                    if (isDirectSend) {
+                        try {
+                            setIsSendingAction(true);
+                            await sendRecordedFile(blob, mode, recorder.mimeType || mimeType, mode === "audio" ? "hd" : "normal");
+                        } catch (err) {
+                            setRecordingError(`Unable to send ${mode} recording. Please try again.`);
+                        } finally {
+                            setIsSendingAction(false);
+                        }
+                    } else {
+                        setPendingRecording({
+                            blob,
+                            mode,
+                            mimeType: recorder.mimeType || mimeType,
+                            duration: Math.min(recordedDuration, mode === "audio" ? VOICE_RECORDING_MAX_SECONDS : recordedDuration),
+                            compressionMode: mode === "audio" ? "hd" : "normal",
+                        });
+                    }
                 }
             };
 
+            discardRecordingRef.current = false;
+            sendImmediatelyRef.current = false;
+            setIsRecordingPaused(false);
             recorder.start(1000);
             setRecorderMode(mode);
             setRecordingSeconds(0);
             recordingSecondsRef.current = 0;
             recordingTimerRef.current = window.setInterval(() => {
+                if (mediaRecorderRef.current?.state === "paused") return;
                 setRecordingSeconds((prev) => {
                     const next = prev + 1;
                     recordingSecondsRef.current = next;
                     if (mode === "audio" && next >= VOICE_RECORDING_MAX_SECONDS) {
-                        window.setTimeout(() => stopRecording(), 0);
+                        window.setTimeout(() => sendVoiceRecordingImmediately(), 0);
                         return VOICE_RECORDING_MAX_SECONDS;
                     }
                     return next;
@@ -894,12 +1050,56 @@ useEffect(() => {
         }
     };
 
+    const cancelVoiceRecording = () => {
+        discardRecordingRef.current = true;
+        sendImmediatelyRef.current = false;
+        setIsRecordingPaused(false);
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+            mediaRecorderRef.current.stop();
+        } else {
+            stopRecordingTracks();
+            setRecorderMode(null);
+            setRecordingSeconds(0);
+            recordingSecondsRef.current = 0;
+        }
+    };
+
+    const togglePauseVoiceRecording = () => {
+        if (!mediaRecorderRef.current) return;
+        try {
+            if (mediaRecorderRef.current.state === "recording") {
+                mediaRecorderRef.current.pause();
+                setIsRecordingPaused(true);
+            } else if (mediaRecorderRef.current.state === "paused") {
+                mediaRecorderRef.current.resume();
+                setIsRecordingPaused(false);
+            }
+        } catch (e) {
+            console.warn("Pause/resume error:", e);
+        }
+    };
+
+    const sendVoiceRecordingImmediately = () => {
+        if (!mediaRecorderRef.current || isSendingAction) return;
+        sendImmediatelyRef.current = true;
+        discardRecordingRef.current = false;
+        setIsRecordingPaused(false);
+        if (mediaRecorderRef.current.state !== "inactive") {
+            mediaRecorderRef.current.stop();
+        }
+    };
+
     const stopRecording = () => {
         if (mediaRecorderRef.current?.state === "recording") {
             mediaRecorderRef.current.stop();
         }
     };
 
+
+    const retakeVideoRecording = () => {
+        discardPendingRecording();
+        startRecording("video");
+    };
     const discardPendingRecording = () => {
         setPendingRecording(null);
         setRecordingError("");
@@ -963,6 +1163,8 @@ useEffect(() => {
                         "file",
                         uploadFile
                     );
+                    if (uploadFile.type) formData.append("fileType", uploadFile.type);
+                    if (uploadFile.name) formData.append("fileName", uploadFile.name);
                     appendCompressionMode(formData, fileItem?.compressionMode || chooseCompressionMode(uploadFile));
 
                     const res =
@@ -1919,21 +2121,160 @@ useEffect(() => {
                     ))}
                 </div>
 
+                {recorderMode === "audio" ? (
+                    <div className="voice-recorder-bar">
+                        <div className="voice-recorder-cancel-wrap">
+                            <div className="voice-recorder-tooltip">Cancel</div>
+                            <button
+                                type="button"
+                                className="voice-recorder-cancel-btn"
+                                onClick={cancelVoiceRecording}
+                                title="Cancel recording"
+                                aria-label="Cancel recording"
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        </div>
+
+                        <div className="voice-recorder-status">
+                            <span className={`voice-recorder-dot ${isRecordingPaused ? "paused" : "blinking"}`} />
+                            <span className="voice-recorder-time">
+                                {Math.floor(recordingSeconds / 60)}:{(recordingSeconds % 60).toString().padStart(2, "0")}
+                            </span>
+                        </div>
+
+                        <VoiceRecordingWaveform
+                            stream={recordingStreamRef.current}
+                            isPaused={isRecordingPaused}
+                        />
+
+                        <button
+                            type="button"
+                            className={`voice-recorder-pause-btn ${isRecordingPaused ? "paused" : ""}`}
+                            onClick={togglePauseVoiceRecording}
+                            title={isRecordingPaused ? "Resume recording" : "Pause recording"}
+                            aria-label={isRecordingPaused ? "Resume recording" : "Pause recording"}
+                        >
+                            {isRecordingPaused ? <Mic size={18} /> : <Pause size={18} />}
+                        </button>
+
+                        <button
+                            type="button"
+                            className="voice-recorder-send-btn"
+                            onClick={sendVoiceRecordingImmediately}
+                            disabled={isSendingAction}
+                            title="Send voice message"
+                            aria-label="Send voice message"
+                        >
+                            <SendHorizontal size={19} />
+                        </button>
+                    </div>
+                ) : (
                 <div className="chat-composer">
-                    <label className="file-upload-btn" title="Attach file">
+                    <div className="attachment-menu-wrap" ref={attachmentMenuRef}>
+                        <button
+                            type="button"
+                            className={`file-upload-btn ${showAttachmentMenu ? "active" : ""}`}
+                            onClick={() => setShowAttachmentMenu((prev) => !prev)}
+                            title="Attach"
+                            aria-label="Attach"
+                            aria-expanded={showAttachmentMenu}
+                        >
+                            <Paperclip size={19} />
+                        </button>
+
+                        {showAttachmentMenu && (
+                            <div className="attachment-menu-popup" role="menu">
+                                <button
+                                    type="button"
+                                    className="attachment-menu-item"
+                                    onClick={() => {
+                                        setShowAttachmentMenu(false);
+                                        documentInputRef.current?.click();
+                                    }}
+                                >
+                                    <span className="attachment-icon-wrap icon-document">
+                                        <FileText size={20} strokeWidth={2.2} />
+                                    </span>
+                                    <span className="attachment-label">Document</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className="attachment-menu-item"
+                                    onClick={() => {
+                                        setShowAttachmentMenu(false);
+                                        photosVideosInputRef.current?.click();
+                                    }}
+                                >
+                                    <span className="attachment-icon-wrap icon-photos">
+                                        <Images size={20} strokeWidth={2.2} />
+                                    </span>
+                                    <span className="attachment-label">Photos & videos</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className="attachment-menu-item"
+                                    onClick={() => {
+                                        setShowAttachmentMenu(false);
+                                        startRecording("video");
+                                    }}
+                                >
+                                    <span className="attachment-icon-wrap icon-camera">
+                                        <Camera size={20} strokeWidth={2.2} />
+                                    </span>
+                                    <span className="attachment-label">Camera</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className="attachment-menu-item"
+                                    onClick={() => {
+                                        setShowAttachmentMenu(false);
+                                        audioInputRef.current?.click();
+                                    }}
+                                >
+                                    <span className="attachment-icon-wrap icon-audio">
+                                        <Headphones size={20} strokeWidth={2.2} />
+                                    </span>
+                                    <span className="attachment-label">Audio</span>
+                                </button>
+                            </div>
+                        )}
+
+                        <input
+                            ref={documentInputRef}
+                            type="file"
+                            multiple
+                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,.odt,.ods,.odp,.zip,.rar,.7z"
+                            onChange={handleFileSelection}
+                            style={{ display: "none" }}
+                        />
+                        <input
+                            ref={photosVideosInputRef}
+                            type="file"
+                            multiple
+                            accept="image/*,video/*"
+                            onChange={handleFileSelection}
+                            style={{ display: "none" }}
+                        />
+                        <input
+                            ref={audioInputRef}
+                            type="file"
+                            multiple
+                            accept="audio/*"
+                            onChange={handleFileSelection}
+                            style={{ display: "none" }}
+                        />
                         <input
                             ref={fileInputRef}
                             type="file"
                             multiple
                             onChange={handleFileSelection}
+                            style={{ display: "none" }}
                         />
-                        <Paperclip size={19} />
-                    </label>
-
-                    <input ref={capturePhotoBackRef} className="chat-capture-input" type="file" accept="image/*" capture="environment" onChange={handleCapturedFile} />
-                    <input ref={capturePhotoFrontRef} className="chat-capture-input" type="file" accept="image/*" capture="user" onChange={handleCapturedFile} />
-                    <input ref={captureVideoBackRef} className="chat-capture-input" type="file" accept="video/*" capture="environment" onChange={handleCapturedFile} />
-                    <input ref={captureVideoFrontRef} className="chat-capture-input" type="file" accept="video/*" capture="user" onChange={handleCapturedFile} />
+                    </div>
 
                     <div className="chat-input-wrapper">
                         {replyingTo && (
@@ -1988,40 +2329,7 @@ useEffect(() => {
                                 )}
                             </div>
                         )}
-                        {recorderMode && (
-                            <div className="recording-panel">
-                                {recorderMode === "video" && (
-                                    <video
-                                        ref={recordingPreviewRef}
-                                        className="recording-preview"
-                                        autoPlay
-                                        muted
-                                        playsInline
-                                    />
-                                )}
-                                <div className="recording-status">
-                                    <span className="recording-dot" />
-                                    {recorderMode === "video" ? "Video recording" : "Voice recording"}
-                                    <strong>{formatRecordingTime(recordingSeconds)}</strong>
-                                </div>
-                            </div>
-                        )}
-                        {pendingRecording && (
-                            <div className="recording-ready-panel">
-                                <span>
-                                    {pendingRecording.mode === "video" ? "Video ready" : "Voice ready"}
-                                    {pendingRecording.duration ? ` ${formatRecordingTime(pendingRecording.duration)}` : ""}
-                                </span>
-                                <button type="button" className="recording-delete-btn" onClick={discardPendingRecording} disabled={isSendingAction}>
-                                    <Trash2 size={14} />
-                                    Delete
-                                </button>
-                                <button type="button" className="recording-send-btn" onClick={sendPendingRecording} disabled={isSendingAction}>
-                                    <SendHorizontal size={14} />
-                                    {isSendingAction ? "Sending..." : "Send"}
-                                </button>
-                            </div>
-                        )}
+
                         {recordingError && (
                             <div className="recording-error">{recordingError}</div>
                         )}
@@ -2056,25 +2364,15 @@ useEffect(() => {
                         />
                     </div>
 
-                    <div className="camera-picker-wrap">
-                        <button
-                            className="recording-btn"
-                            onClick={() => setShowCaptureMenu(value => !value)}
-                            disabled={isSendingAction || Boolean(recorderMode) || Boolean(pendingRecording) || !effectiveChatSettings.videoVoice.cameraEnabled}
-                            title="Open camera"
-                            type="button"
-                        >
-                            <Camera size={18} />
-                        </button>
-                        {showCaptureMenu && (
-                            <div className="camera-picker-panel">
-                                <button type="button" onClick={() => { setShowCaptureMenu(false); capturePhotoBackRef.current?.click(); }}>Photo - Back Camera</button>
-                                <button type="button" onClick={() => { setShowCaptureMenu(false); capturePhotoFrontRef.current?.click(); }}>Photo - Front Camera</button>
-                                <button type="button" onClick={() => { setShowCaptureMenu(false); captureVideoBackRef.current?.click(); }}>Video - Back Camera</button>
-                                <button type="button" onClick={() => { setShowCaptureMenu(false); captureVideoFrontRef.current?.click(); }}>Video - Front Camera</button>
-                            </div>
-                        )}
-                    </div>
+                    <button
+                        className="recording-btn"
+                        onClick={() => startRecording("video")}
+                        disabled={isSendingAction || Boolean(recorderMode) || Boolean(pendingRecording) || !effectiveChatSettings.videoVoice.cameraEnabled}
+                        title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : "Record video"}
+                        type="button"
+                    >
+                        <Camera size={18} />
+                    </button>
 
                     <div className="emoji-picker-wrap" ref={emojiPickerRef}>
                         <button
@@ -2129,6 +2427,7 @@ useEffect(() => {
                         <SendHorizontal size={20} />
                     </button>
                 </div>
+                )}
             </div>
             </div>
 
@@ -2165,6 +2464,123 @@ useEffect(() => {
             </aside>
             )}
 
+
+            {/* WhatsApp-Style Live Video Recorder & Preview Modal */}
+            {(recorderMode === "video" || (pendingRecording && pendingRecording.mode === "video")) && (
+                <div className="video-recorder-overlay" role="dialog" aria-modal="true">
+                    <div className="video-recorder-modal">
+                        {/* Header */}
+                        <div className="video-recorder-header">
+                            {recorderMode === "video" ? (
+                                <div className="video-recorder-timer-badge">
+                                    <span className="video-recorder-dot" />
+                                    <span>{Math.floor(recordingSeconds / 60)}:{(recordingSeconds % 60).toString().padStart(2, "0")}</span>
+                                </div>
+                            ) : (
+                                <div className="video-recorder-preview-badge">
+                                    <Video size={15} />
+                                    <span>Video Preview ({formatRecordingTime(pendingRecording?.duration || 0)})</span>
+                                </div>
+                            )}
+                            <button
+                                type="button"
+                                className="video-recorder-close-btn"
+                                onClick={recorderMode === "video" ? cancelVoiceRecording : discardPendingRecording}
+                                title="Close"
+                                aria-label="Close"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Viewfinder / Video player */}
+                        <div className="video-recorder-viewfinder-wrap">
+                            {recorderMode === "video" ? (
+                                <video
+                                    ref={(el) => {
+                                        recordingPreviewRef.current = el;
+                                        if (el && recordingStreamRef.current) {
+                                            el.srcObject = recordingStreamRef.current;
+                                        }
+                                    }}
+                                    autoPlay
+                                    muted
+                                    playsInline
+                                    className="video-recorder-video mirrored"
+                                />
+                            ) : (
+                                <video
+                                    src={videoPreviewUrl || undefined}
+                                    autoPlay
+                                    controls
+                                    playsInline
+                                    className="video-recorder-video"
+                                />
+                            )}
+                        </div>
+
+                        {/* Bottom Actions */}
+                        <div className="video-recorder-bottom">
+                            {recorderMode === "video" ? (
+                                <>
+                                    <button
+                                        type="button"
+                                        className="video-recorder-discard-btn"
+                                        onClick={cancelVoiceRecording}
+                                        title="Discard recording"
+                                        aria-label="Discard recording"
+                                    >
+                                        <Trash2 size={20} />
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="video-recorder-stop-btn"
+                                        onClick={stopRecording}
+                                        title="Stop recording"
+                                        aria-label="Stop recording"
+                                    >
+                                        <span className="video-recorder-stop-icon" />
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="video-recorder-send-circle-btn"
+                                        onClick={sendVoiceRecordingImmediately}
+                                        disabled={isSendingAction}
+                                        title="Send video now"
+                                        aria-label="Send video now"
+                                    >
+                                        <SendHorizontal size={20} />
+                                    </button>
+                                </>
+                            ) : (
+                                <div className="video-recorder-preview-actions">
+                                    <button
+                                        type="button"
+                                        className="video-recorder-retake-btn"
+                                        onClick={retakeVideoRecording}
+                                        disabled={isSendingAction}
+                                    >
+                                        <RotateCcw size={16} />
+                                        <span>Retake</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="video-recorder-send-action-btn"
+                                        onClick={sendPendingRecording}
+                                        disabled={isSendingAction}
+                                    >
+                                        <SendHorizontal size={18} />
+                                        <span>{isSendingAction ? "Sending..." : "Send Video"}</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import axios from "../../../utils/axiosConfig";
 import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission } from "../../../utils/pageAccess";
 import API_URL from "../../../config";
@@ -13,6 +15,7 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiClock,
+  FiDownload,
   FiEdit2,
   FiFilter,
   FiList,
@@ -302,7 +305,8 @@ const buildCompanyTaskCacheKey = ({
   userId = "",
   page = 1,
   limit = 10,
-  selectedDate = "",
+  startDate = "",
+  endDate = "",
   search = "",
   status = "all",
   priority = "all",
@@ -311,7 +315,8 @@ const buildCompanyTaskCacheKey = ({
   String(userId || ""),
   String(page || 1),
   String(limit || 10),
-  String(selectedDate || ""),
+  String(startDate || ""),
+  String(endDate || ""),
   String(search || "").trim().toLowerCase(),
   String(status || "all"),
   String(priority || "all"),
@@ -380,9 +385,11 @@ const CompanyAllTaskTasks = () => {
   const [searchParams] = useSearchParams();
   const currentUser = useMemo(getStoredUser, []);
   const effectiveUserId = userId || getCurrentUserId() || currentUser?._id || currentUser?.id || "";
-  const initialDate = useMemo(() => {
-    const queryDate = searchParams.get("date");
-    return queryDate || getDateInputValue();
+  const initialStartDate = useMemo(() => {
+    return searchParams.get("startDate") || searchParams.get("fromDate") || getDateInputValue();
+  }, [searchParams]);
+  const initialEndDate = useMemo(() => {
+    return searchParams.get("endDate") || searchParams.get("toDate") || getDateInputValue();
   }, [searchParams]);
 
   const locationStateEmployee = location.state?.employee || null;
@@ -392,7 +399,8 @@ const CompanyAllTaskTasks = () => {
     userId: effectiveUserId,
     page: 1,
     limit: 10,
-    selectedDate: initialDate,
+    startDate: initialStartDate,
+    endDate: initialEndDate,
     search: "",
     status: "all",
     priority: "all",
@@ -412,7 +420,9 @@ const CompanyAllTaskTasks = () => {
   const [loading, setLoading] = useState(!initialTaskSnapshot);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [selectedDate, setSelectedDate] = useState(initialDate);
+  const [startDate, setStartDate] = useState(initialStartDate);
+  const [endDate, setEndDate] = useState(initialEndDate);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [status, setStatus] = useState("all");
   const [priority, setPriority] = useState("all");
   const [page, setPage] = useState(1);
@@ -537,7 +547,8 @@ const CompanyAllTaskTasks = () => {
       userId: effectiveUserId,
       page,
       limit,
-      selectedDate,
+      startDate,
+      endDate,
       search,
       status,
       priority,
@@ -581,9 +592,9 @@ const CompanyAllTaskTasks = () => {
         params: {
           page,
           limit,
-          period: selectedDate ? "all" : "today",
-          fromDate: selectedDate,
-          toDate: selectedDate,
+          period: (startDate || endDate) ? "all" : "all",
+          fromDate: startDate || undefined,
+          toDate: endDate || undefined,
           search,
           status,
           priority,
@@ -663,7 +674,7 @@ const CompanyAllTaskTasks = () => {
     } finally {
       setLoading(false);
     }
-  }, [effectiveUserId, limit, page, priority, search, selectedDate, status]);
+  }, [effectiveUserId, endDate, limit, page, priority, search, startDate, status]);
 
   const fetchTaskDetails = useCallback(async (task) => {
     if (!task?._id) {
@@ -733,8 +744,10 @@ const CompanyAllTaskTasks = () => {
     return 0;
   };
 
+  const isTodayRange = startDate === getDateInputValue() && endDate === getDateInputValue();
+
   const filteredStats = [
-    { label: "Total", value: getStatCount(stats.total), status: "all", icon: FiList, color: "#2563eb" },
+    { label: isTodayRange ? "Today Tasks" : "Total", value: getStatCount(stats.total), status: "all", icon: FiList, color: "#2563eb" },
     { label: "Pending", value: getStatCount(stats.pending), status: "pending", icon: FiClock, color: "#f59e0b" },
     { label: "In Progress", value: getStatCount(stats.inProgress), status: "in-progress", icon: FiActivity, color: "#0ea5e9" },
     { label: "Completed", value: getStatCount(stats.completed), status: "completed", icon: FiCheckCircle, color: "#16a34a" },
@@ -746,11 +759,141 @@ const CompanyAllTaskTasks = () => {
 
   const handleReset = () => {
     setSearch("");
-    setSelectedDate(getDateInputValue());
+    setStartDate(getDateInputValue());
+    setEndDate(getDateInputValue());
     setStatus("all");
     setPriority("all");
     setPage(1);
   };
+
+  const handleExportPdf = useCallback(async () => {
+    if (!effectiveUserId) return;
+    try {
+      setExportingPdf(true);
+      const response = await axios.get(`/task/user/${effectiveUserId}/all-tasks`, {
+        params: {
+          page: 1,
+          limit: 5000,
+          export: "true",
+          period: "all",
+          fromDate: startDate || undefined,
+          toDate: endDate || undefined,
+          search: search.trim() || undefined,
+          status: status !== "all" ? status : undefined,
+          priority: priority !== "all" ? priority : undefined,
+          _ts: Date.now(),
+        },
+      });
+
+      const allExportTasks = response.data?.tasks || response.data?.data || [];
+      if (allExportTasks.length === 0) {
+        alert("No tasks found for the selected date range to export.");
+        return;
+      }
+
+      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const exportedAt = new Date();
+
+      // Header Banner
+      doc.setFillColor(37, 99, 235);
+      doc.rect(0, 0, pageWidth, 74, "F");
+
+      // Title & User Details
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(17);
+      doc.setFont("helvetica", "bold");
+      doc.text("Company Tasks Report", 30, 30);
+
+      doc.setFontSize(9.5);
+      doc.setFont("helvetica", "normal");
+      const empDetails = [
+        `Employee: ${employeeName || "User"}`,
+        employee?.email ? `Email: ${employee.email}` : "",
+        employee?.role ? `Role: ${employee.role}` : "",
+        employee?.department?.name ? `Dept: ${employee.department.name}` : "",
+      ].filter(Boolean).join("  |  ");
+      doc.text(empDetails, 30, 47);
+
+      const dateRangeText = startDate && endDate
+        ? `${startDate} to ${endDate}`
+        : startDate
+        ? `From ${startDate}`
+        : endDate
+        ? `Up to ${endDate}`
+        : "All Dates";
+
+      const metaText = `Date Range: ${dateRangeText}  |  Total Tasks: ${allExportTasks.length}  |  Exported: ${exportedAt.toLocaleString("en-IN")}`;
+      doc.text(metaText, 30, 62);
+
+      const rows = allExportTasks.map((t, index) => {
+        const dispStatus = getDisplayStatus(t);
+        const tType = getTaskType(t) === "assigned" ? "Assigned" : "Personal";
+        const dueDate = formatDate(getDueDate(t));
+        const workTime = Number(t.workTime?.seconds) > 0 ? t.workTime.label : "--";
+        const cleanTitle = String(t.title || "Untitled").replace(/[\r\n]+/g, " ");
+        const cleanDesc = String(t.description || "No description").replace(/[\r\n]+/g, " ");
+
+        return [
+          index + 1,
+          cleanTitle,
+          cleanDesc.length > 80 ? `${cleanDesc.substring(0, 77)}...` : cleanDesc,
+          (t.priority || "medium").toUpperCase(),
+          dispStatus.toUpperCase(),
+          tType,
+          dueDate,
+          workTime
+        ];
+      });
+
+      autoTable(doc, {
+        startY: 88,
+        head: [["#", "Title", "Description", "Priority", "Status", "Type", "Due Date", "Task Time"]],
+        body: rows,
+        theme: "grid",
+        headStyles: {
+          fillColor: [37, 99, 235],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          fontSize: 8.5,
+          halign: "left",
+        },
+        bodyStyles: {
+          fontSize: 8,
+          textColor: [30, 41, 59],
+          valign: "middle",
+        },
+        columnStyles: {
+          0: { cellWidth: 26, halign: "center" },
+          1: { cellWidth: 140 },
+          2: { cellWidth: 230 },
+          3: { cellWidth: 55, halign: "center" },
+          4: { cellWidth: 65, halign: "center" },
+          5: { cellWidth: 55, halign: "center" },
+          6: { cellWidth: 70, halign: "center" },
+          7: { cellWidth: 55, halign: "center" },
+        },
+        didDrawPage: () => {
+          const pageStr = `Page ${doc.internal.getNumberOfPages()}`;
+          doc.setFontSize(8);
+          doc.setTextColor(150);
+          doc.text(pageStr, pageWidth - 60, pageHeight - 14);
+          doc.text("CIIS Network - Confidential", 30, pageHeight - 14);
+        },
+      });
+
+      const fileStart = startDate || "all";
+      const fileEnd = endDate || "all";
+      const sanitizedName = String(employeeName || "user").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      doc.save(`company-tasks-${sanitizedName}-${fileStart}-to-${fileEnd}.pdf`);
+    } catch (err) {
+      console.error("Failed to export PDF:", err);
+      alert("Failed to export PDF. Please try again.");
+    } finally {
+      setExportingPdf(false);
+    }
+  }, [effectiveUserId, employee, employeeName, endDate, priority, search, startDate, status]);
 
   const canEditTask = (task) => canEditCompanyTasks && ["self", "assigned", "client", "project"].includes(getTaskSource(task));
 
@@ -1038,6 +1181,19 @@ const CompanyAllTaskTasks = () => {
             </div>
           </div>
         </div>
+
+        <div className="company-task-hero-actions">
+          <button
+            type="button"
+            className="company-task-export-btn"
+            onClick={handleExportPdf}
+            disabled={exportingPdf}
+            title="Export tasks as PDF"
+          >
+            <FiDownload size={16} />
+            {exportingPdf ? "Exporting PDF..." : "Export PDF"}
+          </button>
+        </div>
       </section>
 
       {error && (
@@ -1099,15 +1255,31 @@ const CompanyAllTaskTasks = () => {
 
         <div className="company-task-filters">
           <FiFilter size={16} />
-          <label className="company-task-date-filter">
+          <label className="company-task-date-filter" title="Start Date">
             <FiCalendar size={15} />
+            <span className="company-task-date-label">Start:</span>
             <input
               type="date"
-              value={selectedDate}
+              value={startDate}
               onChange={(event) => {
-                setSelectedDate(event.target.value);
+                setStartDate(event.target.value);
                 setPage(1);
               }}
+              aria-label="Start Date"
+            />
+          </label>
+          <label className="company-task-date-filter" title="End Date">
+            <FiCalendar size={15} />
+            <span className="company-task-date-label">End:</span>
+            <input
+              type="date"
+              value={endDate}
+              min={startDate || undefined}
+              onChange={(event) => {
+                setEndDate(event.target.value);
+                setPage(1);
+              }}
+              aria-label="End Date"
             />
           </label>
           <select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
@@ -1123,6 +1295,16 @@ const CompanyAllTaskTasks = () => {
           <button type="button" className="company-task-reset" onClick={handleReset}>
             <FiRefreshCw size={15} />
             Reset
+          </button>
+          <button
+            type="button"
+            className="company-task-export-btn company-task-export-btn-compact"
+            onClick={handleExportPdf}
+            disabled={exportingPdf}
+            title="Export tasks as PDF"
+          >
+            <FiDownload size={15} />
+            {exportingPdf ? "Exporting..." : "Export"}
           </button>
         </div>
       </section>
@@ -1158,7 +1340,17 @@ const CompanyAllTaskTasks = () => {
         <div className="company-task-list-panel">
           <div className="company-task-list-head">
             <div>
-              <h2>{selectedDate === getDateInputValue() ? "Today Tasks" : "Tasks"}</h2>
+              <h2>
+                {isTodayRange
+                  ? "Today Tasks"
+                  : startDate && endDate
+                  ? `Tasks (${startDate} to ${endDate})`
+                  : startDate
+                  ? `Tasks (From ${startDate})`
+                  : endDate
+                  ? `Tasks (Up to ${endDate})`
+                  : "All Tasks"}
+              </h2>
               <p>{loading && tasks.length === 0 ? "Loading..." : `${total} tasks found`}</p>
             </div>
             <select value={limit} onChange={(event) => { setLimit(Number(event.target.value)); setPage(1); }}>

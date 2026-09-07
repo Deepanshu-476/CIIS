@@ -1,1546 +1,1376 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import axios from "../../utils/axiosConfig";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import CIISLoader from "../../Loader/CIISLoader";
+import "../Css/Attendance.css";
+
 import {
-  FiSearch,
   FiCalendar,
   FiClock,
-  FiUser,
-  FiTrendingUp,
+  FiUserCheck,
+  FiAlertTriangle,
+  FiCoffee,
+  FiXCircle,
+  FiBarChart2,
+  FiSearch,
+  FiFilter,
   FiDownload,
   FiEye,
+  FiChevronLeft,
   FiChevronRight,
-  FiFilter,
-  FiCheckCircle,
-  FiAlertCircle,
-  FiMinusCircle,
+  FiChevronDown,
+  FiCheck,
   FiX,
-  FiBarChart2,
-  FiRefreshCw,
-  FiAlertTriangle,
-  FiWatch,
-  FiGift,
-  FiCalendar as FiCalendarRange 
+  FiMapPin,
+  FiSmartphone,
+  FiGlobe
 } from "react-icons/fi";
 import { MdCelebration } from "react-icons/md";
-import '../Css/Attendance.css';
-import CIISLoader from '../../Loader/CIISLoader';
-import VirtualList from '../../components/VirtualList';
 
-const calculateDistance = (lat1, lon1, lat2 = 30.707949, lon2 = 76.6860975) => {
-  if (lat1 === undefined || lat1 === null || lon1 === undefined || lon1 === null) return null;
-  const R = 6371e3; // Earth radius in meters
-  const φ1 = lat1 * Math.PI / 180;
-  const φ2 = lat2 * Math.PI / 180;
-  const Δφ = (lat2 - lat1) * Math.PI / 180;
-  const Δλ = (lon2 - lon1) * Math.PI / 180;
+// Month names helper
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
 
-  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  const d = R * c; // in meters
-  return Math.round(d);
-};
-
-const normalizeAttendanceStatus = (status) => {
-  const compactStatus = String(status || '')
-    .trim()
-    .toUpperCase()
-    .replace(/[\s_-]+/g, '');
-
-  const statusMap = {
-    PRESENT: 'PRESENT',
-    LATE: 'LATE',
-    ABSENT: 'ABSENT',
-    HALFDAY: 'HALF DAY',
-    UNINFORMEDLEAVE: 'UNINFORMED LEAVE',
-    HOLIDAY: 'HOLIDAY',
-  };
-
-  return statusMap[compactStatus] || compactStatus;
-};
-
-const getShiftLabel = (record = {}) => {
-  const shiftName = record.shiftName || record.user?.shiftName || 'Assigned Shift';
-  const shiftStart = record.shiftStart || record.shiftWindow?.startTime;
-  const shiftEnd = record.shiftEnd || record.shiftWindow?.endTime;
-  return shiftStart && shiftEnd ? `${shiftName} (${shiftStart} - ${shiftEnd})` : shiftName;
-};
-
-const getClockOutModeLabel = (record = {}) => {
-  if (!record?.outTime) return '';
-  const mode = String(record.clockOutMode || '').trim().toUpperCase();
-  if (mode === 'AUTO') return 'Auto Clock Out';
-  if (mode === 'MANUAL') return 'Manual Clock Out';
-  return 'Manual Clock Out';
-};
+// Helper to reliably check boolean flags from API
+const isAttendanceFlagTrue = (value) =>
+  value === true || value === 1 || String(value).trim().toLowerCase() === "true";
 
 const Attendance = () => {
-  const [attendance, setAttendance] = useState([]);
-  const [holidays, setHolidays] = useState([]);
-  const [search, setSearch] = useState("");
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [openModal, setOpenModal] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState(null);
-  const [pageLoading, setPageLoading] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [statusFilter, setStatusFilter] = useState("ALL");
-  const [timeRange, setTimeRange] = useState("MONTH");
-  const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [showMobileFilter, setShowMobileFilter] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [holidaysLoading, setHolidaysLoading] = useState(false);
-  
-  
-  const [showDateRangePicker, setShowDateRangePicker] = useState(false);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [isDateRangeActive, setIsDateRangeActive] = useState(false);
-  
-  
-  const [userJoinDate, setUserJoinDate] = useState(null);
-  const [formattedJoinDate, setFormattedJoinDate] = useState('');
-  
-  const [stats, setStats] = useState({
-    present: 0,
-    late: 0,
-    absent: 0,
-    halfDay: 0,
-    total: 0,
-    percentage: 0,
-  });
-
-  
-  const filterMenuRef = useRef(null);
-  const calendarRef = useRef(null);
-  const dateRangePickerRef = useRef(null);
-  const mobileFilterRef = useRef(null);
-
-  
+  // ----------------------------------------------------
+  // 1. Current User & Authentication
+  // ----------------------------------------------------
   const user = useMemo(() => {
     try {
-      const userData = localStorage.getItem('user');
-      return userData ? JSON.parse(userData) : null;
-    } catch {
+      const stored = localStorage.getItem("user");
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      console.error("Failed to parse user from localStorage", e);
       return null;
     }
   }, []);
+  const token = localStorage.getItem("token");
 
-  const token = useMemo(() => localStorage.getItem('token'), []);
+  // User Join Date
+  const userJoinDate = useMemo(() => {
+    if (!user?.createdAt) return null;
+    const d = new Date(user.createdAt);
+    return isNaN(d.getTime()) ? null : d;
+  }, [user]);
 
-  
-  const companyDetails = useMemo(() => {
-    try {
-      const details = localStorage.getItem('companyDetails');
-      return details ? JSON.parse(details) : null;
-    } catch {
-      return null;
-    }
-  }, []);
-
-  
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      
-      if (filterMenuRef.current && !filterMenuRef.current.contains(event.target)) {
-        setShowFilterMenu(false);
-      }
-      
-      
-      if (calendarRef.current && !calendarRef.current.contains(event.target)) {
-        setShowCalendar(false);
-      }
-      
-      
-      if (dateRangePickerRef.current && !dateRangePickerRef.current.contains(event.target)) {
-        setShowDateRangePicker(false);
-      }
-      
-      
-      if (showMobileFilter && 
-          mobileFilterRef.current && 
-          !mobileFilterRef.current.contains(event.target) &&
-          !event.target.closest('.Attendance-icon-button')) {
-        setShowMobileFilter(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showMobileFilter]);
-
-  
-  useEffect(() => {
-    const handleEscKey = (event) => {
-      if (event.key === 'Escape') {
-        setShowFilterMenu(false);
-        setShowCalendar(false);
-        setShowDateRangePicker(false);
-        setShowMobileFilter(false);
-      }
-    };
-
-    document.addEventListener('keydown', handleEscKey);
-    return () => {
-      document.removeEventListener('keydown', handleEscKey);
-    };
-  }, []);
-
-  
-  useEffect(() => {
-    if (user?.createdAt) {
-      const joinDate = new Date(user.createdAt);
-      setUserJoinDate(joinDate);
-      
-      const formatted = joinDate.toLocaleDateString('en-US', { 
-        weekday: 'long', 
-        month: 'long', 
-        day: 'numeric', 
-        year: 'numeric' 
-      });
-      setFormattedJoinDate(formatted);
-    }
-  }, [user?.createdAt]);
-
-  
-  const isBeforeJoinDate = useCallback((date) => {
-    if (!userJoinDate) return false;
-    
-    const compareDate = new Date(date);
-    compareDate.setHours(0, 0, 0, 0);
-    
-    const joinDate = new Date(userJoinDate);
-    joinDate.setHours(0, 0, 0, 0);
-    
-    return compareDate < joinDate;
+  const formattedJoinDate = useMemo(() => {
+    if (!userJoinDate) return "N/A";
+    return userJoinDate.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
   }, [userJoinDate]);
 
-  const isFutureDate = useCallback((date) => {
-    const compareDate = new Date(date);
-    if (Number.isNaN(compareDate.getTime())) return false;
-    compareDate.setHours(0, 0, 0, 0);
+  // ----------------------------------------------------
+  // 2. State Variables
+  // ----------------------------------------------------
+  const [pageLoading, setPageLoading] = useState(true);
+  const [attendance, setAttendance] = useState([]);
+  const [holidays, setHolidays] = useState([]);
+  const [holidayBannerDismissed, setHolidayBannerDismissed] = useState(false);
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  // Today's Clock status from Clock-in API (/attendance/status)
+  const [todayClockData, setTodayClockData] = useState(null);
 
-    return compareDate > today;
-  }, []);
+  // Selected Month & Year (for monthly overview and filtering)
+  const todayDate = new Date();
+  const [currentYear, setCurrentYear] = useState(todayDate.getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(todayDate.getMonth()); // 0-indexed
 
-  const isFutureAbsentRecord = useCallback((record) => (
-    normalizeAttendanceStatus(record?.status) === 'ABSENT' && isFutureDate(record?.date)
-  ), [isFutureDate]);
+  // Filters & Search
+  const [timeRange, setTimeRange] = useState("ALL"); // ALL, TODAY, WEEK, MONTH
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
 
-  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
+  // Day Details Modal
+  const [selectedDayRecord, setSelectedDayRecord] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+
+  // Live timer for today's working hours
+  const [liveWorkingTime, setLiveWorkingTime] = useState({ hours: 0, minutes: 0, seconds: 0 });
+
+  // Refs for dropdown outside click
+  const statusDropdownRef = useRef(null);
+  const monthDropdownRef = useRef(null);
+
+  // ----------------------------------------------------
+  // 3. Close Dropdowns on Outside Click
+  // ----------------------------------------------------
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+    const handleClickOutside = (e) => {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target)) {
+        setShowStatusDropdown(false);
+      }
+      if (monthDropdownRef.current && !monthDropdownRef.current.contains(e.target)) {
+        setShowMonthDropdown(false);
+      }
     };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  
-  const fetchHolidays = useCallback(async () => {
-    setHolidaysLoading(true);
+  // ----------------------------------------------------
+  // 4. Modal Scroll Lock Hook
+  // ----------------------------------------------------
+  useEffect(() => {
+    if (showDetailModal) {
+      const originalBodyOverflow = document.body.style.overflow;
+      const originalHtmlOverflow = document.documentElement.style.overflow;
+      const mainEl = document.querySelector("main");
+      const originalMainOverflow = mainEl ? mainEl.style.overflow : "";
+
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.overflow = "hidden";
+      if (mainEl) mainEl.style.overflow = "hidden";
+
+      return () => {
+        document.body.style.overflow = originalBodyOverflow;
+        document.documentElement.style.overflow = originalHtmlOverflow;
+        if (mainEl) mainEl.style.overflow = originalMainOverflow;
+      };
+    }
+  }, [showDetailModal]);
+
+  // ----------------------------------------------------
+  // 5. Data Fetching (Attendance, Holidays & Today's Clock Status)
+  // ----------------------------------------------------
+  const fetchAttendanceData = useCallback(async () => {
     try {
-      const response = await axios.get('/holidays', {
+      const res = await axios.get("/attendance/list", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      let data = [];
+      if (res.data && Array.isArray(res.data.data)) data = res.data.data;
+      else if (Array.isArray(res.data)) data = res.data;
+      else if (res.data && Array.isArray(res.data.attendance)) data = res.data.attendance;
+      setAttendance(data);
+    } catch (err) {
+      console.error("Error fetching attendance records:", err);
+      toast.error("Failed to load attendance records");
+    }
+  }, [token]);
+
+  const fetchHolidaysData = useCallback(async () => {
+    try {
+      const res = await axios.get("/holidays", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data?.success && Array.isArray(res.data.holidays)) {
+        setHolidays(res.data.holidays);
+      } else if (Array.isArray(res.data)) {
+        setHolidays(res.data);
+      }
+    } catch (err) {
+      console.error("Error fetching holidays:", err);
+    }
+  }, [token]);
+
+  // Dedicated Clock-in status API call (/attendance/status)
+  const fetchTodayClockStatus = useCallback(async () => {
+    try {
+      const res = await axios.get("/attendance/status", {
         headers: { Authorization: `Bearer ${token}` },
-        timeout: 10000
+        timeout: 10000,
       });
-      
-      if (response.data?.success) {
-        let holidaysData = response.data.holidays || [];
-        
-        
-        if (userJoinDate) {
-          holidaysData = holidaysData.filter(holiday => 
-            !isBeforeJoinDate(new Date(holiday.date))
-          );
-        }
-        
-        setHolidays(holidaysData);
+      if (res.data) {
+        setTodayClockData(res.data);
       }
-    } catch (error) {
-      console.error('Failed to load holidays:', error);
-    } finally {
-      setHolidaysLoading(false);
+    } catch (err) {
+      console.error("Failed to load today clock status:", err);
     }
-  }, [token, userJoinDate, isBeforeJoinDate]);
+  }, [token]);
 
-  
-  const fetchAttendance = useCallback(async (showRefresh = false) => {
-    if (showRefresh) setRefreshing(true);
-    else setLoading(true);
-
-    try {
-      const response = await axios.get("/attendance/list", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      let attendanceData = [];
-
-      if (response.data && response.data.data && Array.isArray(response.data.data)) {
-        attendanceData = response.data.data;
-      } else if (Array.isArray(response.data)) {
-        attendanceData = response.data;
-      } else if (response.data && Array.isArray(response.data.attendance)) {
-        attendanceData = response.data.attendance;
-      } else {
-        attendanceData = [];
-      }
-
-      
-      if (userJoinDate) {
-        attendanceData = attendanceData.filter(record => !isBeforeJoinDate(record.date));
-      }
-
-      attendanceData = attendanceData.filter(record => !isFutureAbsentRecord(record));
-
-      setAttendance(attendanceData);
-
-      if (showRefresh) {
-        toast.success("🔄 Attendance data refreshed!");
-      }
-    } catch (error) {
-      console.error("Error fetching attendance data:", error);
-      toast.error("❌ Failed to load attendance records");
-      setAttendance([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [token, userJoinDate, isBeforeJoinDate, isFutureAbsentRecord]);
-
-  
-  const processedAttendance = useMemo(() => {
-    const attendanceMap = new Map();
-    attendance.filter(record => !isFutureAbsentRecord(record)).forEach(record => {
-      const dateStr = new Date(record.date).toDateString();
-      attendanceMap.set(dateStr, record);
-    });
-
-    const combined = [];
-    
-    attendance.filter(record => !isFutureAbsentRecord(record)).forEach(record => {
-      combined.push({ ...record, isHoliday: false });
-    });
-
-    holidays.forEach(holiday => {
-      const holidayDate = new Date(holiday.date);
-      const dateStr = holidayDate.toDateString();
-      const attendanceRecord = attendanceMap.get(dateStr);
-      
-      if (!attendanceRecord) {
-        combined.push({
-          _id: `holiday-${holiday._id || holidayDate.getTime()}`,
-          date: holiday.date,
-          status: 'HOLIDAY',
-          holidayTitle: holiday.title,
-          isHoliday: true,
-          inTime: null,
-          outTime: null,
-          totalTime: null,
-          lateBy: null,
-          earlyLeave: null,
-          overTime: null
-        });
-      } else {
-        const index = combined.findIndex(r => 
-          new Date(r.date).toDateString() === dateStr
-        );
-        if (index !== -1) {
-          combined[index] = {
-            ...attendanceRecord,
-            isHoliday: true,
-            holidayTitle: holiday.title,
-          };
-        }
-      }
-    });
-
-    return combined.sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [attendance, holidays, isFutureAbsentRecord]);
-
-  
-  const calculateStats = useCallback((data) => {
-    const attendanceRecords = data.filter(record => (
-      (!record.isHoliday || normalizeAttendanceStatus(record.status) !== 'HOLIDAY') && !isFutureAbsentRecord(record)
-    ));
-    
-    const present = attendanceRecords.filter((record) => normalizeAttendanceStatus(record.status) === "PRESENT").length;
-    const late = attendanceRecords.filter((record) => normalizeAttendanceStatus(record.status) === "LATE").length;
-    const absent = attendanceRecords.filter((record) => normalizeAttendanceStatus(record.status) === "ABSENT").length;
-    const halfDay = attendanceRecords.filter((record) => normalizeAttendanceStatus(record.status) === "HALF DAY").length;
-    const total = attendanceRecords.length;
-    
-    const workingDays = present + late;
-    const percentage = total > 0 ? Math.round((workingDays / total) * 100) : 0;
-
-    setStats({
-      present,
-      late,
-      absent,
-      halfDay,
-      total,
-      percentage,
-    });
-  }, [isFutureAbsentRecord]);
-
-  
-  const initialLoadRef = useRef(false);
-  
+  // Initial load
   useEffect(() => {
-    if (initialLoadRef.current) return;
-    if (!userJoinDate) return;
-    
-    initialLoadRef.current = true;
-    setPageLoading(true);
-    
-    const loadData = async () => {
-      try {
-        await Promise.all([
-          fetchHolidays(),
-          fetchAttendance()
-        ]);
-      } catch (error) {
-        console.error('Error loading data:', error);
-      } finally {
-        setTimeout(() => {
-          setPageLoading(false);
-        }, 500);
-      }
+    const init = async () => {
+      setPageLoading(true);
+      await Promise.all([
+        fetchAttendanceData(),
+        fetchHolidaysData(),
+        fetchTodayClockStatus()
+      ]);
+      setPageLoading(false);
     };
-    
-    loadData();
-  }, [userJoinDate, fetchAttendance, fetchHolidays]);
+    init();
+  }, [fetchAttendanceData, fetchHolidaysData, fetchTodayClockStatus]);
 
-  
+  // Listen to attendance updates across the app (clock-in / clock-out events)
   useEffect(() => {
-    if (userJoinDate) {
-      fetchAttendance();
-    }
-  }, [userJoinDate, fetchAttendance]);
+    const handleAttendanceChange = () => {
+      fetchTodayClockStatus();
+      fetchAttendanceData();
+    };
+    window.addEventListener("ciis-attendance-updated", handleAttendanceChange);
+    return () => window.removeEventListener("ciis-attendance-updated", handleAttendanceChange);
+  }, [fetchTodayClockStatus, fetchAttendanceData]);
+
+  // ----------------------------------------------------
+  // 6. Time & Helper Formatter Functions
+  // ----------------------------------------------------
+  const formatTime = (isoString) => {
+    if (!isoString) return "-";
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return isoString;
+    return d.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
 
   const formatDate = (dateStr) => {
-    if (!dateStr) return "--";
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
-    } catch (error) {
-      return "Invalid Date";
-    }
-  };
-
-  const formatDateForInput = (date) => {
-    if (!date) return '';
-    const d = new Date(date);
-    return d.toISOString().split('T')[0];
-  };
-
-  const formatTime = (timeStr) => {
-    if (!timeStr) return "--";
-    try {
-      const date = new Date(timeStr);
-      return date.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      });
-    } catch (error) {
-      return "Invalid Time";
-    }
-  };
-
-  const getStatusIcon = (record) => {
-    const status = normalizeAttendanceStatus(record.status);
-    const isHoliday = record.isHoliday;
-    
-    if (isHoliday && status === 'PRESENT') {
-      return (
-        <div className="Attendance-status-icon-wrapper">
-          <MdCelebration className="Attendance-status-icon holiday-icon" />
-          <FiCheckCircle className="Attendance-status-icon present-icon" />
-        </div>
-      );
-    }
-    
-    if (isHoliday || status === 'HOLIDAY') {
-      return <MdCelebration className="Attendance-status-icon holiday-icon" />;
-    }
-    
-    switch (status) {
-      case "PRESENT":
-        return <FiCheckCircle className="Attendance-status-icon present-icon" />;
-      case "LATE":
-        return <FiAlertTriangle className="Attendance-status-icon late-icon" />;
-      case "ABSENT":
-      case "UNINFORMED LEAVE":
-        return <FiMinusCircle className="Attendance-status-icon absent-icon" />;
-      case "HALF DAY":
-        return <FiAlertCircle className="Attendance-status-icon halfday-icon" />;
-      default:
-        return <FiClock className="Attendance-status-icon" />;
-    }
-  };
-
-  const getStatusColor = (record) => {
-    const status = normalizeAttendanceStatus(record.status);
-    const isHoliday = record.isHoliday;
-    
-    if (isHoliday && status === 'PRESENT') return "#9c27b0";
-    if (isHoliday || status === 'HOLIDAY') return "#9c27b0";
-    
-    switch (status) {
-      case "PRESENT":
-        return "#4caf50";
-      case "LATE":
-        return "#ff9800";
-      case "ABSENT":
-      case "UNINFORMED LEAVE":
-        return "#f44336";
-      case "HALF DAY":
-        return "#db2777";
-      default:
-        return "#757575";
-    }
-  };
-
-  const getStatusDisplayText = (record) => {
-    const status = normalizeAttendanceStatus(record.status);
-    const isHoliday = record.isHoliday;
-    
-    if (isHoliday && status === 'PRESENT') return "HOLIDAY + PRESENT";
-    if (isHoliday || status === 'HOLIDAY') return "HOLIDAY";
-    
-    switch (status) {
-      case "PRESENT":
-        return "PRESENT";
-      case "LATE":
-        return "LATE";
-      case "ABSENT":
-        return "ABSENT";
-      case "UNINFORMED LEAVE":
-        return "UNINFORMED LEAVE";
-      case "HALF DAY":
-        return "HALF DAY";
-      default:
-        return status;
-    }
-  };
-
-  const getStatusClass = (record) => {
-    const status = normalizeAttendanceStatus(record.status);
-    const isHoliday = record.isHoliday;
-    
-    if (isHoliday && status === 'PRESENT') return "holiday-present";
-    if (isHoliday || status === 'HOLIDAY') return "holiday";
-    
-    return status.toLowerCase().replace(" ", "-");
-  };
-
-  
-  const statsData = useMemo(() => {
-    return processedAttendance.filter((record) => {
-      if (isFutureAbsentRecord(record)) return false;
-
-      const matchesSearch =
-        formatDate(record.date).toLowerCase().includes(search.toLowerCase()) ||
-        normalizeAttendanceStatus(record.status).toLowerCase().includes(search.toLowerCase()) ||
-        (record.holidayTitle && record.holidayTitle.toLowerCase().includes(search.toLowerCase()));
-
-      const matchesSelectedDate = !selectedDate ||
-        formatDateForInput(record.date) === formatDateForInput(selectedDate);
-
-      const recordDate = new Date(record.date);
-      const now = new Date();
-      let matchesTimeRange = true;
-
-      
-      if (isDateRangeActive && startDate && endDate) {
-        const recordDateStr = formatDateForInput(recordDate);
-        matchesTimeRange = recordDateStr >= startDate && recordDateStr <= endDate;
-      } 
-      
-      else if (timeRange !== "ALL") {
-        switch (timeRange) {
-          case "TODAY":
-            matchesTimeRange = recordDate.toDateString() === now.toDateString();
-            break;
-          case "WEEK": {
-          const today = new Date();
-
-          const firstDayOfWeek = new Date(today);
-          const day = today.getDay(); 
-
-          const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-
-          firstDayOfWeek.setDate(diff);
-          firstDayOfWeek.setHours(0,0,0,0);
-
-          matchesTimeRange =
-            recordDate >= firstDayOfWeek &&
-            recordDate <= today;
-
-          break;
-        }
-          case "MONTH": {
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-            const today = new Date();
-
-            matchesTimeRange =
-              recordDate >= startOfMonth &&
-              recordDate <= today;
-
-            break;
-          }
-          default:
-            matchesTimeRange = true;
-        }
-      }
-
-      return matchesSearch && matchesSelectedDate && matchesTimeRange;
+    if (!dateStr) return "-";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
     });
-  }, [processedAttendance, search, selectedDate, timeRange, isDateRangeActive, startDate, endDate, isFutureAbsentRecord]);
+  };
 
-  const filteredData = useMemo(() => {
-    if (statusFilter === "ALL") return statsData;
+  // Check if date is before join date
+  const isBeforeJoinDate = useCallback(
+    (dateToCheck) => {
+      if (!userJoinDate) return false;
+      const target = new Date(dateToCheck);
+      target.setHours(0, 0, 0, 0);
+      const join = new Date(userJoinDate);
+      join.setHours(0, 0, 0, 0);
+      return target < join;
+    },
+    [userJoinDate]
+  );
 
-    return statsData.filter((record) => {
-      const normalizedStatus = normalizeAttendanceStatus(record.status);
-      return normalizedStatus === statusFilter ||
-        (statusFilter === "HOLIDAY" && (record.isHoliday || normalizedStatus === "HOLIDAY"));
-    });
-  }, [statsData, statusFilter]);
+  // Normalize status string
+  const getNormalizedStatus = (statusStr) => {
+    if (!statusStr) return "ABSENT";
+    const s = statusStr.toUpperCase().trim();
+    if (s.includes("PRESENT")) return "PRESENT";
+    if (s.includes("LATE")) return "LATE";
+    if (s.includes("HALF")) return "HALF DAY";
+    if (s.includes("HOLIDAY")) return "HOLIDAY";
+    if (s.includes("WEEKLY") || s.includes("OFF")) return "WEEKLY OFF";
+    if (s.includes("LEAVE") || s.includes("ABSENT")) return "ABSENT";
+    return s;
+  };
 
-  
+  // ----------------------------------------------------
+  // 7. Real-Time Working Hours from Clock-in API
+  // ----------------------------------------------------
+  const isClockedIn = isAttendanceFlagTrue(todayClockData?.isClockedIn);
+  const clockInTime = todayClockData?.inTime || todayClockData?.checkInTime;
+  const clockOutTime = todayClockData?.outTime || todayClockData?.checkOutTime;
+
   useEffect(() => {
-    calculateStats(statsData);
-  }, [statsData, calculateStats]);
-
-  
-  const applyDateRange = () => {
-    if (!startDate || !endDate) {
-      toast.warning("Please select both start and end dates");
-      return;
-    }
-
-    if (startDate > endDate) {
-      toast.error("Start date cannot be after end date");
-      return;
-    }
-
-    
-    if (userJoinDate) {
-      const joinDateStr = formatDateForInput(userJoinDate);
-      if (startDate < joinDateStr) {
-        toast.warning(`Records only available from ${formattedJoinDate}`);
-        setStartDate(joinDateStr);
+    if (isClockedIn && clockInTime) {
+      const startMs = new Date(clockInTime).getTime();
+      if (!isNaN(startMs)) {
+        const updateClock = () => {
+          const diffSec = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+          const hours = Math.floor(diffSec / 3600);
+          const minutes = Math.floor((diffSec % 3600) / 60);
+          const seconds = diffSec % 60;
+          setLiveWorkingTime({ hours, minutes, seconds });
+        };
+        updateClock();
+        const timerId = setInterval(updateClock, 1000);
+        return () => clearInterval(timerId);
+      }
+    } else if (clockInTime && clockOutTime) {
+      const startMs = new Date(clockInTime).getTime();
+      const endMs = new Date(clockOutTime).getTime();
+      if (!isNaN(startMs) && !isNaN(endMs)) {
+        const diffSec = Math.max(0, Math.floor((endMs - startMs) / 1000));
+        const hours = Math.floor(diffSec / 3600);
+        const minutes = Math.floor((diffSec % 3600) / 60);
+        const seconds = diffSec % 60;
+        setLiveWorkingTime({ hours, minutes, seconds });
         return;
       }
     }
+    setLiveWorkingTime({ hours: 0, minutes: 0, seconds: 0 });
+  }, [isClockedIn, clockInTime, clockOutTime]);
 
-    setIsDateRangeActive(true);
-    setTimeRange("ALL"); 
-    setShowDateRangePicker(false);
-    toast.success(`Showing records from ${startDate} to ${endDate}`);
+  // Handle opening detailed log for today's status
+  const handleViewTodayLog = () => {
+    if (todayClockData && (todayClockData.inTime || todayClockData._id)) {
+      setSelectedDayRecord({
+        date: todayClockData.date || new Date().toISOString().split("T")[0],
+        checkInTime: todayClockData.inTime,
+        checkOutTime: todayClockData.outTime,
+        status: todayClockData.status || (isClockedIn ? "PRESENT" : "ABSENT"),
+        shiftTime:
+          todayClockData.shiftStart && todayClockData.shiftEnd
+            ? `${todayClockData.shiftStart} - ${todayClockData.shiftEnd}`
+            : "09:30 AM - 06:30 PM",
+        totalTime:
+          todayClockData.totalTime ||
+          (clockInTime && clockOutTime
+            ? `${String(liveWorkingTime.hours).padStart(2, "0")}h ${String(
+                liveWorkingTime.minutes
+              ).padStart(2, "0")}m`
+            : "-"),
+        lateBy: todayClockData.lateBy || "-",
+        device: todayClockData.device || todayClockData.userAgent || "Desktop Web",
+        ip: todayClockData.ip,
+        location: todayClockData.location,
+        notes: todayClockData.notes,
+        autoClockout: todayClockData.autoClockout,
+      });
+      setShowDetailModal(true);
+    } else if (attendance.length > 0) {
+      setSelectedDayRecord(attendance[0]);
+      setShowDetailModal(true);
+    } else {
+      toast.info("No attendance record found for today yet");
+    }
   };
 
-  
-  const clearDateRange = () => {
-    setIsDateRangeActive(false);
-    setStartDate('');
-    setEndDate('');
-    setTimeRange("ALL");
-    toast.info("Date range filter cleared");
-  };
+  // ----------------------------------------------------
+  // 8. Month Selection List (e.g. past 12 months)
+  // ----------------------------------------------------
+  const monthOptions = useMemo(() => {
+    const list = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      list.push({
+        year: d.getFullYear(),
+        month: d.getMonth(),
+        label: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`
+      });
+    }
+    return list;
+  }, []);
 
-  const openDetailsModal = (record) => {
-    setSelectedRecord(record);
-    setOpenModal(true);
-  };
+  // ----------------------------------------------------
+  // 9. Filtered Attendance Records
+  // ----------------------------------------------------
+  const filteredRecords = useMemo(() => {
+    return attendance
+      .filter((rec) => {
+        // Ignore records before joining
+        if (isBeforeJoinDate(rec.date)) return false;
 
-  const closeModal = () => {
-    setOpenModal(false);
-    setSelectedRecord(null);
-  };
+        const recDate = new Date(rec.date);
+        if (isNaN(recDate.getTime())) return false;
+
+        // Calendar selected date filter
+        if (selectedCalendarDate) {
+          const selDateStr = selectedCalendarDate.toISOString().split("T")[0];
+          if (rec.date !== selDateStr) return false;
+        }
+
+        // Time range filter
+        if (!selectedCalendarDate) {
+          if (timeRange === "TODAY") {
+            const todayStr = new Date().toISOString().split("T")[0];
+            if (rec.date !== todayStr) return false;
+          } else if (timeRange === "WEEK") {
+            const now = new Date();
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(now.getDate() - 7);
+            if (recDate < sevenDaysAgo || recDate > now) return false;
+          } else if (timeRange === "MONTH") {
+            if (
+              recDate.getFullYear() !== currentYear ||
+              recDate.getMonth() !== currentMonth
+            ) {
+              return false;
+            }
+          }
+        }
+
+        // Status Filter
+        if (statusFilter !== "ALL") {
+          const norm = getNormalizedStatus(rec.status);
+          if (norm !== statusFilter) return false;
+        }
+
+        // Search Query Filter
+        if (search.trim()) {
+          const q = search.toLowerCase();
+          const matchDate = (rec.date || "").toLowerCase().includes(q);
+          const matchStatus = (rec.status || "").toLowerCase().includes(q);
+          const matchFormatted = formatDate(rec.date).toLowerCase().includes(q);
+          if (!matchDate && !matchStatus && !matchFormatted) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [
+    attendance,
+    isBeforeJoinDate,
+    selectedCalendarDate,
+    timeRange,
+    currentYear,
+    currentMonth,
+    statusFilter,
+    search
+  ]);
+
+  // Pagination Slice
+  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
+  const paginatedRecords = useMemo(() => {
+    const startIdx = (currentPage - 1) * itemsPerPage;
+    return filteredRecords.slice(startIdx, startIdx + itemsPerPage);
+  }, [filteredRecords, currentPage, itemsPerPage]);
 
   useEffect(() => {
-    if (!openModal) return undefined;
+    setCurrentPage(1);
+  }, [search, statusFilter, timeRange, currentMonth, currentYear, selectedCalendarDate]);
 
-    const previousBodyOverflow = document.body.style.overflow;
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-    const previousPaddingRight = document.body.style.paddingRight;
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+  // ----------------------------------------------------
+  // 10. KPI Statistics Calculation
+  // ----------------------------------------------------
+  const stats = useMemo(() => {
+    let present = 0;
+    let late = 0;
+    let halfDay = 0;
+    let absent = 0;
+    let total = 0;
 
-    const mainElement = document.querySelector('main');
-    const previousMainOverflow = mainElement ? mainElement.style.overflow : '';
+    attendance.forEach((rec) => {
+      if (isBeforeJoinDate(rec.date)) return;
+      const recDate = new Date(rec.date);
+      if (isNaN(recDate.getTime())) return;
 
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
-    if (scrollbarWidth > 0) {
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
-    }
-    if (mainElement) {
-      mainElement.style.overflow = 'hidden';
-    }
-
-    return () => {
-      document.body.style.overflow = previousBodyOverflow;
-      document.documentElement.style.overflow = previousHtmlOverflow;
-      document.body.style.paddingRight = previousPaddingRight;
-      if (mainElement) {
-        mainElement.style.overflow = previousMainOverflow;
+      // Stats follow current selected month
+      if (
+        recDate.getFullYear() === currentYear &&
+        recDate.getMonth() === currentMonth
+      ) {
+        total++;
+        const s = getNormalizedStatus(rec.status);
+        if (s === "PRESENT") present++;
+        else if (s === "LATE") {
+          late++;
+          present++; // Late is counted as present working day as well
+        } else if (s === "HALF DAY") halfDay++;
+        else if (s === "ABSENT") absent++;
       }
-    };
-  }, [openModal]);
+    });
 
-  const exportToCSV = () => {
-    if (filteredData.length === 0) {
-      toast.warning("No data to export");
+    const workingDays = Math.max(1, present + halfDay + absent);
+    const presentPct = Math.min(100, Math.round((present / workingDays) * 100));
+    const latePct = Math.min(100, Math.round((late / workingDays) * 100));
+    const halfDayPct = Math.min(100, Math.round((halfDay / workingDays) * 100));
+    const absentPct = Math.min(100, Math.round((absent / workingDays) * 100));
+
+    return {
+      present,
+      late,
+      halfDay,
+      absent,
+      total,
+      presentPct,
+      latePct,
+      halfDayPct,
+      absentPct,
+    };
+  }, [attendance, isBeforeJoinDate, currentYear, currentMonth]);
+
+  // ----------------------------------------------------
+  // 11. Month Holidays (Upcoming / Current Month)
+  // ----------------------------------------------------
+  const currentMonthHolidays = useMemo(() => {
+    return holidays.filter((h) => {
+      const d = new Date(h.date);
+      return (
+        !isNaN(d.getTime()) &&
+        d.getFullYear() === currentYear &&
+        d.getMonth() === currentMonth
+      );
+    });
+  }, [holidays, currentYear, currentMonth]);
+
+  // ----------------------------------------------------
+  // 12. Export to CSV Functionality
+  // ----------------------------------------------------
+  const handleExportCSV = () => {
+    if (filteredRecords.length === 0) {
+      toast.info("No attendance records to export");
       return;
     }
 
-    try {
-      const headers = [
-        "Date",
-        "Login Time",
-        "Logout Time",
-        "Logout Type",
-        "Status",
-        "Total Time",
-        "Late By",
-        "Early Leave",
-        "Overtime",
-        "Holiday Title"
-      ];
-      const csvData = filteredData.map((record) => [
-        formatDate(record.date),
-        record.inTime ? formatTime(record.inTime) : "--",
-        record.outTime ? formatTime(record.outTime) : "--",
-        getClockOutModeLabel(record) || "--",
-        getStatusDisplayText(record),
-        record.totalTime || "00:00:00",
-        record.lateBy || "00:00:00",
-        record.earlyLeave || "00:00:00",
-        record.overTime || "00:00:00",
-        record.holidayTitle || "--"
-      ]);
+    const headers = [
+      "Date",
+      "Shift",
+      "Login Time",
+      "Logout Time",
+      "Total Time",
+      "Status",
+      "Late By",
+      "Auto Clockout",
+      "Notes"
+    ];
 
-      const csvContent = [headers, ...csvData]
-        .map((row) => row.map((field) => `"${field}"`).join(","))
-        .join("\n");
-
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute(
-        "download",
-        `attendance-${new Date().toISOString().split("T")[0]}.csv`
-      );
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      toast.success("📊 CSV exported successfully!");
-    } catch (error) {
-      toast.error("Failed to export CSV");
-    }
-  };
-
-  const handleDateSelect = (date) => {
-    setSelectedDate(date);
-    setSearch("");
-    setTimeRange("ALL");
-    setIsDateRangeActive(false);
-    setShowCalendar(false);
-  };
-
-  const handleRefresh = () => {
-    Promise.all([
-      fetchHolidays(),
-      fetchAttendance(true)
+    const rows = filteredRecords.map((r) => [
+      r.date,
+      r.shiftTime || "09:30 AM - 06:30 PM",
+      r.checkInTime ? formatTime(r.checkInTime) : "-",
+      r.checkOutTime ? formatTime(r.checkOutTime) : "-",
+      r.totalTime || "-",
+      r.status || "-",
+      r.lateBy || "-",
+      r.autoClockout ? "Yes" : "No",
+      r.notes || "-"
     ]);
+
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [headers.join(","), ...rows.map((row) => row.map((v) => `"${v}"`).join(","))].join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute(
+      "download",
+      `Attendance_${MONTH_NAMES[currentMonth]}_${currentYear}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Attendance CSV exported successfully!");
   };
 
-  const handleTimeRangeChange = (range) => {
-    setTimeRange(range);
-    setIsDateRangeActive(false);
-    setStatusFilter("ALL");
-    setSelectedDate(null);
+  // ----------------------------------------------------
+  // 13. Calendar Generator (Monthly Overview Grid)
+  // ----------------------------------------------------
+  const calendarDays = useMemo(() => {
+    const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay();
+    const totalDaysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+    const days = [];
+    // Blank padding days
+    for (let i = 0; i < firstDayIndex; i++) {
+      days.push({ day: null });
+    }
+
+    // Days in current month
+    for (let d = 1; d <= totalDaysInMonth; d++) {
+      const monthStr = String(currentMonth + 1).padStart(2, "0");
+      const dayStr = String(d).padStart(2, "0");
+      const dateKey = `${currentYear}-${monthStr}-${dayStr}`;
+
+      const rec = attendance.find((a) => a.date === dateKey);
+      const isHol = holidays.some((h) => h.date === dateKey);
+
+      let status = "NONE";
+      if (isHol) status = "HOLIDAY";
+      else if (rec) status = getNormalizedStatus(rec.status);
+
+      const isToday =
+        todayDate.getFullYear() === currentYear &&
+        todayDate.getMonth() === currentMonth &&
+        todayDate.getDate() === d;
+
+      days.push({
+        day: d,
+        dateKey,
+        status,
+        isToday,
+        record: rec
+      });
+    }
+    return days;
+  }, [currentYear, currentMonth, attendance, holidays, todayDate]);
+
+  const handlePrevMonth = () => {
+    if (currentMonth === 0) {
+      setCurrentMonth(11);
+      setCurrentYear((y) => y - 1);
+    } else {
+      setCurrentMonth((m) => m - 1);
+    }
+    setSelectedCalendarDate(null);
   };
 
-  const statusOptions = ["ALL", "PRESENT", "LATE", "HALF DAY", "ABSENT", "UNINFORMED LEAVE", "HOLIDAY"];
+  const handleNextMonth = () => {
+    if (currentMonth === 11) {
+      setCurrentMonth(0);
+      setCurrentYear((y) => y + 1);
+    } else {
+      setCurrentMonth((m) => m + 1);
+    }
+    setSelectedCalendarDate(null);
+  };
 
+  // ----------------------------------------------------
+  // 14. Render Loading State
+  // ----------------------------------------------------
   if (pageLoading) {
     return <CIISLoader />;
   }
 
   return (
-    <div className="Attendance-container">
-      <ToastContainer
-        position={isMobile ? "top-center" : "top-right"}
-        autoClose={4000}
-        theme="light"
-      />
+    <div className="att-wrapper">
+      <ToastContainer position="top-right" autoClose={3000} theme="light" />
 
-      
-      <div className="Attendance-header">
-        <div className="Attendance-header-content">
-          <div className="Attendance-header-text">
-            <h1 className="Attendance-title">Attendance</h1>
-            <p className="Attendance-subtitle">
-              Track your attendance history and insights
-            </p>
-            {userJoinDate && (
-              <div className="Attendance-join-info">
-                <FiClock />
-                <span>Joined on: {formattedJoinDate}</span>
+      {/* 1. Header Section */}
+      <div className="att-header">
+        <div className="att-header-left">
+          <div className="att-header-icon-box">
+            <FiCalendar />
+          </div>
+          <div className="att-header-text">
+            <h1>My Attendance</h1>
+            <p>Track your attendance history and insights</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Subheader Controls Row */}
+      <div className="att-controls-row">
+        <div className="att-controls-left">
+          {/* Joined On Pill */}
+          <div className="att-joined-pill">
+            <FiCalendar />
+            <span>Joined on: {formattedJoinDate}</span>
+          </div>
+
+          {/* Time Range Pills */}
+          <div className="att-time-pills">
+            <button
+              type="button"
+              className={`att-time-pill-btn ${timeRange === "ALL" && !selectedCalendarDate ? "active" : ""}`}
+              onClick={() => {
+                setTimeRange("ALL");
+                setSelectedCalendarDate(null);
+              }}
+            >
+              All Time
+            </button>
+            <button
+              type="button"
+              className={`att-time-pill-btn ${timeRange === "TODAY" && !selectedCalendarDate ? "active" : ""}`}
+              onClick={() => {
+                setTimeRange("TODAY");
+                setSelectedCalendarDate(null);
+              }}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              className={`att-time-pill-btn ${timeRange === "WEEK" && !selectedCalendarDate ? "active" : ""}`}
+              onClick={() => {
+                setTimeRange("WEEK");
+                setSelectedCalendarDate(null);
+              }}
+            >
+              Week
+            </button>
+            <button
+              type="button"
+              className={`att-time-pill-btn ${timeRange === "MONTH" && !selectedCalendarDate ? "active" : ""}`}
+              onClick={() => {
+                setTimeRange("MONTH");
+                setSelectedCalendarDate(null);
+              }}
+            >
+              Month
+            </button>
+          </div>
+        </div>
+
+        <div className="att-controls-right">
+          {/* Month Selector Dropdown */}
+          <div className="att-month-select-wrapper" ref={monthDropdownRef}>
+            <button
+              type="button"
+              className="att-month-select-btn"
+              onClick={() => setShowMonthDropdown(!showMonthDropdown)}
+            >
+              <span>{MONTH_NAMES[currentMonth]} {currentYear}</span>
+              <FiChevronDown />
+            </button>
+
+            {showMonthDropdown && (
+              <div className="att-month-dropdown-menu">
+                {monthOptions.map((opt) => (
+                  <button
+                    key={`${opt.year}-${opt.month}`}
+                    type="button"
+                    className={`att-month-dropdown-item ${opt.year === currentYear && opt.month === currentMonth ? "active" : ""}`}
+                    onClick={() => {
+                      setCurrentYear(opt.year);
+                      setCurrentMonth(opt.month);
+                      setTimeRange("MONTH");
+                      setSelectedCalendarDate(null);
+                      setShowMonthDropdown(false);
+                    }}
+                  >
+                    <span>{opt.label}</span>
+                    {opt.year === currentYear && opt.month === currentMonth && <FiCheck />}
+                  </button>
+                ))}
               </div>
             )}
           </div>
 
-          <div className="Attendance-header-actions">
-            <div className="Attendance-search-container">
-              <FiSearch className="Attendance-search-icon" />
-              <input
-                type="text"
-                placeholder="Search attendance or holidays..."
-                className="Attendance-search-input"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              {(search || selectedDate) && (
+          {/* Export CSV Button */}
+          <button
+            type="button"
+            className="att-export-btn"
+            onClick={handleExportCSV}
+          >
+            <FiDownload />
+            <span>Export CSV</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 3. 5 Stat Metric KPI Cards */}
+      <div className="att-stats-grid">
+        {/* Present Days */}
+        <div className="att-stat-card">
+          <div className="att-stat-header">
+            <span className="att-stat-label">PRESENT DAYS</span>
+            <div className="att-stat-icon-circle green">
+              <FiUserCheck />
+            </div>
+          </div>
+          <div className="att-stat-value">{stats.present}</div>
+          <div className="att-stat-footer">
+            <span className="att-stat-pill green">{stats.presentPct}%</span>
+            <span className="att-stat-desc">of total working days</span>
+          </div>
+        </div>
+
+        {/* Late Days */}
+        <div className="att-stat-card">
+          <div className="att-stat-header">
+            <span className="att-stat-label">LATE DAYS</span>
+            <div className="att-stat-icon-circle yellow">
+              <FiAlertTriangle />
+            </div>
+          </div>
+          <div className="att-stat-value">{stats.late}</div>
+          <div className="att-stat-footer">
+            <span className="att-stat-pill yellow">{stats.latePct}%</span>
+            <span className="att-stat-desc">grace period exceeded</span>
+          </div>
+        </div>
+
+        {/* Half Days */}
+        <div className="att-stat-card">
+          <div className="att-stat-header">
+            <span className="att-stat-label">HALF DAYS</span>
+            <div className="att-stat-icon-circle purple">
+              <FiCoffee />
+            </div>
+          </div>
+          <div className="att-stat-value">{stats.halfDay}</div>
+          <div className="att-stat-footer">
+            <span className="att-stat-pill purple">{stats.halfDayPct}%</span>
+            <span className="att-stat-desc">less than 8 hours</span>
+          </div>
+        </div>
+
+        {/* Absent Days */}
+        <div className="att-stat-card">
+          <div className="att-stat-header">
+            <span className="att-stat-label">ABSENT DAYS</span>
+            <div className="att-stat-icon-circle red">
+              <FiXCircle />
+            </div>
+          </div>
+          <div className="att-stat-value">{stats.absent}</div>
+          <div className="att-stat-footer">
+            <span className="att-stat-pill red">{stats.absentPct}%</span>
+            <span className="att-stat-desc">unexcused absences</span>
+          </div>
+        </div>
+
+        {/* Total Records */}
+        <div className="att-stat-card">
+          <div className="att-stat-header">
+            <span className="att-stat-label">TOTAL RECORDS</span>
+            <div className="att-stat-icon-circle blue">
+              <FiBarChart2 />
+            </div>
+          </div>
+          <div className="att-stat-value">{stats.total}</div>
+          <div className="att-stat-footer">
+            <span className="att-stat-desc">recorded logs</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Holiday Announcement Banner (Dismissible) */}
+      {!holidayBannerDismissed && currentMonthHolidays.length > 0 && (
+        <div className="att-holiday-banner">
+          <div className="att-holiday-banner-left">
+            <div className="att-holiday-icon-box">
+              <MdCelebration />
+            </div>
+            <div className="att-holiday-text">
+              <h4>
+                Company Holidays: {currentMonthHolidays.length} holiday(s) in {MONTH_NAMES[currentMonth]} {currentYear}
+              </h4>
+              <p>
+                {currentMonthHolidays.map((h) => `${formatDate(h.date)} - ${h.name || h.title || "Holiday"}`).join(" • ")}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="att-holiday-close-btn"
+            onClick={() => setHolidayBannerDismissed(true)}
+            aria-label="Dismiss banner"
+          >
+            <FiX />
+          </button>
+        </div>
+      )}
+
+      {/* 5. Main 2-Column Dashboard Layout */}
+      <div className="att-main-layout">
+        {/* Left Column: Attendance Records Table */}
+        <div className="att-table-column">
+          <div className="att-card att-table-card">
+            {/* Table Header Bar */}
+            <div className="att-table-card-header">
+              <div className="att-table-header-title">
+                <h3>Attendance Records</h3>
+                <span className="att-count-pill">{filteredRecords.length} records</span>
+              </div>
+
+              <div className="att-table-header-actions">
+                {/* Search Bar */}
+                <div className="att-search-input-box">
+                  <FiSearch />
+                  <input
+                    type="text"
+                    placeholder="Search by date or status..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                  {search && (
+                    <button
+                      type="button"
+                      className="att-search-clear-btn"
+                      onClick={() => setSearch("")}
+                    >
+                      <FiX />
+                    </button>
+                  )}
+                </div>
+
+                {/* Status Filter Dropdown */}
+                <div className="att-status-filter-wrapper" ref={statusDropdownRef}>
+                  <button
+                    type="button"
+                    className="att-status-filter-btn"
+                    onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                  >
+                    <FiFilter />
+                    <span>{statusFilter === "ALL" ? "All Statuses" : statusFilter}</span>
+                    <FiChevronDown />
+                  </button>
+
+                  {showStatusDropdown && (
+                    <div className="att-filter-dropdown-menu">
+                      {["ALL", "PRESENT", "LATE", "HALF DAY", "ABSENT", "WEEKLY OFF", "HOLIDAY"].map((st) => (
+                        <button
+                          key={st}
+                          type="button"
+                          className={`att-filter-dropdown-item ${statusFilter === st ? "active" : ""}`}
+                          onClick={() => {
+                            setStatusFilter(st);
+                            setShowStatusDropdown(false);
+                          }}
+                        >
+                          <span>{st === "ALL" ? "All Statuses" : st}</span>
+                          {statusFilter === st && <FiCheck />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Attendance Table */}
+            <div className="att-table-container">
+              <table className="att-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: "40px" }}>#</th>
+                    <th>DATE</th>
+                    <th>SHIFT</th>
+                    <th>LOGIN</th>
+                    <th>LOGOUT</th>
+                    <th>TOTAL TIME</th>
+                    <th>STATUS</th>
+                    <th>LATE BY</th>
+                    <th style={{ textAlign: "center", width: "70px" }}>ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedRecords.length === 0 ? (
+                    <tr>
+                      <td colSpan="9">
+                        <div className="att-empty-state">
+                          <FiClock className="att-empty-icon" />
+                          <p className="att-empty-title">No attendance records found</p>
+                          <p className="att-empty-desc">Try clearing your filters or selecting a different month.</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedRecords.map((item, idx) => {
+                      const rowNumber = (currentPage - 1) * itemsPerPage + idx + 1;
+                      const normStatus = getNormalizedStatus(item.status);
+                      const isLate = normStatus === "LATE" || Boolean(item.lateBy && item.lateBy !== "-");
+
+                      return (
+                        <tr key={item._id || item.date || idx}>
+                          <td className="att-col-idx">{rowNumber}</td>
+                          <td className="att-col-date">{formatDate(item.date)}</td>
+                          <td className="att-col-shift">{item.shiftTime || "09:30 AM - 06:30 PM"}</td>
+                          <td>
+                            <div className="att-time-cell">
+                              <span className={`att-time-dot ${isLate ? "late" : item.checkInTime ? "on-time" : "gray"}`} />
+                              <span>{formatTime(item.checkInTime)}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="att-logout-cell-group">
+                              <span>{formatTime(item.checkOutTime)}</span>
+                              {item.autoClockout && (
+                                <span className="att-auto-clockout-tag">Auto Clock-Out</span>
+                              )}
+                            </div>
+                          </td>
+                          <td style={{ fontWeight: 600, color: "#1e293b" }}>
+                            {item.totalTime || item.workingHours || "-"}
+                          </td>
+                          <td>
+                            <span
+                              className={`att-status-pill ${
+                                normStatus === "PRESENT"
+                                  ? "present"
+                                  : normStatus === "LATE"
+                                  ? "late"
+                                  : normStatus === "HALF DAY"
+                                  ? "halfday"
+                                  : normStatus === "WEEKLY OFF"
+                                  ? "weeklyoff"
+                                  : normStatus === "HOLIDAY"
+                                  ? "holiday"
+                                  : "absent"
+                              }`}
+                            >
+                              {normStatus}
+                            </span>
+                          </td>
+                          <td>
+                            {item.lateBy && item.lateBy !== "-" ? (
+                              <span className="att-late-badge">{item.lateBy}</span>
+                            ) : (
+                              <span style={{ color: "#94a3b8" }}>-</span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: "center" }}>
+                            <button
+                              type="button"
+                              className="att-action-view-btn"
+                              title="View Log Details"
+                              onClick={() => {
+                                setSelectedDayRecord(item);
+                                setShowDetailModal(true);
+                              }}
+                            >
+                              <FiEye />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="att-table-pagination">
+                <div className="att-pagination-info">
+                  Showing <b>{(currentPage - 1) * itemsPerPage + 1}</b> to{" "}
+                  <b>{Math.min(currentPage * itemsPerPage, filteredRecords.length)}</b> of{" "}
+                  <b>{filteredRecords.length}</b> records
+                </div>
+
+                <div className="att-pagination-buttons">
+                  <button
+                    type="button"
+                    className="att-page-btn arrow"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  >
+                    <FiChevronLeft />
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      className={`att-page-btn ${currentPage === pageNum ? "active" : ""}`}
+                      onClick={() => setCurrentPage(pageNum)}
+                    >
+                      {pageNum}
+                    </button>
+                  ))}
+
+                  <button
+                    type="button"
+                    className="att-page-btn arrow"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    <FiChevronRight />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Monthly Overview Calendar & Today's Status */}
+        <div className="att-widgets-column">
+          {/* Monthly Overview Calendar Widget */}
+          <div className="att-card att-calendar-card">
+            <div className="att-calendar-header">
+              <h4>Monthly Overview</h4>
+              <div className="att-calendar-nav">
                 <button
-                  className="Attendance-clear-search"
-                  onClick={() => {
-                    setSearch("");
-                    setSelectedDate(null);
-                  }}
+                  type="button"
+                  className="att-cal-nav-btn"
+                  onClick={handlePrevMonth}
+                  title="Previous Month"
+                >
+                  <FiChevronLeft />
+                </button>
+                <span className="att-cal-month-title">
+                  {MONTH_NAMES[currentMonth].substring(0, 3)} {currentYear}
+                </span>
+                <button
+                  type="button"
+                  className="att-cal-nav-btn"
+                  onClick={handleNextMonth}
+                  title="Next Month"
+                >
+                  <FiChevronRight />
+                </button>
+              </div>
+            </div>
+
+            {/* Day Names Header */}
+            <div className="att-cal-weekdays">
+              <span>Su</span>
+              <span>Mo</span>
+              <span>Tu</span>
+              <span>We</span>
+              <span>Th</span>
+              <span>Fr</span>
+              <span>Sa</span>
+            </div>
+
+            {/* Calendar Days Grid */}
+            <div className="att-cal-days-grid">
+              {calendarDays.map((cd, index) => {
+                if (!cd.day) {
+                  return <div key={`empty-${index}`} className="att-cal-day empty" />;
+                }
+
+                const isSelected =
+                  selectedCalendarDate &&
+                  selectedCalendarDate.toISOString().split("T")[0] === cd.dateKey;
+
+                return (
+                  <button
+                    key={cd.dateKey}
+                    type="button"
+                    className={`att-cal-day ${cd.isToday ? "today" : ""} ${isSelected ? "selected" : ""}`}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedCalendarDate(null);
+                      } else {
+                        const [y, m, d] = cd.dateKey.split("-").map(Number);
+                        setSelectedCalendarDate(new Date(y, m - 1, d));
+                      }
+                    }}
+                  >
+                    <span className="att-cal-day-num">{cd.day}</span>
+                    {cd.status !== "NONE" && (
+                      <span
+                        className={`att-cal-day-dot ${
+                          cd.status === "PRESENT"
+                            ? "dot-present"
+                            : cd.status === "LATE"
+                            ? "dot-late"
+                            : cd.status === "HALF DAY"
+                            ? "dot-halfday"
+                            : cd.status === "HOLIDAY"
+                            ? "dot-holiday"
+                            : cd.status === "WEEKLY OFF"
+                            ? "dot-weeklyoff"
+                            : "dot-absent"
+                        }`}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Calendar Status Legend */}
+            <div className="att-calendar-legend">
+              <div className="att-legend-item">
+                <span className="att-legend-dot dot-present" />
+                <span>Present</span>
+              </div>
+              <div className="att-legend-item">
+                <span className="att-legend-dot dot-late" />
+                <span>Late</span>
+              </div>
+              <div className="att-legend-item">
+                <span className="att-legend-dot dot-halfday" />
+                <span>Half Day</span>
+              </div>
+              <div className="att-legend-item">
+                <span className="att-legend-dot dot-absent" />
+                <span>Absent</span>
+              </div>
+              <div className="att-legend-item">
+                <span className="att-legend-dot dot-weeklyoff" />
+                <span>Weekly Off</span>
+              </div>
+              <div className="att-legend-item">
+                <span className="att-legend-dot dot-holiday" />
+                <span>Holiday</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Today's Status Widget (Connected directly to Clock-in API: /attendance/status) */}
+          <div className="att-card att-today-card">
+            <div className="att-today-header">
+              <h4>Today's Status</h4>
+              <span
+                className={`att-punch-badge ${
+                  isClockedIn ? "in" : clockOutTime ? "out" : "not-checked"
+                }`}
+              >
+                <span className="att-pulse-dot" />
+                {isClockedIn
+                  ? "Clocked In"
+                  : clockOutTime
+                  ? "Clocked Out"
+                  : "Not Checked In"}
+              </span>
+            </div>
+
+            <div className="att-today-times-row">
+              <div className="att-today-time-box">
+                <span className="att-today-time-label">Check-In</span>
+                <span className="att-today-time-val">
+                  {todayClockData?.login || (clockInTime ? formatTime(clockInTime) : "-")}
+                </span>
+              </div>
+              <div className="att-today-time-divider" />
+              <div className="att-today-time-box">
+                <span className="att-today-time-label">Check-Out</span>
+                <span className="att-today-time-val">
+                  {todayClockData?.logout || (clockOutTime ? formatTime(clockOutTime) : "-")}
+                </span>
+              </div>
+            </div>
+
+            {/* Live Working Hours Counter */}
+            <div className="att-today-counter-box">
+              <span className="att-counter-label">Working Hours</span>
+              <div className="att-counter-value">
+                <span>{String(liveWorkingTime.hours).padStart(2, "0")}h</span>
+                <span className="colon">:</span>
+                <span>{String(liveWorkingTime.minutes).padStart(2, "0")}m</span>
+                <span className="colon">:</span>
+                <span>{String(liveWorkingTime.seconds).padStart(2, "0")}s</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="att-view-log-btn"
+              onClick={handleViewTodayLog}
+            >
+              <FiEye />
+              <span>View Detailed Log</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 6. Day Log Details Modal (Rendered to document.body via Portal) */}
+      {showDetailModal &&
+        selectedDayRecord &&
+        createPortal(
+          <div
+            className="att-modal-overlay"
+            onClick={() => setShowDetailModal(false)}
+          >
+            <div
+              className="att-modal-card"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="att-modal-header">
+                <div className="att-modal-header-text">
+                  <h3>Attendance Details</h3>
+                  <p>{formatDate(selectedDayRecord.date)}</p>
+                </div>
+                <button
+                  type="button"
+                  className="att-modal-close-btn"
+                  onClick={() => setShowDetailModal(false)}
+                  aria-label="Close details modal"
                 >
                   <FiX />
                 </button>
-              )}
-            </div>
-
-            
-            <button
-              className={`Attendance-icon-button ${isDateRangeActive ? 'Attendance-active' : ''}`}
-              onClick={() => {
-                setShowDateRangePicker(!showDateRangePicker);
-                setShowFilterMenu(false);
-                setShowCalendar(false);
-                setShowMobileFilter(false);
-              }}
-              title="Date Range Filter"
-            >
-              <FiCalendarRange />
-            </button>
-
-            <button
-              className="Attendance-icon-button"
-              onClick={
-                isMobile
-                  ? () => {
-                      setShowMobileFilter(true);
-                      setShowDateRangePicker(false);
-                      setShowFilterMenu(false);
-                      setShowCalendar(false);
-                    }
-                  : () => {
-                      setShowFilterMenu(!showFilterMenu);
-                      setShowDateRangePicker(false);
-                      setShowCalendar(false);
-                      setShowMobileFilter(false);
-                    }
-              }
-            >
-              <FiFilter />
-            </button>
-
-            <button
-              className="Attendance-icon-button"
-              onClick={handleRefresh}
-              disabled={refreshing || holidaysLoading}
-            >
-              <FiRefreshCw className={refreshing || holidaysLoading ? "Attendance-spin" : ""} />
-            </button>
-              
-            <button
-              className="Attendance-export-button"
-              onClick={exportToCSV}
-              disabled={filteredData.length === 0}
-            >
-              <FiDownload />
-              Export CSV
-            </button>
-          </div>
-        </div>
-
-        
-        {showDateRangePicker && (
-          <div className="Attendance-date-range-picker" ref={dateRangePickerRef}>
-            <h3>Select Date Range</h3>
-            <div className="Attendance-date-range-inputs">
-              <div className="Attendance-date-input-group">
-                <label>Start Date:</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  min={userJoinDate ? formatDateForInput(userJoinDate) : undefined}
-                  max={endDate || undefined}
-                />
               </div>
-              <div className="Attendance-date-input-group">
-                <label>End Date:</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  min={startDate || (userJoinDate ? formatDateForInput(userJoinDate) : undefined)}
-                  max={formatDateForInput(new Date())}
-                />
-              </div>
-            </div>
-            {userJoinDate && (
-              <div className="Attendance-date-range-note">
-                <FiClock size={12} />
-                <span>Available from {formattedJoinDate}</span>
-              </div>
-            )}
-            <div className="Attendance-date-range-actions">
-              <button 
-                className="Attendance-apply-range-btn"
-                onClick={applyDateRange}
-              >
-                Apply Range
-              </button>
-              <button
-                className="Attendance-clear-range-btn"
-                onClick={() => {
-                  clearDateRange();           
-                  setShowDateRangePicker(false); 
-                }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
 
-        
-        {showCalendar && (
-          <div className="Attendance-calendar-popover" ref={calendarRef}>
-            <input
-              type="date"
-              className="Attendance-date-picker"
-              value={selectedDate || ""}
-              onChange={(e) => handleDateSelect(e.target.value)}
-              min={userJoinDate ? userJoinDate.toISOString().split('T')[0] : undefined}
-            />
-            {userJoinDate && (
-              <div className="Attendance-calendar-note">
-                <FiClock size={12} />
-                <span>Records available from {formattedJoinDate}</span>
-              </div>
-            )}
-          </div>
-        )}
+              {/* Modal Body */}
+              <div className="att-modal-body">
+                {/* Primary Stats Grid */}
+                <div className="att-modal-stats-grid">
+                  <div className="att-modal-stat-box">
+                    <span className="att-modal-stat-lbl">Status</span>
+                    <span
+                      className={`att-status-pill ${
+                        getNormalizedStatus(selectedDayRecord.status) === "PRESENT"
+                          ? "present"
+                          : getNormalizedStatus(selectedDayRecord.status) === "LATE"
+                          ? "late"
+                          : getNormalizedStatus(selectedDayRecord.status) === "HALF DAY"
+                          ? "halfday"
+                          : getNormalizedStatus(selectedDayRecord.status) === "HOLIDAY"
+                          ? "holiday"
+                          : "absent"
+                      }`}
+                    >
+                      {getNormalizedStatus(selectedDayRecord.status)}
+                    </span>
+                  </div>
 
-        
-        {showFilterMenu && !isMobile && (
-          <div className="Attendance-filter-menu" ref={filterMenuRef}>
-            {statusOptions.map((status) => (
-              <button
-                key={status}
-                className={`Attendance-filter-menu-item ${
-                  statusFilter === status ? "Attendance-active" : ""
-                }`}
-                onClick={() => {
-                  setStatusFilter(status);
-                  setShowFilterMenu(false);
-                }}
-              >
-                {status === "ALL" ? "All Status" : status}
-              </button>
-            ))}
-          </div>
-        )}
+                  <div className="att-modal-stat-box">
+                    <span className="att-modal-stat-lbl">Shift</span>
+                    <span className="att-modal-stat-val">
+                      {selectedDayRecord.shiftTime || "09:30 AM - 06:30 PM"}
+                    </span>
+                  </div>
 
-        
-        <div className="Attendance-time-range-tabs">
-          {["ALL", "TODAY", "WEEK", "MONTH"].map((range) => (
-            <button
-              key={range}
-              className={`Attendance-time-tab ${timeRange === range && !isDateRangeActive ? "Attendance-active" : ""}`}
-              onClick={() => handleTimeRangeChange(range)}
-            >
-              {range === "ALL" ? "All Time" : range}
-            </button>
-          ))}
-        </div>
-      </div>
+                  <div className="att-modal-stat-box">
+                    <span className="att-modal-stat-lbl">Login Time</span>
+                    <span className="att-modal-stat-val">
+                      {formatTime(selectedDayRecord.checkInTime)}
+                    </span>
+                  </div>
 
-      
-      {showMobileFilter && isMobile && (
-        <div className="Attendance-mobile-filter-drawer" ref={mobileFilterRef}>
-          <div className="Attendance-filter-drawer-content">
-            <div className="Attendance-filter-drawer-header">
-              <h3>Filters</h3>
-              <button
-                className="Attendance-close-filter"
-                onClick={() => {
-                  setShowMobileFilter(false);
-                  setShowFilterMenu(false);
-                  setShowCalendar(false);
-                  setShowDateRangePicker(false);
-                }}
-              >
-                <FiX />
-              </button>
-            </div>
-            <div className="Attendance-filter-options">
-              <h4>Status Filter</h4>
-              {statusOptions.map((status) => (
-                <button
-                  key={status}
-                  className={`Attendance-filter-option ${
-                    statusFilter === status ? "Attendance-active" : ""
-                  }`}
-                  onClick={() => {
-                    setStatusFilter(status);
-                    setShowMobileFilter(false);
-                  }}
-                >
-                  {status === "ALL" ? "All Status" : status}
-                </button>
-              ))}
-            </div>
-            {userJoinDate && (
-              <div className="Attendance-filter-join-info">
-                <FiClock size={14} />
-                <span>Records from {formattedJoinDate}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+                  <div className="att-modal-stat-box">
+                    <span className="att-modal-stat-lbl">Logout Time</span>
+                    <span className="att-modal-stat-val">
+                      {formatTime(selectedDayRecord.checkOutTime)}
+                    </span>
+                  </div>
 
-      
-      {userJoinDate && processedAttendance.length === 0 && !loading && (
-        <div className="Attendance-join-banner">
-          <div className="Attendance-join-banner-content">
-            <FiCalendar size={20} />
-            <div>
-              <h3>No attendance records found</h3>
-              <p>You joined on {formattedJoinDate}. Your attendance records will appear here once you clock in.</p>
-            </div>
-          </div>
-        </div>
-      )}
+                  <div className="att-modal-stat-box">
+                    <span className="att-modal-stat-lbl">Total Time</span>
+                    <span className="att-modal-stat-val bold">
+                      {selectedDayRecord.totalTime || "-"}
+                    </span>
+                  </div>
 
-      
-      <div className="Attendance-stats-grid">
-        {[
-          {
-            key: "present",
-            filterValue: "PRESENT",
-            label: "Present Days",
-            value: stats.present,
-            icon: FiCheckCircle,
-            color: "success",
-            extra: `${stats.percentage}%`,
-          },
-          {
-            key: "late",
-            filterValue: "LATE",
-            label: "Late Days",
-            value: stats.late,
-            icon: FiAlertTriangle,
-            color: "warning",
-          },
-          {
-            key: "halfDay",
-            filterValue: "HALF DAY",
-            label: "Half Days",
-            value: stats.halfDay,
-            icon: FiAlertCircle,
-            color: "halfday",
-          },
-          {
-            key: "absent",
-            filterValue: "ABSENT",
-            label: "Absent Days",
-            value: stats.absent,
-            icon: FiMinusCircle,
-            color: "error",
-          },
-          {
-            key: "total",
-            label: "Total Records",
-            value: stats.total,
-            icon: FiBarChart2,
-            color: "info",
-          },
-        ].map((stat) => (
-            <div
-              key={stat.key}
-              className={`Attendance-stat-card ${
-                statusFilter === stat.filterValue ? "Attendance-active" : ""
-              }`}
-              data-key={stat.key}
-              onClick={() => {
-                if (stat.key !== "total") {
-                  setStatusFilter(statusFilter === stat.filterValue ? "ALL" : stat.filterValue);
-                }
-              }}
-            >
-              <div className="Attendance-stat-card-content">
-                <div className="Attendance-stat-icon-container">
-                  <stat.icon className={`Attendance-stat-icon Attendance-${stat.color}`} />
+                  <div className="att-modal-stat-box">
+                    <span className="att-modal-stat-lbl">Late By</span>
+                    <span className="att-modal-stat-val">
+                      {selectedDayRecord.lateBy || "-"}
+                    </span>
+                  </div>
                 </div>
-                <div className="Attendance-stat-details">
-                  <p className="Attendance-stat-label">{stat.label}</p>
-                  <div className="Attendance-stat-value-container">
-                    <h3 className="Attendance-stat-value">{stat.value}</h3>
-                    {stat.extra && (
-                      <span className="Attendance-stat-extra">{stat.extra}</span>
+
+                {/* Additional Info / Device & Location */}
+                <div className="att-modal-section">
+                  <h5>Check-In Metadata</h5>
+                  <div className="att-modal-meta-list">
+                    <div className="att-modal-meta-item">
+                      <FiSmartphone />
+                      <span>Device / Browser: {selectedDayRecord.device || "Desktop Web"}</span>
+                    </div>
+                    {selectedDayRecord.ip && (
+                      <div className="att-modal-meta-item">
+                        <FiGlobe />
+                        <span>IP Address: {selectedDayRecord.ip}</span>
+                      </div>
+                    )}
+                    {selectedDayRecord.location && (
+                      <div className="att-modal-meta-item">
+                        <FiMapPin />
+                        <span>Location: {selectedDayRecord.location}</span>
+                      </div>
+                    )}
+                    {selectedDayRecord.autoClockout && (
+                      <div className="att-modal-meta-item warning">
+                        <FiAlertTriangle />
+                        <span>Session was automatically ended at midnight by the system.</span>
+                      </div>
                     )}
                   </div>
                 </div>
+
+                {/* Notes if any */}
+                {selectedDayRecord.notes && (
+                  <div className="att-modal-section">
+                    <h5>Notes / Remarks</h5>
+                    <p className="att-modal-notes-text">{selectedDayRecord.notes}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="att-modal-footer">
+                <button
+                  type="button"
+                  className="att-modal-primary-btn"
+                  onClick={() => setShowDetailModal(false)}
+                >
+                  Close
+                </button>
               </div>
             </div>
-          ))}
-      </div>
-
-      
-      {holidays.length > 0 && (
-        <div className="Attendance-holiday-summary">
-          <MdCelebration className="Attendance-holiday-summary-icon" />
-          <span>{holidays.length} Holiday{holidays.length > 1 ? 's' : ''} this year</span>
-        </div>
-      )}
-
-      
-      {(statusFilter !== "ALL" || timeRange !== "ALL" || isDateRangeActive) && (
-        <div className="Attendance-active-filters">
-          <h4>Active filters:</h4>
-          <div className="Attendance-filter-chips">
-            {statusFilter !== "ALL" && (
-              <div className="Attendance-filter-chip">
-                <span>Status: {statusFilter}</span>
-                <button onClick={() => setStatusFilter("ALL")}>×</button>
-              </div>
-            )}
-            {timeRange !== "ALL" && !isDateRangeActive && (
-              <div className="Attendance-filter-chip Attendance-secondary">
-                <span>Time: {timeRange}</span>
-                <button onClick={() => setTimeRange("ALL")}>×</button>
-              </div>
-            )}
-            
-            {isDateRangeActive && startDate && endDate && (
-              <div className="Attendance-filter-chip Attendance-primary">
-                <span>From: {startDate} To: {endDate}</span>
-                <button onClick={clearDateRange}>×</button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      
-      <div className="Attendance-results-count">
-        <h3>
-          Showing {filteredData.length} of {processedAttendance.length} records
-        </h3>
-        {stats.late > 0 && (
-          <div className="Attendance-late-info">
-            <FiWatch className="Attendance-late-info-icon" />
-            <span>{stats.late} late day(s) recorded</span>
-          </div>
+          </div>,
+          document.body
         )}
-        {userJoinDate && processedAttendance.length > 0 && (
-          <div className="Attendance-range-info">
-            <FiCalendar />
-            <span>Since {formattedJoinDate}</span>
-          </div>
-        )}
-      </div>
-
-      
-      {!isMobile && (
-        <div className="Attendance-table-container">
-          <table className="Attendance-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Shift</th>
-                <th>Login</th>
-                <th>Logout</th>
-                <th>Status</th>
-                <th>Total Time</th>
-                <th>Late By</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredData.length > 0 ? (
-                filteredData.map((record) => {
-                  const statusClass = getStatusClass(record);
-                  const displayStatus = getStatusDisplayText(record);
-                  return (
-                    <tr
-                      key={record._id}
-                      className={`Attendance-table-row Attendance-status-${statusClass}`}
-                      style={{ cursor: 'default' }}  
-                    >
-                      <td>
-                        <strong>{formatDate(record.date)}</strong>
-                        {record.holidayTitle && (
-                          <div className="Attendance-holiday-title-tooltip">
-                            {record.holidayTitle}
-                          </div>
-                        )}
-                      </td>
-                      <td>
-                        <div className="Attendance-time-cell" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <FiClock />
-                            <span>{getShiftLabel(record)}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        {record.inTime ? (
-                          <div className="Attendance-time-cell" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                              <FiClock />
-                              <span>{formatTime(record.inTime)}</span>
-                            </div>
-                            {record.inLocation && (
-                              <span style={{ fontSize: '0.75rem', color: '#888', marginLeft: '21px' }}>
-                                Dist: {calculateDistance(record.inLocation.latitude, record.inLocation.longitude)}m
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="Attendance-no-time">--</span>
-                        )}
-                      </td>
-                      <td>
-                        {record.outTime ? (
-                          <div className="Attendance-time-cell" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                              <FiClock />
-                              <span>{formatTime(record.outTime)}</span>
-                            </div>
-                            <span style={{ fontSize: '0.75rem', color: record.clockOutMode === 'AUTO' ? '#b45309' : '#2563eb', marginLeft: '21px' }}>
-                              {getClockOutModeLabel(record)}
-                            </span>
-                            {record.outLocation && (
-                              <span style={{ fontSize: '0.75rem', color: '#888', marginLeft: '21px' }}>
-                                Dist: {calculateDistance(record.outLocation.latitude, record.outLocation.longitude)}m
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="Attendance-no-time">--</span>
-                        )}
-                      </td>
-                      <td>
-                        <div className={`Attendance-status-chip Attendance-status-${statusClass}`}>
-                          {getStatusIcon(record)}
-                          <span>{displayStatus}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <strong className="Attendance-total-time">
-                          {record.totalTime || "00:00:00"}
-                        </strong>
-                      </td>
-                      <td>
-                        <div className="Attendance-late-cell">
-                          {record.lateBy && record.lateBy !== "00:00:00" ? (
-                            <span className="Attendance-late-badge">
-                              {record.lateBy}
-                            </span>
-                          ) : (
-                            <span className="Attendance-no-late">--</span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <button
-                          className="Attendance-view-details-button"
-                          onClick={() => openDetailsModal(record)}
-                          type="button"
-                        >
-                          <FiEye />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan="8" className="Attendance-no-data-cell">
-                    <FiUser className="Attendance-no-data-icon" />
-                    <h3>No attendance records found</h3>
-                    <p>
-                      {userJoinDate 
-                        ? `You joined on ${formattedJoinDate}. No records before this date.`
-                        : 'Try adjusting your filters or search terms'}
-                    </p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      
-      {isMobile && (
-        <div className="Attendance-mobile-cards">
-          {filteredData.length > 0 ? (
-            <VirtualList
-              items={filteredData}
-              height={Math.min(620, Math.max(320, window.innerHeight - 280))}
-              rowHeight={204}
-              renderItem={(record) => {
-                const statusClass = getStatusClass(record);
-                const displayStatus = getStatusDisplayText(record);
-                return (
-                  <div
-                    key={record._id}
-                    className={`Attendance-mobile-card Attendance-status-${statusClass}`}
-                    onClick={() => openDetailsModal(record)}
-                    title={record.holidayTitle ? `Holiday: ${record.holidayTitle}` : ''}
-                  >
-                    <div className="Attendance-mobile-card-content">
-                      <div className="Attendance-mobile-card-header">
-                        <h3>{formatDate(record.date)}</h3>
-                        {record.holidayTitle && (
-                          <span className="Attendance-mobile-holiday-badge">
-                            🎉
-                          </span>
-                        )}
-                        <FiChevronRight className="Attendance-card-arrow" />
-                      </div>
-                      <div className="Attendance-mobile-card-times">
-                        <div className="Attendance-time-item">
-                          <FiClock />
-                          <span>{getShiftLabel(record)}</span>
-                        </div>
-                        {record.inTime && (
-                          <div className="Attendance-time-item">
-                            <FiClock />
-                            <span>
-                              In: {formatTime(record.inTime)}
-                              {record.inLocation && ` (${calculateDistance(record.inLocation.latitude, record.inLocation.longitude)}m)`}
-                            </span>
-                          </div>
-                        )}
-                        {record.outTime && (
-                          <div className="Attendance-time-item">
-                            <FiClock />
-                            <span>
-                              Out: {formatTime(record.outTime)}
-                              {record.outLocation && ` (${calculateDistance(record.outLocation.latitude, record.outLocation.longitude)}m)`}
-                            </span>
-                            <span style={{ fontSize: '0.75rem', color: record.clockOutMode === 'AUTO' ? '#b45309' : '#2563eb' }}>
-                              {getClockOutModeLabel(record)}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="Attendance-mobile-card-footer">
-                        <div className={`Attendance-mobile-status-chip Attendance-status-${statusClass}`}>
-                          {getStatusIcon(record)}
-                          <span>{displayStatus}</span>
-                        </div>
-                        <div className="Attendance-mobile-card-right">
-                          {record.lateBy && record.lateBy !== "00:00:00" && (
-                            <div className="Attendance-mobile-late">
-                              <FiAlertTriangle />
-                              <span>{record.lateBy}</span>
-                            </div>
-                          )}
-                          {record.totalTime && (
-                            <strong className="Attendance-mobile-total-time">
-                              {record.totalTime}
-                            </strong>
-                          )}
-                        </div>
-                      </div>
-                      {record.holidayTitle && (
-                        <div className="Attendance-mobile-holiday-title">
-                          🎉 {record.holidayTitle}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              }}
-            />
-          ) : (
-            <div className="Attendance-no-data-card">
-              <FiUser className="Attendance-no-data-icon" />
-              <h3>No records found</h3>
-              <p>
-                {userJoinDate 
-                  ? `You joined on ${formattedJoinDate}`
-                  : 'Adjust your search or filters'}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      
-      {openModal && selectedRecord && (
-        <div 
-          className="Attendance-modal-overlay" 
-          onClick={closeModal}
-          onWheel={(e) => {
-            if (e.target === e.currentTarget) {
-              e.preventDefault();
-            }
-          }}
-          onTouchMove={(e) => {
-            if (e.target === e.currentTarget) {
-              e.preventDefault();
-            }
-          }}
-        >
-          <div
-            className="Attendance-modal-content"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="Attendance-modal-header" style={{
-              background: `linear-gradient(135deg, ${getStatusColor(
-                selectedRecord
-              )} 0%, #667eea 100%)`,
-            }}>
-              <button 
-                type="button" 
-                className="Attendance-modal-close-icon-btn" 
-                onClick={closeModal}
-                aria-label="Close"
-              >
-                <FiX />
-              </button>
-              <h2>Attendance Details</h2>
-              <h3>{formatDate(selectedRecord.date)}</h3>
-              {selectedRecord.holidayTitle && (
-                <div className="Attendance-modal-holiday-badge">
-                  🎉 {selectedRecord.holidayTitle}
-                </div>
-              )}
-            </div>
-            <div className="Attendance-modal-body">
-              <div className="Attendance-modal-section">
-                <h4>Status</h4>
-                <div className={`Attendance-modal-status-chip Attendance-status-${getStatusClass(selectedRecord)}`}>
-                  {getStatusIcon(selectedRecord)}
-                  <span>{getStatusDisplayText(selectedRecord)}</span>
-                </div>
-              </div>
-              <div className="Attendance-modal-divider"></div>
-              
-              {selectedRecord.inTime && (
-                <>
-                  <div className="Attendance-modal-grid">
-                    <div className="Attendance-modal-grid-item">
-                      <h4>Login Time</h4>
-                      <p className="Attendance-modal-time">{formatTime(selectedRecord.inTime)}</p>
-                    </div>
-                    <div className="Attendance-modal-grid-item">
-                      <h4>Logout Time</h4>
-                      <p className="Attendance-modal-time">
-                        {selectedRecord.outTime ? formatTime(selectedRecord.outTime) : "--"}
-                      </p>
-                      {selectedRecord.outTime && (
-                        <p style={{ marginTop: '2px', fontSize: '0.75rem', color: selectedRecord.clockOutMode === 'AUTO' ? '#b45309' : '#2563eb' }}>
-                          {getClockOutModeLabel(selectedRecord)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="Attendance-modal-grid">
-                    <div className="Attendance-modal-grid-item">
-                      <h4>Total Duration</h4>
-                      <p className="Attendance-modal-duration">
-                        {selectedRecord.totalTime || "00:00:00"}
-                      </p>
-                    </div>
-                    <div className="Attendance-modal-grid-item">
-                      <h4>Late By</h4>
-                      <p className="Attendance-modal-late">
-                        {selectedRecord.lateBy || "00:00:00"}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="Attendance-modal-grid">
-                    <div className="Attendance-modal-grid-item">
-                      <h4>Early Leave</h4>
-                      <p className="Attendance-modal-early-leave">
-                        {selectedRecord.earlyLeave || "00:00:00"}
-                      </p>
-                    </div>
-                    <div className="Attendance-modal-grid-item">
-                      <h4>Overtime</h4>
-                      <p className="Attendance-modal-overtime">
-                        {selectedRecord.overTime || "00:00:00"}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="Attendance-modal-grid">
-                    <div className="Attendance-modal-grid-item">
-                      <h4>Login Distance</h4>
-                      <p className="Attendance-modal-duration">
-                        {selectedRecord.inLocation ? `${calculateDistance(selectedRecord.inLocation.latitude, selectedRecord.inLocation.longitude)}m` : "--"}
-                      </p>
-                    </div>
-                    <div className="Attendance-modal-grid-item">
-                      <h4>Logout Distance</h4>
-                      <p className="Attendance-modal-duration">
-                        {selectedRecord.outLocation ? `${calculateDistance(selectedRecord.outLocation.latitude, selectedRecord.outLocation.longitude)}m` : "--"}
-                      </p>
-                    </div>
-                  </div>
-                </>
-              )}
-              
-              <button className="Attendance-modal-close-button" onClick={closeModal}>
-                Close Details
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

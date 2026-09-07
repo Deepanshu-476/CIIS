@@ -1,1187 +1,1559 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import axios from "../../utils/axiosConfig";
+import CIISLoader from "../../Loader/CIISLoader";
+import Swal from "sweetalert2";
 import "../Css/CreateAlerts.css";
-import CIISLoader from '../../Loader/CIISLoader';
 
+import {
+  FiBell,
+  FiInfo,
+  FiAlertTriangle,
+  FiAlertCircle,
+  FiSearch,
+  FiEye,
+  FiUser,
+  FiUsers,
+  FiFilter,
+  FiCalendar,
+  FiMoreVertical,
+  FiPlus,
+  FiEdit2,
+  FiTrash2,
+  FiChevronDown,
+  FiChevronLeft,
+  FiChevronRight,
+  FiCheck,
+  FiX,
+  FiGrid,
+  FiList,
+  FiRefreshCw,
+  FiSend,
+} from "react-icons/fi";
 
-const FiAlertCircle = () => <span className="CreateAlert-icon">⚠️</span>;
-const FiAlertTriangle = () => <span className="CreateAlert-icon">⚠️</span>;
-const FiInfo = () => <span className="CreateAlert-icon">ℹ️</span>;
-const FiUsers = () => <span className="CreateAlert-icon">👥</span>;
-const FiUser = () => <span className="CreateAlert-icon">👤</span>;
-const FiSearch = () => <span className="CreateAlert-icon">🔍</span>;
-const FiCheck = () => <span className="CreateAlert-icon">✓</span>;
-const FiX = () => <span className="CreateAlert-icon">✕</span>;
-const FiSend = () => <span className="CreateAlert-icon">📤</span>;
-const FiRefreshCw = () => <span className="CreateAlert-icon">🔄</span>;
-const FiBell = () => <span className="CreateAlert-icon">🔔</span>;
-const FiEye = () => <span className="CreateAlert-icon">👁️</span>;
-const FiUserCheck = () => <span className="CreateAlert-icon">✅👤</span>;
-const FiFilter = () => <span className="CreateAlert-icon">🔧</span>;
-const FiPlus = () => <span className="CreateAlert-icon">➕</span>;
-const FiClock = () => <span className="CreateAlert-icon">⏰</span>;
-const FiCalendar = () => <span className="CreateAlert-icon">📅</span>;
+const getHeaders = () => ({
+  headers: {
+    Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+    "Content-Type": "application/json",
+  },
+});
 
+const getUserId = () => {
+  try {
+    const stored = localStorage.getItem("user");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return String(
+        parsed._id ||
+          parsed.id ||
+          parsed.user?._id ||
+          parsed.user?.id ||
+          localStorage.getItem("userId") ||
+          ""
+      );
+    }
+  } catch (err) {
+    console.error("Error reading userId:", err);
+  }
+  return localStorage.getItem("userId") || "";
+};
 
-const Badge = ({ children, badgeContent, color = "error", size = "small" }) => (
-  <div className="CreateAlert-badge">
-    {children}
-    {badgeContent > 0 && (
-      <span className={`CreateAlert-badge-content CreateAlert-badge-${color}`}>
-        {badgeContent > 99 ? "99+" : badgeContent}
-      </span>
-    )}
-  </div>
-);
+const formatAlertDate = (dateStr) => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return "";
 
-const Chip = ({ label, color, icon, onDelete, size = "medium", variant = "default", onClick }) => (
-  <span 
-    className={`CreateAlert-chip CreateAlert-chip-${size} CreateAlert-chip-${variant}`}
-    style={{ 
-      backgroundColor: variant === "outlined" ? "transparent" : color ? `${color}20` : '#667eea20',
-      color: color || '#667eea',
-      borderColor: color ? `${color}30` : '#667eea30'
-    }}
-    onClick={onClick}
-  >
-    {icon && <span className="CreateAlert-chip-icon">{icon}</span>}
-    {label}
-    {onDelete && (
-      <button className="CreateAlert-chip-delete" onClick={onDelete}>
-        ×
-      </button>
-    )}
-  </span>
-);
+  const month = d.toLocaleDateString("en-US", { month: "short" });
+  const day = String(d.getDate()).padStart(2, "0");
+  const year = d.getFullYear();
 
-const Avatar = ({ children, color, size = "medium" }) => (
-  <div 
-    className={`CreateAlert-avatar CreateAlert-avatar-${size}`}
-    style={{ 
-      backgroundColor: color ? `${color}20` : '#667eea20',
-      color: color || '#667eea'
-    }}
-  >
-    {children}
-  </div>
-);
+  let hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const hourStr = String(hours).padStart(2, "0");
 
-const Tooltip = ({ title, children }) => (
-  <div className="CreateAlert-tooltip">
-    {children}
-    <span className="CreateAlert-tooltip-text">{title}</span>
-  </div>
-);
+  return `${month} ${day}, ${year}, ${hourStr}:${minutes} ${ampm}`;
+};
 
-const Checkbox = ({ checked, onChange }) => (
-  <label className="CreateAlert-checkbox">
-    <input 
-      type="checkbox" 
-      checked={checked} 
-      onChange={onChange} 
-      className="CreateAlert-checkbox-input"
-    />
-    <span className="CreateAlert-checkbox-checkmark" />
-  </label>
-);
+const getAlertTitle = (alert) => {
+  if (alert?.title && String(alert.title).trim()) {
+    return String(alert.title).trim();
+  }
+  const msg = String(alert?.message || "").trim();
+  if (!msg) return "Alert Notification";
+  const firstLine = msg.split(/\r?\n|[.!?]\s+/)[0].trim();
+  if (firstLine.length > 0 && firstLine.length <= 45) {
+    return firstLine.replace(/[.:]+$/, "");
+  }
+  return msg.slice(0, 40) + "...";
+};
+
+const getUserAssignmentInfo = (alert) => {
+  const users = alert.assignedUsers || [];
+  if (!users || users.length === 0) {
+    return {
+      text: "All Users",
+      isAll: true,
+      count: 0,
+    };
+  }
+  if (users.length === 1) {
+    return {
+      text: "1 User",
+      isAll: false,
+      count: 1,
+    };
+  }
+  return {
+    text: `${users.length} Users`,
+    isAll: false,
+    count: users.length,
+  };
+};
 
 const CreateAlert = () => {
-  const [loading, setLoading] = useState(false);
-  const [pageLoading, setPageLoading] = useState(true);
-  const [users, setUsers] = useState([]);
-  const [usersMap, setUsersMap] = useState(new Map()); 
-  const [groups, setGroups] = useState([]);
-  const [role, setRole] = useState("");
   const [alerts, setAlerts] = useState([]);
-  
-  
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  
-  
+  const [users, setUsers] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Filters & Controls
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("all"); // 'all' | 'assigned' | 'unread'
+  const [filterType, setFilterType] = useState("all"); // 'all' | 'info' | 'warning' | 'error'
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
+  const [sortBy, setSortBy] = useState("newest"); // 'newest' | 'oldest'
+  const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
+  const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list'
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
+
+  // Modals & Active card menu
+  const [activeMenuAlertId, setActiveMenuAlertId] = useState(null);
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingAlertId, setEditingAlertId] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  // Form State
   const [form, setForm] = useState({
+    title: "",
     type: "info",
     message: "",
+    targetType: "all", // 'all' | 'specific'
     assignedUsers: [],
+    assignedGroups: [],
   });
-  
-  
-  const [userSearch, setUserSearch] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState("all");
-  const [viewMode, setViewMode] = useState("all");
-  
-  
-  const [stats, setStats] = useState({
-    total: 0,
-    info: 0,
-    warning: 0,
-    error: 0,
-    unread: 0,
-  });
-  
-  
-  const [notification, setNotification] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
 
-  const token = localStorage.getItem("token");
-  
-  
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  const [isTablet, setIsTablet] = useState(window.innerWidth > 768 && window.innerWidth <= 1024);
+  const dropdownRef = useRef(null);
+  const sortRef = useRef(null);
 
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-      setIsTablet(window.innerWidth > 768 && window.innerWidth <= 1024);
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+  // Show Toast
+  const showToast = useCallback((message, type = "success") => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(null);
+    }, 3500);
   }, []);
-  
-  
-  const getHeaders = () => {
-    const token = localStorage.getItem("token");
-    void 0;
-    
-    return {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    };
-  };
 
-  
-  const createUsersMap = (usersArray) => {
-    const map = new Map();
-    usersArray.forEach(user => {
-      const userId = String(user._id || user.id || "").trim();
-      if (userId) {
-        map.set(userId, user);
-      }
-    });
-    setUsersMap(map);
-  };
-
-  
-  const fetchUsers = async () => {
+  // Fetch Users
+  const fetchUsers = useCallback(async () => {
     try {
-      void 0;
-      void 0;
-      
-      const response = await axios.get("/users/company-users", getHeaders());
-      
-      void 0;
-      
-      let fetchedUsers = [];
-      
-      if (response.data) {
-        if (response.data.message) {
-          if (Array.isArray(response.data.message)) {
-            fetchedUsers = response.data.message;
-          } else if (response.data.message.users && Array.isArray(response.data.message.users)) {
-            fetchedUsers = response.data.message.users;
-          } else if (response.data.message.data && Array.isArray(response.data.message.data)) {
-            fetchedUsers = response.data.message.data;
-          } else if (response.data.message.employees && Array.isArray(response.data.message.employees)) {
-            fetchedUsers = response.data.message.employees;
-          }
-        } else if (Array.isArray(response.data)) {
-          fetchedUsers = response.data;
-        } else if (response.data.users && Array.isArray(response.data.users)) {
-          fetchedUsers = response.data.users;
-        } else if (response.data.data && Array.isArray(response.data.data)) {
-          fetchedUsers = response.data.data;
-        }
+      const res = await axios.get("/users/company-users", getHeaders());
+      let list = [];
+      if (res.data) {
+        if (Array.isArray(res.data.message)) list = res.data.message;
+        else if (Array.isArray(res.data.message?.users)) list = res.data.message.users;
+        else if (Array.isArray(res.data.message?.data)) list = res.data.message.data;
+        else if (Array.isArray(res.data.message?.employees)) list = res.data.message.employees;
+        else if (Array.isArray(res.data.users)) list = res.data.users;
+        else if (Array.isArray(res.data.data)) list = res.data.data;
+        else if (Array.isArray(res.data)) list = res.data;
       }
-      
-      void 0;
-      setUsers(fetchedUsers);
-      createUsersMap(fetchedUsers); 
-      
-    } catch (error) {
-      console.error("❌ ERROR FETCHING USERS:", error);
-      if (error.response?.status === 403) {
-        setNotification({
-          message: "Permission denied. Please check your access rights.",
-          type: "error"
-        });
-      }
+      setUsers(list);
+    } catch (err) {
+      console.error("Error fetching users:", err);
       setUsers([]);
-      setUsersMap(new Map());
     }
-  };
+  }, []);
 
-  
-  const fetchGroups = async () => {
+  // Fetch Groups
+  const fetchGroups = useCallback(async () => {
     try {
-      void 0;
-      const response = await axios.get("/groups", getHeaders());
-      
-      let fetchedGroups = [];
-      if (response.data?.groups && Array.isArray(response.data.groups)) {
-        fetchedGroups = response.data.groups;
-      } else if (response.data?.data && Array.isArray(response.data.data)) {
-        fetchedGroups = response.data.data;
-      } else if (Array.isArray(response.data)) {
-        fetchedGroups = response.data;
-      } else if (response.data?.message) {
-        if (Array.isArray(response.data.message)) {
-          fetchedGroups = response.data.message;
-        } else if (response.data.message.groups && Array.isArray(response.data.message.groups)) {
-          fetchedGroups = response.data.message.groups;
-        }
+      const res = await axios.get("/groups", getHeaders());
+      let list = [];
+      if (res.data) {
+        if (Array.isArray(res.data.groups)) list = res.data.groups;
+        else if (Array.isArray(res.data.data)) list = res.data.data;
+        else if (Array.isArray(res.data)) list = res.data;
       }
-      
-      void 0;
-      setGroups(fetchedGroups);
-    } catch (error) {
-      console.error("Error fetching groups:", error);
+      setGroups(list);
+    } catch (err) {
+      console.error("Error fetching groups:", err);
       setGroups([]);
     }
-  };
+  }, []);
 
-  
-  const fetchAlerts = async () => {
+  // Fetch Alerts
+  const fetchAlerts = useCallback(async () => {
     try {
-      const response = await axios.get("/alerts", getHeaders());
-      
-      let fetchedAlerts = [];
-      if (response.data?.alerts && Array.isArray(response.data.alerts)) {
-        fetchedAlerts = response.data.alerts;
-      } else if (response.data?.data && Array.isArray(response.data.data)) {
-        fetchedAlerts = response.data.data;
-      } else if (Array.isArray(response.data)) {
-        fetchedAlerts = response.data;
-      } else if (response.data?.message && Array.isArray(response.data.message)) {
-        fetchedAlerts = response.data.message;
+      const res = await axios.get("/alerts", getHeaders());
+      let list = [];
+      if (res.data) {
+        if (Array.isArray(res.data.alerts)) list = res.data.alerts;
+        else if (Array.isArray(res.data.data)) list = res.data.data;
+        else if (Array.isArray(res.data.message)) list = res.data.message;
+        else if (Array.isArray(res.data)) list = res.data;
       }
-      
-      setAlerts(fetchedAlerts);
-      calculateStats(fetchedAlerts);
-    } catch (error) {
-      console.error("Error fetching alerts:", error);
+      setAlerts(list);
+    } catch (err) {
+      console.error("Error fetching alerts:", err);
       setAlerts([]);
     }
-  };
+  }, []);
 
-  const calculateStats = (data) => {
-    const info = data.filter((a) => a.type === "info").length;
-    const warning = data.filter((a) => a.type === "warning").length;
-    const error = data.filter((a) => a.type === "error").length;
-    const unread = data.filter((a) => !a.readBy?.includes(localStorage.getItem("userId"))).length;
-    
-    setStats({
-      total: data.length,
-      info,
-      warning,
-      error,
-      unread,
-    });
-  };
-
-  
+  // Initial Load
   useEffect(() => {
-    const loadData = async () => {
+    const init = async () => {
       setPageLoading(true);
-      
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setNotification({
-          message: "No authentication token found. Please login again.",
-          type: "error"
-        });
-        setPageLoading(false);
-        return;
-      }
-      
-      const storedUser = localStorage.getItem("user");
-      if (storedUser) {
-        try {
-          const parsed = JSON.parse(storedUser);
-          void 0;
-          
-          const userRole = parsed.role || 
-                          parsed.user?.role || 
-                          parsed.userRole || 
-                          parsed.user?.userRole || 
-                          "";
-          
-          setRole(userRole.toLowerCase());
-          
-          const userId = parsed._id || 
-                        parsed.id || 
-                        parsed.user?._id || 
-                        parsed.user?.id || 
-                        "";
-                        
-          if (userId) {
-            localStorage.setItem("userId", userId);
-          }
-        } catch (error) {
-          console.error("Error parsing user:", error);
-        }
-      }
-      
       await Promise.all([fetchUsers(), fetchGroups(), fetchAlerts()]);
       setPageLoading(false);
     };
-    
-    loadData();
-  }, []);
+    init();
+  }, [fetchUsers, fetchGroups, fetchAlerts]);
 
-  
+  // Refresh
   const handleRefresh = async () => {
     setRefreshing(true);
     await Promise.all([fetchUsers(), fetchGroups(), fetchAlerts()]);
     setRefreshing(false);
+    showToast("Alerts refreshed successfully", "success");
   };
 
-  
-  const handleUserSelect = (userId) => {
-    setForm(prev => {
-      const isSelected = prev.assignedUsers.includes(userId);
-      if (isSelected) {
-        return { ...prev, assignedUsers: prev.assignedUsers.filter(id => id !== userId) };
-      } else {
-        return { ...prev, assignedUsers: [...prev.assignedUsers, userId] };
+  // Close dropdowns on click outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setFilterDropdownOpen(false);
       }
+      if (sortRef.current && !sortRef.current.contains(e.target)) {
+        setSortDropdownOpen(false);
+      }
+      if (!e.target.closest(".cam-card-menu-btn") && !e.target.closest(".cam-card-dropdown")) {
+        setActiveMenuAlertId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Prevent background scrolling when any modal is open
+  useEffect(() => {
+    const isAnyModalOpen = isFormOpen || Boolean(selectedAlert);
+    if (!isAnyModalOpen) return;
+
+    const originalBodyOverflow = document.body.style.overflow;
+    const originalHtmlOverflow = document.documentElement.style.overflow;
+    const mainEl = document.querySelector("main");
+    const originalMainOverflow = mainEl ? mainEl.style.overflow : "";
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    if (mainEl) {
+      mainEl.style.overflow = "hidden";
+    }
+
+    return () => {
+      document.body.style.overflow = originalBodyOverflow;
+      document.documentElement.style.overflow = originalHtmlOverflow;
+      if (mainEl) {
+        mainEl.style.overflow = originalMainOverflow;
+      }
+    };
+  }, [isFormOpen, selectedAlert]);
+
+  // Current User ID
+  const currentUserId = useMemo(() => getUserId(), []);
+
+  // Check if alert is read by current user
+  const isAlertRead = useCallback(
+    (alert) => {
+      if (!alert) return true;
+      const readList = alert.readBy || [];
+      return readList.some((u) => String(u?._id || u?.id || u) === currentUserId);
+    },
+    [currentUserId]
+  );
+
+  // Statistics calculation
+  const stats = useMemo(() => {
+    const total = alerts.length;
+    const info = alerts.filter(
+      (a) => (a.type || "info").toLowerCase() === "info" || (a.type || "").toLowerCase() === "information"
+    ).length;
+    const warning = alerts.filter((a) => (a.type || "").toLowerCase() === "warning").length;
+    const error = alerts.filter((a) => (a.type || "").toLowerCase() === "error").length;
+
+    const unread = alerts.filter((a) => !isAlertRead(a)).length;
+
+    return {
+      total,
+      info,
+      warning,
+      error,
+      unread,
+      infoPct: total ? Math.round((info / total) * 100) : 0,
+      warningPct: total ? Math.round((warning / total) * 100) : 0,
+      errorPct: total ? Math.round((error / total) * 100) : 0,
+    };
+  }, [alerts, isAlertRead]);
+
+  // Filtering alerts
+  const filteredAlerts = useMemo(() => {
+    let result = [...alerts];
+
+    // Tab filter
+    if (activeTab === "assigned") {
+      result = result.filter((a) => {
+        const assigned = a.assignedUsers || [];
+        return assigned.some((u) => String(u?._id || u?.id || u) === currentUserId);
+      });
+    } else if (activeTab === "unread") {
+      result = result.filter((a) => !isAlertRead(a));
+    }
+
+    // Type filter
+    if (filterType !== "all") {
+      result = result.filter((a) => {
+        const t = (a.type || "info").toLowerCase();
+        if (filterType === "info") return t === "info" || t === "information";
+        return t === filterType.toLowerCase();
+      });
+    }
+
+    // Search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter((a) => {
+        const title = (a.title || "").toLowerCase();
+        const msg = (a.message || "").toLowerCase();
+        const type = (a.type || "").toLowerCase();
+        return title.includes(q) || msg.includes(q) || type.includes(q);
+      });
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || 0).getTime();
+      return sortBy === "newest" ? dateB - dateA : dateA - dateB;
+    });
+
+    return result;
+  }, [alerts, activeTab, filterType, searchQuery, sortBy, isAlertRead, currentUserId]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, filterType, searchQuery, sortBy]);
+
+  // Pagination calculation
+  const totalAlertsCount = filteredAlerts.length;
+  const totalPages = Math.ceil(totalAlertsCount / itemsPerPage) || 1;
+  const paginatedAlerts = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredAlerts.slice(start, start + itemsPerPage);
+  }, [filteredAlerts, currentPage, itemsPerPage]);
+
+  const startIndex = totalAlertsCount === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(currentPage * itemsPerPage, totalAlertsCount);
+
+  // User resolution map
+  const usersMap = useMemo(() => {
+    const map = new Map();
+    users.forEach((u) => {
+      const id = String(u._id || u.id || "");
+      if (id) map.set(id, u);
+    });
+    return map;
+  }, [users]);
+
+  const getUserDisplayName = useCallback(
+    (user) => {
+      if (!user) return "User";
+      if (typeof user === "string") {
+        const found = usersMap.get(user);
+        if (found) return found.name || found.username || found.fullName || found.email || "User";
+        return "User";
+      }
+      return user.name || user.username || user.fullName || user.email || "User";
+    },
+    [usersMap]
+  );
+
+  // Modal open helpers
+  const openCreateModal = () => {
+    setEditingAlertId(null);
+    setForm({
+      title: "",
+      type: "info",
+      message: "",
+      targetType: "all",
+      assignedUsers: [],
+      assignedGroups: [],
+    });
+    setUserSearchQuery("");
+    setIsFormOpen(true);
+  };
+
+  const openEditModal = (alert) => {
+    setActiveMenuAlertId(null);
+    setEditingAlertId(alert._id || alert.id);
+    const assignedUserIds = (alert.assignedUsers || []).map((u) => String(u?._id || u?.id || u));
+    const assignedGroupIds = (alert.assignedGroups || []).map((g) => String(g?._id || g?.id || g));
+
+    setForm({
+      title: alert.title || "",
+      type: (alert.type || "info").toLowerCase() === "information" ? "info" : alert.type || "info",
+      message: alert.message || "",
+      targetType: assignedUserIds.length > 0 ? "specific" : "all",
+      assignedUsers: assignedUserIds,
+      assignedGroups: assignedGroupIds,
+    });
+    setUserSearchQuery("");
+    setIsFormOpen(true);
+  };
+
+  const closeFormModal = () => {
+    setIsFormOpen(false);
+    setEditingAlertId(null);
+  };
+
+  // User Selection helpers in Form
+  const filteredFormUsers = useMemo(() => {
+    if (!userSearchQuery.trim()) return users;
+    const q = userSearchQuery.toLowerCase();
+    return users.filter((u) => {
+      const name = (u.name || u.username || u.fullName || "").toLowerCase();
+      const email = (u.email || "").toLowerCase();
+      const role = (u.role || u.userRole || "").toLowerCase();
+      return name.includes(q) || email.includes(q) || role.includes(q);
+    });
+  }, [users, userSearchQuery]);
+
+  const handleToggleUser = (userId) => {
+    setForm((prev) => {
+      const isSelected = prev.assignedUsers.includes(userId);
+      return {
+        ...prev,
+        assignedUsers: isSelected
+          ? prev.assignedUsers.filter((id) => id !== userId)
+          : [...prev.assignedUsers, userId],
+      };
     });
   };
 
   const handleSelectAllUsers = () => {
-    if (!Array.isArray(filteredUsers) || filteredUsers.length === 0) return;
-    
-    if (form.assignedUsers.length === filteredUsers.length) {
-      setForm(prev => ({ ...prev, assignedUsers: [] }));
+    if (form.assignedUsers.length === filteredFormUsers.length) {
+      setForm((prev) => ({ ...prev, assignedUsers: [] }));
     } else {
-      setForm(prev => ({ ...prev, assignedUsers: filteredUsers.map(u => u._id || u.id) }));
+      setForm((prev) => ({
+        ...prev,
+        assignedUsers: filteredFormUsers.map((u) => String(u._id || u.id)),
+      }));
     }
   };
 
-  
-  const handleSubmit = async () => {
+  // Submit Alert (Create or Update)
+  const handleSubmitAlert = async (e) => {
+    e?.preventDefault();
     if (!form.message.trim()) {
-      return setNotification({ 
-        message: "Please enter an alert message", 
-        type: "error" 
-      });
+      showToast("Please enter an alert message", "error");
+      return;
     }
 
-    const token = localStorage.getItem("token");
-    if (!token) {
-      return setNotification({
-        message: "You are not logged in. Please login again.",
-        type: "error"
-      });
-    }
+    setSubmitting(true);
+    const payload = {
+      title: form.title.trim(),
+      type: form.type,
+      message: form.message.trim(),
+      assignedUsers: form.targetType === "all" ? [] : form.assignedUsers,
+      assignedGroups: form.targetType === "all" ? [] : form.assignedGroups,
+    };
 
-    setLoading(true);
     try {
-      const payload = {
-        type: form.type,
-        message: form.message.trim(),
-        assignedUsers: form.assignedUsers,
-      };
-
-      void 0;
-      
-      let response;
-      try {
-        response = await axios.post("/alerts", payload, getHeaders());
-      } catch (error) {
-        if (error.response?.status === 403) {
-          void 0;
-          response = await axios.post("/api/alerts", payload, getHeaders());
-        } else {
-          throw error;
+      if (editingAlertId) {
+        await axios.put(`/alerts/${editingAlertId}`, payload, getHeaders());
+        showToast("Alert updated successfully!", "success");
+      } else {
+        try {
+          await axios.post("/alerts", payload, getHeaders());
+        } catch (postErr) {
+          if (postErr.response?.status === 403) {
+            await axios.post("/api/alerts", payload, getHeaders());
+          } else {
+            throw postErr;
+          }
         }
+        showToast("Alert created successfully!", "success");
       }
-      
-      void 0;
-      
-      setNotification({ 
-        message: "Alert created successfully!", 
-        type: "success" 
-      });
 
       await fetchAlerts();
-
-      
-      setIsModalOpen(false);
-      setForm({
-        type: "info",
-        message: "",
-        assignedUsers: [],
-      });
-      setUserSearch("");
-      
-      setTimeout(() => setNotification(null), 3000);
-      
-    } catch (error) {
-      console.error("Error creating alert:", error);
-      
-      let errorMessage = "Failed to create alert";
-      if (error.response) {
-        switch(error.response.status) {
-          case 401:
-            errorMessage = "Authentication failed. Please login again.";
-            break;
-          case 403:
-            errorMessage = "You don't have permission to create alerts. Please check your user role.";
-            break;
-          case 400:
-            errorMessage = error.response.data?.message || "Invalid alert data";
-            break;
-          case 500:
-            errorMessage = "Server error. Please try again later.";
-            break;
-          default:
-            errorMessage = error.response.data?.message || `Error ${error.response.status}`;
-        }
-      } else if (error.request) {
-        errorMessage = "Network error. Please check your connection.";
-      }
-      
-      setNotification({ 
-        message: errorMessage, 
-        type: "error" 
-      });
+      closeFormModal();
+    } catch (err) {
+      console.error("Error saving alert:", err);
+      const msg = err.response?.data?.message || "Failed to save alert. Please try again.";
+      showToast(msg, "error");
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const handleReset = () => {
-    setForm({
-      type: "info",
-      message: "",
-      assignedUsers: [],
+  // Delete Alert
+  const handleDeleteAlert = async (alertId) => {
+    setActiveMenuAlertId(null);
+    const result = await Swal.fire({
+      title: "Delete Alert?",
+      text: "Are you sure you want to delete this alert? This action cannot be undone.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Yes, delete",
+      cancelButtonText: "Cancel",
     });
-    setUserSearch("");
-  };
 
-  
-  const openModal = () => {
-    setIsModalOpen(true);
-  };
-
-  
-  const closeModal = () => {
-    setIsModalOpen(false);
-    handleReset();
-  };
-
-  
-  const filteredUsers = useMemo(() => {
-    if (!Array.isArray(users) || users.length === 0) {
-      return [];
-    }
-    
-    if (!userSearch) {
-      return users;
-    }
-    
-    const query = userSearch.toLowerCase();
-    return users.filter(user => {
-      const name = (user.name || user.username || user.fullName || '').toLowerCase();
-      const email = (user.email || '').toLowerCase();
-      const role = (user.role || user.userRole || '').toLowerCase();
-      const department = (user.department || user.departmentName || '').toLowerCase();
-      const employeeId = (user.employeeId || user.empId || '').toLowerCase();
-      
-      return name.includes(query) || 
-             email.includes(query) || 
-             role.includes(query) || 
-             department.includes(query) ||
-             employeeId.includes(query);
-    });
-  }, [users, userSearch]);
-
-  
-  const filteredAlerts = useMemo(() => {
-    if (!Array.isArray(alerts) || alerts.length === 0) return [];
-    
-    let filtered = [...alerts];
-    
-    
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(alert => 
-        alert.message?.toLowerCase().includes(query) ||
-        alert.type?.toLowerCase().includes(query)
-      );
-    }
-    
-    
-    if (filterType !== "all") {
-      filtered = filtered.filter(alert => alert.type === filterType);
-    }
-    
-    
-    if (viewMode === "assigned") {
-      const userId = localStorage.getItem("userId");
-      filtered = filtered.filter(alert => 
-        alert.assignedUsers?.includes(userId)
-      );
-    } else if (viewMode === "unread") {
-      const userId = localStorage.getItem("userId");
-      filtered = filtered.filter(alert => !alert.readBy?.includes(userId));
-    }
-    
-    return filtered;
-  }, [alerts, searchQuery, filterType, viewMode]);
-
-  
-  const getUserById = (userId) => {
-    const normalizedId = String(typeof userId === "object"
-      ? (userId?._id || userId?.id || userId?.userId || "")
-      : userId || "").trim();
-
-    if (!normalizedId) return { name: "Unknown User", email: "", username: "Unknown" };
-
-    if (typeof userId === "object") {
-      const directName = userId.name || userId.username || userId.fullName || userId.email;
-      if (directName) return userId;
-    }
-    
-    
-    if (usersMap && usersMap.size > 0) {
-      const user = usersMap.get(normalizedId);
-      if (user) {
-        return user;
+    if (result.isConfirmed) {
+      try {
+        await axios.delete(`/alerts/${alertId}`, getHeaders());
+        showToast("Alert deleted successfully", "success");
+        await fetchAlerts();
+      } catch (err) {
+        console.error("Error deleting alert:", err);
+        showToast(err.response?.data?.message || "Failed to delete alert", "error");
       }
     }
-    
-    
-    if (Array.isArray(users) && users.length > 0) {
-      const user = users.find(u => String(u._id || u.id || "").trim() === normalizedId);
-      if (user) {
-        return user;
-      }
+  };
+
+  // Toggle Read / Unread
+  const handleToggleRead = async (alert) => {
+    setActiveMenuAlertId(null);
+    const alertId = alert._id || alert.id;
+    const isCurrentlyRead = isAlertRead(alert);
+    const endpoint = isCurrentlyRead ? `/alerts/${alertId}/unread` : `/alerts/${alertId}/read`;
+
+    // Optimistic update
+    setAlerts((prev) =>
+      prev.map((a) => {
+        if ((a._id || a.id) === alertId) {
+          const currentReadBy = (a.readBy || []).map((u) => String(u?._id || u?.id || u));
+          const updated = isCurrentlyRead
+            ? currentReadBy.filter((id) => id !== currentUserId)
+            : [...currentReadBy, currentUserId];
+          return { ...a, readBy: updated };
+        }
+        return a;
+      })
+    );
+
+    try {
+      await axios.patch(endpoint, {}, getHeaders());
+      showToast(isCurrentlyRead ? "Marked as unread" : "Marked as read", "success");
+    } catch (err) {
+      console.error("Error toggling read status:", err);
+      // Revert if error
+      await fetchAlerts();
     }
-    
-    
-    return { 
-      name: "Unknown User", 
-      email: "", 
-      username: "Unknown",
-      _id: normalizedId 
-    };
-  };
-
-  
-  const getUserDisplayName = (user) => {
-    if (!user) return "Unknown User";
-    if (typeof user === "string") return user;
-    return user.name || user.username || user.fullName || user.email || String(user._id || user.id || "") || "Unknown User";
-  };
-
-  
-  const getGroupById = (groupId) => {
-    if (!groupId) return { name: "Unknown Group" };
-    if (!Array.isArray(groups) || groups.length === 0) return { name: "Unknown Group" };
-    return groups.find(g => g._id === groupId || g.id === groupId) || { name: "Unknown Group" };
-  };
-
-  const getSeverityColor = (severity) => {
-    switch(severity) {
-      case "error": return "#EF5350";
-      case "warning": return "#FFA726";
-      case "success": return "#66BB6A";
-      case "info": return "#29B6F6";
-      default: return "#667eea";
-    }
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleString();
   };
 
   if (pageLoading) {
     return <CIISLoader />;
   }
 
+  const getFilterLabel = () => {
+    switch (filterType) {
+      case "info":
+        return "Information";
+      case "warning":
+        return "Warnings";
+      case "error":
+        return "Errors";
+      default:
+        return "All";
+    }
+  };
+
   return (
-    <div className="CreateAlert-container">
-      
-      <div className="CreateAlert-gradient-header">
-        <div className="CreateAlert-header-content">
-          <div className="CreateAlert-header-text">
-            <h1 className="CreateAlert-title">Alerts Management</h1>
-            <p className="CreateAlert-subtitle">View and manage all alerts</p>
-          </div>
-          <div className="CreateAlert-header-actions">
-            <Tooltip title="Create New Alert">
-              <button 
-                className="CreateAlert-create-button"
-                onClick={openModal}
-              >
-                <FiPlus />
-                <span>Create Alert</span>
-              </button>
-            </Tooltip>
-            {!isMobile && (
-              <Tooltip title="Refresh">
-                <button 
-                  className={`CreateAlert-icon-button CreateAlert-refresh-button ${refreshing ? 'CreateAlert-refreshing' : ''}`}
-                  onClick={handleRefresh} 
-                  disabled={refreshing}
-                >
-                  <FiRefreshCw />
-                </button>
-              </Tooltip>
-            )}
-          </div>
-        </div>
-      </div>
-
-      
-      <div className="CreateAlert-stats-filters">
-        
-        <div className="CreateAlert-search-container">
-          <div className="CreateAlert-search-field">
-            <FiSearch />
-            <input
-              type="text"
-              placeholder={isMobile ? "Search alerts..." : "Search alerts by message or type..."}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="CreateAlert-search-input"
-            />
-            {searchQuery && (
-              <button className="CreateAlert-search-clear" onClick={() => setSearchQuery('')}>
-                ✕
-              </button>
-            )}
-          </div>
-        </div>
-
-        
-        <div className="CreateAlert-view-mode-container">
-          <div className="CreateAlert-view-mode-card">
-            <span className="CreateAlert-view-mode-label">View:</span>
-            <div className="CreateAlert-toggle-button-group">
-              <button 
-                className={`CreateAlert-toggle-button ${viewMode === 'all' ? 'CreateAlert-toggle-button-active' : ''}`}
-                onClick={() => setViewMode('all')}
-              >
-                <FiEye />
-                <span>{isMobile ? 'All' : 'All Alerts'}</span>
-              </button>
-              <button 
-                className={`CreateAlert-toggle-button ${viewMode === 'assigned' ? 'CreateAlert-toggle-button-active' : ''}`}
-                onClick={() => setViewMode('assigned')}
-              >
-                <FiUserCheck />
-                <span>{isMobile ? 'Mine' : 'Assigned to Me'}</span>
-              </button>
-              <button 
-                className={`CreateAlert-toggle-button ${viewMode === 'unread' ? 'CreateAlert-toggle-button-active' : ''}`}
-                onClick={() => setViewMode('unread')}
-              >
-                <Badge badgeContent={stats.unread}>
-                  <FiBell />
-                </Badge>
-                <span>{isMobile ? 'New' : 'Unread'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        
-        <div className="CreateAlert-stats-grid">
-          {[
-            { 
-              key: "total", 
-              label: isMobile ? "Total" : "Total Alerts", 
-              color: "#667eea", 
-              icon: <FiBell />,
-              value: stats.total,
-              active: filterType === "all" && viewMode === "all"
-            },
-            { 
-              key: "info", 
-              label: isMobile ? "Info" : "Information", 
-              color: "#29B6F6", 
-              icon: <FiInfo />,
-              value: stats.info,
-              active: filterType === "info"
-            },
-            { 
-              key: "warning", 
-              label: isMobile ? "Warn" : "Warnings", 
-              color: "#FFA726", 
-              icon: <FiAlertTriangle />,
-              value: stats.warning,
-              active: filterType === "warning"
-            },
-            { 
-              key: "error", 
-              label: isMobile ? "Error" : "Errors", 
-              color: "#EF5350", 
-              icon: <FiAlertCircle />,
-              value: stats.error,
-              active: filterType === "error"
-            },
-          ]
-          .map((s) => (
-            <div 
-              key={s.key} 
-              className={`CreateAlert-stat-card ${s.active ? 'CreateAlert-stat-card-active' : ''}`}
-              style={{ borderTopColor: s.color }}
-              onClick={() => {
-                setFilterType(s.key === "total" ? "all" : s.key);
-                setViewMode("all");
-              }}
-            >
-              <div className="CreateAlert-stat-content">
-                <div className="CreateAlert-stat-text">
-                  <span className="CreateAlert-stat-label">{s.label}</span>
-                  <h3 className="CreateAlert-stat-value">{s.value}</h3>
-                </div>
-                <Avatar color={s.color}>
-                  {s.icon}
-                </Avatar>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        
-        <div className="CreateAlert-filter-chip-container">
-          <Chip
-            icon={<FiFilter />}
-            label={`${isMobile ? '' : 'Filter: '}${filterType === 'all' ? 'All' : filterType}`}
-            onClick={() => setFilterType('all')}
-            variant="outlined"
-            size={isMobile ? "small" : "medium"}
-          />
-        </div>
-      </div>
-
-      
-      <div className="CreateAlert-alerts-container">
-        {filteredAlerts.length === 0 ? (
-          <div className="CreateAlert-empty-state">
+    <div className="cam-wrapper">
+      {/* 1. Header Row */}
+      <div className="cam-header">
+        <div className="cam-header-left">
+          <div className="cam-header-icon-box">
             <FiBell />
-            <h3>No Alerts Found</h3>
-            <p>There are no alerts matching your criteria.</p>
-            <button className="CreateAlert-create-button" onClick={openModal}>
-              <FiPlus />
-              Create Your First Alert
+          </div>
+          <div className="cam-header-text">
+            <h1>Alerts Management</h1>
+            <p>View and manage all alerts to keep your team informed.</p>
+          </div>
+        </div>
+
+        <div className="cam-header-actions">
+          <button
+            className={`cam-icon-btn ${refreshing ? "spinning" : ""}`}
+            onClick={handleRefresh}
+            title="Refresh alerts"
+            disabled={refreshing}
+          >
+            <FiRefreshCw />
+          </button>
+          <button className="cam-create-btn" onClick={openCreateModal}>
+            <FiPlus />
+            <span>Create Alert</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 2. Search & Controls Bar */}
+      <div className="cam-controls-bar">
+        {/* Search input */}
+        <div className="cam-search-box">
+          <FiSearch className="cam-search-icon" />
+          <input
+            type="text"
+            className="cam-search-input"
+            placeholder="Search alerts by message or type..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button className="cam-search-clear" onClick={() => setSearchQuery("")}>
+              <FiX />
+            </button>
+          )}
+        </div>
+
+        {/* Filters Group */}
+        <div className="cam-filters-group">
+          {/* Tab 1: All Alerts */}
+          <button
+            className={`cam-filter-pill-btn ${activeTab === "all" ? "active" : ""}`}
+            onClick={() => setActiveTab("all")}
+          >
+            <FiEye />
+            <span>All Alerts</span>
+          </button>
+
+          {/* Tab 2: Assigned to Me */}
+          <button
+            className={`cam-filter-pill-btn ${activeTab === "assigned" ? "active" : ""}`}
+            onClick={() => setActiveTab("assigned")}
+          >
+            <FiUser />
+            <span>Assigned to Me</span>
+          </button>
+
+          {/* Tab 3: Unread */}
+          <button
+            className={`cam-filter-pill-btn ${activeTab === "unread" ? "active" : ""}`}
+            onClick={() => setActiveTab("unread")}
+          >
+            <FiBell />
+            <span>Unread</span>
+            {stats.unread > 0 && <span className="cam-unread-badge">{stats.unread}</span>}
+          </button>
+
+          {/* Filter Dropdown: Type */}
+          <div className="cam-dropdown-wrapper" ref={dropdownRef}>
+            <button
+              className={`cam-dropdown-btn ${filterDropdownOpen ? "open" : ""}`}
+              onClick={() => setFilterDropdownOpen((prev) => !prev)}
+            >
+              <FiFilter />
+              <span>Filter: {getFilterLabel()}</span>
+              <FiChevronDown className="cam-chevron" />
+            </button>
+
+            {filterDropdownOpen && (
+              <div className="cam-dropdown-menu">
+                <button
+                  className={`cam-dropdown-item ${filterType === "all" ? "active" : ""}`}
+                  onClick={() => {
+                    setFilterType("all");
+                    setFilterDropdownOpen(false);
+                  }}
+                >
+                  <span>All</span>
+                  {filterType === "all" && <FiCheck />}
+                </button>
+                <button
+                  className={`cam-dropdown-item ${filterType === "info" ? "active" : ""}`}
+                  onClick={() => {
+                    setFilterType("info");
+                    setFilterDropdownOpen(false);
+                  }}
+                >
+                  <span>Information</span>
+                  {filterType === "info" && <FiCheck />}
+                </button>
+                <button
+                  className={`cam-dropdown-item ${filterType === "warning" ? "active" : ""}`}
+                  onClick={() => {
+                    setFilterType("warning");
+                    setFilterDropdownOpen(false);
+                  }}
+                >
+                  <span>Warnings</span>
+                  {filterType === "warning" && <FiCheck />}
+                </button>
+                <button
+                  className={`cam-dropdown-item ${filterType === "error" ? "active" : ""}`}
+                  onClick={() => {
+                    setFilterType("error");
+                    setFilterDropdownOpen(false);
+                  }}
+                >
+                  <span>Errors</span>
+                  {filterType === "error" && <FiCheck />}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 3. 4 KPI Stat Cards */}
+      <div className="cam-stats-grid">
+        {/* Total Alerts */}
+        <div
+          className={`cam-stat-card ${filterType === "all" && activeTab === "all" ? "active" : ""}`}
+          onClick={() => {
+            setFilterType("all");
+            setActiveTab("all");
+          }}
+        >
+          <div className="cam-stat-main">
+            <div className="cam-stat-icon-box total">
+              <FiBell />
+            </div>
+            <div className="cam-stat-info">
+              <span className="cam-stat-label">Total Alerts</span>
+              <span className="cam-stat-value">{stats.total}</span>
+              <span className="cam-stat-subtitle">All alerts created</span>
+            </div>
+          </div>
+          <div className="cam-mini-chart">
+            <div className="cam-chart-bar total" style={{ height: "30%" }} />
+            <div className="cam-chart-bar total" style={{ height: "55%" }} />
+            <div className="cam-chart-bar total" style={{ height: "75%" }} />
+            <div className="cam-chart-bar total" style={{ height: "100%" }} />
+          </div>
+        </div>
+
+        {/* Information */}
+        <div
+          className={`cam-stat-card ${filterType === "info" ? "active" : ""}`}
+          onClick={() => {
+            setFilterType("info");
+            setActiveTab("all");
+          }}
+        >
+          <div className="cam-stat-main">
+            <div className="cam-stat-icon-box info">
+              <FiInfo />
+            </div>
+            <div className="cam-stat-info">
+              <span className="cam-stat-label">Information</span>
+              <span className="cam-stat-value">{stats.info}</span>
+              <span className="cam-stat-subtitle">{stats.infoPct}% of total</span>
+            </div>
+          </div>
+          <div className="cam-mini-chart">
+            <div className="cam-chart-bar info" style={{ height: "40%" }} />
+            <div className="cam-chart-bar info" style={{ height: "65%" }} />
+            <div className="cam-chart-bar info" style={{ height: "50%" }} />
+            <div className="cam-chart-bar info" style={{ height: "85%" }} />
+          </div>
+        </div>
+
+        {/* Warnings */}
+        <div
+          className={`cam-stat-card ${filterType === "warning" ? "active" : ""}`}
+          onClick={() => {
+            setFilterType("warning");
+            setActiveTab("all");
+          }}
+        >
+          <div className="cam-stat-main">
+            <div className="cam-stat-icon-box warning">
+              <FiAlertTriangle />
+            </div>
+            <div className="cam-stat-info">
+              <span className="cam-stat-label">Warnings</span>
+              <span className="cam-stat-value">{stats.warning}</span>
+              <span className="cam-stat-subtitle">{stats.warningPct}% of total</span>
+            </div>
+          </div>
+          <div className="cam-mini-chart">
+            <div className="cam-chart-bar warning" style={{ height: "35%" }} />
+            <div className="cam-chart-bar warning" style={{ height: "50%" }} />
+            <div className="cam-chart-bar warning" style={{ height: "70%" }} />
+            <div className="cam-chart-bar warning" style={{ height: "90%" }} />
+          </div>
+        </div>
+
+        {/* Errors */}
+        <div
+          className={`cam-stat-card ${filterType === "error" ? "active" : ""}`}
+          onClick={() => {
+            setFilterType("error");
+            setActiveTab("all");
+          }}
+        >
+          <div className="cam-stat-main">
+            <div className="cam-stat-icon-box error">
+              <FiAlertCircle />
+            </div>
+            <div className="cam-stat-info">
+              <span className="cam-stat-label">Errors</span>
+              <span className="cam-stat-value">{stats.error}</span>
+              <span className="cam-stat-subtitle">{stats.errorPct}% of total</span>
+            </div>
+          </div>
+          <div className="cam-mini-chart">
+            <div className="cam-chart-bar error" style={{ height: "30%" }} />
+            <div className="cam-chart-bar error" style={{ height: "45%" }} />
+            <div className="cam-chart-bar error" style={{ height: "80%" }} />
+            <div className="cam-chart-bar error" style={{ height: "100%" }} />
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Section Header: "Recent Alerts" */}
+      <div className="cam-section-bar">
+        <div className="cam-section-title-group">
+          <h2>Recent Alerts</h2>
+          <p>Stay updated with the latest alerts and notifications</p>
+        </div>
+
+        <div className="cam-section-controls">
+          {/* Sort Dropdown */}
+          <div className="cam-dropdown-wrapper" ref={sortRef}>
+            <button
+              className="cam-sort-btn"
+              onClick={() => setSortDropdownOpen((prev) => !prev)}
+            >
+              <span>⇅ Sort by: {sortBy === "newest" ? "Newest" : "Oldest"}</span>
+              <FiChevronDown className="cam-chevron" />
+            </button>
+
+            {sortDropdownOpen && (
+              <div className="cam-dropdown-menu">
+                <button
+                  className={`cam-dropdown-item ${sortBy === "newest" ? "active" : ""}`}
+                  onClick={() => {
+                    setSortBy("newest");
+                    setSortDropdownOpen(false);
+                  }}
+                >
+                  <span>Newest</span>
+                  {sortBy === "newest" && <FiCheck />}
+                </button>
+                <button
+                  className={`cam-dropdown-item ${sortBy === "oldest" ? "active" : ""}`}
+                  onClick={() => {
+                    setSortBy("oldest");
+                    setSortDropdownOpen(false);
+                  }}
+                >
+                  <span>Oldest</span>
+                  {sortBy === "oldest" && <FiCheck />}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* View Toggle */}
+          <div className="cam-view-toggle">
+            <button
+              className={`cam-view-btn ${viewMode === "grid" ? "active" : ""}`}
+              onClick={() => setViewMode("grid")}
+              title="Grid View"
+            >
+              <FiGrid />
+            </button>
+            <button
+              className={`cam-view-btn ${viewMode === "list" ? "active" : ""}`}
+              onClick={() => setViewMode("list")}
+              title="List View"
+            >
+              <FiList />
             </button>
           </div>
-        ) : (
-          <div className="CreateAlert-alerts-grid">
-            {filteredAlerts.map((alert) => {
-              
-              const assignedUsersList = alert.assignedUsers?.map(userId => {
-                const user = getUserById(userId);
-                return getUserDisplayName(user);
-              }).join(', ') || 'No users assigned';
-              
-              return (
-                <div 
-                  key={alert._id || alert.id} 
-                  className="CreateAlert-alert-card"
-                  style={{ borderLeftColor: getSeverityColor(alert.type) }}
-                  onClick={() => setSelectedAlert(alert)}
-                >
-                  <div className="CreateAlert-alert-header">
-                    <div className="CreateAlert-alert-type">
-                      {alert.type === "info" && <FiInfo />}
-                      {alert.type === "warning" && <FiAlertTriangle />}
-                      {alert.type === "error" && <FiAlertCircle />}
-                      <span style={{ 
-                        color: getSeverityColor(alert.type),
-                        textTransform: 'capitalize'
-                      }}>
-                        {alert.type}
-                      </span>
-                    </div>
-                    <span className="CreateAlert-alert-date">
-                      <FiCalendar />
-                      {isMobile ? formatDate(alert.createdAt).split(',')[0] : formatDate(alert.createdAt)}
-                    </span>
-                  </div>
-                  
-                  <p className="CreateAlert-alert-message">{alert.message}</p>
-                  
-                  <div className="CreateAlert-alert-footer">
-                    <div className="CreateAlert-alert-assignments">
-                      {alert.assignedUsers?.length > 0 && (
-                        <Tooltip title={assignedUsersList}>
-                          <span className="CreateAlert-alert-badge">
-                            <FiUser /> {alert.assignedUsers.length}
-                          </span>
-                        </Tooltip>
-                      )}
-                      {alert.assignedGroups?.length > 0 && (
-                        <Tooltip title={`Assigned to ${alert.assignedGroups.length} groups`}>
-                          <span className="CreateAlert-alert-badge">
-                            <FiUsers /> {alert.assignedGroups.length}
-                          </span>
-                        </Tooltip>
-                      )}
-                    </div>
-                    
-                    {!alert.readBy?.includes(localStorage.getItem("userId")) && (
-                      <span className="CreateAlert-unread-badge">New</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        </div>
       </div>
 
-      
-      {isModalOpen && (
-        <div className="CreateAlert-modal-overlay" onClick={closeModal}>
-          <div className="CreateAlert-modal" onClick={e => e.stopPropagation()}>
-            <div className="CreateAlert-modal-header">
-              <h2>Create New Alert</h2>
-              <button className="CreateAlert-modal-close" onClick={closeModal}>
-                <FiX />
-              </button>
-            </div>
-            
-            <div className="CreateAlert-modal-content">
-              
-              <div className="CreateAlert-form-section">
-                <h3 className="CreateAlert-section-title">Alert Type</h3>
-                <div className="CreateAlert-type-grid">
-                  {[
-                    { value: "info", label: isMobile ? "Info" : "Information", color: "#29B6F6", icon: <FiInfo /> },
-                    { value: "warning", label: "Warning", color: "#FFA726", icon: <FiAlertTriangle /> },
-                    { value: "error", label: isMobile ? "Error" : "Error / Critical", color: "#EF5350", icon: <FiAlertCircle /> }
-                  ].map(type => (
-                    <div
-                      key={type.value}
-                      className={`CreateAlert-type-card ${form.type === type.value ? 'CreateAlert-type-selected' : ''}`}
-                      style={{ borderColor: form.type === type.value ? type.color : 'var(--gray-300)' }}
-                      onClick={() => setForm(prev => ({ ...prev, type: type.value }))}
-                    >
-                      <div className="CreateAlert-type-icon" style={{ color: type.color }}>
-                        {type.icon}
-                      </div>
-                      <div className="CreateAlert-type-info">
-                        <h4 style={{ color: type.color }}>{type.label}</h4>
-                        {!isMobile && (
-                          <p className="CreateAlert-type-desc">
-                            {type.value === "info" && "General updates"}
-                            {type.value === "warning" && "Important notices"}
-                            {type.value === "error" && "Urgent issues"}
-                          </p>
-                        )}
-                      </div>
-                      {form.type === type.value && (
-                        <span className="CreateAlert-type-check">✓</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
+      {/* 5. Alerts Grid or List */}
+      {paginatedAlerts.length === 0 ? (
+        <div className="cam-empty-state">
+          <FiBell className="cam-empty-icon" />
+          <h3>No Alerts Found</h3>
+          <p>There are no alerts matching your selected criteria.</p>
+          <button className="cam-create-btn" onClick={openCreateModal}>
+            <FiPlus />
+            <span>Create Alert</span>
+          </button>
+        </div>
+      ) : viewMode === "grid" ? (
+        <div className="cam-alerts-grid">
+          {paginatedAlerts.map((alert) => {
+            const alertId = alert._id || alert.id;
+            const typeLower = (alert.type || "info").toLowerCase();
+            const normalizedType =
+              typeLower === "error" ? "error" : typeLower === "warning" ? "warning" : "info";
+            const userAssignment = getUserAssignmentInfo(alert);
+            const isUnread = !isAlertRead(alert);
 
-              
-              <div className="CreateAlert-form-section">
-                <h3 className="CreateAlert-section-title">
-                  Alert Message <span className="CreateAlert-required">*</span>
-                </h3>
-                <textarea
-                  className="CreateAlert-textarea"
-                  rows={isMobile ? "3" : "4"}
-                  value={form.message}
-                  onChange={(e) => setForm(prev => ({ ...prev, message: e.target.value }))}
-                  placeholder="Enter your alert message here..."
-                  maxLength="500"
-                />
-                <div className="CreateAlert-message-counter">
-                  {form.message.length} / 500
-                </div>
-              </div>
-
-              
-              <div className="CreateAlert-form-section">
-                <div className="CreateAlert-section-header">
-                  <h3 className="CreateAlert-section-title">Assign to Users</h3>
-                  <div className="CreateAlert-user-actions">
-                    <span className="CreateAlert-user-count">
-                      {users.length}
+            return (
+              <div
+                key={alertId}
+                className={`cam-alert-card type-${normalizedType}`}
+                onClick={() => setSelectedAlert(alert)}
+              >
+                {/* Header */}
+                <div className="cam-card-header">
+                  <div className={`cam-card-badge ${normalizedType}`}>
+                    <span className="cam-badge-icon-circle">
+                      {normalizedType === "info" && "i"}
+                      {normalizedType === "warning" && "!"}
+                      {normalizedType === "error" && "!"}
                     </span>
-                    {Array.isArray(filteredUsers) && filteredUsers.length > 0 && (
-                      <button 
-                        className="CreateAlert-select-all"
-                        onClick={handleSelectAllUsers}
-                      >
-                        {form.assignedUsers.length === filteredUsers.length ? 'Deselect All' : 'Select All'}
-                      </button>
-                    )}
+                    <span>
+                      {normalizedType === "info"
+                        ? "Information"
+                        : normalizedType === "warning"
+                        ? "Warning"
+                        : "Error"}
+                    </span>
+                  </div>
+
+                  <div className="cam-card-meta">
+                    <span className="cam-card-date">
+                      <FiCalendar />
+                      {formatAlertDate(alert.createdAt)}
+                    </span>
+                    <button
+                      className="cam-card-menu-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveMenuAlertId((prev) => (prev === alertId ? null : alertId));
+                      }}
+                      title="Actions"
+                    >
+                      <FiMoreVertical />
+                    </button>
                   </div>
                 </div>
-                
-                
-                {Array.isArray(form.assignedUsers) && form.assignedUsers.length > 0 && (
-                  <div className="CreateAlert-selected-items">
-                    <span className="CreateAlert-selected-label">
-                      Selected ({form.assignedUsers.length}):
-                    </span>
-                    <div className="CreateAlert-selected-chips">
-                      {form.assignedUsers.map(userId => {
-                        const user = getUserById(userId);
-                        return (
-                          <Chip
-                            key={userId}
-                            label={getUserDisplayName(user)}
-                            onDelete={() => handleUserSelect(userId)}
-                            color="#667eea"
-                            size="small"
-                          />
-                        );
-                      })}
-                    </div>
+
+                {/* 3-Dots Dropdown Menu */}
+                {activeMenuAlertId === alertId && (
+                  <div
+                    className="cam-card-dropdown"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      className="cam-card-dropdown-item"
+                      onClick={() => {
+                        setSelectedAlert(alert);
+                        setActiveMenuAlertId(null);
+                      }}
+                    >
+                      <FiEye />
+                      <span>View Details</span>
+                    </button>
+                    <button
+                      className="cam-card-dropdown-item"
+                      onClick={() => handleToggleRead(alert)}
+                    >
+                      <FiCheck />
+                      <span>{isUnread ? "Mark as Read" : "Mark as Unread"}</span>
+                    </button>
+                    <button
+                      className="cam-card-dropdown-item"
+                      onClick={() => openEditModal(alert)}
+                    >
+                      <FiEdit2 />
+                      <span>Edit Alert</span>
+                    </button>
+                    <button
+                      className="cam-card-dropdown-item delete"
+                      onClick={() => handleDeleteAlert(alertId)}
+                    >
+                      <FiTrash2 />
+                      <span>Delete Alert</span>
+                    </button>
                   </div>
                 )}
 
-                
-                <div className="CreateAlert-search-field">
-                  <FiSearch />
-                  <input
-                    type="text"
-                    placeholder="Search users by name, email, role..."
-                    value={userSearch}
-                    onChange={(e) => setUserSearch(e.target.value)}
-                    className="CreateAlert-search-input"
-                  />
+                {/* Body */}
+                <div className="cam-card-body">
+                  <h3 className="cam-card-title">{getAlertTitle(alert)}</h3>
+                  <p className="cam-card-message">{alert.message}</p>
                 </div>
 
-                
-                <div className="CreateAlert-users-list">
-                  {!Array.isArray(filteredUsers) || filteredUsers.length === 0 ? (
-                    <div className="CreateAlert-empty-list">
-                      {users.length === 0 ? (
-                        <>
-                          <p>No users found.</p>
-                          <button 
-                            className="CreateAlert-retry-button"
-                            onClick={fetchUsers}
-                          >
-                            Retry
-                          </button>
-                        </>
-                      ) : (
-                        'No users match your search'
-                      )}
+                {/* Footer */}
+                <div className="cam-card-footer">
+                  <div className="cam-card-user-info">
+                    {userAssignment.isAll ? (
+                      <>
+                        <FiUsers />
+                        <span>All Users</span>
+                      </>
+                    ) : userAssignment.count === 1 ? (
+                      <>
+                        <FiUser />
+                        <span>1 User</span>
+                      </>
+                    ) : (
+                      <>
+                        <FiUsers />
+                        <span>{userAssignment.count} Users</span>
+                      </>
+                    )}
+                  </div>
+
+                  {isUnread && <span className="cam-card-new-pill">New</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* List View */
+        <div className="cam-alerts-list">
+          {paginatedAlerts.map((alert) => {
+            const alertId = alert._id || alert.id;
+            const typeLower = (alert.type || "info").toLowerCase();
+            const normalizedType =
+              typeLower === "error" ? "error" : typeLower === "warning" ? "warning" : "info";
+            const userAssignment = getUserAssignmentInfo(alert);
+            const isUnread = !isAlertRead(alert);
+
+            return (
+              <div
+                key={alertId}
+                className={`cam-alert-list-row type-${normalizedType}`}
+                onClick={() => setSelectedAlert(alert)}
+              >
+                <div className="cam-list-main-info">
+                  <div className={`cam-card-badge ${normalizedType}`}>
+                    <span className="cam-badge-icon-circle">
+                      {normalizedType === "info" && "i"}
+                      {normalizedType === "warning" && "!"}
+                      {normalizedType === "error" && "!"}
+                    </span>
+                  </div>
+                  <div className="cam-list-text-group">
+                    <div className="cam-list-title-row">
+                      <h4 className="cam-list-card-title">{getAlertTitle(alert)}</h4>
+                      {isUnread && <span className="cam-card-new-pill">New</span>}
                     </div>
-                  ) : (
-                    filteredUsers.map((user) => {
-                      const userId = user._id || user.id;
-                      if (!userId) return null;
-                      
-                      return (
-                        <div
-                          key={userId}
-                          className={`CreateAlert-user-item ${Array.isArray(form.assignedUsers) && form.assignedUsers.includes(userId) ? 'CreateAlert-user-item-selected' : ''}`}
-                          onClick={() => handleUserSelect(userId)}
-                        >
-                          <Checkbox
-                            checked={Array.isArray(form.assignedUsers) && form.assignedUsers.includes(userId)}
-                            onChange={() => handleUserSelect(userId)}
-                          />
-                          <Avatar size="small" color="#667eea">
-                            {getUserDisplayName(user).charAt(0).toUpperCase()}
-                          </Avatar>
-                          <div className="CreateAlert-user-info">
-                            <p className="CreateAlert-user-name">
-                              {getUserDisplayName(user)}
-                            </p>
-                            {!isMobile && (
-                              <p className="CreateAlert-user-details">
-                                {user.email || 'No Email'} 
-                                {user.role && ` • ${user.role}`}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
+                    <p className="cam-list-card-msg">{alert.message}</p>
+                  </div>
                 </div>
-              </div>
 
-              
-              <div className="CreateAlert-actions">
-                <button
-                  className="CreateAlert-button CreateAlert-button-secondary"
-                  onClick={handleReset}
-                  disabled={loading}
-                >
-                  Reset
-                </button>
-                <button
-                  className="CreateAlert-button CreateAlert-button-primary"
-                  onClick={handleSubmit}
-                  disabled={loading || !form.message.trim()}
-                >
-                  {loading ? (
-                    <>
-                      <span className="CreateAlert-spinner" />
-                      Creating...
-                    </>
-                  ) : (
-                    <>
-                      <FiSend />
-                      {isMobile ? 'Create' : 'Create Alert'}
-                    </>
-                  )}
-                </button>
+                <div className="cam-list-meta-group">
+                  <div className="cam-card-user-info">
+                    {userAssignment.isAll ? (
+                      <>
+                        <FiUsers />
+                        <span>All Users</span>
+                      </>
+                    ) : (
+                      <>
+                        <FiUser />
+                        <span>{userAssignment.text}</span>
+                      </>
+                    )}
+                  </div>
+                  <span className="cam-card-date">
+                    <FiCalendar />
+                    {formatAlertDate(alert.createdAt)}
+                  </span>
+                  <button
+                    className="cam-card-menu-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveMenuAlertId((prev) => (prev === alertId ? null : alertId));
+                    }}
+                  >
+                    <FiMoreVertical />
+                  </button>
+                </div>
+
+                {activeMenuAlertId === alertId && (
+                  <div
+                    className="cam-card-dropdown"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      className="cam-card-dropdown-item"
+                      onClick={() => {
+                        setSelectedAlert(alert);
+                        setActiveMenuAlertId(null);
+                      }}
+                    >
+                      <FiEye />
+                      <span>View Details</span>
+                    </button>
+                    <button
+                      className="cam-card-dropdown-item"
+                      onClick={() => handleToggleRead(alert)}
+                    >
+                      <FiCheck />
+                      <span>{isUnread ? "Mark as Read" : "Mark as Unread"}</span>
+                    </button>
+                    <button
+                      className="cam-card-dropdown-item"
+                      onClick={() => openEditModal(alert)}
+                    >
+                      <FiEdit2 />
+                      <span>Edit Alert</span>
+                    </button>
+                    <button
+                      className="cam-card-dropdown-item delete"
+                      onClick={() => handleDeleteAlert(alertId)}
+                    >
+                      <FiTrash2 />
+                      <span>Delete Alert</span>
+                    </button>
+                  </div>
+                )}
               </div>
-            </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 6. Pagination Row */}
+      {totalAlertsCount > 0 && (
+        <div className="cam-pagination-bar">
+          <span className="cam-pagination-info">
+            Showing {startIndex} to {endIndex} of {totalAlertsCount} alerts
+          </span>
+
+          <div className="cam-pagination-controls">
+            <button
+              className="cam-page-btn"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              title="Previous page"
+            >
+              <FiChevronLeft />
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                className={`cam-page-btn ${currentPage === page ? "active" : ""}`}
+                onClick={() => setCurrentPage(page)}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              className="cam-page-btn"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              title="Next page"
+            >
+              <FiChevronRight />
+            </button>
           </div>
         </div>
       )}
 
-      
-      {selectedAlert && (
-        <div className="CreateAlert-modal-overlay" onClick={() => setSelectedAlert(null)}>
-          <div className="CreateAlert-modal CreateAlert-modal-small" onClick={e => e.stopPropagation()}>
-            <div className="CreateAlert-modal-header">
-              <h2>Alert Details</h2>
-              <button className="CreateAlert-modal-close" onClick={() => setSelectedAlert(null)}>
+      {/* 7. Create / Edit Alert Modal */}
+      {isFormOpen &&
+        createPortal(
+          <div className="cam-modal-overlay" onClick={closeFormModal}>
+          <div className="cam-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cam-modal-header">
+              <h2>{editingAlertId ? "Edit Alert" : "Create New Alert"}</h2>
+              <button className="cam-modal-close-btn" onClick={closeFormModal}>
                 <FiX />
               </button>
             </div>
-            
-            <div className="CreateAlert-modal-content">
-              <div className="CreateAlert-detail-item">
-                <span className="CreateAlert-detail-label">Type:</span>
-                <Chip
-                  label={selectedAlert.type}
-                  color={getSeverityColor(selectedAlert.type)}
-                  icon={
-                    selectedAlert.type === "info" ? <FiInfo /> :
-                    selectedAlert.type === "warning" ? <FiAlertTriangle /> :
-                    <FiAlertCircle />
-                  }
-                  size={isMobile ? "small" : "medium"}
-                />
-              </div>
-              
-              <div className="CreateAlert-detail-item">
-                <span className="CreateAlert-detail-label">Message:</span>
-                <p className="CreateAlert-detail-message">{selectedAlert.message}</p>
-              </div>
-              
-              <div className="CreateAlert-detail-item">
-                <span className="CreateAlert-detail-label">Created:</span>
-                <span>{formatDate(selectedAlert.createdAt)}</span>
-              </div>
-              
-              {selectedAlert.assignedUsers?.length > 0 && (
-                <div className="CreateAlert-detail-item">
-                  <span className="CreateAlert-detail-label">Assigned Users:</span>
-                  <div className="CreateAlert-detail-chips">
-                    {selectedAlert.assignedUsers.slice(0, isMobile ? 3 : 5).map(userId => {
-                      const user = getUserById(userId);
-                      return (
-                        <Chip
-                          key={userId}
-                          label={getUserDisplayName(user)}
-                          size="small"
-                          color="#667eea"
-                        />
-                      );
-                    })}
-                    {selectedAlert.assignedUsers.length > (isMobile ? 3 : 5) && (
-                      <Chip
-                        label={`+${selectedAlert.assignedUsers.length - (isMobile ? 3 : 5)}`}
-                        size="small"
-                        color="#667eea"
-                        variant="outlined"
-                      />
-                    )}
+
+            <form onSubmit={handleSubmitAlert}>
+              <div className="cam-modal-body">
+                {/* Title */}
+                <div className="cam-form-group">
+                  <label className="cam-form-label">Alert Title</label>
+                  <input
+                    type="text"
+                    className="cam-form-input"
+                    placeholder="e.g. Server Maintenance, Team Meeting..."
+                    value={form.title}
+                    onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+                  />
+                </div>
+
+                {/* Alert Type */}
+                <div className="cam-form-group">
+                  <label className="cam-form-label">Alert Type</label>
+                  <div className="cam-type-selector-grid">
+                    <div
+                      className={`cam-type-card-option info ${form.type === "info" ? "selected" : ""}`}
+                      onClick={() => setForm((prev) => ({ ...prev, type: "info" }))}
+                    >
+                      <FiInfo className="cam-type-card-icon" />
+                      <span className="cam-type-card-label">Information</span>
+                    </div>
+
+                    <div
+                      className={`cam-type-card-option warning ${form.type === "warning" ? "selected" : ""}`}
+                      onClick={() => setForm((prev) => ({ ...prev, type: "warning" }))}
+                    >
+                      <FiAlertTriangle className="cam-type-card-icon" />
+                      <span className="cam-type-card-label">Warning</span>
+                    </div>
+
+                    <div
+                      className={`cam-type-card-option error ${form.type === "error" ? "selected" : ""}`}
+                      onClick={() => setForm((prev) => ({ ...prev, type: "error" }))}
+                    >
+                      <FiAlertCircle className="cam-type-card-icon" />
+                      <span className="cam-type-card-label">Error</span>
+                    </div>
                   </div>
                 </div>
-              )}
-              
-              {selectedAlert.assignedGroups?.length > 0 && (
-                <div className="CreateAlert-detail-item">
-                  <span className="CreateAlert-detail-label">Assigned Groups:</span>
-                  <div className="CreateAlert-detail-chips">
-                    {selectedAlert.assignedGroups.slice(0, isMobile ? 3 : 5).map(groupId => {
-                      const group = getGroupById(groupId);
-                      return (
-                        <Chip
-                          key={groupId}
-                          label={group.name || groupId}
-                          size="small"
-                          color="#764ba2"
+
+                {/* Message */}
+                <div className="cam-form-group">
+                  <label className="cam-form-label">
+                    <span>
+                      Alert Message <span className="cam-required">*</span>
+                    </span>
+                  </label>
+                  <textarea
+                    className="cam-form-textarea"
+                    placeholder="Enter your alert message here..."
+                    value={form.message}
+                    maxLength={500}
+                    rows={4}
+                    onChange={(e) => setForm((prev) => ({ ...prev, message: e.target.value }))}
+                  />
+                  <div className="cam-char-counter">{form.message.length} / 500</div>
+                </div>
+
+                {/* Target Audience */}
+                <div className="cam-form-group">
+                  <label className="cam-form-label">Target Audience</label>
+                  <div className="cam-audience-toggle">
+                    <button
+                      type="button"
+                      className={`cam-audience-btn ${form.targetType === "all" ? "active" : ""}`}
+                      onClick={() =>
+                        setForm((prev) => ({ ...prev, targetType: "all", assignedUsers: [] }))
+                      }
+                    >
+                      <FiUsers />
+                      <span>All Users (Broadcast)</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`cam-audience-btn ${form.targetType === "specific" ? "active" : ""}`}
+                      onClick={() => setForm((prev) => ({ ...prev, targetType: "specific" }))}
+                    >
+                      <FiUser />
+                      <span>Specific Users</span>
+                    </button>
+                  </div>
+
+                  {form.targetType === "specific" && (
+                    <div className="cam-user-picker-box">
+                      {/* Selected user chips */}
+                      {form.assignedUsers.length > 0 && (
+                        <div className="cam-user-chips-row">
+                          {form.assignedUsers.map((userId) => (
+                            <span key={userId} className="cam-user-chip">
+                              <span>{getUserDisplayName(userId)}</span>
+                              <button
+                                type="button"
+                                className="cam-chip-remove-btn"
+                                onClick={() => handleToggleUser(userId)}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Search & select all */}
+                      <div className="cam-user-search-header">
+                        <input
+                          type="text"
+                          className="cam-form-input"
+                          placeholder="Search users..."
+                          value={userSearchQuery}
+                          onChange={(e) => setUserSearchQuery(e.target.value)}
+                          style={{ flex: 1, height: "36px" }}
                         />
+                        <button
+                          type="button"
+                          className="cam-select-all-btn"
+                          onClick={handleSelectAllUsers}
+                        >
+                          {form.assignedUsers.length === filteredFormUsers.length
+                            ? "Deselect All"
+                            : "Select All"}
+                        </button>
+                      </div>
+
+                      {/* User List */}
+                      <div className="cam-user-list-scroll">
+                        {filteredFormUsers.length === 0 ? (
+                          <div style={{ padding: "12px", textAlign: "center", color: "#94a3b8", fontSize: "13px" }}>
+                            No users found
+                          </div>
+                        ) : (
+                          filteredFormUsers.map((u) => {
+                            const uId = String(u._id || u.id);
+                            const isSelected = form.assignedUsers.includes(uId);
+                            const name = getUserDisplayName(u);
+                            const initial = name.charAt(0).toUpperCase() || "U";
+
+                            return (
+                              <div
+                                key={uId}
+                                className={`cam-user-list-item ${isSelected ? "selected" : ""}`}
+                                onClick={() => handleToggleUser(uId)}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {}}
+                                />
+                                <div className="cam-user-avatar">{initial}</div>
+                                <div className="cam-user-text-info">
+                                  <span className="cam-user-name">{name}</span>
+                                  {u.email && <span className="cam-user-email">{u.email}</span>}
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="cam-modal-footer">
+                <button
+                  type="button"
+                  className="cam-btn cam-btn-secondary"
+                  onClick={closeFormModal}
+                  disabled={submitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="cam-btn cam-btn-primary"
+                  disabled={submitting || !form.message.trim()}
+                >
+                  {submitting ? (
+                    <span>Saving...</span>
+                  ) : (
+                    <>
+                      <FiSend />
+                      <span>{editingAlertId ? "Update Alert" : "Create Alert"}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* 8. Alert Details Modal */}
+      {selectedAlert &&
+        createPortal(
+          <div className="cam-modal-overlay" onClick={() => setSelectedAlert(null)}>
+          <div
+            className="cam-modal detail-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="cam-modal-header">
+              <h2>Alert Details</h2>
+              <button className="cam-modal-close-btn" onClick={() => setSelectedAlert(null)}>
+                <FiX />
+              </button>
+            </div>
+
+            <div className="cam-modal-body">
+              {/* Type & Title */}
+              <div className="cam-detail-item">
+                <span className="cam-detail-label">Type & Title</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <div
+                    className={`cam-card-badge ${(selectedAlert.type || "info").toLowerCase()}`}
+                  >
+                    <span className="cam-badge-icon-circle">
+                      {(selectedAlert.type || "info").toLowerCase() === "info"
+                        ? "i"
+                        : "!"}
+                    </span>
+                    <span>
+                      {(selectedAlert.type || "info").toUpperCase()}
+                    </span>
+                  </div>
+                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>
+                    {getAlertTitle(selectedAlert)}
+                  </h3>
+                </div>
+              </div>
+
+              {/* Message */}
+              <div className="cam-detail-item">
+                <span className="cam-detail-label">Message</span>
+                <div className="cam-detail-message-box">{selectedAlert.message}</div>
+              </div>
+
+              {/* Created At & Author */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                <div className="cam-detail-item">
+                  <span className="cam-detail-label">Date & Time</span>
+                  <span className="cam-detail-value">
+                    {formatAlertDate(selectedAlert.createdAt)}
+                  </span>
+                </div>
+                <div className="cam-detail-item">
+                  <span className="cam-detail-label">Created By</span>
+                  <span className="cam-detail-value">
+                    {selectedAlert.createdByName ||
+                      selectedAlert.createdBy?.name ||
+                      "System Admin"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Audience */}
+              <div className="cam-detail-item">
+                <span className="cam-detail-label">Target Audience</span>
+                {(!selectedAlert.assignedUsers || selectedAlert.assignedUsers.length === 0) &&
+                (!selectedAlert.assignedGroups || selectedAlert.assignedGroups.length === 0) ? (
+                  <span className="cam-detail-value">All Users (Broadcast)</span>
+                ) : (
+                  <div className="cam-user-chips-row" style={{ marginTop: "4px" }}>
+                    {selectedAlert.assignedUsers?.map((u) => {
+                      const uId = String(u._id || u.id || u);
+                      return (
+                        <span key={uId} className="cam-user-chip">
+                          <FiUser style={{ fontSize: "11px" }} />
+                          <span>{getUserDisplayName(u)}</span>
+                        </span>
                       );
                     })}
-                    {selectedAlert.assignedGroups.length > (isMobile ? 3 : 5) && (
-                      <Chip
-                        label={`+${selectedAlert.assignedGroups.length - (isMobile ? 3 : 5)}`}
-                        size="small"
-                        color="#764ba2"
-                        variant="outlined"
-                      />
-                    )}
+                    {selectedAlert.assignedGroups?.map((g) => {
+                      const gId = String(g._id || g.id || g);
+                      const groupObj = groups.find((grp) => String(grp._id || grp.id) === gId);
+                      const gName = groupObj?.name || g.name || "Group";
+                      return (
+                        <span key={gId} className="cam-user-chip">
+                          <FiUsers style={{ fontSize: "11px" }} />
+                          <span>{gName}</span>
+                        </span>
+                      );
+                    })}
                   </div>
-                </div>
-              )}
-              
-              <div className="CreateAlert-detail-item">
-                <span className="CreateAlert-detail-label">Read by:</span>
-                <span>{selectedAlert.readBy?.length || 0} users</span>
+                )}
+              </div>
+
+              {/* Read Status */}
+              <div className="cam-detail-item">
+                <span className="cam-detail-label">Status</span>
+                <span className="cam-detail-value">
+                  {isAlertRead(selectedAlert) ? "✓ Read by you" : "● Unread"} (Read by{" "}
+                  {selectedAlert.readBy?.length || 0} users)
+                </span>
               </div>
             </div>
-            
-            <div className="CreateAlert-actions">
+
+            <div className="cam-modal-footer">
               <button
-                className="CreateAlert-button CreateAlert-button-primary"
+                type="button"
+                className="cam-btn cam-btn-secondary"
+                onClick={() => handleToggleRead(selectedAlert)}
+              >
+                <FiCheck />
+                <span>
+                  {isAlertRead(selectedAlert) ? "Mark as Unread" : "Mark as Read"}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className="cam-btn cam-btn-secondary"
+                onClick={() => {
+                  const alertToEdit = selectedAlert;
+                  setSelectedAlert(null);
+                  openEditModal(alertToEdit);
+                }}
+              >
+                <FiEdit2 />
+                <span>Edit</span>
+              </button>
+
+              <button
+                type="button"
+                className="cam-btn cam-btn-primary"
                 onClick={() => setSelectedAlert(null)}
               >
                 Close
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      
-      {notification && (
-        <div className="CreateAlert-notification">
-          <div 
-            className={`CreateAlert-notification-card CreateAlert-notification-${notification.type}`}
-            style={{ 
-              background: `linear-gradient(135deg, ${getSeverityColor(notification.type)} 0%, ${getSeverityColor(notification.type)}80 100%)`
-            }}
-          >
-            <div className="CreateAlert-notification-content">
-              {notification.type === "success" ? <FiCheck /> : <FiAlertCircle />}
-              <div>
-                <p className="CreateAlert-notification-title">
-                  {notification.type === "error" ? "Error" : "Success"}
-                </p>
-                <p className="CreateAlert-notification-message">{notification.message}</p>
-              </div>
-              <button 
-                className="CreateAlert-notification-close"
-                onClick={() => setNotification(null)}
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 9. Floating Toast Notification */}
+      {toast &&
+        createPortal(
+          <div className={`cam-toast ${toast.type}`}>
+            {toast.type === "success" ? (
+              <FiCheck style={{ color: "#10b981", fontSize: "18px" }} />
+            ) : (
+              <FiAlertCircle style={{ color: "#ef4444", fontSize: "18px" }} />
+            )}
+            <span className="cam-toast-text">{toast.message}</span>
+            <button
+              onClick={() => setToast(null)}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#94a3b8",
+                cursor: "pointer",
+                marginLeft: "6px",
+                display: "flex",
+              }}
+            >
+              <FiX />
+            </button>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

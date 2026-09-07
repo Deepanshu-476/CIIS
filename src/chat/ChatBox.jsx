@@ -10,6 +10,7 @@ import { createConversation, createGroupConversation, deleteMessageForEveryone, 
 
 import MessageBubble from "./MessageBubble";
 import { API_URL_IMG } from "../config";
+import { resolveAvatarUrl } from "./messageUtils";
 import { useCall } from "../context/CallContext";
 import { useNotification } from "../context/NotificationContext";
 
@@ -1469,10 +1470,26 @@ useEffect(() => {
             <>
                 <div className="chat-contact-profile">
                     <div className="chat-contact-avatar">
-                        {selectedAvatar ? (
-                            <img src={selectedAvatar} alt={selectedName} />
+                        {selectedUser?.isGroup ? (
+                            selectedName?.charAt(0).toUpperCase() || "G"
                         ) : (
-                            selectedName?.charAt(0).toUpperCase() || "U"
+                            <>
+                                {selectedAvatar ? (
+                                    <img
+                                        src={selectedAvatar}
+                                        alt={selectedName}
+                                        onError={(e) => {
+                                            e.currentTarget.style.display = "none";
+                                            if (e.currentTarget.nextSibling) {
+                                                e.currentTarget.nextSibling.style.display = "inline";
+                                            }
+                                        }}
+                                    />
+                                ) : null}
+                                <span style={{ display: selectedAvatar ? "none" : "inline" }}>
+                                    {selectedName?.charAt(0).toUpperCase() || "U"}
+                                </span>
+                            </>
                         )}
                     </div>
                     <h2>{selectedName}</h2>
@@ -1518,11 +1535,6 @@ useEffect(() => {
                             +{Math.max(contactMediaItems.length - 3, 0)}
                         </button>
                     </div>
-                </div>
-                <div className="chat-contact-list">
-                    <button type="button" onClick={() => setMuteState(!isMuted)}><Bell size={19} /><span>Mute notifications<small>{isMuted ? "On" : "Off"}</small></span><i className={isMuted ? "active" : ""} /></button>
-                    <button type="button" onClick={() => setContactPanelView("wallpaper")}><Wallpaper size={19} /><span>Wallpaper & sound<small>{contactSound}</small></span><ChevronRight size={18} /></button>
-                    <button type="button" onClick={() => setContactPanelView("disappearing")}><TimerReset size={19} /><span>Disappearing messages<small>{disappearingMode === "off" ? "Off" : disappearingMode}</small></span><ChevronRight size={18} /></button>
                 </div>
             </>
         );
@@ -1613,12 +1625,7 @@ useEffect(() => {
         );
     }
 
-    const getAvatarSrc = (avatar) => {
-        if (!avatar) return null;
-        return avatar.startsWith("http")
-            ? avatar
-            : `${API_URL_IMG.replace(/\/$/, "")}${avatar.startsWith("/") ? avatar : `/${avatar}`}`;
-    };
+    const getAvatarSrc = (avatar) => resolveAvatarUrl(avatar);
 
     const getGroupName = (group) => {
         if (!group) return "";
@@ -1695,7 +1702,7 @@ useEffect(() => {
     };
     const selectedAvatar = selectedUser?.isGroup
         ? null
-        : getAvatarSrc(selectedUser.avatar || selectedUser.profileImage || selectedUser.image);
+        : getAvatarSrc(selectedUser);
     const selectedName = selectedUser?.isGroup ? getGroupName(selectedUser) : selectedUser?.name;
 
     return (
@@ -1724,16 +1731,27 @@ useEffect(() => {
                     >
                         <span className="chat-avatar">
                             {
-                                selectedUser.isGroup
-                                    ? selectedName?.charAt(0).toUpperCase() || "G"
-                                    : selectedAvatar
-                                    ? (
-                                        <img
-                                            src={selectedAvatar}
-                                            alt={selectedName}
-                                        />
-                                    )
-                                    : selectedName?.charAt(0).toUpperCase()
+                                selectedUser.isGroup ? (
+                                    selectedName?.charAt(0).toUpperCase() || "G"
+                                ) : (
+                                    <>
+                                        {selectedAvatar ? (
+                                            <img
+                                                src={selectedAvatar}
+                                                alt={selectedName}
+                                                onError={(e) => {
+                                                    e.currentTarget.style.display = "none";
+                                                    if (e.currentTarget.nextSibling) {
+                                                        e.currentTarget.nextSibling.style.display = "inline";
+                                                    }
+                                                }}
+                                            />
+                                        ) : null}
+                                        <span style={{ display: selectedAvatar ? "none" : "inline" }}>
+                                            {selectedName?.charAt(0).toUpperCase() || "U"}
+                                        </span>
+                                    </>
+                                )
                             }
                         </span>
                         <span className="chat-user-meta">

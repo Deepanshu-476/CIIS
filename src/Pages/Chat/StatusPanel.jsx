@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { resolveAvatarUrl } from "../../chat/messageUtils";
 import {
   Camera, Film, Filter, Image, MoreVertical, Plus, Search,
   Send, Settings, Type, X,
@@ -17,14 +18,28 @@ const statusTime = value => {
   return date.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 };
 
-const StatusAvatar = ({ status, own = false }) => (
-  <span className={`status-ref-avatar ${status?.viewed ? "viewed" : ""}`}>
-    {status?.user?.avatar
-      ? <img src={status.user.avatar} alt="" />
-      : initials(status?.user?.name)}
-    {own && <i><Plus size={11} strokeWidth={3} /></i>}
-  </span>
-);
+const StatusAvatar = ({ status, own = false }) => {
+  const user = status?.user || {};
+  const avatarUrl = resolveAvatarUrl(user.avatar || user.profileImage || user);
+  return (
+    <span className={`status-ref-avatar ${status?.viewed ? "viewed" : ""}`}>
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt=""
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+            if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "inline";
+          }}
+        />
+      ) : null}
+      <span style={{ display: avatarUrl ? "none" : "inline" }}>
+        {initials(user.name)}
+      </span>
+      {own && <i><Plus size={11} strokeWidth={3} /></i>}
+    </span>
+  );
+};
 
 export default function StatusPanel({
   statuses = [],
@@ -43,8 +58,20 @@ export default function StatusPanel({
   const [preview, setPreview] = useState("");
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const fileRef = useRef(null);
   const currentId = String(currentUser?._id || currentUser?.id || "");
+
+  useEffect(() => {
+    if (!showOptionsMenu) return undefined;
+    const closeOptions = e => {
+      if (!e.target.closest(".status-ref-header-actions") && !e.target.closest(".status-ref-options-menu")) {
+        setShowOptionsMenu(false);
+      }
+    };
+    document.addEventListener("pointerdown", closeOptions);
+    return () => document.removeEventListener("pointerdown", closeOptions);
+  }, [showOptionsMenu]);
 
   const ownStatuses = statuses.filter(item => item.isOwn || String(item.user?.id || "") === currentId);
   const latestByUser = useMemo(() => {
@@ -117,11 +144,37 @@ export default function StatusPanel({
     <aside className="chat-sidebar chat-view-panel chat-status-panel status-ref-panel">
       <section className="chat-sidebar-card conversations-card">
         <header className="status-ref-header">
-          <div><h1>Status</h1><p>Share updates with your team</p></div>
-          <div>
-            <button type="button" aria-label="Add status" onClick={() => openComposer("text")}><Plus size={19} /></button>
-            <button type="button" aria-label="Status options"><MoreVertical size={18} /></button>
+          <div className="status-ref-title-group">
+            <h1>Status</h1>
+            <p>Share updates with your team</p>
           </div>
+          <div className="status-ref-header-actions">
+            <button type="button" aria-label="Add status" title="Add status" onClick={() => openComposer("text")}><Plus size={19} /></button>
+            <button
+              type="button"
+              aria-label="Status options"
+              title="Status options"
+              onClick={() => setShowOptionsMenu(prev => !prev)}
+            >
+              <MoreVertical size={18} />
+            </button>
+          </div>
+          {showOptionsMenu && (
+            <div className="status-ref-options-menu">
+              <button type="button" onClick={() => { setShowOptionsMenu(false); openComposer("text"); }}>
+                <Type size={16} />
+                <span>Text status</span>
+              </button>
+              <button type="button" onClick={() => { setShowOptionsMenu(false); openComposer("image"); }}>
+                <Image size={16} />
+                <span>Photo status</span>
+              </button>
+              <button type="button" onClick={() => { setShowOptionsMenu(false); openComposer("video"); }}>
+                <Camera size={16} />
+                <span>Video status</span>
+              </button>
+            </div>
+          )}
         </header>
 
         <div className="status-ref-tools">
@@ -131,7 +184,7 @@ export default function StatusPanel({
 
         <section className="status-ref-own">
           <button type="button" className="status-ref-own-row" onClick={() => ownStatuses[0] ? openStatus(ownStatuses[0]) : openComposer("text")}>
-            <StatusAvatar status={ownStatuses[0] || { user: { name: currentUser?.name } }} own />
+            <StatusAvatar status={ownStatuses[0] || { user: { name: currentUser?.name, profileImage: currentUser?.profileImage || currentUser?.avatar } }} own />
             <span><strong>My status</strong><small>{ownStatuses.length ? statusTime(ownStatuses[0].createdAt) : "Add status update"}</small></span>
           </button>
           <div className="status-ref-create-grid">
@@ -155,12 +208,12 @@ export default function StatusPanel({
             </button>
           ))}
         </div>
-        <button type="button" className="status-ref-settings" aria-label="Status settings"><Settings size={19} /></button>
+        <button type="button" className="status-ref-settings" aria-label="Status settings" onClick={() => openComposer("text")}><Settings size={19} /></button>
       </section>
 
       {composer && (
-        <div className="status-ref-modal" role="dialog" aria-modal="true" aria-label="Create status">
-          <form onSubmit={submit}>
+        <div className="status-ref-modal" role="dialog" aria-modal="true" aria-label="Create status" onClick={() => setComposer(null)}>
+          <form onSubmit={submit} onClick={e => e.stopPropagation()}>
             <header><strong>Create {composer === "text" ? "text" : composer} status</strong><button type="button" aria-label="Close" onClick={() => setComposer(null)}><X size={19} /></button></header>
             <input ref={fileRef} hidden type="file" accept={composer === "video" ? "video/*" : "image/*"} onChange={selectFile} />
             {preview && (composer === "video" ? <video src={preview} controls /> : <img src={preview} alt="Status preview" />)}
@@ -172,8 +225,8 @@ export default function StatusPanel({
       )}
 
       {selected && (
-        <div className="status-ref-viewer">
-          <div className="status-ref-story">
+        <div className="status-ref-viewer" onClick={() => setSelected(null)}>
+          <div className="status-ref-story" onClick={e => e.stopPropagation()}>
             <div className="status-ref-progress"><span /></div>
             <header><StatusAvatar status={selected} /><span><strong>{selected.isOwn ? "My status" : selected.user?.name}</strong><small>{statusTime(selected.createdAt)}</small></span><button type="button" aria-label="Close viewer" onClick={() => setSelected(null)}><X size={20} /></button></header>
             <main className={selected.type === "text" ? "text" : ""}>

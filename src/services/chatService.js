@@ -281,10 +281,11 @@ const authConfig = () => ({
 
 export const getStatuses = async () => axios.get(`${API}/statuses`, authConfig());
 
-export const createStatus = async ({ text = "", file = null }) => {
+export const createStatus = async ({ text = "", file = null, backgroundColor = "#256c62" }) => {
     const formData = new FormData();
     if (text) formData.append("text", text);
     if (file) formData.append("file", file);
+    formData.append("backgroundColor", backgroundColor);
     return axios.post(`${API}/statuses`, formData, authConfig());
 };
 

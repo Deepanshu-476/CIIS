@@ -368,7 +368,7 @@ const ChatBox = ({
     const notifyIncomingMessage = (message) => {
         const senderName = getSenderName(message.sender);
         const preview = getMessagePreview(message);
-        const title = selectedUser?.isGroup ? `${senderName} in ${selectedUser.name || "Group"}` : senderName;
+        const title = selectedUser?.isGroup ? `${senderName} in ${selectedUser.name || "Channel"}` : senderName;
 
         showToast(
             {
@@ -555,7 +555,6 @@ const ChatBox = ({
             document.removeEventListener("keydown", handleKeyDown);
         };
     }, []);
-
     useEffect(() => {
         if (socket && conversation?._id) {
             joinConversationRoom(conversation._id);
@@ -1831,7 +1830,7 @@ useEffect(() => {
 
     const getGroupName = (group) => {
         if (!group) return "";
-        return group.name || group.groupName || group.group_name || group.title || "Unnamed Group";
+        return group.name || group.groupName || group.group_name || group.title || "Unnamed Channel";
     };
 
     const getCurrentTopic = () => (
@@ -1866,7 +1865,7 @@ useEffect(() => {
         : Number(selectedUser?.memberCount || selectedUser?.count || 0);
     const groupStatusLabel = groupMemberCount > 0
         ? `${onlineGroupCount} online - ${groupMemberCount} members`
-        : "Group Chat";
+        : "Channel Chat";
     const selectedUserId = (selectedUser?._id || selectedUser?.id || "").toString();
     const isSelectedUserOnline = selectedUser?.isGroup
         ? onlineGroupCount > 0
@@ -1973,7 +1972,7 @@ useEffect(() => {
                 <div className="chat-header-actions" ref={headerMenuRef}>
                     <button
                         type="button"
-                        title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group video call" : "No group member online") : isSelectedUserOnline ? "Start video call" : "User is offline"}
+                        title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start channel video call" : "No channel member online") : isSelectedUserOnline ? "Start video call" : "User is offline"}
                         onClick={() => startDirectCall("video")}
                         disabled={!canStartCall || !effectiveChatSettings.videoVoice.cameraEnabled}
                     >
@@ -1981,7 +1980,7 @@ useEffect(() => {
                     </button>
                     <button
                         type="button"
-                        title={!effectiveChatSettings.videoVoice.microphoneEnabled ? "Microphone disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group voice call" : "No group member online") : isSelectedUserOnline ? "Start voice call" : "User is offline"}
+                        title={!effectiveChatSettings.videoVoice.microphoneEnabled ? "Microphone disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start channel voice call" : "No channel member online") : isSelectedUserOnline ? "Start voice call" : "User is offline"}
                         onClick={() => startDirectCall("audio")}
                         disabled={!canStartCall || !effectiveChatSettings.videoVoice.microphoneEnabled}
                     >
@@ -2001,7 +2000,7 @@ useEffect(() => {
                         <div className="chat-profile-menu">
                             <button type="button" onClick={() => { setContactPanelView("info"); setShowContactInfo(true); setShowHeaderMenu(false); }}>
                                 <Info size={17} />
-                                {selectedUser.isGroup ? "Group info" : "Contact info"}
+                                {selectedUser.isGroup ? "Channel info" : "Contact info"}
                             </button>
                             <button type="button" onClick={() => { setIsContactSearchOpen(true); setShowHeaderMenu(false); }}>
                                 <Search size={17} />
@@ -2184,7 +2183,21 @@ useEffect(() => {
                         </button>
 
                         {showAttachmentMenu && (
-                            <div className="attachment-menu-popup" role="menu">
+                            <div
+                                className="attachment-menu-popup"
+                                role="menu"
+                                style={{
+                                    width: 170,
+                                    minWidth: 170,
+                                    maxWidth: 185,
+                                    background: "#ffffff",
+                                    borderRadius: 12,
+                                    padding: "6px 4px",
+                                    boxSizing: "border-box",
+                                    border: "1px solid #e2e8f0",
+                                    boxShadow: "0 10px 25px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.05)"
+                                }}
+                            >
                                 <button
                                     type="button"
                                     className="attachment-menu-item"
@@ -2194,7 +2207,7 @@ useEffect(() => {
                                     }}
                                 >
                                     <span className="attachment-icon-wrap icon-document">
-                                        <FileText size={20} strokeWidth={2.2} />
+                                        <FileText size={18} strokeWidth={2} />
                                     </span>
                                     <span className="attachment-label">Document</span>
                                 </button>
@@ -2208,7 +2221,7 @@ useEffect(() => {
                                     }}
                                 >
                                     <span className="attachment-icon-wrap icon-photos">
-                                        <Images size={20} strokeWidth={2.2} />
+                                        <Images size={18} strokeWidth={2} />
                                     </span>
                                     <span className="attachment-label">Photos & videos</span>
                                 </button>
@@ -2222,7 +2235,7 @@ useEffect(() => {
                                     }}
                                 >
                                     <span className="attachment-icon-wrap icon-camera">
-                                        <Camera size={20} strokeWidth={2.2} />
+                                        <Camera size={18} strokeWidth={2} />
                                     </span>
                                     <span className="attachment-label">Camera</span>
                                 </button>
@@ -2236,7 +2249,7 @@ useEffect(() => {
                                     }}
                                 >
                                     <span className="attachment-icon-wrap icon-audio">
-                                        <Headphones size={20} strokeWidth={2.2} />
+                                        <Headphones size={18} strokeWidth={2} />
                                     </span>
                                     <span className="attachment-label">Audio</span>
                                 </button>

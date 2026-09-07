@@ -12,7 +12,7 @@ export const useCall = () => useContext(CallContext);
 
 const getStoredUser = () => {
   try {
-    return JSON.parse(localStorage.getItem("user")) || {};
+    return JSON.parse(localStorage.getItem("user") || localStorage.getItem("superAdmin")) || {};
   } catch {
     return {};
   }
@@ -27,7 +27,8 @@ export const CallProvider = ({ children }) => {
 
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem(`ciis-call-history-${currentUserId}`) || "[]");
+      const activeId = currentUserId || ((getStoredUser()._id || getStoredUser().id || "").toString());
+      const saved = JSON.parse(localStorage.getItem(`ciis-call-history-${activeId}`) || "[]");
       setCallHistory(Array.isArray(saved) ? saved : []);
     } catch {
       setCallHistory([]);
@@ -36,9 +37,10 @@ export const CallProvider = ({ children }) => {
 
   const persistCallHistory = useCallback((updater) => {
     setCallHistory(prev => {
+      const activeId = currentUserId || ((getStoredUser()._id || getStoredUser().id || "").toString());
       const next = updater(prev).slice(0, 80);
       try {
-        localStorage.setItem(`ciis-call-history-${currentUserId}`, JSON.stringify(next));
+        localStorage.setItem(`ciis-call-history-${activeId}`, JSON.stringify(next));
       } catch {
         void 0;
       }

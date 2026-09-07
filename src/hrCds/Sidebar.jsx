@@ -621,6 +621,14 @@ const allPagesItems = [
     order: 11
   },
   {
+    id: 'company-assets',
+    name: 'Asset Management',
+    icon: 'Computer',
+    path: '/ciisUser/company-assets',
+    category: 'administration',
+    order: 11.5
+  },
+  {
     id: 'employee-attendance',
     name: 'Employee Attendance',
     icon: 'Calendar',
@@ -860,6 +868,9 @@ const getPathFromName = (name) => {
     'Leave Policy Master': '/ciisUser/leave-policy-master',
     'Leave Policy': '/ciisUser/leave-policy',
     'Employee Assets': '/ciisUser/emp-assets',
+    'Asset Management': '/ciisUser/company-assets',
+    'Assets Management': '/ciisUser/company-assets',
+    'Company Assets': '/ciisUser/company-assets',
     'Employee Attendance': '/ciisUser/emp-attendance',
     'Department Management': '/ciisUser/department',
     'Job Role Management': '/ciisUser/JobRoleManagement',
@@ -894,7 +905,13 @@ const getPathFromName = (name) => {
     'Documents': '/client/documents',
     'Services & Tasks': '/client/services-tasks',
     'Create User': '/ciisUser/create-user',
-    'Change Password': '/ciisUser/change-password'
+    'Change Password': '/ciisUser/change-password',
+    'Chat': '/ciisUser/chat',
+    'Support Desk': '/ciisUser/support-desk',
+    'Support Operations': '/ciisUser/support-operations',
+    'Feedback / Questionnaire': '/ciisUser/feedback-questionnaire',
+    'Register Request': '/ciisUser/register-request',
+    'Client Dashboard': '/client/dashboard'
   };
   
   return pathMap[name] || '/ciisUser/user-dashboard';
@@ -939,6 +956,17 @@ const getMenuAccessKeys = item => {
     keys.add(clientKey);
     keys.add(`/client/${clientKey}`);
     keys.add(`client/${clientKey}`);
+  }
+
+  if (id === 'company-assets' || cleanPath === 'company-assets' || cleanPath === 'ciisuser/company-assets' || cleanPath === 'asset-management') {
+    keys.add('company-assets');
+    keys.add('asset-management');
+    keys.add('/ciisUser/company-assets');
+    keys.add('ciisUser/company-assets');
+    keys.add('/ciisUser/asset-management');
+    keys.add('ciisUser/asset-management');
+    keys.add('/Ciis-network/company-assets');
+    keys.add('Ciis-network/company-assets');
   }
 
   return keys;
@@ -1038,6 +1066,43 @@ const addCompanyAccessFallbackItems = (items, companyData) => {
   ));
 
   return fallbackItems.length ? [...items, ...fallbackItems] : items;
+};
+
+const normalizeSidebarItemPath = (rawPath, itemName) => {
+  let p = String(rawPath || '').trim();
+  if (!p && itemName) {
+    p = getPathFromName(itemName);
+  }
+  if (!p) return '/ciisUser/user-dashboard';
+  if (/^https?:\/\//i.test(p)) return p;
+  
+  const lower = p.toLowerCase();
+  if (lower.startsWith('/ciisuser/')) {
+    return `/ciisUser/${p.slice(10)}`;
+  }
+  if (lower.startsWith('ciisuser/')) {
+    return `/ciisUser/${p.slice(9)}`;
+  }
+  if (lower.startsWith('/client/')) {
+    return p;
+  }
+  if (lower.startsWith('client/')) {
+    return `/${p}`;
+  }
+  if (lower.startsWith('client-')) {
+    const sub = p.replace(/^client-/i, '');
+    if (sub === 'support-tickets') return '/client/support-tickets';
+    if (sub === 'marketplace') return '/client/marketplace';
+    if (sub === 'my-services') return '/client/my-services';
+    if (sub === 'tasks-updates') return '/client/tasks-updates';
+    if (sub === 'documents') return '/client/documents';
+    if (sub === 'payments') return '/client/payments';
+    return `/client/${sub}`;
+  }
+  if (p.startsWith('/')) {
+    return `/ciisUser${p}`;
+  }
+  return `/ciisUser/${p}`;
 };
 
 const Sidebar = ({ isMobile = false, closeSidebar }) => {
@@ -1427,7 +1492,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         params: {
           companyId: sidebarCompanyId,
           ...(sidebarBranchId ? { branchId: sidebarBranchId } : {}),
-          departmentId: sidebarDepartmentId,
+          ...(sidebarDepartmentId ? { departmentId: sidebarDepartmentId } : {}),
           role: sidebarRoleKey
         },
         headers: { 
@@ -1465,6 +1530,18 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     if (userId && sidebarCompanyId) {
       fetchSidebarConfig();
     }
+  }, [userId, sidebarCompanyId, fetchSidebarConfig]);
+
+  useEffect(() => {
+    const handleConfigUpdate = () => {
+      if (userId && sidebarCompanyId) {
+        fetchSidebarConfig();
+      }
+    };
+    window.addEventListener('ciis-sidebar-config-updated', handleConfigUpdate);
+    return () => {
+      window.removeEventListener('ciis-sidebar-config-updated', handleConfigUpdate);
+    };
   }, [userId, sidebarCompanyId, fetchSidebarConfig]);
 
   useEffect(() => {
@@ -1730,24 +1807,20 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     let items = [];
 
     if (sidebarConfig && sidebarConfig.menuItems && Array.isArray(sidebarConfig.menuItems)) {
-      void 0;
-      
       items = sidebarConfig.menuItems
         .map((item, index) => {
+          const rawPath = item.path || getPathFromName(item.name);
+          const resolvedPath = normalizeSidebarItemPath(rawPath, item.name);
           const processedItem = {
             id: item.id || item._id || Math.random().toString(36).substr(2, 9),
             name: getMenuDisplayName(item.name || 'Unnamed Item'),
             icon: item.icon || 'Dashboard',
             category: item.category || 'main',
             order: Number.isFinite(Number(item.order)) && Number(item.order) !== 99 ? Number(item.order) : (index + 1),
-            path: item.path || getPathFromName(item.name),
+            path: resolvedPath,
             disabled: item.disabled || false,
             visible: item.visible !== false
           };
-
-          if (processedItem.path === 'dashboard-1') {
-            processedItem.path = `/ciisUser/${processedItem.path}`;
-          }
 
           return processedItem;
         })
@@ -1759,17 +1832,15 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         });
     } 
     else if (sidebarConfig && (sidebarConfig.useFixedDefault || !sidebarConfig.menuItems)) {
-      void 0;
       items = isClientUser ? [...clientMenuItems] : [...fixedDefaultItems];
     }
     else {
-      void 0;
       items = isClientUser ? [...clientMenuItems] : [...fixedDefaultItems];
     }
 
-    const hasRoleConfig = sidebarConfig && Array.isArray(sidebarConfig.menuItems);
+    const hasRoleConfig = sidebarConfig && Array.isArray(sidebarConfig.menuItems) && sidebarConfig.menuItems.length > 0;
     let accessFilteredItems = hasRoleConfig
-      ? filterItemsByCompanyAccess(items, companyData)
+      ? items
       : filterItemsByCompanyAccess(
           addCompanyAccessFallbackItems(items, companyData),
           companyData
@@ -1846,7 +1917,9 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       })
       .map(({ item }) => item);
 
-    void 0;
+    if (hasRoleConfig) {
+      return removeHiddenSidebarItems(sortedItems);
+    }
 
     return filterItemsByPageAccess(removeHiddenSidebarItems(sortedItems));
   }, [sidebarConfig, loading, isSuperAdminWithManagement, isClientUser, userData, companyData, pagePermissions, userId]);
@@ -2053,7 +2126,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
 
   const groupedItems = useMemo(() => {
     const groups = {};
-    const categoryOrder = ['main', 'work', 'communication', 'admin', 'settings', 'administration', 'tasks', 'projects', 'meetings', 'clients'];
+    const categoryOrder = ['main', 'work', 'communication', 'admin', 'settings', 'administration', 'tasks', 'projects', 'meetings', 'clients', 'payroll'];
     const customRanges = sidebarConfig && Array.isArray(sidebarConfig.ranges) ? sidebarConfig.ranges : [];
     const hasCustomRanges = customRanges.length > 0;
     

@@ -54,7 +54,7 @@ const getUserId = (user) => {
 const getAvatarSrc = (avatar) => resolveAvatarUrl(avatar);
  
 const getGroupName = (group) => (
-    group?.name || group?.groupName || group?.group_name || group?.title || "Group call"
+    group?.name || group?.groupName || group?.group_name || group?.title || "Channel call"
 );
 
 const uniqueIds = (ids) => [...new Set(ids.map(id => id?.toString()).filter(Boolean))];
@@ -83,15 +83,33 @@ const getKnownParticipantUser = (target, userId) => {
     return memberSource.find(member => typeof member === "object" && getUserId(member) === userId) || null;
 };
 
-const getCurrentUserPublicInfo = (user = {}) => ({
-    _id: getUserId(user),
-    id: getUserId(user),
-    name: user.name || user.fullName || user.email || "User",
-    email: user.email,
-    avatar: user.avatar || user.profileImage || user.image,
-    profileImage: user.profileImage,
-    image: user.image,
-});
+const getStoredUser = () => {
+    try {
+        return JSON.parse(localStorage.getItem("user") || localStorage.getItem("superAdmin")) || {};
+    } catch {
+        return {};
+    }
+};
+
+const getCurrentUserPublicInfo = (user = {}) => {
+    const fallback = getStoredUser();
+    const resolvedUser = (user && (user._id || user.id || user.name)) ? user : fallback;
+    const name = resolvedUser.name || resolvedUser.fullName ||
+        (resolvedUser.firstName ? `${resolvedUser.firstName} ${resolvedUser.lastName || ''}`.trim() : "") ||
+        resolvedUser.email || "User";
+    const avatar = resolvedUser.avatar || resolvedUser.profileImage || resolvedUser.image || "";
+    const id = getUserId(resolvedUser) || getUserId(fallback);
+
+    return {
+        _id: id,
+        id,
+        name,
+        email: resolvedUser.email,
+        avatar,
+        profileImage: avatar,
+        image: avatar,
+    };
+};
 
 const notifyIncomingCall = (incomingCall) => {
     const callerName = incomingCall.peerUser?.name || "User";
@@ -206,7 +224,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const callTimeoutRef = useRef(null);
     const iceServersRef = useRef(getFallbackIceServers());
     const iceServersLoadedAtRef = useRef(0);
-    const currentUserId = getUserId(currentUser);
+    const currentUserId = getUserId(currentUser) || getUserId(getStoredUser());
 
     const loadIceServers = async () => {
         const cacheAge = Date.now() - iceServersLoadedAtRef.current;
@@ -484,7 +502,9 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             return;
         }
 
-        const participantIds = getCallParticipantIds(user, currentUserId);
+        const myUser = (currentUser && (getUserId(currentUser) || currentUser.name)) ? currentUser : getStoredUser();
+        const myId = getUserId(myUser) || currentUserId;
+        const participantIds = getCallParticipantIds(user, myId);
         if (participantIds.length === 0) {
             setError("No participant found for the call.");
             return;
@@ -496,9 +516,9 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             return;
         }
 
-        const isGroupCall = user.isGroup || participantIds.length > 1;
+        const isGroupCall = Boolean(user.isGroup || (Array.isArray(user.members) && user.members.length > 2) || participantIds.length > 1);
         const nextCall = {
-            callId: `${currentUserId || "user"}-${Date.now()}`,
+            callId: `${myId || "user"}-${Date.now()}`,
             type: callType,
             status: "outgoing",
             peerUser: user,
@@ -506,7 +526,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             participantIds,
             isCaller: true,
             isGroupCall,
-            title: isGroupCall ? getGroupName(user) : user.name,
+            title: isGroupCall ? getGroupName(user) : (user.name || user.fullName || "User"),
         };
 
         activeCallRef.current = nextCall;
@@ -531,8 +551,10 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 participantIds,
                 toUserId: participantIds[0],
                 callType,
-                title: nextCall.title,
-                callerUser: getCurrentUserPublicInfo(currentUser),
+                isGroupCall,
+                groupTitle: isGroupCall ? getGroupName(user) : "",
+                title: isGroupCall ? getGroupName(user) : "",
+                callerUser: getCurrentUserPublicInfo(myUser),
             });
             callTimeoutRef.current = window.setTimeout(() => {
                 if (activeCallRef.current?.callId === nextCall.callId && activeCallRef.current?.status === "outgoing") {
@@ -635,19 +657,32 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 return;
             }
 
-            const participantIds = uniqueIds(data.participantIds || [data.fromUserId]).filter(id => id !== currentUserId);
+            const myUser = (currentUser && (getUserId(currentUser) || currentUser.name)) ? currentUser : getStoredUser();
+            const myId = currentUserId || getUserId(currentUser) || getUserId(myUser) || "";
             const callerUser = data.fromUser || data.callerUser || { _id: data.fromUserId, name: "User" };
-            const isGroupCall = participantIds.length > 1;
+
+            const rawParticipantIds = uniqueIds(data.participantIds || [data.fromUserId]);
+            const otherIds = rawParticipantIds.filter(id => id && id !== myId && id !== data.fromUserId);
+            const isGroupCall = Boolean(
+                data.isGroupCall !== undefined
+                    ? data.isGroupCall
+                    : otherIds.length > 0
+            );
+
+            const displayTitle = isGroupCall
+                ? (data.groupTitle || data.title || "Channel call")
+                : (callerUser?.name || "User");
+
             const incomingCall = {
                 callId: data.callId,
                 type: data.callType === "video" ? "video" : "audio",
                 status: "incoming",
                 peerUser: callerUser,
                 peerUserId: data.fromUserId,
-                participantIds,
+                participantIds: isGroupCall ? rawParticipantIds.filter(id => id !== myId) : [data.fromUserId],
                 isCaller: false,
                 isGroupCall,
-                title: isGroupCall ? (data.title || callerUser?.name || "Group call") : (callerUser?.name || "User"),
+                title: displayTitle,
             };
 
             activeCallRef.current = incomingCall;
@@ -890,7 +925,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const isVideoCall = call.type === "video";
     const connectedCount = remoteParticipants.filter(participant => participant.stream).length;
     const statusLabel = call.status === "incoming"
-        ? `Incoming ${call.isGroupCall ? "group " : ""}${isVideoCall ? "video" : "voice"} call`
+        ? `Incoming ${call.isGroupCall ? "channel " : ""}${isVideoCall ? "video" : "voice"} call`
         : call.status === "outgoing"
         ? "Ringing..."
         : call.status === "connecting"

@@ -24,6 +24,8 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import SecurityIcon from '@mui/icons-material/Security';
 import SettingsApplicationsIcon from '@mui/icons-material/SettingsApplications';
+import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
 import axios from '../../utils/axiosConfig';
 import { toast, ToastContainer } from 'react-toastify';
 
@@ -103,11 +105,38 @@ function EmailSettings() {
   const [testing, setTesting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [testEmail, setTestEmail] = useState('');
+  const [moduleSearch, setModuleSearch] = useState('');
+  const [selectedArea, setSelectedArea] = useState('All');
   const emailModules = meta?.emailModules || [];
   const senderProfiles = meta?.senderProfiles || [];
   const selectedSenderProfile = senderProfiles.find(profile => profile.profileId === form.activeSenderProfileId);
   const statusColor = form.enabled ? '#0f766e' : '#b91c1c';
   const statusLabel = form.enabled ? 'Email service ON' : 'Email service OFF';
+
+  const moduleAreas = useMemo(() => {
+    const areas = new Set(emailModules.map(m => m.area).filter(Boolean));
+    return ['All', ...Array.from(areas)];
+  }, [emailModules]);
+
+  const filteredEmailModules = useMemo(() => {
+    return emailModules.filter((moduleItem) => {
+      const matchesArea = selectedArea === 'All' || moduleItem.area === selectedArea;
+      if (!matchesArea) return false;
+      if (!moduleSearch.trim()) return true;
+      const q = moduleSearch.trim().toLowerCase();
+      return (
+        moduleItem.label?.toLowerCase().includes(q) ||
+        moduleItem.key?.toLowerCase().includes(q) ||
+        (moduleItem.description && moduleItem.description.toLowerCase().includes(q)) ||
+        (moduleItem.area && moduleItem.area.toLowerCase().includes(q))
+      );
+    });
+  }, [emailModules, selectedArea, moduleSearch]);
+
+  const enabledModulesCount = useMemo(() => {
+    return emailModules.filter(m => form.moduleSettings[m.key] !== false).length;
+  }, [emailModules, form.moduleSettings]);
+
   const lastTestLabel = useMemo(() => {
     if (!meta?.lastTestedAt) return 'Not tested yet';
     return `${meta.lastTestStatus === 'success' ? 'Passed' : 'Failed'} - ${new Date(meta.lastTestedAt).toLocaleString()}`;
@@ -477,53 +506,130 @@ function EmailSettings() {
 
             <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, borderRadius: 2, border: '1px solid #e5e7eb' }}>
               <Stack spacing={2.5}>
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                  <SettingsApplicationsIcon sx={{ color: '#0f766e' }} />
-                  <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 900 }}>Page / Module Email Control</Typography>
-                    <Typography color="text.secondary">
-                      Enable or disable outgoing emails independently for every module that sends mail.
-                    </Typography>
-                  </Box>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between">
+                  <Stack direction="row" spacing={1.5} alignItems="center">
+                    <SettingsApplicationsIcon sx={{ color: '#0f766e' }} />
+                    <Box>
+                      <Typography variant="h6" sx={{ fontWeight: 900 }}>Page / Module Email Control</Typography>
+                      <Typography color="text.secondary">
+                        Enable or disable outgoing emails independently for every module that sends mail.
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Chip
+                    label={`${enabledModulesCount} of ${emailModules.length} Enabled`}
+                    color={enabledModulesCount > 0 ? 'success' : 'default'}
+                    variant="outlined"
+                    sx={{ fontWeight: 800, alignSelf: { xs: 'flex-start', sm: 'center' } }}
+                  />
                 </Stack>
 
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5 }}>
-                  {emailModules.map((moduleItem) => {
-                    const enabled = form.moduleSettings[moduleItem.key] !== false;
-                    return (
-                      <Box
-                        key={moduleItem.key}
-                        sx={{
-                          p: 2,
-                          border: '1px solid #e5e7eb',
-                          borderRadius: 1.5,
-                          bgcolor: enabled ? '#f8fafc' : '#fff7ed',
-                          borderColor: enabled ? '#e5e7eb' : '#fed7aa',
-                          transition: 'background-color 260ms ease, border-color 260ms ease, box-shadow 220ms ease',
-                          '&:hover': { boxShadow: '0 8px 22px -18px rgba(15, 23, 42, .45)' }
-                        }}
-                      >
-                        <Stack direction="row" spacing={1.5} alignItems="flex-start" justifyContent="space-between">
-                          <Box sx={{ minWidth: 0 }}>
-                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.75, flexWrap: 'wrap' }}>
-                              <Typography sx={{ fontWeight: 900, color: '#111827' }}>{moduleItem.label}</Typography>
-                              <Chip size="small" label={moduleItem.area} sx={{ height: 22, fontWeight: 800 }} />
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between">
+                  <TextField
+                    size="small"
+                    placeholder="Search modules (e.g. client, welcome, otp)..."
+                    value={moduleSearch}
+                    onChange={(e) => setModuleSearch(e.target.value)}
+                    sx={{ minWidth: { xs: '100%', md: 280 } }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: moduleSearch ? (
+                        <InputAdornment position="end">
+                          <IconButton size="small" onClick={() => setModuleSearch('')} edge="end">
+                            <ClearIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </InputAdornment>
+                      ) : null
+                    }}
+                  />
+
+                  {moduleAreas.length > 1 && (
+                    <Stack direction="row" spacing={0.75} sx={{ overflowX: 'auto', py: 0.5, maxWidth: '100%' }}>
+                      {moduleAreas.map((area) => {
+                        const isSelected = selectedArea === area;
+                        return (
+                          <Chip
+                            key={area}
+                            label={area}
+                            onClick={() => setSelectedArea(area)}
+                            color={isSelected ? 'primary' : 'default'}
+                            variant={isSelected ? 'filled' : 'outlined'}
+                            size="small"
+                            sx={{ fontWeight: isSelected ? 800 : 500, cursor: 'pointer' }}
+                          />
+                        );
+                      })}
+                    </Stack>
+                  )}
+                </Stack>
+
+                {filteredEmailModules.length === 0 ? (
+                  <Alert severity="info" sx={{ borderRadius: 2 }}>
+                    No modules match your search query &quot;{moduleSearch}&quot;.
+                    <Button size="small" onClick={() => { setModuleSearch(''); setSelectedArea('All'); }} sx={{ ml: 1, textTransform: 'none', fontWeight: 800 }}>
+                      Reset filters
+                    </Button>
+                  </Alert>
+                ) : (
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5 }}>
+                    {filteredEmailModules.map((moduleItem) => {
+                      const enabled = form.moduleSettings[moduleItem.key] !== false;
+                      const isClientWelcome = moduleItem.key === 'client_welcome';
+                      return (
+                        <Box
+                          key={moduleItem.key}
+                          sx={{
+                            p: 2,
+                            border: isClientWelcome ? '2px solid #0d9488' : '1px solid #e5e7eb',
+                            borderRadius: 1.5,
+                            bgcolor: isClientWelcome
+                              ? (enabled ? '#f0fdfa' : '#fff7ed')
+                              : (enabled ? '#f8fafc' : '#fff7ed'),
+                            borderColor: enabled ? (isClientWelcome ? '#0d9488' : '#e5e7eb') : '#fed7aa',
+                            transition: 'background-color 260ms ease, border-color 260ms ease, box-shadow 220ms ease',
+                            '&:hover': { boxShadow: '0 8px 22px -18px rgba(15, 23, 42, .45)' }
+                          }}
+                        >
+                          <Stack direction="row" spacing={1.5} alignItems="flex-start" justifyContent="space-between">
+                            <Box sx={{ minWidth: 0 }}>
+                              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.75, flexWrap: 'wrap', gap: 0.5 }}>
+                                <Typography sx={{ fontWeight: 900, color: '#111827' }}>{moduleItem.label}</Typography>
+                                <Chip size="small" label={moduleItem.area} sx={{ height: 22, fontWeight: 800 }} />
+                                {isClientWelcome && (
+                                  <Chip
+                                    size="small"
+                                    label="/ciisUser/emp-client"
+                                    sx={{
+                                      height: 20,
+                                      fontSize: 11,
+                                      fontWeight: 800,
+                                      bgcolor: '#ccfbf1',
+                                      color: '#0f766e',
+                                      border: '1px solid #99f6e4'
+                                    }}
+                                  />
+                                )}
+                              </Stack>
+                              <Typography color="text.secondary" sx={{ fontSize: 13, lineHeight: 1.45 }}>
+                                {moduleItem.description}
+                              </Typography>
+                            </Box>
+                            <Stack alignItems="center" spacing={0.5}>
+                              <InstantToggle checked={enabled} onToggle={(nextValue) => updateModuleSetting(moduleItem.key, nextValue)} label={`${moduleItem.label} email`} />
+                              <Typography sx={{ minWidth: 26, textAlign: 'center', fontSize: 11, fontWeight: 900, color: enabled ? '#0f766e' : '#b45309', transition: 'color 220ms ease' }}>
+                                {enabled ? 'ON' : 'OFF'}
+                              </Typography>
                             </Stack>
-                            <Typography color="text.secondary" sx={{ fontSize: 13, lineHeight: 1.45 }}>
-                              {moduleItem.description}
-                            </Typography>
-                          </Box>
-                          <Stack alignItems="center" spacing={0.5}>
-                            <InstantToggle checked={enabled} onToggle={(nextValue) => updateModuleSetting(moduleItem.key, nextValue)} label={`${moduleItem.label} email`} />
-                            <Typography sx={{ minWidth: 26, textAlign: 'center', fontSize: 11, fontWeight: 900, color: enabled ? '#0f766e' : '#b45309', transition: 'color 220ms ease' }}>
-                              {enabled ? 'ON' : 'OFF'}
-                            </Typography>
                           </Stack>
-                        </Stack>
-                      </Box>
-                    );
-                  })}
-                </Box>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                )}
               </Stack>
             </Paper>
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, BellOff, Check, Edit, Lock, MoreVertical, Search, SlidersHorizontal, Users, X } from "lucide-react";
+import { ArrowLeft, BellOff, Check, Edit, Lock, Search, SlidersHorizontal, Users, X } from "lucide-react";
 import { API_URL_IMG } from "../config";
 import { resolveAvatarUrl } from "./messageUtils";
 
@@ -30,7 +30,7 @@ const ChatSidebar = ({
 
     const getLastMessageText = item => {
         const message = item?.lastMessage;
-        if (!message) return item?.isGroup ? "Group chat" : (item?.companyRole || "Direct message");
+        if (!message) return item?.isGroup ? "Channel chat" : (item?.companyRole || "Direct message");
         if (message.deletedForEveryone) return "This message was deleted";
         if (message.messageType === "system" && message.systemEvent?.type === "disappearing_messages_changed") {
             const actorId = message.systemEvent.actor?._id || message.systemEvent.actor || message.sender?._id || message.sender;
@@ -119,7 +119,7 @@ const ChatSidebar = ({
 
     const getGroupName = (group) => {
         if (!group) return "";
-        return group.name || group.groupName || group.group_name || group.title || "Unnamed Group";
+        return group.name || group.groupName || group.group_name || group.title || "Unnamed Channel";
     };
 
     const getGroupMemberCount = (group) => {
@@ -167,7 +167,6 @@ const ChatSidebar = ({
     const filteredGroups = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();
         return (groups || []).filter(group => {
-            if (!hasStartedConversation(group)) return false;
             if (activeFilter === "unread" && getBadgeCount(group) <= 0) return false;
             if (activeFilter === "favourites" && !(group.isFavourite || group.isFavorite || group.favorite)) return false;
             return ["groups", "all", "unread", "favourites"].includes(activeFilter) && [
@@ -229,13 +228,13 @@ const ChatSidebar = ({
 
     const conversationStats = useMemo(() => {
         const startedUsers = (users || []).filter(hasStartedConversation);
-        const startedGroups = (groups || []).filter(hasStartedConversation);
-        const allItems = [...startedUsers, ...startedGroups];
+        const allGroups = groups || [];
+        const allItems = [...startedUsers, ...allGroups];
 
         return {
             all: allItems.length,
             unread: allItems.filter(item => getBadgeCount(item) > 0).length,
-            groups: startedGroups.length,
+            groups: allGroups.length,
             favourites: allItems.filter(item => item.isFavourite || item.isFavorite || item.favorite).length,
         };
     }, [users, groups, unreadCounts]);
@@ -294,7 +293,7 @@ const ChatSidebar = ({
         const members = selectedGroupMemberIds;
 
         if (!name) {
-            setGroupError("Group name required");
+            setGroupError("Channel name required");
             return;
         }
 
@@ -308,7 +307,7 @@ const ChatSidebar = ({
             await onCreateGroup?.({ name, members });
             closeGroupPanel();
         } catch (error) {
-            setGroupError(error?.response?.data?.error || error?.response?.data?.message || "Group create failed");
+            setGroupError(error?.response?.data?.error || error?.response?.data?.message || "Channel create failed");
         }
     };
 
@@ -324,14 +323,11 @@ const ChatSidebar = ({
                         <button className="sidebar-icon" title="New chat" type="button" onClick={openNewChatPanel}>
                             <Edit size={18} />
                         </button>
-                        <button className="sidebar-icon" title="Create group" type="button" onClick={openGroupPanel}>
+                        <button className="sidebar-icon" title="Create channel" type="button" onClick={openGroupPanel}>
                             <Users size={18} />
                         </button>
                         <button className="sidebar-icon" title="Show unread" type="button" onClick={() => setActiveFilter(prev => prev === "unread" ? "all" : "unread")}>
                             <SlidersHorizontal size={18} />
-                        </button>
-                        <button className="sidebar-icon" title="More" type="button">
-                            <MoreVertical size={18} />
                         </button>
                     </div>
                 </div>
@@ -349,7 +345,7 @@ const ChatSidebar = ({
                 <div className="chat-filter-tabs">
                     <button type="button" className={activeFilter === "all" ? "active" : ""} onClick={() => setActiveFilter("all")}>All <span>{conversationStats.all}</span></button>
                     <button type="button" className={activeFilter === "unread" ? "active" : ""} onClick={() => setActiveFilter("unread")}>Unread <span>{conversationStats.unread}</span></button>
-                    <button type="button" className={activeFilter === "groups" ? "active" : ""} onClick={() => setActiveFilter("groups")}>Groups <span>{conversationStats.groups}</span></button>
+                    <button type="button" className={activeFilter === "groups" ? "active" : ""} onClick={() => setActiveFilter("groups")}>Channels <span>{conversationStats.groups}</span></button>
                     <button type="button" className={activeFilter === "favourites" ? "active" : ""} onClick={() => setActiveFilter("favourites")}>Favourites <span>{conversationStats.favourites}</span></button>
                 </div>
 
@@ -429,56 +425,73 @@ const ChatSidebar = ({
                         </div>
                     ))}
 
-                    {filteredGroups.map((group, index) => (
-                        <div
-                            key={group._id || group.id}
-                            className={
-                                selectedUser?._id === (group._id || group.id)
-                                    ? "chat-user active"
-                                    : "chat-user"
-                            }
-                            onClick={() => setSelectedUser({ ...group, isGroup: true })}
-                        >
-                            <div className="chat-user-avatar">
-                                <Users size={20} />
-                            </div>
+                    {filteredGroups.map((group, index) => {
+                        const groupId = (group._id || group.id || "").toString();
+                        const isSelected = (selectedUser?._id || selectedUser?.id || "").toString() === groupId;
+                        const avatarSrc = getAvatarSrc(group.avatar || group.profileImage || group.image);
+                        const groupInitial = (getGroupName(group) || "C").charAt(0).toUpperCase();
 
-                            <div className="chat-user-body">
-                                <div className="chat-user-row">
-                                    <div className="chat-user-name">
-                                        {getGroupName(group)}
-                                    </div>
-                                    <span className="chat-user-time">{getLastMessageTime(group)}</span>
-                                    {isConversationMuted(group) && (
-                                        <span className="chat-user-muted" title="Notifications muted" aria-label="Notifications muted">
-                                            <BellOff size={13} />
-                                        </span>
-                                    )}
-                                    {getBadgeCount(group) > 0 && (
-                                        <div className="chat-user-badge">
-                                            {getBadgeCount(group)}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="chat-user-department">
-                                    {group.department || ""}
-                                </div>
-                                <div className="chat-user-role">
-                                    <span className={getGroupOnlineCount(group) > 0 ? "status-dot" : "status-dot offline"} />
-                                    <span className="chat-last-message">
-                                        {getGroupOnlineCount(group) > 0
-                                            ? `${getGroupOnlineCount(group)} online`
-                                            : "Offline"}
-                                        {" - "}
-                                        {getLastMessageText(group)}
+                        return (
+                            <div
+                                key={groupId}
+                                className={isSelected ? "chat-user active" : "chat-user"}
+                                onClick={() => setSelectedUser({ ...group, isGroup: true })}
+                            >
+                                <div className="chat-user-avatar">
+                                    {avatarSrc ? (
+                                        <img
+                                            src={avatarSrc}
+                                            alt={getGroupName(group)}
+                                            onError={(e) => {
+                                                e.currentTarget.style.display = "none";
+                                                if (e.currentTarget.nextSibling) {
+                                                    e.currentTarget.nextSibling.style.display = "inline";
+                                                }
+                                            }}
+                                        />
+                                    ) : null}
+                                    <span style={{ display: avatarSrc ? "none" : "inline" }}>
+                                        {groupInitial}
                                     </span>
-                                    {getGroupMemberCount(group) > 0 && (
-                                        <span className="chat-member-count">{getGroupMemberCount(group)} members</span>
-                                    )}
+                                </div>
+
+                                <div className="chat-user-body">
+                                    <div className="chat-user-row">
+                                        <div className="chat-user-name">
+                                            {getGroupName(group)}
+                                        </div>
+                                        <span className="chat-user-time">{getLastMessageTime(group)}</span>
+                                        {isConversationMuted(group) && (
+                                            <span className="chat-user-muted" title="Notifications muted" aria-label="Notifications muted">
+                                                <BellOff size={13} />
+                                            </span>
+                                        )}
+                                        {getBadgeCount(group) > 0 && (
+                                            <div className="chat-user-badge">
+                                                {getBadgeCount(group)}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="chat-user-department">
+                                        {group.department || "Channel conversation"}
+                                    </div>
+                                    <div className="chat-user-role">
+                                        <span className={getGroupOnlineCount(group) > 0 ? "status-dot" : "status-dot offline"} />
+                                        <span className="chat-last-message">
+                                            {getGroupOnlineCount(group) > 0
+                                                ? `${getGroupOnlineCount(group)} online`
+                                                : "Offline"}
+                                            {" - "}
+                                            {getLastMessageText(group)}
+                                        </span>
+                                        {getGroupMemberCount(group) > 0 && (
+                                            <span className="chat-member-count">{getGroupMemberCount(group)} members</span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
 
                     {filteredGroups.length === 0 && filteredUsers.length === 0 && (
                         <div className="chat-sidebar-empty">No conversations found</div>
@@ -578,7 +591,7 @@ const ChatSidebar = ({
                             {groupStep === "details" ? <ArrowLeft size={20} /> : <X size={20} />}
                         </button>
                         <div>
-                            <strong>{groupStep === "details" ? "New group" : "Add group members"}</strong>
+                            <strong>{groupStep === "details" ? "New channel" : "Add channel members"}</strong>
                             <small>{selectedGroupMemberIds.length ? `${selectedGroupMemberIds.length} selected` : "Select contacts"}</small>
                         </div>
                     </div>
@@ -683,7 +696,7 @@ const ChatSidebar = ({
                                 type="text"
                                 value={groupName}
                                 onChange={event => setGroupName(event.target.value)}
-                                placeholder="Group name"
+                                placeholder="Channel name"
                                 autoFocus
                             />
                             <small>{selectedGroupMemberIds.length} members selected</small>
@@ -693,7 +706,7 @@ const ChatSidebar = ({
                                 onClick={createGroup}
                                 disabled={!groupName.trim() || selectedGroupMemberIds.length === 0}
                             >
-                                Create Group
+                                Create Channel
                             </button>
                         </div>
                     )}

@@ -182,6 +182,10 @@ function App() {
           <Route path="emp-details" element={<EmppDetail />} />
           <Route path="emp-leaves" element={<EmppLeave />} />
           <Route path="emp-assets" element={<EmppAsset />} />
+          <Route path="company-assets" element={<CompanyAssetManagement />} />
+          <Route path="company-assets/branch/:branchId" element={<CompanyAssetManagement />} />
+          <Route path="asset-management" element={<CompanyAssetManagement />} />
+          <Route path="asset-management/branch/:branchId" element={<CompanyAssetManagement />} />
           <Route path="emp-attendance" element={<EmppAttendence />} />
           <Route path="emp-task-details" element={<TaskDeatils />} />
           <Route path="admin-task-create" element={<AdminTaskCreate />} />

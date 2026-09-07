@@ -12,6 +12,7 @@ const APP_ROUTES = [
   { path: 'emp-leaves', name: 'Employee Leaves', icon: 'EventNote', category: 'administration' },
   { path: 'leave-policy', name: 'Leave Policy', icon: 'Assignment', category: 'administration' },
   { path: 'emp-assets', name: 'Employee Assets', icon: 'Computer', category: 'administration' },
+  { path: 'company-assets', name: 'Asset Management', icon: 'Computer', category: 'administration' },
   { path: 'emp-attendance', name: 'Employee Attendance', icon: 'CalendarToday', category: 'administration' },
   { path: 'department', name: 'Department Management', icon: 'Apartment', category: 'administration' },
   { path: 'JobRoleManagement', name: 'Job Role Management', icon: 'Work', category: 'administration' },
@@ -129,6 +130,17 @@ const getRouteAccessKeys = (route) => {
     keys.add(`/client/${clientPath}`);
     keys.add(`client/${clientPath}`);
     keys.add(clientPath);
+  }
+
+  if (cleanPath === 'company-assets' || cleanPath === 'asset-management') {
+    keys.add('company-assets');
+    keys.add('asset-management');
+    keys.add('/ciisUser/company-assets');
+    keys.add('ciisUser/company-assets');
+    keys.add('/ciisUser/asset-management');
+    keys.add('ciisUser/asset-management');
+    keys.add('/Ciis-network/company-assets');
+    keys.add('Ciis-network/company-assets');
   }
 
   return keys;
@@ -440,17 +452,8 @@ const SidebarManagement = () => {
       });
       if (response.data && response.data.success) {
         setBranches(response.data.branches || []);
-        
-        const defaultBr = response.data.branches?.find(b => b.isDefault);
-        if (defaultBr) {
-          setSelectedBranch(defaultBr._id);
-          await fetchDepartments(companyId, defaultBr._id);
-        } else if (response.data.branches?.length > 0) {
-          setSelectedBranch(response.data.branches[0]._id);
-          await fetchDepartments(companyId, response.data.branches[0]._id);
-        } else {
-          await fetchDepartments(companyId);
-        }
+        setSelectedBranch('');
+        await fetchDepartments(companyId);
       }
     } catch (error) {
       console.error('Error fetching branches:', error);
@@ -781,7 +784,9 @@ const SidebarManagement = () => {
         : config.departmentId;
       
       const roleId = config.role;
+      const branchId = typeof config.branchId === 'object' ? config.branchId?._id : (config.branchId || '');
       
+      setSelectedBranch(branchId || '');
       setSelectedDepartment(departmentId);
       setSelectedRole(roleId);
       setDepartmentSearch(getDepartmentName(config.departmentId));
@@ -1096,6 +1101,7 @@ const SidebarManagement = () => {
         });
         
         await loadExistingConfig(company._id, selectedDepartment, selectedRole);
+        window.dispatchEvent(new Event('ciis-sidebar-config-updated'));
       } else {
         throw new Error(response.data.message || 'Save failed');
       }
@@ -1465,7 +1471,7 @@ const SidebarManagement = () => {
                           disabled={!company || branches.length === 0}
                           style={{ appearance: 'none', background: 'transparent', outline: 'none' }}
                         >
-                          <option value="">Select Branch</option>
+                          <option value="">🏢 All Branches (Entire Company)</option>
                           {branches.map(br => (
                             <option key={br._id || br.id} value={br._id || br.id}>
                               {br.name} ({br.branchCode})

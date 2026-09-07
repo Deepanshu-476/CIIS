@@ -23,6 +23,8 @@ import {
 import { useSocket } from "../../context/SocketContext";
 import { useCall } from "../../context/CallContext";
 import {
+  ArrowLeft,
+  Check,
   MessageCircle,
   MoreVertical,
   Phone,
@@ -43,6 +45,7 @@ import {
   Monitor,
   UserCircle,
   KeyRound,
+  X,
 } from "lucide-react";
 
 const getEntityId = value => {
@@ -76,7 +79,7 @@ const isTruthyOnline = value => (
 
 const getDisplayName = item => (
   item?.isGroup
-    ? item.name || item.groupName || item.group_name || item.title || "Group"
+    ? item.name || item.groupName || item.group_name || item.title || "Channel"
     : item?.name || item?.email || item?.phone || "User"
 );
 
@@ -105,231 +108,282 @@ const getCallLabel = call => {
   return `${direction} ${type} call`;
 };
 
-const LegacyChatStatusPanel = ({
-  users,
+const ChatChannelsPanel = ({
   groups,
-  statuses,
-  addStatus,
-  deleteStatus,
   setSelectedUser,
   onOpenChats,
-  title = "Status",
-  subtitle = "Recent updates",
+  companyUsers = [],
+  onCreateGroup,
+  currentUserId,
 }) => {
-  const [statusText, setStatusText] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState(null);
-  const [showStatusOptions, setShowStatusOptions] = useState(false);
-  const statusFileInputRef = React.useRef(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [groupStep, setGroupStep] = useState("members");
+  const [groupSearch, setGroupSearch] = useState("");
+  const [groupName, setGroupName] = useState("");
+  const [selectedGroupMemberIds, setSelectedGroupMemberIds] = useState([]);
+  const [groupError, setGroupError] = useState("");
 
-  const handleImage = event => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const sortedCompanyUsers = React.useMemo(() => (
+    [...companyUsers].sort((first, second) => (
+      String(first?.name || "").localeCompare(String(second?.name || ""))
+    ))
+  ), [companyUsers]);
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const image = String(reader.result || "");
-      const text = statusText.trim();
-      addStatus({ text, image });
-      setSelectedStatus({
-        id: `my-status-${Date.now()}`,
-        sourceStatusId: "",
-        title: "My status",
-        time: "Just now",
-        image,
-        text: text || "Image status",
-        viewed: false,
-        isOwn: true,
-      });
-      setStatusText("");
-    };
-    reader.readAsDataURL(file);
-    event.target.value = "";
+  const selectableCompanyUsers = React.useMemo(() => (
+    sortedCompanyUsers.filter(user => getItemId(user) !== currentUserId)
+  ), [sortedCompanyUsers, currentUserId]);
+
+  const filteredGroupUsers = React.useMemo(() => {
+    const query = groupSearch.trim().toLowerCase();
+    return selectableCompanyUsers.filter(user => [
+      user.name,
+      user.email,
+      user.phone,
+      getItemId(user),
+    ].some(value => !query || String(value || "").toLowerCase().includes(query)));
+  }, [selectableCompanyUsers, groupSearch]);
+
+  const selectedGroupUsers = React.useMemo(() => (
+    selectableCompanyUsers.filter(user => selectedGroupMemberIds.includes(getItemId(user)))
+  ), [selectableCompanyUsers, selectedGroupMemberIds]);
+
+  const toggleGroupMember = user => {
+    const userId = getItemId(user);
+    if (!userId) return;
+    setSelectedGroupMemberIds(prev => (
+      prev.includes(userId)
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    ));
   };
 
-  const statusTime = value => {
-    if (!value) return "Today";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "Today";
-    const today = new Date();
-    const yesterday = new Date();
-    yesterday.setDate(today.getDate() - 1);
-    const time = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    if (date.toDateString() === today.toDateString()) return `Today at ${time}`;
-    if (date.toDateString() === yesterday.toDateString()) return `Yesterday at ${time}`;
-    return date.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  const closeGroupPanel = () => {
+    setShowCreateGroup(false);
+    setGroupStep("members");
+    setGroupSearch("");
+    setGroupName("");
+    setSelectedGroupMemberIds([]);
+    setGroupError("");
   };
 
-  const ownStatus = statuses[0] || null;
-  const ownStatusPreview = ownStatus ? {
-    id: `my-status-${ownStatus.id || ownStatus.createdAt || "latest"}`,
-    sourceStatusId: ownStatus.id,
-    title: "My status",
-    time: statusTime(ownStatus.createdAt),
-    image: ownStatus.image || "",
-    text: ownStatus.text || "Image status",
-    viewed: false,
-    isOwn: true,
-  } : null;
-  const getUserStatusPayload = item => {
-    const statusSource = item?.latestStatus || item?.statusUpdate || item?.story || item?.status;
-    if (statusSource && typeof statusSource === "object") return statusSource;
-    if (Array.isArray(item?.statuses) && item.statuses.length) return item.statuses[0];
-    if (Array.isArray(item?.stories) && item.stories.length) return item.stories[0];
-    return null;
+  const handleCreateNewChannel = async () => {
+    const name = groupName.trim();
+    const members = selectedGroupMemberIds;
+
+    if (!name) {
+      setGroupError("Channel name required");
+      return;
+    }
+
+    if (members.length === 0) {
+      setGroupError("Add at least one user ID");
+      return;
+    }
+
+    try {
+      setGroupError("");
+      await onCreateGroup?.({ name, members });
+      closeGroupPanel();
+    } catch (error) {
+      setGroupError(error?.response?.data?.error || error?.response?.data?.message || "Channel create failed");
+    }
   };
 
-  const contactStatuses = [...(users || []), ...(groups || [])]
-    .map((item, index) => {
-      const status = getUserStatusPayload(item);
-      if (!status) return null;
-
-      const createdAt = status.createdAt || status.updatedAt || status.time || item.statusAt || item.updatedAt;
-      return {
-        id: `contact-status-${getItemId(item) || index}-${status.id || status._id || createdAt || index}`,
-        title: getDisplayName(item),
-        time: statusTime(createdAt),
-        image: status.image || status.mediaUrl || status.fileUrl || status.url || item.avatar || item.profileImage || item.image || "",
-        text: status.text || status.caption || "Status update",
-        viewed: Boolean(status.viewed || status.isViewed || status.seen),
-      };
-    })
-    .filter(Boolean);
-  const recentStatuses = contactStatuses.filter(status => !status.viewed);
-  const viewedStatuses = contactStatuses.filter(status => status.viewed);
-  const isCommunities = title !== "Status";
-
-  const renderStatusItem = status => (
-    <button
-      className={selectedStatus?.id === status.id ? "chat-status-card active" : "chat-status-card"}
-      type="button"
-      key={status.id}
-      onClick={() => setSelectedStatus(status)}
-    >
-      <span className={status.viewed ? "chat-status-avatar viewed" : "chat-status-avatar"}>
-        {status.image ? <img src={status.image} alt="" /> : status.title.charAt(0).toUpperCase()}
-      </span>
-      <span>
-        <strong>{status.title}</strong>
-        <small>{status.time}</small>
-      </span>
-    </button>
-  );
+  const filteredChannels = (groups || []).filter(item => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return true;
+    return getDisplayName(item).toLowerCase().includes(query);
+  });
 
   return (
-    <aside className="chat-sidebar chat-view-panel chat-status-panel">
+    <aside className={`chat-sidebar chat-view-panel ${showCreateGroup ? "group-panel-open" : ""}`.trim()}>
       <section className="chat-sidebar-card conversations-card">
         <div className="sidebar-top">
           <div>
-            <div className="sidebar-title">{title}</div>
-            <div className="sidebar-subtitle">{isCommunities ? subtitle : "Share photos, videos and text"}</div>
-          </div>
-          {!isCommunities && (
-            <div className="sidebar-actions">
-              <button className="sidebar-icon" type="button" title="Create status" onClick={() => statusFileInputRef.current?.click()}>
-                <Plus size={18} />
-              </button>
-              <button className="sidebar-icon" type="button" title="More">
-                <MoreVertical size={18} />
-              </button>
+            <div className="sidebar-title">Channels</div>
+            <div className="sidebar-subtitle">
+              {`${groups.length} channel conversation${groups.length === 1 ? "" : "s"}`}
             </div>
-          )}
-          {isCommunities && (
-            <button className="sidebar-icon" type="button" title="Create group">
-              <Plus size={17} />
-            </button>
-          )}
-        </div>
-        <input
-          ref={statusFileInputRef}
-          className="chat-status-file-input"
-          type="file"
-          accept="image/*"
-          onChange={handleImage}
-        />
-        <div className="chat-status-list">
-          <button className="chat-status-card own-status" type="button" onClick={() => ownStatusPreview ? setSelectedStatus(ownStatusPreview) : statusFileInputRef.current?.click()}>
-            <span className="chat-status-avatar">{ownStatus?.image ? <img src={ownStatus.image} alt="" /> : (ownStatus?.text || "U").charAt(0).toUpperCase()}<i>+</i></span>
-            <span>
-              <strong>My status</strong>
-              <small>{ownStatus ? statusTime(ownStatus.createdAt) : "Click to add status update"}</small>
-            </span>
+          </div>
+          <button
+            className="sidebar-icon"
+            type="button"
+            title="Create channel"
+            onClick={() => setShowCreateGroup(true)}
+          >
+            <Plus size={17} />
           </button>
-          {!isCommunities && <div className="chat-status-section-label">Recent</div>}
-          {!isCommunities && recentStatuses.map(renderStatusItem)}
-          {!isCommunities && recentStatuses.length === 0 && (
-            <div className="chat-sidebar-empty">No recent status updates</div>
-          )}
-          {!isCommunities && viewedStatuses.length > 0 && <div className="chat-status-section-label">Viewed</div>}
-          {!isCommunities && viewedStatuses.map(renderStatusItem)}
-          {isCommunities && [...(groups || [])].map(item => (
-            <button className="chat-status-card" type="button" key={getItemId(item)} onClick={() => { setSelectedUser(item); onOpenChats(); }}>
-              <span className="chat-status-avatar viewed">{getDisplayName(item).charAt(0).toUpperCase()}</span>
-              <span><strong>{getDisplayName(item)}</strong><small>Group conversation</small></span>
+        </div>
+
+        <div className="chat-search-wrap" style={{ margin: "0 12px 10px" }}>
+          <Search className="chat-search-icon" size={17} />
+          <input
+            type="text"
+            className="chat-search"
+            placeholder="Search channels"
+            value={searchTerm}
+            onChange={event => setSearchTerm(event.target.value)}
+          />
+        </div>
+
+        <div className="chat-status-list">
+          {filteredChannels.map(item => (
+            <button
+              className="chat-status-card"
+              type="button"
+              key={getItemId(item)}
+              onClick={() => {
+                setSelectedUser(item);
+                onOpenChats();
+              }}
+            >
+              <span className="chat-status-avatar viewed">
+                {getDisplayName(item).charAt(0).toUpperCase()}
+              </span>
+              <span>
+                <strong>{getDisplayName(item)}</strong>
+                <small>Channel conversation</small>
+              </span>
             </button>
           ))}
+          {filteredChannels.length === 0 && (
+            <div className="chat-sidebar-empty">
+              {searchTerm.trim() ? "No channels found" : "No channel conversations"}
+            </div>
+          )}
         </div>
-        {!isCommunities && (
-          <div className="chat-status-detail">
-            <div className="chat-status-empty">
-              <TimerReset size={52} />
-              <h2>Share statuses</h2>
-              <p>Share photos, videos and text that disappear after 24 hours.</p>
+      </section>
+
+      {showCreateGroup && (
+        <section className="chat-group-slide-panel">
+          <div className="chat-group-slide-head">
+            <button
+              type="button"
+              onClick={groupStep === "details" ? () => setGroupStep("members") : closeGroupPanel}
+              title="Back"
+            >
+              {groupStep === "details" ? <ArrowLeft size={20} /> : <X size={20} />}
+            </button>
+            <div>
+              <strong>{groupStep === "details" ? "New channel" : "Add channel members"}</strong>
+              <small>{selectedGroupMemberIds.length ? `${selectedGroupMemberIds.length} selected` : "Select contacts"}</small>
             </div>
           </div>
-        )}
-        {!isCommunities && selectedStatus && (
-          <div className="chat-status-viewer">
-            <button type="button" className="chat-status-viewer-back" onClick={() => setSelectedStatus(null)} aria-label="Back">←</button>
-            <button type="button" className="chat-status-viewer-close" onClick={() => setSelectedStatus(null)} aria-label="Close">×</button>
-            <div className="chat-status-viewer-blur">
-              {selectedStatus.image && <img src={selectedStatus.image} alt="" />}
-            </div>
-            <div className="chat-status-story">
-              <div className="chat-status-progress"><span /></div>
-              <div className="chat-status-story-head">
-                <span className="chat-status-avatar">
-                  {selectedStatus.image ? <img src={selectedStatus.image} alt="" /> : selectedStatus.title.charAt(0).toUpperCase()}
-                </span>
-                <span>
-                  <strong>{selectedStatus.title}</strong>
-                  <small>{selectedStatus.time}</small>
-                </span>
-                <button type="button" className="chat-status-story-close" onClick={() => setSelectedStatus(null)} aria-label="Close">×</button>
-                <span className="chat-status-story-menu">
-                  <button type="button" aria-label="More" onClick={() => setShowStatusOptions(prev => !prev)}><MoreVertical size={20} /></button>
-                  {showStatusOptions && selectedStatus.isOwn && (
-                    <button
-                      type="button"
-                      className="chat-status-delete-option"
-                      onClick={() => {
-                        deleteStatus?.(selectedStatus.sourceStatusId);
-                        setSelectedStatus(null);
-                        setShowStatusOptions(false);
-                      }}
-                    >
-                      Delete status
-                    </button>
-                  )}
-                </span>
+
+          {groupStep === "members" ? (
+            <>
+              <div className="chat-group-search">
+                <Search size={17} />
+                <input
+                  value={groupSearch}
+                  onChange={event => setGroupSearch(event.target.value)}
+                  placeholder="Search name or user ID"
+                />
               </div>
-              <div className={selectedStatus.image ? "chat-status-story-media" : "chat-status-story-media text-only"}>
-                {selectedStatus.image ? (
-                  <img src={selectedStatus.image} alt={selectedStatus.title} />
-                ) : (
-                  <p>{selectedStatus.text}</p>
-                )}
-              </div>
-              {!selectedStatus.isOwn && (
-                <div className="chat-status-reply">
-                  <button type="button" aria-label="Emoji">☺</button>
-                  <input placeholder="Type a reply..." />
-                  <button type="button" aria-label="Send">➤</button>
+
+              {selectedGroupUsers.length > 0 && (
+                <div className="chat-selected-members">
+                  {selectedGroupUsers.map(user => {
+                    const avatarSrc = resolveAvatarUrl(user);
+                    return (
+                      <button type="button" key={getItemId(user)} onClick={() => toggleGroupMember(user)}>
+                        {avatarSrc ? (
+                          <span style={{ width: 18, height: 18, borderRadius: "50%", overflow: "hidden", display: "inline-flex", flexShrink: 0 }}>
+                            <img
+                              src={avatarSrc}
+                              alt=""
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                              onError={e => { e.currentTarget.parentElement.style.display = "none"; }}
+                            />
+                          </span>
+                        ) : (
+                          <span>{user.name?.charAt(0).toUpperCase() || "U"}</span>
+                        )}
+                        {user.name || user.email || getItemId(user)}
+                        <X size={12} />
+                      </button>
+                    );
+                  })}
                 </div>
               )}
+
+              <div className="chat-group-user-list">
+                {filteredGroupUsers.map(user => {
+                  const userId = getItemId(user);
+                  const isSelected = selectedGroupMemberIds.includes(userId);
+                  const avatarSrc = resolveAvatarUrl(user);
+                  return (
+                    <button
+                      type="button"
+                      key={userId}
+                      className={isSelected ? "chat-group-user selected" : "chat-group-user"}
+                      onClick={() => toggleGroupMember(user)}
+                    >
+                      <span className="chat-user-avatar">
+                        {avatarSrc ? (
+                          <img
+                            src={avatarSrc}
+                            alt={user.name || "User"}
+                            onError={e => {
+                              e.currentTarget.style.display = "none";
+                              if (e.currentTarget.nextSibling) {
+                                e.currentTarget.nextSibling.style.display = "inline";
+                              }
+                            }}
+                          />
+                        ) : null}
+                        <span style={{ display: avatarSrc ? "none" : "inline" }}>
+                          {user.name?.charAt(0).toUpperCase() || "U"}
+                        </span>
+                      </span>
+                      <span>
+                        <strong>{user.name || user.email || userId}</strong>
+                        <small>{user.companyRole || user.email || userId}</small>
+                      </span>
+                      {isSelected && <span className="chat-group-check"><Check size={14} /></span>}
+                    </button>
+                  );
+                })}
+                {filteredGroupUsers.length === 0 && (
+                  <div className="chat-sidebar-empty">No user found</div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="chat-group-next"
+                onClick={() => setGroupStep("details")}
+                disabled={selectedGroupMemberIds.length === 0}
+              >
+                Next
+              </button>
+            </>
+          ) : (
+            <div className="chat-group-details">
+              <div className="chat-group-avatar-preview">
+                <Users size={30} />
+              </div>
+              <input
+                type="text"
+                value={groupName}
+                onChange={event => setGroupName(event.target.value)}
+                placeholder="Channel name"
+                autoFocus
+              />
+              <small>{selectedGroupMemberIds.length} members selected</small>
+              {groupError && <small className="chat-form-error">{groupError}</small>}
+              <button
+                type="button"
+                onClick={handleCreateNewChannel}
+                disabled={!groupName.trim() || selectedGroupMemberIds.length === 0}
+              >
+                Create Channel
+              </button>
             </div>
-          </div>
-        )}
-      </section>
+          )}
+        </section>
+      )}
     </aside>
   );
 };
@@ -366,8 +420,6 @@ const ChatCallsPanel = ({
     ].some(value => String(value || "").toLowerCase().includes(query));
   });
 
-  const favouriteTargets = [...(users || []), ...(groups || [])].slice(0, 3);
-
   return (
     <aside className="chat-sidebar chat-view-panel chat-calls-panel">
       <section className="chat-sidebar-card conversations-card">
@@ -388,38 +440,6 @@ const ChatCallsPanel = ({
             onChange={event => setSearchTerm(event.target.value)}
             placeholder="Search name or number"
           />
-        </div>
-
-        <div className="chat-call-section-title">Favourites</div>
-        <div className="chat-call-favourites">
-          <button type="button" className="chat-call-favourite-add" onClick={() => setSelectedCallId("")}>
-            <span><Plus size={17} /></span>
-            <strong>Add favourite</strong>
-          </button>
-          {favouriteTargets.map(target => {
-            const avatarSrc = resolveAvatarUrl(target);
-            return (
-              <button type="button" className="chat-call-favourite-contact" key={getItemId(target)} onClick={() => startContactCall("audio", target)}>
-                <span style={{ overflow: "hidden" }}>
-                  {avatarSrc ? (
-                    <img
-                      src={avatarSrc}
-                      alt=""
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                        if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "inline";
-                      }}
-                    />
-                  ) : null}
-                  <span style={{ display: avatarSrc ? "none" : "inline" }}>
-                    {getDisplayName(target).charAt(0).toUpperCase()}
-                  </span>
-                </span>
-                <strong>{getDisplayName(target)}</strong>
-              </button>
-            );
-          })}
         </div>
 
         <div className="chat-call-section-row">
@@ -604,7 +624,7 @@ const ChatSettingsPanel = ({ currentUser, users, onSettingsChange }) => {
     { icon: <Lock size={18} />, title: "Privacy", text: "Blocked contacts, visibility" },
     { icon: <MessageCircle size={18} />, title: "Chats", text: "Theme, wallpaper, chat settings" },
     { icon: <Video size={18} />, title: "Video & voice", text: "Camera, microphone and speakers" },
-    { icon: <Bell size={18} />, title: "Notifications", text: "Messages, groups and sounds" },
+    { icon: <Bell size={18} />, title: "Notifications", text: "Messages, channels and sounds" },
     { icon: <Keyboard size={18} />, title: "Keyboard shortcuts", text: "Quick actions" },
     { icon: <Shield size={18} />, title: "Blocked contacts", text: `${blockedIds.length} blocked` },
   ];
@@ -808,7 +828,7 @@ const ChatSettingsPanel = ({ currentUser, users, onSettingsChange }) => {
             { value: "contacts", label: "My contacts" },
             { value: "nobody", label: "Nobody" },
           ])}</label>
-          <label>Group invites {renderSelect(chatSettings.privacy.groups, value => updateChatSetting("privacy", "groups", value), [
+          <label>Channel invites {renderSelect(chatSettings.privacy.groups, value => updateChatSetting("privacy", "groups", value), [
             { value: "everyone", label: "Everyone" },
             { value: "contacts", label: "My contacts" },
           ])}</label>
@@ -1420,7 +1440,7 @@ const ChatPage = () => {
           <button type="button" className={activeView === "chats" ? "active" : ""} onClick={() => setActiveView("chats")} title="Chats"><MessageCircle size={20} /><span>Chats</span></button>
           {/* <button type="button" className={activeView === "status" ? "active" : ""} onClick={() => setActiveView("status")} title="Status"><TimerReset size={20} /><span>Status</span></button> */}
           <button type="button" className={activeView === "calls" ? "active" : ""} onClick={() => setActiveView("calls")} title="Calls"><Phone size={20} /><span>Calls</span></button>
-          <button type="button" className={activeView === "communities" ? "active" : ""} onClick={() => setActiveView("communities")} title="Groups"><Users size={20} /><span>Groups</span></button>
+          <button type="button" className={activeView === "communities" ? "active" : ""} onClick={() => setActiveView("communities")} title="Channels"><Users size={20} /><span>Channels</span></button>
         </nav>
         {/* <div className="chat-rail-bottom">
           <button type="button" className={activeView === "settings" ? "active" : ""} onClick={() => setActiveView("settings")} title="Settings"><Settings size={20} /><span>Settings</span></button>
@@ -1465,16 +1485,13 @@ const ChatPage = () => {
       )}
 
       {activeView === "communities" && (
-        <LegacyChatStatusPanel
-          users={[]}
+        <ChatChannelsPanel
           groups={enrichedGroups}
-          statuses={[]}
-          addStatus={() => {}}
-          deleteStatus={() => {}}
           setSelectedUser={setSelectedUser}
           onOpenChats={() => setActiveView("chats")}
-          title="Groups"
-          subtitle={`${enrichedGroups.length} group conversations`}
+          companyUsers={users}
+          onCreateGroup={handleCreateGroup}
+          currentUserId={currentUserId}
         />
       )}
 

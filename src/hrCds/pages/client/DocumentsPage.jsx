@@ -50,6 +50,7 @@ const documentTabs = [
   { id: "trash", label: "Trash" },
 ];
 
+const DOCUMENT_FILE_LIMIT_BYTES = 10 * 1024 * 1024;
 const STORAGE_LIMIT_BYTES = 5 * 1024 * 1024 * 1024;
 
 const iconMap = {
@@ -176,6 +177,11 @@ const DocumentsPage = () => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file || !client?._id) return;
+
+    if (file.size > DOCUMENT_FILE_LIMIT_BYTES) {
+      setDocumentError("File size must be 10 MB or less.");
+      return;
+    }
 
     if (storageUsedBytes + file.size > STORAGE_LIMIT_BYTES) {
       setDocumentError(`Storage limit exceeded. You can upload up to 5 GB only. Available space: ${formatBytes(Math.max(0, STORAGE_LIMIT_BYTES - storageUsedBytes))}.`);

@@ -642,7 +642,7 @@ const EmployeeLeaves = () => {
 
   const canApproveLeave = useCallback((leave = null) => {
     if (leave && hasApprovalWorkflow(leave)) {
-      return isCurrentUserPendingApprover(leave) || approverPermissionUserIds.includes(String(currentUserId));
+      return isCurrentUserPendingApprover(leave);
     }
 
     if (approverPermissionUserIds.length > 0) {
@@ -1135,14 +1135,14 @@ const EmployeeLeaves = () => {
       .sort((a, b) => a.localeCompare(b));
   }, [configuredLeaveTypes, leaves]);
 
-  const pendingLeaves = useMemo(() => 
-    filteredLeaves.filter(leave => leave?.status === 'Pending'),
-    [filteredLeaves]
+  const pendingLeaves = useMemo(() =>
+    filteredLeaves.filter(leave => leave?.status === 'Pending' && canApproveLeave(leave)),
+    [filteredLeaves, canApproveLeave]
   );
 
-  const otherLeaves = useMemo(() => 
-    filteredLeaves.filter(leave => leave?.status !== 'Pending'),
-    [filteredLeaves]
+  const otherLeaves = useMemo(() =>
+    filteredLeaves.filter(leave => !(leave?.status === 'Pending' && canApproveLeave(leave))),
+    [filteredLeaves, canApproveLeave]
   );
 
   const leavePendingDelete = useMemo(() => {
@@ -1791,7 +1791,7 @@ const EmployeeLeaves = () => {
               <th>Employee</th>
               <th>Department</th>
               <th>Leave Details</th>
-              <th>Duration</th>
+              <th>Duration & Dates</th>
               {showStatusColumn && <th>Status</th>}
               <th>Approval Status</th>
               <th>Actions</th>
@@ -1895,6 +1895,16 @@ const EmployeeLeaves = () => {
                           <FiClock size={12} />
                           {days} {days > 1 ? 'days' : 'day'}
                         </span>
+                        <div className="EmppLeaves-date-range-inline">
+                          <span>
+                            <FiCalendar size={12} />
+                            Start: {formatDate(leave.startDate)}
+                          </span>
+                          <span>
+                            <FiCalendar size={12} />
+                            End: {formatDate(leave.endDate)}
+                          </span>
+                        </div>
                       </div>
                     </td>
                     {showStatusColumn && (

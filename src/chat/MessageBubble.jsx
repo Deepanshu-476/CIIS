@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Check, CheckCheck, Copy, Download, FileText, Forward, Maximize2, Mic, MoreVertical, Pause, Play, Reply, Trash2, X } from "lucide-react";
-import { API_URL_IMG } from "../config";
+import { API_URL_IMG, CHAT_UPLOAD_ORIGINS } from "../config";
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif|bmp|svg)$/i;
 const AUDIO_EXTENSIONS = /\.(mp3|wav|m4a|aac|oga|opus|flac)$/i;
@@ -9,6 +9,7 @@ const DOCUMENT_EXTENSIONS = /\.(pdf|docx?|xlsx?|csv|pptx?|txt|rtf|odt|ods|odp|zi
 const ATTACHMENT_CACHE_NAME = "ciis-chat-attachments-v1";
 
 const getBackendUrl = (path) => `${API_URL_IMG.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
+const getUploadOriginUrl = (origin, path) => `${String(origin || "").replace(/\/+$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
 
 const safeEncodeUrl = (url) => {
     try {
@@ -53,6 +54,7 @@ const MessageBubble = ({
     const [audioCurrentTime, setAudioCurrentTime] = useState(0);
     const [audioDuration, setAudioDuration] = useState(0);
     const [mediaUrlIndex, setMediaUrlIndex] = useState(0);
+    const [hasMediaLoadFailed, setHasMediaLoadFailed] = useState(false);
     const [localMediaUrl, setLocalMediaUrl] = useState("");
     const [isAttachmentLoading, setIsAttachmentLoading] = useState(false);
     const audioRef = useRef(null);
@@ -193,6 +195,14 @@ const MessageBubble = ({
         const withoutQuery = normalizedRaw.split("?")[0];
         const fileName = withoutQuery.split("/").pop();
         const looksLikeChatFile = fileName && (IMAGE_EXTENSIONS.test(fileName) || AUDIO_EXTENSIONS.test(fileName) || VIDEO_EXTENSIONS.test(fileName) || DOCUMENT_EXTENSIONS.test(fileName));
+        const uploadOrigins = Array.isArray(CHAT_UPLOAD_ORIGINS) && CHAT_UPLOAD_ORIGINS.length
+            ? CHAT_UPLOAD_ORIGINS
+            : [API_URL_IMG];
+        const addUploadOriginCandidates = (candidates, candidatePath) => {
+            uploadOrigins.forEach(origin => {
+                candidates.push(getUploadOriginUrl(origin, candidatePath));
+            });
+        };
 
         if (/^https?:\/\//i.test(normalizedRaw)) {
             const candidates = [normalizedRaw];
@@ -201,8 +211,8 @@ const MessageBubble = ({
                 const parsed = new URL(normalizedRaw);
                 candidates.push(getBackendUrl(parsed.pathname + parsed.search));
                 if (looksLikeChatFile) {
-                    candidates.push(getBackendUrl(`/api/uploads/chat/${fileName}`));
-                    candidates.push(getBackendUrl(`/uploads/chat/${fileName}`));
+                    addUploadOriginCandidates(candidates, `/api/uploads/chat/${fileName}`);
+                    addUploadOriginCandidates(candidates, `/uploads/chat/${fileName}`);
                 }
             } catch {
                 void 0;
@@ -216,20 +226,24 @@ const MessageBubble = ({
 
         if (trimmedPath.startsWith("api/uploads/") || trimmedPath.startsWith("uploads/")) {
             candidates.push(getBackendUrl(`/${trimmedPath}`));
+            addUploadOriginCandidates(candidates, `/${trimmedPath}`);
         }
 
         if (trimmedPath.startsWith("uploads/chat/")) {
             candidates.push(getBackendUrl(`/api/${trimmedPath}`));
+            addUploadOriginCandidates(candidates, `/api/${trimmedPath}`);
         }
 
         if (trimmedPath.startsWith("chat/")) {
             candidates.push(getBackendUrl(`/api/uploads/${trimmedPath}`));
             candidates.push(getBackendUrl(`/uploads/${trimmedPath}`));
+            addUploadOriginCandidates(candidates, `/api/uploads/${trimmedPath}`);
+            addUploadOriginCandidates(candidates, `/uploads/${trimmedPath}`);
         }
 
         if (looksLikeChatFile) {
-            candidates.push(getBackendUrl(`/api/uploads/chat/${fileName}`));
-            candidates.push(getBackendUrl(`/uploads/chat/${fileName}`));
+            addUploadOriginCandidates(candidates, `/api/uploads/chat/${fileName}`);
+            addUploadOriginCandidates(candidates, `/uploads/chat/${fileName}`);
         }
 
         candidates.push(getBackendUrl(`/${trimmedPath}`));
@@ -292,13 +306,16 @@ const MessageBubble = ({
     const attachmentName = getAttachmentName();
     const isAudioOnly = Boolean(isAudioMedia && mediaUrl && !displayMessageText && !isDeletedForEveryone);
     const tryNextMediaUrl = () => {
-        setMediaUrlIndex((currentIndex) => (
-            currentIndex + 1 < mediaUrlCandidates.length ? currentIndex + 1 : currentIndex
-        ));
+        setMediaUrlIndex((currentIndex) => {
+            if (currentIndex + 1 < mediaUrlCandidates.length) return currentIndex + 1;
+            setHasMediaLoadFailed(true);
+            return currentIndex;
+        });
     };
 
     useEffect(() => {
         setMediaUrlIndex(0);
+        setHasMediaLoadFailed(false);
         setIsAudioPlaying(false);
         setAudioCurrentTime(0);
         setAudioDuration(0);
@@ -620,7 +637,7 @@ const MessageBubble = ({
         }
 
         if (isImageMedia) {
-            const imageSrc = localMediaUrl || mediaUrl;
+            const imageSrc = hasMediaLoadFailed ? "" : (localMediaUrl || mediaUrl);
             return (
                 <button
                     type="button"

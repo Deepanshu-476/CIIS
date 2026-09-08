@@ -867,7 +867,9 @@
 /* ============================================ */
 .EmppLeaves-duration-info {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 7px;
 }
 
 .EmppLeaves-days-badge {
@@ -882,6 +884,28 @@
   font-weight: 700;
   border: 1px solid #bbf7d0;
   white-space: nowrap;
+}
+
+.EmppLeaves-date-range-inline {
+  display: grid;
+  gap: 5px;
+  min-width: 145px;
+}
+
+.EmppLeaves-date-range-inline span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.EmppLeaves-date-range-inline svg {
+  color: #64748b;
+  flex: 0 0 auto;
 }
 
 /* STATUS CHIP */

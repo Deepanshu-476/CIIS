@@ -33,6 +33,7 @@ import './ActiveClientsOverview.css';
 const getAuthToken = () => localStorage.getItem('token') || localStorage.getItem('authToken');
 const ACTIVE_CLIENTS_PAGE_SIZE = 50;
 const RELATED_FETCH_CONCURRENCY = 5;
+const CLIENT_DOCUMENT_FILE_LIMIT = 10 * 1024 * 1024;
 
 const mapWithConcurrency = async (items, limit, mapper) => {
   const results = new Array(items.length);
@@ -520,6 +521,11 @@ const ActiveClientsOverview = () => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file || !selectedClient?.client?._id) return;
+
+    if (file.size > CLIENT_DOCUMENT_FILE_LIMIT) {
+      setError('File size must be 10 MB or less.');
+      return;
+    }
 
     try {
       setUploading(true);

@@ -72,6 +72,7 @@ export default defineConfig({
   },
 
   optimizeDeps: {
+    entries: ['index.html'],
     force: true,
     include: ['react', 'react-dom', 'socket.io-client'] 
   },

@@ -196,6 +196,9 @@ export const AdminProject = () => {
   const [selectedPdfUrl, setSelectedPdfUrl] = useState("");
   const [selectedPdfName, setSelectedPdfName] = useState("");
   const [selectedPdfPath, setSelectedPdfPath] = useState("");
+  const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState(null);
   const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
@@ -209,6 +212,14 @@ export const AdminProject = () => {
 
   
   const [requestTimeout, setRequestTimeout] = useState(null);
+
+  useEffect(() => {
+    return () => {
+      if (pdfBlobUrl) {
+        URL.revokeObjectURL(pdfBlobUrl);
+      }
+    };
+  }, [pdfBlobUrl]);
 
   useEffect(() => {
     const initializeData = async () => {
@@ -596,45 +607,112 @@ export const AdminProject = () => {
     setOpenDetailsDialog(true);
   };
 
-  const viewPdf = (pdfPath, filename) => {
+  const viewPdf = async (pdfPath, filename) => {
     if (!pdfPath) {
       showSnackbar("No PDF file available", "warning");
       return;
     }
     
-    
+    const displayName = filename || pdfPath.split('/').pop() || "Document preview";
     const pdfUrl = getProjectFileUrl(pdfPath);
-    
+
+    if (isImageFile(displayName || pdfPath)) {
+      setSelectedPdfUrl(pdfUrl);
+      setSelectedPdfName(displayName);
+      setSelectedPdfPath(pdfPath);
+      setOpenPdfDialog(true);
+      return;
+    }
+
+    if (pdfBlobUrl) {
+      URL.revokeObjectURL(pdfBlobUrl);
+      setPdfBlobUrl(null);
+    }
+
     setSelectedPdfUrl(pdfUrl);
-    setSelectedPdfName(filename || pdfPath.split('/').pop() || "Document preview");
+    setSelectedPdfName(displayName);
     setSelectedPdfPath(pdfPath);
+    setPdfLoading(true);
+    setPdfError(null);
     setOpenPdfDialog(true);
+
+    const candidateUrls = [
+      pdfUrl,
+      getProjectFileUrl(pdfPath, LIVE_API_URL),
+    ].filter((url, idx, arr) => url && arr.indexOf(url) === idx);
+
+    try {
+      let response = null;
+      for (const url of candidateUrls) {
+        try {
+          response = await axios.get(url, { responseType: 'blob' });
+          break;
+        } catch (err) {
+          if (url === candidateUrls[candidateUrls.length - 1]) throw err;
+        }
+      }
+
+      if (!response || !response.data) throw new Error("No data received");
+
+      const contentType = response.data.type || response.headers?.['content-type'] || 'application/pdf';
+      const fileBlob = new Blob([response.data], { type: contentType });
+      const objectUrl = URL.createObjectURL(fileBlob);
+      setPdfBlobUrl(objectUrl);
+    } catch (err) {
+      console.error("Error loading PDF preview:", err);
+      setPdfError("Document preview cannot be displayed directly. Please use the Download button below.");
+    } finally {
+      setPdfLoading(false);
+    }
   };
 
-  const downloadPdf = (pdfPath, filename) => {
+  const closePdfPreview = () => {
+    setOpenPdfDialog(false);
+    if (pdfBlobUrl) {
+      URL.revokeObjectURL(pdfBlobUrl);
+      setPdfBlobUrl(null);
+    }
+    setPdfLoading(false);
+    setPdfError(null);
+  };
+
+  const downloadPdf = async (pdfPath, filename) => {
     if (!pdfPath) {
       showSnackbar("No PDF file available", "warning");
       return;
     }
 
-    
-    let pdfUrl;
-    if (pdfPath.startsWith('http')) {
-      pdfUrl = pdfPath;
-    } else {
-      const pathParts = pdfPath.split('/');
-      const pdfFilename = pathParts[pathParts.length - 1];
-      pdfUrl = `${axios.defaults.baseURL}/uploads/projects/${pdfFilename}`;
-    }
+    const downloadName = filename || pdfPath.split('/').pop() || 'document.pdf';
+    const candidateUrls = [
+      getProjectFileUrl(pdfPath),
+      getProjectFileUrl(pdfPath, LIVE_API_URL),
+    ].filter((url, idx, arr) => url && arr.indexOf(url) === idx);
 
-    
-    const link = document.createElement('a');
-    link.href = pdfUrl;
-    link.download = filename || 'document.pdf';
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      let response = null;
+      for (const url of candidateUrls) {
+        try {
+          response = await axios.get(url, { responseType: 'blob' });
+          break;
+        } catch (err) {
+          if (url === candidateUrls[candidateUrls.length - 1]) throw err;
+        }
+      }
+
+      if (!response || !response.data) throw new Error("No download data available");
+
+      const blobUrl = URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = downloadName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("Error downloading file:", error);
+      showSnackbar("Unable to download file", "error");
+    }
   };
 
   const resetForm = () => {
@@ -777,7 +855,7 @@ export const AdminProject = () => {
                 {isImageFile(selectedPdfName || selectedPdfUrl) ? <Icons.File /> : <Icons.Pdf />}
                 {selectedPdfName || "Document Preview"}
               </div>
-              <button className="ap-dialog-close" onClick={() => setOpenPdfDialog(false)}>
+              <button className="ap-dialog-close" onClick={closePdfPreview}>
                 <Icons.Close />
               </button>
             </div>
@@ -796,29 +874,78 @@ export const AdminProject = () => {
                     }}
                   />
                 </div>
-              ) : (
+              ) : pdfLoading ? (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: "350px",
+                    gap: "16px",
+                    padding: "40px 20px"
+                  }}
+                >
+                  <p style={{ margin: 0, color: "#64748b", fontSize: "14px", fontWeight: 500 }}>
+                    Loading document preview...
+                  </p>
+                </div>
+              ) : pdfBlobUrl ? (
                 <iframe
-                  src={selectedPdfUrl}
-                  title="PDF Viewer"
+                  src={pdfBlobUrl}
+                  title={selectedPdfName || "PDF Viewer"}
                   className="ap-pdf-viewer"
                 />
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: "300px",
+                    padding: "32px 20px",
+                    textAlign: "center",
+                    gap: "12px"
+                  }}
+                >
+                  <p style={{ color: "#e11d48", fontWeight: 600, fontSize: "15px", margin: 0 }}>
+                    {pdfError || "Document preview is unavailable"}
+                  </p>
+                  <p style={{ color: "#64748b", fontSize: "13px", maxWidth: "420px", margin: 0 }}>
+                    You can download or open the document directly to view it on your device.
+                  </p>
+                  <button
+                    type="button"
+                    className="ap-btn ap-btn-primary"
+                    style={{ marginTop: "8px" }}
+                    onClick={() => downloadPdf(selectedPdfPath, selectedPdfName)}
+                  >
+                    <Icons.Download /> Download Document
+                  </button>
+                </div>
               )}
             </div>
             <div className="ap-dialog-footer">
+              {pdfBlobUrl && (
+                <button
+                  type="button"
+                  className="ap-btn ap-btn-outline"
+                  onClick={() => window.open(pdfBlobUrl, "_blank")}
+                >
+                  Open in New Tab
+                </button>
+              )}
               <button
                 className="ap-btn ap-btn-primary"
-                onClick={() => {
-                  const link = document.createElement('a');
-                  link.href = selectedPdfUrl;
-                  link.download = selectedPdfUrl.split('/').pop();
-                  link.click();
-                }}
+                onClick={() => downloadPdf(selectedPdfPath, selectedPdfName)}
+                disabled={!selectedPdfPath && !selectedPdfUrl}
               >
                 <Icons.Download /> Download
               </button>
               <button
                 className="ap-btn ap-btn-outline"
-                onClick={() => setOpenPdfDialog(false)}
+                onClick={closePdfPreview}
               >
                 Close
               </button>

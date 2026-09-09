@@ -354,6 +354,7 @@ const MyAssets = () => {
   const [requestReason, setRequestReason] = useState("");
   const [selectedRequestDetails, setSelectedRequestDetails] = useState(null);
   const [lightboxImageUrl, setLightboxImageUrl] = useState(null);
+  const [confirmReturnModalItem, setConfirmReturnModalItem] = useState(null);
 
   // Stats calculation
   const [stats, setStats] = useState({
@@ -658,6 +659,49 @@ const MyAssets = () => {
     }
   };
 
+  // Handle Raising Return Request for an Asset
+  const handleReturnRequest = async (item) => {
+    const id = item?._id;
+    if (!id) return;
+    setActionLoading(true);
+
+    try {
+      const res = await axios.post(`/asset-requests/${id}/return-request`);
+      showToast(
+        res.data?.message || "Return request submitted successfully. Admin will review.",
+        "success",
+        4000
+      );
+      setConfirmReturnModalItem(null);
+      await fetchRequests(false);
+    } catch (err) {
+      console.warn("Return request API error:", err);
+      const errMsg = err.response?.data?.error || err.response?.data?.message;
+      if (err.response?.status === 403) {
+        showToast(errMsg || "You do not have permission to raise return request", "error", 4000);
+      } else {
+        // Optimistic status update fallback
+        setRequests((prev) =>
+          prev.map((r) => (r._id === id ? { ...r, status: "return_requested" } : r))
+        );
+        setAssignedAssets((prev) =>
+          prev.map((r) => (r._id === id ? { ...r, status: "return_requested" } : r))
+        );
+        calculateStats(
+          requests.map((r) => (r._id === id ? { ...r, status: "return_requested" } : r))
+        );
+        showToast(errMsg || "Return request submitted successfully", "success", 4000);
+      }
+      setConfirmReturnModalItem(null);
+    } finally {
+      setActionLoading(false);
+      setOpenMenuId(null);
+      if (selectedRequestDetails?._id === id) {
+        setSelectedRequestDetails((prev) => ({ ...prev, status: "return_requested" }));
+      }
+    }
+  };
+
   // Handle Depositing an Asset (Return flow)
   const handleDepositAsset = async (item) => {
     const id = item?._id;
@@ -665,21 +709,34 @@ const MyAssets = () => {
     setActionLoading(true);
 
     try {
-      await axios.post(`/asset-requests/${id}/deposit`);
-      showToast("Asset marked as deposited. Admin verification pending.", "success", 4000);
+      const res = await axios.post(`/asset-requests/${id}/deposit`);
+      showToast(
+        res.data?.message || "Asset marked as deposited. Admin verification pending.",
+        "success",
+        4000
+      );
       await fetchRequests(false);
     } catch (err) {
       console.warn("Deposit asset API note:", err);
       // Optimistic status update
       setRequests((prev) =>
-        prev.map((r) => (r._id === id ? { ...r, status: "deposited" } : r))
+        prev.map((r) => (r._id === id ? { ...r, status: "pending_verification" } : r))
       );
-      showToast("Asset deposit marked successfully", "success", 4000);
+      setAssignedAssets((prev) =>
+        prev.map((r) => (r._id === id ? { ...r, status: "pending_verification" } : r))
+      );
+      showToast(
+        err.response?.data?.message ||
+          err.response?.data?.error ||
+          "Asset deposit marked successfully",
+        "success",
+        4000
+      );
     } finally {
       setActionLoading(false);
       setOpenMenuId(null);
       if (selectedRequestDetails?._id === id) {
-        setSelectedRequestDetails((prev) => ({ ...prev, status: "deposited" }));
+        setSelectedRequestDetails((prev) => ({ ...prev, status: "pending_verification" }));
       }
     }
   };
@@ -710,6 +767,12 @@ const MyAssets = () => {
         return (
           <span className="MyAssets-badge-return">
             <RotateCcw size={13} strokeWidth={2.5} /> Return Request
+          </span>
+        );
+      case "pending_verification":
+        return (
+          <span className="MyAssets-badge-pending-verification">
+            <Clock size={13} strokeWidth={2.5} /> Pending Verification
           </span>
         );
       case "deposited":
@@ -969,9 +1032,30 @@ const MyAssets = () => {
                         </div>
 
                         <div className="MyAssets-assigned-right-actions">
-                          <span className="MyAssets-badge-assigned">
-                            ● Assigned
-                          </span>
+                          {renderStatusBadge(item.status)}
+
+                          {normalizeStatus(item.status) === "approved" && (
+                            <button
+                              type="button"
+                              className="MyAssets-btn-quick-return"
+                              onClick={() => setConfirmReturnModalItem(item)}
+                              title="Request Asset Return"
+                            >
+                              <RotateCcw size={12} /> Return
+                            </button>
+                          )}
+
+                          {normalizeStatus(item.status) === "return_requested" && (
+                            <button
+                              type="button"
+                              className="MyAssets-btn-quick-deposit"
+                              onClick={() => handleDepositAsset(item)}
+                              disabled={actionLoading}
+                              title="Deposit Asset"
+                            >
+                              <RotateCcw size={12} /> Deposit
+                            </button>
+                          )}
 
                           <button
                             type="button"
@@ -1011,6 +1095,18 @@ const MyAssets = () => {
                                     }}
                                   >
                                     <MessageSquare size={14} /> Comments ({item.adminComments.length})
+                                  </button>
+                                )}
+                                {normalizeStatus(item.status) === "approved" && (
+                                  <button
+                                    type="button"
+                                    className="MyAssets-popover-item text-warning"
+                                    onClick={() => {
+                                      setConfirmReturnModalItem(item);
+                                      setOpenMenuId(null);
+                                    }}
+                                  >
+                                    <RotateCcw size={14} /> Request Return
                                   </button>
                                 )}
                                 {normalizeStatus(item.status) === "return_requested" && (
@@ -1227,6 +1323,18 @@ const MyAssets = () => {
                                   }}
                                 >
                                   <MessageSquare size={14} /> Comments ({req.adminComments.length})
+                                </button>
+                              )}
+                              {normalizeStatus(req.status) === "approved" && (
+                                <button
+                                  type="button"
+                                  className="MyAssets-popover-item text-warning"
+                                  onClick={() => {
+                                    setConfirmReturnModalItem(req);
+                                    setOpenMenuId(null);
+                                  }}
+                                >
+                                  <RotateCcw size={14} /> Request Return
                                 </button>
                               )}
                               {normalizeStatus(req.status) === "return_requested" && (
@@ -1479,6 +1587,21 @@ const MyAssets = () => {
             </div>
 
             <div className="MyAssets-modal-footer">
+              {normalizeStatus(selectedRequestDetails.status) === "approved" && (
+                <button
+                  type="button"
+                  className="MyAssets-btn-primary"
+                  style={{ background: "#d97706" }}
+                  onClick={() => {
+                    const item = selectedRequestDetails;
+                    setSelectedRequestDetails(null);
+                    setConfirmReturnModalItem(item);
+                  }}
+                  disabled={actionLoading}
+                >
+                  <RotateCcw size={15} /> Request Return
+                </button>
+              )}
               {normalizeStatus(selectedRequestDetails.status) === "return_requested" && (
                 <button
                   type="button"
@@ -1496,6 +1619,127 @@ const MyAssets = () => {
                 onClick={() => setSelectedRequestDetails(null)}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================
+          8. RETURN ASSET CONFIRMATION MODAL
+          ================================================================== */}
+      {confirmReturnModalItem && (
+        <div
+          className="MyAssets-modal-overlay"
+          onClick={() => !actionLoading && setConfirmReturnModalItem(null)}
+        >
+          <div
+            className="MyAssets-modal-card"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: 480 }}
+          >
+            <div className="MyAssets-modal-header">
+              <div className="MyAssets-modal-header-left">
+                <div
+                  className="MyAssets-modal-icon-badge"
+                  style={{ background: "#fffbeb", color: "#d97706" }}
+                >
+                  <RotateCcw size={20} strokeWidth={2.2} />
+                </div>
+                <h3>Request Asset Return</h3>
+              </div>
+              <button
+                type="button"
+                className="MyAssets-modal-close-btn"
+                onClick={() => setConfirmReturnModalItem(null)}
+                disabled={actionLoading}
+                aria-label="Close dialog"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="MyAssets-modal-body">
+              <div className="MyAssets-details-meta-grid">
+                <div className="MyAssets-details-meta-item">
+                  <strong>Asset Name</strong>
+                  <span style={{ fontWeight: 700, color: "var(--ma-text-main)" }}>
+                    {confirmReturnModalItem.assetName || confirmReturnModalItem.name || "Asset"}
+                  </span>
+                </div>
+                <div className="MyAssets-details-meta-item">
+                  <strong>Category</strong>
+                  <span>
+                    {confirmReturnModalItem.category || confirmReturnModalItem.type || "Hardware"}
+                  </span>
+                </div>
+                <div className="MyAssets-details-meta-item">
+                  <strong>Serial / ID</strong>
+                  <span>
+                    {confirmReturnModalItem.serialNumber ||
+                      confirmReturnModalItem.asset?.serialNumber ||
+                      (confirmReturnModalItem._id
+                        ? `AST-${confirmReturnModalItem._id.slice(-6).toUpperCase()}`
+                        : "N/A")}
+                  </span>
+                </div>
+                <div className="MyAssets-details-meta-item">
+                  <strong>Condition</strong>
+                  <span>{confirmReturnModalItem.condition || "Good"}</span>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: "#fffbeb",
+                  border: "1px solid #fef3c7",
+                  borderRadius: "10px",
+                  padding: "12px 14px",
+                  display: "flex",
+                  gap: "10px",
+                  alignItems: "flex-start",
+                  fontSize: "0.83rem",
+                  color: "#92400e",
+                  lineHeight: "1.45",
+                }}
+              >
+                <AlertCircle size={18} style={{ flexShrink: 0, marginTop: "2px", color: "#d97706" }} />
+                <div>
+                  <strong>Are you sure you want to request return?</strong>
+                  <p style={{ margin: "4px 0 0", color: "#b45309" }}>
+                    Once submitted, your manager or company admin will review your return request. After review, you will be able to mark the asset as deposited.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="MyAssets-modal-footer">
+              <button
+                type="button"
+                className="MyAssets-btn-secondary"
+                onClick={() => setConfirmReturnModalItem(null)}
+                disabled={actionLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="MyAssets-btn-primary"
+                style={{ background: "#d97706" }}
+                onClick={() => handleReturnRequest(confirmReturnModalItem)}
+                disabled={actionLoading}
+              >
+                {actionLoading ? (
+                  <>
+                    <RefreshCw size={14} className="is-spinning" /> Submitting...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw size={14} /> Confirm Return Request
+                  </>
+                )}
               </button>
             </div>
           </div>

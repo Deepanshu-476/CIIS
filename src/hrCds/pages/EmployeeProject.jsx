@@ -201,6 +201,9 @@ const EmployeeProject = () => {
   const [selectedPdfUrl, setSelectedPdfUrl] = useState("");
   const [selectedPdfPath, setSelectedPdfPath] = useState("");
   const [selectedPdfName, setSelectedPdfName] = useState("");
+  const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [tabValue, setTabValue] = useState(0);
   const [taskFilter, setTaskFilter] = useState("all");
@@ -227,6 +230,14 @@ const EmployeeProject = () => {
     setTaskImagePreviewUrl(previewUrl);
     return () => URL.revokeObjectURL(previewUrl);
   }, [file]);
+
+  useEffect(() => {
+    return () => {
+      if (pdfBlobUrl) {
+        URL.revokeObjectURL(pdfBlobUrl);
+      }
+    };
+  }, [pdfBlobUrl]);
   const [taskAssigneeFilter, setTaskAssigneeFilter] = useState("all");
   const [detailTaskId, setDetailTaskId] = useState(null);
   const [taskDetailToRestore, setTaskDetailToRestore] = useState(null);
@@ -865,7 +876,7 @@ const EmployeeProject = () => {
   };
 
   
-  const viewPdf = (pdfPath, filename) => {
+  const viewPdf = async (pdfPath, filename) => {
     if (!pdfPath) {
       showSnackbar("No file available", "warning");
       return;
@@ -873,9 +884,10 @@ const EmployeeProject = () => {
     
     const pathParts = pdfPath.split('/');
     const pdfFilename = pathParts[pathParts.length - 1];
+    const displayName = filename || pdfFilename || "document.pdf";
     const pdfUrl = getUploadUrl(pdfPath) || getLiveUploadUrl(pdfPath);
 
-    if (isImagePath(filename || pdfPath)) {
+    if (isImagePath(displayName || pdfPath)) {
       if (detailTaskId) {
         setTaskDetailToRestore(detailTaskId);
       } else {
@@ -884,7 +896,7 @@ const EmployeeProject = () => {
       setImagePreview({
         url: pdfUrl,
         path: pdfPath,
-        name: filename || pdfFilename
+        name: displayName
       });
       setOpenPdfDialog(false);
       setDetailTaskId(null);
@@ -897,14 +909,59 @@ const EmployeeProject = () => {
     } else {
       setTaskDetailToRestore(null);
     }
+
+    if (pdfBlobUrl) {
+      URL.revokeObjectURL(pdfBlobUrl);
+      setPdfBlobUrl(null);
+    }
+
     setSelectedPdfUrl(pdfUrl);
     setSelectedPdfPath(pdfPath);
-    setSelectedPdfName(filename || pdfFilename);
+    setSelectedPdfName(displayName);
+    setPdfLoading(true);
+    setPdfError(null);
     setOpenPdfDialog(true);
+
+    const downloadUrls = [
+      getUploadUrl(pdfPath),
+      getLiveUploadUrl(pdfPath)
+    ].filter((url, index, urls) => url && urls.indexOf(url) === index);
+
+    try {
+      let response = null;
+      for (const url of downloadUrls) {
+        try {
+          response = await axios.get(url, { responseType: 'blob' });
+          break;
+        } catch (error) {
+          if (url === downloadUrls[downloadUrls.length - 1]) throw error;
+        }
+      }
+
+      if (!response || !response.data) {
+        throw new Error("No data received");
+      }
+
+      const contentType = response.data.type || response.headers?.['content-type'] || 'application/pdf';
+      const fileBlob = new Blob([response.data], { type: contentType });
+      const objectUrl = URL.createObjectURL(fileBlob);
+      setPdfBlobUrl(objectUrl);
+    } catch (err) {
+      console.error("Error loading PDF preview:", err);
+      setPdfError("Document preview cannot be displayed directly. Please use the Download button below.");
+    } finally {
+      setPdfLoading(false);
+    }
   };
 
   const closePdfPreview = () => {
     setOpenPdfDialog(false);
+    if (pdfBlobUrl) {
+      URL.revokeObjectURL(pdfBlobUrl);
+      setPdfBlobUrl(null);
+    }
+    setPdfLoading(false);
+    setPdfError(null);
     if (taskDetailToRestore) {
       setDetailTaskId(taskDetailToRestore);
       setTaskDetailToRestore(null);
@@ -1472,42 +1529,91 @@ const EmployeeProject = () => {
                 </button>
               </div>
               <div className="EmployeeProject-modal-body EmployeeProject-pdf-viewer">
-                {selectedPdfUrl ? (
-                  isImagePath(selectedPdfName || selectedPdfUrl) ? (
-                    <img
-                      src={selectedPdfUrl}
-                      alt={selectedPdfName || "Attachment preview"}
-                      className="EmployeeProject-file-preview-image"
-                      onError={handlePreviewImageError}
-                    />
-                  ) : (
-                    <iframe
-                      src={selectedPdfUrl}
-                      title="File Viewer"
-                      className="EmployeeProject-pdf-frame"
-                    />
-                  )
+                {isImagePath(selectedPdfName || selectedPdfUrl) ? (
+                  <img
+                    src={selectedPdfUrl}
+                    alt={selectedPdfName || "Attachment preview"}
+                    className="EmployeeProject-file-preview-image"
+                    onError={handlePreviewImageError}
+                  />
+                ) : pdfLoading ? (
+                  <div
+                    className="EmployeeProject-pdf-loading"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      minHeight: "350px",
+                      gap: "16px",
+                      padding: "40px 20px"
+                    }}
+                  >
+                    <CircularProgress size={44} />
+                    <p style={{ margin: 0, color: "#64748b", fontSize: "14px", fontWeight: 500 }}>
+                      Loading document preview...
+                    </p>
+                  </div>
+                ) : pdfBlobUrl ? (
+                  <iframe
+                    src={pdfBlobUrl}
+                    title={selectedPdfName || "File Viewer"}
+                    className="EmployeeProject-pdf-frame"
+                  />
                 ) : (
-                  <div className="EmployeeProject-pdf-error">
-                    <p>File cannot be loaded</p>
+                  <div
+                    className="EmployeeProject-pdf-error"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      minHeight: "300px",
+                      padding: "32px 20px",
+                      textAlign: "center",
+                      gap: "12px"
+                    }}
+                  >
+                    <p style={{ color: "#e11d48", fontWeight: 600, fontSize: "15px", margin: 0 }}>
+                      {pdfError || "Document preview is unavailable"}
+                    </p>
+                    <p style={{ color: "#64748b", fontSize: "13px", maxWidth: "420px", margin: 0 }}>
+                      You can download or open the document directly to view it on your device.
+                    </p>
+                    <button
+                      type="button"
+                      className="EmployeeProject-button EmployeeProject-button-primary"
+                      style={{ marginTop: "8px" }}
+                      onClick={() => downloadPdf(selectedPdfPath, selectedPdfName)}
+                    >
+                      <Icons.Download />
+                      Download Document
+                    </button>
                   </div>
                 )}
               </div>
               <div className="EmployeeProject-modal-footer">
+                {pdfBlobUrl && (
+                  <button
+                    type="button"
+                    className="EmployeeProject-button EmployeeProject-button-outline"
+                    onClick={() => window.open(pdfBlobUrl, "_blank")}
+                  >
+                    <Icons.Visibility />
+                    Open in New Tab
+                  </button>
+                )}
                 <button
+                  type="button"
                   className="EmployeeProject-button EmployeeProject-button-primary"
-                  onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = selectedPdfUrl;
-                    link.download = selectedPdfName || 'document.pdf';
-                    link.click();
-                  }}
-                  disabled={!selectedPdfUrl}
+                  onClick={() => downloadPdf(selectedPdfPath, selectedPdfName)}
+                  disabled={!selectedPdfPath && !selectedPdfUrl}
                 >
                   <Icons.Download />
                   Download
                 </button>
                 <button
+                  type="button"
                   className="EmployeeProject-button EmployeeProject-button-outline"
                   onClick={closePdfPreview}
                 >

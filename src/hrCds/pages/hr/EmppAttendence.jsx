@@ -8,6 +8,16 @@ import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermissi
 const loadXlsx = () => import('xlsx').then(module => module.default || module);
 const loadHtml2Canvas = () => import('html2canvas').then(module => module.default || module);
 const loadJsPdf = () => import('jspdf').then(module => module.default || module);
+const loadPdfModules = async () => {
+  const [jsPdfModule, autoTableModule] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable')
+  ]);
+  return {
+    jsPDF: jsPdfModule.default || jsPdfModule,
+    autoTable: autoTableModule.default || autoTableModule
+  };
+};
 
 import {
   FiCalendar,
@@ -1073,6 +1083,30 @@ const QuickEditModal = ({ records, onClose, onSave }) => {
 };
 
 
+const isMongoId = (val) => typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val);
+
+const getDisplayEmployeeInfo = (user) => {
+  if (!user) return { name: "N/A", email: "-", code: "" };
+  
+  const rawCode = user.employeeId || user.empId || user.employeeCode || "";
+  const code = (rawCode && !isMongoId(rawCode)) ? String(rawCode).trim() : "";
+  
+  const name = user.name ? String(user.name).trim() : "N/A";
+  let email = "-";
+  
+  if (user.email && typeof user.email === 'string' && user.email.includes('@')) {
+    email = String(user.email).trim();
+  } else if (code) {
+    email = code;
+  }
+  
+  return {
+    name: code ? `${name} (${code})` : name,
+    email,
+    code
+  };
+};
+
 const getInitials = (name) => {
   if (!name) return 'U';
   return name
@@ -1504,6 +1538,7 @@ const EmployeeAttendance = () => {
         return {
           id: user.id || user._id,
           _id: user.id || user._id,
+          employeeId: user.employeeId || user.empId || user.employeeCode || '',
           name: user.name,
           email: user.email,
           employeeType: user.employeeType || user.employmentType || 'full-time',
@@ -1559,6 +1594,7 @@ const EmployeeAttendance = () => {
             user: {
               id: user.id || user._id,
               _id: user.id || user._id,
+              employeeId: user.employeeId || '',
               name: user.name,
               email: user.email,
               employeeType: user.employeeType || 'full-time',
@@ -1578,6 +1614,7 @@ const EmployeeAttendance = () => {
             user: {
               id: user.id || user._id,
               _id: user.id || user._id,
+              employeeId: user.employeeId || '',
               name: user.name,
               email: user.email,
               employeeType: user.employeeType || 'full-time',
@@ -1708,6 +1745,7 @@ const EmployeeAttendance = () => {
               user: {
                 id: user.id || user._id,
                 _id: user.id || user._id,
+                employeeId: user.employeeId || '',
                 name: user.name,
                 email: user.email,
                 employeeType: user.employeeType || 'full-time',
@@ -1727,6 +1765,7 @@ const EmployeeAttendance = () => {
               user: {
                 id: user.id || user._id,
                 _id: user.id || user._id,
+                employeeId: user.employeeId || '',
                 name: user.name,
                 email: user.email,
                 employeeType: user.employeeType || 'full-time',
@@ -2161,105 +2200,262 @@ const EmployeeAttendance = () => {
 
   
   const exportToPDF = async () => {
-    const [html2canvas, jsPDF] = await Promise.all([loadHtml2Canvas(), loadJsPdf()]);
+    if (!filteredRecords || filteredRecords.length === 0) {
+      showSnackbar("No attendance records found to export", "error");
+      return;
+    }
+
     setExportMenuOpen(false);
+
+    // Open tab synchronously on click to prevent browser popup blockers from blocking window.open
+    const previewTab = typeof window !== 'undefined' ? window.open('', '_blank') : null;
+    if (previewTab) {
+      try {
+        previewTab.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Preparing Attendance Report PDF...</title>
+              <style>
+                body {
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                  display: flex; align-items: center; justify-content: center;
+                  height: 100vh; margin: 0; background: #0f172a; color: #f8fafc;
+                }
+                .box { text-align: center; padding: 28px 36px; border-radius: 12px; background: #1e293b; border: 1px solid #334155; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+                .spinner { width: 42px; height: 42px; border: 4px solid #334155; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+                @keyframes spin { to { transform: rotate(360deg); } }
+                h3 { margin: 0 0 8px; font-weight: 600; font-size: 18px; color: #ffffff; }
+                p { margin: 0; font-size: 13.5px; color: #94a3b8; }
+              </style>
+            </head>
+            <body>
+              <div class="box">
+                <div class="spinner"></div>
+                <h3>Generating Attendance Report PDF</h3>
+                <p>Formatting document & downloading...</p>
+              </div>
+            </body>
+          </html>
+        `);
+      } catch (e) {
+        console.warn("Could not write to preview tab:", e);
+      }
+    }
+
     setLoading(true);
 
     try {
-      const input = tableRef.current;
-      input.classList.add("EmppAttendence-pdf-export");
+      const { jsPDF, autoTable } = await loadPdfModules();
 
-      const canvas = await html2canvas(input, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        width: input.scrollWidth,
-        height: input.scrollHeight,
+      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const exportedAt = new Date();
+
+      const activeBranchObj = (branchOptions || []).find(b => String(b.id || b._id) === String(selectedBranchId));
+      const branchName = activeBranchObj ? (activeBranchObj.name || activeBranchObj.label) : "All Branches";
+      const deptName = selectedDepartment === "all" ? "All Departments" : selectedDepartment;
+
+      // 1. Header Banner Background (Dark Slate)
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, pageWidth, 74, "F");
+
+      // Accent bottom line (Royal Blue)
+      doc.setFillColor(37, 99, 235);
+      doc.rect(0, 72, pageWidth, 2.5, "F");
+
+      // Left Header text
+      doc.setTextColor(56, 189, 248);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.text("CIIS NETWORK  •  HR OPERATIONS", 28, 24);
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.text("EMPLOYEE ATTENDANCE REPORT", 28, 44);
+
+      doc.setTextColor(148, 163, 184);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      const metaLeft = `Branch: ${branchName}   |   Department: ${deptName}   |   Filter: ${getStatusFilterLabel(statusFilter)}`;
+      doc.text(metaLeft, 28, 60);
+
+      // Right Header text
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.setTextColor(255, 255, 255);
+      const datePeriodText = dateRangeMode
+        ? `Period: ${new Date(selectedStartDate).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' })} - ${new Date(selectedEndDate).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' })}`
+        : `Date: ${formatExportDate(selectedDate)}`;
+      doc.text(datePeriodText, pageWidth - 28, 28, { align: "right" });
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`Exported: ${exportedAt.toLocaleString("en-IN")}   |   Total Records: ${filteredRecords.length}`, pageWidth - 28, 44, { align: "right" });
+
+      // 2. Summary KPI Metric Cards (startY = 82)
+      const kpis = [
+        { label: "TOTAL EMPLOYEES", value: stats.total, fill: [241, 245, 249], border: [203, 213, 225], text: [30, 41, 59] },
+        { label: "PRESENT", value: stats.present, fill: [236, 253, 245], border: [167, 243, 208], text: [22, 101, 52] },
+        { label: "LATE", value: stats.late, fill: [254, 243, 199], border: [253, 230, 138], text: [180, 83, 9] },
+        { label: "HALF DAY", value: stats.halfDay, fill: [224, 242, 254], border: [186, 230, 253], text: [3, 105, 161] },
+        { label: "ABSENT", value: stats.absent, fill: [254, 226, 226], border: [254, 202, 202], text: [185, 28, 28] },
+        { label: "UNINFORMED", value: stats.uninformedLeave, fill: [255, 237, 213], border: [254, 215, 170], text: [194, 65, 12] },
+        { label: "HOLIDAY", value: stats.holiday, fill: [243, 232, 255], border: [233, 213, 255], text: [109, 40, 217] },
+      ];
+
+      const kpiMargin = 28;
+      const kpiGap = 8;
+      const totalKpiWidth = pageWidth - (kpiMargin * 2);
+      const cardWidth = (totalKpiWidth - (kpis.length - 1) * kpiGap) / kpis.length;
+      const cardHeight = 36;
+      const cardY = 82;
+
+      kpis.forEach((kpi, idx) => {
+        const cx = kpiMargin + idx * (cardWidth + kpiGap);
+        doc.setFillColor(kpi.fill[0], kpi.fill[1], kpi.fill[2]);
+        doc.setDrawColor(kpi.border[0], kpi.border[1], kpi.border[2]);
+        doc.roundedRect(cx, cardY, cardWidth, cardHeight, 4, 4, "FD");
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.setTextColor(kpi.text[0], kpi.text[1], kpi.text[2]);
+        doc.text(String(kpi.value || 0), cx + cardWidth / 2, cardY + 16, { align: "center" });
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.5);
+        doc.setTextColor(100, 116, 139);
+        doc.text(kpi.label, cx + cardWidth / 2, cardY + 28, { align: "center" });
       });
 
-      input.classList.remove("EmppAttendence-pdf-export");
+      // 3. Build Table Rows
+      const rows = filteredRecords.map((rec, index) => {
+        const dateStr = rec.displayDate || (rec.date ? formatDate(rec.date) : "N/A");
+        const empInfo = getDisplayEmployeeInfo(rec.user);
+        const dept = rec.user?.department || (rec.user?.departmentId && departmentsMap[rec.user.departmentId]) || "Unassigned";
+        const empType = rec.user?.employeeType ? rec.user.employeeType.toUpperCase() : "N/A";
+        const shift = getShiftLabel(rec);
+        const checkIn = formatTime(rec.inTime);
+        const checkOut = formatTime(rec.outTime);
+        const hours = rec.hoursWorked || (rec.totalHours ? `${rec.totalHours.toFixed(1)} hrs` : "00:00:00");
+        const status = formatStatusLabel(rec.status);
+        const lateBy = rec.lateBy || "00:00:00";
 
-      const imgData = canvas.toDataURL("image/png");
+        return [
+          index + 1,
+          dateStr,
+          empInfo.name,
+          empInfo.email,
+          dept,
+          empType,
+          shift,
+          checkIn,
+          checkOut,
+          hours,
+          status,
+          lateBy
+        ];
+      });
 
-      const pdf = new jsPDF("landscape", "mm", "a4");
+      // 4. Render Table with autoTable
+      const tableHeaders = [
+        ["#", "Date", "Employee Name", "Email", "Department", "Type", "Shift", "Check In", "Check Out", "Hours", "Status", "Late By"]
+      ];
 
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const runTable = typeof autoTable === 'function' ? autoTable : doc.autoTable;
+      runTable(doc, {
+        startY: 126,
+        head: tableHeaders,
+        body: rows,
+        theme: "grid",
+        headStyles: {
+          fillColor: [15, 23, 42],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          fontSize: 7.5,
+          halign: "center",
+          valign: "middle",
+          cellPadding: 4,
+        },
+        bodyStyles: {
+          fontSize: 7.2,
+          textColor: [30, 41, 59],
+          valign: "middle",
+          cellPadding: 3.5,
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252],
+        },
+        columnStyles: {
+          0: { cellWidth: 24, halign: "center" },
+          1: { cellWidth: 58, halign: "center" },
+          2: { cellWidth: 105, halign: "left" },
+          3: { cellWidth: 110, halign: "left" },
+          4: { cellWidth: 75, halign: "left" },
+          5: { cellWidth: 54, halign: "center" },
+          6: { cellWidth: 60, halign: "center" },
+          7: { cellWidth: 50, halign: "center" },
+          8: { cellWidth: 50, halign: "center" },
+          9: { cellWidth: 50, halign: "center" },
+          10: { cellWidth: 68, halign: "center", fontStyle: "bold" },
+          11: { cellWidth: 48, halign: "center" },
+        },
+        didParseCell: (data) => {
+          if (data.section === "body" && data.column.index === 10) {
+            const rawStatus = String(data.cell.raw || "").toUpperCase();
+            if (rawStatus.includes("PRESENT") || rawStatus.includes("ON TIME")) {
+              data.cell.styles.textColor = [22, 101, 52];
+            } else if (rawStatus.includes("LATE")) {
+              data.cell.styles.textColor = [180, 83, 9];
+            } else if (rawStatus.includes("ABSENT") || rawStatus.includes("UNINFORMED")) {
+              data.cell.styles.textColor = [185, 28, 28];
+            } else if (rawStatus.includes("HALF")) {
+              data.cell.styles.textColor = [3, 105, 161];
+            } else if (rawStatus.includes("HOLIDAY")) {
+              data.cell.styles.textColor = [109, 40, 217];
+            }
+          }
+        },
+        didDrawPage: (data) => {
+          const totalPages = doc.internal.getNumberOfPages();
+          const currentPage = data.pageNumber;
+          doc.setFontSize(7.5);
+          doc.setTextColor(148, 163, 184);
+          doc.setFont("helvetica", "normal");
+          
+          doc.setDrawColor(226, 232, 240);
+          doc.line(28, pageHeight - 20, pageWidth - 28, pageHeight - 20);
 
-      const margin = 10;
-      const usableWidth = pdfWidth - margin * 2;
-      const usableHeight = pdfHeight - margin * 2;
+          doc.text("CIIS Network  •  Confidential Employee Attendance Report", 28, pageHeight - 10);
+          doc.text(`Page ${currentPage} of ${totalPages}`, pageWidth - 28, pageHeight - 10, { align: "right" });
+        },
+        margin: { left: 28, right: 28, bottom: 26 },
+      });
 
-      const imgWidth = usableWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      let heightLeft = imgHeight;
-      let position = margin;
-
-      pdf.setFontSize(16);
-      pdf.text(
-        dateRangeMode 
-          ? `Attendance Report - ${new Date(selectedStartDate).toLocaleDateString()} to ${new Date(selectedEndDate).toLocaleDateString()}`
-          : `Attendance Report - ${formatExportDate(selectedDate)}`,
-        pdfWidth / 2,
-        8,
-        { align: "center" }
-      );
-
-      pdf.setFontSize(10);
-      pdf.text(
-        `Total: ${stats.total} | Present: ${stats.present} | Late: ${stats.late} | Half Day: ${stats.halfDay} | Absent: ${stats.absent} | Uninformed Leave: ${stats.uninformedLeave} | Holiday: ${stats.holiday}`,
-        margin,
-        15
-      );
-
-      position = 20;
-
-      pdf.addImage(
-        imgData,
-        "PNG",
-        margin,
-        position,
-        imgWidth,
-        imgHeight
-      );
-
-      heightLeft -= usableHeight;
-
-      while (heightLeft > 0) {
-        pdf.addPage();
-        position = margin - heightLeft;
-
-        pdf.addImage(
-          imgData,
-          "PNG",
-          margin,
-          position,
-          imgWidth,
-          imgHeight
-        );
-
-        heightLeft -= usableHeight;
-      }
-
-      const totalPages = pdf.internal.getNumberOfPages();
-      for (let i = 1; i <= totalPages; i++) {
-        pdf.setPage(i);
-        pdf.setFontSize(8);
-        pdf.text(
-          `Page ${i} of ${totalPages}`,
-          pdfWidth - 20,
-          pdfHeight - 8
-        );
-      }
-
-      pdf.save(dateRangeMode 
+      const fileName = dateRangeMode 
         ? `attendance_report_${selectedStartDate}_to_${selectedEndDate}.pdf`
-        : `attendance_report_${selectedDate}.pdf`
-      );
-      showSnackbar("Attendance PDF exported successfully!", "success");
+        : `attendance_report_${selectedDate}.pdf`;
+
+      const pdfBlob = doc.output("blob");
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+
+      if (previewTab && !previewTab.closed) {
+        previewTab.location.href = pdfUrl;
+      } else {
+        try { window.open(pdfUrl, "_blank"); } catch (e) {}
+      }
+
+      doc.save(fileName);
+      setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
+
+      showSnackbar("Attendance PDF exported and opened successfully!", "success");
     } catch (error) {
       console.error("PDF Export Error:", error);
+      if (previewTab && !previewTab.closed) {
+        previewTab.close();
+      }
       showSnackbar("Failed to export PDF", "error");
     } finally {
       setLoading(false);
@@ -2267,38 +2463,338 @@ const EmployeeAttendance = () => {
   };
 
   const exportToImage = async () => {
-    const html2canvas = await loadHtml2Canvas();
+    if (!filteredRecords || filteredRecords.length === 0) {
+      showSnackbar("No attendance records found to export", "error");
+      return;
+    }
+
     setExportMenuOpen(false);
+
+    // Open tab synchronously on click to avoid browser popup blockers
+    const previewTab = typeof window !== 'undefined' ? window.open('', '_blank') : null;
+    if (previewTab) {
+      try {
+        previewTab.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Preparing Attendance Report Image...</title>
+              <style>
+                body {
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                  display: flex; align-items: center; justify-content: center;
+                  height: 100vh; margin: 0; background: #0f172a; color: #f8fafc;
+                }
+                .box { text-align: center; padding: 28px 36px; border-radius: 12px; background: #1e293b; border: 1px solid #334155; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+                .spinner { width: 42px; height: 42px; border: 4px solid #334155; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+                @keyframes spin { to { transform: rotate(360deg); } }
+                h3 { margin: 0 0 8px; font-weight: 600; font-size: 18px; color: #ffffff; }
+                p { margin: 0; font-size: 13.5px; color: #94a3b8; }
+              </style>
+            </head>
+            <body>
+              <div class="box">
+                <div class="spinner"></div>
+                <h3>Generating Attendance Report Image</h3>
+                <p>Rendering high-res format & downloading...</p>
+              </div>
+            </body>
+          </html>
+        `);
+      } catch (e) {
+        console.warn("Could not write to preview tab:", e);
+      }
+    }
+
     setLoading(true);
     
     try {
-      const input = tableRef.current;
-      input.classList.add('EmppAttendence-image-export');
-      
-      const canvas = await html2canvas(input, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        width: input.scrollWidth,
-        height: input.scrollHeight,
+      const activeBranchObj = (branchOptions || []).find(b => String(b.id || b._id) === String(selectedBranchId));
+      const branchName = activeBranchObj ? (activeBranchObj.name || activeBranchObj.label) : "All Branches";
+      const deptName = selectedDepartment === "all" ? "All Departments" : selectedDepartment;
+      const exportedAt = new Date();
+
+      const width = 1920;
+      const headerHeight = 120;
+      const kpiHeight = 90;
+      const tableHeaderHeight = 44;
+      const rowHeight = 40;
+      const footerHeight = 50;
+      const padding = 30;
+
+      const recordCount = filteredRecords.length;
+      const totalHeight = headerHeight + kpiHeight + tableHeaderHeight + (recordCount * rowHeight) + footerHeight + (padding * 2);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = totalHeight;
+      const ctx = canvas.getContext("2d");
+
+      const drawRoundRect = (x, y, w, h, r, fill, stroke) => {
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(x, y, w, h, r);
+        } else {
+          ctx.moveTo(x + r, y);
+          ctx.lineTo(x + w - r, y);
+          ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+          ctx.lineTo(x + w, y + h - r);
+          ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+          ctx.lineTo(x + r, y + h);
+          ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+          ctx.lineTo(x, y + r);
+          ctx.quadraticCurveTo(x, y, x + r, y);
+        }
+        if (fill) {
+          ctx.fillStyle = fill;
+          ctx.fill();
+        }
+        if (stroke) {
+          ctx.strokeStyle = stroke;
+          ctx.stroke();
+        }
+      };
+
+      // 1. Base Background
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, totalHeight);
+
+      // 2. Header Banner
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(0, 0, width, headerHeight);
+
+      // Accent Bottom Bar
+      ctx.fillStyle = "#2563eb";
+      ctx.fillRect(0, headerHeight - 4, width, 4);
+
+      // Left Header Text
+      ctx.fillStyle = "#38bdf8";
+      ctx.font = "bold 15px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      ctx.fillText("CIIS NETWORK  •  HR OPERATIONS", padding, 38);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 26px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      ctx.fillText("EMPLOYEE ATTENDANCE REPORT", padding, 74);
+
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "14px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      ctx.fillText(`Branch: ${branchName}   |   Department: ${deptName}   |   Status Filter: ${getStatusFilterLabel(statusFilter)}`, padding, 100);
+
+      // Right Header Text
+      ctx.textAlign = "right";
+      const datePeriodText = dateRangeMode
+        ? `Period: ${new Date(selectedStartDate).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' })} - ${new Date(selectedEndDate).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' })}`
+        : `Date: ${formatExportDate(selectedDate)}`;
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 17px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      ctx.fillText(datePeriodText, width - padding, 48);
+
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "13.5px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      ctx.fillText(`Exported: ${exportedAt.toLocaleString("en-IN")}   |   Total Records: ${recordCount}`, width - padding, 78);
+      ctx.textAlign = "left";
+
+      // 3. KPI Metric Strip
+      const kpis = [
+        { label: "TOTAL EMPLOYEES", value: stats.total, bg: "#f1f5f9", border: "#cbd5e1", text: "#1e293b" },
+        { label: "PRESENT", value: stats.present, bg: "#ecfdf5", border: "#a7f3d0", text: "#166534" },
+        { label: "LATE", value: stats.late, bg: "#fffbeb", border: "#fde68a", text: "#b45309" },
+        { label: "HALF DAY", value: stats.halfDay, bg: "#e0f2fe", border: "#bae6fd", text: "#0369a1" },
+        { label: "ABSENT", value: stats.absent, bg: "#fee2e2", border: "#fecaca", text: "#b91c1c" },
+        { label: "UNINFORMED", value: stats.uninformedLeave, bg: "#ffedd5", border: "#fed7aa", text: "#c2410c" },
+        { label: "HOLIDAY", value: stats.holiday, bg: "#f3e8ff", border: "#e9d5ff", text: "#6d28d9" },
+      ];
+
+      const kpiCardWidth = (width - (padding * 2) - ((kpis.length - 1) * 14)) / kpis.length;
+      const kpiY = headerHeight + 16;
+
+      kpis.forEach((kpi, idx) => {
+        const kx = padding + idx * (kpiCardWidth + 14);
+        drawRoundRect(kx, kpiY, kpiCardWidth, 58, 8, kpi.bg, kpi.border);
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = kpi.text;
+        ctx.font = "bold 20px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+        ctx.fillText(String(kpi.value || 0), kx + kpiCardWidth / 2, kpiY + 28);
+
+        ctx.fillStyle = "#64748b";
+        ctx.font = "bold 10px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+        ctx.fillText(kpi.label, kx + kpiCardWidth / 2, kpiY + 46);
+        ctx.textAlign = "left";
       });
-      
-      input.classList.remove('EmppAttendence-image-export');
-      
-      const image = canvas.toDataURL('image/jpeg', 1.0);
-      const link = document.createElement('a');
-      link.download = dateRangeMode 
-        ? `attendance_report_${selectedStartDate}_to_${selectedEndDate}.jpg`
-        : `attendance_report_${selectedDate}.jpg`;
-      link.href = image;
-      link.click();
-      
-      showSnackbar("Image exported successfully!", "success");
+
+      // 4. Table Header
+      const tableY = headerHeight + kpiHeight + 14;
+      drawRoundRect(padding, tableY, width - padding * 2, tableHeaderHeight, 6, "#1e293b", null);
+
+      const columns = [
+        { label: "#", width: 55, align: "center" },
+        { label: "Date", width: 140, align: "center" },
+        { label: "Employee Name", width: 260, align: "left" },
+        { label: "Email", width: 270, align: "left" },
+        { label: "Department", width: 180, align: "left" },
+        { label: "Type", width: 130, align: "center" },
+        { label: "Shift", width: 150, align: "center" },
+        { label: "Check In", width: 130, align: "center" },
+        { label: "Check Out", width: 130, align: "center" },
+        { label: "Hours", width: 120, align: "center" },
+        { label: "Status", width: 160, align: "center" },
+        { label: "Late By", width: 135, align: "center" },
+      ];
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      let colX = padding;
+      columns.forEach(col => {
+        if (col.align === "center") {
+          ctx.textAlign = "center";
+          ctx.fillText(col.label, colX + col.width / 2, tableY + 27);
+        } else {
+          ctx.textAlign = "left";
+          ctx.fillText(col.label, colX + 12, tableY + 27);
+        }
+        colX += col.width;
+      });
+
+      // 5. Table Rows
+      let currentY = tableY + tableHeaderHeight;
+
+      filteredRecords.forEach((rec, idx) => {
+        const empInfo = getDisplayEmployeeInfo(rec.user);
+        const rowBg = idx % 2 === 0 ? "#ffffff" : "#f8fafc";
+        ctx.fillStyle = rowBg;
+        ctx.fillRect(padding, currentY, width - padding * 2, rowHeight);
+
+        // Bottom border line
+        ctx.strokeStyle = "#e2e8f0";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padding, currentY + rowHeight);
+        ctx.lineTo(width - padding, currentY + rowHeight);
+        ctx.stroke();
+
+        const rowData = [
+          { val: String(idx + 1), align: "center" },
+          { val: rec.displayDate || (rec.date ? formatDate(rec.date) : "N/A"), align: "center" },
+          { val: empInfo.name, align: "left", isBold: true },
+          { val: empInfo.email, align: "left" },
+          { val: rec.user?.department || (rec.user?.departmentId && departmentsMap[rec.user.departmentId]) || "Unassigned", align: "left" },
+          { val: rec.user?.employeeType ? rec.user.employeeType.toUpperCase() : "N/A", align: "center" },
+          { val: getShiftLabel(rec), align: "center" },
+          { val: formatTime(rec.inTime), align: "center" },
+          { val: formatTime(rec.outTime), align: "center" },
+          { val: rec.hoursWorked || (rec.totalHours ? `${rec.totalHours.toFixed(1)} hrs` : "00:00:00"), align: "center" },
+          { val: formatStatusLabel(rec.status), align: "center", isStatus: true },
+          { val: rec.lateBy || "00:00:00", align: "center" },
+        ];
+
+        let cellX = padding;
+        rowData.forEach((cell, cIdx) => {
+          const cWidth = columns[cIdx].width;
+
+          if (cell.isStatus) {
+            const statusLabel = String(cell.val || "N/A").toUpperCase();
+            let badgeBg = "#f1f5f9";
+            let badgeText = "#334155";
+            let badgeBorder = "#cbd5e1";
+
+            if (statusLabel.includes("PRESENT") || statusLabel.includes("ON TIME")) {
+              badgeBg = "#dcfce7"; badgeText = "#15803d"; badgeBorder = "#86efac";
+            } else if (statusLabel.includes("LATE")) {
+              badgeBg = "#fef3c7"; badgeText = "#b45309"; badgeBorder = "#fcd34d";
+            } else if (statusLabel.includes("ABSENT") || statusLabel.includes("UNINFORMED")) {
+              badgeBg = "#fee2e2"; badgeText = "#b91c1c"; badgeBorder = "#fca5a5";
+            } else if (statusLabel.includes("HALF")) {
+              badgeBg = "#e0f2fe"; badgeText = "#0369a1"; badgeBorder = "#7dd3fc";
+            } else if (statusLabel.includes("HOLIDAY")) {
+              badgeBg = "#f3e8ff"; badgeText = "#6d28d9"; badgeBorder = "#d8b4fe";
+            }
+
+            const pillW = Math.min(cWidth - 16, 120);
+            const pillH = 26;
+            const pillX = cellX + (cWidth - pillW) / 2;
+            const pillY = currentY + (rowHeight - pillH) / 2;
+
+            drawRoundRect(pillX, pillY, pillW, pillH, 13, badgeBg, badgeBorder);
+
+            ctx.textAlign = "center";
+            ctx.fillStyle = badgeText;
+            ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+            ctx.fillText(statusLabel, pillX + pillW / 2, pillY + 17);
+          } else {
+            ctx.fillStyle = cell.isBold ? "#0f172a" : "#334155";
+            ctx.font = cell.isBold 
+              ? "bold 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+              : "12.5px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+
+            if (cell.align === "center") {
+              ctx.textAlign = "center";
+              ctx.fillText(cell.val, cellX + cWidth / 2, currentY + 25);
+            } else {
+              ctx.textAlign = "left";
+              let textToDraw = cell.val;
+              const maxTextWidth = cWidth - 20;
+              if (ctx.measureText(textToDraw).width > maxTextWidth) {
+                while (textToDraw.length > 3 && ctx.measureText(textToDraw + '...').width > maxTextWidth) {
+                  textToDraw = textToDraw.slice(0, -1);
+                }
+                textToDraw += '...';
+              }
+              ctx.fillText(textToDraw, cellX + 12, currentY + 25);
+            }
+          }
+
+          cellX += cWidth;
+        });
+
+        currentY += rowHeight;
+      });
+
+      // 6. Footer
+      currentY += 10;
+      drawRoundRect(padding, currentY, width - padding * 2, footerHeight, 6, "#0f172a", null);
+
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("CIIS Network  •  Confidential Employee Attendance Report  •  HR Operations", padding + 16, currentY + 31);
+
+      ctx.textAlign = "right";
+      ctx.fillText(`Total Records: ${recordCount}   |   Generated: ${exportedAt.toLocaleString("en-IN")}`, width - padding - 16, currentY + 31);
+
+      // 7. Convert to Blob, Open in Tab & Download
+      const fileName = dateRangeMode 
+        ? `attendance_report_${selectedStartDate}_to_${selectedEndDate}.png`
+        : `attendance_report_${selectedDate}.png`;
+
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          throw new Error("Failed to generate image blob");
+        }
+        const imageUrl = URL.createObjectURL(blob);
+
+        if (previewTab && !previewTab.closed) {
+          previewTab.location.href = imageUrl;
+        } else {
+          try { window.open(imageUrl, "_blank"); } catch (e) {}
+        }
+
+        const link = document.createElement("a");
+        link.download = fileName;
+        link.href = imageUrl;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(imageUrl), 60000);
+
+        showSnackbar("Attendance Image exported & opened successfully!", "success");
+        setLoading(false);
+      }, "image/png");
+
     } catch (error) {
       console.error("Error exporting to image:", error);
+      if (previewTab && !previewTab.closed) {
+        previewTab.close();
+      }
       showSnackbar("Error exporting image", "error");
-    } finally {
       setLoading(false);
     }
   };

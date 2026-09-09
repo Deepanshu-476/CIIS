@@ -807,13 +807,6 @@ const JobRoleManagement = () => {
             >
               <span className="JobRoleManagement-action-icon">✏️</span>
             </button>
-            <button 
-              className={`JobRoleManagement-action-btn JobRoleManagement-action-delete ${jobRole.isActive === false ? 'JobRoleManagement-disabled' : ''}`}
-              onClick={() => handleDelete(jobRole._id)}
-              disabled={jobRole.isActive === false}
-            >
-              <span className="JobRoleManagement-action-icon">🗑️</span>
-            </button>
           </div>
         </div>
       </div>
@@ -1126,14 +1119,6 @@ const JobRoleManagement = () => {
                             >
                               <span className="JobRoleManagement-icon">✏️</span>
                             </button>
-                            <button 
-                              className={`JobRoleManagement-icon-btn JobRoleManagement-icon-delete ${jobRole.isActive === false ? 'JobRoleManagement-disabled' : ''}`}
-                              onClick={() => handleDelete(jobRole._id)}
-                              title="Delete Job Role"
-                              disabled={jobRole.isActive === false}
-                            >
-                              <span className="JobRoleManagement-icon">🗑️</span>
-                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1210,42 +1195,19 @@ const JobRoleManagement = () => {
         )}
 
         
-        {anchorEl && (canEditJobRole || canDeleteJobRole) && (
+        {anchorEl && canEditJobRole && (
           <div className="JobRoleManagement-menu-overlay" onClick={handleMenuClose}>
             <div className="JobRoleManagement-menu" style={{top: anchorEl.getBoundingClientRect().bottom, left: anchorEl.getBoundingClientRect().left}}>
-              {canEditJobRole && (
-                <button className="JobRoleManagement-menu-item" onClick={() => {
-                  handleEdit(selectedJobRoleMenu);
-                  handleMenuClose();
-                }}>
-                  <span className="JobRoleManagement-menu-icon">✏️</span>
-                  <div className="JobRoleManagement-menu-text">
-                    <div className="JobRoleManagement-menu-title">Edit Job Role</div>
-                    <div className="JobRoleManagement-menu-subtitle">Modify role details</div>
-                  </div>
-                </button>
-              )}
-              {canEditJobRole && canDeleteJobRole && (
-                <hr className="JobRoleManagement-menu-divider" />
-              )}
-              {canDeleteJobRole && (
-                <button 
-                  className={`JobRoleManagement-menu-item ${!selectedJobRoleMenu?.isActive ? 'JobRoleManagement-menu-item-disabled' : ''}`}
-                  onClick={() => {
-                    handleDelete(selectedJobRoleMenu?._id);
-                    handleMenuClose();
-                  }} 
-                  disabled={!selectedJobRoleMenu?.isActive}
-                >
-                  <span className="JobRoleManagement-menu-icon">🗑️</span>
-                  <div className="JobRoleManagement-menu-text">
-                    <div className="JobRoleManagement-menu-title">Delete Job Role</div>
-                    <div className="JobRoleManagement-menu-subtitle">
-                      {!selectedJobRoleMenu?.isActive ? 'Already inactive' : 'Remove permanently'}
-                    </div>
-                  </div>
-                </button>
-              )}
+              <button className="JobRoleManagement-menu-item" onClick={() => {
+                handleEdit(selectedJobRoleMenu);
+                handleMenuClose();
+              }}>
+                <span className="JobRoleManagement-menu-icon">✏️</span>
+                <div className="JobRoleManagement-menu-text">
+                  <div className="JobRoleManagement-menu-title">Edit Job Role</div>
+                  <div className="JobRoleManagement-menu-subtitle">Modify role details</div>
+                </div>
+              </button>
             </div>
           </div>
         )}

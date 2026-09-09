@@ -66,6 +66,19 @@ const ManageGroups = () => {
     description: "",
     members: [],
   });
+  const [nameError, setNameError] = useState("");
+
+  const checkDuplicateGroupName = (inputName, excludeGroupId = null) => {
+    const trimmed = String(inputName || "").trim().toLowerCase();
+    if (!trimmed) return false;
+    return groups.some((g) => {
+      const gId = g._id || g.id;
+      if (excludeGroupId && String(gId) === String(excludeGroupId)) {
+        return false;
+      }
+      return String(g.name || "").trim().toLowerCase() === trimmed;
+    });
+  };
 
   const showSnackbar = (message, severity = "success") => {
     setSnackbar({ open: true, message, severity });
@@ -191,6 +204,7 @@ const ManageGroups = () => {
 
   const handleOpenDialog = (group = null) => {
     if (!canEditGroups) return;
+    setNameError("");
     if (group) {
       setEditingGroup(group);
       setFormData({
@@ -215,6 +229,7 @@ const ManageGroups = () => {
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setEditingGroup(null);
+    setNameError("");
     setFormData({
       name: "",
       description: "",
@@ -229,6 +244,19 @@ const ManageGroups = () => {
       ...prev,
       [name]: value,
     }));
+    if (name === "name") {
+      if (nameError) setNameError("");
+      const trimmed = value.trim();
+      if (trimmed) {
+        const isDuplicate = checkDuplicateGroupName(
+          trimmed,
+          editingGroup ? (editingGroup._id || editingGroup.id) : null
+        );
+        if (isDuplicate) {
+          setNameError("A group with this name already exists.");
+        }
+      }
+    }
   };
 
   const toggleMember = (userId) => {
@@ -245,26 +273,51 @@ const ManageGroups = () => {
       showSnackbar("You don't have permission to edit groups", "error");
       return;
     }
-    if (!formData.name.trim()) {
+    const trimmedName = formData.name.trim();
+    if (!trimmedName) {
+      setNameError("Group name is required");
       showSnackbar("Group name is required", "error");
       return;
     }
 
+    const isDuplicate = checkDuplicateGroupName(
+      trimmedName,
+      editingGroup ? (editingGroup._id || editingGroup.id) : null
+    );
+    if (isDuplicate) {
+      setNameError("A group with this name already exists.");
+      showSnackbar("A group with this name already exists.", "error");
+      return;
+    }
+
     try {
+      const payload = {
+        ...formData,
+        name: trimmedName,
+      };
       if (editingGroup) {
-        await apiCall("put", `/groups/${editingGroup._id}`, formData);
+        await apiCall("put", `/groups/${editingGroup._id}`, payload);
         showSnackbar("Group updated successfully", "success");
       } else {
-        await apiCall("post", "/groups", formData);
+        await apiCall("post", "/groups", payload);
         showSnackbar("Group created successfully", "success");
       }
       handleCloseDialog();
       fetchGroups();
     } catch (error) {
-      showSnackbar(
-        error.response?.data?.message || "Failed to save group",
-        "error"
-      );
+      const errorMsg =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        "Failed to save group";
+      if (
+        errorMsg.toLowerCase().includes("already exists") ||
+        error.response?.status === 400
+      ) {
+        if (errorMsg.toLowerCase().includes("already exists")) {
+          setNameError("A group with this name already exists.");
+        }
+      }
+      showSnackbar(errorMsg, "error");
     }
   };
 
@@ -568,7 +621,22 @@ const ManageGroups = () => {
         <DialogContent className="manage-groups-dialog-content">
           <Box className="manage-groups-dialog-field">
             <label>Group Name <em>*</em></label>
-            <Box className="manage-groups-dialog-input"><span><FiUsers /></span><input name="name" value={formData.name} onChange={handleFormChange} placeholder="Enter group name" /></Box>
+            <Box className={`manage-groups-dialog-input${nameError ? " has-error" : ""}`}>
+              <span><FiUsers /></span>
+              <input
+                name="name"
+                value={formData.name}
+                onChange={handleFormChange}
+                placeholder="Enter group name"
+                aria-invalid={Boolean(nameError)}
+                aria-describedby={nameError ? "group-name-error" : undefined}
+              />
+            </Box>
+            {nameError && (
+              <Typography id="group-name-error" className="manage-groups-field-error" variant="caption">
+                {nameError}
+              </Typography>
+            )}
           </Box>
           <Box className="manage-groups-dialog-field">
             <label>Description</label>

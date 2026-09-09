@@ -716,12 +716,32 @@ const MyTaskManagement = () => {
       return;
     }
 
+    const trimmedGroupName = (newGroup.name || '').trim().toLowerCase();
+    const isDuplicate = groups.some(g => {
+      const gId = g._id || g.id;
+      if (editingGroup && String(gId) === String(editingGroup._id || editingGroup.id)) return false;
+      return (g.name || '').trim().toLowerCase() === trimmedGroupName;
+    });
+
+    if (isDuplicate) {
+      setSnackbar({
+        open: true,
+        message: 'A group with this name already exists.',
+        severity: 'error'
+      });
+      return;
+    }
+
     try {
+      const groupPayload = {
+        ...newGroup,
+        name: (newGroup.name || '').trim(),
+      };
       if (editingGroup) {
-        await axios.put(`/groups/${editingGroup._id}`, newGroup);
+        await axios.put(`/groups/${editingGroup._id}`, groupPayload);
         setSnackbar({ open: true, message: 'Group updated successfully', severity: 'success' });
       } else {
-        await axios.post('/groups', newGroup);
+        await axios.post('/groups', groupPayload);
         setSnackbar({ open: true, message: 'Group created successfully', severity: 'success' });
       }
       fetchAssignableData();
@@ -738,7 +758,7 @@ const MyTaskManagement = () => {
           severity: 'error'
         });
       } else {
-        setSnackbar({ open: true, message: err?.response?.data?.error || 'Group operation failed', severity: 'error' });
+        setSnackbar({ open: true, message: err?.response?.data?.message || err?.response?.data?.error || 'Group operation failed', severity: 'error' });
       }
     }
   };

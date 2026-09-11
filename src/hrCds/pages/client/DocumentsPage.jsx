@@ -52,6 +52,7 @@ const documentTabs = [
 
 const DOCUMENT_FILE_LIMIT_BYTES = 10 * 1024 * 1024;
 const STORAGE_LIMIT_BYTES = 5 * 1024 * 1024 * 1024;
+const DEFAULT_CHUNK_SIZE_BYTES = 512 * 1024;
 
 const iconMap = {
   pdf: <span className="DocumentsPage-docIcon DocumentsPage-pdf">PDF</span>,
@@ -109,6 +110,16 @@ const formatUploadedDocument = doc => ({
   size: formatBytes(doc.size),
   icon: "uploaded",
   isUploaded: true,
+});
+
+const blobToBase64 = blob => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const result = String(reader.result || "");
+    resolve(result.includes(",") ? result.split(",").pop() : result);
+  };
+  reader.onerror = () => reject(reader.error || new Error("Unable to read file chunk"));
+  reader.readAsDataURL(blob);
 });
 
 const DocumentsPage = () => {
@@ -197,9 +208,38 @@ const DocumentsPage = () => {
       formData.append("category", "Client Upload");
       formData.append("document", file);
 
-      const response = await clientDocumentsApi.post("/", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      let response;
+      try {
+        response = await clientDocumentsApi.post("/", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      } catch (uploadError) {
+        if (uploadError.response?.status !== 413) throw uploadError;
+
+        const startResponse = await clientDocumentsApi.post("/chunk/start", {
+          clientId: client._id,
+          category: "Client Upload",
+          fileName: file.name || "document",
+          mimeType: file.type || "application/octet-stream",
+          size: file.size,
+          totalChunks: Math.ceil(file.size / DEFAULT_CHUNK_SIZE_BYTES),
+        });
+        const uploadId = startResponse.data?.uploadId;
+        const chunkSize = Number(startResponse.data?.chunkSize || DEFAULT_CHUNK_SIZE_BYTES);
+        const totalChunks = Number(startResponse.data?.totalChunks || Math.ceil(file.size / chunkSize));
+        if (!uploadId) {
+          throw new Error("Unable to prepare chunked upload");
+        }
+
+        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex += 1) {
+          const start = chunkIndex * chunkSize;
+          const chunk = file.slice(start, Math.min(file.size, start + chunkSize));
+          const chunkData = await blobToBase64(chunk);
+          await clientDocumentsApi.post(`/chunk/${uploadId}`, { chunkIndex, chunkData });
+        }
+
+        response = await clientDocumentsApi.post(`/chunk/${uploadId}/complete`);
+      }
 
       if (response.data?.data) {
         setUploadedDocuments(prev => [response.data.data, ...prev]);

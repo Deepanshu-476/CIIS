@@ -893,7 +893,7 @@ const UserCreateTask = () => {
   };
   const repeatPatternDescriptions = {
     none: 'Create one task only.',
-    daily: 'Auto-create a repeat task every day, or only on selected weekdays.'
+    daily: 'Auto-create a repeat task every day, or only on selected weekdays. Tasks will not repeat on days you are absent.'
   };
   const updateRepeatPattern = (value) => {
     setNewTask(prev => ({
@@ -6418,7 +6418,7 @@ const UserCreateTask = () => {
                         : (repeatPatternLabels[newTask.repeatPattern] || 'No repeat')}
                     </div>
                     <div className="personal-task-recurring-summary-text">
-                      Auto-created tasks keep the same due time as the source task.
+                      Auto-created tasks keep the same due time as the source task. Tasks will not repeat on days when you are marked absent.
                     </div>
                   </div>
                 </div>

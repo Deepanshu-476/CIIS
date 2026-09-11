@@ -35,101 +35,7 @@ import CIISLoader from "../../Loader/CIISLoader";
 import { useSocket } from "../../context/SocketContext";
 import { useNotification } from "../../context/NotificationContext";
 
-// Reference sample dataset mirroring design reference media_1788932278915.png
-// Used as smart fallback when backend returns 0 user requests, guaranteeing instant UI fidelity
-const DEFAULT_REFERENCE_REQUESTS = [
-  {
-    _id: "ref-req-1",
-    assetName: "Ergonomic Chair",
-    category: "Furniture",
-    type: "Furniture",
-    status: "pending",
-    createdAt: "2026-09-10T10:00:00.000Z",
-    requestDate: "2026-09-10T10:00:00.000Z",
-    reason: "Requested for ergonomic posture support during work",
-    adminComments: [],
-  },
-  {
-    _id: "ref-req-2",
-    assetName: "Dell Laptop",
-    category: "Laptop",
-    type: "Laptop",
-    status: "approved",
-    serialNumber: "DL-2024-001",
-    condition: "Good",
-    assignedDate: "2025-01-15T09:30:00.000Z",
-    createdAt: "2026-08-22T11:00:00.000Z",
-    requestDate: "2026-08-22T11:00:00.000Z",
-    approvedBy: { name: "IT Administrator" },
-    reason: "Work laptop for daily engineering and client tasks",
-    adminComments: [
-      {
-        text: "Laptop configured with company standard tools and handed over.",
-        addedAt: "2025-01-15T10:00:00.000Z",
-      },
-    ],
-  },
-  {
-    _id: "ref-req-3",
-    assetName: "iPhone 13",
-    category: "Mobile Phone",
-    type: "Mobile Phone",
-    status: "approved",
-    serialNumber: "MB-2024-003",
-    condition: "Good",
-    assignedDate: "2025-03-10T14:00:00.000Z",
-    createdAt: "2026-07-12T14:00:00.000Z",
-    requestDate: "2026-07-12T14:00:00.000Z",
-    approvedBy: { name: "Operations Lead" },
-    reason: "Mobile testing and client communication device",
-    adminComments: [
-      {
-        text: "Mobile testing device approved and signed off.",
-        addedAt: "2025-03-10T14:30:00.000Z",
-      },
-    ],
-  },
-  {
-    _id: "ref-req-4",
-    assetName: "Wireless Headphones",
-    category: "Accessories",
-    type: "Accessories",
-    status: "rejected",
-    createdAt: "2026-06-05T08:20:00.000Z",
-    requestDate: "2026-06-05T08:20:00.000Z",
-    reason: "Headset for call center customer support",
-    adminComments: [
-      {
-        text: "Inventory currently depleted for this quarter.",
-        addedAt: "2026-06-06T09:00:00.000Z",
-      },
-    ],
-  },
-  {
-    _id: "ref-req-5",
-    assetName: "Monitor",
-    category: "Computer Peripheral",
-    type: "Computer Peripheral",
-    status: "approved",
-    serialNumber: "MN-2024-089",
-    condition: "Good",
-    assignedDate: "2026-04-18T16:45:00.000Z",
-    createdAt: "2026-04-18T16:45:00.000Z",
-    requestDate: "2026-04-18T16:45:00.000Z",
-    approvedBy: { name: "Facilities Manager" },
-    reason: "Secondary display for productivity",
-    adminComments: [],
-  },
-];
 
-// Fallback company assets list for request dialog
-const DEFAULT_COMPANY_ASSETS = [
-  { _id: "asset-def-1", name: "Dell Latitude 5420 Laptop", category: "Laptop", model: "Latitude 5420", quantity: 5 },
-  { _id: "asset-def-2", name: "Apple iPhone 13 128GB", category: "Mobile Phone", model: "iPhone 13", quantity: 3 },
-  { _id: "asset-def-3", name: "Ergonomic Mesh Chair", category: "Furniture", model: "ErgoPro V2", quantity: 8 },
-  { _id: "asset-def-4", name: "Sony WH-1000XM4 Noise Canceling Headphones", category: "Accessories", model: "WH-1000XM4", quantity: 2 },
-  { _id: "asset-def-5", name: "Dell UltraSharp 27 4K Monitor", category: "Computer Peripheral", model: "U2723QE", quantity: 4 },
-];
 
 /**
  * High-fidelity 3D device artwork SVG rendering:
@@ -475,7 +381,7 @@ const MyAssets = () => {
     });
   };
 
-  // Fetch Requests from Backend API with intelligent fallback
+  // Fetch Requests from Backend API
   const fetchRequests = async (showToastNotice = false) => {
     if (requestsFetchInFlightRef.current) return;
     requestsFetchInFlightRef.current = true;
@@ -488,11 +394,7 @@ const MyAssets = () => {
       });
 
       const serverData = res.data?.requests || res.data?.data || [];
-
-      // If backend returns real requests, use them. Otherwise, seed with reference mockup dataset
-      const finalRequests = Array.isArray(serverData) && serverData.length > 0
-        ? serverData
-        : DEFAULT_REFERENCE_REQUESTS;
+      const finalRequests = Array.isArray(serverData) ? serverData : [];
 
       setRequests(finalRequests);
 
@@ -506,13 +408,16 @@ const MyAssets = () => {
         showToast("Asset dashboard refreshed successfully", "success", 3000);
       }
     } catch (err) {
-      console.warn("Using default reference asset data due to API error:", err);
-      setRequests(DEFAULT_REFERENCE_REQUESTS);
-      const assigned = DEFAULT_REFERENCE_REQUESTS.filter((req) => isActiveAssetRequest(req));
-      setAssignedAssets(assigned);
-      calculateStats(DEFAULT_REFERENCE_REQUESTS);
+      console.error("Fetch my requests error:", err);
+      setRequests([]);
+      setAssignedAssets([]);
+      calculateStats([]);
       if (showToastNotice) {
-        showToast("Asset data loaded from reference cache", "info", 3000);
+        const errorMsg =
+          err.response?.data?.error ||
+          err.response?.data?.message ||
+          "Failed to load asset data from server";
+        showToast(errorMsg, "error", 3000);
       }
     } finally {
       setRefreshing(false);
@@ -527,19 +432,24 @@ const MyAssets = () => {
 
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get("/company-assets", {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      const assets = res.data?.assets || (Array.isArray(res.data) ? res.data : res.data?.data || []);
-      if (assets.length > 0) {
-        setCompanyAssets(assets);
-      } else {
-        setCompanyAssets(DEFAULT_COMPANY_ASSETS);
+      let assets = [];
+      try {
+        const res = await axios.get("/company-assets", {
+          params: { limit: 100 },
+          headers,
+        });
+        assets = res.data?.assets || (Array.isArray(res.data) ? res.data : res.data?.data || []);
+      } catch (e1) {
+        const resAvail = await axios.get("/asset-requests/available", { headers });
+        assets = resAvail.data?.assets || [];
       }
+
+      setCompanyAssets(Array.isArray(assets) ? assets : []);
     } catch (err) {
-      console.warn("Using default company assets for request catalog:", err);
-      setCompanyAssets(DEFAULT_COMPANY_ASSETS);
+      console.error("Error fetching company assets catalog:", err);
+      setCompanyAssets([]);
     } finally {
       assetsFetchInFlightRef.current = false;
     }
@@ -594,9 +504,9 @@ const MyAssets = () => {
     if (!searchAssetQuery.trim()) return assignedAssets;
     const q = searchAssetQuery.toLowerCase();
     return assignedAssets.filter((item) => {
-      const name = (item.assetName || item.name || "").toLowerCase();
-      const cat = (item.category || item.type || "").toLowerCase();
-      const sn = (item.serialNumber || "").toLowerCase();
+      const name = (item.assetName || item.name || item.asset?.name || "").toLowerCase();
+      const cat = (item.category || item.type || item.asset?.description || "").toLowerCase();
+      const sn = (item.serialNumber || item.asset?.serialNumber || "").toLowerCase();
       return name.includes(q) || cat.includes(q) || sn.includes(q);
     });
   }, [assignedAssets, searchAssetQuery]);
@@ -620,7 +530,7 @@ const MyAssets = () => {
 
     try {
       const token = localStorage.getItem("token");
-      await axios.post(
+      const res = await axios.post(
         "/asset-requests/request",
         {
           assetId: selectedAssetId,
@@ -629,31 +539,19 @@ const MyAssets = () => {
         { headers: token ? { Authorization: `Bearer ${token}` } : {} }
       );
 
-      showToast("Asset request submitted successfully!", "success", 4000);
+      showToast(res.data?.message || "Asset request submitted successfully!", "success", 4000);
       setIsRequestModalOpen(false);
       setSelectedAssetId("");
       setRequestReason("");
       await fetchRequests(false);
+      await fetchCompanyAssets();
     } catch (err) {
       console.error("Submit asset request error:", err);
-      // Fallback optimistic update if server demo or network block
-      const newEntry = {
-        _id: `user-req-${Date.now()}`,
-        assetName: assetObj?.name || "Requested Asset",
-        category: assetObj?.category || "Equipment",
-        status: "pending",
-        createdAt: new Date().toISOString(),
-        requestDate: new Date().toISOString(),
-        reason: requestReason || "Work assignment need",
-        adminComments: [],
-      };
-
-      setRequests((prev) => [newEntry, ...prev]);
-      calculateStats([newEntry, ...requests]);
-      showToast(err.response?.data?.error || "Asset request created successfully", "success", 4000);
-      setIsRequestModalOpen(false);
-      setSelectedAssetId("");
-      setRequestReason("");
+      const errorMsg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Failed to submit asset request. Please try again.";
+      showToast(errorMsg, "error", 4000);
     } finally {
       setSubmittingRequest(false);
     }
@@ -675,30 +573,16 @@ const MyAssets = () => {
       setConfirmReturnModalItem(null);
       await fetchRequests(false);
     } catch (err) {
-      console.warn("Return request API error:", err);
-      const errMsg = err.response?.data?.error || err.response?.data?.message;
-      if (err.response?.status === 403) {
-        showToast(errMsg || "You do not have permission to raise return request", "error", 4000);
-      } else {
-        // Optimistic status update fallback
-        setRequests((prev) =>
-          prev.map((r) => (r._id === id ? { ...r, status: "return_requested" } : r))
-        );
-        setAssignedAssets((prev) =>
-          prev.map((r) => (r._id === id ? { ...r, status: "return_requested" } : r))
-        );
-        calculateStats(
-          requests.map((r) => (r._id === id ? { ...r, status: "return_requested" } : r))
-        );
-        showToast(errMsg || "Return request submitted successfully", "success", 4000);
-      }
-      setConfirmReturnModalItem(null);
+      console.error("Return request API error:", err);
+      const errMsg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Failed to submit return request";
+      showToast(errMsg, "error", 4000);
     } finally {
       setActionLoading(false);
       setOpenMenuId(null);
-      if (selectedRequestDetails?._id === id) {
-        setSelectedRequestDetails((prev) => ({ ...prev, status: "return_requested" }));
-      }
+      setConfirmReturnModalItem(null);
     }
   };
 
@@ -717,27 +601,15 @@ const MyAssets = () => {
       );
       await fetchRequests(false);
     } catch (err) {
-      console.warn("Deposit asset API note:", err);
-      // Optimistic status update
-      setRequests((prev) =>
-        prev.map((r) => (r._id === id ? { ...r, status: "pending_verification" } : r))
-      );
-      setAssignedAssets((prev) =>
-        prev.map((r) => (r._id === id ? { ...r, status: "pending_verification" } : r))
-      );
-      showToast(
+      console.error("Deposit asset API error:", err);
+      const errMsg =
+        err.response?.data?.error ||
         err.response?.data?.message ||
-          err.response?.data?.error ||
-          "Asset deposit marked successfully",
-        "success",
-        4000
-      );
+        "Failed to mark asset as deposited";
+      showToast(errMsg, "error", 4000);
     } finally {
       setActionLoading(false);
       setOpenMenuId(null);
-      if (selectedRequestDetails?._id === id) {
-        setSelectedRequestDetails((prev) => ({ ...prev, status: "pending_verification" }));
-      }
     }
   };
 
@@ -1005,12 +877,12 @@ const MyAssets = () => {
             <div className="MyAssets-assigned-cards-list">
               {filteredAssignedAssets.length > 0 ? (
                 filteredAssignedAssets.map((item, idx) => {
-                  const ItemIcon = getAssetCategoryIcon(item.category || item.type || item.assetName);
-                  const colorClass = getAssetCategoryColor(item.category || item.type || item.assetName);
+                  const ItemIcon = getAssetCategoryIcon(item.category || item.type || item.asset?.description || item.assetName);
+                  const colorClass = getAssetCategoryColor(item.category || item.type || item.asset?.description || item.assetName);
                   const assetIdDisplay =
                     item.serialNumber ||
                     item.asset?.serialNumber ||
-                    (item._id ? `AST-${item._id.slice(-6).toUpperCase()}` : `DL-2024-00${idx + 1}`);
+                    (item._id ? `AST-${String(item._id).slice(-6).toUpperCase()}` : "—");
                   const assignedDateDisplay = formatDateShort(
                     item.assignedDate || item.decisionDate || item.updatedAt || item.createdAt
                   );
@@ -1024,9 +896,9 @@ const MyAssets = () => {
                             <ItemIcon size={22} strokeWidth={2} />
                           </div>
                           <div className="MyAssets-asset-titles">
-                            <h3 className="MyAssets-asset-name">{item.assetName}</h3>
+                            <h3 className="MyAssets-asset-name">{item.assetName || item.name || item.asset?.name || "Asset"}</h3>
                             <p className="MyAssets-asset-category">
-                              {item.category || item.type || "Hardware Asset"}
+                              {item.category || item.type || item.asset?.description || "Company Asset"}
                             </p>
                           </div>
                         </div>
@@ -1136,10 +1008,10 @@ const MyAssets = () => {
                           <span className="MyAssets-meta-val">{assignedDateDisplay}</span>
                         </div>
                         <div className="MyAssets-meta-col">
-                          <span className="MyAssets-meta-label">Condition</span>
+                          <span className="MyAssets-meta-label">Condition / Status</span>
                           <span className="MyAssets-meta-val">
                             <span className="MyAssets-condition-dot" />
-                            {item.condition || "Good"}
+                            {item.condition || item.assetStatus || item.asset?.status || (normalizeStatus(item.status) === "approved" ? "Assigned" : item.status) || "Active"}
                           </span>
                         </div>
                       </div>
@@ -1248,8 +1120,8 @@ const MyAssets = () => {
             <div className="MyAssets-requests-items-list">
               {filteredRequests.length > 0 ? (
                 filteredRequests.map((req, idx) => {
-                  const ItemIcon = getAssetCategoryIcon(req.category || req.type || req.assetName);
-                  const colorClass = getAssetCategoryColor(req.category || req.type || req.assetName);
+                  const ItemIcon = getAssetCategoryIcon(req.category || req.type || req.asset?.description || req.assetName);
+                  const colorClass = getAssetCategoryColor(req.category || req.type || req.asset?.description || req.assetName);
                   const dateDisplay = formatDateShort(req.requestDate || req.createdAt);
 
                   return (
@@ -1260,9 +1132,9 @@ const MyAssets = () => {
                           <ItemIcon size={18} strokeWidth={2} />
                         </div>
                         <div className="MyAssets-req-item-copy">
-                          <h4 className="MyAssets-req-item-title">{req.assetName}</h4>
+                          <h4 className="MyAssets-req-item-title">{req.assetName || req.asset?.name || "Asset"}</h4>
                           <p className="MyAssets-req-item-sub">
-                            {req.category || req.type || "Asset"}
+                            {req.category || req.type || req.asset?.description || "Asset"}
                           </p>
                         </div>
                       </div>
@@ -1430,13 +1302,19 @@ const MyAssets = () => {
                     required
                   >
                     <option value="">-- Choose asset from catalog --</option>
-                    {companyAssets.map((asset) => (
-                      <option key={asset._id} value={asset._id}>
-                        {asset.name}
-                        {asset.model ? ` (${asset.model})` : ""}
-                        {asset.quantity !== undefined ? ` • ${asset.quantity} in stock` : ""}
+                    {companyAssets.length > 0 ? (
+                      companyAssets.map((asset) => (
+                        <option key={asset._id} value={asset._id}>
+                          {asset.name}
+                          {asset.description ? ` (${asset.description})` : ""}
+                          {asset.quantity !== undefined ? ` • ${asset.quantity} available` : ""}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="" disabled>
+                        -- No company assets currently available in catalog --
                       </option>
-                    ))}
+                    )}
                   </select>
                 </div>
 
@@ -1517,11 +1395,11 @@ const MyAssets = () => {
               <div className="MyAssets-details-meta-grid">
                 <div className="MyAssets-details-meta-item">
                   <strong>Asset Name</strong>
-                  <span>{selectedRequestDetails.assetName}</span>
+                  <span>{selectedRequestDetails.assetName || selectedRequestDetails.asset?.name || "Asset"}</span>
                 </div>
                 <div className="MyAssets-details-meta-item">
-                  <strong>Category</strong>
-                  <span>{selectedRequestDetails.category || selectedRequestDetails.type || "Equipment"}</span>
+                  <strong>Category / Specs</strong>
+                  <span>{selectedRequestDetails.category || selectedRequestDetails.type || selectedRequestDetails.asset?.description || "Company Asset"}</span>
                 </div>
                 <div className="MyAssets-details-meta-item">
                   <strong>Status</strong>
@@ -1534,15 +1412,13 @@ const MyAssets = () => {
                 {selectedRequestDetails.approvedBy && (
                   <div className="MyAssets-details-meta-item">
                     <strong>Approved By</strong>
-                    <span>{selectedRequestDetails.approvedBy?.name || "IT Admin"}</span>
+                    <span>{selectedRequestDetails.approvedBy?.name || selectedRequestDetails.approvedBy?.email || "Admin"}</span>
                   </div>
                 )}
-                {selectedRequestDetails.serialNumber && (
-                  <div className="MyAssets-details-meta-item">
-                    <strong>Serial Number / ID</strong>
-                    <span>{selectedRequestDetails.serialNumber}</span>
-                  </div>
-                )}
+                <div className="MyAssets-details-meta-item">
+                  <strong>Serial Number / ID</strong>
+                  <span>{selectedRequestDetails.serialNumber || selectedRequestDetails.asset?.serialNumber || (selectedRequestDetails._id ? `AST-${String(selectedRequestDetails._id).slice(-6).toUpperCase()}` : "—")}</span>
+                </div>
               </div>
 
               {selectedRequestDetails.reason && (
@@ -1550,6 +1426,15 @@ const MyAssets = () => {
                   <label>Request Reason</label>
                   <p style={{ margin: 0, fontSize: "0.86rem", color: "#334155", lineHeight: 1.45 }}>
                     {selectedRequestDetails.reason}
+                  </p>
+                </div>
+              )}
+
+              {selectedRequestDetails.approvalDetails?.about && (
+                <div className="MyAssets-form-group">
+                  <label>Approval Details</label>
+                  <p style={{ margin: 0, fontSize: "0.86rem", color: "#334155", lineHeight: 1.45 }}>
+                    {selectedRequestDetails.approvalDetails.about}
                   </p>
                 </div>
               )}
@@ -1670,9 +1555,9 @@ const MyAssets = () => {
                   </span>
                 </div>
                 <div className="MyAssets-details-meta-item">
-                  <strong>Category</strong>
+                  <strong>Category / Specs</strong>
                   <span>
-                    {confirmReturnModalItem.category || confirmReturnModalItem.type || "Hardware"}
+                    {confirmReturnModalItem.category || confirmReturnModalItem.type || confirmReturnModalItem.asset?.description || "Company Asset"}
                   </span>
                 </div>
                 <div className="MyAssets-details-meta-item">
@@ -1681,13 +1566,13 @@ const MyAssets = () => {
                     {confirmReturnModalItem.serialNumber ||
                       confirmReturnModalItem.asset?.serialNumber ||
                       (confirmReturnModalItem._id
-                        ? `AST-${confirmReturnModalItem._id.slice(-6).toUpperCase()}`
-                        : "N/A")}
+                        ? `AST-${String(confirmReturnModalItem._id).slice(-6).toUpperCase()}`
+                        : "—")}
                   </span>
                 </div>
                 <div className="MyAssets-details-meta-item">
-                  <strong>Condition</strong>
-                  <span>{confirmReturnModalItem.condition || "Good"}</span>
+                  <strong>Condition / Status</strong>
+                  <span>{confirmReturnModalItem.condition || confirmReturnModalItem.assetStatus || confirmReturnModalItem.asset?.status || "Assigned"}</span>
                 </div>
               </div>
 

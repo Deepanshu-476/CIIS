@@ -1109,28 +1109,43 @@
 }
 
 .EmployeeDirectory-user-detail-modal {
-  max-width: 720px;
+  width: 720px;
+  max-width: min(720px, calc(100vw - 48px));
+  height: min(650px, calc(100dvh - 116px));
   max-height: calc(100dvh - 116px);
+  display: flex;
+  flex-direction: column;
 }
 
 .EmployeeDirectory-user-detail-modal .EmployeeDirectory-modal-header {
   padding: 18px 22px;
+  flex: 0 0 auto;
 }
 
 .EmployeeDirectory-user-detail-modal .EmployeeDirectory-tabs {
   padding-inline: 20px;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  overflow-x: auto;
 }
 
 .EmployeeDirectory-user-detail-modal .EmployeeDirectory-tab {
   padding: 10px 12px;
+  flex-shrink: 0;
 }
 
 .EmployeeDirectory-user-detail-modal .EmployeeDirectory-modal-content {
   padding: 20px 22px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
 }
 
 .EmployeeDirectory-user-detail-modal .EmployeeDirectory-modal-footer {
   padding: 16px 22px;
+  flex: 0 0 auto;
 }
 
 .EmployeeDirectory-modal-header {
@@ -2707,6 +2722,9 @@
   }
 
   .EmployeeDirectory-user-detail-modal {
+    width: 100%;
+    max-width: 100%;
+    height: min(650px, calc(100dvh - 88px));
     max-height: calc(100dvh - 88px);
     border-radius: var(--dir-radius-2xl);
   }

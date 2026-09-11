@@ -1114,13 +1114,29 @@ const AdminTaskManagement = () => {
       return;
     }
 
+    const trimmedGroupName = (newGroup.name || '').trim().toLowerCase();
+    const isDuplicate = groups.some(g => {
+      const gId = g._id || g.id;
+      if (editingGroup && String(gId) === String(editingGroup._id || editingGroup.id)) return false;
+      return (g.name || '').trim().toLowerCase() === trimmedGroupName;
+    });
+
+    if (isDuplicate) {
+      showSnackbar('A group with this name already exists.', 'error');
+      return;
+    }
+
     setIsCreatingGroup(true);
     try {
+      const groupPayload = {
+        ...newGroup,
+        name: (newGroup.name || '').trim(),
+      };
       if (editingGroup) {
-        await apiCall('put', `/groups/${editingGroup._id}`, newGroup);
+        await apiCall('put', `/groups/${editingGroup._id}`, groupPayload);
         showSnackbar('Group updated successfully', 'success');
       } else {
-        await apiCall('post', '/groups', newGroup);
+        await apiCall('post', '/groups', groupPayload);
         showSnackbar('Group created successfully', 'success');
       }
       setOpenGroupDialog(false);
@@ -1128,6 +1144,8 @@ const AdminTaskManagement = () => {
       fetchSupportingData();
     } catch (error) {
       console.error('Error in group operation:', error);
+      const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Error in group operation';
+      showSnackbar(errorMsg, 'error');
     } finally {
       setIsCreatingGroup(false);
     }

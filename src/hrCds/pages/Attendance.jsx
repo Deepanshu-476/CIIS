@@ -25,7 +25,8 @@ import {
   FiX,
   FiMapPin,
   FiSmartphone,
-  FiGlobe
+  FiGlobe,
+  FiVolume2
 } from "react-icons/fi";
 import { MdCelebration } from "react-icons/md";
 
@@ -63,9 +64,10 @@ const Attendance = () => {
 
   const formattedJoinDate = useMemo(() => {
     if (!userJoinDate) return "N/A";
-    return userJoinDate.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
+    return userJoinDate.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
       year: "numeric",
     });
   }, [userJoinDate]);
@@ -225,13 +227,43 @@ const Attendance = () => {
   // ----------------------------------------------------
   const formatTime = (isoString) => {
     if (!isoString) return "-";
+    if (typeof isoString === "string") {
+      const trimmed = isoString.trim();
+      if (/^\d{1,2}:\d{2}\s*(AM|PM|am|pm)?$/.test(trimmed)) {
+        return trimmed;
+      }
+    }
     const d = new Date(isoString);
-    if (isNaN(d.getTime())) return isoString;
+    if (isNaN(d.getTime()) || d.getTime() === 0 || d.getFullYear() <= 1970) return "-";
     return d.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
     });
+  };
+
+  const normalizeToDateKey = (val) => {
+    if (!val) return "";
+    if (typeof val === "string") {
+      const trimmed = val.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+      if (trimmed.includes("T")) {
+        const d = new Date(trimmed);
+        if (!isNaN(d.getTime())) {
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, "0");
+          const day = String(d.getDate()).padStart(2, "0");
+          return `${year}-${month}-${day}`;
+        }
+        return trimmed.split("T")[0];
+      }
+    }
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return "";
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   };
 
   const formatDate = (dateStr) => {
@@ -244,6 +276,31 @@ const Attendance = () => {
       day: "2-digit",
       year: "numeric",
     });
+  };
+
+  const formatShiftWindow = (start, end) => {
+    if (!start || !end) return "";
+    const to12h = (t) => {
+      if (!t) return "";
+      if (/\b(AM|PM|am|pm)\b/.test(t)) return t;
+      const [rawH, rawM] = String(t).split(":");
+      const h = parseInt(rawH, 10);
+      const m = parseInt(rawM, 10);
+      if (isNaN(h) || isNaN(m)) return t;
+      const period = h >= 12 ? "PM" : "AM";
+      const hour12 = h % 12 === 0 ? 12 : h % 12;
+      return `${String(hour12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
+    };
+    return `${to12h(start)} - ${to12h(end)}`;
+  };
+
+  const getRecordShiftDisplay = (rec) => {
+    if (!rec) return "--";
+    if (rec.shiftTime && rec.shiftTime !== "-" && rec.shiftTime !== "--") return rec.shiftTime;
+    if (rec.shiftStart && rec.shiftEnd) {
+      return formatShiftWindow(rec.shiftStart, rec.shiftEnd);
+    }
+    return "--";
   };
 
   // Check if date is before join date
@@ -268,8 +325,58 @@ const Attendance = () => {
     if (s.includes("HALF")) return "HALF DAY";
     if (s.includes("HOLIDAY")) return "HOLIDAY";
     if (s.includes("WEEKLY") || s.includes("OFF")) return "WEEKLY OFF";
-    if (s.includes("LEAVE") || s.includes("ABSENT")) return "ABSENT";
+    if (s.includes("LEAVE") && !s.includes("UNINFORMED")) return "ON LEAVE";
+    if (s.includes("ABSENT") || s.includes("UNINFORMED")) return "ABSENT";
     return s;
+  };
+
+  const getRecordLoginDisplay = (item) => {
+    if (!item) return "-";
+    const normStatus = getNormalizedStatus(item.status);
+    const isInactiveDay =
+      normStatus === "ABSENT" ||
+      normStatus === "WEEKLY OFF" ||
+      normStatus === "HOLIDAY" ||
+      normStatus === "ON LEAVE";
+    if (isInactiveDay) return "-";
+
+    const checkIn = item.inTime || item.checkInTime;
+    if (checkIn) {
+      const formatted = formatTime(checkIn);
+      if (formatted && formatted !== "-") return formatted;
+    }
+    if (item.login && item.login !== "-" && item.login !== "--") {
+      return item.login;
+    }
+    return "-";
+  };
+
+  const getRecordLogoutDisplay = (item) => {
+    if (!item) return "-";
+    const normStatus = getNormalizedStatus(item.status);
+    const isInactiveDay =
+      normStatus === "ABSENT" ||
+      normStatus === "WEEKLY OFF" ||
+      normStatus === "HOLIDAY" ||
+      normStatus === "ON LEAVE";
+    if (isInactiveDay) return "-";
+
+    const isCurrentlyClockedIn =
+      item.isClockedIn === true ||
+      (!item.outTime && !item.checkOutTime && Boolean(item.inTime || item.checkInTime));
+    if (isCurrentlyClockedIn && !item.outTime && !item.checkOutTime) {
+      return "-";
+    }
+
+    const checkOut = item.outTime || item.checkOutTime;
+    if (checkOut) {
+      const formatted = formatTime(checkOut);
+      if (formatted && formatted !== "-") return formatted;
+    }
+    if (item.logout && item.logout !== "-" && item.logout !== "--") {
+      return item.logout;
+    }
+    return "-";
   };
 
   // ----------------------------------------------------
@@ -312,15 +419,19 @@ const Attendance = () => {
   // Handle opening detailed log for today's status
   const handleViewTodayLog = () => {
     if (todayClockData && (todayClockData.inTime || todayClockData._id)) {
+      const shiftTime = todayClockData.shiftTime || 
+        (todayClockData.shiftStart && todayClockData.shiftEnd
+          ? formatShiftWindow(todayClockData.shiftStart, todayClockData.shiftEnd)
+          : "--");
       setSelectedDayRecord({
         date: todayClockData.date || new Date().toISOString().split("T")[0],
         checkInTime: todayClockData.inTime,
         checkOutTime: todayClockData.outTime,
         status: todayClockData.status || (isClockedIn ? "PRESENT" : "ABSENT"),
-        shiftTime:
-          todayClockData.shiftStart && todayClockData.shiftEnd
-            ? `${todayClockData.shiftStart} - ${todayClockData.shiftEnd}`
-            : "09:30 AM - 06:30 PM",
+        shiftName: todayClockData.shiftName || "General Shift",
+        shiftStart: todayClockData.shiftStart,
+        shiftEnd: todayClockData.shiftEnd,
+        shiftTime: shiftTime,
         totalTime:
           todayClockData.totalTime ||
           (clockInTime && clockOutTime
@@ -375,15 +486,15 @@ const Attendance = () => {
 
         // Calendar selected date filter
         if (selectedCalendarDate) {
-          const selDateStr = selectedCalendarDate.toISOString().split("T")[0];
-          if (rec.date !== selDateStr) return false;
+          const selDateStr = normalizeToDateKey(selectedCalendarDate);
+          if (normalizeToDateKey(rec.dateKey || rec.date) !== selDateStr) return false;
         }
 
         // Time range filter
         if (!selectedCalendarDate) {
           if (timeRange === "TODAY") {
-            const todayStr = new Date().toISOString().split("T")[0];
-            if (rec.date !== todayStr) return false;
+            const todayStr = normalizeToDateKey(new Date());
+            if (normalizeToDateKey(rec.dateKey || rec.date) !== todayStr) return false;
           } else if (timeRange === "WEEK") {
             const now = new Date();
             const sevenDaysAgo = new Date();
@@ -434,6 +545,24 @@ const Attendance = () => {
     const startIdx = (currentPage - 1) * itemsPerPage;
     return filteredRecords.slice(startIdx, startIdx + itemsPerPage);
   }, [filteredRecords, currentPage, itemsPerPage]);
+
+  // Keep pagination to max 2 buttons (e.g. 1-2, 3-4...) advancing cleanly with arrow / page buttons
+  const visiblePages = useMemo(() => {
+    if (totalPages <= 2) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const pairIndex = Math.floor((currentPage - 1) / 2);
+    let start = pairIndex * 2 + 1;
+    let end = Math.min(start + 1, totalPages);
+    if (start === totalPages && totalPages > 1) {
+      start = totalPages - 1;
+    }
+    const pages = [];
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }, [currentPage, totalPages]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -490,6 +619,50 @@ const Attendance = () => {
   }, [attendance, isBeforeJoinDate, currentYear, currentMonth]);
 
   // ----------------------------------------------------
+  // 10b. Hero Summary Cards Configuration (Matching Image 1)
+  // ----------------------------------------------------
+  const attendanceSummaryCards = useMemo(
+    () => [
+      {
+        label: "Total Records",
+        value: stats.total,
+        tone: "total",
+        icon: FiBarChart2,
+        subtext: "Current filtered view",
+      },
+      {
+        label: "Late Days",
+        value: stats.late,
+        tone: "pending",
+        icon: FiAlertTriangle,
+        subtext: `${stats.latePct}% of filtered records`,
+      },
+      {
+        label: "Half Days",
+        value: stats.halfDay,
+        tone: "progress",
+        icon: FiCoffee,
+        subtext: `${stats.halfDayPct}% of filtered records`,
+      },
+      {
+        label: "Present Days",
+        value: stats.present,
+        tone: "completed",
+        icon: FiUserCheck,
+        subtext: `${stats.presentPct}% of filtered records`,
+      },
+      {
+        label: "Absent Days",
+        value: stats.absent,
+        tone: "overdue",
+        icon: FiXCircle,
+        subtext: `${stats.absentPct}% of filtered records`,
+      },
+    ],
+    [stats]
+  );
+
+  // ----------------------------------------------------
   // 11. Month Holidays (Upcoming / Current Month)
   // ----------------------------------------------------
   const currentMonthHolidays = useMemo(() => {
@@ -521,28 +694,71 @@ const Attendance = () => {
       "Status",
       "Late By",
       "Auto Clockout",
-      "Notes"
+      "Notes",
     ];
 
-    const rows = filteredRecords.map((r) => [
-      r.date,
-      r.shiftTime || "09:30 AM - 06:30 PM",
-      r.checkInTime ? formatTime(r.checkInTime) : "-",
-      r.checkOutTime ? formatTime(r.checkOutTime) : "-",
-      r.totalTime || "-",
-      r.status || "-",
-      r.lateBy || "-",
-      r.autoClockout ? "Yes" : "No",
-      r.notes || "-"
-    ]);
+    const rows = filteredRecords.map((r) => {
+      const normStatus = getNormalizedStatus(r.status);
+      const loginDisplay = getRecordLoginDisplay(r);
+      const logoutDisplay = getRecordLogoutDisplay(r);
 
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((row) => row.map((v) => `"${v}"`).join(","))].join("\n");
+      const formattedShiftTime = getRecordShiftDisplay(r);
+      const shiftDisplay =
+        normStatus === "WEEKLY OFF"
+          ? "Weekly Off"
+          : normStatus === "HOLIDAY"
+          ? "Holiday"
+          : normStatus === "ON LEAVE"
+          ? "On Leave"
+          : formattedShiftTime !== "--"
+          ? `${r.shiftName || "General Shift"} (${formattedShiftTime})`
+          : r.shiftName || "General Shift";
 
-    const encodedUri = encodeURI(csvContent);
+      const displayStatus =
+        normStatus === "PRESENT"
+          ? "Present"
+          : normStatus === "ABSENT"
+          ? "Absent"
+          : normStatus === "LATE"
+          ? "Late"
+          : normStatus === "HALF DAY"
+          ? "Half Day"
+          : normStatus === "WEEKLY OFF"
+          ? "Weekly Off"
+          : normStatus === "HOLIDAY"
+          ? "Holiday"
+          : normStatus === "ON LEAVE"
+          ? "On Leave"
+          : r.status || "-";
+
+      return [
+        formatDate(r.date),
+        shiftDisplay,
+        loginDisplay,
+        logoutDisplay,
+        r.totalTime || r.workingHours || "-",
+        displayStatus,
+        r.lateBy && r.lateBy !== "00:00:00" ? r.lateBy : "-",
+        r.autoClockout ? "Yes" : "No",
+        r.notes || "-",
+      ];
+    });
+
+    const csvString =
+      "\uFEFF" +
+      [
+        headers.join(","),
+        ...rows.map((row) =>
+          row
+            .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
+            .join(",")
+        ),
+      ].join("\r\n");
+
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", url);
     link.setAttribute(
       "download",
       `Attendance_${MONTH_NAMES[currentMonth]}_${currentYear}.csv`
@@ -550,6 +766,7 @@ const Attendance = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     toast.success("Attendance CSV exported successfully!");
   };
 
@@ -559,11 +776,16 @@ const Attendance = () => {
   const calendarDays = useMemo(() => {
     const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay();
     const totalDaysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const prevMonthDaysCount = new Date(currentYear, currentMonth, 0).getDate();
 
     const days = [];
-    // Blank padding days
-    for (let i = 0; i < firstDayIndex; i++) {
-      days.push({ day: null });
+    // Previous month padding days
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+      days.push({
+        day: prevMonthDaysCount - i,
+        isPadding: true,
+        status: "NONE"
+      });
     }
 
     // Days in current month
@@ -572,8 +794,12 @@ const Attendance = () => {
       const dayStr = String(d).padStart(2, "0");
       const dateKey = `${currentYear}-${monthStr}-${dayStr}`;
 
-      const rec = attendance.find((a) => a.date === dateKey);
-      const isHol = holidays.some((h) => h.date === dateKey);
+      const rec = attendance.find(
+        (a) => (a.dateKey && a.dateKey === dateKey) || normalizeToDateKey(a.date) === dateKey
+      );
+      const isHol = holidays.some(
+        (h) => (h.dateKey && h.dateKey === dateKey) || normalizeToDateKey(h.date) === dateKey
+      );
 
       let status = "NONE";
       if (isHol) status = "HOLIDAY";
@@ -589,9 +815,21 @@ const Attendance = () => {
         dateKey,
         status,
         isToday,
+        isPadding: false,
         record: rec
       });
     }
+
+    // Next month padding days
+    const remainingDays = (7 - (days.length % 7)) % 7;
+    for (let n = 1; n <= remainingDays; n++) {
+      days.push({
+        day: n,
+        isPadding: true,
+        status: "NONE"
+      });
+    }
+
     return days;
   }, [currentYear, currentMonth, attendance, holidays, todayDate]);
 
@@ -626,16 +864,26 @@ const Attendance = () => {
     <div className="att-wrapper">
       <ToastContainer position="top-right" autoClose={3000} theme="light" />
 
-      {/* 1. Header Section */}
-      <div className="att-header">
-        <div className="att-header-left">
-          <div className="att-header-icon-box">
-            <FiCalendar />
+      {/* 1. Hero Header Section with Title & 5 Summary KPI Cards */}
+      <div className="att-hero-header">
+        <div className="att-hero-header-row">
+          <div className="att-hero-header-left">
+            <h1 className="att-hero-title">My Attendance</h1>
+            <p className="att-hero-subtitle">Track your attendance history and insights</p>
           </div>
-          <div className="att-header-text">
-            <h1>My Attendance</h1>
-            <p>Track your attendance history and insights</p>
-          </div>
+        </div>
+
+        <div className="att-hero-summary">
+          {attendanceSummaryCards.map((card) => (
+            <article className={`att-hero-summary-card ${card.tone}`} key={card.label}>
+              <span>{React.createElement(card.icon)}</span>
+              <div>
+                <small>{card.label}</small>
+                <strong>{card.value}</strong>
+              </div>
+              <p>{card.subtext}</p>
+            </article>
+          ))}
         </div>
       </div>
 
@@ -740,97 +988,21 @@ const Attendance = () => {
         </div>
       </div>
 
-      {/* 3. 5 Stat Metric KPI Cards */}
-      <div className="att-stats-grid">
-        {/* Present Days */}
-        <div className="att-stat-card">
-          <div className="att-stat-header">
-            <span className="att-stat-label">PRESENT DAYS</span>
-            <div className="att-stat-icon-circle green">
-              <FiUserCheck />
-            </div>
-          </div>
-          <div className="att-stat-value">{stats.present}</div>
-          <div className="att-stat-footer">
-            <span className="att-stat-pill green">{stats.presentPct}%</span>
-            <span className="att-stat-desc">of total working days</span>
-          </div>
-        </div>
-
-        {/* Late Days */}
-        <div className="att-stat-card">
-          <div className="att-stat-header">
-            <span className="att-stat-label">LATE DAYS</span>
-            <div className="att-stat-icon-circle yellow">
-              <FiAlertTriangle />
-            </div>
-          </div>
-          <div className="att-stat-value">{stats.late}</div>
-          <div className="att-stat-footer">
-            <span className="att-stat-pill yellow">{stats.latePct}%</span>
-            <span className="att-stat-desc">grace period exceeded</span>
-          </div>
-        </div>
-
-        {/* Half Days */}
-        <div className="att-stat-card">
-          <div className="att-stat-header">
-            <span className="att-stat-label">HALF DAYS</span>
-            <div className="att-stat-icon-circle purple">
-              <FiCoffee />
-            </div>
-          </div>
-          <div className="att-stat-value">{stats.halfDay}</div>
-          <div className="att-stat-footer">
-            <span className="att-stat-pill purple">{stats.halfDayPct}%</span>
-            <span className="att-stat-desc">less than 8 hours</span>
-          </div>
-        </div>
-
-        {/* Absent Days */}
-        <div className="att-stat-card">
-          <div className="att-stat-header">
-            <span className="att-stat-label">ABSENT DAYS</span>
-            <div className="att-stat-icon-circle red">
-              <FiXCircle />
-            </div>
-          </div>
-          <div className="att-stat-value">{stats.absent}</div>
-          <div className="att-stat-footer">
-            <span className="att-stat-pill red">{stats.absentPct}%</span>
-            <span className="att-stat-desc">unexcused absences</span>
-          </div>
-        </div>
-
-        {/* Total Records */}
-        <div className="att-stat-card">
-          <div className="att-stat-header">
-            <span className="att-stat-label">TOTAL RECORDS</span>
-            <div className="att-stat-icon-circle blue">
-              <FiBarChart2 />
-            </div>
-          </div>
-          <div className="att-stat-value">{stats.total}</div>
-          <div className="att-stat-footer">
-            <span className="att-stat-desc">recorded logs</span>
-          </div>
-        </div>
-      </div>
 
       {/* 4. Holiday Announcement Banner (Dismissible) */}
       {!holidayBannerDismissed && currentMonthHolidays.length > 0 && (
         <div className="att-holiday-banner">
           <div className="att-holiday-banner-left">
             <div className="att-holiday-icon-box">
-              <MdCelebration />
+              <FiVolume2 />
             </div>
             <div className="att-holiday-text">
-              <h4>
-                Company Holidays: {currentMonthHolidays.length} holiday(s) in {MONTH_NAMES[currentMonth]} {currentYear}
-              </h4>
-              <p>
-                {currentMonthHolidays.map((h) => `${formatDate(h.date)} - ${h.name || h.title || "Holiday"}`).join(" • ")}
-              </p>
+              <span>
+                <b>{currentMonthHolidays.length} Holiday{currentMonthHolidays.length > 1 ? "s" : ""} this month</b> -{" "}
+                {currentMonthHolidays
+                  .map((h) => `${formatDate(h.date)} (${h.name || h.title || "Holiday"})`)
+                  .join(" • ")}
+              </span>
             </div>
           </div>
           <button
@@ -851,9 +1023,14 @@ const Attendance = () => {
           <div className="att-card att-table-card">
             {/* Table Header Bar */}
             <div className="att-table-card-header">
-              <div className="att-table-header-title">
-                <h3>Attendance Records</h3>
-                <span className="att-count-pill">{filteredRecords.length} records</span>
+              <div className="att-table-header-title-group">
+                <div className="att-table-header-icon-box">
+                  <FiCalendar />
+                </div>
+                <div className="att-table-header-title">
+                  <h3>Attendance Records</h3>
+                  <p className="att-table-header-sub">Showing your attendance history for selected period</p>
+                </div>
               </div>
 
               <div className="att-table-header-actions">
@@ -881,17 +1058,16 @@ const Attendance = () => {
                 <div className="att-status-filter-wrapper" ref={statusDropdownRef}>
                   <button
                     type="button"
-                    className="att-status-filter-btn"
+                    className="att-status-filter-icon-btn"
                     onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                    title="Filter by status"
                   >
                     <FiFilter />
-                    <span>{statusFilter === "ALL" ? "All Statuses" : statusFilter}</span>
-                    <FiChevronDown />
                   </button>
 
                   {showStatusDropdown && (
                     <div className="att-filter-dropdown-menu">
-                      {["ALL", "PRESENT", "LATE", "HALF DAY", "ABSENT", "WEEKLY OFF", "HOLIDAY"].map((st) => (
+                      {["ALL", "PRESENT", "LATE", "HALF DAY", "ABSENT", "WEEKLY OFF", "HOLIDAY", "ON LEAVE"].map((st) => (
                         <button
                           key={st}
                           type="button"
@@ -942,29 +1118,65 @@ const Attendance = () => {
                     paginatedRecords.map((item, idx) => {
                       const rowNumber = (currentPage - 1) * itemsPerPage + idx + 1;
                       const normStatus = getNormalizedStatus(item.status);
-                      const isLate = normStatus === "LATE" || Boolean(item.lateBy && item.lateBy !== "-");
+                      const isLate = normStatus === "LATE" || Boolean(item.lateBy && item.lateBy !== "-" && item.lateBy !== "00:00:00");
+                      const displayLogin = getRecordLoginDisplay(item);
+                      const displayLogout = getRecordLogoutDisplay(item);
+
+                      const formattedShiftTime = getRecordShiftDisplay(item);
+                      const isSpecialDay =
+                        normStatus === "WEEKLY OFF" ||
+                        normStatus === "HOLIDAY" ||
+                        normStatus === "ON LEAVE";
 
                       return (
-                        <tr key={item._id || item.date || idx}>
+                        <tr key={item._id || item.dateKey || item.date || idx}>
                           <td className="att-col-idx">{rowNumber}</td>
                           <td className="att-col-date">{formatDate(item.date)}</td>
-                          <td className="att-col-shift">{item.shiftTime || "09:30 AM - 06:30 PM"}</td>
-                          <td>
-                            <div className="att-time-cell">
-                              <span className={`att-time-dot ${isLate ? "late" : item.checkInTime ? "on-time" : "gray"}`} />
-                              <span>{formatTime(item.checkInTime)}</span>
-                            </div>
+                          <td className="att-col-shift">
+                            {isSpecialDay ? (
+                              <span className="att-shift-special">
+                                {normStatus === "WEEKLY OFF"
+                                  ? "Weekly Off"
+                                  : normStatus === "HOLIDAY"
+                                  ? "Holiday"
+                                  : "On Leave"}
+                              </span>
+                            ) : (
+                              <div className="att-shift-cell">
+                                <span className="att-shift-name">{item.shiftName || "General Shift"}</span>
+                                {formattedShiftTime && formattedShiftTime !== "--" && (
+                                  <span className="att-shift-time">{formattedShiftTime}</span>
+                                )}
+                              </div>
+                            )}
                           </td>
                           <td>
-                            <div className="att-logout-cell-group">
-                              <span>{formatTime(item.checkOutTime)}</span>
-                              {item.autoClockout && (
-                                <span className="att-auto-clockout-tag">Auto Clock-Out</span>
-                              )}
-                            </div>
+                            {displayLogin && displayLogin !== "-" && displayLogin !== "--" ? (
+                              <div className="att-time-cell">
+                                <span className={`att-time-dot ${isLate ? "late" : "on-time"}`} />
+                                <span>{displayLogin}</span>
+                              </div>
+                            ) : (
+                              <span style={{ color: "#94a3b8" }}>--</span>
+                            )}
+                          </td>
+                          <td>
+                            {displayLogout && displayLogout !== "-" && displayLogout !== "--" ? (
+                              <div className="att-logout-cell-group">
+                                <div className="att-time-cell">
+                                  <span className="att-time-dot on-time" />
+                                  <span>{displayLogout}</span>
+                                </div>
+                                {item.autoClockout && (
+                                  <span className="att-auto-clockout-tag">Auto Clock Out</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span style={{ color: "#94a3b8" }}>--</span>
+                            )}
                           </td>
                           <td style={{ fontWeight: 600, color: "#1e293b" }}>
-                            {item.totalTime || item.workingHours || "-"}
+                            {item.totalTime || item.workingHours || "00:00:00"}
                           </td>
                           <td>
                             <span
@@ -979,17 +1191,25 @@ const Attendance = () => {
                                   ? "weeklyoff"
                                   : normStatus === "HOLIDAY"
                                   ? "holiday"
+                                  : normStatus === "ON LEAVE"
+                                  ? "onleave"
                                   : "absent"
                               }`}
                             >
-                              {normStatus}
+                              {normStatus === "PRESENT" && <FiCheck className="status-icon" />}
+                              {normStatus === "ABSENT" && <FiX className="status-icon" />}
+                              {normStatus === "PRESENT"
+                                ? "Present"
+                                : normStatus === "ABSENT"
+                                ? "Absent"
+                                : normStatus}
                             </span>
                           </td>
                           <td>
-                            {item.lateBy && item.lateBy !== "-" ? (
+                            {item.lateBy && item.lateBy !== "-" && item.lateBy !== "00:00:00" ? (
                               <span className="att-late-badge">{item.lateBy}</span>
                             ) : (
-                              <span style={{ color: "#94a3b8" }}>-</span>
+                              <span style={{ color: "#94a3b8" }}>--</span>
                             )}
                           </td>
                           <td style={{ textAlign: "center" }}>
@@ -1032,7 +1252,7 @@ const Attendance = () => {
                     <FiChevronLeft />
                   </button>
 
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                  {visiblePages.map((pageNum) => (
                     <button
                       key={pageNum}
                       type="button"
@@ -1062,7 +1282,17 @@ const Attendance = () => {
           {/* Monthly Overview Calendar Widget */}
           <div className="att-card att-calendar-card">
             <div className="att-calendar-header">
-              <h4>Monthly Overview</h4>
+              <div className="att-cal-header-left">
+                <div className="att-cal-icon-box">
+                  <FiCalendar />
+                </div>
+                <div className="att-cal-title-info">
+                  <h4>Monthly Overview</h4>
+                  <span className="att-cal-subtitle">
+                    {MONTH_NAMES[currentMonth]} {currentYear}
+                  </span>
+                </div>
+              </div>
               <div className="att-calendar-nav">
                 <button
                   type="button"
@@ -1072,9 +1302,6 @@ const Attendance = () => {
                 >
                   <FiChevronLeft />
                 </button>
-                <span className="att-cal-month-title">
-                  {MONTH_NAMES[currentMonth].substring(0, 3)} {currentYear}
-                </span>
                 <button
                   type="button"
                   className="att-cal-nav-btn"
@@ -1088,31 +1315,39 @@ const Attendance = () => {
 
             {/* Day Names Header */}
             <div className="att-cal-weekdays">
-              <span>Su</span>
-              <span>Mo</span>
-              <span>Tu</span>
-              <span>We</span>
-              <span>Th</span>
-              <span>Fr</span>
-              <span>Sa</span>
+              <span>Sun</span>
+              <span>Mon</span>
+              <span>Tue</span>
+              <span>Wed</span>
+              <span>Thu</span>
+              <span>Fri</span>
+              <span>Sat</span>
             </div>
 
             {/* Calendar Days Grid */}
             <div className="att-cal-days-grid">
               {calendarDays.map((cd, index) => {
-                if (!cd.day) {
-                  return <div key={`empty-${index}`} className="att-cal-day empty" />;
+                if (cd.isPadding) {
+                  return (
+                    <div key={`padding-${index}`} className="att-cal-day padding">
+                      <span className="att-cal-day-num">{cd.day}</span>
+                    </div>
+                  );
                 }
 
                 const isSelected =
                   selectedCalendarDate &&
-                  selectedCalendarDate.toISOString().split("T")[0] === cd.dateKey;
+                  normalizeToDateKey(selectedCalendarDate) === cd.dateKey;
+
+                const statusClass = cd.status !== "NONE"
+                  ? `status-${cd.status.toLowerCase().replace(/\s+/g, "")}`
+                  : "";
 
                 return (
                   <button
                     key={cd.dateKey}
                     type="button"
-                    className={`att-cal-day ${cd.isToday ? "today" : ""} ${isSelected ? "selected" : ""}`}
+                    className={`att-cal-day ${statusClass} ${cd.isToday ? "today" : ""} ${isSelected ? "selected" : ""}`}
                     onClick={() => {
                       if (isSelected) {
                         setSelectedCalendarDate(null);
@@ -1121,23 +1356,12 @@ const Attendance = () => {
                         setSelectedCalendarDate(new Date(y, m - 1, d));
                       }
                     }}
+                    title={`${cd.dateKey}: ${cd.status}`}
                   >
                     <span className="att-cal-day-num">{cd.day}</span>
                     {cd.status !== "NONE" && (
                       <span
-                        className={`att-cal-day-dot ${
-                          cd.status === "PRESENT"
-                            ? "dot-present"
-                            : cd.status === "LATE"
-                            ? "dot-late"
-                            : cd.status === "HALF DAY"
-                            ? "dot-halfday"
-                            : cd.status === "HOLIDAY"
-                            ? "dot-holiday"
-                            : cd.status === "WEEKLY OFF"
-                            ? "dot-weeklyoff"
-                            : "dot-absent"
-                        }`}
+                        className={`att-cal-day-dot dot-${cd.status.toLowerCase().replace(/\s+/g, "")}`}
                       />
                     )}
                   </button>
@@ -1152,6 +1376,10 @@ const Attendance = () => {
                 <span>Present</span>
               </div>
               <div className="att-legend-item">
+                <span className="att-legend-dot dot-absent" />
+                <span>Absent</span>
+              </div>
+              <div className="att-legend-item">
                 <span className="att-legend-dot dot-late" />
                 <span>Late</span>
               </div>
@@ -1160,63 +1388,62 @@ const Attendance = () => {
                 <span>Half Day</span>
               </div>
               <div className="att-legend-item">
-                <span className="att-legend-dot dot-absent" />
-                <span>Absent</span>
-              </div>
-              <div className="att-legend-item">
-                <span className="att-legend-dot dot-weeklyoff" />
-                <span>Weekly Off</span>
+                <span className="att-legend-dot dot-onleave" />
+                <span>On Leave</span>
               </div>
               <div className="att-legend-item">
                 <span className="att-legend-dot dot-holiday" />
                 <span>Holiday</span>
               </div>
+              <div className="att-legend-item">
+                <span className="att-legend-dot dot-weeklyoff" />
+                <span>Weekly Off</span>
+              </div>
             </div>
           </div>
 
-          {/* Today's Status Widget (Connected directly to Clock-in API: /attendance/status) */}
+          {/* Today's Status Widget */}
           <div className="att-card att-today-card">
             <div className="att-today-header">
-              <h4>Today's Status</h4>
-              <span
-                className={`att-punch-badge ${
-                  isClockedIn ? "in" : clockOutTime ? "out" : "not-checked"
-                }`}
-              >
-                <span className="att-pulse-dot" />
-                {isClockedIn
-                  ? "Clocked In"
-                  : clockOutTime
-                  ? "Clocked Out"
-                  : "Not Checked In"}
+              <div className="att-today-title-group">
+                <FiClock className="att-today-title-icon" />
+                <h4>Today's Status</h4>
+              </div>
+              <span className="att-today-date-badge">
+                {todayDate.toLocaleDateString("en-US", {
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric"
+                })}
               </span>
             </div>
 
-            <div className="att-today-times-row">
-              <div className="att-today-time-box">
-                <span className="att-today-time-label">Check-In</span>
-                <span className="att-today-time-val">
-                  {todayClockData?.login || (clockInTime ? formatTime(clockInTime) : "-")}
-                </span>
+            <div className={`att-today-status-banner ${isClockedIn ? "present" : clockOutTime ? "clocked-out" : "not-checked"}`}>
+              <div className="att-today-status-left">
+                <div className="att-today-status-icon-circle">
+                  {isClockedIn ? <FiCheck /> : clockOutTime ? <FiClock /> : <FiAlertTriangle />}
+                </div>
+                <div className="att-today-status-text">
+                  <h5 className="att-today-status-title">
+                    {isClockedIn ? "Present" : clockOutTime ? "Clocked Out" : "Not Checked In"}
+                  </h5>
+                  <p className="att-today-status-subtitle">
+                    {isClockedIn && (todayClockData?.login || (clockInTime ? formatTime(clockInTime) : null))
+                      ? `Checked in at ${todayClockData?.login || formatTime(clockInTime)}`
+                      : clockOutTime
+                      ? `Clocked out at ${todayClockData?.logout || formatTime(clockOutTime)}`
+                      : "No check-in recorded yet"}
+                  </p>
+                </div>
               </div>
-              <div className="att-today-time-divider" />
-              <div className="att-today-time-box">
-                <span className="att-today-time-label">Check-Out</span>
-                <span className="att-today-time-val">
-                  {todayClockData?.logout || (clockOutTime ? formatTime(clockOutTime) : "-")}
-                </span>
-              </div>
-            </div>
 
-            {/* Live Working Hours Counter */}
-            <div className="att-today-counter-box">
-              <span className="att-counter-label">Working Hours</span>
-              <div className="att-counter-value">
-                <span>{String(liveWorkingTime.hours).padStart(2, "0")}h</span>
-                <span className="colon">:</span>
-                <span>{String(liveWorkingTime.minutes).padStart(2, "0")}m</span>
-                <span className="colon">:</span>
-                <span>{String(liveWorkingTime.seconds).padStart(2, "0")}s</span>
+              <div className="att-today-hours-right">
+                <span className="att-today-hours-label">Working Hours</span>
+                <span className="att-today-hours-val">
+                  {String(liveWorkingTime.hours).padStart(2, "0")}:
+                  {String(liveWorkingTime.minutes).padStart(2, "0")}:
+                  {String(liveWorkingTime.seconds).padStart(2, "0")}
+                </span>
               </div>
             </div>
 
@@ -1225,7 +1452,7 @@ const Attendance = () => {
               className="att-view-log-btn"
               onClick={handleViewTodayLog}
             >
-              <FiEye />
+              <FiClock />
               <span>View Detailed Log</span>
             </button>
           </div>
@@ -1286,21 +1513,21 @@ const Attendance = () => {
                   <div className="att-modal-stat-box">
                     <span className="att-modal-stat-lbl">Shift</span>
                     <span className="att-modal-stat-val">
-                      {selectedDayRecord.shiftTime || "09:30 AM - 06:30 PM"}
+                      {getRecordShiftDisplay(selectedDayRecord)}
                     </span>
                   </div>
 
                   <div className="att-modal-stat-box">
                     <span className="att-modal-stat-lbl">Login Time</span>
                     <span className="att-modal-stat-val">
-                      {formatTime(selectedDayRecord.checkInTime)}
+                      {getRecordLoginDisplay(selectedDayRecord)}
                     </span>
                   </div>
 
                   <div className="att-modal-stat-box">
                     <span className="att-modal-stat-lbl">Logout Time</span>
                     <span className="att-modal-stat-val">
-                      {formatTime(selectedDayRecord.checkOutTime)}
+                      {getRecordLogoutDisplay(selectedDayRecord)}
                     </span>
                   </div>
 

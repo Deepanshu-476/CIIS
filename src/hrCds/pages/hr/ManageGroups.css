@@ -436,6 +436,21 @@
 .manage-groups-dialog-input input,.manage-groups-dialog-input textarea { width: 100%; min-width: 0; border: 0; outline: 0; resize: vertical; padding: 14px 18px; color: #26344b; background: transparent; font: inherit; font-size: 14px; }
 .manage-groups-dialog-input textarea { min-height: 78px; }
 .manage-groups-dialog-input input::placeholder,.manage-groups-dialog-input textarea::placeholder { color: #8693a8; }
+.manage-groups-dialog-input.has-error {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.18);
+}
+.manage-groups-dialog-input.has-error > span {
+  background: #fef2f2;
+  color: #ef4444;
+}
+.manage-groups-field-error.MuiTypography-root {
+  display: block;
+  margin-top: 6px;
+  color: #ef4444;
+  font-size: 12px;
+  font-weight: 500;
+}
 
 .manage-groups-members-section {
   margin-top: 16px;

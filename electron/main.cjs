@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Notification, ipcMain, net, protocol, session, Tray, Menu } = require('electron');
+const { app, BrowserWindow, Notification, ipcMain, net, protocol, session, Tray, Menu, shell } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -79,6 +79,22 @@ function isAllowedAppOrigin(origin) {
   ].filter(Boolean).map((value) => new URL(value).origin);
 
   return allowedOrigins.includes(parsedOrigin);
+}
+
+function isSafeExternalUrl(url) {
+  if (!url) return false;
+
+  try {
+    const parsed = new URL(url);
+    return ['https:', 'http:', 'mailto:'].includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
+function openExternalUrl(url) {
+  if (!isSafeExternalUrl(url)) return;
+  void shell.openExternal(url);
 }
 
 function configureDesktopPermissions() {
@@ -180,7 +196,7 @@ function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      webSecurity: isDev,
+      webSecurity: true,
     },
   });
 
@@ -206,20 +222,20 @@ function createMainWindow() {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    mainWindow.loadURL(url);
+    if (isAllowedAppOrigin(url)) {
+      mainWindow.loadURL(url);
+    } else {
+      openExternalUrl(url);
+    }
+
     return { action: 'deny' };
   });
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    const allowedOrigins = [
-      devServerUrl,
-      `${appScheme}://ciis`,
-    ].filter(Boolean).map((value) => new URL(value).origin);
+    if (isAllowedAppOrigin(url)) return;
 
-    if (!allowedOrigins.includes(new URL(url).origin)) {
-      event.preventDefault();
-      mainWindow.loadURL(url);
-    }
+    event.preventDefault();
+    openExternalUrl(url);
   });
 
   if (isDev && devServerUrl) {

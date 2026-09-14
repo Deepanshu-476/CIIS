@@ -373,7 +373,7 @@ export default function PayrollProcess() {
       <section className="esa-card pp-table-card">
         <div className="pp-table-head"><div><h2>Payroll Register — {monthLabel}</h2><p>Identify issues via View Calculation and correct them in Attendance, Leave, or Employee Salary.</p></div><span>{pagination.total} Employees</span></div>
         <div className="pp-table-wrap"><table className="pp-register-table">
-          <thead><tr><th className="pp-sno">S.No.</th><th>Employee</th><th>Department / Job Role</th><th>Salary Structure</th><th>Present Days</th><th>Week Offs</th><th>Holidays</th><th>Half Days</th><th>Absent Days</th><th>Uninformed Leave</th><th>Gross Salary</th><th>Total Deductions</th><th>Net Salary</th><th>Status</th><th>Action</th></tr></thead>
+          <thead><tr><th className="pp-sno">S.No.</th><th>Employee</th><th>Department / Job Role</th><th>Salary Structure</th><th>Present Days</th><th>Week Offs</th><th>Holidays</th><th>Half Days</th><th>Absent Days</th><th>Uninformed Leave</th><th>Overtime (OT)</th><th>Gross Salary</th><th>Total Deductions</th><th>Net Salary</th><th>Status</th><th>Action</th></tr></thead>
           <tbody>{employees.length ? employees.map((item, index) => <tr key={item._id}>
             <td className="pp-sno">{(pagination.page - 1) * pagination.limit + index + 1}</td>
             <td><strong>{item.user?.name || "—"}</strong><small>{item.user?.employeeId || item.user?.email || ""}</small></td>
@@ -385,9 +385,22 @@ export default function PayrollProcess() {
             <td className="pp-number pp-halfday">{item.attendance?.halfDayDays || 0}</td>
             <td className="pp-number pp-negative">{item.attendance?.actualAbsentDays ?? Math.max(0, Number(item.attendance?.lopDays || 0) - Number(item.attendance?.uninformedLeaveDays || 0))}</td>
             <td className="pp-number pp-negative">{item.attendance?.uninformedLeaveDays || 0}</td>
-            <td className="pp-money">{money(item.assignedGross)}</td><td className="pp-money pp-negative">{money(Number(item.totalDeductions || 0) + Number(item.adjustmentDeductions || 0))}</td><td className="pp-money pp-net"><strong>{money(item.monthlyNet)}</strong></td>
+            <td className="pp-number" style={{ background: "#f5f3ff", color: "#6d28d9", fontWeight: 700 }}>
+              {item.attendance?.totalOvertimeHoursFormatted || item.attendance?.totalOvertimeDuration || "00:00:00"}
+              {Number(item.overtimePay || item.attendance?.overtimePay || 0) > 0 && (
+                <span style={{ fontSize: 11, color: "#16a34a", display: "block", fontWeight: 700 }}>
+                  + {money(item.overtimePay || item.attendance?.overtimePay)}
+                </span>
+              )}
+              {Number(item.attendance?.overtimeDays || 0) > 0 && (
+                <span style={{ fontSize: 10, color: "#7c3aed", display: "block" }}>
+                  {item.attendance.overtimeDays} {item.attendance.overtimeDays === 1 ? 'day' : 'days'}
+                </span>
+              )}
+            </td>
+            <td className="pp-money">{money(item.monthlyGross || item.assignedGross)}</td><td className="pp-money pp-negative">{money(Number(item.totalDeductions || 0) + Number(item.adjustmentDeductions || 0))}</td><td className="pp-money pp-net"><strong>{money(item.monthlyNet)}</strong></td>
             <td><span className={`pp-ready ${item.payrollStatus === "Reviewed" ? "reviewed" : item.payrollStatus === "Approved" ? "approved" : item.payrollStatus === "Locked" ? "locked" : ""}`}>{item.payrollStatus}</span>{Number(item.attendance?.pendingDays || 0) > 0 && <small>{item.attendance.pendingDays} attendance pending</small>}</td><td><div className="pp-row-actions"><button type="button" className="pp-view" onClick={() => setSelectedEmployee(item)} aria-label={`View ${item.user?.name || "employee"} calculation`} title="View calculation"><FiEye /></button><button type="button" className="pp-fix" onClick={() => setFixingEmployee(item)} disabled={acting || ["Approved", "Locked"].includes(item.payrollStatus || status)} aria-label={`Edit ${item.user?.name || "employee"} payroll source`} title={["Approved", "Locked"].includes(item.payrollStatus || status) ? "Unlock payroll to edit this employee" : "Edit / Fix source data"}><FiEdit2 /></button><button type="button" className="pp-recalculate-employee" onClick={() => reprocessSingleEmployee(item)} disabled={acting || ["Approved", "Locked"].includes(item.payrollStatus || status)} aria-label={`Recalculate ${item.user?.name || "employee"} payroll`} title="Recalculate single employee payroll"><FiRefreshCw /></button><button type="button" className="pp-history" onClick={() => setHistoryEmployee(item)} aria-label={`View ${item.user?.name || "employee"} payroll history`} title="Employee history"><FiList /></button>{item.payrollStatus === "Calculated" && <button type="button" className="pp-status-btn pp-btn-review" onClick={() => changeEmployeePayrollStatus(item, "review")} disabled={acting} title="Mark employee payroll Reviewed"><FiCheckCircle /> Mark Reviewed</button>}{item.payrollStatus === "Reviewed" && <button type="button" className="pp-status-btn pp-btn-approve" onClick={() => changeEmployeePayrollStatus(item, "approve")} disabled={acting} title="Approve employee payroll till calculation date"><FiCheckCircle /> Approve</button>}{item.payrollStatus === "Approved" && <button type="button" className="pp-status-btn pp-btn-lock" onClick={(event) => lockEmployeePayroll(event, item)} disabled={acting} title="Lock employee payroll"><FiLock /> Lock</button>}{["Approved", "Locked"].includes(item.payrollStatus) && <button type="button" className="pp-status-btn pp-btn-unlock" onClick={(event) => unlockEmployeePayroll(event, item)} disabled={acting} title="Unlock/Reopen payroll for this employee"><FiUnlock /> Unlock</button>}</div></td>
-          </tr>) : <tr><td colSpan="15" className="pp-empty">No active salary assignment found.</td></tr>}</tbody>
+          </tr>) : <tr><td colSpan="16" className="pp-empty">No active salary assignment found.</td></tr>}</tbody>
         </table></div>
         {pagination.totalPages > 1 && <div className="pp-pagination"><span>Showing {(pagination.page - 1) * pagination.limit + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}</span><div><button onClick={() => setPage(current => Math.max(1, current - 1))} disabled={pagination.page <= 1 || loading}>Previous</button>{Array.from({ length: pagination.totalPages }, (_, index) => index + 1).map(number => <button key={number} className={number === pagination.page ? "active" : ""} onClick={() => setPage(number)} disabled={loading}>{number}</button>)}<button onClick={() => setPage(current => Math.min(pagination.totalPages, current + 1))} disabled={pagination.page >= pagination.totalPages || loading}>Next</button></div></div>}
       </section>
@@ -409,13 +422,14 @@ export default function PayrollProcess() {
           {Number(selectedEmployee.attendance?.uninformedLeavePenaltyDays || 0) > 0 && <span style={{ background: "#fff7ed", color: "#c2410c", borderColor: "#fed7aa" }}>UL Penalty <b>{selectedEmployee.attendance.uninformedLeavePenaltyDays}</b></span>}
           {Number(selectedEmployee.attendance?.sandwichLopDays || 0) > 0 && <span style={{ background: "#fef2f2", color: "#dc2626", borderColor: "#fca5a5" }}>Sandwich LOP <b>{selectedEmployee.attendance.sandwichLopDays}</b></span>}
           <span>Future Working <b>{selectedEmployee.attendance?.futureDays || 0}</b></span>
+          <span style={{ background: "#f5f3ff", color: "#6d28d9", borderColor: "#ddd6fe" }}>Overtime <b>{selectedEmployee.attendance?.totalOvertimeHoursFormatted || selectedEmployee.attendance?.totalOvertimeDuration || "00:00:00"}</b></span>
         </div>
         {Number(selectedEmployee.attendance?.pendingDays || 0) > 0 && <div className="pp-pending-pay"><span>Provisional Calculation</span><strong>{selectedEmployee.attendance.pendingDays} days pending</strong><small>Full monthly salary is shown below. Payable earnings and net salary currently include only recorded attendance; pending days are not treated as absence.</small></div>}
         <div className="pp-detail-grid">
           <section>
             <h4>Monthly Earnings (Full Salary)</h4>
             {(selectedEmployee.components || []).filter((item) => item.type === "earning").map((item) => <p key={`${item.component?._id || item.component}-${item.code}`}><span>{item.name}</span><b>{money(item.amount)}</b></p>)}
-            <p className="pp-section-total"><span>Full Monthly Earnings</span><b>{money(selectedEmployee.assignedGross)}</b></p>
+            <p className="pp-section-total"><span>Full Monthly Earnings</span><b>{money(selectedEmployee.monthlyGross || selectedEmployee.assignedGross)}</b></p>
             {Number(selectedEmployee.attendance?.futureDays || 0) > 0 && <p className="pp-payable-row"><span>Earned Salary Till Date</span><b>{money(selectedEmployee.earnedTillDateGross ?? selectedEmployee.monthlyGross)}</b></p>}
           </section>
           <section>

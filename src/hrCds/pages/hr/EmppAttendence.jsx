@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import axios from "../../../utils/axiosConfig";
 import './employee-attendance.css';
 import CIISLoader from '../../../Loader/CIISLoader'; 
@@ -1285,7 +1285,50 @@ const EmployeeAttendance = () => {
     month: new Date().getMonth(), year: new Date().getFullYear()
   });
 
-  
+  // Admin Overtime Management States
+  const [showOtAdminModal, setShowOtAdminModal] = useState(false);
+  const [adminOtRequests, setAdminOtRequests] = useState([]);
+  const [loadingAdminOt, setLoadingAdminOt] = useState(false);
+  const [adminOtStatusFilter, setAdminOtStatusFilter] = useState('ALL');
+  const [adminOtActioning, setAdminOtActioning] = useState(false);
+
+  const fetchAdminOvertimeRequests = useCallback(async () => {
+    try {
+      setLoadingAdminOt(true);
+      const res = await axios.get('/overtime/admin-requests');
+      if (res.data?.success) {
+        setAdminOtRequests(res.data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to load overtime requests:', err);
+    } finally {
+      setLoadingAdminOt(false);
+    }
+  }, []);
+
+  const handleAdminOtAction = async (requestId, action, reason = '') => {
+    try {
+      setAdminOtActioning(true);
+      const res = await axios.put(`/overtime/admin-action/${requestId}`, {
+        action,
+        rejectionReason: reason
+      });
+      if (res.data?.success) {
+        showSnackbar(`Overtime request ${action === 'Approve' ? 'approved' : 'rejected'} successfully`, 'success');
+        await fetchAdminOvertimeRequests();
+        if (dateRangeMode) {
+          fetchAttendanceDataRange(selectedStartDate, selectedEndDate);
+        } else {
+          fetchAttendanceData(selectedDate);
+        }
+      }
+    } catch (err) {
+      showSnackbar(err.response?.data?.message || 'Failed to update overtime request', 'error');
+    } finally {
+      setAdminOtActioning(false);
+    }
+  };
+
   const [currentUser, setCurrentUser] = useState(null);
   const [currentUserRole, setCurrentUserRole] = useState('');
   const [currentUserDepartment, setCurrentUserDepartment] = useState('');
@@ -1293,7 +1336,6 @@ const EmployeeAttendance = () => {
   const [currentUserCompanyId, setCurrentUserCompanyId] = useState('');
   const [currentUserCompanyCode, setCurrentUserCompanyCode] = useState('');
   const [currentUserName, setCurrentUserName] = useState('');
-  
   
   const [canEditAttendance, setCanEditAttendance] = useState(true);
   const [canViewAllAttendance, setCanViewAllAttendance] = useState(true);
@@ -1308,6 +1350,7 @@ const EmployeeAttendance = () => {
       setLoading(true);
       try {
         await fetchCurrentUserAndCompany();
+        fetchAdminOvertimeRequests();
       } catch (error) {
         console.error("Error initializing data:", error);
       } finally {
@@ -1320,7 +1363,7 @@ const EmployeeAttendance = () => {
     };
     
     initializeData();
-  }, []);
+  }, [fetchAdminOvertimeRequests]);
 
   useEffect(() => {
     let active = true;
@@ -3083,13 +3126,32 @@ const EmployeeAttendance = () => {
 
         
         <div className="EmppAttendence-header-actions">
-              <button
-                className="EmppAttendence-date-chip"
-                onClick={handleAddRecord}
-                title="Add Attendance Record"
-                style={{ marginRight: '8px' }}
-                disabled={!canEditAttendance}
-              >
+          <button
+            className="EmppAttendence-date-chip"
+            onClick={() => {
+              fetchAdminOvertimeRequests();
+              setShowOtAdminModal(true);
+            }}
+            title="Manage Employee Overtime Requests"
+            style={{
+              marginRight: '8px',
+              background: '#7c3aed',
+              color: '#ffffff',
+              border: 'none',
+              fontWeight: 600
+            }}
+          >
+            <FiClock size={16} />
+            <span>Overtime Requests {adminOtRequests.filter(r => r.status === 'Pending').length > 0 ? `(${adminOtRequests.filter(r => r.status === 'Pending').length})` : ''}</span>
+          </button>
+
+          <button
+            className="EmppAttendence-date-chip"
+            onClick={handleAddRecord}
+            title="Add Attendance Record"
+            style={{ marginRight: '8px' }}
+            disabled={!canEditAttendance}
+          >
             <FiPlus size={16} />
             <span>Add Attendance</span>
           </button>
@@ -3559,12 +3621,26 @@ const EmployeeAttendance = () => {
                           </td>
 
                           <td className="EmppAttendence-col-status">
-                            <span className={`EmppAttendence-status-chip ${getStatusClass(rec.status)}`}>
-                              {formatStatusLabel(rec.status)}
-                            </span>
-                            <div className="EmppAttendence-status-explanation">
-                              {getStatusExplanation(rec.status)}
-                            </div>
+                            {(() => {
+                              const hasApprovedOt = Boolean(rec.hasOvertimeApproved);
+                              const hasOtDuration = Boolean(rec.overTime && rec.overTime !== "00:00:00");
+                              const isPresentWithOt = (String(rec.status).toUpperCase().includes("PRESENT") || String(rec.status).toUpperCase().includes("LATE")) && hasApprovedOt && hasOtDuration;
+                              return (
+                                <>
+                                  <span className={`EmppAttendence-status-chip ${isPresentWithOt ? 'EmppAttendence-status-present-ot' : getStatusClass(rec.status)}`}>
+                                    {isPresentWithOt ? "Present + Overtime" : formatStatusLabel(rec.status)}
+                                  </span>
+                                  {hasApprovedOt && hasOtDuration && (
+                                    <div style={{ fontSize: "0.72rem", color: "#7c3aed", fontWeight: 700, marginTop: "2px" }}>
+                                      OT: {rec.overTime}
+                                    </div>
+                                  )}
+                                  <div className="EmppAttendence-status-explanation">
+                                    {getStatusExplanation(rec.status)}
+                                  </div>
+                                </>
+                              );
+                            })()}
                           </td>
 
                           <td className="EmppAttendence-col-late">
@@ -3716,12 +3792,26 @@ const EmployeeAttendance = () => {
                           </td>
 
                           <td className="EmppAttendence-col-status">
-                            <span className={`EmppAttendence-status-chip ${getStatusClass(rec.status)}`}>
-                              {formatStatusLabel(rec.status)}
-                            </span>
-                            <div className="EmppAttendence-status-explanation">
-                              {getStatusExplanation(rec.status)}
-                            </div>
+                            {(() => {
+                              const hasApprovedOt = Boolean(rec.hasOvertimeApproved);
+                              const hasOtDuration = Boolean(rec.overTime && rec.overTime !== "00:00:00");
+                              const isPresentWithOt = (String(rec.status).toUpperCase().includes("PRESENT") || String(rec.status).toUpperCase().includes("LATE")) && hasApprovedOt && hasOtDuration;
+                              return (
+                                <>
+                                  <span className={`EmppAttendence-status-chip ${isPresentWithOt ? 'EmppAttendence-status-present-ot' : getStatusClass(rec.status)}`}>
+                                    {isPresentWithOt ? "Present + Overtime" : formatStatusLabel(rec.status)}
+                                  </span>
+                                  {hasApprovedOt && hasOtDuration && (
+                                    <div style={{ fontSize: "0.72rem", color: "#7c3aed", fontWeight: 700, marginTop: "2px" }}>
+                                      OT: {rec.overTime}
+                                    </div>
+                                  )}
+                                  <div className="EmppAttendence-status-explanation">
+                                    {getStatusExplanation(rec.status)}
+                                  </div>
+                                </>
+                              );
+                            })()}
                           </td>
 
                           <td className="EmppAttendence-col-late">
@@ -3854,12 +3944,271 @@ const EmployeeAttendance = () => {
         />
       )}
 
-      <MonthlyAttendanceModal
-        state={monthlyAttendance}
-        onClose={() => setMonthlyAttendance(current => ({ ...current, open: false }))}
-      />
+      {/* Overtime Requests Management Modal */}
+      {showOtAdminModal && (
+        <div
+          className="EmppAttendence-modal-overlay"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+          onClick={() => setShowOtAdminModal(false)}
+        >
+          <div
+            className="EmppAttendence-modal"
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '850px',
+              maxHeight: '88vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+              overflow: 'hidden'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                padding: '16px 22px',
+                borderBottom: '1px solid #f1f5f9',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FiClock style={{ color: '#7c3aed' }} /> Employee Overtime Requests
+                </h3>
+                <p style={{ margin: '3px 0 0', fontSize: '12px', color: '#64748b' }}>
+                  Review and approve overtime shift requests submitted by employees
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOtAdminModal(false)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '22px', cursor: 'pointer', display: 'flex' }}
+              >
+                <FiX />
+              </button>
+            </div>
 
-      
+            {/* Filter Pills */}
+            <div style={{ padding: '12px 22px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '8px' }}>
+              {['ALL', 'Pending', 'Approved', 'Rejected'].map((statusOption) => (
+                <button
+                  key={statusOption}
+                  type="button"
+                  onClick={() => setAdminOtStatusFilter(statusOption)}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    border: '1px solid',
+                    borderColor: adminOtStatusFilter === statusOption ? '#7c3aed' : '#e2e8f0',
+                    background: adminOtStatusFilter === statusOption ? '#7c3aed' : '#ffffff',
+                    color: adminOtStatusFilter === statusOption ? '#ffffff' : '#64748b',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  {statusOption === 'ALL' ? 'All Requests' : statusOption}
+                </button>
+              ))}
+            </div>
+
+            {/* Content List */}
+            <div style={{ padding: '18px 22px', overflowY: 'auto', flex: 1 }}>
+              {loadingAdminOt ? (
+                <p style={{ textAlign: 'center', color: '#64748b', margin: '30px 0' }}>Loading requests...</p>
+              ) : adminOtRequests.filter(r => adminOtStatusFilter === 'ALL' || r.status === adminOtStatusFilter).length === 0 ? (
+                <p style={{ textAlign: 'center', color: '#94a3b8', margin: '40px 0' }}>
+                  No {adminOtStatusFilter !== 'ALL' ? adminOtStatusFilter.toLowerCase() : ''} overtime requests found.
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {adminOtRequests
+                    .filter(r => adminOtStatusFilter === 'ALL' || r.status === adminOtStatusFilter)
+                    .map((otReq) => (
+                      <div
+                        key={otReq._id}
+                        style={{
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '12px',
+                          padding: '14px 16px',
+                          background: '#ffffff',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div
+                              style={{
+                                width: '36px',
+                                height: '36px',
+                                borderRadius: '50%',
+                                background: '#ede9fe',
+                                color: '#7c3aed',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '13px'
+                              }}
+                            >
+                              {String(otReq.user?.name || 'U').charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <strong style={{ fontSize: '13.5px', color: '#1e293b' }}>{otReq.user?.name || 'Employee'}</strong>
+                              <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                                {otReq.user?.department?.name || otReq.user?.department || 'Unassigned'} • {otReq.user?.email || ''}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span
+                              style={{
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                background:
+                                  otReq.status === 'Approved'
+                                    ? '#dcfce7'
+                                    : otReq.status === 'Rejected'
+                                    ? '#fee2e2'
+                                    : '#fef3c7',
+                                color:
+                                  otReq.status === 'Approved'
+                                    ? '#15803d'
+                                    : otReq.status === 'Rejected'
+                                    ? '#b91c1c'
+                                    : '#b45309'
+                              }}
+                            >
+                              {otReq.status}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div style={{ fontSize: '12px', color: '#334155', background: '#f8fafc', padding: '8px 12px', borderRadius: '8px' }}>
+                          <div>
+                            <b>Type: </b>
+                            {otReq.requestType === 'SINGLE_DAY'
+                              ? 'Single Day'
+                              : otReq.requestType === 'MULTIPLE_DAYS'
+                              ? 'Multiple Days'
+                              : 'Full Month'}
+                          </div>
+                          <div style={{ marginTop: '3px' }}>
+                            <b>Dates: </b>
+                            {otReq.requestType === 'FULL_MONTH'
+                              ? otReq.month
+                              : (otReq.dateKeys || []).join(', ') || '-'}
+                          </div>
+                          {otReq.reason && (
+                            <div style={{ marginTop: '3px' }}>
+                              <b>Reason: </b>{otReq.reason}
+                            </div>
+                          )}
+                          {otReq.rejectionReason && (
+                            <div style={{ marginTop: '3px', color: '#dc2626' }}>
+                              <b>Rejection Remarks: </b>{otReq.rejectionReason}
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                          <small style={{ color: '#94a3b8', fontSize: '11px' }}>
+                            Submitted on {new Date(otReq.createdAt).toLocaleDateString()}
+                          </small>
+
+                          {otReq.status === 'Pending' && (
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button
+                                type="button"
+                                disabled={adminOtActioning}
+                                onClick={() => handleAdminOtAction(otReq._id, 'Approve')}
+                                style={{
+                                  padding: '5px 14px',
+                                  background: '#16a34a',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ✓ Approve
+                              </button>
+                              <button
+                                type="button"
+                                disabled={adminOtActioning}
+                                onClick={() => {
+                                  const reason = window.prompt('Please provide a reason for rejecting this overtime request:');
+                                  if (reason !== null) {
+                                    handleAdminOtAction(otReq._id, 'Reject', reason);
+                                  }
+                                }}
+                                style={{
+                                  padding: '5px 14px',
+                                  background: '#ef4444',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ✕ Reject
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: '12px 22px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setShowOtAdminModal(false)}
+                style={{
+                  padding: '7px 16px',
+                  background: '#f1f5f9',
+                  color: '#475569',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {snackbar.open && (
         <div className="EmppAttendence-snackbar">
           <div className={`EmppAttendence-snackbar-content EmppAttendence-snackbar-${snackbar.type}`}>

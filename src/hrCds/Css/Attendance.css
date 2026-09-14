@@ -1809,3 +1809,327 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ----------------------------------------------------
+   Overtime Shift & Request Styles
+   ---------------------------------------------------- */
+.att-status-pill.present-overtime {
+  background-color: #f3e8ff;
+  color: #7e22ce;
+  border: 1px solid #d8b4fe;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.att-ot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fdf4ff;
+  color: #a21caf;
+  border: 1px solid #f0abfc;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 3px;
+}
+
+.att-header-ot-btn {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.att-header-ot-btn.primary-ot {
+  background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.25);
+}
+
+.att-header-ot-btn.primary-ot:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35);
+}
+
+.att-header-ot-btn.secondary-ot {
+  background: #ffffff;
+  color: #6366f1;
+  border: 1px solid #c7d2fe;
+}
+
+.att-header-ot-btn.secondary-ot:hover {
+  background: #f5f3ff;
+  border-color: #818cf8;
+}
+
+/* Overtime Modal Overlay */
+.att-ot-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.att-ot-modal {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 540px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  animation: attOtModalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes attOtModalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.att-ot-modal-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.att-ot-modal-header h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.att-ot-modal-header p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.att-ot-modal-close {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.att-ot-modal-close:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.att-ot-modal-body {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.att-ot-type-selector {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  background: #f8fafc;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.att-ot-type-btn {
+  background: none;
+  border: none;
+  padding: 9px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.att-ot-type-btn.active {
+  background: #ffffff;
+  color: #6d28d9;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.06);
+  border: 1px solid #e9d5ff;
+}
+
+.att-ot-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.att-ot-field label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.att-ot-field input[type="date"],
+.att-ot-field input[type="month"],
+.att-ot-field textarea {
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #1e293b;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.att-ot-field input:focus,
+.att-ot-field textarea:focus {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+}
+
+.att-ot-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.att-ot-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #ede9fe;
+  color: #6d28d9;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.att-ot-chip-remove {
+  background: none;
+  border: none;
+  color: #7c3aed;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.att-ot-modal-footer {
+  padding: 16px 22px;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.att-ot-btn-cancel {
+  padding: 8px 16px;
+  background: #f1f5f9;
+  color: #475569;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.att-ot-btn-submit {
+  padding: 8px 18px;
+  background: #7c3aed;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.att-ot-btn-submit:hover:not(:disabled) {
+  background: #6d28d9;
+}
+
+.att-ot-btn-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* History Modal List */
+.att-ot-request-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #ffffff;
+}
+
+.att-ot-request-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.att-ot-status-badge {
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.att-ot-status-badge.pending {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.att-ot-status-badge.approved {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.att-ot-status-badge.rejected {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+

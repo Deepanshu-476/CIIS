@@ -2394,3 +2394,11 @@ textarea.EmppAttendence-form-input {
   .EmppAttendence-attendance-table th.EmppAttendence-col-type,.EmppAttendence-attendance-table td.EmppAttendence-col-type,.EmppAttendence-attendance-table th.EmppAttendence-col-login,.EmppAttendence-attendance-table td.EmppAttendence-col-login{display:none}
   .EmppAttendence-col-employee{width:17%}.EmppAttendence-col-department{width:10%}.EmppAttendence-col-shift{width:13%}.EmppAttendence-col-date{width:9%}.EmppAttendence-col-checkin,.EmppAttendence-col-checkout{width:9%}.EmppAttendence-col-hours{width:8%}.EmppAttendence-col-status{width:10%}.EmppAttendence-col-late{width:8%}.EmppAttendence-col-actions{width:18%}
 }
+
+.EmppAttendence-status-chip.EmppAttendence-status-present-ot {
+  background: #f3e8ff !important;
+  color: #7e22ce !important;
+  border: 1px solid #d8b4fe !important;
+  font-weight: 700 !important;
+}
+

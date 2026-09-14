@@ -2506,7 +2506,7 @@ body .EmpAssets-lightbox img {
 
 .EmpAssets-filter-grid {
   display: grid;
-  grid-template-columns: 1.1fr 1fr 1fr 1.5fr;
+  grid-template-columns: 1fr 1fr 1.5fr;
   gap: 14px;
   align-items: end;
 }

@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo, useCallback } from "react";
 import axios from "../../../utils/axiosConfig";
 import './employee-leaves.css';
 import CIISLoader from '../../../Loader/CIISLoader';
-import PageBranchDropdown, { usePageBranchScope } from '../../components/PageBranchDropdown';
 import { getPageAccessUserIds } from '../../../utils/pageAccess';
 
 
@@ -365,12 +364,6 @@ const EmployeeLeaves = () => {
   } = socketContext;
   
   const { showToast } = notificationContext;
-  const {
-    branchOptions,
-    selectedBranchId,
-    setSelectedBranchId,
-    branchQueryParams
-  } = usePageBranchScope();
 
   
   
@@ -890,7 +883,6 @@ const EmployeeLeaves = () => {
     try {
       const params = new URLSearchParams();
       params.append('company', currentUserCompanyId);
-      if (branchQueryParams.branchId) params.append('branchId', branchQueryParams.branchId);
       
       if (!isOwner && !hasConfiguredPageAccess) {
         if (currentUserDepartment) {
@@ -959,7 +951,6 @@ const EmployeeLeaves = () => {
     filterDate, 
     statusFilter, 
     leaveTypeFilter, 
-    branchQueryParams.branchId,
     updateStats, 
     showSnackbar
   ]);
@@ -2112,11 +2103,7 @@ const EmployeeLeaves = () => {
         </div>
       </div>
 
-      <PageBranchDropdown
-        branchOptions={branchOptions}
-        selectedBranchId={selectedBranchId}
-        onChange={setSelectedBranchId}
-      />
+
 
       <div className="EmppLeaves-filter-section">
         <div className="EmppLeaves-filter-header">

@@ -109,3 +109,31 @@ export const invalidatePagePermissionCache = (path) => {
   }
   pagePermissionCache.delete(String(path).trim().toLowerCase());
 };
+
+export const getUserPageScope = (page, userId) => {
+  const normalizedUserId = normalizeUserId(userId);
+  if (!page || !normalizedUserId) return null;
+  const scopes = Array.isArray(page?.userAccessScopes) ? page.userAccessScopes : [];
+  const matchingScopes = scopes.filter(s => normalizeUserId(s?.user) === normalizedUserId);
+  if (!matchingScopes.length) return null;
+
+  let branchIds = [];
+  let departmentIds = [];
+  let hasAllBranches = false;
+  let hasAllDepartments = false;
+
+  matchingScopes.forEach(s => {
+    const bIds = (Array.isArray(s.branchIds) ? s.branchIds : []).map(b => String(b).trim());
+    const dIds = (Array.isArray(s.departmentIds) ? s.departmentIds : []).map(d => String(d).trim());
+    if (bIds.includes('all') || bIds.length === 0) hasAllBranches = true;
+    else branchIds.push(...bIds);
+    if (dIds.includes('all') || dIds.length === 0) hasAllDepartments = true;
+    else departmentIds.push(...dIds);
+  });
+
+  return {
+    branchIds: hasAllBranches ? ['all'] : [...new Set(branchIds.filter(Boolean))],
+    departmentIds: hasAllDepartments ? ['all'] : [...new Set(departmentIds.filter(Boolean))]
+  };
+};
+

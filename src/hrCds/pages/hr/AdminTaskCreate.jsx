@@ -4,7 +4,6 @@ import { API_URL_IMG } from '../../../config';
 import { useNavigate } from 'react-router-dom';
 import './AdminTaskManagement.css';
 import CIISLoader from '../../../Loader/CIISLoader';
-import PageBranchDropdown, { usePageBranchScope } from '../../components/PageBranchDropdown';
 
 
 import {
@@ -44,13 +43,6 @@ const AdminTaskManagement = () => {
   const [authError, setAuthError] = useState(false);
   const [initialAuthCheck, setInitialAuthCheck] = useState(false);
   const supportingDataLoadedRef = useRef(false);
-  const supportingDataBranchRef = useRef(null);
-  const {
-    branchOptions,
-    selectedBranchId,
-    setSelectedBranchId,
-    branchQueryParams
-  } = usePageBranchScope();
   
   
   const [currentUser, setCurrentUser] = useState({
@@ -460,8 +452,6 @@ const AdminTaskManagement = () => {
   });
 
   const departmentOptionsForCreate = (() => {
-    if (branchOptions.length > 1 && !selectedBranchId) return [];
-
     const optionsMap = new Map();
 
     departments.forEach(department => {
@@ -487,16 +477,11 @@ const AdminTaskManagement = () => {
   })();
 
   const createAssignableUsers = filteredUsers.filter(user => {
-    if (branchOptions.length > 1 && !selectedBranchId) return false;
-    if (!selectedCreateDepartment) return false;
-    return isUserInDepartment(user, selectedCreateDepartment);
+    if (selectedCreateDepartment && selectedCreateDepartment !== 'all') {
+      return isUserInDepartment(user, selectedCreateDepartment);
+    }
+    return true;
   });
-
-  useEffect(() => {
-    setSelectedCreateDepartment('');
-    setUserSearch('');
-    setNewTask(prev => ({ ...prev, assignedUsers: [] }));
-  }, [selectedBranchId]);
 
   const modalUserRenderLimit = 120;
   const visibleCreateAssignableUsers = createAssignableUsers.slice(0, modalUserRenderLimit);
@@ -762,8 +747,7 @@ const AdminTaskManagement = () => {
       const params = {
         page: page + 1,
         limit: limit,
-        createdBy: userId,
-        ...branchQueryParams
+        createdBy: userId
       };
 
       if (filters.search) params.search = filters.search;
@@ -799,8 +783,36 @@ const AdminTaskManagement = () => {
       }
       
       setTasks(tasksArray);
-      setTotalTasks(tasksResult.total || tasksResult.totalCount || tasksArray.length);
-      calculateFilteredStats(tasksArray);
+      const totalCount = tasksResult.total || tasksResult.totalCount || (tasksResult.pagination && tasksResult.pagination.total) || tasksArray.length;
+      setTotalTasks(totalCount);
+
+      const statsSource = tasksResult.overallStats || tasksResult.summaryStats;
+      if (statsSource) {
+        setFilteredStats({
+          total: typeof statsSource.total === 'number' ? statsSource.total : totalCount,
+          pending: Number(statsSource.pending) || 0,
+          inProgress: Number(statsSource.inProgress) || 0,
+          completed: Number(statsSource.completed) || 0,
+          rejected: Number(statsSource.rejected) || 0,
+          overdue: Number(statsSource.overdue) || 0
+        });
+      } else if (tasksResult.stats) {
+        const getCount = (val) => {
+          if (typeof val === 'number') return val;
+          if (val && typeof val.count === 'number') return val.count;
+          return 0;
+        };
+        setFilteredStats({
+          total: typeof tasksResult.stats.total === 'number' ? tasksResult.stats.total : totalCount,
+          pending: getCount(tasksResult.stats.pending),
+          inProgress: getCount(tasksResult.stats.inProgress || tasksResult.stats['in-progress']),
+          completed: getCount(tasksResult.stats.completed) + getCount(tasksResult.stats.approved),
+          rejected: getCount(tasksResult.stats.rejected),
+          overdue: getCount(tasksResult.stats.overdue)
+        });
+      } else {
+        calculateFilteredStats(tasksArray, totalCount);
+      }
 
     } catch (error) {
       if (showInitialLoader) {
@@ -825,9 +837,9 @@ const AdminTaskManagement = () => {
   };
 
   
-  const calculateFilteredStats = (tasksArray) => {
+  const calculateFilteredStats = (tasksArray, totalCount) => {
     const stats = {
-      total: tasksArray.length,
+      total: totalCount !== undefined ? totalCount : tasksArray.length,
       pending: tasksArray.filter(t => getTaskStatus(t) === 'pending').length,
       inProgress: tasksArray.filter(t => getTaskStatus(t) === 'in-progress').length,
       completed: tasksArray.filter(t => getTaskStatus(t) === 'completed').length,
@@ -863,7 +875,6 @@ const AdminTaskManagement = () => {
       try {
         const departmentParams = new URLSearchParams();
         if (companyId) departmentParams.set('company', companyId);
-        if (branchQueryParams.branchId) departmentParams.set('branch', branchQueryParams.branchId);
         const departmentQuery = departmentParams.toString();
         const deptUrl = departmentQuery ? `/departments?${departmentQuery}` : '/departments';
         const deptRes = await apiCall('get', deptUrl);
@@ -900,7 +911,6 @@ const AdminTaskManagement = () => {
       
       const userParams = new URLSearchParams();
       if (companyId) userParams.set('companyId', companyId);
-      if (branchQueryParams.branchId) userParams.set('branchId', branchQueryParams.branchId);
       const usersQuery = userParams.toString();
       const usersUrl = usersQuery ? `/users/company-users?${usersQuery}` : '/users/company-users';
       
@@ -974,16 +984,6 @@ const AdminTaskManagement = () => {
       return;
     }
 
-    if (branchOptions.length > 1 && !selectedBranchId) {
-      showSnackbar('Please select a branch first', 'error');
-      return;
-    }
-
-    if (newTask.assignedUsers.length > 0 && !selectedCreateDepartment) {
-      showSnackbar('Please select a department before assigning users', 'error');
-      return;
-    }
-
     if (newTask.assignedUsers.length === 0 && newTask.assignedGroups.length === 0) {
       showSnackbar('Please assign to at least one user or group', 'error');
       return;
@@ -1017,10 +1017,6 @@ const AdminTaskManagement = () => {
       formData.append('assignedUsers', JSON.stringify(newTask.assignedUsers));
       formData.append('assignedGroups', JSON.stringify(newTask.assignedGroups));
       formData.append('checkpoints', JSON.stringify(getCleanCheckpoints(newTask.checkpoints)));
-      if (selectedBranchId) {
-        formData.append('branchId', selectedBranchId);
-        formData.append('branch', selectedBranchId);
-      }
 
       if (newTask.files) {
         for (let i = 0; i < newTask.files.length; i++) {
@@ -1713,7 +1709,7 @@ const AdminTaskManagement = () => {
   };
 
   
-  const AdminTaskManagementStatCard = ({ label, value, color, icon: Icon }) => {
+  const AdminTaskManagementStatCard = ({ label, value, color, icon: Icon, active, onClick, title }) => {
     const colors = {
       primary: '#3f51b5',
       warning: '#ff9800',
@@ -1722,10 +1718,32 @@ const AdminTaskManagement = () => {
       error: '#f44336'
     };
 
+    const cardColor = colors[color] || colors.primary;
+
     return (
-      <div className="AdminTaskManagement-stat-card" style={{ borderLeftColor: colors[color] || colors.primary }}>
+      <div
+        className={`AdminTaskManagement-stat-card ${active ? 'AdminTaskManagement-stat-card-active' : ''}`}
+        style={{
+          borderLeftColor: cardColor,
+          cursor: onClick ? 'pointer' : 'default',
+          borderWidth: active ? '2px' : '1px',
+          borderColor: active ? cardColor : undefined,
+          boxShadow: active ? `0 6px 18px ${cardColor}35` : undefined,
+          transform: active ? 'translateY(-3px)' : undefined
+        }}
+        onClick={onClick}
+        title={title}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && onClick) {
+            e.preventDefault();
+            onClick();
+          }
+        }}
+      >
         <div className="AdminTaskManagement-stat-card-content">
-          <div className="AdminTaskManagement-stat-icon" style={{ backgroundColor: `${colors[color]}20`, color: colors[color] }}>
+          <div className="AdminTaskManagement-stat-icon" style={{ backgroundColor: `${cardColor}20`, color: cardColor }}>
             <Icon size={18} />
           </div>
           <div className="AdminTaskManagement-stat-text">
@@ -1943,14 +1961,104 @@ const AdminTaskManagement = () => {
   );
 
   
+  const handleStatCardClick = (cardKey) => {
+    setPage(0);
+    const baseFilters = {};
+    if (searchTerm) baseFilters.search = searchTerm;
+    if (priorityFilter) baseFilters.priority = priorityFilter;
+    if (assignedToFilter) baseFilters.assignedTo = assignedToFilter;
+    if (dateRange.startDate) baseFilters.startDate = dateRange.startDate;
+    if (dateRange.endDate) baseFilters.endDate = dateRange.endDate;
+
+    if (cardKey === 'all') {
+      setStatusFilter('');
+      setOverdueFilter('');
+      fetchTasks(0, rowsPerPage, { ...baseFilters, status: '', overdue: '' });
+      return;
+    }
+
+    if (cardKey === 'overdue') {
+      if (overdueFilter === 'true' && !statusFilter) {
+        setOverdueFilter('');
+        fetchTasks(0, rowsPerPage, { ...baseFilters, status: '', overdue: '' });
+      } else {
+        setOverdueFilter('true');
+        setStatusFilter('');
+        fetchTasks(0, rowsPerPage, { ...baseFilters, status: '', overdue: 'true' });
+      }
+      return;
+    }
+
+    // Status cards: pending, in-progress, completed, rejected
+    if (statusFilter === cardKey && !overdueFilter) {
+      setStatusFilter('');
+      fetchTasks(0, rowsPerPage, { ...baseFilters, status: '', overdue: '' });
+    } else {
+      setStatusFilter(cardKey);
+      setOverdueFilter('');
+      fetchTasks(0, rowsPerPage, { ...baseFilters, status: cardKey, overdue: '' });
+    }
+  };
+
   const renderFilteredStatsCards = () => {
+    const isOverdueActive = overdueFilter === 'true' && !statusFilter;
+    const isAllActive = !statusFilter && !overdueFilter;
+
     const statsCards = [
-      { label: "Total Tasks", value: filteredStats.total, color: "primary", icon: FiCalendar },
-      { label: "Pending", value: filteredStats.pending, color: "warning", icon: FiClock },
-      { label: "In Progress", value: filteredStats.inProgress, color: "info", icon: FiAlertCircle },
-      { label: "Completed", value: filteredStats.completed, color: "success", icon: FiCheckCircle },
-      { label: "Rejected", value: filteredStats.rejected, color: "error", icon: FiXCircle },
-      { label: "Overdue", value: filteredStats.overdue, color: "error", icon: FiAlertTriangle }
+      {
+        key: "all",
+        label: "Total Tasks",
+        value: filteredStats.total,
+        color: "primary",
+        icon: FiCalendar,
+        active: isAllActive,
+        title: isAllActive ? "Showing all tasks" : "Click to view all tasks"
+      },
+      {
+        key: "pending",
+        label: "Pending",
+        value: filteredStats.pending,
+        color: "warning",
+        icon: FiClock,
+        active: statusFilter === 'pending' && !isOverdueActive,
+        title: statusFilter === 'pending' ? "Click to clear filter" : "Click to view Pending tasks"
+      },
+      {
+        key: "in-progress",
+        label: "In Progress",
+        value: filteredStats.inProgress,
+        color: "info",
+        icon: FiAlertCircle,
+        active: statusFilter === 'in-progress' && !isOverdueActive,
+        title: statusFilter === 'in-progress' ? "Click to clear filter" : "Click to view In Progress tasks"
+      },
+      {
+        key: "completed",
+        label: "Completed",
+        value: filteredStats.completed,
+        color: "success",
+        icon: FiCheckCircle,
+        active: statusFilter === 'completed' && !isOverdueActive,
+        title: statusFilter === 'completed' ? "Click to clear filter" : "Click to view Completed tasks"
+      },
+      {
+        key: "rejected",
+        label: "Rejected",
+        value: filteredStats.rejected,
+        color: "error",
+        icon: FiXCircle,
+        active: statusFilter === 'rejected' && !isOverdueActive,
+        title: statusFilter === 'rejected' ? "Click to clear filter" : "Click to view Rejected tasks"
+      },
+      {
+        key: "overdue",
+        label: "Overdue",
+        value: filteredStats.overdue,
+        color: "error",
+        icon: FiAlertTriangle,
+        active: isOverdueActive,
+        title: isOverdueActive ? "Click to clear filter" : "Click to view Overdue tasks"
+      }
     ];
 
     const visibleCards = statsCards.filter(stat => stat.value > 0);
@@ -1968,13 +2076,16 @@ const AdminTaskManagement = () => {
 
     return (
       <div className="AdminTaskManagement-stats-grid">
-        {visibleCards.map((stat, index) => (
+        {visibleCards.map((stat) => (
           <AdminTaskManagementStatCard
-            key={index}
+            key={stat.key}
             label={stat.label}
             value={stat.value}
             color={stat.color}
             icon={stat.icon}
+            active={stat.active}
+            onClick={() => handleStatCardClick(stat.key)}
+            title={stat.title}
           />
         ))}
       </div>
@@ -2416,7 +2527,7 @@ const AdminTaskManagement = () => {
             <div className="AdminTaskManagement-form-group">
               <div className="AdminTaskManagement-role-hint">
                 <span className="AdminTaskManagement-role-hint-admin">
-                  <FiUserCheck /> Select a branch to assign tasks to departments and users in that branch
+                  <FiUserCheck /> Assign tasks to departments and users across all branches
                 </span>
               </div>
             </div>
@@ -2489,59 +2600,29 @@ const AdminTaskManagement = () => {
             
             <div className="AdminTaskManagement-form-group">
               <label>
-                Assign to Users 
-                <span className="AdminTaskManagement-role-badge">(Branch Departments)</span>
+                Assign to Users
               </label>
               <div className="AdminTaskManagement-multi-select-container">
-                {branchOptions.length > 1 && (
-                  <div className="AdminTaskManagement-form-group" style={{ marginBottom: '12px' }}>
-                    <label>Select Branch</label>
-                    <select
-                      className="AdminTaskManagement-form-select"
-                      value={selectedBranchId}
-                      onChange={(event) => {
-                        setSelectedBranchId(event.target.value);
-                        setSelectedCreateDepartment('');
-                        setUserSearch('');
-                        setNewTask(prev => ({ ...prev, assignedUsers: [] }));
-                      }}
-                    >
-                      {branchOptions.map(branch => (
-                        <option key={branch.id || 'select-branch'} value={branch.id}>
-                          {branch.id ? branch.label : 'Select Branch'}
-                        </option>
-                      ))}
-                    </select>
-                    <small className="AdminTaskManagement-form-hint">
-                      Selecting a branch will load departments for that branch.
-                    </small>
-                  </div>
-                )}
-
                 <div className="AdminTaskManagement-form-group" style={{ marginBottom: '12px' }}>
                   <label>Select Department</label>
                   <select
                     className="AdminTaskManagement-form-select"
                     value={selectedCreateDepartment}
-                    disabled={branchOptions.length > 1 && !selectedBranchId}
                     onChange={(event) => {
                       const nextDepartment = event.target.value;
                       setSelectedCreateDepartment(nextDepartment);
-                      setNewTask(prev => ({
-                        ...prev,
-                        assignedUsers: prev.assignedUsers.filter(userId => {
-                          if (!nextDepartment) return false;
-                          const assignedUser = users.find(user => (user.id || user._id) === userId);
-                          return assignedUser && isUserInDepartment(assignedUser, nextDepartment);
-                        })
-                      }));
+                      if (nextDepartment && nextDepartment !== 'all') {
+                        setNewTask(prev => ({
+                          ...prev,
+                          assignedUsers: prev.assignedUsers.filter(userId => {
+                            const assignedUser = users.find(user => (user.id || user._id) === userId);
+                            return assignedUser && isUserInDepartment(assignedUser, nextDepartment);
+                          })
+                        }));
+                      }
                     }}
                   >
-                    <option value="">
-                      {branchOptions.length > 1 && !selectedBranchId
-                        ? 'Select branch first'
-                        : 'Select Department'}
-                    </option>
+                    <option value="">All Departments</option>
                     {departmentOptionsForCreate.map(department => (
                       <option key={department.id} value={department.id}>
                         {department.name} ({department.count})
@@ -2549,7 +2630,7 @@ const AdminTaskManagement = () => {
                     ))}
                   </select>
                   <small className="AdminTaskManagement-form-hint">
-                    Selecting a department will show users from that department in the selected branch.
+                    Filter users by department, or select "All Departments" to view all users.
                   </small>
                 </div>
                 <div className="AdminTaskManagement-select-search-bar">
@@ -2557,10 +2638,9 @@ const AdminTaskManagement = () => {
                   <input
                     type="text"
                     className="AdminTaskManagement-select-search-input"
-                    placeholder={!selectedBranchId && branchOptions.length > 1 ? 'Select branch first...' : !selectedCreateDepartment ? 'Select department first...' : 'Search users...'}
+                    placeholder={!selectedCreateDepartment ? 'Search all users...' : 'Search users in department...'}
                     value={userSearch}
                     onChange={(e) => setUserSearch(e.target.value)}
-                    disabled={(branchOptions.length > 1 && !selectedBranchId) || !selectedCreateDepartment}
                   />
                   {userSearch && (
                     <button className="AdminTaskManagement-select-search-clear" onClick={() => setUserSearch('')}>
@@ -2601,11 +2681,9 @@ const AdminTaskManagement = () => {
                         <FiUsers size={32} className="AdminTaskManagement-empty-icon" />
                         <h5>No users available</h5>
                         <p>
-                          {branchOptions.length > 1 && !selectedBranchId
-                            ? 'Select a branch first'
-                            : !selectedCreateDepartment
-                              ? 'Select a department to view users'
-                              : 'No users found in selected department'}
+                          {selectedCreateDepartment
+                            ? 'No users found in selected department'
+                            : 'No users found'}
                         </p>
                       </div>
                     </div>
@@ -2923,8 +3001,7 @@ const AdminTaskManagement = () => {
             
             <div className="AdminTaskManagement-form-group">
               <label>
-                Assign to Users 
-                <span className="AdminTaskManagement-role-badge">(Branch Departments)</span>
+                Assign to Users
               </label>
               <div className="AdminTaskManagement-multi-select-container">
                 {filteredUsers.length > 0 ? (
@@ -2958,7 +3035,7 @@ const AdminTaskManagement = () => {
                     <FiUsers size={32} className="AdminTaskManagement-empty-icon" />
                     <h5>No users available</h5>
                     <p>
-                      No users found in selected branch
+                      No users available
                     </p>
                   </div>
                 )}
@@ -3149,15 +3226,13 @@ const AdminTaskManagement = () => {
         void 0;
       } else if (userId) {
         fetchTasks(page, rowsPerPage, getCurrentFilters());
-        const branchKey = branchQueryParams.branchId || 'all';
-        if (!supportingDataLoadedRef.current || supportingDataBranchRef.current !== branchKey) {
+        if (!supportingDataLoadedRef.current) {
           supportingDataLoadedRef.current = true;
-          supportingDataBranchRef.current = branchKey;
           fetchSupportingData();
         }
       }
     }
-  }, [authError, initialAuthCheck, userId, page, rowsPerPage, branchQueryParams.branchId]);
+  }, [authError, initialAuthCheck, userId, page, rowsPerPage]);
 
   
   useEffect(() => {
@@ -3421,11 +3496,6 @@ const AdminTaskManagement = () => {
         </div>
       </div>
 
-      <PageBranchDropdown
-        branchOptions={branchOptions}
-        selectedBranchId={selectedBranchId}
-        onChange={setSelectedBranchId}
-      />
 
       
       {authError && initialAuthCheck && (

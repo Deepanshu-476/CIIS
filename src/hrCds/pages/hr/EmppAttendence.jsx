@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo, useRef } from "react";
 import axios from "../../../utils/axiosConfig";
 import './employee-attendance.css';
 import CIISLoader from '../../../Loader/CIISLoader'; 
-import PageBranchDropdown, { usePageBranchScope } from '../../components/PageBranchDropdown';
 import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission } from '../../../utils/pageAccess';
 
 const loadXlsx = () => import('xlsx').then(module => module.default || module);
@@ -1299,19 +1298,10 @@ const EmployeeAttendance = () => {
   const [canEditAttendance, setCanEditAttendance] = useState(true);
   const [canViewAllAttendance, setCanViewAllAttendance] = useState(true);
   const [pageAccessReady, setPageAccessReady] = useState(false);
-  const {
-    branchOptions,
-    selectedBranchId,
-    setSelectedBranchId,
-    branchQueryParams
-  } = usePageBranchScope();
 
   const tableRef = useRef(null);
   const exportMenuRef = useRef(null);
 
-  
-  
-  
   useEffect(() => {
     const initializeData = async () => {
       setPageLoading(true);
@@ -1375,12 +1365,11 @@ const EmployeeAttendance = () => {
     };
   }, []);
 
-  
   useEffect(() => {
     if (currentUserCompanyId) {
       fetchAllUsers();
     }
-  }, [currentUserCompanyId, branchQueryParams.branchId]);
+  }, [currentUserCompanyId]);
 
   
   useEffect(() => {
@@ -1392,7 +1381,7 @@ const EmployeeAttendance = () => {
         fetchAttendanceData(selectedDate);
       }
     }
-  }, [selectedDate, selectedStartDate, selectedEndDate, dateRangeMode, allUsers, currentUserCompanyId, initialLoadComplete, branchQueryParams.branchId, pageAccessReady, canViewAllAttendance]);
+  }, [selectedDate, selectedStartDate, selectedEndDate, dateRangeMode, allUsers, currentUserCompanyId, initialLoadComplete, pageAccessReady, canViewAllAttendance]);
 
   
   useEffect(() => {
@@ -1492,9 +1481,7 @@ const EmployeeAttendance = () => {
       }
       
       
-      const res = await axios.get('/users/company-users', {
-        params: branchQueryParams
-      });
+      const res = await axios.get('/users/company-users');
       
       let usersData = [];
       
@@ -1564,7 +1551,7 @@ const EmployeeAttendance = () => {
       void 0;
       
       const res = await axios.get('/attendance/all', {
-        params: { date: formatted, ...branchQueryParams },
+        params: { date: formatted },
         cache: false
       });
       
@@ -1666,7 +1653,7 @@ const EmployeeAttendance = () => {
     try {
       const [attendanceResponse, leaveResponse] = await Promise.all([
         axios.get(`/attendance/user/${employeeId}`, { params: { month, year } }),
-        axios.get('/leaves/all', { params: { userId: employeeId, month, year, limit: 100, ...branchQueryParams } })
+        axios.get('/leaves/all', { params: { userId: employeeId, month, year, limit: 100 } })
       ]);
       setMonthlyAttendance(current => current.open && String(current.employee?._id || current.employee?.id) === String(employeeId)
         ? {
@@ -1705,7 +1692,7 @@ const EmployeeAttendance = () => {
       const fetchPromises = dateRange.map(async (date) => {
         try {
           const res = await axios.get('/attendance/all', {
-            params: { date, ...branchQueryParams },
+            params: { date },
             cache: false
           });
           return { date, data: res.data };
@@ -2253,8 +2240,6 @@ const EmployeeAttendance = () => {
       const pageHeight = doc.internal.pageSize.getHeight();
       const exportedAt = new Date();
 
-      const activeBranchObj = (branchOptions || []).find(b => String(b.id || b._id) === String(selectedBranchId));
-      const branchName = activeBranchObj ? (activeBranchObj.name || activeBranchObj.label) : "All Branches";
       const deptName = selectedDepartment === "all" ? "All Departments" : selectedDepartment;
 
       // 1. Header Banner Background (Dark Slate)
@@ -2278,7 +2263,7 @@ const EmployeeAttendance = () => {
       doc.setTextColor(148, 163, 184);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8.5);
-      const metaLeft = `Branch: ${branchName}   |   Department: ${deptName}   |   Filter: ${getStatusFilterLabel(statusFilter)}`;
+      const metaLeft = `Department: ${deptName}   |   Filter: ${getStatusFilterLabel(statusFilter)}`;
       doc.text(metaLeft, 28, 60);
 
       // Right Header text
@@ -2509,8 +2494,6 @@ const EmployeeAttendance = () => {
     setLoading(true);
     
     try {
-      const activeBranchObj = (branchOptions || []).find(b => String(b.id || b._id) === String(selectedBranchId));
-      const branchName = activeBranchObj ? (activeBranchObj.name || activeBranchObj.label) : "All Branches";
       const deptName = selectedDepartment === "all" ? "All Departments" : selectedDepartment;
       const exportedAt = new Date();
 
@@ -2578,7 +2561,7 @@ const EmployeeAttendance = () => {
 
       ctx.fillStyle = "#94a3b8";
       ctx.font = "14px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      ctx.fillText(`Branch: ${branchName}   |   Department: ${deptName}   |   Status Filter: ${getStatusFilterLabel(statusFilter)}`, padding, 100);
+      ctx.fillText(`Department: ${deptName}   |   Status Filter: ${getStatusFilterLabel(statusFilter)}`, padding, 100);
 
       // Right Header Text
       ctx.textAlign = "right";
@@ -3162,11 +3145,6 @@ const EmployeeAttendance = () => {
         </div>
       </div>
 
-      <PageBranchDropdown
-        branchOptions={branchOptions}
-        selectedBranchId={selectedBranchId}
-        onChange={setSelectedBranchId}
-      />
 
       
       <div className="EmppAttendence-filter-section">

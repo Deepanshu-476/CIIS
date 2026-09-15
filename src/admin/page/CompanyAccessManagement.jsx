@@ -173,6 +173,17 @@ const getStoredAdminId = () => {
     const raw = localStorage.getItem("superAdmin") || localStorage.getItem("user");
     if (!raw) return null;
     const parsed = JSON.parse(raw);
+    return parsed?._id || parsed?.id || parsed?.user?._id || parsed?.user?.id || null;
+  } catch {
+    return null;
+  }
+};
+
+const getStoredActiveCompanyId = () => {
+  try {
+    const raw = localStorage.getItem("company") || localStorage.getItem("companyDetails");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
     return parsed?._id || parsed?.id || null;
   } catch {
     return null;
@@ -354,13 +365,18 @@ export default function CompanyAccessManagement() {
       setCompanies(prev => prev.map(company => (
         company._id === updatedCompany._id ? updatedCompany : company
       )));
-      localStorage.setItem("company", JSON.stringify(updatedCompany));
-      localStorage.setItem("companyDetails", JSON.stringify(updatedCompany));
+
+      // Only update local storage if the company being edited is the currently logged-in active company
+      const activeCompanyId = getStoredActiveCompanyId();
+      if (activeCompanyId && activeCompanyId === updatedCompany._id) {
+        localStorage.setItem("company", JSON.stringify(updatedCompany));
+        localStorage.setItem("companyDetails", JSON.stringify(updatedCompany));
+      }
+
       setNotice({
         severity: "success",
-        message: response.data.message || "Company access saved successfully. Opening Sidebar Management...",
+        message: response.data.message || "Company access saved successfully.",
       });
-      setTimeout(() => navigate("/Ciis-network/SidebarManagement"), 700);
     } catch (error) {
       setNotice({
         severity: "error",

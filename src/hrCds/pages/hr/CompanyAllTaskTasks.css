@@ -883,6 +883,56 @@
   box-shadow: 0 0 0 4px #dbeafe;
 }
 
+.company-task-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.company-task-log-actor {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.activity-status-text {
+  font-weight: 700;
+}
+
+.activity-status-text.pending {
+  color: #f59e0b;
+}
+
+.activity-status-text.in-progress {
+  color: #0ea5e9;
+}
+
+.activity-status-text.completed {
+  color: #16a34a;
+}
+
+.activity-status-text.cancelled {
+  color: #ef4444;
+}
+
+.activity-status-text.on-hold {
+  color: #7c3aed;
+}
+
+.activity-status-text.overdue {
+  color: #dc2626;
+}
+
+.activity-status-text.reopen {
+  color: #db2777;
+}
+
 .company-task-modal-overlay {
   position: fixed;
   inset: 0;
